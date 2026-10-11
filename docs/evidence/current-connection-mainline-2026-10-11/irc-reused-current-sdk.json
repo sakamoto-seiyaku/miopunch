@@ -1,0 +1,14 @@
+{
+  "reusedWithoutPublicRepeat": true,
+  "sourceAndArtifactsRevalidated": true,
+  "sdkSourceDigest": "225420c6ac0deacfdb2f269704be69c1a88ce6fa4df17a75877973e144093844",
+  "evidence": "../irc-cid-confirmation-2026-10-11/README.md",
+  "requestCallerMs": 43080.6,
+  "callerBudgetMs": 60000,
+  "assemblyMs": 8000,
+  "queueMs": 30000,
+  "fallbackMs": 600,
+  "wholeDefaultProfileQualified": false,
+  "physicalWanQualified": false,
+  "actualApprovalSaveReopenMemberFreshAckAndPingPong": true
+}

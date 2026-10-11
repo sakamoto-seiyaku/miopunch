@@ -1,0 +1,290 @@
+{
+  "case-public-relay-no-rtc": {
+    "description": "source guard failed before actors: sibling compiler input",
+    "qualifiedAsFinalCurrentCase": false,
+    "retainedFiles": {
+      "runtime/receipt.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-public-relay-no-rtc/runtime/receipt.json",
+        "sha256": "cecef07b52d76c81e594bddea137ec0c96acba045fb36d62f416597e48a59f97"
+      },
+      "execution.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-public-relay-no-rtc/execution.json",
+        "sha256": "82e790b1b0e18121a1fcbf373428226f2ae243cb8a4b3b80ebfe7faca8c1853e"
+      },
+      "process.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-public-relay-no-rtc/process.json",
+        "sha256": "237ae550b1d20ecd4d87460e1e7992c1f9f1b1c6e62116d56b27a925f735f263"
+      },
+      "command.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-public-relay-no-rtc/command.json",
+        "sha256": "75b73eb789e727984f4877372ef5269ac6ad955a464b9639425e4e7245379da5"
+      },
+      "controller.stdout.log": {
+        "path": "/tmp/mio84-current-integration-20261011/case-public-relay-no-rtc/controller.stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "controller.stderr.log": {
+        "path": "/tmp/mio84-current-integration-20261011/case-public-relay-no-rtc/controller.stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "execution": {
+      "passed": false,
+      "runtimeExit": 1,
+      "wholeWallMs": 3960.472,
+      "inputsAndArtifactsStableAfterCleanup": true,
+      "physicalWanQualified": false,
+      "receiptSha256": "cecef07b52d76c81e594bddea137ec0c96acba045fb36d62f416597e48a59f97"
+    }
+  },
+  "case-v2-public-relay-no-rtc": {
+    "description": "preparation failed: incorrect derived pinned path",
+    "qualifiedAsFinalCurrentCase": false,
+    "retainedFiles": {}
+  },
+  "case-v3-public-relay-no-rtc": {
+    "description": "preparation failed: quoting did not repair pinned path",
+    "qualifiedAsFinalCurrentCase": false,
+    "retainedFiles": {}
+  },
+  "case-v4-public-relay-no-rtc": {
+    "description": "member handle returned; stale Native 12000ms assertion failed",
+    "qualifiedAsFinalCurrentCase": false,
+    "retainedFiles": {
+      "runtime/receipt.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v4-public-relay-no-rtc/runtime/receipt.json",
+        "sha256": "be00b4e230b0ad6db44252895fa028f28b31b0fa04374f4968f46b89a9f2af27"
+      },
+      "execution.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v4-public-relay-no-rtc/execution.json",
+        "sha256": "fbbd21175fba9edbda9376749082ccceb314530207ac3dfd8f448c718954fa6b"
+      },
+      "process.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v4-public-relay-no-rtc/process.json",
+        "sha256": "37dfa9a91dfdbe5b70efeecbdcc88725c07891376a4a5749e5b235159153dfa0"
+      },
+      "command.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v4-public-relay-no-rtc/command.json",
+        "sha256": "85785434b52918f4d9fe95c65e2bf4285958696b5bab669389cddedfd35eccb1"
+      },
+      "controller.stdout.log": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v4-public-relay-no-rtc/controller.stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "controller.stderr.log": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v4-public-relay-no-rtc/controller.stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "execution": {
+      "passed": false,
+      "runtimeExit": 1,
+      "wholeWallMs": 44203.421,
+      "inputsAndArtifactsStableAfterCleanup": true,
+      "physicalWanQualified": false,
+      "receiptSha256": "be00b4e230b0ad6db44252895fa028f28b31b0fa04374f4968f46b89a9f2af27"
+    }
+  },
+  "case-v5-public-relay-no-rtc": {
+    "description": "functional pass; raw Browser caller label stale; final v6 supersedes",
+    "qualifiedAsFinalCurrentCase": false,
+    "retainedFiles": {
+      "runtime/receipt.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v5-public-relay-no-rtc/runtime/receipt.json",
+        "sha256": "bd97f36c57728cbc827f5232dcc090146ddf7d3dd343fddcc215833ba50324c1"
+      },
+      "execution.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v5-public-relay-no-rtc/execution.json",
+        "sha256": "3463ecc15ca298b82b2180a433800a5215d1df2e5625d699eda6201ee8cb1e5d"
+      },
+      "process.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v5-public-relay-no-rtc/process.json",
+        "sha256": "e726bb1a8ef7022e14b464768642030bce0f0a69deb458b78a3ae066cafd6440"
+      },
+      "command.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v5-public-relay-no-rtc/command.json",
+        "sha256": "c48ee9d1eaf55efd5383f0e9921b4264191431838675145385c1d946c2106764"
+      },
+      "controller.stdout.log": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v5-public-relay-no-rtc/controller.stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "controller.stderr.log": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v5-public-relay-no-rtc/controller.stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "execution": {
+      "passed": true,
+      "runtimeExit": 0,
+      "wholeWallMs": 40801.193,
+      "inputsAndArtifactsStableAfterCleanup": true,
+      "physicalWanQualified": false,
+      "receiptSha256": "bd97f36c57728cbc827f5232dcc090146ddf7d3dd343fddcc215833ba50324c1"
+    }
+  },
+  "case-v5-mqtt-rtc-both": {
+    "description": "12000ms member caller expired; underlying cause unknown",
+    "qualifiedAsFinalCurrentCase": false,
+    "retainedFiles": {
+      "runtime/receipt.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v5-mqtt-rtc-both/runtime/receipt.json",
+        "sha256": "a4c30f9d0307d11b6a36727f2f931de6868fb9769f0b53089b7e4344f0d6c015"
+      },
+      "execution.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v5-mqtt-rtc-both/execution.json",
+        "sha256": "7f75f191f96b36aea9ce9253be61b8a04fbbe2f73d86de30585d494d29471fc5"
+      },
+      "process.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v5-mqtt-rtc-both/process.json",
+        "sha256": "a5b6aaddf5941864c795ecf8e7c2a34bb742d045f49f0867e7bfa8ebea18431a"
+      },
+      "command.json": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v5-mqtt-rtc-both/command.json",
+        "sha256": "c50568cc3af85286cf3668e036d5d4ef65206154ad3c4aac2889fca0b93498b0"
+      },
+      "controller.stdout.log": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v5-mqtt-rtc-both/controller.stdout.log",
+        "sha256": "311acceb786f137f68d849d040f6eccfbfd91b948627e4de07a753ee2dcc4dd4"
+      },
+      "controller.stderr.log": {
+        "path": "/tmp/mio84-current-integration-20261011/case-v5-mqtt-rtc-both/controller.stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "execution": {
+      "passed": false,
+      "runtimeExit": 1,
+      "wholeWallMs": 49257.32,
+      "inputsAndArtifactsStableAfterCleanup": true,
+      "physicalWanQualified": false,
+      "receiptSha256": "a4c30f9d0307d11b6a36727f2f931de6868fb9769f0b53089b7e4344f0d6c015"
+    }
+  },
+  "binding-v3-carrier-repair": {
+    "description": "Native provisioner MQTT start timeout before candidate; substage unknown",
+    "qualifiedAsFinalCurrentCase": false,
+    "retainedFiles": {
+      "runtime/receipt.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-carrier-repair/runtime/receipt.json",
+        "sha256": "5c30d3738fc6f13bf947613623b0715a5f75524021e40e751dd80deb8e76fa33"
+      },
+      "execution.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-carrier-repair/execution.json",
+        "sha256": "a19b0af64734a3f6071aaa1fabd5c7aabe45bc3a05a5e648d35807198f174f4f"
+      },
+      "process.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-carrier-repair/process.json",
+        "sha256": "c65419e4bb427e477269e6173b9a4f61ee8961101840303daf18749e716460b4"
+      },
+      "preparation.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-carrier-repair/preparation.json",
+        "sha256": "029fddf29d7137832e01e01c08ed5d77ea8f2e3fb9e8b2b524c69c4c278de1b2"
+      },
+      "command.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-carrier-repair/command.json",
+        "sha256": "abe0277036fed3f92f187d28bd947adc68589dbc8172399ce97321d1e0fd60e0"
+      },
+      "controller.stdout.log": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-carrier-repair/controller.stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "controller.stderr.log": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-carrier-repair/controller.stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "execution": {
+      "passed": false,
+      "runtimeExit": 1,
+      "wholeWallMs": 17050.197,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "physicalWanQualified": false,
+      "receiptSha256": "5c30d3738fc6f13bf947613623b0715a5f75524021e40e751dd80deb8e76fa33"
+    }
+  },
+  "binding-v3-rtc-no-path": {
+    "description": "observer timeout before original 60000ms SDK caller; specialized runner used",
+    "qualifiedAsFinalCurrentCase": false,
+    "retainedFiles": {
+      "runtime/receipt.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-rtc-no-path/runtime/receipt.json",
+        "sha256": "fccd13beab20b4b9b4e4effc47f55dcba543c78b072c3767bf849d3d7295cae1"
+      },
+      "execution.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-rtc-no-path/execution.json",
+        "sha256": "eeda6feb2b026349256f21aa233de68a6533fb3030f13b98d503f6470879f7f2"
+      },
+      "process.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-rtc-no-path/process.json",
+        "sha256": "477a08802fd0e62109d736336dc6bca175b37e5129885975db7a8c2761e0639c"
+      },
+      "preparation.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-rtc-no-path/preparation.json",
+        "sha256": "0d8d996fd0efe8634f22fffbe531142603b75136561cf9a500126a11aae27027"
+      },
+      "command.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-rtc-no-path/command.json",
+        "sha256": "934628cf59dff7ae229978ad0a7937979872058ff90afc273af9ba6ba0dafeb6"
+      },
+      "controller.stdout.log": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-rtc-no-path/controller.stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "controller.stderr.log": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-rtc-no-path/controller.stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "execution": {
+      "passed": false,
+      "runtimeExit": 1,
+      "wholeWallMs": 58686.907,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "physicalWanQualified": false,
+      "receiptSha256": "fccd13beab20b4b9b4e4effc47f55dcba543c78b072c3767bf849d3d7295cae1"
+    }
+  },
+  "binding-v3-relay-improve": {
+    "description": "controller import path failed before actors",
+    "qualifiedAsFinalCurrentCase": false,
+    "retainedFiles": {
+      "runtime/receipt.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-relay-improve/runtime/receipt.json",
+        "sha256": "268897e9480dc9d45c7ae4c2cf79043d4effa4d65b790fbb5e174c31e99e9e62"
+      },
+      "execution.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-relay-improve/execution.json",
+        "sha256": "4981b86608a191fd276ab822da09cd07e26fb2a048142b49a808fc98570d3816"
+      },
+      "process.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-relay-improve/process.json",
+        "sha256": "77db920dcf1d6a6f06053350b4feefa52132f3069f55b5a19b52b8e19cd7217f"
+      },
+      "preparation.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-relay-improve/preparation.json",
+        "sha256": "850c341bf6d757e2b4e53b8d974940a3bfcb5c5b05f70a3158db808489427364"
+      },
+      "command.json": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-relay-improve/command.json",
+        "sha256": "87852f05166284258b821bd452b9efa5a580059a23c66b8afcb5b2970491f48b"
+      },
+      "controller.stdout.log": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-relay-improve/controller.stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "controller.stderr.log": {
+        "path": "/tmp/mio84-current-integration-20261011/binding-v3-relay-improve/controller.stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "execution": {
+      "passed": false,
+      "runtimeExit": 1,
+      "wholeWallMs": 11057.457,
+      "sourceAndArtifactPostconditionsPassed": true,
+      "physicalWanQualified": false,
+      "receiptSha256": "268897e9480dc9d45c7ae4c2cf79043d4effa4d65b790fbb5e174c31e99e9e62"
+    }
+  }
+}

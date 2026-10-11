@@ -1,0 +1,1070 @@
+{
+  "case": "public-relay-no-rtc",
+  "qualification": "finite-current-SDK-story",
+  "rawReceipt": "/tmp/mio84-current-integration-20261011/case-v6-public-relay-no-rtc/runtime/receipt.json",
+  "rawReceiptSha256": "0604ce48e654aa5ce0c32231d17311d9e4551ef29fc4c31e6ed4036c9359f4a2",
+  "command": [
+    "rtk",
+    "proxy",
+    "python3",
+    "/home/js/Git/miopunch/scripts/check_current_browser_relay.py",
+    "--execute",
+    "--mode",
+    "missing-answer",
+    "--native-build-receipt",
+    "/tmp/mio84-current-integration-20261011/provisioner-metadata/receipt.json",
+    "--native-build-receipt-sha256",
+    "5c8999df7868376a58f65c059446849e16ef6cfe0be102eecdefe51540acf757",
+    "--native-binary",
+    "/tmp/mio84-current-integration-20261011/native/pinned/unified_admission_story",
+    "--native-binary-sha256",
+    "b27271984605b0df773145d00eff049217b6cc11de96ae11fa46cbaa769cef4f",
+    "--browser-build-receipt",
+    "/tmp/mio84-current-integration-20261011/wasm-metadata/receipt.json",
+    "--browser-build-receipt-sha256",
+    "62e4211bde628b6574b3d77194ec08dbd0f190f0bb6d69f3956baa89eb88b0ed",
+    "--package",
+    "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/wasm/pkg",
+    "--package-sha256",
+    "0bebb2345fa40d8e401d4b4042fd3812fb1722d96aa617657bf0537d7af94434",
+    "--facility",
+    "/tmp/mio76-explicit-public-emqx-facility-20261005.json",
+    "--native-profile",
+    "/tmp/mio83-current-purpose-implementation-20261006/browser-ice-disabled.json",
+    "--browser-profile",
+    "/tmp/mio83-current-purpose-implementation-20261006/browser-ice-disabled.json",
+    "--output",
+    "/tmp/mio84-current-integration-20261011/case-v6-public-relay-no-rtc/runtime"
+  ],
+  "execution": {
+    "case": "public-relay-no-rtc",
+    "runtimeExit": 0,
+    "passed": true,
+    "inputsAndArtifactsStableAfterCleanup": true,
+    "wholeWallMs": 42382.11,
+    "receipt": "/tmp/mio84-current-integration-20261011/case-v6-public-relay-no-rtc/runtime/receipt.json",
+    "receiptSha256": "0604ce48e654aa5ce0c32231d17311d9e4551ef29fc4c31e6ed4036c9359f4a2",
+    "firstFailure": null,
+    "physicalWanQualified": false
+  },
+  "facts": {
+    "callerBudgetMs": 60000,
+    "nativeCallerBudget": {
+      "callerBudgetMs": 60000,
+      "sameSavedPolicyAfterReopen": true,
+      "samePolicyAtMemberAcceptance": true
+    },
+    "admissionWire": {
+      "actualAlpn": "miopunch/session/admission/1",
+      "expectedAlpn": "miopunch/session/admission/1",
+      "strictAlpnMatched": true,
+      "observedVersion": 1,
+      "observedPurposeCode": 2,
+      "matchingCommonPurposeObserved": true,
+      "restricted": true,
+      "dataReleased": false,
+      "ordinaryHandle": false,
+      "freshAck": null,
+      "freshAckFieldPresent": true,
+      "freshAckExplicitNull": true,
+      "stableUnchanged": true,
+      "bindingUnchanged": true
+    },
+    "completeMaterials": {
+      "stage": "Complete",
+      "authorizationSaved": true,
+      "secretSaved": true
+    },
+    "noData": {
+      "errorClass": "DataPathUnavailable",
+      "ordinaryHandleReturned": false,
+      "callerElapsedMs": 34.22499990463257,
+      "mqttContactReady": true,
+      "mqttQuicBytesSent": 0,
+      "mqttQuicBytesReceived": 0,
+      "ircConfigured": false,
+      "nativeBusinessEvents": 0,
+      "identityMaterialsRunningUnchanged": true
+    },
+    "identitiesAndGrantReopened": {
+      "native": true,
+      "browser": true,
+      "sameGrant": true
+    },
+    "nativeCommon": {
+      "version": 1,
+      "purposeCode": 1,
+      "role": "responder",
+      "rtcRole": "None",
+      "freshAck": true,
+      "stableUnchanged": true,
+      "bindingUnchanged": true,
+      "selected": true,
+      "supported": 5,
+      "permitted": 4,
+      "peerSupported": 4,
+      "peerPermitted": 4
+    },
+    "browserCommon": {
+      "version": 1,
+      "purposeCode": 1,
+      "role": "initiator",
+      "rtcRole": "None",
+      "freshAck": true,
+      "stableUnchanged": true,
+      "bindingUnchanged": true,
+      "selected": true,
+      "supported": 4,
+      "permitted": 4,
+      "peerSupported": 5,
+      "peerPermitted": 4
+    },
+    "browserCommonAfterBusiness": {
+      "version": 1,
+      "purposeCode": 1,
+      "role": "initiator",
+      "rtcRole": "None",
+      "freshAck": true,
+      "stableUnchanged": true,
+      "bindingUnchanged": true,
+      "selected": true,
+      "supported": 4,
+      "permitted": 4,
+      "peerSupported": 5,
+      "peerPermitted": 4
+    },
+    "member": {
+      "alpn": "miopunch/session/member/1",
+      "bothActualPeerIdentitiesMatched": true,
+      "bothCurrentGates": true,
+      "selectedPath": "permitted-relay",
+      "newAttemptAfterReopen": true,
+      "noDataRestorationQualified": true,
+      "browserToNativeBytes": 4,
+      "nativeToBrowserBytes": 4,
+      "replyMatched": true,
+      "nativeOriginalMMatched": true,
+      "browserOriginalMUnchanged": true
+    },
+    "generationCleanup": [
+      {
+        "generation": 1,
+        "networkClosed": true,
+        "networkFreed": true,
+        "ownedMemberHandles": 0,
+        "activeAssociationsImmediateAndLate": 0,
+        "activePumpsImmediateAndLate": 0,
+        "objectsImmediate": {
+          "cumulative": true,
+          "resetAttempts": 0,
+          "peerCreated": 0,
+          "peerCloseCalls": 0,
+          "channelCreated": 0,
+          "channelCloseCalls": 0,
+          "openPeerConnections": 0,
+          "openDataChannels": 0,
+          "openWebSockets": 1
+        },
+        "objectsLate": {
+          "cumulative": true,
+          "resetAttempts": 0,
+          "peerCreated": 0,
+          "peerCloseCalls": 0,
+          "channelCreated": 0,
+          "channelCloseCalls": 0,
+          "openPeerConnections": 0,
+          "openDataChannels": 0,
+          "openWebSockets": 1
+        },
+        "websocketRetirement": {
+          "immediate": {
+            "activeWebSockets": 0,
+            "closingWebSockets": 1,
+            "closedWebSockets": 0,
+            "allClosedObserved": false,
+            "bufferedBytes": 0,
+            "sdkCallbacks": 0,
+            "realCloseInitiated": true,
+            "pendingRelayCloseObserved": false,
+            "pendingRelayCloseSocketCount": 0,
+            "gracefulRelayCloseObserved": null,
+            "relayCloseTaskState": "not-observed",
+            "relayTrafficLoopState": "not-observed",
+            "relayReceiveQueuePackets": null,
+            "allSdkTerminalTasksRetiredProven": false,
+            "sockets": [
+              {
+                "socketIndex": 0,
+                "resource": "configured-mqtt",
+                "readyState": 2,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              }
+            ],
+            "socketCount": 1
+          },
+          "late": {
+            "activeWebSockets": 0,
+            "closingWebSockets": 1,
+            "closedWebSockets": 0,
+            "allClosedObserved": false,
+            "bufferedBytes": 0,
+            "sdkCallbacks": 0,
+            "realCloseInitiated": true,
+            "pendingRelayCloseObserved": false,
+            "pendingRelayCloseSocketCount": 0,
+            "gracefulRelayCloseObserved": null,
+            "relayCloseTaskState": "not-observed",
+            "relayTrafficLoopState": "not-observed",
+            "relayReceiveQueuePackets": null,
+            "allSdkTerminalTasksRetiredProven": false,
+            "sockets": [
+              {
+                "socketIndex": 0,
+                "resource": "configured-mqtt",
+                "readyState": 2,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              }
+            ],
+            "socketCount": 1
+          },
+          "trafficUnchangedAt100ms": true
+        },
+        "sdkCarrierQueuesRetired": true,
+        "carrierTransmitBufferedBytesAfterCloseBeforeFree": [
+          61
+        ],
+        "objectLateDelayMs": 101.67500019073486,
+        "finalShutdown": false,
+        "sdkCleanupElapsedMs": 1003.2649998664856
+      },
+      {
+        "generation": 2,
+        "networkClosed": true,
+        "networkFreed": true,
+        "ownedMemberHandles": 0,
+        "activeAssociationsImmediateAndLate": 0,
+        "activePumpsImmediateAndLate": 0,
+        "objectsImmediate": {
+          "cumulative": true,
+          "resetAttempts": 0,
+          "peerCreated": 0,
+          "peerCloseCalls": 0,
+          "channelCreated": 0,
+          "channelCloseCalls": 0,
+          "openPeerConnections": 0,
+          "openDataChannels": 0,
+          "openWebSockets": 1
+        },
+        "objectsLate": {
+          "cumulative": true,
+          "resetAttempts": 0,
+          "peerCreated": 0,
+          "peerCloseCalls": 0,
+          "channelCreated": 0,
+          "channelCloseCalls": 0,
+          "openPeerConnections": 0,
+          "openDataChannels": 0,
+          "openWebSockets": 1
+        },
+        "websocketRetirement": {
+          "immediate": {
+            "activeWebSockets": 0,
+            "closingWebSockets": 1,
+            "closedWebSockets": 1,
+            "allClosedObserved": false,
+            "bufferedBytes": 0,
+            "sdkCallbacks": 0,
+            "realCloseInitiated": true,
+            "pendingRelayCloseObserved": false,
+            "pendingRelayCloseSocketCount": 0,
+            "gracefulRelayCloseObserved": null,
+            "relayCloseTaskState": "not-observed",
+            "relayTrafficLoopState": "not-observed",
+            "relayReceiveQueuePackets": null,
+            "allSdkTerminalTasksRetiredProven": false,
+            "sockets": [
+              {
+                "socketIndex": 0,
+                "resource": "configured-mqtt",
+                "readyState": 3,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              },
+              {
+                "socketIndex": 1,
+                "resource": "configured-mqtt",
+                "readyState": 2,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              }
+            ],
+            "socketCount": 2
+          },
+          "late": {
+            "activeWebSockets": 0,
+            "closingWebSockets": 1,
+            "closedWebSockets": 1,
+            "allClosedObserved": false,
+            "bufferedBytes": 0,
+            "sdkCallbacks": 0,
+            "realCloseInitiated": true,
+            "pendingRelayCloseObserved": false,
+            "pendingRelayCloseSocketCount": 0,
+            "gracefulRelayCloseObserved": null,
+            "relayCloseTaskState": "not-observed",
+            "relayTrafficLoopState": "not-observed",
+            "relayReceiveQueuePackets": null,
+            "allSdkTerminalTasksRetiredProven": false,
+            "sockets": [
+              {
+                "socketIndex": 0,
+                "resource": "configured-mqtt",
+                "readyState": 3,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              },
+              {
+                "socketIndex": 1,
+                "resource": "configured-mqtt",
+                "readyState": 2,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              }
+            ],
+            "socketCount": 2
+          },
+          "trafficUnchangedAt100ms": true
+        },
+        "sdkCarrierQueuesRetired": true,
+        "carrierTransmitBufferedBytesAfterCloseBeforeFree": [
+          61
+        ],
+        "objectLateDelayMs": 101.55999994277954,
+        "finalShutdown": false,
+        "sdkCleanupElapsedMs": 113.42500019073486
+      },
+      {
+        "generation": 3,
+        "networkClosed": true,
+        "networkFreed": true,
+        "ownedMemberHandles": 0,
+        "activeAssociationsImmediateAndLate": 0,
+        "activePumpsImmediateAndLate": 0,
+        "objectsImmediate": {
+          "cumulative": true,
+          "resetAttempts": 0,
+          "peerCreated": 0,
+          "peerCloseCalls": 0,
+          "channelCreated": 0,
+          "channelCloseCalls": 0,
+          "openPeerConnections": 0,
+          "openDataChannels": 0,
+          "openWebSockets": 2
+        },
+        "objectsLate": {
+          "cumulative": true,
+          "resetAttempts": 0,
+          "peerCreated": 0,
+          "peerCloseCalls": 0,
+          "channelCreated": 0,
+          "channelCloseCalls": 0,
+          "openPeerConnections": 0,
+          "openDataChannels": 0,
+          "openWebSockets": 2
+        },
+        "websocketRetirement": {
+          "immediate": {
+            "activeWebSockets": 0,
+            "closingWebSockets": 2,
+            "closedWebSockets": 2,
+            "allClosedObserved": false,
+            "bufferedBytes": 0,
+            "sdkCallbacks": 4,
+            "realCloseInitiated": true,
+            "pendingRelayCloseObserved": true,
+            "pendingRelayCloseSocketCount": 1,
+            "gracefulRelayCloseObserved": false,
+            "relayCloseTaskState": "terminal-event-pending",
+            "relayTrafficLoopState": "not-observed",
+            "relayReceiveQueuePackets": null,
+            "allSdkTerminalTasksRetiredProven": false,
+            "sockets": [
+              {
+                "socketIndex": 0,
+                "resource": "configured-mqtt",
+                "readyState": 3,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              },
+              {
+                "socketIndex": 1,
+                "resource": "configured-mqtt",
+                "readyState": 3,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              },
+              {
+                "socketIndex": 2,
+                "resource": "configured-mqtt",
+                "readyState": 2,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              },
+              {
+                "socketIndex": 3,
+                "resource": "configured-relay",
+                "readyState": 2,
+                "sdkCallbacks": 4,
+                "terminalClosePending": true,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              }
+            ],
+            "socketCount": 4
+          },
+          "late": {
+            "activeWebSockets": 0,
+            "closingWebSockets": 2,
+            "closedWebSockets": 2,
+            "allClosedObserved": false,
+            "bufferedBytes": 0,
+            "sdkCallbacks": 4,
+            "realCloseInitiated": true,
+            "pendingRelayCloseObserved": true,
+            "pendingRelayCloseSocketCount": 1,
+            "gracefulRelayCloseObserved": false,
+            "relayCloseTaskState": "terminal-event-pending",
+            "relayTrafficLoopState": "not-observed",
+            "relayReceiveQueuePackets": null,
+            "allSdkTerminalTasksRetiredProven": false,
+            "sockets": [
+              {
+                "socketIndex": 0,
+                "resource": "configured-mqtt",
+                "readyState": 3,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              },
+              {
+                "socketIndex": 1,
+                "resource": "configured-mqtt",
+                "readyState": 3,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              },
+              {
+                "socketIndex": 2,
+                "resource": "configured-mqtt",
+                "readyState": 2,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              },
+              {
+                "socketIndex": 3,
+                "resource": "configured-relay",
+                "readyState": 2,
+                "sdkCallbacks": 4,
+                "terminalClosePending": true,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              }
+            ],
+            "socketCount": 4
+          },
+          "trafficUnchangedAt100ms": true
+        },
+        "sdkCarrierQueuesRetired": true,
+        "carrierTransmitBufferedBytesAfterCloseBeforeFree": [
+          61
+        ],
+        "objectLateDelayMs": 103.40499973297119,
+        "finalShutdown": false,
+        "sdkCleanupElapsedMs": 1177.0899996757507
+      }
+    ],
+    "nativeGenerationCleanup": [
+      {
+        "generation": 1,
+        "qualified": true,
+        "sha256": "1445e3bf5b5fe7ce8b1f7c9c652c79c5f8194421cad8f60038c4b7b4de2c2c2c",
+        "mode": "0600",
+        "forced": false,
+        "commandExit": 0,
+        "ownedHostProcessAbsent": true,
+        "ownedHostProcessAbsentLate": true,
+        "ownedProcessGroupAbsentImmediately": true,
+        "ownedProcessGroupAbsentLate": true,
+        "localReadersEnded": true,
+        "localPipesClosed": true,
+        "ownedDirectoryRemoved": null,
+        "elapsedMs": 288.998,
+        "ownedProcessSocketsImmediate": 0,
+        "ownedProcessSocketsLate": 0,
+        "sdkSocketsBefore": 2,
+        "sdkSocketsImmediate": 2,
+        "sdkSocketsLate": 2,
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "mqttDriverAndQueuedPacketsLate": 0
+      },
+      {
+        "generation": 2,
+        "sha256": "77593bf124fe9b87f7630dd93e4d0b8fff38d6f8d38e64a3211cfe0fb0213a61",
+        "mode": "0600",
+        "qualified": true,
+        "forced": false,
+        "commandExit": 0,
+        "ownedHostProcessAbsent": true,
+        "ownedHostProcessAbsentLate": true,
+        "ownedProcessGroupAbsentImmediately": true,
+        "ownedProcessGroupAbsentLate": true,
+        "localReadersEnded": true,
+        "localPipesClosed": true,
+        "ownedDirectoryRemoved": true,
+        "elapsedMs": 312.915,
+        "ownedProcessSocketsImmediate": 0,
+        "ownedProcessSocketsLate": 0,
+        "sdkSocketsBefore": 2,
+        "sdkSocketsImmediate": 2,
+        "sdkSocketsLate": 2,
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "mqttDriverAndQueuedPacketsLate": 0
+      }
+    ],
+    "cleanup": {
+      "observer": {
+        "forced": false,
+        "commandExit": 0,
+        "readerEnded": true,
+        "elapsedMs": 31.518
+      },
+      "browser": {
+        "sha256": "3b9d40664c747ec04b66ae3be0b9d3ecb8508d00b0d30ef33cfc164475d8e72e",
+        "mode": "0600",
+        "networkClosed": true,
+        "networkFreed": true,
+        "ownedMemberHandles": 0,
+        "activeAssociationsImmediateAndLate": 0,
+        "activePumpsImmediateAndLate": 0,
+        "objectsImmediate": {
+          "cumulative": true,
+          "resetAttempts": 0,
+          "peerCreated": 0,
+          "peerCloseCalls": 0,
+          "channelCreated": 0,
+          "channelCloseCalls": 0,
+          "openPeerConnections": 0,
+          "openDataChannels": 0,
+          "openWebSockets": 2
+        },
+        "objectsLate": {
+          "cumulative": true,
+          "resetAttempts": 0,
+          "peerCreated": 0,
+          "peerCloseCalls": 0,
+          "channelCreated": 0,
+          "channelCloseCalls": 0,
+          "openPeerConnections": 0,
+          "openDataChannels": 0,
+          "openWebSockets": 2
+        },
+        "websocketRetirement": {
+          "immediate": {
+            "activeWebSockets": 0,
+            "closingWebSockets": 2,
+            "closedWebSockets": 2,
+            "allClosedObserved": false,
+            "bufferedBytes": 0,
+            "sdkCallbacks": 4,
+            "realCloseInitiated": true,
+            "pendingRelayCloseObserved": true,
+            "pendingRelayCloseSocketCount": 1,
+            "gracefulRelayCloseObserved": false,
+            "relayCloseTaskState": "terminal-event-pending",
+            "relayTrafficLoopState": "not-observed",
+            "relayReceiveQueuePackets": null,
+            "allSdkTerminalTasksRetiredProven": false,
+            "sockets": [
+              {
+                "socketIndex": 0,
+                "resource": "configured-mqtt",
+                "readyState": 3,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              },
+              {
+                "socketIndex": 1,
+                "resource": "configured-mqtt",
+                "readyState": 3,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              },
+              {
+                "socketIndex": 2,
+                "resource": "configured-mqtt",
+                "readyState": 2,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              },
+              {
+                "socketIndex": 3,
+                "resource": "configured-relay",
+                "readyState": 2,
+                "sdkCallbacks": 4,
+                "terminalClosePending": true,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              }
+            ],
+            "socketCount": 4
+          },
+          "late": {
+            "activeWebSockets": 0,
+            "closingWebSockets": 2,
+            "closedWebSockets": 2,
+            "allClosedObserved": false,
+            "bufferedBytes": 0,
+            "sdkCallbacks": 4,
+            "realCloseInitiated": true,
+            "pendingRelayCloseObserved": true,
+            "pendingRelayCloseSocketCount": 1,
+            "gracefulRelayCloseObserved": false,
+            "relayCloseTaskState": "terminal-event-pending",
+            "relayTrafficLoopState": "not-observed",
+            "relayReceiveQueuePackets": null,
+            "allSdkTerminalTasksRetiredProven": false,
+            "sockets": [
+              {
+                "socketIndex": 0,
+                "resource": "configured-mqtt",
+                "readyState": 3,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              },
+              {
+                "socketIndex": 1,
+                "resource": "configured-mqtt",
+                "readyState": 3,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              },
+              {
+                "socketIndex": 2,
+                "resource": "configured-mqtt",
+                "readyState": 2,
+                "sdkCallbacks": 0,
+                "terminalClosePending": false,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              },
+              {
+                "socketIndex": 3,
+                "resource": "configured-relay",
+                "readyState": 2,
+                "sdkCallbacks": 4,
+                "terminalClosePending": true,
+                "bufferedBytes": 0,
+                "registeredListeners": 0
+              }
+            ],
+            "socketCount": 4
+          },
+          "trafficUnchangedAt100ms": true
+        },
+        "sdkCarrierQueuesRetired": true,
+        "carrierTransmitBufferedBytesAfterCloseBeforeFree": [
+          61
+        ],
+        "objectLateDelayMs": 100.31500005722046,
+        "finalShutdown": true,
+        "sdkCleanupElapsedMs": 1177.0899996757507,
+        "qualified": true,
+        "tabAbsent": true,
+        "forwardRuleAbsent": true,
+        "reverseRuleAbsent": true,
+        "localListenerClosed": true,
+        "ownedStoreDeleted": true,
+        "fullCleanupElapsedMs": 644.866
+      },
+      "native": {
+        "sha256": "77593bf124fe9b87f7630dd93e4d0b8fff38d6f8d38e64a3211cfe0fb0213a61",
+        "mode": "0600",
+        "forced": false,
+        "commandExit": 0,
+        "ownedHostProcessAbsent": true,
+        "ownedHostProcessAbsentLate": true,
+        "ownedProcessGroupAbsentImmediately": true,
+        "ownedProcessGroupAbsentLate": true,
+        "localReadersEnded": true,
+        "localPipesClosed": true,
+        "ownedDirectoryRemoved": true,
+        "elapsedMs": 312.915,
+        "ownedProcessSocketsImmediate": 0,
+        "ownedProcessSocketsLate": 0,
+        "sdkSocketsBefore": 2,
+        "sdkSocketsImmediate": 2,
+        "sdkSocketsLate": 2,
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "mqttDriverAndQueuedPacketsLate": 0,
+        "qualified": true
+      }
+    },
+    "newWireQualified": true,
+    "runtimeSourcesAndSelectedSdkArtifactsStable": true
+  },
+  "sdkCalls": [
+    {
+      "generation": 0,
+      "ok": true,
+      "callerElapsedMs": 2410.965000152588,
+      "sha256": "868f85ea158f3de761b97f33460556401212eec930b185a34a86d10653971721",
+      "mode": "0600"
+    },
+    {
+      "generation": 1,
+      "ok": true,
+      "callerElapsedMs": 24.395000457763672,
+      "sha256": "922096a3986b9c5714acd9d19e3cd7e2e4173d44887f777aff07a370509db491",
+      "mode": "0600"
+    },
+    {
+      "generation": 1,
+      "ok": true,
+      "callerElapsedMs": 2.2200002670288086,
+      "sha256": "314474868fdc6c2989b11994e1d68fb9223b8ec0002416502ef0f1b1f0a3ec0a",
+      "mode": "0600"
+    },
+    {
+      "generation": 1,
+      "ok": true,
+      "callerElapsedMs": 3386.3499999046326,
+      "sha256": "7d6ce679b5aaf2aaa664c34cc6bdd8f0c46c6bc7f0a43d564f844136f991e497",
+      "mode": "0600"
+    },
+    {
+      "generation": 1,
+      "ok": true,
+      "callerElapsedMs": 5.265000343322754,
+      "sha256": "6ceaf849e95e5a1ce8f66e6463d224afa6da738ff551381ceedfc7bae45dc10c",
+      "mode": "0600"
+    },
+    {
+      "generation": 1,
+      "ok": true,
+      "callerElapsedMs": 3409.9349999427795,
+      "sha256": "d7bb856c38175b02d8a8635fd05a4a28a51125674d5d45d9d7d300142f9d8d53",
+      "mode": "0600"
+    },
+    {
+      "generation": 1,
+      "ok": true,
+      "callerElapsedMs": 2163.9699997901917,
+      "sha256": "de33111d7c8e5d8b67068cb7cb80e84daa2741fff8383c513ea42520390be3d8",
+      "mode": "0600"
+    },
+    {
+      "generation": 1,
+      "ok": true,
+      "callerElapsedMs": 30.885000228881836,
+      "sha256": "77cbecf25cfc1dfdad12381f8a9c5788da3c8934f7a71b9a79f50a65f50c7372",
+      "mode": "0600"
+    },
+    {
+      "generation": 1,
+      "ok": true,
+      "callerElapsedMs": 1006.5499997138977,
+      "sha256": "d74135f8bae73ee9674fb024b8cc5a9ddffda60bfb7ecce673bd6c7d108ccebf",
+      "mode": "0600"
+    },
+    {
+      "generation": 1,
+      "ok": true,
+      "callerElapsedMs": 2489.9400000572205,
+      "sha256": "8d5585cc998d65219cac42b1e1a9ba95b0276353d6a0142e18a01147137ee231",
+      "mode": "0600"
+    },
+    {
+      "generation": 2,
+      "ok": true,
+      "callerElapsedMs": 99.97999954223633,
+      "sha256": "af9bc81d7c56921c14d2e9fe33e21840bd69be150606c25b3b68aa856232fd23",
+      "mode": "0600"
+    },
+    {
+      "generation": 2,
+      "ok": true,
+      "callerElapsedMs": 3.489999771118164,
+      "sha256": "8f89633241a890b943e7286b02faf3e87c9b3d3163a260c6110ab8426db11894",
+      "mode": "0600"
+    },
+    {
+      "generation": 2,
+      "ok": true,
+      "callerElapsedMs": 0.3599996566772461,
+      "sha256": "cd9f00a6ee36d1050a315313b80b69503c73576ac087a83cb0f16dfc681b02b4",
+      "mode": "0600"
+    },
+    {
+      "generation": 2,
+      "ok": false,
+      "callerElapsedMs": 34.22499990463257,
+      "sha256": "7163be2cae7d5e5811d8438dd4c827ab54f031dea18fc23c9490332ef32b6312",
+      "mode": "0600"
+    },
+    {
+      "generation": 2,
+      "ok": false,
+      "callerElapsedMs": 0.8399996757507324,
+      "sha256": "e1b43b87caeea3adb6be2aa9e943fb313d56f46a64f6585ba493c3f23c9faa11",
+      "mode": "0600"
+    },
+    {
+      "generation": 2,
+      "ok": true,
+      "callerElapsedMs": 9.309999942779541,
+      "sha256": "bc02e27bd5ba16cdc5c504a0d1114133942358d96df849f32f89be66d27970ff",
+      "mode": "0600"
+    },
+    {
+      "generation": 2,
+      "ok": true,
+      "callerElapsedMs": 23.070000171661377,
+      "sha256": "5f6d0d007617dc329a9cceb23a6205004bdd2501ddc01fe645691438f0da7c97",
+      "mode": "0600"
+    },
+    {
+      "generation": 2,
+      "ok": true,
+      "callerElapsedMs": 1.6499996185302734,
+      "sha256": "f327bc5b936e6da480900606887cdf5ab28c8ac31dcb3b5c46e7a4aed28f7ba1",
+      "mode": "0600"
+    },
+    {
+      "generation": 2,
+      "ok": true,
+      "callerElapsedMs": 113.62999963760376,
+      "sha256": "5789b7d57af0991c2781898da3721e05ae295534a79a86769ac8570bd5abefa3",
+      "mode": "0600"
+    },
+    {
+      "generation": 2,
+      "ok": true,
+      "callerElapsedMs": 2181.6449999809265,
+      "sha256": "92e3a69cd73816fe2ec748b9953f42bdc6a2ab149ee3c926f29387ebf6dcc570",
+      "mode": "0600"
+    },
+    {
+      "generation": 3,
+      "ok": true,
+      "callerElapsedMs": 53.63499975204468,
+      "sha256": "867fe7c84f41652fab8ca2d59c5953b05d5236ed38007d69f006ecbb4d8f6030",
+      "mode": "0600"
+    },
+    {
+      "generation": 3,
+      "ok": true,
+      "callerElapsedMs": 8.460000038146973,
+      "sha256": "708591e6caf3fd57ddf19604e475a9bec147f37d2b8de227e1eb8a4e1c1a92c9",
+      "mode": "0600"
+    },
+    {
+      "generation": 3,
+      "ok": true,
+      "callerElapsedMs": 0.9049997329711914,
+      "sha256": "48b51961eff47c3882466494dfdbec5469a8e2da6fd4afc9b309d28481413d63",
+      "mode": "0600"
+    },
+    {
+      "generation": 3,
+      "ok": true,
+      "callerElapsedMs": 9065.179999828339,
+      "sha256": "607bd68a87f54ba0c409f9d1452fd237aa6c0600342414d62a0ea3d4d2fb0e1c",
+      "mode": "0600"
+    },
+    {
+      "generation": 3,
+      "ok": true,
+      "callerElapsedMs": 17.25,
+      "sha256": "67d5cc878bd07a9acbd7d49d193f3672a08a15f3776e4a58f96bb386e675f915",
+      "mode": "0600"
+    },
+    {
+      "generation": 3,
+      "ok": true,
+      "callerElapsedMs": 1245.4850001335144,
+      "sha256": "d9327befd4fa380cf33f9c0e1e096f72d342aebb005ad9deb991f0532ce9aa37",
+      "mode": "0600"
+    },
+    {
+      "generation": 3,
+      "ok": true,
+      "callerElapsedMs": 24.65499973297119,
+      "sha256": "31ac3f22bdf0608fe708ad8b875b5137a0e1430ca55d1e5435fffcb49c7700bb",
+      "mode": "0600"
+    },
+    {
+      "generation": 3,
+      "ok": true,
+      "callerElapsedMs": 6.630000114440918,
+      "sha256": "3274eb94def80c02bfeceff5fed4b7670dbd317d41724eefd2a759c4b22407e5",
+      "mode": "0600"
+    },
+    {
+      "generation": 3,
+      "ok": true,
+      "callerElapsedMs": 1177.335000038147,
+      "sha256": "bdb318e7e642f993933bf4dbc40b0a2c06fd0a6f7fee3c1d82fd4a25630b7959",
+      "mode": "0600"
+    }
+  ],
+  "phases": [
+    {
+      "name": "owned-host-native",
+      "ok": true
+    },
+    {
+      "name": "native-start",
+      "ok": true
+    },
+    {
+      "name": "pixel-device-selection",
+      "ok": true
+    },
+    {
+      "name": "owned-browser-page",
+      "ok": true
+    },
+    {
+      "name": "owned-browser-observer",
+      "ok": true
+    },
+    {
+      "name": "independent-browser-start",
+      "ok": true
+    },
+    {
+      "name": "admission-runtime-capability",
+      "ok": true
+    },
+    {
+      "name": "actual-admission-request",
+      "ok": true
+    },
+    {
+      "name": "native-actual-admission",
+      "ok": true
+    },
+    {
+      "name": "one-real-sdk-approval",
+      "ok": true
+    },
+    {
+      "name": "approved-material-delivery",
+      "ok": true
+    },
+    {
+      "name": "immediate-material-complete",
+      "ok": true
+    },
+    {
+      "name": "complete-browser-retire",
+      "ok": true
+    },
+    {
+      "name": "provider-retire-before-reopen",
+      "ok": true
+    },
+    {
+      "name": "same-provider-reopen",
+      "ok": true
+    },
+    {
+      "name": "same-browser-no-relay-reopen",
+      "ok": true
+    },
+    {
+      "name": "no-relay-runtime-capability",
+      "ok": true
+    },
+    {
+      "name": "actual-no-data-member-attempt",
+      "ok": true
+    },
+    {
+      "name": "no-relay-browser-retire",
+      "ok": true
+    },
+    {
+      "name": "same-browser-relay-restored",
+      "ok": true
+    },
+    {
+      "name": "restored-runtime-capability",
+      "ok": true
+    },
+    {
+      "name": "new-ordinary-sdk-member",
+      "ok": true
+    },
+    {
+      "name": "native-current-member",
+      "ok": true
+    },
+    {
+      "name": "actual-sdk-bidirectional-business",
+      "ok": true
+    },
+    {
+      "name": "native-original-m-business",
+      "ok": true
+    },
+    {
+      "name": "business-handle-close",
+      "ok": true
+    },
+    {
+      "name": "final-sdk-stop",
+      "ok": true
+    }
+  ],
+  "physicalWanQualified": false,
+  "rawPrivateContentPublished": false
+}

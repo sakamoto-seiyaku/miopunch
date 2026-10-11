@@ -1,0 +1,45 @@
+{
+  "public-relay-no-rtc": {
+    "passed": true,
+    "runtimeExit": 0,
+    "wholeWallMs": 42382.11,
+    "rawReceiptSha256": "0604ce48e654aa5ce0c32231d17311d9e4551ef29fc4c31e6ed4036c9359f4a2",
+    "publicFile": "public-relay-no-rtc.json"
+  },
+  "mqtt-rtc-both": {
+    "passed": true,
+    "runtimeExit": 0,
+    "wholeWallMs": 75329.011,
+    "rawReceiptSha256": "2b0f433ebbc4164133b2451ff7858d8874cf31516dc65fbc241a011a2e3bff62",
+    "publicFile": "mqtt-rtc-both.json"
+  },
+  "carrier-repair": {
+    "passed": true,
+    "runtimeExit": 0,
+    "wholeWallMs": 33449.165,
+    "rawReceiptSha256": "1f3ba7a38a06dc6ec12a6514e0229c0d7674231d43dbb18909ecbf16a2d86d43",
+    "publicFile": "carrier-repair.json"
+  },
+  "relay-improve": {
+    "passed": true,
+    "runtimeExit": 0,
+    "wholeWallMs": 32619.152,
+    "rawReceiptSha256": "434c5aab0ab8503a59f8990ea4da388a24beb7e5f7de83499fb07b29c425f997",
+    "publicFile": "relay-improve.json"
+  },
+  "rtc-no-path": {
+    "passed": true,
+    "runtimeExit": 0,
+    "wholeWallMs": 93351.361,
+    "rawReceiptSha256": "90ae42f9ae54c5e7da84a94474293874606f4558e989fd25d83d9c9f8a01fc16",
+    "publicFile": "rtc-no-path.json"
+  },
+  "entry-fallback": {
+    "passed": true,
+    "runtimeExit": 0,
+    "callerMs": 523,
+    "cleanupMs": 152,
+    "publicFile": "entry-fallback.json",
+    "rawReceiptSha256": "803dd16f3891a315210e6406e61a976d48ad70d2d0d0f47dec3c70c44ced7fe1"
+  }
+}

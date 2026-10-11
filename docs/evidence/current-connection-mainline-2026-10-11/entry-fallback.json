@@ -1,0 +1,461 @@
+{
+  "case": "entry-fallback",
+  "rawReceipt": "/tmp/mio84-current-integration-20261011/entry-fallback/receipt.json",
+  "rawReceiptSha256": "803dd16f3891a315210e6406e61a976d48ad70d2d0d0f47dec3c70c44ced7fe1",
+  "passed": true,
+  "physicalWanQualified": false,
+  "publicTraffic": false,
+  "checks": [
+    {
+      "name": "build",
+      "argv": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-j",
+        "2",
+        "--features",
+        "rtc-probe",
+        "--test",
+        "contact_member_priority",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "guardSeconds": 600,
+      "seconds": 58.571668431861326,
+      "terminatedByGuard": false,
+      "forcedKill": false
+    },
+    {
+      "name": "unavailable_member_contact_falls_back_with_original_deadline",
+      "argv": [
+        "rtk",
+        "proxy",
+        "/tmp/mio84-current-integration-20261011/entry-fallback/contact_member_priority.test-bin",
+        "unavailable_member_contact_falls_back_with_original_deadline",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "guardSeconds": 35,
+      "seconds": 4.925698606064543,
+      "terminatedByGuard": false,
+      "forcedKill": false
+    }
+  ],
+  "facts": {
+    "exit": 0,
+    "actualReceipt": {
+      "actualActiveUdpControl": false,
+      "actualMemberLinkRetired": true,
+      "actualMemberRegistrationWithdrawn": true,
+      "actualMemberUnavailableObserved": false,
+      "actualRestrictedWarmCachedMqtt": false,
+      "actualStaleTupleRetiredBeforeAttempt": false,
+      "bidirectionalStreamMatched": true,
+      "bothOriginalBindingsMatched": true,
+      "callerHasRelay": false,
+      "callerMs": 523,
+      "cancellationUnchanged": true,
+      "cleanupMs": 152,
+      "contactEvents": [
+        {
+          "bytes": 1220,
+          "elapsedUs": 1806
+        },
+        {
+          "bytes": 1220,
+          "elapsedUs": 3720
+        },
+        {
+          "bytes": 1220,
+          "elapsedUs": 13680
+        },
+        {
+          "bytes": 1346,
+          "elapsedUs": 14498
+        },
+        {
+          "bytes": 1186,
+          "elapsedUs": 14523
+        },
+        {
+          "bytes": 455,
+          "elapsedUs": 187062
+        },
+        {
+          "bytes": 1346,
+          "elapsedUs": 187084
+        },
+        {
+          "bytes": 1096,
+          "elapsedUs": 187088
+        },
+        {
+          "bytes": 50,
+          "elapsedUs": 187091
+        },
+        {
+          "bytes": 80,
+          "elapsedUs": 187133
+        },
+        {
+          "bytes": 172,
+          "elapsedUs": 187139
+        },
+        {
+          "bytes": 456,
+          "elapsedUs": 190422
+        },
+        {
+          "bytes": 1097,
+          "elapsedUs": 190430
+        },
+        {
+          "bytes": 51,
+          "elapsedUs": 190433
+        },
+        {
+          "bytes": 456,
+          "elapsedUs": 190436
+        },
+        {
+          "bytes": 53,
+          "elapsedUs": 190440
+        },
+        {
+          "bytes": 50,
+          "elapsedUs": 190442
+        },
+        {
+          "bytes": 247,
+          "elapsedUs": 190879
+        },
+        {
+          "bytes": 247,
+          "elapsedUs": 190890
+        },
+        {
+          "bytes": 247,
+          "elapsedUs": 190896
+        },
+        {
+          "bytes": 247,
+          "elapsedUs": 190901
+        },
+        {
+          "bytes": 247,
+          "elapsedUs": 190906
+        },
+        {
+          "bytes": 247,
+          "elapsedUs": 190911
+        },
+        {
+          "bytes": 247,
+          "elapsedUs": 190916
+        },
+        {
+          "bytes": 247,
+          "elapsedUs": 190921
+        },
+        {
+          "bytes": 247,
+          "elapsedUs": 190926
+        },
+        {
+          "bytes": 247,
+          "elapsedUs": 192915
+        },
+        {
+          "bytes": 52,
+          "elapsedUs": 192922
+        },
+        {
+          "bytes": 53,
+          "elapsedUs": 193104
+        },
+        {
+          "bytes": 157,
+          "elapsedUs": 195546
+        },
+        {
+          "bytes": 52,
+          "elapsedUs": 195608
+        },
+        {
+          "bytes": 52,
+          "elapsedUs": 195617
+        },
+        {
+          "bytes": 52,
+          "elapsedUs": 195622
+        },
+        {
+          "bytes": 52,
+          "elapsedUs": 195627
+        },
+        {
+          "bytes": 52,
+          "elapsedUs": 195632
+        },
+        {
+          "bytes": 1409,
+          "elapsedUs": 196160
+        },
+        {
+          "bytes": 76,
+          "elapsedUs": 196169
+        },
+        {
+          "bytes": 1409,
+          "elapsedUs": 360897
+        },
+        {
+          "bytes": 52,
+          "elapsedUs": 361437
+        },
+        {
+          "bytes": 218,
+          "elapsedUs": 363144
+        },
+        {
+          "bytes": 52,
+          "elapsedUs": 363187
+        },
+        {
+          "bytes": 54,
+          "elapsedUs": 363875
+        },
+        {
+          "bytes": 52,
+          "elapsedUs": 364659
+        },
+        {
+          "bytes": 54,
+          "elapsedUs": 365305
+        },
+        {
+          "bytes": 99,
+          "elapsedUs": 365312
+        },
+        {
+          "bytes": 1440,
+          "elapsedUs": 365762
+        },
+        {
+          "bytes": 1440,
+          "elapsedUs": 366937
+        },
+        {
+          "bytes": 55,
+          "elapsedUs": 367395
+        },
+        {
+          "bytes": 54,
+          "elapsedUs": 368414
+        },
+        {
+          "bytes": 52,
+          "elapsedUs": 368927
+        },
+        {
+          "bytes": 58,
+          "elapsedUs": 369498
+        },
+        {
+          "bytes": 1472,
+          "elapsedUs": 369520
+        },
+        {
+          "bytes": 1472,
+          "elapsedUs": 369839
+        },
+        {
+          "bytes": 65,
+          "elapsedUs": 375420
+        },
+        {
+          "bytes": 59,
+          "elapsedUs": 376409
+        },
+        {
+          "bytes": 82,
+          "elapsedUs": 377384
+        },
+        {
+          "bytes": 79,
+          "elapsedUs": 378492
+        },
+        {
+          "bytes": 52,
+          "elapsedUs": 379583
+        },
+        {
+          "bytes": 53,
+          "elapsedUs": 404238
+        },
+        {
+          "bytes": 201,
+          "elapsedUs": 404692
+        },
+        {
+          "bytes": 160,
+          "elapsedUs": 405496
+        },
+        {
+          "bytes": 160,
+          "elapsedUs": 406320
+        },
+        {
+          "bytes": 52,
+          "elapsedUs": 407092
+        },
+        {
+          "bytes": 53,
+          "elapsedUs": 432594
+        },
+        {
+          "bytes": 128,
+          "elapsedUs": 433045
+        },
+        {
+          "bytes": 56,
+          "elapsedUs": 435873
+        },
+        {
+          "bytes": 65,
+          "elapsedUs": 436825
+        },
+        {
+          "bytes": 56,
+          "elapsedUs": 437301
+        },
+        {
+          "bytes": 56,
+          "elapsedUs": 438936
+        },
+        {
+          "bytes": 55,
+          "elapsedUs": 440395
+        },
+        {
+          "bytes": 56,
+          "elapsedUs": 440403
+        },
+        {
+          "bytes": 56,
+          "elapsedUs": 441687
+        },
+        {
+          "bytes": 56,
+          "elapsedUs": 442249
+        },
+        {
+          "bytes": 55,
+          "elapsedUs": 442571
+        }
+      ],
+      "dataHintKind": "None",
+      "deadlineMs": 12000,
+      "forwardingLeasesEnded": true,
+      "forwardingLinksRemaining": 0,
+      "identityMatched": true,
+      "independentSavedReopenedMembers": 3,
+      "initialForwarderLinks": 2,
+      "listenerStopped": true,
+      "memberGate": true,
+      "memberQuicSendCalls": 0,
+      "memberUnavailableCase": true,
+      "mqttQuicPublishPackets": 74,
+      "mqttRetirement": {
+        "immediateEmpty": true,
+        "lateActiveSockets": 0,
+        "lateSubscriptions": 0,
+        "settled": true,
+        "settledMs": 0
+      },
+      "ordinaryHandle": true,
+      "originalAbsoluteDeadlinePreserved": true,
+      "receiverListenerStillReady": true,
+      "receiverRelayStillOnline": true,
+      "remainingForwarderLinks": 1,
+      "responder": {
+        "bindingExported": true,
+        "identityMatched": true,
+        "memberGate": true,
+        "role": "responder",
+        "selectedUdp": true,
+        "strictV1": true
+      },
+      "role": "initiator",
+      "sameOriginalM": true,
+      "selectedUdp": true,
+      "singleCoordinatorCall": true,
+      "strictV1": true,
+      "udpImmediateEmpty": [
+        true,
+        true,
+        true
+      ],
+      "udpLate100MsEmpty": [
+        true,
+        true,
+        true
+      ]
+    },
+    "currentMProofs": [
+      {
+        "authorizationRevision": 1,
+        "bindingUnchanged": true,
+        "freshAck": true,
+        "peerPermitted": 1,
+        "peerRuntime": "Native",
+        "peerSupported": 5,
+        "permitted": 5,
+        "probeWatermark": 9,
+        "purpose": "member-business",
+        "purposeCode": 1,
+        "role": "responder",
+        "rtcRole": "None",
+        "runtime": "Native",
+        "selected": true,
+        "stableId": 135871091317616,
+        "stableUnchanged": true,
+        "supported": 5,
+        "version": 1
+      },
+      {
+        "authorizationRevision": 1,
+        "bindingUnchanged": true,
+        "freshAck": true,
+        "peerPermitted": 5,
+        "peerRuntime": "Native",
+        "peerSupported": 5,
+        "permitted": 1,
+        "probeWatermark": 12,
+        "purpose": "member-business",
+        "purposeCode": 1,
+        "role": "initiator",
+        "rtcRole": "None",
+        "runtime": "Native",
+        "selected": true,
+        "stableId": 135871091184064,
+        "stableUnchanged": true,
+        "supported": 5,
+        "version": 1
+      }
+    ],
+    "oneActualReceipt": true,
+    "bothFreshAckRoles": true
+  },
+  "singleOriginalAbsoluteDeadlineMs": 12000,
+  "sourcesFrozenDuringBuild": true,
+  "sourcesFrozenDuringRun": true,
+  "artifactFrozenDuringRun": true,
+  "artifactSha256AfterRun": "143b80fb178ae66f9e9e815db136ab30aa0bb2a23378a8e2e32883127b6b3ee0"
+}
