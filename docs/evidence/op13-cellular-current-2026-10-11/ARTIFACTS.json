@@ -1,0 +1,668 @@
+{
+  "sdkSourceDigest": "225420c6ac0deacfdb2f269704be69c1a88ce6fa4df17a75877973e144093844",
+  "rootSdkChanged": false,
+  "testsUsedActualSdk": true,
+  "builds": [
+    {
+      "label": "android",
+      "exit": 0,
+      "qualified": true,
+      "receiptSha256": "698b7beceae06b1eec8427a4718ed073df41ed446aa72dae3c8938e9da9322cb",
+      "actualInputCount": 6712,
+      "sourceCopyCount": 300,
+      "depfiles": 547
+    },
+    {
+      "label": "extra-android",
+      "exit": 101,
+      "qualified": false,
+      "receiptSha256": "fc9383f46265c4d06c56f2307177d55b70b6f78663694772073b738ca87b9ad6",
+      "actualInputCount": null,
+      "sourceCopyCount": null,
+      "depfiles": null
+    },
+    {
+      "label": "extra-android-v2",
+      "exit": 101,
+      "qualified": false,
+      "receiptSha256": "9d3d9add9c66b7e816ec4cb66392adf3901984191218d474e3bebd564d9289d9",
+      "actualInputCount": null,
+      "sourceCopyCount": null,
+      "depfiles": null
+    },
+    {
+      "label": "extra-android-v3",
+      "exit": 0,
+      "qualified": true,
+      "receiptSha256": "e20f076dbd48115853c56f522da07fdb86199c17af5f370cae9035523fce0b01",
+      "actualInputCount": 6721,
+      "sourceCopyCount": 297,
+      "depfiles": 546
+    },
+    {
+      "label": "irc-android",
+      "exit": 0,
+      "qualified": true,
+      "receiptSha256": "b47830e011386a93b41bbff290c1a393355a5cc7d6c3204d9ef7bac92c658bec",
+      "actualInputCount": 6721,
+      "sourceCopyCount": 297,
+      "depfiles": 546
+    },
+    {
+      "label": "diagnostic-android",
+      "exit": 0,
+      "qualified": true,
+      "receiptSha256": "e112c7a3dd3bc0b0c6b44e75d6899caafd9c00a0533c0092c8f4d0ef275015f5",
+      "actualInputCount": 6721,
+      "sourceCopyCount": 297,
+      "depfiles": 546
+    }
+  ],
+  "exactExecutedInputs": [
+    {
+      "file": "executed-inputs/00-build-current-android.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/build-current-android.py",
+      "sha256": "8e9b47d3014d44d9cd59011bf3e46f33caa0a72d5b9eb53eeb1bc1882826c3b8"
+    },
+    {
+      "file": "executed-inputs/01-run-current-stories.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/run-current-stories.py",
+      "sha256": "6ca221f74452c05071edb7bad2b559f82ef1c57419fad0a020133aec7fde147b"
+    },
+    {
+      "file": "executed-inputs/02-run-current-stories-observed-v2.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/run-current-stories-observed-v2.py",
+      "sha256": "f378e1eb381331879b94b7c8bd862d6931ff9ba1f7a1e474802c16d93b9a4744"
+    },
+    {
+      "file": "executed-inputs/03-build-extra-android.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/build-extra-android.py",
+      "sha256": "8d2a9eb4525ad247fd9ae67f3a00b3773a40a95d04ae82d93b8b3b10fae632f9"
+    },
+    {
+      "file": "executed-inputs/04-build-extra-android-v2.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/build-extra-android-v2.py",
+      "sha256": "d1c64a0fec7a702eeccb841f661044583ff1b557f13725a4aa0336dae8d4d3ce"
+    },
+    {
+      "file": "executed-inputs/05-build-extra-android-v3.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/build-extra-android-v3.py",
+      "sha256": "ed7ac9eaab3d51ca80fdadfdf805694735c1d46dcec1767db7a08661ce2ae7b8"
+    },
+    {
+      "file": "executed-inputs/06-build-irc-android.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/build-irc-android.py",
+      "sha256": "20cada8685940b480a9dd6d0992408af413200fa1ba407b7f469faa6cded1b74"
+    },
+    {
+      "file": "executed-inputs/07-build-diagnostic-android.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/build-diagnostic-android.py",
+      "sha256": "87079a9c023e74608369b834bc11b8303c3bf67690791241b605b62bed67f633"
+    },
+    {
+      "file": "executed-inputs/08-build-diagnostic-android-v2.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/build-diagnostic-android-v2.py",
+      "sha256": "143175af92c790ec059e3ee301d773c8e6608d45a2d474cee2e20c3406785b34"
+    },
+    {
+      "file": "executed-inputs/09-run-pure-relay-current-v1.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/run-pure-relay-current-v1.py",
+      "sha256": "fc72ecd9235dd7a3ba9402687fc25d05dd1e22de884b594a9012aa7e07669bc1"
+    },
+    {
+      "file": "executed-inputs/10-run-pure-relay-current-v2.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/run-pure-relay-current-v2.py",
+      "sha256": "4972cc4f7c879541ff6d04e90f98d0e98f2ace268dd97c5e6a6fba25bcbd3f57"
+    },
+    {
+      "file": "executed-inputs/11-run-mqtt-member-only-current-v1.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/run-mqtt-member-only-current-v1.py",
+      "sha256": "5476fa1b9fe92ee909f8d26d731859a3e294a9b34435316ec4b4cce37c467aa5"
+    },
+    {
+      "file": "executed-inputs/12-diagnose-native-irc-startup.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/diagnose-native-irc-startup.py",
+      "sha256": "5f992377c540950e74910d5a80625dc06873f209375093557258cf6af590464a"
+    },
+    {
+      "file": "executed-inputs/13-diagnose-pixel-startup.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/diagnose-pixel-startup.py",
+      "sha256": "df4fa9a5ded75ee9d623ce9447255e5897ca5d825600e1a61df5fd15b8f49eeb"
+    },
+    {
+      "file": "executed-inputs/14-diagnose-pixel-wss.mjs",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/diagnose-pixel-wss.mjs",
+      "sha256": "32954ea07906c2bcc38971b9dc75d9e57db2e3b8430e69df6f630761294bd2d8"
+    },
+    {
+      "file": "executed-inputs/15-relay_current_native.rs",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/relay_current_native.rs",
+      "sha256": "6846c879a474d2cb3c4b56db647144ac2a5f9d953b4863a356d45f80cfe1ed15"
+    },
+    {
+      "file": "executed-inputs/16-irc_diagnostic_native.rs",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/irc_diagnostic_native.rs",
+      "sha256": "84baa20db5a636dea01f54c432cf39f0a152ed3f8b355c87f220ba2aca4aba1e"
+    },
+    {
+      "file": "executed-inputs/17-irc_current_native.rs",
+      "originalPath": "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/irc_current_native.rs",
+      "sha256": "da17bb03374943fbfb5c00994619f505d1e5f5e318252288166b0de7516f48f2"
+    },
+    {
+      "file": "executed-inputs/18-execute.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v1/execute.py",
+      "sha256": "26ef9aec368392c0e2545281e4d2028dfbf84fa43fd039f63b5973d1cb1cdf00"
+    },
+    {
+      "file": "executed-inputs/19-android-native-bridge.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v1/android-native-bridge.py",
+      "sha256": "150997fee5aabd9d9abfb16f1f3b095894f21a8365dd3117f6f9ec72239fe9ca"
+    },
+    {
+      "file": "executed-inputs/20-run.mjs",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v1/run.mjs",
+      "sha256": "bc24db0b2818afe9a0558338fd169ba19b4e30c5fe7c2e224f51812e3cffb419"
+    },
+    {
+      "file": "executed-inputs/21-controller.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/mqtt-rtc-whole-story-first/controller.py",
+      "sha256": "22aaad4b6e00641ddd9264199cd2294cb57882394bc5529b2e71c8e2cb9e39e3"
+    },
+    {
+      "file": "executed-inputs/22-capture-helper.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/mqtt-rtc-whole-story-first/capture-helper.py",
+      "sha256": "e390d5489ae4d4fc79d29dfb34755d40a65a7b7c51776342e36e07d19fcc2f1b"
+    },
+    {
+      "file": "executed-inputs/23-controller.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-first/controller.py",
+      "sha256": "48602d86a39bb5991f9527d2bbc331ca10d97528f7a58456c54dadd8072ba6bb"
+    },
+    {
+      "file": "executed-inputs/24-capture-helper.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-first/capture-helper.py",
+      "sha256": "e390d5489ae4d4fc79d29dfb34755d40a65a7b7c51776342e36e07d19fcc2f1b"
+    },
+    {
+      "file": "executed-inputs/25-execute.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v3/execute.py",
+      "sha256": "510de4b2c4f6de7025afca7ccd51ec3fd1b9eac9f18b25bd90fb71136b97045f"
+    },
+    {
+      "file": "executed-inputs/26-android-native-bridge.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v3/android-native-bridge.py",
+      "sha256": "150997fee5aabd9d9abfb16f1f3b095894f21a8365dd3117f6f9ec72239fe9ca"
+    },
+    {
+      "file": "executed-inputs/27-run.mjs",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v3/run.mjs",
+      "sha256": "bc24db0b2818afe9a0558338fd169ba19b4e30c5fe7c2e224f51812e3cffb419"
+    },
+    {
+      "file": "executed-inputs/28-controller.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/mqtt-member-only-current-v1/controller.py",
+      "sha256": "e7bb145e4352fde4f2ca5f242cede563269a504736b0cc05153bef144229a89f"
+    },
+    {
+      "file": "executed-inputs/29-capture-helper.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/mqtt-member-only-current-v1/capture-helper.py",
+      "sha256": "e390d5489ae4d4fc79d29dfb34755d40a65a7b7c51776342e36e07d19fcc2f1b"
+    },
+    {
+      "file": "executed-inputs/30-controller.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-pure-relay-current-v2/controller.py",
+      "sha256": "ec4ec65f5c384268cdac235089b690d7ff82913d64ddfdb08e0c1bd1b7ec322d"
+    },
+    {
+      "file": "executed-inputs/31-capture-helper.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-pure-relay-current-v2/capture-helper.py",
+      "sha256": "e390d5489ae4d4fc79d29dfb34755d40a65a7b7c51776342e36e07d19fcc2f1b"
+    },
+    {
+      "file": "executed-inputs/32-controller.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/relay-only-whole-story-pure-relay-current-v1/controller.py",
+      "sha256": "0a7e9462a56630d0d906c137d76b76bd13b62087e8910f1408853a12f8937593"
+    },
+    {
+      "file": "executed-inputs/33-capture-helper.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/relay-only-whole-story-pure-relay-current-v1/capture-helper.py",
+      "sha256": "e390d5489ae4d4fc79d29dfb34755d40a65a7b7c51776342e36e07d19fcc2f1b"
+    },
+    {
+      "file": "executed-inputs/34-controller.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-observed-second/controller.py",
+      "sha256": "5eac791030257b0f1f415300a9f0a6219b2511f81739f6836607d3cb959d56da"
+    },
+    {
+      "file": "executed-inputs/35-capture-helper.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-observed-second/capture-helper.py",
+      "sha256": "e390d5489ae4d4fc79d29dfb34755d40a65a7b7c51776342e36e07d19fcc2f1b"
+    },
+    {
+      "file": "executed-inputs/36-controller.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-pure-relay-current-v1/controller.py",
+      "sha256": "df7af38190935e8a783345accf516c21a2c6bcdc87f24561da27e4697b36e49a"
+    },
+    {
+      "file": "executed-inputs/37-capture-helper.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-pure-relay-current-v1/capture-helper.py",
+      "sha256": "e390d5489ae4d4fc79d29dfb34755d40a65a7b7c51776342e36e07d19fcc2f1b"
+    },
+    {
+      "file": "executed-inputs/38-controller.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/relay-only-whole-story-first/controller.py",
+      "sha256": "50372fb8e42ad8a9bfdbf3ccc6f7f510f8242fba4babb7c6ebedc74e275d87dc"
+    },
+    {
+      "file": "executed-inputs/39-capture-helper.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/relay-only-whole-story-first/capture-helper.py",
+      "sha256": "e390d5489ae4d4fc79d29dfb34755d40a65a7b7c51776342e36e07d19fcc2f1b"
+    },
+    {
+      "file": "executed-inputs/40-execute.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v2/execute.py",
+      "sha256": "510de4b2c4f6de7025afca7ccd51ec3fd1b9eac9f18b25bd90fb71136b97045f"
+    },
+    {
+      "file": "executed-inputs/41-android-native-bridge.py",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v2/android-native-bridge.py",
+      "sha256": "150997fee5aabd9d9abfb16f1f3b095894f21a8365dd3117f6f9ec72239fe9ca"
+    },
+    {
+      "file": "executed-inputs/42-run.mjs",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v2/run.mjs",
+      "sha256": "bc24db0b2818afe9a0558338fd169ba19b4e30c5fe7c2e224f51812e3cffb419"
+    },
+    {
+      "file": "selectors/extraSelector/Cargo.toml",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/extraSelector/Cargo.toml",
+      "sha256": "eefeef628763bbccaf186ec0cd0d7e5aeeb812939ee255918a217091e0ff6bbd"
+    },
+    {
+      "file": "selectors/extraSelector/Cargo.lock",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/extraSelector/Cargo.lock",
+      "sha256": "a33846c52b0769f0a3ee8e7e1aec17737cd840d61412f11828376e816b6bcda7"
+    },
+    {
+      "file": "selectors/diagnosticSelector/Cargo.toml",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/diagnosticSelector/Cargo.toml",
+      "sha256": "2551da029f67f429aba614ec714121a776a7b64d12930195b1919447be472398"
+    },
+    {
+      "file": "selectors/diagnosticSelector/Cargo.lock",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/diagnosticSelector/Cargo.lock",
+      "sha256": "a33846c52b0769f0a3ee8e7e1aec17737cd840d61412f11828376e816b6bcda7"
+    },
+    {
+      "file": "contexts/extra-selector-preparation.json",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/extra-selector-preparation.json",
+      "sha256": "e7366be84fb2e8b80ebabe9b6a007076431c6eae0c95c79fdf9364db84068c45"
+    },
+    {
+      "file": "contexts/extra-selector-preparation-v2.json",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/extra-selector-preparation-v2.json",
+      "sha256": "c6df0c02d6846f629a8bde0cc17fc206048a25ad25665dbdbdba983215617464"
+    },
+    {
+      "file": "contexts/extra-selector-preparation-v3.json",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/extra-selector-preparation-v3.json",
+      "sha256": "9fd9b0686e12c341d64df7078beb81673be0f76a399f49d5e21c58e55e895a79"
+    },
+    {
+      "file": "contexts/build-context.json",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/build-context.json",
+      "sha256": "3d8aa7459f5b292d3c10869b86e9f8ab89d7a30d0597d7d0564e3bede9682aee"
+    },
+    {
+      "file": "contexts/extra-build-context.json",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/extra-build-context.json",
+      "sha256": "b70393c5e5ba1f9046b85d83e484e975d14d69560e0803979f8a6b0f48f3475c"
+    },
+    {
+      "file": "contexts/extra-build-context-v2.json",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/extra-build-context-v2.json",
+      "sha256": "303fc0cbc8b7f1ab8621417ec1e122dec09336716e1e54ec721ccd46e22e3cf1"
+    },
+    {
+      "file": "contexts/extra-build-context-v3.json",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/extra-build-context-v3.json",
+      "sha256": "082728fad6d3569b1936df087fa9308d0dfc7724c33f3cb7ca85267702abcba9"
+    },
+    {
+      "file": "contexts/irc-build-context.json",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/irc-build-context.json",
+      "sha256": "311f04c70d134f9d243d237fb5653f18278be7ac424d9f8d8db9c8fe96437284"
+    },
+    {
+      "file": "contexts/diagnostic-build-context.json",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/diagnostic-build-context.json",
+      "sha256": "80f3f58e2efcd7142d7b155cdc6d8f0ecd24a50cbd2c4ffc7e16f441e7c2bda6"
+    },
+    {
+      "file": "contexts/diagnostic-build-context-v2.json",
+      "originalPath": "/tmp/mio84-op13-returned-current-20261011/diagnostic-build-context-v2.json",
+      "sha256": "9dc18442802ef306fa977928ba4bc17379644e6cbbc490bc1cb9219d6d062610"
+    }
+  ],
+  "rawReferences": {
+    "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v1/network-before.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v1/network-after.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v2/network-before.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v2/network-after.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v3/network-before.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v3/network-after.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/mqtt-member-only-current-v1/runtime/receipt.json": {
+      "sha256": "c0cf60cfe1473437185a86a57e798a9436977a7a4da3fa0c94ab3a1983527dbc",
+      "private": false,
+      "originalReceiptNotEdited": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/mqtt-member-only-current-v1/runtime/private-m82-transcript.json": {
+      "sha256": "97cc151ded1060a44bc4422bbba8b1cfd416241935f201679c2d692249659789",
+      "private": true,
+      "retainedOnlyOutsideRepo": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/mqtt-member-only-current-v1/network-before.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/mqtt-member-only-current-v1/network-after.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/mqtt-rtc-whole-story-first/runtime/receipt.json": {
+      "sha256": "16fa8a0fc546a747fde61b279b1b0f8a9304789a2fab61fce6e4414b5401f243",
+      "private": false,
+      "originalReceiptNotEdited": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/mqtt-rtc-whole-story-first/runtime/private-m82-transcript.json": {
+      "sha256": "e4e77ba6546e0880f275eaadbdd11d023f7074a0da8b803b2c8016585d63e2fa",
+      "private": true,
+      "retainedOnlyOutsideRepo": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/mqtt-rtc-whole-story-first/network-before.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/mqtt-rtc-whole-story-first/network-after.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-only-whole-story-first/runtime/receipt.json": {
+      "sha256": "a3a4f7de73b175384b5bfb9a4948ce7970d90eb81a77d4d80881beac897c1754",
+      "private": false,
+      "originalReceiptNotEdited": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-only-whole-story-first/runtime/private-m82-transcript.json": {
+      "sha256": "da6b4729867c5eccee6fc1477dd978f660f766bf1893dfbb1dc50b355b2c4bed",
+      "private": true,
+      "retainedOnlyOutsideRepo": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-only-whole-story-first/network-before.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-only-whole-story-first/network-after.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-only-whole-story-pure-relay-current-v1/runtime/receipt.json": {
+      "sha256": "1d5b32fcb197e0b654d34d883deb6a81ad8ca60182bf2c2f57465e16459005dc",
+      "private": false,
+      "originalReceiptNotEdited": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-only-whole-story-pure-relay-current-v1/runtime/private-m82-transcript.json": {
+      "sha256": "9189055593a48b08fbe8064a4166bc616a604180d4b940487a15923073e976c0",
+      "private": true,
+      "retainedOnlyOutsideRepo": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-only-whole-story-pure-relay-current-v1/network-before.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-only-whole-story-pure-relay-current-v1/network-after.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-first/runtime/receipt.json": {
+      "sha256": "1ffa5f6e030e74295edb56e80f45f106aacf8f02d7ecaa54d7829a2f993b9fae",
+      "private": false,
+      "originalReceiptNotEdited": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-first/runtime/private-m82-transcript.json": {
+      "sha256": "dfd9e5091611163c712587fbbe8cb8ec9f1cf5d0126c7374f0a106c84ca4c6c3",
+      "private": true,
+      "retainedOnlyOutsideRepo": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-first/network-before.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-first/network-after.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-observed-second/runtime/receipt.json": {
+      "sha256": "b92311f9f5e2fac11651d2025682fab01bc66a8de98cdabdcc4601e9a469869a",
+      "private": false,
+      "originalReceiptNotEdited": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-observed-second/runtime/private-m82-transcript.json": {
+      "sha256": "265b43e8a955019642841d36c130ea6cf393df03218e6d1422d41062ff4dd34e",
+      "private": true,
+      "retainedOnlyOutsideRepo": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-observed-second/network-before.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-observed-second/network-after.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-pure-relay-current-v1/runtime/receipt.json": {
+      "sha256": "394c8f41df24aef8d023e4188ffb25569dc9e71dde18360f0e0a5583ea08ae66",
+      "private": false,
+      "originalReceiptNotEdited": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-pure-relay-current-v1/runtime/private-m82-transcript.json": {
+      "sha256": "88e32cf4cec7a23cf5aad597dbf4bbff5bb3221e646f26306a094d19c68c1dfc",
+      "private": true,
+      "retainedOnlyOutsideRepo": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-pure-relay-current-v1/network-before.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-pure-relay-current-v1/network-after.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-pure-relay-current-v2/runtime/receipt.json": {
+      "sha256": "dfb709946ee9e902e7a509f05a49ba843fac7c567f9b9875dc5fc3973a795999",
+      "private": false,
+      "originalReceiptNotEdited": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-pure-relay-current-v2/runtime/private-m82-transcript.json": {
+      "sha256": "3bd789029f8754f56cedbd4de6ad7dd75a7c640b4f4b7cb2ad61ced1ed737f7d",
+      "private": true,
+      "retainedOnlyOutsideRepo": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-pure-relay-current-v2/network-before.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/relay-with-rtc-allowed-pure-relay-current-v2/network-after.json": {
+      "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/irc-public-phones-current-v3/runtime/private-runtime-receipt.json": {
+      "sha256": "b1aea5ae30a6f84fe316eaef223de48da4354a4656941d3000f2d6b6e7fc80e1",
+      "private": true,
+      "retainedOnlyOutsideRepo": true
+    },
+    "/tmp/mio84-op13-returned-current-20261011/diagnose-native-irc-startup/receipt.json": {
+      "sha256": "9407cdbc181148c6b6fe89f1ed08ec86c26cd1160bf4cd8a3a0352e80645a11d",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/diagnose-pixel-bare-wss/receipt.json": {
+      "sha256": "2a732c6da4ec8ee3bdd0739ae0e1d8f48848908a3eddf3d8ab16232d8c8b8ce9",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/diagnose-pixel-mqtt-carrier/receipt.json": {
+      "sha256": "8ccf67a8d4096a7259819c25f507d604da84f12caf1082947a1a6e7c01f80c0c",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/android/receipt.json": {
+      "sha256": "698b7beceae06b1eec8427a4718ed073df41ed446aa72dae3c8938e9da9322cb",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/android/preconditions.json": {
+      "sha256": "ff0c0166666e011eab6d2fe438cb6ea00961b6324511db9dfb08c08a7d786926",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/android/selected-dependency-inputs.json": {
+      "sha256": "8a086d96bf7ee3474c622142332b9fe4e3b9e34454bf681ee7a022ca84eb2e54",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/android/sources-before.json": {
+      "sha256": "b1ac3415f5855597c3666232e80efe6387cc3dd7b5e712099c6534c33fe3cbf2",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/android/sources-after.json": {
+      "sha256": "b1ac3415f5855597c3666232e80efe6387cc3dd7b5e712099c6534c33fe3cbf2",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/extra-android/receipt.json": {
+      "sha256": "fc9383f46265c4d06c56f2307177d55b70b6f78663694772073b738ca87b9ad6",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/extra-android/preconditions.json": {
+      "sha256": "fb4953af236938960e55f6f5e2d99c7c5e6096f600b78b8533ad67e12fa738b0",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/extra-android/sources-before.json": {
+      "sha256": "b1ac3415f5855597c3666232e80efe6387cc3dd7b5e712099c6534c33fe3cbf2",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/extra-android-v2/receipt.json": {
+      "sha256": "9d3d9add9c66b7e816ec4cb66392adf3901984191218d474e3bebd564d9289d9",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/extra-android-v2/preconditions.json": {
+      "sha256": "f456a11d0c4dfa97e47f8787cec21cf17f2bcfcb22b677921a14cf3406c274f5",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/extra-android-v2/sources-before.json": {
+      "sha256": "b1ac3415f5855597c3666232e80efe6387cc3dd7b5e712099c6534c33fe3cbf2",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/extra-android-v3/receipt.json": {
+      "sha256": "e20f076dbd48115853c56f522da07fdb86199c17af5f370cae9035523fce0b01",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/extra-android-v3/preconditions.json": {
+      "sha256": "391567e33db35c56740530bdbf05753983af1aa8a9e95ce156fb9c8270c04cab",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/extra-android-v3/selected-dependency-inputs.json": {
+      "sha256": "73170a35ec53904f92d07fe51513d59494556a7cec2d0a30d8b7ce6adbc15026",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/extra-android-v3/sources-before.json": {
+      "sha256": "b1ac3415f5855597c3666232e80efe6387cc3dd7b5e712099c6534c33fe3cbf2",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/extra-android-v3/sources-after.json": {
+      "sha256": "b1ac3415f5855597c3666232e80efe6387cc3dd7b5e712099c6534c33fe3cbf2",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/irc-android/receipt.json": {
+      "sha256": "b47830e011386a93b41bbff290c1a393355a5cc7d6c3204d9ef7bac92c658bec",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/irc-android/preconditions.json": {
+      "sha256": "7b2e66b0eb77dd2b67154742ee376875ceafe079d814b01a00480cf8420dae98",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/irc-android/selected-dependency-inputs.json": {
+      "sha256": "9ae025d227e4b716736b26a19c9262f7090c23bc11f70deb9bbf0f0649c55cb0",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/irc-android/sources-before.json": {
+      "sha256": "b1ac3415f5855597c3666232e80efe6387cc3dd7b5e712099c6534c33fe3cbf2",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/irc-android/sources-after.json": {
+      "sha256": "b1ac3415f5855597c3666232e80efe6387cc3dd7b5e712099c6534c33fe3cbf2",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/diagnostic-android/receipt.json": {
+      "sha256": "e112c7a3dd3bc0b0c6b44e75d6899caafd9c00a0533c0092c8f4d0ef275015f5",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/diagnostic-android/preconditions.json": {
+      "sha256": "3799a59adbc566aab760ab1e533e47f60af3af0bf24ab6b13466d2877f2b1093",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/diagnostic-android/selected-dependency-inputs.json": {
+      "sha256": "669e2d78798e954016da99484b9f1dd0f12981812e340f3573ebea99b86d4386",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/diagnostic-android/sources-before.json": {
+      "sha256": "b1ac3415f5855597c3666232e80efe6387cc3dd7b5e712099c6534c33fe3cbf2",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/diagnostic-android/sources-after.json": {
+      "sha256": "b1ac3415f5855597c3666232e80efe6387cc3dd7b5e712099c6534c33fe3cbf2",
+      "private": false
+    },
+    "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/wasm/receipt.json": {
+      "sha256": "612d0e3c517d57b3e1fb25473f05eee1986af10f17e286132f92e33a76932ca0",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/additional-obsolete-tests-review.json": {
+      "sha256": "fc9473f7ae0cf2659df35cd6e996b0d1b6e73e418fcbbce0646cdd704dfc3531",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/additional-obsolete-tests-removal.json": {
+      "sha256": "c89e317d99e9fdbad5a3d501d5ea3ee560d642a1142e1018905758dcd32d4d50",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/second-cache-review/additional-obsolete-tests-review.json": {
+      "sha256": "2505e854afe47e1efe0d18aa6b5633e51b8fd2f2c762930dbb8a63a996ebcb25",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/second-cache-review/additional-obsolete-tests-removal.json": {
+      "sha256": "e7ea90cb3e93d6bfc9b6ee5175b0c1c29fef0622a27a757c3c28b776d7ff1991",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/third-cache-review/additional-obsolete-tests-review.json": {
+      "sha256": "ca532602ba816e9cf4095ee683eefdab8055ed76507f389bb090a70a183a6d93",
+      "private": false
+    },
+    "/tmp/mio84-op13-returned-current-20261011/third-cache-review/additional-obsolete-tests-removal.json": {
+      "sha256": "298a67bca31fcea6de89a3ef154b338d2197dea4adfb94fcd59087bf9c67cddc",
+      "private": false
+    }
+  },
+  "privateMaterialPublished": false
+}

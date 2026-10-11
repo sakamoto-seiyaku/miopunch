@@ -1,0 +1,43 @@
+{
+  "checks": [
+    {
+      "case": "actual retained relay+RTC snapshot fails original observer",
+      "passed": true,
+      "message": "browser diagnostics changed their local original M"
+    },
+    {
+      "case": "same actual snapshot accepted by corrected observer",
+      "passed": true
+    },
+    {
+      "case": "mismatchedBootstrapStableId",
+      "rejected": true
+    },
+    {
+      "case": "unmatchedPeer",
+      "rejected": true
+    },
+    {
+      "case": "changedStable",
+      "rejected": true
+    },
+    {
+      "case": "changedBinding",
+      "rejected": true
+    },
+    {
+      "case": "missingIdWithoutSelectedRelay",
+      "rejected": true
+    },
+    {
+      "case": "noOrdinaryHandle",
+      "rejected": true
+    }
+  ],
+  "count": 8,
+  "allPassed": true,
+  "originalSha256": "df7af38190935e8a783345accf516c21a2c6bcdc87f24561da27e4697b36e49a",
+  "correctedSha256": "ec4ec65f5c384268cdac235089b690d7ff82913d64ddfdb08e0c1bd1b7ec322d",
+  "rawSnapshotSha256": "88e32cf4cec7a23cf5aad597dbf4bbff5bb3221e646f26306a094d19c68c1dfc",
+  "sdkModified": false
+}

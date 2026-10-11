@@ -1,0 +1,211 @@
+{
+  "reviewSha256": "fc9473f7ae0cf2659df35cd6e996b0d1b6e73e418fcbbce0646cdd704dfc3531",
+  "hostProcessNamespaceAudit": true,
+  "allHashSizeLinkFingerprintPreconditionsPassed": true,
+  "liveSelectedProcesses": [],
+  "repositoryCompilersAbsent": true,
+  "removed": [
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/admission_completion-425fd02e840e28fd",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-425fd02e840e28fd/test-integration-test-admission_completion.json",
+      "fingerprintSha256": "46c87684a17aa3ec3c160a87105daef6f36cf60ff40b585cbe39e7b2e68570d7",
+      "bytes": 183663880,
+      "mtime": 1791285068.7599998,
+      "sha256": "4aa0bb9cecf18d59a53098c5a8adf782b5e7a5485f87f6aed10b80d683147e24"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/member_attempt-f58133aa66348592",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-f58133aa66348592/test-integration-test-member_attempt.json",
+      "fingerprintSha256": "ef9b275e5099e8e1359011d09631e4037dcf940b471a455fc8283a975ced8580",
+      "bytes": 107190904,
+      "mtime": 1791290158.5553465,
+      "sha256": "5935673ba9ce969e2690b0eca77055eb5458ad5e3fa630ad08e57e2436e94802"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/member_forward-ad4e8d4ca038a18e",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-ad4e8d4ca038a18e/test-integration-test-member_forward.json",
+      "fingerprintSha256": "bea8425728b8af0e6bf7f0c29d4ffca9efd835a1666a04f4a4687559aef12334",
+      "bytes": 183030536,
+      "mtime": 1791290163.9033456,
+      "sha256": "7866faf1eb6bf1a0f0d433df19add5ea960a33cf8b0296d0d929f5e360a44b5c"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/admission_rotation-59e0866676c9ad44",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-59e0866676c9ad44/test-integration-test-admission_rotation.json",
+      "fingerprintSha256": "55cc6227666aeda85ba5994dad92519c9d08ac7d405f7afa3b80638079411e71",
+      "bytes": 184968544,
+      "mtime": 1791290164.2633457,
+      "sha256": "ef13ad928ea56f3aad9058968c1e4fa5a4589a3eb688d57040910d7c3d0e0554"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/unified_native_member-1765ecd641a8d1b4",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-1765ecd641a8d1b4/test-bin-unified_native_member.json",
+      "fingerprintSha256": "cf2c0b8570bdb11a267066c70b494527a456f02474373861cf3d477b2a12b951",
+      "bytes": 82244872,
+      "mtime": 1791290165.6553454,
+      "sha256": "e2b4b9a2f7585d9becfbba8bc26a51067d106c6093c5ab05f7a1721550d22dc9"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/member_path_protocol-0ac4bf5eacc955d1",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-0ac4bf5eacc955d1/test-integration-test-member_path_protocol.json",
+      "fingerprintSha256": "dc48dbd70bafb37c29f4b5245f6c7c77f3a367ff96ec10d95250fef44f61431d",
+      "bytes": 137553216,
+      "mtime": 1791290166.7593453,
+      "sha256": "e6848f227b26cc93c86112dc200ac651a509139177a1f0de97d7d27c2ad0568f"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/genesis_recovery-97ef0049c6f92950",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-97ef0049c6f92950/test-integration-test-genesis_recovery.json",
+      "fingerprintSha256": "8d679ad902041fe6dbd60f8b212beafbae4d2deff2745cf80eb630d2c81722d9",
+      "bytes": 146889168,
+      "mtime": 1791290169.567345,
+      "sha256": "03c12725b9fbfbc8d83e7b38d1ab6096e7c82bc0f03f0a8eacd09ea3bb48106b"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/legacy_multi_socket-0be063f44ffeb5cf",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-0be063f44ffeb5cf/test-integration-test-legacy_multi_socket.json",
+      "fingerprintSha256": "e728f210d8907760dbab2230f6d24cfc07f173c7fb68aef2bf6783c8e46928cf",
+      "bytes": 142866504,
+      "mtime": 1791290170.5553448,
+      "sha256": "381bb92f6f32575489b3557a5916b8b84f4d564f703047fb8363b7bf1dea2858"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/irc_bootstrap-c0e443e8bd9ad9da",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-c0e443e8bd9ad9da/test-integration-test-irc_bootstrap.json",
+      "fingerprintSha256": "10556c8fe6eea090d580d642ed086ec6142da4a2688e722e984bda9105e70b97",
+      "bytes": 184164448,
+      "mtime": 1791290175.6833441,
+      "sha256": "7e9578c28f1d8955df86bf81102e3e76c33e092692aa4b763a9e3be1679f690a"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/browser_irc_restricted_native-c4bfa19504f0c5bc",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-c4bfa19504f0c5bc/test-bin-browser_irc_restricted_native.json",
+      "fingerprintSha256": "f429ac4a37c0709e7e5aa51bed485662dda10c37ec11e7a32442eff7427b5957",
+      "bytes": 7140976,
+      "mtime": 1791290176.587344,
+      "sha256": "da9e23b424b75bbed4ec93b70d0038292cf5270f571a126e1b2aba06d9276e82"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/management_recovery-504d5680f509289b",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-504d5680f509289b/test-integration-test-management_recovery.json",
+      "fingerprintSha256": "1fb6dd2007c582582bcafe688c9b8053442dc1e75af9893bd664c95fdbca92e0",
+      "bytes": 184222032,
+      "mtime": 1791290180.8073435,
+      "sha256": "81c484c810a9611048c53cf16ae79807699f7a90f8dd00b622ab649cdf24b1e3"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/browser_irc_datagram-8ddafd3666699200",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-8ddafd3666699200/test-bin-browser_irc_datagram.json",
+      "fingerprintSha256": "9e6f7ea368d8904e06bb342dc6d1146abc52136e39cc12ad3b61f6f0a974dfc1",
+      "bytes": 7140872,
+      "mtime": 1791290181.6153433,
+      "sha256": "48ae9215e0b6fef3cb7fb3b36766f98e8de83d6629b359b8be3079c157266ad8"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/unified_admission_story-033212ebf62eb412",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-033212ebf62eb412/test-integration-test-unified_admission_story.json",
+      "fingerprintSha256": "838a0c021e684cc251315c307ad757e9fdefc3090d3c6136eb9512fad7cd489d",
+      "bytes": 183771672,
+      "mtime": 1791290181.8113432,
+      "sha256": "d0b93cd3ecd2d4908f84499c43a441689dabcbb2368ca4459e35504b80fd712c"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/network_recovery-a235635e9cc7c0cf",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-a235635e9cc7c0cf/test-integration-test-network_recovery.json",
+      "fingerprintSha256": "ed2057f6bd6a765bc92cbfcda15b9f089cadf3156e9263ee3e108af41a28638b",
+      "bytes": 186282248,
+      "mtime": 1791290187.8953424,
+      "sha256": "ecbc319c977f8b2c99e4c93d858546eaa221d79491ac0bf3d21a0e51207b8738"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/browser_wss_member_native-dff9ae93b1db9361",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-dff9ae93b1db9361/test-bin-browser_wss_member_native.json",
+      "fingerprintSha256": "94ba254cc3168b74a8d2e635f99f0cfb9b40a3a2f22385ad5c5b0a36fd14b69f",
+      "bytes": 34998400,
+      "mtime": 1791290193.6113417,
+      "sha256": "bf30da86a4b1789efe14bdbd8295cdef99dfccc63c1ece42a930e62cd5f78d8e"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/tcp_punch-11a75b62a2982a5f",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-11a75b62a2982a5f/test-integration-test-tcp_punch.json",
+      "fingerprintSha256": "f59f5c8d3aa3b3258dd379c7bb82ae9986a2a32666ea85254745a388ab03cd0c",
+      "bytes": 185686136,
+      "mtime": 1791290196.0953414,
+      "sha256": "51f97bc3a36d2bb7215768b9c4d60614831853361fb61abb67e0d06fd28ed67e"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/browser_restricted_native-126d19d2c6543775",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-126d19d2c6543775/test-bin-browser_restricted_native.json",
+      "fingerprintSha256": "bb819e760adecdb413b7c38bd7acc40b83be74ea6b95ebf561c85e7520718c1e",
+      "bytes": 7140936,
+      "mtime": 1791290197.0713413,
+      "sha256": "8167d2a679a277f2a11e30f50147dce030b428a7bb26651f95e06f450a103819"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/native_network-2d079597cc926ba3",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-2d079597cc926ba3/test-integration-test-native_network.json",
+      "fingerprintSha256": "a6678ed22399148b9a2e441bcb729f1d29a3359cec4ee338c473c51e6b94fae6",
+      "bytes": 179680392,
+      "mtime": 1791290197.811341,
+      "sha256": "941c4fff76bdbfa1c8b37a5de8871fe3efd67c6fee2adbdc1dc75575bea06f33"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/rtc_association-b59b3b9b8436fe00",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-b59b3b9b8436fe00/test-integration-test-rtc_association.json",
+      "fingerprintSha256": "4fac65036c41079474df505b05e0aff3ff8e98ddc0d149156f689a718f90e560",
+      "bytes": 81784960,
+      "mtime": 1791290198.515341,
+      "sha256": "53ad1d77356092eb24653501d30b51dd3b6a1ca0831d8a3ba3f30d9dc6003b84"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/unified_maintained_story-a132fcb675527c6d",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-a132fcb675527c6d/test-bin-unified_maintained_story.json",
+      "fingerprintSha256": "e18aa7f0e131072cfce597f342c110724180524101209d70280fcf510c9717fd",
+      "bytes": 7140920,
+      "mtime": 1791290199.483341,
+      "sha256": "bdf2690807b1a17ccae8f0c77452d1400ad5ae2da013d0e7adc7250dd28cf24f"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/revocation-5b28931b235ba974",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-5b28931b235ba974/test-integration-test-revocation.json",
+      "fingerprintSha256": "b5ffa9c217f5a69e5ecc502a87c0b7ccfa3b0c0f922c75afc1f5dc5c27710885",
+      "bytes": 183503720,
+      "mtime": 1791290206.26734,
+      "sha256": "a05c6169603aa7bbe786e2f2d78189218e5f7a900ee111be826c0600e613e5de"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/legacy_nat_scheduler-f362d726f77b3cc0",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-f362d726f77b3cc0/test-integration-test-legacy_nat_scheduler.json",
+      "fingerprintSha256": "2cee98c62a2ed43bc474146bba3823e48cc4c0db848c902ead8b742a16f50eb7",
+      "bytes": 81854992,
+      "mtime": 1791290207.57934,
+      "sha256": "fb82d559cec733b9aa42acf3bd1dc929be446e9bb421136653deea929d9def75"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/legacy_nat_runtime-86edd2c6d2e23078",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-86edd2c6d2e23078/test-integration-test-legacy_nat_runtime.json",
+      "fingerprintSha256": "17109678c02db21f6b3ca4a40a3e25762ccc5cf3bbc59ad71a5abc257d62b9d2",
+      "bytes": 154375184,
+      "mtime": 1791290212.8073392,
+      "sha256": "ed40ea5a1b420204465bb3070b58841b5d42a61620248e20e4f5e1ef49a2ad65"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/mqtt_bootstrap-39ccd46f8999b5bb",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-39ccd46f8999b5bb/test-integration-test-mqtt_bootstrap.json",
+      "fingerprintSha256": "c94be0c73b72a85597e8ab45571c2b1156daaae7eb0a851410971f3b5cf8066c",
+      "bytes": 185671992,
+      "mtime": 1791290213.631339,
+      "sha256": "28078c391bdde830999a2cd4287241ffc6a11ab1e81a6a5dc8e552990c7874b8"
+    }
+  ],
+  "freedBytes": 3007070208,
+  "diskBefore": {
+    "freeBytes": 8598056960,
+    "cacheBytes": 86404067328
+  },
+  "diskAfter": {
+    "freeBytes": 11605127168,
+    "cacheBytes": 83396997120
+  },
+  "librariesDepfilesPinsNormalBinariesAndToolchainsPreserved": true
+}

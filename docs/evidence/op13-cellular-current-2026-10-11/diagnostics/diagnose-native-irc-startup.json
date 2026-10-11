@@ -1,0 +1,27 @@
+{
+  "command": [
+    "rtk",
+    "proxy",
+    "python3",
+    "/tmp/mio84-op13-returned-current-20261011/diagnose-native-irc-startup.py"
+  ],
+  "scope": "bounded existing public IRC startup; diagnostic-only failure snapshot, no admission request",
+  "sourceAndArtifactGuardsPassed": true,
+  "wholeWallMs": 6570.276,
+  "ready": true,
+  "failureSnapshotObserved": false,
+  "actualCarrierFailure": null,
+  "nativeDnsPanicCaughtInBacktrace": true,
+  "privateReceiptSha256": "d63c5615106d46ed58186774b8a116a07a1c05fc99dc7caf0ae0c594abe11663",
+  "cleanup": {
+    "forced": false,
+    "commandExit": 0,
+    "leaderWaitedFor": true,
+    "ownedRemoteProcessAbsent": true,
+    "ownedRemoteProcessAbsentLate": true,
+    "localReadersEnded": true,
+    "ownedDirectoryRemoved": true,
+    "elapsedMs": 1062.152
+  },
+  "defaultCellularNoVpn": true
+}

@@ -1,0 +1,333 @@
+{
+  "case": "relay-with-rtc-allowed",
+  "runtimeExit": 1,
+  "passed": false,
+  "sourceAndArtifactGuardsPassed": true,
+  "wholeWallMs": 74593.412,
+  "physicalWanQualified": false,
+  "normalTlsVerified": true,
+  "executionSha256": "ee483b44e07b17c295e81dbdb0cdb90adefad30ffa8966df7d24f4d6452c7491",
+  "defaultNetworksNoVpnBeforeAfter": true,
+  "runtimeReceiptSha256": "1ffa5f6e030e74295edb56e80f45f106aacf8f02d7ecaa54d7829a2f993b9fae",
+  "firstFailure": {
+    "phase": "sdk:start",
+    "failureClass": "SdkReplyFailure",
+    "failure": "temporarily unreachable: allowed browser carriers unavailable"
+  },
+  "stages": [
+    {
+      "name": "native-device-selection",
+      "ok": true,
+      "elapsedMs": 33.171
+    },
+    {
+      "name": "owned-native-actor",
+      "ok": true,
+      "elapsedMs": 108.888
+    },
+    {
+      "name": "native-packet-capture-ready",
+      "ok": true,
+      "elapsedMs": 1016.153
+    },
+    {
+      "name": "native-sdk-start",
+      "ok": true,
+      "elapsedMs": 1555.284
+    },
+    {
+      "name": "browser-device-selection",
+      "ok": true,
+      "elapsedMs": 22.304
+    },
+    {
+      "name": "browser-packet-capture-ready",
+      "ok": true,
+      "elapsedMs": 1067.77
+    },
+    {
+      "name": "owned-browser-page",
+      "ok": true,
+      "elapsedMs": 724.265
+    },
+    {
+      "name": "m82-rtc-observer-ready",
+      "ok": true,
+      "elapsedMs": 100.328
+    },
+    {
+      "name": "m82-admission-fixture-ready",
+      "ok": true,
+      "elapsedMs": 0.04
+    },
+    {
+      "name": "browser-sdk-start",
+      "ok": false,
+      "failureClass": "CurrentGuardError"
+    }
+  ],
+  "sdkCalls": [
+    {
+      "operation": "start",
+      "ok": false,
+      "callerElapsedMs": 60149.22000026703
+    }
+  ],
+  "replica": null,
+  "rtcDisabledRelay": null,
+  "relayWithRtcAllowed": null,
+  "cleanup": {
+    "browserObserver": {
+      "forced": false,
+      "commandExit": 0,
+      "readerEnded": true,
+      "elapsedMs": 31.554
+    },
+    "browser": {
+      "sdkRequired": true,
+      "tabRequired": true,
+      "forwardRequired": true,
+      "reverseRequired": true,
+      "errors": [],
+      "sdk": {
+        "id": 2,
+        "ok": true,
+        "result": {
+          "ownedMemberCount": 0,
+          "memberCloseCount": 0,
+          "memberFreeCount": 0,
+          "ownedMemberHandles": 0,
+          "networkClosed": true,
+          "networkFreed": true,
+          "memberDiagnostics": [],
+          "networkDiagnostics": [],
+          "errors": [],
+          "cleanupSucceeded": true,
+          "cleanupElapsedMs": 0.13000011444091797,
+          "generation": 0,
+          "cleanupHistory": [
+            {
+              "ownedMemberCount": 0,
+              "memberCloseCount": 0,
+              "memberFreeCount": 0,
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [],
+              "networkDiagnostics": [],
+              "errors": [],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 0.13000011444091797,
+              "generation": 0
+            }
+          ],
+          "storage": {
+            "required": true,
+            "ownedDatabaseClaimed": true,
+            "exclusiveStorageLock": true,
+            "deleted": true,
+            "pending": false,
+            "terminal": true
+          }
+        },
+        "callerElapsedMs": 35.019999980926514
+      },
+      "tab": {
+        "ownedTargetAbsent": true
+      },
+      "forwardRemoveExit": 0,
+      "forwardRuleAbsent": true,
+      "reverseRemoveExit": 0,
+      "reverseRuleAbsent": true,
+      "localListenerClosed": true,
+      "elapsedMs": 546.604,
+      "cleanupSucceeded": true
+    },
+    "native": {
+      "forced": false,
+      "commandExit": 0,
+      "leaderWaitedFor": true,
+      "ownedRemoteProcessAbsent": true,
+      "ownedRemoteProcessAbsentLate": true,
+      "localReadersEnded": true,
+      "ownedDirectoryRemoved": true,
+      "elapsedMs": 1062.662,
+      "sdkRetirement": {
+        "abortedHandlers": 0,
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "cleanupMs": 107,
+        "handlersAtClose": 0,
+        "handlersDrained": true,
+        "immediate": {
+          "activeRtcAssociations": 0,
+          "activeRtcPumps": 0,
+          "socketCount": 4,
+          "traffic": {
+            "driver_active": 0,
+            "generation": 1,
+            "max_datagram": 2048,
+            "protocol": {
+              "connack": 0,
+              "disconnect_sent": true,
+              "failure": null,
+              "ready_ms": 1791720396377,
+              "suback_codes": [
+                0
+              ],
+              "suback_id": 1,
+              "subscribe_id": 1,
+              "unsubscribe_sent": true,
+              "withdraw_ms": 1791720459178
+            },
+            "queue_depth": 64,
+            "queue_peak": 0,
+            "queued_packets": 0,
+            "received_bytes": 0,
+            "received_packets": 0,
+            "rejected_packets": 0,
+            "rx_queue_peak": 0,
+            "sent_bytes": 0,
+            "sent_packets": 0
+          }
+        },
+        "late": {
+          "activeRtcAssociations": 0,
+          "activeRtcPumps": 0,
+          "socketCount": 4,
+          "traffic": {
+            "driver_active": 0,
+            "generation": 1,
+            "max_datagram": 2048,
+            "protocol": {
+              "connack": 0,
+              "disconnect_sent": true,
+              "failure": null,
+              "ready_ms": 1791720396377,
+              "suback_codes": [
+                0
+              ],
+              "suback_id": 1,
+              "subscribe_id": 1,
+              "unsubscribe_sent": true,
+              "withdraw_ms": 1791720459178
+            },
+            "queue_depth": 64,
+            "queue_peak": 0,
+            "queued_packets": 0,
+            "received_bytes": 0,
+            "received_packets": 0,
+            "rejected_packets": 0,
+            "rx_queue_peak": 0,
+            "sent_bytes": 0,
+            "sent_packets": 0
+          }
+        },
+        "lateDelayMs": 100,
+        "nodeCloseReturned": true,
+        "socketsBefore": 4,
+        "socketsImmediate": 4,
+        "socketsLate": 4
+      }
+    },
+    "nativeQualified": true,
+    "packetCapture": {
+      "cleanupSucceeded": true,
+      "observerJoined": true,
+      "observerFailureCount": 0,
+      "firstPeerCheckCoveredByExpandedFilterProven": false,
+      "devices": {
+        "native": {
+          "ownedDirectoryAbsent": true,
+          "cleanupSucceeded": true,
+          "segments": [
+            {
+              "ready": true,
+              "startedBeforeSdk": true,
+              "forced": false,
+              "exit": 0,
+              "readersEnded": true,
+              "ownedProcessAbsentImmediate": true,
+              "ownedProcessAbsentLate": true,
+              "pcapBytes": 34746,
+              "packetsCaptured": 253,
+              "packetsReceivedByFilter": 259,
+              "kernelDrops": 0,
+              "limitReached": false
+            }
+          ]
+        },
+        "browser": {
+          "ownedDirectoryAbsent": true,
+          "cleanupSucceeded": true,
+          "segments": [
+            {
+              "ready": true,
+              "startedBeforeSdk": true,
+              "forced": false,
+              "exit": 0,
+              "readersEnded": true,
+              "ownedProcessAbsentImmediate": true,
+              "ownedProcessAbsentLate": true,
+              "pcapBytes": 113913,
+              "packetsCaptured": 384,
+              "packetsReceivedByFilter": 387,
+              "kernelDrops": 0,
+              "limitReached": false
+            }
+          ]
+        }
+      }
+    }
+  },
+  "fullSdkTerminalRetirementQualified": false,
+  "routeQualificationGap": null,
+  "networkBefore": {
+    "native": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": true,
+      "defaultTransportWifi": false,
+      "defaultTransport": "CELLULAR",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "browser": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    }
+  },
+  "networkAfter": {
+    "native": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": true,
+      "defaultTransportWifi": false,
+      "defaultTransport": "CELLULAR",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "browser": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    }
+  }
+}

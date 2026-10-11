@@ -1,0 +1,112 @@
+{
+  "exit": 0,
+  "cargoExit": 0,
+  "command": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--target",
+    "aarch64-linux-android",
+    "--features",
+    "rtc-probe",
+    "--bin",
+    "unified_admission_story",
+    "--bin",
+    "browser_wss_member_native",
+    "--bin",
+    "unified_native_member",
+    "--jobs",
+    "2",
+    "--message-format=json"
+  ],
+  "cargoSeconds": 42.48860291112214,
+  "nativePlatform": "android",
+  "targetDirectory": "/home/js/Git/miopunch/target",
+  "ndkRevision": "29.0.14206865",
+  "qualifiedForFrozenRun": true,
+  "sourceFrozenDuringBuild": true,
+  "artifacts": {
+    "/tmp/mio84-op13-returned-current-20261011/android/pinned/unified_admission_story": "288ee75ee075018264476ea4a72562e222a408cde659626ac7297654068218f2",
+    "/tmp/mio84-op13-returned-current-20261011/android/pinned/browser_wss_member_native": "65bd21709408b783fa028f7440c1fec7921ccae31275da7cb355da22f746af17",
+    "/tmp/mio84-op13-returned-current-20261011/android/pinned/unified_native_member": "5e22a032702bc41bb6d05b6fcbe98cc5771c3e77adbf499f41b5e1d97d59f3e7"
+  },
+  "deployment": {
+    "unified_admission_story": {
+      "compiledPath": "/tmp/mio84-op13-returned-current-20261011/android/pinned/unified_admission_story",
+      "compiledSha256": "288ee75ee075018264476ea4a72562e222a408cde659626ac7297654068218f2",
+      "deployedPath": "/tmp/mio84-op13-returned-current-20261011/android/deploy/unified_admission_story",
+      "compiledBytes": 185154424,
+      "transformation": {
+        "operation": "strip debug sections on owned copy only",
+        "command": [
+          "rtk",
+          "proxy",
+          "/usr/bin/llvm-strip",
+          "--strip-debug",
+          "/tmp/mio84-op13-returned-current-20261011/android/deploy/unified_admission_story"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "deployedSha256": "4a3b0d5c2702c90d3b7ba04090e97473e3932cb0f92c09425b7b53aa49333262",
+      "deployedBytes": 101778712
+    },
+    "browser_wss_member_native": {
+      "compiledPath": "/tmp/mio84-op13-returned-current-20261011/android/pinned/browser_wss_member_native",
+      "compiledSha256": "65bd21709408b783fa028f7440c1fec7921ccae31275da7cb355da22f746af17",
+      "deployedPath": "/tmp/mio84-op13-returned-current-20261011/android/deploy/browser_wss_member_native",
+      "compiledBytes": 185567376,
+      "transformation": {
+        "operation": "strip debug sections on owned copy only",
+        "command": [
+          "rtk",
+          "proxy",
+          "/usr/bin/llvm-strip",
+          "--strip-debug",
+          "/tmp/mio84-op13-returned-current-20261011/android/deploy/browser_wss_member_native"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "deployedSha256": "a4abbc2ddaf52b23556ec24183500f51a83863112a8379e3843007b5b95ddd91",
+      "deployedBytes": 102154272
+    },
+    "unified_native_member": {
+      "compiledPath": "/tmp/mio84-op13-returned-current-20261011/android/pinned/unified_native_member",
+      "compiledSha256": "5e22a032702bc41bb6d05b6fcbe98cc5771c3e77adbf499f41b5e1d97d59f3e7",
+      "deployedPath": "/tmp/mio84-op13-returned-current-20261011/android/deploy/unified_native_member",
+      "compiledBytes": 182578664,
+      "transformation": {
+        "operation": "strip debug sections on owned copy only",
+        "command": [
+          "rtk",
+          "proxy",
+          "/usr/bin/llvm-strip",
+          "--strip-debug",
+          "/tmp/mio84-op13-returned-current-20261011/android/deploy/unified_native_member"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "deployedSha256": "144bc2dcc2b5e31da5f1f76aa9cd69ac70779690fc0d803a3573e54aab54d48f",
+      "deployedBytes": 99729616
+    }
+  },
+  "sourceDigestBefore": "225420c6ac0deacfdb2f269704be69c1a88ce6fa4df17a75877973e144093844",
+  "sourceDigestAfter": "225420c6ac0deacfdb2f269704be69c1a88ce6fa4df17a75877973e144093844",
+  "freshArtifacts": 591,
+  "rebuiltArtifacts": 10,
+  "actualSelectedInputCount": 6712,
+  "actualSelectedRepositoryInputCount": 300,
+  "actualDepfileCount": 547,
+  "diskAfter": {
+    "freeBytes": 10073538560,
+    "cacheBytes": 84057419776
+  }
+}

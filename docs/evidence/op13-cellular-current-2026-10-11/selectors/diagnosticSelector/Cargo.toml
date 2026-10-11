@@ -1,0 +1,65 @@
+[package]
+name = "mio83-replica-red-selected"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.96"
+publish = false
+autobins = false
+
+[workspace]
+resolver = "2"
+
+[features]
+rtc-probe = ["miopunch-native-probe/rtc-probe"]
+
+
+
+
+
+[dependencies]
+socket2 = "=0.6.5"
+rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
+serde = "=1.0.229"
+hex = "=0.4.3"
+n0-watcher = "=1.0.0"
+iroh-relay = { version = "=1.2.0", features = ["server", "test-utils"] }
+miopunch-native-probe = { path = "/home/js/Git/miopunch", default-features = false }
+iroh = { version = "=1.2.0", default-features = false, features = ["tls-ring", "unstable-custom-transports", "miopunch-test-hooks", "metrics"] }
+iroh-base = { version = "=1.2.0", features = ["key"] }
+n0-future = "=0.3.2"
+p2panda-core = "=0.7.1"
+serde_json = "=1.0.151"
+tempfile = "=3.27.0"
+tokio = { version = "=1.53.1", features = ["full"] }
+tokio-util = { version = "=0.7.19", features = ["codec"] }
+
+[patch.crates-io]
+iroh-relay = { path = "/home/js/Git/miopunch/vendor/iroh-relay" }
+p2panda-sync = { path = "/home/js/Git/miopunch/vendor/p2panda-sync" }
+iroh = { path = "/home/js/Git/miopunch/vendor/iroh" }
+noq = { path = "/home/js/Git/miopunch/vendor/noq" }
+noq-proto = { path = "/home/js/Git/miopunch/vendor/noq-proto" }
+p2panda-auth = { path = "/home/js/Git/miopunch/vendor/p2panda-auth" }
+netwatch = { path = "/home/js/Git/miopunch/vendor/netwatch" }
+portmapper = { path = "/home/js/Git/miopunch/vendor/portmapper" }
+
+[profile.dev]
+debug = "line-tables-only"
+incremental = false
+
+[profile.test]
+debug = "line-tables-only"
+incremental = false
+
+
+[[bin]]
+name = "irc_current_native"
+path = "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/irc_current_native.rs"
+
+[[bin]]
+name = "relay_current_native"
+path = "/tmp/mio84-op13-returned-current-20261011/relay_current_native.rs"
+
+[[bin]]
+name = "irc_diagnostic_native"
+path = "/tmp/mio84-op13-returned-current-20261011/irc_diagnostic_native.rs"

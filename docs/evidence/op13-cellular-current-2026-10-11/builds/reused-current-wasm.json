@@ -1,0 +1,18 @@
+{
+  "receiptSha256": "612d0e3c517d57b3e1fb25473f05eee1986af10f17e286132f92e33a76932ca0",
+  "sourceDigestBefore": "225420c6ac0deacfdb2f269704be69c1a88ce6fa4df17a75877973e144093844",
+  "sourceDigestAfter": "225420c6ac0deacfdb2f269704be69c1a88ce6fa4df17a75877973e144093844",
+  "selectedGraphSha256": "a62b82d2e08dda18c11a3cb4997e9fea8e423e787a0cb5e8a472082ea937ebbe",
+  "actualInputCount": 3159,
+  "artifacts": {
+    "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/wasm/pkg/miopunch_browser_probe_bg.wasm": "450a5a88c8258d0555b661dc287869231d35bbecbe965a89ec5576cc9332ead7",
+    "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/wasm/pkg/miopunch_browser_probe_bg.wasm.d.ts": "4a5f2ab3fd6b86985a54edeba35c9b62cba3ec7187f1b54a7c60338215131a9d",
+    "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/wasm/pkg/miopunch_browser_probe.js": "b1261b996a5c910b264e33fbfeb128dfa8309b9eb83b88c1e99867fc2dc842e9",
+    "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/wasm/pkg/miopunch_browser_probe.d.ts": "8bf1905559cf25da9923ff34c57741d61c2ac87365ea99a0cd70d92737b948a7",
+    "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/wasm/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+    "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/wasm/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96"
+  },
+  "sourceFrozenDuringBuild": true,
+  "qualifiedForFrozenRun": true,
+  "reuseRevalidatedForEachCase": true
+}

@@ -1,0 +1,19 @@
+{
+  "scope": "read-only actual Pixel Chrome command-line files; absence is not complete process argument proof",
+  "files": [
+    {
+      "path": "/data/local/tmp/chrome-command-line",
+      "fileRead": false,
+      "certificateVerificationOverridePresent": false,
+      "proxyFlagPresent": false
+    },
+    {
+      "path": "/data/local/chrome-command-line",
+      "fileRead": false,
+      "certificateVerificationOverridePresent": false,
+      "proxyFlagPresent": false
+    }
+  ],
+  "certificateOverrideObserved": false,
+  "deviceSettingsChanged": false
+}

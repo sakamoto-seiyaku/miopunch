@@ -1,0 +1,26 @@
+{
+  "rootSdkChanged": false,
+  "rootSource": "/home/js/Git/miopunch/src/bin/unified_admission_story.rs",
+  "rootSourceSha256": "c022b488d1234c7203ab79549e16e8c2b11188c313d1b4068d38bf44b9127b17",
+  "relayOnlyFixtureSource": "/tmp/mio84-op13-returned-current-20261011/relay_current_native.rs",
+  "relayOnlyFixtureSha256": "04a97bf75e2a1ec5d323b99ea67867e3a5353567e39e7cd805ec942c97c5cf8b",
+  "retainedIrcHelper": "/tmp/mio84-op13-returned-current-20261011/unused",
+  "selectorManifestSha256": "23474497abf1f09169122a64189490fc073c16c7e526bbc4a2b747f6714f30ca",
+  "selectorLockSha256": "8034fbedc3b5b6c91655c14fb8a9824d9212f0b67608b05f438af0df6ad5d042",
+  "externalLockRowsUnchanged": true,
+  "localSelectedDependencyRows": [
+    "rustls",
+    "serde",
+    "hex",
+    "iroh",
+    "iroh-base",
+    "miopunch-native-probe",
+    "n0-future",
+    "p2panda-core",
+    "serde_json",
+    "tokio",
+    "tokio-util"
+  ],
+  "sourceDeltaPurpose": "Omit optional MQTT startup and contact resources in a fixture explicitly selecting public relay; protocol/admission/replica/member operations remain shared SDK",
+  "relayReadinessEvidence": "Actual connected home relay status after normal-root HTTPS setup; endpoint.online alone insufficient"
+}

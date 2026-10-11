@@ -1,0 +1,205 @@
+{
+  "publicTraffic": true,
+  "command": [],
+  "pageLoaded": true,
+  "diagnosticPassed": true,
+  "observerStart": {
+    "available": true,
+    "failureClass": null,
+    "events": [
+      {
+        "networkEnabled": true
+      }
+    ],
+    "framesOrHeadersRecorded": false
+  },
+  "diagnosticCommandExit": 0,
+  "bareWss": {
+    "elapsedMs": 3252.284999847412,
+    "diagnostics": {
+      "buffered_bytes": 0,
+      "closed": false,
+      "pending_bytes": 0,
+      "queued_packets": 0,
+      "ready": true,
+      "traffic": {
+        "buffered_bytes_peak": 60,
+        "connack": 0,
+        "disconnect_sent": false,
+        "failure": null,
+        "generation": 2794267537,
+        "ready_ms": 1791720888435,
+        "received_bytes": 0,
+        "received_frame_bytes": 9,
+        "received_frames": 2,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_frame_bytes": 118,
+        "sent_frames": 2,
+        "sent_packets": 0,
+        "suback_codes": [
+          0
+        ],
+        "suback_id": 1,
+        "subscribe_id": 1,
+        "unsubscribe_sent": false,
+        "withdraw_ms": null
+      }
+    },
+    "afterClose": {
+      "buffered_bytes": 61,
+      "closed": true,
+      "pending_bytes": 0,
+      "queued_packets": 0,
+      "ready": false,
+      "traffic": {
+        "buffered_bytes_peak": 61,
+        "connack": 0,
+        "disconnect_sent": true,
+        "failure": null,
+        "generation": 2794267537,
+        "ready_ms": 1791720888435,
+        "received_bytes": 0,
+        "received_frame_bytes": 9,
+        "received_frames": 2,
+        "received_packets": 0,
+        "rejected_packets": 0,
+        "rx_queue_peak": 0,
+        "sent_bytes": 0,
+        "sent_frame_bytes": 179,
+        "sent_frames": 4,
+        "sent_packets": 0,
+        "suback_codes": [
+          0
+        ],
+        "suback_id": 1,
+        "subscribe_id": 1,
+        "unsubscribe_sent": true,
+        "withdraw_ms": 1791720888460
+      }
+    }
+  },
+  "networkMetadata": {
+    "available": true,
+    "failureClass": null,
+    "events": [
+      {
+        "networkEnabled": true
+      },
+      {
+        "number": 1
+      },
+      {
+        "socket": 1,
+        "timestamp": 2589639.702244
+      },
+      {
+        "socket": 1,
+        "timestamp": 2589640.516484,
+        "status": 101
+      },
+      {
+        "socket": 1,
+        "timestamp": 2589640.535301,
+        "opcode": 2,
+        "bytes": 58
+      },
+      {
+        "socket": 1,
+        "timestamp": 2589641.329532,
+        "opcode": 2,
+        "bytes": 4
+      },
+      {
+        "socket": 1,
+        "timestamp": 2589641.331738,
+        "opcode": 2,
+        "bytes": 60
+      },
+      {
+        "socket": 1,
+        "timestamp": 2589642.050448,
+        "opcode": 2,
+        "bytes": 5
+      },
+      {
+        "socket": 1,
+        "timestamp": 2589642.078247,
+        "opcode": 2,
+        "bytes": 59
+      },
+      {
+        "socket": 1,
+        "timestamp": 2589642.078658,
+        "opcode": 2,
+        "bytes": 2
+      }
+    ],
+    "framesOrHeadersRecorded": false
+  },
+  "observerCleanup": {
+    "forced": false,
+    "commandExit": 0,
+    "readerEnded": true,
+    "elapsedMs": 31.644
+  },
+  "pageCleanup": {
+    "sdkRequired": true,
+    "tabRequired": true,
+    "forwardRequired": true,
+    "reverseRequired": true,
+    "errors": [],
+    "sdk": {
+      "id": 1,
+      "ok": true,
+      "result": {
+        "ownedMemberCount": 0,
+        "memberCloseCount": 0,
+        "memberFreeCount": 0,
+        "ownedMemberHandles": 0,
+        "networkClosed": true,
+        "networkFreed": true,
+        "memberDiagnostics": [],
+        "networkDiagnostics": [],
+        "errors": [],
+        "cleanupSucceeded": true,
+        "cleanupElapsedMs": 0.059999942779541016,
+        "generation": 0,
+        "cleanupHistory": [
+          {
+            "ownedMemberCount": 0,
+            "memberCloseCount": 0,
+            "memberFreeCount": 0,
+            "ownedMemberHandles": 0,
+            "networkClosed": true,
+            "networkFreed": true,
+            "memberDiagnostics": [],
+            "networkDiagnostics": [],
+            "errors": [],
+            "cleanupSucceeded": true,
+            "cleanupElapsedMs": 0.059999942779541016,
+            "generation": 0
+          }
+        ],
+        "storage": {
+          "required": false,
+          "ownedDatabaseClaimed": false
+        }
+      },
+      "callerElapsedMs": 1.2750000953674316
+    },
+    "tab": {
+      "ownedTargetAbsent": true
+    },
+    "forwardRemoveExit": 0,
+    "forwardRuleAbsent": true,
+    "reverseRemoveExit": 0,
+    "reverseRuleAbsent": true,
+    "localListenerClosed": true,
+    "elapsedMs": 512.612,
+    "cleanupSucceeded": true
+  },
+  "sdkSourcesStillCurrent": true
+}

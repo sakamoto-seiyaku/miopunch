@@ -1,0 +1,61 @@
+{
+  "runtimeExit": 0,
+  "passed": true,
+  "functionalPassed": true,
+  "sourceAndArtifactGuardsPassed": true,
+  "wholeWallMs": 74662.267,
+  "physicalWanQualified": false,
+  "normalPublicHttpsOrigin": true,
+  "requestElapsedMs": 30163.5,
+  "memberElapsedMs": 6918.599999904633,
+  "executionSha256": "aad19d80435d3909d072d81264e940e6ae62111566bf7df9904ac9b80b01e358",
+  "defaultNetworksNoVpnBeforeAfter": true,
+  "networkBefore": {
+    "native": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": true,
+      "defaultTransportWifi": false,
+      "defaultTransport": "CELLULAR",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "browser": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    }
+  },
+  "networkAfter": {
+    "native": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": true,
+      "defaultTransportWifi": false,
+      "defaultTransport": "CELLULAR",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "browser": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    }
+  }
+}

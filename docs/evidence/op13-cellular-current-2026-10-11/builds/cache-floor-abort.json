@@ -1,0 +1,8 @@
+{
+  "scope": "first diagnostic-android driver attempt, before successful reviewed retry",
+  "cargoInvoked": false,
+  "outputDirectoryCreated": false,
+  "sourceOrLockChanged": false,
+  "returnedMessage": "only 9.89 GiB free; need 10.00 GiB before compiling",
+  "recovery": "three exact unpublished old test caches removed after fresh published-reference and host-process audits; retry uses unchanged cache floor"
+}

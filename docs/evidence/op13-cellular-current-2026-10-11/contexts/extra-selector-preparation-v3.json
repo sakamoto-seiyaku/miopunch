@@ -1,0 +1,29 @@
+{
+  "rootSdkChanged": false,
+  "rootSource": "/home/js/Git/miopunch/src/bin/unified_admission_story.rs",
+  "rootSourceSha256": "c022b488d1234c7203ab79549e16e8c2b11188c313d1b4068d38bf44b9127b17",
+  "relayOnlyFixtureSource": "/tmp/mio84-op13-returned-current-20261011/relay_current_native.rs",
+  "relayOnlyFixtureSha256": "6846c879a474d2cb3c4b56db647144ac2a5f9d953b4863a356d45f80cfe1ed15",
+  "retainedIrcHelper": "/tmp/mio84-op13-returned-current-20261011/unused",
+  "selectorManifestSha256": "eefeef628763bbccaf186ec0cd0d7e5aeeb812939ee255918a217091e0ff6bbd",
+  "selectorLockSha256": "a33846c52b0769f0a3ee8e7e1aec17737cd840d61412f11828376e816b6bcda7",
+  "externalLockRowsUnchanged": true,
+  "localSelectedDependencyRows": [
+    "rustls",
+    "serde",
+    "hex",
+    "iroh",
+    "iroh-base",
+    "miopunch-native-probe",
+    "n0-future",
+    "p2panda-core",
+    "serde_json",
+    "tokio",
+    "tokio-util"
+  ],
+  "sourceDeltaPurpose": "Omit optional MQTT startup and contact resources in a fixture explicitly selecting public relay; protocol/admission/replica/member operations remain shared SDK",
+  "relayReadinessEvidence": "Actual connected home relay status after normal-root HTTPS setup; endpoint.online alone insufficient",
+  "selectorLockByteIdenticalTo": null,
+  "retainedDependencyGraphReason": "Retain all original selector dependencies so locked graph cannot prune packages; no lock re-resolution",
+  "localDeltaOnly": "Added existing pinned socket2 0.6.5 to local package dependency row; every other lock row byte value preserved"
+}

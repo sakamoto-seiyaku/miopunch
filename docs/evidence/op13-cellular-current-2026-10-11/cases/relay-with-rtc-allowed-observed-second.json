@@ -1,0 +1,492 @@
+{
+  "case": "relay-with-rtc-allowed",
+  "runtimeExit": 1,
+  "passed": false,
+  "sourceAndArtifactGuardsPassed": true,
+  "wholeWallMs": 41002.388,
+  "physicalWanQualified": false,
+  "normalTlsVerified": true,
+  "executionSha256": "083f177c37e26fcacd427fdba49bd6aa4fd48dc24afe3c5ab5946267a7d5a426",
+  "defaultNetworksNoVpnBeforeAfter": true,
+  "runtimeReceiptSha256": "b92311f9f5e2fac11651d2025682fab01bc66a8de98cdabdcc4601e9a469869a",
+  "firstFailure": {
+    "phase": "saved-provider-reopen",
+    "failureClass": "RuntimeError"
+  },
+  "stages": [
+    {
+      "name": "native-device-selection",
+      "ok": true,
+      "elapsedMs": 34.813
+    },
+    {
+      "name": "owned-native-actor",
+      "ok": true,
+      "elapsedMs": 95.797
+    },
+    {
+      "name": "native-packet-capture-ready",
+      "ok": true,
+      "elapsedMs": 970.066
+    },
+    {
+      "name": "native-sdk-start",
+      "ok": true,
+      "elapsedMs": 2234.053
+    },
+    {
+      "name": "browser-device-selection",
+      "ok": true,
+      "elapsedMs": 32.937
+    },
+    {
+      "name": "browser-packet-capture-ready",
+      "ok": true,
+      "elapsedMs": 1212.138
+    },
+    {
+      "name": "owned-browser-page",
+      "ok": true,
+      "elapsedMs": 689.216
+    },
+    {
+      "name": "m82-rtc-observer-ready",
+      "ok": true,
+      "elapsedMs": 100.343
+    },
+    {
+      "name": "m82-admission-fixture-ready",
+      "ok": true,
+      "elapsedMs": 0.042
+    },
+    {
+      "name": "browser-sdk-start",
+      "ok": true,
+      "elapsedMs": 2344.505
+    },
+    {
+      "name": "restricted-admission-request",
+      "ok": true,
+      "elapsedMs": 2880.414
+    },
+    {
+      "name": "native-restricted-admission",
+      "ok": true,
+      "elapsedMs": 0.479
+    },
+    {
+      "name": "different-TLS-identity-claim",
+      "ok": true,
+      "elapsedMs": 2697.341
+    },
+    {
+      "name": "native-TLS-claim-restricted",
+      "ok": true,
+      "elapsedMs": 0.383
+    },
+    {
+      "name": "native-TLS-claim-rejected",
+      "ok": true,
+      "elapsedMs": 0.419
+    },
+    {
+      "name": "unapproved-open_member-rejected",
+      "ok": true,
+      "elapsedMs": 59.073
+    },
+    {
+      "name": "unapproved-sync_replica-rejected",
+      "ok": true,
+      "elapsedMs": 56.826
+    },
+    {
+      "name": "authorization-only-stop",
+      "ok": true,
+      "elapsedMs": 1071.499
+    },
+    {
+      "name": "authorization-only-reopen",
+      "ok": true,
+      "elapsedMs": 2045.722
+    },
+    {
+      "name": "complete-reopen-stop",
+      "ok": true,
+      "elapsedMs": 780.148
+    },
+    {
+      "name": "independent-offline-author",
+      "ok": true,
+      "elapsedMs": 410.762
+    },
+    {
+      "name": "saved-provider-retirement",
+      "ok": true,
+      "elapsedMs": 763.885
+    },
+    {
+      "name": "saved-provider-reopen",
+      "ok": false,
+      "failureClass": "RuntimeError"
+    }
+  ],
+  "sdkCalls": [
+    {
+      "operation": "start",
+      "ok": true,
+      "callerElapsedMs": 2312.1400003433228
+    },
+    {
+      "operation": "request_admission",
+      "ok": true,
+      "callerElapsedMs": 2843.9649996757507
+    },
+    {
+      "operation": "admission_identity_probe",
+      "ok": false,
+      "callerElapsedMs": 2665.25
+    },
+    {
+      "operation": "open_member",
+      "ok": false,
+      "callerElapsedMs": 12.204999923706055
+    },
+    {
+      "operation": "sync_replica",
+      "ok": false,
+      "callerElapsedMs": 19.890000343322754
+    },
+    {
+      "operation": "request_admission",
+      "ok": true,
+      "callerElapsedMs": 2975.1449999809265
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 13.054999828338623
+    },
+    {
+      "operation": "stop",
+      "ok": true,
+      "callerElapsedMs": 1028.6849999427795
+    },
+    {
+      "operation": "start",
+      "ok": true,
+      "callerElapsedMs": 1979.1950001716614
+    },
+    {
+      "operation": "request_admission",
+      "ok": true,
+      "callerElapsedMs": 2824.005000114441
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 16.954999923706055
+    },
+    {
+      "operation": "complete_admission",
+      "ok": true,
+      "callerElapsedMs": 1743.3550000190735
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 39.94999980926514
+    },
+    {
+      "operation": "stop",
+      "ok": true,
+      "callerElapsedMs": 743.1749997138977
+    }
+  ],
+  "replica": null,
+  "rtcDisabledRelay": null,
+  "relayWithRtcAllowed": null,
+  "cleanup": {
+    "browserObserver": {
+      "forced": false,
+      "commandExit": 0,
+      "readerEnded": true,
+      "elapsedMs": 31.731
+    },
+    "browser": {
+      "sdkRequired": true,
+      "tabRequired": true,
+      "forwardRequired": true,
+      "reverseRequired": true,
+      "errors": [],
+      "sdk": {
+        "id": 15,
+        "ok": true,
+        "result": {
+          "ownedMemberCount": 0,
+          "memberCloseCount": 0,
+          "memberFreeCount": 0,
+          "ownedMemberHandles": 0,
+          "networkClosed": true,
+          "networkFreed": true,
+          "memberDiagnostics": [],
+          "networkDiagnostics": [
+            {
+              "delayMs": 0,
+              "observed": {
+                "activeAssociations": 0,
+                "activePumpTasks": 0,
+                "checkpoint": null,
+                "cleanupObservers": 0,
+                "publishedRoutes": [],
+                "resourceAllowed": true,
+                "resourceRevision": 0,
+                "retiredMemberReports": {},
+                "secretGeneration": 0,
+                "sourceRevision": 2
+              }
+            },
+            {
+              "delayMs": 100,
+              "observed": {
+                "activeAssociations": 0,
+                "activePumpTasks": 0,
+                "checkpoint": null,
+                "cleanupObservers": 0,
+                "publishedRoutes": [],
+                "resourceAllowed": true,
+                "resourceRevision": 0,
+                "retiredMemberReports": {},
+                "secretGeneration": 0,
+                "sourceRevision": 2
+              }
+            }
+          ],
+          "errors": [],
+          "cleanupSucceeded": true,
+          "cleanupElapsedMs": 743.0050001144409,
+          "generation": 2,
+          "cleanupHistory": [
+            {
+              "ownedMemberCount": 0,
+              "memberCloseCount": 0,
+              "memberFreeCount": 0,
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "checkpoint": null,
+                    "cleanupObservers": 0,
+                    "publishedRoutes": [],
+                    "resourceAllowed": true,
+                    "resourceRevision": 0,
+                    "retiredMemberReports": {},
+                    "secretGeneration": 0,
+                    "sourceRevision": 3
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "checkpoint": null,
+                    "cleanupObservers": 0,
+                    "publishedRoutes": [],
+                    "resourceAllowed": true,
+                    "resourceRevision": 0,
+                    "retiredMemberReports": {},
+                    "secretGeneration": 0,
+                    "sourceRevision": 3
+                  }
+                }
+              ],
+              "errors": [],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 1027.2350001335144,
+              "generation": 1
+            },
+            {
+              "ownedMemberCount": 0,
+              "memberCloseCount": 0,
+              "memberFreeCount": 0,
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "checkpoint": null,
+                    "cleanupObservers": 0,
+                    "publishedRoutes": [],
+                    "resourceAllowed": true,
+                    "resourceRevision": 0,
+                    "retiredMemberReports": {},
+                    "secretGeneration": 0,
+                    "sourceRevision": 2
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "checkpoint": null,
+                    "cleanupObservers": 0,
+                    "publishedRoutes": [],
+                    "resourceAllowed": true,
+                    "resourceRevision": 0,
+                    "retiredMemberReports": {},
+                    "secretGeneration": 0,
+                    "sourceRevision": 2
+                  }
+                }
+              ],
+              "errors": [],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 743.0050001144409,
+              "generation": 2
+            }
+          ],
+          "storage": {
+            "required": true,
+            "ownedDatabaseClaimed": true,
+            "exclusiveStorageLock": true,
+            "deleted": true,
+            "pending": false,
+            "terminal": true
+          }
+        },
+        "callerElapsedMs": 22.3149995803833
+      },
+      "tab": {
+        "ownedTargetAbsent": true
+      },
+      "forwardRemoveExit": 0,
+      "forwardRuleAbsent": true,
+      "reverseRemoveExit": 0,
+      "reverseRuleAbsent": true,
+      "localListenerClosed": true,
+      "elapsedMs": 538.3,
+      "cleanupSucceeded": true
+    },
+    "native": {
+      "forced": false,
+      "commandExit": 1,
+      "leaderWaitedFor": true,
+      "ownedRemoteProcessAbsent": true,
+      "ownedRemoteProcessAbsentLate": true,
+      "localReadersEnded": true,
+      "ownedDirectoryRemoved": true,
+      "elapsedMs": 794.334
+    },
+    "nativeQualified": false,
+    "packetCapture": {
+      "cleanupSucceeded": true,
+      "observerJoined": true,
+      "observerFailureCount": 0,
+      "firstPeerCheckCoveredByExpandedFilterProven": false,
+      "devices": {
+        "native": {
+          "ownedDirectoryAbsent": true,
+          "cleanupSucceeded": true,
+          "segments": [
+            {
+              "ready": true,
+              "startedBeforeSdk": true,
+              "forced": false,
+              "exit": 0,
+              "readersEnded": true,
+              "ownedProcessAbsentImmediate": true,
+              "ownedProcessAbsentLate": true,
+              "pcapBytes": 26993,
+              "packetsCaptured": 156,
+              "packetsReceivedByFilter": 156,
+              "kernelDrops": 0,
+              "limitReached": false
+            }
+          ]
+        },
+        "browser": {
+          "ownedDirectoryAbsent": true,
+          "cleanupSucceeded": true,
+          "segments": [
+            {
+              "ready": true,
+              "startedBeforeSdk": true,
+              "forced": false,
+              "exit": 0,
+              "readersEnded": true,
+              "ownedProcessAbsentImmediate": true,
+              "ownedProcessAbsentLate": true,
+              "pcapBytes": 40502,
+              "packetsCaptured": 196,
+              "packetsReceivedByFilter": 196,
+              "kernelDrops": 0,
+              "limitReached": false
+            }
+          ]
+        }
+      }
+    }
+  },
+  "fullSdkTerminalRetirementQualified": false,
+  "routeQualificationGap": null,
+  "networkBefore": {
+    "native": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": true,
+      "defaultTransportWifi": false,
+      "defaultTransport": "CELLULAR",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "browser": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    }
+  },
+  "networkAfter": {
+    "native": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": true,
+      "defaultTransportWifi": false,
+      "defaultTransport": "CELLULAR",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "browser": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    }
+  }
+}

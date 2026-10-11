@@ -1,0 +1,107 @@
+{
+  "publicTraffic": true,
+  "command": [],
+  "pageLoaded": true,
+  "diagnosticPassed": true,
+  "observerStart": {
+    "available": true,
+    "failureClass": null,
+    "events": [
+      {
+        "networkEnabled": true
+      }
+    ],
+    "framesOrHeadersRecorded": false
+  },
+  "diagnosticCommandExit": 0,
+  "bareWss": {
+    "opened": true,
+    "errors": 0,
+    "elapsedMs": 1922.7350001335144
+  },
+  "networkMetadata": {
+    "available": true,
+    "failureClass": null,
+    "events": [
+      {
+        "networkEnabled": true
+      },
+      {
+        "number": 1
+      },
+      {
+        "socket": 1,
+        "timestamp": 2589413.705621
+      },
+      {
+        "socket": 1,
+        "timestamp": 2589414.514098,
+        "status": 101
+      }
+    ],
+    "framesOrHeadersRecorded": false
+  },
+  "observerCleanup": {
+    "forced": false,
+    "commandExit": 0,
+    "readerEnded": true,
+    "elapsedMs": 31.648
+  },
+  "pageCleanup": {
+    "sdkRequired": true,
+    "tabRequired": true,
+    "forwardRequired": true,
+    "reverseRequired": true,
+    "errors": [],
+    "sdk": {
+      "id": 1,
+      "ok": true,
+      "result": {
+        "ownedMemberCount": 0,
+        "memberCloseCount": 0,
+        "memberFreeCount": 0,
+        "ownedMemberHandles": 0,
+        "networkClosed": true,
+        "networkFreed": true,
+        "memberDiagnostics": [],
+        "networkDiagnostics": [],
+        "errors": [],
+        "cleanupSucceeded": true,
+        "cleanupElapsedMs": 0.1549997329711914,
+        "generation": 0,
+        "cleanupHistory": [
+          {
+            "ownedMemberCount": 0,
+            "memberCloseCount": 0,
+            "memberFreeCount": 0,
+            "ownedMemberHandles": 0,
+            "networkClosed": true,
+            "networkFreed": true,
+            "memberDiagnostics": [],
+            "networkDiagnostics": [],
+            "errors": [],
+            "cleanupSucceeded": true,
+            "cleanupElapsedMs": 0.1549997329711914,
+            "generation": 0
+          }
+        ],
+        "storage": {
+          "required": false,
+          "ownedDatabaseClaimed": false
+        }
+      },
+      "callerElapsedMs": 4.215000152587891
+    },
+    "tab": {
+      "ownedTargetAbsent": true
+    },
+    "forwardRemoveExit": 0,
+    "forwardRuleAbsent": true,
+    "reverseRemoveExit": 0,
+    "reverseRuleAbsent": true,
+    "localListenerClosed": true,
+    "elapsedMs": 523.953,
+    "cleanupSucceeded": true
+  },
+  "sdkSourcesStillCurrent": true
+}

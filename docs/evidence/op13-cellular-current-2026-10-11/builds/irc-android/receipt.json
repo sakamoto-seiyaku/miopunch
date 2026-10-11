@@ -1,0 +1,66 @@
+{
+  "exit": 0,
+  "cargoExit": 0,
+  "command": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--manifest-path",
+    "/tmp/mio84-op13-returned-current-20261011/extraSelector/Cargo.toml",
+    "--target",
+    "aarch64-linux-android",
+    "--features",
+    "rtc-probe",
+    "--bin",
+    "irc_current_native",
+    "--jobs",
+    "2",
+    "--message-format=json"
+  ],
+  "cargoSeconds": 2.9155976409092546,
+  "nativePlatform": "android",
+  "targetDirectory": "/home/js/Git/miopunch/target",
+  "ndkRevision": "29.0.14206865",
+  "qualifiedForFrozenRun": true,
+  "sourceFrozenDuringBuild": true,
+  "artifacts": {
+    "/tmp/mio84-op13-returned-current-20261011/irc-android/pinned/irc_current_native": "f36deca80ea25dbeb4d5bc5a67ca8f8aaeae83b9cf091911f5a0f726abeae9ea"
+  },
+  "deployment": {
+    "irc_current_native": {
+      "compiledPath": "/tmp/mio84-op13-returned-current-20261011/irc-android/pinned/irc_current_native",
+      "compiledSha256": "f36deca80ea25dbeb4d5bc5a67ca8f8aaeae83b9cf091911f5a0f726abeae9ea",
+      "deployedPath": "/tmp/mio84-op13-returned-current-20261011/irc-android/deploy/irc_current_native",
+      "compiledBytes": 183320944,
+      "transformation": {
+        "operation": "strip debug sections on owned copy only",
+        "command": [
+          "rtk",
+          "proxy",
+          "/usr/bin/llvm-strip",
+          "--strip-debug",
+          "/tmp/mio84-op13-returned-current-20261011/irc-android/deploy/irc_current_native"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "deployedSha256": "a5fc9e4b217e347182fcf44f97170db5b348c8a4e2df8e850afb16d5c24f6953",
+      "deployedBytes": 100505072
+    }
+  },
+  "sourceDigestBefore": "225420c6ac0deacfdb2f269704be69c1a88ce6fa4df17a75877973e144093844",
+  "sourceDigestAfter": "225420c6ac0deacfdb2f269704be69c1a88ce6fa4df17a75877973e144093844",
+  "freshArtifacts": 599,
+  "rebuiltArtifacts": 1,
+  "actualSelectedInputCount": 6721,
+  "actualSelectedRepositoryInputCount": 297,
+  "actualDepfileCount": 546,
+  "diskAfter": {
+    "freeBytes": 10621816832,
+    "cacheBytes": 82894794752
+  }
+}

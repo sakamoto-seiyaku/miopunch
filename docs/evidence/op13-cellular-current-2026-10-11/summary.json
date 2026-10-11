@@ -1,0 +1,82 @@
+{
+  "nativeRole": "Android/PJZ110 OP13 cellular",
+  "browserRole": "Android/Pixel_6a Chrome Wi-Fi",
+  "rootSdkChanged": false,
+  "cases": [
+    {
+      "name": "irc-public-phones-current-v1",
+      "passed": false,
+      "runtimeExit": 1,
+      "wholeWallMs": 13838.135
+    },
+    {
+      "name": "irc-public-phones-current-v2",
+      "passed": false,
+      "runtimeExit": 1,
+      "wholeWallMs": 18849.389
+    },
+    {
+      "name": "irc-public-phones-current-v3",
+      "passed": true,
+      "runtimeExit": 0,
+      "wholeWallMs": 74662.267
+    },
+    {
+      "name": "mqtt-member-only-current-v1",
+      "passed": false,
+      "runtimeExit": 1,
+      "wholeWallMs": 83607.773
+    },
+    {
+      "name": "mqtt-rtc-whole-story-first",
+      "passed": false,
+      "runtimeExit": 1,
+      "wholeWallMs": 67537.65
+    },
+    {
+      "name": "relay-only-whole-story-first",
+      "passed": false,
+      "runtimeExit": 1,
+      "wholeWallMs": 40333.823
+    },
+    {
+      "name": "relay-only-whole-story-pure-relay-current-v1",
+      "passed": true,
+      "runtimeExit": 0,
+      "wholeWallMs": 84093.363
+    },
+    {
+      "name": "relay-with-rtc-allowed-first",
+      "passed": false,
+      "runtimeExit": 1,
+      "wholeWallMs": 74593.412
+    },
+    {
+      "name": "relay-with-rtc-allowed-observed-second",
+      "passed": false,
+      "runtimeExit": 1,
+      "wholeWallMs": 41002.388
+    },
+    {
+      "name": "relay-with-rtc-allowed-pure-relay-current-v1",
+      "passed": false,
+      "runtimeExit": 1,
+      "wholeWallMs": 57969.549
+    },
+    {
+      "name": "relay-with-rtc-allowed-pure-relay-current-v2",
+      "passed": true,
+      "runtimeExit": 0,
+      "wholeWallMs": 83228.491
+    }
+  ],
+  "fullRelayStoriesPassed": 2,
+  "mqttReplicaDataPathQualified": false,
+  "mqttOrdinaryRtcDataPathQualified": false,
+  "ircFullStoryQualified": true,
+  "physicalDefaultNetworksNoVpnObserved": true,
+  "physicalWanQualified": false,
+  "wholeDefaultIrcProfileQualified": false,
+  "fullSdkTerminalRetirementQualified": false,
+  "originalFailuresRetained": true
+}

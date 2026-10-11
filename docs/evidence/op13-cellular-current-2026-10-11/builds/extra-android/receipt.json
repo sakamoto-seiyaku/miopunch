@@ -1,0 +1,31 @@
+{
+  "exit": 101,
+  "cargoExit": 101,
+  "command": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--manifest-path",
+    "/tmp/mio84-op13-returned-current-20261011/extraSelector/Cargo.toml",
+    "--target",
+    "aarch64-linux-android",
+    "--features",
+    "rtc-probe",
+    "--bin",
+    "relay_current_native",
+    "--jobs",
+    "2",
+    "--message-format=json"
+  ],
+  "cargoSeconds": 0.31775163509882987,
+  "nativePlatform": "android",
+  "targetDirectory": "/home/js/Git/miopunch/target",
+  "ndkRevision": "29.0.14206865",
+  "qualifiedForFrozenRun": false,
+  "sourceFrozenDuringBuild": false,
+  "artifacts": {},
+  "deployment": {}
+}

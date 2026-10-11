@@ -1,0 +1,111 @@
+{
+  "requestMs": 30163.5,
+  "memberOpenMs": 6918.599999904633,
+  "strictPurpose2Qualified": true,
+  "nativeRequestActuallyAccepted": true,
+  "actualOneRecordApproval": true,
+  "materialsComplete": true,
+  "authorizationSaved": true,
+  "secretSaved": true,
+  "nativeIdentityReopened": true,
+  "browserIdentityReopened": true,
+  "purpose1FreshAckBeforeAndAfter": true,
+  "sameOriginalM": true,
+  "stableAndBindingUnchanged": true,
+  "relayBusinessQualified": true,
+  "businessPong": true,
+  "base64WireQualified": true,
+  "safeRateNative": true,
+  "safeRateBrowser": true,
+  "profile": {
+    "pacing_ms": 600,
+    "assembly_ttl_ms": 8000,
+    "queue_ttl_ms": 30000,
+    "attempt_ms": 60000
+  },
+  "sdkCallerBudgetMs": 60000,
+  "wholeDefaultIrcProfileQualified": false,
+  "actualPublicHttpsOrigin": "https://testnet.ergo.chat",
+  "pageStatus": 200,
+  "noCertificateVerificationOverrideSetByRun": true,
+  "cleanup": {
+    "browser": {
+      "sdkStarted": true,
+      "closeReturned": true,
+      "freed": true,
+      "elapsedMs": 650
+    },
+    "socketImmediateObservationPassed": false,
+    "lateSocketWaitMs": 2306.4099399999977,
+    "websocketsClosedBeforeContext": true,
+    "nativeExit": {
+      "code": 0,
+      "signal": null
+    },
+    "nativeClosedReceipt": {
+      "cleanup_elapsed_ms": 4,
+      "graceful_close": true,
+      "mqtt_traffic": null,
+      "traffic": {
+        "driver_active": 0,
+        "expired": 0,
+        "fragments": 0,
+        "pending": 0,
+        "protocol": {
+          "accepted_bytes": 0,
+          "accepted_datagrams": [],
+          "assembly": {
+            "completed_age_ms": 0,
+            "delivered": 0,
+            "expired": 0,
+            "pending": 0,
+            "pending_peak": 0,
+            "rejected": 0
+          },
+          "failure": null,
+          "fragments": [],
+          "max_line_bytes": 0,
+          "part_sent": false,
+          "pong_sent": 0,
+          "qualification": {
+            "capability": false,
+            "isupport": [],
+            "joined": false,
+            "names_done": false,
+            "own_prefix_bytes": null,
+            "ready": false,
+            "registered": false,
+            "retired": false,
+            "safe_rate": false
+          },
+          "queue_age_ms": 0,
+          "queue_peak": 0,
+          "queue_pending": 0,
+          "quit_sent": false,
+          "ready_ms": null,
+          "received_bytes": 0,
+          "tls": null,
+          "withdraw_ms": null
+        },
+        "received": 0,
+        "rejected": 0,
+        "sent": 0
+      }
+    },
+    "ownedStore": {
+      "deleted": true
+    },
+    "ownedPageClosed": true,
+    "borrowedChromeConnectionDetached": true,
+    "nativeProcessAbsentImmediate": true,
+    "nativeProcessAbsentLate": true,
+    "ownedFixtureRemoved": true
+  },
+  "functionalQualified": true,
+  "qualified": true,
+  "rawReceiptSha256": "b1aea5ae30a6f84fe316eaef223de48da4354a4656941d3000f2d6b6e7fc80e1",
+  "physicalWanQualified": false,
+  "wholeSdkTerminalCallbackProof": false,
+  "nativeIdentityEvidence": "two actual Native ready events have equal identities",
+  "browserIdentityEvidence": "startup, pending reopen and Complete reopen retain equal identities"
+}

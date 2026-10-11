@@ -1,0 +1,932 @@
+{
+  "case": "relay-only-whole-story",
+  "runtimeExit": 0,
+  "passed": true,
+  "sourceAndArtifactGuardsPassed": true,
+  "wholeWallMs": 84093.363,
+  "physicalWanQualified": false,
+  "normalTlsVerified": true,
+  "executionSha256": "7059c396a7e5076fee2aff11277b3e76c380c75d6251dfe760063769cc5bbea6",
+  "defaultNetworksNoVpnBeforeAfter": true,
+  "runtimeReceiptSha256": "1d5b32fcb197e0b654d34d883deb6a81ad8ca60182bf2c2f57465e16459005dc",
+  "firstFailure": null,
+  "stages": [
+    {
+      "name": "native-device-selection",
+      "ok": true,
+      "elapsedMs": 23.611
+    },
+    {
+      "name": "owned-native-actor",
+      "ok": true,
+      "elapsedMs": 99.468
+    },
+    {
+      "name": "native-packet-capture-ready",
+      "ok": true,
+      "elapsedMs": 996.59
+    },
+    {
+      "name": "native-sdk-start",
+      "ok": true,
+      "elapsedMs": 1234.136
+    },
+    {
+      "name": "browser-device-selection",
+      "ok": true,
+      "elapsedMs": 35.559
+    },
+    {
+      "name": "browser-packet-capture-ready",
+      "ok": true,
+      "elapsedMs": 1154.796
+    },
+    {
+      "name": "owned-browser-page",
+      "ok": true,
+      "elapsedMs": 728.521
+    },
+    {
+      "name": "m82-rtc-observer-ready",
+      "ok": true,
+      "elapsedMs": 100.328
+    },
+    {
+      "name": "m82-admission-fixture-ready",
+      "ok": true,
+      "elapsedMs": 0.044
+    },
+    {
+      "name": "browser-sdk-start",
+      "ok": true,
+      "elapsedMs": 2224.049
+    },
+    {
+      "name": "restricted-admission-request",
+      "ok": true,
+      "elapsedMs": 3158.12
+    },
+    {
+      "name": "native-restricted-admission",
+      "ok": true,
+      "elapsedMs": 0.452
+    },
+    {
+      "name": "different-TLS-identity-claim",
+      "ok": true,
+      "elapsedMs": 2941.667
+    },
+    {
+      "name": "native-TLS-claim-restricted",
+      "ok": true,
+      "elapsedMs": 0.446
+    },
+    {
+      "name": "native-TLS-claim-rejected",
+      "ok": true,
+      "elapsedMs": 0.361
+    },
+    {
+      "name": "unapproved-open_member-rejected",
+      "ok": true,
+      "elapsedMs": 45.997
+    },
+    {
+      "name": "unapproved-sync_replica-rejected",
+      "ok": true,
+      "elapsedMs": 55.895
+    },
+    {
+      "name": "authorization-only-stop",
+      "ok": true,
+      "elapsedMs": 939.301
+    },
+    {
+      "name": "authorization-only-reopen",
+      "ok": true,
+      "elapsedMs": 2044.22
+    },
+    {
+      "name": "complete-reopen-stop",
+      "ok": true,
+      "elapsedMs": 998.028
+    },
+    {
+      "name": "independent-offline-author",
+      "ok": true,
+      "elapsedMs": 406.089
+    },
+    {
+      "name": "saved-provider-retirement",
+      "ok": true,
+      "elapsedMs": 770.251
+    },
+    {
+      "name": "saved-provider-reopen",
+      "ok": true,
+      "elapsedMs": 989.634
+    },
+    {
+      "name": "complete-reopen",
+      "ok": true,
+      "elapsedMs": 2071.287
+    },
+    {
+      "name": "nonempty-sdk-replica",
+      "ok": true,
+      "elapsedMs": 9909.283
+    },
+    {
+      "name": "sender-durable-replica-receipt",
+      "ok": true,
+      "elapsedMs": 0.965
+    },
+    {
+      "name": "strict-new-replica-purpose",
+      "ok": true,
+      "elapsedMs": 0.058
+    },
+    {
+      "name": "replica-reopen-stop",
+      "ok": true,
+      "elapsedMs": 782.711
+    },
+    {
+      "name": "replica-reopen",
+      "ok": true,
+      "elapsedMs": 2355.46
+    },
+    {
+      "name": "ordinary-member-open",
+      "ok": true,
+      "elapsedMs": 6394.41
+    },
+    {
+      "name": "native-live-member",
+      "ok": true,
+      "elapsedMs": 270.428
+    },
+    {
+      "name": "native-live-business",
+      "ok": true,
+      "elapsedMs": 1.065
+    },
+    {
+      "name": "ordinary-member-close",
+      "ok": true,
+      "elapsedMs": 63.312
+    },
+    {
+      "name": "actual-current-member-removal",
+      "ok": true,
+      "elapsedMs": 34.589
+    },
+    {
+      "name": "revoked-open_member-rejected",
+      "ok": true,
+      "elapsedMs": 1917.027
+    },
+    {
+      "name": "revoked-sync_replica-rejected",
+      "ok": true,
+      "elapsedMs": 1735.187
+    }
+  ],
+  "sdkCalls": [
+    {
+      "operation": "start",
+      "ok": true,
+      "callerElapsedMs": 2187.885000228882
+    },
+    {
+      "operation": "request_admission",
+      "ok": true,
+      "callerElapsedMs": 3114.580000400543
+    },
+    {
+      "operation": "admission_identity_probe",
+      "ok": false,
+      "callerElapsedMs": 2891.25
+    },
+    {
+      "operation": "open_member",
+      "ok": false,
+      "callerElapsedMs": 10.184999942779541
+    },
+    {
+      "operation": "sync_replica",
+      "ok": false,
+      "callerElapsedMs": 19.005000114440918
+    },
+    {
+      "operation": "request_admission",
+      "ok": true,
+      "callerElapsedMs": 2765.1399998664856
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 14.904999732971191
+    },
+    {
+      "operation": "stop",
+      "ok": true,
+      "callerElapsedMs": 906
+    },
+    {
+      "operation": "start",
+      "ok": true,
+      "callerElapsedMs": 2014.1000003814697
+    },
+    {
+      "operation": "request_admission",
+      "ok": true,
+      "callerElapsedMs": 3172.904999732971
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 20.570000171661377
+    },
+    {
+      "operation": "complete_admission",
+      "ok": true,
+      "callerElapsedMs": 1703.0500001907349
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 37.230000019073486
+    },
+    {
+      "operation": "stop",
+      "ok": true,
+      "callerElapsedMs": 938.7199997901917
+    },
+    {
+      "operation": "start",
+      "ok": true,
+      "callerElapsedMs": 2044.3099999427795
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 59.61999988555908
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 24.175000190734863
+    },
+    {
+      "operation": "sync_replica",
+      "ok": true,
+      "callerElapsedMs": 9870.730000019073
+    },
+    {
+      "operation": "replica_diagnostics",
+      "ok": true,
+      "callerElapsedMs": 3.635000228881836
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 35.81999969482422
+    },
+    {
+      "operation": "stop",
+      "ok": true,
+      "callerElapsedMs": 738.7050004005432
+    },
+    {
+      "operation": "start",
+      "ok": true,
+      "callerElapsedMs": 2310.0199999809265
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 64.52499961853027
+    },
+    {
+      "operation": "open_member",
+      "ok": true,
+      "callerElapsedMs": 6355.764999866486
+    },
+    {
+      "operation": "member_diagnostics",
+      "ok": true,
+      "callerElapsedMs": 11.1899995803833
+    },
+    {
+      "operation": "exchange",
+      "ok": true,
+      "callerElapsedMs": 828.8949999809265
+    },
+    {
+      "operation": "member_diagnostics",
+      "ok": true,
+      "callerElapsedMs": 33.78499984741211
+    },
+    {
+      "operation": "path_diagnostics",
+      "ok": true,
+      "callerElapsedMs": 14.559999942779541
+    },
+    {
+      "operation": "rtc_fixture_snapshot",
+      "ok": true,
+      "callerElapsedMs": 2.005000114440918
+    },
+    {
+      "operation": "close_member",
+      "ok": true,
+      "callerElapsedMs": 11.859999656677246
+    },
+    {
+      "operation": "open_member",
+      "ok": false,
+      "callerElapsedMs": 1883.8199996948242
+    },
+    {
+      "operation": "sync_replica",
+      "ok": false,
+      "callerElapsedMs": 1691.7750000953674
+    }
+  ],
+  "replica": {
+    "targetAbsentBefore": true,
+    "targetVerifiedSavedAfter": true,
+    "scopeCount": 4,
+    "savedCount": 4,
+    "appliedCount": 4,
+    "complete": true,
+    "targetVerifiedSavedAfterReopen": true
+  },
+  "rtcDisabledRelay": {
+    "selectedRelay": true,
+    "freshAck": true,
+    "ordinaryOriginalM": true,
+    "noRtcCandidates": true,
+    "rtcRole": "None",
+    "peerCreated": 0,
+    "channelCreated": 0,
+    "businessMatched": true
+  },
+  "relayWithRtcAllowed": null,
+  "cleanup": {
+    "browserObserver": {
+      "forced": false,
+      "commandExit": 0,
+      "readerEnded": true,
+      "elapsedMs": 31.654
+    },
+    "browser": {
+      "sdkRequired": true,
+      "tabRequired": true,
+      "forwardRequired": true,
+      "reverseRequired": true,
+      "errors": [],
+      "sdk": {
+        "id": 33,
+        "ok": true,
+        "result": {
+          "ownedMemberCount": 0,
+          "memberCloseCount": 0,
+          "memberFreeCount": 0,
+          "ownedMemberHandles": 0,
+          "networkClosed": true,
+          "networkFreed": true,
+          "memberDiagnostics": [],
+          "networkDiagnostics": [
+            {
+              "delayMs": 0,
+              "observed": {
+                "activeAssociations": 0,
+                "activePumpTasks": 0,
+                "checkpoint": null,
+                "cleanupObservers": 0,
+                "publishedRoutes": [],
+                "resourceAllowed": false,
+                "resourceRevision": 1,
+                "retiredMemberReports": {
+                  "1931760": {
+                    "coordinator": {
+                      "authorizationRevision": 1,
+                      "bindingUnchanged": true,
+                      "freshAck": true,
+                      "peerPermitted": 4,
+                      "peerSupported": 5,
+                      "permitted": 4,
+                      "probeWatermark": 18,
+                      "purposeCode": 1,
+                      "selected": true,
+                      "stableId": 1931760,
+                      "stableUnchanged": true,
+                      "supported": 4,
+                      "version": 1
+                    }
+                  }
+                },
+                "secretGeneration": 0,
+                "sourceRevision": 1
+              }
+            },
+            {
+              "delayMs": 100,
+              "observed": {
+                "activeAssociations": 0,
+                "activePumpTasks": 0,
+                "checkpoint": null,
+                "cleanupObservers": 0,
+                "publishedRoutes": [],
+                "resourceAllowed": false,
+                "resourceRevision": 1,
+                "retiredMemberReports": {
+                  "1931760": {
+                    "coordinator": {
+                      "authorizationRevision": 1,
+                      "bindingUnchanged": true,
+                      "freshAck": true,
+                      "peerPermitted": 4,
+                      "peerSupported": 5,
+                      "permitted": 4,
+                      "probeWatermark": 18,
+                      "purposeCode": 1,
+                      "selected": true,
+                      "stableId": 1931760,
+                      "stableUnchanged": true,
+                      "supported": 4,
+                      "version": 1
+                    }
+                  }
+                },
+                "secretGeneration": 0,
+                "sourceRevision": 1
+              }
+            }
+          ],
+          "errors": [],
+          "cleanupSucceeded": true,
+          "cleanupElapsedMs": 109.6399998664856,
+          "generation": 4,
+          "cleanupHistory": [
+            {
+              "ownedMemberCount": 0,
+              "memberCloseCount": 0,
+              "memberFreeCount": 0,
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "checkpoint": null,
+                    "cleanupObservers": 0,
+                    "publishedRoutes": [],
+                    "resourceAllowed": false,
+                    "resourceRevision": 1,
+                    "retiredMemberReports": {},
+                    "secretGeneration": 0,
+                    "sourceRevision": 3
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "checkpoint": null,
+                    "cleanupObservers": 0,
+                    "publishedRoutes": [],
+                    "resourceAllowed": false,
+                    "resourceRevision": 1,
+                    "retiredMemberReports": {},
+                    "secretGeneration": 0,
+                    "sourceRevision": 3
+                  }
+                }
+              ],
+              "errors": [],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 904.6199998855591,
+              "generation": 1
+            },
+            {
+              "ownedMemberCount": 0,
+              "memberCloseCount": 0,
+              "memberFreeCount": 0,
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "checkpoint": null,
+                    "cleanupObservers": 0,
+                    "publishedRoutes": [],
+                    "resourceAllowed": false,
+                    "resourceRevision": 1,
+                    "retiredMemberReports": {},
+                    "secretGeneration": 0,
+                    "sourceRevision": 2
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "checkpoint": null,
+                    "cleanupObservers": 0,
+                    "publishedRoutes": [],
+                    "resourceAllowed": false,
+                    "resourceRevision": 1,
+                    "retiredMemberReports": {},
+                    "secretGeneration": 0,
+                    "sourceRevision": 2
+                  }
+                }
+              ],
+              "errors": [],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 938.4650001525879,
+              "generation": 2
+            },
+            {
+              "ownedMemberCount": 0,
+              "memberCloseCount": 0,
+              "memberFreeCount": 0,
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "checkpoint": null,
+                    "cleanupObservers": 0,
+                    "publishedRoutes": [],
+                    "resourceAllowed": false,
+                    "resourceRevision": 1,
+                    "retiredMemberReports": {
+                      "2097344": {
+                        "coordinator": {
+                          "authorizationRevision": 1,
+                          "bindingUnchanged": true,
+                          "freshAck": true,
+                          "peerPermitted": 4,
+                          "peerSupported": 5,
+                          "permitted": 4,
+                          "probeWatermark": 24,
+                          "purposeCode": 3,
+                          "selected": true,
+                          "stableId": 2097344,
+                          "stableUnchanged": true,
+                          "supported": 4,
+                          "version": 1
+                        }
+                      }
+                    },
+                    "secretGeneration": 0,
+                    "sourceRevision": 3
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "checkpoint": null,
+                    "cleanupObservers": 0,
+                    "publishedRoutes": [],
+                    "resourceAllowed": false,
+                    "resourceRevision": 1,
+                    "retiredMemberReports": {
+                      "2097344": {
+                        "coordinator": {
+                          "authorizationRevision": 1,
+                          "bindingUnchanged": true,
+                          "freshAck": true,
+                          "peerPermitted": 4,
+                          "peerSupported": 5,
+                          "permitted": 4,
+                          "probeWatermark": 24,
+                          "purposeCode": 3,
+                          "selected": true,
+                          "stableId": 2097344,
+                          "stableUnchanged": true,
+                          "supported": 4,
+                          "version": 1
+                        }
+                      }
+                    },
+                    "secretGeneration": 0,
+                    "sourceRevision": 3
+                  }
+                }
+              ],
+              "errors": [],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 738.5,
+              "generation": 3
+            },
+            {
+              "ownedMemberCount": 0,
+              "memberCloseCount": 0,
+              "memberFreeCount": 0,
+              "ownedMemberHandles": 0,
+              "networkClosed": true,
+              "networkFreed": true,
+              "memberDiagnostics": [],
+              "networkDiagnostics": [
+                {
+                  "delayMs": 0,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "checkpoint": null,
+                    "cleanupObservers": 0,
+                    "publishedRoutes": [],
+                    "resourceAllowed": false,
+                    "resourceRevision": 1,
+                    "retiredMemberReports": {
+                      "1931760": {
+                        "coordinator": {
+                          "authorizationRevision": 1,
+                          "bindingUnchanged": true,
+                          "freshAck": true,
+                          "peerPermitted": 4,
+                          "peerSupported": 5,
+                          "permitted": 4,
+                          "probeWatermark": 18,
+                          "purposeCode": 1,
+                          "selected": true,
+                          "stableId": 1931760,
+                          "stableUnchanged": true,
+                          "supported": 4,
+                          "version": 1
+                        }
+                      }
+                    },
+                    "secretGeneration": 0,
+                    "sourceRevision": 1
+                  }
+                },
+                {
+                  "delayMs": 100,
+                  "observed": {
+                    "activeAssociations": 0,
+                    "activePumpTasks": 0,
+                    "checkpoint": null,
+                    "cleanupObservers": 0,
+                    "publishedRoutes": [],
+                    "resourceAllowed": false,
+                    "resourceRevision": 1,
+                    "retiredMemberReports": {
+                      "1931760": {
+                        "coordinator": {
+                          "authorizationRevision": 1,
+                          "bindingUnchanged": true,
+                          "freshAck": true,
+                          "peerPermitted": 4,
+                          "peerSupported": 5,
+                          "permitted": 4,
+                          "probeWatermark": 18,
+                          "purposeCode": 1,
+                          "selected": true,
+                          "stableId": 1931760,
+                          "stableUnchanged": true,
+                          "supported": 4,
+                          "version": 1
+                        }
+                      }
+                    },
+                    "secretGeneration": 0,
+                    "sourceRevision": 1
+                  }
+                }
+              ],
+              "errors": [],
+              "cleanupSucceeded": true,
+              "cleanupElapsedMs": 109.6399998664856,
+              "generation": 4
+            }
+          ],
+          "storage": {
+            "required": true,
+            "ownedDatabaseClaimed": true,
+            "exclusiveStorageLock": true,
+            "deleted": true,
+            "pending": false,
+            "terminal": true
+          }
+        },
+        "callerElapsedMs": 131.7300000190735
+      },
+      "tab": {
+        "ownedTargetAbsent": true
+      },
+      "forwardRemoveExit": 0,
+      "forwardRuleAbsent": true,
+      "reverseRemoveExit": 0,
+      "reverseRuleAbsent": true,
+      "localListenerClosed": true,
+      "elapsedMs": 658.102,
+      "cleanupSucceeded": true
+    },
+    "native": {
+      "forced": false,
+      "commandExit": 0,
+      "leaderWaitedFor": true,
+      "ownedRemoteProcessAbsent": true,
+      "ownedRemoteProcessAbsentLate": true,
+      "localReadersEnded": true,
+      "ownedDirectoryRemoved": true,
+      "elapsedMs": 963.801,
+      "sdkRetirement": {
+        "abortedHandlers": 0,
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "cleanupMs": 109,
+        "handlersAtClose": 0,
+        "handlersDrained": true,
+        "immediate": {
+          "activeRtcAssociations": 0,
+          "activeRtcPumps": 0,
+          "socketCount": 4,
+          "traffic": {
+            "driver_active": 0,
+            "generation": 0,
+            "max_datagram": 2048,
+            "protocol": {
+              "connack": null,
+              "disconnect_sent": false,
+              "failure": null,
+              "ready_ms": null,
+              "suback_codes": [],
+              "suback_id": null,
+              "subscribe_id": null,
+              "unsubscribe_sent": false,
+              "withdraw_ms": null
+            },
+            "queue_depth": 64,
+            "queue_peak": 0,
+            "queued_packets": 0,
+            "received_bytes": 0,
+            "received_packets": 0,
+            "rejected_packets": 0,
+            "rx_queue_peak": 0,
+            "sent_bytes": 0,
+            "sent_packets": 0
+          }
+        },
+        "late": {
+          "activeRtcAssociations": 0,
+          "activeRtcPumps": 0,
+          "socketCount": 4,
+          "traffic": {
+            "driver_active": 0,
+            "generation": 0,
+            "max_datagram": 2048,
+            "protocol": {
+              "connack": null,
+              "disconnect_sent": false,
+              "failure": null,
+              "ready_ms": null,
+              "suback_codes": [],
+              "suback_id": null,
+              "subscribe_id": null,
+              "unsubscribe_sent": false,
+              "withdraw_ms": null
+            },
+            "queue_depth": 64,
+            "queue_peak": 0,
+            "queued_packets": 0,
+            "received_bytes": 0,
+            "received_packets": 0,
+            "rejected_packets": 0,
+            "rx_queue_peak": 0,
+            "sent_bytes": 0,
+            "sent_packets": 0
+          }
+        },
+        "lateDelayMs": 100,
+        "nodeCloseReturned": true,
+        "socketsBefore": 4,
+        "socketsImmediate": 4,
+        "socketsLate": 4
+      }
+    },
+    "nativeQualified": true,
+    "packetCapture": {
+      "cleanupSucceeded": true,
+      "observerJoined": true,
+      "observerFailureCount": 0,
+      "firstPeerCheckCoveredByExpandedFilterProven": false,
+      "devices": {
+        "native": {
+          "ownedDirectoryAbsent": true,
+          "cleanupSucceeded": true,
+          "segments": [
+            {
+              "ready": true,
+              "startedBeforeSdk": true,
+              "forced": false,
+              "exit": 0,
+              "readersEnded": true,
+              "ownedProcessAbsentImmediate": true,
+              "ownedProcessAbsentLate": true,
+              "pcapBytes": 54167,
+              "packetsCaptured": 318,
+              "packetsReceivedByFilter": 318,
+              "kernelDrops": 0,
+              "limitReached": false
+            }
+          ]
+        },
+        "browser": {
+          "ownedDirectoryAbsent": true,
+          "cleanupSucceeded": true,
+          "segments": [
+            {
+              "ready": true,
+              "startedBeforeSdk": true,
+              "forced": false,
+              "exit": 0,
+              "readersEnded": true,
+              "ownedProcessAbsentImmediate": true,
+              "ownedProcessAbsentLate": true,
+              "pcapBytes": 97232,
+              "packetsCaptured": 503,
+              "packetsReceivedByFilter": 503,
+              "kernelDrops": 0,
+              "limitReached": false
+            }
+          ]
+        }
+      }
+    }
+  },
+  "fullSdkTerminalRetirementQualified": false,
+  "routeQualificationGap": "selected-pc-stats-unavailable",
+  "networkBefore": {
+    "native": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": true,
+      "defaultTransportWifi": false,
+      "defaultTransport": "CELLULAR",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "browser": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    }
+  },
+  "networkAfter": {
+    "native": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": true,
+      "defaultTransportWifi": false,
+      "defaultTransport": "CELLULAR",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "browser": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    }
+  }
+}

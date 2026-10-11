@@ -1,0 +1,43 @@
+{
+  "reviewSha256": "ca532602ba816e9cf4095ee683eefdab8055ed76507f389bb090a70a183a6d93",
+  "hostProcessNamespaceAudit": true,
+  "allHashSizeLinkFingerprintPreconditionsPassed": true,
+  "liveSelectedProcesses": [],
+  "repositoryCompilersAbsent": true,
+  "removed": [
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/unified_path_selection-1ca352d9c335c856",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-1ca352d9c335c856/test-integration-test-unified_path_selection.json",
+      "fingerprintSha256": "91f3a3a86dd8416610ad42b627ce605008c3ecb4024731680943a5c77cff1a6c",
+      "bytes": 84477200,
+      "mtime": 1791306383.4567907,
+      "sha256": "e7bb174c08118739194ee9257003c62b998a15b12c0804b38e73876107b63111"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/rtc_path_qualification-4f6afbcf9c273617",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-4f6afbcf9c273617/test-integration-test-rtc_path_qualification.json",
+      "fingerprintSha256": "8741f092f8ead13806e8ef9d3cbd1941add7c4539576e8d09fdeca2c1d0f0917",
+      "bytes": 139305232,
+      "mtime": 1791306392.6487894,
+      "sha256": "7d01e7c24cff155f85f001494f5e7c767f0206cdd98f76ebaaae98df0341fd7a"
+    },
+    {
+      "path": "/home/js/Git/miopunch/target/debug/deps/unified_connection-960acdb61a495205",
+      "fingerprint": "/home/js/Git/miopunch/target/debug/.fingerprint/miopunch-native-probe-960acdb61a495205/test-integration-test-unified_connection.json",
+      "fingerprintSha256": "ff09f29b9f0843c3c03144d9b69624f57edb5ace29192e1ee3deae76373081b7",
+      "bytes": 198657128,
+      "mtime": 1791310276.188293,
+      "sha256": "fca95ddd7385c24f57014b81644d076c7f8b26609aada62194c5af12e0df2cd3"
+    }
+  ],
+  "freedBytes": 420569088,
+  "diskBefore": {
+    "freeBytes": 10619322368,
+    "cacheBytes": 82894798848
+  },
+  "diskAfter": {
+    "freeBytes": 11039891456,
+    "cacheBytes": 82474229760
+  },
+  "librariesDepfilesPinsNormalBinariesAndToolchainsPreserved": true
+}

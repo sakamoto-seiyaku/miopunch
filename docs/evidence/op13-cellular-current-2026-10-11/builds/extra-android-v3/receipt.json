@@ -1,0 +1,66 @@
+{
+  "exit": 0,
+  "cargoExit": 0,
+  "command": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--manifest-path",
+    "/tmp/mio84-op13-returned-current-20261011/extraSelector/Cargo.toml",
+    "--target",
+    "aarch64-linux-android",
+    "--features",
+    "rtc-probe",
+    "--bin",
+    "relay_current_native",
+    "--jobs",
+    "2",
+    "--message-format=json"
+  ],
+  "cargoSeconds": 4.942584788892418,
+  "nativePlatform": "android",
+  "targetDirectory": "/home/js/Git/miopunch/target",
+  "ndkRevision": "29.0.14206865",
+  "qualifiedForFrozenRun": true,
+  "sourceFrozenDuringBuild": true,
+  "artifacts": {
+    "/tmp/mio84-op13-returned-current-20261011/extra-android-v3/pinned/relay_current_native": "b0f8f9bb6246000e635e750ecfbc2709c4da98669bac717ccb9ba03f920a29f0"
+  },
+  "deployment": {
+    "relay_current_native": {
+      "compiledPath": "/tmp/mio84-op13-returned-current-20261011/extra-android-v3/pinned/relay_current_native",
+      "compiledSha256": "b0f8f9bb6246000e635e750ecfbc2709c4da98669bac717ccb9ba03f920a29f0",
+      "deployedPath": "/tmp/mio84-op13-returned-current-20261011/extra-android-v3/deploy/relay_current_native",
+      "compiledBytes": 185218648,
+      "transformation": {
+        "operation": "strip debug sections on owned copy only",
+        "command": [
+          "rtk",
+          "proxy",
+          "/usr/bin/llvm-strip",
+          "--strip-debug",
+          "/tmp/mio84-op13-returned-current-20261011/extra-android-v3/deploy/relay_current_native"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "deployedSha256": "828b94bc1a10460e96d392fc9bb3c87ade79c09d8c9b47c95dcbaf53d4cb16f1",
+      "deployedBytes": 101825760
+    }
+  },
+  "sourceDigestBefore": "225420c6ac0deacfdb2f269704be69c1a88ce6fa4df17a75877973e144093844",
+  "sourceDigestAfter": "225420c6ac0deacfdb2f269704be69c1a88ce6fa4df17a75877973e144093844",
+  "freshArtifacts": 599,
+  "rebuiltArtifacts": 1,
+  "actualSelectedInputCount": 6721,
+  "actualSelectedRepositoryInputCount": 297,
+  "actualDepfileCount": 546,
+  "diskAfter": {
+    "freeBytes": 11107590144,
+    "cacheBytes": 82711453696
+  }
+}

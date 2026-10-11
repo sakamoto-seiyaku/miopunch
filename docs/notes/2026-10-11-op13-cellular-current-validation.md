@@ -1,0 +1,15 @@
+# Returned OP13: current cellular SDK validation
+
+The user requested new tests with OP13 on cellular without VPN, relay and MQTT, relay-only without punching, and IRC last. The actual current Native SDK runs on PJZ110; current release WASM runs in Pixel_6a Chrome on Wi-Fi. Device defaults before and after the runs are validated CELLULAR/WIFI with NOT_VPN and no active VPN agent. No network or VPN settings were changed.
+
+Pure relay passed the full admission, approval, material save, both reopens, nonempty Replica, member-gate and PING/PONG story. Disabling RTC produced zero PC/DC objects; allowing RTC also passed while ordinary business selected relay. Member opens took about 6.36 and 6.76 seconds, and the verified nonempty Replica exchanges about 9.87 and 9.91 seconds.
+
+MQTT contact and admission passed, but the current mobile RTC data path failed twice in distinct purposes: nonempty Replica after 23.30 seconds and ordinary member after 22.18 seconds. The separate member test does not claim Replica qualification. Four actual PC/DC objects were created and retired in that ordinary-member failure. The cause of unavailable data paths is not established; this is not a conclusion that every cellular network blocks RTC.
+
+The final IRC full story passed with genuine public HTTPS, Native TLS IRC and browser WSS. The unapproved restricted purpose-2 request took 30.16 seconds; actual approval, relay material delivery, durable reopens and subsequent relay member business passed. That member open took 6.92 seconds. IRC uses an explicit 60-second caller/attempt and 8-second assembly/30-second queue; full-default-profile qualification is still absent. One new physical sample is not a controlled performance comparison against the earlier 43-second Linux/browser result.
+
+SDK source, root lock, profiles and resource policy were unchanged. Tests corrected two fixture assumptions: unconditional MQTT startup in a pure-relay story, and reading an RTC bootstrap stable-ID field merely because the member negotiates RTC capability. The latter has a regression against the actual failed snapshot and rejection counterexamples. Earlier startup/reopen failures are retained as unknown-cause failures. A minimal IRC startup with a call stack succeeded and proved the printed Android DNS-context panic was caught; the panic is not a demonstrated cause of the prior carrier stops.
+
+Exact UID/mark/socket-to-interface qualification and full SDK terminal callback retirement remain open. Raw case receipts keep physicalWanQualified=false. Current Native sockets were still present after SDK close observations, despite natural owned process retirement. The final IRC socket observer also needed an additional 2.31 seconds after its failed 500-ms observation. The actual finite request is complete; the full M84/M69 acceptance remains In Progress. This evidence neither changes the relay-first mainline nor makes a new product decision.
+
+[Full current physical-run evidence and retained failures](../evidence/op13-cellular-current-2026-10-11/README.md).

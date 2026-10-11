@@ -1,0 +1,18 @@
+{
+  "failure": "no currently permitted data path",
+  "openMemberCallerMs": 22179.935000419617,
+  "fixtureCounters": {
+    "injected": false,
+    "peerCreated": 4,
+    "peerCloseCalls": 4,
+    "channelCreated": 4,
+    "channelCloseCalls": 5,
+    "openPeerConnections": 0,
+    "openDataChannels": 0
+  },
+  "liveMqttWebSocketStillPresentAtFailure": true,
+  "rawSnapshotSha256": "97cc151ded1060a44bc4422bbba8b1cfd416241935f201679c2d692249659789",
+  "causeEstablished": false,
+  "nonemptyReplicaQualified": false,
+  "ordinaryMemberQualified": false
+}
