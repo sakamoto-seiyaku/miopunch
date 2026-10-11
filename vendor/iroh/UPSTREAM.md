@@ -238,6 +238,18 @@ MIOPUNCH-47 review correction adds `Path::start_probe`, delegating to the
 original noq Path's fresh authenticated data-packet acknowledgment probe.
 Native recovery cannot report success from a stale address snapshot alone.
 
+## MIOPUNCH-89: active CID pool configuration
+
+The QUIC transport builder exposes the locked Noq active connection-ID limit.
+`Builder::active_connection_id_limit` changes that one field through a cloned
+transport configuration, preserving other caller settings and path limits.
+The default remains five IDs per path; the SDK may request two for its narrow
+IRC-only control bootstrap configuration. No new QUIC frame, path scheduler,
+congestion controller or identity/admission rule is added here.
+Automatic SDK tuning excludes installed MQTT, RTC, and data-relay/member-data
+options. Native raw endpoint builders keep their caller settings; callers can
+explicitly select two IDs with the generic builder API for a measured carrier.
+
 ## MIOPUNCH-52: Windows Rust-library packaging
 
 The normalized manifest now builds only `lib`, omitting the unused `cdylib`

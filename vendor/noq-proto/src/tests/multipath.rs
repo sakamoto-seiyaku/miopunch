@@ -171,6 +171,15 @@ fn cid_issued_multipath() {
 
 #[test]
 fn multipath_cid_rotation() {
+    multipath_cid_rotation_with_limit(CidQueue::LEN as u32);
+}
+
+#[test]
+fn reduced_cid_pool_rotation() {
+    multipath_cid_rotation_with_limit(2);
+}
+
+fn multipath_cid_rotation_with_limit(limit: u32) {
     let _guard = subscribe();
     const CID_TIMEOUT: Duration = Duration::from_secs(2);
 
@@ -178,19 +187,25 @@ fn multipath_cid_rotation() {
         || Box::new(*RandomConnectionIdGenerator::new(8).set_lifetime(CID_TIMEOUT));
 
     // Only test cid rotation on server side to have a clear output trace
-    let mut pair = ConnPair::builder()
+    let mut builder = ConnPair::builder()
         .enable_multipath()
         .with_server_endpoint_cfg(EndpointConfig {
             connection_id_generator_factory: Arc::new(cid_generator_factory),
             ..Default::default()
-        })
-        .connect();
+        });
+    builder
+        .client_transport_cfg
+        .active_connection_id_limit(limit);
+    builder
+        .server_transport_cfg
+        .active_connection_id_limit(limit);
+    let mut pair = builder.connect();
 
     let mut round: u64 = 1;
     let mut stop = pair.time;
     let end = pair.time + 5 * CID_TIMEOUT;
 
-    let mut active_cid_num = CidQueue::LEN as u64 + 1;
+    let mut active_cid_num = limit as u64 + 1;
     active_cid_num = active_cid_num.min(LOCAL_CID_COUNT);
     let mut left_bound = 0;
     let mut right_bound = active_cid_num - 1;
@@ -222,17 +237,16 @@ fn multipath_cid_rotation() {
     let stats = pair.stats(Server);
 
     // Server sends CIDs for PathId::ZERO before multipath is negotiated.
-    assert_eq!(stats.frame_tx.new_connection_id, (CidQueue::LEN - 1) as u64);
+    assert_eq!(stats.frame_tx.new_connection_id, (limit - 1) as u64);
 
     // For the first batch the PathId::ZERO CIDs have already been sent.
-    let initial_batch: u64 = (MAX_PATHS - 1) as u64 * CidQueue::LEN as u64;
+    let initial_batch: u64 = (MAX_PATHS - 1) as u64 * limit as u64;
     // Each round expires all CIDs, so they all get re-issued.
-    let each_round: u64 = MAX_PATHS as u64 * CidQueue::LEN as u64;
+    let each_round: u64 = MAX_PATHS as u64 * limit as u64;
     // The final round only pushes one set of CIDs with expires_before, the round is not run
     // to completion to wait for the expiry messages from the client.
     let final_round: u64 = MAX_PATHS as u64;
     let path_new_cids = initial_batch + (round - 2) * each_round + final_round;
-    debug_assert_eq!(path_new_cids, 73);
     assert_eq!(stats.frame_tx.path_new_connection_id, path_new_cids);
 
     // We don't retire any CIDs before multipath is negotiated.
@@ -247,14 +261,43 @@ fn multipath_cid_rotation() {
     // Client does not expire CIDs, only the initial set for all the paths.
     assert_eq!(
         stats.frame_rx.path_new_connection_id,
-        MAX_PATHS as u64 * CidQueue::LEN as u64
+        MAX_PATHS as u64 * limit as u64
     );
     assert_eq!(stats.frame_rx.retire_connection_id, 0);
 
     // Test stops before last batch of retirements is sent.
-    let path_retire_cids = MAX_PATHS as u64 * CidQueue::LEN as u64 * (round - 2);
-    debug_assert_eq!(path_retire_cids, 60);
+    let path_retire_cids = MAX_PATHS as u64 * limit as u64 * (round - 2);
     assert_eq!(stats.frame_rx.path_retire_connection_id, path_retire_cids);
+}
+
+#[test]
+fn reduced_cid_pool_preserves_eight_paths() -> TestResult {
+    let _guard = subscribe();
+    let mut builder = ConnPair::builder().enable_multipath();
+    for config in [
+        &mut builder.client_transport_cfg,
+        &mut builder.server_transport_cfg,
+    ] {
+        config.max_concurrent_multipath_paths(8);
+        config.active_connection_id_limit(2);
+    }
+    let mut pair = builder.connect();
+    assert_eq!(pair.stats(Client).frame_tx.path_new_connection_id, 16);
+    assert_eq!(pair.stats(Server).frame_tx.path_new_connection_id, 14);
+    let server_addr = pair.routes.public_server_addr();
+    for _ in 1..8 {
+        pair.open_path(
+            Client,
+            FourTuple::from_remote(server_addr),
+            PathStatus::Available,
+        )?;
+        pair.drive();
+        assert!(!pair.is_closed(Client));
+        assert!(!pair.is_closed(Server));
+    }
+    assert_eq!(pair.conn(Client).paths().len(), 8);
+    assert_eq!(pair.conn(Server).paths().len(), 8);
+    Ok(())
 }
 
 #[test]

@@ -1,0 +1,109 @@
+{
+  "files": {
+    "guarded-build.py": {
+      "source": "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/build.py",
+      "sha256": "1a0b68083db912fa59ced5741324a84e835d5ee2bf755f1d78a6331524251dc2"
+    },
+    "guarded-build-context.json": {
+      "source": "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/context.json",
+      "sha256": "a99f640368b5a0ed528a6f930bde5ced62a3f0ed3c5d6e433e6ea4ba60d4cab9"
+    },
+    "source-delta.json": {
+      "source": "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/source-delta.json",
+      "sha256": "b3901897267505c0a9d4d15dbdbf8c7eed0ec11ee18208acf468124615dcd339"
+    },
+    "irc_current_native.rs": {
+      "source": "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/irc_current_native.rs",
+      "sha256": "da17bb03374943fbfb5c00994619f505d1e5f5e318252288166b0de7516f48f2"
+    },
+    "selected-native-Cargo.toml": {
+      "source": "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/nativeSelector/Cargo.toml",
+      "sha256": "3154538abee11383bbcb13c99eec2ace3f1171ba8ac6cb3700a0aa16639a06c6"
+    },
+    "selected-native-Cargo.lock": {
+      "source": "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/nativeSelector/Cargo.lock",
+      "sha256": "524eda0a401a0b0c7393503fe3501526a15f8744f69ba90ddd5abb8a457a6a10"
+    },
+    "selected-tests-Cargo.toml": {
+      "source": "/tmp/mio88-base64-final-sdk-20261011/selector/Cargo.toml",
+      "sha256": "3db132af95492c4932da4c47ecb8a7d516fbd2c5f41da88c0a4701754a328af2"
+    },
+    "selected-tests-Cargo.lock": {
+      "source": "/tmp/mio88-base64-final-sdk-20261011/selector/Cargo.lock",
+      "sha256": "524eda0a401a0b0c7393503fe3501526a15f8744f69ba90ddd5abb8a457a6a10"
+    },
+    "guard-rust-regressions.py": {
+      "source": "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/run-tests.py",
+      "sha256": "ab48f7f3aa62f7dc46fe13b9998e454ec65a85d4704dae60b31c5047bfe51678"
+    },
+    "guard-public-execution.py": {
+      "source": "/tmp/mio89-reviewed-caller60-20261011/execute.py",
+      "sha256": "aec2c582635d7c6166021f03aede224c6924c4c0b454151d948f38f09a863794"
+    },
+    "public-full-story.mjs": {
+      "source": "/tmp/mio89-reviewed-caller60-20261011/run.mjs",
+      "sha256": "f57e15fee43a44ca0669865cd50c9a010eeccd13efbc652f94d7cbfca967cae5"
+    },
+    "public-payload-scope.json": {
+      "source": "/tmp/mio89-reviewed-caller60-20261011/public-payload-scope.json",
+      "sha256": "b1aa8f25375713ee240c231f74297abe3003f592b7c2942f39dbe44789c2bacd"
+    },
+    "guard-owned-execution.py": {
+      "source": "/tmp/mio89-reviewed-affected-20261011/execute.py",
+      "sha256": "8f92156f3338ea017033c761d11d960e88aef42679bda52f119bf346565b21f7"
+    },
+    "owned-fixtures.py": {
+      "source": "/tmp/mio89-reviewed-affected-20261011/local.py",
+      "sha256": "929b394116edf76d59d70b46200ad06b7f0f7a68d6653947101dcb633eecdf14"
+    },
+    "owned-affected-regressions.mjs": {
+      "source": "/tmp/mio89-reviewed-affected-20261011/run.mjs",
+      "sha256": "ca4fc03c2f368f99b06f53d7f8e30b7452bdcadcb35a3b900d78a37d0bf17a6f"
+    },
+    "guard-controlled-comparison.py": {
+      "source": "/tmp/mio89-controlled-confirmation-pairs-v2-20261011/execute.py",
+      "sha256": "19d06b5488c5cac9b2e68b2e7f7c4c1c1c13f4f41728b8813d307a5e5633a830"
+    },
+    "controlled-fixtures.py": {
+      "source": "/tmp/mio89-controlled-confirmation-pairs-v2-20261011/local.py",
+      "sha256": "4ec2209bd37850802714457d762f0cf5f92321de593fc8fa8886059d8e0ac784"
+    },
+    "controlled-cid-only.mjs": {
+      "source": "/tmp/mio89-controlled-confirmation-pairs-v2-20261011/cid-only-1/run.mjs",
+      "sha256": "1b0ee67d886b75ba9745b164602447deea0c8c31b1529fffb8313a8249fbc97e"
+    },
+    "controlled-current.mjs": {
+      "source": "/tmp/mio89-controlled-confirmation-pairs-v2-20261011/combined-1/run.mjs",
+      "sha256": "da59de029b4aa6625903f4c2d63a1351e53dd72e787ad8f03923b74050be0139"
+    },
+    "controlled-cid-only-context.json": {
+      "source": "/tmp/mio89-controlled-confirmation-pairs-v2-20261011/cid-only-1/context.json",
+      "sha256": "7b48c70d2bedd8bc8418af0ce4472daeda7fd4ddacab1870203765b72e754bde"
+    },
+    "controlled-current-context.json": {
+      "source": "/tmp/mio89-controlled-confirmation-pairs-v2-20261011/combined-1/context.json",
+      "sha256": "c6c8e71e344f9d5a1731bba81667e4b1d975fa27058e79b49873a1bc4e08b620"
+    },
+    "summarize-public.py": {
+      "source": "/tmp/mio89-summarize-public.py",
+      "sha256": "280ee4470dd964007988519adff44299c8ba145a2056eff3f3263db80ebe1ea8"
+    },
+    "verify-final-evidence.py": {
+      "source": "/tmp/mio89-publish-evidence.py",
+      "sha256": "f42d27a10caa563b679ec7aeec0402cc03d0a4a2618858bf94cbd0d644a84c5e"
+    },
+    "repair-noq-package-relative-capture.py": {
+      "source": "/tmp/mio89-confirmation-noq-recapture-and-test.py",
+      "sha256": "5ccfff3d7e5579977e269871694be3d7b0ab26ae64fc37ab6e4e0d7e53d796ff"
+    },
+    "selected-noq-Cargo.toml": {
+      "source": "/tmp/mio89-confirmation-noq-tests-20261011/selector/Cargo.toml",
+      "sha256": "de968c48ce158568890e41b199acdd8030746b3d27021ea57508edd1058c6f5d"
+    },
+    "selected-noq-Cargo.lock": {
+      "source": "/tmp/mio89-confirmation-noq-tests-20261011/selector/Cargo.lock",
+      "sha256": "fb1508d294a836f4eb68966c3fd332da188ea6a284fd129441a8b0bd235d2468"
+    }
+  },
+  "note": "Exact executed drivers/selectors/helpers and guards. Fixed /tmp paths reference preserved session receipts and immutable artifacts; source copies and hashes identify the actual graphs. No generated private key, node store, secret, ciphertext, grant or browser/NSS profile is copied."
+}

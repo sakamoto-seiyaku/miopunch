@@ -1,0 +1,174 @@
+{
+  "qualified": true,
+  "publicTraffic": false,
+  "privateDirectory": "/tmp/mio89-controlled-confirmation-pairs-v2-20261011",
+  "order": [
+    "cid-only-1",
+    "combined-1",
+    "combined-2",
+    "cid-only-2"
+  ],
+  "rawReceiptSha256": "133b5fead29deed59e314479c796117f26c5fedbb1ad45a98fe63a5f2eb9fe14",
+  "executionReceiptSha256": "66306b587e5b9f0e8a40afc1d0b2cabcf6063bbe9e8ad579e91f5da4b2d4a79e",
+  "sourceAndArtifactGuardsPassed": true,
+  "sameOwnedFacilityAndProfile": true,
+  "images": {
+    "ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+    "eclipse-mosquitto:2": "sha256:315e99cbcdc0133a74897e77da0eb7124eec55fc17b617188874e8240738ae39"
+  },
+  "serverFakelag": {
+    "enabled": true,
+    "window": "1s",
+    "burst": 5,
+    "messagesPerWindow": 2,
+    "cooldown": "2s"
+  },
+  "profile": {
+    "pacingMs": 10,
+    "assemblyTtlMs": 8000,
+    "queueTtlMs": 30000,
+    "attemptMs": 120000
+  },
+  "callerMs": 120000,
+  "activeCidPool": 2,
+  "cases": {
+    "cid-only-1": {
+      "compiledImplementation": "historical CID-only",
+      "qualified": true,
+      "strictPurpose2": true,
+      "actualNativeUnapprovedRequests": 1,
+      "requestMs": 29139.200000047684,
+      "rawReceiptSha256": "c6827a45bb8bf8db237c84097658b3ba4c1c9cac85136c1d65fbf32af2dfa9b4",
+      "legacyAgreementMs": 12002,
+      "confirmationMs": null,
+      "handshakeAndCoordinatorMs": 24128,
+      "cumulativeExchangeMs": 29132,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 982.2000000476837
+        },
+        "socketImmediateObservationPassed": false,
+        "nativeExit": {
+          "code": 0,
+          "signal": null
+        },
+        "lateSocketWaitMs": 1504.540664,
+        "websocketsClosedBeforeContext": true,
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    "combined-1": {
+      "compiledImplementation": "final current combined",
+      "qualified": true,
+      "strictPurpose2": true,
+      "actualNativeUnapprovedRequests": 1,
+      "requestMs": 24109.200000047684,
+      "rawReceiptSha256": "abd3323488f552e80de4e49b869d5aeb1ca7e5b57337c9a617f07564ca1516a1",
+      "legacyAgreementMs": 0,
+      "confirmationMs": 12506,
+      "handshakeAndCoordinatorMs": 12665,
+      "cumulativeExchangeMs": 24102,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 485.2000000476837
+        },
+        "socketImmediateObservationPassed": false,
+        "nativeExit": {
+          "code": 0,
+          "signal": null
+        },
+        "lateSocketWaitMs": 1002.296798000003,
+        "websocketsClosedBeforeContext": true,
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    "combined-2": {
+      "compiledImplementation": "final current combined",
+      "qualified": true,
+      "strictPurpose2": true,
+      "actualNativeUnapprovedRequests": 1,
+      "requestMs": 23640.200000047684,
+      "rawReceiptSha256": "8007e07bb93e34cdf95178b4ff853685efd33ee15d012ff423cbbe4b8071284c",
+      "legacyAgreementMs": 0,
+      "confirmationMs": 12509,
+      "handshakeAndCoordinatorMs": 12675,
+      "cumulativeExchangeMs": 23633,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 985.0999999046326
+        },
+        "socketImmediateObservationPassed": false,
+        "nativeExit": {
+          "code": 0,
+          "signal": null
+        },
+        "lateSocketWaitMs": 1503.2857820000063,
+        "websocketsClosedBeforeContext": true,
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    "cid-only-2": {
+      "compiledImplementation": "historical CID-only",
+      "qualified": true,
+      "strictPurpose2": true,
+      "actualNativeUnapprovedRequests": 1,
+      "requestMs": 28642.39999985695,
+      "rawReceiptSha256": "c315fc696f0e8869283ae38b3b1ab0593e57941b02f82621ffa6a08b7601a792",
+      "legacyAgreementMs": 12003,
+      "confirmationMs": null,
+      "handshakeAndCoordinatorMs": 23633,
+      "cumulativeExchangeMs": 28635,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 981.7999999523163
+        },
+        "socketImmediateObservationPassed": false,
+        "nativeExit": {
+          "code": 0,
+          "signal": null
+        },
+        "lateSocketWaitMs": 1503.1508029999968,
+        "websocketsClosedBeforeContext": true,
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedFixtureRemoved": true
+      }
+    }
+  },
+  "comparison": {
+    "cidOnlyMeanMs": 28890.799999952316,
+    "combinedMeanMs": 23874.700000047684,
+    "savedMeanMs": 5016.099999904633,
+    "reductionPercent": 17.362274495385766,
+    "allCombinedRunsFasterThanAllCidOnlyRuns": true,
+    "scope": "Two measurements per implementation on one owned slow IRC facility in ABBA order, with identical valid-traffic settings and CID2. No public latency guarantee or claimed22-second net saving."
+  },
+  "ownedContainersRemoved": 2,
+  "historicalGraphDeclaration": "Historical artifacts remain bound to their original inputs/source copies. Current-root differences are explicitly listed and verified by the execution guard; no re-resolution/recompilation of historical graphs."
+}

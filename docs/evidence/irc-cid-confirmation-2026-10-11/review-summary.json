@@ -1,0 +1,57 @@
+{
+  "fixedBase": "05f99e3d078e17c69c53419faf681dec6cadec5a",
+  "reviewedFiles": {
+    "browser-probe/src/network.rs": "76f17274eaa15121907fab858c793c623fa050fb2f653aee95adaf04dce70f50",
+    "src/admission_gate.rs": "1a609fcc72dfa5049723159fa93010c92b2911ba5eb529e13d383ef8e5a12735",
+    "src/native_network.rs": "068831c8ceaf57bd62d43822671c68f53c43e5175c7e6a100dc25b5dd39cded2",
+    "tests/unified_admission_story.rs": "bd0ac20e995c29df9b30105587febe4a1895bcbf29a3f7b990bb48c4b86184e5",
+    "vendor/iroh/UPSTREAM.md": "0c8bde79af55bb9f35319d7f3ea8a13661b7b2e87ce5073658356374cf32b903",
+    "vendor/iroh/src/endpoint.rs": "faed51a72702086839031961c9720694f54820ec0529debc1fe08a01589c158e",
+    "vendor/iroh/src/endpoint/quic.rs": "82a88b76f5807402e2eeb7c142b2ac3c070fdcd61b91f7a607ea5553e966862c",
+    "vendor/noq-proto/UPSTREAM.md": "6076753ade2547fd8bb6ea654323d66329dd4cfe65c9f4b6e117715a17f9d3ad",
+    "vendor/noq-proto/src/cid_queue.rs": "152a39c7f602ba57b71ddd575709576786a2dd8a0fea0bfa48c1b028534f9f90",
+    "vendor/noq-proto/src/config/transport.rs": "95d13f4ac1dd890d13fc79eb26bcd9e23c8789b18c8260f9afe3aee847fdc355",
+    "vendor/noq-proto/src/connection/mod.rs": "753d1a4c3791e2bd260d5aa215c700dedfbb84993748fc90f3b7e4ea4e0ee9ba",
+    "vendor/noq-proto/src/tests/multipath.rs": "b928d8aff23dfcc1cd4cf5f0eaabeff8236830a9eb5d0c5a9631415cc9b39e1d",
+    "vendor/noq-proto/src/transport_parameters.rs": "4be60c1ac6342353dd764584805e3c85d44e231f3f286ba78c41d1df0c00affe"
+  },
+  "initial": {
+    "Standards": {
+      "hardViolations": 0,
+      "heuristicSmells": 1
+    },
+    "Spec": {
+      "findings": 1,
+      "highestSeverity": "P2"
+    }
+  },
+  "final": {
+    "Standards": {
+      "openHardViolations": 0,
+      "openHeuristicSmells": 0
+    },
+    "Spec": {
+      "openCodeFindings": 0
+    }
+  },
+  "scopeFindingResolvedAndFinalSourceValidated": true,
+  "acceptanceRevalidatedAfterReviews": {
+    "currentSdkTests": 41,
+    "currentNoqTests": 432,
+    "currentPublicFullStory": true,
+    "currentOwnedSdkCases": 6,
+    "controlledPairsQualified": true,
+    "defaultProfileQualified": false
+  },
+  "note": "Independent reviews of the exact WIP scope against the fixed completed M88 baseline. Original scope finding and final reports preserved separately; runtime acceptance was pending at review time and is now independently checked against raw receipts.",
+  "finalEvidenceReviews": {
+    "Standards": {
+      "openFindings": 0,
+      "report": "standards-final-evidence-review.md"
+    },
+    "Spec": {
+      "openFindings": 0,
+      "report": "spec-final-evidence-review.md"
+    }
+  }
+}

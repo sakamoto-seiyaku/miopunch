@@ -57,9 +57,18 @@ impl CidQueue {
     ///
     /// Returns a non-empty range of retired sequence numbers and the reset token of the new active
     /// CID iff any CIDs were retired.
+    #[cfg(test)]
     pub(crate) fn insert(
         &mut self,
         cid: NewConnectionId,
+    ) -> Result<Option<(Range<u64>, ResetToken)>, InsertError> {
+        self.insert_with_limit(cid, Self::LEN as u32)
+    }
+
+    pub(crate) fn insert_with_limit(
+        &mut self,
+        cid: NewConnectionId,
+        limit: u32,
     ) -> Result<Option<(Range<u64>, ResetToken)>, InsertError> {
         // Position of new CID wrt. the current active CID
         let Some(index) = cid.sequence.checked_sub(self.offset) else {
@@ -67,7 +76,7 @@ impl CidQueue {
         };
 
         let retired_count = cid.retire_prior_to.saturating_sub(self.offset);
-        if index >= Self::LEN as u64 + retired_count {
+        if index >= u64::from(limit) + retired_count {
             return Err(InsertError::ExceedsLimit);
         }
 
@@ -99,11 +108,11 @@ impl CidQueue {
         // We don't immediately retire CIDs in the range (orig_offset +
         // Self::LEN)..self.offset. These are CIDs that we haven't yet received from a
         // NEW_CONNECTION_ID frame, since having previously received them would violate the
-        // connection ID limit we specified based on Self::LEN. If we do receive a such a frame
+        // connection ID limit we advertised. If we do receive a such a frame
         // in the future, e.g. due to reordering, we'll retire it then. This ensures we can't be
         // made to buffer an arbitrarily large number of RETIRE_CONNECTION_ID frames.
         Ok(Some((
-            orig_offset..self.offset.min(orig_offset + Self::LEN as u64),
+            orig_offset..self.offset.min(orig_offset + u64::from(limit)),
             token.expect("non-initial CID missing reset token"),
         )))
     }
@@ -324,6 +333,30 @@ mod tests {
             q.insert(cid(CidQueue::LEN as u64, 0)),
             Err(InsertError::ExceedsLimit)
         );
+    }
+
+    #[test]
+    fn reduced_limit_rejects_excess_and_preserves_retirement_and_reservation() {
+        let mut q = CidQueue::new(initial_cid());
+        q.insert_with_limit(cid(1, 0), 2).unwrap();
+        assert_eq!(q.next_reserved(), Some(cid(1, 0).id));
+        assert_eq!(
+            q.insert_with_limit(cid(2, 0), 2),
+            Err(InsertError::ExceedsLimit)
+        );
+        assert_eq!(q.insert_with_limit(cid(2, 1), 2).unwrap().unwrap().0, 0..1);
+        assert_eq!(q.active_seq(), 1);
+        q.next().unwrap();
+        assert_eq!(q.active_seq(), 2);
+        q.insert_with_limit(cid(3, 1), 2).unwrap();
+        assert_eq!(q.remaining(), 1);
+        assert_eq!(
+            q.insert_with_limit(cid(4, 1), 2),
+            Err(InsertError::ExceedsLimit)
+        );
+        assert_eq!(q.insert_with_limit(cid(4, 3), 2).unwrap().unwrap().0, 2..3);
+        assert_eq!(q.active_seq(), 3);
+        assert_eq!(q.remaining(), 1);
     }
 
     #[test]

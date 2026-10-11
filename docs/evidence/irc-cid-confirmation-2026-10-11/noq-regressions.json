@@ -1,0 +1,28 @@
+{
+  "qualified": true,
+  "passedTests": 432,
+  "privateDirectory": "/tmp/mio89-confirmation-noq-tests-20261011",
+  "receipt": {
+    "exit": 0,
+    "command": [
+      "rtk",
+      "proxy",
+      "/tmp/mio89-confirmation-noq-tests-20261011/tests/pinned/noq_proto",
+      "--test-threads=2"
+    ],
+    "binarySha256": "44d5d8293f0cdf8d326836732136543bbfc33e86c5e965fe4c81eba682570814",
+    "correctedSelectedInputCount": 1780,
+    "correctedRepositoryInputCount": 63,
+    "correctedGraphSha256": "e38b1f3a5092b230e986ad89bd00a83b3c7a13b344bb7a63b986b3463951a627",
+    "rawLogSha256": "88153619652da1e5f2e23feb29edabeb5306f37891c53707652667baeb2b98c6",
+    "initialCapturePackageRelativeMappingQualified": false,
+    "correctedGraphVerified": true,
+    "selectorsUnchanged": true
+  },
+  "rawRuntimeReceiptSha256": "030a0a2a8af78c8e027480c5b2b7d2092e36c048cb523dfc15733ede9a179418",
+  "actualInputGraphStillCurrent": true,
+  "actualInputCount": 1780,
+  "repositorySourceCopyCount": 63,
+  "initialPackageRelativeCaptureQualified": false,
+  "note": "Original .d files retained. Relative noq_proto src paths were repaired against its pinned selector root/symlink before all432 tests ran. Current Noq inputs unchanged after final SDK policy fix; no redundant compilation or re-run."
+}

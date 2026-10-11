@@ -1,0 +1,167 @@
+{
+  "qualified": true,
+  "publicTraffic": false,
+  "privateDirectory": "/tmp/mio89-reviewed-affected-20261011",
+  "rawReceiptSha256": "227a4db0687d4e888d31805a50204dfcfadafe3bb74c073ca35d1f751f3db91f",
+  "executionReceiptSha256": "88d998423c67b0874c33acfdc62585b05d86649e5554859bc39f341aeb76aae1",
+  "sourceAndArtifactGuardsPassed": true,
+  "wholeWallMs": 34889.059,
+  "cases": {
+    "invalid": {
+      "runtimeExit": 0,
+      "passed": true,
+      "currentStrictPurpose2Qualified": null,
+      "nativeRequestAccepted": null,
+      "callerElapsedMs": null,
+      "requestFailure": null,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": false
+        },
+        "websocketsClosedBeforeContext": true,
+        "nativeExit": {
+          "code": 0,
+          "signal": null
+        },
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    "short": {
+      "runtimeExit": 0,
+      "passed": true,
+      "currentStrictPurpose2Qualified": false,
+      "nativeRequestAccepted": false,
+      "callerElapsedMs": 2005.2000000476837,
+      "requestFailure": "temporarily unreachable; durable admission progress retained",
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 2997
+        },
+        "websocketsClosedBeforeContext": true,
+        "nativeExit": {
+          "code": 0,
+          "signal": null
+        },
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    "aged": {
+      "runtimeExit": 0,
+      "passed": true,
+      "currentStrictPurpose2Qualified": true,
+      "nativeRequestAccepted": true,
+      "callerElapsedMs": 503.7999999523163,
+      "requestFailure": null,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 3.0999999046325684
+        },
+        "websocketsClosedBeforeContext": true,
+        "nativeExit": {
+          "code": 0,
+          "signal": null
+        },
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    "cancel": {
+      "runtimeExit": 0,
+      "passed": true,
+      "currentStrictPurpose2Qualified": false,
+      "nativeRequestAccepted": false,
+      "callerElapsedMs": 255.70000004768372,
+      "requestFailure": "connection transport failed: closed",
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 0.5999999046325684
+        },
+        "websocketsClosedBeforeContext": true,
+        "nativeExit": {
+          "code": 0,
+          "signal": null
+        },
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    "disabled": {
+      "runtimeExit": 0,
+      "passed": true,
+      "currentStrictPurpose2Qualified": null,
+      "nativeRequestAccepted": null,
+      "callerElapsedMs": null,
+      "requestFailure": null,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": false
+        },
+        "websocketsClosedBeforeContext": true,
+        "nativeExit": {
+          "code": 0,
+          "signal": null
+        },
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedFixtureRemoved": true
+      }
+    },
+    "mqtt": {
+      "runtimeExit": 0,
+      "passed": true,
+      "currentStrictPurpose2Qualified": true,
+      "nativeRequestAccepted": true,
+      "callerElapsedMs": 68.60000014305115,
+      "requestFailure": null,
+      "cleanup": {
+        "browser": {
+          "sdkStarted": true,
+          "closeReturned": true,
+          "freed": true,
+          "elapsedMs": 3.6000001430511475
+        },
+        "websocketsClosedBeforeContext": true,
+        "nativeExit": {
+          "code": 0,
+          "signal": null
+        },
+        "ownedBrowserContextClosed": true,
+        "ownedServersClosed": true,
+        "nativeProcessAbsentImmediate": true,
+        "nativeProcessAbsentLate": true,
+        "ownedFixtureRemoved": true
+      }
+    }
+  },
+  "images": {
+    "ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+    "eclipse-mosquitto:2": "sha256:315e99cbcdc0133a74897e77da0eb7124eec55fc17b617188874e8240738ae39"
+  },
+  "ownedCaSha256": "5474393d0fd7c2f460e99139a30f83b8db1a540d499cdd262718e12dc27e87c2",
+  "ownedContainersRemoved": 2
+}

@@ -126,6 +126,7 @@ struct State {
 pub struct AdmissionGate {
     state: Arc<Mutex<State>>,
     message_bootstrap: bool,
+    request_coordinator: bool,
     path_revision: Arc<AtomicU64>,
     path_updates: Arc<n0_watcher::Watchable<u64>>,
     maintenance: crate::session_maintenance::SessionMaintenance,
@@ -204,6 +205,7 @@ impl AdmissionGate {
             path_updates: Arc::new(n0_watcher::Watchable::new(0)),
             maintenance: crate::session_maintenance::SessionMaintenance::default(),
             message_bootstrap: false,
+            request_coordinator: false,
             state: Arc::new(Mutex::new(State {
                 policy: Policy {
                     local_id: *local_id.as_bytes(),
@@ -302,9 +304,20 @@ impl AdmissionGate {
         Self {
             state: self.state.clone(),
             message_bootstrap: true,
+            request_coordinator: self.request_coordinator,
             path_revision: self.path_revision.clone(),
             path_updates: self.path_updates.clone(),
             maintenance: self.maintenance.clone(),
+        }
+    }
+
+    /// Install only with CoordinatorHook on the same endpoint builder. Request
+    /// purposes stay restricted until it validates peers, purpose, nonce and
+    /// current policy. Raw gates retain the standalone stage agreement.
+    pub(crate) fn with_request_coordinator(&self) -> Self {
+        Self {
+            request_coordinator: true,
+            ..self.clone()
         }
     }
 
@@ -693,7 +706,11 @@ impl EndpointHooks for AdmissionGate {
                 return Self::reject();
             }
         }
-        let agreed = agree_on_stage(connection).await;
+        let coordinated_request = self.request_coordinator
+            && protocol == ProtocolScope::AdmissionRequest
+            && crate::connection_coordinator::SessionPurpose::from_alpn(connection.alpn())
+                == Some(crate::connection_coordinator::SessionPurpose::AdmissionRequest);
+        let agreed = coordinated_request || agree_on_stage(connection).await;
 
         if !agreed {
             return Self::reject();

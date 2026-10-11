@@ -5328,7 +5328,9 @@ impl Connection {
                     }
 
                     use crate::cid_queue::InsertError;
-                    match remote_cids.insert(frame) {
+                    match remote_cids
+                        .insert_with_limit(frame, self.config.active_connection_id_limit)
+                    {
                         Ok(None) => {
                             self.open_nat_traversed_paths(now);
                         }
@@ -6845,13 +6847,13 @@ impl Connection {
 
         if let Some(ref info) = params.preferred_address {
             // During the handshake PathId::ZERO exists.
-            self.remote_cids.get_mut(&PathId::ZERO).expect("not yet abandoned").insert(frame::NewConnectionId {
+            self.remote_cids.get_mut(&PathId::ZERO).expect("not yet abandoned").insert_with_limit(frame::NewConnectionId {
                 path_id: None,
                 sequence: 1,
                 id: info.connection_id,
                 reset_token: info.stateless_reset_token,
                 retire_prior_to: 0,
-            })
+            }, self.config.active_connection_id_limit)
             .expect(
                 "preferred address CID is the first received, and hence is guaranteed to be legal",
             );

@@ -1,0 +1,64 @@
+{
+  "extraControlStreamRed": {
+    "privateDirectory": "/tmp/mio89-stage-confirmation-red-20261011",
+    "receipt": {
+      "testExit": 101,
+      "expectedRedReproduced": true,
+      "actualApplicationStreamIndex": 2,
+      "expectedApplicationStreamIndex": 1,
+      "guardsPassedBeforeAndAfter": true,
+      "SDKClosedBeforeAssertion": true,
+      "rawLogSha256": "5429f8af8f04e1663bc45865f10548e4f20b174fe694891f401c4d20a20c7186",
+      "command": [
+        "rtk",
+        "proxy",
+        "/tmp/mio89-stage-confirmation-red-20261011/tests/pinned/unified_admission_story",
+        "restricted_request_uses_one_control_exchange_before_application",
+        "--exact",
+        "--nocapture"
+      ]
+    },
+    "rawRuntimeReceiptSha256": "50bf7251b2664389c74d4e33da32a91bd35d788434f4ff4d451b0ca386771a6d",
+    "rawBuildReceiptSha256": "f3ba1111e3374f5144c2bcbf5335034a91244dc9598bb85753b7709b34f70d47"
+  },
+  "preparationRuns": [
+    {
+      "privateDirectory": "/tmp/mio89-cid2-public-first-20261011",
+      "requestMs": 59812.700000047684,
+      "functionalAndCleanupQualified": true,
+      "performanceQualified": false,
+      "rawReceiptSha256": "7a743f177d620ddc28ee1a53cecd769b287f800fe21fc83b85d5856ada8aae1b",
+      "executionReceiptSha256": "c05d8d7e522297203293427d7489f63400437b14053516a3963abdb0732d82bc",
+      "reason": "Native custom raw builder did not receive the intended reduced pool. Browser-only effective tuning is not relabelled as bilateral optimization."
+    },
+    {
+      "privateDirectory": "/tmp/mio89-cid2-bilateral-first-20261011",
+      "requestMs": 59810.39999985695,
+      "functionalAndCleanupQualified": true,
+      "performanceQualified": false,
+      "rawReceiptSha256": "beb5f31d8d1f012791342d1f82129b02490aa3ed0cd3254c1bba65de89a249f9",
+      "executionReceiptSha256": "159da2bccb769d4c519607c31011cde84fa784fa10a633a07ce48e2ffa75b41f",
+      "reason": "Native custom raw builder did not receive the intended reduced pool. Browser-only effective tuning is not relabelled as bilateral optimization."
+    }
+  ],
+  "firstControlledSlowRun": {
+    "privateDirectory": "/tmp/mio89-controlled-confirmation-pairs-20261011",
+    "rawReceiptSha256": "3b15d29895e671e0767b905530aa5c069c997dff6deec6394cc428f495118777",
+    "executionReceiptSha256": "3ab9dc0fa24d86e984206bb12841d883a0f811ebc6775faeeb69eda353e23373",
+    "functionalCases": 4,
+    "wholeQualification": false,
+    "runtimeExit": 1,
+    "reason": "All four actual requests succeeded; the inherited500ms WSS observation was false before context destruction. Failed receipts retained. Only the observer was corrected for a separate re-run.",
+    "measuredRequestMs": {
+      "cid-only-1": 28649.099999904633,
+      "combined-1": 24115.10000014305,
+      "combined-2": 24609.89999985695,
+      "cid-only-2": 29139
+    }
+  },
+  "invalidNegativeFixturePreparation": {
+    "privateDirectory": "/tmp/mio89-confirmation-current-sdk-v2-20261011",
+    "qualified": false,
+    "reason": "The fake UDP fixture used control-only ALPNs requiring a registered control route, so the first fixture failed before its intended malformed wire envelope. Corrected fixture subsequently passed; not counted as an implementation failure or green regression."
+  }
+}

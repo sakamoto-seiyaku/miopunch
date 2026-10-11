@@ -1,0 +1,9 @@
+{
+  "exactExecutedScopeFile": "probe-sources/public-payload-scope.json",
+  "meaning": "Inherited single-case public payload authorization declaration. Its300000ms field is the earlier comparison allowance, not the actual final measurement budget.",
+  "finalActualCallerAndAttemptMs": 60000,
+  "actualBudgetEvidence": "final-public-story.json and execution controller/source pins",
+  "applicationHandshakeOrderChanged": true,
+  "securitySemanticsPreserved": true,
+  "note": "The inherited sameQuicAndAdmissionAlgorithms flag must not be read as unchanged application handshake bytes/order. This implementation folds the legacy stage echo into the existing unified confirmation, with its identity/purpose/permission/nonce checks retained. The original executed scope input is kept byte-for-byte; this annotation does not rewrite historical preconditions."
+}

@@ -62,6 +62,7 @@ pub struct TransportConfig {
     pub(crate) address_discovery_role: address_discovery::Role,
 
     pub(crate) max_concurrent_multipath_paths: Option<NonZeroU32>,
+    pub(crate) active_connection_id_limit: u32,
 
     pub(crate) default_path_max_idle_timeout: Option<Duration>,
     pub(crate) default_path_keep_alive_interval: Option<Duration>,
@@ -399,6 +400,17 @@ impl TransportConfig {
         self
     }
 
+    /// Maximum active remote connection IDs retained for each path.
+    ///
+    /// A smaller pool reduces peer CID issuance without reducing the number of
+    /// multipath paths. Retired IDs are still replenished by the peer.
+    /// Values must be between 2 and the implementation's CID queue capacity.
+    pub fn active_connection_id_limit(&mut self, limit: u32) -> &mut Self {
+        assert!((2..=crate::cid_queue::CidQueue::LEN as u32).contains(&limit));
+        self.active_connection_id_limit = limit;
+        self
+    }
+
     /// Sets a default per-path maximum idle timeout.
     ///
     /// If the path is idle for this long the path will be abandoned. Bear in mind this will
@@ -591,6 +603,7 @@ impl Default for TransportConfig {
 
             // disabled multipath by default
             max_concurrent_multipath_paths: None,
+            active_connection_id_limit: crate::cid_queue::CidQueue::LEN as u32,
             default_path_max_idle_timeout: None,
             default_path_keep_alive_interval: None,
 
@@ -635,6 +648,7 @@ impl fmt::Debug for TransportConfig {
             enable_segmentation_offload,
             address_discovery_role,
             max_concurrent_multipath_paths,
+            active_connection_id_limit,
             default_path_max_idle_timeout,
             default_path_keep_alive_interval,
             max_remote_nat_traversal_addresses,
@@ -643,6 +657,7 @@ impl fmt::Debug for TransportConfig {
             qlog_factory,
         } = self;
         let mut s = fmt.debug_struct("TransportConfig");
+        s.field("active_connection_id_limit", active_connection_id_limit);
 
         s.field("max_concurrent_bidi_streams", max_concurrent_bidi_streams)
             .field("max_concurrent_uni_streams", max_concurrent_uni_streams)

@@ -1,0 +1,89 @@
+{
+  "qualified": true,
+  "passedTests": 41,
+  "privateDirectory": "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011",
+  "rawRuntimeReceiptSha256": "4880301273a481a88917ce201f8e278e2a7616206166ff366166ce3ea5ad77ca",
+  "rawBuildReceiptSha256": "ce450f645bd26a7d3f930cfd7f1d0de4cf2c744a4eede2fdd94f208ae2367dcf",
+  "results": [
+    {
+      "name": "irc_datagram",
+      "command": [
+        "rtk",
+        "proxy",
+        "timeout",
+        "45s",
+        "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/tests/pinned/irc_datagram",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 0.2601874030660838,
+      "passed": 16,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "name": "unified_connection",
+      "command": [
+        "rtk",
+        "proxy",
+        "timeout",
+        "45s",
+        "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/tests/pinned/unified_connection",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 6.996716137975454,
+      "passed": 13,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "name": "unified_admission_story",
+      "command": [
+        "rtk",
+        "proxy",
+        "timeout",
+        "45s",
+        "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/tests/pinned/unified_admission_story",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 2.8154903270769864,
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "name": "negotiated_accept_context",
+      "command": [
+        "rtk",
+        "proxy",
+        "timeout",
+        "45s",
+        "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/tests/pinned/negotiated_accept_context",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 5.616403497057036,
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "name": "member_path_protocol",
+      "command": [
+        "rtk",
+        "proxy",
+        "timeout",
+        "45s",
+        "/tmp/mio89-confirmation-reviewed-sdk-v4-20261011/tests/pinned/member_path_protocol",
+        "--nocapture"
+      ],
+      "exit": 0,
+      "seconds": 0.5236875780392438,
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0
+    }
+  ]
+}

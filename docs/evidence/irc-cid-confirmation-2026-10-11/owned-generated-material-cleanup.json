@@ -1,0 +1,11 @@
+{
+  "qualified": true,
+  "rawCleanupReceiptSha256": "0fdd033c9b1192380699a548136bd0087667d02661e928df641d8005f98d1033",
+  "privateReceipt": "/tmp/mio89-owned-generated-material-cleanup-20261011.json",
+  "hostVisibleProcessCheckPassed": true,
+  "containersIndependentlyConfirmedAbsent": 8,
+  "removedPrivateKeys": 8,
+  "removedOwnedProfileDirectories": 24,
+  "allAbsentAfter": true,
+  "rawEvidenceSourceCopiesDepfilesLocksPublicCertificatesAndPinnedArtifactsRetained": true
+}

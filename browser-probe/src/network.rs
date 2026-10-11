@@ -1166,13 +1166,13 @@ impl EndpointHooks for BrowserGate {
                 "stable_id": connection.stable_id(),
                 "expected_contact_verified": connection.side().is_client(),
                 "tls_authenticated": true,
-                "stage": "admission-stage-agreement",
+                "stage": "unified-request-confirmation",
                 "business_handle": false,
                 "stats": format!("{:?}", connection.stats()),
             }));
         }
-        // No 0-RTT API is exposed. Normal data handles wait for the native
-        // mutual proof and stage agreement, including after a fresh page start.
+        // No 0-RTT API is exposed. Members retain mutual proof and stage
+        // agreement; requests wait for the shared restricted nonce confirmation.
         let proof = if !is_request_alpn(connection.alpn()) {
             let Ok(invitation) = saved.invitation() else {
                 return Self::reject();
@@ -1208,33 +1208,31 @@ impl EndpointHooks for BrowserGate {
                 (caller, request) => caller.or(request),
             },
         );
-        let agreed = n0_future::time::timeout(agreement_budget, async {
-            let (mut send, mut recv) = if connection.side().is_client() {
-                connection.open_bi().await.ok()?
-            } else {
-                connection.accept_bi().await.ok()?
-            };
-            send.write_all(&[1]).await.ok()?;
-            send.finish().ok()?;
-            let mut response = [0];
-            recv.read_exact(&mut response).await.ok()?;
-            (response == [1]).then_some(())
-        })
-        .await
-        .ok()
-        .flatten()
-        .is_some();
+        let agreed = is_request_alpn(connection.alpn())
+            || n0_future::time::timeout(agreement_budget, async {
+                let (mut send, mut recv) = if connection.side().is_client() {
+                    connection.open_bi().await.ok()?
+                } else {
+                    connection.accept_bi().await.ok()?
+                };
+                send.write_all(&[1]).await.ok()?;
+                send.finish().ok()?;
+                let mut response = [0];
+                recv.read_exact(&mut response).await.ok()?;
+                (response == [1]).then_some(())
+            })
+            .await
+            .ok()
+            .flatten()
+            .is_some();
 
         if is_request_alpn(connection.alpn()) {
             let mut state = self.0.lock().unwrap();
             if let Some(report) = state.request_handshake.as_mut() {
-                report["agreement_elapsed_ms"] =
-                    serde_json::json!(handshake_started.elapsed().as_millis());
-                report["stage"] = serde_json::json!(if agreed {
-                    "restricted-A"
-                } else {
-                    "admission-stage-agreement-failed"
-                });
+                report["agreement_elapsed_ms"] = serde_json::json!(0);
+                report["agreement_mode"] = serde_json::json!("unified-session/1");
+                report["legacy_agreement_executed"] = serde_json::json!(false);
+                report["stage"] = serde_json::json!("unified-request-confirmation");
                 report["stats"] = serde_json::json!(format!("{:?}", connection.stats()));
             }
         }
@@ -1290,12 +1288,22 @@ impl EndpointHooks for BrowserGate {
                 },
             }
         } else {
-            if send_wrapper::SendWrapper::new(crate::connection_coordinator::coordinate_session(
-                None, connection, self,
-            ))
+            let confirmed = send_wrapper::SendWrapper::new(
+                crate::connection_coordinator::coordinate_session(None, connection, self),
+            )
             .await
-            .is_err()
-            {
+            .is_ok();
+            if let Some(report) = self.0.lock().unwrap().request_handshake.as_mut() {
+                report["confirmation_elapsed_ms"] =
+                    serde_json::json!(handshake_started.elapsed().as_millis());
+                report["stage"] = serde_json::json!(if confirmed {
+                    "restricted-A"
+                } else {
+                    "unified-request-confirmation-failed"
+                });
+                report["stats"] = serde_json::json!(format!("{:?}", connection.stats()));
+            }
+            if !confirmed {
                 return Self::reject();
             }
             AfterHandshakeOutcome::AcceptRestricted
@@ -1863,6 +1871,20 @@ impl BrowserNetwork {
         let rtc_effective = rtc_capability.effective;
         let data_policy = member_data_transport.clone();
         let mut builder = Endpoint::builder(presets::Minimal)
+            .transport_config(
+                if irc.is_empty()
+                    || !mqtt.is_empty()
+                    || !relays.is_empty()
+                    || rtc_effective
+                    || member_data_transport.is_some()
+                {
+                    iroh::endpoint::QuicTransportConfig::default()
+                } else {
+                    iroh::endpoint::QuicTransportConfig::builder()
+                        .active_connection_id_limit(2)
+                        .build()
+                },
+            )
             .secret_key(SecretKey::from_bytes(&saved.key))
             .path_selector(path_selector)
             .relay_mode(RelayMode::custom(relays.clone()))

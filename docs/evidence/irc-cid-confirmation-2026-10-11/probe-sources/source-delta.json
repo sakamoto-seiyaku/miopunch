@@ -1,0 +1,54 @@
+{
+  "browser-probe/src/network.rs": {
+    "before": "2a03874f0c99492de27a6717c31b84abbb70e5a19156b01561175a53fcf3521e",
+    "after": "76f17274eaa15121907fab858c793c623fa050fb2f653aee95adaf04dce70f50"
+  },
+  "src/admission_gate.rs": {
+    "before": "ca34965b136655a61b0fb4bf353d64cfa541b365f30d5f9cf23ca13b09091ab6",
+    "after": "1a609fcc72dfa5049723159fa93010c92b2911ba5eb529e13d383ef8e5a12735"
+  },
+  "src/native_network.rs": {
+    "before": "cfba205655b7c1269ddc1281d94e6a583e3cc70da20976c656b113cfc4d33f04",
+    "after": "068831c8ceaf57bd62d43822671c68f53c43e5175c7e6a100dc25b5dd39cded2"
+  },
+  "tests/unified_admission_story.rs": {
+    "before": "32b0eb4e1f2a6d52831bd321f9261ef68ae56a49a3f1388f766a727bd5cfd982",
+    "after": "bd0ac20e995c29df9b30105587febe4a1895bcbf29a3f7b990bb48c4b86184e5"
+  },
+  "vendor/iroh/UPSTREAM.md": {
+    "before": "dcf09bd438b07609615dd79e17341a7a630572431f555db3eb01e087347d0214",
+    "after": "0c8bde79af55bb9f35319d7f3ea8a13661b7b2e87ce5073658356374cf32b903"
+  },
+  "vendor/iroh/src/endpoint.rs": {
+    "before": "04423be1084a027ba9d49a55386bf698d78dedfbc9e1e096c7eca07b21016ebe",
+    "after": "faed51a72702086839031961c9720694f54820ec0529debc1fe08a01589c158e"
+  },
+  "vendor/iroh/src/endpoint/quic.rs": {
+    "before": "47f018c70d3bd3aeda7ec01bd88fe24070b2be68d64ec5275284e4d5085dd818",
+    "after": "82a88b76f5807402e2eeb7c142b2ac3c070fdcd61b91f7a607ea5553e966862c"
+  },
+  "vendor/noq-proto/UPSTREAM.md": {
+    "before": "a0bd3a3a56b758c9d7c761af83f4b81aaa3ebd0066b73ff1db7daea261b9c7b1",
+    "after": "6076753ade2547fd8bb6ea654323d66329dd4cfe65c9f4b6e117715a17f9d3ad"
+  },
+  "vendor/noq-proto/src/cid_queue.rs": {
+    "before": "da3fb20d9db0451e5d7343ded889b1591c06b2b8ef6ac7ac4cbfc2ccab79898d",
+    "after": "152a39c7f602ba57b71ddd575709576786a2dd8a0fea0bfa48c1b028534f9f90"
+  },
+  "vendor/noq-proto/src/config/transport.rs": {
+    "before": "c5fbe2893a2b42e6d906ef75ed771f3ba34782e3291782be9a996ffb7ea2c5fc",
+    "after": "95d13f4ac1dd890d13fc79eb26bcd9e23c8789b18c8260f9afe3aee847fdc355"
+  },
+  "vendor/noq-proto/src/connection/mod.rs": {
+    "before": "93575c4027506cf6fa324c1384e9ee5e740701934020e3323465ca2ae0e69e17",
+    "after": "753d1a4c3791e2bd260d5aa215c700dedfbb84993748fc90f3b7e4ea4e0ee9ba"
+  },
+  "vendor/noq-proto/src/tests/multipath.rs": {
+    "before": "e3887c55dadc1fe86d72587d206f9228d9bad2fb5ad0b2c2483f80aa50625904",
+    "after": "b928d8aff23dfcc1cd4cf5f0eaabeff8236830a9eb5d0c5a9631415cc9b39e1d"
+  },
+  "vendor/noq-proto/src/transport_parameters.rs": {
+    "before": "79b09c5e2fdca31b38727f384dcf750d236f789a11680798d67c34341a71af54",
+    "after": "4be60c1ac6342353dd764584805e3c85d44e231f3f286ba78c41d1df0c00affe"
+  }
+}

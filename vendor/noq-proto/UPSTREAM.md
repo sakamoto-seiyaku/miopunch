@@ -26,3 +26,14 @@ Closed connections and abandoned paths are rejected. The async wrapper owns
 the original Path and opaque watermark, preventing callers from accidentally
 checking another connection or path. No QUIC frame encoding, ACK processing,
 congestion control or lifetime algorithm changes.
+
+## MIOPUNCH-89: configurable active CID pool
+
+`TransportConfig::active_connection_id_limit` advertises two through five
+active peer IDs per path, retaining the upstream default of five. The existing
+CID receive window uses the advertised limit when accepting new IDs and
+bounding retirement ranges; excess IDs still trigger the original connection
+ID limit error. Queue capacity, path limits, CID replenishment, frame encoding,
+loss detection and congestion control remain upstream behavior. Tests cover a
+two-ID window, reserved/retired IDs, repeated rotation, and eight concurrent
+paths. The IRC SDK tuning and measured qualification are recorded separately.

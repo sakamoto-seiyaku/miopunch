@@ -1,0 +1,77 @@
+{
+  "reviewedRegenerableCacheReceipts": [
+    {
+      "privateReceipt": "/tmp/mio89-experiments-20261011/reviewed-cache-removal-v2.json",
+      "sha256": "2f7042c0e7d6fc159e6c9364308c51fb38198f9389e163129e9fb5a33205f402",
+      "removedCacheFiles": 21,
+      "allPreconditionsPassedBeforeDeletion": true,
+      "hostVisibleProcessCheck": false,
+      "freeBefore": 9557221376,
+      "freeAfter": 12695605248
+    },
+    {
+      "privateReceipt": "/tmp/mio89-experiments-20261011/reviewed-cache-removal-v3.json",
+      "sha256": "9dc8221dbbe40392a0259264bee24c880c3e08beceb8d8ac53467976f2b8065f",
+      "removedCacheFiles": 14,
+      "allPreconditionsPassedBeforeDeletion": true,
+      "hostVisibleProcessCheck": false,
+      "freeBefore": 10135281664,
+      "freeAfter": 11901743104
+    },
+    {
+      "privateReceipt": "/tmp/mio89-experiments-20261011/confirmation-test-cache-removal.json",
+      "sha256": "6665d22569c5f308336ddc3f270cdf00f5e69cd87af6ac7023799852bf4d2d45",
+      "removedCacheFiles": 5,
+      "allPreconditionsPassedBeforeDeletion": true,
+      "hostVisibleProcessCheck": false,
+      "freeBefore": 10328309760,
+      "freeAfter": 11021176832
+    },
+    {
+      "privateReceipt": "/tmp/mio89-experiments-20261011/pinned-noq-cache-removal.json",
+      "sha256": "3f1a9c4632f82ec948a055c8a8fa7f8300e97b203d566fa61fd3d670db29d728",
+      "removedCacheFiles": 1,
+      "allPreconditionsPassedBeforeDeletion": true,
+      "hostVisibleProcessCheck": false,
+      "freeBefore": 10730962944,
+      "freeAfter": 10778562560
+    },
+    {
+      "privateReceipt": "/tmp/mio89-experiments-20261011/unreferenced-unit-cache-removal.json",
+      "sha256": "329291fb8533f2246884618b2cbe58e7e83620e9fbb312bfee6008b3b83eff8c",
+      "removedCacheFiles": 4,
+      "allPreconditionsPassedBeforeDeletion": true,
+      "hostVisibleProcessCheck": false,
+      "freeBefore": null,
+      "freeAfter": null
+    },
+    {
+      "privateReceipt": "/tmp/mio89-experiments-20261011/additional-obsolete-tests-removal.json",
+      "sha256": "a5ba8950352dcba4b6bb584188f35beb35830ff289a5f988bc62ac7f3e9a1272",
+      "removedCacheFiles": 22,
+      "allPreconditionsPassedBeforeDeletion": true,
+      "hostVisibleProcessCheck": true,
+      "freeBefore": 9726062592,
+      "freeAfter": 12399636480
+    },
+    {
+      "privateReceipt": "/tmp/mio89-experiments-20261011/reviewed-v3-test-cache-removal.json",
+      "sha256": "b87749d88fff54b70537754b9006896803f17508d5e1c6bcc8d2d82a9671dabe",
+      "removedCacheFiles": 5,
+      "allPreconditionsPassedBeforeDeletion": true,
+      "hostVisibleProcessCheck": false,
+      "freeBefore": 12399595520,
+      "freeAfter": 13092458496
+    }
+  ],
+  "normalBinsLibrariesRawEvidencePinnedArtifactsAndStableProfilesPreserved": true,
+  "additionalFreshPublishedReferenceScan": {
+    "privateReview": "/tmp/mio89-experiments-20261011/additional-obsolete-tests-review.json",
+    "sha256": "f9284f35e5cbc5492b14f7aa1694d3f4a56a622ec685410ccc769a586b501fdc",
+    "evidenceFilesScanned": 35635,
+    "confirmedTestCachesClassified": 278,
+    "publishedMatchesExempted": 195,
+    "selectedObsoleteCaches": 22
+  },
+  "note": "Exact paths and hashes remain in each private review/removal receipt. Shared target only; no target clone or lock resolution. Earlier process checks used the per-command sandbox namespace; root-owned job completion was checked before deletion. The final22 obsolete caches and5 duplicate test caches used host-visible process checks. No compiler or test artifact currently in use was selected."
+}

@@ -1,0 +1,9 @@
+No open documented-standard violations or actionable baseline smells found in the corrected 13-file WIP diff against `05f99e3d078e17c69c53419faf681dec6cadec5a`.
+
+The original judgement-call finding in `standards-report.md` is fixed. At `src/native_network.rs:678`, automatic two-CID tuning now requires configured startup, an installed IRC transport, no installed MQTT or RTC, disabled direct UDP/TCP, no permitted facility data relay, and disabled member-data forwarding. Raw endpoint builders retain caller settings. At `browser-probe/src/network.rs:1875`, the existing MQTT/relay/RTC exclusions now also exclude an installed member-data transport. The platform-specific checks express matching carrier eligibility; `vendor/iroh/UPSTREAM.md:249` documents these boundaries. `src/resources.rs` matches the baseline and is outside the final scope.
+
+The generic builder API still clones its transport configuration before changing only the active CID limit. Default five-CID behavior, the five-slot receive ring, and separate multipath limits remain intact. Static review found no concrete reservation, retirement, rotation, or request-hook correctness defect. Native request shortcuts remain paired with the coordinator; browser requests await the shared restricted confirmation. This follows the common identity/admission boundary and generic core-extension direction in ADR 0009.
+
+The pinned public native fixture differs only by explicit two-CID selection when `!config.reopen && config.mqtt.is_none()`; its original and revised hashes match `context.json`. Reopened member/relay and MQTT fixtures retain defaults.
+
+No compilation or tracker mutation performed. Final source compilation and public qualification remain pending. Earlier measurements do not establish the independent throughput benefit of removing the echo. The original report is preserved; final HEAD and all 13 scoped hashes were verified unchanged.

@@ -795,6 +795,14 @@ impl Builder {
         self
     }
 
+    /// Sets the active remote CID pool size while retaining other QUIC settings.
+    ///
+    /// Supports two through five CIDs per path. Multipath path limits are unchanged.
+    pub fn active_connection_id_limit(mut self, limit: u32) -> Self {
+        self.transport_config = self.transport_config.with_active_connection_id_limit(limit);
+        self
+    }
+
     /// Optionally sets a custom DNS resolver to use for this endpoint.
     ///
     /// The DNS resolver is used to resolve relay hostnames, and endpoint addresses if

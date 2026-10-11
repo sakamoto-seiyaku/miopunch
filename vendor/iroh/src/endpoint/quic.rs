@@ -146,6 +146,11 @@ impl QuicTransportConfig {
     pub(crate) fn to_inner_arc(&self) -> Arc<noq::TransportConfig> {
         self.0.clone()
     }
+
+    pub(crate) fn with_active_connection_id_limit(mut self, limit: u32) -> Self {
+        Arc::make_mut(&mut self.0).active_connection_id_limit(limit);
+        self
+    }
 }
 
 impl QuicTransportConfigBuilder {
@@ -478,6 +483,15 @@ impl QuicTransportConfigBuilder {
             return self;
         }
         self.0.max_concurrent_multipath_paths(max_concurrent);
+        self
+    }
+
+    /// Sets the number of active remote connection IDs retained per path.
+    ///
+    /// The default is five. Values from two through five are supported; this
+    /// does not change the number of concurrent multipath paths.
+    pub fn active_connection_id_limit(mut self, limit: u32) -> Self {
+        self.0.active_connection_id_limit(limit);
         self
     }
 

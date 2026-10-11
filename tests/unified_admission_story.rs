@@ -29,7 +29,15 @@ async fn local_endpoint(node: &NativeNetwork) -> Endpoint {
     local.tcp_direct_disabled = true;
     local.member_data_relay_disabled = true;
     node.save_resource_configuration(&local).unwrap();
-    let endpoint = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
+    let endpoint = node
+        .bind_endpoint_with(
+            Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .active_connection_id_limit(2)
+                .bind_addr(std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     endpoint.set_alpns(vec![
         ADMISSION_REQUEST_ALPN.to_vec(),
         miopunch_native_probe::admission_gate::PRECODE_REQUEST_ALPN.to_vec(),
@@ -129,6 +137,160 @@ async fn complete(
     assert_eq!(sent.unwrap(), AdmissionStage::Complete);
     client.close(0u32.into(), b"owned completion ended");
     server.close(0u32.into(), b"owned completion ended");
+}
+
+#[tokio::test]
+async fn restricted_request_uses_one_control_exchange_before_application() {
+    let directory = tempfile::tempdir().unwrap();
+    let provider = NativeNetwork::create(directory.path().join("provider"))
+        .await
+        .unwrap();
+    let applicant = NativeNetwork::join(
+        directory.path().join("applicant"),
+        provider.manual_invitation().unwrap(),
+    )
+    .await
+    .unwrap();
+    let pe = local_endpoint(&provider).await;
+    let ae = local_endpoint(&applicant).await;
+    let (client, server) = connect(&ae, &pe).await;
+    let restricted = applicant
+        .admission_gate()
+        .allows(&client, ProtocolScope::AdmissionRequest)
+        && provider
+            .admission_gate()
+            .allows(&server, ProtocolScope::AdmissionRequest);
+    let member_denied = !applicant
+        .admission_gate()
+        .allows(&client, ProtocolScope::Member)
+        && !provider
+            .admission_gate()
+            .allows(&server, ProtocolScope::Member);
+    let (mut send, _) = client.open_bi().await.unwrap();
+    let application_stream = send.id().index();
+    send.write_all(b"restricted request boundary")
+        .await
+        .unwrap();
+    send.finish().unwrap();
+    let (_, mut receive) = server.accept_bi().await.unwrap();
+    let received = receive.read_to_end(64).await.unwrap();
+    client.close(0u32.into(), b"request confirmation boundary tested");
+    server.close(0u32.into(), b"request confirmation boundary tested");
+    drop((send, receive, client, server));
+    tokio::join!(ae.close(), pe.close());
+    tokio::join!(applicant.close(), provider.close());
+    assert!(restricted && member_denied);
+    assert_eq!(received, b"restricted request boundary");
+    assert_eq!(
+        application_stream, 1,
+        "one unified confirmation precedes the application; an extra stage echo adds a slow-carrier round trip"
+    );
+}
+
+#[derive(Clone, Debug)]
+struct BadRequestConfirmation(u8);
+
+impl iroh::endpoint::EndpointHooks for BadRequestConfirmation {
+    async fn after_handshake(
+        &self,
+        connection: &Connection,
+    ) -> iroh::endpoint::AfterHandshakeOutcome {
+        let (mut send, mut recv) = connection.open_bi().await.unwrap();
+        let mut frame = vec![0; 28];
+        frame[..4].copy_from_slice(b"MUC1");
+        frame[4..10].copy_from_slice(&[1, 2, 1, 1, 1, 0]);
+        frame[12..].copy_from_slice(&[7; 16]);
+        match self.0 {
+            0 => frame[4] = 99,
+            1 => frame[5] = 1,
+            2 => frame[7] = 2,
+            3 => frame[9] = 1,
+            4 => frame.push(0),
+            5 => {}
+            _ => unreachable!(),
+        }
+        send.write_all(&(frame.len() as u16).to_be_bytes())
+            .await
+            .unwrap();
+        send.write_all(&frame).await.unwrap();
+        if self.0 == 5 {
+            let mut response = [0; 47];
+            recv.read_exact(&mut response).await.unwrap();
+            let mut wrong_ack = [0; 17];
+            wrong_ack[0] = 1;
+            wrong_ack[1..].copy_from_slice(&response[14..30]);
+            wrong_ack[1] ^= 1;
+            send.write_all(&wrong_ack).await.unwrap();
+        }
+        send.finish().unwrap();
+        let _ = recv.read_to_end(64).await;
+        connection.closed().await;
+        iroh::endpoint::AfterHandshakeOutcome::Reject {
+            error_code: 0u32.into(),
+            reason: b"invalid request fixture ended".to_vec(),
+        }
+    }
+}
+
+#[tokio::test]
+async fn request_confirmation_rejects_invalid_envelopes_and_nonce_before_return() {
+    let directory = tempfile::tempdir().unwrap();
+    let provider = NativeNetwork::create(directory.path().join("provider"))
+        .await
+        .unwrap();
+    let server = local_endpoint(&provider).await;
+    for fault in 0..6 {
+        let client = Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .active_connection_id_limit(2)
+            .clear_relay_transports()
+            .bind_addr(std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+            .unwrap()
+            .alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()])
+            .hooks(BadRequestConfirmation(fault))
+            .bind()
+            .await
+            .unwrap();
+        let address = server
+            .addr()
+            .ip_addrs()
+            .find(|a| a.is_ipv4())
+            .copied()
+            .unwrap();
+        let deadline = n0_future::time::Instant::now() + Duration::from_secs(3);
+        let (out, incoming) = tokio::time::timeout(Duration::from_secs(3), async {
+            tokio::join!(
+                async {
+                    client
+                        .connect_with_opts(
+                            EndpointAddr::new(server.id()).with_ip_addr(address),
+                            ADMISSION_REQUEST_ALPN,
+                            iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline),
+                        )
+                        .await
+                        .unwrap()
+                        .await
+                },
+                async {
+                    server
+                        .accept()
+                        .await
+                        .unwrap()
+                        .with_caller_deadline(deadline)
+                        .await
+                }
+            )
+        })
+        .await
+        .unwrap();
+        client.close().await;
+        assert!(
+            out.is_err() && incoming.is_err(),
+            "fault {fault} released a request handle"
+        );
+        assert!(provider.manual_requests().await.unwrap().is_empty());
+    }
+    server.close().await;
+    provider.close().await;
 }
 
 #[tokio::test]

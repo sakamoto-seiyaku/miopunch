@@ -675,6 +675,20 @@ impl NativeNetwork {
                 irc.push(transport);
             }
         }
+        let builder = if configured_startup
+            && !irc.is_empty()
+            && mqtt.is_empty()
+            && !rtc_installed
+            && resources.udp_direct_disabled
+            && resources.tcp_direct_disabled
+            && (resources.member_data_relay_disabled
+                || resources.disabled_uses.contains(&crate::resources::ResourceUse::DataRelay))
+            && resources.relay_map(crate::resources::ResourceUse::DataRelay)?.is_empty()
+        {
+            builder.active_connection_id_limit(2)
+        } else {
+            builder
+        };
         let builder = match resources.lan_discovery {
             crate::resources::LanDiscovery::Disabled => builder,
             mode => builder.address_lookup(
@@ -719,19 +733,19 @@ impl NativeNetwork {
         ));
         #[cfg(feature = "rtc-probe")]
         let coordinator = coordinator.with_rtc(rtc.clone());
+        let gate = self.gate.with_request_coordinator();
         let builder = if configured_startup {
             let existing_data = crate::message_bootstrap::ExistingMemberDataRelease::new(
                 self.gate.clone(),
                 native_tcp
                     .filter(|tcp| !tcp.observers.is_empty() && tcp.transport.supports_punching()),
             );
-            self.gate
-                .with_message_bootstrap()
+            gate.with_message_bootstrap()
                 .configure(builder)
                 .hooks(coordinator)
                 .hooks(existing_data)
         } else {
-            self.gate.configure(builder).hooks(coordinator)
+            gate.configure(builder).hooks(coordinator)
         };
         let endpoint = builder
             .secret_key(SecretKey::from_bytes(self.node_key.as_bytes()))
