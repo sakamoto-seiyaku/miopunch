@@ -1,0 +1,56 @@
+{
+  "native": {
+    "runtimeExit": 0,
+    "observations": [
+      {
+        "label": "first-A",
+        "matchedTransaction": true,
+        "sourceMatchesRequestedDestination": true,
+        "replyCount": 1,
+        "wallMs": 290.107
+      },
+      {
+        "label": "same-socket-B",
+        "matchedTransaction": true,
+        "sourceMatchesRequestedDestination": true,
+        "replyCount": 1,
+        "wallMs": 115.405
+      },
+      {
+        "label": "fresh-socket-B",
+        "matchedTransaction": true,
+        "sourceMatchesRequestedDestination": true,
+        "replyCount": 1,
+        "wallMs": 117.875
+      }
+    ],
+    "ownedDirectoryRemoved": true
+  },
+  "browser": {
+    "runtimeExit": 0,
+    "observations": [
+      {
+        "label": "first-A",
+        "matchedTransaction": true,
+        "sourceMatchesRequestedDestination": true,
+        "replyCount": 1,
+        "wallMs": 268.578
+      },
+      {
+        "label": "same-socket-B",
+        "matchedTransaction": true,
+        "sourceMatchesRequestedDestination": true,
+        "replyCount": 1,
+        "wallMs": 113.778
+      },
+      {
+        "label": "fresh-socket-B",
+        "matchedTransaction": true,
+        "sourceMatchesRequestedDestination": true,
+        "replyCount": 1,
+        "wallMs": 100.895
+      }
+    ],
+    "ownedDirectoryRemoved": true
+  }
+}

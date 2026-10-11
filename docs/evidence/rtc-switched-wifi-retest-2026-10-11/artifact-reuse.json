@@ -1,0 +1,53 @@
+{
+  "buildContextSha256": "3d8aa7459f5b292d3c10869b86e9f8ab89d7a30d0597d7d0564e3bede9682aee",
+  "previousFailedSdkControllerSha256": "22aaad4b6e00641ddd9264199cd2294cb57882394bc5529b2e71c8e2cb9e39e3",
+  "native": {
+    "compiledPath": "/tmp/mio84-op13-returned-current-20261011/android/pinned/unified_admission_story",
+    "compiledSha256": "288ee75ee075018264476ea4a72562e222a408cde659626ac7297654068218f2",
+    "deployedPath": "/tmp/mio84-op13-returned-current-20261011/android/deploy/unified_admission_story",
+    "compiledBytes": 185154424,
+    "transformation": {
+      "operation": "strip debug sections on owned copy only",
+      "command": [
+        "rtk",
+        "proxy",
+        "/usr/bin/llvm-strip",
+        "--strip-debug",
+        "/tmp/mio84-op13-returned-current-20261011/android/deploy/unified_admission_story"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "deployedSha256": "4a3b0d5c2702c90d3b7ba04090e97473e3932cb0f92c09425b7b53aa49333262",
+    "deployedBytes": 101778712,
+    "receiptSha256": "698b7beceae06b1eec8427a4718ed073df41ed446aa72dae3c8938e9da9322cb",
+    "platform": "Android/PJZ110",
+    "selectedSdkInputsVerified": true,
+    "selectionScope": "one deployed binary from the frozen three-binary Cargo batch",
+    "currentSourceDigest": "225420c6ac0deacfdb2f269704be69c1a88ce6fa4df17a75877973e144093844"
+  },
+  "browser": {
+    "receiptSha256": "62e4211bde628b6574b3d77194ec08dbd0f190f0bb6d69f3956baa89eb88b0ed",
+    "packageSha256": "be1c3c39a8f05ac60b449330c0744d5c8934866a49411f979e6ef48e254102c9",
+    "artifactCount": 6
+  },
+  "androidGraph": {
+    "receiptSha256": "698b7beceae06b1eec8427a4718ed073df41ed446aa72dae3c8938e9da9322cb",
+    "selectedGraphSha256": "8a086d96bf7ee3474c622142332b9fe4e3b9e34454bf681ee7a022ca84eb2e54",
+    "actualSelectedInputCount": 6712,
+    "repositorySourceCopies": 300,
+    "capturedDepfiles": 547,
+    "batchBuildCountersUnchanged": true
+  },
+  "wasmGraph": {
+    "receiptSha256": "612d0e3c517d57b3e1fb25473f05eee1986af10f17e286132f92e33a76932ca0",
+    "selectedGraphSha256": "a62b82d2e08dda18c11a3cb4997e9fea8e423e787a0cb5e8a472082ea937ebbe",
+    "actualSelectedInputCount": 3159,
+    "repositorySourceCopies": 198,
+    "capturedDepfiles": 264,
+    "batchBuildCountersUnchanged": true
+  },
+  "newCargoOrRustcInvocation": false,
+  "byteIdenticalSdkReused": true
+}

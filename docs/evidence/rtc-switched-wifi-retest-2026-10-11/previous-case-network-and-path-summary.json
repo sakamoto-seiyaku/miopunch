@@ -1,0 +1,105 @@
+[
+  {
+    "case": "mqtt-rtc-whole-story-first",
+    "browserCaptures": 1,
+    "udpDatagramsAnalyzed": 581,
+    "browserPreviouslyDiagnosedWifiAddressSeen": true,
+    "defaultWifiNoPhoneVpnBefore": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "selectedRelay": null,
+    "m82StoryQualified": false,
+    "capturedIpAddressesPublished": false
+  },
+  {
+    "case": "mqtt-member-only-current-v1",
+    "browserCaptures": 1,
+    "udpDatagramsAnalyzed": 714,
+    "browserPreviouslyDiagnosedWifiAddressSeen": true,
+    "defaultWifiNoPhoneVpnBefore": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "selectedRelay": null,
+    "m82StoryQualified": false,
+    "capturedIpAddressesPublished": false
+  },
+  {
+    "case": "relay-only-whole-story-pure-relay-current-v1",
+    "browserCaptures": 2,
+    "udpDatagramsAnalyzed": 528,
+    "browserPreviouslyDiagnosedWifiAddressSeen": true,
+    "defaultWifiNoPhoneVpnBefore": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "selectedRelay": true,
+    "m82StoryQualified": true,
+    "capturedIpAddressesPublished": false
+  },
+  {
+    "case": "relay-with-rtc-allowed-pure-relay-current-v2",
+    "browserCaptures": 2,
+    "udpDatagramsAnalyzed": 336,
+    "browserPreviouslyDiagnosedWifiAddressSeen": true,
+    "defaultWifiNoPhoneVpnBefore": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "selectedRelay": true,
+    "m82StoryQualified": true,
+    "capturedIpAddressesPublished": false
+  },
+  {
+    "case": "irc-public-phones-current-v3",
+    "browserCaptures": 0,
+    "udpDatagramsAnalyzed": 0,
+    "browserPreviouslyDiagnosedWifiAddressSeen": false,
+    "defaultWifiNoPhoneVpnBefore": {
+      "activeDefaultObserved": true,
+      "defaultAgentObserved": true,
+      "defaultValidated": true,
+      "defaultNotVpnCapability": true,
+      "defaultTransportCellular": false,
+      "defaultTransportWifi": true,
+      "defaultTransport": "WIFI",
+      "defaultInterfaceCount": 1,
+      "currentVpnAgentCount": 0
+    },
+    "selectedRelay": true,
+    "m82StoryQualified": false,
+    "capturedIpAddressesPublished": false,
+    "ordinaryBusinessQualified": true,
+    "rtcRole": "None",
+    "noPcapAddressInferenceForIrc": true
+  }
+]

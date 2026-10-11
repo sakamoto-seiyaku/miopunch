@@ -1,0 +1,24 @@
+{
+  "native": {
+    "activeDefaultObserved": true,
+    "defaultAgentObserved": true,
+    "defaultValidated": true,
+    "defaultNotVpnCapability": true,
+    "defaultTransportCellular": true,
+    "defaultTransportWifi": false,
+    "defaultTransport": "CELLULAR",
+    "defaultInterfaceCount": 1,
+    "currentVpnAgentCount": 0
+  },
+  "browser": {
+    "activeDefaultObserved": true,
+    "defaultAgentObserved": true,
+    "defaultValidated": true,
+    "defaultNotVpnCapability": true,
+    "defaultTransportCellular": false,
+    "defaultTransportWifi": true,
+    "defaultTransport": "WIFI",
+    "defaultInterfaceCount": 1,
+    "currentVpnAgentCount": 0
+  }
+}

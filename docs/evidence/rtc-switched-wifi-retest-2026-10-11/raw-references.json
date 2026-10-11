@@ -1,0 +1,956 @@
+[
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/device-preflight.json",
+    "sha256": "c4cfd6076b396dfc4227cfe57d0172f6c4c69b50e9184131896fdd245f4ed897",
+    "bytes": 2482,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/device-preflight.py",
+    "sha256": "01a66f81c0e3fbecfd32c2d55f4ded7d107ef8c3e7c377b630f5d2b4f52bbbd2",
+    "bytes": 1555,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/binding.json",
+    "sha256": "a611fab1213ff4f3cfcdf3c30ae624823e120677f576011642f0556d187ad71f",
+    "bytes": 25149,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/capture-helper.py",
+    "sha256": "e390d5489ae4d4fc79d29dfb34755d40a65a7b7c51776342e36e07d19fcc2f1b",
+    "bytes": 12989,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/command.json",
+    "sha256": "8ea7dc1c63f9b12fb0aefe733cb6b67946f91e49b93350d779b219a40c4c7dd3",
+    "bytes": 348,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/controller.py",
+    "sha256": "22aaad4b6e00641ddd9264199cd2294cb57882394bc5529b2e71c8e2cb9e39e3",
+    "bytes": 76661,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/execution.json",
+    "sha256": "148ddd10d4eb332e4f1dc2d6bdfbd4fff86a91604a82dacee7eb6c28b4aa5ff5",
+    "bytes": 372,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/network-after.json",
+    "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+    "bytes": 652,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/network-before.json",
+    "sha256": "579074f1ff53c292d9f9339afba029c860998ce7d4a752b312739ca2ba8b561d",
+    "bytes": 652,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/preparation.json",
+    "sha256": "042a9fc58dbf421b7aa48980ccb8804bd708e9fa89132623097fa63747ac5ffc",
+    "bytes": 436,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-m82-transcript.json",
+    "sha256": "0a9eeb00f9581783ded6a805da6fe5ee9bfb02fe2c7f88b650ae485f604eab58",
+    "bytes": 264253,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/001-mkdir.json",
+    "sha256": "f5a519f4ea85d95b11efb06c8b8477b498c903ae4288ec919c69fcd4444badb1",
+    "bytes": 232,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/001-mkdir.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/001-mkdir.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/002-push.json",
+    "sha256": "f4bf04636d91327b3307879e4abf7bac2d5a122271d39a27eff74669f5dc0fb0",
+    "bytes": 280,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/002-push.stderr",
+    "sha256": "b082deb3bd6c0814dfc22a97804c77cd91ba54b612fcae81a270c2eae010932d",
+    "bytes": 124,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/002-push.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/003-chmod.json",
+    "sha256": "8fd11f38c14eaa9fd2470ce3cc75718eb5135de67fdf1823387f84d4a58cf02a",
+    "bytes": 234,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/003-chmod.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/003-chmod.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/004-sha.json",
+    "sha256": "ec99bc2916b3e7dd36e7a75c57cc7636dcb2b034664724c5f49f64626f18ec03",
+    "bytes": 231,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/004-sha.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/004-sha.stdout",
+    "sha256": "3ad8a5b128d46b624aa5ac5a396ab6a903d2d531cf8ffc4f4aedbe167036ddd1",
+    "bytes": 134,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/005-pre-sdk-udp-and-mqtt-pid.json",
+    "sha256": "53d6eed6408c140ee2cbc0563c9991d0e0be458d0ac2f438b12c4e30e5530132",
+    "bytes": 247,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/005-pre-sdk-udp-and-mqtt-pid.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/005-pre-sdk-udp-and-mqtt-pid.stdout",
+    "sha256": "c8690c3e1f934383e4738d84b1ea769e26050bb0be560ed17579b6f0be7a5734",
+    "bytes": 6,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/006-pre-sdk-udp-and-mqtt-cmdline.json",
+    "sha256": "ebd2baad9f5423b37b3f977204b8964aa3fdf72dc1d87caa35fdd84999c7f264",
+    "bytes": 180,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/006-pre-sdk-udp-and-mqtt-cmdline.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/006-pre-sdk-udp-and-mqtt-cmdline.stdout",
+    "sha256": "d94bf6eb15766da5e83acbc2e16f41539f44d9fc229d99340600d2e9723f7e1a",
+    "bytes": 213,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/007-pre-sdk-udp-and-mqtt-stat.json",
+    "sha256": "2c329f987f95838c926f3b70262296e7e80c37dcd821022e15a3d06b1cf1f283",
+    "bytes": 178,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/007-pre-sdk-udp-and-mqtt-stat.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/007-pre-sdk-udp-and-mqtt-stat.stdout",
+    "sha256": "ba7f0cdea44df6d26d3a0378cf470b5720a99a84efbf99d26e4b49205db44c7c",
+    "bytes": 268,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/008-snapshot-cmdline.json",
+    "sha256": "6d4654cac5eaf2281d262ebcb3907cb97378ca8de92c3f947c5ac84e20795898",
+    "bytes": 182,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/008-snapshot-cmdline.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/008-snapshot-cmdline.stdout",
+    "sha256": "d94bf6eb15766da5e83acbc2e16f41539f44d9fc229d99340600d2e9723f7e1a",
+    "bytes": 213,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/009-snapshot-stat.json",
+    "sha256": "28620243b5de6e75000e00a6516e8fbf226f9983eca3864868dc63e20370046d",
+    "bytes": 179,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/009-snapshot-stat.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/009-snapshot-stat.stdout",
+    "sha256": "d7a24500c7b0ae0a72fe3457e378fd5edef2ce2f71995ae7527188fee76ad87b",
+    "bytes": 268,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/010-live-snapshot.json",
+    "sha256": "ff72022acaa3631210cfbad56c944137ccf1753f5751914e648d425cd55ce183",
+    "bytes": 248,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/010-live-snapshot.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/010-live-snapshot.stdout",
+    "sha256": "e9dd0217c259623696c8d0438fb691d43ff75f84f2b49a86dde80232172ae2ed",
+    "bytes": 316592,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/011-pre-sdk-udp-and-mqtt-stop-cmdline.json",
+    "sha256": "e578d27e191c7b89fab292f3507577bbbb1e70783c114b30382adf249b7c3ffc",
+    "bytes": 182,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/011-pre-sdk-udp-and-mqtt-stop-cmdline.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/011-pre-sdk-udp-and-mqtt-stop-cmdline.stdout",
+    "sha256": "d94bf6eb15766da5e83acbc2e16f41539f44d9fc229d99340600d2e9723f7e1a",
+    "bytes": 213,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/012-pre-sdk-udp-and-mqtt-stop-stat.json",
+    "sha256": "3228f2305496dcc719027d1137e9a2e15a32bf77e1e746bf35be6db340432876",
+    "bytes": 178,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/012-pre-sdk-udp-and-mqtt-stop-stat.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/012-pre-sdk-udp-and-mqtt-stop-stat.stdout",
+    "sha256": "159573ccd28cd15e7866055e07b330d0d03534efe19a42ae7c89c79807564c89",
+    "bytes": 268,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/013-pre-sdk-udp-and-mqtt-sigint.json",
+    "sha256": "e616be1a2d386e0ebb9d3001e4391dd44e3ce287eef242e67c2e552cf411ee72",
+    "bytes": 174,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/013-pre-sdk-udp-and-mqtt-sigint.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/013-pre-sdk-udp-and-mqtt-sigint.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/014-pre-sdk-udp-and-mqtt-absence-immediate.json",
+    "sha256": "70b5eab967a7eb10b0b97cc8292e312a4219790773cc09138c0b43fbccd44d68",
+    "bytes": 194,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/014-pre-sdk-udp-and-mqtt-absence-immediate.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/014-pre-sdk-udp-and-mqtt-absence-immediate.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/015-pre-sdk-udp-and-mqtt-absence-late.json",
+    "sha256": "a06363cb266b6d36911445c795ffe45fbab087c1d309da3462e7444b13de44bb",
+    "bytes": 194,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/015-pre-sdk-udp-and-mqtt-absence-late.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/015-pre-sdk-udp-and-mqtt-absence-late.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/016-pre-sdk-udp-and-mqtt-read-pcap.json",
+    "sha256": "60db0f5b6ae6f2b4dc5bc8d24b941e493dbb5994a55334872a9afa3c649a0cc4",
+    "bytes": 248,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/016-pre-sdk-udp-and-mqtt-read-pcap.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/016-pre-sdk-udp-and-mqtt-read-pcap.stdout",
+    "sha256": "d759f034028405242dffbc64c74a47e17f28eef24e70434d7f4a7d691fde6386",
+    "bytes": 360141,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/017-remove-owned-capture-directory.json",
+    "sha256": "7b19158c3d641a347354f86db533c537306c8cc7643e43398dbca4d3f78b0756",
+    "bytes": 225,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/017-remove-owned-capture-directory.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/017-remove-owned-capture-directory.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/018-owned-capture-directory-absence.json",
+    "sha256": "bfd1c7a9558706ba6a5842d9b83df40f28fe2c666cfe551a83bbc7bf81b6c8c2",
+    "bytes": 242,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/018-owned-capture-directory-absence.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/018-owned-capture-directory-absence.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/live-sdk-pair-snapshot.pcap",
+    "sha256": "e9dd0217c259623696c8d0438fb691d43ff75f84f2b49a86dde80232172ae2ed",
+    "bytes": 316592,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/pre-sdk-udp-and-mqtt.pcap",
+    "sha256": "d759f034028405242dffbc64c74a47e17f28eef24e70434d7f4a7d691fde6386",
+    "bytes": 360141,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser/private-capture-receipt.json",
+    "sha256": "849a625849f5ac7bfa53bacb9864dfb3341a6339246b2a2ec3505c2f14648fac",
+    "bytes": 2046,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/browser-network-facts-before-sdk.json",
+    "sha256": "8fc3d1d5eecae5bacb951e1c96ef92b1512b50a3da4be39cc1c6d86cf649b2a4",
+    "bytes": 289,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/001-mkdir.json",
+    "sha256": "39407e20342a73b139f184a0821e47531a275607f2a45777a8277f749cfd7ea5",
+    "bytes": 225,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/001-mkdir.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/001-mkdir.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/002-push.json",
+    "sha256": "a9267ca5d4b0c94be1e5a7e75fd7dafafa3cbbf87e7b5b74b15a4bde59512bef",
+    "bytes": 275,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/002-push.stderr",
+    "sha256": "da3de473e815d61c963a233276203a3ad7199b200498ea4c0e4911d869306a07",
+    "bytes": 124,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/002-push.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/003-chmod.json",
+    "sha256": "3cc6b78ec2331de8b58057e6a5d3680f851549a26ed16837c73dd12a6aadb8d1",
+    "bytes": 227,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/003-chmod.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/003-chmod.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/004-sha.json",
+    "sha256": "ad16533f90d50cbe3db75d473b254cc9c4927520123b7936fce197dc4d36c2bf",
+    "bytes": 224,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/004-sha.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/004-sha.stdout",
+    "sha256": "7b6f39939cb6718d53e4eee186504cd2c82f0f7f4b3ec3ef4977cf7cd3b5c6ec",
+    "bytes": 134,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/005-pre-sdk-udp-and-mqtt-pid.json",
+    "sha256": "da3e7308c24dcd3d03b82617bc3abd8ea4cf5250d3a6e7c038e6e288f1f39ad0",
+    "bytes": 241,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/005-pre-sdk-udp-and-mqtt-pid.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/005-pre-sdk-udp-and-mqtt-pid.stdout",
+    "sha256": "5000aeec8f941e0cb53cdba5a455d492b92c38840d058edae49b865830825853",
+    "bytes": 5,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/006-pre-sdk-udp-and-mqtt-cmdline.json",
+    "sha256": "8fcaf37d7501e1c66498e581cd2e789c6ec786846dad66d0d3e157518bf520cb",
+    "bytes": 175,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/006-pre-sdk-udp-and-mqtt-cmdline.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/006-pre-sdk-udp-and-mqtt-cmdline.stdout",
+    "sha256": "eb79e5f7e321942a6c4e2cdb4183503085d154a244e1b5e2ac9d5765be60f799",
+    "bytes": 219,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/007-pre-sdk-udp-and-mqtt-stat.json",
+    "sha256": "576488c075b3aeb4ffc1f57ff69adba83c21e06fe1cd9584bd2ba8fd669e8cdb",
+    "bytes": 172,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/007-pre-sdk-udp-and-mqtt-stat.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/007-pre-sdk-udp-and-mqtt-stat.stdout",
+    "sha256": "a4be0d32148d158875c761a31996d9bb7671547ecb26c30a1df0a5a59bc635e7",
+    "bytes": 264,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/008-snapshot-cmdline.json",
+    "sha256": "5be103433c2363e43c37a4b70c416e8159eff914fbd08a25656ff618d7cfd977",
+    "bytes": 174,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/008-snapshot-cmdline.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/008-snapshot-cmdline.stdout",
+    "sha256": "eb79e5f7e321942a6c4e2cdb4183503085d154a244e1b5e2ac9d5765be60f799",
+    "bytes": 219,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/009-snapshot-stat.json",
+    "sha256": "f3c32fa78c95ff04fb816b03646d836554f4c4c4b16942e0d2aa90a726d72bff",
+    "bytes": 172,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/009-snapshot-stat.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/009-snapshot-stat.stdout",
+    "sha256": "a4be0d32148d158875c761a31996d9bb7671547ecb26c30a1df0a5a59bc635e7",
+    "bytes": 264,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/010-live-snapshot.json",
+    "sha256": "cad45cd5d374b4a9e0fe29cdf01e2bd06934fecb4ced44f9f4dc8a08adbf9029",
+    "bytes": 242,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/010-live-snapshot.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/010-live-snapshot.stdout",
+    "sha256": "8cf29e624b5e8a795bcef08dd161a836ffad3877db8b66698804296650d54a16",
+    "bytes": 272512,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/011-pre-sdk-udp-and-mqtt-stop-cmdline.json",
+    "sha256": "f0b04fae27913cc89cbad8acee22e2ab081541ec0cc9c41e720f2fec84e1ab1a",
+    "bytes": 175,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/011-pre-sdk-udp-and-mqtt-stop-cmdline.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/011-pre-sdk-udp-and-mqtt-stop-cmdline.stdout",
+    "sha256": "eb79e5f7e321942a6c4e2cdb4183503085d154a244e1b5e2ac9d5765be60f799",
+    "bytes": 219,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/012-pre-sdk-udp-and-mqtt-stop-stat.json",
+    "sha256": "b54afcfd33c3a37ef3a295f6a9ae3790225f51dacc60939ec3d1fdd54e58f91f",
+    "bytes": 172,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/012-pre-sdk-udp-and-mqtt-stop-stat.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/012-pre-sdk-udp-and-mqtt-stop-stat.stdout",
+    "sha256": "a4be0d32148d158875c761a31996d9bb7671547ecb26c30a1df0a5a59bc635e7",
+    "bytes": 264,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/013-pre-sdk-udp-and-mqtt-sigint.json",
+    "sha256": "4489d3482a5d2d369d6718e4a6851674b43379f84139050e72bbbe06a39bb797",
+    "bytes": 167,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/013-pre-sdk-udp-and-mqtt-sigint.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/013-pre-sdk-udp-and-mqtt-sigint.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/014-pre-sdk-udp-and-mqtt-absence-immediate.json",
+    "sha256": "c808571a6f7052d644bdfc6219b3afd0964c53bdaf1423115d779ce912e6f8f7",
+    "bytes": 187,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/014-pre-sdk-udp-and-mqtt-absence-immediate.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/014-pre-sdk-udp-and-mqtt-absence-immediate.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/015-pre-sdk-udp-and-mqtt-absence-late.json",
+    "sha256": "7d2cc0fbdae1f12f1a6c55086b4e1c6c8bfd4ef435da8b69b165e1b907c2eb95",
+    "bytes": 187,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/015-pre-sdk-udp-and-mqtt-absence-late.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/015-pre-sdk-udp-and-mqtt-absence-late.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/016-pre-sdk-udp-and-mqtt-read-pcap.json",
+    "sha256": "748e7aa7be193f09cc70a3c8e9af86054fcac0a011bcc31a29196ee72d3f9c40",
+    "bytes": 242,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/016-pre-sdk-udp-and-mqtt-read-pcap.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/016-pre-sdk-udp-and-mqtt-read-pcap.stdout",
+    "sha256": "cf7dc0a4ffdf41f3b2d7dc394bedf312b101716a0b7acd5d9215978d6eb93122",
+    "bytes": 317688,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/017-remove-owned-capture-directory.json",
+    "sha256": "f6582f7ea4a783504875779d826849f6c0de14f22ad52f57cf114e4f24abfd32",
+    "bytes": 219,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/017-remove-owned-capture-directory.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/017-remove-owned-capture-directory.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/018-owned-capture-directory-absence.json",
+    "sha256": "0cd1e572052c335e0a3a10174cf9f3f06ada2d7e74482e1be0012d2d402a5966",
+    "bytes": 236,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/018-owned-capture-directory-absence.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/018-owned-capture-directory-absence.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/live-sdk-pair-snapshot.pcap",
+    "sha256": "8cf29e624b5e8a795bcef08dd161a836ffad3877db8b66698804296650d54a16",
+    "bytes": 272512,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/pre-sdk-udp-and-mqtt.pcap",
+    "sha256": "cf7dc0a4ffdf41f3b2d7dc394bedf312b101716a0b7acd5d9215978d6eb93122",
+    "bytes": 317688,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native/private-capture-receipt.json",
+    "sha256": "67d1177cac3fb4b02c837c2b41a2bcc8ad7578a669d091b4e78b73b90d4c9e63",
+    "bytes": 2225,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/native-network-facts-before-sdk.json",
+    "sha256": "d7d9c81e96ff5224a9ca4ea79bb98f36c880534bf85e6e4163950f2cf9189ade",
+    "bytes": 293,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-pcap/private-group-receipt.json",
+    "sha256": "f55f471aeeb475e066e18e0c44f9ced8eaa0b1411b5d4372fdd21d9cfd0f2bc3",
+    "bytes": 5280,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-route-receipt.json",
+    "sha256": "5514c9d2173b2a9a6222b491b46600dec459cde517ccc58513c35b2b989cdd63",
+    "bytes": 385365,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/private-route-request.json",
+    "sha256": "82b6bb5635d324231901edb1ed14fbfe8a9d957c660babdb42a557c30e1e3a9e",
+    "bytes": 4249,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/mqtt-rtc-whole-story-new-wifi-v1/runtime/receipt.json",
+    "sha256": "9deff51f71413eef9db090255e7dfddfd3281ba1a49a9b4f2b3cf47384ed1840",
+    "bytes": 98422,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/network-switch-comparison.json",
+    "sha256": "9fd6aa5691cd0036048b7a266e6f6292b5f40d17adc2f5b07f5fffdc996a3376",
+    "bytes": 242,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/previous-case-network-and-path-summary.json",
+    "sha256": "843ea0b3dde7342a30de6b4d3f851287c3e66102c2a55b3937281b8104b9d9e1",
+    "bytes": 3298,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-browser-addresses.txt",
+    "sha256": "1075c795080b2bdeaa9cb712e06cd0c392d7946411813e26af5fd807a1690a22",
+    "bytes": 1151,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-browser-connectivity.txt",
+    "sha256": "85ce2e7422a6b773e1dca683e1b88edeb07d9064cbedfffad0c4434d9f415e10",
+    "bytes": 135518,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-browser-ipv6nat.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-browser-mangle.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-browser-nat.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-browser-routes.txt",
+    "sha256": "1b79a239c03c769d600d5ba723860b940fa90a3a5b5167f966e1bdbb460bf9c2",
+    "bytes": 783,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-browser-rules.txt",
+    "sha256": "410919dab507824018b35ab3d98e5a145ea876c18ab416ce41081c0029468904",
+    "bytes": 2571,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-native-addresses.txt",
+    "sha256": "ace0ebbebd9784ad28f32984676867d2cb3c0a24ada3d499dade37a41b4ae399",
+    "bytes": 1719,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-native-connectivity.txt",
+    "sha256": "184d9c4a9463055d0ea026573d4f566d3526b145539c7280cf9f33ab92735d11",
+    "bytes": 146152,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-native-ipv6nat.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-native-mangle.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-native-nat.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-native-routes.txt",
+    "sha256": "4eecc08ac403b48d66c60b84b97874e868bb55e5db79a1d015b48f007c105981",
+    "bytes": 1354,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-native-rules.txt",
+    "sha256": "10826e45bf0d1e76079c44250913bb998ca2a8f54f09f7415ad3ba5ae0340124",
+    "bytes": 2037,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-udp-probe-browser.jsonl",
+    "sha256": "13e8ca4ad9c32a32bbeddfb8fd273a55dff67ae0ce3f07a75b8e66fe084b9ee1",
+    "bytes": 497,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/private-udp-probe-native.jsonl",
+    "sha256": "31a74a9ff510b545e6e071b8730d8bfb4ddca564c274eca0086602b5ca2aad03",
+    "bytes": 497,
+    "private": true
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/protected-wip-before.json",
+    "sha256": "2dd930ed5fef696c38078f26021a0ddddb641ad7fafcebdff8725b2c0ab23689",
+    "bytes": 39489,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/publish-retest.py",
+    "sha256": "f4ef2708d53ef27da47fdf823f8fd8716b5858aa579fd9ce320cb05b58b8f985",
+    "bytes": 7636,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/run-full-story.py",
+    "sha256": "bab7cd3ff84aa8d023c43f83e300e450d30325f4c9e41498f9d849bd41364246",
+    "bytes": 9576,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/run-udp-probe-reverse.py",
+    "sha256": "bc66dc550cac851387de369006a2f40316b991d45bfb10252767e86fa5b2f688",
+    "bytes": 1573,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/run-udp-probe.py",
+    "sha256": "37c4baa5b6a6e6911e9ab32b46545b5dc4bccaa1805daa2d506e077d9a7ba137",
+    "bytes": 1557,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/sdk-retained-packet-summary.json",
+    "sha256": "527e0914ea157d69e09be5fc0c65be08d5145c23b21d3ffe3c198828041c62d6",
+    "bytes": 924,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/udp-destination-probe",
+    "sha256": "9dabe6e54d7ecbd1cee60dba5cd5a3aa78fe1699613ef3e618743e77971ef4cb",
+    "bytes": 9160,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/udp-destination-probe.c",
+    "sha256": "c0efcbf6a880b69d4ea6380e57f0efda9fe573e0dbbb5618bebb968f6087be8c",
+    "bytes": 2257,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/udp-probe-compile.json",
+    "sha256": "6803538c97b5a69a6ff61acf267f8af0c72d7c8ce76920ca8d6f080fb33019d2",
+    "bytes": 844,
+    "private": false
+  },
+  {
+    "path": "/tmp/mio84-switched-wifi-retest-20261011/udp-probe-result.json",
+    "sha256": "13444e40b7f65ecca817aa16b8ba2fbe4b0866d08ade4c4661c53d647d1cb7f8",
+    "bytes": 1334,
+    "private": false
+  }
+]

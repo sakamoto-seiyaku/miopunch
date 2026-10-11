@@ -1,0 +1,34 @@
+[
+  {
+    "role": "native",
+    "captureSha256": "cf7dc0a4ffdf41f3b2d7dc394bedf312b101716a0b7acd5d9215978d6eb93122",
+    "counts": {
+      "udpPackets": 344,
+      "stunPackets": 65,
+      "bindingSuccessWithMessageIntegrityAttribute": 21,
+      "dtlsPackets": 265,
+      "dtlsHandshake": 6,
+      "dtlsChangeCipherSpec": 2,
+      "dtlsApplication": 255,
+      "dtlsAlert": 2
+    },
+    "udpIpv4AnalysisOnly": true,
+    "noEndpointOrPayloadPublished": true
+  },
+  {
+    "role": "browser",
+    "captureSha256": "d759f034028405242dffbc64c74a47e17f28eef24e70434d7f4a7d691fde6386",
+    "counts": {
+      "udpPackets": 374,
+      "stunPackets": 68,
+      "bindingSuccessWithMessageIntegrityAttribute": 21,
+      "dtlsPackets": 279,
+      "dtlsHandshake": 6,
+      "dtlsChangeCipherSpec": 2,
+      "dtlsApplication": 269,
+      "dtlsAlert": 2
+    },
+    "udpIpv4AnalysisOnly": true,
+    "noEndpointOrPayloadPublished": true
+  }
+]

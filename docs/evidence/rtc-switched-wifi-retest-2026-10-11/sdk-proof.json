@@ -1,0 +1,25 @@
+{
+  "ordinaryHandle": true,
+  "memberAuthorized": true,
+  "expectedPeerMatched": true,
+  "selectedRtcBeforeAndAfterBusiness": true,
+  "selectedRelay": false,
+  "purposeCode": 1,
+  "freshAckBeforeAndAfterBusiness": true,
+  "localStableConnectionUnchanged": true,
+  "bindingUnchanged": true,
+  "sdkPingPongMatched": true,
+  "rtcRole": "Offerer",
+  "replica": {
+    "targetAbsentBefore": true,
+    "targetVerifiedSavedAfter": true,
+    "scopeCount": 4,
+    "savedCount": 4,
+    "appliedCount": 4,
+    "complete": true,
+    "targetVerifiedSavedAfterReopen": true
+  },
+  "unapprovedDataRejected": true,
+  "revokedDataRejected": true,
+  "normalTlsVerified": true
+}

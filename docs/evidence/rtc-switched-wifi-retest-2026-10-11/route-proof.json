@@ -1,0 +1,89 @@
+{
+  "summary": {
+    "commandExit": 0,
+    "endpointCount": 2,
+    "activeValidatedNetworkCount": 2,
+    "activeNotVpnPhysicalNetworkCount": 2,
+    "exactRouteLookupCount": 2,
+    "selectedNonRelayCount": 2,
+    "nativeSocketTupleOwned": true,
+    "nativeMarkObservedAndCorrelated": true,
+    "nativeRouteToActualInterface": true,
+    "browserRouteToActualInterface": true,
+    "distinctAccessNetworksObserved": true,
+    "distinctAccessMethod": "opposite CELLULAR/WIFI defaults and distinct global peer wire addresses",
+    "pairCorrelation": true,
+    "actualSocketUidObservedCount": 0,
+    "actualSocketMarkObservedCount": 1,
+    "physicalDataQualified": true,
+    "physicalWanQualified": true,
+    "routeObservationUnknown": false
+  },
+  "packetCorrelation": {
+    "method": "bidirectional-exact-ICE-payloads-on-SDK-selected-tuples",
+    "nativeToBrowserMatchedRequests": 5,
+    "browserToNativeMatchedRequests": 3,
+    "correlated": true,
+    "independentMessageIntegrityValidation": false
+  },
+  "endpoints": [
+    {
+      "role": "native",
+      "qualification": {
+        "activeNotVpnPhysicalNetwork": true,
+        "selectedPairObserved": true,
+        "selectedPairNonRelay": true,
+        "selectedRouteToActualInterface": true,
+        "nativeSocketTupleOwned": true,
+        "nativeMarkObservedAndCorrelated": true,
+        "browserSocketUidUnknown": false,
+        "browserProtectUnknown": false
+      },
+      "limits": [
+        "ADB and shell reads are control/evidence channels, not data-route proof.",
+        "Process/package UIDs are not actual selected socket UIDs.",
+        "An omitted SO_MARK observation is unknown, including mark zero.",
+        "IPv6 proc tuple ownership is retained as unknown unless the platform emits an exact owner row.",
+        "Browser-owned selected-PC stats outrank CDP WebSocket lifecycle, but do not expose socket UID/protect.",
+        "Physical data qualification requires an active non-VPN Android network, a selected nonrelay pair, an exact route to the active interface, and native tuple ownership; no Chrome socket UID or protect fact is inferred."
+      ],
+      "currentM": {
+        "sameOriginal": true,
+        "alive": true,
+        "memberGate": true,
+        "selectedRtc": true
+      },
+      "routeUidProvenance": "owned native process effective UID; actual socket UID remains unknown"
+    },
+    {
+      "role": "browser",
+      "qualification": {
+        "activeNotVpnPhysicalNetwork": true,
+        "selectedPairObserved": true,
+        "selectedPairNonRelay": true,
+        "selectedRouteToActualInterface": true,
+        "nativeSocketTupleOwned": null,
+        "nativeMarkObservedAndCorrelated": null,
+        "browserSocketUidUnknown": true,
+        "browserProtectUnknown": true
+      },
+      "limits": [
+        "ADB and shell reads are control/evidence channels, not data-route proof.",
+        "Process/package UIDs are not actual selected socket UIDs.",
+        "An omitted SO_MARK observation is unknown, including mark zero.",
+        "IPv6 proc tuple ownership is retained as unknown unless the platform emits an exact owner row.",
+        "Browser-owned selected-PC stats outrank CDP WebSocket lifecycle, but do not expose socket UID/protect.",
+        "Physical data qualification requires an active non-VPN Android network, a selected nonrelay pair, an exact route to the active interface, and native tuple ownership; no Chrome socket UID or protect fact is inferred."
+      ],
+      "currentM": {
+        "sameOriginal": true,
+        "alive": true,
+        "memberGate": true,
+        "selectedRtc": true
+      },
+      "routeUidProvenance": "observed Chrome package UID; Chrome network-service socket UID remains unknown"
+    }
+  ],
+  "networkSettingsChanged": false,
+  "rawReceiptSha256": "5514c9d2173b2a9a6222b491b46600dec459cde517ccc58513c35b2b989cdd63"
+}

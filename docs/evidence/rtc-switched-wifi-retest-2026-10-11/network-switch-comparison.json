@@ -1,0 +1,11 @@
+{
+  "native": {
+    "defaultGatewayChanged": false,
+    "ipv4AddressSnapshotChanged": false,
+    "existingSdkBindAddressesStillPresent": true
+  },
+  "browser": {
+    "defaultGatewayChanged": true,
+    "ipv4AddressSnapshotChanged": true
+  }
+}

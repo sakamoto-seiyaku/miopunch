@@ -1,0 +1,100 @@
+{
+  "browser": {
+    "sdkRequired": true,
+    "tabRequired": true,
+    "forwardRequired": true,
+    "reverseRequired": true,
+    "errors": [],
+    "forwardRemoveExit": 0,
+    "forwardRuleAbsent": true,
+    "reverseRemoveExit": 0,
+    "reverseRuleAbsent": true,
+    "localListenerClosed": true,
+    "elapsedMs": 657.618,
+    "cleanupSucceeded": true
+  },
+  "browserOwnedTargetAbsent": true,
+  "browserOwnedStorage": {
+    "required": true,
+    "ownedDatabaseClaimed": true,
+    "exclusiveStorageLock": true,
+    "outcome": "success",
+    "deleted": true,
+    "pending": false,
+    "terminal": true
+  },
+  "native": {
+    "forced": false,
+    "commandExit": 0,
+    "leaderWaitedFor": true,
+    "ownedRemoteProcessAbsent": true,
+    "ownedRemoteProcessAbsentLate": true,
+    "localReadersEnded": true,
+    "ownedDirectoryRemoved": true,
+    "elapsedMs": 959.403
+  },
+  "nativeSdkRetirement": {
+    "activeRtcAssociations": 0,
+    "activeRtcPumps": 0,
+    "cleanupMs": 112,
+    "handlersDrained": true,
+    "nodeCloseReturned": true,
+    "socketsBefore": 4,
+    "socketsImmediate": 4,
+    "socketsLate": 4,
+    "lateDelayMs": 100
+  },
+  "packetCapture": {
+    "cleanupSucceeded": true,
+    "observerJoined": true,
+    "observerFailureCount": 0,
+    "firstPeerCheckCoveredByExpandedFilterProven": false,
+    "devices": {
+      "native": {
+        "ownedDirectoryAbsent": true,
+        "cleanupSucceeded": true,
+        "segments": [
+          {
+            "name": "pre-sdk-udp-and-mqtt",
+            "ready": true,
+            "startedBeforeSdk": true,
+            "forced": false,
+            "exit": 0,
+            "readersEnded": true,
+            "ownedProcessAbsentImmediate": true,
+            "ownedProcessAbsentLate": true,
+            "pcapBytes": 317688,
+            "pcapSha256": "cf7dc0a4ffdf41f3b2d7dc394bedf312b101716a0b7acd5d9215978d6eb93122",
+            "packetsCaptured": 1024,
+            "packetsReceivedByFilter": 1024,
+            "kernelDrops": 0,
+            "limitReached": false
+          }
+        ]
+      },
+      "browser": {
+        "ownedDirectoryAbsent": true,
+        "cleanupSucceeded": true,
+        "segments": [
+          {
+            "name": "pre-sdk-udp-and-mqtt",
+            "ready": true,
+            "startedBeforeSdk": true,
+            "forced": false,
+            "exit": 0,
+            "readersEnded": true,
+            "ownedProcessAbsentImmediate": true,
+            "ownedProcessAbsentLate": true,
+            "pcapBytes": 360141,
+            "pcapSha256": "d759f034028405242dffbc64c74a47e17f28eef24e70434d7f4a7d691fde6386",
+            "packetsCaptured": 1142,
+            "packetsReceivedByFilter": 1143,
+            "kernelDrops": 0,
+            "limitReached": false
+          }
+        ]
+      }
+    }
+  },
+  "fullSdkTerminalSocketRetirementProven": false
+}

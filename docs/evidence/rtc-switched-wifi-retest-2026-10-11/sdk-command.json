@@ -1,0 +1,19 @@
+{
+  "command": [
+    "rtk",
+    "proxy",
+    "python3",
+    "/tmp/mio84-switched-wifi-retest-20261011/run-full-story.py",
+    "execute",
+    "mqtt-rtc-whole-story"
+  ],
+  "actualSdkOptions": {
+    "relayConfigured": false,
+    "rtcDisabled": false,
+    "nativePlatform": "android",
+    "actorModels": [
+      "PJZ110",
+      "Pixel_6a"
+    ]
+  }
+}

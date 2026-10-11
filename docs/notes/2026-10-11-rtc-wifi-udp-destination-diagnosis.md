@@ -16,4 +16,7 @@ MESSAGE-INTEGRITY。这与独立探针的目的地固定现象吻合。
 [证据与复现输入](../evidence/rtc-wifi-udp-destination-diagnosis-2026-10-11/README.md)
 保留正反顺序测试、旧成功与当前失败抓包的关联结果、原始文件 hash。
 手机及网关配置未改，临时探针目录已删除；具体 Mihomo adapter／上游代理
-组件尚未隔离，修正网络后的原 SDK 业务复测尚未执行。
+组件尚未隔离，本诊断收尾时尚未执行修正网络后的原 SDK 业务复测。
+
+随后用户切换 Wi-Fi，[同构件完整 MQTT／RTC 复测](2026-10-11-rtc-switched-wifi-retest.md)
+已通过，独立 UDP 探针也恢复正常。此前失败记录不重标为成功。

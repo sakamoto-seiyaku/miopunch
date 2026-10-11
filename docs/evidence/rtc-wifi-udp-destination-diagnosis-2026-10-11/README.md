@@ -68,3 +68,8 @@ There is no product fix or new successful SDK retest in this dossier. A
 repeat using the same pinned SDK artifacts on a Wi-Fi path that preserves
 UDP destinations is needed before claiming restored mobile RTC business.
 Network-path selection for such a repeat remains separate from the diagnosis.
+
+Subsequently, the user switched Pixel Wi-Fi and the
+[same-artifact full MQTT/RTC repeat](../rtc-switched-wifi-retest-2026-10-11/README.md)
+passed. That later result closes the successful-repeat gap above without
+changing these original diagnostic observations.

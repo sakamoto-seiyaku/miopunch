@@ -1,0 +1,364 @@
+{
+  "runtimeExit": 0,
+  "sourceAndArtifactGuardsPassed": true,
+  "wholeWallMs": 74103.828,
+  "passed": true,
+  "runtimeReceiptSha256": "9deff51f71413eef9db090255e7dfddfd3281ba1a49a9b4f2b3cf47384ed1840",
+  "physicalWanQualified": true,
+  "normalTlsVerified": true,
+  "bothDefaultPhysicalNetworksStillNoVpn": true,
+  "scope": "one OP13/PJZ110 Native cellular \u2192 Pixel_6a Browser new-Wi-Fi full MQTT/RTC SDK story",
+  "relayConfigured": false,
+  "rtcDisabled": false,
+  "turnConfigured": false,
+  "sameSdkArtifactBatchAsFailedTest": true,
+  "controllerByteIdenticalToFailedTest": true,
+  "captureHelperByteIdenticalToFailedTest": true,
+  "sdkSourceFileCountUnchanged": 559,
+  "protectedWipFileCountUnchanged": 234,
+  "productSourceChanges": false,
+  "networkSettingsChangedByAgent": false,
+  "cargoInvoked": false,
+  "m82StoryQualified": true,
+  "physicalDataQualified": true,
+  "firstFailure": null,
+  "sdkCalls": [
+    {
+      "operation": "start",
+      "ok": true,
+      "callerElapsedMs": 1990.920000076294
+    },
+    {
+      "operation": "request_admission",
+      "ok": true,
+      "callerElapsedMs": 2477.4050002098083
+    },
+    {
+      "operation": "admission_identity_probe",
+      "ok": false,
+      "callerElapsedMs": 2354.920000076294
+    },
+    {
+      "operation": "open_member",
+      "ok": false,
+      "callerElapsedMs": 13.085000038146973
+    },
+    {
+      "operation": "sync_replica",
+      "ok": false,
+      "callerElapsedMs": 15.789999961853027
+    },
+    {
+      "operation": "request_admission",
+      "ok": true,
+      "callerElapsedMs": 2779.1500000953674
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 20.785000324249268
+    },
+    {
+      "operation": "stop",
+      "ok": true,
+      "callerElapsedMs": 883.7399997711182
+    },
+    {
+      "operation": "start",
+      "ok": true,
+      "callerElapsedMs": 2995.1050000190735
+    },
+    {
+      "operation": "request_admission",
+      "ok": true,
+      "callerElapsedMs": 2979.9299998283386
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 20.97499990463257
+    },
+    {
+      "operation": "complete_admission",
+      "ok": true,
+      "callerElapsedMs": 1607.6100001335144
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 35.19999980926514
+    },
+    {
+      "operation": "stop",
+      "ok": true,
+      "callerElapsedMs": 548.6000003814697
+    },
+    {
+      "operation": "start",
+      "ok": true,
+      "callerElapsedMs": 2256.079999923706
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 38.644999980926514
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 17.90500020980835
+    },
+    {
+      "operation": "sync_replica",
+      "ok": true,
+      "callerElapsedMs": 8579.679999828339
+    },
+    {
+      "operation": "replica_diagnostics",
+      "ok": true,
+      "callerElapsedMs": 3.255000114440918
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 8.255000114440918
+    },
+    {
+      "operation": "stop",
+      "ok": true,
+      "callerElapsedMs": 3725.204999923706
+    },
+    {
+      "operation": "start",
+      "ok": true,
+      "callerElapsedMs": 5079.2300000190735
+    },
+    {
+      "operation": "material_receipt",
+      "ok": true,
+      "callerElapsedMs": 69.38500022888184
+    },
+    {
+      "operation": "open_member",
+      "ok": true,
+      "callerElapsedMs": 7857.570000171661
+    },
+    {
+      "operation": "member_diagnostics",
+      "ok": true,
+      "callerElapsedMs": 24.304999828338623
+    },
+    {
+      "operation": "exchange",
+      "ok": true,
+      "callerElapsedMs": 44.510000228881836
+    },
+    {
+      "operation": "member_diagnostics",
+      "ok": true,
+      "callerElapsedMs": 14.829999923706055
+    },
+    {
+      "operation": "path_diagnostics",
+      "ok": true,
+      "callerElapsedMs": 11.194999694824219
+    },
+    {
+      "operation": "close_member",
+      "ok": true,
+      "callerElapsedMs": 71.44499969482422
+    },
+    {
+      "operation": "open_member",
+      "ok": false,
+      "callerElapsedMs": 1640.1500000953674
+    },
+    {
+      "operation": "sync_replica",
+      "ok": false,
+      "callerElapsedMs": 1594.0350003242493
+    }
+  ],
+  "stages": [
+    {
+      "name": "native-device-selection",
+      "ok": true,
+      "elapsedMs": 23.53
+    },
+    {
+      "name": "owned-native-actor",
+      "ok": true,
+      "elapsedMs": 98.104
+    },
+    {
+      "name": "native-packet-capture-ready",
+      "ok": true,
+      "elapsedMs": 1029.381
+    },
+    {
+      "name": "native-sdk-start",
+      "ok": true,
+      "elapsedMs": 2297.38
+    },
+    {
+      "name": "browser-device-selection",
+      "ok": true,
+      "elapsedMs": 33.429
+    },
+    {
+      "name": "browser-packet-capture-ready",
+      "ok": true,
+      "elapsedMs": 1188.196
+    },
+    {
+      "name": "owned-browser-page",
+      "ok": true,
+      "elapsedMs": 828.112
+    },
+    {
+      "name": "m82-rtc-observer-ready",
+      "ok": true,
+      "elapsedMs": 100.3
+    },
+    {
+      "name": "m82-admission-fixture-ready",
+      "ok": true,
+      "elapsedMs": 0.038
+    },
+    {
+      "name": "browser-sdk-start",
+      "ok": true,
+      "elapsedMs": 2016.092
+    },
+    {
+      "name": "restricted-admission-request",
+      "ok": true,
+      "elapsedMs": 2516.611
+    },
+    {
+      "name": "native-restricted-admission",
+      "ok": true,
+      "elapsedMs": 0.452
+    },
+    {
+      "name": "different-TLS-identity-claim",
+      "ok": true,
+      "elapsedMs": 2386.196
+    },
+    {
+      "name": "native-TLS-claim-restricted",
+      "ok": true,
+      "elapsedMs": 0.398
+    },
+    {
+      "name": "native-TLS-claim-rejected",
+      "ok": true,
+      "elapsedMs": 0.348
+    },
+    {
+      "name": "unapproved-open_member-rejected",
+      "ok": true,
+      "elapsedMs": 43.845
+    },
+    {
+      "name": "unapproved-sync_replica-rejected",
+      "ok": true,
+      "elapsedMs": 50.224
+    },
+    {
+      "name": "authorization-only-stop",
+      "ok": true,
+      "elapsedMs": 922.437
+    },
+    {
+      "name": "authorization-only-reopen",
+      "ok": true,
+      "elapsedMs": 3033.501
+    },
+    {
+      "name": "complete-reopen-stop",
+      "ok": true,
+      "elapsedMs": 597.996
+    },
+    {
+      "name": "independent-offline-author",
+      "ok": true,
+      "elapsedMs": 477.186
+    },
+    {
+      "name": "saved-provider-retirement",
+      "ok": true,
+      "elapsedMs": 771.342
+    },
+    {
+      "name": "saved-provider-reopen",
+      "ok": true,
+      "elapsedMs": 1982.219
+    },
+    {
+      "name": "complete-reopen",
+      "ok": true,
+      "elapsedMs": 2306.532
+    },
+    {
+      "name": "nonempty-sdk-replica",
+      "ok": true,
+      "elapsedMs": 8691.876
+    },
+    {
+      "name": "sender-durable-replica-receipt",
+      "ok": true,
+      "elapsedMs": 0.701
+    },
+    {
+      "name": "strict-new-replica-purpose",
+      "ok": true,
+      "elapsedMs": 0.054
+    },
+    {
+      "name": "replica-reopen-stop",
+      "ok": true,
+      "elapsedMs": 3751.98
+    },
+    {
+      "name": "replica-reopen",
+      "ok": true,
+      "elapsedMs": 5121.177
+    },
+    {
+      "name": "ordinary-member-open",
+      "ok": true,
+      "elapsedMs": 7893.663
+    },
+    {
+      "name": "native-live-member",
+      "ok": true,
+      "elapsedMs": 2.028
+    },
+    {
+      "name": "native-live-business",
+      "ok": true,
+      "elapsedMs": 2.052
+    },
+    {
+      "name": "ordinary-member-close",
+      "ok": true,
+      "elapsedMs": 139.495
+    },
+    {
+      "name": "actual-current-member-removal",
+      "ok": true,
+      "elapsedMs": 40.971
+    },
+    {
+      "name": "revoked-open_member-rejected",
+      "ok": true,
+      "elapsedMs": 1682.213
+    },
+    {
+      "name": "revoked-sync_replica-rejected",
+      "ok": true,
+      "elapsedMs": 1643.277
+    }
+  ]
+}
