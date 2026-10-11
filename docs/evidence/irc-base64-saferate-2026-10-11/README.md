@@ -60,6 +60,8 @@ Base64 回归覆盖任意二进制字节、乱序、重复 TTL、冲突片、超
 - `sdk-builds.json`：固定构件、实际 Fresh/rebuilt、所选输入和源码副本数量。
 - `diagnosis-and-prior-runs.json`：等待和评分探测的红测，以及保留的慢公网结果。
 - `owned-source-scope.json`：固定基点与自有源码 hash、依赖边界。
+- `review-summary.json` 与两份 review：独立规范、规格审查均为零发现，所审产品源码未变。
+- `owned-generated-material-cleanup.json`：在独立核查容器与 profile 使用进程均不存在后，删除两批测试生成的私钥和浏览器/NSS profile；保留原始证据、源码副本和固定构件。
 - `probe-sources/`：原样保留测量驱动、私有测试 helper、selector 与 lock；不包含生成的 store、secret 或原始报文。
 
 发布内容采用标量与 hash 白名单。身份、grant、secret、ciphertext、临时频道和生成的
@@ -71,3 +73,5 @@ Base64 回归覆盖任意二进制字节、乱序、重复 TTL、冲突片、超
 该资格属于上述服务、当前构件和显式配置，不替代 M84 的物理平台组合验证。
 用户随后提出的整次握手开销盘点将进一步区分路径管理、阶段确认和必要准入数据，
 不能把本次 60.488 s 当成后续优化已完成。
+该盘点已形成[量化分析](../../notes/2026-10-11-irc-handshake-exchange-overhead.md)，
+提出的 CID 分配时机和阶段确认合并尚未修改产品或实测收益。

@@ -1,0 +1,9 @@
+{
+  "qualified": true,
+  "privateCleanupReceiptSha256": "c50c43a17cadb42ca924cc5e466645c3c778857226614629a4c774738065135c",
+  "ownedLocalFixtureCount": 2,
+  "ownedContainersIndependentlyAbsent": true,
+  "ownedProfileActorsAbsent": true,
+  "generatedPrivateKeysAndBrowserNssProfilesRemoved": true,
+  "rawEvidenceImmutableSdkSourceCopiesAndPublicCertificatesPreserved": true
+}

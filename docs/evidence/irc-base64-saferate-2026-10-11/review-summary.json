@@ -1,0 +1,25 @@
+{
+  "reviews": [
+    {
+      "axis": "standards",
+      "findings": 0,
+      "severity": "none",
+      "fixedBase": "b696ecbba54733277d2562e1a8a7ab78767dc494",
+      "reviewedCommit": "e1a48295fb6ad1c8eba509cb72fd9ed0b0084b08",
+      "privateReportSha256": "4a406fa2ff20b2e7269591ab0123226f5ccb9fcce1450d488075bc96a0508d4a",
+      "publishedReportSha256": "4a406fa2ff20b2e7269591ab0123226f5ccb9fcce1450d488075bc96a0508d4a"
+    },
+    {
+      "axis": "spec",
+      "findings": 0,
+      "severity": "none",
+      "fixedBase": "b696ecbba54733277d2562e1a8a7ab78767dc494",
+      "reviewedCommit": "e1a48295fb6ad1c8eba509cb72fd9ed0b0084b08",
+      "privateReportSha256": "f096b4e3d4464c385ab32fcebbea518354daf70eb0d02a6b67ec8066a02a00c5",
+      "publishedReportSha256": "f096b4e3d4464c385ab32fcebbea518354daf70eb0d02a6b67ec8066a02a00c5"
+    }
+  ],
+  "productPinsUnchangedAfterIndependentReview": true,
+  "scopeSha256": "4b553709e9415c7a229a4f767f8574da05ce0145c8c2ab66c88e58c5f3815435",
+  "scope": "M88 Base64/SAFERATE/Control quality probes and actual runtime proof. Does not certify the later handshake/CID optimization followup or M84 physical matrix."
+}
