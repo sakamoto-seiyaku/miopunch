@@ -14,8 +14,9 @@ selected by the root `[patch.crates-io]` entry.
 
 MIOPUNCH-61 adds `ConnectionEvent::datagram_network_path` for the complete
 source and local tuple, and a read-only iterator over all protocol-retained
-network paths. The network-change hint can retain an application binding token
-for recovery after the caller validates its underlying real interface. These
+network paths. The network-change hint can retain the real IP of a live binding
+after the caller validates its interface. MIOPUNCH-90 carries socket identity
+separately and removes the application binding token. These
 accessors support the physical-socket ownership gate and final descriptor
 release; they do not change QUIC packet encoding.
 
@@ -37,3 +38,16 @@ ID limit error. Queue capacity, path limits, CID replenishment, frame encoding,
 loss detection and congestion control remain upstream behavior. Tests cover a
 two-ID window, reserved/retired IDs, repeated rotation, and eight concurrent
 paths. The IRC SDK tuning and measured qualification are recorded separately.
+
+## MIOPUNCH-90: local socket identity on protocol paths
+
+An opaque endpoint-local `LocalSocketId` augments private `FourTuple` state;
+existing constructors leave it unspecified. Equality, path reuse and validation
+distinguish sockets even when real addresses match. New `SocketTransmit` and
+`poll_transmit_with_socket` preserve the selected socket for ordinary,
+previous-path and off-path packets while the original `Transmit` fields remain
+unchanged. Explicit-bound drivers must use the new poll rather than discard
+metadata. A retained path keeps its local socket; receiving on a different socket cannot
+move it or inherit its proof. Another socket requires an explicit new path on
+the same connection. Peer-address migration retains its existing rules, and
+bound probes reject previous generations. None of this metadata becomes a QUIC wire field.

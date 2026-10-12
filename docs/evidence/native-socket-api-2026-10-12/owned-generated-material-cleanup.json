@@ -1,0 +1,43 @@
+{
+  "fixtures": {
+    "controlled-demo": {
+      "hostVisibleFixtureProcesses": 0,
+      "containersIndependentlyAbsent": true,
+      "relayNaturallyClosed": true,
+      "browserAndNativeClosed": true,
+      "keysRemoved": 2,
+      "nssRemoved": true,
+      "rawLogsSdkArtifactsConfigAndPublicCertificatesKept": true,
+      "retainedFixtureFiles": [
+        "leaf.pem",
+        "leaf.csr",
+        "ca.pem",
+        "leaf.ext",
+        "chromium-private-trust.sh",
+        "ergo.yaml",
+        "ca.srl"
+      ]
+    },
+    "controlled-demo-v2": {
+      "hostVisibleFixtureProcesses": 0,
+      "containersIndependentlyAbsent": true,
+      "relayNaturallyClosed": true,
+      "browserAndNativeClosed": true,
+      "keysRemoved": 2,
+      "nssRemoved": true,
+      "rawLogsSdkArtifactsConfigAndPublicCertificatesKept": true,
+      "retainedFixtureFiles": [
+        "leaf.pem",
+        "leaf.csr",
+        "ca.pem",
+        "leaf.ext",
+        "chromium-private-trust.sh",
+        "ergo.yaml",
+        "ca.srl"
+      ]
+    }
+  },
+  "keysRemoved": 4,
+  "nssDatabasesRemoved": 2,
+  "hostProcessChecksPassed": true
+}

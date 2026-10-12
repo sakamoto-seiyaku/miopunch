@@ -103,10 +103,10 @@ an uncommitted winner closes on cancellation, while a committed winner follows
 its original connection and final Noq path disposal.
 
 Receive metadata records the actual physical descriptor and destination IP/
-port for each datagram. A winner pins that real interface IP. A private local
-token encodes its socket ID inside the existing mapped four-tuple mechanism;
-the transport resolves the token to that descriptor and real source IP before
-sending. The token never becomes a wire source address. Explicit data-path
+port for each datagram. A winner pins that real interface IP. MIOPUNCH-90
+replaces the earlier private IPv6 binding token with Noq's native local socket
+metadata. Real source IPs remain addresses; the selected socket identifies its
+existing descriptor independently. Explicit data-path
 opening, path watchers, per-connection permits, path removal and network-change
 recovery preserve this identity. Foreign connections cannot borrow pool
 bindings, and private pool destinations are excluded from generic bootstrap

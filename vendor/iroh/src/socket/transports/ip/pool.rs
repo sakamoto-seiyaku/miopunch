@@ -1,11 +1,11 @@
 //! Short-lived physical IPv4 bindings inside the existing Endpoint.
 //!
-//! Noq's local-IP slot carries an internal binding token. Tokens are translated
-//! before submitting to the kernel and never become IP source addresses.
+//! Noq carries the socket ID independently of the real local IP. The existing
+//! pool owns the descriptor; paths and pending packets retain its identity.
 use std::{
     collections::BTreeMap,
     io,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     pin::Pin,
     sync::{
         Arc, Mutex, Weak,
@@ -38,35 +38,15 @@ impl LocalSocketId {
     pub fn get(self) -> u64 {
         self.0
     }
-    pub(crate) fn token(self) -> IpAddr {
-        let id = self.0;
-        Ipv6Addr::new(
-            0xfd6d,
-            0x696f,
-            0x3631,
-            0,
-            (id >> 48) as u16,
-            (id >> 32) as u16,
-            (id >> 16) as u16,
-            id as u16,
-        )
-        .into()
+    pub(crate) fn to_noq(self) -> Option<noq::LocalSocketId> {
+        (!self.is_primary()).then(|| noq::LocalSocketId::new(self.0))
     }
-    pub(crate) fn from_token(ip: IpAddr) -> Option<Self> {
-        let IpAddr::V6(ip) = ip else { return None };
-        let s = ip.segments();
-        (s[..4] == [0xfd6d, 0x696f, 0x3631, 0]).then(|| {
-            Self(
-                (u64::from(s[4]) << 48)
-                    | (u64::from(s[5]) << 32)
-                    | (u64::from(s[6]) << 16)
-                    | u64::from(s[7]),
-            )
-        })
+    pub(crate) fn from_noq(id: noq::LocalSocketId) -> Self {
+        Self(id.get())
     }
 }
 
-/// Actual kernel binding, not the internal Noq token.
+/// Actual kernel binding, with identity separate from its network address.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LocalSocketBinding {
     /// Unique physical binding identity.
@@ -161,7 +141,7 @@ impl PoolSocket {
         transmit: &Transmit<'_>,
     ) -> Poll<io::Result<()>> {
         // The descriptor chooses the port and the authenticated winner chooses
-        // its real source IP. The private token never reaches src_ip.
+        // its real source IP.
         let mut io = self.io.lock().expect("pool IO");
         let Some(io) = io.as_mut() else {
             return Poll::Ready(Err(io::Error::other("UDP binding closed")));
@@ -199,8 +179,8 @@ impl PoolSocket {
                     meta.stride = 0;
                     continue;
                 }
-                // bind_full enables destination-address metadata. Preserve the
-                // actual interface separately before giving Noq the local token.
+                // bind_full enables destination-address metadata. Keep its real
+                // interface and pass the socket ID as independent I/O metadata.
                 if let Some(ip) = meta.dst_ip {
                     *self.real_ip.lock().expect("pool real IP") = Some(ip.to_canonical());
                 }
@@ -213,7 +193,6 @@ impl PoolSocket {
                         self.port,
                     ),
                 });
-                meta.dst_ip = Some(self.id.token());
             }
         }
         result
@@ -319,8 +298,7 @@ impl SocketPool {
             }
         }
     }
-    pub(crate) fn actual_ip(&self, token: IpAddr) -> Option<IpAddr> {
-        let id = LocalSocketId::from_token(token)?;
+    pub(crate) fn actual_ip(&self, id: LocalSocketId) -> Option<IpAddr> {
         let ip = self.get(id)?.binding().local_addr.ip();
         (!ip.is_unspecified()).then_some(ip)
     }
@@ -345,13 +323,19 @@ impl SocketPool {
     pub(crate) fn poll_send(
         &self,
         cx: &mut Context<'_>,
-        token: IpAddr,
+        id: LocalSocketId,
+        source: Option<IpAddr>,
         remote: SocketAddr,
         transmit: &Transmit<'_>,
     ) -> Poll<io::Result<()>> {
-        let Some(socket) = LocalSocketId::from_token(token).and_then(|id| self.get(id)) else {
+        let Some(socket) = self.get(id) else {
             return Poll::Ready(Err(io::Error::other("UDP binding no longer live")));
         };
+        if source.is_some_and(|ip| ip.to_canonical() != socket.binding().local_addr.ip()) {
+            return Poll::Ready(Err(io::Error::other(
+                "UDP source differs from pinned interface",
+            )));
+        }
         socket.poll_send(cx, remote, transmit)
     }
     pub(crate) fn poll_recv(

@@ -106,6 +106,7 @@ struct PathData {
     handle: WeakPathHandle,
     remote_addr: TransportAddr,
     local_addr: LocalTransportAddr,
+    local_socket: Option<noq::LocalSocketId>,
 }
 
 impl PathData {
@@ -174,7 +175,7 @@ impl PathStateSender {
     pub(super) fn record_opened(
         &self,
         handle: WeakPathHandle,
-        network_path: transports::FourTuple,
+        network_path: transports::PathBinding,
     ) {
         let id = handle.id();
         let remote_addr: TransportAddr = network_path.remote().into();
@@ -185,6 +186,7 @@ impl PathStateSender {
                 handle,
                 remote_addr: remote_addr.clone(),
                 local_addr: local_addr.clone(),
+                local_socket: network_path.local_socket,
             };
             match state.list.iter().position(|e| e.handle.id() == id) {
                 Some(idx) => state.list[idx] = entry,
@@ -225,7 +227,7 @@ impl PathStateSender {
     }
 
     /// Updates the selected transmission path.
-    pub(super) fn record_selected(&self, network_path: &transports::FourTuple) {
+    pub(super) fn record_selected(&self, network_path: &transports::PathBinding) {
         let remote_addr: TransportAddr = network_path.remote().into();
         let local_addr = network_path.local();
         let event = {
@@ -233,7 +235,11 @@ impl PathStateSender {
             let selected_path_id = state
                 .list
                 .iter()
-                .find(|p| p.remote_addr == remote_addr && p.local_addr == local_addr)
+                .find(|p| {
+                    p.remote_addr == remote_addr
+                        && p.local_addr == local_addr
+                        && p.local_socket == network_path.local_socket
+                })
                 .map(|p| p.handle.id());
             if selected_path_id != state.selected {
                 state.selected = selected_path_id;
@@ -489,9 +495,10 @@ impl<'conn> Path<'conn> {
     pub fn local_socket_id(&self) -> Option<crate::socket::transports::LocalSocketId> {
         use crate::socket::transports::{LocalSocketId, LocalTransportAddr};
         match self.local_addr() {
-            LocalTransportAddr::Ip(local) => Some(
-                local
-                    .and_then(LocalSocketId::from_token)
+            LocalTransportAddr::Ip(_) => Some(
+                self.data
+                    .local_socket
+                    .map(LocalSocketId::from_noq)
                     .unwrap_or(LocalSocketId::PRIMARY),
             ),
             _ => None,

@@ -269,6 +269,11 @@ impl Path {
         Ok(state.inner.network_path(self.id())?.local_ip())
     }
 
+    /// The local socket bound to this path, separate from its real source IP.
+    pub fn local_socket_id(&self) -> Result<Option<crate::LocalSocketId>, ClosedPath> {
+        Ok(self.network_path()?.local_socket_id())
+    }
+
     /// The network path used for this path.
     ///
     /// Returns a [`FourTuple`], combining [`Self::remote_address`] and [`Self::local_ip`].
@@ -281,10 +286,11 @@ impl Path {
     /// Existing packet acknowledgments cannot satisfy the captured watermark.
     pub fn start_probe(&self) -> Result<PathProbe, ClosedPath> {
         let mut state = self.conn.lock_and_wake("start path probe");
-        let watermark = state.inner.start_path_probe(self.id())?;
+        let (watermark, generation) = state.inner.start_bound_path_probe(self.id())?;
         Ok(PathProbe {
             path: self.clone(),
             watermark,
+            generation,
         })
     }
 
@@ -301,11 +307,14 @@ impl Path {
 pub struct PathProbe {
     path: Path,
     watermark: u64,
+    generation: u64,
 }
 
 impl PathProbe {
     /// Packet-number watermark captured when this fresh probe was issued.
-    pub fn watermark(&self) -> u64 { self.watermark }
+    pub fn watermark(&self) -> u64 {
+        self.watermark
+    }
 
     /// Returns true only after a data packet sent since creation was acknowledged.
     pub fn is_acknowledged(&self) -> Result<bool, ClosedPath> {
@@ -313,7 +322,7 @@ impl PathProbe {
             .conn
             .lock_without_waking("path probe acknowledgment")
             .inner
-            .path_probe_acknowledged(self.path.id(), self.watermark)
+            .bound_path_probe_acknowledged(self.path.id(), self.watermark, self.generation)
     }
 }
 

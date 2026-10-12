@@ -88,33 +88,63 @@ pub(crate) struct MappedAddrs {
 
 impl MappedAddrs {
     pub(crate) fn permits_custom_bootstrap(&self, address: &CustomAddr) -> bool {
-        self.custom_route_senders.as_ref().is_none_or(|senders| senders.iter()
-            .any(|sender| sender.can_bootstrap_connection(address)))
+        self.custom_route_senders.as_ref().is_none_or(|senders| {
+            senders
+                .iter()
+                .any(|sender| sender.can_bootstrap_connection(address))
+        })
     }
 
-    pub(crate) fn permits_custom_connection(&self, address: &CustomAddr, connection_id: usize) -> bool {
+    pub(crate) fn permits_custom_connection(
+        &self,
+        address: &CustomAddr,
+        connection_id: usize,
+    ) -> bool {
         self.custom_route_senders.as_ref().is_none_or(|senders| {
             // An ownership restriction is a property of a connection-bound
             // carrier. Preserve legacy carrier error/lifetime handling rather
             // than filtering its terminal send error before it reaches Noq.
-            let guarded = senders.iter().any(|sender| sender.guards_application_data(address));
-            !guarded || senders.iter().any(|sender| sender.guards_application_data(address) && sender.is_valid_connection_addr(address, connection_id))
+            let guarded = senders
+                .iter()
+                .any(|sender| sender.guards_application_data(address));
+            !guarded
+                || senders.iter().any(|sender| {
+                    sender.guards_application_data(address)
+                        && sender.is_valid_connection_addr(address, connection_id)
+                })
         })
     }
 
-    pub(crate) fn permits_custom_application_data(&self, address: &CustomAddr, connection_id: usize) -> bool {
+    pub(crate) fn permits_custom_application_data(
+        &self,
+        address: &CustomAddr,
+        connection_id: usize,
+    ) -> bool {
         self.custom_route_senders.as_ref().is_none_or(|senders| {
-            let guarded = senders.iter().any(|sender| sender.guards_application_data(address));
-            !guarded || senders.iter().any(|sender| sender.guards_application_data(address) && sender.is_valid_connection_addr(address, connection_id) && sender.is_data_path_qualified(address, connection_id))
+            let guarded = senders
+                .iter()
+                .any(|sender| sender.guards_application_data(address));
+            !guarded
+                || senders.iter().any(|sender| {
+                    sender.guards_application_data(address)
+                        && sender.is_valid_connection_addr(address, connection_id)
+                        && sender.is_data_path_qualified(address, connection_id)
+                })
         })
     }
 
-    pub(crate) fn qualifies_connection_owned_custom(&self, address: &CustomAddr, connection_id: usize) -> bool {
-        self.custom_route_senders.as_ref().is_some_and(|senders| senders.iter().any(|sender| {
-            sender.guards_application_data(address)
-                && sender.is_valid_connection_addr(address, connection_id)
-                && sender.is_data_path_qualified(address, connection_id)
-        }))
+    pub(crate) fn qualifies_connection_owned_custom(
+        &self,
+        address: &CustomAddr,
+        connection_id: usize,
+    ) -> bool {
+        self.custom_route_senders.as_ref().is_some_and(|senders| {
+            senders.iter().any(|sender| {
+                sender.guards_application_data(address)
+                    && sender.is_valid_connection_addr(address, connection_id)
+                    && sender.is_data_path_qualified(address, connection_id)
+            })
+        })
     }
 
     pub(crate) fn qualifies_custom_data(&self, address: &CustomAddr, connection_id: usize) -> bool {
@@ -131,19 +161,22 @@ impl MappedAddrs {
     pub(crate) fn to_transport_tuple(
         &self,
         four_tuple: &noq::FourTuple,
-    ) -> Option<transports::FourTuple> {
+    ) -> Option<transports::PathBinding> {
         let remote = to_transport_addr(four_tuple.remote(), &self.relay_addrs, &self.custom_addrs)?;
         let local = LocalTransportAddr::from_noq_local_ip(
             four_tuple.local_ip(),
             &remote,
             &self.custom_addrs,
         );
-        Some(transports::FourTuple::new(remote, local))
+        Some(transports::PathBinding::new(
+            transports::FourTuple::new(remote, local),
+            four_tuple.local_socket_id(),
+        ))
     }
 
     /// Converts a [`transports::FourTuple`] to a mapped-IP 4-tuple.
-    pub(crate) fn to_mapped_tuple(&self, four_tuple: &transports::FourTuple) -> noq::FourTuple {
-        let (remote, local) = match four_tuple {
+    pub(crate) fn to_mapped_tuple(&self, four_tuple: &transports::PathBinding) -> noq::FourTuple {
+        let (remote, local) = match &four_tuple.address {
             transports::FourTuple::Ip { remote, local } => (*remote, *local),
             transports::FourTuple::Relay { url, endpoint_id } => (
                 self.relay_addrs
@@ -162,7 +195,7 @@ impl MappedAddrs {
                 (remote, local)
             }
         };
-        noq::FourTuple::new(remote, local)
+        noq::FourTuple::new(remote, local).with_local_socket(four_tuple.local_socket)
     }
 }
 

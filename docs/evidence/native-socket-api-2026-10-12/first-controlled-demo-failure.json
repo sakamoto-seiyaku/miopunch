@@ -1,0 +1,37 @@
+{
+  "qualified": false,
+  "publicTraffic": false,
+  "execution": {
+    "publicTraffic": false,
+    "passed": false,
+    "containers": [
+      {
+        "name": "miopunch-m90-owned-irc-1791794755590174887",
+        "removed": true
+      }
+    ],
+    "cleanup": {
+      "relayExit": 0,
+      "relayGraceful": true,
+      "relayProcessAbsent": true
+    },
+    "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+    "relayStarted": true,
+    "runtimeExit": 1,
+    "functionalAndSdkCleanupQualified": false,
+    "rawReceiptSha256": "9a13d7cfc7f316e05d5eddb3deb7550f93694a8c9f12fdd74cbd71652f0679c7",
+    "sourceArtifactControllerUnchangedAfterRuntime": true,
+    "wholeWallMs": 11411.484035896137,
+    "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+    "qualified": false
+  },
+  "firstFailure": {
+    "class": "Error",
+    "message": "Error: actual browser SAFERATE readiness required"
+  },
+  "requestWasNotStarted": true,
+  "actualIrcReady": true,
+  "actualSaferate": false,
+  "sdkActorsAndServicesNaturallyClosed": true,
+  "rawReceiptSha256": "9a13d7cfc7f316e05d5eddb3deb7550f93694a8c9f12fdd74cbd71652f0679c7"
+}

@@ -1272,6 +1272,7 @@ impl TestEndpoint {
                 dst_ip,
             } = inbound;
             let network_path = FourTuple {
+                local_socket: None,
                 remote,
                 local_ip: dst_ip,
             };

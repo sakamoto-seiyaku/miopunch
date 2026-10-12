@@ -1,0 +1,56 @@
+{
+  "failedNativeSelectorBuilds": [
+    "physical-tests-first: missing rustix/blake3 direct dependencies",
+    "physical-tests-v2: incorrect exact blake3 version, Cargo locked/offline rejected before compiler",
+    "affected-tests-v2: enabled RTC direct imports absent from temporary selector"
+  ],
+  "preconditionAborts": [
+    "proto independent reviewed lock compared with root instead of immutable proto baseline",
+    "futures-util guessed declaration differed from pinned lock"
+  ],
+  "protoFirstRuntime": {
+    "passed": 433,
+    "failed": 1,
+    "fixtureUsedNonMigratingServer": true,
+    "rawSha256": "ece75de6c048cfb0afc247b3ca00445c771590ce3d96900d43c7c1e1d9f3659c"
+  },
+  "correctedInitialClientRed": {
+    "exit": 101,
+    "rawSha256": "a56812d14d2085268d226af4405cc7c4266973f361362fbe9069a7d890b48638"
+  },
+  "initialMutableSocketFix": {
+    "passed": 434,
+    "laterRejectedBySpecReview": true
+  },
+  "finalImmutableSocketImplementation": {
+    "passed": 435,
+    "wrongSocketRejectsAndIdenticalCorrectSocketPacketWorks": true
+  },
+  "binPinningCorrection": "cargo --tests produces normal bin and bin-test harness with same target name; initial helper pin picked harness, never run as demo. Final driver excludes bin profile.test and separately pins actual normal binary.",
+  "formatSourceDelta": {
+    "onlyOwnedFilesFormatted": true,
+    "changed": {
+      "tests/legacy_multi_socket.rs": {
+        "before": "aa4dae793c0f46c60f5816ba2e5fab697c020709d0a67a116e7a38c3a923f8b5",
+        "after": "7cc04260ec3b10c1fdc2f58877c416a3117c35177c9dfa5410874db13fa62fbe"
+      },
+      "vendor/iroh/src/socket.rs": {
+        "before": "0fd42b725d9bec7e1b00d19651fd58ff217c7e4d418e194767e65288fd1920ee",
+        "after": "76c0dde43de4a81d9ffc96e4d479d74cbbd984870441ad122c94baed810bc97a"
+      },
+      "vendor/iroh/src/socket/remote_map/remote_state.rs": {
+        "before": "28bd6bf5b9be9e3ba37a013ae5de91f5b7708d6168048ca6ff8b493a282e42f3",
+        "after": "bbd194dc08ecae1b86ba4d7f57a92d2d9ddbe23dc8e552735dfa6a458a955b91"
+      },
+      "vendor/noq-proto/src/connection/mod.rs": {
+        "before": "db890a35641a77532dcce500e9f5654543ae4eb6c77c919cca483cb9a46a7147",
+        "after": "f466505c4cd125eb175f4347949b8ae031f43f52f9fb0ecce1ebc2555e2bcd6b"
+      },
+      "vendor/noq/src/path.rs": {
+        "before": "06824ba626a3e1f3d6189776c27e0a9257140286fc6c1315c354e14a58df965d",
+        "after": "e11a1d8967d91745c4a51f3be1bc1f29fbb3f4cc1c631a0c3bca428ec55fa6cc"
+      }
+    }
+  },
+  "rawEvidenceAndPinnedArtifactsRetainedUnder": "/tmp/miopunch-native-socket-api-20261012"
+}

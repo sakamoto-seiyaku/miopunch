@@ -1,0 +1,263 @@
+{
+  "qualified": true,
+  "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+  "noq": {
+    "passed": 435,
+    "receipt": {
+      "exit": 0,
+      "seconds": 18.56200437899679,
+      "command": [
+        "rtk",
+        "proxy",
+        "/tmp/miopunch-native-socket-api-20261012/proto-tests-binding-v2/pinned/noq_proto",
+        "--test-threads=2"
+      ],
+      "buildReceiptSha256": "2a3a9e12ab6692c17ecf7822e3ec80102da85c1b691fb78d324154946dcbfdaf",
+      "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+      "sourceAndArtifactUnchangedAfterRuntime": true,
+      "qualified": true
+    },
+    "stdoutSha256": "c1bc6527ce6b440ee536e5dfc8ed08a382c1bcd1fac9a7e31ffc13fe07b6d297"
+  },
+  "affected": {
+    "build": "affected-tests-binding-final",
+    "cases": {
+      "legacy_multi_socket": {
+        "exit": 0,
+        "seconds": 29.240817262092605,
+        "command": [
+          "rtk",
+          "proxy",
+          "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/legacy_multi_socket",
+          "--test-threads=1"
+        ],
+        "buildReceiptSha256": "a1c0e811dfe73003e36d53545b93181f69f9c414fc853f499501efcfa45ff188",
+        "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+        "sourceAndArtifactUnchangedAfterRuntime": true,
+        "qualified": true,
+        "results": [
+          [
+            "ok",
+            "11",
+            "0"
+          ]
+        ]
+      },
+      "member_path_protocol": {
+        "exit": 0,
+        "seconds": 0.7416592689696699,
+        "command": [
+          "rtk",
+          "proxy",
+          "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/member_path_protocol",
+          "--test-threads=1"
+        ],
+        "buildReceiptSha256": "a1c0e811dfe73003e36d53545b93181f69f9c414fc853f499501efcfa45ff188",
+        "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+        "sourceAndArtifactUnchangedAfterRuntime": true,
+        "qualified": true,
+        "results": [
+          [
+            "ok",
+            "3",
+            "0"
+          ]
+        ]
+      },
+      "unified_connection": {
+        "exit": 0,
+        "seconds": 26.213174228090793,
+        "command": [
+          "rtk",
+          "proxy",
+          "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/unified_connection",
+          "--test-threads=1"
+        ],
+        "buildReceiptSha256": "a1c0e811dfe73003e36d53545b93181f69f9c414fc853f499501efcfa45ff188",
+        "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+        "sourceAndArtifactUnchangedAfterRuntime": true,
+        "qualified": true,
+        "results": [
+          [
+            "ok",
+            "15",
+            "0"
+          ]
+        ]
+      },
+      "unified_admission_story": {
+        "exit": 0,
+        "seconds": 5.369942269986495,
+        "command": [
+          "rtk",
+          "proxy",
+          "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/unified_admission_story",
+          "--test-threads=1"
+        ],
+        "buildReceiptSha256": "a1c0e811dfe73003e36d53545b93181f69f9c414fc853f499501efcfa45ff188",
+        "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+        "sourceAndArtifactUnchangedAfterRuntime": true,
+        "qualified": true,
+        "results": [
+          [
+            "ok",
+            "6",
+            "0"
+          ]
+        ]
+      },
+      "negotiated_accept_context": {
+        "exit": 0,
+        "seconds": 10.719545575091615,
+        "command": [
+          "rtk",
+          "proxy",
+          "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/negotiated_accept_context",
+          "--test-threads=1"
+        ],
+        "buildReceiptSha256": "a1c0e811dfe73003e36d53545b93181f69f9c414fc853f499501efcfa45ff188",
+        "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+        "sourceAndArtifactUnchangedAfterRuntime": true,
+        "qualified": true,
+        "results": [
+          [
+            "ok",
+            "3",
+            "0"
+          ]
+        ]
+      },
+      "tcp_direct_member_preserved": {
+        "exit": 0,
+        "seconds": 41.11222854000516,
+        "command": [
+          "rtk",
+          "proxy",
+          "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/tcp_direct_member_preserved",
+          "--test-threads=1"
+        ],
+        "buildReceiptSha256": "a1c0e811dfe73003e36d53545b93181f69f9c414fc853f499501efcfa45ff188",
+        "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+        "sourceAndArtifactUnchangedAfterRuntime": true,
+        "qualified": true,
+        "results": [
+          [
+            "ok",
+            "10",
+            "0"
+          ]
+        ]
+      },
+      "irc_datagram": {
+        "exit": 0,
+        "seconds": 0.508805681951344,
+        "command": [
+          "rtk",
+          "proxy",
+          "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/irc_datagram",
+          "--test-threads=1"
+        ],
+        "buildReceiptSha256": "a1c0e811dfe73003e36d53545b93181f69f9c414fc853f499501efcfa45ff188",
+        "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+        "sourceAndArtifactUnchangedAfterRuntime": true,
+        "qualified": true,
+        "results": [
+          [
+            "ok",
+            "16",
+            "0"
+          ]
+        ]
+      },
+      "unified_path_selection": {
+        "exit": 0,
+        "seconds": 0.14529434009455144,
+        "command": [
+          "rtk",
+          "proxy",
+          "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/unified_path_selection",
+          "--test-threads=1"
+        ],
+        "buildReceiptSha256": "a1c0e811dfe73003e36d53545b93181f69f9c414fc853f499501efcfa45ff188",
+        "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+        "sourceAndArtifactUnchangedAfterRuntime": true,
+        "qualified": true,
+        "results": [
+          [
+            "ok",
+            "6",
+            "0"
+          ]
+        ]
+      },
+      "rtc_association": {
+        "exit": 0,
+        "seconds": 0.14580144407227635,
+        "command": [
+          "rtk",
+          "proxy",
+          "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/rtc_association",
+          "--test-threads=1"
+        ],
+        "buildReceiptSha256": "a1c0e811dfe73003e36d53545b93181f69f9c414fc853f499501efcfa45ff188",
+        "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+        "sourceAndArtifactUnchangedAfterRuntime": true,
+        "qualified": true,
+        "results": [
+          [
+            "ok",
+            "3",
+            "0"
+          ]
+        ]
+      },
+      "rtc_path_qualification": {
+        "exit": 0,
+        "seconds": 5.114920529071242,
+        "command": [
+          "rtk",
+          "proxy",
+          "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/rtc_path_qualification",
+          "--test-threads=1"
+        ],
+        "buildReceiptSha256": "a1c0e811dfe73003e36d53545b93181f69f9c414fc853f499501efcfa45ff188",
+        "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+        "sourceAndArtifactUnchangedAfterRuntime": true,
+        "qualified": true,
+        "results": [
+          [
+            "ok",
+            "7",
+            "0"
+          ]
+        ]
+      },
+      "rtc_invalidation_barrier": {
+        "exit": 0,
+        "seconds": 0.39546814700588584,
+        "command": [
+          "rtk",
+          "proxy",
+          "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/rtc_invalidation_barrier",
+          "--test-threads=1"
+        ],
+        "buildReceiptSha256": "a1c0e811dfe73003e36d53545b93181f69f9c414fc853f499501efcfa45ff188",
+        "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+        "sourceAndArtifactUnchangedAfterRuntime": true,
+        "qualified": true,
+        "results": [
+          [
+            "ok",
+            "1",
+            "0"
+          ]
+        ]
+      }
+    },
+    "passed": true,
+    "totalPassed": 81
+  },
+  "totalPassed": 516,
+  "physicalSocketCases": 11,
+  "metadataRegressionUses": "real cryptographic packets through Noq Endpoint/Connection with synthetic ingress metadata; physical forwarding-proxy test not claimed"
+}

@@ -80,6 +80,7 @@ fn version_negotiate_server() {
     let event = server.handle(
         now,
         FourTuple {
+            local_socket: None,
             remote: client_addr,
             local_ip: None,
         },
@@ -123,6 +124,7 @@ fn version_negotiate_client() {
     let opt_event = client.handle(
         now,
         FourTuple {
+            local_socket: None,
             remote: server_addr,
             local_ip: None,
         },
@@ -290,6 +292,7 @@ fn stateless_reset_limit() {
     let time = Instant::now();
     let mut buf = Vec::new();
     let network_path = FourTuple {
+        local_socket: None,
         remote,
         local_ip: None,
     };
@@ -1359,6 +1362,7 @@ impl CoalescedDatagram {
         ConnectionEvent(ConnectionEventInner::Datagram(DatagramConnectionEvent {
             now,
             network_path: FourTuple {
+                local_socket: None,
                 remote: self.remote,
                 local_ip: self.dst_ip,
             },
@@ -2890,6 +2894,7 @@ fn malformed_token_len() {
     server.handle(
         Instant::now(),
         FourTuple {
+            local_socket: None,
             remote: client_addr,
             local_ip: None,
         },
@@ -4490,6 +4495,7 @@ fn reject_short_idcid() {
     let _guard = subscribe();
     let client_addr = "[::2]:7890".parse().unwrap();
     let network_path = FourTuple {
+        local_socket: None,
         remote: client_addr,
         local_ip: None,
     };

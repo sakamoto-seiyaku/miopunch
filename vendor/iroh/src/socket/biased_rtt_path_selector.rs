@@ -139,7 +139,6 @@ impl PathSelector for BiasedRttPathSelector {
         // sort key seen for the currently-selected address.  When the same address
         // appears multiple times (one path per connection), `min` over `sort_key`
         // naturally picks the lowest-RTT instance — no separate aggregation needed.
-        let current = ctx.current();
         let mut best: Option<(PathSelectionData<'_>, (TransportType, i128))> = None;
         let mut current_key: Option<(TransportType, i128)> = None;
 
@@ -154,7 +153,7 @@ impl PathSelector for BiasedRttPathSelector {
             trace!(%network_path, ?rtt);
             let key = self.sort_key(network_path, rtt);
 
-            if Some(network_path) == current && current_key.is_none_or(|c| key < c) {
+            if ctx.is_current(&psd) && current_key.is_none_or(|c| key < c) {
                 current_key = Some(key);
             }
             if best.as_ref().is_none_or(|(_, b)| key < *b) {

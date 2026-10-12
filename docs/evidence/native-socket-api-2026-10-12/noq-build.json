@@ -1,0 +1,36 @@
+{
+  "exit": 0,
+  "cargoExit": 0,
+  "cargoSeconds": 10.601217240095139,
+  "command": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "--manifest-path",
+    "/tmp/miopunch-native-socket-api-20261012/proto-selector/Cargo.toml",
+    "--lib",
+    "--no-run",
+    "--jobs",
+    "2",
+    "--message-format=json"
+  ],
+  "freshArtifacts": 145,
+  "rebuiltArtifacts": 1,
+  "qualifiedForFrozenRun": true,
+  "sourceFrozenDuringBuild": true,
+  "artifacts": {
+    "/tmp/miopunch-native-socket-api-20261012/proto-tests-binding-v2/pinned/noq_proto": "56e450188c1d9f7aa092f34f984c951a0398f4a40b8fdae69bdb24a2e1cdc49c"
+  },
+  "actualSelectedInputCount": 1780,
+  "actualCapturedDepfileCount": 126,
+  "actualSourceCopyCount": 63,
+  "sourceDigestBefore": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+  "sourceDigestAfter": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+  "diskAfter": {
+    "freeBytes": 111868891136,
+    "cacheBytes": 85008871424
+  }
+}

@@ -1019,6 +1019,7 @@ mod tests {
 
         assert!(nat.handle_path_response(
             FourTuple {
+                local_socket: None,
                 remote,
                 local_ip: Some("::3".parse::<IpAddr>()?),
             },
@@ -1063,6 +1064,7 @@ mod tests {
 
         assert!(nat.handle_path_response(
             FourTuple {
+                local_socket: None,
                 remote,
                 local_ip: Some(local_addr.ip()),
             },

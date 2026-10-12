@@ -175,6 +175,7 @@ impl TestOp {
                 };
                 let conn = state.conn(pair)?;
                 let network_path = FourTuple {
+                    local_socket: None,
                     remote,
                     local_ip: None,
                 };

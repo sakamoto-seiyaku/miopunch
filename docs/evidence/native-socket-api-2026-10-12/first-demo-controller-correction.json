@@ -1,0 +1,11 @@
+{
+  "firstCase": "/tmp/miopunch-native-socket-api-20261012/controlled-demo/execution.json",
+  "firstFailureBeforeRequest": "owned Ergo ready=true but SAFERATE=false; controller incorrectly required public performance advertisement",
+  "sdkSourceChanged": false,
+  "artifactChanged": false,
+  "controllerChanges": [
+    "require actual registered/joined IRC readiness, preserve false SAFERATE observation",
+    "explicit10ms pacing for owned no-fakelag fixture, caller60s unchanged"
+  ],
+  "firstFailurePreserved": true
+}

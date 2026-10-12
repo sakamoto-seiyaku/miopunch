@@ -64,7 +64,7 @@ pub use proto::{
     AckFrequencyConfig, ApplicationClose, Chunk, ClientConfig, ClosePathError, ClosedPath,
     ClosedStream, ConfigError, ConnectError, ConnectionClose, ConnectionError, ConnectionId,
     ConnectionIdGenerator, ConnectionStats, DecryptedInitial, Dir, EcnCodepoint, EndpointConfig,
-    FourTuple, FrameStats, FrameType, IdleTimeout, InvalidCid, MtuDiscoveryConfig,
+    FourTuple, FrameStats, FrameType, IdleTimeout, InvalidCid, LocalSocketId, MtuDiscoveryConfig,
     NetworkChangeHint, NoneTokenLog, NoneTokenStore, PathError, PathEvent, PathId, PathStats,
     PathStatus, ServerConfig, SetPathStatusError, Side, StdSystemTime, StreamId, TimeSource,
     TokenLog, TokenMemoryCache, TokenReuseError, TokenStore, Transmit, TransportConfig,

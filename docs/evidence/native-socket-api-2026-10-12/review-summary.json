@@ -1,0 +1,14 @@
+{
+  "initial": {
+    "StandardsHard": 0,
+    "StandardsHeuristics": 0,
+    "SpecP2": 1
+  },
+  "final": {
+    "StandardsHard": 0,
+    "StandardsHeuristics": 0,
+    "SpecOpen": 0
+  },
+  "resolved": "receive-driven socket migration could leave iroh snapshot/selection on old socket; retained PathId now keeps socket immutable and rejects wrong-socket ingress before ACK/frame/PN consumption",
+  "documentationCountUpdatedAtFinalization": true
+}

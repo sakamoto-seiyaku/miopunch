@@ -1,0 +1,45 @@
+{
+  "reviewSha256": "42c4f0b85dd4362194f93d5951595ea1d476d7ee2d777f44f25ed04964959bec",
+  "results": [
+    {
+      "removedIncrementalCaches": [
+        {
+          "path": "/tmp/miopunch-rtc-s4-target/debug/incremental",
+          "bytes": 13836746752
+        },
+        {
+          "path": "/tmp/miopunch-rtc-s4-target/wasm32-unknown-unknown/debug/incremental",
+          "bytes": 1377492992
+        }
+      ],
+      "diskAfter": {
+        "freeBytes": 20929511424,
+        "cacheBytes": 14799077376
+      }
+    },
+    {
+      "removedIncrementalCaches": [
+        {
+          "path": "/tmp/miopunch-irc-s3-target/debug/incremental",
+          "bytes": 5226057728
+        },
+        {
+          "path": "/tmp/miopunch-irc-s3-target/wasm32-unknown-unknown/debug/incremental",
+          "bytes": 602988544
+        }
+      ],
+      "diskAfter": {
+        "freeBytes": 26630303744,
+        "cacheBytes": 7168974848
+      }
+    }
+  ],
+  "freeBefore": 5947850752,
+  "freeAfter": 26630299648,
+  "freedBytes": 20682448896,
+  "preservedPins": 3724,
+  "allPreservedPinsUnchanged": true,
+  "hostVisibleProcessGuard": true,
+  "onlyOldIncrementalDirectoriesRemoved": true,
+  "sharedCacheNotModified": true
+}

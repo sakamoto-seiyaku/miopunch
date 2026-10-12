@@ -204,6 +204,20 @@ async fn winner_connection(receiver_ip: Ipv4Addr, network_change: bool) {
                 .iter()
                 .any(|p| p.is_selected() && p.local_socket_id() == Some(vb.id))
         );
+        // Public address observation remains the actual receiving interface.
+        // Socket identity is independent, even for a nonprimary descriptor.
+        let c_paths = cd.connection().paths();
+        let c_path = c_paths.iter().find(|p| p.is_selected()).unwrap();
+        assert_eq!(
+            c_path.local_addr(),
+            &iroh::endpoint::LocalTransportAddr::Ip(Some(receiver_ip.into()))
+        );
+        let v_paths = vd.connection().paths();
+        let v_path = v_paths.iter().find(|p| p.is_selected()).unwrap();
+        assert_eq!(
+            v_path.local_addr(),
+            &iroh::endpoint::LocalTransportAddr::Ip(Some(Ipv4Addr::LOCALHOST.into()))
+        );
         let (mut send, mut recv) = vd.connection().open_bi().await.unwrap();
         send.write_all(b"winner-socket-business").await.unwrap();
         send.finish().unwrap();

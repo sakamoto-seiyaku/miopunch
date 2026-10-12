@@ -185,6 +185,8 @@ pub struct Connection {
     /// migrations. So a single multipath path ID could see several [`PathData`]s each with
     /// their unique [`PathData::generation].
     path_generation_counter: u64,
+    /// Socket chosen by the current transmit poll, including previous/off-path data.
+    transmit_local_socket: Option<crate::LocalSocketId>,
     /// Whether MTU detection is supported in this environment
     allow_mtud: bool,
     state: State,
@@ -378,6 +380,7 @@ impl Connection {
                 },
             )]),
             path_generation_counter: 0,
+            transmit_local_socket: None,
             allow_mtud,
             state,
             side: connection_side,
@@ -1026,8 +1029,47 @@ impl Connection {
     ///
     /// `max_datagrams` specifies how many datagrams can be returned inside a
     /// single Transmit using GSO. This must be at least 1.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the packet has an explicit local socket binding. Drivers that
+    /// opt into these bindings must use [`Self::poll_transmit_with_socket`].
     #[must_use]
     pub fn poll_transmit(
+        &mut self,
+        now: Instant,
+        max_datagrams: NonZeroUsize,
+        buf: &mut Vec<u8>,
+    ) -> Option<Transmit> {
+        let transmit = self.poll_transmit_with_socket(now, max_datagrams, buf)?;
+        assert!(
+            transmit.local_socket_id().is_none(),
+            "explicit local sockets require poll_transmit_with_socket"
+        );
+        Some(transmit.into_parts().0)
+    }
+
+    /// Return a packet together with the actual local socket selected for it.
+    ///
+    /// Drivers using [`FourTuple::with_local_socket`] must use this method and
+    /// keep the binding when buffering a pending send. In particular, a
+    /// previous-path challenge or an off-path response need not use the current
+    /// socket of its `PathId`.
+    pub fn poll_transmit_with_socket(
+        &mut self,
+        now: Instant,
+        max_datagrams: NonZeroUsize,
+        buf: &mut Vec<u8>,
+    ) -> Option<crate::SocketTransmit> {
+        self.transmit_local_socket = None;
+        let transmit = self.poll_transmit_inner(now, max_datagrams, buf)?;
+        Some(crate::SocketTransmit::new(
+            transmit,
+            self.transmit_local_socket,
+        ))
+    }
+
+    fn poll_transmit_inner(
         &mut self,
         now: Instant,
         max_datagrams: NonZeroUsize,
@@ -1294,6 +1336,7 @@ impl Connection {
         );
 
         let network_path = self.path_data(path_id).network_path;
+        self.transmit_local_socket = network_path.local_socket_id();
         trace!(
             segment_size = transmit.segment_size(),
             last_datagram_len = transmit.len() % transmit.segment_size(),
@@ -2121,6 +2164,7 @@ impl Connection {
             len = buf.len(),
             "sending prev_path off-path challenge",
         );
+        self.transmit_local_socket = network_path.local_socket_id();
         Some(Transmit {
             destination: network_path.remote,
             size: buf.len(),
@@ -2189,6 +2233,7 @@ impl Connection {
             len = buf.len(),
             "sending off-path PATH_RESPONSE",
         );
+        self.transmit_local_socket = network_path.local_socket_id();
         Some(Transmit {
             destination: network_path.remote,
             size,
@@ -2451,6 +2496,14 @@ impl Connection {
                     %known_path.network_path,
                     "discarding packet sent to incorrect interface"
                 );
+                return true;
+            }
+
+            // A physical socket is part of this path's local binding. Another
+            // socket opens another path on the same connection; a received
+            // packet cannot transfer an existing PathId to that descriptor.
+            if known_path.network_path.local_socket != network_path.local_socket {
+                trace!(%path_id, "discarding packet sent to another local socket");
                 return true;
             }
         }
@@ -2828,6 +2881,26 @@ impl Connection {
         let watermark = space.next_packet_number;
         space.pending_ping = true;
         Ok(watermark)
+    }
+
+    /// Start a probe bound to this path's current physical binding generation.
+    pub fn start_bound_path_probe(&mut self, path: PathId) -> Result<(u64, u64), ClosedPath> {
+        let watermark = self.start_path_probe(path)?;
+        Ok((watermark, self.path_data(path).generation()))
+    }
+
+    /// Check a probe without letting a migrated `PathId` reuse the old proof.
+    pub fn bound_path_probe_acknowledged(
+        &self,
+        path: PathId,
+        watermark: u64,
+        generation: u64,
+    ) -> Result<bool, ClosedPath> {
+        let data = self.paths.get(&path).ok_or(ClosedPath { _private: () })?;
+        if data.data.generation() != generation {
+            return Err(ClosedPath { _private: () });
+        }
+        self.path_probe_acknowledged(path, watermark)
     }
 
     /// Whether this path has acknowledged a packet sent after the probe began.
@@ -6083,6 +6156,7 @@ impl Connection {
 
         for (path_id, remote, status) in non_recoverable_paths.into_iter() {
             let network_path = FourTuple {
+                local_socket: None,
                 remote,
                 local_ip: None, /* allow the local ip to be discovered */
             };
@@ -7419,7 +7493,7 @@ impl AbandonedPaths {
 
 /// Hints when the caller identifies a network change.
 pub trait NetworkChangeHint: fmt::Debug + 'static {
-    /// Keep a transport's internal physical-binding token while rechecking liveness.
+    /// Preserve a still-valid socket's real local IP while rechecking liveness.
     /// Ordinary interface IPs default to rediscovery from receive metadata.
     fn local_ip_for_recovery(&self, _network_path: FourTuple) -> Option<std::net::IpAddr> {
         None

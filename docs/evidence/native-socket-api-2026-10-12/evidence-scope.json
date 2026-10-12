@@ -1,0 +1,15 @@
+{
+  "privateRawEvidenceRetained": "/tmp/miopunch-native-socket-api-20261012",
+  "published": "allowlisted scalar qualification, source/artifact hashes, manifests, exact controllers and successful test output",
+  "notPublished": [
+    "actual endpoint identities",
+    "invitation",
+    "authorization grant contents",
+    "network admission secret",
+    "ciphertext or CID contents",
+    "stores",
+    "private keys/NSS databases"
+  ],
+  "sdkAndRawEvidenceNotRemoved": true,
+  "sourceBuildRuntimeGuardsPassed": true
+}

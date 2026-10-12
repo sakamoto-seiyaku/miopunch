@@ -371,6 +371,7 @@ impl Endpoint {
             local_cid,
             remote_id,
             FourTuple {
+                local_socket: None,
                 remote,
                 local_ip: None,
             },
@@ -1263,6 +1264,11 @@ pub struct Incoming {
 }
 
 impl Incoming {
+    /// The actual local socket which received this incoming attempt.
+    pub fn local_socket_id(&self) -> Option<crate::LocalSocketId> {
+        self.network_path.local_socket_id()
+    }
+
     /// The local IP address which was used when the peer established the connection
     pub fn local_ip(&self) -> Option<IpAddr> {
         self.network_path.local_ip

@@ -1,0 +1,49 @@
+{
+  "exit": 0,
+  "cargoExit": 0,
+  "cargoSeconds": 51.837653597816825,
+  "command": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "--manifest-path",
+    "/tmp/miopunch-native-socket-api-20261012/selector/Cargo.toml",
+    "--features",
+    "rtc-probe",
+    "--tests",
+    "--no-run",
+    "--jobs",
+    "2",
+    "--message-format=json"
+  ],
+  "freshArtifacts": 521,
+  "rebuiltArtifacts": 20,
+  "qualifiedForFrozenRun": true,
+  "sourceFrozenDuringBuild": true,
+  "artifacts": {
+    "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/irc_datagram": "8be1b4c69129f80530281da8747c0f468e531715dd6be05ec105a7c671e89611",
+    "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/rtc_path_qualification": "cd6ce976d75d2000556909d92873c1003613044f01375069284b2057ff07ea95",
+    "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/irc_current_native": "fd80d517a2747f5e056cdd6474d484562ca397bec0fef6bbcfd0d4436e06c3b9",
+    "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/rtc_invalidation_barrier": "7ab4b01cab66166f61bd39f96060d833a54ce26f62119fe63bcb8709a5ffa32b",
+    "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/rtc_association": "664efc64a40487d4965b1b3b8e062c42c86a14f072b7b9f1450554315e40f9e1",
+    "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/unified_connection": "f8fc4cb19f9be7c182c501e1583eca07859d366b54b819b9553719e754f5c514",
+    "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/member_path_protocol": "7a565c295307f0cf4bf13387c5a7dd7f74b30760f391e3f6a8e648a4b914ad71",
+    "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/tcp_direct_member_preserved": "ceae732052df91c43dd87a4be0c24ef744c5578069985924fbde6b661730166f",
+    "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/unified_admission_story": "5da997e8760aabd63e1e76ddf5af5b69d562d2aefa0c19bc20c3a36fabe3e947",
+    "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/legacy_multi_socket": "75d3d4f1a393baeb870c91debe9a8275a7913414d7d7461d32949f11f19a6ac8",
+    "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/negotiated_accept_context": "3e19f8fd23e7225dc28c43f73e9b99203ed96a7818c5018280b18bf3315398de",
+    "/tmp/miopunch-native-socket-api-20261012/affected-tests-binding-final/pinned/unified_path_selection": "e185e433da6ecb1b8875604f255d96e0fcf1d07b441239d3ac94007955de650c"
+  },
+  "actualSelectedInputCount": 6633,
+  "actualCapturedDepfileCount": 490,
+  "actualSourceCopyCount": 304,
+  "sourceDigestBefore": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+  "sourceDigestAfter": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+  "diskAfter": {
+    "freeBytes": 110100074496,
+    "cacheBytes": 85008863232
+  }
+}

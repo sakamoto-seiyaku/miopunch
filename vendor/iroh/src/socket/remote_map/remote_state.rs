@@ -156,7 +156,7 @@ struct State {
     /// holepunching regularly.
     ///
     /// We only select a path once the path is functional in Noq.
-    selected_path: Option<transports::FourTuple>,
+    selected_path: Option<transports::PathBinding>,
     /// Time at which we should schedule the next holepunch attempt.
     scheduled_holepunch: Option<Instant>,
     /// When to next attempt opening paths in [`Self::pending_open_paths`].
@@ -164,7 +164,7 @@ struct State {
     /// Paths which we still need to open.
     ///
     /// They failed to open because we did not have enough CIDs issued by the remote.
-    pending_open_paths: VecDeque<transports::FourTuple>,
+    pending_open_paths: VecDeque<transports::PathBinding>,
 
     // Internal state - address lookup
     //
@@ -412,7 +412,7 @@ impl RemoteStateActor {
                                 return;
                             }
                         };
-                        let path = transports::FourTuple::from_remote(address);
+                        let path = transports::PathBinding::from_remote(address);
                         self.state
                             .open_path_on_conn(ConnId(conn_id), state, &conn, &path, true)
                     } else {
@@ -423,50 +423,97 @@ impl RemoteStateActor {
                 };
                 let _ = tx.send(result);
             }
-            RemoteStateMessage::RetainAdmittedDataPath { conn_id, remote, tx } => {
+            RemoteStateMessage::RetainAdmittedDataPath {
+                conn_id,
+                remote,
+                tx,
+            } => {
                 let result = if let Some(state) = self.connections.get(&ConnId(conn_id)) {
-                    let address = transports::FourTuple::from_remote(transports::Addr::Custom(remote.clone()));
+                    let address = transports::PathBinding::from_remote(transports::Addr::Custom(
+                        remote.clone(),
+                    ));
                     if state.purpose != ConnectionPurpose::Ordinary || !state.may_select(&address) {
                         Err("data retention requires current connection-owned qualification")
-                    } else if let Some(conn) = state.handle.upgrade().filter(|conn| conn.close_reason().is_none()) {
-                        if let Some((id, _)) = state.paths.iter().find(|(_, path)| matches!(path, transports::FourTuple::Custom { remote: actual, .. } if actual == &remote)) {
+                    } else if let Some(conn) = state
+                        .handle
+                        .upgrade()
+                        .filter(|conn| conn.close_reason().is_none())
+                    {
+                        if let Some((id, _)) = state.paths.iter().find(|(_, path)| matches!(&path.address, transports::FourTuple::Custom { remote: actual, .. } if actual == &remote)) {
                             if let Some(path) = conn.path(*id) { let _ = path.ping(); }
                             Ok(())
                         } else { Err("qualified data path not established on original connection") }
-                    } else { Err("original connection closed") }
-                } else { Err("connection not registered") };
-                if result.is_ok() { self.select_path(); }
+                    } else {
+                        Err("original connection closed")
+                    }
+                } else {
+                    Err("connection not registered")
+                };
+                if result.is_ok() {
+                    self.select_path();
+                }
                 let _ = tx.send(result);
             }
-            RemoteStateMessage::RetainControlDataPath { conn_id, remote, tx } => {
+            RemoteStateMessage::RetainControlDataPath {
+                conn_id,
+                remote,
+                tx,
+            } => {
                 let result = if let Some(state) = self.connections.get_mut(&ConnId(conn_id)) {
-                    if state.purpose != ConnectionPurpose::Control || state.retained_control_custom.is_some() {
+                    if state.purpose != ConnectionPurpose::Control
+                        || state.retained_control_custom.is_some()
+                    {
                         Err("data route retention requires an unsealed restricted connection")
                     } else if state.retired_custom.contains(&remote)
-                        || !state.mapped_addrs.qualifies_connection_owned_custom(&remote, conn_id)
+                        || !state
+                            .mapped_addrs
+                            .qualifies_connection_owned_custom(&remote, conn_id)
                     {
                         Err("control retention requires current connection-owned qualification")
-                    } else if let Some(conn) = state.handle.upgrade().filter(|conn| conn.close_reason().is_none()) {
-                        if state.paths.iter().any(|(id, path)| matches!(path, transports::FourTuple::Custom { remote: actual, .. } if actual == &remote) && conn.path(*id).is_some()) {
+                    } else if let Some(conn) = state
+                        .handle
+                        .upgrade()
+                        .filter(|conn| conn.close_reason().is_none())
+                    {
+                        if state.paths.iter().any(|(id, path)| matches!(&path.address, transports::FourTuple::Custom { remote: actual, .. } if actual == &remote) && conn.path(*id).is_some()) {
                             state.retained_control_custom = Some(remote);
                             Ok(())
                         } else { Err("qualified control data route not established on original connection") }
-                    } else { Err("original connection closed") }
-                } else { Err("connection not registered") };
-                if result.is_ok() { self.select_path(); }
+                    } else {
+                        Err("original connection closed")
+                    }
+                } else {
+                    Err("connection not registered")
+                };
+                if result.is_ok() {
+                    self.select_path();
+                }
                 let _ = tx.send(result);
             }
             #[cfg(feature = "miopunch-test-hooks")]
-            RemoteStateMessage::TestLimitTransportPaths { conn_id, allowed, tx } => {
-                let result = if allowed.len() > 8 { Err("fixture path mask exceeds bound") }
-                else if let Some(conn) = self.connections.get(&ConnId(conn_id)).and_then(|state| state.handle.upgrade()) {
+            RemoteStateMessage::TestLimitTransportPaths {
+                conn_id,
+                allowed,
+                tx,
+            } => {
+                let result = if allowed.len() > 8 {
+                    Err("fixture path mask exceeds bound")
+                } else if let Some(conn) = self
+                    .connections
+                    .get(&ConnId(conn_id))
+                    .and_then(|state| state.handle.upgrade())
+                {
                     let mapped = self.state.mapped_addrs.clone();
-                    conn.restrict_paths(move |address| mapped.to_transport_addr(address).is_some_and(|path| {
-                        let path: TransportAddr = path.into();
-                        allowed.contains(&path)
-                    }));
+                    conn.restrict_paths(move |address| {
+                        mapped.to_transport_addr(address).is_some_and(|path| {
+                            let path: TransportAddr = path.into();
+                            allowed.contains(&path)
+                        })
+                    });
                     Ok(())
-                } else { Err("original connection closed") };
+                } else {
+                    Err("original connection closed")
+                };
                 let _ = tx.send(result);
             }
             RemoteStateMessage::OpenDataPath {
@@ -498,19 +545,25 @@ impl RemoteStateActor {
                                 ));
                                 return;
                             }
-                            let path = transports::FourTuple::Ip {
-                                remote,
-                                #[cfg(not(wasm_browser))]
-                                local: local.map(|binding| {
-                                    if binding.id.is_primary() {
-                                        binding.local_addr.ip()
-                                    } else {
-                                        binding.id.token()
+                            let path = transports::PathBinding::new(
+                                transports::FourTuple::Ip {
+                                    remote,
+                                    #[cfg(not(wasm_browser))]
+                                    local: local.map(|binding| binding.local_addr.ip()),
+                                    #[cfg(wasm_browser)]
+                                    local: None,
+                                },
+                                {
+                                    #[cfg(not(wasm_browser))]
+                                    {
+                                        local.and_then(|binding| binding.id.to_noq())
                                     }
-                                }),
-                                #[cfg(wasm_browser)]
-                                local: None,
-                            };
+                                    #[cfg(wasm_browser)]
+                                    {
+                                        None
+                                    }
+                                },
+                            );
                             self.state
                                 .open_path_on_conn(ConnId(conn_id), state, &conn, &path, true)
                         } else {
@@ -600,7 +653,7 @@ impl RemoteStateActor {
                                     return;
                                 }
                             };
-                            let path = transports::FourTuple::from_remote(remote);
+                            let path = transports::PathBinding::from_remote(remote);
                             self.state
                                 .open_path_on_conn(ConnId(conn_id), state, &conn, &path, true)
                         } else {
@@ -632,7 +685,7 @@ impl RemoteStateActor {
                             }
                         }
                         let tuple =
-                            transports::FourTuple::from_remote(transports::Addr::Custom(remote));
+                            transports::PathBinding::from_remote(transports::Addr::Custom(remote));
                         let mapped = self.state.mapped_addrs.to_mapped_tuple(&tuple);
                         let attempt = conn.open_path_ensure(mapped, PathStatus::Available);
                         if attempt.path_id().is_some() {
@@ -713,15 +766,21 @@ impl RemoteStateActor {
         let conn_id = ConnId(conn.stable_id());
         let scoped = self.state.mapped_addrs.clone();
         conn.restrict_paths(move |addr| match scoped.to_transport_addr(addr) {
-            Some(transports::Addr::Custom(custom)) => scoped.permits_custom_connection(&custom, conn_id.0),
+            Some(transports::Addr::Custom(custom)) => {
+                scoped.permits_custom_connection(&custom, conn_id.0)
+            }
             Some(_) => true,
             None => false,
         });
         let data = self.state.mapped_addrs.clone();
-        conn.restrict_application_data_paths(move |path| match data.to_transport_addr(path.remote()) {
-            Some(transports::Addr::Custom(custom)) => data.permits_custom_application_data(&custom, conn_id.0),
-            Some(_) => true,
-            None => false,
+        conn.restrict_application_data_paths(move |path| {
+            match data.to_transport_addr(path.remote()) {
+                Some(transports::Addr::Custom(custom)) => {
+                    data.permits_custom_application_data(&custom, conn_id.0)
+                }
+                Some(_) => true,
+                None => false,
+            }
         });
         self.connections.remove(&conn_id);
 
@@ -730,8 +789,8 @@ impl RemoteStateActor {
             let pool = self.state.mapped_addrs.udp_socket_pool.clone();
             let remote = self.state.endpoint_id;
             conn.restrict_network_paths(move |path| {
-                path.local_ip()
-                    .and_then(transports::LocalSocketId::from_token)
+                path.local_socket_id()
+                    .map(transports::LocalSocketId::from_noq)
                     .is_none_or(|id| {
                         pool.get(id).is_some_and(|socket| {
                             socket.remote == remote
@@ -801,7 +860,7 @@ impl RemoteStateActor {
                     .paths
                     .addrs()
                     .filter(|addr| addr.is_relay())
-                    .map(|addr| transports::FourTuple::from_remote(addr.clone()))
+                    .map(|addr| transports::PathBinding::from_remote(addr.clone()))
                     .collect::<Vec<_>>();
                 for open_addr in relays {
                     let _ = self
@@ -903,7 +962,7 @@ impl RemoteStateActor {
         if let Some(address) = exact.as_ref()
             && (state.retired_custom.contains(address)
                 || !state.mapped_addrs.qualifies_connection_owned_custom(address, conn_id.0)
-                || !state.paths.iter().any(|(id, path)| matches!(path, transports::FourTuple::Custom { remote, .. } if remote == address) && conn.path(*id).is_some()))
+                || !state.paths.iter().any(|(id, path)| matches!(&path.address, transports::FourTuple::Custom { remote, .. } if remote == address) && conn.path(*id).is_some()))
         {
             return Err("retained data route lost current qualification before release");
         }
@@ -913,9 +972,10 @@ impl RemoteStateActor {
         let retired = state.retired_custom.clone();
         conn.restrict_paths(move |addr| match mapped.to_transport_addr(addr) {
             Some(transports::Addr::Custom(custom)) => {
-                !retired.contains(&custom) && (packet_allowed.contains(&custom.id())
-                    || (exact.as_ref() == Some(&custom)
-                        && mapped.qualifies_connection_owned_custom(&custom, conn_id.0)))
+                !retired.contains(&custom)
+                    && (packet_allowed.contains(&custom.id())
+                        || (exact.as_ref() == Some(&custom)
+                            && mapped.qualifies_connection_owned_custom(&custom, conn_id.0)))
             }
             Some(_) => true,
             None => false,
@@ -1135,8 +1195,8 @@ impl RemoteStateActor {
                     let live_bindings = network_paths
                         .into_iter()
                         .filter_map(|(_, path)| {
-                            path.local_ip()
-                                .and_then(transports::LocalSocketId::from_token)
+                            path.local_socket_id()
+                                .map(transports::LocalSocketId::from_noq)
                         })
                         .collect::<BTreeSet<_>>();
                     conn_state.udp_sockets.retain(|socket| {
@@ -1195,7 +1255,7 @@ impl RemoteStateActor {
         }) {
             let mut changed = false;
             for path in state.paths.values() {
-                if let transports::FourTuple::Custom { remote, .. } = path
+                if let transports::FourTuple::Custom { remote, .. } = &path.address
                     && !senders
                         .iter()
                         .any(|sender| sender.is_valid_send_addr(remote))
@@ -1307,9 +1367,13 @@ impl RemoteStateActor {
             {
                 // Confirmation must traverse the newly qualified exact route,
                 // even when the signaling path has a lower measured latency.
-                conn_state.paths.values().find(|path| matches!(path, transports::FourTuple::Custom { remote, .. } if remote == exact) && conn_state.may_select(path)).cloned()
+                conn_state.paths.values().find(|path| matches!(&path.address, transports::FourTuple::Custom { remote, .. } if remote == exact) && conn_state.may_select(path)).cloned()
             } else {
-                self.state.path_selector.select(&context).selected().cloned()
+                self.state
+                    .path_selector
+                    .select(&context)
+                    .selected()
+                    .cloned()
                     .or_else(|| current.cloned())
             };
 
@@ -1369,7 +1433,7 @@ impl RemoteStateActor {
         }
     }
 
-    fn open_path_on_all_conns(&mut self, open_addr: &transports::FourTuple) {
+    fn open_path_on_all_conns(&mut self, open_addr: &transports::PathBinding) {
         for (conn_id, conn_state) in self.connections.iter() {
             let Some(conn) = conn_state.handle.upgrade() else {
                 continue;
@@ -1419,11 +1483,14 @@ impl RemoteStateActor {
 }
 
 impl State {
-    fn may_bootstrap_on(&self, path: &transports::FourTuple) -> bool {
-        !path.is_connection_bound_udp() && match path {
-            transports::FourTuple::Custom { remote, .. } => self.mapped_addrs.permits_custom_bootstrap(remote),
-            _ => true,
-        }
+    fn may_bootstrap_on(&self, path: &transports::PathBinding) -> bool {
+        !path.is_connection_bound_udp()
+            && match &path.address {
+                transports::FourTuple::Custom { remote, .. } => {
+                    self.mapped_addrs.permits_custom_bootstrap(remote)
+                }
+                _ => true,
+            }
     }
 
     /// Handles [`RemoteStateMessage::SendDatagram`].
@@ -1451,7 +1518,7 @@ impl State {
             // TODO(Frando): We might want to include a local IP here in the future, if we confidently
             // know that it is the correct one.
             // See https://github.com/n0-computer/iroh/issues/4280.
-            let four_tuple = transports::FourTuple::from_remote(addr.remote());
+            let four_tuple = transports::PathBinding::from_remote(addr.remote());
             if let Err(err) = send_datagram(&mut sender, four_tuple, transmit).await {
                 debug!(?addr, "failed to send datagram on selected_path: {err:#}");
             }
@@ -1466,7 +1533,10 @@ impl State {
 
             for addr in self.paths.addrs() {
                 if let transports::Addr::Custom(custom) = addr
-                    && !self.mapped_addrs.permits_custom_bootstrap(custom) { continue; }
+                    && !self.mapped_addrs.permits_custom_bootstrap(custom)
+                {
+                    continue;
+                }
                 // We never want to send to our local addresses.
                 // The local address set is updated in the main loop so we can use `peek` here.
                 if let transports::Addr::Ip(sockaddr) = addr
@@ -1483,7 +1553,7 @@ impl State {
                 // See https://github.com/n0-computer/iroh/issues/4280.
                 } else if let Err(err) = send_datagram(
                     &mut sender,
-                    transports::FourTuple::from_remote(addr.clone()),
+                    transports::PathBinding::from_remote(addr.clone()),
                     transmit.clone(),
                 )
                 .await
@@ -1633,7 +1703,7 @@ impl State {
         conn_id: ConnId,
         conn_state: &mut ConnectionState,
         path: &noq::Path,
-    ) -> Option<transports::FourTuple> {
+    ) -> Option<transports::PathBinding> {
         let network_path = self
             .mapped_addrs
             .to_transport_tuple(&path.network_path().ok()?)?;
@@ -1667,7 +1737,7 @@ impl State {
         &mut self,
         conn_id: ConnId,
         path: &noq::Path,
-        network_path: &transports::FourTuple,
+        network_path: &transports::PathBinding,
     ) {
         let status = self.path_status_for_addr(network_path);
         match path.set_status(status) {
@@ -1693,7 +1763,7 @@ impl State {
         conn_id: ConnId,
         conn_state: &ConnectionState,
         conn: &noq::Connection,
-        open_4tuple: &transports::FourTuple,
+        open_4tuple: &transports::PathBinding,
         explicit_request: bool,
     ) -> Result<(), &'static str> {
         if conn.close_reason().is_some() {
@@ -1731,14 +1801,18 @@ impl State {
         let mapped_4tuple = self.mapped_addrs.to_mapped_tuple(open_4tuple);
         let path_status = self.path_status_for_addr(open_4tuple);
 
-        let fut = conn.open_path_ensure(mapped_4tuple, path_status);
+        let fut = match open_4tuple.local_socket {
+            Some(socket) => conn
+                .open_path_ensure_on_socket(socket, mapped_4tuple, path_status)
+                .map_err(|_| "local UDP socket unavailable")?,
+            None => conn.open_path_ensure(mapped_4tuple, path_status),
+        };
         match fut.path_id() {
             Some(path_id) => {
                 #[cfg(not(wasm_browser))]
-                if let transports::FourTuple::Ip {
-                    local: Some(token), ..
-                } = open_4tuple
-                    && let Some(id) = transports::LocalSocketId::from_token(*token)
+                if let Some(id) = open_4tuple
+                    .local_socket
+                    .map(transports::LocalSocketId::from_noq)
                     && let Some(socket) =
                         conn_state.udp_sockets.iter().find(|socket| socket.id == id)
                 {
@@ -1777,7 +1851,7 @@ impl State {
     ///
     /// Returns [`PathStatus::Available`] if `addr` is the currently-selected path,
     /// or [`PathStatus::Backup`] otherwise.
-    fn path_status_for_addr(&self, addr: &transports::FourTuple) -> PathStatus {
+    fn path_status_for_addr(&self, addr: &transports::PathBinding) -> PathStatus {
         if Some(addr) == self.selected_path.as_ref() {
             PathStatus::Available
         } else {
@@ -1822,7 +1896,7 @@ fn update_qnt_candidates(conn: &noq::Connection, direct_addrs: &BTreeSet<SocketA
 
 fn send_datagram<'a>(
     sender: &'a mut TransportsSender,
-    addr: transports::FourTuple,
+    addr: transports::PathBinding,
     owned_transmit: OwnedTransmit,
 ) -> impl Future<Output = n0_error::Result<()>> + 'a {
     std::future::poll_fn(move |cx| {
@@ -2012,7 +2086,7 @@ struct ConnectionState {
     /// IP paths *should* have the local IP address filled in by the time we receive the
     /// event. The noq established event is only emitted once at least one datagram is
     /// received from the peer on the path.
-    paths: FxHashMap<PathId, transports::FourTuple>,
+    paths: FxHashMap<PathId, transports::PathBinding>,
     /// Whether this connection has ever had a direct path.
     ///
     /// Used for recording metrics.
@@ -2054,15 +2128,11 @@ enum ConnectionPurpose {
 }
 
 impl ConnectionState {
-    /// Private local tokens are capabilities of one exact original Connection.
+    /// Physical local sockets belong to one exact original Connection.
     /// Global peer preferences must never copy another connection's binding.
-    fn owns_udp_binding(&self, path: &transports::FourTuple) -> bool {
+    fn owns_udp_binding(&self, path: &transports::PathBinding) -> bool {
         #[cfg(not(wasm_browser))]
-        if let transports::FourTuple::Ip {
-            local: Some(token), ..
-        } = path
-            && let Some(id) = transports::LocalSocketId::from_token(*token)
-        {
+        if let Some(id) = path.local_socket.map(transports::LocalSocketId::from_noq) {
             return self
                 .udp_sockets
                 .iter()
@@ -2070,15 +2140,20 @@ impl ConnectionState {
         }
         true
     }
-    fn may_select(&self, path: &transports::FourTuple) -> bool {
+    fn may_select(&self, path: &transports::PathBinding) -> bool {
         self.owns_udp_binding(path)
             && !self.forbids(path)
-            && match path { transports::FourTuple::Custom { remote, .. } => self.mapped_addrs.qualifies_custom_data(remote, self.connection_id), _ => true }
+            && match &path.address {
+                transports::FourTuple::Custom { remote, .. } => self
+                    .mapped_addrs
+                    .qualifies_custom_data(remote, self.connection_id),
+                _ => true,
+            }
             && (self.purpose != ConnectionPurpose::Data || path.is_ip())
     }
 
-    fn forbids(&self, path: &transports::FourTuple) -> bool {
-        matches!(path, transports::FourTuple::Custom { remote, .. }
+    fn forbids(&self, path: &transports::PathBinding) -> bool {
+        matches!(&path.address, transports::FourTuple::Custom { remote, .. }
             if !self.mapped_addrs.permits_custom_connection(remote, self.connection_id)
                 || self.retired_custom.contains(remote) || (self.custom_data_policy && !self.allowed_data_custom_ids.contains(&remote.id()) && self.retained_control_custom.as_ref() != Some(remote)))
     }
@@ -2086,20 +2161,19 @@ impl ConnectionState {
     /// Tracks an open path for the connection.
     fn add_open_path(
         &mut self,
-        network_path: transports::FourTuple,
+        network_path: transports::PathBinding,
         path_id: PathId,
         metrics: &Arc<SocketMetrics>,
     ) {
         #[cfg(not(wasm_browser))]
-        if let transports::FourTuple::Ip {
-            local: Some(token), ..
-        } = &network_path
-            && let Some(id) = transports::LocalSocketId::from_token(*token)
+        if let Some(id) = network_path
+            .local_socket
+            .map(transports::LocalSocketId::from_noq)
             && let Some(socket) = self.udp_sockets.iter().find(|socket| socket.id == id)
         {
             socket.mark_path_used();
         }
-        match network_path {
+        match &network_path.address {
             transports::FourTuple::Ip { .. } => metrics.paths_direct.inc(),
             transports::FourTuple::Relay { .. } => metrics.paths_relay.inc(),
             transports::FourTuple::Custom { .. } => metrics.paths_custom.inc(),
@@ -2123,7 +2197,7 @@ impl ConnectionState {
         &mut self,
         path_id: &PathId,
         conn: &noq::Connection,
-    ) -> Option<transports::FourTuple> {
+    ) -> Option<transports::PathBinding> {
         let addr = self.paths.remove(path_id)?;
         self.path_state.record_abandoned(*path_id, conn);
         Some(addr)
@@ -2137,7 +2211,7 @@ impl ConnectionState {
 #[derive(Debug)]
 #[cfg_attr(not(feature = "unstable-custom-transports"), allow(unreachable_pub))]
 pub struct PathSelectionContext<'a> {
-    current: Option<&'a transports::FourTuple>,
+    current: Option<&'a transports::PathBinding>,
     source: PathsSource<'a>,
 }
 
@@ -2148,13 +2222,16 @@ enum PathsSource<'a> {
     Live(&'a FxHashMap<ConnId, ConnectionState>),
     Connection(&'a ConnectionState),
     #[cfg(test)]
-    Test(Vec<PathSelectionData<'a>>),
+    Test {
+        current: Option<&'a transports::FourTuple>,
+        paths: Vec<PathSelectionData<'a>>,
+    },
 }
 
 #[cfg_attr(not(feature = "unstable-custom-transports"), allow(unreachable_pub))]
 impl<'a> PathSelectionContext<'a> {
     fn new(
-        current: Option<&'a transports::FourTuple>,
+        current: Option<&'a transports::PathBinding>,
         connections: &'a FxHashMap<ConnId, ConnectionState>,
     ) -> Self {
         Self {
@@ -2164,7 +2241,7 @@ impl<'a> PathSelectionContext<'a> {
     }
 
     fn for_connection(
-        current: Option<&'a transports::FourTuple>,
+        current: Option<&'a transports::PathBinding>,
         state: &'a ConnectionState,
     ) -> Self {
         Self {
@@ -2180,14 +2257,35 @@ impl<'a> PathSelectionContext<'a> {
         paths: Vec<PathSelectionData<'a>>,
     ) -> Self {
         Self {
-            current,
-            source: PathsSource::Test(paths),
+            current: None,
+            source: PathsSource::Test { current, paths },
         }
     }
 
     /// The path currently considered the preferred path to the remote endpoint, if any.
     pub fn current(&self) -> Option<&transports::FourTuple> {
-        self.current
+        #[cfg(test)]
+        if let PathsSource::Test { current, .. } = &self.source {
+            return *current;
+        }
+        self.current.map(|path| &path.address)
+    }
+
+    /// Whether this candidate is the current path, including its local socket.
+    pub fn is_current(&self, candidate: &PathSelectionData<'_>) -> bool {
+        self.current.is_some_and(|path| {
+            path.address == *candidate.network_path && path.local_socket == candidate.local_socket
+        }) || {
+            #[cfg(test)]
+            {
+                matches!(&self.source, PathsSource::Test { current: Some(current), .. }
+                    if *current == candidate.network_path)
+            }
+            #[cfg(not(test))]
+            {
+                false
+            }
+        }
     }
 
     /// Iterator over candidate paths.
@@ -2233,7 +2331,7 @@ impl<'a> PathSelectionContext<'a> {
                     }),
             ),
             #[cfg(test)]
-            PathsSource::Test(paths) => Box::new(paths.iter().cloned()),
+            PathsSource::Test { paths, .. } => Box::new(paths.iter().cloned()),
         }
     }
 }
@@ -2247,6 +2345,7 @@ impl<'a> PathSelectionContext<'a> {
 #[derive(derive_more::Debug, Clone)]
 pub struct PathSelectionData<'a> {
     network_path: &'a transports::FourTuple,
+    local_socket: Option<noq::LocalSocketId>,
     #[debug(skip)]
     source: StatsSource,
 }
@@ -2266,12 +2365,13 @@ enum StatsSource {
 #[cfg_attr(not(feature = "unstable-custom-transports"), allow(unreachable_pub))]
 impl<'a> PathSelectionData<'a> {
     fn live(
-        network_path: &'a transports::FourTuple,
+        network_path: &'a transports::PathBinding,
         path_id: PathId,
         conn: noq::Connection,
     ) -> Self {
         Self {
-            network_path,
+            network_path: &network_path.address,
+            local_socket: network_path.local_socket,
             source: StatsSource::Live { path_id, conn },
         }
     }
@@ -2287,6 +2387,7 @@ impl<'a> PathSelectionData<'a> {
     ) -> Self {
         Self {
             network_path,
+            local_socket: None,
             source: StatsSource::Test(stats.map(Box::new)),
         }
     }
@@ -2335,7 +2436,7 @@ pub trait PathSelector: Send + Sync + std::fmt::Debug + 'static {
 #[derive(Debug, Clone)]
 #[cfg_attr(not(feature = "unstable-custom-transports"), allow(unreachable_pub))]
 pub struct PathSelection {
-    selection: Option<transports::FourTuple>,
+    selection: Option<transports::PathBinding>,
 }
 
 #[cfg_attr(not(feature = "unstable-custom-transports"), allow(unreachable_pub))]
@@ -2357,7 +2458,10 @@ impl PathSelection {
             );
             return;
         }
-        self.selection = Some(path.network_path.clone());
+        self.selection = Some(transports::PathBinding::new(
+            path.network_path.clone(),
+            path.local_socket,
+        ));
     }
 
     /// The selected path: the one data should be sent on. This is not public so
@@ -2365,7 +2469,7 @@ impl PathSelection {
     /// public API of `PathSelection`.
     ///
     /// Returns `None` when nothing has been selected.
-    pub(crate) fn selected(&self) -> Option<&transports::FourTuple> {
+    pub(crate) fn selected(&self) -> Option<&transports::PathBinding> {
         self.selection.as_ref()
     }
 }

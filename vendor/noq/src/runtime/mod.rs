@@ -62,6 +62,22 @@ pub trait AsyncUdpSocket: Send + Sync + Debug + 'static {
         meta: &mut [RecvMeta],
     ) -> Poll<io::Result<usize>>;
 
+    /// Receive with the actual local socket identity for each metadata entry.
+    ///
+    /// Existing implementations use their default socket. Implementations that
+    /// aggregate physical sockets override this and keep real IPs in `RecvMeta`.
+    /// All segments of one GRO entry belong to the same local socket.
+    fn poll_recv_with_sockets(
+        &mut self,
+        cx: &mut Context<'_>,
+        bufs: &mut [IoSliceMut<'_>],
+        meta: &mut [RecvMeta],
+        sockets: &mut [Option<crate::LocalSocketId>],
+    ) -> Poll<io::Result<usize>> {
+        sockets.fill(None);
+        self.poll_recv(cx, bufs, meta)
+    }
+
     /// Look up the local IP address and port used by this socket
     fn local_addr(&self) -> io::Result<SocketAddr>;
 
@@ -84,6 +100,14 @@ pub trait AsyncUdpSocket: Send + Sync + Debug + 'static {
 /// Any number of [`UdpSender`]s may exist for a single [`AsyncUdpSocket`]. Each [`UdpSender`] is
 /// responsible for notifying at most one task for send readiness.
 pub trait UdpSender: Send + Sync + Debug + 'static {
+    /// Whether this sender can use the registered local socket right now.
+    ///
+    /// Existing single-socket senders need no changes. Socket-aware path
+    /// creation checks this before encoding or queuing any packet.
+    fn supports_local_socket(&self, _socket: crate::LocalSocketId) -> bool {
+        false
+    }
+
     /// Send a UDP datagram, or register to be woken if sending may succeed in the future.
     ///
     /// Usually implementations of this will poll the socket for writability before trying to
@@ -99,6 +123,25 @@ pub trait UdpSender: Send + Sync + Debug + 'static {
         transmit: &Transmit<'_>,
         cx: &mut Context<'_>,
     ) -> Poll<io::Result<()>>;
+
+    /// Send using the socket selected when this packet was encoded.
+    ///
+    /// The default preserves existing senders for default-socket traffic and
+    /// rejects explicit bindings rather than sending through another socket.
+    fn poll_send_on_socket(
+        self: Pin<&mut Self>,
+        transmit: &Transmit<'_>,
+        socket: Option<crate::LocalSocketId>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        if socket.is_some() {
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "sender does not support explicit local sockets",
+            )));
+        }
+        self.poll_send(transmit, cx)
+    }
 
     /// Maximum number of datagrams that a [`Transmit`] may encode.
     fn max_transmit_segments(&self) -> NonZeroUsize {

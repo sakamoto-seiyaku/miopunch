@@ -163,7 +163,7 @@ impl PathSelector for QualityPathSelector {
                 self.policy.preference,
                 &self.carriers,
             );
-            if Some(path.network_path()) == context.current() {
+            if context.is_current(&path) {
                 current = Some(key);
             }
             if best.as_ref().is_none_or(|(_, previous)| key < *previous) {

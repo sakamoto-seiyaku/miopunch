@@ -898,19 +898,6 @@ pub enum FourTuple {
 
 #[cfg_attr(not(feature = "unstable-custom-transports"), allow(unreachable_pub))]
 impl FourTuple {
-    /// Physical pool routes are scoped to one authenticated connection.
-    pub(crate) fn is_connection_bound_udp(&self) -> bool {
-        #[cfg(not(wasm_browser))]
-        {
-            matches!(self, Self::Ip { local: Some(token), .. }
-                if LocalSocketId::from_token(*token).is_some())
-        }
-        #[cfg(wasm_browser)]
-        {
-            false
-        }
-    }
-
     /// Creates a four-tuple from a remote address, with no known local address.
     pub fn from_remote(remote: Addr) -> Self {
         match remote {
@@ -1021,6 +1008,59 @@ impl fmt::Display for FourTuple {
     }
 }
 
+/// The addresses and native local socket of a retained protocol path.
+///
+/// Public transport addresses retain their original shape. Socket identity is
+/// carried with the actual path, rather than encoded into a source IP.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PathBinding {
+    pub(crate) address: FourTuple,
+    pub(crate) local_socket: Option<noq::LocalSocketId>,
+}
+
+impl PathBinding {
+    pub(crate) fn from_remote(remote: Addr) -> Self {
+        FourTuple::from_remote(remote).into()
+    }
+
+    pub(crate) fn new(address: FourTuple, local_socket: Option<noq::LocalSocketId>) -> Self {
+        Self {
+            address,
+            local_socket,
+        }
+    }
+
+    pub(crate) fn is_connection_bound_udp(&self) -> bool {
+        self.local_socket.is_some()
+    }
+}
+
+impl From<FourTuple> for PathBinding {
+    fn from(address: FourTuple) -> Self {
+        Self {
+            address,
+            local_socket: None,
+        }
+    }
+}
+
+impl std::ops::Deref for PathBinding {
+    type Target = FourTuple;
+    fn deref(&self) -> &Self::Target {
+        &self.address
+    }
+}
+
+impl fmt::Display for PathBinding {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.address.fmt(f)?;
+        if let Some(socket) = self.local_socket {
+            write!(f, " [socket {}]", socket.get())?;
+        }
+        Ok(())
+    }
+}
+
 /// A sender that sends to all our transports.
 #[derive(Debug, Clone)]
 pub(crate) struct TransportsSender {
@@ -1032,6 +1072,40 @@ pub(crate) struct TransportsSender {
 }
 
 impl TransportsSender {
+    pub(crate) fn poll_send_on_socket(
+        self: Pin<&mut Self>,
+        cx: &mut Context,
+        network_path: &FourTuple,
+        local_socket: Option<noq::LocalSocketId>,
+        transmit: &Transmit<'_>,
+    ) -> Poll<io::Result<()>> {
+        if let Some(id) = local_socket {
+            #[cfg(not(wasm_browser))]
+            {
+                let FourTuple::Ip { remote, local } = network_path else {
+                    return Poll::Ready(Err(io::Error::other(
+                        "local UDP socket requires an IP path",
+                    )));
+                };
+                return self.ip.pool.poll_send(
+                    cx,
+                    LocalSocketId::from_noq(id),
+                    *local,
+                    *remote,
+                    transmit,
+                );
+            }
+            #[cfg(wasm_browser)]
+            {
+                let _ = id;
+                return Poll::Ready(Err(io::Error::other(
+                    "local UDP sockets unsupported in browser",
+                )));
+            }
+        }
+        self.poll_send(cx, network_path, transmit)
+    }
+
     #[cfg(not(wasm_browser))]
     pub(crate) fn socket_pool(&self) -> Arc<SocketPool> {
         self.ip.pool.clone()
@@ -1082,41 +1156,36 @@ impl TransportsSender {
             FourTuple::Ip {
                 remote: dst_addr,
                 local: src,
-            } => {
-                if let Some(token) = src.filter(|ip| LocalSocketId::from_token(*ip).is_some()) {
-                    return self.ip.pool.poll_send(cx, token, *dst_addr, transmit);
-                }
-                match dst_addr {
-                    SocketAddr::V4(_) => {
-                        if let Some(sender) = self
-                            .ip
-                            .v4_iter_mut()
-                            .find(|s| s.is_valid_send_addr(*src, dst_addr))
-                        {
-                            return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
-                        }
-                        if let Some(sender) = self.ip.v4_default_mut()
-                            && sender.is_valid_default_addr(*src, dst_addr)
-                        {
-                            return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
-                        }
+            } => match dst_addr {
+                SocketAddr::V4(_) => {
+                    if let Some(sender) = self
+                        .ip
+                        .v4_iter_mut()
+                        .find(|s| s.is_valid_send_addr(*src, dst_addr))
+                    {
+                        return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
                     }
-                    SocketAddr::V6(_) => {
-                        if let Some(sender) = self
-                            .ip
-                            .v6_iter_mut()
-                            .find(|s| s.is_valid_send_addr(*src, dst_addr))
-                        {
-                            return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
-                        }
-                        if let Some(sender) = self.ip.v6_default_mut()
-                            && sender.is_valid_default_addr(*src, dst_addr)
-                        {
-                            return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
-                        }
+                    if let Some(sender) = self.ip.v4_default_mut()
+                        && sender.is_valid_default_addr(*src, dst_addr)
+                    {
+                        return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
                     }
                 }
-            }
+                SocketAddr::V6(_) => {
+                    if let Some(sender) = self
+                        .ip
+                        .v6_iter_mut()
+                        .find(|s| s.is_valid_send_addr(*src, dst_addr))
+                    {
+                        return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
+                    }
+                    if let Some(sender) = self.ip.v6_default_mut()
+                        && sender.is_valid_default_addr(*src, dst_addr)
+                    {
+                        return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
+                    }
+                }
+            },
             FourTuple::Relay { url, endpoint_id } => {
                 let mut has_valid_sender = false;
                 for sender in self
@@ -1185,6 +1254,28 @@ impl noq::AsyncUdpSocket for Transport {
         meta: &mut [noq_udp::RecvMeta],
     ) -> Poll<io::Result<usize>> {
         self.transports.poll_recv(cx, bufs, meta, &self.sock)
+    }
+
+    fn poll_recv_with_sockets(
+        &mut self,
+        cx: &mut Context,
+        bufs: &mut [IoSliceMut<'_>],
+        meta: &mut [noq_udp::RecvMeta],
+        sockets: &mut [Option<noq::LocalSocketId>],
+    ) -> Poll<io::Result<usize>> {
+        assert_eq!(meta.len(), sockets.len());
+        sockets.fill(None);
+        let received = self.poll_recv(cx, bufs, meta);
+        #[cfg(not(wasm_browser))]
+        if let Poll::Ready(Ok(n)) = &received {
+            for (slot, info) in sockets[..*n]
+                .iter_mut()
+                .zip(&self.transports.recv_infos[..*n])
+            {
+                *slot = info.ip_binding.and_then(|binding| binding.id.to_noq());
+            }
+        }
+        received
     }
 
     #[cfg(not(wasm_browser))]
@@ -1274,9 +1365,33 @@ impl Sender {
 }
 
 impl noq::UdpSender for Sender {
+    fn supports_local_socket(&self, socket: noq::LocalSocketId) -> bool {
+        #[cfg(not(wasm_browser))]
+        {
+            self.sock
+                .udp_socket_pool
+                .get(LocalSocketId::from_noq(socket))
+                .is_some_and(|socket| socket.is_live() && socket.is_pinned())
+        }
+        #[cfg(wasm_browser)]
+        {
+            let _ = socket;
+            false
+        }
+    }
+
     fn poll_send(
         self: Pin<&mut Self>,
         noq_transmit: &noq_udp::Transmit,
+        cx: &mut Context,
+    ) -> Poll<io::Result<()>> {
+        self.poll_send_on_socket(noq_transmit, None, cx)
+    }
+
+    fn poll_send_on_socket(
+        self: Pin<&mut Self>,
+        noq_transmit: &noq_udp::Transmit,
+        local_socket: Option<noq::LocalSocketId>,
         cx: &mut Context,
     ) -> Poll<io::Result<()>> {
         // On errors this methods prefers returning Ok(()) to Noq.  Returning an error
@@ -1286,6 +1401,15 @@ impl noq::UdpSender for Sender {
         // Noq eventually considers the packets that had send errors as lost and will try
         // and re-send them.
         let mapped_addr = self.mapped_addr(noq_transmit)?;
+        if local_socket.is_some() && !matches!(mapped_addr, MultipathMappedAddr::Ip(_)) {
+            // A physical UDP binding never falls back to a peer-wide, relay,
+            // or custom carrier while this packet is being sent.
+            debug!(
+                ?local_socket,
+                "discarding a non-IP packet with a local UDP socket"
+            );
+            return Poll::Ready(Ok(()));
+        }
 
         let network_path = match mapped_addr {
             MultipathMappedAddr::Mixed(mapped_addr) => {
@@ -1384,7 +1508,10 @@ impl noq::UdpSender for Sender {
         };
         let this = self.project();
 
-        match this.sender.poll_send(cx, &network_path, &transmit) {
+        match this
+            .sender
+            .poll_send_on_socket(cx, &network_path, local_socket, &transmit)
+        {
             Poll::Ready(Ok(())) => {
                 trace!(
                     dst = %network_path,

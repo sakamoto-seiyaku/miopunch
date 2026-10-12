@@ -1,0 +1,38 @@
+{
+  "exit": 0,
+  "cargoExit": 0,
+  "cargoSeconds": 2.261407373007387,
+  "command": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--manifest-path",
+    "/tmp/miopunch-native-socket-api-20261012/relay-selector/Cargo.toml",
+    "--features",
+    "rtc-probe",
+    "--bin",
+    "owned_local_relay",
+    "--jobs",
+    "2",
+    "--message-format=json"
+  ],
+  "freshArtifacts": 528,
+  "rebuiltArtifacts": 1,
+  "qualifiedForFrozenRun": true,
+  "sourceFrozenDuringBuild": true,
+  "artifacts": {
+    "/tmp/miopunch-native-socket-api-20261012/owned-relay-build/pinned/owned_local_relay": "bff5f4935248a80ce5560dcf144debb1a5e49cdc688df88d71d8e5d52b888a0f"
+  },
+  "actualSelectedInputCount": 6619,
+  "actualCapturedDepfileCount": 478,
+  "actualSourceCopyCount": 291,
+  "sourceDigestBefore": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+  "sourceDigestAfter": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+  "diskAfter": {
+    "freeBytes": 109734580224,
+    "cacheBytes": 85073362944
+  }
+}

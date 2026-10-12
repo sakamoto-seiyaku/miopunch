@@ -428,6 +428,175 @@ fn open_path() -> TestResult {
 }
 
 #[test]
+fn same_addresses_on_distinct_local_sockets_create_distinct_paths() -> TestResult {
+    let _guard = subscribe();
+    let mut pair = ConnPair::builder().enable_multipath().connect();
+    pair.drive();
+    let addresses = pair.network_path(Client, PathId::ZERO)?;
+    let first_socket = crate::LocalSocketId::new(7);
+    let second_socket = crate::LocalSocketId::new(8);
+    let first_binding = addresses.with_local_socket(Some(first_socket));
+    let second_binding = addresses.with_local_socket(Some(second_socket));
+    let (first, reused) = pair.open_path_ensure(Client, first_binding, PathStatus::Backup)?;
+    assert!(!reused);
+    assert_eq!(
+        pair.open_path_ensure(Client, first_binding, PathStatus::Backup)?,
+        (first, true)
+    );
+    let (second, reused) = pair.open_path_ensure(Client, second_binding, PathStatus::Backup)?;
+    assert!(!reused);
+    assert_ne!(first, second);
+    assert_ne!(first, PathId::ZERO);
+    assert_eq!(pair.network_path(Client, first)?, first_binding);
+    assert_eq!(pair.network_path(Client, second)?, second_binding);
+
+    // Encoding each validation packet must retain its selected physical socket.
+    // The ordinary test driver uses default sockets, so poll these explicitly.
+    let now = pair.time;
+    let mut seen = std::collections::HashSet::new();
+    let mut buffer = Vec::new();
+    for _ in 0..16 {
+        buffer.clear();
+        let Some(packet) = pair.conn_mut(Client).poll_transmit_with_socket(
+            now,
+            std::num::NonZeroUsize::MIN,
+            &mut buffer,
+        ) else {
+            break;
+        };
+        if let Some(socket) = packet.local_socket_id() {
+            assert_eq!(packet.transmit().src_ip, addresses.local_ip());
+            assert_eq!(packet.transmit().destination, addresses.remote());
+            seen.insert(socket);
+        }
+    }
+    assert_eq!(seen, [first_socket, second_socket].into_iter().collect());
+    Ok(())
+}
+
+#[test]
+fn changed_receive_socket_cannot_hijack_existing_path() -> TestResult {
+    let _guard = subscribe();
+    let mut pair = ConnPair::builder().enable_multipath().connect();
+    pair.drive();
+    let path = PathId::ZERO;
+    let (watermark, generation) = pair.conn_mut(Client).start_bound_path_probe(path)?;
+    pair.drive();
+    assert!(
+        pair.conn(Client)
+            .bound_path_probe_acknowledged(path, watermark, generation)?
+    );
+    let prior = pair.network_path(Client, path)?;
+    assert_eq!(prior.local_socket_id(), None);
+
+    // Deliver an authenticated stream packet with identical addresses but the
+    // actual ingress socket changed. It must not move the existing QUIC PathId.
+    let stream = pair.streams(Server).open(Dir::Uni).unwrap();
+    pair.send_stream(Server, stream)
+        .write(b"same session, new local socket")
+        .unwrap();
+    pair.send_stream(Server, stream).finish().unwrap();
+    let now = pair.time;
+    let mut wire = Vec::new();
+    let packet = pair
+        .conn_mut(Server)
+        .poll_transmit_with_socket(now, std::num::NonZeroUsize::MIN, &mut wire)
+        .expect("stream packet");
+    let socket = crate::LocalSocketId::new(9);
+    let ingress = prior.with_local_socket(Some(socket));
+    let mut response = Vec::new();
+    let event = pair.client.endpoint.handle(
+        now,
+        ingress,
+        packet.transmit().ecn,
+        bytes::BytesMut::from(&wire[..packet.transmit().size]),
+        &mut response,
+    );
+    let Some(crate::DatagramEvent::ConnectionEvent(_, event)) = event else {
+        panic!("expected authenticated connection packet");
+    };
+    pair.conn_mut(Client).handle_event(event);
+    assert_eq!(pair.network_path(Client, path)?, prior);
+    assert!(
+        pair.conn(Client)
+            .bound_path_probe_acknowledged(path, watermark, generation)?
+    );
+    assert!(pair.streams(Client).accept(Dir::Uni).is_none());
+
+    // The exact same authenticated packet must still work on the right socket:
+    // rejecting the wrong socket must not consume its packet number or stream.
+    let event = pair.client.endpoint.handle(
+        now,
+        prior,
+        packet.transmit().ecn,
+        bytes::BytesMut::from(&wire[..packet.transmit().size]),
+        &mut response,
+    );
+    let Some(crate::DatagramEvent::ConnectionEvent(_, event)) = event else {
+        panic!("expected original connection packet");
+    };
+    pair.conn_mut(Client).handle_event(event);
+    assert_eq!(pair.streams(Client).accept(Dir::Uni), Some(stream));
+    Ok(())
+}
+
+#[test]
+fn peer_address_migration_invalidates_old_bound_probe() -> TestResult {
+    let _guard = subscribe();
+    let mut pair = ConnPair::builder().enable_multipath().connect();
+    pair.drive();
+    let path = PathId::ZERO;
+    let (watermark, generation) = pair.conn_mut(Server).start_bound_path_probe(path)?;
+    pair.drive();
+    assert!(
+        pair.conn(Server)
+            .bound_path_probe_acknowledged(path, watermark, generation)?
+    );
+    let prior = pair.network_path(Server, path)?;
+    assert_eq!(prior.local_socket_id(), None);
+
+    // A real authenticated peer-address migration retains the local socket but
+    // creates a new generation, invalidating the preceding probe proof.
+    let stream = pair.streams(Client).open(Dir::Uni).unwrap();
+    pair.send_stream(Client, stream)
+        .write(b"same session, new local socket")
+        .unwrap();
+    pair.send_stream(Client, stream).finish().unwrap();
+    let now = pair.time;
+    let mut wire = Vec::new();
+    let packet = pair
+        .conn_mut(Client)
+        .poll_transmit_with_socket(now, std::num::NonZeroUsize::MIN, &mut wire)
+        .expect("stream packet");
+    let moved_peer = std::net::SocketAddr::new(prior.remote().ip(), prior.remote().port() + 1);
+    let ingress = FourTuple::new(moved_peer, prior.local_ip());
+    let mut response = Vec::new();
+    let event = pair.server.endpoint.handle(
+        now,
+        ingress,
+        packet.transmit().ecn,
+        bytes::BytesMut::from(&wire[..packet.transmit().size]),
+        &mut response,
+    );
+    let Some(crate::DatagramEvent::ConnectionEvent(_, event)) = event else {
+        panic!("expected authenticated connection packet");
+    };
+    pair.conn_mut(Server).handle_event(event);
+    assert_eq!(pair.network_path(Server, path)?, ingress);
+    assert!(
+        pair.conn(Server)
+            .bound_path_probe_acknowledged(path, watermark, generation)
+            .is_err()
+    );
+
+    assert_eq!(
+        pair.network_path(Server, path)?.local_socket_id(),
+        prior.local_socket_id()
+    );
+    Ok(())
+}
+
+#[test]
 fn open_path_key_update() -> TestResult {
     let _guard = subscribe();
     let mut pair = ConnPair::builder().enable_multipath().connect();
@@ -484,6 +653,7 @@ fn open_path_validation_fails_server_side() -> TestResult {
     // Open a path from ::1:2 to ::2:2. Client datagrams will arrive from ::1:2 which is not
     // allowed so they will be dropped.
     let network_path = FourTuple {
+        local_socket: None,
         remote: server_addr_two,
         local_ip: Some(client_addr_two.ip()),
     };
@@ -541,6 +711,7 @@ fn open_path_validation_fails_client_side() -> TestResult {
     // will arrive at ::1:2 from ::2:2, but only ::2:1 is allowed to send to ::1:2, so
     // server datagrams will be dropped.
     let network_path = FourTuple {
+        local_socket: None,
         remote: server_addr_two,
         local_ip: None,
     };
@@ -591,6 +762,7 @@ fn open_path_ensure_after_abandon() -> TestResult {
     .into();
 
     let second_path = FourTuple {
+        local_socket: None,
         local_ip: Some(second_client_addr.ip()),
         remote: second_server_addr,
     };
@@ -838,6 +1010,7 @@ fn per_path_observed_address() -> TestResult {
     .into();
 
     let second_path = FourTuple {
+        local_socket: None,
         local_ip: Some(second_client_addr.ip()),
         remote: second_server_addr,
     };
@@ -930,6 +1103,7 @@ fn remote_can_close_last_validated_path() -> TestResult {
 
     pair.routes.as_basic_mut().passive_migration(Client);
     let route = FourTuple {
+        local_socket: None,
         remote: pair.routes.public_server_addr(),
         local_ip: None,
     };
@@ -1345,6 +1519,7 @@ fn server_abandon_last_verified_path() -> TestResult {
     // be no validated path left over.
     pair.routes.as_basic_mut().passive_migration(Client);
     let route = FourTuple {
+        local_socket: None,
         remote: pair.routes.public_server_addr(),
         local_ip: None,
     };
@@ -1663,6 +1838,7 @@ fn abandon_cycle() -> TestResult {
     for cycle in 0..3u16 {
         let addr_idx = (cycle as usize) + 1;
         let new_path_net = FourTuple {
+            local_socket: None,
             local_ip: Some(addrs_client[addr_idx].ip()),
             remote: addrs_server[addr_idx],
         };
@@ -2419,6 +2595,7 @@ fn backup_returns_fresh_probe_acks_with_blackholed_available_primary_without_dat
     let backup = pair.open_path(
         Client,
         FourTuple {
+            local_socket: None,
             remote: server_backup,
             local_ip: Some(client_backup.ip()),
         },

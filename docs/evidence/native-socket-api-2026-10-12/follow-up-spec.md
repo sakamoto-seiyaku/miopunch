@@ -1,0 +1,11 @@
+Spec follow-up — current owned sources against fixed base `5beb2c791a929e5343576dfc3e26d7a831e2087f`; original `review-spec.md` preserved. Read-only inspection; no Cargo or source edits. Reviewed the five files changed since the first review and checked the unchanged socket-aware I/O/default/rebind seams.
+
+**Original P2 resolved; no new source defect or ordinary-caller compatibility break found.** ADR 0011:11 now explicitly requires “一个保留的 QUIC PathId 保持其本地 socket 绑定” and “换 socket 必须在原会话上显式建立另一条路径”. This is compatible with Plane 90’s original-session/path identity requirement and is recorded as a deliberate contract change rather than silently relaxing the earlier ADR.
+
+`early_discard_packet` unconditionally rejects differing socket identities (`vendor/noq-proto/src/connection/mod.rs:2503`). The event handler calls it before connection payload decoding/accounting, ACK or stream/frame processing (`:2374`). The receive-driven socket migration branch is removed; ordinary peer/local-IP migration conditions are restored. Therefore an established PathId cannot acquire a new socket while iroh’s cache still identifies its original socket. Opening a distinct path still preserves socket identity and separate validation.
+
+The revised regression injects encrypted stream ciphertext with synthetic wrong ingress metadata, checks unchanged binding/probe and absence of the stream, then supplies exactly the same ciphertext with correct metadata and accepts the stream (`vendor/noq-proto/src/tests/multipath.rs:478`, `:526`). The separate peer-address regression retains the local identity and invalidates the old generation-bound proof (`:543`). These are meaningful protocol tests; this review did not run them or equate their metadata seam with a physical UDP proxy test.
+
+Ordinary constructors/receivers still supply `None`; normal `rebind_abstract` changes the sender while keeping that identity, so the new equality check preserves existing default-I/O replacement behavior. Explicit pending transmissions, owner/permission checks and unsupported-sender rejection remain as reviewed.
+
+Final 435+81 test, Native/WASM and demo build/run receipts are being finalized by the parent. This review certifies the inspected source fix, not those pending executions or the independent M69/M84 matrix. No physical proxy reproduction is claimed.

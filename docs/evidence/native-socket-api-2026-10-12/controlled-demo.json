@@ -1,0 +1,82 @@
+{
+  "qualified": true,
+  "publicTraffic": false,
+  "controlledLoopback": true,
+  "freshSyntheticIdentities": true,
+  "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+  "execution": {
+    "publicTraffic": false,
+    "passed": true,
+    "containers": [
+      {
+        "name": "miopunch-m90-owned-irc-1791794890899719300",
+        "removed": true
+      }
+    ],
+    "cleanup": {
+      "relayExit": 0,
+      "relayGraceful": true,
+      "relayProcessAbsent": true
+    },
+    "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+    "relayStarted": true,
+    "runtimeExit": 0,
+    "functionalAndSdkCleanupQualified": true,
+    "rawReceiptSha256": "c91522ccb4d176c39b7d8c714f6b88ea4a186cf74951746ac1094892592bd8cc",
+    "sourceArtifactControllerUnchangedAfterRuntime": true,
+    "wholeWallMs": 13053.776719840243,
+    "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+    "qualified": true
+  },
+  "requestElapsedMs": 546.4000000953674,
+  "strictPurpose2": true,
+  "actualUnapprovedRequestRecorded": true,
+  "oneActualApprovalRecord": true,
+  "authorizationSaved": true,
+  "secretSaved": true,
+  "pendingIdentityPreserved": true,
+  "bothPersistentIdentitiesReopened": true,
+  "memberBusinessQualified": true,
+  "businessReply": "PONG",
+  "memberAlpn": "miopunch/session/member/1",
+  "stableConnectionIdPreserved": true,
+  "base64WireQualified": true,
+  "nativeSaferate": false,
+  "browserSaferate": false,
+  "profile": {
+    "pacing_ms": 10,
+    "assembly_ttl_ms": 8000,
+    "queue_ttl_ms": 30000,
+    "attempt_ms": 60000
+  },
+  "callerBudgetMs": 60000,
+  "ordinaryRelayOuterTls": false,
+  "endpointQuicTls": true,
+  "controlledIrcTlsWithPrivateNss": true,
+  "cleanup": {
+    "browser": {
+      "sdkStarted": true,
+      "closeReturned": true,
+      "freed": true,
+      "elapsedMs": 0.2999999523162842
+    },
+    "socketImmediateObservationPassed": true,
+    "lateSocketWaitMs": 0.01040000000011787,
+    "websocketsClosedBeforeContext": true,
+    "nativeExit": {
+      "code": 0,
+      "signal": null
+    },
+    "ownedBrowserContextClosed": true,
+    "ownedBrowserProcessClosed": true,
+    "ownedOriginClosed": true,
+    "nativeProcessAbsentImmediate": true,
+    "nativeProcessAbsentLate": true,
+    "ownedFixtureRemoved": true
+  },
+  "naturalNativeCleanup": true,
+  "nativeDriverActiveAfterClose": 0,
+  "firstNativeNaturalClose": true,
+  "rawPrivateReceiptSha256": "c91522ccb4d176c39b7d8c714f6b88ea4a186cf74951746ac1094892592bd8cc",
+  "fullDefaultProfileOrPhysicalPublicMatrixQualified": false
+}

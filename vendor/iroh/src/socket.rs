@@ -1140,16 +1140,13 @@ impl Socket {
                             .expect("traversal registry")
                             .get(&round)
                         {
-                            let id = noq_meta
-                                .dst_ip
-                                .and_then(transports::LocalSocketId::from_token)
-                                .unwrap_or(transports::LocalSocketId::PRIMARY);
+                            let Some(binding) = recv_info.ip_binding else {
+                                continue;
+                            };
+                            let id = binding.id;
                             if let Some(tx) =
                                 registration.senders.lock().expect("round senders").get(&id)
                             {
-                                let Some(binding) = recv_info.ip_binding else {
-                                    continue;
-                                };
                                 let local_addr = binding.local_addr;
                                 let _ = tx.try_send(UdpTraversalPacket {
                                     local_socket_id: id,
@@ -1581,10 +1578,19 @@ impl EndpointInner {
         address: iroh_base::CustomAddr,
     ) -> io::Result<()> {
         let (tx, rx) = oneshot::channel();
-        self.sock.try_send_remote_state_msg(remote, RemoteStateMessage::RetainAdmittedDataPath {
-            conn_id, remote: address, tx,
-        }).map_err(|_| io::Error::other("remote state unavailable"))?;
-        rx.await.map_err(|_| io::Error::other("remote state stopped"))?.map_err(io::Error::other)
+        self.sock
+            .try_send_remote_state_msg(
+                remote,
+                RemoteStateMessage::RetainAdmittedDataPath {
+                    conn_id,
+                    remote: address,
+                    tx,
+                },
+            )
+            .map_err(|_| io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| io::Error::other("remote state stopped"))?
+            .map_err(io::Error::other)
     }
 
     pub(crate) async fn retain_control_data_path(
@@ -1594,20 +1600,42 @@ impl EndpointInner {
         address: iroh_base::CustomAddr,
     ) -> io::Result<()> {
         let (tx, rx) = oneshot::channel();
-        self.sock.try_send_remote_state_msg(remote, RemoteStateMessage::RetainControlDataPath {
-            conn_id, remote: address, tx,
-        }).map_err(|_| io::Error::other("remote state unavailable"))?;
-        rx.await.map_err(|_| io::Error::other("remote state stopped"))?.map_err(io::Error::other)
+        self.sock
+            .try_send_remote_state_msg(
+                remote,
+                RemoteStateMessage::RetainControlDataPath {
+                    conn_id,
+                    remote: address,
+                    tx,
+                },
+            )
+            .map_err(|_| io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| io::Error::other("remote state stopped"))?
+            .map_err(io::Error::other)
     }
 
     #[cfg(feature = "miopunch-test-hooks")]
     pub(crate) async fn test_limit_transport_paths(
-        &self, remote: EndpointId, conn_id: usize, allowed: Vec<iroh_base::TransportAddr>,
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        allowed: Vec<iroh_base::TransportAddr>,
     ) -> io::Result<()> {
         let (tx, rx) = oneshot::channel();
-        self.sock.try_send_remote_state_msg(remote, RemoteStateMessage::TestLimitTransportPaths { conn_id, allowed, tx })
+        self.sock
+            .try_send_remote_state_msg(
+                remote,
+                RemoteStateMessage::TestLimitTransportPaths {
+                    conn_id,
+                    allowed,
+                    tx,
+                },
+            )
             .map_err(|_| io::Error::other("remote state unavailable"))?;
-        rx.await.map_err(|_| io::Error::other("remote state stopped"))?.map_err(io::Error::other)
+        rx.await
+            .map_err(|_| io::Error::other("remote state stopped"))?
+            .map_err(io::Error::other)
     }
 
     #[cfg(feature = "miopunch-test-hooks")]
@@ -1651,7 +1679,11 @@ impl EndpointInner {
             .map_err(std::io::Error::other)
     }
     pub(crate) fn relay_mapped_addr(&self, remote: EndpointId, relay: &RelayUrl) -> SocketAddr {
-        self.sock.mapped_addrs.relay_addrs.get(&(relay.clone(), remote)).private_socket_addr()
+        self.sock
+            .mapped_addrs
+            .relay_addrs
+            .get(&(relay.clone(), remote))
+            .private_socket_addr()
     }
     pub(crate) fn custom_mapped_addr(&self, route: &iroh_base::CustomAddr) -> SocketAddr {
         self.sock
@@ -2874,14 +2906,13 @@ impl Actor {
         impl NetworkChangeHint for Hint {
             fn local_ip_for_recovery(&self, network_path: noq_proto::FourTuple) -> Option<IpAddr> {
                 #[cfg(not(wasm_browser))]
-                if let Some(token) = network_path.local_ip()
-                    && transports::LocalSocketId::from_token(token).is_some()
-                    && self
+                if let Some(socket) = network_path.local_socket_id()
+                    && let Some(ip) = self
                         .udp_socket_pool
-                        .actual_ip(token)
-                        .is_some_and(|ip| self.local_addrs.contains(&ip))
+                        .actual_ip(transports::LocalSocketId::from_noq(socket))
+                    && self.local_addrs.contains(&ip)
                 {
-                    return Some(token);
+                    return Some(ip);
                 }
                 None
             }
@@ -2904,19 +2935,17 @@ impl Actor {
                         true
                     }
                     MultipathMappedAddr::Ip(_) => {
+                        #[cfg(not(wasm_browser))]
+                        if let Some(socket) = network_path.local_socket_id() {
+                            return self
+                                .udp_socket_pool
+                                .actual_ip(transports::LocalSocketId::from_noq(socket))
+                                .is_some_and(|ip| self.local_addrs.contains(&ip));
+                        }
                         // If we no longer have a valid interface to send from for a local
                         // IP then it can not be recovered.
                         match network_path.local_ip() {
-                            Some(local_ip) => {
-                                #[cfg(not(wasm_browser))]
-                                if transports::LocalSocketId::from_token(local_ip).is_some() {
-                                    return self
-                                        .udp_socket_pool
-                                        .actual_ip(local_ip)
-                                        .is_some_and(|ip| self.local_addrs.contains(&ip));
-                                }
-                                self.local_addrs.contains(&local_ip)
-                            }
+                            Some(local_ip) => self.local_addrs.contains(&local_ip),
                             None => true,
                         }
                     }

@@ -514,6 +514,7 @@ impl EndpointInner {
         incoming: proto::Incoming,
         server_config: Option<Arc<ServerConfig>>,
     ) -> Result<Connecting, ConnectionError> {
+        let local_socket = incoming.local_socket_id();
         let mut state = self.state.lock().unwrap();
         let mut response_buffer = Vec::new();
         let now = state.runtime.now();
@@ -532,7 +533,7 @@ impl EndpointInner {
             }
             Err(error) => {
                 if let Some(transmit) = error.response {
-                    respond(transmit, &response_buffer, &mut state.sender);
+                    respond_on_socket(transmit, local_socket, &response_buffer, &mut state.sender);
                 }
                 Err(error.cause)
             }
@@ -540,18 +541,20 @@ impl EndpointInner {
     }
 
     pub(crate) fn refuse(&self, incoming: proto::Incoming) {
+        let local_socket = incoming.local_socket_id();
         let mut state = self.state.lock().unwrap();
         state.stats.refused_handshakes += 1;
         let mut response_buffer = Vec::new();
         let transmit = state.inner.refuse(incoming, &mut response_buffer);
-        respond(transmit, &response_buffer, &mut state.sender);
+        respond_on_socket(transmit, local_socket, &response_buffer, &mut state.sender);
     }
 
     pub(crate) fn retry(&self, incoming: proto::Incoming) -> Result<(), proto::RetryError> {
+        let local_socket = incoming.local_socket_id();
         let mut state = self.state.lock().unwrap();
         let mut response_buffer = Vec::new();
         let transmit = state.inner.retry(incoming, &mut response_buffer)?;
-        respond(transmit, &response_buffer, &mut state.sender);
+        respond_on_socket(transmit, local_socket, &response_buffer, &mut state.sender);
         Ok(())
     }
 
@@ -680,8 +683,9 @@ impl Drop for State {
     }
 }
 
-fn respond(
+fn respond_on_socket(
     transmit: proto::Transmit,
+    local_socket: Option<crate::LocalSocketId>,
     response_buffer: &[u8],
     sender: &mut Pin<Box<dyn UdpSender>>,
 ) {
@@ -723,8 +727,9 @@ fn respond(
     // RawWakerVTable contract, it doesn't access the data pointer at all.
     let waker = unsafe { Waker::from_raw(NOOP) };
     let mut cx = Context::from_waker(&waker);
-    _ = sender.as_mut().poll_send(
+    _ = sender.as_mut().poll_send_on_socket(
         &udp_transmit(&transmit, &response_buffer[..transmit.size]),
+        local_socket,
         &mut cx,
     );
 }
@@ -942,6 +947,7 @@ impl RecvState {
     ) -> Result<PollProgress, io::Error> {
         let mut received_connection_packet = false;
         let mut metas = [RecvMeta::default(); BATCH_SIZE];
+        let mut local_sockets = [None; BATCH_SIZE];
         let mut iovs: [IoSliceMut<'_>; BATCH_SIZE] = {
             let mut bufs = self
                 .recv_buf
@@ -954,15 +960,21 @@ impl RecvState {
             std::array::from_fn(|_| bufs.next().expect("BATCH_SIZE elements"))
         };
         loop {
-            match socket.poll_recv(cx, &mut iovs, &mut metas) {
+            match socket.poll_recv_with_sockets(cx, &mut iovs, &mut metas, &mut local_sockets) {
                 Poll::Ready(Ok(msgs)) => {
                     self.recv_limiter.record_work(msgs);
-                    for (meta, buf) in metas.iter().zip(iovs.iter()).take(msgs) {
+                    for ((meta, buf), local_socket) in metas
+                        .iter()
+                        .zip(iovs.iter())
+                        .zip(local_sockets.iter().copied())
+                        .take(msgs)
+                    {
                         let mut data: BytesMut = buf[0..meta.len].into();
                         while !data.is_empty() {
                             let buf = data.split_to(meta.stride.min(data.len()));
                             let mut response_buffer = Vec::new();
-                            let addresses = FourTuple::new(meta.addr, meta.dst_ip);
+                            let addresses = FourTuple::new(meta.addr, meta.dst_ip)
+                                .with_local_socket(local_socket);
                             match endpoint.handle(
                                 now,
                                 addresses,
@@ -976,7 +988,12 @@ impl RecvState {
                                     } else {
                                         let transmit =
                                             endpoint.refuse(incoming, &mut response_buffer);
-                                        respond(transmit, &response_buffer, sender);
+                                        respond_on_socket(
+                                            transmit,
+                                            local_socket,
+                                            &response_buffer,
+                                            sender,
+                                        );
                                     }
                                 }
                                 Some(DatagramEvent::ConnectionEvent(handle, event)) => {
@@ -991,7 +1008,12 @@ impl RecvState {
                                         .send(ConnectionEvent::Proto(event));
                                 }
                                 Some(DatagramEvent::Response(transmit)) => {
-                                    respond(transmit, &response_buffer, sender);
+                                    respond_on_socket(
+                                        transmit,
+                                        local_socket,
+                                        &response_buffer,
+                                        sender,
+                                    );
                                 }
                                 None => {}
                             }

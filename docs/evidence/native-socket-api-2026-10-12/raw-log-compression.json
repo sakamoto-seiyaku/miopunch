@@ -1,0 +1,65 @@
+{
+  "operation": "lossless gzip, exact raw bytes retained also in private evidence",
+  "logs": [
+    {
+      "file": "test-tcp_direct_member_preserved.log.gz",
+      "decompressedSha256": "dab6ef57eae8b29cd330bcfbf7c851fdc45c8fcf9bbb68e59e9cbe9b9d45dda0",
+      "rawBytesPreserved": true
+    },
+    {
+      "file": "test-legacy_multi_socket.log.gz",
+      "decompressedSha256": "9c2170ff6232f2ba3bbaf02bd6a0b23753f1f0a6d7d26f60809675e56524bdf4",
+      "rawBytesPreserved": true
+    },
+    {
+      "file": "test-rtc_invalidation_barrier.log.gz",
+      "decompressedSha256": "34906d6f27caf52984e2458be9ef25bd3374f27231d1edbc880810de902b5707",
+      "rawBytesPreserved": true
+    },
+    {
+      "file": "test-unified_connection.log.gz",
+      "decompressedSha256": "8cdd83a14a4f73db4367e3a84362621e64cc149ff09580aacc7ef53c76356695",
+      "rawBytesPreserved": true
+    },
+    {
+      "file": "test-member_path_protocol.log.gz",
+      "decompressedSha256": "1404bdb2e24ab51340ca7b7ab05f90fed7ed3540f0fd037eccad424d363c951e",
+      "rawBytesPreserved": true
+    },
+    {
+      "file": "test-unified_path_selection.log.gz",
+      "decompressedSha256": "1db6791b5775f70e692dac7830c18f2ab29b004d4dd366580206d8f2e2f1b223",
+      "rawBytesPreserved": true
+    },
+    {
+      "file": "test-rtc_path_qualification.log.gz",
+      "decompressedSha256": "d4d0a14afaa53766e9b3b9613230ada08a7dea44592b184332b4100352cfacb0",
+      "rawBytesPreserved": true
+    },
+    {
+      "file": "test-unified_admission_story.log.gz",
+      "decompressedSha256": "6d6a58d88629f82c54fcafeb66380515a040a83050784601dfa7da7a36c777d5",
+      "rawBytesPreserved": true
+    },
+    {
+      "file": "noq-tests.log.gz",
+      "decompressedSha256": "c1bc6527ce6b440ee536e5dfc8ed08a382c1bcd1fac9a7e31ffc13fe07b6d297",
+      "rawBytesPreserved": true
+    },
+    {
+      "file": "test-negotiated_accept_context.log.gz",
+      "decompressedSha256": "3a070798eb12f79b1e61b6ba07485e2e5e3a75ab8ecd75f0840ba3145afb98ae",
+      "rawBytesPreserved": true
+    },
+    {
+      "file": "test-irc_datagram.log.gz",
+      "decompressedSha256": "aeab3b69813ead493b69ad7c56020ec4f3551961703debf8b32927cb8eb84a5d",
+      "rawBytesPreserved": true
+    },
+    {
+      "file": "test-rtc_association.log.gz",
+      "decompressedSha256": "f40779677747342172a9976e9d9e04a64baa46a4c08f3242bc5b51e7a8252a6c",
+      "rawBytesPreserved": true
+    }
+  ]
+}

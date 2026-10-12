@@ -359,9 +359,11 @@ impl Connection {
             }
             None => next,
         });
-        if state.buffered_transmit.as_ref().is_some_and(|t| {
-            !(state.path_permit.as_ref().unwrap().0)(FourTuple::new(t.destination, t.src_ip))
-        }) {
+        if state
+            .buffered_transmit
+            .as_ref()
+            .is_some_and(|t| !(state.path_permit.as_ref().unwrap().0)(t.network_path()))
+        {
             state.buffered_transmit = None;
         }
     }
@@ -557,6 +559,49 @@ impl Connection {
             }
             Err(err) => OpenPath::rejected(err),
         }
+    }
+
+    /// Open an additional path through a registered local socket.
+    ///
+    /// The endpoint's I/O implementation owns the socket and must support
+    /// explicit bindings. The original `open_path` remains available for
+    /// ordinary default-socket paths.
+    pub fn open_path_on_socket(
+        &self,
+        socket: crate::LocalSocketId,
+        network_path: impl Into<FourTuple>,
+        initial_status: PathStatus,
+    ) -> std::io::Result<OpenPath> {
+        self.check_local_socket(socket)?;
+        Ok(self.open_path(
+            network_path.into().with_local_socket(Some(socket)),
+            initial_status,
+        ))
+    }
+
+    /// Like `open_path_ensure`, with an explicit local socket binding.
+    pub fn open_path_ensure_on_socket(
+        &self,
+        socket: crate::LocalSocketId,
+        network_path: impl Into<FourTuple>,
+        initial_status: PathStatus,
+    ) -> std::io::Result<OpenPath> {
+        self.check_local_socket(socket)?;
+        Ok(self.open_path_ensure(
+            network_path.into().with_local_socket(Some(socket)),
+            initial_status,
+        ))
+    }
+
+    fn check_local_socket(&self, socket: crate::LocalSocketId) -> std::io::Result<()> {
+        let state = self.0.lock_without_waking("check local socket");
+        if !state.sender.supports_local_socket(socket) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "local socket is not available through this sender",
+            ));
+        }
+        Ok(())
     }
 
     /// Returns the [`Path`] structure of an open path
@@ -1109,7 +1154,8 @@ fn normalize_network_path(
         Err(PathError::InvalidRemoteAddress(remote))
     } else if ipv6 {
         let remote = SocketAddr::V6(ensure_ipv6(remote));
-        Ok(FourTuple::new(remote, network_path.local_ip()))
+        Ok(FourTuple::new(remote, network_path.local_ip())
+            .with_local_socket(network_path.local_socket_id()))
     } else {
         Ok(network_path)
     }
@@ -1654,7 +1700,7 @@ pub(crate) struct State {
     pub(crate) runtime: Arc<dyn Runtime>,
     send_buffer: Vec<u8>,
     /// We buffer a transmit when the underlying I/O would block
-    buffered_transmit: Option<proto::Transmit>,
+    buffered_transmit: Option<proto::SocketTransmit>,
     path_permit: Option<PathPermit>,
     path_filter_stats: PathFilterStats,
     /// Our last external address reported by the peer. When multipath is enabled, this will be the
@@ -1723,14 +1769,15 @@ impl State {
                 Some(t) => t,
                 None => {
                     self.send_buffer.clear();
-                    match self
-                        .inner
-                        .poll_transmit(now, max_datagrams, &mut self.send_buffer)
-                    {
+                    match self.inner.poll_transmit_with_socket(
+                        now,
+                        max_datagrams,
+                        &mut self.send_buffer,
+                    ) {
                         Some(t) => {
-                            transmits += match t.segment_size {
+                            transmits += match t.transmit().segment_size {
                                 None => 1,
-                                Some(s) => t.size.div_ceil(s), // round up
+                                Some(s) => t.transmit().size.div_ceil(s), // round up
                             };
                             t
                         }
@@ -1739,11 +1786,12 @@ impl State {
                 }
             };
 
-            let len = t.size;
+            let transmit = t.transmit();
+            let len = transmit.size;
             if self
                 .path_permit
                 .as_ref()
-                .is_some_and(|permit| !(permit.0)(FourTuple::new(t.destination, t.src_ip)))
+                .is_some_and(|permit| !(permit.0)(t.network_path()))
             {
                 self.path_filter_stats.denied_outbound += 1;
                 // QUIC will retransmit lost application data on an allowed
@@ -1758,8 +1806,11 @@ impl State {
                         vec![
                             ("handle", W::U64(self.handle.0 as u64)),
                             ("transmit_len", W::U64(len as u64)),
-                            ("segment_size", W::U64(t.segment_size.unwrap_or(len) as u64)),
-                            ("destination", W::Text(t.destination.to_string())),
+                            (
+                                "segment_size",
+                                W::U64(transmit.segment_size.unwrap_or(len) as u64),
+                            ),
+                            ("destination", W::Text(transmit.destination.to_string())),
                             (
                                 "ciphertext_exact",
                                 W::Bytes(self.send_buffer[..len].to_vec()),
@@ -1773,11 +1824,11 @@ impl State {
                     );
                 }
             }
-            match self
-                .sender
-                .as_mut()
-                .poll_send(&udp_transmit(&t, &self.send_buffer[..len]), cx)
-            {
+            match self.sender.as_mut().poll_send_on_socket(
+                &udp_transmit(transmit, &self.send_buffer[..len]),
+                t.local_socket_id(),
+                cx,
+            ) {
                 Poll::Pending => {
                     if proto::packet_witness::enabled() {
                         proto::packet_witness::emit("actual-sender-poll-pending", vec![]);

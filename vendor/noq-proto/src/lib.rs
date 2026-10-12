@@ -346,6 +346,69 @@ pub struct Transmit {
     pub src_ip: Option<IpAddr>,
 }
 
+/// A local socket managed by an endpoint's I/O implementation.
+///
+/// This is local metadata, never a QUIC wire identifier or an IP address.
+/// The I/O implementation assigns IDs and must not reuse one for a different
+/// socket during the endpoint's lifetime. A socket ID does not grant permission
+/// to use the socket; the I/O implementation remains responsible for ownership
+/// and liveness checks.
+#[derive(Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
+pub struct LocalSocketId(u64);
+
+impl LocalSocketId {
+    /// Construct an ID allocated by the endpoint's I/O implementation.
+    pub const fn new(value: u64) -> Self {
+        Self(value)
+    }
+
+    /// Return the implementation's identifier, independent of its port or fd.
+    pub const fn get(self) -> u64 {
+        self.0
+    }
+}
+
+/// A transmission bound to the local socket selected by the protocol.
+///
+/// The original [`Transmit`] retains its public fields for existing callers.
+/// Socket-aware drivers must retain this metadata while a send is pending.
+#[derive(Debug)]
+#[must_use]
+pub struct SocketTransmit {
+    transmit: Transmit,
+    local_socket: Option<LocalSocketId>,
+}
+
+impl SocketTransmit {
+    pub(crate) fn new(transmit: Transmit, local_socket: Option<LocalSocketId>) -> Self {
+        Self {
+            transmit,
+            local_socket,
+        }
+    }
+
+    /// The ordinary packet metadata, with real destination and source IP.
+    pub fn transmit(&self) -> &Transmit {
+        &self.transmit
+    }
+
+    /// The selected socket, or the endpoint's existing default I/O when unset.
+    pub fn local_socket_id(&self) -> Option<LocalSocketId> {
+        self.local_socket
+    }
+
+    /// Consume the result without discarding its socket binding.
+    pub fn into_parts(self) -> (Transmit, Option<LocalSocketId>) {
+        (self.transmit, self.local_socket)
+    }
+
+    /// The complete local path identity used by packet permission checks.
+    pub fn network_path(&self) -> FourTuple {
+        FourTuple::new(self.transmit.destination, self.transmit.src_ip)
+            .with_local_socket(self.local_socket)
+    }
+}
+
 //
 // Useful internal constants
 //
@@ -375,10 +438,11 @@ pub struct FourTuple {
     remote: SocketAddr,
     /// The local side of this tuple.
     ///
-    /// The socket is irrelevant for our intents and purposes:
-    /// When we send, we can only specify the `src_ip`, not the source port.
-    /// So even if we track the port, we won't be able to make use of it.
+    /// Default I/O selects only the source IP. An explicit local socket is
+    /// represented independently, so its descriptor selects the source port.
     local_ip: Option<IpAddr>,
+    /// Optional physical socket binding, separate from the real source IP.
+    local_socket: Option<LocalSocketId>,
 }
 
 impl FourTuple {
@@ -406,7 +470,11 @@ impl FourTuple {
             }
         }
 
-        Self { remote, local_ip }
+        Self {
+            remote,
+            local_ip,
+            local_socket: None,
+        }
     }
 
     /// Creates a new [`FourTuple`] without a known local address.
@@ -424,6 +492,21 @@ impl FourTuple {
         self.local_ip
     }
 
+    /// Bind this path to a local socket supplied by the I/O implementation.
+    ///
+    /// Existing constructors use the endpoint's default socket. Drivers using
+    /// explicit bindings must use the socket-aware transmit API, so pending
+    /// packets keep the socket selected when they were encoded.
+    pub fn with_local_socket(mut self, local_socket: Option<LocalSocketId>) -> Self {
+        self.local_socket = local_socket;
+        self
+    }
+
+    /// The local socket binding, independent of the real [`Self::local_ip`].
+    pub fn local_socket_id(&self) -> Option<LocalSocketId> {
+        self.local_socket
+    }
+
     /// Returns whether we think the other address probably represents the same path
     /// as ours.
     ///
@@ -435,7 +518,9 @@ impl FourTuple {
     /// - `a.is_probably_same_path(b)`
     /// - `b.is_probably_same_path(a)`
     pub(crate) fn is_probably_same_path(&self, other: &Self) -> bool {
-        self.remote == other.remote && (self.local_ip.is_none() || self.local_ip == other.local_ip)
+        self.remote == other.remote
+            && self.local_socket == other.local_socket
+            && (self.local_ip.is_none() || self.local_ip == other.local_ip)
     }
 }
 

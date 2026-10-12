@@ -1,0 +1,38 @@
+{
+  "exit": 0,
+  "cargoExit": 0,
+  "cargoSeconds": 0.46709636109881103,
+  "command": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--manifest-path",
+    "/tmp/miopunch-native-socket-api-20261012/selector/Cargo.toml",
+    "--features",
+    "rtc-probe",
+    "--bin",
+    "irc_current_native",
+    "--jobs",
+    "2",
+    "--message-format=json"
+  ],
+  "freshArtifacts": 529,
+  "rebuiltArtifacts": 0,
+  "qualifiedForFrozenRun": true,
+  "sourceFrozenDuringBuild": true,
+  "artifacts": {
+    "/tmp/miopunch-native-socket-api-20261012/native-sdk-binding-final/pinned/irc_current_native": "fd80d517a2747f5e056cdd6474d484562ca397bec0fef6bbcfd0d4436e06c3b9"
+  },
+  "actualSelectedInputCount": 6619,
+  "actualCapturedDepfileCount": 478,
+  "actualSourceCopyCount": 291,
+  "sourceDigestBefore": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+  "sourceDigestAfter": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+  "diskAfter": {
+    "freeBytes": 109904678912,
+    "cacheBytes": 85008863232
+  }
+}
