@@ -1,0 +1,13 @@
+{
+  "baselineCommit": "65fb52ede8c69818ec26c472eb2c846989504504",
+  "userApproval": "同意 执行 继续",
+  "approvedAction": "previously rejected public Ergo IRC/TLS/WSS and aps1-1 relay admission/material/business demo with fresh test identities",
+  "sourceCodeChanged": false,
+  "sdkRebuilt": false,
+  "implementationNoteDelta": {
+    "path": "docs/notes/2026-10-12-native-socket-api-and-demo.md",
+    "beforeSha256": "7c37ca48d77a0b84e5f0beb5df7498e6cdb12e4a82bdc375794b38e8625c27e9",
+    "afterSha256": "d96740e6c4ac064f364964599bf63524ecd94800fdbe1e433b9b2e21e88c0941"
+  },
+  "protectedWipCount": 246
+}

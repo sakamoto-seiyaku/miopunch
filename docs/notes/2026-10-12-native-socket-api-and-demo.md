@@ -31,3 +31,11 @@ Noq `LocalSocketId` 在 I/O 收包、协议 FourTuple、实际 PathData、发包
 提议的公网复测被自动审批拒绝，原因是当前可见记录缺少向指定公共 IRC/relay 发送具体身份、准入材料和业务数据的授权；没有启动公网 actor，也没有绕过拒绝重试。受控完整 demo 满足本切片范围。两轴独立审查发现的 socket 缓存问题已修复，最终均无未解决发现。
 
 源/构件/退出回执、失败记录、审查和精确控制器见 [证据目录](../evidence/native-socket-api-2026-10-12/README.md)。所有固定 SDK 与原始证据保留；确认容器及 host 进程缺席后，删除了 4 个生成的测试私钥和 2 个私有 NSS 数据库。246 份既有 WIP 保持不变。
+
+## 用户授权后的公网补充验证
+
+用户随后明确同意执行此前被拒绝的公网 demo。复用同一份固定 Native/WASM SDK，在公共 Ergo IRC TLS/WSS 和获准 aps1-1 relay 上完整通过：受限 purpose2 请求、Native 未批准请求记录、一次实际审批、保存授权与 secret、双方重开同一持久身份、member1 普通 stream PING/PONG，以及原连接标识保持。受限请求耗时 42.5155 秒，完整运行 75.2241 秒；没有重编译或修改产品源码。
+
+全部 SDK 和浏览器进程正常关闭，无强制终止。500 毫秒观察未收到全部 WebSocket 关闭事件，该 false 结果保留；再等待约 2.004 秒后，全部关闭事件均在销毁 browser context 前到达。Native exit=0、driver active=0，临时 store 已清理。
+
+本轮仍使用 caller/attempt 60 秒、pacing 600 毫秒、assembly 8 秒和 queue 30 秒的显式比较配置，双方实际广告 SAFERATE；不据此认证完整默认 profile、实体 NAT 或 M69/M84 平台矩阵，也不从单次结果推导性能提升。历史自动审批拒绝与受控测试回执保留。补充证据见 [公网复测目录](../evidence/native-socket-api-public-2026-10-12/README.md)。

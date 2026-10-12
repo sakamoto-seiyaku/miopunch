@@ -1,0 +1,80 @@
+{
+  "qualified": true,
+  "userAuthorizedPublicFollowup": true,
+  "priorAutomaticApprovalRejectionPreserved": true,
+  "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+  "runtimeExit": 0,
+  "sourceArtifactControllerUnchangedAfterRuntime": true,
+  "wholeWallMs": 75224.08111789264,
+  "requestElapsedMs": 42515.5,
+  "normalHttpsPageStatus": 200,
+  "actualPageOrigin": "https://testnet.ergo.chat",
+  "facility": {
+    "logical_id": "explicit-ergo-public-testnet-qualification",
+    "native_url": "ircs://testnet.ergo.chat:6697/",
+    "wss_url": "wss://testnet.ergo.chat/webirc"
+  },
+  "permittedDataRelay": "https://aps1-1.relay.n0.iroh.link./",
+  "strictPurpose2Qualified": true,
+  "actualUnapprovedRequestRecorded": true,
+  "actualApprovalRecords": 1,
+  "authorizationSaved": true,
+  "secretSaved": true,
+  "bothPersistentIdentitiesReopened": true,
+  "memberBusinessQualified": true,
+  "memberAlpn": "miopunch/session/member/1",
+  "businessReply": "PONG",
+  "stableConnectionIdPreserved": true,
+  "nativeSaferate": true,
+  "browserSaferate": true,
+  "base64WireQualified": true,
+  "wireObservation": {
+    "protocol": "MIR2",
+    "encoding": "standard-padded-Base64",
+    "sentFragments": 97,
+    "receivedFragments": 81,
+    "legacyFragments": 0,
+    "invalidBase64": 0,
+    "maxSentClientLineBytes": 467,
+    "maxReceivedForwardedLineBytes": 509,
+    "maxDecodedFragmentBytes": 252
+  },
+  "profile": {
+    "pacing_ms": 600,
+    "assembly_ttl_ms": 8000,
+    "queue_ttl_ms": 30000,
+    "attempt_ms": 60000
+  },
+  "callerBudgetMs": 60000,
+  "firstNativeNaturalClose": true,
+  "firstNativeExit": {
+    "code": 0,
+    "signal": null
+  },
+  "finalNativeNaturalClose": true,
+  "nativeDriverActiveAfterClose": 0,
+  "cleanup": {
+    "browser": {
+      "sdkStarted": true,
+      "closeReturned": true,
+      "freed": true,
+      "elapsedMs": 980.2000000476837
+    },
+    "socketImmediateObservationPassed": false,
+    "lateSocketWaitMs": 2004.4091740000003,
+    "websocketsClosedBeforeContext": true,
+    "nativeExit": {
+      "code": 0,
+      "signal": null
+    },
+    "ownedBrowserContextClosed": true,
+    "ownedBrowserProcessClosed": true,
+    "nativeProcessAbsentImmediate": true,
+    "nativeProcessAbsentLate": true,
+    "ownedFixtureRemoved": true
+  },
+  "fullDefaultProfileOrPhysicalMatrixQualified": false,
+  "rawPrivateReceiptSha256": "214c98dcf07280b62fc7850c39a85cf09c33b51cbf6320453536b3a1837be216",
+  "previousQualifiedRegressions": 516,
+  "sdkRebuiltForFollowup": false
+}

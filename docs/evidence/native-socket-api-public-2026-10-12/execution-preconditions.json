@@ -1,0 +1,33 @@
+{
+  "sourcesLocksArtifactsToolsControllersPassedBeforeActors": true,
+  "pins": {
+    "/tmp/miopunch-native-socket-api-20261012/native-sdk-binding-final/receipt.json": "13deed76d4dee1e62dc2ee2d89efd052a16aea6f801bb837e2d7bf573c3e3f7f",
+    "/tmp/miopunch-native-socket-api-20261012/native-sdk-binding-final/selected-dependency-inputs.json": "fe69874e8f1c4db00042e24f4dab8b87513ced1fd81c1296c3734a98b066acf5",
+    "/tmp/miopunch-native-socket-api-20261012/native-sdk-binding-final-context.json": "054c0f01bfd67c4f10d45ab0aee6d96206b45b745a2caeb938d57831039dd6dc",
+    "/tmp/miopunch-native-socket-api-20261012/native-sdk-binding-final/pinned/irc_current_native": "fd80d517a2747f5e056cdd6474d484562ca397bec0fef6bbcfd0d4436e06c3b9",
+    "/tmp/miopunch-native-socket-api-20261012/wasm-sdk-binding-final/receipt.json": "be6559c93bb299ff5b29b408abc3e9ed12d5afc9e2294cd1f803d3453e0f2a12",
+    "/tmp/miopunch-native-socket-api-20261012/wasm-sdk-binding-final/selected-dependency-inputs.json": "c577b168a2b130b6952b654b7f0f92c35645f2280b944c8e438bdc9537b70032",
+    "/tmp/miopunch-native-socket-api-20261012/wasm-sdk-binding-final-context.json": "1ee2cf5e014167f6fbe860f1c0dc8c825a6c196b3c0b3c4231957ede97538449",
+    "/tmp/miopunch-native-socket-api-20261012/wasm-sdk-binding-final/miopunch_browser_probe.wasm": "2a5b7b3f4a27dafed0f65f01ac0e1be2027c6d74592f3f4528bf48e8fc192c25",
+    "/tmp/miopunch-native-socket-api-20261012/wasm-sdk-binding-final/pkg/miopunch_browser_probe_bg.wasm": "dc0b958708ea53ea09497a0cb9781c914bf1cd9f73824efecf50f462ce63066c",
+    "/tmp/miopunch-native-socket-api-20261012/wasm-sdk-binding-final/pkg/miopunch_browser_probe_bg.wasm.d.ts": "4a5f2ab3fd6b86985a54edeba35c9b62cba3ec7187f1b54a7c60338215131a9d",
+    "/tmp/miopunch-native-socket-api-20261012/wasm-sdk-binding-final/pkg/miopunch_browser_probe.js": "2d8d9f810f059abd03733f2be8b53e545f99c62d6bae803d4a0c1a006a770e4b",
+    "/tmp/miopunch-native-socket-api-20261012/wasm-sdk-binding-final/pkg/miopunch_browser_probe.d.ts": "8bf1905559cf25da9923ff34c57741d61c2ac87365ea99a0cd70d92737b948a7",
+    "/tmp/miopunch-native-socket-api-20261012/wasm-sdk-binding-final/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+    "/tmp/miopunch-native-socket-api-20261012/wasm-sdk-binding-final/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+    "/tmp/miopunch-native-socket-api-20261012/public-demo/run.mjs": "1bda98182276c3faa68f267ea452b9b5c285ac7eafb6466128804b4946040f7d",
+    "/tmp/miopunch-native-socket-api-20261012/public-demo/execute.py": "e7878dc6d18306b0b06a33c769c3b50548fe0f36d4a5317bea93140ae2a61d60",
+    "/home/js/Git/miopunch/docs/evidence/public-irc-restricted-2026-10-05/facility.json": "00ca7bac0b4096f5851705cdb4a03fa6d145df1015acdec307d05aa7cc7ec7ff",
+    "/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome": "8c599d43aec53f2460a31ae2f4af6bd863f8258b34ff519564bc5d4726bfaa1e"
+  },
+  "publicTraffic": true,
+  "facilities": "previously used explicit Ergo and permitted aps1-1 data relay",
+  "sourceDigest": "48d1499a7e204d5240f6ec911ac891caae8aa2f4e066f2086c31a760fb7eb598",
+  "profile": {
+    "caller_ms": 60000,
+    "attempt_ms": 60000,
+    "pacing_ms": 600,
+    "assembly_ttl_ms": 8000,
+    "queue_ttl_ms": 30000
+  }
+}
