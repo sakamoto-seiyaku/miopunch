@@ -244,6 +244,7 @@ pub(crate) struct StaticConfig {
     pub(crate) relay_resource_policy: crate::endpoint::RelayResourcePolicy,
     pub(crate) control_only_alpns: Vec<Vec<u8>>,
     pub(crate) admission_gated: bool,
+    pub(crate) admission: Option<Arc<dyn crate::endpoint::restricted::DynEndpointAdmission>>,
     pub(crate) tls_config: tls::TlsConfig,
     #[debug("QuicServerConifg")]
     pub(crate) server_config: QuicServerConfig,
@@ -1390,6 +1391,9 @@ impl DirectAddrUpdateState {
 #[stack_error(derive, add_meta)]
 #[non_exhaustive]
 pub enum BindError {
+    /// Typed admission and the transitional hook-based admission cannot be combined.
+    #[error("Incompatible restricted endpoint configuration")]
+    InvalidAdmissionConfig,
     #[error("Failed to bind sockets")]
     Sockets { source: io::Error },
     #[error("Failed to create internal QUIC endpoint")]
@@ -1415,6 +1419,38 @@ pub enum BindError {
 }
 
 impl EndpointInner {
+    /// Recheck the live carrier permission, independently of an earlier probe.
+    pub(crate) fn qualifies_admission_data_path(
+        &self,
+        connection_id: usize,
+        remote: &iroh_base::TransportAddr,
+        allowed_custom_ids: &[u64],
+    ) -> bool {
+        use iroh_base::TransportAddr;
+        match remote {
+            TransportAddr::Ip(_) => true,
+            TransportAddr::Relay(url) => self
+                .static_config
+                .relay_resource_policy
+                .allows(url, crate::endpoint::RelayResourceUse::DataRelay),
+            TransportAddr::Custom(address) => {
+                allowed_custom_ids.contains(&address.id())
+                    && self
+                        .static_config
+                        .relay_resource_policy
+                        .allows_custom(address)
+                    && self
+                        .sock
+                        .mapped_addrs
+                        .permits_custom_connection(address, connection_id)
+                    && self
+                        .sock
+                        .mapped_addrs
+                        .qualifies_custom_data(address, connection_id)
+            }
+            _ => false,
+        }
+    }
     /// Actual interface addresses paired with the primary bound IPv4 ports.
     /// This intentionally excludes reflected, portmapped and configured addresses.
     #[cfg(not(wasm_browser))]
@@ -3546,6 +3582,7 @@ mod tests {
             relay_resource_policy: Default::default(),
             control_only_alpns: Vec::new(),
             admission_gated: false,
+            admission: None,
             server_config: tls_config.make_server_config(false).unwrap(),
             client_config: tls_config.make_client_config(false).unwrap(),
             tls_config,
@@ -3965,6 +4002,7 @@ mod tests {
             relay_resource_policy: Default::default(),
             control_only_alpns: Vec::new(),
             admission_gated: false,
+            admission: None,
             server_config: tls_config.make_server_config(keylog).unwrap(),
             client_config: tls_config.make_client_config(keylog).unwrap(),
             tls_config,

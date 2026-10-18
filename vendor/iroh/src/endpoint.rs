@@ -92,10 +92,16 @@ mod connection;
 pub(crate) mod hooks;
 pub mod presets;
 pub(crate) mod quic;
+pub(crate) mod restricted;
 
 #[cfg(not(wasm_browser))]
 pub use bind::{BindOpts, InvalidSocketAddr, ToSocketAddr};
 pub use hooks::{AfterHandshakeOutcome, BeforeConnectOutcome, EndpointHooks};
+pub use restricted::{
+    AdmissionOutcome, ControlAccepting, ControlConnecting, ControlConnection, DataPathPermit,
+    EndpointAdmission, RestrictedAccepting, RestrictedBuilder, RestrictedConnecting,
+    RestrictedEndpoint, RestrictedIncoming, WeakControlConnection,
+};
 
 #[cfg(feature = "qlog")]
 pub use self::quic::{QlogConfig, QlogFactory, QlogFileFactory};
@@ -138,6 +144,7 @@ pub struct Builder {
     alpn_protocols: Vec<Vec<u8>>,
     control_only_alpns: Vec<Vec<u8>>,
     admission_gated: bool,
+    admission: Option<Arc<dyn restricted::DynEndpointAdmission>>,
     transport_config: QuicTransportConfig,
     keylog: bool,
     address_lookup: Vec<Box<dyn DynAddressLookupBuilder>>,
@@ -289,6 +296,7 @@ impl Builder {
             alpn_protocols: Default::default(),
             control_only_alpns: Default::default(),
             admission_gated: false,
+            admission: None,
             transport_config: QuicTransportConfig::default(),
             keylog: Default::default(),
             address_lookup: Default::default(),
@@ -348,6 +356,7 @@ impl Builder {
             transport_config: self.transport_config.clone(),
             control_only_alpns: self.control_only_alpns,
             admission_gated: self.admission_gated,
+            admission: self.admission,
             token_key,
             token_store: Arc::new(noq::TokenMemoryCache::default()),
         };
@@ -910,6 +919,17 @@ impl Builder {
         self
     }
 
+    /// Select an endpoint whose authenticated control phase precedes business delivery.
+    ///
+    /// Configure keys, transports, ALPNs and ordinary hooks on this builder first.
+    /// The returned builder binds a [`RestrictedEndpoint`], which does not expose
+    /// an ordinary endpoint or early-data handles. The original [`Builder::bind`]
+    /// remains available to ordinary consumers.
+    pub fn restricted(mut self, admission: impl EndpointAdmission + 'static) -> RestrictedBuilder {
+        self.admission = Some(Arc::new(admission));
+        RestrictedBuilder::new(self)
+    }
+
     /// Configures the portmapper service (UPnP, PCP, NAT-PMP).
     ///
     /// This fork defaults to [`PortmapperConfig::Disabled`] to preserve the
@@ -1059,6 +1079,12 @@ pub struct Endpoint {
 #[non_exhaustive]
 #[allow(private_interfaces)]
 pub enum ConnectWithOptsError {
+    /// The restricted attempt's cancellation token was cancelled during setup.
+    #[error("Restricted connection attempt cancelled")]
+    AttemptCancelled,
+    /// The restricted attempt's original deadline elapsed during setup.
+    #[error("Restricted connection attempt deadline elapsed")]
+    AttemptTimedOut,
     #[error("Control-only connect requires exactly one explicit custom route")]
     InvalidControlRoute,
     /// An explicit initial route must be one supported route of this target.

@@ -51,13 +51,17 @@ use n0_error::{AnyError, e, stack_error};
 use n0_future::{
     join_all,
     task::{self, AbortOnDropHandle, JoinSet},
+    time::Duration,
 };
 use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, debug, error, field::Empty, info_span, trace, warn};
 
 use crate::{
     Endpoint,
-    endpoint::{Accepting, Connection, RemoteEndpointIdError, quic},
+    endpoint::{
+        Accepting, Connection, ControlConnection, RemoteEndpointIdError, RestrictedAccepting,
+        RestrictedEndpoint, quic,
+    },
 };
 
 /// The built router.
@@ -108,6 +112,24 @@ pub struct RouterBuilder {
     protocols: ProtocolMap,
     #[debug(skip)]
     incoming_filter: Option<IncomingFilter>,
+}
+
+/// Router which exposes only the typed restricted endpoint.
+///
+/// Ordinary handlers receive their original [`Connection`] after admission.
+/// Control-only protocols use [`ControlProtocolHandler`] instead. The socket,
+/// accept loop, task ownership and shutdown implementation are shared with Router.
+#[derive(Clone, Debug)]
+pub struct RestrictedRouter {
+    inner: Router,
+    endpoint: RestrictedEndpoint,
+}
+
+/// Builder for [`RestrictedRouter`], using the original protocol registration style.
+#[derive(Debug)]
+pub struct RestrictedRouterBuilder {
+    inner: RouterBuilder,
+    endpoint: RestrictedEndpoint,
 }
 
 #[allow(missing_docs)]
@@ -372,31 +394,100 @@ impl<P: ProtocolHandler> DynProtocolHandler for P {
     }
 }
 
+/// A handler whose only connection capability is the admission control protocol.
+pub trait ControlProtocolHandler: Send + Sync + std::fmt::Debug + 'static {
+    /// Handle bounded, framed control messages without ordinary streams/datagrams.
+    fn accept(
+        &self,
+        connection: ControlConnection,
+    ) -> impl Future<Output = Result<(), AcceptError>> + Send;
+
+    /// Finish owned work before the shared router closes its endpoint.
+    fn shutdown(&self) -> impl Future<Output = ()> + Send {
+        async {}
+    }
+}
+
+impl<T: ControlProtocolHandler> ControlProtocolHandler for Arc<T> {
+    async fn accept(&self, connection: ControlConnection) -> Result<(), AcceptError> {
+        self.as_ref().accept(connection).await
+    }
+
+    async fn shutdown(&self) {
+        self.as_ref().shutdown().await;
+    }
+}
+
+impl<T: ControlProtocolHandler> ControlProtocolHandler for Box<T> {
+    async fn accept(&self, connection: ControlConnection) -> Result<(), AcceptError> {
+        self.as_ref().accept(connection).await
+    }
+
+    async fn shutdown(&self) {
+        self.as_ref().shutdown().await;
+    }
+}
+
+trait DynControlProtocolHandler: Send + Sync + std::fmt::Debug + 'static {
+    fn accept(
+        &self,
+        connection: ControlConnection,
+    ) -> Pin<Box<dyn Future<Output = Result<(), AcceptError>> + Send + '_>>;
+    fn shutdown(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>>;
+}
+
+impl<T: ControlProtocolHandler> DynControlProtocolHandler for T {
+    fn accept(
+        &self,
+        connection: ControlConnection,
+    ) -> Pin<Box<dyn Future<Output = Result<(), AcceptError>> + Send + '_>> {
+        Box::pin(ControlProtocolHandler::accept(self, connection))
+    }
+
+    fn shutdown(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
+        Box::pin(ControlProtocolHandler::shutdown(self))
+    }
+}
+
 /// A typed map of protocol handlers, mapping them from ALPNs.
 #[derive(Debug, Default)]
-pub(crate) struct ProtocolMap(BTreeMap<Vec<u8>, Box<dyn DynProtocolHandler>>);
+pub(crate) struct ProtocolMap {
+    business: BTreeMap<Vec<u8>, Box<dyn DynProtocolHandler>>,
+    control: BTreeMap<Vec<u8>, Box<dyn DynControlProtocolHandler>>,
+    restricted_timeout: Option<Duration>,
+}
 
 impl ProtocolMap {
     /// Returns the registered protocol handler for an ALPN as a [`Arc<dyn ProtocolHandler>`].
     pub(crate) fn get(&self, alpn: &[u8]) -> Option<&dyn DynProtocolHandler> {
-        self.0.get(alpn).map(|p| &**p)
+        self.business.get(alpn).map(|p| &**p)
     }
 
     /// Inserts a protocol handler.
     pub(crate) fn insert(&mut self, alpn: Vec<u8>, handler: Box<dyn DynProtocolHandler>) {
-        self.0.insert(alpn, handler);
+        self.control.remove(&alpn);
+        self.business.insert(alpn, handler);
+    }
+
+    fn insert_control(&mut self, alpn: Vec<u8>, handler: impl ControlProtocolHandler) {
+        self.business.remove(&alpn);
+        self.control.insert(alpn, Box::new(handler));
     }
 
     /// Returns an iterator of all registered ALPN protocol identifiers.
     pub(crate) fn alpns(&self) -> impl Iterator<Item = &Vec<u8>> {
-        self.0.keys()
+        self.business.keys().chain(self.control.keys())
     }
 
     /// Shuts down all protocol handlers.
     ///
     /// Calls and awaits [`ProtocolHandler::shutdown`] for all registered handlers concurrently.
     pub(crate) async fn shutdown(&self) {
-        let handlers = self.0.values().map(|p| p.shutdown());
+        let handlers = self
+            .business
+            .values()
+            .map(|p| p.shutdown())
+            .chain(self.control.values().map(|p| p.shutdown()));
         join_all(handlers).await;
     }
 }
@@ -443,6 +534,78 @@ impl Router {
         }
 
         Ok(())
+    }
+}
+
+impl RestrictedRouter {
+    /// Route business and control protocols on one restricted endpoint.
+    pub fn builder(endpoint: RestrictedEndpoint) -> RestrictedRouterBuilder {
+        RestrictedRouterBuilder::new(endpoint)
+    }
+
+    /// The typed endpoint, with no ordinary endpoint conversion.
+    pub fn endpoint(&self) -> &RestrictedEndpoint {
+        &self.endpoint
+    }
+
+    /// Whether the shared router shutdown has started.
+    pub fn is_shutdown(&self) -> bool {
+        self.inner.is_shutdown()
+    }
+
+    /// Shut down all registered handlers, pending attempts and the endpoint.
+    pub async fn shutdown(&self) -> Result<(), n0_future::task::JoinError> {
+        self.inner.shutdown().await
+    }
+}
+
+impl RestrictedRouterBuilder {
+    /// Create a router without exposing the underlying ordinary endpoint.
+    pub fn new(endpoint: RestrictedEndpoint) -> Self {
+        let mut inner = RouterBuilder::new(endpoint.as_endpoint().clone());
+        inner.protocols.restricted_timeout = Some(endpoint.admission_timeout());
+        Self { inner, endpoint }
+    }
+
+    /// Register an existing business handler for post-admission delivery.
+    ///
+    /// Only [`ProtocolHandler::accept`] and shutdown are reused. Its ordinary
+    /// `on_accepting` callback is not invoked: that callback owns an unrestricted
+    /// Accepting and could expose early business handles. For custom TLS setup,
+    /// accept manually through [`crate::endpoint::RestrictedIncoming::accept_with`].
+    pub fn accept(
+        mut self,
+        alpn: impl AsRef<[u8]>,
+        handler: impl Into<Box<dyn DynProtocolHandler>>,
+    ) -> Self {
+        self.inner = self.inner.accept(alpn, handler);
+        self
+    }
+
+    /// Register a dedicated control-only protocol handler.
+    pub fn accept_control(
+        mut self,
+        alpn: impl AsRef<[u8]>,
+        handler: impl ControlProtocolHandler,
+    ) -> Self {
+        self.inner
+            .protocols
+            .insert_control(alpn.as_ref().to_vec(), handler);
+        self
+    }
+
+    /// The typed endpoint being configured.
+    pub fn endpoint(&self) -> &RestrictedEndpoint {
+        &self.endpoint
+    }
+
+    /// Spawn the shared accept loop with typed admission and protocol delivery.
+    #[must_use = "Router aborts when dropped, use RestrictedRouter::shutdown"]
+    pub fn spawn(self) -> RestrictedRouter {
+        RestrictedRouter {
+            inner: self.inner.spawn(),
+            endpoint: self.endpoint,
+        }
     }
 }
 
@@ -623,6 +786,14 @@ impl RouterBuilder {
 }
 
 async fn handle_connection(incoming: crate::endpoint::Incoming, protocols: Arc<ProtocolMap>) {
+    if let Some(timeout) = protocols.restricted_timeout {
+        let deadline = incoming.received_at() + timeout;
+        let incoming = incoming.with_caller_deadline(deadline);
+        if let Err(error) = handle_restricted_connection(incoming, &protocols).await {
+            warn!("Accepting restricted connection ended with error: {error}");
+        }
+        return;
+    }
     let mut accepting = match incoming.accept() {
         Ok(conn) => conn,
         Err(err) => {
@@ -657,6 +828,33 @@ async fn handle_connection(incoming: crate::endpoint::Incoming, protocols: Arc<P
         Err(err) => {
             warn!("Accepting incoming connection ended with error: {err}");
         }
+    }
+}
+
+async fn handle_restricted_connection(
+    incoming: crate::endpoint::Incoming,
+    protocols: &ProtocolMap,
+) -> Result<(), AcceptError> {
+    let accepting = incoming.accept()?;
+    let mut accepting = RestrictedAccepting::from_accepting(accepting);
+    let alpn = accepting.alpn().await.map_err(AcceptError::from_err)?;
+    tracing::Span::current().record("alpn", String::from_utf8_lossy(&alpn).to_string());
+    if let Some(handler) = protocols.control.get(&alpn) {
+        let connection = accepting.into_control().await?;
+        tracing::Span::current().record(
+            "remote",
+            tracing::field::display(connection.remote_id().fmt_short()),
+        );
+        handler.accept(connection).await
+    } else if let Some(handler) = protocols.get(&alpn) {
+        let connection = accepting.await?;
+        tracing::Span::current().record(
+            "remote",
+            tracing::field::display(connection.remote_id().fmt_short()),
+        );
+        handler.accept(connection).await
+    } else {
+        Err(e!(AcceptError::NotAllowed))
     }
 }
 

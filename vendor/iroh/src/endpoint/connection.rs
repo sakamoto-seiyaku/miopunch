@@ -148,7 +148,7 @@ pub(super) struct AttemptOptions {
 pub struct Incoming {
     inner: noq::Incoming,
     ep: Endpoint,
-    attempt: AttemptOptions,
+    pub(super) attempt: AttemptOptions,
 }
 
 impl Incoming {
@@ -281,8 +281,9 @@ impl IntoFuture for Incoming {
     fn into_future(self) -> Self::IntoFuture {
         IncomingFuture(Box::pin(async move {
             let noq_conn = self.inner.into_future().await?;
-            let conn = conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?.await?;
-            Ok(conn)
+            conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?
+                .await?
+                .into_business()
         }))
     }
 }
@@ -382,7 +383,7 @@ fn conn_from_noq_conn(
     ep: &Endpoint,
     attempt: AttemptOptions,
 ) -> Result<
-    impl Future<Output = Result<Connection, ConnectingError>> + Send + 'static,
+    impl Future<Output = Result<RegisteredConnection, ConnectingError>> + Send + 'static,
     ConnectingError,
 > {
     let info = match static_info_from_conn(&conn) {
@@ -422,6 +423,9 @@ fn conn_from_noq_conn(
     // Check hooks
     let inner = ep.inner.clone();
     let endpoint = ep.clone();
+    let typed_admission = inner.static_config.admission.clone();
+    let typed_close_monitor = typed_admission.as_ref().map(|_| conn.clone());
+    let bounded_attempt = attempt.clone();
     let mut pending = PendingAdmission(Some(conn.weak_handle()));
     Ok(async move {
         let cancellation = attempt.cancellation.clone();
@@ -435,6 +439,10 @@ fn conn_from_noq_conn(
                 },
                 inner: conn,
             };
+
+            if let Some(policy) = typed_admission {
+                return super::restricted::finish_admission(conn, &endpoint, policy.as_ref()).await;
+            }
 
             let release = match inner.hooks.after_handshake(&conn).await {
                 AfterHandshakeOutcome::Reject { error_code, reason } => {
@@ -484,9 +492,16 @@ fn conn_from_noq_conn(
                 return Err(e!(ConnectingError::LocallyRejected));
             }
 
-            Ok(conn)
+            Ok(RegisteredConnection::Business(conn))
         };
-        let result = if let Some(cancellation) = cancellation {
+        let result = if let Some(monitor) = typed_close_monitor {
+            super::restricted::bounded(&bounded_attempt, async {
+                tokio::select! { biased;
+                    source = monitor.closed() => Err(e!(ConnectingError::ConnectionError { source })),
+                    result = work => result,
+                }
+            }).await
+        } else if let Some(cancellation) = cancellation {
             tokio::select! { biased;
                 _ = cancellation.cancelled() => Err(e!(ConnectingError::AttemptCancelled)),
                 result = work => result,
@@ -562,16 +577,45 @@ pub struct Connecting {
     ep: Endpoint,
     /// `Some(remote_id)` if this is an outgoing connection, `None` if this is an incoming conn
     remote_endpoint_id: EndpointId,
-    attempt: AttemptOptions,
+    pub(super) attempt: AttemptOptions,
 }
 
-type RegisterWithSocketFut = BoxFuture<Result<Connection, ConnectingError>>;
+type RegisterWithSocketFut = BoxFuture<Result<RegisteredConnection, ConnectingError>>;
+
+/// A control-only result never passes through an ordinary public future.
+#[derive(Debug)]
+pub(super) enum RegisteredConnection {
+    Business(Connection),
+    Control(super::ControlConnection),
+}
+
+impl RegisteredConnection {
+    pub(super) fn into_business(self) -> Result<Connection, ConnectingError> {
+        match self {
+            Self::Business(connection) => Ok(connection),
+            Self::Control(_) => Err(e!(ConnectingError::LocallyRejected)),
+        }
+    }
+
+    pub(super) fn into_control(self) -> Result<super::ControlConnection, ConnectingError> {
+        match self {
+            Self::Control(connection) => Ok(connection),
+            Self::Business(connection) => {
+                connection.close(
+                    0u32.into(),
+                    b"business scope returned to control-only caller",
+                );
+                Err(e!(ConnectingError::LocallyRejected))
+            }
+        }
+    }
+}
 
 /// In-progress connection attempt future
 #[derive(derive_more::Debug)]
 pub struct Accepting {
     inner: noq::Connecting,
-    attempt: AttemptOptions,
+    pub(super) attempt: AttemptOptions,
     /// Future to register the connection with the socket.
     ///
     /// This is set and polled after `inner` completes. We are using an option instead of an enum
@@ -585,6 +629,10 @@ pub struct Accepting {
 #[allow(missing_docs)]
 #[non_exhaustive]
 pub enum AlpnError {
+    #[error("Restricted connection attempt cancelled")]
+    AttemptCancelled,
+    #[error("Restricted connection attempt deadline elapsed")]
+    AttemptTimedOut,
     #[error(transparent)]
     ConnectionError {
         #[error(std_err)]
@@ -602,6 +650,9 @@ pub enum AlpnError {
 #[derive(Clone)]
 #[allow(private_interfaces)]
 pub enum ConnectingError {
+    /// The restricted attempt's original absolute deadline elapsed.
+    #[error("Restricted connection attempt deadline elapsed")]
+    AttemptTimedOut,
     #[error(transparent)]
     ConnectionError {
         #[error(std_err)]
@@ -687,8 +738,9 @@ impl Connecting {
                     let noq_conn = noq_conn.clone();
                     async move {
                         let accepted = zrtt_accepted.await;
-                        let conn =
-                            conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?.await?;
+                        let conn = conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?
+                            .await?
+                            .into_business()?;
                         Ok(match accepted {
                             true => ZeroRttStatus::Accepted(conn),
                             false => ZeroRttStatus::Rejected(conn),
@@ -725,6 +777,24 @@ impl Future for Connecting {
     type Output = Result<Connection, ConnectingError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        self.poll_registered(cx)
+            .map(|result| result?.into_business())
+    }
+}
+
+impl Connecting {
+    pub(super) async fn into_control(
+        mut self,
+    ) -> Result<super::ControlConnection, ConnectingError> {
+        std::future::poll_fn(|cx| self.poll_registered(cx))
+            .await?
+            .into_control()
+    }
+
+    fn poll_registered(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Result<RegisteredConnection, ConnectingError>> {
         loop {
             if let Some(fut) = &mut self.register_with_socket {
                 return fut.poll_unpin(cx).map_err(Into::into);
@@ -815,8 +885,9 @@ impl Accepting {
             let noq_conn = noq_conn.clone();
             async move {
                 let _ = zrtt_accepted.await;
-                let conn = conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?.await?;
-                Ok(conn)
+                conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?
+                    .await?
+                    .into_business()
             }
         });
         let accepted = accepted.shared();
@@ -854,6 +925,24 @@ impl Future for Accepting {
     type Output = Result<Connection, ConnectingError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        self.poll_registered(cx)
+            .map(|result| result?.into_business())
+    }
+}
+
+impl Accepting {
+    pub(super) async fn into_control(
+        mut self,
+    ) -> Result<super::ControlConnection, ConnectingError> {
+        std::future::poll_fn(|cx| self.poll_registered(cx))
+            .await?
+            .into_control()
+    }
+
+    fn poll_registered(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Result<RegisteredConnection, ConnectingError>> {
         loop {
             if let Some(fut) = &mut self.register_with_socket {
                 return fut.poll_unpin(cx).map_err(Into::into);

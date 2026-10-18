@@ -257,3 +257,44 @@ artifact. The debug x86_64-pc-windows-gnu build exceeded the PE export ordinal
 limit (108336 exports) while producing that DLL. miopunch embeds the Rust
 library, not a C ABI. The same packaging-only change is recorded for the
 vendored locked `iroh-relay` 1.2.0 dependency. No Rust API or wire change.
+
+## MIOPUNCH-92: typed restricted endpoint and independent admission
+
+`Builder::restricted` explicitly selects `RestrictedBuilder` / `RestrictedEndpoint`.
+These types share the original endpoint, TLS, QUIC, socket, registration and
+router implementations; they expose no ordinary endpoint conversion or borrow.
+Their Incoming, Accepting and Connecting states have no early-data entry point.
+Ordinary endpoint early-data behavior remains available. Restoring the original
+incoming return signature and old hook enum is deferred to MIOPUNCH-95 after
+the separate Native / Browser migrations; those old contracts are not claimed
+restored by this additive slice.
+
+`EndpointAdmission` receives a dedicated `ControlConnection`. It can exchange
+bounded framed messages and qualify a path on the original connection without
+obtaining raw streams, datagrams or business handles. The application supplies
+its own policy; the library contains no miopunch membership state machine.
+The control wire uses the first client bidirectional stream, a versioned
+`iroh/admission/1\0` preface, length-limited control messages and a separate
+bilateral delivery-ready frame. This is an explicit new application protocol,
+not a QUIC/TLS wire or congestion change, nor classification of arbitrary payloads.
+
+`DataPathPermit` captures the original connection, path, address and fresh Noq
+ACK probe. Live path/resource qualification and current policy are checked
+before and after legacy hooks, before readiness, and at final release. Only
+then does the caller receive the original `Connection`. Control-only decisions
+have separate connect/accept/router delivery and never pass a full connection
+to a legacy business hook. `WeakControlConnection` provides liveness and close
+authority without a public upgrade, including for later application revocation.
+
+Typed attempts share one absolute budget through lookup, TLS, control, routing
+and handoff. Cancellation, peer closure and dropping pending registration close
+the original attempt. The setup budget ends at successful delivery. Endpoint
+close/drop ownership remains the same as the ordinary endpoint: custom-carrier
+drivers are released after their endpoint owners are dropped.
+
+The old hook-based admission path stays active for its existing consumers.
+`RestrictedRouter` reuses its accept loop and shutdown, delivering original
+business handlers only after typed admission; it does not expose the ordinary
+handler's `on_accepting` state. See
+`docs/notes/2026-10-18-restricted-endpoint-api.md` for exact transition consumers,
+public-interface tests and the bounded MQTT-control-to-UDP demonstration.
