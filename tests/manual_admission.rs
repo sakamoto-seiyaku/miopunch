@@ -1,11 +1,16 @@
 //! Public native-node behavior with real signed records, SQLite and iroh TLS.
 
+#[path = "support/native_connections.rs"]
+mod native_connections;
+use iroh::endpoint::RestrictedEndpoint;
+use native_connections::{receive_field, send_field};
+
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use iroh::EndpointAddr;
 use iroh::endpoint::Connection;
-use iroh::{Endpoint, EndpointAddr};
 use miopunch_native_probe::admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope};
 use miopunch_native_probe::management_auth::ManagementExtension;
 use miopunch_native_probe::manual_admission::{
@@ -37,14 +42,17 @@ async fn restricted_admission_delivery_uses_original_incoming_deadline() {
     ae.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
     let target = EndpointAddr::new(ae.id()).with_ip_addr(*ae.addr().ip_addrs().next().unwrap());
     let deadline = n0_future::time::Instant::now() + Duration::from_secs(2);
-    let (client, server) = tokio::join!(je.connect(target, ADMISSION_REQUEST_ALPN), async {
-        ae.accept()
-            .await
-            .unwrap()
-            .with_caller_deadline(deadline)
-            .await
-    });
-    let (client, server) = (client.unwrap(), server.unwrap());
+    let (client, server) =
+        tokio::join!(je.connect_control(target, ADMISSION_REQUEST_ALPN), async {
+            ae.accept()
+                .await
+                .unwrap()
+                .with_caller_deadline(deadline)
+                .accept_control()
+                .unwrap()
+                .await
+        });
+    let (client, server) = (Arc::new(client.unwrap()), Arc::new(server.unwrap()));
     assert!(
         admin
             .admission_gate()
@@ -75,22 +83,12 @@ async fn restricted_admission_delivery_uses_original_incoming_deadline() {
     admin.close().await;
 }
 
-async fn connect(client: &Endpoint, server: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
-    let target = EndpointAddr::new(server.id()).with_addrs(
-        server
-            .addr()
-            .ip_addrs()
-            .copied()
-            .map(iroh_base::TransportAddr::Ip),
-    );
-    tokio::time::timeout(Duration::from_secs(10), async {
-        let (out, incoming) = tokio::join!(client.connect(target, alpn), async {
-            server.accept().await.unwrap().await
-        });
-        (out.unwrap(), incoming.unwrap())
-    })
-    .await
-    .expect("bounded real TLS connection")
+async fn connect(
+    client: &RestrictedEndpoint,
+    server: &RestrictedEndpoint,
+    alpn: &[u8],
+) -> (Connection, Connection) {
+    native_connections::member_pair(client, server, alpn).await
 }
 
 #[tokio::test]
@@ -107,7 +105,9 @@ async fn manual_approval_saves_both_materials_and_permits_real_business() {
     let join_endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     admin_endpoint.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec(), BUSINESS.to_vec()]);
 
-    let (client, server) = connect(&join_endpoint, &admin_endpoint, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&join_endpoint, &admin_endpoint, ADMISSION_REQUEST_ALPN)
+            .await;
     let (response, received) = tokio::join!(
         joining.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -216,12 +216,13 @@ fn applicant_crash_after_authorization_worker() {
         let mut node = NativeNetwork::open(path).await.unwrap();
         let endpoint = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
         let connection = endpoint
-            .connect(
+            .connect_control(
                 EndpointAddr::new(contact).with_ip_addr(addr),
                 ADMISSION_REQUEST_ALPN,
             )
             .await
             .unwrap();
+        let connection = std::sync::Arc::new(connection);
         let ManualExchange::Materials(_delivery) =
             node.request_manual_admission(&connection).await.unwrap()
         else {
@@ -247,7 +248,9 @@ async fn crash_after_only_authorization_never_succeeds_and_same_request_resumes_
     let join_id = joining.status().node_id;
     let admin_endpoint = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let join_endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&join_endpoint, &admin_endpoint, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&join_endpoint, &admin_endpoint, ADMISSION_REQUEST_ALPN)
+            .await;
     let (response, received) = tokio::join!(
         joining.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -287,7 +290,16 @@ async fn crash_after_only_authorization_never_succeeds_and_same_request_resumes_
     let (child, delivered) = tokio::join!(
         tokio::task::spawn_blocking(move || child.wait_with_output().unwrap()),
         async {
-            let server = admin_endpoint.accept().await.unwrap().await.unwrap();
+            let server = std::sync::Arc::new(
+                admin_endpoint
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+                    .unwrap(),
+            );
             admin.serve_manual_admission(&server).await
         }
     );
@@ -346,7 +358,9 @@ async fn crash_after_only_authorization_never_succeeds_and_same_request_resumes_
         denied_client.is_err() && denied_server.is_err(),
         "authorization alone must not admit normal business"
     );
-    let (client, server) = connect(&join_endpoint, &admin_endpoint, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&join_endpoint, &admin_endpoint, ADMISSION_REQUEST_ALPN)
+            .await;
     let receiver = async {
         let ManualExchange::Materials(delivery) =
             joining.request_manual_admission(&client).await.unwrap()
@@ -388,8 +402,12 @@ async fn invitation_for_wrong_network_cannot_queue_a_request() {
         .unwrap();
     let server_endpoint = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let client_endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) =
-        connect(&client_endpoint, &server_endpoint, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(
+        &client_endpoint,
+        &server_endpoint,
+        ADMISSION_REQUEST_ALPN,
+    )
+    .await;
     let (applicant, contact) = tokio::join!(
         joining.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -422,8 +440,12 @@ async fn actual_tls_contact_must_match_the_invitation_pin() {
         .unwrap();
     let server_endpoint = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let client_endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) =
-        connect(&client_endpoint, &server_endpoint, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(
+        &client_endpoint,
+        &server_endpoint,
+        ADMISSION_REQUEST_ALPN,
+    )
+    .await;
     let (applicant, contact) = tokio::join!(
         joining.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -462,18 +484,24 @@ async fn forged_claimed_applicant_cannot_enter_the_approval_queue() {
         .unwrap();
     let server_endpoint = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let holder_endpoint = holder.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) =
-        connect(&holder_endpoint, &server_endpoint, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(
+        &holder_endpoint,
+        &server_endpoint,
+        ADMISSION_REQUEST_ALPN,
+    )
+    .await;
     let wire = request_wire(
         invitation,
         [19; 16],
         p2panda_core::SigningKey::generate().verifying_key(),
     );
     let forged = async {
-        let (mut send, mut recv) = client.open_bi().await.unwrap();
-        send.write_all(&wire).await.unwrap();
-        send.finish().unwrap();
-        recv.read_to_end(1).await
+        let exchange = client.open_control_exchange().await.unwrap();
+        let (send, recv) = (&exchange, &exchange);
+        send_field(send, &wire).await.unwrap();
+        send.finish_send().await.unwrap();
+        recv.recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 1 })
+            .await
     };
     let (received, rejected) = tokio::join!(forged, admin.serve_manual_admission(&server));
     assert!(matches!(rejected, Err(ManualAdmissionError::Rejected)));
@@ -486,7 +514,10 @@ async fn forged_claimed_applicant_cannot_enter_the_approval_queue() {
     admin.close().await;
 }
 
-async fn mqtt_endpoint(node: &NativeNetwork, broker: SocketAddr) -> (Endpoint, Arc<MqttTransport>) {
+async fn mqtt_endpoint(
+    node: &NativeNetwork,
+    broker: SocketAddr,
+) -> (RestrictedEndpoint, Arc<MqttTransport>) {
     use miopunch_native_probe::resources::{Resource, ResourceUse};
     let mut resources = node.resource_configuration().unwrap();
     resources
@@ -502,7 +533,6 @@ async fn mqtt_endpoint(node: &NativeNetwork, broker: SocketAddr) -> (Endpoint, A
         .bind_endpoint_with(
             iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
                 .alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()])
-                .control_only_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()])
                 .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
                 .unwrap()
                 .clear_relay_transports()
@@ -515,19 +545,30 @@ async fn mqtt_endpoint(node: &NativeNetwork, broker: SocketAddr) -> (Endpoint, A
 }
 
 async fn mqtt_connect(
-    client: &Endpoint,
-    server: &Endpoint,
+    client: &RestrictedEndpoint,
+    server: &RestrictedEndpoint,
     carrier: &MqttTransport,
-) -> (Connection, Connection) {
+) -> (
+    Arc<iroh::endpoint::ControlConnection>,
+    Arc<iroh::endpoint::ControlConnection>,
+) {
     let target = EndpointAddr::new(server.id()).with_addrs([iroh_base::TransportAddr::Custom(
         MqttTransport::address(&carrier.route().unwrap()).unwrap(),
     )]);
     tokio::time::timeout(Duration::from_secs(12), async {
-        let (client, server) =
-            tokio::join!(client.connect(target, ADMISSION_REQUEST_ALPN), async {
-                server.accept().await.unwrap().await
-            });
-        (client.unwrap(), server.unwrap())
+        let (client, server) = tokio::join!(
+            client.connect_control(target, ADMISSION_REQUEST_ALPN),
+            async {
+                server
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+            }
+        );
+        (Arc::new(client.unwrap()), Arc::new(server.unwrap()))
     })
     .await
     .unwrap()
@@ -623,17 +664,19 @@ async fn another_invitation_holder_observes_ciphertext_but_cannot_take_an_approv
     let (intruder, contact) =
         mqtt_connect(&holder_endpoint, &server_endpoint, &server_carrier).await;
     let attempt = async {
-        let (mut send, mut recv) = intruder.open_bi().await.unwrap();
+        let exchange = intruder.open_control_exchange().await.unwrap();
+        let (send, recv) = (&exchange, &exchange);
         // Even disclosure of the original request id cannot merge identities.
-        send.write_all(&request_wire(
-            invitation,
-            request.request_id,
-            holder.status().node_id,
-        ))
+        send_field(
+            send,
+            &request_wire(invitation, request.request_id, holder.status().node_id),
+        )
         .await
         .unwrap();
-        send.finish().unwrap();
-        recv.read_to_end(1).await.unwrap()
+        send.finish_send().await.unwrap();
+        recv.recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 1 })
+            .await
+            .unwrap()
     };
     let (response, state) = tokio::join!(attempt, admin.serve_manual_admission(&contact));
     assert_eq!(
@@ -720,8 +763,12 @@ async fn original_result_is_rejected_after_removal_even_when_a_fresh_grant_readd
     .unwrap();
     let server_endpoint = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let client_endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) =
-        connect(&client_endpoint, &server_endpoint, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(
+        &client_endpoint,
+        &server_endpoint,
+        ADMISSION_REQUEST_ALPN,
+    )
+    .await;
     let (response, received) = tokio::join!(
         joining.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -832,8 +879,12 @@ async fn material_file_failure_retains_pending_state_and_can_retry_after_restart
         .unwrap();
     let server_endpoint = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let client_endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) =
-        connect(&client_endpoint, &server_endpoint, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(
+        &client_endpoint,
+        &server_endpoint,
+        ADMISSION_REQUEST_ALPN,
+    )
+    .await;
     let (response, received) = tokio::join!(
         joining.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -881,8 +932,12 @@ async fn material_file_failure_retains_pending_state_and_can_retry_after_restart
     );
     let server_endpoint = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let client_endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) =
-        connect(&client_endpoint, &server_endpoint, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(
+        &client_endpoint,
+        &server_endpoint,
+        ADMISSION_REQUEST_ALPN,
+    )
+    .await;
     let receiver = async {
         let ManualExchange::Materials(delivery) =
             joining.request_manual_admission(&client).await.unwrap()
@@ -941,8 +996,12 @@ async fn authenticated_contact_cannot_make_a_corrupt_signature_durable_membershi
     .unwrap();
     let server_endpoint = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let client_endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) =
-        connect(&client_endpoint, &server_endpoint, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(
+        &client_endpoint,
+        &server_endpoint,
+        ADMISSION_REQUEST_ALPN,
+    )
+    .await;
     let (response, received) = tokio::join!(
         joining.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -980,19 +1039,20 @@ async fn authenticated_contact_cannot_make_a_corrupt_signature_durable_membershi
     let damaged = p2panda_core::Hash::digest(&raw[1].0);
     let bytes = p2panda_core::cbor::encode_cbor(&(damaged, raw)).unwrap();
     let invalid_contact = async {
-        let (mut send, mut recv) = server.accept_bi().await.unwrap();
+        let exchange = server.accept_control_exchange().await.unwrap();
+        let (send, recv) = (&exchange, &exchange);
         let mut request = [0; 144];
-        recv.read_exact(&mut request).await.unwrap();
-        send.write_all(&[1]).await.unwrap();
-        send.write_all(&0_u64.to_be_bytes()).await.unwrap();
-        send.write_all(&(bytes.len() as u32).to_be_bytes())
+        receive_field(recv, &mut request).await.unwrap();
+        send_field(send, &[1]).await.unwrap();
+        send_field(send, &0_u64.to_be_bytes()).await.unwrap();
+        send_field(send, &(bytes.len() as u32).to_be_bytes())
             .await
             .unwrap();
-        send.write_all(&bytes).await.unwrap();
-        send.finish().unwrap();
+        send_field(send, &bytes).await.unwrap();
+        send.finish_send().await.unwrap();
         let mut ack = [0; 4];
         assert!(
-            recv.read_exact(&mut ack).await.is_err(),
+            receive_field(recv, &mut ack).await.is_err(),
             "unverified material cannot be acknowledged as saved authorization"
         );
     };
@@ -1018,8 +1078,12 @@ async fn another_authenticated_request_for_an_existing_member_reuses_its_valid_g
         .unwrap();
     let server_endpoint = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let client_endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) =
-        connect(&client_endpoint, &server_endpoint, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(
+        &client_endpoint,
+        &server_endpoint,
+        ADMISSION_REQUEST_ALPN,
+    )
+    .await;
     let (response, received) = tokio::join!(
         joining.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -1036,16 +1100,21 @@ async fn another_authenticated_request_for_an_existing_member_reuses_its_valid_g
         request_id: [36; 16],
     };
     let repeat = async {
-        let (mut send, mut recv) = client.open_bi().await.unwrap();
-        send.write_all(&request_wire(
-            invitation,
-            other_request.request_id,
-            request.applicant,
-        ))
+        let exchange = client.open_control_exchange().await.unwrap();
+        let (send, recv) = (&exchange, &exchange);
+        send_field(
+            send,
+            &request_wire(invitation, other_request.request_id, request.applicant),
+        )
         .await
         .unwrap();
-        send.finish().unwrap();
-        assert_eq!(recv.read_to_end(1).await.unwrap(), [0]);
+        send.finish_send().await.unwrap();
+        assert_eq!(
+            recv.recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 1 })
+                .await
+                .unwrap(),
+            [0]
+        );
     };
     let (_, received) = tokio::join!(repeat, admin.serve_manual_admission(&server));
     assert_eq!(received.unwrap(), AdmissionStage::AwaitingApproval);
@@ -1110,8 +1179,12 @@ async fn approval_checkpoint_case(reopen_before_decision: bool) {
     let mut joining = NativeNetwork::join(&join_path, invitation).await.unwrap();
     let server_endpoint = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let client_endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) =
-        connect(&client_endpoint, &server_endpoint, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(
+        &client_endpoint,
+        &server_endpoint,
+        ADMISSION_REQUEST_ALPN,
+    )
+    .await;
     let (response, received) = tokio::join!(
         joining.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -1127,16 +1200,21 @@ async fn approval_checkpoint_case(reopen_before_decision: bool) {
         request_id: [43; 16],
     };
     let authenticate_second = async {
-        let (mut send, mut recv) = client.open_bi().await.unwrap();
-        send.write_all(&request_wire(
-            invitation,
-            second.request_id,
-            second.applicant,
-        ))
+        let exchange = client.open_control_exchange().await.unwrap();
+        let (send, recv) = (&exchange, &exchange);
+        send_field(
+            send,
+            &request_wire(invitation, second.request_id, second.applicant),
+        )
         .await
         .unwrap();
-        send.finish().unwrap();
-        assert_eq!(recv.read_to_end(1).await.unwrap(), [0]);
+        send.finish_send().await.unwrap();
+        assert_eq!(
+            recv.recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 1 })
+                .await
+                .unwrap(),
+            [0]
+        );
     };
     let (_, received) = tokio::join!(authenticate_second, admin.serve_manual_admission(&server));
     assert_eq!(received.unwrap(), AdmissionStage::AwaitingApproval);
@@ -1227,8 +1305,12 @@ async fn approval_checkpoint_case(reopen_before_decision: bool) {
     let mut joining = NativeNetwork::open(&join_path).await.unwrap();
     let server_endpoint = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let client_endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) =
-        connect(&client_endpoint, &server_endpoint, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(
+        &client_endpoint,
+        &server_endpoint,
+        ADMISSION_REQUEST_ALPN,
+    )
+    .await;
     let receive = async {
         let ManualExchange::Materials(delivery) =
             joining.request_manual_admission(&client).await.unwrap()

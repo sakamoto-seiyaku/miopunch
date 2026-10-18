@@ -47,7 +47,11 @@ def main():
     parser.add_argument("--build", type=Path, required=True,
                         help="build directory containing Cargo JSON, receipt and adjacent frozen context")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--native", action="store_true", help="also check that Native member links reject control capabilities")
     args = parser.parse_args()
+    cases = dict(CASES)
+    if args.native:
+        cases.update(native_member_links=None, native_member_links_control="E0308")
     build = args.build.resolve()
     context_path = build.with_name(build.name + "-context.json")
     receipt_path = build / "receipt.json"
@@ -60,15 +64,26 @@ def main():
              for name in row["filenames"] if name.endswith(".rlib")}
     assert len(rlibs) == 1, "one selected iroh library required"
     rlib = rlibs.pop()
+    native_library = None
+    if args.native:
+        native_rlibs = {Path(name) for row in records if row.get("reason")=="compiler-artifact"
+                        and row["target"]["name"]=="miopunch_native_probe"
+                        and any(kind in row["target"]["kind"] for kind in ("lib", "rlib"))
+                        for name in row["filenames"] if name.endswith(".rlib")}
+        assert len(native_rlibs)==1, "one selected Native library required"
+        native_library=native_rlibs.pop()
     inputs = {str(ROOT / path): digest for path, digest in context["sources"].items()}
     inputs.update(context["selectorPins"])
     inputs.update(context["artifactPins"])
     inputs.update(context.get("fixedInputs", {}))
     inputs.update(context["tools"]["binaries"])
     inputs.update(receipt["artifacts"])
-    inputs.update({str(CONSUMERS / (name + ".rs")): sha(CONSUMERS / (name + ".rs")) for name in CASES})
+    inputs.update({str(CONSUMERS / (name + ".rs")): sha(CONSUMERS / (name + ".rs")) for name in cases})
     inputs.update({str(rlib): sha(rlib), str(context_path): sha(context_path),
                    str(receipt_path): sha(receipt_path), str(Path(__file__).resolve()): sha(__file__)})
+
+    if native_library is not None:
+        inputs[str(native_library)]=sha(native_library)
 
     def guard():
         assert Path.cwd().resolve() == ROOT, "repository-root CWD required"
@@ -87,7 +102,13 @@ def main():
         library = pinned / rlib.name
         shutil.copy2(rlib, library)
         assert sha(library) == inputs[str(rlib)]
-        for name, expected in CASES.items():
+        native_copy=None
+        if native_library is not None:
+            assert native_library.parent==rlib.parent
+            native_copy=pinned/native_library.name
+            shutil.copy2(native_library,native_copy)
+            assert sha(native_copy)==inputs[str(native_library)]
+        for name, expected in cases.items():
             guard()
             assert sha(library) == inputs[str(rlib)]
             out = output / name
@@ -96,6 +117,9 @@ def main():
                        "--edition=2024", "--crate-type=lib", "--emit=metadata",
                        "--error-format=json", "--extern", f"iroh={library}", "-L", f"dependency={rlib.parent}",
                        "--out-dir", str(out), str(CONSUMERS / (name + ".rs"))]
+            if native_copy is not None:
+                assert sha(native_copy)==inputs[str(native_library)]
+                command.extend(["--extern", f"miopunch_native_probe={native_copy}"])
             with (out / "stdout.log").open("w") as stdout, (out / "stderr.jsonl").open("w") as stderr:
                 result = subprocess.run(command, cwd=ROOT, stdout=stdout, stderr=stderr, timeout=60)
             diagnostics = []
@@ -114,7 +138,7 @@ def main():
         guard()
         report = {"buildReceiptSha256": sha(receipt_path), "contextSha256": sha(context_path),
                   "librarySha256": sha(library), "inputs": inputs, "cases": results,
-                  "passed": len(results) == len(CASES) and all(row["passed"] for row in results)}
+                  "passed": len(results) == len(cases) and all(row["passed"] for row in results)}
         (output / "receipt.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps({"passed": report["passed"], "caseCount": len(results),
                       "failures": [row for row in results if not row["passed"]],

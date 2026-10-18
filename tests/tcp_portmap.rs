@@ -1,4 +1,5 @@
 //! Real gateway protocol and kernel forwarding are driven by tcp_portmap_lab.py.
+use miopunch_native_probe::control_protocol::AuthenticatedControl;
 use std::net::Ipv4Addr;
 use std::time::Duration;
 
@@ -128,7 +129,7 @@ fn gateway_node_worker() {
                 println!("ADVANCED_FACTORY_RESPECTS_LOCAL_MAPPING_DISABLE");
                 return;
             }
-            let mut endpoint = node
+            let endpoint = node
                 .bind_configured_endpoint(Ipv4Addr::UNSPECIFIED)
                 .await
                 .unwrap();
@@ -288,7 +289,17 @@ fn gateway_node_worker() {
                     format!("10.41.0.2:{internal_port}"),
                 )
                 .unwrap();
-                let connection = endpoint.endpoint().accept().await.unwrap().await.unwrap();
+                let connection = std::sync::Arc::new(
+                    endpoint
+                        .endpoint()
+                        .accept()
+                        .await
+                        .unwrap()
+                        .accept_control()
+                        .unwrap()
+                        .await
+                        .unwrap(),
+                );
                 node.serve_manual_admission(&connection).await.unwrap();
                 let request = node.manual_requests().await.unwrap().pop().unwrap();
                 node.approve_manual_admission(&request).await.unwrap();
@@ -446,7 +457,7 @@ fn gateway_node_worker() {
                 let target = EndpointAddr::new(id)
                     .with_addrs([TransportAddr::Custom(TcpTransport::address(address))]);
                 let connection = endpoint
-                    .connect(target.clone(), ADMISSION_REQUEST_ALPN)
+                    .connect_control(target.clone(), ADMISSION_REQUEST_ALPN)
                     .await
                     .unwrap();
                 assert!(matches!(

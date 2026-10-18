@@ -667,6 +667,12 @@ pub enum ConnectingError {
     },
     #[error("Connection was rejected locally")]
     LocallyRejected,
+    /// The explicitly selected admission policy or its delivery checks failed.
+    #[error("Explicit admission failed ({reason})")]
+    AdmissionFailed {
+        reason: String,
+        kind: std::io::ErrorKind,
+    },
     /// Membership succeeded, but the protected data path hook refused release.
     #[error("temporarily unreachable: protected member data path unavailable ({reason})")]
     DataPathUnavailable { reason: String },

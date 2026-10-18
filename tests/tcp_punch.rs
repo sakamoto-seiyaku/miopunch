@@ -12,13 +12,12 @@ use miopunch_native_probe::{
 #[derive(Debug)]
 struct StageIds(std::sync::Arc<std::sync::Mutex<Vec<usize>>>);
 impl iroh::endpoint::EndpointHooks for StageIds {
-    async fn before_data_release(
+    async fn after_handshake(
         &self,
-        _: &iroh::Endpoint,
         connection: &iroh::endpoint::Connection,
-    ) -> std::io::Result<()> {
+    ) -> iroh::endpoint::AfterHandshakeOutcome {
         self.0.lock().unwrap().push(connection.stable_id());
-        Ok(())
+        iroh::endpoint::AfterHandshakeOutcome::Accept
     }
 }
 
@@ -66,11 +65,12 @@ async fn prepare(directory: &Path) {
     }
     let a = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let b = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (outgoing, incoming) = tokio::join!(b.connect(a.addr(), ADMISSION_REQUEST_ALPN), async {
-        a.accept().await.unwrap().await
-    },);
-    let outgoing = outgoing.unwrap();
-    let incoming = incoming.unwrap();
+    let (outgoing, incoming) =
+        tokio::join!(b.connect_control(a.addr(), ADMISSION_REQUEST_ALPN), async {
+            a.accept().await.unwrap().accept_control().unwrap().await
+        },);
+    let outgoing = std::sync::Arc::new(outgoing.unwrap());
+    let incoming = std::sync::Arc::new(incoming.unwrap());
     let (request, served) = tokio::join!(
         joining.request_manual_admission(&outgoing),
         admin.serve_manual_admission(&incoming),
@@ -300,7 +300,7 @@ async fn run_worker(role: String, directory: std::path::PathBuf) {
     } else {
         builder
     };
-    let mut resources = node.bind_configured_endpoint_with(builder).await.unwrap();
+    let resources = node.bind_configured_endpoint_with(builder).await.unwrap();
     let endpoint = resources.endpoint().clone();
     endpoint.set_alpns(vec![REPLICA_ALPN.to_vec()]);
     let diagnostic = if case == "domain_stun_diagnostic" {

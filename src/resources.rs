@@ -548,7 +548,7 @@ pub enum ResourceContactError {
 /// One configured endpoint and its contact budget. Candidate selection and
 /// path maintenance remain in the original iroh engine, not a parallel loop.
 pub struct ResourceEndpoint {
-    endpoint: iroh::Endpoint,
+    endpoint: iroh::endpoint::RestrictedEndpoint,
     config: ResourceConfig,
     timeout: Duration,
     backoff: std::sync::Arc<std::sync::Mutex<BTreeMap<iroh::EndpointId, ContactBackoff>>>,
@@ -573,7 +573,7 @@ pub struct TcpStunObservation {
     pub observed_at: Instant,
     pub valid_until: Instant,
     stream: std::sync::Weak<tokio::net::TcpStream>,
-    endpoint: iroh::Endpoint,
+    endpoint: iroh::endpoint::RestrictedEndpoint,
     generation: iroh::endpoint::ObservationValidity,
     request: tokio_util::sync::CancellationToken,
 }
@@ -594,7 +594,13 @@ impl TcpStunObservation {
 }
 
 impl ResourceEndpoint {
-    pub(crate) fn new(endpoint: iroh::Endpoint, config: ResourceConfig) -> Self {
+    pub(crate) fn new(
+        endpoint: iroh::endpoint::RestrictedEndpoint,
+        config: ResourceConfig,
+    ) -> Self {
+        let endpoint = endpoint
+            .with_admission_timeout(crate::connection_budget::DEFAULT)
+            .expect("the SDK default contact budget is positive");
         Self {
             endpoint,
             config,
@@ -610,13 +616,13 @@ impl ResourceEndpoint {
         }
     }
 
-    pub fn endpoint(&self) -> &iroh::Endpoint {
+    pub fn endpoint(&self) -> &iroh::endpoint::RestrictedEndpoint {
         &self.endpoint
     }
     /// Common SDK entry with purpose and caller budget, without carrier flags.
     pub fn coordinator(&self) -> crate::connection_coordinator::ConnectionCoordinator {
         use crate::connection_coordinator::{RELAY, TCP, UDP};
-        let mut permitted = if !self.config.udp_direct_disabled {
+        let permitted = if !self.config.udp_direct_disabled {
             UDP
         } else {
             0
@@ -634,12 +640,13 @@ impl ResourceEndpoint {
             0
         };
         #[cfg(feature = "rtc-probe")]
-        let mut permitted = permitted
+        let permitted = permitted
             | if self.rtc.as_ref().is_some_and(|rtc| rtc.resource_allowed()) {
                 crate::connection_coordinator::RTC
             } else {
                 0
             };
+        let mut permitted = permitted;
         let mut contact_ids = Vec::new();
         // Direct TCP can carry the same restricted TLS bootstrap as IP/relay.
         // Register only the installed, permitted carrier; the admission gate
@@ -673,7 +680,7 @@ impl ResourceEndpoint {
                 contact_ids.push(crate::member_transport::TRANSPORT_ID);
             }
         }
-        crate::connection_coordinator::ConnectionCoordinator::new(
+        crate::connection_coordinator::ConnectionCoordinator::new_restricted(
             self.endpoint.clone(),
             permitted,
             contact_ids,
@@ -902,6 +909,7 @@ impl ResourceEndpoint {
                 "contact timeout must be greater than zero and at most 60 seconds",
             ));
         }
+        self.endpoint = self.endpoint.clone().with_admission_timeout(timeout)?;
         self.timeout = timeout;
         Ok(self)
     }
@@ -911,7 +919,28 @@ impl ResourceEndpoint {
         target: iroh::EndpointAddr,
         alpn: &[u8],
     ) -> Result<iroh::endpoint::Connection, ResourceContactError> {
-        self.connect_attempt(target, alpn, true).await
+        self.connect_attempt(target, alpn, true, false)
+            .await?
+            .business()
+            .map_err(|e| ResourceContactError::TemporarilyUnreachable {
+                retry_after: self.timeout,
+                cause: Some(e.to_string()),
+            })
+    }
+
+    /// Establish a control-only protocol while preserving the shared contact budget.
+    pub async fn connect_control(
+        &self,
+        target: iroh::EndpointAddr,
+        alpn: &[u8],
+    ) -> Result<crate::control_protocol::ControlOwner, ResourceContactError> {
+        self.connect_attempt(target, alpn, true, true)
+            .await?
+            .control()
+            .map_err(|e| ResourceContactError::TemporarilyUnreachable {
+                retry_after: self.timeout,
+                cause: Some(e.to_string()),
+            })
     }
 
     /// Recovery is not complete merely because QUIC admitted the peer. Keep
@@ -920,8 +949,28 @@ impl ResourceEndpoint {
         &self,
         target: iroh::EndpointAddr,
         alpn: &[u8],
-    ) -> Result<iroh::endpoint::Connection, ResourceContactError> {
-        self.connect_attempt(target, alpn, false).await
+    ) -> Result<crate::connection_coordinator::ConnectionDelivery, ResourceContactError> {
+        self.connect_attempt(
+            target,
+            alpn,
+            false,
+            alpn == crate::network_recovery::RECOVERY_REPLICA_ALPN,
+        )
+        .await
+    }
+
+    pub(crate) async fn connect_recovery_control(
+        &self,
+        target: iroh::EndpointAddr,
+        alpn: &[u8],
+    ) -> Result<crate::control_protocol::ControlOwner, ResourceContactError> {
+        self.connect_attempt(target, alpn, false, true)
+            .await?
+            .control()
+            .map_err(|error| ResourceContactError::TemporarilyUnreachable {
+                retry_after: self.timeout,
+                cause: Some(error.to_string()),
+            })
     }
 
     async fn connect_attempt(
@@ -929,7 +978,8 @@ impl ResourceEndpoint {
         mut target: iroh::EndpointAddr,
         alpn: &[u8],
         complete_on_handshake: bool,
-    ) -> Result<iroh::endpoint::Connection, ResourceContactError> {
+        control_only: bool,
+    ) -> Result<crate::connection_coordinator::ConnectionDelivery, ResourceContactError> {
         let deadline = n0_future::time::Instant::now() + self.timeout;
         let id = target.id;
         {
@@ -977,23 +1027,39 @@ impl ResourceEndpoint {
                 if crate::connection_coordinator::SessionPurpose::from_alpn(alpn).is_some() {
                     return self
                         .coordinator()
-                        .connect_alpn(
+                        .connect_delivery(
                             target,
                             alpn,
                             crate::connection_coordinator::AttemptContext::new(
                                 deadline,
                                 tokio_util::sync::CancellationToken::new(),
                             ),
+                            control_only,
                         )
                         .await
                         .map_err(|error| error.to_string());
                 }
-                let connecting = self
-                    .endpoint
-                    .connect_with_opts(target, alpn, options)
-                    .await
-                    .map_err(|error| error.to_string())?;
-                connecting.await.map_err(|error| error.to_string())
+                if control_only {
+                    use crate::control_protocol::OwnedControl;
+                    let c = self
+                        .endpoint
+                        .connect_control_with_opts(target, alpn, options)
+                        .await
+                        .map_err(|e| e.to_string())?
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    Ok(crate::connection_coordinator::ConnectionDelivery::Control(
+                        std::sync::Arc::new(c).retain_control(),
+                    ))
+                } else {
+                    self.endpoint
+                        .connect_with_opts(target, alpn, options)
+                        .await
+                        .map_err(|e| e.to_string())?
+                        .await
+                        .map(crate::connection_coordinator::ConnectionDelivery::Business)
+                        .map_err(|e| e.to_string())
+                }
             },
         )
         .await

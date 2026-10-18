@@ -1,9 +1,13 @@
 //! Management through the public node, real admission, TLS/QUIC and durable replicas.
+#[path = "support/native_connections.rs"]
+mod native_connections;
+use iroh::endpoint::RestrictedEndpoint;
+
 use std::net::Ipv4Addr;
 use std::path::Path;
 use std::time::Duration;
 
-use iroh::{Endpoint, EndpointAddr, endpoint::Connection};
+use iroh::endpoint::Connection;
 use miopunch_native_probe::admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope};
 use miopunch_native_probe::daily_management::{ManagementAction, ManagementError};
 use miopunch_native_probe::genesis_recovery::GenesisCredential;
@@ -65,16 +69,12 @@ fn credential(path: &Path) -> GenesisCredential {
     )
 }
 
-async fn connect(a: &Endpoint, b: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
-    tokio::time::timeout(Duration::from_secs(10), async {
-        let address = EndpointAddr::new(b.id()).with_ip_addr(*b.addr().ip_addrs().next().unwrap());
-        let (a, b) = tokio::join!(a.connect(address, alpn), async {
-            b.accept().await.unwrap().await
-        });
-        (a.unwrap(), b.unwrap())
-    })
-    .await
-    .unwrap()
+async fn connect(
+    client: &RestrictedEndpoint,
+    server: &RestrictedEndpoint,
+    alpn: &[u8],
+) -> (Connection, Connection) {
+    native_connections::member_pair(client, server, alpn).await
 }
 
 async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
@@ -83,7 +83,7 @@ async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
         .unwrap();
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ne = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
     let (request, served) = tokio::join!(
         node.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -109,7 +109,7 @@ async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
     node
 }
 
-async fn endpoint(node: &NativeNetwork) -> Endpoint {
+async fn endpoint(node: &NativeNetwork) -> RestrictedEndpoint {
     node.admission_gate()
         .register_protocol(REPLICA_ALPN, ProtocolScope::Member);
     let endpoint = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();

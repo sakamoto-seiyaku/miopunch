@@ -1,5 +1,6 @@
 //! Controlled SDK startup through the actual NodeMaintenance and Router owner.
 //! These owned loopback cases do not qualify public facilities or RTC data.
+use miopunch_native_probe::control_protocol::AuthenticatedControl;
 use miopunch_native_probe::{
     admission_gate::{AdmissionGate, CONTROL_ALPN, ProtocolScope},
     connection_coordinator::{AttemptContext, MEMBER_ALPN, SessionPurpose},
@@ -29,34 +30,23 @@ struct Control {
     observed: Arc<Mutex<serde_json::Value>>,
     closed: Arc<tokio::sync::Notify>,
 }
-impl iroh::protocol::ProtocolHandler for Control {
+impl iroh::protocol::ControlProtocolHandler for Control {
     async fn accept(
         &self,
-        connection: iroh::endpoint::Connection,
+        connection: iroh::endpoint::ControlConnection,
     ) -> Result<(), iroh::protocol::AcceptError> {
         *self.observed.lock().unwrap() = serde_json::json!({
             "identityMatched":connection.remote_id()==self.expected,
             "bootstrapGate":self.gate.allows(&connection, ProtocolScope::Bootstrap),
             "ordinaryMemberGate":self.gate.allows(&connection, ProtocolScope::Member),
         });
-        let (mut send, mut recv) = connection
-            .accept_bi()
-            .await
-            .map_err(iroh::protocol::AcceptError::from_err)?;
-        if recv
-            .read_to_end(16)
-            .await
-            .map_err(iroh::protocol::AcceptError::from_err)?
-            != b"CONTROL"
-        {
+        let exchange = connection.accept_control_exchange().await?;
+        let format = iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 16 };
+        if exchange.recv_message(format).await? != b"CONTROL" {
             return Err(std::io::Error::other("unexpected owned control request").into());
         }
-        send.write_all(b"CONTROL-ACK")
-            .await
-            .map_err(iroh::protocol::AcceptError::from_err)?;
-        send.finish()?;
-        drop(send);
-        drop(recv);
+        exchange.send_message(format, b"CONTROL-ACK").await?;
+        drop(exchange);
         connection.closed().await;
         self.closed.notify_one();
         Ok(())
@@ -107,7 +97,7 @@ async fn admit(admin: &mut NativeNetwork, directory: &std::path::Path) -> Native
     let deadline = n0_future::time::Instant::now() + Duration::from_secs(12);
     let cancellation = tokio_util::sync::CancellationToken::new();
     let (outgoing, incoming) = tokio::join!(
-        client_coordinator.connect(
+        client_coordinator.connect_control(
             server.addr(),
             SessionPurpose::AdmissionRequest,
             AttemptContext::new(deadline, cancellation.clone()),
@@ -115,7 +105,7 @@ async fn admit(admin: &mut NativeNetwork, directory: &std::path::Path) -> Native
         async {
             let incoming = server.endpoint().accept().await.unwrap();
             server_coordinator
-                .accept(
+                .accept_control(
                     incoming,
                     SessionPurpose::AdmissionRequest,
                     AttemptContext::new(deadline, cancellation),
@@ -168,9 +158,9 @@ async fn start(
         drop(reserved);
         builder.clear_ip_transports().bind_addr(bind).unwrap()
     };
-    let routes = move |router: iroh::protocol::RouterBuilder| {
+    let routes = move |router: iroh::protocol::RestrictedRouterBuilder| {
         router
-            .accept(
+            .accept_control(
                 CONTROL_ALPN,
                 Control {
                     gate: gate.clone(),
@@ -318,7 +308,7 @@ async fn startup_story(with_rtc: bool, disable_contact: bool) {
         .unwrap();
     let control = tokio::time::timeout(
         Duration::from_secs(3),
-        caller.endpoint().connect(
+        caller.endpoint().connect_control(
             iroh::EndpointAddr::new(receiver.endpoint().id())
                 .with_addrs([iroh::TransportAddr::Custom(route)]),
             CONTROL_ALPN,
@@ -329,12 +319,11 @@ async fn startup_story(with_rtc: bool, disable_contact: bool) {
     .unwrap();
     assert!(caller_gate.allows(&control, ProtocolScope::Bootstrap));
     assert!(!caller_gate.allows(&control, ProtocolScope::Member));
-    let (mut send, mut recv) = control.open_bi().await.unwrap();
-    send.write_all(b"CONTROL").await.unwrap();
-    send.finish().unwrap();
-    assert_eq!(recv.read_to_end(16).await.unwrap(), b"CONTROL-ACK");
-    drop(send);
-    drop(recv);
+    let exchange = control.open_control_exchange().await.unwrap();
+    let format = iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 16 };
+    exchange.send_message(format, b"CONTROL").await.unwrap();
+    assert_eq!(exchange.recv_message(format).await.unwrap(), b"CONTROL-ACK");
+    drop(exchange);
     control.close(0u32.into(), b"owned restricted control ended");
     drop(control);
     tokio::time::timeout(Duration::from_secs(1), control_closed.notified())

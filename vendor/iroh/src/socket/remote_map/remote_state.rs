@@ -490,6 +490,17 @@ impl RemoteStateActor {
                 }
                 let _ = tx.send(result);
             }
+            RemoteStateMessage::HasRetainedControlDataPath {
+                conn_id,
+                remote,
+                tx,
+            } => {
+                let current = self
+                    .connections
+                    .get(&ConnId(conn_id))
+                    .is_some_and(|state| state.retained_control_data_is_current(&remote));
+                let _ = tx.send(current);
+            }
             #[cfg(feature = "miopunch-test-hooks")]
             RemoteStateMessage::TestLimitTransportPaths {
                 conn_id,
@@ -960,9 +971,7 @@ impl RemoteStateActor {
         // live transport qualification here, never trust its earlier snapshot.
         let exact = state.retained_control_custom.clone();
         if let Some(address) = exact.as_ref()
-            && (state.retired_custom.contains(address)
-                || !state.mapped_addrs.qualifies_connection_owned_custom(address, conn_id.0)
-                || !state.paths.iter().any(|(id, path)| matches!(&path.address, transports::FourTuple::Custom { remote, .. } if remote == address) && conn.path(*id).is_some()))
+            && !state.retained_control_data_is_current(address)
         {
             return Err("retained data route lost current qualification before release");
         }
@@ -1958,6 +1967,12 @@ pub(crate) enum RemoteStateMessage {
         remote: iroh_base::CustomAddr,
         tx: oneshot::Sender<Result<(), &'static str>>,
     },
+    /// Read the current exact connection-owned seal without changing admission.
+    HasRetainedControlDataPath {
+        conn_id: usize,
+        remote: iroh_base::CustomAddr,
+        tx: oneshot::Sender<bool>,
+    },
     #[cfg(feature = "miopunch-test-hooks")]
     TestLimitTransportPaths {
         conn_id: usize,
@@ -2128,6 +2143,19 @@ enum ConnectionPurpose {
 }
 
 impl ConnectionState {
+    fn retained_control_data_is_current(&self, address: &iroh_base::CustomAddr) -> bool {
+        self.retained_control_custom.as_ref() == Some(address)
+            && !self.retired_custom.contains(address)
+            && self.mapped_addrs.qualifies_connection_owned_custom(address, self.connection_id)
+            && self.handle.upgrade().is_some_and(|conn| {
+                conn.close_reason().is_none()
+                    && self.paths.iter().any(|(id, path)| {
+                        matches!(&path.address, transports::FourTuple::Custom { remote, .. } if remote == address)
+                            && conn.path(*id).is_some()
+                    })
+            })
+    }
+
     /// Physical local sockets belong to one exact original Connection.
     /// Global peer preferences must never copy another connection's binding.
     fn owns_udp_binding(&self, path: &transports::PathBinding) -> bool {

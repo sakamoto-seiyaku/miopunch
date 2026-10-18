@@ -5,16 +5,20 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::control_protocol::AuthenticatedControl;
 use futures_util::{SinkExt, StreamExt};
-use iroh::endpoint::Connection;
+use iroh::endpoint::{Connection, ControlExchange, ControlMessageFormat};
 use iroh_base::EndpointId;
 use p2panda_core::Hash;
-use p2panda_net::codec::Codec;
+use p2panda_net::codec::{Codec, CodecError};
 use p2panda_sync::protocols::{LogSync, LogSyncEvent, LogSyncMessage};
 use p2panda_sync::traits::Protocol;
 use thiserror::Error;
 use tokio::sync::broadcast;
-use tokio_util::codec::{FramedRead, FramedWrite};
+use tokio_util::{
+    bytes::BytesMut,
+    codec::{Decoder, Encoder},
+};
 
 use crate::admission_gate::ProtocolScope;
 use crate::management_auth::{ManagementExtension, NetworkAnchor};
@@ -76,7 +80,7 @@ impl NativeNetwork {
 
     async fn consume_replica_event(
         &mut self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         event: LogSyncEvent<ManagementExtension>,
         expected: &BTreeSet<Hash>,
         bytes: &mut usize,
@@ -102,7 +106,7 @@ impl NativeNetwork {
         Ok(Some(id))
     }
 
-    fn replica_allowed(&self, connection: &Connection) -> bool {
+    fn replica_allowed(&self, connection: &(impl AuthenticatedControl + ?Sized)) -> bool {
         (connection.alpn() == REPLICA_ALPN && self.gate.allows(connection, ProtocolScope::Member))
             || (connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN
                 && self.gate.allows(connection, ProtocolScope::Bootstrap)
@@ -116,7 +120,10 @@ impl NativeNetwork {
     /// Serve the complete locally applied control history, including original
     /// author bodies and dependencies. Admission and data-path gates apply
     /// before emitting even the manifest; no private delivery tables are read.
-    pub async fn serve_replica(&self, connection: &Connection) -> Result<(), ReplicaError> {
+    pub async fn serve_replica(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> Result<(), ReplicaError> {
         let records = self.management_history().await?;
         self.serve_replica_records(connection, &records).await
     }
@@ -125,7 +132,7 @@ impl NativeNetwork {
     /// operation clock. The usual provider ceiling can only shorten it.
     pub async fn serve_replica_with_deadline(
         &self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         deadline: n0_future::time::Instant,
     ) -> Result<(), ReplicaError> {
         let records = self.management_history().await?;
@@ -139,7 +146,7 @@ impl NativeNetwork {
     #[cfg(feature = "replica-test-hooks")]
     pub async fn serve_replica_fixture(
         &self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         records: &[ManagementRecord],
     ) -> Result<(), ReplicaError> {
         self.serve_replica_records(connection, records).await
@@ -147,7 +154,7 @@ impl NativeNetwork {
 
     pub(crate) async fn serve_replica_records(
         &self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         records: &[ManagementRecord],
     ) -> Result<(), ReplicaError> {
         ReplicaProvider::new(self, records.to_vec())
@@ -162,7 +169,7 @@ impl NativeNetwork {
     /// use this same consumer and are never silently acknowledged or skipped.
     pub async fn sync_replica(
         &mut self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<ReplicaOutcome, ReplicaError> {
         self.sync_replica_until(connection, None).await
     }
@@ -170,7 +177,7 @@ impl NativeNetwork {
     /// A fresh foreground exchange keeps the caller's already running clock.
     pub async fn sync_replica_with_deadline(
         &mut self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         deadline: n0_future::time::Instant,
     ) -> Result<ReplicaOutcome, ReplicaError> {
         self.sync_replica_until(connection, Some(deadline)).await
@@ -178,7 +185,7 @@ impl NativeNetwork {
 
     async fn sync_replica_until(
         &mut self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         deadline: Option<n0_future::time::Instant>,
     ) -> Result<ReplicaOutcome, ReplicaError> {
         let remaining = deadline.map_or(TIMEOUT, |deadline| {
@@ -186,15 +193,11 @@ impl NativeNetwork {
         });
         let result = tokio::time::timeout(remaining, async {
             if !self.replica_allowed(connection) { return Err(ReplicaError::Rejected); }
-            let (send, mut recv) = connection.open_bi().await.map_err(|_| ReplicaError::Transport)?;
-            // QUIC opens the stream lazily; the request makes it visible before
-            // the provider sends its manifest and starts the real LogSync.
-            let mut send = send;
-            send.write_all(b"REPL").await.map_err(|_| ReplicaError::Transport)?;
-            let mut size = [0;4]; recv.read_exact(&mut size).await.map_err(|_| ReplicaError::Transport)?;
-            let size = u32::from_be_bytes(size) as usize;
-            if size == 0 || size > MAX_BYTES { return Err(ReplicaError::Rejected); }
-            let mut bytes = vec![0; size]; recv.read_exact(&mut bytes).await.map_err(|_| ReplicaError::Transport)?;
+            let exchange = connection.open_control_exchange().await.map_err(|_|ReplicaError::Transport)?;
+            // Preserve the existing lazy-open request and bounded manifest wire.
+            exchange.send_message(ControlMessageFormat::Fixed {length:4},b"REPL").await.map_err(|_|ReplicaError::Transport)?;
+            let bytes=exchange.recv_message(ControlMessageFormat::LengthPrefixed32 {maximum:MAX_BYTES}).await.map_err(message_error)?;
+            if bytes.is_empty() {return Err(ReplicaError::Rejected);}
             let manifest: Manifest = p2panda_core::cbor::decode_cbor(bytes.as_slice()).map_err(|_| ReplicaError::Rejected)?;
             let expected: BTreeSet<_> = manifest.ids.iter().copied().collect();
             if manifest.anchor != self.anchor || manifest.ids.is_empty() || manifest.ids.len() > MAX_RECORDS || expected.len() != manifest.ids.len() || manifest.logs.values().map(Vec::len).sum::<usize>() > MAX_RECORDS {
@@ -204,8 +207,8 @@ impl NativeNetwork {
             // cannot suppress the source's full verified completion route.
             let (events, mut received) = broadcast::channel::<LogSyncEvent<ManagementExtension>>(MAX_RECORDS + 1);
             let sync = LogSync::new(Snapshot::default(), manifest.logs, events);
-            let mut sink = FramedWrite::new(send, Codec::<LogSyncMessage<[u8; 16]>>::new().max_frame_len(MAX_BYTES));
-            let mut stream = FramedRead::new(recv, Codec::<LogSyncMessage<[u8; 16]>>::new().max_frame_len(MAX_BYTES));
+            let mut sink = codec_sink::<LogSyncMessage<[u8;16]>>(&exchange,MAX_BYTES);
+            let mut stream = codec_stream::<LogSyncMessage<[u8;16]>>(&exchange,MAX_BYTES);
             let mut saved_ids = BTreeSet::new();
             let mut bytes = 0;
             let mut run = Box::pin(sync.run(&mut sink, &mut stream));
@@ -242,15 +245,13 @@ impl NativeNetwork {
                 if self.store.get_record(*id).await?.is_some() { applied.push(*id); }
             }
             let outcome = ReplicaOutcome { source: connection.remote_id(), saved: manifest.ids.iter().filter(|id| saved_ids.contains(id)).copied().collect(), scope: manifest.ids, transport_done: true, applied };
-            let mut receipt_sink = FramedWrite::new(sink.into_inner(), Codec::<Receipt>::new().max_frame_len(64));
+            drop(sink);drop(stream);
+            let mut receipt_sink = codec_sink::<Receipt>(&exchange,64);
             receipt_sink.send(Receipt { records_saved: outcome.saved == outcome.scope, view_applied: outcome.applied == outcome.scope }).await.map_err(|_| ReplicaError::Transport)?;
-            {
-                let buffered = stream.read_buffer().clone();
-                let mut acknowledgement = FramedRead::new(stream.into_inner(), Codec::<Receipt>::new().max_frame_len(64));
-                acknowledgement.read_buffer_mut().extend_from_slice(&buffered);
-                let ack = acknowledgement.next().await.ok_or(ReplicaError::Transport)?.map_err(|_| ReplicaError::Transport)?;
-                if !ack.records_saved { return Err(ReplicaError::Rejected); }
-            }
+            let mut acknowledgement=codec_stream::<Receipt>(&exchange,64);
+            let ack=acknowledgement.next().await.ok_or(ReplicaError::Transport)?.map_err(|_|ReplicaError::Transport)?;
+            if !ack.records_saved {return Err(ReplicaError::Rejected);}
+            exchange.finish_send().await.map_err(|_|ReplicaError::Transport)?;
             Ok(outcome)
         }).await.unwrap_or(Err(ReplicaError::Transport));
         if result.is_err() {
@@ -276,13 +277,16 @@ impl ReplicaProvider {
             records: Arc::new(records),
         }
     }
-    pub(crate) async fn serve(&self, connection: &Connection) -> Result<(), ReplicaError> {
+    pub(crate) async fn serve(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> Result<(), ReplicaError> {
         self.serve_records(connection, &self.records, None, None)
             .await
     }
     async fn serve_until(
         &self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         deadline: n0_future::time::Instant,
     ) -> Result<(), ReplicaError> {
         self.serve_records(connection, &self.records, None, Some(deadline))
@@ -293,10 +297,15 @@ impl ReplicaProvider {
         connection: &Connection,
         streams: (iroh::endpoint::SendStream, iroh::endpoint::RecvStream),
     ) -> Result<(), ReplicaError> {
-        self.serve_records(connection, &self.records, Some(streams), None)
-            .await
+        self.serve_records(
+            connection,
+            &self.records,
+            Some(ControlExchange::from_streams(streams.0, streams.1)),
+            None,
+        )
+        .await
     }
-    fn replica_allowed(&self, connection: &Connection) -> bool {
+    fn replica_allowed(&self, connection: &(impl AuthenticatedControl + ?Sized)) -> bool {
         (connection.alpn() == REPLICA_ALPN && self.gate.allows(connection, ProtocolScope::Member))
             || (connection.alpn() == crate::network_recovery::RECOVERY_REPLICA_ALPN
                 && self.gate.allows(connection, ProtocolScope::Bootstrap)
@@ -307,7 +316,7 @@ impl ReplicaProvider {
                     .all(|path| matches!(path.remote_addr(), iroh::TransportAddr::Ip(_))))
     }
 
-    fn replica_provider_allowed(&self, connection: &Connection) -> bool {
+    fn replica_provider_allowed(&self, connection: &(impl AuthenticatedControl + ?Sized)) -> bool {
         self.replica_allowed(connection)
             && (connection.alpn() != crate::network_recovery::RECOVERY_REPLICA_ALPN
                 || self.gate.allows_member_path_upgrade(connection))
@@ -315,9 +324,9 @@ impl ReplicaProvider {
 
     async fn serve_records(
         &self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         records: &[ManagementRecord],
-        streams: Option<(iroh::endpoint::SendStream, iroh::endpoint::RecvStream)>,
+        streams: Option<ControlExchange>,
         deadline: Option<n0_future::time::Instant>,
     ) -> Result<(), ReplicaError> {
         let remaining = deadline.map_or(TIMEOUT, |deadline| {
@@ -329,18 +338,18 @@ impl ReplicaProvider {
             }
             let (snapshot, manifest) =
                 Snapshot::from_records(self.anchor, records).map_err(|_| ReplicaError::Rejected)?;
-            let (mut send, mut recv) = match streams {
-                Some(streams) => streams,
+            let exchange = match streams {
+                Some(exchange) => exchange,
                 None => connection
-                    .accept_bi()
+                    .accept_control_exchange()
                     .await
                     .map_err(|_| ReplicaError::Transport)?,
             };
-            let mut request = [0; 4];
-            recv.read_exact(&mut request)
+            let request = exchange
+                .recv_message(ControlMessageFormat::Fixed { length: 4 })
                 .await
                 .map_err(|_| ReplicaError::Transport)?;
-            if &request != b"REPL" {
+            if request != b"REPL" {
                 return Err(ReplicaError::Rejected);
             }
             if !self.replica_provider_allowed(connection) {
@@ -351,23 +360,18 @@ impl ReplicaProvider {
             if bytes.len() > MAX_BYTES {
                 return Err(ReplicaError::Rejected);
             }
-            send.write_all(&(bytes.len() as u32).to_be_bytes())
-                .await
-                .map_err(|_| ReplicaError::Transport)?;
-            send.write_all(&bytes)
+            exchange
+                .send_message(
+                    ControlMessageFormat::LengthPrefixed32 { maximum: MAX_BYTES },
+                    &bytes,
+                )
                 .await
                 .map_err(|_| ReplicaError::Transport)?;
             let (events, mut received) =
                 broadcast::channel::<LogSyncEvent<ManagementExtension>>(MAX_RECORDS + 1);
             let sync = LogSync::new(snapshot, manifest.logs, events);
-            let mut sink = FramedWrite::new(
-                send,
-                Codec::<LogSyncMessage<[u8; 16]>>::new().max_frame_len(MAX_BYTES),
-            );
-            let mut stream = FramedRead::new(
-                recv,
-                Codec::<LogSyncMessage<[u8; 16]>>::new().max_frame_len(MAX_BYTES),
-            );
+            let mut sink = codec_sink::<LogSyncMessage<[u8; 16]>>(&exchange, MAX_BYTES);
+            let mut stream = codec_stream::<LogSyncMessage<[u8; 16]>>(&exchange, MAX_BYTES);
             sync.run(&mut sink, &mut stream)
                 .await
                 .map_err(|_| ReplicaError::Transport)?;
@@ -379,14 +383,9 @@ impl ReplicaProvider {
             }
             // Wire Done only describes LogSync. Keep this actual Connection
             // alive until the receiver has drained its durable consumer.
-            let buffered = stream.read_buffer().clone();
-            let mut receipt_stream = FramedRead::new(
-                stream.into_inner(),
-                Codec::<Receipt>::new().max_frame_len(64),
-            );
-            receipt_stream
-                .read_buffer_mut()
-                .extend_from_slice(&buffered);
+            drop(sink);
+            drop(stream);
+            let mut receipt_stream = codec_stream::<Receipt>(&exchange, 64);
             let receipt = receipt_stream
                 .next()
                 .await
@@ -395,17 +394,18 @@ impl ReplicaProvider {
             if !receipt.records_saved {
                 return Err(ReplicaError::Rejected);
             }
-            {
-                let mut acknowledgement =
-                    FramedWrite::new(sink.into_inner(), Codec::<Receipt>::new().max_frame_len(64));
-                acknowledgement
-                    .send(Receipt {
-                        records_saved: true,
-                        view_applied: receipt.view_applied,
-                    })
-                    .await
-                    .map_err(|_| ReplicaError::Transport)?;
-            }
+            let mut acknowledgement = codec_sink::<Receipt>(&exchange, 64);
+            acknowledgement
+                .send(Receipt {
+                    records_saved: true,
+                    view_applied: receipt.view_applied,
+                })
+                .await
+                .map_err(|_| ReplicaError::Transport)?;
+            exchange
+                .finish_send_confirmed()
+                .await
+                .map_err(|_| ReplicaError::Transport)?;
             Ok(())
         })
         .await
@@ -415,4 +415,69 @@ impl ReplicaProvider {
         }
         result
     }
+}
+
+fn message_error(error: std::io::Error) -> ReplicaError {
+    if error.kind() == std::io::ErrorKind::InvalidData {
+        ReplicaError::Rejected
+    } else {
+        ReplicaError::Transport
+    }
+}
+
+// Reuse the original p2panda postcard codec and LogSync algorithm. Complete
+// messages replace raw streams; no read-ahead crosses the LogSync/receipt boundary.
+fn codec_sink<M: serde::Serialize + Send>(
+    exchange: &ControlExchange,
+    maximum: usize,
+) -> impl futures_util::Sink<M, Error = CodecError> + Unpin + Send {
+    Box::pin(futures_util::sink::unfold(
+        (),
+        move |(), message| async move {
+            let mut encoded = BytesMut::new();
+            Codec::<M>::new()
+                .max_frame_len(maximum)
+                .encode(message, &mut encoded)?;
+            exchange
+                .send_message(
+                    ControlMessageFormat::LengthPrefixed32 { maximum },
+                    &encoded[4..],
+                )
+                .await?;
+            Ok(())
+        },
+    ))
+}
+fn codec_stream<M: serde::de::DeserializeOwned + Send>(
+    exchange: &ControlExchange,
+    maximum: usize,
+) -> impl futures_util::Stream<Item = Result<M, CodecError>> + Unpin + Send {
+    Box::pin(futures_util::stream::unfold(
+        false,
+        move |ended| async move {
+            if ended {
+                return None;
+            }
+            let result = async {
+                let body = exchange
+                    .recv_message(ControlMessageFormat::LengthPrefixed32 { maximum })
+                    .await?;
+                let mut frame = BytesMut::with_capacity(4 + body.len());
+                frame.extend_from_slice(&(body.len() as u32).to_be_bytes());
+                frame.extend_from_slice(&body);
+                Codec::<M>::new()
+                    .max_frame_len(maximum)
+                    .decode(&mut frame)?
+                    .ok_or_else(|| {
+                        CodecError::Io(std::io::Error::new(
+                            std::io::ErrorKind::UnexpectedEof,
+                            "incomplete control frame",
+                        ))
+                    })
+            }
+            .await;
+            let ended = result.is_err();
+            Some((result, ended))
+        },
+    ))
 }

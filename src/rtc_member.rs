@@ -1,5 +1,6 @@
 //! Experimental Ordinary-M RTC coordinator and owned native DataChannel pump.
 //! Signaling and echo streams stay on the original admitted Connection.
+use crate::control_protocol::AuthenticatedControl;
 use crate::{
     admission_gate::{AdmissionGate, ProtocolScope},
     rtc_association::{
@@ -9,14 +10,11 @@ use crate::{
     },
     rtc_probe::{self, Result},
     rtc_transport::{MAX_DATAGRAM, RtcDatagramIo, RtcRouteLease, RtcTransport, TRANSPORT_ID},
-    rtc_wire::{read_frame, read_optional_frame, write_frame},
+    rtc_wire::{read_optional_frame, write_frame},
 };
 use bytes::BytesMut;
 use futures_util::future::poll_fn;
-use iroh::{
-    Endpoint,
-    endpoint::{Connection, RecvStream, SendStream},
-};
+use iroh::endpoint::{Connection, ControlExchange, ControlHandle, RecvStream, SendStream};
 use iroh_base::CustomAddr;
 use serde_json::{Value, json};
 use std::{
@@ -31,7 +29,7 @@ use webrtc::{
     peer_connection::{PeerConnection, RTCSessionDescription, RTCStatsReportEntry, StatsSelector},
 };
 
-fn session_binding(connection: &Connection) -> Result<[u8; 32]> {
+fn session_binding(connection: &(impl AuthenticatedControl + ?Sized)) -> Result<[u8; 32]> {
     let mut bytes = [0; 32];
     connection
         .export_keying_material(&mut bytes, CONTINUITY_BINDING_LABEL, &[])
@@ -42,10 +40,10 @@ fn session_binding(connection: &Connection) -> Result<[u8; 32]> {
 /// Preserve ordinary echo requests and the step-4 synthetic protocol while
 /// exposing one bounded, long-lived continuity stream for the step-5 fixture.
 pub async fn serve_stream(
-    endpoint: Endpoint,
+    local_id: iroh_base::EndpointId,
     connection: Connection,
     gate: AdmissionGate,
-    transport: RtcTransport,
+    _transport: RtcTransport,
     mut send: SendStream,
     mut recv: RecvStream,
 ) -> Result<()> {
@@ -78,14 +76,7 @@ pub async fn serve_stream(
     if let Ok(value) = serde_json::from_slice::<Value>(&request)
         && value["protocol"] == "miopunch/rtc-probe/1"
     {
-        rtc_probe::serve(
-            &connection,
-            &gate,
-            endpoint.id().to_string(),
-            value,
-            &mut send,
-        )
-        .await?;
+        rtc_probe::serve(&connection, &gate, local_id.to_string(), value, &mut send).await?;
         return Ok(());
     }
     if request == b"PING" {
@@ -185,7 +176,7 @@ fn trace_actual_pump_packet(stage: &'static str, io: &RtcDatagramIo, packet: &[u
 }
 
 async fn pump(
-    original: iroh::endpoint::WeakConnectionHandle,
+    original: iroh::endpoint::WeakControlConnection,
     channel: Arc<dyn DataChannel>,
     io: RtcDatagramIo,
     drop_quic: Arc<AtomicBool>,
@@ -301,8 +292,10 @@ async fn pump(
     outcome?
 }
 
-async fn phase(recv: &mut RecvStream, expected: &str, budget: RtcDeadline) -> Result<Value> {
-    let message = tokio::time::timeout(budget.remaining()?, read_frame(recv)).await??;
+async fn phase(exchange: &ControlExchange, expected: &str, budget: RtcDeadline) -> Result<Value> {
+    let message =
+        tokio::time::timeout(budget.remaining()?, crate::rtc_wire::read_control(exchange))
+            .await??;
     if message["kind"] != expected {
         return Err(format!("expected RTC {expected}, got {}", message["kind"]).into());
     }
@@ -311,7 +304,7 @@ async fn phase(recv: &mut RecvStream, expected: &str, budget: RtcDeadline) -> Re
 
 async fn path_probe(
     lease: &RtcRouteLease,
-    connection: &Connection,
+    connection: &(impl AuthenticatedControl + ?Sized),
     budget: RtcDeadline,
 ) -> Result<crate::rtc_transport::RtcPathProbe> {
     loop {
@@ -349,13 +342,11 @@ async fn stats(pc: &Arc<dyn PeerConnection>) -> Value {
 }
 
 async fn upgrade(
-    endpoint: &Endpoint,
-    connection: &Connection,
+    connection: &ControlHandle,
     gate: &AdmissionGate,
     transport: &RtcTransport,
     mut request: Value,
-    send: &mut SendStream,
-    recv: &mut RecvStream,
+    exchange: &ControlExchange,
     control: bool,
     unified: crate::connection_coordinator::ProtectedAttempt,
     active: bool,
@@ -389,7 +380,7 @@ async fn upgrade(
         proof.scope().network_id(),
         proof.scope().secret_generation(),
         &if offerer {
-            endpoint.id()
+            connection.id()
         } else {
             connection.remote_id()
         }
@@ -397,7 +388,7 @@ async fn upgrade(
         &if offerer {
             connection.remote_id()
         } else {
-            endpoint.id()
+            connection.id()
         }
         .to_string(),
     );
@@ -409,7 +400,7 @@ async fn upgrade(
     {
         return Err(crate::connection_coordinator::control_error("InvalidControl").into());
     }
-    let quic_dialer = unified.quic_dialer(endpoint, connection);
+    let quic_dialer = unified.quic_dialer_for(connection.id(), connection);
     if request["protocol"] != crate::rtc_association::UNIFIED_RTC_PROTOCOL
         || request["context"] != context
         || request["binding"].as_str()
@@ -418,7 +409,7 @@ async fn upgrade(
         || request["quicDialer"] != quic_dialer.to_string()
         || request["rtcOfferer"]
             != if offerer {
-                endpoint.id()
+                connection.id()
             } else {
                 connection.remote_id()
             }
@@ -427,7 +418,7 @@ async fn upgrade(
             != if offerer {
                 connection.remote_id()
             } else {
-                endpoint.id()
+                connection.id()
             }
             .to_string()
     {
@@ -493,7 +484,7 @@ async fn upgrade(
     let binding_before = session_binding(connection)?;
 
     let work = async {
-        let (dc, attributes, sctp, max_message_size) = preparation_io.while_current(async {
+        let (dc, attributes, _sctp, max_message_size) = preparation_io.while_current(async {
             let dc = pc
                 .create_data_channel(
                     DATAGRAM_CHANNEL_LABEL,
@@ -531,9 +522,9 @@ async fn upgrade(
                 request["route"] = json!(hex::encode(lease.local_addr().data()));
                 request["remainingMs"] = json!(budget.remaining()?.as_millis() as u64);
 
-                write_frame(send, &request).await?;
+                crate::rtc_wire::write_control(exchange, &request).await?;
 
-                let answer = phase(recv, "answer", budget).await?;
+                let answer = phase(exchange, "answer", budget).await?;
 
                 if answer["attempt"] != request["attempt"]
                     || answer["binding"] != request["binding"]
@@ -567,7 +558,7 @@ async fn upgrade(
 
                 answer.sdp = transport.ice_profile().local_sdp(&answer.sdp)?;
 
-                write_frame(send, &json!({"kind":"answer","attempt":request["attempt"],"binding":request["binding"],"channel":datagram_channel_parameters(),"description":answer,"route":hex::encode(lease.local_addr().data()),"authorizationRevision":qualification.revision(),"resourceRevision":transport.resource_revision()})).await?;
+                crate::rtc_wire::write_control(exchange, &json!({"kind":"answer","attempt":request["attempt"],"binding":request["binding"],"channel":datagram_channel_parameters(),"description":answer,"route":hex::encode(lease.local_addr().data()),"authorizationRevision":qualification.revision(),"resourceRevision":transport.resource_revision()})).await?;
             }
 
             loop {
@@ -649,16 +640,11 @@ async fn upgrade(
             loop {
                 budget.remaining()?;
                 let result = if active {
-                    endpoint
-                        .open_data_transport_path(
-                            connection,
-                            iroh::TransportAddr::Custom(lease.remote_addr()?),
-                        )
+                    connection
+                        .open_data_transport_path(iroh::TransportAddr::Custom(lease.remote_addr()?))
                         .await
                 } else {
-                    endpoint
-                        .open_control_path(connection, lease.remote_addr()?)
-                        .await
+                    connection.open_control_path(lease.remote_addr()?).await
                 };
 
                 match result {
@@ -721,12 +707,12 @@ async fn upgrade(
                 "datagramSent":path.stats().frame_tx.datagram,"datagramReceived":path.stats().frame_rx.datagram});
         if !active {
             lease.retain(connection, &probe)?;
-            endpoint
-                .retain_control_data_transport_path(connection, lease.remote_addr()?)
+            connection
+                .retain_control_data_transport_path(lease.remote_addr()?)
                 .await?;
         }
 
-        send.finish()?;
+        exchange.finish_send().await?;
         let report = json!({"prepared":true,"finalized":false,"switched":false,
                 "memberStableId":stable_before,"stableUnchanged":connection.stable_id()==stable_before,
                 "bindingUnchanged":session_binding(connection)?==binding_before,"freshAck":true,
@@ -765,7 +751,7 @@ async fn upgrade(
         let original = connection.weak_handle();
         let gate = gate.clone();
         let transport = transport.clone();
-        let endpoint_for_retain = endpoint.clone();
+        let retained_control = connection.clone();
         let pending = PreparedPath::candidate(
             connection,
             iroh::TransportAddr::Custom(remote),
@@ -785,11 +771,10 @@ async fn upgrade(
         .with_rollback(move || rollback_io.retire_with_reason("prepared-path-rollback"))
         .with_retain(move || {
             Box::pin(async move {
-                // A pending finalizer owns the RAII lease/PC/pump. It upgrades
-                // original M only for this finite callback, not its lifetime holder.
-                let current = original
-                    .upgrade()
-                    .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                // This finite finalizer owns only the narrowed path capability.
+                // The post-release lifetime observer keeps a non-upgradable weak handle.
+                let current = retained_control;
+                if !original.is_open() {return Err(control_error("DataPathUnavailable"));}
 
                 let finalize = async {
 
@@ -832,8 +817,7 @@ async fn upgrade(
                     // preparation. Renew the exact lease, never reseal M.
                     lease.retain(&current, &final_ack)?;
                     if !control {
-                        endpoint_for_retain
-                            .retain_data_transport_path(&current, lease.remote_addr()?)
+                        current.retain_data_transport_path(lease.remote_addr()?)
                             .await?;
                     }
                     report["prepared"] = json!(false);
@@ -948,8 +932,8 @@ async fn upgrade(
         json!({"event":"rtc-path-cleanup","stableId":stable_before,"cleanup":cleanup,"failure":outcome.as_ref().err().map(ToString::to_string),"switched":outcome.is_ok()})
     );
     if let Err(error) = outcome {
-        let _ = write_frame(send, &json!({"kind":"failed","switched":false,"freshAck":false,"failure":error.to_string(),"cleanup":cleanup})).await;
-        let _ = send.finish();
+        let _ = crate::rtc_wire::write_control(exchange, &json!({"kind":"failed","switched":false,"freshAck":false,"failure":error.to_string(),"cleanup":cleanup})).await;
+        let _ = exchange.finish_send().await;
         return Err(error);
     }
     Ok(None)
@@ -978,19 +962,18 @@ impl Drop for CancelRtc {
     }
 }
 
-pub(crate) async fn bootstrap_control_unified(
-    endpoint: &Endpoint,
-    connection: &Connection,
+pub(crate) async fn bootstrap_control_unified_handle(
+    connection: &ControlHandle,
     gate: &AdmissionGate,
     transport: &RtcTransport,
     attempt: crate::connection_coordinator::ProtectedAttempt,
 ) -> std::io::Result<crate::connection_coordinator::PreparedPath> {
     use crate::connection_coordinator::{RtcRole, control_error};
-    let (mut send, mut recv, request) = match attempt.rtc_role {
+    let (exchange, request) = match attempt.rtc_role {
         RtcRole::Answerer => {
-            let (send, mut recv) = connection.accept_bi().await?;
-            let request = read_frame(&mut recv).await.map_err(std::io::Error::other)?;
-            (send, recv, request)
+            let exchange = connection.accept_control_exchange().await?;
+            let request = crate::rtc_wire::read_control(&exchange).await?;
+            (exchange, request)
         }
         RtcRole::Offerer => {
             let proof = gate
@@ -1006,22 +989,20 @@ pub(crate) async fn bootstrap_control_unified(
                 &id,
                 proof.scope().network_id(),
                 proof.scope().secret_generation(),
-                &endpoint.id().to_string(),
+                &connection.id().to_string(),
                 &connection.remote_id().to_string(),
             );
             let request = json!({"protocol":crate::rtc_association::UNIFIED_RTC_PROTOCOL,"attempt":id,
                 "context":context,"binding":rtc_probe::binding(connection,context.as_bytes()).map_err(std::io::Error::other)?,
-                "channel":datagram_channel_parameters(),"quicDialer":attempt.quic_dialer(endpoint,connection).to_string(),
-                "rtcOfferer":endpoint.id().to_string(),"rtcAnswerer":connection.remote_id().to_string(),
+                "channel":datagram_channel_parameters(),"quicDialer":attempt.quic_dialer_for(connection.id(),connection).to_string(),
+                "rtcOfferer":connection.id().to_string(),"rtcAnswerer":connection.remote_id().to_string(),
                 "remainingMs":budget.remaining()?.as_millis() as u64});
-            let (send, recv) = connection.open_bi().await?;
-            (send, recv, request)
+            (connection.open_control_exchange().await?, request)
         }
         RtcRole::None => return Err(control_error("InvalidControl")),
     };
     upgrade(
-        endpoint, connection, gate, transport, request, &mut send, &mut recv, true, attempt, false,
-        None,
+        connection, gate, transport, request, &exchange, true, attempt, false, None,
     )
     .await
     .map_err(|error| {
@@ -1037,10 +1018,10 @@ pub(crate) async fn bootstrap_control_unified(
 /// Active M improvement adapter. SDP and candidate control run on the
 /// restricted C; QUIC path preparation and the eventual retain stay on the
 /// exact original M.
-pub(crate) async fn bootstrap_control_active(
-    endpoint: &Endpoint,
-    original: &Connection,
-    control: &Connection,
+
+pub(crate) async fn bootstrap_control_active_handles(
+    original: &ControlHandle,
+    control: &ControlHandle,
     gate: &AdmissionGate,
     transport: &RtcTransport,
     attempt: crate::connection_coordinator::ProtectedAttempt,
@@ -1058,34 +1039,29 @@ pub(crate) async fn bootstrap_control_active(
         &id,
         proof.scope().network_id(),
         proof.scope().secret_generation(),
-        &endpoint.id().to_string(),
+        &original.id().to_string(),
         &original.remote_id().to_string(),
     );
     let request = json!({"protocol":crate::rtc_association::UNIFIED_RTC_PROTOCOL,"attempt":id,
         "context":context,"binding":rtc_probe::binding(original,context.as_bytes()).map_err(std::io::Error::other)?,
-        "channel":datagram_channel_parameters(),"quicDialer":attempt.quic_dialer(endpoint,original).to_string(),
-        "rtcOfferer":endpoint.id().to_string(),"rtcAnswerer":original.remote_id().to_string(),
+        "channel":datagram_channel_parameters(),"quicDialer":attempt.quic_dialer_for(original.id(),original).to_string(),
+        "rtcOfferer":original.id().to_string(),"rtcAnswerer":original.remote_id().to_string(),
         "remainingMs":budget.remaining()?.as_millis() as u64});
-    let (mut send, mut recv, request) = match attempt.rtc_role {
-        RtcRole::Offerer => {
-            let (send, recv) = control.open_bi().await?;
-            (send, recv, request)
-        }
+    let (exchange, request) = match attempt.rtc_role {
+        RtcRole::Offerer => (control.open_control_exchange().await?, request),
         RtcRole::Answerer => {
-            let (send, mut recv) = control.accept_bi().await?;
-            let request = read_frame(&mut recv).await.map_err(std::io::Error::other)?;
-            (send, recv, request)
+            let exchange = control.accept_control_exchange().await?;
+            let request = crate::rtc_wire::read_control(&exchange).await?;
+            (exchange, request)
         }
         RtcRole::None => return Err(control_error("InvalidControl")),
     };
     upgrade(
-        endpoint,
         original,
         gate,
         transport,
         request,
-        &mut send,
-        &mut recv,
+        &exchange,
         false,
         attempt,
         true,

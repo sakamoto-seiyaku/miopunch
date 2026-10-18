@@ -13,7 +13,7 @@ use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use iroh::endpoint::{Builder, presets};
+use iroh::endpoint::{Builder, RestrictedEndpoint, presets};
 use iroh::{Endpoint, SecretKey};
 use p2panda_auth::group::{GroupAction, GroupMember};
 use p2panda_auth::{Access, GroupsExtensionArgs};
@@ -54,6 +54,24 @@ fn network_protocols() -> Vec<Vec<u8>> {
         crate::admission_rotation::ADMISSION_ROTATION_ALPN.to_vec(),
         crate::admission_rotation::ROTATION_DELIVERY_ALPN.to_vec(),
     ]
+}
+
+async fn bind_restricted_native_endpoint(
+    builder: Builder,
+    gate: AdmissionGate,
+    coordinator: crate::connection_coordinator::CoordinatorHook,
+) -> Result<RestrictedEndpoint, iroh::endpoint::BindError> {
+    let gate = gate.with_message_bootstrap();
+    builder
+        .hooks(crate::connection_coordinator::AdmissionBeforeConnect(
+            gate.clone(),
+        ))
+        .restricted_application(crate::connection_coordinator::NativeAdmission::new(
+            gate,
+            coordinator,
+        ))
+        .bind()
+        .await
 }
 
 enum Initialization<'a> {
@@ -511,7 +529,7 @@ impl NativeNetwork {
 
     /// Bind only after loading the durable device key; the endpoint can never
     /// silently generate a new identity on process restart.
-    pub async fn bind_endpoint(&self, bind_ip: Ipv4Addr) -> Result<Endpoint, NodeError> {
+    pub async fn bind_endpoint(&self, bind_ip: Ipv4Addr) -> Result<RestrictedEndpoint, NodeError> {
         self.bind_endpoint_with(
             Endpoint::builder(presets::Minimal)
                 .alpns(network_protocols())
@@ -524,7 +542,10 @@ impl NativeNetwork {
     /// Configure allowed resources/carriers and advertised protocols through
     /// the selected stack. The node installs its durable identity and shared
     /// gate last, so carrier configuration cannot substitute either boundary.
-    pub async fn bind_endpoint_with(&self, builder: Builder) -> Result<Endpoint, NodeError> {
+    pub async fn bind_endpoint_with(
+        &self,
+        builder: Builder,
+    ) -> Result<RestrictedEndpoint, NodeError> {
         let resources = self.resource_configuration()?;
         self.bind_endpoint_with_resources(
             builder,
@@ -538,6 +559,20 @@ impl NativeNetwork {
         .map(|(endpoint, _, _, _)| endpoint)
     }
 
+    /// Bind an explicitly assembled native builder with the owned RTC carrier.
+    /// The same durable gate and resource policy govern the restricted endpoint.
+    #[cfg(feature = "rtc-probe")]
+    pub async fn bind_endpoint_with_rtc(
+        &self,
+        builder: Builder,
+        rtc: crate::rtc_transport::RtcTransport,
+    ) -> Result<RestrictedEndpoint, NodeError> {
+        let resources = self.resource_configuration()?;
+        self.bind_endpoint_with_resources(builder, &resources, false, Some(rtc), None)
+            .await
+            .map(|(endpoint, _, _, _)| endpoint)
+    }
+
     async fn bind_endpoint_with_resources(
         &self,
         builder: Builder,
@@ -547,7 +582,7 @@ impl NativeNetwork {
         contact_override: Option<Arc<crate::mqtt_transport::MqttTransport>>,
     ) -> Result<
         (
-            Endpoint,
+            RestrictedEndpoint,
             Option<crate::tcp_transport::TcpTransport>,
             Vec<Arc<crate::mqtt_transport::MqttTransport>>,
             Option<crate::contact_listener::ContactListenerControl>,
@@ -682,8 +717,12 @@ impl NativeNetwork {
             && resources.udp_direct_disabled
             && resources.tcp_direct_disabled
             && (resources.member_data_relay_disabled
-                || resources.disabled_uses.contains(&crate::resources::ResourceUse::DataRelay))
-            && resources.relay_map(crate::resources::ResourceUse::DataRelay)?.is_empty()
+                || resources
+                    .disabled_uses
+                    .contains(&crate::resources::ResourceUse::DataRelay))
+            && resources
+                .relay_map(crate::resources::ResourceUse::DataRelay)?
+                .is_empty()
         {
             builder.active_connection_id_limit(2)
         } else {
@@ -734,23 +773,12 @@ impl NativeNetwork {
         #[cfg(feature = "rtc-probe")]
         let coordinator = coordinator.with_rtc(rtc.clone());
         let gate = self.gate.with_request_coordinator();
-        let builder = if configured_startup {
-            let existing_data = crate::message_bootstrap::ExistingMemberDataRelease::new(
-                self.gate.clone(),
-                native_tcp
-                    .filter(|tcp| !tcp.observers.is_empty() && tcp.transport.supports_punching()),
-            );
-            gate.with_message_bootstrap()
-                .configure(builder)
-                .hooks(coordinator)
-                .hooks(existing_data)
-        } else {
-            gate.configure(builder).hooks(coordinator)
-        };
-        let endpoint = builder
-            .secret_key(SecretKey::from_bytes(self.node_key.as_bytes()))
-            .bind()
-            .await?;
+        let endpoint = bind_restricted_native_endpoint(
+            builder.secret_key(SecretKey::from_bytes(self.node_key.as_bytes())),
+            gate,
+            coordinator,
+        )
+        .await?;
         // Poll all approved services within the adapter's shared startup bound.
         // A failed subscription cannot prevent another resource or direct path.
         for result in

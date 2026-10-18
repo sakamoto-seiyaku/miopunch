@@ -3,6 +3,7 @@ use std::{collections::BTreeSet, net::Ipv4Addr, time::Duration};
 
 use iroh::{Endpoint, EndpointAddr, endpoint::presets};
 use iroh_relay::server::{RelayConfig as ServerRelayConfig, Server, ServerConfig};
+use miopunch_native_probe::control_protocol::AuthenticatedControl;
 use miopunch_native_probe::{
     admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope},
     manual_admission::{AdmissionStage, ManualExchange},
@@ -28,7 +29,7 @@ fn resource(url: &iroh::RelayUrl) -> Resource {
     }
 }
 
-async fn bind(node: &NativeNetwork) -> Endpoint {
+async fn bind(node: &NativeNetwork) -> iroh::endpoint::RestrictedEndpoint {
     let config = node.resource_configuration().unwrap();
     node.bind_endpoint_with(
         Endpoint::builder(presets::Minimal)
@@ -43,8 +44,8 @@ async fn bind(node: &NativeNetwork) -> Endpoint {
 }
 
 async fn connect(
-    client: &Endpoint,
-    server: &Endpoint,
+    client: &iroh::endpoint::RestrictedEndpoint,
+    server: &iroh::endpoint::RestrictedEndpoint,
     url: &iroh::RelayUrl,
     alpn: &[u8],
 ) -> (iroh::endpoint::Connection, iroh::endpoint::Connection) {
@@ -57,6 +58,40 @@ async fn connect(
             async { server.accept().await.unwrap().await },
         );
         (out.unwrap(), incoming.unwrap())
+    })
+    .await
+    .expect("bounded real relay-only TLS connection")
+}
+
+async fn connect_control(
+    client: &iroh::endpoint::RestrictedEndpoint,
+    server: &iroh::endpoint::RestrictedEndpoint,
+    url: &iroh::RelayUrl,
+    alpn: &[u8],
+) -> (
+    std::sync::Arc<iroh::endpoint::ControlConnection>,
+    std::sync::Arc<iroh::endpoint::ControlConnection>,
+) {
+    tokio::time::timeout(Duration::from_secs(15), async {
+        let (out, incoming) = tokio::join!(
+            client.connect_control(
+                EndpointAddr::new(server.id()).with_relay_url(url.clone()),
+                alpn
+            ),
+            async {
+                server
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+            },
+        );
+        (
+            std::sync::Arc::new(out.unwrap()),
+            std::sync::Arc::new(incoming.unwrap()),
+        )
     })
     .await
     .expect("bounded real relay-only TLS connection")
@@ -87,7 +122,7 @@ async fn admission_and_business(self_hosted: bool) {
     joining.save_resource_configuration(&config).unwrap();
     let admin_endpoint = bind(&admin).await;
     let join_endpoint = bind(&joining).await;
-    let (client, server) = connect(
+    let (client, server) = connect_control(
         &join_endpoint,
         &admin_endpoint,
         &url,
@@ -285,7 +320,7 @@ async fn disabled_relay_from_invitation_hint_is_never_accessed() {
     let target = EndpointAddr::new(invitation.contact).with_relay_url(url);
     let attempted = tokio::time::timeout(
         Duration::from_secs(2),
-        endpoint.connect(target, ADMISSION_REQUEST_ALPN),
+        endpoint.connect_control(target, ADMISSION_REQUEST_ALPN),
     )
     .await;
     assert!(!matches!(attempted, Ok(Ok(_))));
@@ -465,7 +500,14 @@ async fn a_known_actor_route_cannot_replace_an_allowed_candidate_with_a_forbidde
         .bind()
         .await
         .unwrap();
-    let (out, incoming) = connect(&client, &server, &old, BUSINESS).await;
+    let (out, incoming) = tokio::join!(
+        client.connect(
+            EndpointAddr::new(server.id()).with_relay_url(old.clone()),
+            BUSINESS
+        ),
+        async { server.accept().await.unwrap().await }
+    );
+    let (out, incoming) = (out.unwrap(), incoming.unwrap());
     let (mut send, _) = out.open_bi().await.unwrap();
     send.write_all(b"warm the actual authenticated endpoint route")
         .await
@@ -904,7 +946,7 @@ async fn all_allowed_entries_fail_with_bounded_backoff_and_import_restart_recove
         .disabled
         .insert((forbidden_url.to_string(), ResourceUse::DataRelay));
     joining.save_resource_configuration(&config).unwrap();
-    let mut contact = joining
+    let contact = joining
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
         .unwrap()
@@ -912,7 +954,7 @@ async fn all_allowed_entries_fail_with_bounded_backoff_and_import_restart_recove
         .unwrap();
     let started = std::time::Instant::now();
     let error = contact
-        .connect(
+        .connect_control(
             EndpointAddr::new(invitation.contact),
             ADMISSION_REQUEST_ALPN,
         )
@@ -932,7 +974,7 @@ async fn all_allowed_entries_fail_with_bounded_backoff_and_import_restart_recove
         "all allowed facilities must actually have failed: {before:?}"
     );
     let retry = contact
-        .connect(
+        .connect_control(
             EndpointAddr::new(invitation.contact),
             ADMISSION_REQUEST_ALPN,
         )
@@ -968,17 +1010,28 @@ async fn all_allowed_entries_fail_with_bounded_backoff_and_import_restart_recove
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
         .unwrap();
-    let mut contact = joining
+    let contact = joining
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
         .unwrap();
     let server_endpoint = admin_contact.endpoint();
     let (client, server) = tokio::join!(
-        contact.connect(
+        contact.connect_control(
             EndpointAddr::new(invitation.contact),
             ADMISSION_REQUEST_ALPN
         ),
-        async { server_endpoint.accept().await.unwrap().await.unwrap() }
+        async {
+            std::sync::Arc::new(
+                server_endpoint
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+                    .unwrap(),
+            )
+        }
     );
     let client = client.unwrap();
     let (requested, served) = tokio::join!(
@@ -1173,7 +1226,7 @@ async fn explicit_lan_disclosure_publishes_only_active_nodes_and_passive_discove
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
         .unwrap();
-    let mut passive_contact = passive
+    let passive_contact = passive
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
         .unwrap();
@@ -1204,18 +1257,47 @@ async fn explicit_lan_disclosure_publishes_only_active_nodes_and_passive_discove
     })
     .await;
     if published.is_ok() {
-        let (client, server) = tokio::join!(
-            passive_contact.connect(EndpointAddr::new(active_id), ADMISSION_REQUEST_ALPN),
-            async {
-                active_contact
-                    .endpoint()
-                    .accept()
-                    .await
-                    .unwrap()
-                    .await
-                    .unwrap()
-            }
+        // The common coordinator consumes explicit contact candidates. Resolve
+        // them through this Passive node's actual configured mDNS service.
+        let mut discovered = Box::pin(
+            passive_contact
+                .endpoint()
+                .address_lookup()
+                .unwrap()
+                .resolve(active_id),
         );
+        let target = tokio::time::timeout(Duration::from_secs(5), async {
+            while let Some(item) = discovered.next().await {
+                if let Ok(Ok(item)) = item {
+                    let candidate = item.into_endpoint_addr();
+                    if candidate.id == active_id && !candidate.addrs.is_empty() {
+                        return candidate;
+                    }
+                }
+            }
+            panic!("Passive mDNS lookup ended without its advertised peer");
+        })
+        .await
+        .expect("Passive node discovers the actual active publication");
+        let (client, server) = tokio::time::timeout(Duration::from_secs(15), async {
+            tokio::join!(
+                passive_contact.connect_control(target, ADMISSION_REQUEST_ALPN),
+                async {
+                    active_contact
+                        .endpoint()
+                        .accept()
+                        .await
+                        .unwrap()
+                        .accept_control()
+                        .unwrap()
+                        .await
+                        .map(std::sync::Arc::new)
+                        .unwrap()
+                }
+            )
+        })
+        .await
+        .expect("bounded mDNS candidate control connection");
         let client = client.unwrap();
         let (requested, served) = tokio::join!(
             passive.request_manual_admission(&client),
@@ -1560,7 +1642,7 @@ async fn disabled_pkarr_lookup_facility_is_never_accessed() {
         .unwrap();
     let attempted = tokio::time::timeout(
         Duration::from_secs(1),
-        endpoint.connect(iroh::SecretKey::generate().public(), ADMISSION_REQUEST_ALPN),
+        endpoint.connect_control(iroh::SecretKey::generate().public(), ADMISSION_REQUEST_ALPN),
     )
     .await;
     assert!(!matches!(attempted, Ok(Ok(_))));
@@ -1612,9 +1694,7 @@ async fn disabled_pkarr_publication_facility_is_never_accessed() {
 
 #[tokio::test]
 async fn disabled_lookup_added_after_bind_through_wrappers_is_never_accessed() {
-    use iroh::address_lookup::{
-        AddrFilter, AddressLookupBuilder, FilteredAddressLookup, PkarrPublisher, PkarrResolver,
-    };
+    use iroh::address_lookup::{AddrFilter, FilteredAddressLookup, PkarrPublisher, PkarrResolver};
     let facility = PkarrFixture::start().await;
     let dir = tempfile::tempdir().unwrap();
     let node = NativeNetwork::create(dir.path().join("node"))
@@ -1630,19 +1710,19 @@ async fn disabled_lookup_added_after_bind_through_wrappers_is_never_accessed() {
         .bind_endpoint_with(Endpoint::builder(presets::Minimal))
         .await
         .unwrap();
-    let lookup = AddressLookupBuilder::into_address_lookup(
-        PkarrResolver::builder(std::ops::Deref::deref(&facility.url).clone()),
-        &endpoint,
-    )
-    .unwrap();
+    let lookup = endpoint
+        .pkarr_resolver(PkarrResolver::builder(
+            std::ops::Deref::deref(&facility.url).clone(),
+        ))
+        .unwrap();
     let lookup = std::sync::Arc::new(FilteredAddressLookup::new(lookup, AddrFilter::unfiltered()));
     endpoint.address_lookup().unwrap().add(lookup);
-    let publisher = AddressLookupBuilder::into_address_lookup(
-        PkarrPublisher::builder(std::ops::Deref::deref(&facility.url).clone())
-            .addr_filter(AddrFilter::unfiltered()),
-        &endpoint,
-    )
-    .unwrap();
+    let publisher = endpoint
+        .pkarr_publisher(
+            PkarrPublisher::builder(std::ops::Deref::deref(&facility.url).clone())
+                .addr_filter(AddrFilter::unfiltered()),
+        )
+        .unwrap();
     endpoint
         .address_lookup()
         .unwrap()
@@ -1652,7 +1732,7 @@ async fn disabled_lookup_added_after_bind_through_wrappers_is_never_accessed() {
         )));
     let attempted = tokio::time::timeout(
         Duration::from_secs(1),
-        endpoint.connect(iroh::SecretKey::generate().public(), ADMISSION_REQUEST_ALPN),
+        endpoint.connect_control(iroh::SecretKey::generate().public(), ADMISSION_REQUEST_ALPN),
     )
     .await;
     assert!(!matches!(attempted, Ok(Ok(_))));
@@ -1721,14 +1801,23 @@ async fn allowed_signed_pkarr_lookup_reaches_real_admission_with_data_relay_disa
     .await
     .expect("actual signed identity/address publication");
     let (outgoing, incoming) = tokio::time::timeout(Duration::from_secs(5), async {
-        tokio::join!(client.connect(server.id(), ADMISSION_REQUEST_ALPN), async {
-            server.accept().await.unwrap().await
-        })
+        tokio::join!(
+            client.connect_control(server.id(), ADMISSION_REQUEST_ALPN),
+            async {
+                server
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+            }
+        )
     })
     .await
     .unwrap();
-    let outgoing = outgoing.unwrap();
-    let incoming = incoming.unwrap();
+    let outgoing = std::sync::Arc::new(outgoing.unwrap());
+    let incoming = std::sync::Arc::new(incoming.unwrap());
     let (requested, served) = tokio::join!(
         joining.request_manual_admission(&outgoing),
         admin.serve_manual_admission(&incoming)
@@ -1785,7 +1874,7 @@ async fn allowed_lookup_cannot_redirect_access_to_a_disabled_facility() {
         .unwrap();
     let attempted = tokio::time::timeout(
         Duration::from_secs(1),
-        endpoint.connect(iroh::SecretKey::generate().public(), ADMISSION_REQUEST_ALPN),
+        endpoint.connect_control(iroh::SecretKey::generate().public(), ADMISSION_REQUEST_ALPN),
     )
     .await;
     assert!(!matches!(attempted, Ok(Ok(_))));

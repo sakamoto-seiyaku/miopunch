@@ -3,10 +3,79 @@
 use futures_util::FutureExt;
 use iroh::{
     Endpoint, EndpointAddr, TransportAddr,
-    endpoint::{ConnectOptions, Connection},
+    endpoint::{ConnectOptions, Connection, ControlExchange, ControlMessageFormat},
 };
 use n0_future::time::{Instant, sleep, timeout};
 use std::{io, time::Duration};
+
+use crate::control_protocol::AuthenticatedControl;
+
+/// Actual platform owners share the repair algorithm without widening a
+/// restricted endpoint or the control capability it returns.
+pub(crate) trait RecoveryEndpoint: Sync {
+    type Control: AuthenticatedControl;
+    fn connect_repair_control(
+        &self,
+        contact: EndpointAddr,
+        options: ConnectOptions,
+    ) -> impl Future<Output = io::Result<Self::Control>> + Send;
+    fn original_control(&self, original: &Connection) -> iroh::endpoint::ControlHandle;
+}
+impl RecoveryEndpoint for Endpoint {
+    type Control = Connection;
+    async fn connect_repair_control(
+        &self,
+        contact: EndpointAddr,
+        options: ConnectOptions,
+    ) -> io::Result<Connection> {
+        self.connect_with_opts(contact, CONNECTION_RECOVERY_ALPN, options)
+            .await
+            .map_err(io::Error::other)?
+            .await
+            .map_err(io::Error::other)
+    }
+    fn original_control(&self, original: &Connection) -> iroh::endpoint::ControlHandle {
+        self.control_handle(original)
+    }
+}
+impl RecoveryEndpoint for iroh::endpoint::RestrictedEndpoint {
+    type Control = std::sync::Arc<iroh::endpoint::ControlConnection>;
+    async fn connect_repair_control(
+        &self,
+        contact: EndpointAddr,
+        options: ConnectOptions,
+    ) -> io::Result<Self::Control> {
+        self.connect_control_with_opts(contact, CONNECTION_RECOVERY_ALPN, options)
+            .await
+            .map_err(io::Error::other)?
+            .await
+            .map(std::sync::Arc::new)
+            .map_err(io::Error::other)
+    }
+    fn original_control(&self, original: &Connection) -> iroh::endpoint::ControlHandle {
+        self.control_handle(original)
+    }
+}
+async fn send_message(exchange: &ControlExchange, value: &impl serde::Serialize) -> io::Result<()> {
+    exchange
+        .send_message(
+            ControlMessageFormat::EndTerminated {
+                maximum: MAX_MESSAGE,
+            },
+            &encode_message(value)?,
+        )
+        .await
+}
+async fn recv_message<T: serde::de::DeserializeOwned>(exchange: &ControlExchange) -> io::Result<T> {
+    serde_json::from_slice(
+        &exchange
+            .recv_message(ControlMessageFormat::EndTerminated {
+                maximum: MAX_MESSAGE,
+            })
+            .await?,
+    )
+    .map_err(io::Error::other)
+}
 
 pub const CONNECTION_RECOVERY_ALPN: &[u8] = b"miopunch/connection-path-recovery/1";
 pub(crate) const MAX_MESSAGE: usize = 4096;
@@ -54,7 +123,9 @@ pub(crate) fn encode_message(value: &impl serde::Serialize) -> io::Result<Vec<u8
     }
     Ok(bytes)
 }
-pub(crate) fn binding(connection: &Connection) -> io::Result<[u8; 32]> {
+pub(crate) fn binding(
+    connection: &(impl crate::control_protocol::AuthenticatedControl + ?Sized),
+) -> io::Result<[u8; 32]> {
     let mut binding = [0; 32];
     connection
         .export_keying_material(&mut binding, BINDING_LABEL, &[])
@@ -73,8 +144,8 @@ pub(crate) fn failed(connection: &Connection, cause: impl ToString) -> Connectio
         }
     }
 }
-struct CloseControl(Connection);
-impl Drop for CloseControl {
+struct CloseControl<C: AuthenticatedControl>(C);
+impl<C: AuthenticatedControl> Drop for CloseControl<C> {
     fn drop(&mut self) {
         self.0.close(0u32.into(), b"path recovery exchange ended");
     }
@@ -91,13 +162,13 @@ pub(crate) struct ValidatedPath {
     pub id: String,
     pub watermark: u64,
 }
-pub(crate) async fn validate_candidates(
-    endpoint: &Endpoint,
+pub(crate) async fn validate_candidates<C: AuthenticatedControl + ?Sized>(
+    endpoint: &(impl RecoveryEndpoint + ?Sized),
     original: &Connection,
-    control: &Connection,
+    control: &C,
     candidate: EndpointAddr,
     permits: &impl Fn(&TransportAddr) -> bool,
-    check: &impl Fn(&Connection, &Connection) -> io::Result<()>,
+    check: &impl Fn(&Connection, &C) -> io::Result<()>,
 ) -> io::Result<ValidatedPath> {
     if candidate.id != original.remote_id() || candidate.addrs.len() > MAX_CANDIDATES {
         return Err(io::Error::new(
@@ -114,7 +185,8 @@ pub(crate) async fn validate_candidates(
             loop {
                 check(original, control)?;
                 let opened = endpoint
-                    .open_data_transport_path(original, path.clone())
+                    .original_control(original)
+                    .open_data_transport_path(path.clone())
                     .await;
                 match opened {
                     Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
@@ -167,8 +239,8 @@ pub(crate) async fn validate_candidates(
 
 /// One existing coordinator operation: protected contact, original-M path probe,
 /// and cleanup all share the caller clock, with the historical three-second cap.
-pub(crate) async fn recover(
-    endpoint: &Endpoint,
+pub(crate) async fn recover<E: RecoveryEndpoint>(
+    endpoint: &E,
     original: &Connection,
     contact: EndpointAddr,
     mut offer: EndpointAddr,
@@ -177,7 +249,7 @@ pub(crate) async fn recover(
     require_confirmation: bool,
     permits: impl Fn(&TransportAddr) -> bool,
     check_original: impl Fn(&Connection) -> io::Result<()>,
-    check: impl Fn(&Connection, &Connection) -> io::Result<()>,
+    check: impl Fn(&Connection, &E::Control) -> io::Result<()>,
 ) -> Result<ConnectionPathRecovery, ConnectionPathRecoveryError> {
     if original.close_reason().is_some() {
         return Err(failed(original, "original connection closed"));
@@ -199,33 +271,17 @@ pub(crate) async fn recover(
         let options = ConnectOptions::default()
             .with_caller_deadline(deadline)
             .with_attempt_cancellation(cancel.clone());
-        let control = endpoint
-            .connect_with_opts(contact, CONNECTION_RECOVERY_ALPN, options)
-            .await
-            .map_err(io::Error::other)?
-            .await
-            .map_err(io::Error::other)?;
-        let control = CloseControl(control);
+        let control = CloseControl(endpoint.connect_repair_control(contact, options).await?);
         check(original, &control.0)?;
-        let (mut send, mut recv) = control.0.open_bi().await?;
-        send.write_all(&encode_message(&request)?).await?;
-        send.finish()?;
-        let bytes = recv
-            .read_to_end(MAX_MESSAGE)
-            .await
-            .map_err(io::Error::other)?;
-        let candidate = serde_json::from_slice(&bytes).map_err(io::Error::other)?;
+        let exchange = control.0.open_control_exchange().await?;
+        send_message(&exchange, &request).await?;
+        let candidate = recv_message(&exchange).await?;
         let path = validate_candidates(endpoint, original, &control.0, candidate, &permits, &check)
             .await?;
         check(original, &control.0)?;
         if require_confirmation {
-            let (mut response, mut confirmation) = control.0.accept_bi().await?;
-            let bytes = confirmation
-                .read_to_end(MAX_MESSAGE)
-                .await
-                .map_err(io::Error::other)?;
-            let confirmation: RepairConfirmation =
-                serde_json::from_slice(&bytes).map_err(io::Error::other)?;
+            let confirmation_exchange = control.0.accept_control_exchange().await?;
+            let confirmation: RepairConfirmation = recv_message(&confirmation_exchange).await?;
             // The peer validates OUR advertised receive address. Its remote
             // address is not our remote address (including distinct relays).
             if !request.offer.addrs.contains(&confirmation.path)
@@ -238,9 +294,10 @@ pub(crate) async fn recover(
                 ));
             }
             check(original, &control.0)?;
-            response.write_all(&[1]).await?;
-            response.finish()?;
-            response.stopped().await.map_err(io::Error::other)?;
+            confirmation_exchange
+                .send_message(ControlMessageFormat::Fixed { length: 1 }, &[1])
+                .await?;
+            confirmation_exchange.finish_send_confirmed().await?;
         }
         Ok::<_, io::Error>(ConnectionPathRecovery {
             stable_id: original.stable_id(),

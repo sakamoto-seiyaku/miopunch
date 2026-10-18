@@ -1,4 +1,4 @@
-use iroh::{Endpoint, EndpointAddr};
+use iroh::EndpointAddr;
 use miopunch_native_probe::{
     admission_gate::ProtocolScope,
     genesis_recovery::GenesisCredential,
@@ -19,7 +19,7 @@ fn expiry() -> u64 {
         .as_secs()
         + 3600
 }
-fn address(e: &Endpoint) -> EndpointAddr {
+fn address(e: &iroh::endpoint::RestrictedEndpoint) -> EndpointAddr {
     EndpointAddr::new(e.id()).with_ip_addr(*e.addr().ip_addrs().next().unwrap())
 }
 fn credential(p: &std::path::Path) -> GenesisCredential {
@@ -29,7 +29,7 @@ fn credential(p: &std::path::Path) -> GenesisCredential {
         Hash::from_bytes(b[32..].try_into().unwrap()),
     )
 }
-async fn server(node: &NativeNetwork) -> Endpoint {
+async fn server(node: &NativeNetwork) -> iroh::endpoint::RestrictedEndpoint {
     node.admission_gate()
         .register_protocol(REPLICA_ALPN, ProtocolScope::Member);
     let e = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
@@ -62,7 +62,15 @@ async fn source_works_until_saved_target_member_data_then_switch_and_exit() {
     assert_eq!(migration.active().status(), old);
     assert_eq!(migration.target_status().node_id, old.node_id);
     let (r, s) = tokio::join!(migration.redeem_target(address(&te), &code), async {
-        let c = te.accept().await.unwrap().await.unwrap();
+        let c = std::sync::Arc::new(
+            te.accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap(),
+        );
         let result = target.serve_precode_admission(&c).await;
         c.closed().await;
         result
@@ -126,14 +134,14 @@ async fn join(admin: &mut NativeNetwork, path: &std::path::Path) -> NativeNetwor
     let ae = server(admin).await;
     let ne = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let (c, s) = tokio::join!(
-        ne.connect(
+        ne.connect_control(
             address(&ae),
             miopunch_native_probe::admission_gate::ADMISSION_REQUEST_ALPN
         ),
-        async { ae.accept().await.unwrap().await }
+        async { ae.accept().await.unwrap().accept_control().unwrap().await }
     );
-    let c = c.unwrap();
-    let s = s.unwrap();
+    let c = std::sync::Arc::new(c.unwrap());
+    let s = std::sync::Arc::new(s.unwrap());
     let (r, t) = tokio::join!(
         async {
             let miopunch_native_probe::manual_admission::ManualExchange::Materials(d) =
@@ -188,7 +196,15 @@ async fn signaling_only_target_cannot_switch_and_formal_exit_cannot_roll_back() 
         .await
         .unwrap();
     let (r, s) = tokio::join!(migration.redeem_target(address(&te), &code), async {
-        let c = te.accept().await.unwrap().await.unwrap();
+        let c = std::sync::Arc::new(
+            te.accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap(),
+        );
         let result = target.serve_precode_admission(&c).await;
         c.closed().await;
         result
@@ -221,7 +237,16 @@ async fn signaling_only_target_cannot_switch_and_formal_exit_cannot_roll_back() 
     // Successful TLS invitation/result retry over MQTT proves the signal path
     // exists. It still cannot substitute for member DATA validation.
     let (r, s) = tokio::join!(migration.redeem_target(route.clone(), &code), async {
-        let c = te.endpoint().accept().await.unwrap().await.unwrap();
+        let c = std::sync::Arc::new(
+            te.endpoint()
+                .accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap(),
+        );
         let result = target.serve_precode_admission(&c).await;
         c.closed().await;
         result
@@ -304,7 +329,15 @@ async fn same_key_histories_and_permissions_remain_independent() {
         .await
         .unwrap();
     let (r, s) = tokio::join!(m.redeem_target(address(&te), &code), async {
-        let c = te.accept().await.unwrap().await.unwrap();
+        let c = std::sync::Arc::new(
+            te.accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap(),
+        );
         let r = target.serve_precode_admission(&c).await;
         c.closed().await;
         r
@@ -517,18 +550,22 @@ async fn process_death_at_each_durable_boundary_keeps_identity_progress_and_one_
             .unwrap();
         if matches!(mode, "authorize" | "secret" | "complete" | "validate") {
             let serving = async {
-                let c = te.accept().await.unwrap().await.unwrap();
-                let result = if mode == "validate" {
-                    target.serve_replica(&c).await.map_err(|e| e.to_string())
+                let incoming = te.accept().await.unwrap();
+                if mode == "validate" {
+                    let c = incoming.await.unwrap();
+                    let result = target.serve_replica(&c).await.map_err(|e| e.to_string());
+                    let _ = tokio::time::timeout(Duration::from_secs(5), c.closed()).await;
+                    result
                 } else {
-                    target
+                    let c = std::sync::Arc::new(incoming.accept_control().unwrap().await.unwrap());
+                    let result = target
                         .serve_precode_admission(&c)
                         .await
                         .map(|_| ())
-                        .map_err(|e| e.to_string())
-                };
-                let _ = tokio::time::timeout(Duration::from_secs(5), c.closed()).await;
-                result
+                        .map_err(|e| e.to_string());
+                    let _ = tokio::time::timeout(Duration::from_secs(5), c.closed()).await;
+                    result
+                }
             };
             let (status, _served) = tokio::time::timeout(Duration::from_secs(25), async {
                 tokio::join!(child.wait(), serving)
@@ -599,7 +636,15 @@ async fn offline_device_confirms_itself_with_fresh_invitation_and_ordinary_exit(
         .await
         .unwrap();
     let (r, s) = tokio::join!(first.redeem_target(address(&te), &code), async {
-        let c = te.accept().await.unwrap().await.unwrap();
+        let c = std::sync::Arc::new(
+            te.accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap(),
+        );
         let r = target.serve_precode_admission(&c).await;
         c.closed().await;
         r
@@ -649,7 +694,15 @@ async fn offline_device_confirms_itself_with_fresh_invitation_and_ordinary_exit(
         .await
         .unwrap();
     let (r, s) = tokio::join!(late.redeem_target(address(&te), &expired), async {
-        let c = te.accept().await.unwrap().await.unwrap();
+        let c = std::sync::Arc::new(
+            te.accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap(),
+        );
         let r = target.serve_precode_admission(&c).await;
         c.closed().await;
         r
@@ -660,7 +713,15 @@ async fn offline_device_confirms_itself_with_fresh_invitation_and_ordinary_exit(
     let fresh = target.issue_precode(expiry(), Some(1)).await.unwrap();
     late.use_new_target_precode(&fresh).await.unwrap();
     let (r, s) = tokio::join!(late.redeem_target(address(&te), &fresh), async {
-        let c = te.accept().await.unwrap().await.unwrap();
+        let c = std::sync::Arc::new(
+            te.accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap(),
+        );
         let r = target.serve_precode_admission(&c).await;
         c.closed().await;
         r
@@ -697,7 +758,15 @@ async fn explicit_cancel_leaves_target_without_changing_source() {
     // An unknown/in-flight approval cannot be discarded as if no target grant exists.
     assert!(m.cancel_preparation(None).await.is_err());
     let (r, s) = tokio::join!(m.redeem_target(address(&te), &code), async {
-        let c = te.accept().await.unwrap().await.unwrap();
+        let c = std::sync::Arc::new(
+            te.accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap(),
+        );
         let r = target.serve_precode_admission(&c).await;
         c.closed().await;
         r

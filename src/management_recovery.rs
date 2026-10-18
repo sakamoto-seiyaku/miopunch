@@ -6,7 +6,7 @@
 
 use std::time::Duration;
 
-use iroh::endpoint::Connection;
+use crate::control_protocol::AuthenticatedControl;
 use iroh_base::{EndpointId, SecretKey};
 use p2panda_auth::group::{GroupAction, GroupMember};
 use p2panda_auth::{Access, GroupsExtensionArgs};
@@ -17,8 +17,8 @@ use thiserror::Error;
 use crate::admission_gate::ProtocolScope;
 use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::genesis_recovery::{
-    DOMAIN, RecoveryError as ProofError, SessionGuard, endpoint_key, proof_statement, read_frame,
-    write_frame,
+    DOMAIN, RecoveryError as ProofError, SessionGuard, endpoint_key, proof_statement,
+    read_control_fixed, read_control_frame, write_control_fixed, write_control_frame,
 };
 use crate::management_auth::{ManagementAuth, ManagementExtension};
 use crate::management_store::{ManagementRecord, ManagementStore, StoreError};
@@ -294,7 +294,10 @@ impl NativeNetwork {
             .await
     }
 
-    fn recovery_connection(&self, connection: &Connection) -> Result<(), ManagementRecoveryError> {
+    fn recovery_connection(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> Result<(), ManagementRecoveryError> {
         if connection.alpn() != MANAGEMENT_RECOVERY_ALPN
             || !self.gate.allows(connection, ProtocolScope::GenesisRecovery)
         {
@@ -351,7 +354,7 @@ impl NativeNetwork {
 
     pub async fn restore_management(
         &mut self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<RecoveryProgress, ManagementRecoveryError> {
         let (_permit, _session) = SessionGuard::begin(connection)?;
         tokio::time::timeout(TIMEOUT, self.restore_management_inner(connection))
@@ -361,7 +364,7 @@ impl NativeNetwork {
 
     async fn restore_management_inner(
         &mut self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<RecoveryProgress, ManagementRecoveryError> {
         self.store.ensure_admissions_open().await?;
         self.store.apply_ready().await?;
@@ -378,19 +381,19 @@ impl NativeNetwork {
             attempt: binding.attempt,
         };
         let statement = proof_statement(connection, self.anchor, local, binding.contact)?;
-        let (mut send, mut recv) = connection
-            .open_bi()
+        let exchange = connection
+            .open_control_exchange()
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         let signature = credential.root.sign(&statement).to_bytes();
-        send.write_all(&signature)
+        write_control_fixed(&exchange, &signature)
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
-        send.write_all(&request.attempt)
+        write_control_fixed(&exchange, &request.attempt)
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
 
-        let wire = read_frame(&mut recv, MAX_HISTORY_BYTES).await?;
+        let wire = read_control_frame(&exchange, MAX_HISTORY_BYTES).await?;
         let (server_grant, raw): (Option<Hash>, WireRecords) =
             p2panda_core::cbor::decode_cbor(wire.as_slice())
                 .map_err(|_| ManagementRecoveryError::Rejected)?;
@@ -477,25 +480,25 @@ impl NativeNetwork {
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::AuthorizationSaved);
-        write_frame(&mut send, grant.header()).await?;
+        write_control_frame(&exchange, grant.header()).await?;
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::AuthorizationSent);
         let mut acknowledged = [0; 32];
-        recv.read_exact(&mut acknowledged)
+        read_control_fixed(&exchange, &mut acknowledged)
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         if acknowledged != *grant_id.as_bytes() {
             return Err(ManagementRecoveryError::Rejected);
         }
-        send.write_all(b"AUTH")
+        write_control_fixed(&exchange, b"AUTH")
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::AuthorizationAcknowledged);
         let mut material = [0; 40];
-        recv.read_exact(&mut material)
+        read_control_fixed(&exchange, &mut material)
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         #[cfg(feature = "replica-test-hooks")]
@@ -516,16 +519,18 @@ impl NativeNetwork {
         self.store
             .complete_recovery(self.store.recovery_result(request).await?)
             .await?;
-        send.write_all(b"SAVE")
+        write_control_fixed(&exchange, b"SAVE")
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::CompletionSent);
-        send.finish()
+        exchange
+            .finish_send()
+            .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         let mut done = [0; 4];
-        recv.read_exact(&mut done)
+        read_control_fixed(&exchange, &mut done)
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         if &done != b"DONE" {
@@ -536,7 +541,7 @@ impl NativeNetwork {
 
     pub async fn serve_management_recovery(
         &mut self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<RecoveryProgress, ManagementRecoveryError> {
         let (_permit, _session) = SessionGuard::begin(connection)?;
         tokio::time::timeout(TIMEOUT, self.serve_management_recovery_inner(connection))
@@ -546,7 +551,7 @@ impl NativeNetwork {
 
     async fn serve_management_recovery_inner(
         &mut self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<RecoveryProgress, ManagementRecoveryError> {
         self.store.ensure_admissions_open().await?;
         self.store.apply_ready().await?;
@@ -570,12 +575,12 @@ impl NativeNetwork {
             return Err(ManagementRecoveryError::Rejected);
         }
         let statement = proof_statement(connection, self.anchor, connection.remote_id(), local)?;
-        let (mut send, mut recv) = connection
-            .accept_bi()
+        let exchange = connection
+            .accept_control_exchange()
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         let mut signature = [0; 64];
-        recv.read_exact(&mut signature)
+        read_control_fixed(&exchange, &mut signature)
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         if !self
@@ -586,7 +591,7 @@ impl NativeNetwork {
             return Err(ManagementRecoveryError::Rejected);
         }
         let mut attempt = [0; 16];
-        recv.read_exact(&mut attempt)
+        read_control_fixed(&exchange, &mut attempt)
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         let request = RecoveryRequest {
@@ -617,8 +622,9 @@ impl NativeNetwork {
         self.store.ensure_admissions_open().await?;
         let wire = p2panda_core::cbor::encode_cbor(&(progress.authorization, raw))
             .map_err(|_| ManagementRecoveryError::Rejected)?;
-        write_frame(&mut send, &wire).await?;
-        let grant = ManagementRecord::new(read_frame(&mut recv, MAX_GRANT_BYTES).await?, None);
+        write_control_frame(&exchange, &wire).await?;
+        let grant =
+            ManagementRecord::new(read_control_frame(&exchange, MAX_GRANT_BYTES).await?, None);
         let header = Header::<ManagementExtension>::decode(grant.header())
             .map_err(|_| ManagementRecoveryError::Rejected)?;
         if header.verifying_key != self.anchor.root
@@ -647,14 +653,14 @@ impl NativeNetwork {
         self.refresh_authorization();
         let progress = self.store.recovery_result(request).await?;
         self.valid_recovery(progress)?;
-        send.write_all(grant_id.as_bytes())
+        write_control_fixed(&exchange, grant_id.as_bytes())
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::AuthorizationSent);
         let mut ack = [0; 4];
-        recv.read_exact(&mut ack)
+        read_control_fixed(&exchange, &mut ack)
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         if &ack != b"AUTH" {
@@ -679,13 +685,13 @@ impl NativeNetwork {
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::SecretPrepared);
-        send.write_all(&material)
+        write_control_fixed(&exchange, &material)
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::SecretSent);
-        recv.read_exact(&mut ack)
+        read_control_fixed(&exchange, &mut ack)
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         if &ack != b"SAVE" {
@@ -698,13 +704,15 @@ impl NativeNetwork {
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::DeliveryComplete);
-        send.write_all(b"DONE")
+        write_control_fixed(&exchange, b"DONE")
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
-        send.finish()
+        exchange
+            .finish_send()
+            .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
         // Let the recipient read DONE before closing this one-use TLS session.
-        let _ = connection.closed().await;
+        let _ = connection.revocation_handle().closed().await;
         self.store
             .recovery_result(request)
             .await

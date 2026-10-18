@@ -217,7 +217,17 @@ fn gateway_node_worker() {
                     format!("10.39.0.2:{internal_port}"),
                 )
                 .unwrap();
-                let connection = endpoint.endpoint().accept().await.unwrap().await.unwrap();
+                let connection = std::sync::Arc::new(
+                    endpoint
+                        .endpoint()
+                        .accept()
+                        .await
+                        .unwrap()
+                        .accept_control()
+                        .unwrap()
+                        .await
+                        .unwrap(),
+                );
                 node.serve_manual_admission(&connection).await.unwrap();
                 let request = node.manual_requests().await.unwrap().pop().unwrap();
                 node.approve_manual_admission(&request).await.unwrap();
@@ -365,9 +375,10 @@ fn gateway_node_worker() {
                 let target = EndpointAddr::new(id).with_addrs([TransportAddr::Ip(address)]);
                 let connection = endpoint
                     .endpoint()
-                    .connect(target.clone(), ADMISSION_REQUEST_ALPN)
+                    .connect_control(target.clone(), ADMISSION_REQUEST_ALPN)
                     .await
                     .unwrap();
+                let connection = std::sync::Arc::new(connection);
                 assert!(matches!(
                     node.request_manual_admission(&connection).await.unwrap(),
                     ManualExchange::AwaitingApproval

@@ -1,4 +1,6 @@
 //! Real QAD/TLS/control/UDP seams for the legacy selector, not NAT-rate evidence.
+#[path = "support/control_handoff.rs"]
+mod handoff;
 use std::{
     net::Ipv4Addr,
     sync::{Arc, Mutex},
@@ -260,8 +262,9 @@ async fn formal_ipv6_direct_requires_no_ipv4_observation_or_punching() {
 }
 
 struct Pair {
-    c: Endpoint,
-    v: Endpoint,
+    c: iroh::endpoint::RestrictedEndpoint,
+    v: iroh::endpoint::RestrictedEndpoint,
+    pending: Mutex<Vec<tokio::sync::mpsc::UnboundedReceiver<handoff::PendingControl>>>,
     c_gate: AdmissionGate,
     v_gate: AdmissionGate,
     observers: RelayMap,
@@ -317,9 +320,11 @@ impl Pair {
             gate.update_authorization(members, []);
         }
         let mut endpoints = Vec::new();
+        let mut receivers = Vec::new();
         for (key, gate) in [(c_key, &c_gate), (v_key, &v_gate)] {
-            let endpoint = gate
-                .configure(Endpoint::builder(presets::Minimal))
+            let (pending, receive) = tokio::sync::mpsc::unbounded_channel();
+            receivers.push(receive);
+            let endpoint = Endpoint::builder(presets::Minimal)
                 .secret_key(key)
                 .alpns(vec![CONTROL_ALPN.to_vec()])
                 .clear_ip_transports()
@@ -328,6 +333,10 @@ impl Pair {
                 .clear_relay_transports()
                 .observation_servers(observers.clone())
                 .ca_tls_config(CaTlsConfig::custom_roots(certs.clone()))
+                .restricted_application(handoff::PendingDataPolicy {
+                    gate: gate.clone(),
+                    pending,
+                })
                 .bind()
                 .await
                 .unwrap();
@@ -350,17 +359,31 @@ impl Pair {
             v_gate,
             observers,
             _servers: servers,
+            pending: Mutex::new(receivers),
         }
     }
 
     async fn connect(&self) -> (ControlSession, ControlSession) {
         let target = EndpointAddr::new(self.c.id())
             .with_addrs(self.c.bound_sockets().into_iter().map(TransportAddr::Ip));
-        let (c, v) = tokio::join!(
-            ControlSession::accept(&self.c),
-            ControlSession::connect(&self.v, target, CONTROL_ALPN)
-        );
-        (c.unwrap(), v.unwrap())
+        let c = self.c.clone();
+        let v = self.v.clone();
+        let accept = tokio::spawn(async move {
+            c.accept()
+                .await
+                .unwrap()
+                .await
+                .map_err(std::io::Error::other)
+        });
+        let dial = tokio::spawn(async move {
+            v.connect(target, CONTROL_ALPN)
+                .await
+                .map_err(std::io::Error::other)
+        });
+        let mut receivers = self.pending.lock().unwrap();
+        let c = receivers[0].recv().await.unwrap();
+        let v = receivers[1].recv().await.unwrap();
+        (c.session(accept), v.session(dial))
     }
 
     async fn snapshots(&self) -> (MappingSnapshot, MappingSnapshot) {
@@ -443,8 +466,8 @@ async fn two_real_qad_observers_public_preference_original_business_and_learning
         "a repeated attempt must not spend the remaining budget"
     );
     assert!(c_budget.spend_peer_datagram());
-    let c_data = c.commit_data_path().await.unwrap();
-    let v_data = v.commit_data_path().await.unwrap();
+    let (c_data, v_data) = tokio::join!(c.commit_data_path(), v.commit_data_path());
+    let (c_data, v_data) = (c_data.unwrap(), v_data.unwrap());
     assert_eq!(c_data.connection().stable_id(), stable);
     let (mut send, mut recv) = v_data.connection().open_bi().await.unwrap();
     send.write_all(b"legacy-business").await.unwrap();
@@ -471,10 +494,13 @@ async fn old_prediction_age_does_not_expire_a_legacy_plan_but_network_change_doe
         c_snapshot.is_current(),
         "old 3/5/10 second delays need more than the predictor's two seconds"
     );
-    let assisted = MappingSnapshot::fallback(&pair.c, UdpObservation::Disabled)
-        .unwrap()
-        .with_assisted(pair.c.bound_sockets())
-        .unwrap();
+    let assisted = MappingSnapshot::fallback_generation(
+        pair.c.udp_network_generation(),
+        UdpObservation::Disabled,
+    )
+    .unwrap()
+    .with_assisted(pair.c.bound_sockets())
+    .unwrap();
     assert!(assisted.is_current());
     pair.c.network_change().await;
     tokio::time::timeout(Duration::from_secs(3), async {
@@ -485,8 +511,8 @@ async fn old_prediction_age_does_not_expire_a_legacy_plan_but_network_change_doe
     .await
     .unwrap();
     assert!(
-        MappingSnapshot::fallback(
-            &pair.c,
+        MappingSnapshot::fallback_generation(
+            pair.c.udp_network_generation(),
             UdpObservation::Failed(UdpObservationFailure::NetworkChanged)
         )
         .is_err()
@@ -528,11 +554,14 @@ async fn cancelled_or_revoked_round_has_no_peer_budget_or_learning_feedback() {
     pair.close().await;
 }
 
-async fn send_json(send: &mut iroh::endpoint::SendStream, value: serde_json::Value) {
-    send.write_all(&serde_json::to_vec(&value).unwrap())
+async fn send_json(exchange: &iroh::endpoint::ControlExchange, value: serde_json::Value) {
+    exchange
+        .send_message(
+            iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 16384 },
+            &serde_json::to_vec(&value).unwrap(),
+        )
         .await
         .unwrap();
-    send.finish().unwrap();
 }
 
 #[tokio::test]
@@ -543,17 +572,24 @@ async fn wrong_network_and_old_round_are_rejected_before_snapshot_disclosure_or_
         let (c, v) = pair.connect().await;
         let analyzer = Arc::new(Mutex::new(Analyzer::new(Instant::now())));
         let malicious_visitor = async {
-            let (mut send, mut recv) = v.open_control_bi().await.unwrap();
-            send_json(&mut send,serde_json::json!({"Hello":{"network":vec![if wrong_network {99} else {62};32],"generation":1}})).await;
+            let exchange = v.open_control_exchange().await.unwrap();
+            send_json(&exchange,serde_json::json!({"Hello":{"network":vec![if wrong_network {99} else {62};32],"generation":1}})).await;
             if wrong_network {
                 return;
             }
-            let challenge: serde_json::Value =
-                serde_json::from_slice(&recv.read_to_end(16384).await.unwrap()).unwrap();
+            let challenge: serde_json::Value = serde_json::from_slice(
+                &exchange
+                    .recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated {
+                        maximum: 16384,
+                    })
+                    .await
+                    .unwrap(),
+            )
+            .unwrap();
             let mut round = challenge["Challenge"]["round"].as_array().unwrap().clone();
             round[0] = serde_json::json!(round[0].as_u64().unwrap() ^ 1);
-            let (mut send, _) = v.open_control_bi().await.unwrap();
-            send_json(&mut send,serde_json::json!({"Offer":{"round":round,"snapshot":{"mapped":vec![pair.v.bound_sockets()[0].to_string();2],"local_ips":[],"assisted":[]}}})).await;
+            let exchange = v.open_control_exchange().await.unwrap();
+            send_json(&exchange,serde_json::json!({"Offer":{"round":round,"snapshot":{"mapped":vec![pair.v.bound_sockets()[0].to_string();2],"local_ips":[],"assisted":[]}}})).await;
         };
         let (result, _) = tokio::join!(
             nat_punch::coordinate_server(&c, &pair.c_gate, &snapshot, &analyzer),
@@ -577,7 +613,11 @@ async fn wrong_network_and_old_round_are_rejected_before_snapshot_disclosure_or_
 async fn wrong_gate_and_empty_fallback_cannot_disclose_candidates_or_spend_peer_budget() {
     let pair = Pair::new().await;
     let (c, v) = pair.connect().await;
-    let snapshot = MappingSnapshot::fallback(&pair.c, UdpObservation::Disabled).unwrap();
+    let snapshot = MappingSnapshot::fallback_generation(
+        pair.c.udp_network_generation(),
+        UdpObservation::Disabled,
+    )
+    .unwrap();
     let analyzer = Arc::new(Mutex::new(Analyzer::new(Instant::now())));
     let wrong = AdmissionGate::new(
         SecretKey::generate().public(),
@@ -590,8 +630,16 @@ async fn wrong_gate_and_empty_fallback_cannot_disclose_candidates_or_spend_peer_
             .is_err()
     );
     assert_eq!(analyzer.lock().unwrap().clean(Instant::now()), (0, 0));
-    let c_empty = MappingSnapshot::fallback(&pair.c, UdpObservation::Disabled).unwrap();
-    let v_empty = MappingSnapshot::fallback(&pair.v, UdpObservation::Disabled).unwrap();
+    let c_empty = MappingSnapshot::fallback_generation(
+        pair.c.udp_network_generation(),
+        UdpObservation::Disabled,
+    )
+    .unwrap();
+    let v_empty = MappingSnapshot::fallback_generation(
+        pair.v.udp_network_generation(),
+        UdpObservation::Disabled,
+    )
+    .unwrap();
     let (c_attempt, v_attempt) = tokio::join!(
         nat_punch::coordinate_server(&c, &pair.c_gate, &c_empty, &analyzer),
         nat_punch::coordinate_client(&v, &pair.v_gate, &v_empty),
@@ -623,11 +671,18 @@ async fn wrong_gate_and_empty_fallback_cannot_disclose_candidates_or_spend_peer_
 async fn assisted_only_fallback_receives_without_an_outbound_target_and_sender_keeps_lan_first() {
     let pair = Pair::new().await;
     let (c, v) = pair.connect().await;
-    let c_snapshot = MappingSnapshot::fallback(&pair.c, UdpObservation::Disabled)
-        .unwrap()
-        .with_assisted(pair.c.bound_sockets())
-        .unwrap();
-    let v_snapshot = MappingSnapshot::fallback(&pair.v, UdpObservation::Disabled).unwrap();
+    let c_snapshot = MappingSnapshot::fallback_generation(
+        pair.c.udp_network_generation(),
+        UdpObservation::Disabled,
+    )
+    .unwrap()
+    .with_assisted(pair.c.bound_sockets())
+    .unwrap();
+    let v_snapshot = MappingSnapshot::fallback_generation(
+        pair.v.udp_network_generation(),
+        UdpObservation::Disabled,
+    )
+    .unwrap();
     let analyzer = Arc::new(Mutex::new(Analyzer::new(Instant::now())));
     let (c_attempt, v_attempt) = tokio::join!(
         nat_punch::coordinate_server(&c, &pair.c_gate, &c_snapshot, &analyzer),
@@ -661,8 +716,8 @@ async fn assisted_only_fallback_receives_without_an_outbound_target_and_sender_k
         ExecutionStatus::PartialExecution
     );
     assert!(!send_budget.spend_peer_datagram());
-    let c_data = c.commit_data_path().await.unwrap();
-    let v_data = v.commit_data_path().await.unwrap();
+    let (c_data, v_data) = tokio::join!(c.commit_data_path(), v.commit_data_path());
+    let (c_data, v_data) = (c_data.unwrap(), v_data.unwrap());
     let (mut send, _) = v_data.connection().open_bi().await.unwrap();
     send.write_all(b"assisted").await.unwrap();
     send.finish().unwrap();
@@ -701,8 +756,8 @@ async fn existing_verified_path_cannot_learn_when_budget_was_denied_or_credentia
             .execute_partial(&v, &pair.v_gate, &NodeProbeBudget::new(0, 1))
             .await
             .unwrap();
-        let c_data = c.commit_data_path().await.unwrap();
-        let v_data = v.commit_data_path().await.unwrap();
+        let (c_data, v_data) = tokio::join!(c.commit_data_path(), v.commit_data_path());
+        let (c_data, v_data) = (c_data.unwrap(), v_data.unwrap());
         let (mut send, _) = v_data.connection().open_bi().await.unwrap();
         send.write_all(b"authorized-before-change").await.unwrap();
         send.finish().unwrap();
@@ -748,8 +803,8 @@ async fn complete_scheduler_preserves_original_tls_connection_business_and_one_f
     assert_eq!(va.remote_target(), Some(pair.c.bound_sockets()[0]));
     assert_eq!(ca.execution_trace().unwrap().responses, 3);
     assert!(va.execution_trace().unwrap().probes > 0);
-    let cd = c.commit_data_path().await.unwrap();
-    let vd = v.commit_data_path().await.unwrap();
+    let (cd, vd) = tokio::join!(c.commit_data_path(), v.commit_data_path());
+    let (cd, vd) = (cd.unwrap(), vd.unwrap());
     assert_eq!(cd.connection().stable_id(), stable);
     let (mut send, mut recv) = vd.connection().open_bi().await.unwrap();
     send.write_all(b"complete-scheduler-business")
@@ -770,8 +825,8 @@ async fn complete_scheduler_preserves_original_tls_connection_business_and_one_f
 }
 
 fn raw_auth(
-    local: &Endpoint,
-    remote: &Endpoint,
+    local: &iroh::endpoint::RestrictedEndpoint,
+    remote: &iroh::endpoint::RestrictedEndpoint,
 ) -> miopunch_native_probe::nat_scheduler::PacketAuth {
     miopunch_native_probe::nat_scheduler::PacketAuth {
         key: [63; 32],
@@ -866,8 +921,8 @@ async fn dropping_attempt_during_sender_delay_spends_nothing_and_cannot_learn() 
         .await
         .unwrap();
     drop(lease);
-    let vd = v.commit_data_path().await.unwrap();
-    let cd = c.commit_data_path().await.unwrap();
+    let (vd, cd) = tokio::join!(v.commit_data_path(), c.commit_data_path());
+    let (vd, cd) = (vd.unwrap(), cd.unwrap());
     assert!(!va.confirm_success(&vd, &pair.v_gate, &analyzer));
     assert!(!ca.confirm_success(&cd, &pair.c_gate, &analyzer));
     pair.close().await;
@@ -922,16 +977,36 @@ async fn exhaustion_stops_full_phase_and_existing_authorized_control_remains_usa
         .await
         .unwrap_err();
     assert!(result.to_string().contains("budget exhausted"));
-    let (mut send, mut recv) = v.open_control_bi().await.unwrap();
-    send.write_all(b"still-control").await.unwrap();
-    send.finish().unwrap();
-    let (mut reply, mut request) = c.accept_control_bi().await.unwrap();
-    assert_eq!(request.read_to_end(64).await.unwrap(), b"still-control");
-    reply.write_all(b"alive").await.unwrap();
-    reply.finish().unwrap();
-    assert_eq!(recv.read_to_end(64).await.unwrap(), b"alive");
-    let vd = v.commit_data_path().await.unwrap();
-    let cd = c.commit_data_path().await.unwrap();
+    let send = v.open_control_exchange().await.unwrap();
+    send.send_message(
+        iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 64 },
+        b"still-control",
+    )
+    .await
+    .unwrap();
+    let reply = c.accept_control_exchange().await.unwrap();
+    assert_eq!(
+        reply
+            .recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 64 })
+            .await
+            .unwrap(),
+        b"still-control"
+    );
+    reply
+        .send_message(
+            iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 64 },
+            b"alive",
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        send.recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 64 })
+            .await
+            .unwrap(),
+        b"alive"
+    );
+    let (vd, cd) = tokio::join!(v.commit_data_path(), c.commit_data_path());
+    let (vd, cd) = (vd.unwrap(), cd.unwrap());
     assert!(!va.confirm_success(&vd, &pair.v_gate, &analyzer));
     assert!(!ca.confirm_success(&cd, &pair.c_gate, &analyzer));
     pair.close().await;
@@ -981,8 +1056,11 @@ async fn winner_handoff_waits_for_peer_inside_the_original_deadline_and_rechecks
             assert_eq!((c.stable_id(), v.stable_id()), stable);
             ca.verify_winner_path(&c, &pair.c_gate).unwrap();
             va.verify_winner_path(&v, &pair.v_gate).unwrap();
-            let cd = ca.commit_winner_path(c, &pair.c_gate).await.unwrap();
-            let vd = va.commit_winner_path(v, &pair.v_gate).await.unwrap();
+            let (cd, vd) = tokio::join!(
+                ca.commit_winner_path(c, &pair.c_gate),
+                va.commit_winner_path(v, &pair.v_gate)
+            );
+            let (cd, vd) = (cd.unwrap(), vd.unwrap());
             assert_eq!(
                 (cd.connection().stable_id(), vd.connection().stable_id()),
                 stable
@@ -1021,7 +1099,9 @@ async fn ordinary_qad_refresh_keeps_the_physical_generation_but_real_network_cha
     let generation = pair.c.udp_observation_generation();
     let physical = pair.c.bound_sockets();
     let mut reports = pair.c.udp_observation();
-    let fallback = MappingSnapshot::fallback(&pair.c, reports.get()).unwrap();
+    let fallback =
+        MappingSnapshot::fallback_generation(pair.c.udp_network_generation(), reports.get())
+            .unwrap();
     tokio::time::timeout(Duration::from_secs(40), async {
         while generation.is_current() {
             reports.updated().await.unwrap();
@@ -1061,8 +1141,8 @@ async fn low_ttl_and_unsupported_ttl_do_not_change_parallel_connection_business(
         let (cs, vs) = pair.snapshots().await;
         let (c, v) = pair.connect().await;
         let (c2, v2) = pair.connect().await;
-        let cd2 = c2.commit_data_path().await.unwrap();
-        let vd2 = v2.commit_data_path().await.unwrap();
+        let (cd2, vd2) = tokio::join!(c2.commit_data_path(), v2.commit_data_path());
+        let (cd2, vd2) = (cd2.unwrap(), vd2.unwrap());
         if degraded {
             pair.c.test_force_traversal_ttl_unavailable().await;
             pair.v.test_force_traversal_ttl_unavailable().await;
@@ -1173,7 +1253,9 @@ async fn fallback_retains_a_freshly_acquired_candidate_for_its_phase() {
         mapping_varies_by_dest: None,
         validity: pair.c.udp_observation_generation(),
     };
-    let snapshot = MappingSnapshot::fallback(&pair.c, original.clone()).unwrap();
+    let snapshot =
+        MappingSnapshot::fallback_generation(pair.c.udp_network_generation(), original.clone())
+            .unwrap();
     tokio::time::sleep(Duration::from_millis(150)).await;
     assert!(!original.is_fresh());
     assert!(snapshot.is_current());
@@ -1295,14 +1377,34 @@ async fn isolated_functional_cpu_cost_supplement() {
         after, before,
         "temporary physical listeners were not released"
     );
-    let (mut send, mut recv) = v.open_control_bi().await.unwrap();
-    send.write_all(b"CPU-CONTROL-PING").await.unwrap();
-    send.finish().unwrap();
-    let (mut reply, mut request) = c.accept_control_bi().await.unwrap();
-    assert_eq!(request.read_to_end(64).await.unwrap(), b"CPU-CONTROL-PING");
-    reply.write_all(b"CPU-CONTROL-PONG").await.unwrap();
-    reply.finish().unwrap();
-    assert_eq!(recv.read_to_end(64).await.unwrap(), b"CPU-CONTROL-PONG");
+    let send = v.open_control_exchange().await.unwrap();
+    send.send_message(
+        iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 64 },
+        b"CPU-CONTROL-PING",
+    )
+    .await
+    .unwrap();
+    let reply = c.accept_control_exchange().await.unwrap();
+    assert_eq!(
+        reply
+            .recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 64 })
+            .await
+            .unwrap(),
+        b"CPU-CONTROL-PING"
+    );
+    reply
+        .send_message(
+            iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 64 },
+            b"CPU-CONTROL-PONG",
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        send.recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 64 })
+            .await
+            .unwrap(),
+        b"CPU-CONTROL-PONG"
+    );
     assert_eq!((c.stable_id(), v.stable_id()), stable);
     assert!(c.may_upgrade_member_path(&pair.c_gate));
     assert!(v.may_upgrade_member_path(&pair.v_gate));

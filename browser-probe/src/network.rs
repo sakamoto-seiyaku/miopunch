@@ -981,7 +981,7 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
     }
     fn prepare<'a>(
         &'a self,
-        endpoint: &'a Endpoint,
+        endpoint: Option<&'a Endpoint>,
         connection: &'a Connection,
         attempt: crate::connection_coordinator::ProtectedAttempt,
         plan: crate::connection_coordinator::PathPlan,
@@ -990,6 +990,7 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
     > + Send
     + 'a {
         send_wrapper::SendWrapper::new(async move {
+            let endpoint = endpoint.ok_or_else(|| control_error("InvalidControl"))?;
             use crate::connection_coordinator::{
                 MemberPathAdapter, PathPlan, PreparedPath, control_error,
             };
@@ -1083,7 +1084,7 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
 
     fn prepare_active<'a>(
         &'a self,
-        endpoint: &'a Endpoint,
+        endpoint: Option<&'a Endpoint>,
         original: &'a Connection,
         control: &'a Connection,
         attempt: crate::connection_coordinator::ProtectedAttempt,
@@ -1103,7 +1104,15 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
                         crate::connection_coordinator::control_error("DataPathUnavailable")
                     })?;
                     rtc_member::bootstrap_control_active(
-                        endpoint, original, control, self, &saved, &transport, attempt,
+                        endpoint.ok_or_else(|| {
+                            crate::connection_coordinator::control_error("InvalidControl")
+                        })?,
+                        original,
+                        control,
+                        self,
+                        &saved,
+                        &transport,
+                        attempt,
                     )
                     .await
                     .map_err(|cause| {

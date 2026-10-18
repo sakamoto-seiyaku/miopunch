@@ -1,5 +1,10 @@
 //! Admission-secret rotation through durable public nodes and real TLS/QUIC.
-use iroh::{Endpoint, EndpointAddr, endpoint::Connection};
+#[path = "support/native_connections.rs"]
+mod native_connections;
+use iroh::endpoint::RestrictedEndpoint;
+use native_connections::{receive_field, send_field};
+
+use iroh::{EndpointAddr, endpoint::Connection};
 use miopunch_native_probe::admission_gate::ADMISSION_REQUEST_ALPN;
 use miopunch_native_probe::admission_rotation::{ADMISSION_ROTATION_ALPN, RotationStage};
 use miopunch_native_probe::genesis_recovery::GenesisCredential;
@@ -18,16 +23,12 @@ fn credential(path: &Path) -> GenesisCredential {
     )
 }
 
-async fn connect(a: &Endpoint, b: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
-    tokio::time::timeout(Duration::from_secs(10), async {
-        let address = EndpointAddr::new(b.id()).with_ip_addr(*b.addr().ip_addrs().next().unwrap());
-        let (a, b) = tokio::join!(a.connect(address, alpn), async {
-            b.accept().await.unwrap().await
-        });
-        (a.unwrap(), b.unwrap())
-    })
-    .await
-    .unwrap()
+async fn connect(
+    client: &RestrictedEndpoint,
+    server: &RestrictedEndpoint,
+    alpn: &[u8],
+) -> (Connection, Connection) {
+    native_connections::member_pair(client, server, alpn).await
 }
 
 async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
@@ -36,7 +37,7 @@ async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
         .unwrap();
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ne = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
     let (request, served) = tokio::join!(
         node.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -65,7 +66,8 @@ async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
 async fn distribute(initiator: &mut NativeNetwork, member: &mut NativeNetwork) {
     let ie = initiator.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let me = member.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ie, &me, ADMISSION_ROTATION_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&ie, &me, ADMISSION_ROTATION_ALPN).await;
     let (sent, received) = tokio::join!(
         initiator.distribute_admission_rotation(&client),
         member.receive_admission_rotation(&server)
@@ -258,9 +260,10 @@ async fn received_before_commit_process_crash_never_acknowledges_or_switches() {
     .await;
     let endpoint = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let connection = endpoint
-        .connect(target, ADMISSION_ROTATION_ALPN)
+        .connect_control(target, ADMISSION_ROTATION_ALPN)
         .await
         .unwrap();
+    let connection = std::sync::Arc::new(connection);
     assert!(c.distribute_admission_rotation(&connection).await.is_err());
     let exit = tokio::time::timeout(Duration::from_secs(10), child.wait())
         .await
@@ -335,9 +338,10 @@ async fn saved_replacement_lost_ack_is_retryable_after_member_and_initiator_rest
     .await;
     let endpoint = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let connection = endpoint
-        .connect(target, ADMISSION_ROTATION_ALPN)
+        .connect_control(target, ADMISSION_ROTATION_ALPN)
         .await
         .unwrap();
+    let connection = std::sync::Arc::new(connection);
     assert!(c.distribute_admission_rotation(&connection).await.is_err());
     assert_eq!(
         tokio::time::timeout(Duration::from_secs(10), child.wait())
@@ -418,9 +422,10 @@ async fn initiator_ack_boundary(checkpoint: &str, expected_saved: usize) {
     .await;
     let endpoint = member.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let connection = endpoint
-        .connect(target, ADMISSION_ROTATION_ALPN)
+        .connect_control(target, ADMISSION_ROTATION_ALPN)
         .await
         .unwrap();
+    let connection = std::sync::Arc::new(connection);
     assert!(
         member
             .receive_admission_rotation(&connection)
@@ -494,7 +499,7 @@ async fn new_manual_approval_waits_for_rotation_without_creating_membership() {
             .unwrap();
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ae = applicant.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ae, &ce, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ae, &ce, ADMISSION_REQUEST_ALPN).await;
     let (sent, served) = tokio::join!(
         applicant.request_manual_admission(&client),
         c.serve_manual_admission(&server)
@@ -519,7 +524,7 @@ async fn new_manual_approval_waits_for_rotation_without_creating_membership() {
     c.approve_manual_admission(&request).await.unwrap();
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ae = applicant.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ae, &ce, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ae, &ce, ADMISSION_REQUEST_ALPN).await;
     let receive = async {
         let ManualExchange::Materials(material) =
             applicant.request_manual_admission(&client).await.unwrap()
@@ -552,7 +557,7 @@ async fn already_approved_member_without_old_secret_receives_only_rotation_repla
         .unwrap();
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ae, &ce, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ae, &ce, ADMISSION_REQUEST_ALPN).await;
     let (sent, served) = tokio::join!(
         a.request_manual_admission(&client),
         c.serve_manual_admission(&server)
@@ -586,7 +591,7 @@ async fn already_approved_member_without_old_secret_receives_only_rotation_repla
     ce.close().await;
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ce, &ae, ROTATION_DELIVERY_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ce, &ae, ROTATION_DELIVERY_ALPN).await;
     let (sent, received) = tokio::join!(
         c.distribute_admission_rotation(&client),
         a.receive_admission_rotation(&server)
@@ -655,7 +660,10 @@ async fn pending_root_generation(
         "root-recovery",
     )
     .await;
-    let connection = ce.connect(target, MANAGEMENT_RECOVERY_ALPN).await.unwrap();
+    let connection = ce
+        .connect_control(target, MANAGEMENT_RECOVERY_ALPN)
+        .await
+        .unwrap();
     assert!(c.serve_management_recovery(&connection).await.is_err());
     assert_eq!(
         tokio::time::timeout(Duration::from_secs(10), child.wait())
@@ -709,7 +717,8 @@ async fn pending_root_recovery_delivery_pauses_but_fresh_root_proof_receives_rep
     c.begin_admission_rotation(&mut session).await.unwrap();
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let re = root.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&re, &ce, MANAGEMENT_RECOVERY_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&re, &ce, MANAGEMENT_RECOVERY_ALPN).await;
     let (restored, served) = tokio::join!(
         root.restore_management(&client),
         c.serve_management_recovery(&server)
@@ -719,7 +728,7 @@ async fn pending_root_recovery_delivery_pauses_but_fresh_root_proof_receives_rep
         "ordinary root restoration material delivery pauses"
     );
     assert!(c.manual_requests().await.unwrap().is_empty());
-    let (client, server) = connect(&ce, &re, ROTATION_DELIVERY_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ce, &re, ROTATION_DELIVERY_ALPN).await;
     let (sent, received) = tokio::join!(
         c.distribute_admission_rotation(&client),
         root.receive_admission_rotation(&server)
@@ -774,7 +783,8 @@ async fn forged_ack_signature_is_rejected_without_counting_the_member() {
     c.begin_admission_rotation(&mut session).await.unwrap();
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ce, &ae, ADMISSION_ROTATION_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&ce, &ae, ADMISSION_ROTATION_ALPN).await;
     let (sent, received) = tokio::join!(
         c.distribute_admission_rotation(&client),
         a.receive_admission_rotation_fixture(&server, RotationAckFault::ForgedSignature)
@@ -834,7 +844,8 @@ async fn ack_signed_by_another_retained_identity_cannot_count_on_this_tls_connec
     assert!(initial.retained.contains(&b.status().node_id));
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ce, &ae, ADMISSION_ROTATION_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&ce, &ae, ADMISSION_ROTATION_ALPN).await;
     assert_eq!(client.remote_id().as_bytes(), a.status().node_id.as_bytes());
     let (sent, received) = tokio::join!(
         c.distribute_admission_rotation(&client),
@@ -893,7 +904,8 @@ async fn actual_previous_rotation_signed_ack_is_rejected_in_the_next_generation(
     assert_eq!(next.generation, 2);
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ce, &ae, ADMISSION_ROTATION_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&ce, &ae, ADMISSION_ROTATION_ALPN).await;
     let (sent, received) = tokio::join!(
         c.distribute_admission_rotation(&client),
         a.receive_admission_rotation_fixture(&server, RotationAckFault::PreviousRotation)
@@ -1028,7 +1040,8 @@ async fn completed_root_recovery_rotates_reopens_and_rejoins_ordinary_at_a_later
         .await
         .unwrap();
     let re = r.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&re, &ce, MANAGEMENT_RECOVERY_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&re, &ce, MANAGEMENT_RECOVERY_ALPN).await;
     let (received, served) = tokio::join!(
         r.restore_management(&client),
         c.serve_management_recovery(&server)
@@ -1092,7 +1105,7 @@ async fn completed_root_recovery_rotates_reopens_and_rejoins_ordinary_at_a_later
     c.finish_admission_rotation(&mut session).await.unwrap();
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let re = r.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&re, &ce, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&re, &ce, ADMISSION_REQUEST_ALPN).await;
     let (requested, served) = tokio::join!(
         r.request_manual_admission(&client),
         c.serve_manual_admission(&server)
@@ -1287,7 +1300,8 @@ async fn staged_proof_stays_restricted_and_switch_closes_old_member_sessions() {
         client.is_err() && server.is_err(),
         "staged new credential cannot start the normal member protocol"
     );
-    let (client, server) = connect(&ce, &ae, ADMISSION_ROTATION_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&ce, &ae, ADMISSION_ROTATION_ALPN).await;
     assert!(a.admission_gate().allows(&server, ProtocolScope::Rotation));
     assert!(!a.admission_gate().allows(&server, ProtocolScope::Member));
     assert!(!a.admission_gate().allows_member_path_upgrade(&server));
@@ -1336,9 +1350,10 @@ async fn switch_boundary(checkpoint: &str, receiver_crashes: bool) {
         .await;
         let endpoint = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
         let connection = endpoint
-            .connect(target, ADMISSION_ROTATION_ALPN)
+            .connect_control(target, ADMISSION_ROTATION_ALPN)
             .await
             .unwrap();
+        let connection = std::sync::Arc::new(connection);
         assert!(c.distribute_admission_rotation(&connection).await.is_err());
         assert_eq!(
             tokio::time::timeout(Duration::from_secs(10), child.wait())
@@ -1356,7 +1371,7 @@ async fn switch_boundary(checkpoint: &str, receiver_crashes: bool) {
             rotation_worker(&cp, &dir.path().join("worker.public"), checkpoint, "finish").await;
         let endpoint = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
         let _connection = endpoint
-            .connect(target, ADMISSION_ROTATION_ALPN)
+            .connect_control(target, ADMISSION_ROTATION_ALPN)
             .await
             .unwrap();
         assert_eq!(
@@ -1436,7 +1451,7 @@ async fn redeem(
 ) -> bool {
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ae, &ce, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ae, &ce, ADMISSION_REQUEST_ALPN).await;
     let receive = async {
         match a.request_precode_admission(&client, code).await {
             Ok(ManualExchange::Materials(material)) => {
@@ -1496,7 +1511,7 @@ async fn old_precode_material_resumption_pauses_but_retained_replacement_preserv
         .unwrap();
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ae, &ce, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ae, &ce, ADMISSION_REQUEST_ALPN).await;
     let receive = async {
         let ManualExchange::Materials(material) =
             a.request_precode_admission(&client, &code).await.unwrap()
@@ -1520,7 +1535,7 @@ async fn old_precode_material_resumption_pauses_but_retained_replacement_preserv
     assert_eq!(c.precode_usage(&code).await.unwrap(), 1);
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ce, &ae, ROTATION_DELIVERY_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ce, &ae, ROTATION_DELIVERY_ALPN).await;
     let (sent, received) = tokio::join!(
         c.distribute_admission_rotation(&client),
         a.receive_admission_rotation(&server)
@@ -1562,7 +1577,7 @@ async fn unapproved_tls_identity_cannot_receive_retained_replacement_or_history(
     c.begin_admission_rotation(&mut session).await.unwrap();
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ce, &ae, ROTATION_DELIVERY_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ce, &ae, ROTATION_DELIVERY_ALPN).await;
     let (sent, received) = tokio::join!(
         c.distribute_admission_rotation(&client),
         a.receive_admission_rotation(&server)
@@ -1603,7 +1618,7 @@ async fn initial_boundary(checkpoint: &str) {
         rotation_worker(&cp, &dir.path().join("worker.public"), checkpoint, "begin").await;
     let endpoint = applicant.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let _connection = endpoint
-        .connect(target, ADMISSION_REQUEST_ALPN)
+        .connect_control(target, ADMISSION_REQUEST_ALPN)
         .await
         .unwrap();
     assert_eq!(
@@ -1707,7 +1722,7 @@ async fn replacement(provider: &mut NativeNetwork, recipient: &mut NativeNetwork
     use miopunch_native_probe::admission_rotation::ROTATION_DELIVERY_ALPN;
     let pe = provider.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let re = recipient.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&pe, &re, ROTATION_DELIVERY_ALPN).await;
+    let (client, server) = native_connections::control_pair(&pe, &re, ROTATION_DELIVERY_ALPN).await;
     let (sent, received) = tokio::join!(
         provider.distribute_admission_rotation(&client),
         recipient.receive_admission_rotation(&server)
@@ -1733,7 +1748,7 @@ async fn original_provider_relays_different_initiator_replacement_and_signed_ack
         .unwrap();
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let xe = x.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&xe, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&xe, &ae, ADMISSION_REQUEST_ALPN).await;
     let (requested, served) = tokio::join!(
         x.request_manual_admission(&client),
         a.serve_manual_admission(&server)
@@ -1760,7 +1775,8 @@ async fn original_provider_relays_different_initiator_replacement_and_signed_ack
         use miopunch_native_probe::admission_rotation::RotationAckFault;
         let be = b.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
         let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-        let (client, server) = connect(&be, &ae, ADMISSION_ROTATION_ALPN).await;
+        let (client, server) =
+            native_connections::control_pair(&be, &ae, ADMISSION_ROTATION_ALPN).await;
         let (sent, received) = tokio::join!(
             b.distribute_admission_rotation(&client),
             a.receive_admission_rotation_fixture(
@@ -1860,7 +1876,7 @@ async fn original_root_provider_relays_other_initiator_but_node_key_cannot_repla
     distribute(&mut b, &mut a).await;
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let re = root.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ae, &re, ROTATION_DELIVERY_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ae, &re, ROTATION_DELIVERY_ALPN).await;
     let node_key = p2panda_core::SigningKey::from_bytes(
         &std::fs::read(rp.join("node.key"))
             .unwrap()
@@ -1871,9 +1887,10 @@ async fn original_root_provider_relays_other_initiator_but_node_key_cannot_repla
     let recovering = re.id();
     let contact = ae.id();
     let invalid = async {
-        let (mut send, mut recv) = server.accept_bi().await.unwrap();
+        let exchange = server.accept_control_exchange().await.unwrap();
+        let (send, recv) = (&exchange, &exchange);
         let mut profile = [0];
-        recv.read_exact(&mut profile).await.unwrap();
+        receive_field(recv, &mut profile).await.unwrap();
         assert_eq!(profile, [2]);
         let mut exporter = [0; 32];
         server
@@ -1885,12 +1902,14 @@ async fn original_root_provider_relays_other_initiator_but_node_key_cannot_repla
         statement.extend_from_slice(recovering.as_bytes());
         statement.extend_from_slice(contact.as_bytes());
         statement.extend_from_slice(&exporter);
-        send.write_all(&node_key.sign(&statement).to_bytes())
+        send_field(send, &node_key.sign(&statement).to_bytes())
             .await
             .unwrap();
         let mut first_history_length = [0; 4];
         assert!(
-            recv.read_exact(&mut first_history_length).await.is_err(),
+            receive_field(recv, &mut first_history_length)
+                .await
+                .is_err(),
             "valid TLS node key must not disclose root history"
         );
     };

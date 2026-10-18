@@ -233,7 +233,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                             let member = connection.clone();
                                             let gate = gate.clone();
                                             let transport = rtc_transport.clone();
-                                            streams.spawn(async move { miopunch_native_probe::rtc_member::serve_stream(endpoint, member, gate, transport, send, recv).await });
+                                            streams.spawn(async move { miopunch_native_probe::rtc_member::serve_stream(endpoint.id(), member, gate, transport, send, recv).await });
                                         },
                                         Some(result) = streams.join_next(), if !streams.is_empty() => {
                                             if let Ok(Err(error)) = result { eprintln!("owned member stream: {error}"); }

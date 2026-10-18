@@ -1,8 +1,10 @@
 //! Repair a data carrier while the original authenticated connection still lives.
 //! A separate restricted exchange coordinates candidates; it never carries business.
+use crate::control_protocol::AuthenticatedControl;
 use crate::{
     admission_gate::ProtocolScope, native_network::NativeNetwork, resources::ResourceEndpoint,
 };
+use iroh::endpoint::ControlMessageFormat;
 use iroh::{EndpointAddr, TransportAddr, endpoint::Connection};
 use std::io;
 
@@ -105,7 +107,7 @@ impl NativeNetwork {
         &self,
         endpoint: &ResourceEndpoint,
         original: &Connection,
-        control: &Connection,
+        control: &(impl AuthenticatedControl + ?Sized),
         candidate: EndpointAddr,
     ) -> io::Result<TransportAddr> {
         core::validate_candidates(
@@ -123,7 +125,7 @@ impl NativeNetwork {
     fn check_repair_membership(
         &self,
         original: &Connection,
-        control: &Connection,
+        control: &(impl AuthenticatedControl + ?Sized),
     ) -> io::Result<()> {
         if original.close_reason().is_some() {
             return Err(io::Error::new(
@@ -158,7 +160,7 @@ impl NativeNetwork {
     pub async fn serve_connection_path_recovery(
         &self,
         endpoint: &ResourceEndpoint,
-        control: &Connection,
+        control: &(impl AuthenticatedControl + ?Sized),
     ) -> io::Result<()> {
         tokio::time::timeout(REPAIR_TIMEOUT, async {
             if control.alpn() != CONNECTION_RECOVERY_ALPN
@@ -169,11 +171,12 @@ impl NativeNetwork {
                     "unqualified path recovery control",
                 ));
             }
-            let (mut send, mut recv) = control.accept_bi().await?;
-            let bytes = recv
-                .read_to_end(MAX_MESSAGE)
-                .await
-                .map_err(io::Error::other)?;
+            let exchange = control.accept_control_exchange().await?;
+            let bytes = exchange
+                .recv_message(ControlMessageFormat::EndTerminated {
+                    maximum: MAX_MESSAGE,
+                })
+                .await?;
             let request: RepairRequest = serde_json::from_slice(&bytes).map_err(|_| {
                 io::Error::new(io::ErrorKind::InvalidData, "invalid path repair request")
             })?;
@@ -204,8 +207,14 @@ impl NativeNetwork {
                 .await?;
             }
             let bytes = encode_message(&data_offer(endpoint))?;
-            send.write_all(&bytes).await?;
-            send.finish()?;
+            exchange
+                .send_message(
+                    ControlMessageFormat::EndTerminated {
+                        maximum: MAX_MESSAGE,
+                    },
+                    &bytes,
+                )
+                .await?;
             if request.require_confirmation {
                 let path = core::validate_candidates(
                     endpoint.endpoint(),
@@ -220,18 +229,22 @@ impl NativeNetwork {
                 // A real authenticated replacement-path ACK precedes retirement
                 // of the old carrier; closing a sole path cannot kill repair.
                 endpoint.retire_replaced_rtc(&original);
-                let (mut send, mut recv) = control.open_bi().await?;
-                send.write_all(&encode_message(&core::RepairConfirmation {
-                    path: path.address,
-                    fresh_ack: true,
-                    probe_watermark: path.watermark,
-                })?)
-                .await?;
-                send.finish()?;
-                let mut confirmed = [0];
-                recv.read_exact(&mut confirmed)
-                    .await
-                    .map_err(io::Error::other)?;
+                let confirmation = control.open_control_exchange().await?;
+                confirmation
+                    .send_message(
+                        ControlMessageFormat::EndTerminated {
+                            maximum: MAX_MESSAGE,
+                        },
+                        &encode_message(&core::RepairConfirmation {
+                            path: path.address,
+                            fresh_ack: true,
+                            probe_watermark: path.watermark,
+                        })?,
+                    )
+                    .await?;
+                let confirmed = confirmation
+                    .recv_message(ControlMessageFormat::Fixed { length: 1 })
+                    .await?;
                 if confirmed != [1] {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
@@ -242,7 +255,7 @@ impl NativeNetwork {
             // The requester retains its authenticated control scope while it
             // validates the new carrier. Its owned guard closes this exchange
             // on completion, cancellation or failure; the serving wait is bound.
-            let _ = control.closed().await;
+            let _ = control.revocation_handle().closed().await;
             Ok(())
         })
         .await

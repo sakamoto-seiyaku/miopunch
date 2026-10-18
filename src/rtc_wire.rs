@@ -64,3 +64,27 @@ pub async fn read_frame(recv: &mut RecvStream) -> io::Result<Value> {
             )
         })
 }
+
+/// The same 32-bit JSON frame on the constrained application-control channel.
+pub async fn write_control(
+    exchange: &iroh::endpoint::ControlExchange,
+    value: &Value,
+) -> io::Result<()> {
+    let bytes = serde_json::to_vec(value).map_err(io::Error::other)?;
+    exchange
+        .send_message(
+            iroh::endpoint::ControlMessageFormat::LengthPrefixed32 {
+                maximum: MAX_CONTROL_FRAME,
+            },
+            &bytes,
+        )
+        .await
+}
+pub async fn read_control(exchange: &iroh::endpoint::ControlExchange) -> io::Result<Value> {
+    let bytes = exchange
+        .recv_message(iroh::endpoint::ControlMessageFormat::LengthPrefixed32 {
+            maximum: MAX_CONTROL_FRAME,
+        })
+        .await?;
+    serde_json::from_slice(&bytes).map_err(io::Error::other)
+}

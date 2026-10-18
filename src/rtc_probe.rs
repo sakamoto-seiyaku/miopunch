@@ -141,7 +141,10 @@ pub(crate) async fn channel_attributes(channel: &Arc<dyn DataChannel>) -> Result
 }
 /// Hash an exporter scoped to identities, network, current secret generation and attempt.
 /// The exporter itself is never serialized or logged.
-pub fn binding(connection: &Connection, context: &[u8]) -> Result<String> {
+pub fn binding(
+    connection: &(impl crate::control_protocol::AuthenticatedControl + ?Sized),
+    context: &[u8],
+) -> Result<String> {
     let mut exporter = [0; 32];
     connection
         .export_keying_material(&mut exporter, EXPORTER_LABEL, context)

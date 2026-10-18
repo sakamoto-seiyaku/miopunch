@@ -95,6 +95,60 @@ pub(super) struct Inner {
     pub(super) actor_ref: Option<ActorRef<ToIrohEndpoint>>,
 }
 
+/// Explicit restricted ownership for the existing p2panda endpoint actor.
+///
+/// Connections reach ordinary protocol handlers only after iroh's admission
+/// and data-path checks. There is no ordinary endpoint borrow or conversion.
+#[derive(Clone, Debug)]
+pub struct RestrictedEndpoint {
+    inner: Endpoint,
+}
+impl RestrictedEndpoint {
+    pub(crate) fn new(inner: Endpoint) -> Self {
+        Self { inner }
+    }
+    pub fn network_id(&self) -> NetworkId {
+        self.inner.network_id()
+    }
+    pub fn node_id(&self) -> NodeId {
+        self.inner.node_id()
+    }
+    /// Query the restricted iroh endpoint, retaining its capability boundary.
+    pub async fn endpoint(&self) -> Result<iroh::endpoint::RestrictedEndpoint, EndpointError> {
+        let inner = self.inner.inner.read().await;
+        let endpoint = call!(
+            inner.actor_ref.as_ref().expect("actor spawned in builder"),
+            ToIrohEndpoint::RestrictedEndpoint
+        )
+        .map_err(Box::new)?;
+        Ok(endpoint)
+    }
+    pub async fn accept<P: ProtocolHandler>(
+        &self,
+        protocol_id: impl AsRef<[u8]>,
+        handler: P,
+    ) -> Result<(), EndpointError> {
+        self.inner.accept(protocol_id, handler).await
+    }
+    pub async fn connect(
+        &self,
+        node_id: NodeId,
+        protocol_id: impl AsRef<[u8]>,
+    ) -> Result<iroh::endpoint::Connection, EndpointError> {
+        self.inner.connect(node_id, protocol_id).await
+    }
+    pub async fn connect_with_config(
+        &self,
+        node_id: NodeId,
+        protocol_id: impl AsRef<[u8]>,
+        config: iroh::endpoint::QuicTransportConfig,
+    ) -> Result<iroh::endpoint::Connection, EndpointError> {
+        self.inner
+            .connect_with_config(node_id, protocol_id, config)
+            .await
+    }
+}
+
 impl Endpoint {
     pub(crate) fn new(actor_ref: Option<ActorRef<ToIrohEndpoint>>, args: IrohEndpointArgs) -> Self {
         Self {

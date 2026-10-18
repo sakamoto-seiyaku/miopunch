@@ -116,8 +116,7 @@ async fn raw_endpoint(key: &SigningKey, bind_ip: Ipv4Addr) -> Result<Endpoint, B
     Ok(endpoint)
 }
 
-fn local_udp_addr(endpoint: &Endpoint) -> Result<SocketAddr, Box<dyn Error>> {
-    let addr = endpoint.addr();
+fn local_udp_addr(addr: &EndpointAddr) -> Result<SocketAddr, Box<dyn Error>> {
     addr.ip_addrs()
         .find(|addr| addr.is_ipv4() && !addr.ip().is_loopback())
         .or_else(|| addr.ip_addrs().find(|addr| addr.is_ipv4()))
@@ -140,7 +139,7 @@ async fn serve_raw(key: &SigningKey, bind_ip: Ipv4Addr) -> Result<(), Box<dyn Er
     println!(
         "READY {} {}",
         iroh_secret(key).public(),
-        local_udp_addr(&endpoint)?
+        local_udp_addr(&endpoint.addr())?
     );
     done_rx.recv().await.ok_or("server stopped before echo")?;
     router.shutdown().await?;
@@ -363,7 +362,7 @@ async fn serve_wrapped(key: &SigningKey, bind_ip: Ipv4Addr) -> Result<(), Box<dy
     println!(
         "READY {} {}",
         iroh_endpoint.id(),
-        local_udp_addr(&iroh_endpoint)?
+        local_udp_addr(&iroh_endpoint.addr())?
     );
     done_rx.recv().await.ok_or("server stopped before echo")?;
     drop(endpoint);
@@ -483,7 +482,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let node = NativeNetwork::open(data_dir).await?;
             let resources = node.bind_configured_endpoint(bind_ip).await?;
             let endpoint = resources.endpoint();
-            let address = local_udp_addr(endpoint).ok().or_else(|| {
+            let address = local_udp_addr(&endpoint.addr()).ok().or_else(|| {
                 resources.addr().addrs.iter().find_map(|addr| match addr {
                     iroh::TransportAddr::Custom(addr) => TcpTransport::socket_addr(addr).ok(),
                     _ => None,

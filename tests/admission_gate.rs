@@ -5,7 +5,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use iroh::address_lookup::memory::MemoryLookup;
-use iroh::endpoint::{Connection, EndpointHooks, presets};
+use iroh::endpoint::{
+    AdmissionOutcome, Connection, ControlConnection, ControlMessageFormat, EndpointAdmission,
+    EndpointHooks, RestrictedEndpoint, presets,
+};
 use iroh::protocol::{AcceptError, ProtocolHandler};
 use iroh::{Endpoint, EndpointAddr};
 use iroh_base::SecretKey;
@@ -51,8 +54,8 @@ fn exporter(connection: &Connection) -> [u8; 32] {
 }
 
 struct Pair {
-    client: Endpoint,
-    server: Endpoint,
+    client: RestrictedEndpoint,
+    server: RestrictedEndpoint,
     client_gate: AdmissionGate,
     server_gate: AdmissionGate,
 }
@@ -97,19 +100,23 @@ impl Pair {
             BUSINESS.to_vec(),
         ];
         let server = server_gate
-            .configure(Endpoint::builder(presets::Minimal))
-            .secret_key(server_key)
-            .alpns(alpns.to_vec())
-            .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
-            .unwrap()
+            .configure(
+                Endpoint::builder(presets::Minimal)
+                    .secret_key(server_key)
+                    .alpns(alpns.to_vec())
+                    .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+                    .unwrap(),
+            )
             .bind()
             .await
             .unwrap();
         let client = client_gate
-            .configure(Endpoint::builder(presets::Minimal))
-            .secret_key(client_key)
-            .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
-            .unwrap()
+            .configure(
+                Endpoint::builder(presets::Minimal)
+                    .secret_key(client_key)
+                    .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+                    .unwrap(),
+            )
             .bind()
             .await
             .unwrap();
@@ -139,6 +146,33 @@ impl Pair {
         (outgoing.ok(), incoming.ok())
     }
 
+    async fn connect_control(
+        &self,
+        alpn: &[u8],
+    ) -> (Option<ControlConnection>, Option<ControlConnection>) {
+        let target = EndpointAddr::new(self.server.id()).with_addrs(
+            self.server
+                .addr()
+                .ip_addrs()
+                .copied()
+                .map(TransportAddr::Ip),
+        );
+        let (out, incoming) = tokio::time::timeout(Duration::from_secs(9), async {
+            tokio::join!(self.client.connect_control(target, alpn), async {
+                self.server
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+            })
+        })
+        .await
+        .expect("bounded control attempt");
+        (out.ok(), incoming.ok())
+    }
+
     async fn close(self) {
         self.client.close().await;
         self.server.close().await;
@@ -148,7 +182,7 @@ impl Pair {
 #[tokio::test]
 async fn admitted_control_path_upgrade_requires_current_membership() {
     let pair = Pair::new(Some(SECRET), SECRET, true).await;
-    let (client, server) = pair.connect(CONTROL_ALPN).await;
+    let (client, server) = pair.connect_control(CONTROL_ALPN).await;
     let (client, server) = (client.unwrap(), server.unwrap());
     assert!(pair.client_gate.allows_member_path_upgrade(&client));
     assert!(pair.server_gate.allows_member_path_upgrade(&server));
@@ -165,7 +199,7 @@ async fn admitted_control_path_upgrade_requires_current_membership() {
     pair.close().await;
 
     let pair = Pair::new(Some(SECRET), SECRET, false).await;
-    let (client, server) = pair.connect(CONTROL_ALPN).await;
+    let (client, server) = pair.connect_control(CONTROL_ALPN).await;
     let (client, server) = (client.unwrap(), server.unwrap());
     assert!(!pair.client_gate.allows_member_path_upgrade(&client));
     assert!(!pair.server_gate.allows_member_path_upgrade(&server));
@@ -175,7 +209,7 @@ async fn admitted_control_path_upgrade_requires_current_membership() {
 #[tokio::test]
 async fn no_secret_applicant_only_reaches_the_restricted_application_protocol() {
     let pair = Pair::new(None, SECRET, false).await;
-    let (client, server) = pair.connect(ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = pair.connect_control(ADMISSION_REQUEST_ALPN).await;
     let client = client.expect("first application allowed without a long-lived secret");
     let server = server.unwrap();
     assert_eq!(client.remote_id(), pair.server.id());
@@ -187,11 +221,22 @@ async fn no_secret_applicant_only_reaches_the_restricted_application_protocol() 
     assert!(!pair.server_gate.allows(&server, ProtocolScope::Member));
     assert_eq!(server.test_local_qnt_candidate_count(), 0);
 
-    let (mut send, _) = client.open_bi().await.unwrap();
-    send.write_all(b"APPLY").await.unwrap();
-    send.finish().unwrap();
-    let (_, mut recv) = server.accept_bi().await.unwrap();
-    assert_eq!(recv.read_to_end(16).await.unwrap(), b"APPLY");
+    let exchange = client.open_control_exchange().await.unwrap();
+    exchange
+        .send_message(
+            ControlMessageFormat::EndTerminated { maximum: 16 },
+            b"APPLY",
+        )
+        .await
+        .unwrap();
+    let request = server.accept_control_exchange().await.unwrap();
+    assert_eq!(
+        request
+            .recv_message(ControlMessageFormat::EndTerminated { maximum: 16 })
+            .await
+            .unwrap(),
+        b"APPLY"
+    );
 
     for protocol in [DISCOVERY, GOSSIP, LOG_SYNC] {
         let (out, incoming) = pair.connect(&mixed(protocol)).await;
@@ -218,7 +263,7 @@ async fn no_secret_applicant_only_reaches_the_restricted_application_protocol() 
 #[tokio::test]
 async fn secret_holder_without_membership_gets_bootstrap_but_no_normal_protocol() {
     let pair = Pair::new(Some(SECRET), SECRET, false).await;
-    let (client, server) = pair.connect(MEMBER_BOOTSTRAP_ALPN).await;
+    let (client, server) = pair.connect_control(MEMBER_BOOTSTRAP_ALPN).await;
     let client = client.expect("scoped proof allows bootstrap");
     let server = server.unwrap();
     assert!(pair.server_gate.allows(&server, ProtocolScope::Bootstrap));
@@ -343,7 +388,7 @@ async fn stale_member_view_does_not_return_an_outgoing_business_handle() {
 #[tokio::test]
 async fn genesis_recovery_stays_restricted_and_early_handles_are_unavailable() {
     let pair = Pair::new(None, SECRET, false).await;
-    let (client, server) = pair.connect(RECOVERY_ALPN).await;
+    let (client, server) = pair.connect_control(RECOVERY_ALPN).await;
     let client = client.unwrap();
     let server = server.unwrap();
     assert!(
@@ -355,21 +400,10 @@ async fn genesis_recovery_stays_restricted_and_early_handles_are_unavailable() {
     client.close(0u32.into(), b"done");
     server.close(0u32.into(), b"done");
 
-    let target = EndpointAddr::new(pair.server.id()).with_addrs(
-        pair.server
-            .addr()
-            .ip_addrs()
-            .copied()
-            .map(iroh_base::TransportAddr::Ip),
-    );
-    let connecting = pair
-        .client
-        .connect_with_opts(target, ADMISSION_REQUEST_ALPN, Default::default())
-        .await
-        .unwrap();
-    assert!(connecting.into_0rtt().is_err());
-    let accepting = pair.server.accept().await.unwrap().accept().unwrap();
-    assert!(accepting.into_0rtt().is_err());
+    // Compile-fail consumers cover the absence of early-data entry points.
+    // A valid restricted purpose must also fail through ordinary business delivery.
+    let (out, incoming) = pair.connect(ADMISSION_REQUEST_ALPN).await;
+    assert!(out.is_none() && incoming.is_none());
     pair.close().await;
 }
 
@@ -420,7 +454,7 @@ async fn the_persisted_native_network_installs_the_same_gate() {
         tokio::join!(
             async {
                 applicant
-                    .connect_with_opts(target.clone(), ADMISSION_REQUEST_ALPN, options)
+                    .connect_control_with_opts(target.clone(), ADMISSION_REQUEST_ALPN, options)
                     .await
                     .unwrap()
                     .await
@@ -431,6 +465,8 @@ async fn the_persisted_native_network_installs_the_same_gate() {
                     .await
                     .unwrap()
                     .with_caller_deadline(deadline)
+                    .accept_control()
+                    .unwrap()
                     .await
             }
         )
@@ -486,17 +522,19 @@ impl EndpointHooks for NoOpHook {}
 #[tokio::test]
 async fn a_gated_endpoint_never_treats_a_default_hook_as_admission() {
     let server = Endpoint::builder(presets::Minimal)
-        .admission_gate(NoOpHook)
+        .hooks(NoOpHook)
         .alpns(vec![BUSINESS.to_vec()])
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
+        .restricted_application(MissingDecision)
         .bind()
         .await
         .unwrap();
     let client = Endpoint::builder(presets::Minimal)
-        .admission_gate(NoOpHook)
+        .hooks(NoOpHook)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
+        .restricted_application(MissingDecision)
         .bind()
         .await
         .unwrap();
@@ -512,6 +550,17 @@ async fn a_gated_endpoint_never_treats_a_default_hook_as_admission() {
     assert!(out.is_err() && incoming.is_err());
     client.close().await;
     server.close().await;
+}
+
+#[derive(Debug)]
+struct MissingDecision;
+impl EndpointAdmission for MissingDecision {
+    async fn admit(&self, _: &ControlConnection) -> std::io::Result<AdmissionOutcome> {
+        Ok(AdmissionOutcome::Pending)
+    }
+    fn is_current(&self, _: &ControlConnection) -> bool {
+        true
+    }
 }
 
 fn panda_config() -> IrohConfig {
@@ -547,8 +596,7 @@ async fn p2panda_endpoint_builder_hook_gates_the_actual_protocol_actor() {
         .network_id(NETWORK)
         .signing_key(server_key.clone())
         .config(panda_config())
-        .endpoint_builder_hook(move |builder| server_hook.configure(builder))
-        .spawn()
+        .spawn_restricted(move |builder| server_hook.configure(builder))
         .await
         .unwrap();
     server.accept(LOG_SYNC, Echo).await.unwrap();
@@ -566,12 +614,9 @@ async fn p2panda_endpoint_builder_hook_gates_the_actual_protocol_actor() {
         .network_id(NETWORK)
         .signing_key(client_key)
         .config(panda_config())
-        .endpoint_builder_hook(move |builder| {
-            client_hook
-                .configure(builder)
-                .address_lookup(lookup.clone())
+        .spawn_restricted(move |builder| {
+            client_hook.configure(builder.address_lookup(lookup.clone()))
         })
-        .spawn()
         .await
         .unwrap();
     let connection = tokio::time::timeout(
@@ -638,9 +683,10 @@ async fn a_connection_to_an_uninvited_tls_identity_cannot_enter_application() {
             .map(iroh_base::TransportAddr::Ip),
     );
     let (out, incoming) = tokio::time::timeout(Duration::from_secs(9), async {
-        tokio::join!(pair.client.connect(target, ADMISSION_REQUEST_ALPN), async {
-            pair.server.accept().await.unwrap().await
-        })
+        tokio::join!(
+            pair.client.connect_control(target, ADMISSION_REQUEST_ALPN),
+            async { pair.server.accept().await.unwrap().await }
+        )
     })
     .await
     .unwrap();
@@ -655,7 +701,7 @@ async fn known_removed_identity_only_reaches_fresh_restricted_admission_requests
         [*pair.server.id().as_bytes()],
         [*pair.client.id().as_bytes()],
     );
-    let (out, incoming) = pair.connect(ADMISSION_REQUEST_ALPN).await;
+    let (out, incoming) = pair.connect_control(ADMISSION_REQUEST_ALPN).await;
     let incoming = incoming.unwrap();
     assert!(out.is_some());
     assert!(
@@ -672,8 +718,14 @@ async fn known_removed_identity_only_reaches_fresh_restricted_admission_requests
         mixed(LOG_SYNC),
         BUSINESS.to_vec(),
     ] {
-        let (out, incoming) = pair.connect(&alpn).await;
-        assert!(out.is_none() && incoming.is_none(), "accepted {alpn:?}");
+        let denied = if matches!(alpn.as_slice(), RECOVERY_ALPN | MEMBER_BOOTSTRAP_ALPN) {
+            let (out, incoming) = pair.connect_control(&alpn).await;
+            out.is_none() && incoming.is_none()
+        } else {
+            let (out, incoming) = pair.connect(&alpn).await;
+            out.is_none() && incoming.is_none()
+        };
+        assert!(denied, "accepted {alpn:?}");
     }
     pair.close().await;
 }
@@ -757,32 +809,30 @@ async fn signaling_carrier_allows_scoped_control_but_refuses_business() {
     let server_carrier = Arc::new(MqttTransport::new(broker, Arc::new(Traffic::default())));
     let client_carrier = Arc::new(MqttTransport::new(broker, Arc::new(Traffic::default())));
     let server = server_gate
-        .configure(Endpoint::builder(presets::Minimal))
-        .secret_key(server_key)
-        .alpns(vec![
-            BUSINESS.to_vec(),
-            miopunch_native_probe::admission_gate::CONTROL_ALPN.to_vec(),
-        ])
-        .control_only_alpns(vec![
-            miopunch_native_probe::admission_gate::CONTROL_ALPN.to_vec(),
-        ])
-        .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
-        .unwrap()
-        .clear_relay_transports()
-        .add_custom_transport(server_carrier.clone())
+        .configure(
+            Endpoint::builder(presets::Minimal)
+                .secret_key(server_key)
+                .alpns(vec![
+                    BUSINESS.to_vec(),
+                    miopunch_native_probe::admission_gate::CONTROL_ALPN.to_vec(),
+                ])
+                .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+                .unwrap()
+                .clear_relay_transports()
+                .add_custom_transport(server_carrier.clone()),
+        )
         .bind()
         .await
         .unwrap();
     let client = client_gate
-        .configure(Endpoint::builder(presets::Minimal))
-        .secret_key(client_key)
-        .control_only_alpns(vec![
-            miopunch_native_probe::admission_gate::CONTROL_ALPN.to_vec(),
-        ])
-        .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
-        .unwrap()
-        .clear_relay_transports()
-        .add_custom_transport(client_carrier.clone())
+        .configure(
+            Endpoint::builder(presets::Minimal)
+                .secret_key(client_key)
+                .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+                .unwrap()
+                .clear_relay_transports()
+                .add_custom_transport(client_carrier.clone()),
+        )
         .bind()
         .await
         .unwrap();
@@ -801,8 +851,16 @@ async fn signaling_carrier_allows_scoped_control_but_refuses_business() {
     assert!(out.is_err() && incoming.is_err());
     let (out, incoming) = tokio::time::timeout(Duration::from_secs(9), async {
         tokio::join!(
-            client.connect(target, miopunch_native_probe::admission_gate::CONTROL_ALPN),
-            async { server.accept().await.unwrap().await }
+            client.connect_control(target, miopunch_native_probe::admission_gate::CONTROL_ALPN),
+            async {
+                server
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+            }
         )
     })
     .await
@@ -874,23 +932,27 @@ async fn an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy()
         Arc::new(TcpTraffic::default()),
     ));
     let server = server_gate
-        .configure(Endpoint::builder(presets::Minimal))
-        .secret_key(server_key)
-        .alpns(vec![BUSINESS.to_vec()])
-        .clear_ip_transports()
-        .clear_relay_transports()
-        .add_custom_transport(server_carrier.clone())
-        .path_selector(Arc::new(TcpOnly))
+        .configure(
+            Endpoint::builder(presets::Minimal)
+                .secret_key(server_key)
+                .alpns(vec![BUSINESS.to_vec()])
+                .clear_ip_transports()
+                .clear_relay_transports()
+                .add_custom_transport(server_carrier.clone())
+                .path_selector(Arc::new(TcpOnly)),
+        )
         .bind()
         .await
         .unwrap();
     let client = client_gate
-        .configure(Endpoint::builder(presets::Minimal))
-        .secret_key(client_key)
-        .clear_ip_transports()
-        .clear_relay_transports()
-        .add_custom_transport(client_carrier)
-        .path_selector(Arc::new(TcpOnly))
+        .configure(
+            Endpoint::builder(presets::Minimal)
+                .secret_key(client_key)
+                .clear_ip_transports()
+                .clear_relay_transports()
+                .add_custom_transport(client_carrier)
+                .path_selector(Arc::new(TcpOnly)),
+        )
         .bind()
         .await
         .unwrap();
@@ -916,7 +978,10 @@ async fn an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy()
     // revoke another already-admitted data path or its current QUIC session.
     let stable_id = out.stable_id();
     assert!(client.bound_sockets().is_empty());
-    let disabled = client.register_udp_traversal(&out, [59; 16]).await;
+    let disabled = client
+        .control_handle(&out)
+        .register_udp_traversal([59; 16])
+        .await;
     assert_eq!(disabled.unwrap_err().to_string(), "IPv4 traversal disabled");
     assert_eq!(out.stable_id(), stable_id);
     assert!(
@@ -965,10 +1030,12 @@ async fn removal_during_final_recovery_stage_must_reject_connection() {
     let client_key = SecretKey::generate();
     let gate = AdmissionGate::new(client_key.public(), AdmissionScope::new([23; 32], 0), None);
     let client = gate
-        .configure(Endpoint::builder(presets::Minimal))
-        .secret_key(client_key)
-        .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
-        .unwrap()
+        .configure(
+            Endpoint::builder(presets::Minimal)
+                .secret_key(client_key)
+                .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+                .unwrap(),
+        )
         .bind()
         .await
         .unwrap();
@@ -981,7 +1048,7 @@ async fn removal_during_final_recovery_stage_must_reject_connection() {
         .unwrap();
     let target = EndpointAddr::new(raw.id()).with_ip_addr(*raw.addr().ip_addrs().next().unwrap());
     let endpoint = client.clone();
-    let dialed = tokio::spawn(async move { endpoint.connect(target, RECOVERY_ALPN).await });
+    let dialed = tokio::spawn(async move { endpoint.connect_control(target, RECOVERY_ALPN).await });
     let server = raw.accept().await.unwrap().await.unwrap();
     let (mut send, mut recv) = tokio::time::timeout(Duration::from_secs(3), server.accept_bi())
         .await

@@ -1,7 +1,7 @@
 //! Designated-node precode consumption shares durable admission delivery.
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use iroh::endpoint::Connection;
+use crate::control_protocol::OwnedControl;
 use sqlx::Row;
 
 use crate::management_store::{ManagementRecord, ManagementStore, StoreError};
@@ -238,7 +238,7 @@ impl NativeNetwork {
 
     pub async fn serve_precode_admission(
         &mut self,
-        connection: &Connection,
+        connection: &(impl OwnedControl + ?Sized),
     ) -> Result<AdmissionStage, ManualAdmissionError> {
         let result = tokio::time::timeout(
             crate::manual_admission::admission_deadline(connection)
@@ -255,7 +255,7 @@ impl NativeNetwork {
 
     pub async fn request_precode_admission(
         &mut self,
-        connection: &Connection,
+        connection: &(impl OwnedControl + ?Sized),
         code: &Precode,
     ) -> Result<ManualExchange, ManualAdmissionError> {
         if self.join.map(|binding| binding.invitation) != Some(code.invitation) {

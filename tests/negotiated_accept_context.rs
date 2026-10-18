@@ -41,19 +41,15 @@ impl EndpointHooks for Capture {
             token: connection.attempt_cancellation(),
             original: connection.weak_handle(),
         });
-        AfterHandshakeOutcome::Accept
-    }
-    async fn before_data_release(
-        &self,
-        _endpoint: &Endpoint,
-        connection: &Connection,
-    ) -> std::io::Result<()> {
         if self.block_member && connection.alpn() == MEMBER_ALPN {
             self.blocked.notify_one();
             connection.closed().await;
-            return Err(std::io::Error::other("owned pending member ended"));
+            return AfterHandshakeOutcome::Reject {
+                error_code: 0u32.into(),
+                reason: b"owned pending member ended".to_vec(),
+            };
         }
-        Ok(())
+        AfterHandshakeOutcome::Accept
     }
 }
 fn context() -> AttemptContext {
@@ -116,10 +112,7 @@ async fn fragmented_clienthello_is_classified_by_negotiated_alpn_before_original
             .await
     });
     let incoming = server.endpoint().accept().await.unwrap();
-    let initial_alpns_available = incoming
-        .decrypt()
-        .and_then(|initial| initial.alpns())
-        .is_some();
+    let initial_alpns_available = incoming.initial_alpns().is_some();
     assert!(
         !initial_alpns_available,
         "actual fragmented Initial must make best-effort ALPN unavailable"
@@ -221,7 +214,7 @@ async fn mismatched_negotiated_purpose_rejects_before_hooks_and_preserves_health
         .collect();
     let endpoint = pending_client.endpoint().clone();
     let target = pending.addr();
-    let caller = tokio::spawn(async move { endpoint.connect(target, CONTROL_ALPN).await });
+    let caller = tokio::spawn(async move { endpoint.connect_control(target, CONTROL_ALPN).await });
     let mut accepting = pending.endpoint().accept().await.unwrap().accept().unwrap();
     assert_eq!(accepting.alpn().await.unwrap(), CONTROL_ALPN);
     let coordinator = pending.coordinator();

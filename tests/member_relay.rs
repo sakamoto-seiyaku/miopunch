@@ -1,4 +1,8 @@
 //! Three persistent members, real admission and QUIC, one intermediate member.
+#[path = "support/native_connections.rs"]
+mod native_connections;
+use iroh::endpoint::RestrictedEndpoint;
+
 use iroh::{
     Endpoint, EndpointAddr, TransportAddr,
     endpoint::{Connection, presets},
@@ -14,21 +18,12 @@ use std::{net::Ipv4Addr, path::Path, sync::Arc, time::Duration};
 const BUSINESS: &[u8] = b"miopunch/member-forward-business/1";
 const LEASE: Duration = Duration::from_secs(60);
 
-async fn connect(a: &Endpoint, b: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
-    let addr = EndpointAddr::new(b.id()).with_addrs(
-        b.custom_addrs()
-            .into_iter()
-            .filter(|a| a.id() == miopunch_native_probe::tcp_transport::DATA_TRANSPORT_ID)
-            .map(TransportAddr::Custom),
-    );
-    tokio::time::timeout(Duration::from_secs(10), async {
-        let (a, b) = tokio::join!(a.connect(addr, alpn), async {
-            b.accept().await.unwrap().await
-        });
-        (a.unwrap(), b.unwrap())
-    })
-    .await
-    .unwrap()
+async fn connect(
+    client: &RestrictedEndpoint,
+    server: &RestrictedEndpoint,
+    alpn: &[u8],
+) -> (Connection, Connection) {
+    native_connections::member_pair(client, server, alpn).await
 }
 async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
     let mut node = NativeNetwork::join(path, admin.manual_invitation().unwrap())
@@ -38,7 +33,7 @@ async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
         .unwrap();
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ne = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
     let (request, served) = tokio::join!(
         node.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -126,14 +121,17 @@ async fn nodes() -> (
     }
     (directory, a, b, c)
 }
-async fn endpoint(node: &NativeNetwork, transport: Option<Arc<MemberDataTransport>>) -> Endpoint {
+async fn endpoint(
+    node: &NativeNetwork,
+    transport: Option<Arc<MemberDataTransport>>,
+) -> RestrictedEndpoint {
     endpoint_with_signal(node, transport, None).await
 }
 async fn endpoint_with_signal(
     node: &NativeNetwork,
     transport: Option<Arc<MemberDataTransport>>,
     signal: Option<Arc<miopunch_native_probe::member_transport::MemberSignalingTransport>>,
-) -> Endpoint {
+) -> RestrictedEndpoint {
     let mut builder = Endpoint::builder(presets::Minimal)
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
@@ -173,9 +171,9 @@ async fn echo(client: &Connection, server: &Connection) {
 struct Topology {
     _directory: tempfile::TempDir,
     _nodes: (NativeNetwork, NativeNetwork, NativeNetwork),
-    a: Endpoint,
-    b: Endpoint,
-    c: Endpoint,
+    a: RestrictedEndpoint,
+    b: RestrictedEndpoint,
+    c: RestrictedEndpoint,
     at: Arc<MemberDataTransport>,
     ct: Arc<MemberDataTransport>,
     ab: (Connection, Connection),
@@ -487,15 +485,24 @@ async fn ordinary_member_data_service_is_disabled_by_default_and_bootstrap_is_in
     topology
         .b
         .set_alpns(vec![BUSINESS.to_vec(), CONTROL_ALPN.to_vec()]);
-    let (client, server) = connect(&topology.a, &topology.b, CONTROL_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&topology.a, &topology.b, CONTROL_ALPN).await;
     assert!(
-        topology
-            .forwarder
-            .accept_link(&server, LEASE)
-            .await
-            .is_err()
+        !topology
+            ._nodes
+            .1
+            .admission_gate()
+            .allows(&server, ProtocolScope::Member)
     );
-    assert!(topology.at.attach(&client, LEASE).await.is_err());
+    // Control capabilities cannot be passed to member links; the public compiler
+    // consumer native_member_links_control preserves those rejection checks.
+    assert!(
+        !topology
+            ._nodes
+            .0
+            .admission_gate()
+            .allows(&client, ProtocolScope::Member)
+    );
     echo(&topology.ab.0, &topology.ab.1).await;
     println!(
         "MEMBER_DATA_DEFAULT_PASS explicit_consent_required=true bootstrap_cannot_relay=true ordinary_b=true"

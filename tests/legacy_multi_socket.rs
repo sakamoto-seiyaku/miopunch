@@ -1,4 +1,6 @@
 //! Physical UDP bindings on the original authenticated QUIC connection.
+#[path = "support/control_handoff.rs"]
+mod handoff;
 use std::{net::Ipv4Addr, sync::Arc, time::Duration};
 
 use iroh::{
@@ -41,12 +43,21 @@ impl PathSelector for IpThenControl {
 }
 
 struct Pair {
-    c: Endpoint,
-    v: Endpoint,
+    c: iroh::endpoint::RestrictedEndpoint,
+    v: iroh::endpoint::RestrictedEndpoint,
+    pending: Option<
+        std::sync::Mutex<Vec<tokio::sync::mpsc::UnboundedReceiver<handoff::PendingControl>>>,
+    >,
     c_addr: iroh_base::CustomAddr,
 }
 impl Pair {
     async fn new() -> Self {
+        Self::build(false).await
+    }
+    async fn new_pending() -> Self {
+        Self::build(true).await
+    }
+    async fn build(pending: bool) -> Self {
         let keys = [SecretKey::generate(), SecretKey::generate()];
         let members = keys
             .iter()
@@ -54,6 +65,7 @@ impl Pair {
             .collect::<Vec<_>>();
         let mut endpoints = Vec::new();
         let mut addresses = Vec::new();
+        let mut receivers = Vec::new();
         for key in keys {
             let gate = AdmissionGate::new(
                 key.public(),
@@ -65,8 +77,7 @@ impl Pair {
                 Ipv4Addr::LOCALHOST,
                 Arc::new(Traffic::default()),
             ));
-            let endpoint = gate
-                .configure(Endpoint::builder(presets::Minimal))
+            let builder = Endpoint::builder(presets::Minimal)
                 .secret_key(key)
                 .alpns(vec![CONTROL_ALPN.to_vec()])
                 .clear_ip_transports()
@@ -74,10 +85,18 @@ impl Pair {
                 .unwrap()
                 .clear_relay_transports()
                 .add_custom_transport(carrier.clone())
-                .path_selector(Arc::new(IpThenControl))
-                .bind()
-                .await
-                .unwrap();
+                .path_selector(Arc::new(IpThenControl));
+            let builder = if pending {
+                let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
+                receivers.push(receiver);
+                builder.restricted_application(handoff::PendingDataPolicy {
+                    gate,
+                    pending: sender,
+                })
+            } else {
+                gate.configure(builder)
+            };
+            let endpoint = builder.bind().await.unwrap();
             endpoints.push(endpoint);
             addresses.push(TcpTransport::address(carrier.bound_addr().unwrap()));
         }
@@ -85,26 +104,58 @@ impl Pair {
             v: endpoints.pop().unwrap(),
             c: endpoints.pop().unwrap(),
             c_addr: addresses.remove(0),
+            pending: pending.then(|| std::sync::Mutex::new(receivers)),
         }
     }
     async fn connect(&self) -> (ControlSession, ControlSession) {
-        let tcp = TransportAddr::Custom(self.c_addr.clone());
-        let target = EndpointAddr::new(self.c.id()).with_addrs([tcp]);
-        let (c, v) = tokio::join!(
-            ControlSession::accept(&self.c),
-            ControlSession::connect(&self.v, target, CONTROL_ALPN)
-        );
-        (c.unwrap(), v.unwrap())
+        let target =
+            EndpointAddr::new(self.c.id()).with_addrs([TransportAddr::Custom(self.c_addr.clone())]);
+        if let Some(receivers) = &self.pending {
+            let c = self.c.clone();
+            let v = self.v.clone();
+            let accept = tokio::spawn(async move {
+                c.accept()
+                    .await
+                    .unwrap()
+                    .await
+                    .map_err(std::io::Error::other)
+            });
+            let dial = tokio::spawn(async move {
+                v.connect(target, CONTROL_ALPN)
+                    .await
+                    .map_err(std::io::Error::other)
+            });
+            let mut receivers = receivers.lock().unwrap();
+            let c = receivers[0].recv().await.unwrap();
+            let v = receivers[1].recv().await.unwrap();
+            (c.session(accept), v.session(dial))
+        } else {
+            let (c, v) = self.connect_connections().await;
+            (
+                ControlSession::from_control_connection(c),
+                ControlSession::from_control_connection(v),
+            )
+        }
     }
-
     async fn connect_connections(
         &self,
-    ) -> (iroh::endpoint::Connection, iroh::endpoint::Connection) {
+    ) -> (
+        iroh::endpoint::ControlConnection,
+        iroh::endpoint::ControlConnection,
+    ) {
         let target =
             EndpointAddr::new(self.c.id()).with_addrs([TransportAddr::Custom(self.c_addr.clone())]);
         let (c, v) = tokio::join!(
-            async { self.c.accept().await.unwrap().await },
-            self.v.connect(target, CONTROL_ALPN)
+            async {
+                self.c
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+            },
+            self.v.connect_control(target, CONTROL_ALPN)
         );
         (c.unwrap(), v.unwrap())
     }
@@ -122,7 +173,7 @@ async fn authenticated_winner_keeps_its_actual_source_ip_despite_packets_to_anot
 
 async fn winner_connection(receiver_ip: Ipv4Addr, network_change: bool) {
     tokio::time::timeout(Duration::from_secs(12), async {
-        let pair = Pair::new().await;
+        let pair = Pair::new_pending().await;
         let (c, v) = pair.connect().await;
         let stable = (c.stable_id(), v.stable_id());
         let mut cl = c.register_udp_traversal([61; 16]).await.unwrap();
@@ -184,8 +235,8 @@ async fn winner_connection(receiver_ip: Ipv4Addr, network_change: bool) {
             .send_to(b"\0unrelated", (Ipv4Addr::LOCALHOST, cb.local_addr.port()))
             .await
             .unwrap();
-        let cd = c.commit_data_path().await.unwrap();
-        let vd = v.commit_data_path().await.unwrap();
+        let (cd, vd) = tokio::join!(c.commit_data_path(), v.commit_data_path());
+        let (cd, vd) = (cd.unwrap(), vd.unwrap());
         assert_eq!(
             (cd.connection().stable_id(), vd.connection().stable_id()),
             stable
@@ -248,8 +299,9 @@ async fn winner_connection(receiver_ip: Ipv4Addr, network_change: bool) {
         while !other_c.has_data_path() || !other_v.has_data_path() {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        let other_cd = other_c.commit_data_path().await.unwrap();
-        let other_vd = other_v.commit_data_path().await.unwrap();
+        let (other_cd, other_vd) =
+            tokio::join!(other_c.commit_data_path(), other_v.commit_data_path());
+        let (other_cd, other_vd) = (other_cd.unwrap(), other_vd.unwrap());
         assert!(
             !other_cd
                 .connection()
@@ -447,9 +499,9 @@ async fn every_physical_sender_isolates_packet_ttl_and_preserves_source_when_ttl
 }
 
 fn packet_auth(
-    connection: &iroh::endpoint::Connection,
-    local: &Endpoint,
-    remote: &Endpoint,
+    connection: &iroh::endpoint::ControlConnection,
+    local: &iroh::endpoint::RestrictedEndpoint,
+    remote: &iroh::endpoint::RestrictedEndpoint,
     round: &[u8; 16],
 ) -> miopunch_native_probe::nat_scheduler::PacketAuth {
     let mut key = [0; 32];
@@ -488,8 +540,8 @@ async fn same_round_authenticated_receipt_cannot_move_to_another_physical_socket
         let pair = Pair::new().await;
         let (c, v) = pair.connect_connections().await;
         let round = [10; 16];
-        let mut cl = pair.c.register_udp_traversal(&c, round).await.unwrap();
-        let mut vl = pair.v.register_udp_traversal(&v, round).await.unwrap();
+        let mut cl = c.register_udp_traversal(round).await.unwrap();
+        let mut vl = v.register_udp_traversal(round).await.unwrap();
         cl.listen_random_ports(2).await.unwrap();
         let bindings = cl.local_sockets();
         let ca = packet_auth(&c, &pair.c, &pair.v, &round);
@@ -557,8 +609,8 @@ async fn a_real_target_send_error_does_not_truncate_following_candidates_or_rand
     let pair = Pair::new().await;
     let (c, v) = pair.connect_connections().await;
     let round = [11; 16];
-    let mut cl = pair.c.register_udp_traversal(&c, round).await.unwrap();
-    let mut vl = pair.v.register_udp_traversal(&v, round).await.unwrap();
+    let mut cl = c.register_udp_traversal(round).await.unwrap();
+    let mut vl = v.register_udp_traversal(round).await.unwrap();
     let ca = packet_auth(&c, &pair.c, &pair.v, &round);
     let va = packet_auth(&v, &pair.v, &pair.c, &round);
     let sender = PhasePlan::new(
@@ -683,8 +735,8 @@ async fn discarded_winner_paths_release_descriptors_while_original_control_conne
         let pair = Pair::new().await;
         let (c, v) = pair.connect_connections().await;
         let stable = (c.stable_id(), v.stable_id());
-        let mut cl = pair.c.register_udp_traversal(&c, [9; 16]).await.unwrap();
-        let mut vl = pair.v.register_udp_traversal(&v, [9; 16]).await.unwrap();
+        let mut cl = c.register_udp_traversal([9; 16]).await.unwrap();
+        let mut vl = v.register_udp_traversal([9; 16]).await.unwrap();
         cl.listen_random_ports(2).await.unwrap();
         vl.listen_random_ports(2).await.unwrap();
         let cb = cl.local_sockets()[1];
@@ -714,17 +766,15 @@ async fn discarded_winner_paths_release_descriptors_while_original_control_conne
             .await
             .unwrap()
             .unwrap();
-        pair.v
-            .open_data_path_from(
-                &v,
-                iroh::endpoint::LocalSocketBinding {
-                    id: vb.id,
-                    local_addr: response.local_addr,
-                },
-                ca,
-            )
-            .await
-            .unwrap();
+        v.open_data_path_from(
+            iroh::endpoint::LocalSocketBinding {
+                id: vb.id,
+                local_addr: response.local_addr,
+            },
+            ca,
+        )
+        .await
+        .unwrap();
         while !v.paths().iter().any(|p| p.local_socket_id() == Some(vb.id))
             || !c.paths().iter().any(|p| p.local_socket_id() == Some(cb.id))
         {
@@ -752,12 +802,20 @@ async fn discarded_winner_paths_release_descriptors_while_original_control_conne
         }
         assert_eq!((c.stable_id(), v.stable_id()), stable);
         assert!(c.close_reason().is_none() && v.close_reason().is_none());
-        let (mut send, _) = v.open_bi().await.unwrap();
-        send.write_all(b"original-control-alive").await.unwrap();
-        send.finish().unwrap();
-        let (_, mut recv) = c.accept_bi().await.unwrap();
+        let exchange = v.open_control_exchange().await.unwrap();
+        exchange
+            .send_message(
+                iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 64 },
+                b"original-control-alive",
+            )
+            .await
+            .unwrap();
+        let exchange = c.accept_control_exchange().await.unwrap();
         assert_eq!(
-            recv.read_to_end(64).await.unwrap(),
+            exchange
+                .recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 64 })
+                .await
+                .unwrap(),
             b"original-control-alive"
         );
         drop((cw, vw));

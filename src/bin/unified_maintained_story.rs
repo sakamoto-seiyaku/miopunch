@@ -3,7 +3,6 @@
 #[cfg(feature = "rtc-probe")]
 mod enabled {
     use iroh::{
-        Endpoint,
         endpoint::{Connection, WeakConnectionHandle},
         protocol::{AcceptError, ProtocolHandler},
     };
@@ -74,7 +73,7 @@ mod enabled {
 
     #[derive(Default)]
     struct Observed {
-        endpoint: Mutex<Option<Endpoint>>,
+        endpoint: Mutex<Option<iroh::endpoint::RestrictedEndpoint>>,
         original: Mutex<Option<Original>>,
         allow_next_member: std::sync::atomic::AtomicBool,
         handlers: AtomicUsize,
@@ -263,7 +262,7 @@ mod enabled {
                 streams.spawn(async move {
                     let _guard = StreamGuard(observed.clone());
                     let result = miopunch_native_probe::rtc_member::serve_stream(
-                        endpoint,
+                        endpoint.id(),
                         connection.clone(),
                         gate,
                         rtc,

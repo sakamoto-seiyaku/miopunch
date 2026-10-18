@@ -2,6 +2,7 @@
 use std::{net::Ipv4Addr, time::Duration};
 
 use iroh::{EndpointAddr, TransportAddr, endpoint::Connection};
+use miopunch_native_probe::control_protocol::AuthenticatedControl;
 use miopunch_native_probe::{
     admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope},
     manual_admission::{AdmissionStage, ManualExchange},
@@ -61,13 +62,41 @@ async fn connect(
     .expect("bounded formal TCP connection")
 }
 
+async fn connect_control(
+    client: &mut ResourceEndpoint,
+    server: &ResourceEndpoint,
+    alpn: &[u8],
+) -> (
+    miopunch_native_probe::control_protocol::ControlOwner,
+    std::sync::Arc<iroh::endpoint::ControlConnection>,
+) {
+    tokio::time::timeout(Duration::from_secs(12), async {
+        let address = target(server).await;
+        let deadline = n0_future::time::Instant::now() + Duration::from_secs(12);
+        let (out, incoming) = tokio::join!(client.connect_control(address, alpn), async {
+            server
+                .endpoint()
+                .accept()
+                .await
+                .unwrap()
+                .with_caller_deadline(deadline)
+                .accept_control()
+                .unwrap()
+                .await
+        });
+        (out.unwrap(), std::sync::Arc::new(incoming.unwrap()))
+    })
+    .await
+    .expect("bounded formal TCP connection")
+}
+
 async fn admit(
     admin: &mut NativeNetwork,
     joining: &mut NativeNetwork,
     ce: &mut ResourceEndpoint,
     se: &ResourceEndpoint,
 ) {
-    let (client, server) = connect(ce, se, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = connect_control(ce, se, ADMISSION_REQUEST_ALPN).await;
     let (result, served) = tokio::join!(
         joining.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -230,7 +259,7 @@ async fn priority_wrong_member_identity_cannot_bypass_tcp_admission() {
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
         .unwrap();
-    let mut ce = joining
+    let ce = joining
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
         .unwrap()
@@ -241,9 +270,15 @@ async fn priority_wrong_member_identity_cannot_bypass_tcp_admission() {
     // generated and does not belong to the listening node.
     address.id = iroh::SecretKey::generate().public();
     let (out, incoming) = tokio::join!(
-        ce.connect(address, ADMISSION_REQUEST_ALPN),
+        ce.connect_control(address, ADMISSION_REQUEST_ALPN),
         tokio::time::timeout(Duration::from_secs(3), async {
-            se.endpoint().accept().await.unwrap().await
+            se.endpoint()
+                .accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
         }),
     );
     assert!(
@@ -295,7 +330,9 @@ async fn disabled_tcp_candidate_is_not_dialed_even_through_raw_endpoint() {
     let (attempt, accepted) = tokio::join!(
         tokio::time::timeout(
             Duration::from_millis(700),
-            endpoint.endpoint().connect(target, ADMISSION_REQUEST_ALPN)
+            endpoint
+                .endpoint()
+                .connect_control(target, ADMISSION_REQUEST_ALPN)
         ),
         tokio::time::timeout(Duration::from_secs(1), listener.accept()),
     );
@@ -343,7 +380,7 @@ async fn valid_but_unapproved_identity_cannot_read_member_history_over_tcp() {
         .await
         .unwrap();
     se.endpoint().set_alpns(vec![REPLICA_ALPN.to_vec()]);
-    let mut ce = joining
+    let ce = joining
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
         .unwrap()
@@ -451,7 +488,8 @@ async fn cancelling_pending_tcp_contact_closes_actual_carrier() {
     let target = EndpointAddr::new(iroh::SecretKey::generate().public()).with_addrs([
         TransportAddr::Custom(TcpTransport::address(listener.local_addr().unwrap())),
     ]);
-    let pending = tokio::spawn(async move { raw.connect(target, ADMISSION_REQUEST_ALPN).await });
+    let pending =
+        tokio::spawn(async move { raw.connect_control(target, ADMISSION_REQUEST_ALPN).await });
     let (mut socket, _) = tokio::time::timeout(Duration::from_secs(2), listener.accept())
         .await
         .unwrap()
@@ -509,7 +547,7 @@ async fn lookup_supplied_disabled_tcp_candidate_is_not_dialed() {
     let (attempt, accepted) = tokio::join!(
         tokio::time::timeout(
             Duration::from_millis(700),
-            endpoint.connect(id, ADMISSION_REQUEST_ALPN)
+            endpoint.connect_control(id, ADMISSION_REQUEST_ALPN)
         ),
         tokio::time::timeout(Duration::from_secs(1), listener.accept()),
     );
@@ -565,7 +603,7 @@ async fn globally_disabled_tcp_cannot_be_reenabled_by_an_advanced_builder() {
     let (attempt, accepted) = tokio::join!(
         tokio::time::timeout(
             Duration::from_millis(700),
-            endpoint.connect(target, ADMISSION_REQUEST_ALPN)
+            endpoint.connect_control(target, ADMISSION_REQUEST_ALPN)
         ),
         tokio::time::timeout(Duration::from_secs(1), listener.accept()),
     );

@@ -5,13 +5,19 @@ use std::{
     time::Duration,
 };
 
-use iroh::{Endpoint, EndpointAddr, endpoint::presets};
+use iroh::{
+    Endpoint, EndpointAddr,
+    endpoint::{
+        AdmissionOutcome, ControlConfirmation, ControlConnection, EndpointAdmission,
+        RestrictedEndpoint, presets,
+    },
+};
 use iroh_base::{SecretKey, TransportAddr};
 use miopunch_native_probe::{
     admission_proof::{AdmissionScope, AdmissionSecret, prove_client, prove_server},
     management_auth::{ManagementExtension, NetworkAnchor},
     management_store::{ManagementRecord, ManagementStore},
-    member_bootstrap::{MEMBER_BOOTSTRAP_ALPN, fetch_history, serve_history},
+    member_bootstrap::{MEMBER_BOOTSTRAP_ALPN, fetch_control_history, serve_control_history},
     mqtt_discovery::{Candidate, discover, respond},
     mqtt_transport::{MqttTransport, Traffic},
 };
@@ -23,16 +29,34 @@ use p2panda_core::{Hash, Header, SigningKey, VerifyingKey};
 use rumqttc::{AsyncClient, Event, MqttOptions, Outgoing, Packet, QoS};
 use sha2::{Digest, Sha256};
 
-async fn endpoint(broker: SocketAddr, key: &SigningKey) -> (Endpoint, Arc<MqttTransport>) {
+/// The component protocol proves SCRAM and signed membership after the control
+/// handshake; TLS alone never releases an ordinary business connection.
+#[derive(Debug)]
+struct HistoryControlOnly;
+impl EndpointAdmission for HistoryControlOnly {
+    async fn admit(&self, _: &ControlConnection) -> std::io::Result<AdmissionOutcome> {
+        Ok(AdmissionOutcome::ControlOnlyWithConfirmation(
+            ControlConfirmation::new(async { Ok(()) }),
+        ))
+    }
+    fn is_current(&self, control: &ControlConnection) -> bool {
+        control.close_reason().is_none()
+    }
+}
+
+async fn endpoint(
+    broker: SocketAddr,
+    key: &SigningKey,
+) -> (RestrictedEndpoint, Arc<MqttTransport>) {
     let carrier = Arc::new(MqttTransport::new(broker, Arc::new(Traffic::default())));
     let endpoint = Endpoint::builder(presets::Minimal)
         .secret_key(SecretKey::from_bytes(key.as_bytes()))
-        .control_only_alpns(vec![MEMBER_BOOTSTRAP_ALPN.to_vec()])
         .alpns(vec![MEMBER_BOOTSTRAP_ALPN.to_vec()])
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
         .clear_relay_transports()
         .add_custom_transport(carrier.clone())
+        .restricted_application(HistoryControlOnly)
         .bind()
         .await
         .unwrap();
@@ -175,7 +199,7 @@ async fn seed(store: &mut ManagementStore, records: &[ManagementRecord]) {
     store.apply_ready().await.unwrap();
 }
 
-fn candidate(endpoint: &Endpoint, carrier: &MqttTransport) -> Candidate {
+fn candidate(endpoint: &RestrictedEndpoint, carrier: &MqttTransport) -> Candidate {
     Candidate {
         id: endpoint.id(),
         route: hex::decode(carrier.route().unwrap())
@@ -262,10 +286,19 @@ async fn offline_known_contact_does_not_block_unknown_member_bootstrap() {
     assert_eq!(found[0].id, c_endpoint.id());
     let accepted = tokio::spawn({
         let c_endpoint = c_endpoint.clone();
-        async move { c_endpoint.accept().await.unwrap().await.unwrap() }
+        async move {
+            c_endpoint
+                .accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap()
+        }
     });
     let a_conn = a
-        .connect(target(found[0]), MEMBER_BOOTSTRAP_ALPN)
+        .connect_control(target(found[0]), MEMBER_BOOTSTRAP_ALPN)
         .await
         .unwrap();
     let c_conn = accepted.await.unwrap();
@@ -281,17 +314,18 @@ async fn offline_known_contact_does_not_block_unknown_member_bootstrap() {
     .unwrap();
     let a_proof = a_proof.unwrap();
     let c_proof = c_proof.unwrap();
+    let a_history = a_conn.control_handle();
+    let c_history = c_conn.control_handle();
     let (received, served) = tokio::time::timeout(Duration::from_secs(15), async {
         tokio::join!(
-            fetch_history(
-                &a,
-                &a_conn,
+            fetch_control_history(
+                &a_history,
                 &a_proof,
                 &scope,
                 &mut a_store,
                 found[0].udp_addr.into()
             ),
-            serve_history(&c_endpoint, &c_conn, &c_proof, &scope, &c_store),
+            serve_control_history(&c_history, &c_proof, &scope, &c_store),
         )
     })
     .await
@@ -425,10 +459,18 @@ async fn false_candidates_and_former_secret_holders_do_not_receive_history() {
     assert_eq!(found.len(), 1);
     let accepted = tokio::spawn({
         let fake = fake.clone();
-        async move { fake.accept().await.unwrap().await.unwrap() }
+        async move {
+            fake.accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap()
+        }
     });
     let a_conn = a
-        .connect(target(found[0]), MEMBER_BOOTSTRAP_ALPN)
+        .connect_control(target(found[0]), MEMBER_BOOTSTRAP_ALPN)
         .await
         .unwrap();
     let fake_conn = accepted.await.unwrap();
@@ -466,10 +508,18 @@ async fn false_candidates_and_former_secret_holders_do_not_receive_history() {
     );
     let accepted = tokio::spawn({
         let a = a.clone();
-        async move { a.accept().await.unwrap().await.unwrap() }
+        async move {
+            a.accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap()
+        }
     });
     let fake_conn = fake
-        .connect(target(found[0]), MEMBER_BOOTSTRAP_ALPN)
+        .connect_control(target(found[0]), MEMBER_BOOTSTRAP_ALPN)
         .await
         .unwrap();
     let a_conn = accepted.await.unwrap();
@@ -483,7 +533,8 @@ async fn false_candidates_and_former_secret_holders_do_not_receive_history() {
     .unwrap();
     let fake_proof = fake_proof.unwrap();
     let a_proof = a_proof.unwrap();
-    let rejected = serve_history(&a, &a_conn, &a_proof, &scope, &a_store).await;
+    let rejected =
+        serve_control_history(&a_conn.control_handle(), &a_proof, &scope, &a_store).await;
     assert!(rejected.is_err());
     drop((fake_proof, a_proof));
 
@@ -491,10 +542,18 @@ async fn false_candidates_and_former_secret_holders_do_not_receive_history() {
     let (b, b_carrier) = endpoint(broker, &b_key).await;
     let accepted = tokio::spawn({
         let a = a.clone();
-        async move { a.accept().await.unwrap().await.unwrap() }
+        async move {
+            a.accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap()
+        }
     });
     let b_conn = b
-        .connect(target(found[0]), MEMBER_BOOTSTRAP_ALPN)
+        .connect_control(target(found[0]), MEMBER_BOOTSTRAP_ALPN)
         .await
         .unwrap();
     let a_conn = accepted.await.unwrap();
@@ -509,7 +568,7 @@ async fn false_candidates_and_former_secret_holders_do_not_receive_history() {
     let b_proof = b_proof.unwrap();
     let a_proof = a_proof.unwrap();
     assert!(
-        serve_history(&a, &a_conn, &a_proof, &scope, &a_store)
+        serve_control_history(&a_conn.control_handle(), &a_proof, &scope, &a_store)
             .await
             .is_err()
     );
@@ -519,10 +578,18 @@ async fn false_candidates_and_former_secret_holders_do_not_receive_history() {
     // B can still complete the shared-secret proof before rotation.
     let accepted = tokio::spawn({
         let b = b.clone();
-        async move { b.accept().await.unwrap().await.unwrap() }
+        async move {
+            b.accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap()
+        }
     });
     let a_conn = a
-        .connect(target(candidate(&b, &b_carrier)), MEMBER_BOOTSTRAP_ALPN)
+        .connect_control(target(candidate(&b, &b_carrier)), MEMBER_BOOTSTRAP_ALPN)
         .await
         .unwrap();
     let b_conn = accepted.await.unwrap();
@@ -537,9 +604,8 @@ async fn false_candidates_and_former_secret_holders_do_not_receive_history() {
     let a_proof = a_proof.unwrap();
     let b_proof = b_proof.unwrap();
     assert!(
-        fetch_history(
-            &a,
-            &a_conn,
+        fetch_control_history(
+            &a_conn.control_handle(),
             &a_proof,
             &scope,
             &mut a_store,
@@ -573,10 +639,18 @@ async fn false_candidates_and_former_secret_holders_do_not_receive_history() {
     for (attempt_scope, attempt_secret) in [(&scope, &secret), (&new_scope, &secret)] {
         let accepted = tokio::spawn({
             let a = a.clone();
-            async move { a.accept().await.unwrap().await.unwrap() }
+            async move {
+                a.accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+                    .unwrap()
+            }
         });
         let c_conn = c
-            .connect(target(found[0]), MEMBER_BOOTSTRAP_ALPN)
+            .connect_control(target(found[0]), MEMBER_BOOTSTRAP_ALPN)
             .await
             .unwrap();
         let a_conn = accepted.await.unwrap();
@@ -591,7 +665,7 @@ async fn false_candidates_and_former_secret_holders_do_not_receive_history() {
         let c_proof = c_proof.unwrap();
         let a_proof = a_proof.unwrap();
         assert!(
-            serve_history(&a, &a_conn, &a_proof, attempt_scope, &a_store)
+            serve_control_history(&a_conn.control_handle(), &a_proof, attempt_scope, &a_store)
                 .await
                 .is_err()
         );

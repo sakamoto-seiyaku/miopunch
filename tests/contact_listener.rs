@@ -1,4 +1,5 @@
 //! Owned loopback lifecycle supplement; public SDK/device stories are separate.
+use miopunch_native_probe::control_protocol::AuthenticatedControl;
 use miopunch_native_probe::{
     connection_coordinator::{AttemptContext, MEMBER_ALPN, SessionPurpose},
     contact_listener::ContactListenerPhase,
@@ -76,7 +77,7 @@ async fn admit(admin: &mut NativeNetwork, directory: &std::path::Path) -> Native
     let deadline = n0_future::time::Instant::now() + Duration::from_secs(12);
     let cancellation = tokio_util::sync::CancellationToken::new();
     let (outgoing, incoming) = tokio::join!(
-        client_coordinator.connect(
+        client_coordinator.connect_control(
             server.addr(),
             SessionPurpose::AdmissionRequest,
             AttemptContext::new(deadline, cancellation.clone()),
@@ -84,7 +85,7 @@ async fn admit(admin: &mut NativeNetwork, directory: &std::path::Path) -> Native
         async {
             let incoming = server.endpoint().accept().await.unwrap();
             server_coordinator
-                .accept(
+                .accept_control(
                     incoming,
                     SessionPurpose::AdmissionRequest,
                     AttemptContext::new(deadline, cancellation),

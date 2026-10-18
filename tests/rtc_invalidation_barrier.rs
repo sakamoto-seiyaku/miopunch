@@ -1,9 +1,9 @@
 //! The owned diagnostic gate observes a real lease/source, not a revision mirror.
 #![cfg(feature = "rtc-probe")]
-use iroh::{
-    Endpoint,
-    endpoint::{AfterHandshakeOutcome, Connection, EndpointHooks, presets},
-};
+#[path = "support/admitted_ip.rs"]
+mod admitted_ip;
+
+use iroh::{Endpoint, endpoint::presets};
 use miopunch_native_probe::{
     rtc_association::RtcDeadline,
     rtc_invalidation_fixture::ControlCheckpointStage,
@@ -16,23 +16,14 @@ use std::{
     time::Duration,
 };
 const ALPN: &[u8] = b"miopunch/rtc-owned-control-gate-test/1";
-#[derive(Debug)]
-struct Gate;
-impl EndpointHooks for Gate {
-    async fn after_handshake(&self, _: &Connection) -> AfterHandshakeOutcome {
-        AfterHandshakeOutcome::AcceptData {
-            allowed_data_custom_ids: vec![TRANSPORT_ID],
-        }
-    }
-}
-async fn endpoint(transport: &RtcTransport) -> Endpoint {
+async fn endpoint(transport: &RtcTransport) -> iroh::endpoint::RestrictedEndpoint {
     Endpoint::builder(presets::Minimal)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
         .clear_relay_transports()
         .add_custom_transport(Arc::new(transport.clone()))
-        .admission_gate(Gate)
         .alpns(vec![ALPN.to_vec()])
+        .restricted_application(admitted_ip::IpAdmission(vec![TRANSPORT_ID]))
         .bind()
         .await
         .unwrap()

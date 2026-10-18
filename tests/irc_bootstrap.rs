@@ -2,6 +2,10 @@ use iroh::{
     Endpoint, EndpointAddr, TransportAddr,
     endpoint::{Connection, presets},
 };
+#[path = "support/native_connections.rs"]
+mod native_connections;
+use iroh::endpoint::RestrictedEndpoint;
+
 use miopunch_native_probe::{
     admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope},
     manual_admission::ManualExchange,
@@ -15,16 +19,12 @@ use std::sync::{
 use std::{collections::BTreeSet, net::Ipv4Addr, path::Path, time::Duration};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 const BUSINESS: &[u8] = b"miopunch/irc-business/1";
-async fn connect(a: &Endpoint, b: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
-    let addr = EndpointAddr::new(b.id()).with_ip_addr(*b.addr().ip_addrs().next().unwrap());
-    tokio::time::timeout(Duration::from_secs(10), async {
-        let (a, b) = tokio::join!(a.connect(addr, alpn), async {
-            b.accept().await.unwrap().await
-        });
-        (a.unwrap(), b.unwrap())
-    })
-    .await
-    .unwrap()
+async fn connect(
+    client: &RestrictedEndpoint,
+    server: &RestrictedEndpoint,
+    alpn: &[u8],
+) -> (Connection, Connection) {
+    native_connections::member_pair(client, server, alpn).await
 }
 async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
     let mut node = NativeNetwork::join(path, admin.manual_invitation().unwrap())
@@ -32,7 +32,7 @@ async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
         .unwrap();
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ne = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
     let (request, served) = tokio::join!(
         node.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -158,7 +158,7 @@ impl Proxy {
 async fn a_missing_fragment_of_the_real_long_handshake_cannot_release_a_connection() {
     let proxy = Proxy::new().await;
     let (_dir, a, b) = pair_at(&proxy.address.to_string()).await;
-    let mut ae = bind(&a)
+    let ae = bind(&a)
         .await
         .with_contact_timeout(Duration::from_secs(4))
         .unwrap();
@@ -243,7 +243,7 @@ async fn bind(node: &NativeNetwork) -> miopunch_native_probe::resources::Resourc
     ep
 }
 
-fn target(endpoint: &Endpoint) -> EndpointAddr {
+fn target(endpoint: &RestrictedEndpoint) -> EndpointAddr {
     EndpointAddr::new(endpoint.id()).with_addrs([TransportAddr::Custom(
         endpoint
             .custom_addrs()
@@ -254,7 +254,7 @@ fn target(endpoint: &Endpoint) -> EndpointAddr {
 }
 async fn formal_connect(
     client: &mut miopunch_native_probe::resources::ResourceEndpoint,
-    server: &Endpoint,
+    server: &RestrictedEndpoint,
 ) -> (Connection, Connection) {
     let expected = client.endpoint().id();
     let (client, server) = tokio::time::timeout(Duration::from_secs(15), async {
@@ -470,7 +470,7 @@ async fn reachable_irc_cannot_release_business_without_a_permitted_data_path() {
         config.udp_direct_disabled = true;
         node.save_resource_configuration(&config).unwrap();
     }
-    let mut ae = bind(&a).await;
+    let ae = bind(&a).await;
     let be = bind(&b).await;
     let (client, server) = tokio::time::timeout(Duration::from_secs(10), async {
         tokio::join!(ae.connect(target(be.endpoint()), BUSINESS), async {
@@ -513,7 +513,7 @@ async fn an_irc_route_cannot_substitute_tls_identity_or_unapproved_membership() 
     stranger
         .admission_gate()
         .register_protocol(BUSINESS, ProtocolScope::Member);
-    let mut se = bind(&stranger).await;
+    let se = bind(&stranger).await;
     let (client, server) = tokio::time::timeout(Duration::from_secs(10), async {
         tokio::join!(se.connect(target(be.endpoint()), BUSINESS), async {
             be.endpoint().accept().await.unwrap().await
@@ -545,14 +545,13 @@ impl std::fmt::Debug for DataStageNotice {
     }
 }
 impl iroh::endpoint::EndpointHooks for DataStageNotice {
-    async fn before_data_release(
+    async fn after_handshake(
         &self,
-        _: &Endpoint,
         connection: &Connection,
-    ) -> std::io::Result<()> {
+    ) -> iroh::endpoint::AfterHandshakeOutcome {
         self.id.send_replace(Some(connection.stable_id()));
         self.entered.notify_one();
-        Ok(())
+        iroh::endpoint::AfterHandshakeOutcome::Accept
     }
 }
 #[tokio::test]
@@ -664,7 +663,7 @@ async fn actual_server_rate_limiting_returns_bounded_unavailability() {
     let limited = std::env::var("MIOPUNCH_IRC_LIMITED_SERVER")
         .expect("owned IRCd with actual fakelag required");
     let (_dir, a, b) = pair_at(&limited).await;
-    let mut ae = bind(&a)
+    let ae = bind(&a)
         .await
         .with_contact_timeout(Duration::from_secs(4))
         .unwrap();
@@ -833,7 +832,7 @@ async fn losing_the_udp_data_path_does_not_send_business_back_to_irc() {
 #[tokio::test]
 async fn real_irc_replaces_mqtt_at_the_same_native_connection_entry() {
     let (_dir, a, b) = pair().await;
-    let mut ae = bind(&a).await;
+    let ae = bind(&a).await;
     let be = bind(&b).await;
     let route = be
         .endpoint()

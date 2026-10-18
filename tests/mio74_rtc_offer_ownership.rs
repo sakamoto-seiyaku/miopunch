@@ -4,7 +4,7 @@
 
 use iroh::{
     Endpoint,
-    endpoint::{Connection, EndpointHooks},
+    endpoint::{AdmissionOutcome, ControlConnection, ControlMessageFormat, EndpointAdmission},
 };
 use miopunch_native_probe::{
     admission_gate::{ADMISSION_REQUEST_ALPN, AdmissionGate, ProtocolScope},
@@ -49,10 +49,11 @@ async fn saved_pair() -> (tempfile::TempDir, NativeNetwork, NativeNetwork) {
     }
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let be = b.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = tokio::join!(be.connect(ae.addr(), ADMISSION_REQUEST_ALPN), async {
-        ae.accept().await.unwrap().await
-    });
-    let (client, server) = (client.unwrap(), server.unwrap());
+    let (client, server) = tokio::join!(
+        be.connect_control(ae.addr(), ADMISSION_REQUEST_ALPN),
+        async { ae.accept().await.unwrap().accept_control().unwrap().await }
+    );
+    let (client, server) = (Arc::new(client.unwrap()), Arc::new(server.unwrap()));
     let (request, provided) = tokio::join!(
         b.request_manual_admission(&client),
         a.serve_manual_admission(&server)
@@ -87,7 +88,7 @@ struct Observation {
     current_member_proof: bool,
     native_rtc_offer_advertised: bool,
     candidate_stream_observed: bool,
-    original: Option<iroh::endpoint::WeakConnectionHandle>,
+    original: Option<iroh::endpoint::WeakControlConnection>,
 }
 
 #[derive(Clone)]
@@ -102,31 +103,20 @@ impl std::fmt::Debug for WrongResponderRole {
     }
 }
 
-impl EndpointHooks for WrongResponderRole {
-    async fn before_data_release(
-        &self,
-        _: &Endpoint,
-        connection: &Connection,
-    ) -> std::io::Result<()> {
-        if connection.alpn() != MEMBER_ALPN {
-            return Ok(());
-        }
+impl EndpointAdmission for WrongResponderRole {
+    async fn admit(&self, connection: &ControlConnection) -> std::io::Result<AdmissionOutcome> {
+        let _authenticated = self.gate.admit(connection).await?;
         let proof = self
             .gate
             .proof_for(connection)
             .ok_or_else(|| std::io::Error::other("actual SDK member proof missing"))?;
-        let (mut send, mut recv) = connection.accept_bi().await?;
-        let mut length = [0; 2];
-        recv.read_exact(&mut length)
-            .await
-            .map_err(std::io::Error::other)?;
-        if u16::from_be_bytes(length) != 28 {
-            return Err(std::io::Error::other("actual MUC1 length differs"));
-        }
+        let exchange = connection.accept_control_exchange().await?;
         let mut native = [0; 28];
-        recv.read_exact(&mut native)
-            .await
-            .map_err(std::io::Error::other)?;
+        native.copy_from_slice(
+            &exchange
+                .recv_message(ControlMessageFormat::LengthPrefixed16 { maximum: 28 })
+                .await?,
+        );
         if &native[..4] != b"MUC1"
             || native[4] != 1
             || native[5] != 1
@@ -152,15 +142,22 @@ impl EndpointHooks for WrongResponderRole {
         frame[..4].copy_from_slice(b"MUC1");
         frame[4..11].copy_from_slice(&[1, 1, 2, 2, 8, 8, 1]);
         frame[12..].copy_from_slice(&[0x74; 16]);
-        send.write_all(&28u16.to_be_bytes()).await?;
-        send.write_all(&frame).await?;
+        exchange
+            .send_message(
+                ControlMessageFormat::LengthPrefixed16 { maximum: 28 },
+                &frame,
+            )
+            .await?;
         tokio::select! {
-            candidate = connection.accept_bi() => {
+            candidate = connection.accept_control_exchange() => {
                 self.observation.lock().unwrap().candidate_stream_observed = candidate.is_ok();
             }
             _ = connection.closed() => {}
         }
         Err(std::io::Error::other("owned malformed role peer retired"))
+    }
+    fn is_current(&self, connection: &ControlConnection) -> bool {
+        self.gate.is_current(connection)
     }
 }
 
@@ -189,6 +186,16 @@ async fn stream_step(
 #[tokio::test]
 async fn native_sdk_rejects_the_wrong_rtc_responder_role_and_preserves_an_existing_member_stream() {
     let (_directory, a, b) = saved_pair().await;
+    let rtc = RtcTransport::new();
+    let native = a
+        .bind_configured_endpoint_with_rtc(
+            Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
+                .unwrap(),
+            rtc.clone(),
+        )
+        .await
+        .unwrap();
     let healthy_a = a
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
@@ -223,27 +230,27 @@ async fn native_sdk_rejects_the_wrong_rtc_responder_role_and_preserves_an_existi
     recv.read_exact(&mut first).await.unwrap();
     assert_eq!(&first, b"one");
     let stream_id = send.id();
-    let rtc = RtcTransport::new();
-    let native = a
-        .bind_configured_endpoint_with_rtc(
+    let observation = Arc::new(Mutex::new(Observation::default()));
+    let key: [u8; 32] = std::fs::read(_directory.path().join("b/node.key"))
+        .unwrap()
+        .try_into()
+        .unwrap();
+    let peer = b
+        .resource_configuration()
+        .unwrap()
+        .configure(
             Endpoint::builder(iroh::endpoint::presets::Minimal)
                 .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
                 .unwrap(),
-            rtc.clone(),
         )
-        .await
-        .unwrap();
-    let observation = Arc::new(Mutex::new(Observation::default()));
-    let peer = b
-        .bind_configured_endpoint_with(
-            Endpoint::builder(iroh::endpoint::presets::Minimal)
-                .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
-                .unwrap()
-                .hooks(WrongResponderRole {
-                    gate: b.admission_gate(),
-                    observation: observation.clone(),
-                }),
-        )
+        .unwrap()
+        .secret_key(iroh_base::SecretKey::from_bytes(&key))
+        .alpns(vec![MEMBER_ALPN.to_vec()])
+        .restricted_application(WrongResponderRole {
+            gate: b.admission_gate(),
+            observation: observation.clone(),
+        })
+        .bind()
         .await
         .unwrap();
     let owned_addresses: Vec<_> = [
@@ -262,8 +269,7 @@ async fn native_sdk_rejects_the_wrong_rtc_responder_role_and_preserves_an_existi
     let (result, peer_result) = tokio::join!(
         native_coordinator.connect(peer.addr(), SessionPurpose::MemberBusiness, caller),
         async {
-            peer.endpoint()
-                .accept()
+            peer.accept()
                 .await
                 .unwrap()
                 .with_caller_deadline(deadline)
@@ -312,6 +318,7 @@ async fn native_sdk_rejects_the_wrong_rtc_responder_role_and_preserves_an_existi
         native.close(),
         peer.close()
     );
+    drop(peer);
     tokio::join!(a.close(), b.close());
     let immediate: Vec<_> = owned_addresses
         .iter()

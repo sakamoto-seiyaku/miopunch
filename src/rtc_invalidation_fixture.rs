@@ -1,11 +1,12 @@
 //! One-shot, owned diagnostic holds at existing RTC Control boundaries.
 //! Never installed by default and never a permission source.
+use crate::control_protocol::AuthenticatedControl;
 use crate::{
     rtc_association::RtcDeadline,
     rtc_transport::{RtcDatagramIo, RtcRouteLease},
 };
 use futures_util::FutureExt;
-use iroh::endpoint::{Connection, WeakConnectionHandle};
+use iroh::endpoint::WeakControlConnection;
 use serde_json::{Value, json};
 use std::{
     io,
@@ -26,7 +27,7 @@ pub enum ControlCheckpointStage {
 struct Observation {
     metadata: Value,
     io: RtcDatagramIo,
-    original: WeakConnectionHandle,
+    original: WeakControlConnection,
     held: Arc<AtomicBool>,
     release: CancellationToken,
     actual_sends: Arc<dyn Fn() -> Value + Send + Sync>,
@@ -169,7 +170,7 @@ impl ControlFixture {
     pub(crate) async fn checkpoint(
         &self,
         stage: ControlCheckpointStage,
-        original: &Connection,
+        original: &(impl AuthenticatedControl + ?Sized),
         lease: &RtcRouteLease,
         budget: RtcDeadline,
         metadata: Value,
@@ -189,7 +190,7 @@ impl ControlFixture {
             *observation = Some(Observation {
                 metadata,
                 io: io.clone(),
-                original: original.weak_handle(),
+                original: original.revocation_handle(),
                 held: held.clone(),
                 release: release.clone(),
                 actual_sends,

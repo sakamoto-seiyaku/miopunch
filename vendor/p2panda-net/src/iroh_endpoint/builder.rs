@@ -8,7 +8,7 @@ use ractor::thread_local::{ThreadLocalActor, ThreadLocalActorSpawner};
 
 use crate::address_book::AddressBook;
 use crate::iroh_endpoint::actors::{IrohEndpoint, IrohEndpointArgs};
-use crate::iroh_endpoint::api::{Endpoint, EndpointError};
+use crate::iroh_endpoint::api::{Endpoint, EndpointError, RestrictedEndpoint};
 use crate::iroh_endpoint::config::IrohConfig;
 use crate::{DEFAULT_NETWORK_ID, NetworkId};
 
@@ -22,10 +22,13 @@ pub struct Builder {
 }
 
 /// Reusable endpoint configuration applied on every actor bind, including restarts.
-#[derive(Clone)]
-pub struct EndpointBuilderHook(
-    Arc<dyn Fn(iroh::endpoint::Builder) -> iroh::endpoint::Builder + Send + Sync>,
-);
+#[derive(Clone, Default)]
+pub struct EndpointBuilderHook {
+    ordinary: Option<Arc<dyn Fn(iroh::endpoint::Builder) -> iroh::endpoint::Builder + Send + Sync>>,
+    pub(crate) restricted: Option<
+        Arc<dyn Fn(iroh::endpoint::Builder) -> iroh::endpoint::RestrictedBuilder + Send + Sync>,
+    >,
+}
 
 impl std::fmt::Debug for EndpointBuilderHook {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -35,7 +38,10 @@ impl std::fmt::Debug for EndpointBuilderHook {
 
 impl EndpointBuilderHook {
     pub(crate) fn apply(&self, builder: iroh::endpoint::Builder) -> iroh::endpoint::Builder {
-        (self.0)(builder)
+        match &self.ordinary {
+            Some(hook) => hook(builder),
+            None => builder,
+        }
     }
 }
 
@@ -71,7 +77,10 @@ impl Builder {
         mut self,
         hook: impl Fn(iroh::endpoint::Builder) -> iroh::endpoint::Builder + Send + Sync + 'static,
     ) -> Self {
-        self.endpoint_builder_hook = Some(EndpointBuilderHook(Arc::new(hook)));
+        self.endpoint_builder_hook = Some(EndpointBuilderHook {
+            ordinary: Some(Arc::new(hook)),
+            restricted: None,
+        });
         self
     }
 
@@ -126,8 +135,27 @@ impl Builder {
     }
 
     pub async fn spawn(self) -> Result<Endpoint, EndpointError> {
-        let args = self.build_args();
+        Self::spawn_args(self.build_args()).await
+    }
 
+    /// Explicitly bind a restricted endpoint using the same p2panda actors.
+    /// Ordinary builder configuration runs first on every bind. The returned
+    /// wrapper exposes no ordinary endpoint or pre-admission connection handle.
+    pub async fn spawn_restricted(
+        self,
+        configure: impl Fn(iroh::endpoint::Builder) -> iroh::endpoint::RestrictedBuilder
+        + Send
+        + Sync
+        + 'static,
+    ) -> Result<RestrictedEndpoint, EndpointError> {
+        let mut args = self.build_args();
+        args.5
+            .get_or_insert_with(EndpointBuilderHook::default)
+            .restricted = Some(Arc::new(configure));
+        Self::spawn_args(args).await.map(RestrictedEndpoint::new)
+    }
+
+    async fn spawn_args(args: IrohEndpointArgs) -> Result<Endpoint, EndpointError> {
         let (actor_ref, _) = {
             let thread_pool = ThreadLocalActorSpawner::new();
             IrohEndpoint::spawn(None, args.clone(), thread_pool).await?

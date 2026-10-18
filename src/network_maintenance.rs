@@ -2,7 +2,9 @@
 //! identity-scoped contact attempts; iroh owns the paths of each living session.
 use crate::{
     admission_gate::{AdmissionGate, ProtocolScope},
+    connection_coordinator::ConnectionDelivery,
     contact_listener::{ContactListenerControl, ContactListenerPhase, ContactListenerStatus},
+    control_protocol::{AuthenticatedControl, ControlOwner, OwnedControl},
     native_network::{NativeNetwork, NodeError, NodeStatus},
     network_recovery::{RECOVERY_REPLICA_ALPN, commit_ip},
     offline_replica::{REPLICA_ALPN, ReplicaOutcome, ReplicaProvider},
@@ -12,7 +14,10 @@ use futures_util::{StreamExt, stream::FuturesUnordered};
 use iroh::{
     Endpoint, EndpointAddr, EndpointId, TransportAddr,
     endpoint::Connection,
-    protocol::{ProtocolHandler, Router, RouterBuilder},
+    protocol::{
+        ControlProtocolHandler, ProtocolHandler, RestrictedRouter as Router,
+        RestrictedRouterBuilder as RouterBuilder,
+    },
 };
 use p2panda_core::VerifyingKey;
 use p2panda_discovery::{
@@ -157,7 +162,7 @@ pub struct MaintainedNetwork {
     task: Option<JoinHandle<()>>,
 }
 impl MaintainedNetwork {
-    pub fn endpoint(&self) -> &Endpoint {
+    pub fn endpoint(&self) -> &iroh::endpoint::RestrictedEndpoint {
         self.resources.endpoint()
     }
     pub fn addr(&self) -> EndpointAddr {
@@ -294,7 +299,7 @@ struct Neighbor {
     connection: Connection,
     sync_at: Instant,
 }
-struct CloseExchange(Option<Connection>);
+struct CloseExchange(Option<ControlOwner>);
 impl Drop for CloseExchange {
     fn drop(&mut self) {
         if let Some(connection) = &self.0 {
@@ -373,81 +378,54 @@ impl std::fmt::Debug for HistoryHandler {
     }
 }
 impl ProtocolHandler for HistoryHandler {
-    async fn on_accepting(
-        &self,
-        mut accepting: iroh::endpoint::Accepting,
-    ) -> Result<Connection, iroh::protocol::AcceptError> {
-        // Retain the original receipt clock through Router ALPN classification.
-        let deadline = self
-            .resources
-            .contact_deadline_from(accepting.received_at());
-        let alpn = accepting
-            .alpn()
-            .await
-            .map_err(iroh::protocol::AcceptError::from_err)?;
-        if alpn != REPLICA_ALPN {
-            // Recovery's historical acceptance remains separate and unchanged.
-            return accepting.await.map_err(Into::into);
-        }
-        if deadline <= n0_future::time::Instant::now() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                "replica admission deadline elapsed during classification",
-            )
-            .into());
-        }
-        tokio::time::timeout(
-            deadline.saturating_duration_since(n0_future::time::Instant::now()),
-            accepting.with_caller_deadline(deadline),
-        )
-        .await
-        .map_err(|_| {
-            std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                "replica admission deadline exceeded",
-            )
-        })?
-        .map_err(Into::into)
-    }
-
     async fn accept(&self, connection: Connection) -> Result<(), iroh::protocol::AcceptError> {
         let Ok(_permit) = self.permits.clone().try_acquire_owned() else {
             connection.close(0u32.into(), b"maintenance serving budget busy");
             return Ok(());
         };
-        if connection.alpn() == RECOVERY_REPLICA_ALPN {
-            let result = async {
-                if !self.resources.recovery_udp_allowed()
-                    || !self.gate.allows_member_path_upgrade(&connection)
-                {
-                    return Err(());
-                }
-                commit_ip(self.resources.endpoint(), &connection)
-                    .await
-                    .map_err(|_| ())?;
-                let provider = self.provider.borrow().clone();
-                provider.serve(&connection).await.map_err(|_| ())?;
-                tokio::time::timeout(Duration::from_secs(12), connection.closed())
-                    .await
-                    .map_err(|_| ())?;
-                Ok::<_, ()>(())
+        while self.gate.allows(&connection, ProtocolScope::Member) {
+            let Ok(streams) = connection.accept_bi().await else {
+                break;
+            };
+            let provider = self.provider.borrow().clone();
+            if provider.serve_stream(&connection, streams).await.is_err() {
+                break;
             }
-            .await;
-            if result.is_err() {
-                connection.close(0u32.into(), b"maintenance recovery rejected");
+        }
+        connection.close(0u32.into(), b"maintenance member session ended");
+        Ok(())
+    }
+}
+impl ControlProtocolHandler for HistoryHandler {
+    async fn accept(
+        &self,
+        control: iroh::endpoint::ControlConnection,
+    ) -> Result<(), iroh::protocol::AcceptError> {
+        let connection = Arc::new(control);
+        let Ok(_permit) = self.permits.clone().try_acquire_owned() else {
+            connection.close(0u32.into(), b"maintenance serving budget busy");
+            return Ok(());
+        };
+        let result = async {
+            if connection.alpn() != RECOVERY_REPLICA_ALPN
+                || !self.resources.recovery_udp_allowed()
+                || !self.gate.allows_member_path_upgrade(&connection)
+            {
+                return Err(());
             }
-        } else {
-            while self.gate.allows(&connection, ProtocolScope::Member) {
-                let Ok(streams) = connection.accept_bi().await else {
-                    break;
-                };
-                // Read the newest applied snapshot at the start of each exchange.
-                let provider = self.provider.borrow().clone();
-                if provider.serve_stream(&connection, streams).await.is_err() {
-                    break;
-                }
-            }
-            connection.close(0u32.into(), b"maintenance member session ended");
+            commit_ip(self.resources.endpoint(), &connection)
+                .await
+                .map_err(|_| ())?;
+            let provider = self.provider.borrow().clone();
+            provider.serve(&connection).await.map_err(|_| ())?;
+            tokio::time::timeout(Duration::from_secs(12), connection.weak_handle().closed())
+                .await
+                .map_err(|_| ())?;
+            Ok::<_, ()>(())
+        }
+        .await;
+        if result.is_err() {
+            connection.close(0u32.into(), b"maintenance recovery rejected");
         }
         Ok(())
     }
@@ -455,48 +433,21 @@ impl ProtocolHandler for HistoryHandler {
 
 #[derive(Clone)]
 struct ActiveImprovementHandler {
-    endpoint: Endpoint,
+    endpoint: iroh::endpoint::RestrictedEndpoint,
     gate: AdmissionGate,
     adapter: crate::connection_coordinator::CoordinatorHook,
-    resources: Arc<ResourceEndpoint>,
+    _resources: Arc<ResourceEndpoint>,
 }
 impl std::fmt::Debug for ActiveImprovementHandler {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("ActiveImprovementHandler")
     }
 }
-impl ProtocolHandler for ActiveImprovementHandler {
-    async fn on_accepting(
+impl ControlProtocolHandler for ActiveImprovementHandler {
+    async fn accept(
         &self,
-        accepting: iroh::endpoint::Accepting,
-    ) -> Result<Connection, iroh::protocol::AcceptError> {
-        // Router has identified this restricted ALPN; include its preceding
-        // classification time without imposing a clock on unrelated protocols.
-        let deadline = self
-            .resources
-            .contact_deadline_from(accepting.received_at());
-        if deadline <= n0_future::time::Instant::now() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                "active improvement deadline elapsed during classification",
-            )
-            .into());
-        }
-        tokio::time::timeout(
-            deadline.saturating_duration_since(n0_future::time::Instant::now()),
-            accepting.with_caller_deadline(deadline),
-        )
-        .await
-        .map_err(|_| {
-            std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                "active improvement admission deadline exceeded",
-            )
-        })?
-        .map_err(Into::into)
-    }
-
-    async fn accept(&self, control: Connection) -> Result<(), iroh::protocol::AcceptError> {
+        control: iroh::endpoint::ControlConnection,
+    ) -> Result<(), iroh::protocol::AcceptError> {
         if control.alpn() != crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN
             || !self.gate.allows_member_path_upgrade(&control)
         {
@@ -517,8 +468,8 @@ impl ProtocolHandler for ActiveImprovementHandler {
             responder_deadline.saturating_duration_since(n0_future::time::Instant::now()),
             crate::connection_coordinator::serve_active_session(
                 &endpoint,
-                &control,
-                &adapter,
+                &control.control_handle(),
+                &crate::connection_coordinator::NativeControlAdapter(adapter),
                 &maintenance,
                 responder_deadline,
                 move |peer, binding| {
@@ -769,17 +720,24 @@ impl Coordinator {
     async fn synchronize(
         &mut self,
         candidate: Candidate,
-        connection: Connection,
+        delivery: ConnectionDelivery,
     ) -> Result<(), NodeError> {
-        let id = connection.remote_id();
-        let mut owned = CloseExchange(Some(connection));
+        let (mut business, control) = match delivery {
+            ConnectionDelivery::Business(connection) => {
+                let control = connection.retain_control();
+                (Some(connection), control)
+            }
+            ConnectionDelivery::Control(control) => (None, control),
+        };
+        let id = control.remote_id();
+        let mut owned = CloseExchange(Some(control));
         let connection = owned.0.as_ref().unwrap();
         let result = async {
             if connection.alpn() == RECOVERY_REPLICA_ALPN {
                 if let Some(udp) = candidate.udp_hint {
-                    self.resources
-                        .endpoint()
-                        .open_data_path(connection, udp)
+                    connection
+                        .path_handle(self.resources.endpoint())
+                        .open_data_path(udp)
                         .await
                         .map_err(std::io::Error::other)?;
                 }
@@ -827,7 +785,8 @@ impl Coordinator {
                 if connection.alpn() == REPLICA_ALPN
                     && self.neighbors.len() < self.policy.max_neighbors
                 {
-                    let connection = owned.0.take().unwrap();
+                    let connection = business.take().ok_or(NodeError::InvalidData)?;
+                    owned.0.take();
                     self.neighbors.insert(
                         id,
                         Neighbor {
@@ -1328,13 +1287,13 @@ impl NativeNetwork {
             endpoint: resources.endpoint().clone(),
             gate: self.gate.clone(),
             adapter: active_adapter.clone(),
-            resources: resources.clone(),
+            _resources: resources.clone(),
         };
         let router = routes(
             Router::builder(resources.endpoint().clone())
                 .accept(REPLICA_ALPN, handler.clone())
-                .accept(RECOVERY_REPLICA_ALPN, handler)
-                .accept(
+                .accept_control(RECOVERY_REPLICA_ALPN, handler)
+                .accept_control(
                     crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN,
                     active_handler,
                 ),

@@ -1,27 +1,22 @@
 //! Real public-node precode behavior.
+#[path = "support/native_connections.rs"]
+mod native_connections;
+use iroh::endpoint::RestrictedEndpoint;
+use native_connections::send_field;
+
+use iroh::EndpointAddr;
 use iroh::endpoint::Connection;
-use iroh::{Endpoint, EndpointAddr};
 use miopunch_native_probe::admission_gate::ADMISSION_REQUEST_ALPN;
 use miopunch_native_probe::manual_admission::{AdmissionStage, ManualExchange};
 use miopunch_native_probe::native_network::NativeNetwork;
 use std::net::Ipv4Addr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-async fn connect(client: &Endpoint, server: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
-    let target = EndpointAddr::new(server.id()).with_addrs(
-        server
-            .addr()
-            .ip_addrs()
-            .copied()
-            .map(iroh_base::TransportAddr::Ip),
-    );
-    tokio::time::timeout(Duration::from_secs(10), async {
-        let (out, incoming) = tokio::join!(client.connect(target, alpn), async {
-            server.accept().await.unwrap().await
-        });
-        (out.unwrap(), incoming.unwrap())
-    })
-    .await
-    .expect("bounded real TLS connection")
+async fn connect(
+    client: &RestrictedEndpoint,
+    server: &RestrictedEndpoint,
+    alpn: &[u8],
+) -> (Connection, Connection) {
+    native_connections::member_pair(client, server, alpn).await
 }
 
 fn expiry() -> u64 {
@@ -45,7 +40,7 @@ async fn single_use_redemption_survives_restart_and_delayed_delivery() {
     let ce = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let se = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     se.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
-    let (c, s) = connect(&ce, &se, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&ce, &se, ADMISSION_REQUEST_ALPN).await;
     let (received, sent) = tokio::join!(
         joining.request_precode_admission(&c, &code),
         admin.serve_precode_admission(&s)
@@ -69,7 +64,7 @@ async fn single_use_redemption_survives_restart_and_delayed_delivery() {
     let mut admin = NativeNetwork::open(&a).await.unwrap();
     let se = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     se.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
-    let (c, s) = connect(&ce, &se, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&ce, &se, ADMISSION_REQUEST_ALPN).await;
     let receive = async {
         let ManualExchange::Materials(d) =
             joining.request_precode_admission(&c, &code).await.unwrap()
@@ -120,8 +115,8 @@ async fn independent_tls_identities_competing_for_last_use_admit_only_one() {
     let se = second.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     ae.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
     // Both independently authenticated connections exist before either starts.
-    let (fc, fs) = connect(&fe, &ae, ADMISSION_REQUEST_ALPN).await;
-    let (sc, ss) = connect(&se, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (fc, fs) = native_connections::control_pair(&fe, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (sc, ss) = native_connections::control_pair(&se, &ae, ADMISSION_REQUEST_ALPN).await;
     let admin = tokio::sync::Mutex::new(admin);
     let first_request = async {
         match first.request_precode_admission(&fc, &code).await {
@@ -169,7 +164,7 @@ async fn redeem(
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let je = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     ae.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
-    let (c, s) = connect(&je, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&je, &ae, ADMISSION_REQUEST_ALPN).await;
     let receive = async {
         match joining.request_precode_admission(&c, code).await {
             Ok(ManualExchange::Materials(d)) => joining.complete_manual_admission(d).await.is_ok(),
@@ -405,7 +400,7 @@ async fn expiry_stops_new_redemption_but_not_prior_materials_or_membership() {
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let je = first.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     ae.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
-    let (client, server) = connect(&je, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&je, &ae, ADMISSION_REQUEST_ALPN).await;
     let expires = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -560,9 +555,10 @@ async fn quota_signed_grant_and_pending_result_recover_at_both_commit_boundaries
         let endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
         let target = EndpointAddr::new(code.invitation().contact).with_ip_addr(address);
         let connection = endpoint
-            .connect(target, ADMISSION_REQUEST_ALPN)
+            .connect_control(target, ADMISSION_REQUEST_ALPN)
             .await
             .unwrap();
+        let connection = std::sync::Arc::new(connection);
         assert!(
             joining
                 .request_precode_admission(&connection, &code)
@@ -777,20 +773,22 @@ async fn holder_of_the_same_code_cannot_redeem_as_a_different_tls_identity() {
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let te = attacker.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     ae.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
-    let (c, s) = connect(&te, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&te, &ae, ADMISSION_REQUEST_ALPN).await;
     assert_ne!(
         c.remote_id().as_bytes(),
         attacker.status().node_id.as_bytes()
     );
     let forged = async {
-        let (mut send, mut recv) = c.open_bi().await.unwrap();
+        let exchange = c.open_control_exchange().await.unwrap();
+        let (send, recv) = (&exchange, &exchange);
         let mut wire = code.invitation().encode().to_vec();
         wire.extend_from_slice(&[7; 16]);
         wire.extend_from_slice(rightful.status().node_id.as_bytes());
         wire.extend_from_slice(&code.encode()[96..]);
-        send.write_all(&wire).await.unwrap();
-        send.finish().unwrap();
-        recv.read_to_end(1024).await
+        send_field(send, &wire).await.unwrap();
+        send.finish_send().await.unwrap();
+        recv.recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 1024 })
+            .await
     };
     let (received, sent) = tokio::join!(forged, admin.serve_precode_admission(&s));
     assert!(sent.is_err());

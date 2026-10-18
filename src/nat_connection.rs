@@ -210,11 +210,17 @@ impl NatConnector {
                 Err(error) if error.kind() == io::ErrorKind::PermissionDenied => return Err(error),
                 Err(error) => {
                     eprintln!("STUN_SEQUENCE_UNAVAILABLE error={error}");
-                    MappingSnapshot::fallback(endpoint, endpoint.udp_observation().get())?
+                    MappingSnapshot::fallback_generation(
+                        endpoint.udp_network_generation(),
+                        endpoint.udp_observation().get(),
+                    )?
                 }
             }
         } else {
-            MappingSnapshot::fallback(endpoint, endpoint.udp_observation().get())?
+            MappingSnapshot::fallback_generation(
+                endpoint.udp_network_generation(),
+                endpoint.udp_observation().get(),
+            )?
         };
         let snapshot = snapshot.with_assisted(endpoint.udp_local_ipv4_candidates())?;
         self.check(control, gate)?;
@@ -375,6 +381,31 @@ impl NatConnector {
                 })
             }
         }
+    }
+
+    /// Retain a prepared path inside typed admission, without returning business.
+    pub(crate) async fn retain_prepared_control(
+        &self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+        mut prepared: PreparedUdpPath,
+    ) -> io::Result<()> {
+        let mut cancellation = control.cancellation_guard();
+        self.guard(control, gate, async {
+            match &prepared {
+                PreparedUdpPath::Direct(path) => path.check(control, gate)?,
+                PreparedUdpPath::Punching(attempt) => attempt.verify_winner_path(control, gate)?,
+            }
+            control.commit_control_path().await?;
+            match &mut prepared {
+                PreparedUdpPath::Direct(path) => path.check(control, gate)?,
+                PreparedUdpPath::Punching(attempt) => attempt.retain_control_path(control, gate)?,
+            }
+            Ok(())
+        })
+        .await?;
+        cancellation.disarm();
+        Ok(())
     }
 
     async fn commit_checked(

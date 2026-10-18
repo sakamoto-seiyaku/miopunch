@@ -81,7 +81,7 @@ async fn prepare(args: &[String]) -> Result<(), Failure> {
     let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
     let (client, server) = tokio::join!(
         async {
-            be.connect_with_opts(ae.addr(), ADMISSION_REQUEST_ALPN, options)
+            be.connect_control_with_opts(ae.addr(), ADMISSION_REQUEST_ALPN, options)
                 .await?
                 .await
                 .map_err(Failure::from)
@@ -91,11 +91,12 @@ async fn prepare(args: &[String]) -> Result<(), Failure> {
                 .await
                 .ok_or("admission endpoint closed")?
                 .with_caller_deadline(deadline)
+                .accept_control()?
                 .await
                 .map_err(Failure::from)
         }
     );
-    let (client, server) = (client?, server?);
+    let (client, server) = (Arc::new(client?), Arc::new(server?));
     let (request, served) = tokio::join!(
         b.request_manual_admission(&client),
         a.serve_manual_admission(&server)
@@ -238,17 +239,16 @@ struct CaptureMember {
     captured: Arc<Mutex<Option<(iroh::endpoint::WeakConnectionHandle, bool)>>>,
 }
 impl EndpointHooks for CaptureMember {
-    async fn before_data_release(
+    async fn after_handshake(
         &self,
-        _: &Endpoint,
         connection: &Connection,
-    ) -> std::io::Result<()> {
+    ) -> iroh::endpoint::AfterHandshakeOutcome {
         if connection.alpn() == miopunch_native_probe::connection_coordinator::MEMBER_ALPN {
             let matched = connection.remote_id() == self.expected
                 && self.gate.allows(connection, ProtocolScope::Member);
             *self.captured.lock().unwrap() = Some((connection.weak_handle(), matched));
         }
-        Ok(())
+        iroh::endpoint::AfterHandshakeOutcome::Accept
     }
 }
 

@@ -1,5 +1,6 @@
 //! One native startup recovery operation; candidate hints use the endpoint's
 //! address book and contact budget, then the existing durable LogSync consumer.
+use crate::control_protocol::{AuthenticatedControl, OwnedControl};
 use crate::{
     admission_gate::ProtocolScope,
     mqtt_discovery::{self, TaggedCandidate},
@@ -9,7 +10,7 @@ use crate::{
     resources::ResourceEndpoint,
 };
 use futures_util::StreamExt;
-use iroh::{EndpointAddr, TransportAddr, endpoint::Connection};
+use iroh::{EndpointAddr, TransportAddr};
 use std::{
     net::{Ipv4Addr, SocketAddr},
     time::Duration,
@@ -52,9 +53,10 @@ async fn broker_address(resource: &iroh::RelayUrl) -> std::io::Result<SocketAddr
 }
 
 pub(crate) async fn commit_ip(
-    endpoint: &iroh::Endpoint,
-    connection: &Connection,
+    endpoint: &iroh::endpoint::RestrictedEndpoint,
+    connection: &(impl OwnedControl + ?Sized),
 ) -> Result<(), ReplicaError> {
+    let handle = connection.retain_control().path_handle(endpoint);
     tokio::time::timeout(PATH_TIMEOUT, async {
         loop {
             if connection.close_reason().is_some() {
@@ -69,14 +71,14 @@ pub(crate) async fn commit_ip(
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
-        endpoint
-            .commit_data_path(connection)
+        handle
+            .commit_data_path()
             .await
             .map_err(|_| ReplicaError::Transport)?;
         // Committing installs the packet gate synchronously, but the public
         // path snapshot follows QUIC's path events. Wait for that observation
         // before the replica consumer applies its IP-only history boundary.
-        let mut paths = connection.paths_stream();
+        let mut paths = handle.paths_stream();
         while let Some(paths) = paths.next().await {
             if !paths.is_empty()
                 && paths
@@ -167,16 +169,19 @@ impl NativeNetwork {
                 iroh_base::CustomAddr::from_parts(TRANSPORT_ID, &candidate.route),
             )]);
             resources.remember(target.clone());
-            let Ok(connection) = resources.connect(target, RECOVERY_REPLICA_ALPN).await else {
+            let Ok(connection) = resources
+                .connect_recovery_control(target, RECOVERY_REPLICA_ALPN)
+                .await
+            else {
                 continue;
             };
             let result = async {
                 if !self.gate.allows(&connection, ProtocolScope::Bootstrap) {
                     return Err(ReplicaError::Rejected);
                 }
-                resources
-                    .endpoint()
-                    .open_data_path(&connection, candidate.udp_addr.into())
+                connection
+                    .path_handle(resources.endpoint())
+                    .open_data_path(candidate.udp_addr.into())
                     .await
                     .map_err(|_| ReplicaError::Transport)?;
                 commit_ip(resources.endpoint(), &connection).await?;
@@ -254,7 +259,7 @@ impl NativeNetwork {
     pub async fn serve_network_recovery(
         &self,
         resources: &ResourceEndpoint,
-        connection: &Connection,
+        connection: &(impl OwnedControl + ?Sized),
     ) -> Result<(), ReplicaError> {
         let records = self.management_history().await?;
         self.serve_recovery_records(resources, connection, &records)
@@ -265,7 +270,7 @@ impl NativeNetwork {
     pub async fn serve_network_recovery_fixture(
         &self,
         resources: &ResourceEndpoint,
-        connection: &Connection,
+        connection: &(impl OwnedControl + ?Sized),
         records: &[crate::management_store::ManagementRecord],
     ) -> Result<(), ReplicaError> {
         self.serve_recovery_records(resources, connection, records)
@@ -275,7 +280,7 @@ impl NativeNetwork {
     async fn serve_recovery_records(
         &self,
         resources: &ResourceEndpoint,
-        connection: &Connection,
+        connection: &(impl OwnedControl + ?Sized),
         records: &[crate::management_store::ManagementRecord],
     ) -> Result<(), ReplicaError> {
         let result = async {
@@ -290,7 +295,7 @@ impl NativeNetwork {
             self.serve_replica_records(connection, records).await?;
             // Retain the provider's handle until the receiver observes its final
             // acknowledgement and closes; dropping it earlier can discard ACK.
-            tokio::time::timeout(PATH_TIMEOUT, connection.closed())
+            tokio::time::timeout(PATH_TIMEOUT, connection.revocation_handle().closed())
                 .await
                 .map_err(|_| ReplicaError::Transport)?;
             Ok(())

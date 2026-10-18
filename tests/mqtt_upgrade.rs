@@ -1,4 +1,8 @@
 //! MIOPUNCH-21: a real MQTT handshake followed by a data path on the same QUIC connection.
+#[path = "support/pending_path_endpoint.rs"]
+mod pending_path;
+use iroh::endpoint::ControlMessageFormat;
+use pending_path::PathEndpoint;
 use std::{
     io,
     net::{Ipv4Addr, SocketAddr},
@@ -23,12 +27,17 @@ use tokio::{
 
 const ALPN: &[u8] = b"miopunch/path-probe/1";
 
-async fn endpoint(broker: SocketAddr) -> (Endpoint, Arc<MqttTransport>, Arc<Traffic>) {
+async fn endpoint(broker: SocketAddr) -> (PathEndpoint, Arc<MqttTransport>, Arc<Traffic>) {
+    configured_endpoint(broker, false).await
+}
+async fn configured_endpoint(
+    broker: SocketAddr,
+    only: bool,
+) -> (PathEndpoint, Arc<MqttTransport>, Arc<Traffic>) {
     let traffic = Arc::new(Traffic::default());
     let carrier = Arc::new(MqttTransport::new(broker, traffic.clone()));
-    let endpoint = Endpoint::builder(presets::Minimal)
+    let builder = Endpoint::builder(presets::Minimal)
         .secret_key(SecretKey::generate())
-        .control_only_alpns(vec![ALPN.to_vec()])
         .alpns(vec![ALPN.to_vec()])
         .transport_config(
             iroh::endpoint::QuicTransportConfig::builder()
@@ -38,10 +47,8 @@ async fn endpoint(broker: SocketAddr) -> (Endpoint, Arc<MqttTransport>, Arc<Traf
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
         .clear_relay_transports()
-        .add_custom_transport(carrier.clone())
-        .bind()
-        .await
-        .unwrap();
+        .add_custom_transport(carrier.clone());
+    let endpoint = PathEndpoint::bind(builder, only).await;
     carrier.wait_ready().await.unwrap();
     (endpoint, carrier, traffic)
 }
@@ -244,14 +251,10 @@ async fn observe_topic(
     (client, rx, task)
 }
 
-async fn wait_ip(connection: &iroh::endpoint::Connection) {
+async fn wait_ip(connection: &ControlSession) {
     tokio::time::timeout(Duration::from_secs(8), async {
         loop {
-            if connection
-                .paths()
-                .iter()
-                .any(|path| matches!(path.remote_addr(), TransportAddr::Ip(_)))
-            {
+            if connection.has_data_path() {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
@@ -281,46 +284,27 @@ async fn wait_control_closed(mut events: iroh::endpoint::PathEventStream) {
 }
 
 #[tokio::test]
-async fn restricted_mqtt_endpoint_refuses_early_connection_handles() {
+async fn restricted_mqtt_control_purpose_cannot_be_delivered_as_business() {
     let Ok(broker) = std::env::var("MIOPUNCH_MQTT_BROKER") else {
         return;
     };
     let broker = broker.parse().unwrap();
-    let (server, carrier, _) = endpoint(broker).await;
-    let (client, _, _) = endpoint(broker).await;
-    let server_udp = server
-        .bound_sockets()
-        .iter()
-        .copied()
-        .find(|addr| addr.is_ipv4())
-        .unwrap();
-    let ambiguous = EndpointAddr::new(server.id()).with_addrs([
-        TransportAddr::Custom(MqttTransport::address(&carrier.route().unwrap()).unwrap()),
-        TransportAddr::Ip(server_udp),
-    ]);
-    assert!(
-        client
-            .connect_with_opts(ambiguous, ALPN, iroh::endpoint::ConnectOptions::new())
-            .await
-            .is_err()
-    );
+    let (server, carrier, _) = configured_endpoint(broker, true).await;
+    let (client, _, _) = configured_endpoint(broker, true).await;
     let target = EndpointAddr::new(server.id()).with_addrs([TransportAddr::Custom(
         MqttTransport::address(&carrier.route().unwrap()).unwrap(),
     )]);
-    let connecting = client
-        .connect_with_opts(target, ALPN, iroh::endpoint::ConnectOptions::new())
-        .await
-        .unwrap();
-    let connecting = connecting
-        .into_0rtt()
-        .expect_err("control endpoint must refuse 0-RTT");
-    let accepting = server.accept().await.unwrap().accept().unwrap();
-    let accepting = accepting
-        .into_0rtt()
-        .expect_err("control endpoint must refuse 0.5-RTT");
-    let (client_conn, server_conn) = tokio::join!(connecting, accepting);
-    assert_eq!(client_conn.unwrap().remote_id(), server.id());
-    assert_eq!(server_conn.unwrap().remote_id(), client.id());
+    let (c, s) = tokio::join!(client.connect(target.clone(), ALPN), async {
+        server.accept().await.unwrap().await
+    });
+    assert!(c.is_err() && s.is_err());
+    let (c, s) = tokio::join!(
+        client.control(Some(target), ALPN),
+        server.control(None, ALPN)
+    );
+    let (c, s) = (c.unwrap(), s.unwrap());
+    assert_eq!(c.remote_id(), server.id());
+    assert_eq!(s.remote_id(), client.id());
     client.close().await;
     server.close().await;
 }
@@ -335,14 +319,12 @@ async fn closed_control_session_never_releases_queued_business() {
     let (client, _, _) = endpoint(broker).await;
     let accept = tokio::spawn({
         let server = server.clone();
-        async move { ControlSession::accept(&server).await.unwrap() }
+        async move { server.control(None, ALPN).await.unwrap() }
     });
     let target = EndpointAddr::new(server.id()).with_addrs([TransportAddr::Custom(
         MqttTransport::address(&carrier.route().unwrap()).unwrap(),
     )]);
-    let mut control = ControlSession::connect(&client, target, ALPN)
-        .await
-        .unwrap();
+    let mut control = client.control(Some(target), ALPN).await.unwrap();
     let _server_control = accept.await.unwrap();
     control.queue_business(b"never-delivered".to_vec()).unwrap();
     client.close().await;
@@ -364,35 +346,51 @@ async fn reordered_real_mqtt_datagrams_preserve_control_stream_bytes() {
     let (client, _, _) = endpoint(proxy.addr).await;
     let accept = tokio::spawn({
         let server = server.clone();
-        async move { ControlSession::accept(&server).await.unwrap() }
+        async move { server.control(None, ALPN).await.unwrap() }
     });
     let target = EndpointAddr::new(server.id()).with_addrs([TransportAddr::Custom(
         MqttTransport::address(&carrier.route().unwrap()).unwrap(),
     )]);
-    let client_control = ControlSession::connect(&client, target, ALPN)
+    let client_control = client.control(Some(target), ALPN).await.unwrap();
+    let server_control = accept.await.unwrap();
+    let send = client_control.open_control_exchange().await.unwrap();
+    send.send_message(ControlMessageFormat::Fixed { length: 4 }, b"PING")
         .await
         .unwrap();
-    let server_control = accept.await.unwrap();
-    let (mut send, mut recv) = client_control.open_control_bi().await.unwrap();
-    send.write_all(b"PING").await.unwrap();
-    let (mut reply_send, mut request_recv) = server_control.accept_control_bi().await.unwrap();
-    let mut request = [0; 4];
-    request_recv.read_exact(&mut request).await.unwrap();
-    assert_eq!(&request, b"PING");
-    reply_send.write_all(b"PONG").await.unwrap();
-    let mut reply = [0; 4];
-    recv.read_exact(&mut reply).await.unwrap();
-    assert_eq!(&reply, b"PONG");
+    let reply = server_control.accept_control_exchange().await.unwrap();
+    assert_eq!(
+        reply
+            .recv_message(ControlMessageFormat::Fixed { length: 4 })
+            .await
+            .unwrap(),
+        b"PING"
+    );
+    reply
+        .send_message(ControlMessageFormat::Fixed { length: 4 }, b"PONG")
+        .await
+        .unwrap();
+    assert_eq!(
+        send.recv_message(ControlMessageFormat::Fixed { length: 4 })
+            .await
+            .unwrap(),
+        b"PONG"
+    );
 
     proxy.active.store(true, Ordering::SeqCst);
     let payload = vec![0x5a; 16 * 1024];
-    send.write_all(&payload).await.unwrap();
-    send.finish().unwrap();
-    let delivered =
-        tokio::time::timeout(Duration::from_secs(8), request_recv.read_to_end(32 * 1024))
-            .await
-            .unwrap()
-            .unwrap();
+    send.send_message(
+        ControlMessageFormat::EndTerminated { maximum: 32 * 1024 },
+        &payload,
+    )
+    .await
+    .unwrap();
+    let delivered = tokio::time::timeout(
+        Duration::from_secs(8),
+        reply.recv_message(ControlMessageFormat::EndTerminated { maximum: 32 * 1024 }),
+    )
+    .await
+    .unwrap()
+    .unwrap();
     assert_eq!(delivered, payload);
     assert_eq!(proxy.reversed_pairs.load(Ordering::SeqCst), 1);
     println!(
@@ -421,25 +419,28 @@ async fn queued_business_and_retransmission_never_fall_back_to_mqtt() {
     let route = server_carrier.route().unwrap();
     let accept = tokio::spawn({
         let server = server.clone();
-        async move { ControlSession::accept(&server).await.unwrap() }
+        async move { server.control(None, ALPN).await.unwrap() }
     });
     let target = EndpointAddr::new(server.id()).with_addrs([TransportAddr::Custom(
         MqttTransport::address(&route).unwrap(),
     )]);
-    let mut client_control = ControlSession::connect(&client, target, ALPN)
-        .await
-        .unwrap();
+    let mut client_control = client.control(Some(target), ALPN).await.unwrap();
     let server_control = accept.await.unwrap();
     let id = client_control.stable_id();
-    let (mut control_send, _) = client_control.open_control_bi().await.unwrap();
-    control_send.write_all(b"CONTROL").await.unwrap();
-    let (_, mut control_recv) = server_control.accept_control_bi().await.unwrap();
-    let mut control = [0; 7];
-    control_recv.read_exact(&mut control).await.unwrap();
-    assert_eq!(&control, b"CONTROL");
+    let send = client_control.open_control_exchange().await.unwrap();
+    send.send_message(ControlMessageFormat::Fixed { length: 7 }, b"CONTROL")
+        .await
+        .unwrap();
+    let recv = server_control.accept_control_exchange().await.unwrap();
+    assert_eq!(
+        recv.recv_message(ControlMessageFormat::Fixed { length: 7 })
+            .await
+            .unwrap(),
+        b"CONTROL"
+    );
 
     // Ordinary business arrives before any UDP path exists. ControlSession
-    // owns the raw QUIC handle and retains business until commit returns.
+    // retains business until Core admission and path commitment both return.
     tokio::time::sleep(Duration::from_millis(150)).await;
     let mqtt_before_queue = client_traffic.sent_packets();
     client_control
@@ -470,16 +471,21 @@ async fn queued_business_and_retransmission_never_fall_back_to_mqtt() {
     .unwrap();
     let client_events = client_control.path_events();
     let server_events = server_control.path_events();
-    let server_data = server_control.commit_data_path().await.unwrap();
+    let (server_data, client_data) = tokio::join!(
+        server_control.commit_data_path(),
+        client_control.commit_data_path()
+    );
+    let server_data = server_data.unwrap();
+    let mut client_data = client_data.unwrap();
     let server_conn = server_data.connection();
-    let mut client_data = client_control.commit_data_path().await.unwrap();
     let queued_business = client_data.take_pending_business().pop_front().unwrap();
     let client_conn = client_data.connection();
     wait_control_closed(client_events).await;
     wait_control_closed(server_events).await;
     assert!(
         client
-            .open_control_path(&client_conn, MqttTransport::address(&route).unwrap())
+            .control_handle(&client_conn)
+            .open_control_path(MqttTransport::address(&route).unwrap())
             .await
             .is_err()
     );
@@ -556,15 +562,16 @@ async fn real_mqtt_control_connection_upgrades_to_udp_without_redial() {
 
     let accept = tokio::spawn({
         let server = server.clone();
-        async move { server.accept().await.unwrap().await.unwrap() }
+        async move { server.control(None, ALPN).await.unwrap() }
     });
     let addr = EndpointAddr::new(server.id()).with_addrs([TransportAddr::Custom(
         MqttTransport::address(&route).unwrap(),
     )]);
-    let client_conn = tokio::time::timeout(Duration::from_secs(8), client.connect(addr, ALPN))
-        .await
-        .unwrap()
-        .unwrap();
+    let client_conn =
+        tokio::time::timeout(Duration::from_secs(8), client.control(Some(addr), ALPN))
+            .await
+            .unwrap()
+            .unwrap();
     let server_conn = accept.await.unwrap();
     let client_id = client_conn.stable_id();
     let server_id = server_conn.stable_id();
@@ -572,12 +579,14 @@ async fn real_mqtt_control_connection_upgrades_to_udp_without_redial() {
     assert_eq!(server_conn.remote_id(), client.id());
     assert!(
         client_conn
+            .control_handle()
             .paths()
             .iter()
             .all(|path| matches!(path.remote_addr(), TransportAddr::Custom(_)))
     );
     assert!(
         server_conn
+            .control_handle()
             .paths()
             .iter()
             .all(|path| matches!(path.remote_addr(), TransportAddr::Custom(_)))
@@ -588,41 +597,74 @@ async fn real_mqtt_control_connection_upgrades_to_udp_without_redial() {
     // path to the data connection via the peer-wide selected-path actor.
     let accept_control = tokio::spawn({
         let server = server.clone();
-        async move { server.accept().await.unwrap().await.unwrap() }
+        async move { server.control(None, ALPN).await.unwrap() }
     });
     let control_addr = EndpointAddr::new(server.id()).with_addrs([TransportAddr::Custom(
         MqttTransport::address(&route).unwrap(),
     )]);
-    let parallel_client = client.connect(control_addr, ALPN).await.unwrap();
+    let parallel_client = client.control(Some(control_addr), ALPN).await.unwrap();
     let parallel_server = accept_control.await.unwrap();
     assert_ne!(parallel_client.stable_id(), client_id);
     assert!(
         parallel_client
+            .control_handle()
             .paths()
             .iter()
             .any(|path| matches!(path.remote_addr(), TransportAddr::Custom(_)))
     );
 
-    // Keep this same authenticated control stream open across the path change.
-    let (mut control_send, mut control_recv) = client_conn.open_bi().await.unwrap();
-    control_send.write_all(b"PING").await.unwrap();
-    let (mut reply_send, mut request_recv) = server_conn.accept_bi().await.unwrap();
-    let mut request = [0; 4];
-    request_recv.read_exact(&mut request).await.unwrap();
-    assert_eq!(&request, b"PING");
-    reply_send.write_all(b"PONG").await.unwrap();
-    let mut reply = [0; 4];
-    control_recv.read_exact(&mut reply).await.unwrap();
-    assert_eq!(&reply, b"PONG");
+    // Keep this authenticated bounded exchange alive until Core retires control.
+    let control_send = client_conn.open_control_exchange().await.unwrap();
+    control_send
+        .send_message(ControlMessageFormat::Fixed { length: 4 }, b"PING")
+        .await
+        .unwrap();
+    let reply_send = server_conn.accept_control_exchange().await.unwrap();
+    assert_eq!(
+        reply_send
+            .recv_message(ControlMessageFormat::Fixed { length: 4 })
+            .await
+            .unwrap(),
+        b"PING"
+    );
+    reply_send
+        .send_message(ControlMessageFormat::Fixed { length: 4 }, b"PONG")
+        .await
+        .unwrap();
+    assert_eq!(
+        control_send
+            .recv_message(ControlMessageFormat::Fixed { length: 4 })
+            .await
+            .unwrap(),
+        b"PONG"
+    );
 
     // Retain an authenticated 1-RTT packet for a replay onto the old route
     // after the connection becomes data-only. Drain the parallel attempt's
     // handshake packets, then emit another packet on the original stream.
     while observed.try_recv().is_ok() {}
-    control_send.write_all(b"PING").await.unwrap();
-    request_recv.read_exact(&mut request).await.unwrap();
-    reply_send.write_all(b"PONG").await.unwrap();
-    control_recv.read_exact(&mut reply).await.unwrap();
+    control_send
+        .send_message(ControlMessageFormat::Fixed { length: 4 }, b"PING")
+        .await
+        .unwrap();
+    assert_eq!(
+        reply_send
+            .recv_message(ControlMessageFormat::Fixed { length: 4 })
+            .await
+            .unwrap(),
+        b"PING"
+    );
+    reply_send
+        .send_message(ControlMessageFormat::Fixed { length: 4 }, b"PONG")
+        .await
+        .unwrap();
+    assert_eq!(
+        control_send
+            .recv_message(ControlMessageFormat::Fixed { length: 4 })
+            .await
+            .unwrap(),
+        b"PONG"
+    );
     tokio::time::sleep(Duration::from_millis(100)).await;
     let mut replay = None;
     while let Ok(payload) = observed.try_recv() {
@@ -632,42 +674,52 @@ async fn real_mqtt_control_connection_upgrades_to_udp_without_redial() {
     }
     let replay = replay.expect("observer did not capture an encrypted 1-RTT MQTT packet");
 
-    client
-        .open_data_path(&client_conn, server_udp)
-        .await
-        .unwrap();
+    client_conn.open_data_path(server_udp).await.unwrap();
     wait_ip(&client_conn).await;
     wait_ip(&server_conn).await;
     let client_events = client_conn.path_events();
     let server_events = server_conn.path_events();
-    server.commit_data_path(&server_conn).await.unwrap();
-    let inbound_before_reopen = server_conn.path_filter_stats().denied_inbound;
+    server_conn.commit_control_path().await.unwrap();
+    let inbound_before_reopen = server_conn
+        .control_handle()
+        .path_filter_stats()
+        .denied_inbound;
     let adapter_before_reopen = server_traffic.received_packets();
-    client
-        .test_reopen_control_path(&client_conn, MqttTransport::address(&route).unwrap())
+    client_conn
+        .control_handle()
+        .test_reopen_control_path(MqttTransport::address(&route).unwrap())
         .await
         .unwrap();
     tokio::time::timeout(Duration::from_secs(3), async {
-        while server_conn.path_filter_stats().denied_inbound == inbound_before_reopen {
+        while server_conn
+            .control_handle()
+            .path_filter_stats()
+            .denied_inbound
+            == inbound_before_reopen
+        {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
     })
     .await
     .expect("remote custom path packet did not reach the pre-QUIC ingress gate");
     assert!(server_traffic.received_packets() > adapter_before_reopen);
-    client.commit_data_path(&client_conn).await.unwrap();
-    assert!(
-        client
-            .prime_udp_path(&client_conn, server_udp)
-            .await
-            .is_err()
-    );
+    client_conn.commit_control_path().await.unwrap();
+    assert!(client_conn.prime_udp_path(server_udp).await.is_err());
     wait_control_closed(client_events).await;
     wait_control_closed(server_events).await;
+    let (client_data, server_data) = tokio::join!(
+        client_conn.commit_data_path(),
+        server_conn.commit_data_path()
+    );
+    let client_data = client_data.unwrap();
+    let server_data = server_data.unwrap();
+    let client_conn = client_data.connection();
+    let server_conn = server_data.connection();
     assert_eq!(client_conn.stable_id(), client_id);
     assert!(
         client
-            .open_control_path(&client_conn, MqttTransport::address(&route).unwrap())
+            .control_handle(&client_conn)
+            .open_control_path(MqttTransport::address(&route).unwrap())
             .await
             .is_err()
     );
@@ -687,12 +739,14 @@ async fn real_mqtt_control_connection_upgrades_to_udp_without_redial() {
     );
     assert!(
         parallel_client
+            .control_handle()
             .paths()
             .iter()
             .any(|path| matches!(path.remote_addr(), TransportAddr::Custom(_)))
     );
     assert!(
         parallel_server
+            .control_handle()
             .paths()
             .iter()
             .any(|path| matches!(path.remote_addr(), TransportAddr::Custom(_)))
@@ -700,12 +754,18 @@ async fn real_mqtt_control_connection_upgrades_to_udp_without_redial() {
     let mqtt_client_after_commit = client_traffic.sent_packets();
     let mqtt_server_after_commit = server_traffic.sent_packets();
 
-    control_send.write_all(b"PING").await.unwrap();
-    request_recv.read_exact(&mut request).await.unwrap();
-    assert_eq!(&request, b"PING");
-    reply_send.write_all(b"PONG").await.unwrap();
-    control_recv.read_exact(&mut reply).await.unwrap();
-    assert_eq!(&reply, b"PONG");
+    assert!(
+        control_send
+            .send_message(ControlMessageFormat::Fixed { length: 4 }, b"PING")
+            .await
+            .is_err()
+    );
+    assert!(
+        reply_send
+            .recv_message(ControlMessageFormat::Fixed { length: 4 })
+            .await
+            .is_err()
+    );
 
     let (mut business_send, mut business_recv) = client_conn.open_bi().await.unwrap();
     business_send.write_all(b"DATA").await.unwrap();
@@ -727,7 +787,10 @@ async fn real_mqtt_control_connection_upgrades_to_udp_without_redial() {
     assert_eq!(client_traffic.sent_packets(), mqtt_client_after_commit);
     assert_eq!(server_traffic.sent_packets(), mqtt_server_after_commit);
 
-    let other_attempt_before = parallel_server.path_filter_stats().denied_inbound;
+    let other_attempt_before = parallel_server
+        .control_handle()
+        .path_filter_stats()
+        .denied_inbound;
     let carrier_before = server_traffic.received_packets();
     observer
         .publish(
@@ -752,12 +815,18 @@ async fn real_mqtt_control_connection_upgrades_to_udp_without_redial() {
             .is_err()
     );
     assert!(
-        tokio::time::timeout(Duration::from_millis(200), parallel_server.accept_bi())
-            .await
-            .is_err()
+        tokio::time::timeout(
+            Duration::from_millis(200),
+            parallel_server.accept_control_exchange()
+        )
+        .await
+        .is_err()
     );
     assert_eq!(
-        parallel_server.path_filter_stats().denied_inbound,
+        parallel_server
+            .control_handle()
+            .path_filter_stats()
+            .denied_inbound,
         other_attempt_before
     );
     observer_task.abort();
@@ -767,35 +836,47 @@ async fn real_mqtt_control_connection_upgrades_to_udp_without_redial() {
     let before_late_control = client_traffic.sent_packets();
     let accept_late = tokio::spawn({
         let server = server.clone();
-        async move { server.accept().await.unwrap().await.unwrap() }
+        async move { server.control(None, ALPN).await.unwrap() }
     });
     let late_addr = EndpointAddr::new(server.id()).with_addrs([TransportAddr::Custom(
         MqttTransport::address(&route).unwrap(),
     )]);
-    let late_client = tokio::time::timeout(Duration::from_secs(8), client.connect(late_addr, ALPN))
-        .await
-        .unwrap()
-        .unwrap();
+    let late_client = tokio::time::timeout(
+        Duration::from_secs(8),
+        client.control(Some(late_addr), ALPN),
+    )
+    .await
+    .unwrap()
+    .unwrap();
     let late_server = accept_late.await.unwrap();
     assert_ne!(late_client.stable_id(), client_id);
     assert!(
         late_client
+            .control_handle()
             .paths()
             .iter()
             .all(|path| matches!(path.remote_addr(), TransportAddr::Custom(_)))
     );
     assert!(
         late_server
+            .control_handle()
             .paths()
             .iter()
             .all(|path| matches!(path.remote_addr(), TransportAddr::Custom(_)))
     );
-    let (mut late_send, _) = late_client.open_bi().await.unwrap();
-    late_send.write_all(b"CONTROL").await.unwrap();
-    let (_, mut late_recv) = late_server.accept_bi().await.unwrap();
-    let mut late_request = [0; 7];
-    late_recv.read_exact(&mut late_request).await.unwrap();
-    assert_eq!(&late_request, b"CONTROL");
+    let late_send = late_client.open_control_exchange().await.unwrap();
+    late_send
+        .send_message(ControlMessageFormat::Fixed { length: 7 }, b"CONTROL")
+        .await
+        .unwrap();
+    let late_recv = late_server.accept_control_exchange().await.unwrap();
+    assert_eq!(
+        late_recv
+            .recv_message(ControlMessageFormat::Fixed { length: 7 })
+            .await
+            .unwrap(),
+        b"CONTROL"
+    );
     assert!(client_traffic.sent_packets() > before_late_control);
     assert!(
         client_conn

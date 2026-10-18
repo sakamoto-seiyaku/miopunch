@@ -2,7 +2,7 @@
 use crate::{
     admission_gate::AdmissionGate, control_session::ControlSession, nat_selector::LearningScope,
 };
-use iroh::endpoint::{ObservationValidity, RecvStream, SendStream};
+use iroh::endpoint::{ControlExchange, ControlMessageFormat, ObservationValidity};
 use serde::{Deserialize, Serialize};
 use std::{io, net::SocketAddr, time::Duration};
 
@@ -29,18 +29,22 @@ enum Frame {
     },
 }
 
-async fn send(stream: &mut SendStream, frame: Frame) -> io::Result<()> {
+async fn send(exchange: &ControlExchange, frame: Frame) -> io::Result<()> {
     let bytes = serde_json::to_vec(&frame).map_err(io::Error::other)?;
-    if bytes.len() > LIMIT {
-        return Err(io::Error::other("direct candidate frame oversized"));
-    }
-    stream.write_all(&bytes).await?;
-    stream.finish().map_err(io::Error::other)
+    exchange
+        .send_message(
+            ControlMessageFormat::EndTerminated { maximum: LIMIT },
+            &bytes,
+        )
+        .await
 }
-
-async fn receive(stream: &mut RecvStream) -> io::Result<Frame> {
-    serde_json::from_slice(&stream.read_to_end(LIMIT).await.map_err(io::Error::other)?)
-        .map_err(io::Error::other)
+async fn receive(exchange: &ControlExchange) -> io::Result<Frame> {
+    serde_json::from_slice(
+        &exchange
+            .recv_message(ControlMessageFormat::EndTerminated { maximum: LIMIT })
+            .await?,
+    )
+    .map_err(io::Error::other)
 }
 
 fn validate(addresses: &[SocketAddr]) -> io::Result<()> {
@@ -133,9 +137,9 @@ pub(crate) async fn attempt(
     let operation = async {
         check()?;
         let (nonce, remote) = if control.is_dialing_side() {
-            let (mut send_stream, mut recv) = control.open_control_bi().await?;
+            let exchange = control.open_control_exchange().await?;
             send(
-                &mut send_stream,
+                &exchange,
                 Frame::Hello {
                     network: scope.network,
                     generation: scope.secret_generation,
@@ -145,33 +149,33 @@ pub(crate) async fn attempt(
             let Frame::Offer {
                 nonce,
                 addresses: remote,
-            } = receive(&mut recv).await?
+            } = receive(&exchange).await?
             else {
                 return Err(io::Error::other("direct offer required"));
             };
             validate(&remote)?;
             check()?;
-            let (mut send_stream, mut recv) = control.open_control_bi().await?;
-            send(&mut send_stream, Frame::Offer { nonce, addresses }).await?;
-            if !matches!(receive(&mut recv).await?, Frame::Ready { nonce: ack } if ack == nonce) {
+            let exchange = control.open_control_exchange().await?;
+            send(&exchange, Frame::Offer { nonce, addresses }).await?;
+            if !matches!(receive(&exchange).await?, Frame::Ready { nonce: ack } if ack == nonce) {
                 return Err(io::Error::other("direct nonce mismatch"));
             }
             (nonce, remote)
         } else {
-            let (mut reply, mut recv) = control.accept_control_bi().await?;
-            if !matches!(receive(&mut recv).await?, Frame::Hello { network, generation }
+            let exchange = control.accept_control_exchange().await?;
+            if !matches!(receive(&exchange).await?, Frame::Hello { network, generation }
                 if network == scope.network && generation == scope.secret_generation)
             {
                 return Err(io::Error::other("direct scope mismatch"));
             }
             let nonce = rand::random();
             check()?;
-            send(&mut reply, Frame::Offer { nonce, addresses }).await?;
-            let (mut reply, mut recv) = control.accept_control_bi().await?;
+            send(&exchange, Frame::Offer { nonce, addresses }).await?;
+            let exchange = control.accept_control_exchange().await?;
             let Frame::Offer {
                 nonce: offered,
                 addresses: remote,
-            } = receive(&mut recv).await?
+            } = receive(&exchange).await?
             else {
                 return Err(io::Error::other("direct peer offer required"));
             };
@@ -180,7 +184,7 @@ pub(crate) async fn attempt(
             }
             validate(&remote)?;
             check()?;
-            send(&mut reply, Frame::Ready { nonce }).await?;
+            send(&exchange, Frame::Ready { nonce }).await?;
             (nonce, remote)
         };
         if control.is_dialing_side() {
@@ -213,25 +217,25 @@ pub(crate) async fn attempt(
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
             check()?;
-            let (mut send_stream, mut recv) = control.open_control_bi().await?;
+            let exchange = control.open_control_exchange().await?;
             send(
-                &mut send_stream,
+                &exchange,
                 Frame::Result {
                     nonce,
                     available: ip_path(control).is_some(),
                 },
             )
             .await?;
-            if !matches!(receive(&mut recv).await?, Frame::Result { nonce: result, available: true } if result == nonce)
+            if !matches!(receive(&exchange).await?, Frame::Result { nonce: result, available: true } if result == nonce)
             {
                 return Ok(None);
             }
         } else {
-            let (mut reply, mut recv) = control.accept_control_bi().await?;
+            let exchange = control.accept_control_exchange().await?;
             let Frame::Result {
                 nonce: result,
                 available,
-            } = receive(&mut recv).await?
+            } = receive(&exchange).await?
             else {
                 return Err(io::Error::other("direct result required"));
             };
@@ -240,7 +244,7 @@ pub(crate) async fn attempt(
             }
             check()?;
             let available = available && ip_path(control).is_some();
-            send(&mut reply, Frame::Result { nonce, available }).await?;
+            send(&exchange, Frame::Result { nonce, available }).await?;
             if !available {
                 return Ok(None);
             }

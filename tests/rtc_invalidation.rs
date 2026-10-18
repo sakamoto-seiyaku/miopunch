@@ -1,7 +1,10 @@
 //! STEP8 public SDK source invalidation. Real storage and authenticated QUIC;
 //! this narrow component test is not browser RTC qualification.
 #![cfg(feature = "rtc-probe")]
-use iroh::{Endpoint, EndpointAddr, endpoint::Connection};
+#[path = "support/native_connections.rs"]
+mod native_connections;
+
+use iroh::{EndpointAddr, endpoint::Connection};
 use miopunch_native_probe::{
     admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope},
     manual_admission::ManualExchange,
@@ -11,7 +14,11 @@ use std::{net::Ipv4Addr, time::Duration};
 
 const MEMBER: &[u8] = b"miopunch/rtc-invalidation-sdk-test/1";
 
-async fn connect(a: &Endpoint, b: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
+async fn connect(
+    a: &iroh::endpoint::RestrictedEndpoint,
+    b: &iroh::endpoint::RestrictedEndpoint,
+    alpn: &[u8],
+) -> (Connection, Connection) {
     tokio::time::timeout(Duration::from_secs(3), async {
         let address = EndpointAddr::new(b.id()).with_ip_addr(*b.addr().ip_addrs().next().unwrap());
         let (local, remote) = tokio::join!(a.connect(address, alpn), async {
@@ -35,7 +42,8 @@ async fn durable_current_credential_install_invalidates_old_member_proof_and_sur
     let admin_endpoint = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let member_endpoint = member.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let (request, served) =
-        connect(&member_endpoint, &admin_endpoint, ADMISSION_REQUEST_ALPN).await;
+        native_connections::control_pair(&member_endpoint, &admin_endpoint, ADMISSION_REQUEST_ALPN)
+            .await;
     let (requested, sent) = tokio::join!(
         member.request_manual_admission(&request),
         admin.serve_manual_admission(&served)

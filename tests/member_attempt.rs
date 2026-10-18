@@ -1,7 +1,10 @@
 //! Caller metadata and cancellation at the public connection/hook boundary.
 use iroh::{
     Endpoint,
-    endpoint::{AfterHandshakeOutcome, ConnectOptions, Connection, EndpointHooks, presets},
+    endpoint::{
+        AdmissionOutcome, ConnectOptions, ControlConnection, ControlExchange, ControlMessageFormat,
+        EndpointAdmission, RestrictedEndpoint, presets,
+    },
 };
 use n0_future::time::Instant;
 use std::{
@@ -13,23 +16,25 @@ use std::{
 const ALPN: &[u8] = b"miopunch/member-attempt-test/1";
 #[derive(Debug, Clone)]
 struct UnreachableGate(Arc<tokio::sync::Barrier>);
-impl EndpointHooks for UnreachableGate {
-    async fn after_handshake(&self, _: &Connection) -> AfterHandshakeOutcome {
-        AfterHandshakeOutcome::AcceptData {
-            allowed_data_custom_ids: vec![],
-        }
+impl EndpointAdmission for UnreachableGate {
+    fn is_current(&self, _: &ControlConnection) -> bool {
+        false
     }
-    async fn before_data_release(&self, _: &Endpoint, connection: &Connection) -> io::Result<()> {
-        let (mut send, mut recv) = if connection.side().is_client() {
-            connection.open_bi().await.map_err(io::Error::other)?
+    async fn admit(&self, connection: &ControlConnection) -> io::Result<AdmissionOutcome> {
+        let exchange = if connection.side().is_client() {
+            connection.open_control_exchange().await?
         } else {
-            connection.accept_bi().await.map_err(io::Error::other)?
+            connection.accept_control_exchange().await?
         };
-        send.write_all(b"none").await.map_err(io::Error::other)?;
-        let mut bytes = [0; 4];
-        recv.read_exact(&mut bytes)
-            .await
-            .map_err(io::Error::other)?;
+        exchange
+            .send_message(ControlMessageFormat::Fixed { length: 4 }, b"none")
+            .await?;
+        assert_eq!(
+            exchange
+                .recv_message(ControlMessageFormat::Fixed { length: 4 })
+                .await?,
+            b"none"
+        );
         self.0.wait().await;
         Err(io::Error::new(
             io::ErrorKind::NotConnected,
@@ -63,14 +68,12 @@ struct DeadlineGate {
     expected: Instant,
     observed: Arc<Mutex<Vec<Instant>>>,
 }
-impl EndpointHooks for DeadlineGate {
-    async fn after_handshake(&self, connection: &Connection) -> AfterHandshakeOutcome {
-        assert_eq!(connection.caller_deadline(), Some(self.expected));
-        AfterHandshakeOutcome::AcceptData {
-            allowed_data_custom_ids: vec![],
-        }
+impl EndpointAdmission for DeadlineGate {
+    fn is_current(&self, _: &ControlConnection) -> bool {
+        false
     }
-    async fn before_data_release(&self, _: &Endpoint, connection: &Connection) -> io::Result<()> {
+    async fn admit(&self, connection: &ControlConnection) -> io::Result<AdmissionOutcome> {
+        assert_eq!(connection.caller_deadline(), Some(self.expected));
         let deadline = connection
             .caller_deadline()
             .expect("caller supplied one absolute deadline");
@@ -81,16 +84,17 @@ impl EndpointHooks for DeadlineGate {
             std::future::pending::<()>(),
         )
         .await
+        .map(|_| AdmissionOutcome::Pending)
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "original caller deadline elapsed"))
     }
 }
-async fn endpoint(gate: impl EndpointHooks + 'static) -> Endpoint {
+async fn endpoint(gate: impl EndpointAdmission + 'static) -> RestrictedEndpoint {
     Endpoint::builder(presets::Minimal)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
         .clear_relay_transports()
-        .admission_gate(gate)
         .alpns(vec![ALPN.to_vec()])
+        .restricted_application(gate)
         .bind()
         .await
         .unwrap()
@@ -144,32 +148,35 @@ async fn one_absolute_caller_deadline_reaches_both_protected_hooks_without_refre
 
 #[derive(Debug, Clone)]
 struct HoldingGate {
-    entered: Arc<Mutex<Option<tokio::sync::oneshot::Sender<iroh::endpoint::WeakConnectionHandle>>>>,
-    stream: Arc<Mutex<Option<iroh::endpoint::SendStream>>>,
+    entered:
+        Arc<Mutex<Option<tokio::sync::oneshot::Sender<iroh::endpoint::WeakControlConnection>>>>,
+    stream: Arc<Mutex<Option<ControlExchange>>>,
     expects_cancellation: bool,
 }
-impl EndpointHooks for HoldingGate {
-    async fn after_handshake(&self, _: &Connection) -> AfterHandshakeOutcome {
-        AfterHandshakeOutcome::AcceptData {
-            allowed_data_custom_ids: vec![],
-        }
+impl EndpointAdmission for HoldingGate {
+    fn is_current(&self, _: &ControlConnection) -> bool {
+        false
     }
-    async fn before_data_release(&self, _: &Endpoint, connection: &Connection) -> io::Result<()> {
+    async fn admit(&self, connection: &ControlConnection) -> io::Result<AdmissionOutcome> {
         assert_eq!(
             connection.attempt_cancellation().is_some(),
             self.expects_cancellation
         );
-        let (mut send, mut recv) = if connection.side().is_client() {
-            connection.open_bi().await.map_err(io::Error::other)?
+        let exchange = if connection.side().is_client() {
+            connection.open_control_exchange().await?
         } else {
-            connection.accept_bi().await.map_err(io::Error::other)?
+            connection.accept_control_exchange().await?
         };
-        send.write_all(b"hold").await.map_err(io::Error::other)?;
-        let mut bytes = [0; 4];
-        recv.read_exact(&mut bytes)
-            .await
-            .map_err(io::Error::other)?;
-        *self.stream.lock().unwrap() = Some(send);
+        exchange
+            .send_message(ControlMessageFormat::Fixed { length: 4 }, b"hold")
+            .await?;
+        assert_eq!(
+            exchange
+                .recv_message(ControlMessageFormat::Fixed { length: 4 })
+                .await?,
+            b"hold"
+        );
+        *self.stream.lock().unwrap() = Some(exchange);
         self.entered
             .lock()
             .unwrap()

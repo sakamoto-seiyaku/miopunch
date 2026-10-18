@@ -13,6 +13,7 @@ pub mod connection_coordinator;
 pub mod connection_recovery;
 mod connection_recovery_core;
 pub mod contact_listener;
+pub mod control_protocol;
 pub mod control_session;
 pub mod daily_management;
 pub mod genesis_recovery;

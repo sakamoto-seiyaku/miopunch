@@ -1,6 +1,7 @@
 //! A connection-owned RTC datagram bridge. This module never constructs an Endpoint.
 //! RTC actors own the sockets/channel; this lease owns routing, bounded queues and
 //! fresh original-path qualification. Limits are experimental application budgets.
+use crate::control_protocol::AuthenticatedControl;
 use crate::rtc_association::{DatagramQueue, QUEUE_BYTES};
 use futures_util::{FutureExt, future::poll_fn, task::AtomicWaker};
 use iroh::endpoint::{
@@ -107,7 +108,8 @@ impl Registry {
 
 struct Route {
     registry: Weak<Registry>,
-    original: iroh::endpoint::WeakConnectionHandle,
+    original: iroh::endpoint::WeakControlConnection,
+    original_peer: iroh_base::EndpointId,
     connection_id: usize,
     local: CustomAddr,
     remote: Mutex<Option<CustomAddr>>,
@@ -339,7 +341,7 @@ impl RtcTransport {
     /// The first false result retires this lease.
     pub fn reserve(
         &self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         current: impl Fn() -> bool + Send + Sync + 'static,
     ) -> io::Result<RtcRouteLease> {
         self.reserve_inner(connection, current, None)
@@ -348,7 +350,7 @@ impl RtcTransport {
     /// revision notifications while the channel is backpressured or idle.
     pub fn reserve_with_updates(
         &self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         current: impl Fn() -> bool + Send + Sync + 'static,
         updates: Direct<u64>,
     ) -> io::Result<RtcRouteLease> {
@@ -356,7 +358,7 @@ impl RtcTransport {
     }
     fn reserve_inner(
         &self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         current: impl Fn() -> bool + Send + Sync + 'static,
         qualification_updates: Option<Direct<u64>>,
     ) -> io::Result<RtcRouteLease> {
@@ -376,7 +378,8 @@ impl RtcTransport {
         }
         let route = Arc::new(Route {
             registry: Arc::downgrade(&self.0),
-            original: connection.weak_handle(),
+            original: connection.revocation_handle(),
+            original_peer: connection.remote_id(),
             connection_id: connection.stable_id(),
             local: CustomAddr::from_parts(TRANSPORT_ID, &rand::random::<[u8; 16]>()),
             remote: Mutex::new(None),
@@ -500,10 +503,9 @@ impl RtcTransport {
         if original.close_reason().is_some()
             || !route.active()
             || !route.qualified.load(Ordering::Acquire)
-            || !route.original.upgrade().is_some_and(|actual| {
-                actual.stable_id() == original.stable_id()
-                    && actual.remote_id() == original.remote_id()
-            })
+            || !(route.original.is_open()
+                && route.connection_id == original.stable_id()
+                && route.original_peer == original.remote_id())
             || !original.paths().iter().any(|path| {
                 path.id().to_string() == selected_path_id
                     && path.is_selected()
@@ -750,7 +752,7 @@ impl RtcTransport {
     pub async fn control_fixture_checkpoint(
         &self,
         stage: crate::rtc_invalidation_fixture::ControlCheckpointStage,
-        original: &Connection,
+        original: &(impl AuthenticatedControl + ?Sized),
         lease: &RtcRouteLease,
         budget: crate::rtc_association::RtcDeadline,
         metadata: serde_json::Value,
@@ -863,7 +865,10 @@ impl RtcRouteLease {
 
     /// Start a fresh QUIC PING on the exact address of this original M.
     /// A DataChannel open event or an old path snapshot cannot construct this proof.
-    pub fn start_probe(&self, connection: &Connection) -> io::Result<RtcPathProbe> {
+    pub fn start_probe(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> io::Result<RtcPathProbe> {
         if connection.stable_id() != self.0.connection_id || !self.0.active() {
             return Err(invalid("RTC probe does not belong to this original M"));
         }
@@ -887,7 +892,11 @@ impl RtcRouteLease {
     }
     /// Only this sealed fresh probe, still on the same live path/attempt, can
     /// grant ordinary data. Packet admission repeats the live qualification.
-    pub fn retain(&self, connection: &Connection, probe: &RtcPathProbe) -> io::Result<()> {
+    pub fn retain(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+        probe: &RtcPathProbe,
+    ) -> io::Result<()> {
         if connection.stable_id() != self.0.connection_id
             || !Arc::ptr_eq(&self.0, &probe.route)
             || !self.0.active()
@@ -913,7 +922,7 @@ impl RtcRouteLease {
     /// peer's current credential/source; it cannot satisfy this new watermark.
     pub async fn validate_release(
         &self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         budget: crate::rtc_association::RtcDeadline,
     ) -> io::Result<RtcPathProbe> {
         let probe = self.start_probe(connection)?;
@@ -1016,18 +1025,12 @@ impl RtcDatagramIo {
         let Some(fixture) = self.actual_dequeue_fixture() else {
             return Ok(());
         };
-        let selected = {
-            let original = self.0.original.upgrade();
-            let remote = self.0.remote.lock().unwrap().clone();
-            match (original, remote) {
-                (Some(original), Some(remote)) => original.paths().iter().any(|path| {
-                    path.id().to_string() == fixture.path_id()
-                        && path.is_selected()
-                        && path.remote_addr() == &TransportAddr::Custom(remote.clone())
-                }),
-                _ => false,
-            }
-        }; // Temporary original/path handles end before the scheduler await.
+        let remote = self.0.remote.lock().unwrap().clone();
+        let selected = remote.is_some_and(|remote| {
+            self.0
+                .original
+                .path_is_selected(fixture.path_id(), &TransportAddr::Custom(remote))
+        });
         if !selected {
             return Ok(());
         }

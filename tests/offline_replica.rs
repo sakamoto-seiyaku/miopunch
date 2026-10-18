@@ -1,8 +1,11 @@
 //! Public node replicas over real admitted iroh TLS/QUIC connections.
+#[path = "support/native_connections.rs"]
+mod native_connections;
+
 use std::net::Ipv4Addr;
 use std::time::Duration;
 
-use iroh::{Endpoint, EndpointAddr, endpoint::Connection};
+use iroh::{EndpointAddr, endpoint::Connection};
 use miopunch_native_probe::admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope};
 use miopunch_native_probe::management_auth::ManagementExtension;
 use miopunch_native_probe::manual_admission::ManualExchange;
@@ -61,7 +64,11 @@ fn add_record_with_log(
         .encode()
 }
 
-async fn connect(a: &Endpoint, b: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
+async fn connect(
+    a: &iroh::endpoint::RestrictedEndpoint,
+    b: &iroh::endpoint::RestrictedEndpoint,
+    alpn: &[u8],
+) -> (Connection, Connection) {
     tokio::time::timeout(Duration::from_secs(10), async {
         let address = EndpointAddr::new(b.id()).with_ip_addr(*b.addr().ip_addrs().next().unwrap());
         let (a, b) = tokio::join!(a.connect(address, alpn), async {
@@ -611,7 +618,7 @@ async fn join(c: &mut NativeNetwork, path: &std::path::Path) -> NativeNetwork {
         .unwrap();
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ne = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ne, &ce, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ne, &ce, ADMISSION_REQUEST_ALPN).await;
     let (request, served) = tokio::join!(
         node.request_manual_admission(&client),
         c.serve_manual_admission(&server)
@@ -637,7 +644,7 @@ async fn join(c: &mut NativeNetwork, path: &std::path::Path) -> NativeNetwork {
     node
 }
 
-async fn endpoint(node: &NativeNetwork) -> Endpoint {
+async fn endpoint(node: &NativeNetwork) -> iroh::endpoint::RestrictedEndpoint {
     node.admission_gate()
         .register_protocol(REPLICA_ALPN, ProtocolScope::Member);
     let endpoint = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();

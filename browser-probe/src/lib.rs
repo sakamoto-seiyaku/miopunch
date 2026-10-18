@@ -2,6 +2,8 @@
 mod connection_budget;
 #[path = "../../src/connection_coordinator.rs"]
 pub mod connection_coordinator;
+#[path = "../../src/control_protocol.rs"]
+pub mod control_protocol;
 mod custom_datagram;
 mod rtc_capability;
 use iroh::{Endpoint, EndpointAddr, RelayMode, endpoint::presets};

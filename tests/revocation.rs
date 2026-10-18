@@ -1,9 +1,13 @@
 //! Management through the public node, real admission, TLS/QUIC and durable replicas.
+#[path = "support/native_connections.rs"]
+mod native_connections;
+use iroh::endpoint::RestrictedEndpoint;
+
 use std::net::Ipv4Addr;
 use std::path::Path;
 use std::time::Duration;
 
-use iroh::{Endpoint, EndpointAddr, endpoint::Connection};
+use iroh::{EndpointAddr, endpoint::Connection};
 use miopunch_native_probe::admission_gate::{ADMISSION_REQUEST_ALPN, CONTROL_ALPN, ProtocolScope};
 use miopunch_native_probe::daily_management::{ManagementAction, ManagementError};
 use miopunch_native_probe::genesis_recovery::GenesisCredential;
@@ -21,16 +25,12 @@ fn credential(path: &Path) -> GenesisCredential {
     )
 }
 
-async fn connect(a: &Endpoint, b: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
-    tokio::time::timeout(Duration::from_secs(10), async {
-        let address = EndpointAddr::new(b.id()).with_ip_addr(*b.addr().ip_addrs().next().unwrap());
-        let (a, b) = tokio::join!(a.connect(address, alpn), async {
-            b.accept().await.unwrap().await
-        });
-        (a.unwrap(), b.unwrap())
-    })
-    .await
-    .unwrap()
+async fn connect(
+    client: &RestrictedEndpoint,
+    server: &RestrictedEndpoint,
+    alpn: &[u8],
+) -> (Connection, Connection) {
+    native_connections::member_pair(client, server, alpn).await
 }
 
 async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
@@ -39,7 +39,7 @@ async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
         .unwrap();
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ne = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
     let (request, served) = tokio::join!(
         node.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -65,7 +65,7 @@ async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
     node
 }
 
-async fn endpoint(node: &NativeNetwork) -> Endpoint {
+async fn endpoint(node: &NativeNetwork) -> RestrictedEndpoint {
     node.admission_gate()
         .register_protocol(REPLICA_ALPN, ProtocolScope::Member);
     let endpoint = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
@@ -91,7 +91,7 @@ async fn replicate(source: &NativeNetwork, receiver: &mut NativeNetwork) {
 
 const BUSINESS: &[u8] = b"miopunch/revocation-business/1";
 
-async fn business_endpoint(node: &NativeNetwork) -> Endpoint {
+async fn business_endpoint(node: &NativeNetwork) -> RestrictedEndpoint {
     node.admission_gate()
         .register_protocol(BUSINESS, ProtocolScope::Member);
     let endpoint = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
@@ -119,9 +119,11 @@ async fn received_removal_ends_actual_flow_and_rejects_new_connections_with_same
     let saved_secret = std::fs::read(tp.join("admission.material")).unwrap();
     let ae = business_endpoint(&a).await;
     let te = business_endpoint(&t).await;
-    let (control_client, control_server) = connect(&te, &ae, CONTROL_ALPN).await;
+    let (control_client, control_server) =
+        native_connections::control_pair(&te, &ae, CONTROL_ALPN).await;
     let (replica_client, replica_server) = connect(&te, &ae, REPLICA_ALPN).await;
-    let (request_client, request_server) = connect(&te, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (request_client, request_server) =
+        native_connections::control_pair(&te, &ae, ADMISSION_REQUEST_ALPN).await;
     let (client, server) = connect(&te, &ae, BUSINESS).await;
     let (mut send, _) = client.open_bi().await.unwrap();
     send.write_all(b"live").await.unwrap();
@@ -143,7 +145,6 @@ async fn received_removal_ends_actual_flow_and_rejects_new_connections_with_same
     assert!(server.close_reason().is_some());
     for (out, incoming) in [
         (control_client, control_server),
-        (replica_client, replica_server),
         (request_client, request_server),
     ] {
         tokio::time::timeout(Duration::from_secs(3), out.closed())
@@ -151,6 +152,10 @@ async fn received_removal_ends_actual_flow_and_rejects_new_connections_with_same
             .unwrap();
         assert!(incoming.close_reason().is_some());
     }
+    tokio::time::timeout(Duration::from_secs(3), replica_client.closed())
+        .await
+        .unwrap();
+    assert!(replica_server.close_reason().is_some());
     assert!(recv.read_exact(&mut bytes).await.is_err());
     assert!(!a.admission_gate().allows(&server, ProtocolScope::Member));
     let target = EndpointAddr::new(ae.id()).with_ip_addr(*ae.addr().ip_addrs().next().unwrap());
@@ -212,7 +217,7 @@ async fn fresh_manual_approval_rejoins_stable_identity_but_old_request_cannot() 
     assert!(!t.status().members.iter().any(|(node, _)| *node == id));
     let ce = business_endpoint(&c).await;
     let te = business_endpoint(&t).await;
-    let (client, server) = connect(&te, &ce, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&te, &ce, ADMISSION_REQUEST_ALPN).await;
     let (request, served) = tokio::join!(
         t.request_manual_admission(&client),
         c.serve_manual_admission(&server)
@@ -226,7 +231,7 @@ async fn fresh_manual_approval_rejoins_stable_identity_but_old_request_cannot() 
     let mut t = NativeNetwork::open(&tp).await.unwrap();
     assert_eq!(t.status().node_id, id);
     let te = business_endpoint(&t).await;
-    let (client, server) = connect(&te, &ce, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&te, &ce, ADMISSION_REQUEST_ALPN).await;
     let (request, served) = tokio::join!(
         t.request_manual_admission(&client),
         c.serve_manual_admission(&server)

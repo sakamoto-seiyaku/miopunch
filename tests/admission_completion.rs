@@ -1,27 +1,22 @@
 //! Real public-node precode behavior.
+#[path = "support/native_connections.rs"]
+mod native_connections;
+use iroh::endpoint::RestrictedEndpoint;
+use native_connections::{receive_field, send_field};
+
+use iroh::EndpointAddr;
 use iroh::endpoint::Connection;
-use iroh::{Endpoint, EndpointAddr};
 use miopunch_native_probe::admission_gate::ADMISSION_REQUEST_ALPN;
 use miopunch_native_probe::manual_admission::{AdmissionStage, ManualExchange};
 use miopunch_native_probe::native_network::NativeNetwork;
 use std::net::Ipv4Addr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-async fn connect(client: &Endpoint, server: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
-    let target = EndpointAddr::new(server.id()).with_addrs(
-        server
-            .addr()
-            .ip_addrs()
-            .copied()
-            .map(iroh_base::TransportAddr::Ip),
-    );
-    tokio::time::timeout(Duration::from_secs(10), async {
-        let (out, incoming) = tokio::join!(client.connect(target, alpn), async {
-            server.accept().await.unwrap().await
-        });
-        (out.unwrap(), incoming.unwrap())
-    })
-    .await
-    .expect("bounded real TLS connection")
+async fn connect(
+    client: &RestrictedEndpoint,
+    server: &RestrictedEndpoint,
+    alpn: &[u8],
+) -> (Connection, Connection) {
+    native_connections::member_pair(client, server, alpn).await
 }
 
 fn expiry() -> u64 {
@@ -61,7 +56,7 @@ async fn redeem(
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let je = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     ae.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
-    let (c, s) = connect(&je, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&je, &ae, ADMISSION_REQUEST_ALPN).await;
     let receive = async {
         match joining.request_precode_admission(&c, code).await {
             Ok(ManualExchange::Materials(d)) => joining.complete_manual_admission(d).await.is_ok(),
@@ -121,7 +116,7 @@ async fn unavailable_original_new_contact_consumes_new_code_reuses_verified_gran
     let id = joining.status().node_id;
     let oe = original.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let je = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (c, s) = connect(&je, &oe, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&je, &oe, ADMISSION_REQUEST_ALPN).await;
     let receiver = async {
         let ManualExchange::Materials(delivery) =
             joining.request_precode_admission(&c, &old).await.unwrap()
@@ -197,7 +192,16 @@ fn delivery_checkpoint_worker() {
                 endpoint.addr().ip_addrs().next().unwrap()
             );
             std::fs::write(std::env::var("MIO35_PUBLIC_PATH").unwrap(), public).unwrap();
-            let c = endpoint.accept().await.unwrap().await.unwrap();
+            let c = std::sync::Arc::new(
+                endpoint
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+                    .unwrap(),
+            );
             node.serve_precode_admission(&c).await.unwrap();
         } else {
             let contact = std::env::var("MIO35_CONTACT").unwrap().parse().unwrap();
@@ -208,12 +212,13 @@ fn delivery_checkpoint_worker() {
                 .unwrap();
             let code = miopunch_native_probe::precode::Precode::decode(&code_bytes).unwrap();
             let c = endpoint
-                .connect(
+                .connect_control(
                     EndpointAddr::new(contact).with_ip_addr(address),
                     ADMISSION_REQUEST_ALPN,
                 )
                 .await
                 .unwrap();
+            let c = std::sync::Arc::new(c);
             let ManualExchange::Materials(d) =
                 node.request_precode_admission(&c, &code).await.unwrap()
             else {
@@ -269,12 +274,13 @@ async fn interruption(checkpoint: &str, sender_crashes: bool) {
         let address = lines.next().unwrap().parse().unwrap();
         let je = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
         let c = je
-            .connect(
+            .connect_control(
                 EndpointAddr::new(contact).with_ip_addr(address),
                 ADMISSION_REQUEST_ALPN,
             )
             .await
             .unwrap();
+        let c = std::sync::Arc::new(c);
         let request = async {
             if let Ok(ManualExchange::Materials(d)) =
                 joining.request_precode_admission(&c, &code).await
@@ -469,7 +475,7 @@ async fn new_contact_rejects_wrong_network_tls_contact_and_stale_delivery_handle
         .unwrap();
     let oe = original.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let je = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (c, s) = connect(&je, &oe, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&je, &oe, ADMISSION_REQUEST_ALPN).await;
     let receiver = async {
         let ManualExchange::Materials(d) =
             joining.request_precode_admission(&c, &old).await.unwrap()
@@ -486,7 +492,8 @@ async fn new_contact_rejects_wrong_network_tls_contact_and_stale_delivery_handle
     let (_, sent) = tokio::join!(receiver, original.serve_precode_admission(&s));
     assert!(sent.is_err());
     assert_eq!(original.precode_usage(&old).await.unwrap(), 1);
-    let (wrong_contact, peer) = connect(&je, &oe, ADMISSION_REQUEST_ALPN).await;
+    let (wrong_contact, peer) =
+        native_connections::control_pair(&je, &oe, ADMISSION_REQUEST_ALPN).await;
     assert!(
         joining
             .request_precode_admission(&wrong_contact, &fresh)
@@ -525,7 +532,7 @@ async fn replacing_applicant_cannot_complete_another_identity_delivery() {
         .unwrap();
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let je = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (c, s) = connect(&je, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&je, &ae, ADMISSION_REQUEST_ALPN).await;
     let receiver = async {
         let ManualExchange::Materials(d) =
             joining.request_precode_admission(&c, &code).await.unwrap()
@@ -568,7 +575,7 @@ async fn new_contact_after_removal_gets_new_authorization_and_old_result_stays_i
     let id = joining.status().node_id;
     let oe = original.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let je = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (c, s) = connect(&je, &oe, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&je, &oe, ADMISSION_REQUEST_ALPN).await;
     let receiver = async {
         let ManualExchange::Materials(d) =
             joining.request_precode_admission(&c, &old).await.unwrap()
@@ -643,7 +650,7 @@ async fn signed_old_response_cannot_restore_locally_verified_removal() {
         .unwrap();
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let je = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (c, s) = connect(&je, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&je, &ae, ADMISSION_REQUEST_ALPN).await;
     let receive = async {
         let ManualExchange::Materials(d) =
             joining.request_precode_admission(&c, &code).await.unwrap()
@@ -674,18 +681,19 @@ async fn signed_old_response_cannot_restore_locally_verified_removal() {
     let before = joining.status().applied_count;
     let old: Vec<_> = old.iter().map(|r| (r.header(), r.body())).collect();
     let stale = p2panda_core::cbor::encode_cbor(&(authorization, old)).unwrap();
-    let (c, s) = connect(&je, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&je, &ae, ADMISSION_REQUEST_ALPN).await;
     let delayed_response = async {
-        let (mut send, mut recv) = s.accept_bi().await.unwrap();
+        let exchange = s.accept_control_exchange().await.unwrap();
+        let (send, recv) = (&exchange, &exchange);
         let mut request = [0; 176];
-        recv.read_exact(&mut request).await.unwrap();
-        send.write_all(&[1]).await.unwrap();
-        send.write_all(&0_u64.to_be_bytes()).await.unwrap();
-        send.write_all(&(stale.len() as u32).to_be_bytes())
+        receive_field(recv, &mut request).await.unwrap();
+        send_field(send, &[1]).await.unwrap();
+        send_field(send, &0_u64.to_be_bytes()).await.unwrap();
+        send_field(send, &(stale.len() as u32).to_be_bytes())
             .await
             .unwrap();
-        send.write_all(&stale).await.unwrap();
-        send.finish().unwrap();
+        send_field(send, &stale).await.unwrap();
+        send.finish_send().await.unwrap();
         // Keep the real QUIC sender alive until the receiving API rejects it.
         s.closed().await;
     };
@@ -718,7 +726,7 @@ async fn duplicate_save_ack_does_not_consume_twice_or_prove_recipient_persistenc
         .unwrap();
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let je = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (c, s) = connect(&je, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&je, &ae, ADMISSION_REQUEST_ALPN).await;
     let receive = async {
         let ManualExchange::Materials(d) =
             joining.request_precode_admission(&c, &code).await.unwrap()
@@ -731,33 +739,34 @@ async fn duplicate_save_ack_does_not_consume_twice_or_prove_recipient_persistenc
     let (_, sent) = tokio::join!(receive, admin.serve_precode_admission(&s));
     assert!(sent.is_err());
     let approval = admin.precode_redemptions(&code).await.unwrap()[0].clone();
-    let (c, s) = connect(&je, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&je, &ae, ADMISSION_REQUEST_ALPN).await;
     let duplicated_ack = async {
-        let (mut send, mut recv) = c.open_bi().await.unwrap();
+        let exchange = c.open_control_exchange().await.unwrap();
+        let (send, recv) = (&exchange, &exchange);
         let mut wire = code.invitation().encode().to_vec();
         wire.extend_from_slice(&approval.request.request_id);
         wire.extend_from_slice(joining.status().node_id.as_bytes());
         wire.extend_from_slice(&code.encode()[96..]);
-        send.write_all(&wire).await.unwrap();
+        send_field(send, &wire).await.unwrap();
         let mut status = [0];
-        recv.read_exact(&mut status).await.unwrap();
+        receive_field(recv, &mut status).await.unwrap();
         assert_eq!(status, [1]);
         let mut generation = [0; 8];
-        recv.read_exact(&mut generation).await.unwrap();
+        receive_field(recv, &mut generation).await.unwrap();
         assert_eq!(u64::from_be_bytes(generation), 0);
         let mut len = [0; 4];
-        recv.read_exact(&mut len).await.unwrap();
+        receive_field(recv, &mut len).await.unwrap();
         let mut history = vec![0; u32::from_be_bytes(len) as usize];
-        recv.read_exact(&mut history).await.unwrap();
-        send.write_all(b"AUTH").await.unwrap();
+        receive_field(recv, &mut history).await.unwrap();
+        send_field(send, b"AUTH").await.unwrap();
         let mut private_bytes = [0; 40];
-        recv.read_exact(&mut private_bytes).await.unwrap();
+        receive_field(recv, &mut private_bytes).await.unwrap();
         // Raw authenticated peer deliberately acknowledges twice without
         // calling the node's durable-save operation. Never log these bytes.
-        send.write_all(b"SAVESAVE").await.unwrap();
-        send.finish().unwrap();
+        send_field(send, b"SAVESAVE").await.unwrap();
+        send.finish_send().await.unwrap();
         let mut done = [0; 4];
-        recv.read_exact(&mut done).await.unwrap();
+        receive_field(recv, &mut done).await.unwrap();
         assert_eq!(&done, b"DONE");
     };
     let (_, sent) = tokio::join!(duplicated_ack, admin.serve_precode_admission(&s));

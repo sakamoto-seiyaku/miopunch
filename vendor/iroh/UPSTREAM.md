@@ -298,3 +298,32 @@ business handlers only after typed admission; it does not expose the ordinary
 handler's `on_accepting` state. See
 `docs/notes/2026-10-18-restricted-endpoint-api.md` for exact transition consumers,
 public-interface tests and the bounded MQTT-control-to-UDP demonstration.
+
+## MIOPUNCH-93 application control and Native migration
+
+`Builder::restricted_application` explicitly selects existing application
+control framing instead of the restricted mode's library preface and Ready
+frames. Bounded complete-message exchanges support fixed, 16/32-bit length
+prefixed and FIN-terminated messages without exposing raw streams. An owned
+`ControlConfirmation` supplies the application's existing delivery agreement;
+missing confirmation rejects, and cancellation drops its prepared resources.
+The default `restricted` mode keeps its original framing. This preserves the
+Native SDK's existing SCRAM, MUC1, admission-material and member protocols.
+
+Cloneable `ControlHandle` provides confined metadata, path operations and
+control exchanges. Its non-cloneable `ControlConnection` owner still closes
+on drop; retained helpers cannot outlive that authority. Successful business
+handoff retires all control exchanges before returning the original connection.
+The defaulted `business_released` observer publishes application maintenance
+state after final qualification and retirement. It does not change ordinary
+endpoint hooks or ordinary early-data behavior.
+
+Custom path qualification accepts a currently retained exact connection/address
+seal as well as the explicitly allowed carrier types. The actor applies the
+same existing qualification, resource policy and packet permit checks; this
+does not authorize every address of that custom carrier. Native physical UDP
+bindings remain owned by the original socket pool and connection.
+
+See `docs/notes/2026-10-19-native-restricted-admission.md` and
+`docs/evidence/native-restricted-admission-2026-10-19/README.md` for the Native
+migration, fixed-counterpart interoperability and regression evidence.

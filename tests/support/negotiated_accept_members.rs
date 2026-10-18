@@ -28,7 +28,7 @@ pub async fn admitted_pair() -> (tempfile::TempDir, NativeNetwork, NativeNetwork
     let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
     let (client, server) = tokio::join!(
         async {
-            be.connect_with_opts(ae.addr(), ADMISSION_REQUEST_ALPN, options)
+            be.connect_control_with_opts(ae.addr(), ADMISSION_REQUEST_ALPN, options)
                 .await
                 .unwrap()
                 .await
@@ -38,10 +38,15 @@ pub async fn admitted_pair() -> (tempfile::TempDir, NativeNetwork, NativeNetwork
                 .await
                 .unwrap()
                 .with_caller_deadline(deadline)
+                .accept_control()
+                .unwrap()
                 .await
         }
     );
-    let (client, server) = (client.unwrap(), server.unwrap());
+    let (client, server) = (
+        std::sync::Arc::new(client.unwrap()),
+        std::sync::Arc::new(server.unwrap()),
+    );
     let (request, served) = tokio::join!(
         b.request_manual_admission(&client),
         a.serve_manual_admission(&server)

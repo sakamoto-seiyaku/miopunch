@@ -222,6 +222,44 @@ impl TcpTransport {
         })
     }
 
+    /// Retain the circuit already carrying an authenticated connection. This
+    /// does not require simultaneous-open support or start a new TCP dial.
+    pub(crate) fn retain_existing(&self, peer: SocketAddr) -> io::Result<TcpCircuitLease> {
+        let shared = self
+            .shared
+            .lock()
+            .unwrap()
+            .upgrade()
+            .ok_or_else(|| io::Error::other("TCP endpoint unavailable"))?;
+        let channel = shared
+            .channels
+            .lock()
+            .unwrap()
+            .get(&peer)
+            .cloned()
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::NotConnected,
+                    "existing TCP circuit unavailable",
+                )
+            })?;
+        {
+            let mut retained = channel.lock().unwrap();
+            if !retained.active || *retained.cancel.borrow() {
+                return Err(io::Error::new(
+                    io::ErrorKind::NotConnected,
+                    "existing TCP circuit closed",
+                ));
+            }
+            retained.owners += 1;
+        }
+        Ok(TcpCircuitLease {
+            shared,
+            peer,
+            channel,
+        })
+    }
+
     pub fn address(addr: impl Into<SocketAddr>) -> CustomAddr {
         CustomAddr::from_parts(TRANSPORT_ID, &encode(addr.into()))
     }

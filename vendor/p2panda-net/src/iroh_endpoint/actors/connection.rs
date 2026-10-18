@@ -8,6 +8,7 @@ use tracing::field::Empty;
 use tracing::{Instrument, debug, info_span, warn};
 
 use crate::address_book::report::{ConnectionOutcome, ConnectionRole};
+use crate::iroh_endpoint::access::{EndpointAccess, IncomingAccess};
 use crate::iroh_endpoint::actors::endpoint::{ConnectError, ProtocolMap, ToIrohEndpoint};
 use crate::utils::{ShortFormat, to_verifying_key};
 use crate::{NodeId, ProtocolId};
@@ -18,14 +19,14 @@ pub type ConnectReplyPort = RpcReplyPort<Result<iroh::endpoint::Connection, Conn
 #[allow(clippy::large_enum_variant)]
 pub enum IrohConnectionArgs {
     Connect {
-        endpoint: iroh::endpoint::Endpoint,
+        endpoint: EndpointAccess,
         endpoint_addr: iroh::EndpointAddr,
         alpn: ProtocolId,
         quic_transport_config: Option<QuicTransportConfig>,
         reply: ConnectReplyPort,
     },
     Accept {
-        incoming: iroh::endpoint::Incoming,
+        incoming: IncomingAccess,
         protocols: ProtocolMap,
     },
 }
@@ -110,7 +111,7 @@ async fn establish_connection(
                 .await;
 
             let (connection, policy_rejected) = match connecting {
-                Ok(connecting) => match connecting.await {
+                Ok(connecting) => match connecting.finish().await {
                     Ok(connection) => (Ok(connection), false),
                     Err(err) => {
                         let rejected = matches!(err, ConnectingError::LocallyRejected { .. });
@@ -191,7 +192,7 @@ async fn establish_connection(
             };
 
             // Establish connection.
-            let connection = match protocol_handler.on_accepting(accepting).await {
+            let connection = match accepting.hand_off(protocol_handler.as_ref()).await {
                 Ok(connection) => connection,
                 Err(err) => {
                     warn!("accepting incoming connection ended with error: {err}");

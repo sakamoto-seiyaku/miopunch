@@ -10,10 +10,11 @@ use miopunch_native_probe::{
 };
 use std::{
     net::Ipv4Addr,
+    sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-async fn local_endpoint(node: &NativeNetwork) -> Endpoint {
+async fn local_endpoint(node: &NativeNetwork) -> iroh::endpoint::RestrictedEndpoint {
     let mut local = node.resource_configuration().unwrap();
     local.import_trusted_replacement(Vec::new()).unwrap();
     local.mqtt_facilities.clear();
@@ -45,15 +46,24 @@ async fn local_endpoint(node: &NativeNetwork) -> Endpoint {
     endpoint
 }
 
-async fn connect(client: &Endpoint, server: &Endpoint) -> (Connection, Connection) {
+async fn connect(
+    client: &iroh::endpoint::RestrictedEndpoint,
+    server: &iroh::endpoint::RestrictedEndpoint,
+) -> (
+    Arc<iroh::endpoint::ControlConnection>,
+    Arc<iroh::endpoint::ControlConnection>,
+) {
     connect_alpn(client, server, ADMISSION_REQUEST_ALPN).await
 }
 
 async fn connect_alpn(
-    client: &Endpoint,
-    server: &Endpoint,
+    client: &iroh::endpoint::RestrictedEndpoint,
+    server: &iroh::endpoint::RestrictedEndpoint,
     alpn: &[u8],
-) -> (Connection, Connection) {
+) -> (
+    Arc<iroh::endpoint::ControlConnection>,
+    Arc<iroh::endpoint::ControlConnection>,
+) {
     let address = server
         .addr()
         .ip_addrs()
@@ -65,7 +75,7 @@ async fn connect_alpn(
         let (out, incoming) = tokio::join!(
             async {
                 client
-                    .connect_with_opts(
+                    .connect_control_with_opts(
                         EndpointAddr::new(server.id()).with_ip_addr(address),
                         alpn,
                         iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline),
@@ -80,10 +90,12 @@ async fn connect_alpn(
                     .await
                     .unwrap()
                     .with_caller_deadline(deadline)
+                    .accept_control()
+                    .unwrap()
                     .await
             }
         );
-        (out.unwrap(), incoming.unwrap())
+        (Arc::new(out.unwrap()), Arc::new(incoming.unwrap()))
     })
     .await
     .expect("bounded owned loopback TLS")
@@ -92,8 +104,8 @@ async fn connect_alpn(
 async fn approve(
     admin: &mut NativeNetwork,
     joining: &mut NativeNetwork,
-    ae: &Endpoint,
-    je: &Endpoint,
+    ae: &iroh::endpoint::RestrictedEndpoint,
+    je: &iroh::endpoint::RestrictedEndpoint,
 ) {
     let (client, server) = connect(je, ae).await;
     let (response, sent) = tokio::join!(
@@ -120,8 +132,8 @@ async fn approve(
 async fn complete(
     admin: &mut NativeNetwork,
     joining: &mut NativeNetwork,
-    ae: &Endpoint,
-    je: &Endpoint,
+    ae: &iroh::endpoint::RestrictedEndpoint,
+    je: &iroh::endpoint::RestrictedEndpoint,
 ) {
     let (client, server) = connect(je, ae).await;
     let receive = async {
@@ -166,14 +178,19 @@ async fn restricted_request_uses_one_control_exchange_before_application() {
         && !provider
             .admission_gate()
             .allows(&server, ProtocolScope::Member);
-    let (mut send, _) = client.open_bi().await.unwrap();
+    let send = client.open_control_exchange().await.unwrap();
     let application_stream = send.id().index();
-    send.write_all(b"restricted request boundary")
+    send.send_message(
+        iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 64 },
+        b"restricted request boundary",
+    )
+    .await
+    .unwrap();
+    let receive = server.accept_control_exchange().await.unwrap();
+    let received = receive
+        .recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 64 })
         .await
         .unwrap();
-    send.finish().unwrap();
-    let (_, mut receive) = server.accept_bi().await.unwrap();
-    let received = receive.read_to_end(64).await.unwrap();
     client.close(0u32.into(), b"request confirmation boundary tested");
     server.close(0u32.into(), b"request confirmation boundary tested");
     drop((send, receive, client, server));
@@ -276,6 +293,8 @@ async fn request_confirmation_rejects_invalid_envelopes_and_nonce_before_return(
                         .await
                         .unwrap()
                         .with_caller_deadline(deadline)
+                        .accept_control()
+                        .unwrap()
                         .await
                 }
             )

@@ -1,9 +1,14 @@
 //! Original root backup recovery through public durable nodes and real TLS/QUIC.
+#[path = "support/native_connections.rs"]
+mod native_connections;
+use iroh::endpoint::RestrictedEndpoint;
+use native_connections::{receive_field, send_field};
+
 use std::net::Ipv4Addr;
 use std::path::Path;
 use std::time::Duration;
 
-use iroh::{Endpoint, EndpointAddr, endpoint::Connection};
+use iroh::{EndpointAddr, endpoint::Connection};
 use miopunch_native_probe::admission_gate::ADMISSION_REQUEST_ALPN;
 use miopunch_native_probe::daily_management::ManagementAction;
 use miopunch_native_probe::genesis_recovery::GenesisCredential;
@@ -23,16 +28,12 @@ fn original_backup(path: &Path) -> GenesisCredential {
     )
 }
 
-async fn connect(a: &Endpoint, b: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
-    tokio::time::timeout(Duration::from_secs(10), async {
-        let address = EndpointAddr::new(b.id()).with_ip_addr(*b.addr().ip_addrs().next().unwrap());
-        let (a, b) = tokio::join!(a.connect(address, alpn), async {
-            b.accept().await.unwrap().await
-        });
-        (a.unwrap(), b.unwrap())
-    })
-    .await
-    .unwrap()
+async fn connect(
+    client: &RestrictedEndpoint,
+    server: &RestrictedEndpoint,
+    alpn: &[u8],
+) -> (Connection, Connection) {
+    native_connections::member_pair(client, server, alpn).await
 }
 
 async fn ordinary_member(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
@@ -41,7 +42,7 @@ async fn ordinary_member(admin: &mut NativeNetwork, path: &Path) -> NativeNetwor
         .unwrap();
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ne = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
     let (request, served) = tokio::join!(
         node.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -67,7 +68,7 @@ async fn ordinary_member(admin: &mut NativeNetwork, path: &Path) -> NativeNetwor
     node
 }
 
-async fn recovery_endpoint(node: &NativeNetwork) -> Endpoint {
+async fn recovery_endpoint(node: &NativeNetwork) -> RestrictedEndpoint {
     let endpoint = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     endpoint.set_alpns(vec![MANAGEMENT_RECOVERY_ALPN.to_vec()]);
     endpoint
@@ -100,7 +101,8 @@ async fn formal_entry_restores_original_network_when_all_old_administrators_are_
         RecoveryStage::AwaitingProof
     );
     let re = recovery_endpoint(&recovered).await;
-    let (client, server) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let (restored, served) = tokio::join!(
         recovered.restore_management(&client),
         member.serve_management_recovery(&server)
@@ -188,7 +190,8 @@ async fn ordinary_contact_requires_root_proof_but_no_secret_history_or_old_appro
     .await
     .unwrap();
     let ae = recovery_endpoint(&attacker).await;
-    let (client, server) = connect(&ae, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&ae, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let request = RecoveryRequest {
         target: attacker.status().node_id,
         attempt: [7; 16],
@@ -196,11 +199,12 @@ async fn ordinary_contact_requires_root_proof_but_no_secret_history_or_old_appro
     let before = member.status();
     let (disclosed, served) = tokio::join!(
         async {
-            let (mut send, mut recv) = client.open_bi().await.unwrap();
-            send.write_all(&[0; 64]).await.unwrap();
-            let _ = send.write_all(&request.attempt).await;
+            let exchange = client.open_control_exchange().await.unwrap();
+            let (send, recv) = (&exchange, &exchange);
+            send_field(send, &[0; 64]).await.unwrap();
+            let _ = send_field(send, &request.attempt).await;
             let mut first = [0; 1];
-            recv.read_exact(&mut first).await
+            receive_field(recv, &mut first).await
         },
         member.serve_management_recovery(&server)
     );
@@ -230,7 +234,8 @@ async fn ordinary_contact_requires_root_proof_but_no_secret_history_or_old_appro
         AdmissionStage::AwaitingApproval
     );
     let re = recovery_endpoint(&recovered).await;
-    let (client, server) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let (restored, served) = tokio::join!(
         recovered.restore_management(&client),
         member.serve_management_recovery(&server)
@@ -300,18 +305,28 @@ fn recovery_checkpoint_worker() {
                 endpoint.addr().ip_addrs().next().unwrap()
             );
             std::fs::write(std::env::var("MIO36_PUBLIC_PATH").unwrap(), public).unwrap();
-            let c = endpoint.accept().await.unwrap().await.unwrap();
+            let c = std::sync::Arc::new(
+                endpoint
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+                    .unwrap(),
+            );
             node.serve_management_recovery(&c).await.unwrap();
         } else {
             let contact = std::env::var("MIO36_CONTACT").unwrap().parse().unwrap();
             let address = std::env::var("MIO36_ADDRESS").unwrap().parse().unwrap();
             let c = endpoint
-                .connect(
+                .connect_control(
                     EndpointAddr::new(contact).with_ip_addr(address),
                     MANAGEMENT_RECOVERY_ALPN,
                 )
                 .await
                 .unwrap();
+            let c = std::sync::Arc::new(c);
             node.restore_management(&c).await.unwrap();
         }
         panic!("actual recovery checkpoint was not reached");
@@ -365,13 +380,14 @@ async fn interruption(
         let mut lines = public.lines();
         let re = recovery_endpoint(&recovered).await;
         let connection = re
-            .connect(
+            .connect_control(
                 EndpointAddr::new(lines.next().unwrap().parse().unwrap())
                     .with_ip_addr(lines.next().unwrap().parse().unwrap()),
                 MANAGEMENT_RECOVERY_ALPN,
             )
             .await
             .unwrap();
+        let connection = std::sync::Arc::new(connection);
         let (_, exit) = tokio::join!(
             recovered.restore_management(&connection),
             tokio::time::timeout(Duration::from_secs(20), child.wait_with_output())
@@ -447,7 +463,7 @@ async fn interruption(
     let mut member = NativeNetwork::open(&mp).await.unwrap();
     let re = recovery_endpoint(&recovered).await;
     let me = recovery_endpoint(&member).await;
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let (restored, served) = tokio::join!(
         recovered.restore_management(&c),
         member.serve_management_recovery(&s)
@@ -670,7 +686,7 @@ async fn security_fixture() -> (
 
 fn signed_proof(
     root: &p2panda_core::SigningKey,
-    c: &Connection,
+    c: &(impl miopunch_native_probe::control_protocol::AuthenticatedControl + ?Sized),
     anchor: miopunch_native_probe::management_auth::NetworkAnchor,
     recovering: iroh_base::EndpointId,
     contact: iroh_base::EndpointId,
@@ -680,7 +696,7 @@ fn signed_proof(
 }
 
 fn root_statement(
-    c: &Connection,
+    c: &(impl miopunch_native_probe::control_protocol::AuthenticatedControl + ?Sized),
     anchor: miopunch_native_probe::management_auth::NetworkAnchor,
     recovering: iroh_base::EndpointId,
     contact: iroh_base::EndpointId,
@@ -755,7 +771,7 @@ async fn invalid_saved_credential(wrong_root: bool) {
         .await
         .unwrap();
     let re = recovery_endpoint(&node).await;
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let before = member.status();
     let (received, served) = tokio::join!(
         node.restore_management(&c),
@@ -797,7 +813,7 @@ async fn rejected_signed_grant(fault: InvalidGrant) {
     .await
     .unwrap();
     let re = recovery_endpoint(&node).await;
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let records = member.management_history().await.unwrap();
     let old_log = p2panda_core::Header::<ManagementExtension>::decode(records[0].header())
         .unwrap()
@@ -834,19 +850,20 @@ async fn rejected_signed_grant(fault: InvalidGrant) {
     let before = member.status();
     let (read, served) = tokio::join!(
         async {
-            let (mut send, mut recv) = c.open_bi().await.unwrap();
-            send.write_all(&signature).await.unwrap();
-            send.write_all(&request.attempt).await.unwrap();
+            let exchange = c.open_control_exchange().await.unwrap();
+            let (send, recv) = (&exchange, &exchange);
+            send_field(send, &signature).await.unwrap();
+            send_field(send, &request.attempt).await.unwrap();
             let mut len = [0; 4];
-            recv.read_exact(&mut len).await.unwrap();
+            receive_field(recv, &mut len).await.unwrap();
             let mut history = vec![0; u32::from_be_bytes(len) as usize];
-            recv.read_exact(&mut history).await.unwrap();
-            send.write_all(&(grant.header().len() as u32).to_be_bytes())
+            receive_field(recv, &mut history).await.unwrap();
+            send_field(send, &(grant.header().len() as u32).to_be_bytes())
                 .await
                 .unwrap();
-            send.write_all(grant.header()).await.unwrap();
+            send_field(send, grant.header()).await.unwrap();
             let mut ack = [0; 32];
-            recv.read_exact(&mut ack).await
+            receive_field(recv, &mut ack).await
         },
         member.serve_management_recovery(&s)
     );
@@ -862,18 +879,19 @@ async fn rejected_signed_grant(fault: InvalidGrant) {
 }
 
 async fn send_history_fixture(
-    connection: &Connection,
+    connection: &(impl miopunch_native_probe::control_protocol::AuthenticatedControl + ?Sized),
     root: &p2panda_core::SigningKey,
     anchor: miopunch_native_probe::management_auth::NetworkAnchor,
     local: iroh_base::EndpointId,
     authorization: Option<Hash>,
     records: &[miopunch_native_probe::management_store::ManagementRecord],
 ) {
-    let (mut send, mut recv) = connection.accept_bi().await.unwrap();
+    let exchange = connection.accept_control_exchange().await.unwrap();
+    let (send, recv) = (&exchange, &exchange);
     let mut signature = [0; 64];
     let mut attempt = [0; 16];
-    recv.read_exact(&mut signature).await.unwrap();
-    recv.read_exact(&mut attempt).await.unwrap();
+    receive_field(recv, &mut signature).await.unwrap();
+    receive_field(recv, &mut attempt).await.unwrap();
     assert!(root.verifying_key().verify(
         &root_statement(connection, anchor, connection.remote_id(), local),
         &p2panda_core::Signature::from_bytes(&signature),
@@ -883,14 +901,14 @@ async fn send_history_fixture(
         .map(|record| (record.header().to_vec(), record.body().map(<[u8]>::to_vec)))
         .collect();
     let wire = p2panda_core::cbor::encode_cbor(&(authorization, raw)).unwrap();
-    send.write_all(&(wire.len() as u32).to_be_bytes())
+    send_field(send, &(wire.len() as u32).to_be_bytes())
         .await
         .unwrap();
-    send.write_all(&wire).await.unwrap();
+    send_field(send, &wire).await.unwrap();
     // The legitimate receiver rejects this genuine signed but unacceptable
     // snapshot before authoring/acknowledging a grant or accepting a secret.
     let mut ack = [0; 1];
-    assert!(recv.read_exact(&mut ack).await.is_err());
+    assert!(receive_field(recv, &mut ack).await.is_err());
 }
 
 async fn replicate(source: &NativeNetwork, receiver: &mut NativeNetwork) {
@@ -938,17 +956,18 @@ async fn root_proof_for_substituted_target_cannot_read_history_or_secret() {
     .await
     .unwrap();
     let re = recovery_endpoint(&node).await;
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let other = iroh::SecretKey::generate().public();
     let signature = signed_proof(&root, &c, original.anchor, other, me.id());
     let before = member.status();
     let (read, served) = tokio::join!(
         async {
-            let (mut send, mut recv) = c.open_bi().await.unwrap();
-            send.write_all(&signature).await.unwrap();
-            let _ = send.write_all(&[9; 16]).await;
+            let exchange = c.open_control_exchange().await.unwrap();
+            let (send, recv) = (&exchange, &exchange);
+            send_field(send, &signature).await.unwrap();
+            let _ = send_field(send, &[9; 16]).await;
             let mut first = [0; 1];
-            recv.read_exact(&mut first).await
+            receive_field(recv, &mut first).await
         },
         member.serve_management_recovery(&s)
     );
@@ -993,17 +1012,18 @@ async fn persisted_root_proof_is_not_accepted_on_a_replayed_tls_session() {
         target: node.status().node_id,
         attempt: [13; 16],
     };
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let old_signature = signed_proof(&root, &c, original.anchor, re.id(), me.id());
     let (_, served) = tokio::join!(
         async {
-            let (mut send, mut recv) = c.open_bi().await.unwrap();
-            send.write_all(&old_signature).await.unwrap();
-            send.write_all(&request.attempt).await.unwrap();
+            let exchange = c.open_control_exchange().await.unwrap();
+            let (send, recv) = (&exchange, &exchange);
+            send_field(send, &old_signature).await.unwrap();
+            send_field(send, &request.attempt).await.unwrap();
             let mut len = [0; 4];
-            recv.read_exact(&mut len).await.unwrap();
+            receive_field(recv, &mut len).await.unwrap();
             let mut history = vec![0; u32::from_be_bytes(len) as usize];
-            recv.read_exact(&mut history).await.unwrap();
+            receive_field(recv, &mut history).await.unwrap();
             c.close(0u32.into(), b"interrupt after genuine proof");
         },
         member.serve_management_recovery(&s)
@@ -1025,15 +1045,16 @@ async fn persisted_root_proof_is_not_accepted_on_a_replayed_tls_session() {
         .unwrap();
     let me = recovery_endpoint(&member).await;
     let re = recovery_endpoint(&node).await;
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let before = member.status();
     let (read, served) = tokio::join!(
         async {
-            let (mut send, mut recv) = c.open_bi().await.unwrap();
-            send.write_all(&old_signature).await.unwrap();
-            let _ = send.write_all(&request.attempt).await;
+            let exchange = c.open_control_exchange().await.unwrap();
+            let (send, recv) = (&exchange, &exchange);
+            send_field(send, &old_signature).await.unwrap();
+            let _ = send_field(send, &request.attempt).await;
             let mut first = [0; 1];
-            recv.read_exact(&mut first).await
+            receive_field(recv, &mut first).await
         },
         member.serve_management_recovery(&s)
     );
@@ -1103,7 +1124,7 @@ async fn same_root_alternate_signed_history_cannot_replace_canonical_network_aft
         .await
         .unwrap();
     let re = recovery_endpoint(&node).await;
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let (restored, _) = tokio::join!(
         node.restore_management(&c),
         send_history_fixture(&s, &root, original.anchor, me.id(), None, &fork)
@@ -1131,7 +1152,7 @@ async fn old_signed_recovery_snapshot_cannot_reverse_current_verified_demotion()
         .await
         .unwrap();
     let re = recovery_endpoint(&node).await;
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let (restored, served) = tokio::join!(
         node.restore_management(&c),
         member.serve_management_recovery(&s)
@@ -1165,7 +1186,7 @@ async fn old_signed_recovery_snapshot_cannot_reverse_current_verified_demotion()
     );
     let me = recovery_endpoint(&member).await;
     let re = recovery_endpoint(&node).await;
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let (restored, _) = tokio::join!(
         node.restore_management(&c),
         send_history_fixture(
@@ -1184,7 +1205,7 @@ async fn old_signed_recovery_snapshot_cannot_reverse_current_verified_demotion()
     me.close().await;
     let me = recovery_endpoint(&member).await;
     let re = recovery_endpoint(&node).await;
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let (restored, served) = tokio::join!(
         node.restore_management(&c),
         member.serve_management_recovery(&s)
@@ -1213,7 +1234,7 @@ async fn completed_recovery_retries_same_root_grant_without_duplicate_add() {
         .await
         .unwrap();
     let re = recovery_endpoint(&node).await;
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let (restored, served) = tokio::join!(
         node.restore_management(&c),
         member.serve_management_recovery(&s)
@@ -1230,7 +1251,7 @@ async fn completed_recovery_retries_same_root_grant_without_duplicate_add() {
         .unwrap();
     let re = recovery_endpoint(&node).await;
     let me = recovery_endpoint(&member).await;
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let (restored, served) = tokio::join!(
         node.restore_management(&c),
         member.serve_management_recovery(&s)
@@ -1285,7 +1306,7 @@ async fn both_offline_old_administrators_survive_recovery_and_root_elevation_is_
         .await
         .unwrap();
     let re = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let (restored, served) = tokio::join!(
         node.restore_management(&c),
         member.serve_management_recovery(&s)
@@ -1344,7 +1365,7 @@ async fn different_node_cannot_use_another_devices_recovery_connection() {
         .await
         .unwrap();
     let ae = recovery_endpoint(&a).await;
-    let (c, s) = connect(&ae, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&ae, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let before = member.status();
     let (restored, served) = tokio::join!(
         b.restore_management(&c),
@@ -1380,7 +1401,7 @@ async fn another_legitimate_member_cannot_replace_pinned_recovery_contact() {
         .await
         .unwrap();
     let re = recovery_endpoint(&node).await;
-    let (c, s) = connect(&re, &ae, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &ae, MANAGEMENT_RECOVERY_ALPN).await;
     let before = alternate.status();
     let (restored, served) = tokio::join!(
         node.restore_management(&c),
@@ -1427,7 +1448,7 @@ async fn member_without_retained_current_secret_fails_closed_without_history_del
         .is_err()
     );
     let re = recovery_endpoint(&node).await;
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let before = member.status();
     let (restored, served) = tokio::join!(
         node.restore_management(&c),
@@ -1463,7 +1484,7 @@ async fn completed_recovery_after_effective_removal_can_rejoin_with_fresh_ordina
         .await
         .unwrap();
     let re = recovery_endpoint(&node).await;
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let (restored, served) = tokio::join!(
         node.restore_management(&c),
         member.serve_management_recovery(&s)
@@ -1524,7 +1545,7 @@ async fn completed_recovery_after_effective_removal_can_rejoin_with_fresh_ordina
     assert_eq!(node.status(), before);
     let ne = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let me = member.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (c, s) = connect(&ne, &me, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&ne, &me, ADMISSION_REQUEST_ALPN).await;
     let (requested, served) = tokio::join!(
         node.request_manual_admission(&c),
         member.serve_manual_admission(&s)
@@ -1591,7 +1612,7 @@ async fn removed_recovery_for_rejoin() -> (
         .await
         .unwrap();
     let re = recovery_endpoint(&node).await;
-    let (c, s) = connect(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
+    let (c, s) = native_connections::control_pair(&re, &me, MANAGEMENT_RECOVERY_ALPN).await;
     let (restored, served) = tokio::join!(
         node.restore_management(&c),
         member.serve_management_recovery(&s)
@@ -1680,7 +1701,7 @@ async fn rejoin_publication_interruption(
     }
     let ne = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (c, s) = connect(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
     let (requested, served) = tokio::join!(
         node.request_manual_admission(&c),
         admin.serve_manual_admission(&s)
@@ -1699,7 +1720,7 @@ async fn rejoin_publication_interruption(
     let mut node = NativeNetwork::open(&rp).await.unwrap();
     let ne = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (c, s) = connect(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (c, s) = native_connections::control_pair(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
     let (requested, served) = tokio::join!(
         node.request_manual_admission(&c),
         admin.serve_manual_admission(&s)

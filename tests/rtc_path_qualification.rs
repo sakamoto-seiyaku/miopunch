@@ -1,4 +1,7 @@
 //! Public RTC lease and authenticated QUIC path seams; owned loopback fixtures.
+#[path = "support/admitted_ip.rs"]
+mod admitted_ip;
+
 use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::{
@@ -12,36 +15,29 @@ use futures_util::future::poll_fn;
 use iroh::endpoint::transports::CustomTransport;
 use iroh::{
     Endpoint,
-    endpoint::{AfterHandshakeOutcome, Connection, EndpointHooks, presets},
+    endpoint::{Connection, presets},
 };
 use miopunch_native_probe::rtc_transport::{RtcTransport, TRANSPORT_ID};
 
 const ALPN: &[u8] = b"miopunch/rtc-path-qualification-test/1";
 
-#[derive(Debug)]
-struct CarrierGate;
-impl EndpointHooks for CarrierGate {
-    async fn after_handshake(&self, _: &Connection) -> AfterHandshakeOutcome {
-        AfterHandshakeOutcome::AcceptData {
-            allowed_data_custom_ids: vec![TRANSPORT_ID],
-        }
-    }
-}
-
-async fn endpoint(transport: RtcTransport) -> Endpoint {
+async fn endpoint(transport: RtcTransport) -> iroh::endpoint::RestrictedEndpoint {
     Endpoint::builder(presets::Minimal)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
         .clear_relay_transports()
         .add_custom_transport(Arc::new(transport))
-        .admission_gate(CarrierGate)
         .alpns(vec![ALPN.to_vec()])
+        .restricted_application(admitted_ip::IpAdmission(vec![TRANSPORT_ID]))
         .bind()
         .await
         .unwrap()
 }
 
-async fn pair(a: &Endpoint, b: &Endpoint) -> (Connection, Connection) {
+async fn pair(
+    a: &iroh::endpoint::RestrictedEndpoint,
+    b: &iroh::endpoint::RestrictedEndpoint,
+) -> (Connection, Connection) {
     tokio::time::timeout(Duration::from_secs(3), async {
         let (out, incoming) = tokio::join!(a.connect(b.addr(), ALPN), async {
             b.accept().await.unwrap().await
@@ -219,18 +215,14 @@ async fn pending_rtc_path_never_carries_stream_data_and_only_its_fresh_probe_can
     );
     // Isolate loss of the previous carrier. The otherwise permitted QNT engine
     // can relearn the same loopback UDP address after Path::close().
-    a.test_limit_transport_paths(
-        &client,
-        vec![iroh::TransportAddr::Custom(peer.local_addr())],
-    )
-    .await
-    .unwrap();
-    b.test_limit_transport_paths(
-        &server,
-        vec![iroh::TransportAddr::Custom(lease.local_addr())],
-    )
-    .await
-    .unwrap();
+    a.control_handle(&client)
+        .test_limit_transport_paths(vec![iroh::TransportAddr::Custom(peer.local_addr())])
+        .await
+        .unwrap();
+    b.control_handle(&server)
+        .test_limit_transport_paths(vec![iroh::TransportAddr::Custom(lease.local_addr())])
+        .await
+        .unwrap();
     for path in client.paths().iter().filter(|path| path.is_ip()) {
         path.close().unwrap();
     }
@@ -261,10 +253,12 @@ async fn pending_rtc_path_never_carries_stream_data_and_only_its_fresh_probe_can
     .expect("path validation and ACK work while ordinary data is prohibited");
     lease.retain(&client, &probe).unwrap();
     peer.retain(&server, &remote_probe).unwrap();
-    a.retain_data_transport_path(&client, peer.local_addr())
+    a.control_handle(&client)
+        .retain_data_transport_path(peer.local_addr())
         .await
         .unwrap();
-    b.retain_data_transport_path(&server, lease.local_addr())
+    b.control_handle(&server)
+        .retain_data_transport_path(lease.local_addr())
         .await
         .unwrap();
     tokio::time::timeout(Duration::from_secs(3), incoming.read_exact(&mut bytes))

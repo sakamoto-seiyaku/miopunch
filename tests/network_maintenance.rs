@@ -1,5 +1,9 @@
 //! Public node lifecycle, real admission and durable LogSync; no mocked peers.
-use iroh::{Endpoint, endpoint::Connection};
+#[path = "support/native_connections.rs"]
+mod native_connections;
+use iroh::endpoint::RestrictedEndpoint;
+
+use iroh::endpoint::Connection;
 use miopunch_native_probe::{
     admission_gate::ADMISSION_REQUEST_ALPN,
     manual_admission::ManualExchange,
@@ -49,11 +53,12 @@ async fn observe_queries(
     (observed, task)
 }
 
-async fn connect(a: &Endpoint, b: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
-    let (client, server) = tokio::join!(a.connect(b.addr(), alpn), async {
-        b.accept().await.unwrap().await
-    });
-    (client.unwrap(), server.unwrap())
+async fn connect(
+    client: &RestrictedEndpoint,
+    server: &RestrictedEndpoint,
+    alpn: &[u8],
+) -> (Connection, Connection) {
+    native_connections::member_pair(client, server, alpn).await
 }
 
 async fn join(admin: &mut NativeNetwork, path: &std::path::Path) -> NativeNetwork {
@@ -62,7 +67,7 @@ async fn join(admin: &mut NativeNetwork, path: &std::path::Path) -> NativeNetwor
         .unwrap();
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ne = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
     let (request, served) = tokio::join!(
         node.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -788,7 +793,7 @@ async fn starting_business_does_not_abort_an_already_admitted_sync_exchange() {
     let accepted = Arc::new(tokio::sync::Notify::new());
     let release = Arc::new(tokio::sync::Notify::new());
     let completed = Arc::new(tokio::sync::Notify::new());
-    let router = iroh::protocol::Router::builder(resources.endpoint().clone())
+    let router = iroh::protocol::RestrictedRouter::builder(resources.endpoint().clone())
         .accept(
             REPLICA_ALPN,
             HeldReplica {
@@ -882,7 +887,7 @@ async fn a_full_neighbor_budget_still_explores_a_new_source_without_requiring_fu
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
         .unwrap();
-    let b_router = iroh::protocol::Router::builder(b_resources.endpoint().clone())
+    let b_router = iroh::protocol::RestrictedRouter::builder(b_resources.endpoint().clone())
         .accept(
             REPLICA_ALPN,
             FrozenSource {
@@ -996,7 +1001,7 @@ async fn repeated_authenticated_replica_failures_increment_backoff_and_leave_con
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
         .unwrap();
-    let router = iroh::protocol::Router::builder(resources.endpoint().clone())
+    let router = iroh::protocol::RestrictedRouter::builder(resources.endpoint().clone())
         .accept(
             REPLICA_ALPN,
             FailingReplica {

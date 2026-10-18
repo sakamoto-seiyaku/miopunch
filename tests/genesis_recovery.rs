@@ -1,10 +1,13 @@
 use std::net::{Ipv4Addr, SocketAddr};
 
-use iroh::endpoint::presets;
+use iroh::endpoint::{
+    AdmissionOutcome, ControlConfirmation, ControlConnection, ControlMessageFormat,
+    EndpointAdmission, RestrictedEndpoint, presets,
+};
 use iroh::{Endpoint, EndpointAddr};
 use miopunch_native_probe::admission_proof::{AdmissionScope, AdmissionSecret};
 use miopunch_native_probe::genesis_recovery::{
-    GenesisCredential, RECOVERY_ALPN, recover_client, serve_recovery,
+    GenesisCredential, RECOVERY_ALPN, recover_control_client, serve_control_recovery,
 };
 use miopunch_native_probe::management_auth::{ManagementAuth, ManagementExtension, NetworkAnchor};
 use miopunch_native_probe::management_store::{ManagementRecord, ManagementStore};
@@ -42,16 +45,17 @@ async fn pair(
     server_key: &SigningKey,
     client_key: &SigningKey,
 ) -> (
-    Endpoint,
-    Endpoint,
-    iroh::endpoint::Connection,
-    iroh::endpoint::Connection,
+    RestrictedEndpoint,
+    RestrictedEndpoint,
+    ControlConnection,
+    ControlConnection,
 ) {
     let server = Endpoint::builder(presets::Minimal)
         .secret_key(iroh::SecretKey::from_bytes(server_key.as_bytes()))
         .alpns(vec![RECOVERY_ALPN.to_vec()])
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
+        .restricted_application(RecoveryControl)
         .bind()
         .await
         .unwrap();
@@ -59,14 +63,22 @@ async fn pair(
         .secret_key(iroh::SecretKey::from_bytes(client_key.as_bytes()))
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
+        .restricted_application(RecoveryControl)
         .bind()
         .await
         .unwrap();
     let addr = server.addr();
     let target = EndpointAddr::new(server.id())
         .with_addrs(addr.ip_addrs().copied().map(iroh_base::TransportAddr::Ip));
-    let (out, incoming) = tokio::join!(client.connect(target, RECOVERY_ALPN), async {
-        server.accept().await.unwrap().await.unwrap()
+    let (out, incoming) = tokio::join!(client.connect_control(target, RECOVERY_ALPN), async {
+        server
+            .accept()
+            .await
+            .unwrap()
+            .accept_control()
+            .unwrap()
+            .await
+            .unwrap()
     });
     (client, server, out.unwrap(), incoming)
 }
@@ -133,14 +145,8 @@ async fn pinned_root_credential_recovers_from_ordinary_member_without_secret_or_
     let scope = AdmissionScope::new(*anchor.root.as_bytes(), 3);
     let (client_endpoint, server_endpoint, client, server) = pair(&ordinary, &recovering).await;
     let (recovered, served) = tokio::join!(
-        recover_client(&client_endpoint, &client, &credential, server_endpoint.id()),
-        serve_recovery(
-            &server_endpoint,
-            &server,
-            &mut server_store,
-            &scope,
-            &secret
-        )
+        recover_control_client(&client, &credential, server_endpoint.id()),
+        serve_control_recovery(&server, &mut server_store, &scope, &secret)
     );
     assert!(served.is_ok(), "server: {served:?}, client: {recovered:?}");
     let recovered = recovered.unwrap();
@@ -211,7 +217,7 @@ async fn pinned_root_credential_recovers_from_ordinary_member_without_secret_or_
 
 fn proof_signature(
     root: &SigningKey,
-    connection: &iroh::endpoint::Connection,
+    connection: &ControlConnection,
     claimed_anchor: NetworkAnchor,
     recovering: iroh_base::EndpointId,
     contact: iroh_base::EndpointId,
@@ -231,21 +237,25 @@ fn proof_signature(
 
 async fn rejected_proof(
     signature: [u8; 64],
-    server_endpoint: &Endpoint,
-    client: &iroh::endpoint::Connection,
-    server: &iroh::endpoint::Connection,
+    _server_endpoint: &RestrictedEndpoint,
+    client: &ControlConnection,
+    server: &ControlConnection,
     store: &mut ManagementStore,
     scope: &AdmissionScope,
     secret: &AdmissionSecret,
 ) {
     let (sent, served) = tokio::join!(
         async {
-            let (mut send, mut recv) = client.open_bi().await.unwrap();
-            send.write_all(&signature).await.unwrap();
-            let mut first = [0; 1];
-            recv.read_exact(&mut first).await
+            let exchange = client.open_control_exchange().await.unwrap();
+            exchange
+                .send_message(ControlMessageFormat::Fixed { length: 64 }, &signature)
+                .await
+                .unwrap();
+            exchange
+                .recv_message(ControlMessageFormat::Fixed { length: 1 })
+                .await
         },
-        serve_recovery(server_endpoint, server, store, scope, secret)
+        serve_control_recovery(server, store, scope, secret)
     );
     assert!(sent.is_err(), "history was disclosed before proof");
     assert!(served.is_err(), "invalid root proof was accepted");
@@ -325,8 +335,8 @@ async fn wrong_saved_create_hash_cannot_start_recovery() {
     let scope = AdmissionScope::new(*anchor.root.as_bytes(), 3);
     let (client_endpoint, server_endpoint, client, server) = pair(&ordinary, &recovering).await;
     let (recovered, served) = tokio::join!(
-        recover_client(&client_endpoint, &client, &wrong, server_endpoint.id()),
-        serve_recovery(&server_endpoint, &server, &mut store, &scope, &secret),
+        recover_control_client(&client, &wrong, server_endpoint.id()),
+        serve_control_recovery(&server, &mut store, &scope, &secret),
     );
     assert!(recovered.is_err());
     assert!(served.is_err());
@@ -399,14 +409,8 @@ async fn same_root_alternate_create_cannot_replace_saved_network_history() {
     let scope = AdmissionScope::new(*alternate_anchor.root.as_bytes(), 4);
     let (client_endpoint, server_endpoint, client, server) = pair(&ordinary, &recovering).await;
     let (recovered, served) = tokio::join!(
-        recover_client(&client_endpoint, &client, &credential, server_endpoint.id()),
-        serve_recovery(
-            &server_endpoint,
-            &server,
-            &mut alternate_store,
-            &scope,
-            &secret
-        ),
+        recover_control_client(&client, &credential, server_endpoint.id()),
+        serve_control_recovery(&server, &mut alternate_store, &scope, &secret),
     );
     assert!(recovered.is_err());
     assert!(served.is_err());
@@ -431,8 +435,8 @@ async fn revoked_old_grant_cannot_be_replayed_as_a_completed_recovery() {
 
     let (client_endpoint, server_endpoint, client, server) = pair(&ordinary, &recovering).await;
     let (recovered, served) = tokio::join!(
-        recover_client(&client_endpoint, &client, &credential, server_endpoint.id()),
-        serve_recovery(&server_endpoint, &server, &mut store, &scope, &secret),
+        recover_control_client(&client, &credential, server_endpoint.id()),
+        serve_control_recovery(&server, &mut store, &scope, &secret),
     );
     let recovered = recovered.unwrap();
     assert_eq!(served.unwrap(), recovered.grant_id);
@@ -468,20 +472,31 @@ async fn revoked_old_grant_cannot_be_replayed_as_a_completed_recovery() {
     );
     let (received, served) = tokio::join!(
         async {
-            let (mut send, mut recv) = client.open_bi().await.unwrap();
-            send.write_all(&signature).await.unwrap();
-            let mut len = [0; 4];
-            recv.read_exact(&mut len).await.unwrap();
-            let mut history = vec![0; u32::from_be_bytes(len) as usize];
-            recv.read_exact(&mut history).await.unwrap();
-            send.write_all(&(old_grant.header().len() as u32).to_be_bytes())
+            let exchange = client.open_control_exchange().await.unwrap();
+            exchange
+                .send_message(ControlMessageFormat::Fixed { length: 64 }, &signature)
                 .await
                 .unwrap();
-            send.write_all(old_grant.header()).await.unwrap();
-            let mut acknowledgment = [0; 32];
-            recv.read_exact(&mut acknowledgment).await
+            let _history = exchange
+                .recv_message(ControlMessageFormat::LengthPrefixed32 {
+                    maximum: 16 * 1024 * 1024,
+                })
+                .await
+                .unwrap();
+            exchange
+                .send_message(
+                    ControlMessageFormat::LengthPrefixed32 {
+                        maximum: 256 * 1024,
+                    },
+                    old_grant.header(),
+                )
+                .await
+                .unwrap();
+            exchange
+                .recv_message(ControlMessageFormat::Fixed { length: 32 })
+                .await
         },
-        serve_recovery(&server_endpoint, &server, &mut store, &scope, &secret),
+        serve_control_recovery(&server, &mut store, &scope, &secret),
     );
     assert!(received.is_err(), "stale grant was acknowledged");
     assert!(served.is_err(), "stale grant completed recovery");
@@ -493,4 +508,22 @@ async fn revoked_old_grant_cannot_be_replayed_as_a_completed_recovery() {
     );
     client_endpoint.close().await;
     server_endpoint.close().await;
+}
+
+// The TLS control channel alone releases no history or secret. The actual
+// recovery protocol verifies the root/exporter proof before its first response.
+#[derive(Debug)]
+struct RecoveryControl;
+impl EndpointAdmission for RecoveryControl {
+    async fn admit(&self, control: &ControlConnection) -> std::io::Result<AdmissionOutcome> {
+        if control.alpn() != RECOVERY_ALPN {
+            return Err(std::io::Error::other("unexpected recovery ALPN"));
+        }
+        Ok(AdmissionOutcome::ControlOnlyWithConfirmation(
+            ControlConfirmation::new(async { Ok(()) }),
+        ))
+    }
+    fn is_current(&self, _control: &ControlConnection) -> bool {
+        true
+    }
 }

@@ -1,6 +1,9 @@
 //! TCP traversal during the fork-owned admitted control stage.
 use crate::{admission_gate::AdmissionGate, tcp_transport::TcpTransport};
-use iroh::{Endpoint, TransportAddr, endpoint::Connection};
+use iroh::{
+    TransportAddr,
+    endpoint::{ControlHandle, WeakControlConnection},
+};
 use std::{
     collections::HashMap,
     io,
@@ -21,7 +24,7 @@ pub(crate) struct TcpPunch {
 struct PeerAttempt {
     preferred: bool,
     token: [u8; 16],
-    connection: iroh::endpoint::WeakConnectionHandle,
+    connection: WeakControlConnection,
     released: bool,
 }
 
@@ -40,7 +43,7 @@ pub(crate) struct PreparedTcpPath {
     observation: crate::tcp_observation::TcpSocketObservation,
     generation: iroh::endpoint::ObservationValidity,
     route: iroh_base::CustomAddr,
-    original: iroh::endpoint::WeakConnectionHandle,
+    original: WeakControlConnection,
     connection_id: usize,
 }
 
@@ -49,18 +52,13 @@ impl PreparedTcpPath {
         &self.route
     }
 
-    pub(crate) fn check(
-        &self,
-        endpoint: &Endpoint,
-        connection: &Connection,
-        gate: &AdmissionGate,
-    ) -> io::Result<()> {
+    pub(crate) fn check(&self, connection: &ControlHandle, gate: &AdmissionGate) -> io::Result<()> {
         if connection.stable_id() != self.connection_id
             || !self.original.is_open()
             || connection.close_reason().is_some()
             || !gate.allows_member_path_upgrade(connection)
             || !self.generation.is_current()
-            || endpoint.is_closed()
+            || connection.is_closed()
             || !self.observation.is_fresh()
             || !self.punch.resources.allows_custom(&self.route)
         {
@@ -82,13 +80,12 @@ impl PreparedTcpPath {
         Ok(())
     }
 
-    pub(crate) fn retain(
+    pub(crate) fn retain_control(
         self,
-        endpoint: &Endpoint,
-        connection: &Connection,
+        connection: &ControlHandle,
         gate: &AdmissionGate,
     ) -> io::Result<()> {
-        self.check(endpoint, connection, gate)?;
+        self.check(connection, gate)?;
         self.punch.release_claim(&self.claim, connection)?;
         let closed = connection.weak_handle();
         let circuit = self.circuit;
@@ -115,12 +112,11 @@ impl Drop for AttemptClaim {
 }
 
 impl TcpPunch {
-    pub(crate) async fn retain_existing(
+    pub(crate) async fn retain_existing_control(
         &self,
-        endpoint: &Endpoint,
-        connection: &Connection,
+        connection: &ControlHandle,
     ) -> io::Result<()> {
-        let claim = self.claim(endpoint, connection).await?;
+        let claim = self.claim(connection).await?;
         let routes: Vec<_> = connection
             .paths()
             .iter()
@@ -144,7 +140,10 @@ impl TcpPunch {
                     "existing TCP route denied",
                 ));
             }
-            circuits.push(self.transport.prime(TcpTransport::socket_addr(&address)?)?);
+            circuits.push(
+                self.transport
+                    .retain_existing(TcpTransport::socket_addr(&address)?)?,
+            );
         }
         self.release_claim(&claim, connection)?;
         let closed = connection.weak_handle();
@@ -169,7 +168,7 @@ impl TcpPunch {
         }
     }
 
-    fn release_claim(&self, claim: &AttemptClaim, connection: &Connection) -> io::Result<()> {
+    fn release_claim(&self, claim: &AttemptClaim, connection: &ControlHandle) -> io::Result<()> {
         let mut attempts = self.attempts.lock().unwrap();
         let attempt = attempts
             .get_mut(&claim.key)
@@ -184,13 +183,9 @@ impl TcpPunch {
         Ok(())
     }
 
-    async fn claim(
-        &self,
-        endpoint: &Endpoint,
-        connection: &Connection,
-    ) -> io::Result<AttemptClaim> {
+    async fn claim(&self, connection: &ControlHandle) -> io::Result<AttemptClaim> {
         let key = (connection.remote_id(), connection.alpn().to_vec());
-        let preferred = connection.side().is_client() == (endpoint.id() < connection.remote_id());
+        let preferred = connection.side().is_client() == (connection.id() < connection.remote_id());
         let mut token = [0; 16];
         connection
             .export_keying_material(&mut token, b"miopunch-tcp-attempt-choice-v1", b"")
@@ -198,10 +193,7 @@ impl TcpPunch {
         {
             let mut attempts = self.attempts.lock().unwrap();
             if let Some(old) = attempts.get(&key)
-                && let Some(old_connection) = old
-                    .connection
-                    .upgrade()
-                    .filter(|conn| conn.close_reason().is_none())
+                && old.connection.is_open()
             {
                 if old.released
                     || (old.preferred && !preferred)
@@ -212,7 +204,8 @@ impl TcpPunch {
                         "duplicate TCP peer attempt",
                     ));
                 }
-                old_connection.close(0u32.into(), b"superseded duplicate TCP peer attempt");
+                old.connection
+                    .close(0u32.into(), b"superseded duplicate TCP peer attempt");
             }
             attempts.insert(
                 key.clone(),
@@ -248,23 +241,11 @@ impl TcpPunch {
         Ok(claim)
     }
 
-    pub(crate) async fn upgrade(
-        &self,
-        endpoint: &Endpoint,
-        connection: &Connection,
-        gate: &AdmissionGate,
-    ) -> io::Result<()> {
-        self.prepare(endpoint, connection, gate)
-            .await?
-            .retain(endpoint, connection, gate)
-    }
-
     /// Existing observation/coordination algorithm, without releasing the
     /// original connection's attempt claim before common path commitment.
-    pub(crate) async fn prepare(
+    pub(crate) async fn prepare_control(
         &self,
-        endpoint: &Endpoint,
-        connection: &Connection,
+        connection: &ControlHandle,
         gate: &AdmissionGate,
     ) -> io::Result<PreparedTcpPath> {
         let check = || {
@@ -278,9 +259,9 @@ impl TcpPunch {
             }
         };
         check()?;
-        let claim = self.claim(endpoint, connection).await?;
+        let claim = self.claim(connection).await?;
         check()?;
-        let generation = endpoint.udp_network_generation();
+        let generation = connection.udp_network_generation();
         let mut observation = None;
         // Both peers consume the protected TCP phase even when only one can
         // punch. Unsupported platforms neither query observers nor prime a
@@ -288,7 +269,7 @@ impl TcpPunch {
         if self.transport.supports_punching() {
             for observer in &self.observers {
                 check()?;
-                match crate::tcp_observation::observe(endpoint, &self.transport, observer).await {
+                match crate::tcp_observation::observe(connection, &self.transport, observer).await {
                     Ok(result) if result.is_fresh() && result.mapped.is_ipv4() => {
                         observation = Some(result);
                         break;
@@ -310,10 +291,10 @@ impl TcpPunch {
             );
         }
         check()?;
-        let (mut send, mut recv) = if connection.side().is_client() {
-            connection.open_bi().await?
+        let exchange = if connection.side().is_client() {
+            connection.open_control_exchange().await?
         } else {
-            connection.accept_bi().await?
+            connection.accept_control_exchange().await?
         };
         // Keep both peers in the TCP phase even when only one observer fails.
         // The retained observation socket lives through the path decision.
@@ -328,11 +309,15 @@ impl TcpPunch {
         } else {
             candidate.extend([0; 7]);
         }
-        send.write_all(&candidate).await?;
-        let mut received = [0; 15];
-        recv.read_exact(&mut received)
-            .await
-            .map_err(io::Error::other)?;
+        exchange
+            .send_message(
+                iroh::endpoint::ControlMessageFormat::Fixed { length: 15 },
+                &candidate,
+            )
+            .await?;
+        let received = exchange
+            .recv_message(iroh::endpoint::ControlMessageFormat::Fixed { length: 15 })
+            .await?;
         if received[..8] != *b"MIOTCP01" || received[8] > 1 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -340,7 +325,7 @@ impl TcpPunch {
             ));
         }
         if candidate[8] == 0 || received[8] == 0 {
-            send.finish()?;
+            exchange.finish_send().await?;
             return Err(io::Error::other("TCP observation unavailable at a peer"));
         }
         let remote = SocketAddr::from((
@@ -352,11 +337,15 @@ impl TcpPunch {
             && !remote.ip().is_unspecified()
             && !remote.ip().is_multicast()
             && remote.port() != 0;
-        send.write_all(&[u8::from(allowed)]).await?;
-        let mut peer_allowed = [0];
-        recv.read_exact(&mut peer_allowed)
-            .await
-            .map_err(io::Error::other)?;
+        exchange
+            .send_message(
+                iroh::endpoint::ControlMessageFormat::Fixed { length: 1 },
+                &[u8::from(allowed)],
+            )
+            .await?;
+        let peer_allowed = exchange
+            .recv_message(iroh::endpoint::ControlMessageFormat::Fixed { length: 1 })
+            .await?;
         if peer_allowed[0] > 1 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -364,7 +353,7 @@ impl TcpPunch {
             ));
         }
         if !allowed || peer_allowed[0] == 0 {
-            send.finish()?;
+            exchange.finish_send().await?;
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 "TCP candidate denied",
@@ -383,7 +372,7 @@ impl TcpPunch {
             loop {
                 check()?;
                 if !generation.is_current()
-                    || endpoint.is_closed()
+                    || connection.is_closed()
                     || !observation.as_ref().is_some_and(|result| result.is_fresh())
                 {
                     return Err(io::Error::other(
@@ -391,7 +380,7 @@ impl TcpPunch {
                     ));
                 }
                 if connection.side().is_client() {
-                    match endpoint.open_control_path(connection, route.clone()).await {
+                    match connection.open_control_path(route.clone()).await {
                         Ok(()) => {}
                         Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
                         Err(error) => return Err(error),
@@ -419,9 +408,15 @@ impl TcpPunch {
         .await;
         // A unilateral validation cannot release business while its peer is
         // entering fallback. Both endpoints commit the same phase result.
-        send.write_all(&[u8::from(validation.is_ok())]).await?;
-        send.finish()?;
-        let peer_validated = recv.read_to_end(1).await.map_err(io::Error::other)?;
+        exchange
+            .send_message(
+                iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 1 },
+                &[u8::from(validation.is_ok())],
+            )
+            .await?;
+        let peer_validated = exchange
+            .recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 1 })
+            .await?;
         if peer_validated.len() != 1 || peer_validated[0] > 1 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -429,18 +424,18 @@ impl TcpPunch {
             ));
         }
         if let Err(error) = validation {
-            let _ = endpoint.retire_control_path(connection, route).await;
+            let _ = connection.retire_control_path(route).await;
             return Err(error);
         }
         if peer_validated[0] == 0 {
-            let _ = endpoint.retire_control_path(connection, route).await;
+            let _ = connection.retire_control_path(route).await;
             return Err(io::Error::other("TCP path unavailable at a peer"));
         }
         if !generation.is_current()
-            || endpoint.is_closed()
+            || connection.is_closed()
             || !observation.as_ref().is_some_and(|result| result.is_fresh())
         {
-            let _ = endpoint.retire_control_path(connection, route).await;
+            let _ = connection.retire_control_path(route).await;
             return Err(io::Error::other(
                 "TCP observation invalidated before release",
             ));

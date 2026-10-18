@@ -11,7 +11,7 @@ use miopunch_native_probe::{
     resources::{Resource, ResourceUse},
 };
 
-const BUSINESS: &[u8] = b"miopunch/mqtt-bootstrap-business/1";
+const BUSINESS: &[u8] = miopunch_native_probe::connection_coordinator::MEMBER_ALPN;
 
 async fn saved_pair(broker: &str) -> (tempfile::TempDir, NativeNetwork, NativeNetwork) {
     let directory = tempfile::tempdir().unwrap();
@@ -37,28 +37,24 @@ async fn saved_pair(broker: &str) -> (tempfile::TempDir, NativeNetwork, NativeNe
 }
 
 async fn bind_member(node: &NativeNetwork) -> miopunch_native_probe::resources::ResourceEndpoint {
-    let resources = node
-        .bind_configured_endpoint_with(
-            Endpoint::builder(presets::Minimal)
-                .bind_addr((Ipv4Addr::LOCALHOST, 0))
-                .unwrap()
-                .transport_config(
-                    iroh::endpoint::QuicTransportConfig::builder()
-                        .keep_alive_interval(Duration::from_secs(1))
-                        .max_idle_timeout(Some(Duration::from_secs(4).try_into().unwrap()))
-                        .congestion_controller_factory(std::sync::Arc::new(
-                            noq_proto::congestion::Bbr3Config::default(),
-                        ))
-                        .build(),
-                ),
-        )
-        .await
-        .unwrap();
+    let builder = Endpoint::builder(presets::Minimal)
+        .bind_addr((Ipv4Addr::LOCALHOST, 0))
+        .unwrap()
+        .transport_config(
+            iroh::endpoint::QuicTransportConfig::builder()
+                .keep_alive_interval(Duration::from_secs(1))
+                .max_idle_timeout(Some(Duration::from_secs(4).try_into().unwrap()))
+                .congestion_controller_factory(std::sync::Arc::new(
+                    noq_proto::congestion::Bbr3Config::default(),
+                ))
+                .build(),
+        );
+    let resources = node.bind_configured_endpoint_with(builder).await.unwrap();
     resources.endpoint().set_alpns(vec![BUSINESS.to_vec()]);
     resources
 }
 
-fn mqtt_target(endpoint: &Endpoint) -> EndpointAddr {
+fn mqtt_target(endpoint: &iroh::endpoint::RestrictedEndpoint) -> EndpointAddr {
     EndpointAddr::new(endpoint.id()).with_addrs([TransportAddr::Custom(
         endpoint
             .custom_addrs()
@@ -193,11 +189,12 @@ async fn prepare(directory: &Path) {
     }
     let a = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let b = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (outgoing, incoming) = tokio::join!(b.connect(a.addr(), ADMISSION_REQUEST_ALPN), async {
-        a.accept().await.unwrap().await
-    },);
-    let outgoing = outgoing.unwrap();
-    let incoming = incoming.unwrap();
+    let (outgoing, incoming) =
+        tokio::join!(b.connect_control(a.addr(), ADMISSION_REQUEST_ALPN), async {
+            a.accept().await.unwrap().accept_control().unwrap().await
+        },);
+    let outgoing = std::sync::Arc::new(outgoing.unwrap());
+    let incoming = std::sync::Arc::new(incoming.unwrap());
     let (request, served) = tokio::join!(
         joining.request_manual_admission(&outgoing),
         admin.serve_manual_admission(&incoming),
@@ -248,7 +245,7 @@ async fn prepare(directory: &Path) {
 }
 
 #[tokio::test]
-async fn configured_startup_keeps_another_allowed_mqtt_service_when_one_is_down() {
+async fn explicitly_selected_mqtt_contact_starts_with_another_saved_service_down() {
     let Ok(broker) = std::env::var("MIOPUNCH_MQTT_BROKER") else {
         return;
     };
@@ -271,8 +268,17 @@ async fn configured_startup_keeps_another_allowed_mqtt_service_when_one_is_down(
             .collect(),
     );
     node.save_resource_configuration(&config).unwrap();
+    let contact = std::sync::Arc::new(MqttTransport::new(
+        broker.parse().unwrap(),
+        std::sync::Arc::new(miopunch_native_probe::mqtt_transport::Traffic::default()),
+    ));
     let resources = node
-        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .bind_configured_endpoint_with_contact(
+            Endpoint::builder(presets::Minimal)
+                .bind_addr((Ipv4Addr::LOCALHOST, 0))
+                .unwrap(),
+            contact,
+        )
         .await
         .unwrap();
     tokio::time::timeout(Duration::from_secs(2), async {
@@ -282,7 +288,9 @@ async fn configured_startup_keeps_another_allowed_mqtt_service_when_one_is_down(
     })
     .await
     .expect("only the subscribed, available service may publish a route");
-    println!("MQTT_OTHER_RESOURCE_USABLE failed_services=1 ready_routes=1");
+    println!(
+        "MQTT_OTHER_RESOURCE_USABLE unavailable_saved_services=1 ready_routes=1 explicit_contact=true"
+    );
     resources.close().await;
     node.close().await;
 }
@@ -297,13 +305,14 @@ async fn saved_udp_disable_applies_to_the_next_mqtt_endpoint_without_reopening_t
     config.udp_direct_disabled = true;
     joining.save_resource_configuration(&config).unwrap();
     let server = bind_member(&admin).await;
-    let mut client = bind_member(&joining).await;
+    let client = bind_member(&joining).await;
     let started = std::time::Instant::now();
-    let (outgoing, incoming) = tokio::join!(
-        client.connect(mqtt_target(server.endpoint()), BUSINESS),
-        async { server.endpoint().accept().await.unwrap().await },
-    );
-    assert!(outgoing.is_err() && incoming.is_err());
+    let outgoing = client
+        .connect(mqtt_target(server.endpoint()), BUSINESS)
+        .await;
+    assert!(outgoing.is_err());
+    assert_eq!(client.endpoint().metrics().socket.num_conns_opened.get(), 0);
+    assert_eq!(server.endpoint().metrics().socket.num_conns_opened.get(), 0);
     assert!(
         started.elapsed() < Duration::from_millis(1500),
         "disabled UDP must reject before a traversal round or candidate wait"
@@ -324,8 +333,8 @@ async fn simultaneous_formal_mqtt_dials_return_bounded_independent_data_connecti
         return;
     };
     let (_directory, admin, joining) = saved_pair(&broker).await;
-    let mut a = bind_member(&admin).await;
-    let mut b = bind_member(&joining).await;
+    let a = bind_member(&admin).await;
+    let b = bind_member(&joining).await;
     let a_endpoint = a.endpoint().clone();
     let b_endpoint = b.endpoint().clone();
     let (a_out, b_out, a_in, b_in) = tokio::time::timeout(Duration::from_secs(15), async {
@@ -384,17 +393,25 @@ async fn simultaneous_formal_mqtt_dials_return_bounded_independent_data_connecti
 struct DataStageNotice {
     entered: std::sync::Arc<tokio::sync::Notify>,
     id: tokio::sync::watch::Sender<Option<usize>>,
+    pause_once: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl iroh::endpoint::EndpointHooks for DataStageNotice {
-    async fn before_data_release(
+    async fn after_handshake(
         &self,
-        _: &Endpoint,
         connection: &iroh::endpoint::Connection,
-    ) -> std::io::Result<()> {
-        self.id.send_replace(Some(connection.stable_id()));
-        self.entered.notify_one();
-        Ok(())
+    ) -> iroh::endpoint::AfterHandshakeOutcome {
+        if self
+            .pause_once
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+        {
+            self.id.send_replace(Some(connection.stable_id()));
+            self.entered.notify_one();
+            // The ordinary hook runs after qualified path preparation. Hold
+            // this first attempt here so cancellation has a definite boundary.
+            std::future::pending::<()>().await;
+        }
+        iroh::endpoint::AfterHandshakeOutcome::Accept
     }
 }
 
@@ -408,7 +425,7 @@ async fn canceling_the_formal_mqtt_data_stage_closes_the_original_attempt_and_al
     let server = bind_member(&admin).await;
     let entered = std::sync::Arc::new(tokio::sync::Notify::new());
     let (id, original) = tokio::sync::watch::channel(None);
-    let mut client = joining
+    let client = joining
         .bind_configured_endpoint_with(
             Endpoint::builder(presets::Minimal)
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
@@ -416,6 +433,7 @@ async fn canceling_the_formal_mqtt_data_stage_closes_the_original_attempt_and_al
                 .hooks(DataStageNotice {
                     entered: entered.clone(),
                     id,
+                    pause_once: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true)),
                 }),
         )
         .await
@@ -488,7 +506,7 @@ async fn a_wrong_target_identity_at_the_real_mqtt_route_never_releases_a_member_
     };
     let (_directory, admin, joining) = saved_pair(&broker).await;
     let server = bind_member(&admin).await;
-    let mut client = bind_member(&joining).await;
+    let client = bind_member(&joining).await;
     let mut target = mqtt_target(server.endpoint());
     target.id = iroh::SecretKey::generate().public();
     let (outgoing, incoming) = tokio::time::timeout(Duration::from_secs(6), async {
@@ -526,7 +544,7 @@ async fn another_invitation_holder_cannot_impersonate_a_member_at_the_formal_mqt
         .register_protocol(BUSINESS, ProtocolScope::Member);
     assert_ne!(holder.status().node_id, joining.status().node_id);
     let server = bind_member(&admin).await;
-    let mut attacker = bind_member(&holder).await;
+    let attacker = bind_member(&holder).await;
     let (attempt, incoming) = tokio::time::timeout(Duration::from_secs(6), async {
         tokio::join!(
             attacker.connect(mqtt_target(server.endpoint()), BUSINESS),
@@ -543,7 +561,7 @@ async fn another_invitation_holder_cannot_impersonate_a_member_at_the_formal_mqt
             .iter()
             .any(|(id, _)| *id == holder.status().node_id)
     );
-    let mut member = bind_member(&joining).await;
+    let member = bind_member(&joining).await;
     let (outgoing, incoming) = tokio::join!(
         member.connect(mqtt_target(server.endpoint()), BUSINESS),
         async { server.endpoint().accept().await.unwrap().await },
@@ -571,7 +589,7 @@ async fn another_invitation_holder_cannot_impersonate_a_member_at_the_formal_mqt
 }
 
 #[tokio::test]
-async fn two_live_broker_routes_each_deliver_a_formal_original_data_connection() {
+async fn each_saved_broker_resource_can_deliver_a_formal_original_data_connection() {
     let (Ok(first), Ok(second)) = (
         std::env::var("MIOPUNCH_MQTT_BROKER"),
         std::env::var("MIOPUNCH_MQTT_SECOND_BROKER"),
@@ -589,12 +607,26 @@ async fn two_live_broker_routes_each_deliver_a_formal_original_data_connection()
         node.save_resource_configuration(&config).unwrap();
     }
     let mut first_origin = None;
-    for round in 0..2 {
-        // Fresh endpoints have no old peer address or selected-path cache.
+    for (round, broker) in [&first, &second].into_iter().enumerate() {
+        // The node owns one standing contact. Exercise each saved origin by
+        // disabling the other before fresh endpoints take their policy snapshot.
+        for node in [&admin, &joining] {
+            let mut config = node.resource_configuration().unwrap();
+            for candidate in [&first, &second] {
+                let permission = (format!("mqtt://{candidate}/"), ResourceUse::Signaling);
+                if candidate == broker {
+                    config.disabled.remove(&permission);
+                } else {
+                    config.disabled.insert(permission);
+                }
+            }
+            assert!(config.allows(&format!("mqtt://{broker}/"), ResourceUse::Signaling));
+            node.save_resource_configuration(&config).unwrap();
+        }
         let server = bind_member(&admin).await;
-        let mut client = bind_member(&joining).await;
+        let client = bind_member(&joining).await;
         let addresses = server.endpoint().custom_addrs();
-        assert_eq!(addresses.len(), 2);
+        assert_eq!(addresses.len(), 1);
         let address = addresses
             .into_iter()
             .find(|addr| {
@@ -653,7 +685,7 @@ fn mqtt_native_node_worker() {
         node.admission_gate().register_protocol(REPLICA_ALPN, ProtocolScope::Member);
         let config = node.resource_configuration().unwrap();
         let cert = std::fs::read(directory.join("cert.der")).unwrap();
-        let mut resources = node.bind_configured_endpoint_with(
+        let resources = node.bind_configured_endpoint_with(
             Endpoint::builder(presets::Minimal)
                 .alpns(vec![REPLICA_ALPN.to_vec()])
                 .observation_servers(config.relay_map(ResourceUse::Observation).unwrap())

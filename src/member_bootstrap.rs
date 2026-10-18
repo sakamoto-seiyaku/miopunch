@@ -3,7 +3,10 @@
 
 use std::time::Duration;
 
-use iroh::{Endpoint, endpoint::Connection};
+use iroh::{
+    Endpoint,
+    endpoint::{Connection, ControlHandle, ControlMessageFormat},
+};
 use iroh_base::EndpointId;
 use p2panda_core::{Hash, VerifyingKey};
 use thiserror::Error;
@@ -44,8 +47,7 @@ fn is_current_member(
 }
 
 async fn authorized(
-    endpoint: &Endpoint,
-    connection: &Connection,
+    connection: &ControlHandle,
     proof: &BootstrapProof,
     scope: &AdmissionScope,
     store: &ManagementStore,
@@ -54,7 +56,7 @@ async fn authorized(
         || scope.network_id() != store.anchor().root.as_bytes()
         || !proof.applies_to(connection, scope)
         || proof.peer() != connection.remote_id()
-        || !is_current_member(store, endpoint.id())?
+        || !is_current_member(store, connection.id())?
         || store.known_removed(endpoint_verifying_key(connection.remote_id())?)
         || !store
             .current_admission_matches(scope, proof.credential_fingerprint())
@@ -65,7 +67,7 @@ async fn authorized(
     Ok(())
 }
 
-async fn wait_for_ip(connection: &Connection) -> Result<(), MemberBootstrapError> {
+async fn wait_for_ip(connection: &ControlHandle) -> Result<(), MemberBootstrapError> {
     tokio::time::timeout(TIMEOUT, async {
         loop {
             if connection.close_reason().is_some() {
@@ -88,32 +90,31 @@ async fn wait_for_ip(connection: &Connection) -> Result<(), MemberBootstrapError
 /// The serving member checks the other identity against its currently applied
 /// view before releasing a single byte of management history. Records travel
 /// only after this exact connection has a verified data path.
-pub async fn serve_history(
-    endpoint: &Endpoint,
-    connection: &Connection,
+pub async fn serve_control_history(
+    connection: &ControlHandle,
     proof: &BootstrapProof,
     scope: &AdmissionScope,
     store: &ManagementStore,
 ) -> Result<(), MemberBootstrapError> {
     let result = tokio::time::timeout(TIMEOUT, async {
-        authorized(endpoint, connection, proof, scope, store).await?;
+        authorized(connection, proof, scope, store).await?;
         if !is_current_member(store, connection.remote_id())? {
             return Err(MemberBootstrapError::Rejected);
         }
         wait_for_ip(connection).await?;
-        endpoint
-            .commit_data_path(connection)
+        connection
+            .commit_data_path()
             .await
             .map_err(|_| MemberBootstrapError::Transport)?;
-        let (mut send, mut recv) = connection
-            .accept_bi()
+        let exchange = connection
+            .accept_control_exchange()
             .await
-            .map_err(|_| MemberBootstrapError::Transport)?;
-        let mut request = [0; 4];
-        recv.read_exact(&mut request)
+            .map_err(control_error)?;
+        let request = exchange
+            .recv_message(ControlMessageFormat::Fixed { length: 4 })
             .await
-            .map_err(|_| MemberBootstrapError::Transport)?;
-        if &request != b"HIST" {
+            .map_err(control_error)?;
+        if request != b"HIST" {
             return Err(MemberBootstrapError::Rejected);
         }
         if !store
@@ -138,13 +139,16 @@ pub async fn serve_history(
         if bytes.len() > MAX_HISTORY {
             return Err(MemberBootstrapError::Rejected);
         }
-        send.write_all(&(bytes.len() as u32).to_be_bytes())
+        exchange
+            .send_message(
+                ControlMessageFormat::LengthPrefixed32 {
+                    maximum: MAX_HISTORY,
+                },
+                &bytes,
+            )
             .await
-            .map_err(|_| MemberBootstrapError::Transport)?;
-        send.write_all(&bytes)
-            .await
-            .map_err(|_| MemberBootstrapError::Transport)?;
-        send.finish().map_err(|_| MemberBootstrapError::Transport)?;
+            .map_err(control_error)?;
+        exchange.finish_send().await.map_err(control_error)?;
         Ok(())
     })
     .await
@@ -158,46 +162,43 @@ pub async fn serve_history(
 /// Receive complete signed records from a discovered unknown node. Replay all
 /// of them against the pinned anchor and verify both members before changing
 /// the local durable view. A proof of the shared secret alone is insufficient.
-pub async fn fetch_history(
-    endpoint: &Endpoint,
-    connection: &Connection,
+pub async fn fetch_control_history(
+    connection: &ControlHandle,
     proof: &BootstrapProof,
     scope: &AdmissionScope,
     store: &mut ManagementStore,
     data_addr: std::net::SocketAddr,
 ) -> Result<usize, MemberBootstrapError> {
     let result = tokio::time::timeout(TIMEOUT, async {
-        authorized(endpoint, connection, proof, scope, store).await?;
+        authorized(connection, proof, scope, store).await?;
         // A known revoked identity must not receive even a history request.
         // Unknown identities can be checked only after receiving signed state.
-        endpoint
-            .open_data_path(connection, data_addr)
+        connection
+            .open_data_path(data_addr)
             .await
             .map_err(|_| MemberBootstrapError::Transport)?;
         wait_for_ip(connection).await?;
-        endpoint
-            .commit_data_path(connection)
+        connection
+            .commit_data_path()
             .await
             .map_err(|_| MemberBootstrapError::Transport)?;
-        let (mut send, mut recv) = connection
-            .open_bi()
+        let exchange = connection
+            .open_control_exchange()
             .await
-            .map_err(|_| MemberBootstrapError::Transport)?;
-        send.write_all(b"HIST")
+            .map_err(control_error)?;
+        exchange
+            .send_message(ControlMessageFormat::Fixed { length: 4 }, b"HIST")
             .await
-            .map_err(|_| MemberBootstrapError::Transport)?;
-        let mut len = [0; 4];
-        recv.read_exact(&mut len)
+            .map_err(control_error)?;
+        let bytes = exchange
+            .recv_message(ControlMessageFormat::LengthPrefixed32 {
+                maximum: MAX_HISTORY,
+            })
             .await
-            .map_err(|_| MemberBootstrapError::Transport)?;
-        let len = u32::from_be_bytes(len) as usize;
-        if len == 0 || len > MAX_HISTORY {
+            .map_err(control_error)?;
+        if bytes.is_empty() {
             return Err(MemberBootstrapError::Rejected);
         }
-        let mut bytes = vec![0; len];
-        recv.read_exact(&mut bytes)
-            .await
-            .map_err(|_| MemberBootstrapError::Transport)?;
         if !store
             .current_admission_matches(scope, proof.credential_fingerprint())
             .await?
@@ -216,7 +217,7 @@ pub async fn fetch_history(
         let auth = ManagementAuth::replay_records(store.anchor(), &raw)
             .map_err(|_| MemberBootstrapError::Rejected)?;
         let peer_key = endpoint_verifying_key(connection.remote_id())?;
-        let own_key = endpoint_verifying_key(endpoint.id())?;
+        let own_key = endpoint_verifying_key(connection.id())?;
         let nodes = auth.nodes();
         if !nodes.iter().any(|(node, _)| *node == peer_key)
             || !nodes.iter().any(|(node, _)| *node == own_key)
@@ -231,7 +232,7 @@ pub async fn fetch_history(
         }
         store.apply_ready().await?;
         if !is_current_member(store, connection.remote_id())?
-            || !is_current_member(store, endpoint.id())?
+            || !is_current_member(store, connection.id())?
         {
             return Err(MemberBootstrapError::Rejected);
         }
@@ -243,4 +244,42 @@ pub async fn fetch_history(
         connection.close(0u32.into(), b"member bootstrap rejected");
     }
     result
+}
+
+fn control_error(error: std::io::Error) -> MemberBootstrapError {
+    if error.kind() == std::io::ErrorKind::InvalidData {
+        MemberBootstrapError::Rejected
+    } else {
+        MemberBootstrapError::Transport
+    }
+}
+
+/// History exchange for an already-owned ordinary connection.
+pub async fn serve_history(
+    endpoint: &Endpoint,
+    connection: &Connection,
+    proof: &BootstrapProof,
+    scope: &AdmissionScope,
+    store: &ManagementStore,
+) -> Result<(), MemberBootstrapError> {
+    serve_control_history(&endpoint.control_handle(connection), proof, scope, store).await
+}
+
+/// History exchange for an already-owned ordinary connection.
+pub async fn fetch_history(
+    endpoint: &Endpoint,
+    connection: &Connection,
+    proof: &BootstrapProof,
+    scope: &AdmissionScope,
+    store: &mut ManagementStore,
+    data_addr: std::net::SocketAddr,
+) -> Result<usize, MemberBootstrapError> {
+    fetch_control_history(
+        &endpoint.control_handle(connection),
+        proof,
+        scope,
+        store,
+        data_addr,
+    )
+    .await
 }

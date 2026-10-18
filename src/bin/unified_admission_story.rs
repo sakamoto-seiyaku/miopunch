@@ -251,7 +251,9 @@ mod enabled {
         }
         Ok(observed)
     }
-    fn endpoint_socket_inodes(endpoint: &Endpoint) -> Result<BTreeSet<String>, Failure> {
+    fn endpoint_socket_inodes(
+        endpoint: &iroh::endpoint::RestrictedEndpoint,
+    ) -> Result<BTreeSet<String>, Failure> {
         let ports: BTreeSet<_> = endpoint
             .addr()
             .ip_addrs()
@@ -282,9 +284,15 @@ mod enabled {
         Ok(owned)
     }
     async fn connect(
-        client: &Endpoint,
-        provider: &Endpoint,
-    ) -> Result<(iroh::endpoint::Connection, iroh::endpoint::Connection), Failure> {
+        client: &iroh::endpoint::RestrictedEndpoint,
+        provider: &iroh::endpoint::RestrictedEndpoint,
+    ) -> Result<
+        (
+            Arc<iroh::endpoint::ControlConnection>,
+            Arc<iroh::endpoint::ControlConnection>,
+        ),
+        Failure,
+    > {
         let address = provider
             .addr()
             .ip_addrs()
@@ -295,7 +303,7 @@ mod enabled {
         let (out, incoming) = tokio::join!(
             async {
                 client
-                    .connect_with_opts(
+                    .connect_control_with_opts(
                         EndpointAddr::new(provider.id()).with_ip_addr(address),
                         ADMISSION_REQUEST_ALPN,
                         iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline),
@@ -311,16 +319,20 @@ mod enabled {
                     .await
                     .ok_or("owned provider stopped")?
                     .with_caller_deadline(deadline)
+                    .accept_control()
+                    .map_err(|cause| cause.to_string())?
                     .await
                     .map_err(|error| error.to_string())
             }
         );
-        Ok((out?, incoming?))
+        Ok((Arc::new(out?), Arc::new(incoming?)))
     }
 
     // Only this owned fixture store is changed. The live public assembly keeps
     // its immutable resource copy; restore the saved configuration even on failure.
-    async fn dataset_endpoint(node: &NativeNetwork) -> Result<Endpoint, Failure> {
+    async fn dataset_endpoint(
+        node: &NativeNetwork,
+    ) -> Result<iroh::endpoint::RestrictedEndpoint, Failure> {
         let original = node.resource_configuration()?;
         let mut local = original.clone();
         local.import_trusted_replacement(Vec::new())?;
@@ -908,7 +920,7 @@ mod enabled {
                                     "selected":path.is_selected(),"isSignal":matches!(path.remote_addr(),iroh::TransportAddr::Custom(address)
                                         if address.id()==miopunch_native_probe::mqtt_transport::TRANSPORT_ID)})).collect::<Vec<_>>()}));
                             let (send,recv) = connection.accept_bi().await?;
-                            miopunch_native_probe::rtc_member::serve_stream(serving,connection.clone(),gate,rtc,send,recv).await?;
+                            miopunch_native_probe::rtc_member::serve_stream(serving.id(),connection.clone(),gate,rtc,send,recv).await?;
                             // The consumer closes M after reading the queued reply.
                             // An ordinary M outlives its completed setup deadline;
                             // closing the owned endpoint also releases this waiter.

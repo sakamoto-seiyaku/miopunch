@@ -98,9 +98,10 @@ pub(crate) mod restricted;
 pub use bind::{BindOpts, InvalidSocketAddr, ToSocketAddr};
 pub use hooks::{AfterHandshakeOutcome, BeforeConnectOutcome, EndpointHooks};
 pub use restricted::{
-    AdmissionOutcome, ControlAccepting, ControlConnecting, ControlConnection, DataPathPermit,
-    EndpointAdmission, RestrictedAccepting, RestrictedBuilder, RestrictedConnecting,
-    RestrictedEndpoint, RestrictedIncoming, WeakControlConnection,
+    AdmissionOutcome, ControlAccepting, ControlConfirmation, ControlConnecting, ControlConnection,
+    ControlExchange, ControlHandle, ControlMessageFormat, DataPathPermit, EndpointAdmission,
+    RestrictedAccepting, RestrictedBuilder, RestrictedConnecting, RestrictedEndpoint,
+    RestrictedIncoming, WeakControlConnection,
 };
 
 #[cfg(feature = "qlog")]
@@ -145,6 +146,7 @@ pub struct Builder {
     control_only_alpns: Vec<Vec<u8>>,
     admission_gated: bool,
     admission: Option<Arc<dyn restricted::DynEndpointAdmission>>,
+    restricted_data_custom_transports: Option<Vec<u64>>,
     transport_config: QuicTransportConfig,
     keylog: bool,
     address_lookup: Vec<Box<dyn DynAddressLookupBuilder>>,
@@ -297,6 +299,7 @@ impl Builder {
             control_only_alpns: Default::default(),
             admission_gated: false,
             admission: None,
+            restricted_data_custom_transports: None,
             transport_config: QuicTransportConfig::default(),
             keylog: Default::default(),
             address_lookup: Default::default(),
@@ -919,6 +922,17 @@ impl Builder {
         self
     }
 
+    /// Further narrow custom data carriers after explicit restricted admission.
+    ///
+    /// This intersects the policy's permitted custom transport IDs; it cannot
+    /// grant admission or widen a path permit. IP and relay qualification still
+    /// apply normally. The option is used only by `restricted` and
+    /// `restricted_application`; ordinary endpoint behavior is unchanged.
+    pub fn restricted_data_custom_transports(mut self, allowed: Vec<u64>) -> Self {
+        self.restricted_data_custom_transports = Some(allowed);
+        self
+    }
+
     /// Select an endpoint whose authenticated control phase precedes business delivery.
     ///
     /// Configure keys, transports, ALPNs and ordinary hooks on this builder first.
@@ -927,6 +941,27 @@ impl Builder {
     /// remains available to ordinary consumers.
     pub fn restricted(mut self, admission: impl EndpointAdmission + 'static) -> RestrictedBuilder {
         self.admission = Some(Arc::new(admission));
+        RestrictedBuilder::new(self)
+    }
+
+    /// Select restricted admission using an existing application control protocol.
+    ///
+    /// Unlike [`Self::restricted`], this does not add a library preface or ready
+    /// frame. The policy exchanges bounded messages through [`ControlExchange`]
+    /// and returns a per-attempt [`ControlConfirmation`] with its decision. For
+    /// business scope this confirmation runs after the admission/path checks and
+    /// ordinary handshake hooks, before the original Connection is handed off.
+    /// Missing confirmation rejects; cancellation or an earlier hook rejection
+    /// drops the owned confirmation and its protocol resources.
+    ///
+    /// The capability restrictions, original deadline, cancellation and path
+    /// qualification remain identical. Raw streams and ordinary endpoint or
+    /// connection conversions are never exposed by the control interface.
+    pub fn restricted_application(
+        mut self,
+        admission: impl EndpointAdmission + 'static,
+    ) -> RestrictedBuilder {
+        self.admission = Some(restricted::application_policy(admission));
         RestrictedBuilder::new(self)
     }
 
@@ -1190,7 +1225,9 @@ impl Endpoint {
         connection: &connection::Connection,
         remote: iroh_base::CustomAddr,
     ) -> std::io::Result<()> {
-        self.inner.retain_admitted_data_path(connection.remote_id(), connection.stable_id(), remote).await
+        self.inner
+            .retain_admitted_data_path(connection.remote_id(), connection.stable_id(), remote)
+            .await
     }
 
     /// Seal an exact, established connection-owned data route while admission
@@ -1203,7 +1240,9 @@ impl Endpoint {
         connection: &connection::Connection,
         remote: iroh_base::CustomAddr,
     ) -> std::io::Result<()> {
-        self.inner.retain_control_data_path(connection.remote_id(), connection.stable_id(), remote).await
+        self.inner
+            .retain_control_data_path(connection.remote_id(), connection.stable_id(), remote)
+            .await
     }
 
     /// Owned-fixture packet fault on one original connection. Address learning
@@ -1215,7 +1254,9 @@ impl Endpoint {
         connection: &connection::Connection,
         allowed: Vec<iroh_base::TransportAddr>,
     ) -> std::io::Result<()> {
-        self.inner.test_limit_transport_paths(connection.remote_id(), connection.stable_id(), allowed).await
+        self.inner
+            .test_limit_transport_paths(connection.remote_id(), connection.stable_id(), allowed)
+            .await
     }
 
     /// Start validating a known UDP address on an existing authenticated
@@ -1322,6 +1363,12 @@ impl Endpoint {
         self.inner
             .retire_control_path(connection.remote_id(), connection.stable_id(), remote)
             .await
+    }
+
+    /// Narrow an already-owned ordinary connection for bounded control/path work.
+    /// This grants no new authorization and provides no conversion back.
+    pub fn control_handle(&self, connection: &Connection) -> ControlHandle {
+        ControlHandle::narrow(self, connection)
     }
 
     /// Permanently disallow custom control paths on this connection, after a
@@ -1496,9 +1543,14 @@ impl Endpoint {
         let endpoint_addr: EndpointAddr = endpoint_addr.into();
         let endpoint_id = endpoint_addr.id;
         if let Some(route) = &options.bootstrap_route {
-            ensure!(endpoint_addr.addrs.contains(route)
-                && matches!(route, TransportAddr::Ip(_) | TransportAddr::Relay(_) | TransportAddr::Custom(_)),
-                ConnectWithOptsError::InvalidBootstrapRoute);
+            ensure!(
+                endpoint_addr.addrs.contains(route)
+                    && matches!(
+                        route,
+                        TransportAddr::Ip(_) | TransportAddr::Relay(_) | TransportAddr::Custom(_)
+                    ),
+                ConnectWithOptsError::InvalidBootstrapRoute
+            );
         }
         let control_route = if self
             .inner
@@ -1577,7 +1629,8 @@ impl Endpoint {
             Some(TransportAddr::Relay(url)) => self.inner.relay_mapped_addr(endpoint_id, url),
             Some(TransportAddr::Custom(route)) => self.inner.custom_mapped_addr(route),
             Some(_) => return Err(e!(ConnectWithOptsError::InvalidBootstrapRoute)),
-            None => control_route.as_ref()
+            None => control_route
+                .as_ref()
                 .map(|route| self.inner.custom_mapped_addr(route))
                 .unwrap_or_else(|| mapped_addr.private_socket_addr()),
         };
@@ -1587,7 +1640,12 @@ impl Endpoint {
                 .noq_endpoint()
                 .connect_with(client_config, dest_addr, server_name)?;
 
-        Ok(Connecting::new(connect, self.clone(), endpoint_id, options.attempt))
+        Ok(Connecting::new(
+            connect,
+            self.clone(),
+            endpoint_id,
+            options.attempt,
+        ))
     }
 
     /// Accepts an incoming connection on the endpoint.
@@ -2327,7 +2385,10 @@ impl ConnectOptions {
     /// Associate one cancellation token with this attempt and its protected
     /// hooks. Cancelling it withdraws this original M, leaving the Endpoint
     /// available. The caller also watches it while dialing/resolving TLS.
-    pub fn with_attempt_cancellation(mut self, cancellation: tokio_util::sync::CancellationToken) -> Self {
+    pub fn with_attempt_cancellation(
+        mut self,
+        cancellation: tokio_util::sync::CancellationToken,
+    ) -> Self {
         self.attempt.cancellation = Some(cancellation);
         self
     }

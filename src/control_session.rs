@@ -2,11 +2,10 @@
 //! transport. Ordinary callers receive the QUIC connection only after its
 //! data-path gate is installed.
 
-use std::{collections::VecDeque, io, net::SocketAddr, time::Duration};
+use std::{collections::VecDeque, future::Future, io, net::SocketAddr, pin::Pin, time::Duration};
 
-use iroh::{
-    Endpoint, EndpointAddr,
-    endpoint::{AcceptBi, ConnectError, Connection, OpenBi, PathEventStream},
+use iroh::endpoint::{
+    Connection, ControlConnection, ControlExchange, ControlHandle, PathEventStream,
 };
 use iroh_base::PublicKey;
 
@@ -25,63 +24,87 @@ pub struct DataPathOpen {
 /// Owns a restricted connection while it can still use the message carrier.
 #[derive(Debug)]
 pub struct ControlSession {
-    endpoint: Endpoint,
-    connection: Connection,
+    connection: ControlHandle,
+    _control_owner: Option<ControlConnection>,
+    handoff: Option<DataHandoff>,
+    close_on_drop: bool,
     pending_business: VecDeque<Vec<u8>>,
     pending_bytes: usize,
 }
 
+type HandoffFuture = Pin<Box<dyn Future<Output = io::Result<Connection>> + Send>>;
+struct DataHandoff(std::sync::Mutex<Box<dyn FnOnce(ControlHandle) -> HandoffFuture + Send>>);
+impl std::fmt::Debug for DataHandoff {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("DataHandoff")
+    }
+}
+
+impl Drop for ControlSession {
+    fn drop(&mut self) {
+        if self.close_on_drop {
+            self.connection
+                .close(0u32.into(), b"pending data handoff dropped");
+        }
+    }
+}
+
 impl ControlSession {
-    /// The fork has completed authentication and admission, but retains the
-    /// application handle while its before-data-release hook coordinates paths.
-    pub(crate) fn from_connection(endpoint: Endpoint, connection: Connection) -> Self {
+    /// Own an admitted control-only session without any business handoff.
+    pub fn from_control_connection(control: ControlConnection) -> Self {
         Self {
-            endpoint,
-            connection,
+            connection: control.control_handle(),
+            _control_owner: Some(control),
+            handoff: None,
+            close_on_drop: false,
             pending_business: VecDeque::new(),
             pending_bytes: 0,
         }
     }
-    pub(crate) fn endpoint(&self) -> &Endpoint {
-        &self.endpoint
+    /// Own preparation on a restricted original while waiting for Core admission.
+    ///
+    /// The callback must await that original's pending restricted connect/accept
+    /// operation. It runs only after path commitment, and its result is checked
+    /// against the original TLS session before any queued business is released.
+    /// It must own cancellation of any spawned work it retains. Dropping this
+    /// session or its pending commit closes the original, even with other helpers.
+    pub fn with_data_handoff<F, Fut>(control: ControlHandle, handoff: F) -> Self
+    where
+        F: FnOnce(ControlHandle) -> Fut + Send + 'static,
+        Fut: Future<Output = io::Result<Connection>> + Send + 'static,
+    {
+        Self {
+            connection: control,
+            _control_owner: None,
+            handoff: Some(DataHandoff(std::sync::Mutex::new(Box::new(
+                move |control| Box::pin(handoff(control)),
+            )))),
+            close_on_drop: true,
+            pending_business: VecDeque::new(),
+            pending_bytes: 0,
+        }
     }
-
-    pub(crate) fn scope_connection(&self) -> Connection {
+    pub(crate) fn from_control(connection: ControlHandle) -> Self {
+        Self {
+            connection,
+            _control_owner: None,
+            handoff: None,
+            close_on_drop: false,
+            pending_business: VecDeque::new(),
+            pending_bytes: 0,
+        }
+    }
+    pub(crate) fn endpoint(&self) -> &ControlHandle {
+        &self.connection
+    }
+    /// Retain a restricted helper for metadata and original-session path work.
+    pub fn control_handle(&self) -> ControlHandle {
         self.connection.clone()
     }
-    /// Accepts a full-handshake control connection without exposing its raw
-    /// application handle. The endpoint must be configured for a control-only
-    /// ALPN and must not enable early connection handles.
-    pub async fn accept(endpoint: &Endpoint) -> io::Result<Self> {
-        let incoming = endpoint
-            .accept()
-            .await
-            .ok_or_else(|| io::Error::new(io::ErrorKind::BrokenPipe, "endpoint closed"))?;
-        let connection = incoming.await.map_err(io::Error::other)?;
-        Ok(Self {
-            endpoint: endpoint.clone(),
-            connection,
-            pending_business: VecDeque::new(),
-            pending_bytes: 0,
-        })
-    }
 
-    /// Connects through the explicit control route; the normal business handle
-    /// is not returned to the caller.
-    pub async fn connect(
-        endpoint: &Endpoint,
-        target: EndpointAddr,
-        alpn: &[u8],
-    ) -> Result<Self, ConnectError> {
-        let connection = endpoint.connect(target, alpn).await?;
-        Ok(Self {
-            endpoint: endpoint.clone(),
-            connection,
-            pending_business: VecDeque::new(),
-            pending_bytes: 0,
-        })
+    pub(crate) fn scope_connection(&self) -> ControlHandle {
+        self.connection.clone()
     }
-
     /// Stable local ID for tracing this exact QUIC connection across paths.
     pub fn stable_id(&self) -> usize {
         self.connection.stable_id()
@@ -98,7 +121,7 @@ impl ControlSession {
 
     pub(crate) fn cancellation_guard(&self) -> CommitCancellationGuard {
         CommitCancellationGuard {
-            connection: self.connection.clone(),
+            connection: self.connection.weak_handle(),
             armed: true,
         }
     }
@@ -116,14 +139,23 @@ impl ControlSession {
         gate.nat_learning_scope(&self.connection)
     }
 
-    /// Opens a stream reserved for the bootstrap control protocol.
-    pub fn open_control_bi(&self) -> OpenBi<'_> {
-        self.connection.open_bi()
+    /// Open a complete, bounded control exchange on this original session.
+    pub async fn open_control_exchange(&self) -> io::Result<ControlExchange> {
+        self.connection.open_control_exchange().await
     }
-
-    /// Accepts a stream reserved for the bootstrap control protocol.
-    pub fn accept_control_bi(&self) -> AcceptBi<'_> {
-        self.connection.accept_bi()
+    /// Accept a complete, bounded control exchange on this original session.
+    pub async fn accept_control_exchange(&self) -> io::Result<ControlExchange> {
+        self.connection.accept_control_exchange().await
+    }
+    /// Install the original connection packet guard without releasing business.
+    pub async fn commit_control_path(&self) -> io::Result<()> {
+        self.connection.commit_data_path().await
+    }
+    pub(crate) fn retain_udp_winner(
+        &self,
+        lease: &mut iroh::endpoint::UdpSocketPathLease,
+    ) -> io::Result<()> {
+        self.connection.retain_udp_winner(lease)
     }
 
     /// Retains ordinary business bytes locally until the data path is committed.
@@ -207,12 +239,8 @@ impl ControlSession {
             loop {
                 check()?;
                 let result = match local {
-                    Some(local) => {
-                        self.endpoint
-                            .open_data_path_from(&self.connection, local, remote)
-                            .await
-                    }
-                    None => self.endpoint.open_data_path(&self.connection, remote).await,
+                    Some(local) => self.connection.open_data_path_from(local, remote).await,
+                    None => self.connection.open_data_path(remote).await,
                 };
                 match result {
                     Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
@@ -234,14 +262,12 @@ impl ControlSession {
     #[cfg(feature = "nat-lab-test-hooks")]
     #[doc(hidden)]
     pub async fn test_force_path_id_retry_once(&self) -> io::Result<()> {
-        self.endpoint
-            .test_force_path_id_retry_once(&self.connection)
-            .await
+        self.connection.test_force_path_id_retry_once().await
     }
 
     /// Send a small UDP mapping probe from the authenticated endpoint's QUIC socket.
     pub async fn prime_udp_path(&self, remote: SocketAddr) -> io::Result<()> {
-        self.endpoint.prime_udp_path(&self.connection, remote).await
+        self.connection.prime_udp_path(remote).await
     }
 
     pub(crate) fn traversal_key(&self, round: &[u8; 16]) -> io::Result<[u8; 32]> {
@@ -260,9 +286,7 @@ impl ControlSession {
         &self,
         round: [u8; 16],
     ) -> io::Result<iroh::endpoint::UdpTraversalLease> {
-        self.endpoint
-            .register_udp_traversal(&self.connection, round)
-            .await
+        self.connection.register_udp_traversal(round).await
     }
 
     /// Whether a validated IP path is visible to this connection.
@@ -299,8 +323,16 @@ impl ControlSession {
     /// after the per-connection path gate has been installed. A transient
     /// failure returns the restricted session with its pending business intact;
     /// a closed connection is terminal and never becomes a business handle.
-    pub async fn commit_data_path(self) -> Result<DataSession, CommitError> {
-        if let Err(error) = self.endpoint.commit_data_path(&self.connection).await {
+    pub async fn commit_data_path(mut self) -> Result<DataSession, CommitError> {
+        if self.handoff.is_none() {
+            return Err(CommitError::Terminal {
+                error: io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "business is released only by restricted endpoint admission",
+                ),
+            });
+        }
+        if let Err(error) = self.connection.commit_data_path().await {
             return if self.connection.close_reason().is_some() {
                 Err(CommitError::Terminal { error })
             } else {
@@ -315,9 +347,61 @@ impl ControlSession {
                 error: io::Error::other(format!("connection closed during promotion: {reason}")),
             });
         }
+        let handoff = self.handoff.take().expect("checked data handoff");
+        let business = {
+            let mut original_binding = [0; 32];
+            self.connection
+                .export_keying_material(&mut original_binding, b"miopunch-control-handoff-v1", b"")
+                .map_err(|error| CommitError::Terminal {
+                    error: io::Error::other(format!("{error:?}")),
+                })?;
+            let cancellation = self.connection.attempt_cancellation();
+            let deadline = self.connection.caller_deadline();
+            let canceled = async {
+                match cancellation {
+                    Some(token) => token.cancelled().await,
+                    None => std::future::pending().await,
+                }
+            };
+            let expired = async {
+                match deadline {
+                    Some(deadline) => n0_future::time::sleep_until(deadline).await,
+                    None => std::future::pending().await,
+                }
+            };
+            let result = tokio::select! {
+                biased;
+                _ = canceled => Err(io::Error::new(io::ErrorKind::Interrupted,"data handoff canceled")),
+                _ = expired => Err(io::Error::new(io::ErrorKind::TimedOut,"data handoff deadline elapsed")),
+                reason = self.connection.closed() => Err(io::Error::other(format!("original closed during data handoff: {reason}"))),
+                result = (handoff.0.into_inner().expect("owned handoff"))(self.connection.clone()) => result,
+            };
+            let business = result.map_err(|error| CommitError::Terminal { error })?;
+            let mut delivered_binding = [0; 32];
+            let binding_matches = business
+                .export_keying_material(&mut delivered_binding, b"miopunch-control-handoff-v1", b"")
+                .is_ok()
+                && original_binding == delivered_binding;
+            if business.stable_id() != self.connection.stable_id()
+                || business.remote_id() != self.connection.remote_id()
+                || !binding_matches
+                || business.close_reason().is_some()
+                || self.connection.close_reason().is_some()
+            {
+                business.close(0u32.into(), b"wrong or closed original data handoff");
+                return Err(CommitError::Terminal {
+                    error: io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        "data handoff is not the live original TLS session",
+                    ),
+                });
+            }
+            business
+        };
+        self.close_on_drop = false;
         Ok(DataSession {
-            connection: self.connection,
-            pending_business: self.pending_business,
+            connection: business,
+            pending_business: std::mem::take(&mut self.pending_business),
         })
     }
 }
@@ -341,7 +425,7 @@ pub enum CommitError {
 
 /// A canceled actor commitment must close even if live streams retain handles.
 pub(crate) struct CommitCancellationGuard {
-    connection: Connection,
+    connection: iroh::endpoint::WeakControlConnection,
     armed: bool,
 }
 impl CommitCancellationGuard {

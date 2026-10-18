@@ -32,7 +32,7 @@ async fn admitted_pair() -> (tempfile::TempDir, NativeNetwork, NativeNetwork) {
     let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
     let (client, server) = tokio::join!(
         async {
-            be.connect_with_opts(ae.addr(), ADMISSION_REQUEST_ALPN, options)
+            be.connect_control_with_opts(ae.addr(), ADMISSION_REQUEST_ALPN, options)
                 .await
                 .unwrap()
                 .await
@@ -43,10 +43,13 @@ async fn admitted_pair() -> (tempfile::TempDir, NativeNetwork, NativeNetwork) {
                 .await
                 .unwrap()
                 .with_caller_deadline(deadline)
+                .accept_control()
+                .unwrap()
                 .await
                 .unwrap()
         }
     );
+    let (client, server) = (Arc::new(client), Arc::new(server));
     let (request, served) = tokio::join!(
         b.request_manual_admission(&client),
         a.serve_manual_admission(&server)
@@ -85,13 +88,13 @@ enum Fault {
 }
 
 struct ProbeAdapter {
-    inner: CoordinatorHook,
+    inner: NativeControlAdapter,
     gate: crate::admission_gate::AdmissionGate,
     fault: Option<Fault>,
     peer_committed: AtomicBool,
     reached: tokio::sync::Notify,
     post_check_entered: AtomicBool,
-    control: Mutex<Option<iroh::endpoint::WeakConnectionHandle>>,
+    control: Mutex<Option<iroh::endpoint::WeakControlConnection>>,
     node: Option<Arc<tokio::sync::Mutex<Option<NativeNetwork>>>>,
     rollback: Arc<AtomicBool>,
     real_ack: AtomicBool,
@@ -105,7 +108,7 @@ impl ProbeAdapter {
         node: Option<Arc<tokio::sync::Mutex<Option<NativeNetwork>>>>,
     ) -> Self {
         Self {
-            inner: CoordinatorHook::new(gate.clone(), true),
+            inner: NativeControlAdapter(CoordinatorHook::new(gate.clone(), true)),
             gate,
             fault,
             peer_committed: AtomicBool::new(false),
@@ -120,24 +123,24 @@ impl ProbeAdapter {
         }
     }
 }
-impl MemberPathAdapter for ProbeAdapter {
+impl MemberPathAdapter<iroh::endpoint::ControlHandle> for ProbeAdapter {
     fn capabilities(&self, role: AttemptRole) -> RuntimeCapabilities {
         self.inner.capabilities(role)
     }
     fn authorization_revision(
         &self,
-        connection: &Connection,
+        connection: &iroh::endpoint::ControlHandle,
         purpose: SessionPurpose,
     ) -> io::Result<u64> {
         self.inner.authorization_revision(connection, purpose)
     }
-    fn committed(&self, _original: &Connection, report: serde_json::Value) {
+    fn committed(&self, _original: &iroh::endpoint::ControlHandle, report: serde_json::Value) {
         *self.report.lock().unwrap() = Some(report);
     }
     fn active_diagnostic(
         &self,
-        _original: &Connection,
-        _control: &Connection,
+        _original: &iroh::endpoint::ControlHandle,
+        _control: &iroh::endpoint::ControlHandle,
         stage: &'static str,
     ) {
         let mut stages = self.stages.lock().unwrap();
@@ -152,7 +155,7 @@ impl MemberPathAdapter for ProbeAdapter {
     }
     fn check<'a>(
         &'a self,
-        connection: &'a Connection,
+        connection: &'a iroh::endpoint::ControlHandle,
         purpose: SessionPurpose,
     ) -> impl Future<Output = io::Result<()>> + Send + 'a {
         async move {
@@ -192,8 +195,8 @@ impl MemberPathAdapter for ProbeAdapter {
     }
     fn prepare<'a>(
         &'a self,
-        endpoint: &'a Endpoint,
-        connection: &'a Connection,
+        endpoint: Option<&'a Endpoint>,
+        connection: &'a iroh::endpoint::ControlHandle,
         attempt: ProtectedAttempt,
         plan: PathPlan,
     ) -> impl Future<Output = io::Result<PreparedPath>> + Send + 'a {
@@ -201,9 +204,9 @@ impl MemberPathAdapter for ProbeAdapter {
     }
     fn prepare_active<'a>(
         &'a self,
-        _endpoint: &'a Endpoint,
-        original: &'a Connection,
-        control: &'a Connection,
+        _endpoint: Option<&'a Endpoint>,
+        original: &'a iroh::endpoint::ControlHandle,
+        control: &'a iroh::endpoint::ControlHandle,
         _attempt: ProtectedAttempt,
         plan: PathPlan,
     ) -> impl Future<Output = io::Result<PreparedPath>> + Send + 'a {
@@ -322,10 +325,10 @@ async fn scenario(fault: Fault) {
     let options = iroh::endpoint::ConnectOptions::new()
         .with_caller_deadline(deadline)
         .with_attempt_cancellation(cancellation.clone());
-    let (control, peer_control) = tokio::join!(
+    let (control_owner, peer_control_owner) = tokio::join!(
         async {
             ae.endpoint()
-                .connect_with_opts(be.addr(), ACTIVE_IMPROVEMENT_ALPN, options)
+                .connect_control_with_opts(be.addr(), ACTIVE_IMPROVEMENT_ALPN, options)
                 .await
                 .unwrap()
                 .await
@@ -338,10 +341,14 @@ async fn scenario(fault: Fault) {
                 .unwrap()
                 .with_caller_deadline(deadline)
                 .with_attempt_cancellation(cancellation.clone())
+                .accept_control()
+                .unwrap()
                 .await
                 .unwrap()
         }
     );
+    let control = control_owner.control_handle();
+    let peer_control = peer_control_owner.control_handle();
     let registry = responder.gate.maintenance();
     let lookup = registry.clone();
     let attempt = AttemptContext::new(deadline, cancellation);
@@ -450,14 +457,9 @@ async fn scenario(fault: Fault) {
     } else {
         assert!(!responder.gate.allows(&remote, ProtocolScope::Member));
     }
-    for connection in [
-        &control,
-        &peer_control,
-        &original,
-        &remote,
-        &other,
-        &other_remote,
-    ] {
+    control.close(0u32.into(), b"owned common commit regression finished");
+    peer_control.close(0u32.into(), b"owned common commit regression finished");
+    for connection in [&original, &remote, &other, &other_remote] {
         connection.close(0u32.into(), b"owned common commit regression finished");
     }
     drop((

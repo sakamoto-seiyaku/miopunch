@@ -10,7 +10,11 @@ use std::{
 
 use iroh::{
     Endpoint, EndpointAddr, RelayConfig, RelayMap, Watcher as _,
-    endpoint::{UdpObservation, presets},
+    endpoint::{
+        AdmissionOutcome, Connection, ControlConfirmation, ControlConnection, ControlExchange,
+        ControlHandle, ControlMessageFormat, EndpointAdmission, PathId, RestrictedEndpoint,
+        UdpObservation, presets,
+    },
 };
 use iroh_base::{PublicKey, SecretKey, TransportAddr};
 use iroh_relay::{RelayQuicConfig, tls::CaTlsConfig};
@@ -33,6 +37,117 @@ const NAT3_PROBES: usize = 8;
 const NAT3_PROBE_GAP: Duration = Duration::from_millis(75);
 const NAT3_NETWORK: [u8; 32] = [56; 32];
 
+// The probe owns its actual pending Core connection task. No full connection
+// is available to path coordination until Core returns it after admission.
+#[derive(Debug, Clone)]
+struct ProbeAdmission {
+    gate: Option<AdmissionGate>,
+    pending: tokio::sync::mpsc::UnboundedSender<PendingControl>,
+}
+#[derive(Debug)]
+struct PendingControl {
+    control: ControlHandle,
+    ready: tokio::sync::oneshot::Sender<PathId>,
+}
+impl EndpointAdmission for ProbeAdmission {
+    async fn admit(&self, control: &ControlConnection) -> io::Result<AdmissionOutcome> {
+        let confirmation = if let Some(gate) = &self.gate {
+            let AdmissionOutcome::ControlOnlyWithConfirmation(confirmation) =
+                gate.admit(control).await?
+            else {
+                return Err(io::Error::other(
+                    "probe requires authenticated bootstrap control",
+                ));
+            };
+            confirmation
+        } else {
+            ControlConfirmation::new(async { Ok(()) })
+        };
+        let (ready, receive) = tokio::sync::oneshot::channel();
+        self.pending
+            .send(PendingControl {
+                control: control.control_handle(),
+                ready,
+            })
+            .map_err(|_| io::Error::other("probe closed"))?;
+        let path = receive
+            .await
+            .map_err(|_| io::Error::other("probe canceled"))?;
+        let permit = control.qualify_data_path(path, vec![]).await?;
+        Ok(AdmissionOutcome::AcceptWithConfirmation {
+            permit,
+            confirmation,
+        })
+    }
+    fn is_current(&self, control: &ControlConnection) -> bool {
+        self.gate
+            .as_ref()
+            .is_none_or(|gate| gate.allows_member_path_upgrade(control))
+    }
+    fn business_released(&self, connection: &Connection) {
+        if let Some(gate) = &self.gate {
+            gate.business_released(connection)
+        }
+    }
+}
+struct OwnedConnectionTask(tokio::task::JoinHandle<io::Result<Connection>>);
+impl Drop for OwnedConnectionTask {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+struct ProbeEndpoint {
+    inner: RestrictedEndpoint,
+    pending: tokio::sync::Mutex<tokio::sync::mpsc::UnboundedReceiver<PendingControl>>,
+}
+impl std::ops::Deref for ProbeEndpoint {
+    type Target = RestrictedEndpoint;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+impl ProbeEndpoint {
+    async fn control(&self, target: Option<EndpointAddr>) -> io::Result<ControlSession> {
+        let endpoint = self.inner.clone();
+        let mut task = OwnedConnectionTask(tokio::spawn(async move {
+            match target {
+                Some(target) => endpoint
+                    .connect(target, ALPN)
+                    .await
+                    .map_err(io::Error::other),
+                None => endpoint
+                    .accept()
+                    .await
+                    .ok_or_else(|| io::Error::other("probe endpoint closed"))?
+                    .await
+                    .map_err(io::Error::other),
+            }
+        }));
+        let mut pending = self.pending.lock().await;
+        let context = tokio::select! {biased;
+            result=&mut task.0=>{let _=result.map_err(io::Error::other)??;return Err(io::Error::other("probe delivered without path preparation"));},
+            context=pending.recv()=>context.ok_or_else(||io::Error::other("probe admission closed"))?,
+        };
+        Ok(ControlSession::with_data_handoff(
+            context.control,
+            move |control| async move {
+                let paths = control.paths();
+                let path = paths
+                    .iter()
+                    .find(|path| path.is_selected() && path.is_ip())
+                    .ok_or_else(|| io::Error::other("no selected probe IP path"))?
+                    .id();
+                context
+                    .ready
+                    .send(path)
+                    .map_err(|_| io::Error::other("pending probe admission dropped"))?;
+                let mut task = task;
+                (&mut task.0).await.map_err(io::Error::other)?
+            },
+        ))
+    }
+}
+
 struct MappingEvidence {
     sequence: iroh::endpoint::UdpMappingSequence,
     pattern: MappingPattern,
@@ -53,7 +168,7 @@ struct LegacyResources {
 }
 
 async fn prepare_legacy(
-    endpoint: &Endpoint,
+    endpoint: &ProbeEndpoint,
     own_candidate: &ObservedCandidate,
     resources: LegacyResources,
 ) -> Result<LegacyContext, Box<dyn Error>> {
@@ -73,11 +188,17 @@ async fn prepare_legacy(
             }
             Err(error) => {
                 println!("LEGACY_OBSERVATION_FALLBACK reason={error}");
-                MappingSnapshot::fallback(endpoint, own_candidate.observation.clone())?
+                MappingSnapshot::fallback_generation(
+                    endpoint.udp_network_generation(),
+                    own_candidate.observation.clone(),
+                )?
             }
         }
     } else {
-        MappingSnapshot::fallback(endpoint, own_candidate.observation.clone())?
+        MappingSnapshot::fallback_generation(
+            endpoint.udp_network_generation(),
+            own_candidate.observation.clone(),
+        )?
     };
     println!(
         "LEGACY_FEATURE feature={:?} socket_generation_current={}",
@@ -220,7 +341,7 @@ impl MappingEvidence {
 }
 
 async fn mapping_evidence(
-    endpoint: &Endpoint,
+    endpoint: &ProbeEndpoint,
     observers: &RelayMap,
     budget: Arc<NodeProbeBudget>,
     peer_probe_limit: usize,
@@ -322,7 +443,7 @@ async fn endpoint(
     cert: &Path,
 ) -> Result<
     (
-        Endpoint,
+        ProbeEndpoint,
         Arc<MqttTransport>,
         Arc<Traffic>,
         Option<AdmissionGate>,
@@ -395,24 +516,28 @@ async fn endpoint(
     let builder = Endpoint::builder(presets::Minimal)
         .secret_key(key)
         .alpns(vec![ALPN.to_vec()])
-        .control_only_alpns(vec![ALPN.to_vec()])
         .bind_addr((Ipv4Addr::UNSPECIFIED, bind_port))?
         .clear_relay_transports()
         .observation_servers(qad)
         .ca_tls_config(roots)
         .add_custom_transport(carrier.clone());
-    let endpoint = if let Some(gate) = &gate {
-        gate.configure(builder)
-    } else {
-        builder
-    }
-    .bind()
-    .await?;
+    let (pending, receive) = tokio::sync::mpsc::unbounded_channel();
+    let endpoint = builder
+        .restricted_application(ProbeAdmission {
+            gate: gate.clone(),
+            pending,
+        })
+        .bind()
+        .await?;
+    let endpoint = ProbeEndpoint {
+        inner: endpoint,
+        pending: tokio::sync::Mutex::new(receive),
+    };
     carrier.wait_ready().await?;
     Ok((endpoint, carrier, traffic, gate, mapping_observers))
 }
 
-async fn observed_addr(endpoint: &Endpoint) -> Result<ObservedCandidate, Box<dyn Error>> {
+async fn observed_addr(endpoint: &ProbeEndpoint) -> Result<ObservedCandidate, Box<dyn Error>> {
     let mut watcher = endpoint.udp_observation();
     let state = tokio::time::timeout(WAIT, async {
         loop {
@@ -470,10 +595,12 @@ async fn wait_ip(session: &ControlSession, limit: Duration) -> Result<(), Box<dy
     Ok(())
 }
 
-async fn read_candidate(
-    recv: &mut iroh::endpoint::RecvStream,
-) -> Result<SocketAddr, Box<dyn Error>> {
-    let bytes = tokio::time::timeout(WAIT, recv.read_to_end(128)).await??;
+async fn read_candidate(recv: &ControlExchange) -> Result<SocketAddr, Box<dyn Error>> {
+    let bytes = tokio::time::timeout(
+        WAIT,
+        recv.recv_message(ControlMessageFormat::EndTerminated { maximum: 128 }),
+    )
+    .await??;
     Ok(std::str::from_utf8(&bytes)?.parse()?)
 }
 
@@ -632,13 +759,13 @@ fn parse_pattern(kind: &str, addr: &str, step: &str) -> Result<MappingPattern, B
     Ok(pattern)
 }
 
-async fn send_frame(
-    send: &mut iroh::endpoint::SendStream,
-    frame: &CoordFrame,
-) -> Result<(), Box<dyn Error>> {
+async fn send_frame(send: &ControlExchange, frame: &CoordFrame) -> Result<(), Box<dyn Error>> {
     let encoded = frame.encode();
-    send.write_all(encoded.as_bytes()).await?;
-    send.finish()?;
+    send.send_message(
+        ControlMessageFormat::EndTerminated { maximum: 128 },
+        encoded.as_bytes(),
+    )
+    .await?;
     println!(
         "CONTROL_FRAME_SENT kind={} bytes={}",
         encoded.split_whitespace().next().unwrap(),
@@ -647,8 +774,12 @@ async fn send_frame(
     Ok(())
 }
 
-async fn recv_frame(recv: &mut iroh::endpoint::RecvStream) -> Result<CoordFrame, Box<dyn Error>> {
-    let bytes = tokio::time::timeout(COORD_WAIT, recv.read_to_end(128)).await??;
+async fn recv_frame(recv: &ControlExchange) -> Result<CoordFrame, Box<dyn Error>> {
+    let bytes = tokio::time::timeout(
+        COORD_WAIT,
+        recv.recv_message(ControlMessageFormat::EndTerminated { maximum: 128 }),
+    )
+    .await??;
     let frame = CoordFrame::parse(&bytes)?;
     println!(
         "CONTROL_FRAME_RECEIVED kind={} bytes={}",
@@ -662,26 +793,31 @@ async fn report_auto_path_failure_server(
     control: &ControlSession,
     round: Round,
 ) -> Result<(), Box<dyn Error>> {
-    let (mut reply, mut request) =
-        tokio::time::timeout(COORD_WAIT, control.accept_control_bi()).await??;
-    if recv_frame(&mut request).await? != CoordFrame::PathFailed(round) {
+    let exchange = tokio::time::timeout(COORD_WAIT, control.accept_control_exchange()).await??;
+    let (reply, request) = (&exchange, &exchange);
+    if recv_frame(request).await? != CoordFrame::PathFailed(round) {
         return Err("wrong failed-path round".into());
     }
-    send_frame(&mut reply, &CoordFrame::PathFailedAck(round)).await?;
+    send_frame(reply, &CoordFrame::PathFailedAck(round)).await?;
     // Do not tear down this one-run endpoint until the peer explicitly
     // confirms it received the first acknowledgment.
-    let (mut done_reply, mut done_request) =
-        tokio::time::timeout(COORD_WAIT, control.accept_control_bi()).await??;
-    if recv_frame(&mut done_request).await? != CoordFrame::PathFailedDone(round) {
+    let exchange = tokio::time::timeout(COORD_WAIT, control.accept_control_exchange()).await??;
+    let (done_reply, done_request) = (&exchange, &exchange);
+    if recv_frame(done_request).await? != CoordFrame::PathFailedDone(round) {
         return Err("failed-path receipt missing or wrong round".into());
     }
-    send_frame(&mut done_reply, &CoordFrame::PathFailedDoneAck(round)).await?;
+    let encoded = CoordFrame::PathFailedDoneAck(round).encode();
+    done_reply
+        .send_message(
+            ControlMessageFormat::Fixed {
+                length: encoded.len(),
+            },
+            encoded.as_bytes(),
+        )
+        .await?;
     // Keep the one-run endpoint alive until QUIC confirms the peer received
     // the terminal frame; closing immediately can discard buffered data.
-    match tokio::time::timeout(COORD_WAIT, done_reply.stopped()).await?? {
-        None => {}
-        Some(_) => return Err("failed-path terminal stream stopped by peer".into()),
-    }
+    tokio::time::timeout(COORD_WAIT, done_reply.finish_send_confirmed()).await??;
     println!(
         "CONTROL_ALIVE_AFTER_UDP_FAILURE stable_id={}",
         control.stable_id()
@@ -693,16 +829,16 @@ async fn report_auto_path_failure_client(
     control: &ControlSession,
     round: Round,
 ) -> Result<(), Box<dyn Error>> {
-    let (mut send, mut recv) =
-        tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??;
-    send_frame(&mut send, &CoordFrame::PathFailed(round)).await?;
-    if recv_frame(&mut recv).await? != CoordFrame::PathFailedAck(round) {
+    let exchange = tokio::time::timeout(COORD_WAIT, control.open_control_exchange()).await??;
+    let (send, recv) = (&exchange, &exchange);
+    send_frame(send, &CoordFrame::PathFailed(round)).await?;
+    if recv_frame(recv).await? != CoordFrame::PathFailedAck(round) {
         return Err("failed-path control acknowledgment mismatch".into());
     }
-    let (mut done_send, mut done_recv) =
-        tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??;
-    send_frame(&mut done_send, &CoordFrame::PathFailedDone(round)).await?;
-    if recv_frame(&mut done_recv).await? != CoordFrame::PathFailedDoneAck(round) {
+    let exchange = tokio::time::timeout(COORD_WAIT, control.open_control_exchange()).await??;
+    let (done_send, done_recv) = (&exchange, &exchange);
+    send_frame(done_send, &CoordFrame::PathFailedDone(round)).await?;
+    if recv_frame(done_recv).await? != CoordFrame::PathFailedDoneAck(round) {
         return Err("failed-path terminal acknowledgment mismatch".into());
     }
     println!(
@@ -716,57 +852,76 @@ async fn report_auto_path_failure_client(
 /// early rejection leaves this original control connection usable even when
 /// the rejected strategy never completed a round. It never carries business.
 struct FailureLiveness {
-    send: iroh::endpoint::SendStream,
-    recv: iroh::endpoint::RecvStream,
+    exchange: ControlExchange,
     server: bool,
 }
-
 impl FailureLiveness {
     async fn open(control: &ControlSession, server: bool) -> Result<Option<Self>, Box<dyn Error>> {
         if std::env::var("MIOPUNCH_NAT_LAB_FAILURE_LIVENESS").as_deref() != Ok("1") {
             return Ok(None);
         }
-        let (mut send, mut recv) = if server {
-            tokio::time::timeout(COORD_WAIT, control.accept_control_bi()).await??
-        } else {
-            tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??
-        };
-        tokio::time::timeout(COORD_WAIT, async {
-            let mut marker = [0; 5];
+        let exchange = tokio::time::timeout(COORD_WAIT, async {
             if server {
-                recv.read_exact(&mut marker).await?;
-                if &marker != b"MIO59" {
+                control.accept_control_exchange().await
+            } else {
+                control.open_control_exchange().await
+            }
+        })
+        .await??;
+        tokio::time::timeout(COORD_WAIT, async {
+            if server {
+                if exchange
+                    .recv_message(ControlMessageFormat::Fixed { length: 5 })
+                    .await?
+                    != b"MIO59"
+                {
                     return Err("invalid failure-check stream".into());
                 }
-                send.write_all(b"READY").await?;
+                exchange
+                    .send_message(ControlMessageFormat::Fixed { length: 5 }, b"READY")
+                    .await?;
             } else {
-                send.write_all(b"MIO59").await?;
-                recv.read_exact(&mut marker).await?;
-                if &marker != b"READY" {
+                exchange
+                    .send_message(ControlMessageFormat::Fixed { length: 5 }, b"MIO59")
+                    .await?;
+                if exchange
+                    .recv_message(ControlMessageFormat::Fixed { length: 5 })
+                    .await?
+                    != b"READY"
+                {
                     return Err("invalid failure-check acknowledgment".into());
                 }
             }
             Ok::<_, Box<dyn Error>>(())
         })
         .await??;
-        Ok(Some(Self { send, recv, server }))
+        Ok(Some(Self { exchange, server }))
     }
-
-    async fn finish(mut self, stable: usize) -> Result<(), Box<dyn Error>> {
+    async fn finish(self, stable: usize) -> Result<(), Box<dyn Error>> {
         tokio::time::timeout(WAIT, async {
             if self.server {
-                if self.recv.read_to_end(4).await? != b"PING" {
+                if self
+                    .exchange
+                    .recv_message(ControlMessageFormat::EndTerminated { maximum: 4 })
+                    .await?
+                    != b"PING"
+                {
                     return Err("invalid failure-check ping".into());
                 }
-                self.send.write_all(b"PONG").await?;
-                self.send.finish()?;
-                if self.send.stopped().await?.is_some() {
-                    return Err("failure-check reply stopped".into());
-                }
+                self.exchange
+                    .send_message(ControlMessageFormat::Fixed { length: 4 }, b"PONG")
+                    .await?;
+                self.exchange.finish_send_confirmed().await?;
             } else {
-                self.send.write_all(b"PING").await?;
-                self.send.finish()?;
-                if self.recv.read_to_end(4).await? != b"PONG" {
+                self.exchange
+                    .send_message(ControlMessageFormat::EndTerminated { maximum: 4 }, b"PING")
+                    .await?;
+                if self
+                    .exchange
+                    .recv_message(ControlMessageFormat::EndTerminated { maximum: 4 })
+                    .await?
+                    != b"PONG"
+                {
                     return Err("invalid failure-check pong".into());
                 }
             }
@@ -779,7 +934,7 @@ impl FailureLiveness {
 }
 
 async fn close_failed_lab_attempt(
-    endpoint: &Endpoint,
+    endpoint: &ProbeEndpoint,
     stable: usize,
     safety: &mut Option<FailureLiveness>,
 ) -> Result<(), Box<dyn Error>> {
@@ -799,24 +954,24 @@ async fn coordinate_server(
     control: &ControlSession,
     own_candidate: &ObservedCandidate,
 ) -> Result<(SocketAddr, Round), Box<dyn Error>> {
-    let (mut reply, mut request) =
-        tokio::time::timeout(COORD_WAIT, control.accept_control_bi()).await??;
-    let CoordFrame::Offer(remote) = recv_frame(&mut request).await? else {
+    let exchange = tokio::time::timeout(COORD_WAIT, control.accept_control_exchange()).await??;
+    let (reply, request) = (&exchange, &exchange);
+    let CoordFrame::Offer(remote) = recv_frame(request).await? else {
         return Err("NAT3 offer expected".into());
     };
     let round = Round::fresh();
     send_frame(
-        &mut reply,
+        reply,
         &CoordFrame::Ready(round, own_candidate.fresh_addr()?),
     )
     .await?;
-    let (mut reply, mut request) =
-        tokio::time::timeout(COORD_WAIT, control.accept_control_bi()).await??;
-    match recv_frame(&mut request).await? {
+    let exchange = tokio::time::timeout(COORD_WAIT, control.accept_control_exchange()).await??;
+    let (reply, request) = (&exchange, &exchange);
+    match recv_frame(request).await? {
         CoordFrame::Start(value) if value == round => {
             // Only this connection's fresh server challenge starts a probe
             // round. A replay or an old START cannot spend the probe budget.
-            send_frame(&mut reply, &CoordFrame::Ack(round)).await?;
+            send_frame(reply, &CoordFrame::Ack(round)).await?;
             Ok((remote, round))
         }
         CoordFrame::Cancel(value) if value == round => Err("NAT3 round cancelled".into()),
@@ -828,18 +983,18 @@ async fn coordinate_client(
     control: &ControlSession,
     own_candidate: &ObservedCandidate,
 ) -> Result<(SocketAddr, Round), Box<dyn Error>> {
-    let (mut send, mut recv) =
-        tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??;
-    send_frame(&mut send, &CoordFrame::Offer(own_candidate.fresh_addr()?)).await?;
-    let CoordFrame::Ready(round, remote) = recv_frame(&mut recv).await? else {
+    let exchange = tokio::time::timeout(COORD_WAIT, control.open_control_exchange()).await??;
+    let (send, recv) = (&exchange, &exchange);
+    send_frame(send, &CoordFrame::Offer(own_candidate.fresh_addr()?)).await?;
+    let CoordFrame::Ready(round, remote) = recv_frame(recv).await? else {
         return Err("NAT3 ready expected".into());
     };
     let fault = std::env::var("MIOPUNCH_NAT_FAULT").unwrap_or_default();
     if fault == "late_control" {
         tokio::time::sleep(COORD_WAIT + Duration::from_secs(1)).await;
     }
-    let (mut send, mut recv) =
-        tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??;
+    let exchange = tokio::time::timeout(COORD_WAIT, control.open_control_exchange()).await??;
+    let (send, recv) = (&exchange, &exchange);
     let start = match fault.as_str() {
         "cancel" => CoordFrame::Cancel(round),
         "old_round" => {
@@ -847,16 +1002,17 @@ async fn coordinate_client(
         }
         _ => CoordFrame::Start(round),
     };
-    send_frame(&mut send, &start).await?;
+    send_frame(send, &start).await?;
     if fault == "cancel" {
         return Err("NAT3 round cancelled".into());
     }
-    if recv_frame(&mut recv).await? != CoordFrame::Ack(round) {
+    if recv_frame(recv).await? != CoordFrame::Ack(round) {
         return Err("NAT3 ack mismatch".into());
     }
     if fault == "replay" {
-        let (mut replay, _) = tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??;
-        send_frame(&mut replay, &CoordFrame::Start(round)).await?;
+        let exchange = tokio::time::timeout(COORD_WAIT, control.open_control_exchange()).await??;
+        let (replay, _) = (&exchange, &exchange);
+        send_frame(&replay, &CoordFrame::Start(round)).await?;
         println!("REPLAY_SENT round={}", round.encoded());
         return Err("duplicate NAT3 start submitted".into());
     }
@@ -899,21 +1055,21 @@ async fn coordinate_auto_server(
     control: &ControlSession,
     evidence: &MappingEvidence,
 ) -> Result<(SocketAddr, Round, PunchRole), Box<dyn Error>> {
-    let (mut reply, mut request) =
-        tokio::time::timeout(COORD_WAIT, control.accept_control_bi()).await??;
-    let CoordFrame::AutoOffer(remote_pattern) = recv_frame(&mut request).await? else {
+    let exchange = tokio::time::timeout(COORD_WAIT, control.accept_control_exchange()).await??;
+    let (reply, request) = (&exchange, &exchange);
+    let CoordFrame::AutoOffer(remote_pattern) = recv_frame(request).await? else {
         return Err("auto mapping offer expected".into());
     };
     let own_pattern = evidence.fresh_pattern()?;
     let (remote, role) = auto_target(own_pattern, remote_pattern, true)?;
     let round = Round::fresh();
-    send_frame(&mut reply, &CoordFrame::AutoReady(round, own_pattern)).await?;
-    let (mut reply, mut request) =
-        tokio::time::timeout(COORD_WAIT, control.accept_control_bi()).await??;
-    match recv_frame(&mut request).await? {
+    send_frame(reply, &CoordFrame::AutoReady(round, own_pattern)).await?;
+    let exchange = tokio::time::timeout(COORD_WAIT, control.accept_control_exchange()).await??;
+    let (reply, request) = (&exchange, &exchange);
+    match recv_frame(request).await? {
         CoordFrame::Start(value) if value == round => {
             evidence.fresh_pattern()?;
-            send_frame(&mut reply, &CoordFrame::Ack(round)).await?;
+            send_frame(reply, &CoordFrame::Ack(round)).await?;
             Ok((remote, round, role))
         }
         CoordFrame::Cancel(value) if value == round => Err("mapping round cancelled".into()),
@@ -925,8 +1081,8 @@ async fn coordinate_auto_client(
     control: &ControlSession,
     evidence: &MappingEvidence,
 ) -> Result<(SocketAddr, Round, PunchRole), Box<dyn Error>> {
-    let (mut send, mut recv) =
-        tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??;
+    let exchange = tokio::time::timeout(COORD_WAIT, control.open_control_exchange()).await??;
+    let (send, recv) = (&exchange, &exchange);
     let local = evidence.fresh_pattern()?;
     let fault = std::env::var("MIOPUNCH_NAT_FAULT").unwrap_or_default();
     if fault == "wide_claim" {
@@ -936,23 +1092,25 @@ async fn coordinate_auto_client(
             MappingPattern::Irregular { last, .. } => last,
             MappingPattern::Unknown => return Err("unknown local mapping".into()),
         };
-        send.write_all(format!("AUTO_OFFER Q {address} 100").as_bytes())
-            .await?;
-        send.finish()?;
+        send.send_message(
+            ControlMessageFormat::EndTerminated { maximum: 128 },
+            format!("AUTO_OFFER Q {address} 100").as_bytes(),
+        )
+        .await?;
     } else {
-        send_frame(&mut send, &CoordFrame::AutoOffer(local)).await?;
+        send_frame(send, &CoordFrame::AutoOffer(local)).await?;
     }
-    let CoordFrame::AutoReady(round, remote_pattern) = recv_frame(&mut recv).await? else {
+    let CoordFrame::AutoReady(round, remote_pattern) = recv_frame(recv).await? else {
         return Err("auto mapping ready expected".into());
     };
     let (remote, role) = auto_target(evidence.fresh_pattern()?, remote_pattern, false)?;
     if fault == "late_control" {
         tokio::time::sleep(COORD_WAIT + Duration::from_secs(1)).await;
     }
-    let (mut send, mut recv) =
-        tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??;
+    let exchange = tokio::time::timeout(COORD_WAIT, control.open_control_exchange()).await??;
+    let (send, recv) = (&exchange, &exchange);
     if fault == "cancel" {
-        send_frame(&mut send, &CoordFrame::Cancel(round)).await?;
+        send_frame(send, &CoordFrame::Cancel(round)).await?;
         return Err("mapping round cancelled".into());
     }
     let start = if fault == "old_round" {
@@ -960,8 +1118,8 @@ async fn coordinate_auto_client(
     } else {
         CoordFrame::Start(round)
     };
-    send_frame(&mut send, &start).await?;
-    if recv_frame(&mut recv).await? != CoordFrame::Ack(round) {
+    send_frame(send, &start).await?;
+    if recv_frame(recv).await? != CoordFrame::Ack(round) {
         return Err("mapping round acknowledgment mismatch".into());
     }
     evidence.fresh_pattern()?;
@@ -994,54 +1152,60 @@ async fn auto_probe_window(
             auto_probe_once(control, gate, evidence, remote).await?;
             // A protected round-bound barrier orders the irregular/Hard
             // prime before the peer sends to its selected candidate.
-            let (mut send, mut recv) =
-                tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??;
-            send_frame(&mut send, &CoordFrame::SenderPrimed(signal_round)).await?;
-            if recv_frame(&mut recv).await? != CoordFrame::SenderPrimedAck(round) {
+            let exchange =
+                tokio::time::timeout(COORD_WAIT, control.open_control_exchange()).await??;
+            let (send, recv) = (&exchange, &exchange);
+            send_frame(send, &CoordFrame::SenderPrimed(signal_round)).await?;
+            if recv_frame(recv).await? != CoordFrame::SenderPrimedAck(round) {
                 return Err("sender-prime acknowledgment mismatch".into());
             }
         }
         PunchRole::StableSideReceiver
         | PunchRole::RandomTargetSender
         | PunchRole::RegularRandomTargetSender => {
-            let (mut reply, mut request) =
-                tokio::time::timeout(COORD_WAIT, control.accept_control_bi()).await??;
-            if recv_frame(&mut request).await? != CoordFrame::SenderPrimed(round) {
+            let exchange =
+                tokio::time::timeout(COORD_WAIT, control.accept_control_exchange()).await??;
+            let (reply, request) = (&exchange, &exchange);
+            if recv_frame(request).await? != CoordFrame::SenderPrimed(round) {
                 return Err("sender-prime signal missing or wrong round".into());
             }
-            send_frame(&mut reply, &CoordFrame::SenderPrimedAck(round)).await?;
+            send_frame(reply, &CoordFrame::SenderPrimedAck(round)).await?;
             auto_probe_once(control, gate, evidence, remote).await?;
         }
         PunchRole::DualFirst => {
             auto_probe_once(control, gate, evidence, remote).await?;
-            let (mut send, mut recv) =
-                tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??;
-            send_frame(&mut send, &CoordFrame::SenderPrimed(round)).await?;
-            if recv_frame(&mut recv).await? != CoordFrame::SenderPrimedAck(round) {
+            let exchange =
+                tokio::time::timeout(COORD_WAIT, control.open_control_exchange()).await??;
+            let (send, recv) = (&exchange, &exchange);
+            send_frame(send, &CoordFrame::SenderPrimed(round)).await?;
+            if recv_frame(recv).await? != CoordFrame::SenderPrimedAck(round) {
                 return Err("dual first-prime acknowledgment mismatch".into());
             }
-            let (mut reply, mut request) =
-                tokio::time::timeout(COORD_WAIT, control.accept_control_bi()).await??;
-            if recv_frame(&mut request).await? != CoordFrame::ReceiverPrimed(round) {
+            let exchange =
+                tokio::time::timeout(COORD_WAIT, control.accept_control_exchange()).await??;
+            let (reply, request) = (&exchange, &exchange);
+            if recv_frame(request).await? != CoordFrame::ReceiverPrimed(round) {
                 return Err("dual second-prime signal missing or wrong round".into());
             }
-            send_frame(&mut reply, &CoordFrame::ReceiverPrimedAck(round)).await?;
+            send_frame(reply, &CoordFrame::ReceiverPrimedAck(round)).await?;
             if dual_first_packets == 2 {
                 auto_probe_once(control, gate, evidence, remote).await?;
             }
         }
         PunchRole::DualSecond => {
-            let (mut reply, mut request) =
-                tokio::time::timeout(COORD_WAIT, control.accept_control_bi()).await??;
-            if recv_frame(&mut request).await? != CoordFrame::SenderPrimed(round) {
+            let exchange =
+                tokio::time::timeout(COORD_WAIT, control.accept_control_exchange()).await??;
+            let (reply, request) = (&exchange, &exchange);
+            if recv_frame(request).await? != CoordFrame::SenderPrimed(round) {
                 return Err("dual first-prime signal missing or wrong round".into());
             }
-            send_frame(&mut reply, &CoordFrame::SenderPrimedAck(round)).await?;
+            send_frame(reply, &CoordFrame::SenderPrimedAck(round)).await?;
             auto_probe_once(control, gate, evidence, remote).await?;
-            let (mut send, mut recv) =
-                tokio::time::timeout(COORD_WAIT, control.open_control_bi()).await??;
-            send_frame(&mut send, &CoordFrame::ReceiverPrimed(round)).await?;
-            if recv_frame(&mut recv).await? != CoordFrame::ReceiverPrimedAck(round) {
+            let exchange =
+                tokio::time::timeout(COORD_WAIT, control.open_control_exchange()).await??;
+            let (send, recv) = (&exchange, &exchange);
+            send_frame(send, &CoordFrame::ReceiverPrimed(round)).await?;
+            if recv_frame(recv).await? != CoordFrame::ReceiverPrimedAck(round) {
                 return Err("dual second-prime acknowledgment mismatch".into());
             }
         }
@@ -1114,7 +1278,7 @@ async fn probe_window(
 }
 
 async fn run_server(
-    endpoint: Endpoint,
+    endpoint: ProbeEndpoint,
     carrier: Arc<MqttTransport>,
     traffic: Arc<Traffic>,
     gate: Option<AdmissionGate>,
@@ -1124,7 +1288,7 @@ async fn run_server(
     legacy: Option<LegacyResources>,
 ) -> Result<(), Box<dyn Error>> {
     println!("READY id={} route={}", endpoint.id(), carrier.route()?);
-    let control = tokio::time::timeout(WAIT, ControlSession::accept(&endpoint)).await??;
+    let control = tokio::time::timeout(WAIT, endpoint.control(None)).await??;
     if control.remote_id() != peer {
         return Err("unexpected authenticated peer".into());
     }
@@ -1207,19 +1371,19 @@ async fn run_server(
             }
         }
     } else {
-        let (mut reply, mut request) =
-            match tokio::time::timeout(WAIT, control.accept_control_bi()).await {
-                Ok(Ok(streams)) => streams,
-                other => {
-                    println!(
-                        "CONTROL_UNAVAILABLE reason={other:?} mqtt={}",
-                        traffic.report()
-                    );
-                    close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
-                    return Ok(());
-                }
-            };
-        let remote = match read_candidate(&mut request).await {
+        let exchange = match tokio::time::timeout(WAIT, control.accept_control_exchange()).await {
+            Ok(Ok(streams)) => streams,
+            other => {
+                println!(
+                    "CONTROL_UNAVAILABLE reason={other:?} mqtt={}",
+                    traffic.report()
+                );
+                close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
+                return Ok(());
+            }
+        };
+        let (reply, request) = (&exchange, &exchange);
+        let remote = match read_candidate(request).await {
             Ok(remote) => remote,
             Err(error) => {
                 println!(
@@ -1237,8 +1401,12 @@ async fn run_server(
             println!("PROBES_SENT count=1 distinct_targets=1");
         }
         let own_addr = own_candidate.fresh_addr()?;
-        reply.write_all(own_addr.to_string().as_bytes()).await?;
-        reply.finish()?;
+        reply
+            .send_message(
+                ControlMessageFormat::EndTerminated { maximum: 128 },
+                own_addr.to_string().as_bytes(),
+            )
+            .await?;
         println!(
             "CONTROL_FRAME_SENT kind=CANDIDATE bytes={}",
             own_addr.to_string().len()
@@ -1262,7 +1430,7 @@ async fn run_server(
         if coordinated {
             let duplicate = tokio::select! {
                 biased;
-                extra = control.accept_control_bi() => Some(extra),
+                extra = control.accept_control_exchange() => Some(extra),
                 _ = tokio::time::sleep(Duration::from_millis(50)) => None,
             };
             if duplicate.is_some() {
@@ -1343,9 +1511,9 @@ async fn run_server(
         let received = tokio::time::timeout(
             WAIT,
             guarded_control(legacy_attempt.as_ref(), &control, &gate, async {
-                let (send, mut recv) = control.accept_control_bi().await?;
-                let frame = recv_frame(&mut recv).await?;
-                Ok::<_, Box<dyn Error>>((send, frame))
+                let exchange = control.accept_control_exchange().await?;
+                let frame = recv_frame(&exchange).await?;
+                Ok::<_, Box<dyn Error>>((exchange, frame))
             }),
         )
         .await;
@@ -1370,6 +1538,31 @@ async fn run_server(
         None
     };
     println!("PATH_OBSERVED peer={peer} stable_id={stable}");
+    if let Some(attempt) = legacy_attempt.as_ref() {
+        attempt.verify_winner_path(
+            &control,
+            gate.as_ref().ok_or("legacy requires member gate")?,
+        )?;
+    }
+    control.commit_control_path().await?;
+    if let (Some(send), Some(round)) = (promotion_reply.take(), active_round) {
+        if let Err(error) = guarded_control(
+            legacy_attempt.as_ref(),
+            &control,
+            &gate,
+            send_frame(&send, &CoordFrame::Committed(round)),
+        )
+        .await
+        {
+            println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
+            close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
+            return Ok(());
+        }
+        println!(
+            "UDP_COMMIT_ACK round={} stable_id={stable}",
+            round.encoded()
+        );
+    }
     let committed = if let Some(attempt) = legacy_attempt.as_ref() {
         attempt
             .commit_winner_path(control, gate.as_ref().ok_or("legacy requires member gate")?)
@@ -1388,24 +1581,6 @@ async fn run_server(
             return Ok(());
         }
     };
-    if let (Some(mut send), Some(round)) = (promotion_reply.take(), active_round) {
-        if let Err(error) = guarded_data(
-            legacy_attempt.as_ref(),
-            &data,
-            &gate,
-            send_frame(&mut send, &CoordFrame::Committed(round)),
-        )
-        .await
-        {
-            println!("PATH_UNAVAILABLE reason={error} mqtt={}", traffic.report());
-            close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
-            return Ok(());
-        }
-        println!(
-            "UDP_COMMIT_ACK round={} stable_id={stable}",
-            round.encoded()
-        );
-    }
     let before = traffic.sent_packets();
     let business = tokio::time::timeout(
         WAIT,
@@ -1465,7 +1640,7 @@ async fn run_server(
 }
 
 async fn run_client(
-    endpoint: Endpoint,
+    endpoint: ProbeEndpoint,
     traffic: Arc<Traffic>,
     gate: Option<AdmissionGate>,
     peer: PublicKey,
@@ -1477,8 +1652,7 @@ async fn run_client(
 ) -> Result<(), Box<dyn Error>> {
     let target =
         EndpointAddr::new(peer).with_addrs([TransportAddr::Custom(MqttTransport::address(route)?)]);
-    let mut control =
-        tokio::time::timeout(WAIT, ControlSession::connect(&endpoint, target, ALPN)).await??;
+    let mut control = tokio::time::timeout(WAIT, endpoint.control(Some(target))).await??;
     if control.remote_id() != peer {
         return Err("wrong authenticated peer".into());
     }
@@ -1584,14 +1758,18 @@ async fn run_client(
     } else {
         let own_addr = own_candidate.fresh_addr()?;
         match tokio::time::timeout(WAIT, async {
-            let (mut send, mut recv) = control.open_control_bi().await?;
-            send.write_all(own_addr.to_string().as_bytes()).await?;
-            send.finish()?;
+            let exchange = control.open_control_exchange().await?;
+            let (send, recv) = (&exchange, &exchange);
+            send.send_message(
+                ControlMessageFormat::EndTerminated { maximum: 128 },
+                own_addr.to_string().as_bytes(),
+            )
+            .await?;
             println!(
                 "CONTROL_FRAME_SENT kind=CANDIDATE bytes={}",
                 own_addr.to_string().len()
             );
-            let addr = read_candidate(&mut recv).await?;
+            let addr = read_candidate(recv).await?;
             println!(
                 "CONTROL_FRAME_RECEIVED kind=CANDIDATE bytes={}",
                 addr.to_string().len()
@@ -1773,6 +1951,44 @@ async fn run_client(
         close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
         return Ok(());
     }
+    if let Some(attempt) = legacy_attempt.as_ref() {
+        attempt.verify_winner_path(
+            &control,
+            gate.as_ref().ok_or("legacy requires member gate")?,
+        )?;
+    }
+    control.commit_control_path().await?;
+    if let Some(round) = active_round {
+        let promoted = tokio::time::timeout(
+            WAIT,
+            guarded_control(legacy_attempt.as_ref(), &control, &gate, async {
+                let exchange = control.open_control_exchange().await?;
+                let (send, recv) = (&exchange, &exchange);
+                send_frame(send, &CoordFrame::Promoted(round)).await?;
+                let answer = recv_frame(recv).await?;
+                if answer != CoordFrame::Committed(round) {
+                    return Err("NAT3 promotion acknowledgment mismatch".into());
+                }
+                Ok::<_, Box<dyn Error>>(())
+            }),
+        )
+        .await;
+        match promoted {
+            Ok(Ok(())) => {}
+            other => {
+                println!(
+                    "PATH_UNAVAILABLE reason={other:?} mqtt={}",
+                    traffic.report()
+                );
+                close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
+                return Ok(());
+            }
+        }
+        println!(
+            "UDP_COMMIT_ACK round={} stable_id={stable}",
+            round.encoded()
+        );
+    }
     let committed = if let Some(attempt) = legacy_attempt.as_ref() {
         attempt
             .commit_winner_path(control, gate.as_ref().ok_or("legacy requires member gate")?)
@@ -1782,36 +1998,6 @@ async fn run_client(
     };
     match committed {
         Ok(mut data) => {
-            if let Some(round) = active_round {
-                let promoted = tokio::time::timeout(
-                    WAIT,
-                    guarded_data(legacy_attempt.as_ref(), &data, &gate, async {
-                        let (mut send, mut recv) = data.connection().open_bi().await?;
-                        send_frame(&mut send, &CoordFrame::Promoted(round)).await?;
-                        let answer = recv_frame(&mut recv).await?;
-                        if answer != CoordFrame::Committed(round) {
-                            return Err("NAT3 promotion acknowledgment mismatch".into());
-                        }
-                        Ok::<_, Box<dyn Error>>(())
-                    }),
-                )
-                .await;
-                match promoted {
-                    Ok(Ok(())) => {}
-                    other => {
-                        println!(
-                            "PATH_UNAVAILABLE reason={other:?} mqtt={}",
-                            traffic.report()
-                        );
-                        close_failed_lab_attempt(&endpoint, stable, &mut safety).await?;
-                        return Ok(());
-                    }
-                }
-                println!(
-                    "UDP_COMMIT_ACK round={} stable_id={stable}",
-                    round.encoded()
-                );
-            }
             let queued = data
                 .take_pending_business()
                 .pop_front()
@@ -1881,7 +2067,7 @@ async fn run_client(
 /// The normal entry delegates all selection, bounded rounds and physical path
 /// ownership to the node connector. Experiment branches below remain explicit.
 async fn run_formal(
-    endpoint: Endpoint,
+    endpoint: ProbeEndpoint,
     carrier: Arc<MqttTransport>,
     traffic: Arc<Traffic>,
     gate: Option<AdmissionGate>,
@@ -1893,12 +2079,12 @@ async fn run_formal(
     let accepting = mode == "server";
     let control = if accepting {
         println!("READY id={} route={}", endpoint.id(), carrier.route()?);
-        tokio::time::timeout(WAIT, ControlSession::accept(&endpoint)).await??
+        tokio::time::timeout(WAIT, endpoint.control(None)).await??
     } else {
         let route = route.ok_or("client requires control route")?;
         let target = EndpointAddr::new(peer)
             .with_addrs([TransportAddr::Custom(MqttTransport::address(route)?)]);
-        tokio::time::timeout(WAIT, ControlSession::connect(&endpoint, target, ALPN)).await??
+        tokio::time::timeout(WAIT, endpoint.control(Some(target))).await??
     };
     let stable = control.stable_id();
     if control.remote_id() != peer || !member_eligible(&control, &gate) {

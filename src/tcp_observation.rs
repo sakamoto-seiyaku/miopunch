@@ -32,9 +32,35 @@ impl TcpSocketObservation {
     }
 }
 
+pub(crate) trait ObservationEndpoint: Sync {
+    fn udp_network_generation(&self) -> iroh::endpoint::ObservationValidity;
+    fn dns_resolver(&self) -> Result<&iroh::dns::DnsResolver, iroh::endpoint::EndpointError>;
+    fn is_closed(&self) -> bool;
+}
+macro_rules! observation_endpoint {
+    ($ty:ty) => {
+        impl ObservationEndpoint for $ty {
+            fn udp_network_generation(&self) -> iroh::endpoint::ObservationValidity {
+                <$ty>::udp_network_generation(self)
+            }
+            fn dns_resolver(
+                &self,
+            ) -> Result<&iroh::dns::DnsResolver, iroh::endpoint::EndpointError> {
+                <$ty>::dns_resolver(self)
+            }
+            fn is_closed(&self) -> bool {
+                <$ty>::is_closed(self)
+            }
+        }
+    };
+}
+observation_endpoint!(iroh::Endpoint);
+observation_endpoint!(iroh::endpoint::RestrictedEndpoint);
+observation_endpoint!(iroh::endpoint::ControlHandle);
+
 /// Resolve within the transaction bound and preserve the actual listener port.
 pub(crate) async fn observe(
-    endpoint: &iroh::Endpoint,
+    endpoint: &(impl ObservationEndpoint + ?Sized),
     transport: &crate::tcp_transport::TcpTransport,
     observer: &iroh::RelayUrl,
 ) -> io::Result<TcpSocketObservation> {

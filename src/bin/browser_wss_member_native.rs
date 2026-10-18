@@ -30,7 +30,7 @@ fn socket_count() -> Option<usize> {
 fn startup_observation(
     stage: &str,
     phase: &str,
-    endpoint: &iroh::Endpoint,
+    endpoint: &iroh::endpoint::RestrictedEndpoint,
     transport: &MqttTransport,
     traffic: &Traffic,
     started: tokio::time::Instant,
@@ -69,7 +69,7 @@ fn startup_observation(
 
 async fn startup_wait(
     stage: &str,
-    endpoint: &iroh::Endpoint,
+    endpoint: &iroh::endpoint::RestrictedEndpoint,
     transport: &MqttTransport,
     traffic: &Traffic,
     work: impl std::future::Future<Output = Result<(), std::io::Error>>,
@@ -124,7 +124,7 @@ async fn startup_wait(
 struct FixtureCleanup {
     node: Arc<tokio::sync::Mutex<NativeNetwork>>,
     assembly: Arc<miopunch_native_probe::resources::ResourceEndpoint>,
-    endpoint: iroh::Endpoint,
+    endpoint: iroh::endpoint::RestrictedEndpoint,
     transport: Arc<MqttTransport>,
     rtc_transport: miopunch_native_probe::rtc_transport::RtcTransport,
     traffic: Arc<Traffic>,
@@ -323,7 +323,7 @@ impl Drop for OwnedFixtureMember {
 }
 
 async fn serve_member_streams(
-    endpoint: iroh::Endpoint,
+    endpoint: iroh::endpoint::RestrictedEndpoint,
     connection: iroh::endpoint::Connection,
     gate: miopunch_native_probe::admission_gate::AdmissionGate,
     rtc: miopunch_native_probe::rtc_transport::RtcTransport,
@@ -380,7 +380,7 @@ async fn serve_member_streams(
             Err(error) => break Err(error.into()),
         };
         streams.spawn(miopunch_native_probe::rtc_member::serve_stream(
-            endpoint.clone(),
+            endpoint.id(),
             connection.clone(),
             gate.clone(),
             rtc.clone(),

@@ -5,6 +5,7 @@ use std::{error::Error, fs::OpenOptions, io::Write, net::Ipv4Addr, path::Path, s
 use iroh::{EndpointAddr, endpoint::Connection};
 use miopunch_native_probe::{
     admission_gate::{ADMISSION_REQUEST_ALPN, PRECODE_REQUEST_ALPN, ProtocolScope},
+    control_protocol::{AuthenticatedControl, ControlOwner, OwnedControl},
     daily_management::{ManagementAction, ManagementError, ManagementSession},
     genesis_recovery::GenesisCredential,
     management_store::StoreError,
@@ -308,7 +309,7 @@ async fn dispatch(
             } else {
                 ADMISSION_REQUEST_ALPN
             };
-            let connection = resources.connect(invitation.address, alpn).await?;
+            let connection = resources.connect_control(invitation.address, alpn).await?;
             let result = async {
                 let exchange = if let Some(code) = &code {
                     node.request_precode_admission(&connection, code).await?
@@ -509,23 +510,7 @@ async fn serve(
     node: Arc<Mutex<NativeNetwork>>,
 ) -> Result<(), CommandError> {
     let result = async {
-        if matches!(
-            connection.alpn(),
-            ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN
-        ) {
-            let stage = if connection.alpn() == PRECODE_REQUEST_ALPN {
-                node.lock()
-                    .await
-                    .serve_precode_admission(&connection)
-                    .await?
-            } else {
-                node.lock()
-                    .await
-                    .serve_manual_admission(&connection)
-                    .await?
-            };
-            emit(json!({"event": "admission", "stage": format!("{stage:?}")}));
-        } else if connection.alpn() == REPLICA_ALPN {
+        if connection.alpn() == REPLICA_ALPN {
             node.lock().await.serve_replica(&connection).await?;
         } else if connection.alpn() == BUSINESS {
             loop {
@@ -542,6 +527,37 @@ async fn serve(
     .await;
     if result.is_err() {
         connection.close(0u32.into(), b"desktop request failed");
+    }
+    result
+}
+
+async fn serve_control(
+    connection: ControlOwner,
+    node: Arc<Mutex<NativeNetwork>>,
+) -> Result<(), CommandError> {
+    let result = async {
+        let stage = match connection.alpn() {
+            PRECODE_REQUEST_ALPN => {
+                node.lock()
+                    .await
+                    .serve_precode_admission(&connection)
+                    .await?
+            }
+            ADMISSION_REQUEST_ALPN => {
+                node.lock()
+                    .await
+                    .serve_manual_admission(&connection)
+                    .await?
+            }
+            _ => return Err("unsupported control protocol".into()),
+        };
+        emit(json!({"event":"admission","stage":format!("{stage:?}")}));
+        connection.revocation_handle().closed().await;
+        Ok::<_, CommandError>(())
+    }
+    .await;
+    if result.is_err() {
+        connection.close(0u32.into(), b"desktop control request failed");
     }
     result
 }
@@ -595,7 +611,14 @@ pub async fn session(path: &str, bind_ip: Ipv4Addr) -> Result<(), Box<dyn Error>
             incoming = resources.endpoint().accept() => {
                 let Some(incoming) = incoming else { break };
                 let node = node.clone();
-                handlers.spawn(async move { serve(incoming.await?, node).await });
+                handlers.spawn(async move {
+                    let mut accepting=incoming.accept()?;
+                    let alpn=accepting.alpn().await?;
+                    if matches!(alpn.as_slice(),ADMISSION_REQUEST_ALPN|PRECODE_REQUEST_ALPN) {
+                        let control=Arc::new(accepting.into_control().await?);
+                        serve_control(control.retain_control(),node).await
+                    } else {serve(accepting.await?,node).await}
+                });
             },
             Some(result) = handlers.join_next(), if !handlers.is_empty() => {
                 match result {

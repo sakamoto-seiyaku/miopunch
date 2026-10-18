@@ -1420,8 +1420,9 @@ pub enum BindError {
 
 impl EndpointInner {
     /// Recheck the live carrier permission, independently of an earlier probe.
-    pub(crate) fn qualifies_admission_data_path(
+    pub(crate) async fn qualifies_admission_data_path(
         &self,
+        peer: EndpointId,
         connection_id: usize,
         remote: &iroh_base::TransportAddr,
         allowed_custom_ids: &[u64],
@@ -1434,7 +1435,10 @@ impl EndpointInner {
                 .relay_resource_policy
                 .allows(url, crate::endpoint::RelayResourceUse::DataRelay),
             TransportAddr::Custom(address) => {
-                allowed_custom_ids.contains(&address.id())
+                (allowed_custom_ids.contains(&address.id())
+                    || self
+                        .retained_control_data_path_is_current(peer, connection_id, address.clone())
+                        .await)
                     && self
                         .static_config
                         .relay_resource_policy
@@ -1649,6 +1653,30 @@ impl EndpointInner {
         rx.await
             .map_err(|_| io::Error::other("remote state stopped"))?
             .map_err(io::Error::other)
+    }
+
+    async fn retained_control_data_path_is_current(
+        &self,
+        peer: EndpointId,
+        conn_id: usize,
+        remote: iroh_base::CustomAddr,
+    ) -> bool {
+        let (tx, rx) = oneshot::channel();
+        if self
+            .sock
+            .try_send_remote_state_msg(
+                peer,
+                RemoteStateMessage::HasRetainedControlDataPath {
+                    conn_id,
+                    remote,
+                    tx,
+                },
+            )
+            .is_err()
+        {
+            return false;
+        }
+        rx.await.unwrap_or(false)
     }
 
     #[cfg(feature = "miopunch-test-hooks")]

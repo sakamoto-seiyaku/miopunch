@@ -1,58 +1,17 @@
 //! Private relay candidate preparation for the common coordinator.
 use crate::admission_gate::AdmissionGate;
-use iroh::{
-    Endpoint, TransportAddr,
-    endpoint::{Connection, EndpointHooks},
-};
-use std::{fmt, io, time::Duration};
-
-/// Preserve direct TCP release for separately registered purposes. Their
-/// permissions stay separate; this hook performs no capability or RTC wire.
-pub(crate) struct ExistingMemberDataRelease {
-    gate: AdmissionGate,
-    tcp: Option<crate::tcp_punch::TcpPunch>,
-}
-impl fmt::Debug for ExistingMemberDataRelease {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("ExistingMemberDataRelease")
-            .finish_non_exhaustive()
-    }
-}
-impl ExistingMemberDataRelease {
-    pub(crate) fn new(gate: AdmissionGate, tcp: Option<crate::tcp_punch::TcpPunch>) -> Self {
-        Self { gate, tcp }
-    }
-}
-impl EndpointHooks for ExistingMemberDataRelease {
-    async fn before_data_release(
-        &self,
-        endpoint: &Endpoint,
-        connection: &Connection,
-    ) -> io::Result<()> {
-        if crate::connection_coordinator::SessionPurpose::from_alpn(connection.alpn()).is_some() {
-            return Ok(());
-        }
-        crate::connection_coordinator::release_existing_data(
-            endpoint,
-            connection,
-            self.tcp.as_ref(),
-            &self.gate,
-        )
-        .await
-    }
-}
+use iroh::TransportAddr;
+use std::{io, time::Duration};
 
 fn debug_relay_check(
-    endpoint: &Endpoint,
-    connection: &Connection,
+    connection: &iroh::endpoint::ControlHandle,
     gate: &AdmissionGate,
     resources: &crate::resources::ResourceConfig,
     phase: &str,
     mut details: serde_json::Value,
 ) {
     use n0_watcher::Watcher;
-    let home = endpoint.home_relay_status().get();
+    let home = connection.home_relay_status().get();
     let paths = connection.paths();
     let selected = paths.iter().find(|path| path.is_selected());
     let selected_kind = match selected.as_ref().map(|path| path.remote_addr()) {
@@ -80,7 +39,7 @@ fn debug_relay_check(
             .ok()
             .map(|map| map.urls::<Vec<_>>().len())
     );
-    details["localPublishedCount"] = serde_json::json!(endpoint.addr().relay_urls().count());
+    details["localPublishedCount"] = serde_json::json!(connection.addr().relay_urls().count());
     details["localConnectedCount"] =
         serde_json::json!(home.iter().filter(|status| status.is_connected()).count());
     details["localRelayErrorCount"] = serde_json::json!(
@@ -100,7 +59,7 @@ fn debug_relay_check(
 }
 
 fn relay_probe_debug_details(
-    connection: &Connection,
+    connection: &iroh::endpoint::ControlHandle,
     exact_path: Option<&str>,
     elapsed_ms: u128,
     stage_remaining_ms: Option<u128>,
@@ -145,9 +104,8 @@ fn relay_probe_debug_details(
     details
 }
 
-pub(crate) async fn prepare_relay(
-    endpoint: &Endpoint,
-    connection: &Connection,
+pub(crate) async fn prepare_relay_control(
+    connection: &iroh::endpoint::ControlHandle,
     gate: &AdmissionGate,
     resources: &crate::resources::ResourceConfig,
 ) -> io::Result<()> {
@@ -161,16 +119,9 @@ pub(crate) async fn prepare_relay(
             Ok(())
         }
     };
-    debug_relay_check(
-        endpoint,
-        connection,
-        gate,
-        resources,
-        "entry",
-        serde_json::json!({}),
-    );
+    debug_relay_check(connection, gate, resources, "entry", serde_json::json!({}));
     check()?;
-    let local: Vec<_> = endpoint
+    let local: Vec<_> = connection
         .addr()
         .relay_urls()
         .filter(|url| resources.allows(url.as_str(), crate::resources::ResourceUse::DataRelay))
@@ -179,7 +130,6 @@ pub(crate) async fn prepare_relay(
         .collect();
     let local_snapshot_count = local.len();
     debug_relay_check(
-        endpoint,
         connection,
         gate,
         resources,
@@ -188,7 +138,6 @@ pub(crate) async fn prepare_relay(
     );
     let exchange = crate::member_path_protocol::RelayValidation::begin(connection, local).await?;
     debug_relay_check(
-        endpoint,
         connection,
         gate,
         resources,
@@ -212,7 +161,7 @@ pub(crate) async fn prepare_relay(
             loop {
                 check()?;
                 if connection.side().is_client() {
-                    match endpoint.open_control_relay_path(connection, remote.clone()).await {
+                    match connection.open_control_relay_path(remote.clone()).await {
                         Ok(()) => {},
                         Err(error) if error.kind() == io::ErrorKind::WouldBlock => {},
                         Err(error) => return Err(error),
@@ -225,7 +174,7 @@ pub(crate) async fn prepare_relay(
                         let mut details=relay_probe_debug_details(connection,Some(&path.id().to_string()),started.elapsed().as_millis(),Some(deadline.saturating_duration_since(tokio::time::Instant::now()).as_millis()),started_utc_ms);
                         details["freshProbeIssued"]=serde_json::json!(true);
                         details["probeWatermark"]=serde_json::json!(probe.watermark());
-                        debug_relay_check(endpoint, connection, gate, resources, "probe-start", details);
+                        debug_relay_check(connection, gate, resources, "probe-start", details);
                         fresh = Some((path.id().to_string(), probe, started.elapsed().as_millis()));
                     }
                     let (path_id, probe, probe_started) = fresh.as_ref().unwrap();
@@ -234,14 +183,14 @@ pub(crate) async fn prepare_relay(
                         let mut details=relay_probe_debug_details(connection,Some(path_id),started.elapsed().as_millis(),Some(deadline.saturating_duration_since(tokio::time::Instant::now()).as_millis()),started_utc_ms);
                         details["freshAck"]=serde_json::json!(true);
                         details["probeWatermark"]=serde_json::json!(probe.watermark());
-                        debug_relay_check(endpoint, connection, gate, resources, "probe-ack", details);
+                        debug_relay_check(connection, gate, resources, "probe-ack", details);
                         return Ok(serde_json::json!({"pathId":path_id,"freshProbeStartedMs":probe_started,"freshAckMs":started.elapsed().as_millis(),"probeWatermark":probe.watermark(),"freshAck":true}));
                     }
                 }
                 if samples.get(sampled).is_some_and(|seconds| started.elapsed()>=Duration::from_secs(*seconds)) {
                     let mut details=relay_probe_debug_details(connection,fresh.as_ref().map(|(path_id,_,_)|path_id.as_str()),started.elapsed().as_millis(),Some(deadline.saturating_duration_since(tokio::time::Instant::now()).as_millis()),started_utc_ms);
                     if let Some((_,probe,_))=fresh.as_ref() { details["probeWatermark"]=serde_json::json!(probe.watermark()); details["freshAck"]=serde_json::json!(probe.is_acknowledged().ok()); }
-                    debug_relay_check(endpoint, connection, gate, resources, "probe-progress", details);
+                    debug_relay_check(connection, gate, resources, "probe-progress", details);
                     sampled+=1;
                 }
                 if tokio::time::Instant::now() >= deadline { return Err(io::Error::new(io::ErrorKind::TimedOut, "relay data validation timed out")); }
@@ -249,7 +198,6 @@ pub(crate) async fn prepare_relay(
             }
         }.await;
     debug_relay_check(
-        endpoint,
         connection,
         gate,
         resources,
@@ -265,7 +213,6 @@ pub(crate) async fn prepare_relay(
     let observation = validation.as_ref().ok().cloned();
     let finished = exchange.finish(connection, validation.map(|_| ())).await;
     debug_relay_check(
-        endpoint,
         connection,
         gate,
         resources,

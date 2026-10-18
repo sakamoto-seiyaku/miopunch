@@ -280,7 +280,7 @@ impl NetworkMigration {
         let result = async {
             let connection = tokio::time::timeout(
                 Duration::from_secs(15),
-                endpoint.connect(address, ADMISSION_REQUEST_ALPN),
+                endpoint.connect_control(address, ADMISSION_REQUEST_ALPN),
             )
             .await
             .map_err(|_| MigrationError::Path)?

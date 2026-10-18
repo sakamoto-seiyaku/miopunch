@@ -116,6 +116,13 @@ impl MappingSnapshot {
     /// Missing classification evidence still permits the legacy basic attempt
     /// at an observed candidate. No candidate means an explicitly disabled plan.
     pub fn fallback(endpoint: &iroh::Endpoint, observation: UdpObservation) -> io::Result<Self> {
+        Self::fallback_generation(endpoint.udp_network_generation(), observation)
+    }
+    /// Construct candidate-only evidence from a captured physical network epoch.
+    pub fn fallback_generation(
+        generation: ObservationValidity,
+        observation: UdpObservation,
+    ) -> io::Result<Self> {
         if matches!(
             observation,
             UdpObservation::Failed(UdpObservationFailure::NetworkChanged)
@@ -139,9 +146,7 @@ impl MappingSnapshot {
         wire.validate()?;
         Ok(Self {
             wire,
-            validity: Validity::Fallback {
-                generation: endpoint.udp_network_generation(),
-            },
+            validity: Validity::Fallback { generation },
             observed_at: Instant::now(),
         })
     }
@@ -335,33 +340,35 @@ fn check_scope(
     Ok(())
 }
 
-async fn send(send: &mut iroh::endpoint::SendStream, frame: Frame) -> io::Result<()> {
+async fn send(exchange: &iroh::endpoint::ControlExchange, frame: Frame) -> io::Result<()> {
     let bytes = serde_json::to_vec(&frame).map_err(io::Error::other)?;
-    if bytes.len() > FRAME_LIMIT {
-        return Err(invalid("NAT plan frame too large"));
-    }
-    tokio::time::timeout(EXCHANGE_WAIT, send.write_all(&bytes))
-        .await
-        .map_err(io::Error::other)?
-        .map_err(io::Error::other)?;
-    send.finish().map_err(io::Error::other)
+    tokio::time::timeout(
+        EXCHANGE_WAIT,
+        exchange.send_message(
+            iroh::endpoint::ControlMessageFormat::EndTerminated {
+                maximum: FRAME_LIMIT,
+            },
+            &bytes,
+        ),
+    )
+    .await
+    .map_err(io::Error::other)?
 }
-
-async fn receive(recv: &mut iroh::endpoint::RecvStream) -> io::Result<Frame> {
-    let bytes = tokio::time::timeout(EXCHANGE_WAIT, recv.read_to_end(FRAME_LIMIT))
-        .await
-        .map_err(io::Error::other)?
-        .map_err(io::Error::other)?;
+async fn receive(exchange: &iroh::endpoint::ControlExchange) -> io::Result<Frame> {
+    let bytes = tokio::time::timeout(
+        EXCHANGE_WAIT,
+        exchange.recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated {
+            maximum: FRAME_LIMIT,
+        }),
+    )
+    .await
+    .map_err(io::Error::other)??;
     serde_json::from_slice(&bytes).map_err(io::Error::other)
 }
-
-async fn open(
-    control: &ControlSession,
-) -> io::Result<(iroh::endpoint::SendStream, iroh::endpoint::RecvStream)> {
-    tokio::time::timeout(EXCHANGE_WAIT, control.open_control_bi())
+async fn open(control: &ControlSession) -> io::Result<iroh::endpoint::ControlExchange> {
+    tokio::time::timeout(EXCHANGE_WAIT, control.open_control_exchange())
         .await
         .map_err(io::Error::other)?
-        .map_err(io::Error::other)
 }
 
 /// The exact original connection, round and scope remain attached to the
@@ -394,11 +401,11 @@ pub async fn coordinate_server(
 ) -> io::Result<Attempt> {
     let scope = current_scope(control, gate)?;
     check_scope(control, gate, &scope, snapshot)?;
-    let (mut reply, mut request) = tokio::time::timeout(EXCHANGE_WAIT, control.accept_control_bi())
+    let exchange = tokio::time::timeout(EXCHANGE_WAIT, control.accept_control_exchange())
         .await
         .map_err(io::Error::other)?
         .map_err(io::Error::other)?;
-    match receive(&mut request).await? {
+    match receive(&exchange).await? {
         Frame::Hello {
             network,
             generation,
@@ -408,7 +415,7 @@ pub async fn coordinate_server(
     let round = Round::fresh();
     check_scope(control, gate, &scope, snapshot)?;
     send(
-        &mut reply,
+        &exchange,
         Frame::Challenge {
             network: scope.network,
             generation: scope.secret_generation,
@@ -416,14 +423,14 @@ pub async fn coordinate_server(
         },
     )
     .await?;
-    let (mut reply, mut request) = tokio::time::timeout(EXCHANGE_WAIT, control.accept_control_bi())
+    let exchange = tokio::time::timeout(EXCHANGE_WAIT, control.accept_control_exchange())
         .await
         .map_err(io::Error::other)?
         .map_err(io::Error::other)?;
     let Frame::Offer {
         round: offered,
         snapshot: remote,
-    } = receive(&mut request).await?
+    } = receive(&exchange).await?
     else {
         return Err(invalid("mapping offer required"));
     };
@@ -459,7 +466,7 @@ pub async fn coordinate_server(
         &remote,
     );
     send(
-        &mut reply,
+        &exchange,
         Frame::Plan {
             round,
             snapshot: snapshot.wire.clone(),
@@ -467,23 +474,22 @@ pub async fn coordinate_server(
         },
     )
     .await?;
-    let (mut reply, mut request) = tokio::time::timeout(EXCHANGE_WAIT, control.accept_control_bi())
+    let exchange = tokio::time::timeout(EXCHANGE_WAIT, control.accept_control_exchange())
         .await
         .map_err(io::Error::other)?
         .map_err(io::Error::other)?;
-    if !matches!(receive(&mut request).await?,Frame::Start {round:started} if started == round) {
+    if !matches!(receive(&exchange).await?,Frame::Start {round:started} if started == round) {
         return Err(invalid("old or cancelled NAT start"));
     }
     check_scope(control, gate, &scope, snapshot)?;
-    send(&mut reply, Frame::Ack { round }).await?;
+    send(&exchange, Frame::Ack { round }).await?;
     // The visitor has checked the final scope and received the plan before an
     // unavailable executor can close the coordinator's connection.
-    let (_, mut request) = tokio::time::timeout(EXCHANGE_WAIT, control.accept_control_bi())
+    let exchange = tokio::time::timeout(EXCHANGE_WAIT, control.accept_control_exchange())
         .await
         .map_err(io::Error::other)?
         .map_err(io::Error::other)?;
-    if !matches!(receive(&mut request).await?,Frame::Established {round:received} if received==round)
-    {
+    if !matches!(receive(&exchange).await?,Frame::Established {round:received} if received==round) {
         return Err(invalid("NAT plan receipt mismatch"));
     }
     check_scope(control, gate, &scope, snapshot)?;
@@ -514,9 +520,9 @@ pub async fn coordinate_client(
 ) -> io::Result<Attempt> {
     let scope = current_scope(control, gate)?;
     check_scope(control, gate, &scope, snapshot)?;
-    let (mut send_stream, mut recv) = open(control).await?;
+    let exchange = open(control).await?;
     send(
-        &mut send_stream,
+        &exchange,
         Frame::Hello {
             network: scope.network,
             generation: scope.secret_generation,
@@ -527,7 +533,7 @@ pub async fn coordinate_client(
         network,
         generation,
         round,
-    } = receive(&mut recv).await?
+    } = receive(&exchange).await?
     else {
         return Err(invalid("NAT challenge required"));
     };
@@ -535,10 +541,10 @@ pub async fn coordinate_client(
         return Err(invalid("wrong NAT challenge scope"));
     }
     check_scope(control, gate, &scope, snapshot)?;
-    let (mut send_stream, mut recv) = open(control).await?;
+    let exchange = open(control).await?;
     check_scope(control, gate, &scope, snapshot)?;
     send(
-        &mut send_stream,
+        &exchange,
         Frame::Offer {
             round,
             snapshot: snapshot.wire.clone(),
@@ -549,7 +555,7 @@ pub async fn coordinate_client(
         round: planned,
         snapshot: remote,
         plan,
-    } = receive(&mut recv).await?
+    } = receive(&exchange).await?
     else {
         return Err(invalid("NAT plan required"));
     };
@@ -592,14 +598,14 @@ pub async fn coordinate_client(
         }
     }
     check_scope(control, gate, &scope, snapshot)?;
-    let (mut send_stream, mut recv) = open(control).await?;
-    send(&mut send_stream, Frame::Start { round }).await?;
-    if !matches!(receive(&mut recv).await?,Frame::Ack {round:acked} if acked == round) {
+    let exchange = open(control).await?;
+    send(&exchange, Frame::Start { round }).await?;
+    if !matches!(receive(&exchange).await?,Frame::Ack {round:acked} if acked == round) {
         return Err(invalid("NAT ack mismatch"));
     }
     check_scope(control, gate, &scope, snapshot)?;
-    let (mut send_stream, _) = open(control).await?;
-    send(&mut send_stream, Frame::Established { round }).await?;
+    let exchange = open(control).await?;
+    send(&exchange, Frame::Established { round }).await?;
     Ok(Attempt {
         round,
         local: plan.v,
@@ -679,16 +685,16 @@ impl Attempt {
         gate: &AdmissionGate,
     ) -> io::Result<()> {
         let exchange = async {
-            let (mut send_stream, mut receive_stream) = open(control).await?;
-            send(&mut send_stream, Frame::WinnerReady { round: self.round }).await?;
-            let (mut reply, mut request) = control.accept_control_bi().await?;
-            if !matches!(receive(&mut request).await?, Frame::WinnerReady { round } if round == self.round)
+            let outgoing = open(control).await?;
+            send(&outgoing, Frame::WinnerReady { round: self.round }).await?;
+            let incoming = control.accept_control_exchange().await?;
+            if !matches!(receive(&incoming).await?, Frame::WinnerReady { round } if round == self.round)
             {
                 return Err(invalid("wrong NAT winner handoff round"));
             }
             self.path_wait_remaining(control, gate)?;
-            send(&mut reply, Frame::WinnerReadyAck { round: self.round }).await?;
-            if !matches!(receive(&mut receive_stream).await?, Frame::WinnerReadyAck { round } if round == self.round)
+            send(&incoming, Frame::WinnerReadyAck { round: self.round }).await?;
+            if !matches!(receive(&outgoing).await?, Frame::WinnerReadyAck { round } if round == self.round)
             {
                 return Err(invalid("wrong NAT winner handoff acknowledgement"));
             }
@@ -825,12 +831,19 @@ impl Attempt {
         data: &DataSession,
         gate: &AdmissionGate,
     ) -> io::Result<Duration> {
+        self.data_wait_remaining_on(data.connection(), gate)
+    }
+    fn data_wait_remaining_on(
+        &self,
+        connection: &(impl crate::control_protocol::AuthenticatedControl + ?Sized),
+        gate: &AdmissionGate,
+    ) -> io::Result<Duration> {
         let current = !self.finished && self.feedback_ready
-            && gate.nat_learning_scope(data.connection()) == Some(self.scope.clone())
+            && gate.nat_learning_scope(connection) == Some(self.scope.clone())
             && self.snapshot.is_current()
-            && data.connection().close_reason().is_none()
-            && data.connection().stable_id() == self.connection_id
-            && data.connection().paths().iter().any(|path| path.is_selected()
+            && connection.close_reason().is_none()
+            && connection.stable_id() == self.connection_id
+            && connection.paths().iter().any(|path| path.is_selected()
                 && path.local_socket_id() == self.local_winner.map(|local| local.id)
                 && matches!(path.remote_addr(), iroh_base::TransportAddr::Ip(addr) if Some(*addr) == self.remote_target));
         if !current {
@@ -1130,6 +1143,20 @@ impl Attempt {
         self.data_wait_remaining(data, gate)?;
         if let Some(lease) = self.winner_lease.as_mut() {
             lease.commit(data.connection())?;
+        }
+        self.finished = true;
+        self.recommendation = None;
+        Ok(())
+    }
+
+    pub(crate) fn retain_control_path(
+        &mut self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+    ) -> io::Result<()> {
+        self.data_wait_remaining_on(&control.scope_connection(), gate)?;
+        if let Some(lease) = self.winner_lease.as_mut() {
+            control.retain_udp_winner(lease)?;
         }
         self.finished = true;
         self.recommendation = None;

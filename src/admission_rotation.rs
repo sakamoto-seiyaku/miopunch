@@ -5,7 +5,8 @@ use std::fs;
 use std::path::Path;
 use std::time::Duration;
 
-use iroh::endpoint::{Connection, RecvStream, SendStream};
+use crate::control_protocol::AuthenticatedControl;
+use iroh::endpoint::{ControlExchange, ControlMessageFormat};
 use p2panda_core::{Hash, Signature, SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
@@ -672,7 +673,10 @@ impl NativeNetwork {
         )
     }
 
-    fn rotation_connection(&self, connection: &Connection) -> Result<(), RotationError> {
+    fn rotation_connection(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> Result<(), RotationError> {
         let allowed = if connection.alpn() == ADMISSION_ROTATION_ALPN {
             self.gate.allows(connection, ProtocolScope::Rotation)
         } else if connection.alpn() == ROTATION_DELIVERY_ALPN {
@@ -804,7 +808,7 @@ impl NativeNetwork {
     /// an acknowledgement before its own SQLite commit.
     pub async fn distribute_admission_rotation(
         &mut self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<RotationProgress, RotationError> {
         let result = tokio::time::timeout(TIMEOUT, self.distribute_rotation_inner(connection))
             .await
@@ -817,7 +821,7 @@ impl NativeNetwork {
 
     async fn distribute_rotation_inner(
         &mut self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<RotationProgress, RotationError> {
         self.rotation_connection(connection)?;
         self.store.apply_ready().await?;
@@ -846,8 +850,8 @@ impl NativeNetwork {
         {
             return Err(RotationError::Rejected);
         }
-        let (mut send, mut recv) = connection
-            .open_bi()
+        let exchange = connection
+            .open_control_exchange()
             .await
             .map_err(|_| RotationError::PathUnavailable)?;
         let mut _root_session = None;
@@ -858,9 +862,7 @@ impl NativeNetwork {
             let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())
                 .map_err(|_| RotationError::Rejected)?;
             let profile = self.pending_rotation_profile(peer).await?;
-            send.write_all(&[profile])
-                .await
-                .map_err(|_| RotationError::PathUnavailable)?;
+            write_fixed(&exchange, &[profile]).await?;
             if profile == 2 {
                 _root_session = Some(
                     crate::genesis_recovery::SessionGuard::begin(connection)
@@ -875,9 +877,7 @@ impl NativeNetwork {
                 )
                 .map_err(|_| RotationError::Rejected)?;
                 let mut signature = [0; 64];
-                recv.read_exact(&mut signature)
-                    .await
-                    .map_err(|_| RotationError::PathUnavailable)?;
+                read_fixed(&exchange, &mut signature).await?;
                 let root_valid = self
                     .anchor
                     .root
@@ -896,7 +896,7 @@ impl NativeNetwork {
             .map(|r| (r.header().to_vec(), r.body().map(<[u8]>::to_vec)))
             .collect();
         write_frame(
-            &mut send,
+            &exchange,
             &encode(&(
                 rotation.signed.clone(),
                 rotation.completion.clone(),
@@ -910,10 +910,8 @@ impl NativeNetwork {
         if rotation.completion.is_none() {
             self.rotation_connection(connection)?;
             let secret = staged_material(&self.directory, &rotation)?;
-            send.write_all(secret.saved_bytes())
-                .await
-                .map_err(|_| RotationError::PathUnavailable)?;
-            let (ack, forwarded): (Signed, Vec<Signed>) = decode(&read_frame(&mut recv).await?)?;
+            write_fixed(&exchange, secret.saved_bytes()).await?;
+            let (ack, forwarded): (Signed, Vec<Signed>) = decode(&read_frame(&exchange).await?)?;
             #[cfg(feature = "replica-test-hooks")]
             self.store.observe(
                 crate::management_store::RecordCheckpoint::RotationAcknowledgementReceived,
@@ -945,21 +943,18 @@ impl NativeNetwork {
                 .observe(crate::management_store::RecordCheckpoint::RotationAcknowledgementSaved);
         } else {
             let mut ack = [0; 4];
-            recv.read_exact(&mut ack)
-                .await
-                .map_err(|_| RotationError::PathUnavailable)?;
+            read_fixed(&exchange, &mut ack).await?;
             if &ack != b"DONE" {
                 return Err(RotationError::Rejected);
             }
         }
-        send.write_all(b"SAVE")
+        write_fixed(&exchange, b"SAVE").await?;
+        exchange
+            .finish_send()
             .await
             .map_err(|_| RotationError::PathUnavailable)?;
-        send.finish().map_err(|_| RotationError::PathUnavailable)?;
         let mut received = [0; 4];
-        recv.read_exact(&mut received)
-            .await
-            .map_err(|_| RotationError::PathUnavailable)?;
+        read_fixed(&exchange, &mut received).await?;
         if &received != b"RCVD" {
             return Err(RotationError::Rejected);
         }
@@ -970,7 +965,7 @@ impl NativeNetwork {
 
     pub async fn receive_admission_rotation(
         &mut self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<RotationProgress, RotationError> {
         self.receive_rotation_exchange(connection, ReceiptMode::Normal)
             .await
@@ -979,7 +974,7 @@ impl NativeNetwork {
     #[cfg(feature = "replica-test-hooks")]
     pub async fn receive_admission_rotation_fixture(
         &mut self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         fault: RotationAckFault,
     ) -> Result<RotationProgress, RotationError> {
         self.receive_rotation_exchange(connection, ReceiptMode::Fault(fault))
@@ -988,7 +983,7 @@ impl NativeNetwork {
 
     async fn receive_rotation_exchange(
         &mut self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         mode: ReceiptMode,
     ) -> Result<RotationProgress, RotationError> {
         let result = tokio::time::timeout(TIMEOUT, self.receive_rotation_inner(connection, mode))
@@ -1002,20 +997,18 @@ impl NativeNetwork {
 
     async fn receive_rotation_inner(
         &mut self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         mode: ReceiptMode,
     ) -> Result<RotationProgress, RotationError> {
         self.rotation_connection(connection)?;
-        let (mut send, mut recv) = connection
-            .accept_bi()
+        let exchange = connection
+            .accept_control_exchange()
             .await
             .map_err(|_| RotationError::PathUnavailable)?;
         let mut _root_session = None;
         if connection.alpn() == ROTATION_DELIVERY_ALPN {
             let mut profile = [0];
-            recv.read_exact(&mut profile)
-                .await
-                .map_err(|_| RotationError::PathUnavailable)?;
+            read_fixed(&exchange, &mut profile).await?;
             match profile[0] {
                 1 if self.join.is_some_and(|binding| {
                     binding.invitation.contact == connection.remote_id()
@@ -1037,9 +1030,7 @@ impl NativeNetwork {
                         connection.remote_id(),
                     )
                     .map_err(|_| RotationError::Rejected)?;
-                    send.write_all(&credential.root.sign(&statement).to_bytes())
-                        .await
-                        .map_err(|_| RotationError::PathUnavailable)?;
+                    write_fixed(&exchange, &credential.root.sign(&statement).to_bytes()).await?;
                 }
                 _ => return Err(RotationError::Rejected),
             }
@@ -1050,7 +1041,7 @@ impl NativeNetwork {
             Option<Signed>,
             WireHistory,
             Option<(Signed, Signed)>,
-        ) = decode(&read_frame(&mut recv).await?)?;
+        ) = decode(&read_frame(&exchange).await?)?;
         let proposal = verify_proposal(&self.store, &signed)?;
         if !proposal
             .retained
@@ -1130,9 +1121,7 @@ impl NativeNetwork {
             // with no acknowledgement, rather than resuming admission early.
             self.store.save_rotation(&signed).await?;
             let mut bytes = [0; 32];
-            recv.read_exact(&mut bytes)
-                .await
-                .map_err(|_| RotationError::PathUnavailable)?;
+            read_fixed(&exchange, &mut bytes).await?;
             #[cfg(feature = "replica-test-hooks")]
             self.store
                 .observe(crate::management_store::RecordCheckpoint::RotationSecretReceived);
@@ -1224,7 +1213,7 @@ impl NativeNetwork {
             } else {
                 forwarded
             };
-            write_frame(&mut send, &encode(&(wire_ack, forwarded))?).await?;
+            write_frame(&exchange, &encode(&(wire_ack, forwarded))?).await?;
             #[cfg(feature = "replica-test-hooks")]
             self.store
                 .observe(crate::management_store::RecordCheckpoint::RotationAcknowledgementSent);
@@ -1250,23 +1239,20 @@ impl NativeNetwork {
                 .await?
                 .ok_or(RotationError::Rejected)?;
             self.activate_rotation(&saved).await?;
-            send.write_all(b"DONE")
-                .await
-                .map_err(|_| RotationError::PathUnavailable)?;
+            write_fixed(&exchange, b"DONE").await?;
         }
         let mut saved = [0; 4];
-        recv.read_exact(&mut saved)
-            .await
-            .map_err(|_| RotationError::PathUnavailable)?;
+        read_fixed(&exchange, &mut saved).await?;
         if &saved != b"SAVE" {
             return Err(RotationError::Rejected);
         }
-        send.write_all(b"RCVD")
+        write_fixed(&exchange, b"RCVD").await?;
+        exchange
+            .finish_send()
             .await
             .map_err(|_| RotationError::PathUnavailable)?;
-        send.finish().map_err(|_| RotationError::PathUnavailable)?;
         if _root_session.is_some() {
-            let _ = connection.closed().await;
+            let _ = connection.revocation_handle().closed().await;
         }
         self.rotation_progress()
             .await?
@@ -1274,30 +1260,49 @@ impl NativeNetwork {
     }
 }
 
-async fn write_frame(send: &mut SendStream, bytes: &[u8]) -> Result<(), RotationError> {
-    if bytes.len() > MAX_FRAME {
-        return Err(RotationError::Rejected);
-    }
-    send.write_all(&(bytes.len() as u32).to_be_bytes())
-        .await
-        .map_err(|_| RotationError::PathUnavailable)?;
-    send.write_all(bytes)
+async fn write_fixed(exchange: &ControlExchange, bytes: &[u8]) -> Result<(), RotationError> {
+    exchange
+        .send_message(
+            ControlMessageFormat::Fixed {
+                length: bytes.len(),
+            },
+            bytes,
+        )
         .await
         .map_err(|_| RotationError::PathUnavailable)
 }
-
-async fn read_frame(recv: &mut RecvStream) -> Result<Vec<u8>, RotationError> {
-    let mut length = [0; 4];
-    recv.read_exact(&mut length)
+async fn read_fixed<const N: usize>(
+    exchange: &ControlExchange,
+    bytes: &mut [u8; N],
+) -> Result<(), RotationError> {
+    let message = exchange
+        .recv_message(ControlMessageFormat::Fixed { length: N })
         .await
         .map_err(|_| RotationError::PathUnavailable)?;
-    let length = u32::from_be_bytes(length) as usize;
-    if length > MAX_FRAME {
+    bytes.copy_from_slice(&message);
+    Ok(())
+}
+async fn write_frame(exchange: &ControlExchange, bytes: &[u8]) -> Result<(), RotationError> {
+    if bytes.len() > MAX_FRAME {
         return Err(RotationError::Rejected);
     }
-    let mut bytes = vec![0; length];
-    recv.read_exact(&mut bytes)
+    exchange
+        .send_message(
+            ControlMessageFormat::LengthPrefixed32 { maximum: MAX_FRAME },
+            bytes,
+        )
         .await
-        .map_err(|_| RotationError::PathUnavailable)?;
-    Ok(bytes)
+        .map_err(|_| RotationError::PathUnavailable)
+}
+async fn read_frame(exchange: &ControlExchange) -> Result<Vec<u8>, RotationError> {
+    exchange
+        .recv_message(ControlMessageFormat::LengthPrefixed32 { maximum: MAX_FRAME })
+        .await
+        .map_err(|error| {
+            if error.kind() == std::io::ErrorKind::InvalidData {
+                RotationError::Rejected
+            } else {
+                RotationError::PathUnavailable
+            }
+        })
 }

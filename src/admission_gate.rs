@@ -9,12 +9,13 @@ use std::sync::{
 };
 
 use iroh::endpoint::{
-    AfterHandshakeOutcome, BeforeConnectOutcome, Builder, Connection, EndpointHooks,
-    WeakConnectionHandle,
+    BeforeConnectOutcome, Builder, Connection, ControlMessageFormat, WeakConnectionHandle,
+    WeakControlConnection,
 };
 use iroh_base::EndpointId;
 
 use crate::admission_proof::{AdmissionScope, AdmissionSecret, BootstrapProof};
+use crate::control_protocol::AuthenticatedControl;
 use crate::genesis_recovery::RECOVERY_ALPN;
 use crate::member_bootstrap::MEMBER_BOOTSTRAP_ALPN;
 use crate::nat_selector::{LearningScope, ProbeProtocol};
@@ -43,10 +44,12 @@ pub enum ProtocolScope {
 
 #[derive(Debug)]
 struct Session {
-    connection: WeakConnectionHandle,
+    connection: WeakControlConnection,
+    business: Option<WeakConnectionHandle>,
     marker: Arc<()>,
     peer: [u8; 32],
     scope: ProtocolScope,
+    alpn: Vec<u8>,
     proof: Option<Arc<BootstrapProof>>,
 }
 
@@ -54,19 +57,14 @@ impl Drop for Session {
     fn drop(&mut self) {
         // Exceptions have no BootstrapProof to close them. A newly verified
         // removal must terminate their existing restricted streams as well.
-        if let Some(connection) = self.connection.upgrade() {
-            connection.close(0u32.into(), b"admission session ended");
-        }
+        self.connection
+            .close(0u32.into(), b"admission session ended");
     }
 }
 
 impl Session {
     fn valid(&self, policy: &Policy) -> bool {
-        if !self
-            .connection
-            .upgrade()
-            .is_some_and(|connection| connection.close_reason().is_none())
-        {
+        if !self.connection.is_open() {
             return false;
         }
         match self.scope {
@@ -234,10 +232,10 @@ impl AdmissionGate {
         state.lifecycle_protocols = protocols;
         let allowed = state.lifecycle_protocols.clone();
         state.sessions.retain(|_, session| {
-            session
-                .connection
-                .upgrade()
-                .is_some_and(|c| allowed.as_ref().is_none_or(|set| set.contains(c.alpn())))
+            session.connection.is_open()
+                && allowed
+                    .as_ref()
+                    .is_none_or(|set| set.contains(session.alpn.as_slice()))
         });
     }
 
@@ -292,14 +290,19 @@ impl AdmissionGate {
         }
     }
 
-    /// Installs the gate at the shared iroh Endpoint. This disables 0-RTT and
-    /// withholds automatic QNT candidates before the hook grants normal scope.
-    pub fn configure(&self, builder: Builder) -> Builder {
-        builder.admission_gate(self.clone())
+    /// Select restricted admission after configuring the shared endpoint builder.
+    /// Control purposes retain only their narrow handle; business is delivered
+    /// after current authorization and a fresh permitted path have been checked.
+    pub fn configure(&self, builder: Builder) -> iroh::endpoint::RestrictedBuilder {
+        builder
+            .hooks(crate::connection_coordinator::AdmissionBeforeConnect(
+                self.clone(),
+            ))
+            .restricted_application(self.clone())
     }
 
     /// Endpoint-local permission for supported signaling adapters' bootstrap.
-    /// Install only together with the before-data-release path coordinator.
+    /// Install together with the common path coordinator on the same endpoint.
     pub(crate) fn with_message_bootstrap(&self) -> Self {
         Self {
             state: self.state.clone(),
@@ -311,8 +314,8 @@ impl AdmissionGate {
         }
     }
 
-    /// Install only with CoordinatorHook on the same endpoint builder. Request
-    /// purposes stay restricted until it validates peers, purpose, nonce and
+    /// Install with the common coordinator on the same endpoint builder. Request
+    /// purposes stay restricted until it validates peer, purpose, nonce and
     /// current policy. Raw gates retain the standalone stage agreement.
     pub(crate) fn with_request_coordinator(&self) -> Self {
         Self {
@@ -400,7 +403,11 @@ impl AdmissionGate {
 
     /// Recheck a live connection before a handler releases protected data.
     /// In particular, a Bootstrap connection cannot be used as Member scope.
-    pub fn allows(&self, connection: &Connection, required: ProtocolScope) -> bool {
+    pub fn allows(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+        required: ProtocolScope,
+    ) -> bool {
         let state = self.state.lock().expect("admission policy lock");
         state
             .sessions
@@ -424,7 +431,10 @@ impl AdmissionGate {
     }
 
     // A read witness for restricted control only. It is not a data lease/proof.
-    pub(crate) fn request_revision(&self, connection: &Connection) -> Option<u64> {
+    pub(crate) fn request_revision(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> Option<u64> {
         let state = self.state.lock().expect("admission policy lock");
         let session = state.sessions.get(&connection.stable_id())?;
         (session.peer == *connection.remote_id().as_bytes()
@@ -433,7 +443,10 @@ impl AdmissionGate {
         .then(|| self.path_revision.load(Ordering::Acquire))
     }
 
-    pub(crate) fn path_qualification(&self, connection: &Connection) -> Option<PathQualification> {
+    pub(crate) fn path_qualification(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> Option<PathQualification> {
         let state = self.state.lock().expect("admission policy lock");
         let session = state.sessions.get(&connection.stable_id())?;
         (session.peer == *connection.remote_id().as_bytes()
@@ -460,7 +473,7 @@ impl AdmissionGate {
                     && session.scope == ProtocolScope::Member
                     && session.valid(&state.policy)
             })
-            .filter_map(|session| session.connection.upgrade())
+            .filter_map(|session| session.business.as_ref()?.upgrade())
             .find(|connection| {
                 connection.close_reason().is_none()
                     && crate::connection_recovery::binding(connection)
@@ -472,7 +485,10 @@ impl AdmissionGate {
     /// while both identities are current members. This does not grant the
     /// control ALPN general member-protocol access: callers must still verify
     /// the IP path and close the control carrier before releasing business.
-    pub fn allows_member_path_upgrade(&self, connection: &Connection) -> bool {
+    pub fn allows_member_path_upgrade(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> bool {
         let state = self.state.lock().expect("admission policy lock");
         state
             .sessions
@@ -491,7 +507,10 @@ impl AdmissionGate {
 
     /// An opaque learning scope derives from this exact proved connection and
     /// current member view. Candidate claims never supply identity or epochs.
-    pub(crate) fn nat_learning_scope(&self, connection: &Connection) -> Option<LearningScope> {
+    pub(crate) fn nat_learning_scope(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> Option<LearningScope> {
         let state = self.state.lock().expect("admission policy lock");
         let session = state.sessions.get(&connection.stable_id())?;
         if session.peer != *connection.remote_id().as_bytes()
@@ -520,7 +539,10 @@ impl AdmissionGate {
     /// Borrow the exact connection's completed SCRAM fact for a restricted
     /// history handler. It cannot be transferred to another connection, and a
     /// policy change removes the fact and closes its session.
-    pub fn proof_for(&self, connection: &Connection) -> Option<Arc<BootstrapProof>> {
+    pub fn proof_for(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> Option<Arc<BootstrapProof>> {
         let state = self.state.lock().expect("admission policy lock");
         let session = state.sessions.get(&connection.stable_id())?;
         (session.peer == *connection.remote_id().as_bytes() && session.valid(&state.policy))
@@ -549,61 +571,31 @@ impl AdmissionGate {
             && !state.policy.removed.contains(&state.policy.local_id)
     }
 
-    fn reject() -> AfterHandshakeOutcome {
-        AfterHandshakeOutcome::Reject {
-            error_code: 0u32.into(),
-            reason: b"network admission rejected".to_vec(),
-        }
+    pub(crate) fn allowed_data_carriers(&self) -> Vec<u64> {
+        self.state
+            .lock()
+            .expect("admission policy lock")
+            .allowed_data_custom_ids
+            .iter()
+            .copied()
+            .collect()
     }
-}
-
-/// Both authenticated sides must agree that the exact connection reached the
-/// requested stage. Without this second stream, a dialing side with stale
-/// membership could receive a normal handle just before the server rejects it.
-async fn agree_on_stage(connection: &Connection) -> bool {
-    tokio::time::timeout(
-        crate::connection_budget::remaining(connection.caller_deadline()),
-        async {
-            let (mut send, mut recv) = if connection.side().is_client() {
-                connection.open_bi().await.ok()?
-            } else {
-                connection.accept_bi().await.ok()?
-            };
-            send.write_all(b"\x01").await.ok()?;
-            send.finish().ok()?;
-            let mut result = [0];
-            recv.read_exact(&mut result).await.ok()?;
-            (result == [1]).then_some(())
-        },
-    )
-    .await
-    .ok()
-    .flatten()
-    .is_some()
-}
-
-impl EndpointHooks for AdmissionGate {
-    async fn before_connect(
-        &self,
-        remote_addr: &iroh::EndpointAddr,
-        alpn: &[u8],
-    ) -> BeforeConnectOutcome {
-        let state = self.state.lock().expect("admission policy lock");
-        if state
-            .lifecycle_protocols
-            .as_ref()
-            .is_some_and(|set| !set.contains(alpn))
-            || !state.protocols.contains_key(alpn)
-            || (state.protocols.get(alpn) != Some(&ProtocolScope::AdmissionRequest)
-                && state.policy.removed.contains(remote_addr.id.as_bytes()))
+    pub(crate) fn publish_business(&self, connection: &Connection) {
+        let mut state = self.state.lock().expect("admission policy lock");
+        let policy = state.policy.clone();
+        if let Some(session) = state.sessions.get_mut(&connection.stable_id())
+            && session.peer == *connection.remote_id().as_bytes()
+            && session.scope == ProtocolScope::Member
+            && session.valid(&policy)
         {
-            BeforeConnectOutcome::Reject
-        } else {
-            BeforeConnectOutcome::Accept
+            session.business = Some(connection.weak_handle());
         }
     }
 
-    async fn after_handshake(&self, connection: &Connection) -> AfterHandshakeOutcome {
+    pub(crate) async fn authenticate(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> Result<ProtocolScope, ()> {
         let peer = *connection.remote_id().as_bytes();
         let (protocol, policy, allowed_data_custom_ids) = {
             let state = self.state.lock().expect("admission policy lock");
@@ -612,10 +604,10 @@ impl EndpointHooks for AdmissionGate {
                 .as_ref()
                 .is_some_and(|set| !set.contains(connection.alpn()))
             {
-                return Self::reject();
+                return Err(());
             }
             let Some(protocol) = state.protocols.get(connection.alpn()).copied() else {
-                return Self::reject();
+                return Err(());
             };
             (
                 protocol,
@@ -625,7 +617,7 @@ impl EndpointHooks for AdmissionGate {
         };
 
         if protocol != ProtocolScope::AdmissionRequest && policy.removed.contains(&peer) {
-            return Self::reject();
+            return Err(());
         }
         // An unregistered custom carrier cannot start a member protocol.
         if protocol == ProtocolScope::Member
@@ -634,7 +626,7 @@ impl EndpointHooks for AdmissionGate {
                     if !self.member_carrier_allowed(custom.id(), &allowed_data_custom_ids))
             })
         {
-            return Self::reject();
+            return Err(());
         }
         let proof = match protocol {
             ProtocolScope::AdmissionRequest | ProtocolScope::GenesisRecovery => None,
@@ -646,22 +638,26 @@ impl EndpointHooks for AdmissionGate {
                     let result = tokio::time::timeout(
                         crate::connection_budget::remaining(connection.caller_deadline()),
                         async {
-                            let (mut send, mut recv) = if connection.side().is_client() {
-                                connection.open_bi().await.ok()?
+                            let exchange = if connection.side().is_client() {
+                                connection.open_control_exchange().await.ok()?
                             } else {
-                                connection.accept_bi().await.ok()?
+                                connection.accept_control_exchange().await.ok()?
                             };
+                            let format = ControlMessageFormat::Fixed { length: 8 };
                             let generation = if connection.side().is_client() {
-                                send.write_all(&policy.scope.secret_generation().to_be_bytes())
+                                exchange
+                                    .send_message(
+                                        format,
+                                        &policy.scope.secret_generation().to_be_bytes(),
+                                    )
                                     .await
                                     .ok()?;
                                 policy.scope.secret_generation()
                             } else {
-                                let mut bytes = [0; 8];
-                                recv.read_exact(&mut bytes).await.ok()?;
-                                u64::from_be_bytes(bytes)
+                                let bytes = exchange.recv_message(format).await.ok()?;
+                                u64::from_be_bytes(bytes.try_into().ok()?)
                             };
-                            send.finish().ok()?;
+                            exchange.finish_send().await.ok()?;
                             if generation == policy.scope.secret_generation() {
                                 Some((policy.scope.clone(), policy.secret.clone()?))
                             } else {
@@ -683,7 +679,7 @@ impl EndpointHooks for AdmissionGate {
                         .map(|secret| (policy.scope.clone(), secret))
                 };
                 let Some((scope, secret)) = selected else {
-                    return Self::reject();
+                    return Err(());
                 };
                 let result = if connection.side().is_client() {
                     crate::admission_proof::prove_client(connection, &scope, &secret).await
@@ -691,7 +687,7 @@ impl EndpointHooks for AdmissionGate {
                     crate::admission_proof::prove_server(connection, &scope, &secret).await
                 };
                 let Ok(proof) = result else {
-                    return Self::reject();
+                    return Err(());
                 };
                 Some(Arc::new(proof))
             }
@@ -703,7 +699,7 @@ impl EndpointHooks for AdmissionGate {
                     && (!state.policy.members.contains(&peer)
                         || !state.policy.members.contains(&state.policy.local_id)))
             {
-                return Self::reject();
+                return Err(());
             }
         }
         let coordinated_request = self.request_coordinator
@@ -713,9 +709,9 @@ impl EndpointHooks for AdmissionGate {
         let agreed = coordinated_request || agree_on_stage(connection).await;
 
         if !agreed {
-            return Self::reject();
+            return Err(());
         }
-        let weak = connection.weak_handle();
+        let weak = connection.revocation_handle();
         let closed = weak.closed();
         let marker = Arc::new(());
         {
@@ -736,17 +732,19 @@ impl EndpointHooks for AdmissionGate {
                     }))
             {
 
-                return Self::reject();
+                return Err(());
             }
             let session = Session {
                 connection: weak,
+                business: None,
                 marker: marker.clone(),
                 peer,
                 scope: protocol,
+                alpn: connection.alpn().to_vec(),
                 proof,
             };
             if !session.valid(&state.policy) {
-                return Self::reject();
+                return Err(());
             }
             state.sessions.insert(connection.stable_id(), session);
         }
@@ -765,19 +763,158 @@ impl EndpointHooks for AdmissionGate {
             }
         });
 
-        if protocol == ProtocolScope::Member {
-            AfterHandshakeOutcome::AcceptData {
-                allowed_data_custom_ids: self
-                    .state
-                    .lock()
-                    .expect("admission policy lock")
-                    .allowed_data_custom_ids
-                    .iter()
-                    .copied()
-                    .collect(),
-            }
+        Ok(protocol)
+    }
+}
+
+/// Both authenticated sides must agree that the exact connection reached the
+/// requested stage. Without this second stream, a dialing side with stale
+/// membership could receive a normal handle just before the server rejects it.
+async fn agree_on_stage(connection: &(impl AuthenticatedControl + ?Sized)) -> bool {
+    tokio::time::timeout(
+        crate::connection_budget::remaining(connection.caller_deadline()),
+        async {
+            let exchange = if connection.side().is_client() {
+                connection.open_control_exchange().await.ok()?
+            } else {
+                connection.accept_control_exchange().await.ok()?
+            };
+            let format = ControlMessageFormat::Fixed { length: 1 };
+            exchange.send_message(format, b"\x01").await.ok()?;
+            exchange.finish_send().await.ok()?;
+            let result = exchange.recv_message(format).await.ok()?;
+            (result == [1]).then_some(())
+        },
+    )
+    .await
+    .ok()
+    .flatten()
+    .is_some()
+}
+
+impl AdmissionGate {
+    pub(crate) async fn admit_member_control(
+        &self,
+        connection: &iroh::endpoint::ControlConnection,
+        permits: impl Fn(&iroh::TransportAddr) -> bool + Send + Sync,
+    ) -> std::io::Result<iroh::endpoint::AdmissionOutcome> {
+        let rejected = || {
+            std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "member admission changed",
+            )
+        };
+        let qualification = self.path_qualification(connection).ok_or_else(rejected)?;
+        let allowed = self.allowed_data_carriers();
+        let path = connection
+            .paths()
+            .iter()
+            .filter(|path| {
+                permits(path.remote_addr())
+                    && match path.remote_addr() {
+                        iroh::TransportAddr::Custom(address) => allowed.contains(&address.id()),
+                        _ => true,
+                    }
+            })
+            .max_by_key(|path| path.is_selected())
+            .map(|path| path.id())
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::NotConnected,
+                    "no permitted member data path",
+                )
+            })?;
+        let permit = connection.qualify_data_path(path, allowed).await?;
+        let gate = self.clone();
+        // The existing bilateral authentication/stage wire remains unchanged.
+        let confirmation = iroh::endpoint::ControlConfirmation::with_control(move |control| {
+            Box::pin(async move {
+                if qualification.is_current() && gate.allows(control, ProtocolScope::Member) {
+                    Ok(())
+                } else {
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        "member admission changed",
+                    ))
+                }
+            })
+        });
+        Ok(iroh::endpoint::AdmissionOutcome::AcceptWithConfirmation {
+            permit,
+            confirmation,
+        })
+    }
+
+    pub(crate) fn authenticated_control_current(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> bool {
+        [
+            ProtocolScope::AdmissionRequest,
+            ProtocolScope::Bootstrap,
+            ProtocolScope::GenesisRecovery,
+            ProtocolScope::Member,
+            ProtocolScope::Rotation,
+        ]
+        .into_iter()
+        .any(|scope| self.allows(connection, scope))
+    }
+}
+impl iroh::endpoint::EndpointAdmission for AdmissionGate {
+    async fn admit(
+        &self,
+        connection: &iroh::endpoint::ControlConnection,
+    ) -> std::io::Result<iroh::endpoint::AdmissionOutcome> {
+        let scope = self.authenticate(connection).await.map_err(|()| {
+            std::io::Error::new(std::io::ErrorKind::PermissionDenied, "admission rejected")
+        })?;
+        if scope == ProtocolScope::Member {
+            return self.admit_member_control(connection, |_| true).await;
+        }
+        let gate = self.clone();
+        Ok(
+            iroh::endpoint::AdmissionOutcome::ControlOnlyWithConfirmation(
+                iroh::endpoint::ControlConfirmation::with_control(move |control| {
+                    Box::pin(async move {
+                        if gate.allows(control, scope) {
+                            Ok(())
+                        } else {
+                            Err(std::io::Error::new(
+                                std::io::ErrorKind::PermissionDenied,
+                                "control admission changed",
+                            ))
+                        }
+                    })
+                }),
+            ),
+        )
+    }
+    fn is_current(&self, connection: &iroh::endpoint::ControlConnection) -> bool {
+        self.authenticated_control_current(connection)
+    }
+    fn business_released(&self, connection: &Connection) {
+        self.publish_business(connection);
+    }
+}
+
+impl AdmissionGate {
+    pub(crate) fn before_connect(
+        &self,
+        remote_addr: &iroh::EndpointAddr,
+        alpn: &[u8],
+    ) -> BeforeConnectOutcome {
+        let state = self.state.lock().expect("admission policy lock");
+        if state
+            .lifecycle_protocols
+            .as_ref()
+            .is_some_and(|set| !set.contains(alpn))
+            || !state.protocols.contains_key(alpn)
+            || (state.protocols.get(alpn) != Some(&ProtocolScope::AdmissionRequest)
+                && state.policy.removed.contains(remote_addr.id.as_bytes()))
+        {
+            BeforeConnectOutcome::Reject
         } else {
-            AfterHandshakeOutcome::AcceptRestricted
+            BeforeConnectOutcome::Accept
         }
     }
 }

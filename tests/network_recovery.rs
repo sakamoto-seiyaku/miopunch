@@ -1,5 +1,9 @@
 //! Public startup recovery with independent durable identities and a real broker.
-use iroh::{Endpoint, EndpointAddr, endpoint::Connection};
+#[path = "support/native_connections.rs"]
+mod native_connections;
+use iroh::endpoint::RestrictedEndpoint;
+
+use iroh::{EndpointAddr, endpoint::Connection};
 use miopunch_native_probe::{
     admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope},
     manual_admission::ManualExchange,
@@ -56,11 +60,12 @@ async fn observer(
     (captured, task)
 }
 
-async fn connect(a: &Endpoint, b: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
-    let (client, server) = tokio::join!(a.connect(b.addr(), alpn), async {
-        b.accept().await.unwrap().await
-    });
-    (client.unwrap(), server.unwrap())
+async fn connect(
+    client: &RestrictedEndpoint,
+    server: &RestrictedEndpoint,
+    alpn: &[u8],
+) -> (Connection, Connection) {
+    native_connections::member_pair(client, server, alpn).await
 }
 async fn join(c: &mut NativeNetwork, path: &std::path::Path) -> NativeNetwork {
     let mut node = NativeNetwork::join(path, c.manual_invitation().unwrap())
@@ -68,7 +73,7 @@ async fn join(c: &mut NativeNetwork, path: &std::path::Path) -> NativeNetwork {
         .unwrap();
     let ce = c.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ne = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ne, &ce, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ne, &ce, ADMISSION_REQUEST_ALPN).await;
     let (request, served) = tokio::join!(
         node.request_manual_admission(&client),
         c.serve_manual_admission(&server)
@@ -146,7 +151,7 @@ async fn old_member_recovers_from_the_only_online_unknown_member_at_startup() {
     })
     .await
     .unwrap();
-    let mut recovered = recovered.unwrap();
+    let recovered = recovered.unwrap();
     let RecoveryStatus::Ready(outcome) = &recovered.status else {
         panic!("startup must automatically discover C and verify/save its replica");
     };

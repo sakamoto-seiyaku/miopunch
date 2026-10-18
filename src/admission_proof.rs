@@ -1,7 +1,8 @@
 //! A bounded SCRAM-SHA-256-PLUS qualification on one authenticated iroh connection.
 //! Successful proof grants only bootstrap eligibility; membership remains a separate decision.
 
-use iroh::endpoint::{Connection, WeakConnectionHandle};
+use crate::control_protocol::AuthenticatedControl;
+use iroh::endpoint::{ControlExchange, ControlMessageFormat, WeakControlConnection};
 use iroh_base::EndpointId;
 #[cfg(target_arch = "wasm32")]
 use n0_future::time::timeout;
@@ -32,7 +33,7 @@ static ATTEMPTED_CONNECTIONS: LazyLock<Mutex<HashMap<usize, AttemptedConnection>
 
 struct AttemptedConnection {
     token: Weak<()>,
-    connection: WeakConnectionHandle,
+    connection: WeakControlConnection,
 }
 
 struct FixedBinding([u8; 32]);
@@ -112,7 +113,7 @@ impl AdmissionSecret {
 
 #[derive(Debug)]
 pub struct BootstrapProof {
-    connection: WeakConnectionHandle,
+    connection: WeakControlConnection,
     connection_id: usize,
     peer: EndpointId,
     scope: AdmissionScope,
@@ -122,18 +123,14 @@ pub struct BootstrapProof {
 
 impl Drop for BootstrapProof {
     fn drop(&mut self) {
-        if let Some(connection) = self.connection.upgrade() {
-            connection.close(0u32.into(), b"admission proof ended");
-        }
+        self.connection.close(0u32.into(), b"admission proof ended");
     }
 }
 
 impl BootstrapProof {
     /// Used by platform adapters to reclaim completed protocol qualifications.
     pub fn is_live(&self) -> bool {
-        self.connection
-            .upgrade()
-            .is_some_and(|connection| connection.close_reason().is_none())
+        self.connection.is_open()
     }
     pub fn peer(&self) -> EndpointId {
         self.peer
@@ -144,13 +141,14 @@ impl BootstrapProof {
     }
 
     /// A proof only applies to its original live connection and credential generation.
-    pub fn applies_to(&self, connection: &Connection, scope: &AdmissionScope) -> bool {
+    pub fn applies_to(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+        scope: &AdmissionScope,
+    ) -> bool {
         self.scope == *scope
             && self.connection_id == connection.stable_id()
-            && self
-                .connection
-                .upgrade()
-                .is_some_and(|connection| connection.close_reason().is_none())
+            && self.connection.is_open()
     }
 
     pub(crate) fn credential_fingerprint(&self) -> &[u8; 32] {
@@ -159,9 +157,8 @@ impl BootstrapProof {
 
     /// End the proved protocol session, for example after admission-secret rotation.
     pub fn invalidate(&self) {
-        if let Some(connection) = self.connection.upgrade() {
-            connection.close(0u32.into(), b"admission proof invalidated");
-        }
+        self.connection
+            .close(0u32.into(), b"admission proof invalidated");
     }
 }
 
@@ -281,7 +278,7 @@ fn config(
         .map_err(|_| ProofError::Rejected)
 }
 
-fn exporter(connection: &Connection) -> Result<[u8; 32], ProofError> {
+fn exporter(connection: &(impl AuthenticatedControl + ?Sized)) -> Result<[u8; 32], ProofError> {
     let mut binding = [0; 32];
     connection
         .export_keying_material(&mut binding, EXPORTER_LABEL, b"")
@@ -290,7 +287,9 @@ fn exporter(connection: &Connection) -> Result<[u8; 32], ProofError> {
 }
 
 struct AttemptGuard {
-    connection: Connection,
+    connection: WeakControlConnection,
+    connection_id: usize,
+    peer: EndpointId,
     token: Option<Arc<()>>,
 }
 
@@ -300,13 +299,13 @@ impl AttemptGuard {
         scope: &AdmissionScope,
         secret: &AdmissionSecret,
     ) -> Result<BootstrapProof, ProofError> {
-        if self.connection.close_reason().is_some() {
+        if !self.connection.is_open() {
             return Err(ProofError::Transport);
         }
         Ok(BootstrapProof {
-            connection: self.connection.weak_handle(),
-            connection_id: self.connection.stable_id(),
-            peer: self.connection.remote_id(),
+            connection: self.connection.clone(),
+            connection_id: self.connection_id,
+            peer: self.peer,
             scope: scope.clone(),
             credential_fingerprint: secret.fingerprint(scope),
             _attempt_token: self.token.take().expect("attempt token present"),
@@ -323,7 +322,9 @@ impl Drop for AttemptGuard {
     }
 }
 
-fn reserve_once(connection: &Connection) -> Result<AttemptGuard, ProofError> {
+fn reserve_once(
+    connection: &(impl AuthenticatedControl + ?Sized),
+) -> Result<AttemptGuard, ProofError> {
     if connection.close_reason().is_some() {
         return Err(ProofError::AlreadyAttempted);
     }
@@ -331,13 +332,7 @@ fn reserve_once(connection: &Connection) -> Result<AttemptGuard, ProofError> {
     let mut attempts = ATTEMPTED_CONNECTIONS
         .lock()
         .map_err(|_| ProofError::Rejected)?;
-    attempts.retain(|_, attempt| {
-        attempt.token.strong_count() > 0
-            && attempt
-                .connection
-                .upgrade()
-                .is_some_and(|connection| connection.close_reason().is_none())
-    });
+    attempts.retain(|_, attempt| attempt.token.strong_count() > 0 && attempt.connection.is_open());
     if attempts.contains_key(&id) {
         return Err(ProofError::AlreadyAttempted);
     }
@@ -349,40 +344,37 @@ fn reserve_once(connection: &Connection) -> Result<AttemptGuard, ProofError> {
         id,
         AttemptedConnection {
             token: Arc::downgrade(&token),
-            connection: connection.weak_handle(),
+            connection: connection.revocation_handle(),
         },
     );
     Ok(AttemptGuard {
-        connection: connection.clone(),
+        connection: connection.revocation_handle(),
+        connection_id: connection.stable_id(),
+        peer: connection.remote_id(),
         token: Some(token),
     })
 }
 
-async fn send_frame(send: &mut iroh::endpoint::SendStream, bytes: &[u8]) -> Result<(), ProofError> {
+async fn send_frame(exchange: &ControlExchange, bytes: &[u8]) -> Result<(), ProofError> {
     if bytes.is_empty() || bytes.len() > MAX_FRAME {
         return Err(ProofError::Rejected);
     }
-    send.write_all(&(bytes.len() as u16).to_be_bytes())
-        .await
-        .map_err(|_| ProofError::Transport)?;
-    send.write_all(bytes)
+    exchange
+        .send_message(
+            ControlMessageFormat::LengthPrefixed16 { maximum: MAX_FRAME },
+            bytes,
+        )
         .await
         .map_err(|_| ProofError::Transport)
 }
-
-async fn read_frame(recv: &mut iroh::endpoint::RecvStream) -> Result<Vec<u8>, ProofError> {
-    let mut len = [0; 2];
-    recv.read_exact(&mut len)
+async fn read_frame(exchange: &ControlExchange) -> Result<Vec<u8>, ProofError> {
+    let bytes = exchange
+        .recv_message(ControlMessageFormat::LengthPrefixed16 { maximum: MAX_FRAME })
         .await
         .map_err(|_| ProofError::Transport)?;
-    let len = usize::from(u16::from_be_bytes(len));
-    if len == 0 || len > MAX_FRAME {
+    if bytes.is_empty() {
         return Err(ProofError::Rejected);
     }
-    let mut bytes = vec![0; len];
-    recv.read_exact(&mut bytes)
-        .await
-        .map_err(|_| ProofError::Transport)?;
     Ok(bytes)
 }
 
@@ -400,7 +392,7 @@ fn acceptable_server_first(bytes: &[u8]) -> bool {
 }
 
 pub async fn prove_client(
-    connection: &Connection,
+    connection: &(impl AuthenticatedControl + ?Sized),
     scope: &AdmissionScope,
     secret: &AdmissionSecret,
 ) -> Result<BootstrapProof, ProofError> {
@@ -422,8 +414,8 @@ pub async fn prove_client(
                 let mut session = sasl
                     .start_suggested(&[SCRAM_SHA256_PLUS.mechanism])
                     .map_err(|_| ProofError::Rejected)?;
-                let (mut send, mut recv) = connection
-                    .open_bi()
+                let exchange = connection
+                    .open_control_exchange()
                     .await
                     .map_err(|_| ProofError::Transport)?;
 
@@ -435,9 +427,9 @@ pub async fn prove_client(
                 {
                     return Err(ProofError::Rejected);
                 }
-                send_frame(&mut send, &first).await?;
+                send_frame(&exchange, &first).await?;
 
-                let server_first = read_frame(&mut recv).await?;
+                let server_first = read_frame(&exchange).await?;
 
                 if !acceptable_server_first(&server_first) {
                     return Err(ProofError::Rejected);
@@ -452,9 +444,9 @@ pub async fn prove_client(
                     return Err(ProofError::Rejected);
                 }
 
-                send_frame(&mut send, &final_message).await?;
+                send_frame(&exchange, &final_message).await?;
 
-                let server_final = read_frame(&mut recv).await?;
+                let server_final = read_frame(&exchange).await?;
 
                 let mut unused = Vec::new();
                 if !matches!(
@@ -463,13 +455,16 @@ pub async fn prove_client(
                 ) {
                     return Err(ProofError::Rejected);
                 }
-                send_frame(&mut send, b"OK").await?;
+                send_frame(&exchange, b"OK").await?;
 
-                if read_frame(&mut recv).await? != b"OK" {
+                if read_frame(&exchange).await? != b"OK" {
                     return Err(ProofError::Rejected);
                 }
 
-                send.finish().map_err(|_| ProofError::Transport)?;
+                exchange
+                    .finish_send()
+                    .await
+                    .map_err(|_| ProofError::Transport)?;
                 Ok::<(), ProofError>(())
             },
         );
@@ -483,7 +478,7 @@ pub async fn prove_client(
 }
 
 pub async fn prove_server(
-    connection: &Connection,
+    connection: &(impl AuthenticatedControl + ?Sized),
     scope: &AdmissionScope,
     secret: &AdmissionSecret,
 ) -> Result<BootstrapProof, ProofError> {
@@ -505,12 +500,12 @@ pub async fn prove_server(
                 let mut session = sasl
                     .start_suggested(SCRAM_SHA256_PLUS.mechanism)
                     .map_err(|_| ProofError::Rejected)?;
-                let (mut send, mut recv) = connection
-                    .accept_bi()
+                let exchange = connection
+                    .accept_control_exchange()
                     .await
                     .map_err(|_| ProofError::Transport)?;
 
-                let first = read_frame(&mut recv).await?;
+                let first = read_frame(&exchange).await?;
 
                 if !first.starts_with(b"p=tls-exporter,,n=") {
                     return Err(ProofError::Rejected);
@@ -523,9 +518,9 @@ pub async fn prove_server(
                 {
                     return Err(ProofError::Rejected);
                 }
-                send_frame(&mut send, &server_first).await?;
+                send_frame(&exchange, &server_first).await?;
 
-                let client_final = read_frame(&mut recv).await?;
+                let client_final = read_frame(&exchange).await?;
 
                 let mut server_final = Vec::new();
                 let state = session
@@ -534,18 +529,21 @@ pub async fn prove_server(
                 if !matches!(state, State::Finished(_)) {
                     return Err(ProofError::Rejected);
                 }
-                send_frame(&mut send, &server_final).await?;
+                send_frame(&exchange, &server_final).await?;
 
                 if session.validation() != Some(true) {
                     return Err(ProofError::Rejected);
                 }
-                if read_frame(&mut recv).await? != b"OK" {
+                if read_frame(&exchange).await? != b"OK" {
                     return Err(ProofError::Rejected);
                 }
 
-                send_frame(&mut send, b"OK").await?;
+                send_frame(&exchange, b"OK").await?;
 
-                send.finish().map_err(|_| ProofError::Transport)?;
+                exchange
+                    .finish_send()
+                    .await
+                    .map_err(|_| ProofError::Transport)?;
                 Ok::<(), ProofError>(())
             },
         );

@@ -11,7 +11,9 @@ use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
 
 use iroh::Endpoint;
-use iroh::endpoint::{Connection, RecvStream, SendStream};
+use iroh::endpoint::{
+    Connection, ControlExchange, ControlHandle, ControlMessageFormat, WeakControlConnection,
+};
 use iroh_base::EndpointId;
 use p2panda_auth::group::{GroupAction, GroupMember};
 use p2panda_auth::{Access, GroupsExtensionArgs};
@@ -19,6 +21,7 @@ use p2panda_core::{Hash, Header, Signature, SigningKey, VerifyingKey};
 use thiserror::Error;
 
 use crate::admission_proof::{AdmissionScope, AdmissionSecret};
+use crate::control_protocol::AuthenticatedControl;
 use crate::management_auth::{AuthError, ManagementAuth, ManagementExtension, NetworkAnchor};
 use crate::management_store::{ManagementRecord, ManagementStore, StoreError};
 
@@ -34,12 +37,12 @@ static SESSIONS: LazyLock<Mutex<HashSet<usize>>> = LazyLock::new(|| Mutex::new(H
 
 pub(crate) struct SessionGuard {
     id: usize,
-    connection: Connection,
+    connection: WeakControlConnection,
 }
 
 impl SessionGuard {
     pub(crate) fn begin(
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<(tokio::sync::SemaphorePermit<'static>, Self), RecoveryError> {
         let attempt = (|| {
             let permit = ACTIVE.try_acquire().map_err(|_| RecoveryError::Busy)?;
@@ -55,7 +58,7 @@ impl SessionGuard {
                 permit,
                 Self {
                     id,
-                    connection: connection.clone(),
+                    connection: connection.revocation_handle(),
                 },
             ))
         })();
@@ -132,7 +135,7 @@ impl GenesisCredential {
 }
 
 pub(crate) fn proof_statement(
-    connection: &Connection,
+    connection: &(impl AuthenticatedControl + ?Sized),
     anchor: NetworkAnchor,
     recovering: EndpointId,
     contact: EndpointId,
@@ -151,34 +154,65 @@ pub(crate) fn proof_statement(
     Ok(statement)
 }
 
-pub(crate) async fn write_frame(send: &mut SendStream, bytes: &[u8]) -> Result<(), RecoveryError> {
-    if bytes.is_empty() || bytes.len() > MAX_HISTORY_BYTES {
-        return Err(RecoveryError::Rejected);
-    }
-    send.write_all(&(bytes.len() as u32).to_be_bytes())
-        .await
-        .map_err(|_| RecoveryError::Transport)?;
-    send.write_all(bytes)
+pub(crate) async fn write_control_fixed(
+    exchange: &ControlExchange,
+    bytes: &[u8],
+) -> Result<(), RecoveryError> {
+    exchange
+        .send_message(
+            ControlMessageFormat::Fixed {
+                length: bytes.len(),
+            },
+            bytes,
+        )
         .await
         .map_err(|_| RecoveryError::Transport)
 }
-
-pub(crate) async fn read_frame(
-    recv: &mut RecvStream,
-    max_len: usize,
-) -> Result<Vec<u8>, RecoveryError> {
-    let mut len = [0; 4];
-    recv.read_exact(&mut len)
+pub(crate) async fn read_control_fixed<const N: usize>(
+    exchange: &ControlExchange,
+    bytes: &mut [u8; N],
+) -> Result<(), RecoveryError> {
+    let message = exchange
+        .recv_message(ControlMessageFormat::Fixed { length: N })
         .await
         .map_err(|_| RecoveryError::Transport)?;
-    let len = u32::from_be_bytes(len) as usize;
-    if len == 0 || len > max_len {
+    bytes.copy_from_slice(&message);
+    Ok(())
+}
+pub(crate) async fn write_control_frame(
+    exchange: &ControlExchange,
+    bytes: &[u8],
+) -> Result<(), RecoveryError> {
+    if bytes.is_empty() || bytes.len() > MAX_HISTORY_BYTES {
         return Err(RecoveryError::Rejected);
     }
-    let mut bytes = vec![0; len];
-    recv.read_exact(&mut bytes)
+    exchange
+        .send_message(
+            ControlMessageFormat::LengthPrefixed32 {
+                maximum: MAX_HISTORY_BYTES,
+            },
+            bytes,
+        )
         .await
-        .map_err(|_| RecoveryError::Transport)?;
+        .map_err(|_| RecoveryError::Transport)
+}
+pub(crate) async fn read_control_frame(
+    exchange: &ControlExchange,
+    maximum: usize,
+) -> Result<Vec<u8>, RecoveryError> {
+    let bytes = exchange
+        .recv_message(ControlMessageFormat::LengthPrefixed32 { maximum })
+        .await
+        .map_err(|error| {
+            if error.kind() == std::io::ErrorKind::InvalidData {
+                RecoveryError::Rejected
+            } else {
+                RecoveryError::Transport
+            }
+        })?;
+    if bytes.is_empty() {
+        return Err(RecoveryError::Rejected);
+    }
     Ok(bytes)
 }
 
@@ -247,23 +281,46 @@ pub async fn recover_client(
     credential: &GenesisCredential,
     expected_contact: EndpointId,
 ) -> Result<RecoveredNetwork, RecoveryError> {
+    recover_client_at(endpoint.id(), connection, credential, expected_contact).await
+}
+
+/// Recover through bounded messages on this exact restricted TLS session.
+/// No ordinary endpoint, connection, or stream can be obtained from this entry.
+pub async fn recover_control_client(
+    connection: &ControlHandle,
+    credential: &GenesisCredential,
+    expected_contact: EndpointId,
+) -> Result<RecoveredNetwork, RecoveryError> {
+    recover_client_at(
+        connection.local_id(),
+        connection,
+        credential,
+        expected_contact,
+    )
+    .await
+}
+
+async fn recover_client_at(
+    local_id: EndpointId,
+    connection: &(impl AuthenticatedControl + ?Sized),
+    credential: &GenesisCredential,
+    expected_contact: EndpointId,
+) -> Result<RecoveredNetwork, RecoveryError> {
     let (_permit, _session) = SessionGuard::begin(connection)?;
     let result = tokio::time::timeout(TIMEOUT, async {
         if connection.remote_id() != expected_contact || connection.alpn() != RECOVERY_ALPN {
             return Err(RecoveryError::Rejected);
         }
         let anchor = credential.anchor();
-        let statement = proof_statement(connection, anchor, endpoint.id(), expected_contact)?;
+        let statement = proof_statement(connection, anchor, local_id, expected_contact)?;
         let signature = credential.root.sign(&statement);
-        let (mut send, mut recv) = connection
-            .open_bi()
+        let exchange = connection
+            .open_control_exchange()
             .await
             .map_err(|_| RecoveryError::Transport)?;
-        send.write_all(&signature.to_bytes())
-            .await
-            .map_err(|_| RecoveryError::Transport)?;
+        write_control_fixed(&exchange, &signature.to_bytes()).await?;
 
-        let wire = read_frame(&mut recv, MAX_HISTORY_BYTES).await?;
+        let wire = read_control_frame(&exchange, MAX_HISTORY_BYTES).await?;
         let (mut records, scope, secret) = parse_history(&wire, anchor)?;
         let genesis = records
             .first()
@@ -305,7 +362,7 @@ pub async fn recover_client(
                         group: GroupsExtensionArgs {
                             group_id: anchor.root,
                             action: GroupAction::Add {
-                                member: GroupMember::Individual(endpoint_key(endpoint.id())?),
+                                member: GroupMember::Individual(endpoint_key(local_id)?),
                                 access: Access::manage(),
                             },
                             dependencies: auth.tips(),
@@ -316,15 +373,16 @@ pub async fn recover_client(
             None,
         );
         let grant_id = auth.accept_record(grant.header(), grant.body())?;
-        write_frame(&mut send, grant.header()).await?;
+        write_control_frame(&exchange, grant.header()).await?;
         let mut acknowledgment = [0; 32];
-        recv.read_exact(&mut acknowledgment)
-            .await
-            .map_err(|_| RecoveryError::Transport)?;
+        read_control_fixed(&exchange, &mut acknowledgment).await?;
         if acknowledgment != *grant_id.as_bytes() {
             return Err(RecoveryError::Rejected);
         }
-        send.finish().map_err(|_| RecoveryError::Transport)?;
+        exchange
+            .finish_send()
+            .await
+            .map_err(|_| RecoveryError::Transport)?;
         records.push(grant);
         Ok(RecoveredNetwork {
             anchor,
@@ -349,6 +407,27 @@ pub async fn serve_recovery(
     scope: &AdmissionScope,
     secret: &AdmissionSecret,
 ) -> Result<Hash, RecoveryError> {
+    serve_recovery_at(endpoint.id(), connection, store, scope, secret).await
+}
+
+/// Verify the original root proof before releasing history on a restricted
+/// control session. The returned grant has been durably applied by this member.
+pub async fn serve_control_recovery(
+    connection: &ControlHandle,
+    store: &mut ManagementStore,
+    scope: &AdmissionScope,
+    secret: &AdmissionSecret,
+) -> Result<Hash, RecoveryError> {
+    serve_recovery_at(connection.local_id(), connection, store, scope, secret).await
+}
+
+async fn serve_recovery_at(
+    local_id: EndpointId,
+    connection: &(impl AuthenticatedControl + ?Sized),
+    store: &mut ManagementStore,
+    scope: &AdmissionScope,
+    secret: &AdmissionSecret,
+) -> Result<Hash, RecoveryError> {
     let (_permit, _session) = SessionGuard::begin(connection)?;
     let result = tokio::time::timeout(TIMEOUT, async {
         store.ensure_admissions_open().await?;
@@ -356,19 +435,17 @@ pub async fn serve_recovery(
         if scope.network_id() != anchor.root.as_bytes() || connection.alpn() != RECOVERY_ALPN {
             return Err(RecoveryError::Rejected);
         }
-        let local = endpoint_key(endpoint.id())?;
+        let local = endpoint_key(local_id)?;
         if !store.nodes().iter().any(|(node, _)| *node == local) || local == anchor.root {
             return Err(RecoveryError::Rejected);
         }
-        let statement = proof_statement(connection, anchor, connection.remote_id(), endpoint.id())?;
-        let (mut send, mut recv) = connection
-            .accept_bi()
+        let statement = proof_statement(connection, anchor, connection.remote_id(), local_id)?;
+        let exchange = connection
+            .accept_control_exchange()
             .await
             .map_err(|_| RecoveryError::Transport)?;
         let mut signature_bytes = [0; 64];
-        recv.read_exact(&mut signature_bytes)
-            .await
-            .map_err(|_| RecoveryError::Transport)?;
+        read_control_fixed(&exchange, &mut signature_bytes).await?;
         if !anchor
             .root
             .verify(&statement, &Signature::from_bytes(&signature_bytes))
@@ -380,8 +457,9 @@ pub async fn serve_recovery(
             return Err(RecoveryError::Rejected);
         }
         store.ensure_admissions_open().await?;
-        write_frame(&mut send, &history_wire(&records, scope, secret)?).await?;
-        let grant = ManagementRecord::new(read_frame(&mut recv, MAX_GRANT_BYTES).await?, None);
+        write_control_frame(&exchange, &history_wire(&records, scope, secret)?).await?;
+        let grant =
+            ManagementRecord::new(read_control_frame(&exchange, MAX_GRANT_BYTES).await?, None);
         let header = Header::<ManagementExtension>::decode(grant.header())
             .map_err(|_| RecoveryError::Rejected)?;
         let recovering_node = endpoint_key(connection.remote_id())?;
@@ -406,13 +484,14 @@ pub async fn serve_recovery(
         if !store.nodes().contains(&(recovering_node, Access::manage())) {
             return Err(RecoveryError::Rejected);
         }
-        send.write_all(grant_id.as_bytes())
+        write_control_fixed(&exchange, grant_id.as_bytes()).await?;
+        exchange
+            .finish_send()
             .await
             .map_err(|_| RecoveryError::Transport)?;
-        send.finish().map_err(|_| RecoveryError::Transport)?;
         // RFC 9266's binding is one authentication instance per TLS session.
         // The recovering side closes after reading this acknowledgment.
-        let _ = connection.closed().await;
+        let _ = connection.revocation_handle().closed().await;
         Ok(grant_id)
     })
     .await

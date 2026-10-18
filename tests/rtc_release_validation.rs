@@ -1,10 +1,10 @@
 //! Exact-path release renewal through public authenticated QUIC/RTC lease seams.
 //! The owned queue bridge is a component fixture, not browser RTC qualification.
+#[path = "support/admitted_ip.rs"]
+mod admitted_ip;
+
 use futures_util::future::poll_fn;
-use iroh::{
-    Endpoint, TransportAddr,
-    endpoint::{AfterHandshakeOutcome, Connection, EndpointHooks, presets},
-};
+use iroh::{Endpoint, TransportAddr, endpoint::presets};
 use miopunch_native_probe::{
     rtc_association::RtcDeadline,
     rtc_transport::{RtcDatagramIo, RtcTransport, TRANSPORT_ID},
@@ -18,24 +18,14 @@ use std::{
 
 const ALPN: &[u8] = b"miopunch/rtc-release-renewal-test/1";
 
-#[derive(Debug)]
-struct Gate;
-impl EndpointHooks for Gate {
-    async fn after_handshake(&self, _: &Connection) -> AfterHandshakeOutcome {
-        AfterHandshakeOutcome::AcceptData {
-            allowed_data_custom_ids: vec![TRANSPORT_ID],
-        }
-    }
-}
-
-async fn endpoint(transport: &RtcTransport) -> Endpoint {
+async fn endpoint(transport: &RtcTransport) -> iroh::endpoint::RestrictedEndpoint {
     Endpoint::builder(presets::Minimal)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
         .clear_relay_transports()
         .add_custom_transport(Arc::new(transport.clone()))
-        .admission_gate(Gate)
         .alpns(vec![ALPN.to_vec()])
+        .restricted_application(admitted_ip::IpAdmission(vec![TRANSPORT_ID]))
         .bind()
         .await
         .unwrap()

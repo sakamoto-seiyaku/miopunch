@@ -1,4 +1,8 @@
 //! Three persistent members, real admission and QUIC, one intermediate member.
+#[path = "support/native_connections.rs"]
+mod native_connections;
+use iroh::endpoint::RestrictedEndpoint;
+
 use iroh::{
     Endpoint, EndpointAddr, TransportAddr,
     endpoint::{Connection, presets},
@@ -14,16 +18,12 @@ use std::{net::Ipv4Addr, path::Path, sync::Arc, time::Duration};
 const BUSINESS: &[u8] = b"miopunch/member-forward-business/1";
 const LEASE: Duration = Duration::from_secs(60);
 
-async fn connect(a: &Endpoint, b: &Endpoint, alpn: &[u8]) -> (Connection, Connection) {
-    let addr = EndpointAddr::new(b.id()).with_ip_addr(*b.addr().ip_addrs().next().unwrap());
-    tokio::time::timeout(Duration::from_secs(10), async {
-        let (a, b) = tokio::join!(a.connect(addr, alpn), async {
-            b.accept().await.unwrap().await
-        });
-        (a.unwrap(), b.unwrap())
-    })
-    .await
-    .unwrap()
+async fn connect(
+    client: &RestrictedEndpoint,
+    server: &RestrictedEndpoint,
+    alpn: &[u8],
+) -> (Connection, Connection) {
+    native_connections::member_pair(client, server, alpn).await
 }
 async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
     let mut node = NativeNetwork::join(path, admin.manual_invitation().unwrap())
@@ -31,7 +31,7 @@ async fn join(admin: &mut NativeNetwork, path: &Path) -> NativeNetwork {
         .unwrap();
     let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let ne = node.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
-    let (client, server) = connect(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
+    let (client, server) = native_connections::control_pair(&ne, &ae, ADMISSION_REQUEST_ALPN).await;
     let (request, served) = tokio::join!(
         node.request_manual_admission(&client),
         admin.serve_manual_admission(&server)
@@ -88,7 +88,7 @@ async fn nodes() -> (
 async fn endpoint(
     node: &NativeNetwork,
     transport: Option<Arc<MemberSignalingTransport>>,
-) -> Endpoint {
+) -> RestrictedEndpoint {
     let mut builder = Endpoint::builder(presets::Minimal)
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
@@ -125,9 +125,9 @@ async fn echo(client: &Connection, server: &Connection) {
 struct Topology {
     _directory: tempfile::TempDir,
     _nodes: (NativeNetwork, NativeNetwork, NativeNetwork),
-    a: Endpoint,
-    b: Endpoint,
-    c: Endpoint,
+    a: RestrictedEndpoint,
+    b: RestrictedEndpoint,
+    c: RestrictedEndpoint,
     at: Arc<MemberSignalingTransport>,
     ct: Arc<MemberSignalingTransport>,
     ab: (Connection, Connection),
@@ -268,7 +268,8 @@ async fn an_admitted_bootstrap_session_does_not_grant_member_forwarding() {
     topology
         .b
         .set_alpns(vec![BUSINESS.to_vec(), CONTROL_ALPN.to_vec()]);
-    let (client, server) = connect(&topology.a, &topology.b, CONTROL_ALPN).await;
+    let (client, server) =
+        native_connections::control_pair(&topology.a, &topology.b, CONTROL_ALPN).await;
     assert!(
         topology
             ._nodes
@@ -276,14 +277,22 @@ async fn an_admitted_bootstrap_session_does_not_grant_member_forwarding() {
             .admission_gate()
             .allows_member_path_upgrade(&client)
     );
-    assert!(topology.at.attach(&client, LEASE).await.is_err());
     assert!(
-        topology
-            .forwarder
-            .accept_link(&server, LEASE)
-            .await
-            .is_err()
+        !topology
+            ._nodes
+            .0
+            .admission_gate()
+            .allows(&client, ProtocolScope::Member)
     );
+    assert!(
+        !topology
+            ._nodes
+            .1
+            .admission_gate()
+            .allows(&server, ProtocolScope::Member)
+    );
+    // Control capabilities cannot be passed to member links; the public compiler
+    // consumer native_member_links_control preserves those rejection checks.
     assert_eq!(topology.forwarder.active_links(), 2);
     println!("MEMBER_SCOPE_PASS bootstrap_admitted=true member_forwarding_rejected=true");
     client.close(0u32.into(), b"done");

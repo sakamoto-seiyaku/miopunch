@@ -3,7 +3,10 @@
 use futures_util::future::poll_fn;
 use iroh::{
     Endpoint, TransportAddr,
-    endpoint::{AfterHandshakeOutcome, Connection, EndpointHooks, presets},
+    endpoint::{
+        AdmissionOutcome, ControlConfirmation, ControlConnection, ControlMessageFormat,
+        EndpointAdmission, RestrictedEndpoint, presets,
+    },
 };
 use iroh_base::CustomAddr;
 use miopunch_native_probe::rtc_transport::{
@@ -42,36 +45,30 @@ impl std::fmt::Debug for Gate {
         f.debug_struct("Gate").field("side", &self.side).finish()
     }
 }
-impl EndpointHooks for Gate {
-    async fn after_handshake(&self, _: &Connection) -> AfterHandshakeOutcome {
-        // No type-wide RTC grant: final release must preserve only the exact
-        // route qualified by both protected hooks on this original M.
-        AfterHandshakeOutcome::AcceptData {
-            allowed_data_custom_ids: vec![],
-        }
-    }
-    async fn before_data_release(
-        &self,
-        endpoint: &Endpoint,
-        original: &Connection,
-    ) -> io::Result<()> {
+impl EndpointAdmission for Gate {
+    async fn admit(&self, original: &ControlConnection) -> io::Result<AdmissionOutcome> {
         *self.original.lock().unwrap() = Some(original.stable_id());
-        let (mut send, mut recv) = if original.side().is_client() {
-            original.open_bi().await.map_err(io::Error::other)?
+        let exchange = if original.side().is_client() {
+            original.open_control_exchange().await?
         } else {
-            original.accept_bi().await.map_err(io::Error::other)?
+            original.accept_control_exchange().await?
         };
         let current = self.current.clone();
         let lease = self
             .transport
             .reserve(original, move || current.load(Ordering::Acquire))?;
-        send.write_all(lease.local_addr().data())
-            .await
-            .map_err(io::Error::other)?;
+        exchange
+            .send_message(
+                ControlMessageFormat::Fixed { length: 16 },
+                lease.local_addr().data(),
+            )
+            .await?;
         let mut address = [0; 16];
-        recv.read_exact(&mut address)
-            .await
-            .map_err(io::Error::other)?;
+        address.copy_from_slice(
+            &exchange
+                .recv_message(ControlMessageFormat::Fixed { length: 16 })
+                .await?,
+        );
         let remote = CustomAddr::from_parts(TRANSPORT_ID, &address);
         lease.set_remote(remote.clone())?;
         lease.activate()?;
@@ -99,7 +96,7 @@ impl EndpointHooks for Gate {
                 }
             }));
         if original.side().is_client() {
-            endpoint.open_control_path(original, remote.clone()).await?;
+            original.open_control_path(remote.clone()).await?;
         }
         let probe = loop {
             match lease.start_probe(original) {
@@ -125,13 +122,20 @@ impl EndpointHooks for Gate {
         while !probe.is_acknowledged()? {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
+
         lease.retain(original, &probe)?;
-        send.write_all(b"ack").await.map_err(io::Error::other)?;
+        exchange
+            .send_message(ControlMessageFormat::Fixed { length: 3 }, b"ack")
+            .await?;
         let mut ack = [0; 3];
-        recv.read_exact(&mut ack).await.map_err(io::Error::other)?;
+        ack.copy_from_slice(
+            &exchange
+                .recv_message(ControlMessageFormat::Fixed { length: 3 })
+                .await?,
+        );
         assert_eq!(&ack, b"ack");
-        endpoint
-            .retain_control_data_transport_path(original, remote.clone())
+        original
+            .retain_control_data_transport_path(remote.clone())
             .await?;
         assert!(
             original.paths().iter().any(|path| path.remote_addr()
@@ -142,21 +146,27 @@ impl EndpointHooks for Gate {
         // Isolate old IP loss for the continuation observation, only in this
         // fixture. Final authorization must replace this mask while retaining
         // the qualified exact route and excluding type-wide custom grants.
-        endpoint
-            .test_limit_transport_paths(original, vec![TransportAddr::Custom(remote)])
+        original
+            .test_limit_transport_paths(vec![TransportAddr::Custom(remote.clone())])
             .await?;
         for path in original.paths().iter().filter(|path| path.is_ip()) {
             let _ = path.close();
         }
-        send.write_all(b"same private stream")
-            .await
-            .map_err(io::Error::other)?;
+        exchange
+            .send_message(
+                ControlMessageFormat::Fixed { length: 19 },
+                b"same private stream",
+            )
+            .await?;
         let mut confirm = [0; 19];
-        recv.read_exact(&mut confirm)
-            .await
-            .map_err(io::Error::other)?;
+        confirm.copy_from_slice(
+            &exchange
+                .recv_message(ControlMessageFormat::Fixed { length: 19 })
+                .await?,
+        );
         assert_eq!(&confirm, b"same private stream");
-        send.finish().map_err(io::Error::other)?;
+        exchange.finish_send().await?;
+
         *self.owner.lock().unwrap() = Some(lease);
         if self.invalidate_before_release {
             self.bridge.confirmed.fetch_add(1, Ordering::AcqRel);
@@ -172,17 +182,32 @@ impl EndpointHooks for Gate {
             // queued admission rather than interruption of confirmation.
             self.current.store(false, Ordering::Release);
         }
-        Ok(())
+        let path = original
+            .paths()
+            .iter()
+            .find(|path| path.remote_addr() == &TransportAddr::Custom(remote.clone()))
+            .unwrap()
+            .id();
+
+        let permit = original.qualify_data_path(path, vec![]).await?;
+
+        Ok(AdmissionOutcome::AcceptWithConfirmation {
+            permit,
+            confirmation: ControlConfirmation::new(async { Ok(()) }),
+        })
+    }
+    fn is_current(&self, original: &ControlConnection) -> bool {
+        self.current.load(Ordering::Acquire) && original.close_reason().is_none()
     }
 }
-async fn endpoint(gate: Gate) -> Endpoint {
+async fn endpoint(gate: Gate) -> RestrictedEndpoint {
     Endpoint::builder(presets::Minimal)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
         .clear_relay_transports()
         .add_custom_transport(Arc::new(gate.transport.clone()))
-        .admission_gate(gate)
         .alpns(vec![ALPN.to_vec()])
+        .restricted_application(gate)
         .bind()
         .await
         .unwrap()
@@ -207,6 +232,7 @@ async fn protected_hooks_confirm_on_exact_rtc_before_original_m_is_released() {
         let (local, remote) = tokio::join!(a.connect(b.addr(), ALPN), async {
             b.accept().await.unwrap().await
         });
+
         let (local, remote) = (local.unwrap(), remote.unwrap());
         assert_eq!(Some(local.stable_id()), *left.original.lock().unwrap());
         assert_eq!(Some(remote.stable_id()), *right.original.lock().unwrap());
@@ -294,18 +320,9 @@ async fn queued_final_release_rechecks_the_exact_route_after_hook_confirmation()
 }
 
 #[derive(Debug, Clone)]
-struct RejectSignalingSeal(Arc<AtomicBool>);
-impl EndpointHooks for RejectSignalingSeal {
-    async fn after_handshake(&self, _: &Connection) -> AfterHandshakeOutcome {
-        AfterHandshakeOutcome::AcceptData {
-            allowed_data_custom_ids: vec![],
-        }
-    }
-    async fn before_data_release(
-        &self,
-        endpoint: &Endpoint,
-        original: &Connection,
-    ) -> io::Result<()> {
+struct RejectSignalingSeal(Arc<AtomicBool>, Arc<tokio::sync::Barrier>);
+impl EndpointAdmission for RejectSignalingSeal {
+    async fn admit(&self, original: &ControlConnection) -> io::Result<AdmissionOutcome> {
         let signaling = original
             .paths()
             .iter()
@@ -318,16 +335,20 @@ impl EndpointHooks for RejectSignalingSeal {
             signaling.id(),
             miopunch_native_probe::mqtt_transport::TRANSPORT_ID
         );
-        let error = endpoint
-            .retain_control_data_transport_path(original, signaling)
+        let error = original
+            .retain_control_data_transport_path(signaling)
             .await
             .expect_err("legacy signaling carrier cannot become an exact data grant");
         assert!(error.to_string().contains("connection-owned qualification"));
         self.0.store(true, Ordering::Release);
+        self.1.wait().await;
         Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
             "signaling has no normal data grant",
         ))
+    }
+    fn is_current(&self, original: &ControlConnection) -> bool {
+        original.close_reason().is_none()
     }
 }
 #[tokio::test]
@@ -345,6 +366,7 @@ async fn actual_mqtt_control_route_cannot_be_sealed_as_an_ordinary_data_path() {
         Arc::new(MqttTransport::new(broker, Arc::new(Traffic::default()))),
         Arc::new(MqttTransport::new(broker, Arc::new(Traffic::default()))),
     ];
+    let checked = Arc::new(tokio::sync::Barrier::new(2));
     let mut endpoints = Vec::new();
     for index in 0..2 {
         endpoints.push(
@@ -352,8 +374,11 @@ async fn actual_mqtt_control_route_cannot_be_sealed_as_an_ordinary_data_path() {
                 .clear_ip_transports()
                 .clear_relay_transports()
                 .add_custom_transport(carriers[index].clone())
-                .admission_gate(RejectSignalingSeal(observed[index].clone()))
                 .alpns(vec![ALPN.to_vec()])
+                .restricted_application(RejectSignalingSeal(
+                    observed[index].clone(),
+                    checked.clone(),
+                ))
                 .bind()
                 .await
                 .unwrap(),

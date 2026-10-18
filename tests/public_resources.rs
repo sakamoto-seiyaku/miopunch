@@ -1,4 +1,5 @@
 //! Public Endpoint and configured-node boundaries for actual STUN datagrams.
+use miopunch_native_probe::control_protocol::AuthenticatedControl;
 use std::{collections::BTreeSet, net::Ipv4Addr, time::Duration};
 
 use iroh::{Endpoint, endpoint::presets};
@@ -613,11 +614,18 @@ async fn mqtt_bootstrap_can_release_only_the_original_connection_over_an_allowed
         .await
         .unwrap();
     for approved in [false, true] {
-        let (out, incoming) = tokio::join!(b.connect(a.addr(), ADMISSION_REQUEST_ALPN), async {
-            a.endpoint().accept().await.unwrap().await
-        });
+        let (out, incoming) =
+            tokio::join!(b.connect_control(a.addr(), ADMISSION_REQUEST_ALPN), async {
+                a.endpoint()
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+            });
         let out = out.unwrap();
-        let incoming = incoming.unwrap();
+        let incoming = std::sync::Arc::new(incoming.unwrap());
         let receiving = async {
             let materials = member.request_manual_admission(&out).await.unwrap();
             if approved {
@@ -642,7 +650,7 @@ async fn mqtt_bootstrap_can_release_only_the_original_connection_over_an_allowed
     }
     a.close().await;
     b.close().await;
-    const BUSINESS: &[u8] = b"miopunch/public-resource-test/1";
+    const BUSINESS: &[u8] = miopunch_native_probe::connection_coordinator::MEMBER_ALPN;
     for node in [&admin, &member] {
         let mut config = node.resource_configuration().unwrap();
         config.replacement.as_mut().unwrap().push(Resource {

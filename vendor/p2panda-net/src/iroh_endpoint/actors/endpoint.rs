@@ -19,6 +19,7 @@ use tracing::{debug, error, warn};
 
 use crate::address_book::report::{ConnectionOutcome, ConnectionRole};
 use crate::address_book::{AddressBook, AddressBookError};
+use crate::iroh_endpoint::access::{EndpointAccess, IncomingAccess};
 use crate::iroh_endpoint::actors::connection::{
     ConnectReplyPort, ConnectionActorError, IrohConnection, IrohConnectionArgs,
 };
@@ -49,6 +50,9 @@ pub enum ToIrohEndpoint {
     /// Return the internal iroh endpoint instance (used by iroh-gossip).
     Endpoint(RpcReplyPort<iroh::Endpoint>),
 
+    /// Query only the independently typed restricted endpoint view.
+    RestrictedEndpoint(RpcReplyPort<iroh::endpoint::RestrictedEndpoint>),
+
     /// Register protocol handler for a given ALPN (protocol identifier).
     RegisterProtocol(ProtocolId, Box<dyn DynProtocolHandler>),
 
@@ -66,7 +70,7 @@ pub enum ToIrohEndpoint {
     ),
 
     /// We've received a connection attempt from a remote iroh endpoint.
-    Incoming(iroh::endpoint::Incoming),
+    Incoming(IncomingAccess),
 
     /// Inform endpoint actor about this successful, incoming connection attempt.
     ///
@@ -87,7 +91,7 @@ pub struct IrohState {
     config: IrohConfig,
     relay_map: iroh::RelayMap,
     address_book: AddressBook,
-    endpoint: Option<iroh::Endpoint>,
+    endpoint: Option<EndpointAccess>,
     protocols: ProtocolMap,
     accept_handle: Option<JoinHandle<()>>,
     watch_addr_handle: Option<JoinHandle<()>>,
@@ -206,15 +210,25 @@ impl ThreadLocalActor for IrohEndpoint {
                 if let Some(hook) = &state.endpoint_builder_hook {
                     builder = hook.apply(builder);
                 }
-                let endpoint = builder
+                let builder = builder
                     .bind_addr(socket_address_v4)?
-                    .bind_addr(socket_address_v6)?
-                    .bind()
-                    .await
-                    // In the event of failure, this error is not included
-                    // as part of the ractor error returned to the caller.
-                    // We log it here explicitly to assist with debugging.
-                    .inspect_err(|err| error!("{err}"))?;
+                    .bind_addr(socket_address_v6)?;
+                let endpoint = if let Some(restricted) = state
+                    .endpoint_builder_hook
+                    .as_ref()
+                    .and_then(|hook| hook.restricted.as_ref())
+                {
+                    restricted(builder)
+                        .bind()
+                        .await
+                        .map(EndpointAccess::Restricted)
+                } else {
+                    builder.bind().await.map(EndpointAccess::Ordinary)
+                }
+                // In the event of failure, this error is not included
+                // as part of the ractor error returned to the caller.
+                // We log it here explicitly to assist with debugging.
+                .inspect_err(|err| error!("{err}"))?;
 
                 // Handle incoming connection requests from other nodes.
                 let accept_handle = {
@@ -316,9 +330,14 @@ impl ThreadLocalActor for IrohEndpoint {
                 .await?;
             }
             ToIrohEndpoint::Endpoint(reply) => {
-                let _ = reply.send(state.endpoint.clone().expect(
-                    "bind always takes place first, an endpoint must exist after this point",
-                ));
+                if let Some(EndpointAccess::Ordinary(endpoint)) = &state.endpoint {
+                    let _ = reply.send(endpoint.clone());
+                }
+            }
+            ToIrohEndpoint::RestrictedEndpoint(reply) => {
+                if let Some(EndpointAccess::Restricted(endpoint)) = &state.endpoint {
+                    let _ = reply.send(endpoint.clone());
+                }
             }
             ToIrohEndpoint::Report {
                 remote_node_id,

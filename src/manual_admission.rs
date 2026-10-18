@@ -4,7 +4,8 @@
 
 use std::time::Duration;
 
-use iroh::endpoint::{Connection, RecvStream, SendStream};
+use crate::control_protocol::{AuthenticatedControl, ControlOwner, OwnedControl};
+use iroh::endpoint::{ControlExchange, ControlMessageFormat};
 use iroh_base::EndpointId;
 use p2panda_auth::group::{GroupAction, GroupMember};
 use p2panda_auth::{Access, GroupsExtensionArgs};
@@ -19,7 +20,9 @@ use crate::native_network::{NativeNetwork, NodeError};
 
 const TIMEOUT: Duration = Duration::from_secs(12);
 
-pub(crate) fn admission_deadline(connection: &Connection) -> n0_future::time::Instant {
+pub(crate) fn admission_deadline(
+    connection: &(impl OwnedControl + ?Sized),
+) -> n0_future::time::Instant {
     let ceiling = n0_future::time::Instant::now() + TIMEOUT;
     connection
         .caller_deadline()
@@ -115,10 +118,9 @@ pub enum ManualExchange {
 /// the second material on this same TLS connection. Dropping it cannot report
 /// successful admission; another request can resume the original result.
 pub struct AdmissionDelivery {
-    connection: Connection,
+    connection: ControlOwner,
     deadline: n0_future::time::Instant,
-    send: SendStream,
-    recv: RecvStream,
+    exchange: ControlExchange,
     local: VerifyingKey,
     binding: JoinBinding,
     authorization: Hash,
@@ -158,7 +160,7 @@ impl NativeNetwork {
 
     pub(crate) fn restricted_connection(
         &self,
-        connection: &Connection,
+        connection: &(impl OwnedControl + ?Sized),
     ) -> Result<(), ManualAdmissionError> {
         if !matches!(
             connection.alpn(),
@@ -328,7 +330,7 @@ impl NativeNetwork {
     /// above, and the applicant repeats this same durable identity/request.
     pub async fn serve_manual_admission(
         &mut self,
-        connection: &Connection,
+        connection: &(impl OwnedControl + ?Sized),
     ) -> Result<AdmissionStage, ManualAdmissionError> {
         let deadline = admission_deadline(connection);
         let result = tokio::time::timeout(
@@ -345,7 +347,7 @@ impl NativeNetwork {
 
     pub(crate) async fn serve_admission_inner(
         &mut self,
-        connection: &Connection,
+        connection: &(impl OwnedControl + ?Sized),
         precode: bool,
     ) -> Result<AdmissionStage, ManualAdmissionError> {
         self.restricted_connection(connection)?;
@@ -355,12 +357,12 @@ impl NativeNetwork {
         if !self.is_admin(self.node_key.verifying_key()) {
             return Err(ManualAdmissionError::Rejected);
         }
-        let (mut send, mut recv) = connection
-            .accept_bi()
+        let exchange = connection
+            .accept_control_exchange()
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         let mut wire = [0; 144];
-        recv.read_exact(&mut wire)
+        read_fixed(&exchange, &mut wire)
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         let binding = JoinBinding::decode(&wire[..112].try_into().unwrap())?;
@@ -377,17 +379,19 @@ impl NativeNetwork {
         };
         let approved = if precode {
             let mut token = [0; 32];
-            recv.read_exact(&mut token)
+            read_fixed(&exchange, &mut token)
                 .await
                 .map_err(|_| ManualAdmissionError::PathUnavailable)?;
             self.redeem_precode(token, &request).await?
         } else {
             self.store.record_admission_request(&request).await?;
             let Some(approved) = self.store.approved_admission(&request).await? else {
-                send.write_all(&[0])
+                write_fixed(&exchange, &[0])
                     .await
                     .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-                send.finish()
+                exchange
+                    .finish_send()
+                    .await
                     .map_err(|_| ManualAdmissionError::PathUnavailable)?;
                 return Ok(AdmissionStage::AwaitingApproval);
             };
@@ -413,18 +417,18 @@ impl NativeNetwork {
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::AuthorizationPrepared);
-        send.write_all(&[1])
+        write_fixed(&exchange, &[1])
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        send.write_all(&self.scope.secret_generation().to_be_bytes())
+        write_fixed(&exchange, &self.scope.secret_generation().to_be_bytes())
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        write_frame(&mut send, &history).await?;
+        write_frame(&exchange, &history).await?;
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::AuthorizationSent);
         let mut ack = [0; 4];
-        recv.read_exact(&mut ack)
+        read_fixed(&exchange, &mut ack)
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         if &ack != b"AUTH" {
@@ -452,16 +456,16 @@ impl NativeNetwork {
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::SecretPrepared);
-        send.write_all(&self.scope.secret_generation().to_be_bytes())
+        write_fixed(&exchange, &self.scope.secret_generation().to_be_bytes())
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        send.write_all(secret.saved_bytes())
+        write_fixed(&exchange, secret.saved_bytes())
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::SecretSent);
-        recv.read_exact(&mut ack)
+        read_fixed(&exchange, &mut ack)
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         if &ack != b"SAVE" {
@@ -476,10 +480,12 @@ impl NativeNetwork {
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::DeliveryComplete);
-        send.write_all(b"DONE")
+        write_fixed(&exchange, b"DONE")
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        send.finish()
+        exchange
+            .finish_send()
+            .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         Ok(AdmissionStage::Complete)
     }
@@ -489,7 +495,7 @@ impl NativeNetwork {
     /// a different applicant and cannot retrieve this result.
     pub async fn request_manual_admission(
         &mut self,
-        connection: &Connection,
+        connection: &(impl OwnedControl + ?Sized),
     ) -> Result<ManualExchange, ManualAdmissionError> {
         let deadline = admission_deadline(connection);
         let result = tokio::time::timeout(
@@ -506,7 +512,7 @@ impl NativeNetwork {
 
     pub(crate) async fn request_admission_inner(
         &mut self,
-        connection: &Connection,
+        connection: &(impl OwnedControl + ?Sized),
         token: Option<[u8; 32]>,
         deadline: n0_future::time::Instant,
     ) -> Result<ManualExchange, ManualAdmissionError> {
@@ -519,8 +525,8 @@ impl NativeNetwork {
         {
             return Err(ManualAdmissionError::Rejected);
         }
-        let (mut send, mut recv) = connection
-            .open_bi()
+        let exchange = connection
+            .open_control_exchange()
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         // A fresh code is a distinct redemption even when this joining node
@@ -537,15 +543,17 @@ impl NativeNetwork {
         if let Some(token) = token {
             wire.extend_from_slice(&token);
         }
-        send.write_all(&wire)
+        write_fixed(&exchange, &wire)
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         let mut status = [0];
-        recv.read_exact(&mut status)
+        read_fixed(&exchange, &mut status)
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         if status == [0] {
-            send.finish()
+            exchange
+                .finish_send()
+                .await
                 .map_err(|_| ManualAdmissionError::PathUnavailable)?;
             return Ok(ManualExchange::AwaitingApproval);
         }
@@ -553,14 +561,14 @@ impl NativeNetwork {
             return Err(ManualAdmissionError::Rejected);
         }
         let mut generation = [0; 8];
-        recv.read_exact(&mut generation)
+        read_fixed(&exchange, &mut generation)
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         let generation = u64::from_be_bytes(generation);
         if generation > i64::MAX as u64 || generation < self.scope.secret_generation() {
             return Err(ManualAdmissionError::Rejected);
         }
-        let history = read_frame(&mut recv).await?;
+        let history = read_frame(&exchange).await?;
         let (authorization, raw): (Hash, Vec<(Vec<u8>, Option<Vec<u8>>)>) =
             p2panda_core::cbor::decode_cbor(history.as_slice())
                 .map_err(|_| ManualAdmissionError::Rejected)?;
@@ -614,10 +622,9 @@ impl NativeNetwork {
         self.store
             .observe(crate::management_store::RecordCheckpoint::AuthorizationSaved);
         Ok(ManualExchange::Materials(AdmissionDelivery {
-            connection: connection.clone(),
+            connection: connection.retain_control(),
             deadline,
-            send,
-            recv,
+            exchange,
             local,
             binding,
             authorization,
@@ -630,7 +637,7 @@ impl NativeNetwork {
     /// leaves local success intact, while the sender can retry its pending ack.
     pub async fn complete_manual_admission(
         &mut self,
-        mut delivery: AdmissionDelivery,
+        delivery: AdmissionDelivery,
     ) -> Result<AdmissionStage, ManualAdmissionError> {
         let result = tokio::time::timeout(
             delivery
@@ -652,15 +659,11 @@ impl NativeNetwork {
                 {
                     return Err(ManualAdmissionError::Rejected);
                 }
-                delivery
-                    .send
-                    .write_all(b"AUTH")
+                write_fixed(&delivery.exchange, b"AUTH")
                     .await
                     .map_err(|_| ManualAdmissionError::PathUnavailable)?;
                 let mut bytes = [0; 40];
-                delivery
-                    .recv
-                    .read_exact(&mut bytes)
+                read_fixed(&delivery.exchange, &mut bytes)
                     .await
                     .map_err(|_| ManualAdmissionError::PathUnavailable)?;
                 #[cfg(feature = "replica-test-hooks")]
@@ -679,22 +682,19 @@ impl NativeNetwork {
                 self.store
                     .observe(crate::management_store::RecordCheckpoint::SecretSaved);
 
-                delivery
-                    .send
-                    .write_all(b"SAVE")
+                write_fixed(&delivery.exchange, b"SAVE")
                     .await
                     .map_err(|_| ManualAdmissionError::PathUnavailable)?;
                 #[cfg(feature = "replica-test-hooks")]
                 self.store
                     .observe(crate::management_store::RecordCheckpoint::CompletionSent);
                 delivery
-                    .send
-                    .finish()
+                    .exchange
+                    .finish_send()
+                    .await
                     .map_err(|_| ManualAdmissionError::PathUnavailable)?;
                 let mut ack = [0; 4];
-                delivery
-                    .recv
-                    .read_exact(&mut ack)
+                read_fixed(&delivery.exchange, &mut ack)
                     .await
                     .map_err(|_| ManualAdmissionError::PathUnavailable)?;
                 if &ack != b"DONE" {
@@ -714,27 +714,54 @@ impl NativeNetwork {
     }
 }
 
-async fn write_frame(send: &mut SendStream, bytes: &[u8]) -> Result<(), ManualAdmissionError> {
-    send.write_all(&(bytes.len() as u32).to_be_bytes())
-        .await
-        .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-    send.write_all(bytes)
+async fn write_fixed(exchange: &ControlExchange, bytes: &[u8]) -> Result<(), ManualAdmissionError> {
+    exchange
+        .send_message(
+            ControlMessageFormat::Fixed {
+                length: bytes.len(),
+            },
+            bytes,
+        )
         .await
         .map_err(|_| ManualAdmissionError::PathUnavailable)
 }
-
-async fn read_frame(recv: &mut RecvStream) -> Result<Vec<u8>, ManualAdmissionError> {
-    let mut len = [0; 4];
-    recv.read_exact(&mut len)
+async fn read_fixed<const N: usize>(
+    exchange: &ControlExchange,
+    bytes: &mut [u8; N],
+) -> Result<(), ManualAdmissionError> {
+    let message = exchange
+        .recv_message(ControlMessageFormat::Fixed { length: N })
         .await
         .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-    let len = u32::from_be_bytes(len) as usize;
-    if len == 0 || len > MAX_HISTORY_BYTES {
+    bytes.copy_from_slice(&message);
+    Ok(())
+}
+async fn write_frame(exchange: &ControlExchange, bytes: &[u8]) -> Result<(), ManualAdmissionError> {
+    exchange
+        .send_message(
+            ControlMessageFormat::LengthPrefixed32 {
+                maximum: MAX_HISTORY_BYTES,
+            },
+            bytes,
+        )
+        .await
+        .map_err(|_| ManualAdmissionError::PathUnavailable)
+}
+async fn read_frame(exchange: &ControlExchange) -> Result<Vec<u8>, ManualAdmissionError> {
+    let message = exchange
+        .recv_message(ControlMessageFormat::LengthPrefixed32 {
+            maximum: MAX_HISTORY_BYTES,
+        })
+        .await
+        .map_err(|error| {
+            if error.kind() == std::io::ErrorKind::InvalidData {
+                ManualAdmissionError::Rejected
+            } else {
+                ManualAdmissionError::PathUnavailable
+            }
+        })?;
+    if message.is_empty() {
         return Err(ManualAdmissionError::Rejected);
     }
-    let mut bytes = vec![0; len];
-    recv.read_exact(&mut bytes)
-        .await
-        .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-    Ok(bytes)
+    Ok(message)
 }

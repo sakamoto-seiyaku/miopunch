@@ -1,32 +1,17 @@
 //! Public node/Connection/stream behavior for same-session path maintenance.
-use iroh::{EndpointAddr, TransportAddr, endpoint::Connection};
+use iroh::{
+    EndpointAddr, TransportAddr,
+    endpoint::{Connection, ControlConnection, ControlMessageFormat},
+};
 use miopunch_native_probe::{
     admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope},
     manual_admission::{AdmissionStage, ManualExchange},
     native_network::NativeNetwork,
     resources::{ResourceConfig, ResourceEndpoint},
 };
-use std::{net::Ipv4Addr, time::Duration};
+use std::{net::Ipv4Addr, sync::Arc, time::Duration};
+const REPAIR_MESSAGE: ControlMessageFormat = ControlMessageFormat::EndTerminated { maximum: 4096 };
 const BUSINESS: &[u8] = b"miopunch/path-maintenance/1";
-
-#[derive(Debug)]
-struct UdpOnlyBusiness;
-impl iroh::endpoint::EndpointHooks for UdpOnlyBusiness {
-    async fn after_handshake(
-        &self,
-        connection: &Connection,
-    ) -> iroh::endpoint::AfterHandshakeOutcome {
-        if connection.alpn() == BUSINESS {
-            // A supported stricter startup policy intersects with the real
-            // AdmissionGate. It grants no identity or membership by itself.
-            iroh::endpoint::AfterHandshakeOutcome::AcceptData {
-                allowed_data_custom_ids: vec![],
-            }
-        } else {
-            iroh::endpoint::AfterHandshakeOutcome::Accept
-        }
-    }
-}
 
 #[tokio::test]
 async fn candidate_specific_refusal_does_not_block_another_permitted_original_path() {
@@ -39,7 +24,7 @@ async fn candidate_specific_refusal_does_not_block_another_permitted_original_pa
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap()
                 .clear_relay_transports()
-                .hooks(UdpOnlyBusiness),
+                .restricted_data_custom_transports(vec![]),
         )
         .await
         .unwrap();
@@ -87,6 +72,8 @@ async fn candidate_specific_refusal_does_not_block_another_permitted_original_pa
             .accept()
             .await
             .unwrap()
+            .accept_control()
+            .unwrap()
             .await
             .unwrap();
         assert!(
@@ -94,14 +81,13 @@ async fn candidate_specific_refusal_does_not_block_another_permitted_original_pa
                 .admission_gate()
                 .allows_member_path_upgrade(&control)
         );
-        let (mut response, mut request) = control.accept_bi().await.unwrap();
+        let exchange = control.accept_control_exchange().await.unwrap();
         let _: serde_json::Value =
-            serde_json::from_slice(&request.read_to_end(4096).await.unwrap()).unwrap();
-        response
-            .write_all(&serde_json::to_vec(&offer).unwrap())
+            serde_json::from_slice(&exchange.recv_message(REPAIR_MESSAGE).await.unwrap()).unwrap();
+        exchange
+            .send_message(REPAIR_MESSAGE, &serde_json::to_vec(&offer).unwrap())
             .await
             .unwrap();
-        response.finish().unwrap();
         control.closed().await;
     };
     let (recovered, _) = tokio::join!(
@@ -156,12 +142,15 @@ async fn old_literal_repair_request_is_accepted_on_protected_original_member() {
             .unwrap();
     let (control, incoming) = tokio::join!(
         pair.client
-            .connect(tcp_target(&pair.server), CONNECTION_RECOVERY_ALPN),
+            .endpoint()
+            .connect_control(tcp_target(&pair.server), CONNECTION_RECOVERY_ALPN),
         async {
             pair.server
                 .endpoint()
                 .accept()
                 .await
+                .unwrap()
+                .accept_control()
                 .unwrap()
                 .await
                 .unwrap()
@@ -169,11 +158,10 @@ async fn old_literal_repair_request_is_accepted_on_protected_original_member() {
     );
     let control = control.unwrap();
     let request = async {
-        let (mut send, mut recv) = control.open_bi().await.unwrap();
-        send.write_all(&bytes).await.unwrap();
-        send.finish().unwrap();
+        let exchange = control.open_control_exchange().await.unwrap();
+        exchange.send_message(REPAIR_MESSAGE, &bytes).await.unwrap();
         let offer: EndpointAddr =
-            serde_json::from_slice(&recv.read_to_end(4096).await.unwrap()).unwrap();
+            serde_json::from_slice(&exchange.recv_message(REPAIR_MESSAGE).await.unwrap()).unwrap();
         assert_eq!(offer.id, pair.server.endpoint().id());
         control.close(0u32.into(), b"legacy request completed");
     };
@@ -208,6 +196,8 @@ async fn default_repair_api_omits_confirmation_field_on_actual_protected_wire() 
             .accept()
             .await
             .unwrap()
+            .accept_control()
+            .unwrap()
             .await
             .unwrap();
         assert!(
@@ -215,16 +205,19 @@ async fn default_repair_api_omits_confirmation_field_on_actual_protected_wire() 
                 .admission_gate()
                 .allows_member_path_upgrade(&control)
         );
-        let (mut send, mut recv) = control.accept_bi().await.unwrap();
+        let exchange = control.accept_control_exchange().await.unwrap();
         let wire: serde_json::Value =
-            serde_json::from_slice(&recv.read_to_end(4096).await.unwrap()).unwrap();
+            serde_json::from_slice(&exchange.recv_message(REPAIR_MESSAGE).await.unwrap()).unwrap();
         assert_eq!(wire.as_object().unwrap().len(), 2);
         assert!(wire.get("binding").is_some() && wire.get("offer").is_some());
         assert!(wire.get("require_confirmation").is_none());
-        send.write_all(&serde_json::to_vec(&pair.server.addr()).unwrap())
+        exchange
+            .send_message(
+                REPAIR_MESSAGE,
+                &serde_json::to_vec(&pair.server.addr()).unwrap(),
+            )
             .await
             .unwrap();
-        send.finish().unwrap();
         control.closed().await;
     };
     let (result, _) = tokio::join!(
@@ -267,6 +260,8 @@ async fn protected_repair_confirms_each_ends_distinct_receiving_address_on_origi
             .endpoint()
             .accept()
             .await
+            .unwrap()
+            .accept_control()
             .unwrap()
             .await
             .unwrap();
@@ -383,12 +378,12 @@ impl Pair {
         server
             .endpoint()
             .set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec(), BUSINESS.to_vec()]);
-        let mut client = joining
+        let client = joining
             .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
             .await
             .unwrap();
-        let (out, incoming) = connect(
-            &mut client,
+        let (out, incoming) = connect_control(
+            &client,
             &server,
             tcp_target(&server),
             ADMISSION_REQUEST_ALPN,
@@ -482,6 +477,29 @@ fn tcp_target(endpoint: &ResourceEndpoint) -> EndpointAddr {
             .into_iter()
             .filter(|a| matches!(a, TransportAddr::Custom(_))),
     )
+}
+async fn connect_control(
+    client: &ResourceEndpoint,
+    server: &ResourceEndpoint,
+    target: EndpointAddr,
+    alpn: &[u8],
+) -> (Arc<ControlConnection>, Arc<ControlConnection>) {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        let (out, incoming) =
+            tokio::join!(client.endpoint().connect_control(target, alpn), async {
+                server
+                    .endpoint()
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+            });
+        (Arc::new(out.unwrap()), Arc::new(incoming.unwrap()))
+    })
+    .await
+    .expect("bounded actual Native control pair")
 }
 async fn connect(
     client: &mut ResourceEndpoint,
@@ -645,18 +663,25 @@ impl TcpProxy {
                         let (mut downstream, _) = accepted.unwrap();
                         let delay = delay.clone();
                         circuits.spawn(async move {
-                            let mut upstream = tokio::net::TcpStream::connect(upstream).await.unwrap();
+                            let mut upstream = tokio::net::TcpStream::connect(upstream).await?;
                             let mut preface = [0; 6];
-                            downstream.read_exact(&mut preface).await.unwrap();
+                            downstream.read_exact(&mut preface).await?;
                             let route = miopunch_native_probe::tcp_transport::TcpTransport::address(address);
-                            upstream.write_all(route.data()).await.unwrap();
-                            upstream.read_exact(&mut preface).await.unwrap();
-                            downstream.write_all(route.data()).await.unwrap();
+                            upstream.write_all(route.data()).await?;
+                            upstream.read_exact(&mut preface).await?;
+                            downstream.write_all(route.data()).await?;
                             let (dr, dw) = downstream.into_split(); let (ur, uw) = upstream.into_split();
                             let _ = tokio::join!(forward_frames(dr, uw, delay.clone()), forward_frames(ur, dw, delay));
+                            Ok::<(), std::io::Error>(())
                         });
                     }
-                    Some(result) = circuits.join_next(), if !circuits.is_empty() => { result.unwrap(); }
+                    Some(result) = circuits.join_next(), if !circuits.is_empty() => {
+                        if let Err(error) = result.unwrap() {
+                            // The endpoint may retire a dial during the route
+                            // preface, including when the fixture closes it.
+                            assert!(matches!(error.kind(), std::io::ErrorKind::UnexpectedEof | std::io::ErrorKind::ConnectionReset | std::io::ErrorKind::BrokenPipe), "proxy preface: {error}");
+                        }
+                    }
                 }
             }
             circuits.shutdown().await;
@@ -821,8 +846,17 @@ async fn restricted_control_paths_do_not_displace_business_quality_selection() {
         let (client, server) = tokio::join!(
             pair.client
                 .endpoint()
-                .connect(target, ADMISSION_REQUEST_ALPN),
-            async { pair.server.endpoint().accept().await.unwrap().await }
+                .connect_control(target, ADMISSION_REQUEST_ALPN),
+            async {
+                pair.server
+                    .endpoint()
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+            }
         );
         (client.unwrap(), server.unwrap())
     })
@@ -1087,6 +1121,8 @@ async fn control_paths_recover_a_new_tcp_carrier_within_the_original_connection_
             .accept()
             .await
             .unwrap()
+            .accept_control()
+            .unwrap()
             .await
             .unwrap();
         let result = pair
@@ -1153,8 +1189,17 @@ async fn control_paths_never_recover_a_closed_business_connection() {
         let (out, incoming) = tokio::join!(
             pair.client
                 .endpoint()
-                .connect(contact.clone(), ADMISSION_REQUEST_ALPN),
-            async { pair.server.endpoint().accept().await.unwrap().await }
+                .connect_control(contact.clone(), ADMISSION_REQUEST_ALPN),
+            async {
+                pair.server
+                    .endpoint()
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+            }
         );
         (out.unwrap(), incoming.unwrap())
     })
@@ -1399,8 +1444,17 @@ async fn control_paths_stay_live_while_physical_business_loss_ends_queued_bytes(
         let (out, incoming) = tokio::join!(
             pair.client
                 .endpoint()
-                .connect(contact.clone(), ADMISSION_REQUEST_ALPN),
-            async { pair.server.endpoint().accept().await.unwrap().await }
+                .connect_control(contact.clone(), ADMISSION_REQUEST_ALPN),
+            async {
+                pair.server
+                    .endpoint()
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+            }
         );
         (out.unwrap(), incoming.unwrap())
     })
@@ -1487,21 +1541,30 @@ async fn control_paths_reject_an_unknown_original_tls_binding_without_changing_b
         let (out, incoming) = tokio::join!(
             pair.client
                 .endpoint()
-                .connect(contact, CONNECTION_RECOVERY_ALPN),
-            async { pair.server.endpoint().accept().await.unwrap().await }
+                .connect_control(contact, CONNECTION_RECOVERY_ALPN),
+            async {
+                pair.server
+                    .endpoint()
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+            }
         );
         (out.unwrap(), incoming.unwrap())
     })
     .await
     .unwrap();
     let request = async {
-        let (mut send, mut recv) = control.open_bi().await.unwrap();
+        let exchange = control.open_control_exchange().await.unwrap();
         let request = serde_json::json!({"binding": vec![0u8; 32], "offer": pair.client.addr()});
-        send.write_all(&serde_json::to_vec(&request).unwrap())
+        exchange
+            .send_message(REPAIR_MESSAGE, &serde_json::to_vec(&request).unwrap())
             .await
             .unwrap();
-        send.finish().unwrap();
-        let result = recv.read_to_end(4096).await;
+        let result = exchange.recv_message(REPAIR_MESSAGE).await;
         assert!(
             !matches!(result, Ok(ref bytes) if !bytes.is_empty()),
             "invalid binding must not disclose a path offer"
@@ -1587,6 +1650,8 @@ async fn control_paths_recover_when_the_original_accepting_side_initiates() {
             .endpoint()
             .accept()
             .await
+            .unwrap()
+            .accept_control()
             .unwrap()
             .await
             .unwrap();
@@ -1698,6 +1763,8 @@ async fn control_paths_do_not_report_stale_same_address_as_recovered() {
             .accept()
             .await
             .unwrap()
+            .accept_control()
+            .unwrap()
             .await
             .unwrap();
         pair.admin
@@ -1741,6 +1808,8 @@ async fn control_paths_do_not_report_stale_same_address_as_recovered() {
             .endpoint()
             .accept()
             .await
+            .unwrap()
+            .accept_control()
             .unwrap()
             .await
             .unwrap();

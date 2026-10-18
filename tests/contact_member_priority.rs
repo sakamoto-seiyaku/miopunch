@@ -1,4 +1,5 @@
 //! Two actual SDK contact-selection cases; loopback, never physical/public qualification.
+use miopunch_native_probe::control_protocol::AuthenticatedControl;
 use miopunch_native_probe::{
     admission_gate::{AdmissionGate, ProtocolScope},
     connection_coordinator::{AttemptContext, MEMBER_ALPN, SessionPurpose},
@@ -66,31 +67,23 @@ struct WarmControl {
     facts: Arc<Mutex<serde_json::Value>>,
     closed: Arc<tokio::sync::Notify>,
 }
-impl iroh::protocol::ProtocolHandler for WarmControl {
+impl iroh::protocol::ControlProtocolHandler for WarmControl {
     async fn accept(
         &self,
-        connection: iroh::endpoint::Connection,
+        connection: iroh::endpoint::ControlConnection,
     ) -> Result<(), iroh::protocol::AcceptError> {
-        use iroh::protocol::AcceptError;
         *self.facts.lock().unwrap() = serde_json::json!({
             "identityMatched":connection.remote_id()==self.expected,
             "bootstrapGate":self.gate.allows(&connection,ProtocolScope::Bootstrap),
             "ordinaryMemberGate":self.gate.allows(&connection,ProtocolScope::Member),
         });
-        let (mut send, mut recv) = connection
-            .accept_bi()
-            .await
-            .map_err(AcceptError::from_err)?;
-        let request = recv.read_to_end(16).await.map_err(AcceptError::from_err)?;
-        if request != b"WARM" {
-            return Err(std::io::Error::other("owned control warm request mismatch").into());
+        let exchange = connection.accept_control_exchange().await?;
+        let format = iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 16 };
+        if exchange.recv_message(format).await? != b"WARM" {
+            return Err(std::io::Error::other("unexpected owned control request").into());
         }
-        send.write_all(b"WARMED")
-            .await
-            .map_err(AcceptError::from_err)?;
-        send.finish()?;
-        drop(send);
-        drop(recv);
+        exchange.send_message(format, b"WARMED").await?;
+        drop(exchange);
         connection.closed().await;
         self.closed.notify_one();
         Ok(())
@@ -113,7 +106,7 @@ async fn admit(admin: &mut NativeNetwork, directory: &std::path::Path) -> Native
     let deadline = n0_future::time::Instant::now() + Duration::from_secs(12);
     let cancellation = tokio_util::sync::CancellationToken::new();
     let (outgoing, incoming) = tokio::join!(
-        client_coordinator.connect(
+        client_coordinator.connect_control(
             server.addr(),
             SessionPurpose::AdmissionRequest,
             AttemptContext::new(deadline, cancellation.clone()),
@@ -121,7 +114,7 @@ async fn admit(admin: &mut NativeNetwork, directory: &std::path::Path) -> Native
         async {
             let incoming = server.endpoint().accept().await.unwrap();
             server_coordinator
-                .accept(
+                .accept_control(
                     incoming,
                     SessionPurpose::AdmissionRequest,
                     AttemptContext::new(deadline, cancellation),
@@ -301,7 +294,7 @@ async fn run_case(member_unavailable: bool, data_hint: DataHint) {
             |builder| builder.add_custom_transport(receiver_transport.clone()),
             |router| {
                 router
-                    .accept(
+                    .accept_control(
                         miopunch_native_probe::admission_gate::CONTROL_ALPN,
                         warm_handler,
                     )
@@ -433,7 +426,7 @@ async fn run_case(member_unavailable: bool, data_hint: DataHint) {
             .with_addrs([iroh::TransportAddr::Custom(mqtt_route.clone())]);
         let warm = tokio::time::timeout(
             Duration::from_secs(3),
-            caller_resources.endpoint().connect(
+            caller_resources.endpoint().connect_control(
                 warm_target,
                 miopunch_native_probe::admission_gate::CONTROL_ALPN,
             ),
@@ -452,12 +445,11 @@ async fn run_case(member_unavailable: bool, data_hint: DataHint) {
                 .admission_gate()
                 .allows(&warm, ProtocolScope::Member)
         );
-        let (mut send, mut recv) = warm.open_bi().await.unwrap();
-        send.write_all(b"WARM").await.unwrap();
-        send.finish().unwrap();
-        assert_eq!(recv.read_to_end(16).await.unwrap(), b"WARMED");
-        drop(send);
-        drop(recv);
+        let exchange = warm.open_control_exchange().await.unwrap();
+        let format = iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 16 };
+        exchange.send_message(format, b"WARM").await.unwrap();
+        assert_eq!(exchange.recv_message(format).await.unwrap(), b"WARMED");
+        drop(exchange);
         warm.close(0u32.into(), b"owned restricted warm session ended");
         drop(warm);
         tokio::time::timeout(Duration::from_secs(1), warm_closed.notified())
