@@ -1,0 +1,65 @@
+{
+  "original-legacy-v2": {
+    "buildReceiptSha256": "d5c59a1274950d92b60a21f479cba8707caf394ecf42ac455280419693de4a44",
+    "buildContextSha256": "2a2e07218cb0410838ea459215b9b3972195a59c20fdeec4724b213769d46ded",
+    "selectedInputManifestSha256": "964f0112b14b6c5a3773b03e6066af987d244557021d379c5196c8c82792a5e9",
+    "selectedInputs": 4903,
+    "repositoryInputs": 5,
+    "allActualSelectedInputsAndArtifactsCurrent": true,
+    "compiledGlobalSourceDigest": "1d5d9446d9583bef45f9da437f60fa5210080d2f3a3c1ade84c8effca3d7b844"
+  },
+  "final-ordinary": {
+    "buildReceiptSha256": "37bc277244fad186f39b899490e87f1f6106fc2cfe83d9c82a8d8f1d96fe8c52",
+    "buildContextSha256": "09a8d6d2123c0ad1f244ad91f77379fc7d2157eeed070beb966824a937dfe153",
+    "selectedInputManifestSha256": "192a8c0f1337037a229dbd75bfb0a170ee721eba2a5ff270ea14cbc6340dcd18",
+    "selectedInputs": 3926,
+    "repositoryInputs": 177,
+    "allActualSelectedInputsAndArtifactsCurrent": true,
+    "compiledGlobalSourceDigest": "32613d9cfa9123f7b49a4e9190239c3572abe9eab0cfeb82bb339462de788e54"
+  },
+  "scoped-initial": {
+    "buildReceiptSha256": "6506a6f9799c637b948095f9ef90e5b71f6db9afe0e151212dc7aa1a473f72a0",
+    "buildContextSha256": "458db962257600bc8b43a899a9b9fd006326d966878f0e30f703caddca96950b",
+    "selectedInputManifestSha256": "9ddac69f0c8cb26b76f6c3765b0d7f6705d182b2d66db16b1d8968760dfff450",
+    "selectedInputs": 3922,
+    "repositoryInputs": 174,
+    "allActualSelectedInputsAndArtifactsCurrent": true,
+    "compiledGlobalSourceDigest": "42e2c21861678f21fcfdfda0b8150923d69b50a246fd8d3089156f1043e95000"
+  },
+  "sdk-socket-final": {
+    "buildReceiptSha256": "1a3424068e00954481daba871a930b03d983d1cbd6a64776117d9632d320b87c",
+    "buildContextSha256": "ac0b54994ed239a982bb46357116231f2d7d92bf4c42703d7e143ee8ebb8ebbf",
+    "selectedInputManifestSha256": "32b92267bea1e1ed8c9670c1fef787ca97ec2aaab49c58250bb1cefc0837c3cd",
+    "selectedInputs": 6632,
+    "repositoryInputs": 305,
+    "allActualSelectedInputsAndArtifactsCurrent": true,
+    "compiledGlobalSourceDigest": "32613d9cfa9123f7b49a4e9190239c3572abe9eab0cfeb82bb339462de788e54"
+  },
+  "final-browser-sdk": {
+    "buildReceiptSha256": "dc1f66e3eb828e4b5eb1bbcd1d69a158340adbab71c6d1bdc3fc367e1dbbccc8",
+    "buildContextSha256": "4c0171dbee077b98bcd0403d1d16bd4bca6c3d6cc3d24fb083c10b0ad8e30940",
+    "selectedInputManifestSha256": "5909f4b6266a3a169e0efed9d47d9902a82ff5cf5ddc30933be5e28e6e89fbfe",
+    "selectedInputs": 3162,
+    "repositoryInputs": 201,
+    "allActualSelectedInputsAndArtifactsCurrent": true,
+    "compiledGlobalSourceDigest": "32613d9cfa9123f7b49a4e9190239c3572abe9eab0cfeb82bb339462de788e54"
+  },
+  "current-proto": {
+    "buildReceiptSha256": "8bf2c4d6a09991a813d871162bc2bd3e44dd24a0b232cc0aadd9414e3157d1f6",
+    "buildContextSha256": "e4d6ed437a9183582d4afe87138e61e10b34c4bd14cdca4deead628f451280d5",
+    "selectedInputManifestSha256": "365df0603a2adbeeeff46fadb3650622cb8ca0b40770bbc99b9254c5c477c123",
+    "selectedInputs": 1780,
+    "repositoryInputs": 63,
+    "allActualSelectedInputsAndArtifactsCurrent": true,
+    "compiledGlobalSourceDigest": "32613d9cfa9123f7b49a4e9190239c3572abe9eab0cfeb82bb339462de788e54"
+  },
+  "root-typecheck": {
+    "buildReceiptSha256": "456513a23395f2cd2be70b6046c8b2117d9da76b107609d519939b424140705e",
+    "buildContextSha256": "24c54f0b296269fb1db3bf782a3a79acd946c6c9b27e308f4b72ef9f4149de91",
+    "selectedInputManifestSha256": "d452e025878dd86c0fa08e30cd22feab7d6301ce9779e2dc82759bc1aac55b49",
+    "selectedInputs": 6719,
+    "repositoryInputs": 392,
+    "allActualSelectedInputsAndArtifactsCurrent": true,
+    "compiledGlobalSourceDigest": "32613d9cfa9123f7b49a4e9190239c3572abe9eab0cfeb82bb339462de788e54"
+  }
+}
