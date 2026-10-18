@@ -19,7 +19,7 @@ use std::{
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::{RtcSdpType, RtcSessionDescriptionInit};
 
-fn binding(connection: &Connection) -> Result<[u8; 32], JsValue> {
+fn binding(connection: &(impl AuthenticatedControl + ?Sized)) -> Result<[u8; 32], JsValue> {
     let mut bytes = [0; 32];
     connection
         .export_keying_material(&mut bytes, CONTINUITY_BINDING_LABEL, &[])
@@ -105,7 +105,7 @@ pub(super) struct OwnedRtc {
 }
 impl OwnedRtc {
     fn new(
-        connection: &Connection,
+        connection: &ControlHandle,
         transport: &crate::rtc_transport::RtcTransport,
         gate: &BrowserGate,
     ) -> Result<Self, JsValue> {
@@ -159,7 +159,7 @@ impl OwnedRtc {
         );
         Ok(owner)
     }
-    fn start_pump(&self, original: iroh::endpoint::WeakConnectionHandle) {
+    fn start_pump(&self, original: iroh::endpoint::WeakControlConnection) {
         let association = self.association.clone();
         let io = self.lease.io();
         let drop_quic = self.drop_quic.clone();
@@ -261,8 +261,10 @@ impl Drop for OwnedRtc {
     }
 }
 
-async fn phase(recv: &mut RecvStream, expected: &str) -> Result<Value, JsValue> {
-    let message = read_frame(recv).await.map_err(error)?;
+async fn phase(exchange: &ControlExchange, expected: &str) -> Result<Value, JsValue> {
+    let message = crate::rtc_wire::read_control(exchange)
+        .await
+        .map_err(error)?;
     if message["kind"] != expected {
         return Err(error(format!(
             "expected RTC {expected}, got {}",
@@ -293,8 +295,7 @@ async fn metadata(association: &Association) -> Result<Value, JsValue> {
 }
 
 pub(super) async fn bootstrap_control_unified(
-    endpoint: &Endpoint,
-    connection: &Connection,
+    connection: &ControlHandle,
     gate: &BrowserGate,
     saved: &SavedNode,
     transport: &crate::rtc_transport::RtcTransport,
@@ -304,7 +305,7 @@ pub(super) async fn bootstrap_control_unified(
         return Err(error("unified/InvalidControl"));
     }
     let (report, prepared) =
-        bootstrap_control_inner(endpoint, connection, gate, saved, transport, attempt).await?;
+        bootstrap_control_inner(connection, gate, saved, transport, attempt).await?;
     Ok((report, prepared))
 }
 
@@ -313,9 +314,8 @@ pub(super) async fn bootstrap_control_unified(
 /// path is released here; the common coordinator commits after bilateral
 /// Ready and a final fresh ACK.
 pub(super) async fn bootstrap_control_active(
-    endpoint: &Endpoint,
-    original: &Connection,
-    control: &Connection,
+    original: &ControlHandle,
+    control: &ControlHandle,
     gate: &BrowserGate,
     saved: &SavedNode,
     transport: &crate::rtc_transport::RtcTransport,
@@ -335,7 +335,7 @@ pub(super) async fn bootstrap_control_active(
         saved.invitation()?.anchor.root.as_bytes(),
         saved.generation,
         &if offerer {
-            endpoint.id()
+            original.local_id()
         } else {
             original.remote_id()
         }
@@ -343,7 +343,7 @@ pub(super) async fn bootstrap_control_active(
         &if offerer {
             original.remote_id()
         } else {
-            endpoint.id()
+            original.local_id()
         }
         .to_string(),
     );
@@ -372,20 +372,22 @@ pub(super) async fn bootstrap_control_active(
         .map_err(|_| error("original M exporter unavailable"))?;
     let protected_binding = blake3::hash(&exporter).to_hex().to_string();
     record_progress("control-stream-open", false);
-    let (mut send, mut recv) = if control.side().is_client() {
-        control.open_bi().await.map_err(error)?
+    let exchange = if control.side().is_client() {
+        control.open_control_exchange().await.map_err(error)?
     } else {
-        control.accept_bi().await.map_err(error)?
+        control.accept_control_exchange().await.map_err(error)?
     };
     record_progress("control-stream-open", true);
     let mut request = if offerer {
         json!({"protocol":crate::rtc_association::UNIFIED_RTC_PROTOCOL,"attempt":attempt_id,
             "context":context,"binding":protected_binding,"channel":datagram_channel_parameters(),
-            "quicDialer":attempt.quic_dialer(endpoint,original).to_string(),
-            "rtcOfferer":endpoint.id().to_string(),"rtcAnswerer":original.remote_id().to_string()})
+            "quicDialer":attempt.quic_dialer_for(original.local_id(),original).to_string(),
+            "rtcOfferer":original.local_id().to_string(),"rtcAnswerer":original.remote_id().to_string()})
     } else {
         record_progress("answerer-read-offer", false);
-        let request = read_frame(&mut recv).await.map_err(error)?;
+        let request = crate::rtc_wire::read_control(&exchange)
+            .await
+            .map_err(error)?;
         record_progress("answerer-read-offer", true);
         record_progress("answerer-validate-offer", false);
         if request["protocol"] != crate::rtc_association::UNIFIED_RTC_PROTOCOL
@@ -394,7 +396,7 @@ pub(super) async fn bootstrap_control_active(
             || request["binding"] != protected_binding
             || request["channel"] != datagram_channel_parameters()
             || request["rtcOfferer"] != original.remote_id().to_string()
-            || request["rtcAnswerer"] != endpoint.id().to_string()
+            || request["rtcAnswerer"] != original.local_id().to_string()
             || request["description"]["type"] != "offer"
         {
             return Err(error("unified/InvalidControl"));
@@ -435,8 +437,8 @@ pub(super) async fn bootstrap_control_active(
             local_sdp(&mut request, &local.sdp(), transport)?;
             request["route"] = json!(hex::encode(owner.lease.local_addr().data()));
             request["remainingMs"] = json!(budget.remaining().map_err(error)?.as_millis() as u64);
-            write_frame(&mut send, &request).await.map_err(error)?;
-            let answer = phase(&mut recv, "answer").await?;
+            crate::rtc_wire::write_control(&exchange, &request).await.map_err(error)?;
+            let answer = phase(&exchange, "answer").await?;
             if answer["attempt"] != attempt_id
                 || answer["binding"] != protected_binding
                 || answer["channel"] != datagram_channel_parameters()
@@ -465,7 +467,7 @@ pub(super) async fn bootstrap_control_active(
             JsFuture::from(owner.association.pc.set_local_description(&answer)).await?;
             owner.association.gathered().await?;
             let local = owner.association.pc.local_description().ok_or_else(|| error("RTC answer absent"))?;
-            write_frame(&mut send, &json!({"kind":"answer","attempt":attempt_id,"binding":protected_binding,
+            crate::rtc_wire::write_control(&exchange, &json!({"kind":"answer","attempt":attempt_id,"binding":protected_binding,
                 "channel":datagram_channel_parameters(),"description":{"type":"answer","sdp":transport.ice_profile().local_sdp(&local.sdp()).map_err(error)?},
                 "route":hex::encode(owner.lease.local_addr().data())})).await.map_err(error)?;
             record_progress("answerer-signaling", true);
@@ -496,10 +498,7 @@ pub(super) async fn bootstrap_control_active(
         record_progress("data-path-open", false);
         loop {
             budget.remaining().map_err(error)?;
-            match endpoint
-                .open_data_transport_path(original, remote.clone())
-                .await
-            {
+            match original.open_data_transport_path(remote.clone()).await {
                 Ok(()) => break,
                 Err(cause) if cause.kind() == std::io::ErrorKind::WouldBlock => {
                     n0_future::time::sleep(Duration::from_millis(10)).await
@@ -563,15 +562,14 @@ pub(super) async fn bootstrap_control_active(
         "streamReceived":path.stats().frame_rx.stream,"datagramSent":path.stats().frame_tx.datagram,
         "datagramReceived":path.stats().frame_rx.datagram});
     record_progress("stream-finish", false);
-    send.finish().map_err(error)?;
+    exchange.finish_send().await.map_err(error)?;
     record_progress("stream-finish", true);
     let initial_path = probe.path_id().to_owned();
     let initial_watermark = probe.watermark();
     let io = owner.lease.io();
     let rollback_io = io.clone();
     let current_io = io.clone();
-    let original_weak = original.weak_handle();
-    let endpoint_for_retain = endpoint.clone();
+    let pending_original = original.clone();
     let gate_for_retain = gate.clone();
     let report = json!({"prepared":true,"finalized":false,"switched":false,
         "memberStableId":stable,"stableUnchanged":original.stable_id()==stable,
@@ -599,9 +597,10 @@ pub(super) async fn bootstrap_control_active(
     .with_retain(move || {
         Box::pin(send_wrapper::SendWrapper::new(async move {
             let (owner, mut report) = pending.take();
-            let current = original_weak
-                .upgrade()
-                .ok_or_else(|| control_error("DataPathUnavailable"))?;
+            let current = pending_original;
+            if current.close_reason().is_some() {
+                return Err(control_error("DataPathUnavailable"));
+            }
             gate_for_retain
                 .qualified_snapshot(&current)
                 .await
@@ -624,8 +623,8 @@ pub(super) async fn bootstrap_control_active(
                 return Err(control_error("IdentityOrAdmissionRejected"));
             }
             owner.lease.retain(&current, &final_probe)?;
-            endpoint_for_retain
-                .retain_data_transport_path(&current, owner.lease.remote_addr()?)
+            current
+                .retain_data_transport_path(owner.lease.remote_addr()?)
                 .await?;
             report["prepared"] = json!(false);
             report["finalized"] = json!(true);
@@ -662,7 +661,7 @@ pub(super) async fn bootstrap_control_active(
 
 fn attempt_deadline(
     attempt: &crate::connection_coordinator::ProtectedAttempt,
-    control: &Connection,
+    control: &ControlHandle,
 ) -> Result<n0_future::time::Instant, JsValue> {
     let _ = attempt;
     Ok(control
@@ -685,8 +684,7 @@ fn report_stub(stable: usize, metadata: &Value) -> Value {
 }
 
 pub(super) async fn bootstrap_control_inner(
-    endpoint: &Endpoint,
-    connection: &Connection,
+    connection: &ControlHandle,
     gate: &BrowserGate,
     saved: &SavedNode,
     transport: &crate::rtc_transport::RtcTransport,
@@ -705,14 +703,14 @@ pub(super) async fn bootstrap_control_inner(
     let original_binding = binding(connection)?;
     let attempt = unified.id_hex();
     let protocol = crate::rtc_association::UNIFIED_RTC_PROTOCOL;
-    let quic_dialer = unified.quic_dialer(endpoint, connection);
+    let quic_dialer = unified.quic_dialer_for(connection.local_id(), connection);
     let mut initial_unified_probe = None;
     let context = attempt_context(
         &attempt,
         saved.invitation()?.anchor.root.as_bytes(),
         saved.generation,
         &if offerer {
-            endpoint.id()
+            connection.local_id()
         } else {
             connection.remote_id()
         }
@@ -720,7 +718,7 @@ pub(super) async fn bootstrap_control_inner(
         &if offerer {
             connection.remote_id()
         } else {
-            endpoint.id()
+            connection.local_id()
         }
         .to_string(),
     );
@@ -729,15 +727,17 @@ pub(super) async fn bootstrap_control_inner(
         .export_keying_material(&mut exporter, EXPORTER_LABEL, context.as_bytes())
         .map_err(|_| error("RTC original M exporter unavailable"))?;
     let protected_binding = blake3::hash(&exporter).to_hex().to_string();
-    let (mut send, mut recv) = if offerer {
-        connection.open_bi().await.map_err(error)?
+    let exchange = if offerer {
+        connection.open_control_exchange().await.map_err(error)?
     } else {
-        connection.accept_bi().await.map_err(error)?
+        connection.accept_control_exchange().await.map_err(error)?
     };
     let request = if offerer {
         None
     } else {
-        let request = read_frame(&mut recv).await.map_err(error)?;
+        let request = crate::rtc_wire::read_control(&exchange)
+            .await
+            .map_err(error)?;
         let remaining = request["remainingMs"]
             .as_u64()
             .filter(|remaining| *remaining > 0 && *remaining <= crate::connection_budget::MAX_MS)
@@ -749,7 +749,7 @@ pub(super) async fn bootstrap_control_inner(
             || request["channel"] != datagram_channel_parameters()
             || request["quicDialer"] != quic_dialer.to_string()
             || request["rtcOfferer"] != connection.remote_id().to_string()
-            || request["rtcAnswerer"] != endpoint.id().to_string()
+            || request["rtcAnswerer"] != connection.local_id().to_string()
             || request["description"]["type"] != "offer"
         {
             return Err(error("unified/InvalidControl"));
@@ -767,7 +767,7 @@ pub(super) async fn bootstrap_control_inner(
         Some(request)
     };
     let owner = OwnedRtc::new(connection, transport, gate)?;
-    let stream_id = send.id().to_string();
+    let stream_id = exchange.id().to_string();
     let (revision, observed, _) = gate.rtc_qualification(connection)?;
 
     let preparation_io = owner.lease.io();
@@ -782,11 +782,11 @@ pub(super) async fn bootstrap_control_inner(
 
                 let published_sdp=transport.ice_profile().local_sdp(&local_sdp).map_err(error)?;
 
-                write_frame(&mut send, &json!({"protocol":protocol,"attempt":attempt,"context":context,"binding":protected_binding,
+                crate::rtc_wire::write_control(&exchange, &json!({"protocol":protocol,"attempt":attempt,"context":context,"binding":protected_binding,
                     "description":{"type":"offer","sdp":published_sdp},"channel":datagram_channel_parameters(),"route":hex::encode(owner.lease.local_addr().data()),
-                    "quicDialer":quic_dialer.to_string(),"rtcOfferer":endpoint.id().to_string(),"rtcAnswerer":connection.remote_id().to_string(),
+                    "quicDialer":quic_dialer.to_string(),"rtcOfferer":connection.local_id().to_string(),"rtcAnswerer":connection.remote_id().to_string(),
                     "remainingMs":budget.remaining().map_err(error)?.as_millis() as u64,"authorizationRevision":observed,"resourceRevision":transport.resource_revision()})).await.map_err(error)?;
-                let answer = phase(&mut recv, "answer").await?;
+                let answer = phase(&exchange, "answer").await?;
                 if answer["attempt"] != attempt || answer["binding"] != protected_binding || answer["channel"] != datagram_channel_parameters()
                     || answer["description"]["type"] != "answer" {
                     return Err(error("unified/InvalidControl"));
@@ -819,7 +819,7 @@ pub(super) async fn bootstrap_control_inner(
 
                 let published_sdp=transport.ice_profile().local_sdp(&local_sdp).map_err(error)?;
 
-                write_frame(&mut send, &json!({"kind":"answer","attempt":attempt,"binding":protected_binding,
+                crate::rtc_wire::write_control(&exchange, &json!({"kind":"answer","attempt":attempt,"binding":protected_binding,
                     "channel":datagram_channel_parameters(),"description":{"type":"answer","sdp":published_sdp},
                     "route":hex::encode(owner.lease.local_addr().data()),"authorizationRevision":observed,"resourceRevision":transport.resource_revision()})).await.map_err(error)?;
             }
@@ -853,7 +853,7 @@ pub(super) async fn bootstrap_control_inner(
 
                 loop {
                     budget.remaining().map_err(error)?;
-                    let result=endpoint.open_control_path(connection,owner.lease.remote_addr().map_err(error)?).await;
+                    let result=connection.open_control_path(owner.lease.remote_addr().map_err(error)?).await;
 
                     match result {
                         Ok(())=>break,
@@ -888,9 +888,9 @@ pub(super) async fn bootstrap_control_inner(
                 "datagramSent":path.stats().frame_tx.datagram,"datagramReceived":path.stats().frame_rx.datagram});
             owner.lease.retain(connection,&probe).map_err(error)?;
 
-            endpoint.retain_control_data_transport_path(connection,owner.lease.remote_addr().map_err(error)?).await.map_err(error)?;
+            connection.retain_control_data_transport_path(owner.lease.remote_addr().map_err(error)?).await.map_err(error)?;
 
-            send.finish().map_err(error)?;
+            exchange.finish_send().await.map_err(error)?;
             let report=json!({"prepared":true,"finalized":false,"switched":false,
                 "memberStableId":stable,"stableUnchanged":connection.stable_id()==stable,
                 "bindingUnchanged":binding(connection)?==original_binding,"freshAck":true,
@@ -927,6 +927,7 @@ pub(super) async fn bootstrap_control_inner(
     let io = owner.lease.io();
     let rollback_io = io.clone();
     let remote = owner.lease.remote_addr().map_err(error)?;
+    let pending_original = connection.clone();
     let original = connection.weak_handle();
     let generation = saved.generation;
     // WebSys/Rc ownership stays on the same browser executor, following the
@@ -944,7 +945,8 @@ pub(super) async fn bootstrap_control_inner(
         .with_rollback(move || rollback_io.retire())
         .with_retain(move || Box::pin(send_wrapper::SendWrapper::new(async move {
             let (owner,gate,transport,mut report)=pending.take();
-            let current=original.upgrade().ok_or_else(||control_error("DataPathUnavailable"))?;
+            let current=pending_original;
+            if current.close_reason().is_some() { return Err(control_error("DataPathUnavailable")); }
 
             let finalize=async {
 

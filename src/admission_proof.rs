@@ -146,9 +146,12 @@ impl BootstrapProof {
         connection: &(impl AuthenticatedControl + ?Sized),
         scope: &AdmissionScope,
     ) -> bool {
-        self.scope == *scope
-            && self.connection_id == connection.stable_id()
-            && self.connection.is_open()
+        self.applies_to_id(connection.stable_id(), scope)
+    }
+
+    /// Recheck a recorded authenticated session without upgrading its weak handle.
+    pub(crate) fn applies_to_id(&self, connection_id: usize, scope: &AdmissionScope) -> bool {
+        self.scope == *scope && self.connection_id == connection_id && self.connection.is_open()
     }
 
     pub(crate) fn credential_fingerprint(&self) -> &[u8; 32] {

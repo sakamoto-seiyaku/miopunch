@@ -3,7 +3,11 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use iroh::endpoint::{AfterHandshakeOutcome, BeforeConnectOutcome, EndpointHooks};
+use crate::control_protocol::{AuthenticatedControl, ControlOwner, OwnedControl};
+use iroh::endpoint::{
+    BeforeConnectOutcome, ControlExchange, ControlHandle, ControlMessageFormat, EndpointHooks,
+    RestrictedEndpoint,
+};
 use iroh::endpoint::{Connection, RecvStream, RelayResourcePolicy, RelayResourceUse, SendStream};
 use iroh::{Endpoint, EndpointAddr, RelayMode, RelayUrl, endpoint::presets};
 use iroh_base::SecretKey;
@@ -153,7 +157,7 @@ impl SavedNode {
 
 struct RelayCheckAttempt {
     stable_id: usize,
-    original: iroh::endpoint::WeakConnectionHandle,
+    original: iroh::endpoint::WeakControlConnection,
     sequence: u64,
     checks: Vec<serde_json::Value>,
 }
@@ -164,6 +168,7 @@ struct GateState {
     saved: Option<SavedNode>,
     proofs: Vec<BootstrapProof>,
     connections: Vec<iroh::endpoint::WeakConnectionHandle>,
+    control_sessions: std::collections::BTreeMap<usize, BrowserControlSession>,
     qualification_revision: Arc<std::sync::atomic::AtomicU64>,
     qualification_updates: Option<n0_watcher::Watchable<u64>>,
     snapshot_hash: Option<[u8; 32]>,
@@ -184,12 +189,35 @@ struct GateState {
     rtc_cleanup_observers: usize,
 }
 
+#[derive(Clone)]
+struct BrowserControlSession {
+    connection: iroh::endpoint::WeakControlConnection,
+    peer: iroh_base::EndpointId,
+    alpn: Vec<u8>,
+    client: bool,
+}
+impl BrowserControlSession {
+    fn permitted(&self, saved: &SavedNode) -> bool {
+        if !self.connection.is_open() {
+            return false;
+        }
+        if is_request_alpn(&self.alpn) && !self.client {
+            saved.stage() == "Complete"
+                && saved.verify().ok().flatten().is_some_and(|auth| {
+                    auth.nodes().contains(&(saved.identity(), Access::manage()))
+                })
+        } else {
+            BrowserGate::permits(saved, self.peer, &self.alpn)
+        }
+    }
+}
+
 /// The effective permission of one proved original M. Saved record changes
 /// still advance the source diagnostic revision, but cannot revoke another
 /// still-permitted M's path. Retirement is terminal for every issued token.
 #[cfg(feature = "rtc-probe")]
 struct RtcQualificationSource {
-    original: iroh::endpoint::WeakConnectionHandle,
+    original: iroh::endpoint::WeakControlConnection,
     revision: Arc<std::sync::atomic::AtomicU64>,
     updates: n0_watcher::Watchable<u64>,
     retired: bool,
@@ -289,7 +317,7 @@ impl BrowserGate {
 }
 
 fn relay_probe_debug_details(
-    connection: &Connection,
+    connection: &ControlHandle,
     exact_path: Option<&str>,
     elapsed_ms: u128,
     stage_remaining_ms: Option<u128>,
@@ -364,20 +392,24 @@ impl BrowserGate {
         #[cfg(feature = "rtc-probe")]
         {
             let mut qualifications = std::mem::take(&mut gate.rtc_qualifications);
-            qualifications.retain(|_, source| {
-                let Some(connection) = source.original.upgrade() else {
+            qualifications.retain(|stable, source| {
+                let allowed = !credential_changed
+                    && source.original.is_open()
+                    && gate.control_sessions.get(stable).is_some_and(|session| {
+                        session.permitted(saved)
+                            && Self::proved_id_current(
+                                &gate,
+                                saved,
+                                *stable,
+                                session.peer,
+                                &session.alpn,
+                            )
+                    });
+                if !allowed {
                     source.retire();
-                    return false;
-                };
-                if credential_changed || !Self::proved_member_current(&gate, saved, &connection) {
-                    // Publish loss before closing the M or changing SavedNode.
-                    // Queued/idle pumps and Noq predicates see only this atomic
-                    // token and never need the gate/Connection lock.
-                    source.retire();
-                    if let Some(transport) = &gate.rtc {
-                        transport.retire_connection(&connection);
-                    }
-                    connection.close(0u32.into(), b"member path permission revoked");
+                    source
+                        .original
+                        .close(0u32.into(), b"member path permission revoked");
                     return false;
                 }
                 true
@@ -412,6 +444,14 @@ impl BrowserGate {
             }
             true
         });
+        gate.control_sessions.retain(|_, session| {
+            let allowed = session.permitted(saved)
+                && !(credential_changed && !is_request_alpn(&session.alpn));
+            if !allowed {
+                session.connection.close(0u32.into(), b"membership revoked");
+            }
+            allowed
+        });
         gate.saved = Some(saved.clone());
     }
     fn permits(saved: &SavedNode, target: iroh_base::EndpointId, alpn: &[u8]) -> bool {
@@ -436,15 +476,11 @@ impl BrowserGate {
                 && auth.nodes().iter().any(|(id, _)| *id == saved.identity())
         })
     }
-    fn reject() -> AfterHandshakeOutcome {
-        AfterHandshakeOutcome::Reject {
-            error_code: 0u32.into(),
-            reason: b"browser admission rejected".to_vec(),
-        }
-    }
-
     // A checks its existing invitation/store scope without minting a member proof.
-    async fn restricted_snapshot(&self, connection: &Connection) -> Result<SavedNode, JsValue> {
+    async fn restricted_snapshot(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> Result<SavedNode, JsValue> {
         let (saved, lease) = {
             let gate = self.0.lock().unwrap();
             (
@@ -472,7 +508,10 @@ impl BrowserGate {
         Ok(saved)
     }
 
-    async fn qualified_snapshot(&self, connection: &Connection) -> Result<SavedNode, JsValue> {
+    async fn qualified_snapshot(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> Result<SavedNode, JsValue> {
         let (saved, lease) = {
             let gate = self.0.lock().unwrap();
             (
@@ -494,7 +533,7 @@ impl BrowserGate {
                 .unwrap()
                 .proofs
                 .iter()
-                .any(|proof| proof.applies_to(connection, &scope))
+                .any(|proof| proof.applies_to_id(connection.stable_id(), &scope))
         {
             return Err(rejected());
         }
@@ -519,7 +558,11 @@ impl BrowserGate {
     }
 
     #[cfg(feature = "rtc-probe")]
-    fn remember_bootstrap(&self, connection: &Connection, report: serde_json::Value) {
+    fn remember_bootstrap(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+        report: serde_json::Value,
+    ) {
         let mut gate = self.0.lock().unwrap();
         // The existing admission proof bound is 32 concurrent member Ms.
         // Closed diagnostics must not grow with a long-running page's retries.
@@ -573,8 +616,7 @@ impl BrowserGate {
 
     fn remember_relay_check(
         &self,
-        endpoint: &Endpoint,
-        connection: &Connection,
+        connection: &ControlHandle,
         phase: &str,
         mut details: serde_json::Value,
     ) {
@@ -597,7 +639,7 @@ impl BrowserGate {
             Some(_) => "other",
             None => "none",
         };
-        let home = endpoint.home_relay_status().get();
+        let home = connection.home_relay_status().get();
         let mut gate = self.0.lock().unwrap();
         let allowed = gate.saved.as_ref().map(Self::permitted_relay_origins);
         let gate_snapshot_valid = gate
@@ -610,7 +652,7 @@ impl BrowserGate {
         details["memberOpen"] = serde_json::json!(connection.close_reason().is_none());
         details["cachedGateValid"] = serde_json::json!(gate_snapshot_valid);
         details["configuredPermittedCount"] = serde_json::json!(allowed.as_ref().map(Vec::len));
-        details["localPublishedCount"] = serde_json::json!(endpoint.addr().relay_urls().count());
+        details["localPublishedCount"] = serde_json::json!(connection.addr().relay_urls().count());
         details["localConnectedCount"] =
             serde_json::json!(home.iter().filter(|status| status.is_connected()).count());
         details["localRelayErrorCount"] = serde_json::json!(
@@ -639,7 +681,7 @@ impl BrowserGate {
             let sequence = gate.relay_check_sequence;
             gate.relay_checks.push(RelayCheckAttempt {
                 stable_id: connection.stable_id(),
-                original: connection.weak_handle(),
+                original: connection.revocation_handle(),
                 sequence,
                 checks: Vec::new(),
             });
@@ -661,8 +703,7 @@ impl BrowserGate {
 
     async fn prepare_relay(
         &self,
-        endpoint: &Endpoint,
-        connection: &Connection,
+        connection: &ControlHandle,
     ) -> std::io::Result<serde_json::Value> {
         use crate::member_path_protocol::RelayValidation;
         let mut local_candidate_count: Option<usize> = None;
@@ -684,7 +725,7 @@ impl BrowserGate {
         let allowed = Self::permitted_relay_origins(&saved);
         let permits =
             |url: &RelayUrl| origin(url.as_str()).is_ok_and(|value| allowed.contains(&value));
-        let local: Vec<RelayUrl> = endpoint
+        let local: Vec<RelayUrl> = connection
             .addr()
             .relay_urls()
             .filter(|url| permits(url))
@@ -692,11 +733,11 @@ impl BrowserGate {
             .cloned()
             .collect();
         local_candidate_count = Some(local.len());
-        self.remember_relay_check(endpoint, connection, "begin", serde_json::json!({"localCandidateCount":local_candidate_count,"storageGateCheckPassed":storage_gate_checked}));
+        self.remember_relay_check(connection, "begin", serde_json::json!({"localCandidateCount":local_candidate_count,"storageGateCheckPassed":storage_gate_checked}));
         let exchange = RelayValidation::begin(connection, local).await?;
         remote_candidate_count = Some(exchange.candidates.len());
         mutually_allowed_count = Some(exchange.candidates.iter().filter(|url| permits(url)).count());
-        self.remember_relay_check(endpoint, connection, "exchange", serde_json::json!({"localCandidateCount":local_candidate_count,"remoteCandidateCount":remote_candidate_count,"mutuallyAllowedCount":mutually_allowed_count,"storageGateCheckPassed":storage_gate_checked}));
+        self.remember_relay_check(connection, "exchange", serde_json::json!({"localCandidateCount":local_candidate_count,"remoteCandidateCount":remote_candidate_count,"mutuallyAllowedCount":mutually_allowed_count,"storageGateCheckPassed":storage_gate_checked}));
         let stream_id = exchange.stream_id.clone();
         let remote = exchange.candidates.iter().find(|url| permits(url)).cloned();
         let validation = async {
@@ -715,7 +756,7 @@ impl BrowserGate {
                     return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "browser relay permission changed"));
                 }
                 if connection.side().is_client() {
-                    match endpoint.open_control_relay_path(connection, remote.clone()).await {
+                    match connection.open_control_relay_path(remote.clone()).await {
                         Ok(()) => {},
                         Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {},
                         Err(error) => return Err(error),
@@ -726,7 +767,7 @@ impl BrowserGate {
                         let probe = path.start_probe()?;
                         let mut details=relay_probe_debug_details(connection,Some(&path.id().to_string()),started.elapsed().as_millis(),None,started_utc_ms);
                         details["freshProbeIssued"]=serde_json::json!(true);details["probeWatermark"]=serde_json::json!(probe.watermark());details["storageGateCheckPassed"]=serde_json::json!(storage_gate_checked);
-                        self.remember_relay_check(endpoint, connection, "probe-start", details);
+                        self.remember_relay_check(connection, "probe-start", details);
                         fresh = Some((path.id().to_string(), probe, started.elapsed().as_millis()));
                     }
                     let (path_id, probe, probe_started) = fresh.as_ref().unwrap();
@@ -734,7 +775,7 @@ impl BrowserGate {
                     if probe.is_acknowledged().map_err(std::io::Error::other)? {
                         let mut details=relay_probe_debug_details(connection,Some(path_id),started.elapsed().as_millis(),None,started_utc_ms);
                         details["freshAck"]=serde_json::json!(true);details["probeWatermark"]=serde_json::json!(probe.watermark());details["storageGateCheckPassed"]=serde_json::json!(storage_gate_checked);
-                        self.remember_relay_check(endpoint, connection, "probe-ack", details);
+                        self.remember_relay_check(connection, "probe-ack", details);
                         return Ok(serde_json::json!({"pathId":path_id,"freshProbeStartedMs":probe_started,"freshAckMs":started.elapsed().as_millis(),"probeWatermark":probe.watermark(),"freshAck":true}));
                     }
                 }
@@ -742,12 +783,12 @@ impl BrowserGate {
                     let mut details=relay_probe_debug_details(connection,fresh.as_ref().map(|(path_id,_,_)|path_id.as_str()),started.elapsed().as_millis(),None,started_utc_ms);
                     details["storageGateCheckPassed"]=serde_json::json!(storage_gate_checked);
                     if let Some((_,probe,_))=fresh.as_ref() {details["probeWatermark"]=serde_json::json!(probe.watermark());details["freshAck"]=serde_json::json!(probe.is_acknowledged().ok());}
-                    self.remember_relay_check(endpoint, connection, "probe-progress", details);sampled+=1;
+                    self.remember_relay_check(connection, "probe-progress", details);sampled+=1;
                 }
                 n0_future::time::sleep(Duration::from_millis(40)).await;
             }
         }.await;
-        self.remember_relay_check(endpoint, connection, "validation-end", serde_json::json!({"validationOk":validation.is_ok(),"errorKind":validation.as_ref().err().map(|error|format!("{:?}",error.kind())),"storageGateCheckPassed":storage_gate_checked}));
+        self.remember_relay_check(connection, "validation-end", serde_json::json!({"validationOk":validation.is_ok(),"errorKind":validation.as_ref().err().map(|error|format!("{:?}",error.kind())),"storageGateCheckPassed":storage_gate_checked}));
         let observation = validation.as_ref().ok().cloned();
         let continuity = exchange.finish(connection, validation.map(|_| ())).await?;
         storage_gate_checked = false;
@@ -765,20 +806,39 @@ impl BrowserGate {
             "relayFramesAfterConfirmation":connection.paths().iter().filter(|path|path.is_relay()).map(|path|serde_json::json!({"pathId":path.id().to_string(),"selected":path.is_selected(),"streamSent":path.stats().frame_tx.stream,"streamReceived":path.stats().frame_rx.stream})).collect::<Vec<_>>()}),
         )
         }.await;
-        self.remember_relay_check(endpoint, connection, "finish", serde_json::json!({"localCandidateCount":local_candidate_count,"remoteCandidateCount":remote_candidate_count,"mutuallyAllowedCount":mutually_allowed_count,"storageGateCheckPassed":storage_gate_checked,"finishOk":work.is_ok(),"errorKind":work.as_ref().err().map(|error|format!("{:?}",error.kind()))}));
+        self.remember_relay_check(connection, "finish", serde_json::json!({"localCandidateCount":local_candidate_count,"remoteCandidateCount":remote_candidate_count,"mutuallyAllowedCount":mutually_allowed_count,"storageGateCheckPassed":storage_gate_checked,"finishOk":work.is_ok(),"errorKind":work.as_ref().err().map(|error|format!("{:?}",error.kind()))}));
         work
     }
 
-    fn proved_member_current(gate: &GateState, saved: &SavedNode, connection: &Connection) -> bool {
+    fn proved_member_current(
+        gate: &GateState,
+        saved: &SavedNode,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> bool {
+        connection.close_reason().is_none()
+            && Self::proved_id_current(
+                gate,
+                saved,
+                connection.stable_id(),
+                connection.remote_id(),
+                connection.alpn(),
+            )
+    }
+    fn proved_id_current(
+        gate: &GateState,
+        saved: &SavedNode,
+        stable: usize,
+        peer: iroh_base::EndpointId,
+        alpn: &[u8],
+    ) -> bool {
         let (Ok(invitation), Some(secret)) = (saved.invitation(), saved.secret) else {
             return false;
         };
         let scope = AdmissionScope::new(*invitation.anchor.root.as_bytes(), saved.generation);
         let fingerprint = AdmissionSecret::from_saved(secret).fingerprint(&scope);
-        connection.close_reason().is_none()
-            && Self::permits(saved, connection.remote_id(), connection.alpn())
+        Self::permits(saved, peer, alpn)
             && gate.proofs.iter().any(|proof| {
-                proof.applies_to(connection, &scope)
+                proof.applies_to_id(stable, &scope)
                     && proof.credential_fingerprint() == &fingerprint
             })
     }
@@ -786,7 +846,7 @@ impl BrowserGate {
     #[cfg(feature = "rtc-probe")]
     fn rtc_qualification(
         &self,
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<
         (
             Arc<std::sync::atomic::AtomicU64>,
@@ -813,7 +873,7 @@ impl BrowserGate {
             gate.rtc_qualifications.insert(
                 stable,
                 RtcQualificationSource {
-                    original: connection.weak_handle(),
+                    original: connection.revocation_handle(),
                     revision: Arc::new(std::sync::atomic::AtomicU64::new(current)),
                     updates: n0_watcher::Watchable::new(current),
                     retired: false,
@@ -826,11 +886,7 @@ impl BrowserGate {
         Ok((revision, observed, source.updates.watch()))
     }
 }
-impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
-    fn register_original(&self, connection: &Connection) {
-        self.maintenance().register(connection);
-    }
-
+impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for BrowserGate {
     fn capabilities(
         &self,
         role: crate::connection_coordinator::AttemptRole,
@@ -872,7 +928,7 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
             rtc_role: RtcRole::for_attempt(role, supported),
         }
     }
-    fn existing_relay(&self, connection: &Connection) -> Option<iroh::TransportAddr> {
+    fn existing_relay(&self, connection: &ControlHandle) -> Option<iroh::TransportAddr> {
         let gate = self.0.lock().unwrap();
         let saved = gate.saved.as_ref()?;
         connection
@@ -890,7 +946,7 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
             .max_by_key(|path| path.is_selected())
             .map(|path| path.remote_addr().clone())
     }
-    fn committed(&self, connection: &Connection, report: serde_json::Value) {
+    fn committed(&self, connection: &ControlHandle, report: serde_json::Value) {
         let mut state = self.0.lock().unwrap();
         if state.member_reports.len() >= 32 {
             let live: Vec<_> = state
@@ -922,7 +978,7 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
     }
     fn authorization_revision(
         &self,
-        connection: &Connection,
+        connection: &ControlHandle,
         purpose: crate::connection_coordinator::SessionPurpose,
     ) -> std::io::Result<u64> {
         if connection.close_reason().is_some() {
@@ -959,7 +1015,7 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
     }
     fn check<'a>(
         &'a self,
-        connection: &'a Connection,
+        connection: &'a ControlHandle,
         purpose: crate::connection_coordinator::SessionPurpose,
     ) -> impl std::future::Future<Output = std::io::Result<()>> + Send + 'a {
         send_wrapper::SendWrapper::new(async move {
@@ -982,7 +1038,7 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
     fn prepare<'a>(
         &'a self,
         endpoint: Option<&'a Endpoint>,
-        connection: &'a Connection,
+        connection: &'a ControlHandle,
         attempt: crate::connection_coordinator::ProtectedAttempt,
         plan: crate::connection_coordinator::PathPlan,
     ) -> impl std::future::Future<
@@ -990,10 +1046,8 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
     > + Send
     + 'a {
         send_wrapper::SendWrapper::new(async move {
-            let endpoint = endpoint.ok_or_else(|| control_error("InvalidControl"))?;
-            use crate::connection_coordinator::{
-                MemberPathAdapter, PathPlan, PreparedPath, control_error,
-            };
+            let _ = endpoint;
+            use crate::connection_coordinator::{PathPlan, PreparedPath, control_error};
             match plan {
                 #[cfg(feature = "rtc-probe")]
                 PathPlan::Rtc => {
@@ -1009,7 +1063,7 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
                         .clone()
                         .ok_or_else(|| control_error("DataPathUnavailable"))?;
                     let (mut report, prepared) = rtc_member::bootstrap_control_unified(
-                        endpoint, connection, self, &saved, &transport, attempt,
+                        connection, self, &saved, &transport, attempt,
                     )
                     .await
                     .map_err(|cause| {
@@ -1058,7 +1112,7 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
                     }))
                 }
                 PathPlan::Relay => {
-                    let mut report = self.prepare_relay(endpoint, connection).await?;
+                    let mut report = self.prepare_relay(connection).await?;
                     report["capabilitiesVersion"] = serde_json::json!(1);
                     #[cfg(feature = "rtc-probe")]
                     self.remember_bootstrap(connection, report);
@@ -1085,14 +1139,15 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
     fn prepare_active<'a>(
         &'a self,
         endpoint: Option<&'a Endpoint>,
-        original: &'a Connection,
-        control: &'a Connection,
+        original: &'a ControlHandle,
+        control: &'a ControlHandle,
         attempt: crate::connection_coordinator::ProtectedAttempt,
         plan: crate::connection_coordinator::PathPlan,
     ) -> impl std::future::Future<
         Output = std::io::Result<crate::connection_coordinator::PreparedPath>,
     > + Send
     + 'a {
+        let _ = endpoint;
         send_wrapper::SendWrapper::new(async move {
             match plan {
                 #[cfg(feature = "rtc-probe")]
@@ -1104,15 +1159,7 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
                         crate::connection_coordinator::control_error("DataPathUnavailable")
                     })?;
                     rtc_member::bootstrap_control_active(
-                        endpoint.ok_or_else(|| {
-                            crate::connection_coordinator::control_error("InvalidControl")
-                        })?,
-                        original,
-                        control,
-                        self,
-                        &saved,
-                        &transport,
-                        attempt,
+                        original, control, self, &saved, &transport, attempt,
                     )
                     .await
                     .map_err(|cause| {
@@ -1134,22 +1181,31 @@ impl crate::connection_coordinator::MemberPathAdapter for BrowserGate {
     }
 }
 
-impl EndpointHooks for BrowserGate {
+#[derive(Clone, Debug)]
+struct BrowserBeforeConnect(BrowserGate);
+impl EndpointHooks for BrowserBeforeConnect {
     async fn before_connect(&self, target: &EndpointAddr, alpn: &[u8]) -> BeforeConnectOutcome {
         if self
+            .0
             .0
             .lock()
             .unwrap()
             .saved
             .as_ref()
-            .is_some_and(|saved| Self::permits(saved, target.id, alpn))
+            .is_some_and(|saved| BrowserGate::permits(saved, target.id, alpn))
         {
             BeforeConnectOutcome::Accept
         } else {
             BeforeConnectOutcome::Reject
         }
     }
-    async fn after_handshake(&self, connection: &Connection) -> AfterHandshakeOutcome {
+}
+impl BrowserGate {
+    async fn authenticate(
+        &self,
+        connection: &ControlHandle,
+    ) -> std::io::Result<n0_future::time::Instant> {
+        use crate::connection_coordinator::control_error;
         let saved = self.0.lock().unwrap().saved.clone();
 
         let Some(saved) = saved.filter(|saved| {
@@ -1164,7 +1220,7 @@ impl EndpointHooks for BrowserGate {
 
             permits
         }) else {
-            return Self::reject();
+            return Err(control_error("IdentityOrAdmissionRejected"));
         };
         let handshake_started = n0_future::time::Instant::now();
         if is_request_alpn(connection.alpn()) {
@@ -1184,11 +1240,11 @@ impl EndpointHooks for BrowserGate {
         // agreement; requests wait for the shared restricted nonce confirmation.
         let proof = if !is_request_alpn(connection.alpn()) {
             let Ok(invitation) = saved.invitation() else {
-                return Self::reject();
+                return Err(control_error("IdentityOrAdmissionRejected"));
             };
             let scope = AdmissionScope::new(*invitation.anchor.root.as_bytes(), saved.generation);
             let Some(secret) = saved.secret else {
-                return Self::reject();
+                return Err(control_error("IdentityOrAdmissionRejected"));
             };
             let secret = AdmissionSecret::from_saved(secret);
             let result = if connection.side().is_client() {
@@ -1199,7 +1255,7 @@ impl EndpointHooks for BrowserGate {
             match result {
                 Ok(proof) => Some(proof),
                 Err(_) => {
-                    return Self::reject();
+                    return Err(control_error("IdentityOrAdmissionRejected"));
                 }
             }
         } else {
@@ -1219,15 +1275,15 @@ impl EndpointHooks for BrowserGate {
         );
         let agreed = is_request_alpn(connection.alpn())
             || n0_future::time::timeout(agreement_budget, async {
-                let (mut send, mut recv) = if connection.side().is_client() {
-                    connection.open_bi().await.ok()?
+                let exchange = if connection.side().is_client() {
+                    connection.open_control_exchange().await.ok()?
                 } else {
-                    connection.accept_bi().await.ok()?
+                    connection.accept_control_exchange().await.ok()?
                 };
-                send.write_all(&[1]).await.ok()?;
-                send.finish().ok()?;
-                let mut response = [0];
-                recv.read_exact(&mut response).await.ok()?;
+                let format = ControlMessageFormat::Fixed { length: 1 };
+                exchange.send_message(format, &[1]).await.ok()?;
+                exchange.finish_send().await.ok()?;
+                let response = exchange.recv_message(format).await.ok()?;
                 (response == [1]).then_some(())
             })
             .await
@@ -1246,7 +1302,7 @@ impl EndpointHooks for BrowserGate {
             }
         }
         if !agreed {
-            return Self::reject();
+            return Err(control_error("IdentityOrAdmissionRejected"));
         }
         if let Some(proof) = proof {
             let mut gate = self.0.lock().unwrap();
@@ -1255,7 +1311,7 @@ impl EndpointHooks for BrowserGate {
                     && current.secret == saved.secret
                     && Self::permits(current, connection.remote_id(), connection.alpn())
             }) {
-                return Self::reject();
+                return Err(control_error("IdentityOrAdmissionRejected"));
             }
             gate.proofs.retain(BootstrapProof::is_live);
             gate.connections.retain(|weak| {
@@ -1263,88 +1319,132 @@ impl EndpointHooks for BrowserGate {
                     .is_some_and(|connection| connection.close_reason().is_none())
             });
             if gate.proofs.len() >= 32 {
-                return Self::reject();
+                return Err(control_error("IdentityOrAdmissionRejected"));
             }
             gate.proofs.push(proof);
-            gate.connections.push(connection.weak_handle());
-
-            if connection.alpn() == crate::connection_recovery_core::CONNECTION_RECOVERY_ALPN
-                || connection.alpn() == crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN
-            {
-                // Current member proof authorizes only this protected repair
-                // exchange. It must not run ordinary member RTC release hooks.
-                return AfterHandshakeOutcome::AcceptRestricted;
-            }
-            AfterHandshakeOutcome::AcceptData {
-                allowed_data_custom_ids: {
-                    let mut ids = Vec::new();
-                    let data = gate
-                        .member_data
-                        .as_ref()
-                        .is_some_and(|transport| transport.permitted());
-                    if data {
-                        ids.push(crate::member_data::DATA_TRANSPORT_ID);
-                    }
-                    #[cfg(feature = "rtc-probe")]
-                    if connection.paths().iter().any(|path| {
-                        path.is_relay()
-                            || matches!(path.remote_addr(), iroh::TransportAddr::Custom(address)
-                            if data && address.id() == crate::member_data::DATA_TRANSPORT_ID)
-                    }) {
-                        ids.push(crate::rtc_transport::TRANSPORT_ID);
-                    }
-                    ids
-                },
-            }
-        } else {
-            let confirmed = send_wrapper::SendWrapper::new(
-                crate::connection_coordinator::coordinate_session(None, connection, self),
-            )
-            .await
-            .is_ok();
-            if let Some(report) = self.0.lock().unwrap().request_handshake.as_mut() {
-                report["confirmation_elapsed_ms"] =
-                    serde_json::json!(handshake_started.elapsed().as_millis());
-                report["stage"] = serde_json::json!(if confirmed {
-                    "restricted-A"
-                } else {
-                    "unified-request-confirmation-failed"
-                });
-                report["stats"] = serde_json::json!(format!("{:?}", connection.stats()));
-            }
-            if !confirmed {
-                return Self::reject();
-            }
-            AfterHandshakeOutcome::AcceptRestricted
         }
+        let mut gate = self.0.lock().unwrap();
+        gate.control_sessions
+            .retain(|_, session| session.connection.is_open());
+        if gate.control_sessions.len() >= 32 {
+            return Err(control_error("IdentityOrAdmissionRejected"));
+        }
+        gate.control_sessions.insert(
+            connection.stable_id(),
+            BrowserControlSession {
+                connection: connection.revocation_handle(),
+                peer: connection.remote_id(),
+                alpn: connection.alpn().to_vec(),
+                client: connection.side().is_client(),
+            },
+        );
+        Ok(handshake_started)
     }
-
-    async fn before_data_release(
+}
+impl iroh::endpoint::EndpointAdmission for BrowserGate {
+    async fn admit(
         &self,
-        endpoint: &Endpoint,
-        connection: &Connection,
-    ) -> std::io::Result<()> {
-        if crate::connection_coordinator::SessionPurpose::from_alpn(connection.alpn()).is_some() {
-            if is_request_alpn(connection.alpn()) {
-                return Err(crate::connection_coordinator::control_error(
-                    "InvalidControl",
-                ));
+        connection: &iroh::endpoint::ControlConnection,
+    ) -> std::io::Result<iroh::endpoint::AdmissionOutcome> {
+        send_wrapper::SendWrapper::new(async {
+            use crate::connection_coordinator::{SessionPurpose, control_error};
+            let handle = connection.control_handle();
+            let started = self.authenticate(&handle).await?;
+            let purpose = SessionPurpose::from_alpn(connection.alpn());
+            if purpose.is_none() || purpose == Some(SessionPurpose::ActiveImprovement) {
+                let gate = self.clone();
+                return Ok(
+                    iroh::endpoint::AdmissionOutcome::ControlOnlyWithConfirmation(
+                        iroh::endpoint::ControlConfirmation::with_control(move |control| {
+                            Box::pin(async move {
+                                if iroh::endpoint::EndpointAdmission::is_current(&gate, control) {
+                                    Ok(())
+                                } else {
+                                    Err(control_error("IdentityOrAdmissionRejected"))
+                                }
+                            })
+                        }),
+                    ),
+                );
             }
-            if crate::connection_coordinator::SessionPurpose::from_alpn(connection.alpn())
-                == Some(crate::connection_coordinator::SessionPurpose::ActiveImprovement)
-            {
-                // Active C is a restricted control handle. It must never be
-                // released as an ordinary data-bearing connection.
-                return Err(crate::connection_coordinator::control_error(
-                    "InvalidControl",
-                ));
-            }
-            return send_wrapper::SendWrapper::new(
-                crate::connection_coordinator::coordinate_session(Some(endpoint), connection, self),
-            )
-            .await;
+            let prepared =
+                crate::connection_coordinator::prepare_control_session(None, &handle, self).await?;
+            let permit = if purpose.is_some_and(|purpose| purpose.requires_data()) {
+                let mut ids = Vec::new();
+                let state = self.0.lock().unwrap();
+                if state
+                    .member_data
+                    .as_ref()
+                    .is_some_and(|data| data.permitted())
+                {
+                    ids.push(crate::member_data::DATA_TRANSPORT_ID);
+                }
+                #[cfg(feature = "rtc-probe")]
+                if state.rtc.as_ref().is_some_and(|rtc| rtc.resource_allowed()) {
+                    ids.push(crate::rtc_transport::TRANSPORT_ID);
+                }
+                drop(state);
+                Some(
+                    connection
+                        .qualify_data_path(prepared.path_id(connection)?, ids)
+                        .await?,
+                )
+            } else {
+                None
+            };
+            let gate = self.clone();
+            let confirmation = iroh::endpoint::ControlConfirmation::with_control(move |control| {
+                Box::pin(send_wrapper::SendWrapper::new(async move {
+                    let result = prepared.confirm(&control.control_handle(), &gate).await;
+                    if is_request_alpn(control.alpn()) {
+                        if let Some(report) = gate.0.lock().unwrap().request_handshake.as_mut() {
+                            report["confirmation_elapsed_ms"] =
+                                serde_json::json!(started.elapsed().as_millis());
+                            report["stage"] = serde_json::json!(if result.is_ok() {
+                                "restricted-A"
+                            } else {
+                                "unified-request-confirmation-failed"
+                            });
+                            report["stats"] = serde_json::json!(format!("{:?}", control.stats()));
+                        }
+                    }
+                    result
+                }))
+            });
+            Ok(match permit {
+                Some(permit) => iroh::endpoint::AdmissionOutcome::AcceptWithConfirmation {
+                    permit,
+                    confirmation,
+                },
+                None => iroh::endpoint::AdmissionOutcome::ControlOnlyWithConfirmation(confirmation),
+            })
+        })
+        .await
+    }
+    fn is_current(&self, connection: &iroh::endpoint::ControlConnection) -> bool {
+        let state = self.0.lock().unwrap();
+        let Some(saved) = state.saved.as_ref() else {
+            return false;
+        };
+        state
+            .control_sessions
+            .get(&connection.stable_id())
+            .is_some_and(|session| {
+                session.peer == connection.remote_id()
+                    && session.alpn == connection.alpn()
+                    && session.permitted(saved)
+                    && (is_request_alpn(connection.alpn())
+                        || Self::proved_member_current(&state, saved, connection))
+            })
+    }
+    fn business_released(&self, connection: &Connection) {
+        let mut state = self.0.lock().unwrap();
+        state.connections.retain(|weak| weak.is_open());
+        state.connections.push(connection.weak_handle());
+        drop(state);
+        if connection.alpn() == BUSINESS_ALPN {
+            self.maintenance().register(connection);
         }
-        Ok(())
     }
 }
 
@@ -1484,14 +1584,33 @@ fn origin(value: &str) -> Result<String, JsValue> {
     ))
 }
 
-struct Delivery {
-    connection: Connection,
-    deadline: n0_future::time::Instant,
-    send: SendStream,
-    recv: RecvStream,
+async fn send_fixed(exchange: &ControlExchange, bytes: &[u8]) -> Result<(), JsValue> {
+    exchange
+        .send_message(
+            ControlMessageFormat::Fixed {
+                length: bytes.len(),
+            },
+            bytes,
+        )
+        .await
+        .map_err(error)
 }
-struct RequestConnection(Option<Connection>);
-impl Drop for RequestConnection {
+async fn recv_fixed<const N: usize>(exchange: &ControlExchange) -> Result<[u8; N], JsValue> {
+    exchange
+        .recv_message(ControlMessageFormat::Fixed { length: N })
+        .await
+        .map_err(error)?
+        .try_into()
+        .map_err(|_| rejected())
+}
+
+struct Delivery {
+    connection: ControlOwner,
+    deadline: n0_future::time::Instant,
+    exchange: ControlExchange,
+}
+struct RequestConnection<C: AuthenticatedControl>(Option<C>);
+impl<C: AuthenticatedControl> Drop for RequestConnection<C> {
     fn drop(&mut self) {
         if let Some(connection) = self.0.take() {
             connection.close(0u32.into(), b"browser request ended or cancelled");
@@ -1507,7 +1626,7 @@ impl Drop for Delivery {
 
 #[wasm_bindgen]
 pub struct BrowserNetwork {
-    endpoint: Endpoint,
+    endpoint: RestrictedEndpoint,
     incoming: std::rc::Rc<incoming::IncomingDispatcher>,
     member_data_transport: Option<crate::member_data::BrowserMemberDataTransport>,
     member_data_lease: Option<crate::member_data::MemberDataLease>,
@@ -1929,7 +2048,7 @@ impl BrowserNetwork {
                 REQUEST_ALPN.to_vec(),
                 PRECODE_REQUEST_ALPN.to_vec(),
             ])
-            .admission_gate(gate.clone());
+            .hooks(BrowserBeforeConnect(gate.clone()));
         if let Some(transport) = &member_data_transport {
             builder = builder.add_custom_transport(Arc::new(transport.clone()));
         }
@@ -1950,7 +2069,11 @@ impl BrowserNetwork {
                 gate.0.lock().unwrap().rtc = Some(rtc_transport.clone());
             }
         }
-        let endpoint = builder.bind().await.map_err(error)?;
+        let endpoint = builder
+            .restricted_application(gate.clone())
+            .bind()
+            .await
+            .map_err(error)?;
         if n0_future::time::timeout(
             caller_budget.saturating_sub(carrier_started.elapsed()),
             async {
@@ -2022,12 +2145,13 @@ impl BrowserNetwork {
                         let Ok(Ok(control)) = n0_future::time::timeout(
                             responder_deadline
                                 .saturating_duration_since(n0_future::time::Instant::now()),
-                            accepting,
+                            accepting.into_control(),
                         )
                         .await
                         else {
                             return;
                         };
+                        let control = Arc::new(control).retain_control();
                         let _control = RequestConnection(Some(control.clone()));
                         let lookup_gate = gate.clone();
                         let maintenance = gate.maintenance();
@@ -2042,7 +2166,7 @@ impl BrowserNetwork {
                                 }
                                 crate::connection_coordinator::serve_active_session(
                                     &endpoint,
-                                    &control,
+                                    &control.path_handle(&endpoint),
                                     &gate,
                                     &maintenance,
                                     responder_deadline,
@@ -2126,15 +2250,15 @@ impl BrowserNetwork {
         let claimed: iroh_base::EndpointId = claimed.parse().map_err(error)?;
         let deadline = n0_future::time::Instant::now() + self.caller_budget;
         let connection = self
-            .connect_target_until(self.saved.invitation()?.contact, REQUEST_ALPN, deadline)
+            .connect_control_target_until(self.saved.invitation()?.contact, REQUEST_ALPN, deadline)
             .await?;
         let _scope = RequestConnection(Some(connection.clone()));
         n0_future::time::timeout(deadline.saturating_duration_since(n0_future::time::Instant::now()),async {
-            let (mut send,mut recv)=connection.open_bi().await.map_err(error)?;
+            let exchange=connection.open_control_exchange().await.map_err(error)?;
             let mut wire=self.saved.invitation.clone().ok_or_else(rejected)?;
             wire.extend_from_slice(&request);wire.extend_from_slice(claimed.as_bytes());
-            send.write_all(&wire).await.map_err(error)?;send.finish().map_err(error)?;
-            let mut response=[0];recv.read_exact(&mut response).await.map_err(error)?;
+            send_fixed(&exchange,&wire).await?;exchange.finish_send().await.map_err(error)?;
+            let response=recv_fixed::<1>(&exchange).await?;
             if response!=[0] {return Err(error("identity probe unexpectedly obtained approved material"));}
             Ok(serde_json::json!({"local_id":self.id(),"remote_id":connection.remote_id().to_string(),"claimed":claimed.to_string(),
                 "alpn":String::from_utf8_lossy(connection.alpn()),"stable_id":connection.stable_id(),"approved_material":false,"response":response[0]}).to_string())
@@ -2240,7 +2364,7 @@ impl BrowserNetwork {
     }
 
     pub async fn complete_admission(&mut self) -> Result<String, JsValue> {
-        let mut delivery = self.delivery.take().ok_or_else(rejected)?;
+        let delivery = self.delivery.take().ok_or_else(rejected)?;
         let remaining = delivery
             .deadline
             .saturating_duration_since(n0_future::time::Instant::now());
@@ -2261,14 +2385,9 @@ impl BrowserNetwork {
             ) {
                 return Err(rejected());
             }
-            delivery.send.write_all(b"AUTH").await.map_err(error)?;
+            send_fixed(&delivery.exchange, b"AUTH").await?;
             self.material_event("AUTH-sent");
-            let mut material = [0; 40];
-            delivery
-                .recv
-                .read_exact(&mut material)
-                .await
-                .map_err(error)?;
+            let material = recv_fixed::<40>(&delivery.exchange).await?;
             if u64::from_be_bytes(material[..8].try_into().unwrap()) != self.saved.generation {
                 return Err(rejected());
             }
@@ -2282,11 +2401,10 @@ impl BrowserNetwork {
                     "delivery caller deadline expired; committed materials retained",
                 ));
             }
-            delivery.send.write_all(b"SAVE").await.map_err(error)?;
+            send_fixed(&delivery.exchange, b"SAVE").await?;
             self.material_event("SAVE-sent");
-            delivery.send.finish().map_err(error)?;
-            let mut reply = [0; 4];
-            delivery.recv.read_exact(&mut reply).await.map_err(error)?;
+            delivery.exchange.finish_send().await.map_err(error)?;
+            let reply = recv_fixed::<4>(&delivery.exchange).await?;
             if &reply != b"DONE" {
                 return Err(rejected());
             }
@@ -2391,6 +2509,25 @@ impl BrowserNetwork {
         )
         .await
     }
+    fn connection_coordinator(&self) -> crate::connection_coordinator::ConnectionCoordinator {
+        use crate::connection_coordinator::MemberPathAdapter;
+        let caps = self
+            .gate
+            .capabilities(crate::connection_coordinator::AttemptRole::Initiator);
+        let mut contact_ids = Vec::new();
+        if !self.mqtt.is_empty() {
+            contact_ids.push(crate::mqtt_datagram::TRANSPORT_ID);
+        }
+        if !self.irc.is_empty() {
+            contact_ids.push(crate::irc_datagram::TRANSPORT_ID);
+        }
+        crate::connection_coordinator::ConnectionCoordinator::new_restricted(
+            self.endpoint.clone(),
+            caps.permitted,
+            contact_ids,
+        )
+    }
+
     async fn connect_target_until(
         &self,
         target: iroh_base::EndpointId,
@@ -2400,22 +2537,7 @@ impl BrowserNetwork {
         self.check_store().await?;
         let addr = self.target_address(target)?;
         if crate::connection_coordinator::SessionPurpose::from_alpn(alpn).is_some() {
-            use crate::connection_coordinator::MemberPathAdapter;
-            let caps = self
-                .gate
-                .capabilities(crate::connection_coordinator::AttemptRole::Initiator);
-            let mut contact_ids = Vec::new();
-            if !self.mqtt.is_empty() {
-                contact_ids.push(crate::mqtt_datagram::TRANSPORT_ID);
-            }
-            if !self.irc.is_empty() {
-                contact_ids.push(crate::irc_datagram::TRANSPORT_ID);
-            }
-            let coordinator = crate::connection_coordinator::ConnectionCoordinator::new(
-                self.endpoint.clone(),
-                caps.permitted,
-                contact_ids,
-            );
+            let coordinator = self.connection_coordinator();
             return coordinator
                 .connect_alpn(
                     addr,
@@ -2442,6 +2564,31 @@ impl BrowserNetwork {
         )
         .await
         .map_err(|_| error("browser connection caller deadline exceeded"))?
+    }
+
+    async fn connect_control_target_until(
+        &self,
+        target: iroh_base::EndpointId,
+        alpn: &[u8],
+        deadline: n0_future::time::Instant,
+    ) -> Result<ControlOwner, JsValue> {
+        self.check_store().await?;
+        let addr = self.target_address(target)?;
+        if crate::connection_coordinator::SessionPurpose::from_alpn(alpn).is_some() {
+            let coordinator = self.connection_coordinator();
+            return coordinator
+                .connect_control_alpn(
+                    addr,
+                    alpn,
+                    crate::connection_coordinator::AttemptContext::new(
+                        deadline,
+                        tokio_util::sync::CancellationToken::new(),
+                    ),
+                )
+                .await
+                .map_err(error);
+        }
+        Err(error("unsupported browser control purpose"))
     }
 
     fn target_address(&self, target: iroh_base::EndpointId) -> Result<EndpointAddr, JsValue> {
@@ -2480,14 +2627,14 @@ impl BrowserNetwork {
             REQUEST_ALPN
         };
         let connection = self
-            .connect_target_until(self.saved.invitation()?.contact, alpn, deadline)
+            .connect_control_target_until(self.saved.invitation()?.contact, alpn, deadline)
             .await?;
         let mut request_scope = RequestConnection(Some(connection.clone()));
         self.last_request = Some(
             serde_json::json!({"local_id":self.endpoint.id().to_string(),"remote_id":connection.remote_id().to_string(),"alpn":String::from_utf8_lossy(connection.alpn()),"stable_id":connection.stable_id(),"restricted":true,"business_handle":false,"handshake_ms":started.elapsed().as_millis()}),
         );
         let result = async {
-            let (mut send, mut recv) = connection.open_bi().await.map_err(error)?;
+            let exchange = connection.open_control_exchange().await.map_err(error)?;
             let mut wire = self.saved.invitation.clone().ok_or_else(rejected)?;
             let request = self.saved.precode.map_or(self.saved.request, |token| {
                 crate::admission_request_id::precode_request_id(self.saved.request, token)
@@ -2497,30 +2644,28 @@ impl BrowserNetwork {
             if let Some(token) = self.saved.precode {
                 wire.extend_from_slice(&token);
             }
-            send.write_all(&wire).await.map_err(error)?;
-            let mut status = [0];
-            recv.read_exact(&mut status).await.map_err(error)?;
+            send_fixed(&exchange, &wire).await?;
+            let status = recv_fixed::<1>(&exchange).await?;
             if status == [0] {
-                send.finish().map_err(error)?;
+                exchange.finish_send().await.map_err(error)?;
                 return Ok("AwaitingApproval".to_string());
             }
             if status != [1] {
                 return Err(rejected());
             }
-            let mut generation = [0; 8];
-            recv.read_exact(&mut generation).await.map_err(error)?;
-            let generation = u64::from_be_bytes(generation);
+            let generation = u64::from_be_bytes(recv_fixed::<8>(&exchange).await?);
             if generation < self.saved.generation || generation > i64::MAX as u64 {
                 return Err(rejected());
             }
-            let mut len = [0; 4];
-            recv.read_exact(&mut len).await.map_err(error)?;
-            let len = u32::from_be_bytes(len) as usize;
-            if len == 0 || len > MAX_HISTORY {
+            let history = exchange
+                .recv_message(ControlMessageFormat::LengthPrefixed32 {
+                    maximum: MAX_HISTORY,
+                })
+                .await
+                .map_err(error)?;
+            if history.is_empty() {
                 return Err(rejected());
             }
-            let mut history = vec![0; len];
-            recv.read_exact(&mut history).await.map_err(error)?;
             let (authorization, records): (Hash, Records) =
                 p2panda_core::cbor::decode_cbor(history.as_slice()).map_err(error)?;
             let mut next = self.saved.clone();
@@ -2542,8 +2687,7 @@ impl BrowserNetwork {
             self.delivery = Some(Delivery {
                 connection: connection.clone(),
                 deadline,
-                send,
-                recv,
+                exchange,
             });
             Ok(self.saved.stage().to_string())
         }
@@ -2556,7 +2700,10 @@ impl BrowserNetwork {
                     .as_millis()
             );
             report["stage"] = serde_json::json!(result.as_ref().ok());
-            report["stats"] = serde_json::json!(format!("{:?}", connection.stats()));
+            report["stats"] = serde_json::json!(format!(
+                "{:?}",
+                connection.path_handle(&self.endpoint).stats()
+            ));
             report["paths"] = serde_json::json!(
                 connection
                     .paths()
@@ -2574,7 +2721,7 @@ impl BrowserNetwork {
 
 #[wasm_bindgen]
 pub struct BrowserCancellation {
-    endpoint: Endpoint,
+    endpoint: RestrictedEndpoint,
     carriers: Vec<crate::mqtt::BrowserMqttTransport>,
     irc: Vec<crate::irc::BrowserIrcTransport>,
 }

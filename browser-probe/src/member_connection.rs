@@ -9,7 +9,7 @@ pub struct BrowserMemberConnection {
     pub(super) rtc_active: Arc<std::sync::atomic::AtomicBool>,
     #[cfg(feature = "rtc-probe")]
     pub(super) rtc_transport: crate::rtc_transport::RtcTransport,
-    pub(super) endpoint: Endpoint,
+    pub(super) endpoint: RestrictedEndpoint,
     repair_contact: EndpointAddr,
     repair_active: std::sync::atomic::AtomicBool,
     repair_cancel: Mutex<Option<tokio_util::sync::CancellationToken>>,
@@ -148,13 +148,13 @@ impl BrowserMemberConnection {
         let attempt = lease.context().clone();
         let result = lease
             .run_ref(async {
-                let control = crate::connection_coordinator::ConnectionCoordinator::new(
+                let control = crate::connection_coordinator::ConnectionCoordinator::new_restricted(
                     self.endpoint.clone(),
                     caps.permitted,
                     contact_ids,
                 )
                 .with_member_data(crate::member_data::DATA_TRANSPORT_ID)
-                .connect_alpn(
+                .connect_control_alpn(
                     target,
                     crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN,
                     attempt.clone(),
@@ -166,7 +166,7 @@ impl BrowserMemberConnection {
                 crate::connection_coordinator::improve_existing(
                     &self.endpoint,
                     &self.connection,
-                    &control,
+                    &control.path_handle(&self.endpoint),
                     &self.gate,
                     attempt,
                 )
@@ -353,13 +353,13 @@ impl BrowserMemberConnection {
                 _ => None,
             })
             .collect();
-        let control = crate::connection_coordinator::ConnectionCoordinator::new(
+        let control = crate::connection_coordinator::ConnectionCoordinator::new_restricted(
             self.endpoint.clone(),
             caps.permitted,
             contact_ids,
         )
         .with_member_data(crate::member_data::DATA_TRANSPORT_ID)
-        .connect_alpn(
+        .connect_control_alpn(
             target,
             crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN,
             attempt,
@@ -569,7 +569,7 @@ impl BrowserNetwork {
 
 #[wasm_bindgen]
 pub struct BrowserMemberAcceptAttempt {
-    endpoint: Endpoint,
+    endpoint: RestrictedEndpoint,
     gate: BrowserGate,
     incoming: std::rc::Rc<super::incoming::IncomingDispatcher>,
     lease: u32,
@@ -606,7 +606,7 @@ impl BrowserMemberAcceptAttempt {
                 AttemptContext, AttemptRole, MemberPathAdapter, SessionPurpose,
             };
             let caps = self.gate.capabilities(AttemptRole::Responder);
-            let coordinator = crate::connection_coordinator::ConnectionCoordinator::new(
+            let coordinator = crate::connection_coordinator::ConnectionCoordinator::new_restricted(
                 self.endpoint.clone(),
                 caps.permitted,
                 vec![],
@@ -659,7 +659,7 @@ impl BrowserMemberAcceptAttempt {
 
 #[wasm_bindgen]
 pub struct BrowserMemberAttempt {
-    pub(super) endpoint: Endpoint,
+    pub(super) endpoint: RestrictedEndpoint,
     pub(super) gate: BrowserGate,
     pub(super) lease: u32,
     pub(super) saved: String,
@@ -697,7 +697,7 @@ impl BrowserMemberAttempt {
             let caps = self
                 .gate
                 .capabilities(crate::connection_coordinator::AttemptRole::Initiator);
-            let coordinator = crate::connection_coordinator::ConnectionCoordinator::new(
+            let coordinator = crate::connection_coordinator::ConnectionCoordinator::new_restricted(
                 self.endpoint.clone(),
                 caps.permitted,
                 self.address

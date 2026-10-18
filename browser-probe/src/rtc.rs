@@ -42,7 +42,7 @@ fn event(events: &RefCell<Vec<Value>>, kind: &str, state: String) {
     }
 }
 impl Association {
-    fn new(connection: &Connection) -> Result<Self, JsValue> {
+    fn new(connection: &(impl AuthenticatedControl + ?Sized)) -> Result<Self, JsValue> {
         Self::with_profile(
             connection,
             false,
@@ -50,13 +50,13 @@ impl Association {
         )
     }
     pub(super) fn datagram(
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         profile: &crate::rtc_ice_profile::RtcIceProfile,
     ) -> Result<Self, JsValue> {
         Self::with_profile(connection, true, profile)
     }
     fn with_profile(
-        connection: &Connection,
+        connection: &(impl AuthenticatedControl + ?Sized),
         datagram: bool,
         profile: &crate::rtc_ice_profile::RtcIceProfile,
     ) -> Result<Self, JsValue> {
@@ -106,7 +106,7 @@ impl Association {
         let mut callbacks = Vec::new();
         let (tx_open, rx_open, dc_open, open_events) =
             (tx.clone(), rx.clone(), dc.clone(), events.clone());
-        let open_member = connection.weak_handle();
+        let open_member = connection.revocation_handle();
         let open_progress = progress.clone();
         let open = Closure::<dyn FnMut(Event)>::new(move |_| {
             if !open_member.is_open() {

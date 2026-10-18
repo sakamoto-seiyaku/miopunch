@@ -1223,7 +1223,7 @@ pub(crate) struct PreparedAdmission {
     cancellation: PendingMember,
 }
 impl PreparedAdmission {
-    fn path_id(
+    pub(crate) fn path_id(
         &self,
         connection: &(impl AuthenticatedControl + ?Sized),
     ) -> io::Result<iroh::endpoint::PathId> {
@@ -1244,7 +1244,7 @@ impl PreparedAdmission {
             .map(|path| path.id())
             .ok_or_else(|| control_error("DataPathUnavailable"))
     }
-    async fn confirm<C: AuthenticatedControl + ?Sized, A: MemberPathAdapter<C>>(
+    pub(crate) async fn confirm<C: AuthenticatedControl + ?Sized, A: MemberPathAdapter<C>>(
         mut self,
         connection: &C,
         adapter: &A,

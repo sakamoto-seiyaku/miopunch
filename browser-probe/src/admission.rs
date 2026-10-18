@@ -162,11 +162,13 @@ impl BrowserNetwork {
             deadline.saturating_duration_since(n0_future::time::Instant::now()),
             accepting
                 .with_caller_deadline(deadline)
-                .with_attempt_cancellation(attempt.cancellation.clone()),
+                .with_attempt_cancellation(attempt.cancellation.clone())
+                .into_control(),
         )
         .await
         .map_err(error)?
         .map_err(error)?;
+        let connection = Arc::new(connection).retain_control();
         let _scope = RequestConnection(Some(connection.clone()));
         let result = n0_future::time::timeout(
             deadline.saturating_duration_since(n0_future::time::Instant::now()),
@@ -240,7 +242,7 @@ impl BrowserNetwork {
     }
     async fn serve_admission_inner(
         &mut self,
-        connection: &Connection,
+        connection: &ControlOwner,
         precode: bool,
     ) -> Result<String, JsValue> {
         self.check_store().await?;
@@ -253,9 +255,8 @@ impl BrowserNetwork {
         if connection.alpn() != expected {
             return Err(rejected());
         }
-        let (mut send, mut recv) = connection.accept_bi().await.map_err(error)?;
-        let mut wire = [0; 144];
-        recv.read_exact(&mut wire).await.map_err(error)?;
+        let exchange = connection.accept_control_exchange().await.map_err(error)?;
+        let wire = recv_fixed::<144>(&exchange).await?;
         if wire[..96] != self.own_invitation()?
             || wire[112..] != connection.remote_id().as_bytes()[..]
         {
@@ -265,8 +266,7 @@ impl BrowserNetwork {
             VerifyingKey::from_bytes(&wire[112..].try_into().unwrap()).map_err(error)?;
         let request = wire[96..112].try_into().unwrap();
         let token = if precode {
-            let mut token = [0; 32];
-            recv.read_exact(&mut token).await.map_err(error)?;
+            let token = recv_fixed::<32>(&exchange).await?;
             Some(token)
         } else {
             None
@@ -327,9 +327,9 @@ impl BrowserNetwork {
         }
         self.commit(next).await?;
         let Some(authorization) = self.saved.approvals[index].authorization else {
-            send.write_all(&[0]).await.map_err(error)?;
-            send.finish().map_err(error)?;
-            connection.closed().await;
+            send_fixed(&exchange, &[0]).await?;
+            exchange.finish_send().await.map_err(error)?;
+            connection.revocation_handle().closed().await;
             return Ok("AwaitingApproval".into());
         };
         if !self
@@ -343,16 +343,18 @@ impl BrowserNetwork {
         if history.len() > MAX_HISTORY {
             return Err(rejected());
         }
-        send.write_all(&[1]).await.map_err(error)?;
-        send.write_all(&self.saved.generation.to_be_bytes())
+        send_fixed(&exchange, &[1]).await?;
+        send_fixed(&exchange, &self.saved.generation.to_be_bytes()).await?;
+        exchange
+            .send_message(
+                ControlMessageFormat::LengthPrefixed32 {
+                    maximum: MAX_HISTORY,
+                },
+                &history,
+            )
             .await
             .map_err(error)?;
-        send.write_all(&(history.len() as u32).to_be_bytes())
-            .await
-            .map_err(error)?;
-        send.write_all(&history).await.map_err(error)?;
-        let mut receipt = [0; 4];
-        recv.read_exact(&mut receipt).await.map_err(error)?;
+        let receipt = recv_fixed::<4>(&exchange).await?;
         if &receipt != b"AUTH" {
             return Err(rejected());
         }
@@ -363,22 +365,18 @@ impl BrowserNetwork {
         {
             return Err(rejected());
         }
-        send.write_all(&self.saved.generation.to_be_bytes())
-            .await
-            .map_err(error)?;
-        send.write_all(&self.saved.secret.ok_or_else(rejected)?)
-            .await
-            .map_err(error)?;
-        recv.read_exact(&mut receipt).await.map_err(error)?;
+        send_fixed(&exchange, &self.saved.generation.to_be_bytes()).await?;
+        send_fixed(&exchange, &self.saved.secret.ok_or_else(rejected)?).await?;
+        let receipt = recv_fixed::<4>(&exchange).await?;
         if &receipt != b"SAVE" {
             return Err(rejected());
         }
         let mut next = self.saved.clone();
         next.approvals[index].complete = true;
         self.commit(next).await?;
-        send.write_all(b"DONE").await.map_err(error)?;
-        send.finish().map_err(error)?;
-        connection.closed().await;
+        send_fixed(&exchange, b"DONE").await?;
+        exchange.finish_send().await.map_err(error)?;
+        connection.revocation_handle().closed().await;
         Ok("Complete".into())
     }
 }

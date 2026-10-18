@@ -14,7 +14,7 @@ struct Waiter {
     id: u64,
     alpn: Vec<u8>,
     attempt: crate::connection_coordinator::AttemptContext,
-    sender: oneshot::Sender<iroh::endpoint::Accepting>,
+    sender: oneshot::Sender<iroh::endpoint::RestrictedAccepting>,
 }
 
 #[derive(Default)]
@@ -36,7 +36,7 @@ struct ActiveRoute {
     budget: Rc<dyn Fn() -> Duration>,
     handler: Rc<
         dyn Fn(
-            iroh::endpoint::Accepting,
+            iroh::endpoint::RestrictedAccepting,
             n0_future::time::Instant,
         ) -> Pin<Box<dyn std::future::Future<Output = ()>>>,
     >,
@@ -74,14 +74,14 @@ enum Event {
             Result<
                 (
                     Vec<u8>,
-                    iroh::endpoint::Accepting,
+                    iroh::endpoint::RestrictedAccepting,
                     Option<n0_future::time::Instant>,
                 ),
                 JsValue,
             >,
         >,
     ),
-    Incoming(Option<iroh::endpoint::Incoming>),
+    Incoming(Option<iroh::endpoint::RestrictedIncoming>),
 }
 
 impl Drop for Registration {
@@ -95,7 +95,7 @@ impl Drop for Registration {
 }
 
 impl IncomingDispatcher {
-    pub(super) fn start(endpoint: Endpoint) -> Rc<Self> {
+    pub(super) fn start(endpoint: RestrictedEndpoint) -> Rc<Self> {
         let state = Rc::new(State::default());
         let cancel = tokio_util::sync::CancellationToken::new();
         let dispatcher = Rc::new(Self {
@@ -276,7 +276,7 @@ impl IncomingDispatcher {
         &self,
         alpn: &[u8],
         attempt: &crate::connection_coordinator::AttemptContext,
-    ) -> Result<iroh::endpoint::Accepting, JsValue> {
+    ) -> Result<iroh::endpoint::RestrictedAccepting, JsValue> {
         if self.cancel.is_cancelled() {
             return Err(error("browser incoming dispatcher closed"));
         }
@@ -317,7 +317,7 @@ impl IncomingDispatcher {
     pub(super) fn install_active<B, F, Fut>(&self, alpn: &[u8], budget: B, handler: F)
     where
         B: Fn() -> Duration + 'static,
-        F: Fn(iroh::endpoint::Accepting, n0_future::time::Instant) -> Fut + 'static,
+        F: Fn(iroh::endpoint::RestrictedAccepting, n0_future::time::Instant) -> Fut + 'static,
         Fut: std::future::Future<Output = ()> + 'static,
     {
         let route = ActiveRoute {
