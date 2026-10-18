@@ -58,6 +58,7 @@ path = "src/lib.rs"
 
 [dependencies.futures-channel]
 version = "0.3.32"
+features = ["sink"]
 
 [dependencies.futures-util]
 version = "0.3.32"
@@ -71,6 +72,12 @@ default-features = true
 [dependencies.p2panda-store]
 version = "0.7.1"
 default-features = false
+
+# Preserve the upstream transitive store defaults outside the Browser SDK target.
+# Cargo unifies this with the traits-only common dependency on native targets.
+[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies.p2panda-store]
+version = "0.7.1"
+default-features = true
 
 [dependencies.pin-project-lite]
 version = "0.2.16"
