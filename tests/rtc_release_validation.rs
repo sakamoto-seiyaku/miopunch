@@ -20,6 +20,7 @@ const ALPN: &[u8] = b"miopunch/rtc-release-renewal-test/1";
 
 async fn endpoint(transport: &RtcTransport) -> iroh::endpoint::RestrictedEndpoint {
     Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
         .clear_relay_transports()

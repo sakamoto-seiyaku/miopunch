@@ -430,7 +430,7 @@ async fn local_gateway_consent_survives_release_updates_and_node_restore() {
     let update = SignedResourceTable::sign(
         &publisher,
         &ResourceTable {
-            revision: 2,
+            revision: config.defaults.revision + 1,
             resources: vec![],
         },
     )

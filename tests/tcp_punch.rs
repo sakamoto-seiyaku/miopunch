@@ -286,6 +286,7 @@ async fn run_worker(role: String, directory: std::path::PathBuf) {
         qad_fallback || (case == "stun_udp" && std::env::var_os("MIO67_FLOW").is_some());
     let fallback = qad_fallback || case == "stun_udp";
     let builder = iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr((Ipv4Addr::UNSPECIFIED, if server { 43027 } else { 42027 }))
         .unwrap();
     let builder = if qad_fallback {

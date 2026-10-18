@@ -90,6 +90,7 @@ impl EndpointAdmission for DeadlineGate {
 }
 async fn endpoint(gate: impl EndpointAdmission + 'static) -> RestrictedEndpoint {
     Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
         .clear_relay_transports()

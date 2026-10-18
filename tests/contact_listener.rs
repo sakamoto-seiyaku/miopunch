@@ -362,6 +362,7 @@ async fn a_maintained_node_with_healthy_relay_accepts_member_only_restricted_con
     let caller_resources = caller_node
         .bind_configured_endpoint_with(
             iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap()
                 .add_custom_transport(caller_transport.clone()),

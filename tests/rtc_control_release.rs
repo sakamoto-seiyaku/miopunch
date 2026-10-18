@@ -202,6 +202,7 @@ impl EndpointAdmission for Gate {
 }
 async fn endpoint(gate: Gate) -> RestrictedEndpoint {
     Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
         .clear_relay_transports()
@@ -371,6 +372,7 @@ async fn actual_mqtt_control_route_cannot_be_sealed_as_an_ordinary_data_path() {
     for index in 0..2 {
         endpoints.push(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .clear_ip_transports()
                 .clear_relay_transports()
                 .add_custom_transport(carriers[index].clone())

@@ -133,6 +133,7 @@ async fn endpoint_with_signal(
     signal: Option<Arc<miopunch_native_probe::member_transport::MemberSignalingTransport>>,
 ) -> RestrictedEndpoint {
     let mut builder = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
         .transport_config(

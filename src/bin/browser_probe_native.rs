@@ -42,6 +42,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         [_, action, relay_url] if action == "serve" => {
             let relay_url: RelayUrl = relay_url.parse()?;
             let endpoint = Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .relay_mode(RelayMode::custom([relay_url]))
                 .clear_ip_transports()
                 .alpns(vec![ALPN.to_vec()])

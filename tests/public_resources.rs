@@ -59,6 +59,7 @@ async fn stun_uses_the_endpoint_socket_and_rejects_wrong_source_and_transaction(
     let server = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let address = server.local_addr().unwrap();
     let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .clear_ip_transports()
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
@@ -112,6 +113,7 @@ async fn stun_uses_the_endpoint_socket_and_rejects_wrong_source_and_transaction(
 async fn ordered_stun_sequence_uses_one_data_socket_and_failed_new_query_invalidates_old_snapshot()
 {
     let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .clear_ip_transports()
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
@@ -187,6 +189,7 @@ async fn ordered_stun_sequence_uses_one_data_socket_and_failed_new_query_invalid
 #[tokio::test]
 async fn dns_names_that_share_one_udp_destination_cannot_manufacture_a_mapping_sequence() {
     let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .clear_ip_transports()
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
@@ -506,6 +509,7 @@ async fn locally_closed_paths_are_absent_from_new_public_snapshots_before_abando
     let relay = iroh_relay::server::Server::spawn(config).await.unwrap();
     let relay_map = iroh::RelayMap::from_iter([relay.http_url().unwrap()]);
     let server = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .clear_ip_transports()
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
@@ -515,6 +519,7 @@ async fn locally_closed_paths_are_absent_from_new_public_snapshots_before_abando
         .await
         .unwrap();
     let client = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .clear_ip_transports()
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()

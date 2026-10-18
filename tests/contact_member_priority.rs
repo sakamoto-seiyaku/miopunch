@@ -270,6 +270,7 @@ async fn run_case(member_unavailable: bool, data_hint: DataHint) {
     let caller_resources = caller_node
         .bind_configured_endpoint_with(
             iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap()
                 .add_custom_transport(observed),

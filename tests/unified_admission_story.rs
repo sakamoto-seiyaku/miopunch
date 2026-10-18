@@ -33,6 +33,7 @@ async fn local_endpoint(node: &NativeNetwork) -> iroh::endpoint::RestrictedEndpo
     let endpoint = node
         .bind_endpoint_with(
             Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .active_connection_id_limit(2)
                 .bind_addr(std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
                 .unwrap(),
@@ -258,6 +259,7 @@ async fn request_confirmation_rejects_invalid_envelopes_and_nonce_before_return(
     let server = local_endpoint(&provider).await;
     for fault in 0..6 {
         let client = Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
             .active_connection_id_limit(2)
             .clear_relay_transports()
             .bind_addr(std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))

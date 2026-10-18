@@ -129,6 +129,7 @@ async fn relay_disabled_observes_the_real_quic_socket_through_a_controlled_nat()
     let (observer, roots) = observer().await;
     let nat = NatProxy::start(observer.quic_addr().unwrap()).await;
     let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .clear_ip_transports()
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
@@ -164,6 +165,7 @@ async fn failed_periodic_observation_withdraws_the_old_udp_candidate() {
     let nat = NatProxy::start(observer.quic_addr().unwrap()).await;
     let old_mapped = nat.mapped_addr;
     let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .clear_ip_transports()
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
@@ -207,6 +209,7 @@ async fn destination_dependent_nat_reports_mapping_variance() {
         ),
     ]);
     let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .clear_ip_transports()
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
@@ -236,6 +239,7 @@ async fn disabled_observation_endpoint_never_contacts_the_observer() {
     let (observer, roots) = observer().await;
     let nat = NatProxy::start(observer.quic_addr().unwrap()).await;
     let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .clear_ip_transports()
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
@@ -255,6 +259,7 @@ async fn mixed_observation_and_data_relay_configuration_fails_at_bind() {
     let observer = observation_map(12345);
     let relay = observation_map(12346);
     let result = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .relay_mode(RelayMode::Custom(relay))
         .observation_servers(observer)
         .bind()
@@ -273,6 +278,7 @@ async fn changed_nat_mapping_replaces_the_old_candidate_after_network_change() {
     let ingress = nat.ingress_addr;
     let old_mapped = nat.mapped_addr;
     let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .clear_ip_transports()
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()

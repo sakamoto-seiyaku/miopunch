@@ -108,6 +108,7 @@ fn quic_config() -> QuicTransportConfig {
 
 async fn raw_endpoint(key: &SigningKey, bind_ip: Ipv4Addr) -> Result<Endpoint, Box<dyn Error>> {
     let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .secret_key(iroh_secret(key))
         .transport_config(quic_config())
         .bind_addr(SocketAddr::from((bind_ip, 0)))?
@@ -151,6 +152,7 @@ async fn tcp_endpoint(
     transport: Arc<TcpTransport>,
 ) -> Result<Endpoint, Box<dyn Error>> {
     Ok(Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .secret_key(iroh_secret(key))
         .transport_config(quic_config())
         .clear_ip_transports()
@@ -219,6 +221,7 @@ async fn mqtt_endpoint(
     transport: Arc<MqttTransport>,
 ) -> Result<Endpoint, Box<dyn Error>> {
     Ok(Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .secret_key(iroh_secret(key))
         .transport_config(quic_config())
         .clear_ip_transports()
@@ -344,7 +347,11 @@ async fn serve_wrapped(key: &SigningKey, bind_ip: Ipv4Addr) -> Result<(), Box<dy
     let endpoint = PandaEndpoint::builder(address_book)
         .signing_key(key.clone())
         .config(panda_config(bind_ip))
-        .endpoint_builder_hook(|builder| builder.transport_config(quic_config()))
+        .endpoint_builder_hook(|builder| {
+            builder
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+                .transport_config(quic_config())
+        })
         .spawn()
         .await?;
     let (done_tx, mut done_rx) = mpsc::unbounded_channel();
@@ -382,6 +389,7 @@ async fn send_wrapped(
         .config(panda_config(bind_ip))
         .endpoint_builder_hook(move |builder| {
             builder
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .address_lookup(lookup.clone())
                 .transport_config(quic_config())
         })

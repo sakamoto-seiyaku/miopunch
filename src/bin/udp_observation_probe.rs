@@ -65,6 +65,7 @@ async fn observe(
     let url = format!("https://{host}/").parse()?;
     let servers = RelayMap::from(RelayConfig::new(url, Some(RelayQuicConfig::new(port))));
     let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .clear_ip_transports()
         .bind_addr((bind_ip, 0))?
         .observation_servers(servers)

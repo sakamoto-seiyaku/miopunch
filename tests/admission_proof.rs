@@ -21,6 +21,7 @@ async fn pair() -> (
     iroh::endpoint::Connection,
 ) {
     let server = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .alpns(vec![ALPN.to_vec()])
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
@@ -28,6 +29,7 @@ async fn pair() -> (
         .await
         .unwrap();
     let client = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
         .bind()

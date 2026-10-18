@@ -426,6 +426,7 @@ impl RestrictedEndpoint {
     }
 
     /// Locally installed custom contact addresses; no connection is released.
+    #[cfg(feature = "unstable-custom-transports")]
     pub fn custom_addrs(&self) -> Vec<iroh_base::CustomAddr> {
         self.inner.custom_addrs()
     }

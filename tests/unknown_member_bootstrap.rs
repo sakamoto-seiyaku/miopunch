@@ -50,6 +50,7 @@ async fn endpoint(
 ) -> (RestrictedEndpoint, Arc<MqttTransport>) {
     let carrier = Arc::new(MqttTransport::new(broker, Arc::new(Traffic::default())));
     let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .secret_key(SecretKey::from_bytes(key.as_bytes()))
         .alpns(vec![MEMBER_BOOTSTRAP_ALPN.to_vec()])
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))

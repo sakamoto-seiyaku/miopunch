@@ -78,6 +78,7 @@ impl BrowserNode {
             return Err(error("p2panda and iroh identities disagree"));
         }
         let endpoint = Endpoint::builder(presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
             .secret_key(key)
             .relay_mode(RelayMode::custom([relay_url.clone()]))
             .bind()

@@ -37,6 +37,7 @@ async fn configured_endpoint(
     let traffic = Arc::new(Traffic::default());
     let carrier = Arc::new(MqttTransport::new(broker, traffic.clone()));
     let builder = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .secret_key(SecretKey::generate())
         .alpns(vec![ALPN.to_vec()])
         .transport_config(

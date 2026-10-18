@@ -73,6 +73,7 @@ async fn fragmented_clienthello_is_classified_by_negotiated_alpn_before_original
     let server = b
         .bind_configured_endpoint_with(
             Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap()
                 .hooks(capture.clone()),
@@ -190,6 +191,7 @@ async fn mismatched_negotiated_purpose_rejects_before_hooks_and_preserves_health
     let pending = b
         .bind_configured_endpoint_with(
             Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap()
                 .hooks(capture.clone()),
@@ -286,6 +288,7 @@ async fn original_accept_context_cancel_deadline_and_incoming_token_close_only_p
         let pending = b
             .bind_configured_endpoint_with(
                 Endpoint::builder(iroh::endpoint::presets::Minimal)
+                    .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                     .bind_addr((Ipv4Addr::LOCALHOST, 0))
                     .unwrap()
                     .hooks(capture.clone()),

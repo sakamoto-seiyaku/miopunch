@@ -190,6 +190,7 @@ async fn native_sdk_rejects_the_wrong_rtc_responder_role_and_preserves_an_existi
     let native = a
         .bind_configured_endpoint_with_rtc(
             Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
                 .unwrap(),
             rtc.clone(),
@@ -240,6 +241,7 @@ async fn native_sdk_rejects_the_wrong_rtc_responder_role_and_preserves_an_existi
         .unwrap()
         .configure(
             Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
                 .unwrap(),
         )

@@ -1999,6 +1999,7 @@ impl BrowserNetwork {
         let rtc_effective = rtc_capability.effective;
         let data_policy = member_data_transport.clone();
         let mut builder = Endpoint::builder(presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
             .transport_config(
                 if irc.is_empty()
                     || !mqtt.is_empty()

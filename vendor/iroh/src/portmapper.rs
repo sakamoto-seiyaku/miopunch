@@ -20,7 +20,7 @@ use tokio::sync::watch;
 pub enum PortmapperConfig {
     /// Enable portmapping with default settings.
     ///
-    /// The miopunch fork requires explicit opt-in for gateway access.
+    /// This is the ordinary library default when the feature is enabled.
     #[non_exhaustive]
     Enabled {},
     /// Enable only NAT-PMP for this endpoint's actual UDP socket.
@@ -36,7 +36,7 @@ pub enum PortmapperConfig {
 
 impl Default for PortmapperConfig {
     fn default() -> Self {
-        PortmapperConfig::Disabled
+        PortmapperConfig::Enabled {}
     }
 }
 

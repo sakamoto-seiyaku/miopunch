@@ -325,6 +325,7 @@ impl Pair {
             let (pending, receive) = tokio::sync::mpsc::unbounded_channel();
             receivers.push(receive);
             let endpoint = Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .secret_key(key)
                 .alpns(vec![CONTROL_ALPN.to_vec()])
                 .clear_ip_transports()

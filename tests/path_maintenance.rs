@@ -21,6 +21,7 @@ async fn candidate_specific_refusal_does_not_block_another_permitted_original_pa
         .joining
         .bind_configured_endpoint_with(
             iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap()
                 .clear_relay_transports()
@@ -1725,6 +1726,7 @@ async fn control_paths_do_not_report_stale_same_address_as_recovered() {
         .admin
         .bind_configured_endpoint_with(
             iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .clear_ip_transports()
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap()

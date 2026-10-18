@@ -228,6 +228,7 @@ async fn bind(node: &NativeNetwork) -> miopunch_native_probe::resources::Resourc
     let ep = node
         .bind_configured_endpoint_with(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap()
                 .transport_config(
@@ -563,6 +564,7 @@ async fn canceled_handshake_releases_the_attempt_and_a_later_contact_succeeds() 
     let mut ae = a
         .bind_configured_endpoint_with(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap()
                 .hooks(DataStageNotice {

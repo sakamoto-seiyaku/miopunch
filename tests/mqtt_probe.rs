@@ -129,6 +129,7 @@ async fn rebinding_the_adapter_gets_a_fresh_delivery_route() {
     ));
     let bind = || {
         iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
             .secret_key(iroh_base::SecretKey::from_bytes(&[9; 32]))
             .clear_ip_transports()
             .clear_relay_transports()

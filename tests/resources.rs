@@ -33,6 +33,7 @@ async fn bind(node: &NativeNetwork) -> iroh::endpoint::RestrictedEndpoint {
     let config = node.resource_configuration().unwrap();
     node.bind_endpoint_with(
         Endpoint::builder(presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
             .clear_ip_transports()
             .relay_mode(iroh::RelayMode::Custom(
                 config.relay_map(ResourceUse::DataRelay).unwrap(),
@@ -273,9 +274,13 @@ async fn disabled_relay_in_default_startup_table_is_never_accessed() {
     // An independently supplied builder still contains the disabled URL. It
     // cannot turn that table into permission to probe or dial the resource.
     let endpoint = node
-        .bind_endpoint_with(Endpoint::builder(presets::Minimal).relay_mode(
-            iroh::RelayMode::Custom(iroh::RelayConfig::from(url.clone()).into()),
-        ))
+        .bind_endpoint_with(
+            Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+                .relay_mode(iroh::RelayMode::Custom(
+                    iroh::RelayConfig::from(url.clone()).into(),
+                )),
+        )
         .await
         .unwrap();
     tokio::time::sleep(Duration::from_secs(2)).await;
@@ -313,6 +318,7 @@ async fn disabled_relay_from_invitation_hint_is_never_accessed() {
     let endpoint = joining
         .bind_endpoint_with(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .relay_mode(iroh::RelayMode::Custom(iroh::RelayMap::empty())),
         )
         .await
@@ -354,6 +360,7 @@ async fn disabled_relay_from_lookup_result_is_never_accessed() {
     let endpoint = config
         .configure(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .relay_mode(iroh::RelayMode::Custom(iroh::RelayMap::empty()))
                 .address_lookup(lookup),
         )
@@ -406,6 +413,7 @@ async fn disabled_relay_retained_in_cache_is_never_accessed() {
         allowed
     });
     let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .relay_mode(iroh::RelayMode::Custom(iroh::RelayMap::empty()))
         .relay_resource_policy(policy)
         .bind()
@@ -480,6 +488,7 @@ async fn a_known_actor_route_cannot_replace_an_allowed_candidate_with_a_forbidde
     };
     let map: iroh::RelayMap = iroh::RelayConfig::from(old.clone()).into();
     let client = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .clear_ip_transports()
         .relay_mode(iroh::RelayMode::Custom(map.clone()))
         .relay_resource_policy(client_policy)
@@ -489,6 +498,7 @@ async fn a_known_actor_route_cannot_replace_an_allowed_candidate_with_a_forbidde
         .unwrap();
     let server_old = old.clone();
     let server = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .clear_ip_transports()
         .relay_mode(iroh::RelayMode::Custom(map))
         .relay_resource_policy(iroh::endpoint::RelayResourcePolicy::new(
@@ -591,6 +601,7 @@ async fn data_relay_disable_preserves_independently_allowed_address_observation(
     let endpoint = config
         .configure(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .clear_ip_transports()
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap()
@@ -667,6 +678,7 @@ async fn external_mapping_observer_map_cannot_bypass_permission() {
     let endpoint = config
         .configure(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .clear_ip_transports()
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap()
@@ -1170,6 +1182,7 @@ async fn a_disabled_signaling_broker_cannot_be_opened_by_a_custom_carrier() {
     let bound = node
         .bind_endpoint_with(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .clear_ip_transports()
                 .clear_relay_transports()
                 .add_custom_transport(carrier),
@@ -1350,12 +1363,20 @@ async fn p2panda_high_level_active_publishes_while_its_passive_branch_is_inactiv
     let book_a = p2panda_net::AddressBook::builder().spawn().await.unwrap();
     let book_p = p2panda_net::AddressBook::builder().spawn().await.unwrap();
     let endpoint_a = p2panda_net::Endpoint::builder(book_a.clone())
-        .endpoint_builder_hook(|builder| builder.clear_relay_transports())
+        .endpoint_builder_hook(|builder| {
+            builder
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+                .clear_relay_transports()
+        })
         .spawn()
         .await
         .unwrap();
     let endpoint_p = p2panda_net::Endpoint::builder(book_p.clone())
-        .endpoint_builder_hook(|builder| builder.clear_relay_transports())
+        .endpoint_builder_hook(|builder| {
+            builder
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+                .clear_relay_transports()
+        })
         .spawn()
         .await
         .unwrap();
@@ -1635,9 +1656,13 @@ async fn disabled_pkarr_lookup_facility_is_never_accessed() {
         .insert((facility.url.to_string(), ResourceUse::Lookup));
     node.save_resource_configuration(&config).unwrap();
     let endpoint = node
-        .bind_endpoint_with(Endpoint::builder(presets::Minimal).address_lookup(
-            PkarrResolver::builder(std::ops::Deref::deref(&facility.url).clone()),
-        ))
+        .bind_endpoint_with(
+            Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+                .address_lookup(PkarrResolver::builder(
+                    std::ops::Deref::deref(&facility.url).clone(),
+                )),
+        )
         .await
         .unwrap();
     let attempted = tokio::time::timeout(
@@ -1672,11 +1697,13 @@ async fn disabled_pkarr_publication_facility_is_never_accessed() {
     node.save_resource_configuration(&config).unwrap();
     let endpoint = node
         .bind_endpoint_with(
-            Endpoint::builder(presets::Minimal).address_lookup(
-                PkarrPublisher::builder(std::ops::Deref::deref(&facility.url).clone())
-                    .addr_filter(AddrFilter::unfiltered())
-                    .republish_interval(Duration::from_millis(50)),
-            ),
+            Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+                .address_lookup(
+                    PkarrPublisher::builder(std::ops::Deref::deref(&facility.url).clone())
+                        .addr_filter(AddrFilter::unfiltered())
+                        .republish_interval(Duration::from_millis(50)),
+                ),
         )
         .await
         .unwrap();
@@ -1707,7 +1734,10 @@ async fn disabled_lookup_added_after_bind_through_wrappers_is_never_accessed() {
     config.disabled_uses.insert(ResourceUse::Lookup);
     node.save_resource_configuration(&config).unwrap();
     let endpoint = node
-        .bind_endpoint_with(Endpoint::builder(presets::Minimal))
+        .bind_endpoint_with(
+            Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled),
+        )
         .await
         .unwrap();
     let lookup = endpoint
@@ -1774,6 +1804,7 @@ async fn allowed_signed_pkarr_lookup_reaches_real_admission_with_data_relay_disa
     let server = admin
         .bind_endpoint_with(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()])
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap()
@@ -1786,6 +1817,7 @@ async fn allowed_signed_pkarr_lookup_reaches_real_admission_with_data_relay_disa
     let client = joining
         .bind_endpoint_with(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()])
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap()
@@ -1867,9 +1899,13 @@ async fn allowed_lookup_cannot_redirect_access_to_a_disabled_facility() {
         .insert((forbidden.url.to_string(), ResourceUse::Lookup));
     node.save_resource_configuration(&config).unwrap();
     let endpoint = node
-        .bind_endpoint_with(Endpoint::builder(presets::Minimal).address_lookup(
-            PkarrResolver::builder(std::ops::Deref::deref(&redirecting.url).clone()),
-        ))
+        .bind_endpoint_with(
+            Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+                .address_lookup(PkarrResolver::builder(
+                    std::ops::Deref::deref(&redirecting.url).clone(),
+                )),
+        )
         .await
         .unwrap();
     let attempted = tokio::time::timeout(

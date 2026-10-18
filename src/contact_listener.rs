@@ -377,6 +377,7 @@ mod tests {
         )));
         let control = listener.control();
         let endpoint = iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
             .clear_ip_transports()
             .relay_mode(iroh::RelayMode::Disabled)
             .relay_resource_policy(iroh::endpoint::RelayResourcePolicy::new(|_, _| false))

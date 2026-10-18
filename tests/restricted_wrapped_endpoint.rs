@@ -97,7 +97,11 @@ async fn wrapped_actor_releases_member_after_checks_and_closes_on_revocation() {
         .network_id(NETWORK)
         .signing_key(server_key.clone())
         .config(config())
-        .endpoint_builder_hook(move |builder| builder.hooks(hook.clone()))
+        .endpoint_builder_hook(move |builder| {
+            builder
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+                .hooks(hook.clone())
+        })
         .spawn_restricted(move |builder| builder.restricted_application(gate.clone()))
         .await
         .unwrap();
@@ -124,7 +128,10 @@ async fn wrapped_actor_releases_member_after_checks_and_closes_on_revocation() {
         .signing_key(client_key)
         .config(config())
         .endpoint_builder_hook(move |builder| {
-            builder.address_lookup(lookup.clone()).hooks(hook.clone())
+            builder
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+                .address_lookup(lookup.clone())
+                .hooks(hook.clone())
         })
         .spawn_restricted(move |builder| builder.restricted_application(gate.clone()))
         .await

@@ -216,6 +216,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         quic = quic.active_connection_id_limit(2);
     }
     let mut builder = iroh::Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .transport_config(quic.build())
         .clear_ip_transports()
         .relay_mode(RelayMode::Custom(resources.relay_map(

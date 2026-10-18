@@ -90,6 +90,7 @@ async fn endpoint(
     transport: Option<Arc<MemberSignalingTransport>>,
 ) -> RestrictedEndpoint {
     let mut builder = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
         .transport_config(

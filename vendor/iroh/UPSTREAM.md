@@ -143,8 +143,9 @@ No additional socket, endpoint or wire-format change is introduced.
 
 `PortmapperConfig::NatPmp` selects only UDP NAT-PMP on the actual QUIC socket.
 The root enables the existing portmapper feature; native saved resource
-configuration owns local gateway consent independently of relay. The fork's
-default is Disabled, preserving the previously feature-disabled/non-probing
+configuration owns local gateway consent independently of relay. MIOPUNCH-98
+restores the ordinary upstream Enabled default; product/probe/fixture callers
+choose Disabled or saved NatPmp explicitly, preserving their non-probing
 runtime unless explicitly enabled. Upstream Enabled remains available but
 PCP/UPnP are not claimed as native product capabilities by this ticket.
 
@@ -349,3 +350,19 @@ ordinary early-data or object-conversion entry points. Their independent
 bilateral confirmation, revocation and bounded cleanup remain in the shared
 implementation. Ordinary endpoints keep their original early-data and hook
 timing. No QUIC/TLS algorithm or application wire protocol changes.
+
+## MIOPUNCH-98: ordinary portmapper defaults and explicit caller intent
+
+The ordinary `PortmapperConfig::default()` again selects Enabled. This does not
+activate the Cargo feature for callers that disabled it, or install a native
+service in Browser builds. The saved product resource assembly still selects
+Disabled/NatPmp before binding, including advanced builders and TCP ownership.
+Direct probes and ordinary local test fixtures declare Disabled explicitly;
+fixed original consumers retain their default and run in an isolated gateway lab.
+
+A default-feature build also exposed a missing cfg on the restricted endpoint's
+`custom_addrs` delegate. It now uses the same unstable-custom-transports condition
+as the ordinary method, so callers do not need that new feature to compile.
+The portmapper crate's protocol, allocation ownership, pending cancellation and
+bounded acknowledged release fixes are unchanged. Close returning is distinct
+from a gateway-confirmed deletion; the owned wire receipts record both.

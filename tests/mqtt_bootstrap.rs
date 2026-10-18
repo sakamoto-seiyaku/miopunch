@@ -38,6 +38,7 @@ async fn saved_pair(broker: &str) -> (tempfile::TempDir, NativeNetwork, NativeNe
 
 async fn bind_member(node: &NativeNetwork) -> miopunch_native_probe::resources::ResourceEndpoint {
     let builder = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
         .transport_config(
@@ -275,6 +276,7 @@ async fn explicitly_selected_mqtt_contact_starts_with_another_saved_service_down
     let resources = node
         .bind_configured_endpoint_with_contact(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap(),
             contact,
@@ -428,6 +430,7 @@ async fn canceling_the_formal_mqtt_data_stage_closes_the_original_attempt_and_al
     let client = joining
         .bind_configured_endpoint_with(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr((Ipv4Addr::LOCALHOST, 0))
                 .unwrap()
                 .hooks(DataStageNotice {
@@ -687,6 +690,7 @@ fn mqtt_native_node_worker() {
         let cert = std::fs::read(directory.join("cert.der")).unwrap();
         let resources = node.bind_configured_endpoint_with(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .alpns(vec![REPLICA_ALPN.to_vec()])
                 .observation_servers(config.relay_map(ResourceUse::Observation).unwrap())
                 .ca_tls_config(iroh_relay::tls::CaTlsConfig::custom_roots(vec![cert.into()]))

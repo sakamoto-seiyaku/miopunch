@@ -532,6 +532,7 @@ async fn mqtt_endpoint(
     let endpoint = node
         .bind_endpoint_with(
             iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()])
                 .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
                 .unwrap()

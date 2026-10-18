@@ -539,6 +539,7 @@ async fn lookup_supplied_disabled_tcp_candidate_is_not_dialed() {
     let endpoint = node
         .bind_endpoint_with(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .clear_relay_transports()
                 .address_lookup(lookup),
         )
@@ -589,6 +590,7 @@ async fn globally_disabled_tcp_cannot_be_reenabled_by_an_advanced_builder() {
     let endpoint = node
         .bind_endpoint_with(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .clear_relay_transports()
                 .add_custom_transport(Arc::new(TcpTransport::new(
                     Ipv4Addr::LOCALHOST,

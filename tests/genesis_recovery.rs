@@ -51,6 +51,7 @@ async fn pair(
     ControlConnection,
 ) {
     let server = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .secret_key(iroh::SecretKey::from_bytes(server_key.as_bytes()))
         .alpns(vec![RECOVERY_ALPN.to_vec()])
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
@@ -60,6 +61,7 @@ async fn pair(
         .await
         .unwrap();
     let client = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .secret_key(iroh::SecretKey::from_bytes(client_key.as_bytes()))
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()

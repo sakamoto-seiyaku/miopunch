@@ -102,6 +102,7 @@ impl Pair {
         let server = server_gate
             .configure(
                 Endpoint::builder(presets::Minimal)
+                    .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                     .secret_key(server_key)
                     .alpns(alpns.to_vec())
                     .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
@@ -113,6 +114,7 @@ impl Pair {
         let client = client_gate
             .configure(
                 Endpoint::builder(presets::Minimal)
+                    .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                     .secret_key(client_key)
                     .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
                     .unwrap(),
@@ -522,6 +524,7 @@ impl EndpointHooks for NoOpHook {}
 #[tokio::test]
 async fn a_gated_endpoint_never_treats_a_default_hook_as_admission() {
     let server = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .hooks(NoOpHook)
         .alpns(vec![BUSINESS.to_vec()])
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
@@ -531,6 +534,7 @@ async fn a_gated_endpoint_never_treats_a_default_hook_as_admission() {
         .await
         .unwrap();
     let client = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .hooks(NoOpHook)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
@@ -596,6 +600,9 @@ async fn p2panda_endpoint_builder_hook_gates_the_actual_protocol_actor() {
         .network_id(NETWORK)
         .signing_key(server_key.clone())
         .config(panda_config())
+        .endpoint_builder_hook(|builder| {
+            builder.portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+        })
         .spawn_restricted(move |builder| server_hook.configure(builder))
         .await
         .unwrap();
@@ -614,6 +621,9 @@ async fn p2panda_endpoint_builder_hook_gates_the_actual_protocol_actor() {
         .network_id(NETWORK)
         .signing_key(client_key)
         .config(panda_config())
+        .endpoint_builder_hook(|builder| {
+            builder.portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+        })
         .spawn_restricted(move |builder| {
             client_hook.configure(builder.address_lookup(lookup.clone()))
         })
@@ -640,6 +650,7 @@ async fn p2panda_endpoint_builder_hook_gates_the_actual_protocol_actor() {
 async fn cancelled_proof_does_not_authorize_a_later_connection() {
     let pair = Pair::new(Some(SECRET), SECRET, true).await;
     let rogue = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
         .bind()
@@ -734,6 +745,7 @@ async fn known_removed_identity_only_reaches_fresh_restricted_admission_requests
 async fn stalled_proof_times_out_and_fresh_connection_can_still_prove() {
     let pair = Pair::new(Some(SECRET), SECRET, true).await;
     let rogue = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
         .bind()
@@ -811,6 +823,7 @@ async fn signaling_carrier_allows_scoped_control_but_refuses_business() {
     let server = server_gate
         .configure(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .secret_key(server_key)
                 .alpns(vec![
                     BUSINESS.to_vec(),
@@ -827,6 +840,7 @@ async fn signaling_carrier_allows_scoped_control_but_refuses_business() {
     let client = client_gate
         .configure(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .secret_key(client_key)
                 .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
                 .unwrap()
@@ -934,6 +948,7 @@ async fn an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy()
     let server = server_gate
         .configure(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .secret_key(server_key)
                 .alpns(vec![BUSINESS.to_vec()])
                 .clear_ip_transports()
@@ -947,6 +962,7 @@ async fn an_admitted_tcp_data_connection_survives_an_unavailable_nat4_strategy()
     let client = client_gate
         .configure(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .secret_key(client_key)
                 .clear_ip_transports()
                 .clear_relay_transports()
@@ -1032,6 +1048,7 @@ async fn removal_during_final_recovery_stage_must_reject_connection() {
     let client = gate
         .configure(
             Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .secret_key(client_key)
                 .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
                 .unwrap(),
@@ -1040,6 +1057,7 @@ async fn removal_during_final_recovery_stage_must_reject_connection() {
         .await
         .unwrap();
     let raw = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .alpns(vec![RECOVERY_ALPN.to_vec()])
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()

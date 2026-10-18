@@ -229,6 +229,7 @@ async fn approved_native_admission_story(path: MemberPath) {
                 Arc::default(),
             ));
             let builder = iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .alpns(vec![
                     miopunch_native_probe::connection_coordinator::MEMBER_ALPN.to_vec(),
                 ])

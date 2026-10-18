@@ -80,6 +80,7 @@ async fn restricted_control_preserves_the_existing_native_request_protocol() {
         serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
     assert_eq!(ready["event"], "ready");
     let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr("127.0.0.1:0".parse::<std::net::SocketAddr>().unwrap())
         .unwrap()
         .restricted_application(ExistingRequest::default())
@@ -170,6 +171,7 @@ async fn cancellation_releases_both_attempts_owned_application_confirmations() {
     let entered_a = std::sync::Arc::new(tokio::sync::Notify::new());
     let entered_b = std::sync::Arc::new(tokio::sync::Notify::new());
     let a = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr("127.0.0.1:0".parse::<std::net::SocketAddr>().unwrap())
         .unwrap()
         .alpns(vec![b"owned-confirmation".to_vec()])
@@ -181,6 +183,7 @@ async fn cancellation_releases_both_attempts_owned_application_confirmations() {
         .await
         .unwrap();
     let b = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr("127.0.0.1:0".parse::<std::net::SocketAddr>().unwrap())
         .unwrap()
         .restricted_application(PendingConfirmation {
@@ -238,6 +241,7 @@ impl EndpointAdmission for NoConfirmation {
 #[tokio::test]
 async fn application_mode_does_not_invent_a_missing_delivery_agreement() {
     let a = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr("127.0.0.1:0".parse::<std::net::SocketAddr>().unwrap())
         .unwrap()
         .alpns(vec![b"missing-confirmation".to_vec()])
@@ -246,6 +250,7 @@ async fn application_mode_does_not_invent_a_missing_delivery_agreement() {
         .await
         .unwrap();
     let b = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr("127.0.0.1:0".parse::<std::net::SocketAddr>().unwrap())
         .unwrap()
         .restricted_application(NoConfirmation)
@@ -301,6 +306,7 @@ impl EndpointAdmission for OwnedControlWorker {
 async fn owned_control_workers_preserve_original_session_and_owner_drop_still_closes() {
     let builder = || {
         Endpoint::builder(presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
             .bind_addr("127.0.0.1:0".parse::<std::net::SocketAddr>().unwrap())
             .unwrap()
             .alpns(vec![b"owned-control-worker".to_vec()])

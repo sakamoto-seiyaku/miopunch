@@ -12,6 +12,7 @@ use std::{
 const ALPN: &[u8] = b"mio84/relay-validation-test/1";
 async fn endpoint(alpns: Vec<Vec<u8>>) -> Endpoint {
     Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
         .unwrap()
         .clear_relay_transports()

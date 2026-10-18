@@ -51,6 +51,7 @@ async fn quality_pings(restricted: bool) -> u64 {
     ));
     let builder = |carrier: Arc<TcpTransport>| {
         let builder = Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
             .clear_ip_transports()
             .clear_relay_transports()
             .add_custom_transport(carrier)
@@ -494,6 +495,7 @@ async fn strict_protocol_refuses_bad_versions_capabilities_roles_and_lengths_wit
             &b,
             &_dir.path().join("b"),
             Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
                 .unwrap(),
             ControlEnvelopeFixture(fault),
@@ -649,6 +651,7 @@ async fn cancel_and_deadline_close_only_the_pending_original_m_and_preserve_heal
             &b,
             &_dir.path().join("b"),
             Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
                 .unwrap(),
             PendingControl {
@@ -980,6 +983,7 @@ async fn a_retired_native_probe_cannot_release_an_ordinary_handle_through_live_p
     let be = b
         .bind_configured_endpoint_with(
             Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
                 .unwrap()
                 .add_custom_transport(Arc::new(btcp))
@@ -999,6 +1003,7 @@ async fn a_retired_native_probe_cannot_release_an_ordinary_handle_through_live_p
         &a,
         &_dir.path().join("a"),
         Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
             .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
             .unwrap()
             .add_custom_transport(Arc::new(atcp)),
@@ -1118,6 +1123,7 @@ async fn valid_browser_capabilities_without_mutual_data_are_unavailable_not_inva
         &browser_identity_fixture,
         &_directory.path().join("b"),
         Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
             .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
             .unwrap(),
         ControlEnvelopeFixture(4),
@@ -1207,6 +1213,7 @@ async fn proved_pending_peer_close_is_data_unavailable_not_identity_rejection() 
     let server = a
         .bind_configured_endpoint_with(
             Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
                 .unwrap()
                 .hooks(PeerClosesPendingMember {
@@ -1221,6 +1228,7 @@ async fn proved_pending_peer_close_is_data_unavailable_not_identity_rejection() 
     let client = b
         .bind_configured_endpoint_with(
             Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
                 .unwrap()
                 .hooks(PeerClosesPendingMember {
@@ -1284,6 +1292,7 @@ async fn stale_rtc_candidate_attempt_on_protected_member_m_is_rejected_before_al
     let native_endpoint = native
         .bind_configured_endpoint_with_rtc(
             Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
                 .unwrap(),
             rtc.clone(),
@@ -1294,6 +1303,7 @@ async fn stale_rtc_candidate_attempt_on_protected_member_m_is_rejected_before_al
         &peer,
         &_directory.path().join("b"),
         Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
             .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
             .unwrap(),
         ControlEnvelopeFixture(5),
@@ -1460,6 +1470,7 @@ async fn cancel_or_timeout_after_real_rtc_answer_retires_candidate_and_late_answ
     let ae = a
         .bind_configured_endpoint_with_rtc(
             Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
                 .unwrap(),
             miopunch_native_probe::rtc_transport::RtcTransport::new(),
@@ -1519,6 +1530,7 @@ async fn cancel_or_timeout_after_real_rtc_answer_retires_candidate_and_late_answ
         let server = a
             .bind_configured_endpoint_with_rtc(
                 Endpoint::builder(iroh::endpoint::presets::Minimal)
+                    .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                     .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
                     .unwrap(),
                 rtc.clone(),
@@ -1529,6 +1541,7 @@ async fn cancel_or_timeout_after_real_rtc_answer_retires_candidate_and_late_answ
             &b,
             &_directory.path().join("b"),
             Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .bind_addr("127.0.0.1:0".parse::<SocketAddr>().unwrap())
                 .unwrap(),
             DeferredRtcAnswer {
@@ -1681,6 +1694,7 @@ async fn contact_override_cannot_borrow_another_facility_permission_at_same_nati
     drop(reserve);
     let builder = || {
         Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
             .bind_addr(udp_address)
             .unwrap()
     };
@@ -1863,6 +1877,7 @@ async fn late_home_relay_connection_after_mqtt_ready_preserves_the_same_sdk_memb
         let be = b
             .bind_configured_endpoint_with_contact(
                 Endpoint::builder(iroh::endpoint::presets::Minimal)
+                    .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                     .hooks(CaptureRestrictedConnection(capture.clone())),
                 bt.clone(),
             )
@@ -1884,7 +1899,8 @@ async fn late_home_relay_connection_after_mqtt_ready_preserves_the_same_sdk_memb
         ));
         let ae = a
             .bind_configured_endpoint_with_contact(
-                Endpoint::builder(iroh::endpoint::presets::Minimal),
+                Endpoint::builder(iroh::endpoint::presets::Minimal)
+                    .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled),
                 at.clone(),
             )
             .await
@@ -2027,6 +2043,7 @@ async fn incoming_receipt_clock_survives_alpn_classification_and_reaches_admissi
     const ALPN: &[u8] = b"mio77/incoming-clock-unit/1";
     let observed = Arc::new(Mutex::new(None));
     let client = Endpoint::builder(iroh::endpoint::presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
         .clear_relay_transports()
@@ -2034,6 +2051,7 @@ async fn incoming_receipt_clock_survives_alpn_classification_and_reaches_admissi
         .await
         .unwrap();
     let server = Endpoint::builder(iroh::endpoint::presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
         .clear_relay_transports()

@@ -514,6 +514,7 @@ async fn endpoint(
         None
     };
     let builder = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .secret_key(key)
         .alpns(vec![ALPN.to_vec()])
         .bind_addr((Ipv4Addr::UNSPECIFIED, bind_port))?
