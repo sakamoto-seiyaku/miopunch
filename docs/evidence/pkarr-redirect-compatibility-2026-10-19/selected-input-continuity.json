@@ -1,0 +1,94 @@
+{
+  "focused-resource-tests": {
+    "allActualSelectedInputsUnchanged": true,
+    "selectedInputCount": 5721,
+    "repositoryInputCount": 282,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "87f9bcb4ba648398e5f61f1f5f9640a72f231383e480def668846451e91fffa3",
+    "currentGraphQualification": {
+      "buildReceiptSha256": "61d67f32b19c4dba834c17979f9afe211c7f08078e6967ba2c1c34c248dc17dd",
+      "buildContextSha256": "38b0d711e146cf89f55231e15b11cd938dc7b9b3302c26376f94008ca86f975e",
+      "selectedInputManifestSha256": "9caa150785676ec8d2323dae974cc4770ae47f3d1f8664f3ef58e101c0c3bfdd",
+      "allActualSelectedInputsAndArtifactsUnchanged": true,
+      "nonselectedGlobalSourceChanges": [
+        "vendor/iroh/UPSTREAM.md"
+      ]
+    }
+  },
+  "browser-policy-final": {
+    "allActualSelectedInputsUnchanged": true,
+    "selectedInputCount": 2733,
+    "repositoryInputCount": 135,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "87f9bcb4ba648398e5f61f1f5f9640a72f231383e480def668846451e91fffa3",
+    "currentGraphQualification": {
+      "buildReceiptSha256": "841ecbb9f087e94eb6484312c7715272fd8b5ef56e30b1a91593cb1d52e169af",
+      "buildContextSha256": "7c280b4c496e0240a312d4ad1ed4cc2ea49c31a4d354c4a49bb75285a9d4c7d5",
+      "selectedInputManifestSha256": "03f52daac75556d00b93fb769fbe064faab7a4b38e38f918b28ac75623edc002",
+      "allActualSelectedInputsAndArtifactsUnchanged": true,
+      "nonselectedGlobalSourceChanges": [
+        "vendor/iroh/UPSTREAM.md"
+      ]
+    }
+  },
+  "final-ordinary": {
+    "allActualSelectedInputsUnchanged": true,
+    "selectedInputCount": 3926,
+    "repositoryInputCount": 177,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "87f9bcb4ba648398e5f61f1f5f9640a72f231383e480def668846451e91fffa3",
+    "currentGraphQualification": {
+      "buildReceiptSha256": "6440067e04c73d3371b66339734f7451ba4bf6234be8110b1fd1e5840e100132",
+      "buildContextSha256": "873c24ec5ff6149bac9a5bd643fddd3990e2f09280bc8d4572a4ec2116d897b7",
+      "selectedInputManifestSha256": "5b2c99d3857c05647f14388e8c9f5c0f70f42206e802c23efb16b71785b4c2c4",
+      "allActualSelectedInputsAndArtifactsUnchanged": true,
+      "nonselectedGlobalSourceChanges": [
+        "vendor/iroh/UPSTREAM.md"
+      ]
+    }
+  },
+  "final-native-sdk": {
+    "allActualSelectedInputsUnchanged": true,
+    "selectedInputCount": 6623,
+    "repositoryInputCount": 296,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "87f9bcb4ba648398e5f61f1f5f9640a72f231383e480def668846451e91fffa3",
+    "currentGraphQualification": {
+      "buildReceiptSha256": "45881e09a6c1a9ea0fb69f91816ca643bf9c74ed445c52963504bf1b2f5ceffd",
+      "buildContextSha256": "5cb1e04dd740670134c00de09cda9d51d5946109b48051004272e2e096085814",
+      "selectedInputManifestSha256": "a32300324c33f20ea9630b0b7d5cf1e865352618f61fb1c81cc1e3769dfa424a",
+      "allActualSelectedInputsAndArtifactsUnchanged": true,
+      "nonselectedGlobalSourceChanges": [
+        "vendor/iroh/UPSTREAM.md"
+      ]
+    }
+  },
+  "final-browser-sdk": {
+    "allActualSelectedInputsUnchanged": true,
+    "selectedInputCount": 3162,
+    "repositoryInputCount": 201,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "dc68eebb7b2b7e7bb425639b53ade6d918e05b13c027f2488744ae8884f6d33a",
+    "currentGraphQualification": {
+      "buildReceiptSha256": "1d86e703292e5cccc48e8e2e33dec931c462842a48d08fc7b68c75d7a0d1e455",
+      "buildContextSha256": "390cf5a82b501fe60dbfdc5deebdb3d44e96772d46e9f219f49bafb95efa42f2",
+      "selectedInputManifestSha256": "6073621b4f45f767c3fd740a61c4fd52d646efcb4b437e30bb8d831fe8275f07",
+      "allActualSelectedInputsAndArtifactsUnchanged": true,
+      "nonselectedGlobalSourceChanges": []
+    }
+  },
+  "affected-fixture-typecheck": {
+    "allActualSelectedInputsUnchanged": true,
+    "selectedInputCount": 6717,
+    "repositoryInputCount": 390,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "dc68eebb7b2b7e7bb425639b53ade6d918e05b13c027f2488744ae8884f6d33a",
+    "currentGraphQualification": {
+      "buildReceiptSha256": "c7f90c2251e8c4f8cf3ee5e3174cae9977c14fb26741eeef305fe3ac5a1b317c",
+      "buildContextSha256": "6921da598405fbfe9e864077088c04b5ebe29af0f34defe8776aee2b94012d86",
+      "selectedInputManifestSha256": "5132cab9eb637d4ac74f7e4bd5fc8866514d86220b23cf9321ffa86815b36c64",
+      "allActualSelectedInputsAndArtifactsUnchanged": true,
+      "nonselectedGlobalSourceChanges": []
+    }
+  }
+}
