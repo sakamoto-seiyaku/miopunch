@@ -1,0 +1,9 @@
+{
+  "archiveMembersInspected": 4161,
+  "actualPrivateMaterialValueCandidatesChecked": 1,
+  "privateMaterialMatches": 0,
+  "privateSdkRawReceiptExcluded": true,
+  "privateKeyAndNssMembersExcluded": true,
+  "publicSdkSummaryUsesScalarsAndHashesOnly": true,
+  "archiveSha256": "cf3f04ad5509e873623a2a3878d15268b2e0deb86d4685e023dcb8bce883a2bf"
+}

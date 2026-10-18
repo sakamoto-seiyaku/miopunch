@@ -1,0 +1,62 @@
+{
+  "original-p2panda": {
+    "allActualSelectedInputsUnchanged": true,
+    "selectedInputCount": 4556,
+    "repositoryInputCount": 178,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "dc68eebb7b2b7e7bb425639b53ade6d918e05b13c027f2488744ae8884f6d33a",
+    "buildReceiptSha256": "7f6adff1d874dea955ce726b7f6ecfa257de2dd9caf2e6031c2d416af8cb1682",
+    "buildContextSha256": "e4931dee870f2e15df034558059e94044ad79e2e786a9e8911637987eab10744",
+    "selectedInputManifestSha256": "a3a555885efbba01fc2dc095d63c1a71fdd2b2d7bd08a106982be3e5146c0fbb"
+  },
+  "final-ordinary": {
+    "allActualSelectedInputsUnchanged": true,
+    "selectedInputCount": 4557,
+    "repositoryInputCount": 209,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "1d5d9446d9583bef45f9da437f60fa5210080d2f3a3c1ade84c8effca3d7b844",
+    "buildReceiptSha256": "34effe4e04dfed5085f42c1f6fefa92fb83949fa08d949f979e716df3d2c5fee",
+    "buildContextSha256": "c87a14e036b913ad183a3ddb50be8046086a200a3ab51cdfc8a5ed4627cb1821",
+    "selectedInputManifestSha256": "4f4af56f86bb8b808f5e6ae731578edc81cc0a539d0fb8c3c2d8183c9adbeea1"
+  },
+  "focused-public": {
+    "allActualSelectedInputsUnchanged": true,
+    "selectedInputCount": 4553,
+    "repositoryInputCount": 206,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "3fa02e51c76e92c431a49a1b6047ff8d4f5f9aa9e8168183f82a46240755ddcc",
+    "buildReceiptSha256": "c510662257c638f1918c02ac5431ed7afe59746ec53a03bdca15f5cc8ac4de5b",
+    "buildContextSha256": "794b819a257cd91633ea73d42ff7f16a0abbe4a79d3d19926391c54bf6594bfd",
+    "selectedInputManifestSha256": "d2a31395eccc5016a3f17e3b3a04be22e1c09252b65460d0b1a1c33cf307f218"
+  },
+  "final-native-sdk": {
+    "allActualSelectedInputsUnchanged": true,
+    "selectedInputCount": 6628,
+    "repositoryInputCount": 301,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "1d5d9446d9583bef45f9da437f60fa5210080d2f3a3c1ade84c8effca3d7b844",
+    "buildReceiptSha256": "751e86fab3b947dd0793a3017aae5aa4728080e9785d5e5f9047b66f651aae8a",
+    "buildContextSha256": "a35b87cd9dc97ecd153bfc4502de00a2abf6c8a16f5a5e9e9d36e46b4c42c798",
+    "selectedInputManifestSha256": "b787ad8156e4e8264c3291daee4fc55ec96d4d048826a45ebc211ffb06617256"
+  },
+  "reused-browser-sdk": {
+    "allActualSelectedInputsUnchanged": true,
+    "selectedInputCount": 3162,
+    "repositoryInputCount": 201,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "dc68eebb7b2b7e7bb425639b53ade6d918e05b13c027f2488744ae8884f6d33a",
+    "buildReceiptSha256": "1d86e703292e5cccc48e8e2e33dec931c462842a48d08fc7b68c75d7a0d1e455",
+    "buildContextSha256": "390cf5a82b501fe60dbfdc5deebdb3d44e96772d46e9f219f49bafb95efa42f2",
+    "selectedInputManifestSha256": "6073621b4f45f767c3fd740a61c4fd52d646efcb4b437e30bb8d831fe8275f07"
+  },
+  "root-typecheck": {
+    "allActualSelectedInputsUnchanged": true,
+    "selectedInputCount": 6718,
+    "repositoryInputCount": 391,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "1d5d9446d9583bef45f9da437f60fa5210080d2f3a3c1ade84c8effca3d7b844",
+    "buildReceiptSha256": "92905234159f8996cef1d519f2355f099c2888f9749ec3ab7764805b489a9eb6",
+    "buildContextSha256": "5bde22495bf5a1ac364d05961289812086663cca94cfdc18f83f45b76f1cd3aa",
+    "selectedInputManifestSha256": "a7c0edce69f07f91b9c8a155817bdcc6ef9bff4912f65f1f52570acb17fd89eb"
+  }
+}
