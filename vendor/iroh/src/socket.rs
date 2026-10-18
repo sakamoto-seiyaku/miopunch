@@ -79,7 +79,9 @@ use crate::{
     runtime::Runtime,
     socket::{
         concurrent_read_map::ReadOnlyMap,
-        remote_map::{MappedAddrs, PathSelector, PathStateReceiver, RemoteInfo},
+        remote_map::{
+            ConnectionPathSelector, MappedAddrs, PathSelector, PathStateReceiver, RemoteInfo,
+        },
         transports::{HomeRelayWatch, HomeRelayWatcher},
     },
     tls::{
@@ -194,6 +196,7 @@ pub(crate) struct Options {
     pub(crate) metrics: EndpointMetrics,
     pub(crate) hooks: EndpointHooksList,
     pub(crate) path_selector: Arc<dyn PathSelector>,
+    pub(crate) connection_path_selector: Option<Arc<dyn ConnectionPathSelector>>,
     pub(crate) portmapper_config: portmapper::PortmapperConfig,
     pub(crate) net_report_config: crate::net_report::NetReportConfig,
     pub(crate) observation_servers: Option<RelayMap>,
@@ -2018,6 +2021,7 @@ impl EndpointInner {
             metrics,
             hooks,
             path_selector,
+            connection_path_selector,
             portmapper_config,
             net_report_config,
             observation_servers,
@@ -2156,6 +2160,7 @@ impl EndpointInner {
                 address_lookup.clone(),
                 shutdown_token.child_token(),
                 path_selector,
+                connection_path_selector,
                 span.clone(),
             );
             map.mapped_addrs.custom_route_senders = Some(transports.custom_route_senders());
@@ -3632,6 +3637,7 @@ mod tests {
             metrics: Default::default(),
             hooks: Default::default(),
             path_selector: Arc::new(BiasedRttPathSelector::default()),
+            connection_path_selector: None,
             portmapper_config: Default::default(),
             net_report_config: Default::default(),
             observation_servers: None,
@@ -4051,6 +4057,7 @@ mod tests {
             metrics: Default::default(),
             hooks: Default::default(),
             path_selector: Arc::new(BiasedRttPathSelector::default()),
+            connection_path_selector: None,
             portmapper_config: Default::default(),
             net_report_config: Default::default(),
             observation_servers: None,

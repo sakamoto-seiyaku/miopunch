@@ -1,5 +1,7 @@
 //! Connection quality and explicit preference within the already qualified paths.
-use iroh::endpoint::transports::{FourTuple, PathSelection, PathSelectionContext, PathSelector};
+use iroh::endpoint::transports::{
+    ConnectionPathSelector, FourTuple, PathSelection, PathSelectionContext,
+};
 use serde::{Deserialize, Serialize};
 use std::{sync::Arc, time::Duration};
 
@@ -29,7 +31,7 @@ impl Default for PathSelectionPolicy {
     }
 }
 impl PathSelectionPolicy {
-    pub(crate) fn selector(&self) -> std::io::Result<Arc<dyn PathSelector>> {
+    pub(crate) fn selector(&self) -> std::io::Result<Arc<dyn ConnectionPathSelector>> {
         self.selector_with_native_rtc(false)
     }
 
@@ -37,7 +39,7 @@ impl PathSelectionPolicy {
     pub(crate) fn selector_with_native_rtc(
         &self,
         rtc_installed: bool,
-    ) -> std::io::Result<Arc<dyn PathSelector>> {
+    ) -> std::io::Result<Arc<dyn ConnectionPathSelector>> {
         let carriers = CarrierClasses::native(rtc_installed);
         self.selector_with_carriers(carriers)
     }
@@ -45,7 +47,7 @@ impl PathSelectionPolicy {
     pub(crate) fn selector_with_carriers(
         &self,
         carriers: CarrierClasses,
-    ) -> std::io::Result<Arc<dyn PathSelector>> {
+    ) -> std::io::Result<Arc<dyn ConnectionPathSelector>> {
         if !(250..=30_000).contains(&self.reevaluation_interval_ms) {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -148,7 +150,7 @@ struct QualityPathSelector {
     policy: PathSelectionPolicy,
     carriers: CarrierClasses,
 }
-impl PathSelector for QualityPathSelector {
+impl ConnectionPathSelector for QualityPathSelector {
     fn reevaluation_interval(&self) -> Option<Duration> {
         Some(Duration::from_millis(self.policy.reevaluation_interval_ms))
     }

@@ -394,7 +394,7 @@ impl ResourceConfig {
         std::io::Error,
     > {
         let config = self.clone();
-        let builder = builder.default_path_selector(
+        let builder = builder.default_connection_path_selector(
             self.path_selection
                 .selector_with_native_rtc(rtc_installed)?,
         );

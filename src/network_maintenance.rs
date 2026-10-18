@@ -1239,7 +1239,7 @@ impl NativeNetwork {
             Endpoint::builder(iroh::endpoint::presets::Minimal)
                 .bind_addr(SocketAddr::from((bind_ip, 0)))
                 .map_err(|_| NodeError::InvalidData)?
-                .path_selector(path_policy.selector_with_native_rtc(rtc_installed)?),
+                .connection_path_selector(path_policy.selector_with_native_rtc(rtc_installed)?),
         );
         let contact_observer = contact.clone();
         #[cfg(feature = "rtc-probe")]

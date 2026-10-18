@@ -384,3 +384,25 @@ are contracts, not a sandbox around independently started tasks.
 See `docs/notes/2026-10-19-pkarr-redirect-compatibility.md` for the unchanged
 original consumer, private-builder test adapter, real redirects, product permission
 negatives and Chromium boundary evidence. No dependency or wire format changes.
+
+
+## MIOPUNCH-101: preserve peer selectors; opt into connection selection
+
+`Builder::path_selector` retains one peer-aggregate callback per selection
+cycle. Applying that decision never calls the old selector again per connection.
+`connection_path_selector` explicitly registers `ConnectionPathSelector`, using
+that original connection's live, qualified paths. The callback's context exposes
+its live `connection_id`, preserves address-only `current()`, and provides
+socket-aware `is_current` and candidate `local_socket_id` on native targets.
+Retained results are revalidated against the original connection's current
+qualified paths before application; a peer hint cannot transfer another
+connection's custom association or physical socket permission.
+
+The last explicit selector registration wins. `default_connection_path_selector`
+preserves either explicit registration, so saved product defaults do not override
+an advanced caller. Native and browser product policies use the new entry and
+share the existing quality scorer. Ordinary peer defaults keep the historical
+biased-RTT scorer; restricted connections without an explicit scoped selector
+use that same scorer on their qualified paths. Reevaluation stays opt-in and
+bounded. No socket ownership, generation, packet gate or QUIC wire contract is
+changed. See `docs/notes/2026-10-19-selector-compatibility.md` for evidence.

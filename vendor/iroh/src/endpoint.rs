@@ -39,7 +39,10 @@ pub mod transports {
     //! </div>
 
     pub use super::socket::{
-        remote_map::{PathSelection, PathSelectionContext, PathSelectionData, PathSelector},
+        remote_map::{
+            ConnectionPathSelector, PathSelection, PathSelectionContext, PathSelectionData,
+            PathSelector,
+        },
         transports::{
             Addr, AddrKind, FourTuple, RecvInfo, Transmit,
             custom::{CustomEndpoint, CustomEndpointShutdown, CustomSender, CustomTransport},
@@ -80,7 +83,7 @@ use crate::{
         self, EndpointInner, RemoteStateActorStoppedError, StaticConfig,
         biased_rtt_path_selector::BiasedRttPathSelector,
         mapped_addrs::MappedAddr,
-        remote_map::PathSelector,
+        remote_map::{ConnectionPathSelector, PathSelector},
         transports::{RelayConnectionFailure, RelayConnectionState},
     },
     tls::{self, DEFAULT_MAX_TLS_TICKETS, misc::RustlsTokenKey},
@@ -160,6 +163,7 @@ pub struct Builder {
     max_tls_tickets: usize,
     hooks: EndpointHooksList,
     path_selector: Arc<dyn PathSelector>,
+    connection_path_selector: Option<Arc<dyn ConnectionPathSelector>>,
     path_selector_explicit: bool,
     portmapper_config: PortmapperConfig,
     net_report_config: NetReportConfig,
@@ -309,6 +313,7 @@ impl Builder {
             transports,
             hooks: Default::default(),
             path_selector: Arc::new(BiasedRttPathSelector::default()),
+            connection_path_selector: None,
             path_selector_explicit: false,
             portmapper_config: Default::default(),
             net_report_config: Default::default(),
@@ -343,14 +348,10 @@ impl Builder {
         );
         let static_config = StaticConfig {
             relay_resource_policy: self.relay_resource_policy,
-            server_config: tls_config.make_server_config_with_early_data(
-                self.keylog,
-                self.admission.is_none(),
-            )?,
-            client_config: tls_config.make_client_config_with_early_data(
-                self.keylog,
-                self.admission.is_none(),
-            )?,
+            server_config: tls_config
+                .make_server_config_with_early_data(self.keylog, self.admission.is_none())?,
+            client_config: tls_config
+                .make_client_config_with_early_data(self.keylog, self.admission.is_none())?,
             tls_config,
             transport_config: self.transport_config.clone(),
             admission: self.admission,
@@ -387,6 +388,7 @@ impl Builder {
             metrics,
             hooks: self.hooks,
             path_selector: self.path_selector,
+            connection_path_selector: self.connection_path_selector,
             portmapper_config: self.portmapper_config,
             net_report_config: self.net_report_config,
             observation_servers: self.observation_servers,
@@ -993,6 +995,10 @@ impl Builder {
 
     /// Sets a custom [`PathSelector`] for this endpoint.
     ///
+    /// The callback runs once per peer selection event, over the peer aggregate.
+    /// It is never called again for each individual connection. This replaces
+    /// any previous connection-scoped registration.
+    ///
     /// The path selector decides which path to use among the candidate paths to a
     /// remote endpoint.  By default iroh uses a built-in selector that sorts paths by
     /// biased RTT (with IPv6 preferred over IPv4 and relay treated as backup) and is
@@ -1015,7 +1021,36 @@ impl Builder {
     #[cfg(feature = "unstable-custom-transports")]
     pub fn path_selector(mut self, selector: Arc<dyn PathSelector>) -> Self {
         self.path_selector = selector;
+        self.connection_path_selector = None;
         self.path_selector_explicit = true;
+        self
+    }
+
+    /// Selects paths separately for each original connection. The callback sees
+    /// only that connection's currently qualified paths; its result grants no
+    /// additional transport, association or physical socket permission.
+    ///
+    /// This replaces any previous selector registration. Peer/bootstrap hints
+    /// retain iroh's built-in policy and never call this selector.
+    #[cfg(feature = "unstable-custom-transports")]
+    pub fn connection_path_selector(mut self, selector: Arc<dyn ConnectionPathSelector>) -> Self {
+        self.path_selector = Arc::new(BiasedRttPathSelector::default());
+        self.connection_path_selector = Some(selector);
+        self.path_selector_explicit = true;
+        self
+    }
+
+    /// Installs a connection-scoped product default unless either selector
+    /// entry point has already been explicitly configured.
+    #[cfg(feature = "unstable-custom-transports")]
+    pub fn default_connection_path_selector(
+        mut self,
+        selector: Arc<dyn ConnectionPathSelector>,
+    ) -> Self {
+        if !self.path_selector_explicit {
+            self.path_selector = Arc::new(BiasedRttPathSelector::default());
+            self.connection_path_selector = Some(selector);
+        }
         self
     }
 
@@ -1025,6 +1060,7 @@ impl Builder {
     pub fn default_path_selector(mut self, selector: Arc<dyn PathSelector>) -> Self {
         if !self.path_selector_explicit {
             self.path_selector = selector;
+            self.connection_path_selector = None;
         }
         self
     }

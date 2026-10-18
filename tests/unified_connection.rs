@@ -21,7 +21,7 @@ use std::{
 #[derive(Debug)]
 struct FrequentQualitySelector;
 
-impl iroh::endpoint::transports::PathSelector for FrequentQualitySelector {
+impl iroh::endpoint::transports::ConnectionPathSelector for FrequentQualitySelector {
     fn reevaluation_interval(&self) -> Option<Duration> {
         Some(Duration::from_millis(250))
     }
@@ -56,7 +56,7 @@ async fn quality_pings(restricted: bool) -> u64 {
             .clear_relay_transports()
             .add_custom_transport(carrier)
             .alpns(vec![ALPN.to_vec()])
-            .path_selector(Arc::new(FrequentQualitySelector));
+            .connection_path_selector(Arc::new(FrequentQualitySelector));
         builder
     };
     if restricted {

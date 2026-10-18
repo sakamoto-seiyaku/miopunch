@@ -173,6 +173,7 @@ struct State {
 
     /// The path selector used to pick the preferred path among the candidates.
     path_selector: Arc<dyn PathSelector>,
+    connection_path_selector: Option<Arc<dyn ConnectionPathSelector>>,
 }
 
 impl RemoteStateActor {
@@ -184,6 +185,7 @@ impl RemoteStateActor {
         metrics: Arc<SocketMetrics>,
         address_lookup: AddressLookupServices,
         path_selector: Arc<dyn PathSelector>,
+        connection_path_selector: Option<Arc<dyn ConnectionPathSelector>>,
     ) -> Self {
         Self {
             connections: FxHashMap::default(),
@@ -206,6 +208,7 @@ impl RemoteStateActor {
                 pending_open_paths: VecDeque::new(),
                 address_lookup_stream: None,
                 path_selector,
+                connection_path_selector,
             },
         }
     }
@@ -259,8 +262,12 @@ impl RemoteStateActor {
 
         let reevaluation_interval = self
             .state
-            .path_selector
-            .reevaluation_interval()
+            .connection_path_selector
+            .as_ref()
+            .map_or_else(
+                || self.state.path_selector.reevaluation_interval(),
+                |selector| selector.reevaluation_interval(),
+            )
             .map(|interval| interval.clamp(Duration::from_millis(250), Duration::from_secs(30)));
         let mut next_reevaluation = reevaluation_interval.map(|interval| Instant::now() + interval);
         loop {
@@ -1304,8 +1311,8 @@ impl RemoteStateActor {
 
     /// Selects the preferred path by invoking the configured [`PathSelector`].
     ///
-    /// A qualified peer hint may be added to ordinary data connections. Each
-    /// connection then scores only its own qualified paths.
+    /// Legacy selectors run once over the peer aggregate. Explicit connection
+    /// selectors run later, once for each live connection's qualified paths.
     #[instrument(skip_all)]
     fn select_path(&mut self) {
         self.retire_unavailable_custom_paths();
@@ -1365,11 +1372,18 @@ impl RemoteStateActor {
                     .state
                     .open_path_on_conn(*conn_id, conn_state, &conn, &selected, false);
             }
+            if self.state.connection_path_selector.is_none()
+                && conn_state.purpose == ConnectionPurpose::Ordinary
+                && self.state.selected_path.is_none()
+            {
+                // The legacy empty result does not create a selection.
+                continue;
+            }
             let current = conn_state
                 .path_state
                 .selected_id()
                 .and_then(|id| conn_state.paths.get(&id))
-                .filter(|path| conn_state.may_select(path));
+                .filter(|path| conn_state.has_qualified_path(path, &conn));
             let context = PathSelectionContext::for_connection(current, conn_state);
             let selected_for_conn = if conn_state.purpose == ConnectionPurpose::Control
                 && let Some(exact) = conn_state.retained_control_custom.as_ref()
@@ -1377,9 +1391,29 @@ impl RemoteStateActor {
                 // Confirmation must traverse the newly qualified exact route,
                 // even when the signaling path has a lower measured latency.
                 conn_state.paths.values().find(|path| matches!(&path.address, transports::FourTuple::Custom { remote, .. } if remote == exact) && conn_state.may_select(path)).cloned()
+            } else if let Some(selector) = &self.state.connection_path_selector {
+                selector
+                    .select(&context)
+                    .selected()
+                    // A selector can retain a result from an earlier callback.
+                    // Revalidate exact ownership and live path existence here.
+                    .filter(|selected| conn_state.has_qualified_path(selected, &conn))
+                    .cloned()
+                    .or_else(|| current.cloned())
+            } else if conn_state.purpose == ConnectionPurpose::Ordinary
+                && let Some(selected) = self
+                    .state
+                    .selected_path
+                    .as_ref()
+                    .filter(|selected| conn_state.has_qualified_path(selected, &conn))
+            {
+                // Apply the peer decision without invoking the legacy callback
+                // again. A hint never transfers another connection's capability.
+                Some(selected.clone())
             } else {
-                self.state
-                    .path_selector
+                // Restricted paths, or a peer preference that this connection
+                // cannot own, use the same built-in scorer on qualified paths.
+                super::super::biased_rtt_path_selector::BiasedRttPathSelector::default()
                     .select(&context)
                     .selected()
                     .cloned()
@@ -2168,6 +2202,16 @@ impl ConnectionState {
         }
         true
     }
+    fn has_qualified_path(
+        &self,
+        candidate: &transports::PathBinding,
+        conn: &noq::Connection,
+    ) -> bool {
+        self.paths.iter().any(|(id, path)| {
+            path == candidate && self.may_select(path) && conn.path(*id).is_some()
+        })
+    }
+
     fn may_select(&self, path: &transports::PathBinding) -> bool {
         self.owns_udp_binding(path)
             && !self.forbids(path)
@@ -2290,6 +2334,15 @@ impl<'a> PathSelectionContext<'a> {
         }
     }
 
+    /// The original connection being evaluated, for connection-scoped callbacks.
+    /// Peer callbacks return `None`. The ID is valid only while the connection lives.
+    pub fn connection_id(&self) -> Option<usize> {
+        match &self.source {
+            PathsSource::Connection(state) => Some(state.connection_id),
+            _ => None,
+        }
+    }
+
     /// The path currently considered the preferred path to the remote endpoint, if any.
     pub fn current(&self) -> Option<&transports::FourTuple> {
         #[cfg(test)]
@@ -2351,11 +2404,10 @@ impl<'a> PathSelectionContext<'a> {
                     .filter(|conn| conn.close_reason().is_none())
                     .into_iter()
                     .flat_map(move |conn| {
-                        state
-                            .paths
-                            .iter()
-                            .filter(move |(_, addr)| state.may_select(addr))
-                            .map(move |(id, addr)| PathSelectionData::live(addr, *id, conn.clone()))
+                        state.paths.iter().filter_map(move |(id, addr)| {
+                            (state.may_select(addr) && conn.path(*id).is_some())
+                                .then(|| PathSelectionData::live(addr, *id, conn.clone()))
+                        })
                     }),
             ),
             #[cfg(test)]
@@ -2425,6 +2477,13 @@ impl<'a> PathSelectionData<'a> {
         self.network_path
     }
 
+    /// Physical local socket of this candidate, separate from its real address.
+    /// `None` denotes ordinary endpoint I/O, not permission to use another socket.
+    #[cfg(not(wasm_browser))]
+    pub fn local_socket_id(&self) -> Option<transports::LocalSocketId> {
+        self.local_socket.map(transports::LocalSocketId::from_noq)
+    }
+
     /// Returns path statistics if available.
     pub fn stats(&self) -> Option<PathStats> {
         match &self.source {
@@ -2454,6 +2513,23 @@ pub trait PathSelector: Send + Sync + std::fmt::Debug + 'static {
     /// [`PathSelection::set`] for the path the selector wants active.
     ///
     /// Returning an empty [`PathSelection`] keeps the current selection unchanged.
+    fn select(&self, ctx: &PathSelectionContext<'_>) -> PathSelection;
+}
+
+/// Explicit policy for one original connection's qualified paths.
+///
+/// Register with [`crate::endpoint::Builder::connection_path_selector`]. Unlike
+/// [`PathSelector`], this callback never receives the peer aggregate. Returning
+/// no selection preserves the connection's current qualified path. Retained
+/// selections are checked again against current ownership and live paths.
+#[cfg_attr(not(feature = "unstable-custom-transports"), allow(unreachable_pub))]
+pub trait ConnectionPathSelector: Send + Sync + std::fmt::Debug + 'static {
+    /// Optional reevaluation, bounded by the actor to 250ms through 30s.
+    fn reevaluation_interval(&self) -> Option<Duration> {
+        None
+    }
+
+    /// Pick a path using [`PathSelection::none`] and [`PathSelection::set`].
     fn select(&self, ctx: &PathSelectionContext<'_>) -> PathSelection;
 }
 

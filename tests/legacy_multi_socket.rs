@@ -7,7 +7,7 @@ use iroh::{
     Endpoint, EndpointAddr,
     endpoint::{
         presets,
-        transports::{FourTuple, PathSelection, PathSelectionContext, PathSelector},
+        transports::{ConnectionPathSelector, FourTuple, PathSelection, PathSelectionContext},
     },
 };
 use iroh_base::{SecretKey, TransportAddr};
@@ -20,15 +20,12 @@ use miopunch_native_probe::{
 
 #[derive(Debug)]
 struct IpThenControl;
-impl PathSelector for IpThenControl {
+impl ConnectionPathSelector for IpThenControl {
     fn select(&self, context: &PathSelectionContext<'_>) -> PathSelection {
         let mut selected = PathSelection::none();
         if let Some(path) = context
             .paths()
-            .find(|p| {
-                matches!(p.network_path(), FourTuple::Ip { .. })
-                    && context.current() == Some(p.network_path())
-            })
+            .find(|p| matches!(p.network_path(), FourTuple::Ip { .. }) && context.is_current(p))
             .or_else(|| {
                 context
                     .paths()
@@ -58,6 +55,9 @@ impl Pair {
         Self::build(true).await
     }
     async fn build(pending: bool) -> Self {
+        Self::build_with_selector(pending, Arc::new(IpThenControl)).await
+    }
+    async fn build_with_selector(pending: bool, selector: Arc<dyn ConnectionPathSelector>) -> Self {
         let keys = [SecretKey::generate(), SecretKey::generate()];
         let members = keys
             .iter()
@@ -86,7 +86,7 @@ impl Pair {
                 .unwrap()
                 .clear_relay_transports()
                 .add_custom_transport(carrier.clone())
-                .path_selector(Arc::new(IpThenControl));
+                .connection_path_selector(selector.clone());
             let builder = if pending {
                 let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
                 receivers.push(receiver);
@@ -984,4 +984,191 @@ async fn cross_socket_round_packets_are_ignored_and_network_change_invalidates_p
     );
     pair.c.close().await;
     pair.v.close().await;
+}
+
+#[derive(Debug, Default)]
+struct ExactSocketSelector {
+    target: std::sync::atomic::AtomicUsize,
+    switch_to: std::sync::Mutex<Option<iroh::endpoint::LocalSocketId>>,
+    saved: std::sync::Mutex<Option<PathSelection>>,
+    replay_stale: std::sync::atomic::AtomicBool,
+    stale_callbacks: std::sync::atomic::AtomicUsize,
+    same_address_observations: std::sync::Mutex<Vec<(usize, usize)>>,
+}
+impl ConnectionPathSelector for ExactSocketSelector {
+    fn reevaluation_interval(&self) -> Option<Duration> {
+        Some(Duration::from_millis(250))
+    }
+    fn select(&self, context: &PathSelectionContext<'_>) -> PathSelection {
+        use std::sync::atomic::Ordering::SeqCst;
+        let paths: Vec<_> = context.paths().collect();
+        let target = context.connection_id() == Some(self.target.load(SeqCst));
+        if target {
+            let address_matches = paths
+                .iter()
+                .filter(|p| context.current() == Some(p.network_path()))
+                .count();
+            let exact_matches = paths.iter().filter(|p| context.is_current(p)).count();
+            if address_matches > 1 {
+                self.same_address_observations
+                    .lock()
+                    .unwrap()
+                    .push((address_matches, exact_matches));
+            }
+            if self.replay_stale.load(SeqCst) {
+                self.stale_callbacks.fetch_add(1, SeqCst);
+                return self.saved.lock().unwrap().clone().unwrap();
+            }
+        }
+        let requested = *self.switch_to.lock().unwrap();
+        let selected = paths
+            .iter()
+            .find(|p| target && requested.is_some() && p.local_socket_id() == requested)
+            .or_else(|| {
+                paths
+                    .iter()
+                    .find(|p| p.network_path().is_ip() && context.is_current(p))
+            })
+            .or_else(|| paths.iter().find(|p| p.network_path().is_ip()))
+            .or_else(|| paths.first());
+        let mut selection = PathSelection::none();
+        if let Some(path) = selected {
+            selection.set(path);
+            if target && path.local_socket_id().is_some() {
+                let mut saved = self.saved.lock().unwrap();
+                if saved.is_none() {
+                    *saved = Some(selection.clone());
+                }
+            }
+        }
+        selection
+    }
+}
+
+#[tokio::test]
+async fn same_address_sockets_keep_exact_current_and_reject_retired_selection() {
+    tokio::time::timeout(Duration::from_secs(12), exact_socket_lifecycle())
+        .await
+        .unwrap();
+}
+
+async fn exact_socket_lifecycle() {
+    use std::sync::atomic::Ordering::SeqCst;
+    let selector = Arc::new(ExactSocketSelector::default());
+    let pair = Pair::build_with_selector(true, selector.clone()).await;
+    // Pair dials from v to c; operate on the dialing original.
+    let (v, c) = pair.connect().await;
+    let stable = (c.stable_id(), v.stable_id());
+    selector.target.store(c.stable_id(), SeqCst);
+    // Independent retained rounds give this original connection two
+    // descriptors with the same local IP and the same remote IP:port.
+    let mut first = c.register_udp_traversal([101; 16]).await.unwrap();
+    let mut second = c.register_udp_traversal([102; 16]).await.unwrap();
+    first.listen_random_ports(1).await.unwrap();
+    second.listen_random_ports(1).await.unwrap();
+    let a = first.local_sockets()[1];
+    let b = second.local_sockets()[1];
+    assert_ne!(a.id, b.id);
+    let a_addr = (Ipv4Addr::LOCALHOST, a.local_addr.port()).into();
+    let b_addr = (Ipv4Addr::LOCALHOST, b.local_addr.port()).into();
+    let a_winner = first.retain_winner(a.id, a_addr).await.unwrap().unwrap();
+    let mut b_winner = second.retain_winner(b.id, b_addr).await.unwrap().unwrap();
+    let remote = pair.c.bound_sockets()[0];
+    c.open_data_path_from(
+        iroh::endpoint::LocalSocketBinding {
+            id: a.id,
+            local_addr: a_addr,
+        },
+        remote,
+    )
+    .await
+    .unwrap();
+    while !c
+        .control_handle()
+        .paths()
+        .iter()
+        .any(|p| p.is_selected() && p.local_socket_id() == Some(a.id))
+    {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    *selector.switch_to.lock().unwrap() = Some(b.id);
+    c.open_data_path_from(
+        iroh::endpoint::LocalSocketBinding {
+            id: b.id,
+            local_addr: b_addr,
+        },
+        remote,
+    )
+    .await
+    .unwrap();
+    while !c
+        .control_handle()
+        .paths()
+        .iter()
+        .any(|p| p.is_selected() && p.local_socket_id() == Some(b.id))
+    {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    let observations = selector.same_address_observations.lock().unwrap().clone();
+    assert!(
+        observations
+            .iter()
+            .any(|&(old, exact)| old == 2 && exact == 1),
+        "{observations:?}"
+    );
+    if let Some(path) = c
+        .control_handle()
+        .paths()
+        .iter()
+        .find(|p| p.local_socket_id() == Some(a.id))
+    {
+        path.close().unwrap();
+    }
+    drop(a_winner);
+    drop(first);
+    drop(second);
+    assert_port_closed(a.local_addr.port());
+    selector.replay_stale.store(true, SeqCst);
+    tokio::time::sleep(Duration::from_millis(350)).await;
+    assert!(selector.stale_callbacks.load(SeqCst) > 0);
+    assert!(
+        !c.control_handle()
+            .paths()
+            .iter()
+            .any(|p| p.local_socket_id() == Some(a.id))
+    );
+    assert!(
+        c.control_handle()
+            .paths()
+            .iter()
+            .any(|p| p.is_selected() && p.local_socket_id() == Some(b.id))
+    );
+    let (cd, vd) = tokio::join!(c.commit_data_path(), v.commit_data_path());
+    let (cd, vd) = (cd.unwrap(), vd.unwrap());
+    assert_eq!(
+        (cd.connection().stable_id(), vd.connection().stable_id()),
+        stable
+    );
+    b_winner.commit(cd.connection()).unwrap();
+    drop(b_winner);
+    let (mut send, mut recv) = cd.connection().open_bi().await.unwrap();
+    send.write_all(b"same-address-exact-socket").await.unwrap();
+    send.finish().unwrap();
+    let (mut send, mut request) = vd.connection().accept_bi().await.unwrap();
+    assert_eq!(
+        request.read_to_end(64).await.unwrap(),
+        b"same-address-exact-socket"
+    );
+    send.write_all(b"PONG").await.unwrap();
+    send.finish().unwrap();
+    assert_eq!(recv.read_to_end(16).await.unwrap(), b"PONG");
+    println!(
+        "M101 exact observations={observations:?} stale_callbacks={} sockets={:?},{:?} stable={stable:?}",
+        selector.stale_callbacks.load(SeqCst),
+        a.id,
+        b.id
+    );
+    pair.c.close().await;
+    pair.v.close().await;
+    assert_port_closed(b.local_addr.port());
 }

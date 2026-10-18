@@ -2015,7 +2015,7 @@ impl BrowserNetwork {
                 },
             )
             .secret_key(SecretKey::from_bytes(&saved.key))
-            .path_selector(path_selector)
+            .connection_path_selector(path_selector)
             .relay_mode(RelayMode::custom(relays.clone()))
             .relay_resource_policy(
                 RelayResourcePolicy::new(move |url, usage| match usage {
