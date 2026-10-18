@@ -27,7 +27,7 @@ kernel-NAT evidence and the scope of this validation.
 
 ## MIOPUNCH-21 data-path validation delta
 
-This ticket adds `control_only_alpns` and explicit `open_data_path`,
+This ticket originally added `control_only_alpns` and explicit `open_data_path`,
 `open_control_path`, and `commit_data_path` calls. The per-peer actor suppresses
 automatic candidate disclosure for restricted connections, keeps custom paths
 off committed data connections, and closes their original custom path after an
@@ -36,8 +36,9 @@ send their Initial to that route, even when another connection selected IP;
 explicit path-open failures do not enter the peer-wide retry queue. A small `noq` packet gate supplies the required
 send-before-`Established` and receive-before-QUIC admission boundary; merely
 changing iroh's selected path cannot provide that boundary. An endpoint with
-control-only ALPNs also disables TLS early data and refuses 0-RTT/0.5-RTT
-handles. `Accepting::into_0rtt` now returns `Result` in this fork.
+control-only ALPNs also disabled TLS early data and refused 0-RTT/0.5-RTT
+handles. Its changed incoming return type and the ALPN-based configuration
+were superseded by MIOPUNCH-95's independent restricted endpoint interface.
 
 This is a local API change, not a QUIC wire change. The acceptance experiment
 and remaining boundaries are in
@@ -180,7 +181,7 @@ Other custom carriers retain their default bind behavior and have no handler.
 
 ## MIOPUNCH-42: formal MQTT member bootstrap
 
-`EndpointHooks::before_data_release` is a defaulted local API stage awaited by
+`EndpointHooks::before_data_release` was a defaulted local API stage awaited by
 both connect and accept after member admission, while the original connection
 still has its restricted packet gate and before an application handle returns.
 The native coordinator can validate and commit a permitted UDP path on that
@@ -196,6 +197,8 @@ change, second identity, cryptographic handshake, or new congestion controller.
 The configured MQTT origin tag and adapter lifecycle belong to the root crate.
 See `docs/notes/2026-10-02-mqtt-bootstrap-validation.md` for the controlled
 dual-NAT evidence and declared compatibility boundaries.
+MIOPUNCH-93/94 migrated these consumers to independent admission; MIOPUNCH-95
+removes the unused hook stage while retaining the same protected path work.
 
 ## MIOPUNCH-43 TCP candidate retirement delta
 
@@ -224,7 +227,8 @@ ordinary business paths. Per-connection packet gates remain decisive.
 An admission-gated sole custom contact remains the route for that attempt's
 Initial, so another live control session cannot substitute its cached carrier.
 Ungated raw consumers retain the historical mapped bootstrap and graceful-drain
-behavior; existing explicit control-only routes keep their own route rule. The UDP
+behavior. Restricted endpoints keep their exact custom contact route through
+their independent admission configuration. The UDP
 path-opening API also works on a living admitted connection; the new
 `open_data_transport_path` opens an explicitly qualified UDP/relay/custom data
 candidate on an ordinary admitted connection. Closed connections return failure
@@ -264,10 +268,9 @@ vendored locked `iroh-relay` 1.2.0 dependency. No Rust API or wire change.
 These types share the original endpoint, TLS, QUIC, socket, registration and
 router implementations; they expose no ordinary endpoint conversion or borrow.
 Their Incoming, Accepting and Connecting states have no early-data entry point.
-Ordinary endpoint early-data behavior remains available. Restoring the original
-incoming return signature and old hook enum is deferred to MIOPUNCH-95 after
-the separate Native / Browser migrations; those old contracts are not claimed
-restored by this additive slice.
+Ordinary endpoint early-data behavior remains available. M92 left the original
+incoming return signature and old hook enum for MIOPUNCH-95, following the
+separate Native / Browser migrations; this additive slice did not restore them.
 
 `EndpointAdmission` receives a dedicated `ControlConnection`. It can exchange
 bounded framed messages and qualify a path on the original connection without
@@ -292,7 +295,8 @@ the original attempt. The setup budget ends at successful delivery. Endpoint
 close/drop ownership remains the same as the ordinary endpoint: custom-carrier
 drivers are released after their endpoint owners are dropped.
 
-The old hook-based admission path stays active for its existing consumers.
+M92 retained the old hook-based path for its existing consumers; M95 removes
+that path after their Native / Browser migrations.
 `RestrictedRouter` reuses its accept loop and shutdown, delivering original
 business handlers only after typed admission; it does not expose the ordinary
 handler's `on_accepting` state. See
@@ -327,3 +331,21 @@ bindings remain owned by the original socket pool and connection.
 See `docs/notes/2026-10-19-native-restricted-admission.md` and
 `docs/evidence/native-restricted-admission-2026-10-19/README.md` for the Native
 migration, fixed-counterpart interoperability and regression evidence.
+
+## MIOPUNCH-95 ordinary early-data and hook compatibility
+
+Ordinary `Accepting::into_0rtt` directly returns `IncomingZeroRttConnection`
+again; outgoing `Connecting::into_0rtt` retains its original `Result` contract.
+The ordinary `EndpointHooks` interface and exhaustive `AfterHandshakeOutcome`
+are restored to the fixed official source, with only `Accept` and `Reject`.
+The unused `admission_gate`, `control_only_alpns`, `before_data_release`,
+expanded outcomes and their internal bridge configuration are removed.
+
+The existing optional `EndpointAdmission` policy now identifies restricted mode
+internally. It still disables TLS early data, restricts connection registration
+and pins an explicit sole custom contact route. Restricted states expose no
+ordinary early-data or object-conversion entry points. Their independent
+`AdmissionOutcome`, control exchanges, data-path permits, legacy-hook veto,
+bilateral confirmation, revocation and bounded cleanup remain in the shared
+implementation. Ordinary endpoints keep their original early-data and hook
+timing. No QUIC/TLS algorithm or application wire protocol changes.

@@ -1289,16 +1289,13 @@ async fn ordinary_endpoints_still_exchange_early_data_and_resume_zero_rtt() {
     let mut task = tokio::spawn(async move {
         let mut rounds = Vec::new();
         for _ in 0..2 {
-            // This is the current transitional Result signature. The unchanged
-            // original source consumer is pinned separately for M95 restoration.
             let early = receiver
                 .accept()
                 .await
                 .unwrap()
                 .accept()
                 .unwrap()
-                .into_0rtt()
-                .unwrap();
+                .into_0rtt();
             let (mut send, mut recv) = early.accept_bi().await.unwrap();
             let is_zero_rtt = recv.is_0rtt();
             let message = recv.read_to_end(64).await.unwrap();

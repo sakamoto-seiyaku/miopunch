@@ -2468,6 +2468,7 @@ dependencies = [
  "n0-future",
  "n0-watcher",
  "netwatch",
+ "noq",
  "noq-proto",
  "noq-udp",
  "p2panda-auth",

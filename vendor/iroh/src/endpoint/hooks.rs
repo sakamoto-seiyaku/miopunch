@@ -1,11 +1,8 @@
-use std::{collections::BTreeSet, pin::Pin};
+use std::pin::Pin;
 
 use iroh_base::EndpointAddr;
 
-use crate::{
-    Endpoint,
-    endpoint::{connection::Connection, quic::VarInt},
-};
+use crate::endpoint::{connection::Connection, quic::VarInt};
 
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
@@ -23,14 +20,6 @@ pub enum BeforeConnectOutcome {
 pub enum AfterHandshakeOutcome {
     /// Accept the connection.
     Accept,
-    /// Accept normal protocol use while allowing only the listed custom
-    /// carrier IDs for member data. IP and relay paths remain eligible.
-    AcceptData {
-        /// Custom transport IDs eligible for member data.
-        allowed_data_custom_ids: Vec<u64>,
-    },
-    /// Accept only the restricted protocol; keep NAT candidates undisclosed.
-    AcceptRestricted,
     /// Reject and close the connection.
     ///
     /// See [`Connection::close`] for details on `error_code` and `reason`.
@@ -48,11 +37,6 @@ impl AfterHandshakeOutcome {
     /// Returns [`Self::Accept`].
     pub fn accept() -> Self {
         Self::Accept
-    }
-
-    /// Accept a restricted bootstrap connection without enabling QNT.
-    pub fn accept_restricted() -> Self {
-        Self::AcceptRestricted
     }
 
     /// Returns [`Self::Reject`].
@@ -121,22 +105,6 @@ pub trait EndpointHooks: std::fmt::Debug + Send + Sync {
     ) -> impl Future<Output = AfterHandshakeOutcome> + Send + 'a {
         async { AfterHandshakeOutcome::accept() }
     }
-
-    /// Finish any protected path bootstrap after admission has accepted normal
-    /// scope, while the connection is still restricted and no application
-    /// handle has been returned. Both connect and accept await this stage.
-    ///
-    /// A signaling carrier can coordinate a data path here, then commit its
-    /// packet gate on this same connection. An error rejects the connection.
-    /// Implementations must bound their work and close retained stream handles
-    /// on cancellation. Do not store the supplied Endpoint on the hook.
-    fn before_data_release<'a>(
-        &'a self,
-        _endpoint: &'a Endpoint,
-        _connection: &'a Connection,
-    ) -> impl Future<Output = std::io::Result<()>> + Send + 'a {
-        async { Ok(()) }
-    }
 }
 
 pub(crate) trait DynEndpointHooks: std::fmt::Debug + Send + Sync {
@@ -146,11 +114,6 @@ pub(crate) trait DynEndpointHooks: std::fmt::Debug + Send + Sync {
         alpn: &'a [u8],
     ) -> BoxFuture<'a, BeforeConnectOutcome>;
     fn after_handshake<'a>(&'a self, conn: &'a Connection) -> BoxFuture<'a, AfterHandshakeOutcome>;
-    fn before_data_release<'a>(
-        &'a self,
-        endpoint: &'a Endpoint,
-        conn: &'a Connection,
-    ) -> BoxFuture<'a, std::io::Result<()>>;
 }
 
 impl<T: EndpointHooks> DynEndpointHooks for T {
@@ -164,14 +127,6 @@ impl<T: EndpointHooks> DynEndpointHooks for T {
 
     fn after_handshake<'a>(&'a self, conn: &'a Connection) -> BoxFuture<'a, AfterHandshakeOutcome> {
         Box::pin(EndpointHooks::after_handshake(self, conn))
-    }
-
-    fn before_data_release<'a>(
-        &'a self,
-        endpoint: &'a Endpoint,
-        conn: &'a Connection,
-    ) -> BoxFuture<'a, std::io::Result<()>> {
-        Box::pin(EndpointHooks::before_data_release(self, endpoint, conn))
     }
 }
 
@@ -203,53 +158,14 @@ impl EndpointHooksList {
     }
 
     pub(super) async fn after_handshake(&self, conn: &Connection) -> AfterHandshakeOutcome {
-        let mut restricted = false;
-        let mut data_policy = false;
-        let mut allowed_data_custom_ids = BTreeSet::new();
         for hook in self.inner.iter() {
             match hook.after_handshake(conn).await {
                 AfterHandshakeOutcome::Accept => continue,
-                AfterHandshakeOutcome::AcceptData {
-                    allowed_data_custom_ids: ids,
-                } => {
-                    let ids: BTreeSet<_> = ids.into_iter().collect();
-                    if data_policy {
-                        allowed_data_custom_ids.retain(|id| ids.contains(id));
-                    } else {
-                        allowed_data_custom_ids = ids;
-                    }
-                    data_policy = true;
-                }
-                AfterHandshakeOutcome::AcceptRestricted => restricted = true,
                 reject @ AfterHandshakeOutcome::Reject { .. } => {
                     return reject;
                 }
             }
         }
-        if restricted && data_policy {
-            AfterHandshakeOutcome::Reject {
-                error_code: 0u32.into(),
-                reason: b"conflicting admission scopes".to_vec(),
-            }
-        } else if restricted {
-            AfterHandshakeOutcome::AcceptRestricted
-        } else if data_policy {
-            AfterHandshakeOutcome::AcceptData {
-                allowed_data_custom_ids: allowed_data_custom_ids.into_iter().collect(),
-            }
-        } else {
-            AfterHandshakeOutcome::Accept
-        }
-    }
-
-    pub(super) async fn before_data_release(
-        &self,
-        endpoint: &Endpoint,
-        conn: &Connection,
-    ) -> std::io::Result<()> {
-        for hook in &self.inner {
-            hook.before_data_release(endpoint, conn).await?;
-        }
-        Ok(())
+        AfterHandshakeOutcome::Accept
     }
 }

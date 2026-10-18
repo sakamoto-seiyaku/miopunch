@@ -281,14 +281,10 @@ impl RestrictedBuilder {
     }
 
     /// Bind an endpoint which exposes only restricted establishment entry points.
-    pub async fn bind(mut self) -> Result<RestrictedEndpoint, BindError> {
-        if self.inner.admission_gated
-            || !self.inner.control_only_alpns.is_empty()
-            || self.admission_timeout.is_zero()
-        {
+    pub async fn bind(self) -> Result<RestrictedEndpoint, BindError> {
+        if self.inner.admission.is_none() || self.admission_timeout.is_zero() {
             return Err(e!(BindError::InvalidAdmissionConfig));
         }
-        self.inner.admission_gated = true;
         let inner = self.inner.bind().await?;
         Ok(RestrictedEndpoint {
             inner,
@@ -1640,11 +1636,6 @@ pub(super) async fn finish_admission(
                 return Err(io::Error::new(
                     io::ErrorKind::PermissionDenied,
                     "legacy handshake hook rejected",
-                ));
-            }
-            _ => {
-                return Err(io::Error::other(
-                    "legacy hook returned a transitional admission scope",
                 ));
             }
         }

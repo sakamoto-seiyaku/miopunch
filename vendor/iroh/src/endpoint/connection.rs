@@ -409,13 +409,7 @@ fn conn_from_noq_conn(
     );
 
     // Register this connection with the socket.
-    let control_only = ep
-        .inner
-        .static_config
-        .control_only_alpns
-        .iter()
-        .any(|alpn| alpn == &info.alpn);
-    let restricted = control_only || ep.inner.static_config.admission_gated;
+    let restricted = ep.inner.static_config.admission.is_some();
     let fut = ep
         .inner
         .register_connection(info.endpoint_id, conn.clone(), restricted);
@@ -444,51 +438,10 @@ fn conn_from_noq_conn(
                 return super::restricted::finish_admission(conn, &endpoint, policy.as_ref()).await;
             }
 
-            let release = match inner.hooks.after_handshake(&conn).await {
-                AfterHandshakeOutcome::Reject { error_code, reason } => {
-                    conn.close(error_code, &reason);
-                    return Err(e!(ConnectingError::LocallyRejected));
-                }
-                AfterHandshakeOutcome::AcceptData {
-                    allowed_data_custom_ids,
-                } => {
-                    if !inner.static_config.admission_gated || control_only {
-                        conn.close(0u32.into(), b"incompatible admission path policy");
-                        return Err(e!(ConnectingError::LocallyRejected));
-                    }
-                    Some(allowed_data_custom_ids)
-                }
-                AfterHandshakeOutcome::Accept => {
-                    if inner.static_config.admission_gated {
-                        conn.close(0u32.into(), b"admission decision missing");
-                        return Err(e!(ConnectingError::LocallyRejected));
-                    }
-                    None
-                }
-                AfterHandshakeOutcome::AcceptRestricted => None,
-            };
-            if release.is_some()
-                && let Err(error) = inner.hooks.before_data_release(&endpoint, &conn).await
+            if let AfterHandshakeOutcome::Reject { error_code, reason } =
+                inner.hooks.after_handshake(&conn).await
             {
-                tracing::debug!(%error, "protected data path bootstrap failed");
-                conn.close(0u32.into(), b"data path bootstrap failed");
-                return Err(e!(ConnectingError::DataPathUnavailable {
-                    reason: error.to_string()
-                }));
-            }
-            if inner.static_config.admission_gated
-                && !control_only
-                && let Some(allowed_data_custom_ids) = release
-                && inner
-                    .authorize_candidates(
-                        conn.remote_id(),
-                        conn.stable_id(),
-                        allowed_data_custom_ids,
-                    )
-                    .await
-                    .is_err()
-            {
-                conn.close(0u32.into(), b"admission path release failed");
+                conn.close(error_code, &reason);
                 return Err(e!(ConnectingError::LocallyRejected));
             }
 
@@ -733,11 +686,6 @@ impl Connecting {
     /// [`RecvStream::is_0rtt`]: noq::RecvStream::is_0rtt
     #[allow(clippy::result_large_err)]
     pub fn into_0rtt(self) -> Result<OutgoingZeroRttConnection, Connecting> {
-        if !self.ep.inner.static_config.control_only_alpns.is_empty()
-            || self.ep.inner.static_config.admission_gated
-        {
-            return Err(self);
-        }
         match self.inner.into_0rtt() {
             Ok((noq_conn, zrtt_accepted)) => {
                 let accepted: BoxFuture<_> = Box::pin({
@@ -876,12 +824,7 @@ impl Accepting {
     /// See also documentation for [`Connecting::into_0rtt`].
     ///
     /// [`RecvStream::is_0rtt`]: crate::endpoint::RecvStream::is_0rtt
-    pub fn into_0rtt(self) -> Result<IncomingZeroRttConnection, Accepting> {
-        if !self.ep.inner.static_config.control_only_alpns.is_empty()
-            || self.ep.inner.static_config.admission_gated
-        {
-            return Err(self);
-        }
+    pub fn into_0rtt(self) -> IncomingZeroRttConnection {
         let (noq_conn, zrtt_accepted) = self
             .inner
             .into_0rtt()
@@ -898,10 +841,10 @@ impl Accepting {
         });
         let accepted = accepted.shared();
 
-        Ok(IncomingZeroRttConnection {
+        IncomingZeroRttConnection {
             inner: noq_conn,
             data: IncomingZeroRttData { accepted },
-        })
+        }
     }
 
     /// Returns the remote address of this connection.
@@ -1677,9 +1620,7 @@ mod tests {
                 .std_context("Failed to accept incoming connection")?;
 
             // accept a possible 0-RTT connection
-            let zrtt_conn = accepting
-                .into_0rtt()
-                .expect("0-RTT allowed for this endpoint");
+            let zrtt_conn = accepting.into_0rtt();
 
             let (mut send, mut recv) = zrtt_conn
                 .accept_bi()

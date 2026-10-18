@@ -143,8 +143,6 @@ pub struct Builder {
     relay_resource_policy: RelayResourcePolicy,
     secret_key: Option<SecretKey>,
     alpn_protocols: Vec<Vec<u8>>,
-    control_only_alpns: Vec<Vec<u8>>,
-    admission_gated: bool,
     admission: Option<Arc<dyn restricted::DynEndpointAdmission>>,
     restricted_data_custom_transports: Option<Vec<u64>>,
     transport_config: QuicTransportConfig,
@@ -296,8 +294,6 @@ impl Builder {
             secret_key: Default::default(),
             relay_resource_policy: RelayResourcePolicy::default(),
             alpn_protocols: Default::default(),
-            control_only_alpns: Default::default(),
-            admission_gated: false,
             admission: None,
             restricted_data_custom_transports: None,
             transport_config: QuicTransportConfig::default(),
@@ -349,16 +345,14 @@ impl Builder {
             relay_resource_policy: self.relay_resource_policy,
             server_config: tls_config.make_server_config_with_early_data(
                 self.keylog,
-                self.control_only_alpns.is_empty() && !self.admission_gated,
+                self.admission.is_none(),
             )?,
             client_config: tls_config.make_client_config_with_early_data(
                 self.keylog,
-                self.control_only_alpns.is_empty() && !self.admission_gated,
+                self.admission.is_none(),
             )?,
             tls_config,
             transport_config: self.transport_config.clone(),
-            control_only_alpns: self.control_only_alpns,
-            admission_gated: self.admission_gated,
             admission: self.admission,
             token_key,
             token_store: Arc::new(noq::TokenMemoryCache::default()),
@@ -653,23 +647,6 @@ impl Builder {
     /// [ALPN]: https://en.wikipedia.org/wiki/Application-Layer_Protocol_Negotiation
     pub fn alpns(mut self, alpn_protocols: Vec<Vec<u8>>) -> Self {
         self.alpn_protocols = alpn_protocols;
-        self
-    }
-
-    /// Marks protocols whose initial custom path may carry control only.
-    /// Automatic candidate sharing and hole punching start only after the
-    /// application explicitly begins a data path for that connection.
-    pub fn control_only_alpns(mut self, alpns: Vec<Vec<u8>>) -> Self {
-        self.control_only_alpns = alpns;
-        self
-    }
-
-    /// Gate every connection before QNT candidates and automatic path probes.
-    /// The hook must explicitly return `Accept` to enable candidates or
-    /// `AcceptRestricted` for a bootstrap-only connection. Early data is off.
-    pub fn admission_gate(mut self, hook: impl EndpointHooks + 'static) -> Self {
-        self.admission_gated = true;
-        self.hooks.push(hook);
         self
     }
 
@@ -1120,8 +1097,6 @@ pub enum ConnectWithOptsError {
     /// The restricted attempt's original deadline elapsed during setup.
     #[error("Restricted connection attempt deadline elapsed")]
     AttemptTimedOut,
-    #[error("Control-only connect requires exactly one explicit custom route")]
-    InvalidControlRoute,
     /// An explicit initial route must be one supported route of this target.
     #[error("Explicit bootstrap route is not a supported target route")]
     InvalidBootstrapRoute,
@@ -1552,23 +1527,8 @@ impl Endpoint {
                 ConnectWithOptsError::InvalidBootstrapRoute
             );
         }
-        let control_route = if self
-            .inner
-            .static_config
-            .control_only_alpns
-            .iter()
-            .any(|allowed| allowed == alpn)
-        {
-            ensure!(
-                options.additional_alpns.is_empty(),
-                ConnectWithOptsError::InvalidControlRoute
-            );
-            match endpoint_addr.addrs.iter().collect::<Vec<_>>().as_slice() {
-                [TransportAddr::Custom(route)] => Some((*route).clone()),
-                _ => return Err(e!(ConnectWithOptsError::InvalidControlRoute)),
-            }
-        } else if self.inner.static_config.admission_gated {
-            // An admission-gated sole custom route belongs to this contact attempt.
+        let control_route = if self.inner.static_config.admission.is_some() {
+            // A restricted endpoint's sole custom route belongs to this contact attempt.
             // A cached control session to the same identity cannot substitute
             // its signaling route before the new ALPN is authenticated.
             match endpoint_addr.addrs.iter().collect::<Vec<_>>().as_slice() {

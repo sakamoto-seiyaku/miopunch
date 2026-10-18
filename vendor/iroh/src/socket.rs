@@ -242,8 +242,6 @@ impl Drop for EndpointInner {
 #[derive(derive_more::Debug)]
 pub(crate) struct StaticConfig {
     pub(crate) relay_resource_policy: crate::endpoint::RelayResourcePolicy,
-    pub(crate) control_only_alpns: Vec<Vec<u8>>,
-    pub(crate) admission_gated: bool,
     pub(crate) admission: Option<Arc<dyn crate::endpoint::restricted::DynEndpointAdmission>>,
     pub(crate) tls_config: tls::TlsConfig,
     #[debug("QuicServerConifg")]
@@ -1391,7 +1389,7 @@ impl DirectAddrUpdateState {
 #[stack_error(derive, add_meta)]
 #[non_exhaustive]
 pub enum BindError {
-    /// Typed admission and the transitional hook-based admission cannot be combined.
+    /// Restricted admission requires a policy and a nonzero setup timeout.
     #[error("Incompatible restricted endpoint configuration")]
     InvalidAdmissionConfig,
     #[error("Failed to bind sockets")]
@@ -3608,8 +3606,6 @@ mod tests {
         );
         let static_config = StaticConfig {
             relay_resource_policy: Default::default(),
-            control_only_alpns: Vec::new(),
-            admission_gated: false,
             admission: None,
             server_config: tls_config.make_server_config(false).unwrap(),
             client_config: tls_config.make_client_config(false).unwrap(),
@@ -4028,8 +4024,6 @@ mod tests {
         let keylog = true;
         let static_config = StaticConfig {
             relay_resource_policy: Default::default(),
-            control_only_alpns: Vec::new(),
-            admission_gated: false,
             admission: None,
             server_config: tls_config.make_server_config(keylog).unwrap(),
             client_config: tls_config.make_client_config(keylog).unwrap(),
