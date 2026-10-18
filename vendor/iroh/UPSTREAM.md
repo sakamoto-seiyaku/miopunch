@@ -366,3 +366,21 @@ as the ordinary method, so callers do not need that new feature to compile.
 The portmapper crate's protocol, allocation ownership, pending cancellation and
 bounded acknowledged release fixes are unchanged. Close returning is distinct
 from a gateway-confirmed deletion; the owned wire receipts record both.
+
+## MIOPUNCH-99 pkarr redirect compatibility
+
+Ordinary native pkarr clients retain reqwest's original redirect policy. The
+existing client builder now has a public constructor; new and build share their
+implementation. Client, publisher and resolver builders accept an explicit
+resource policy, disable native redirects and check lookup permission before
+requests and publication retries. Browser constrained requests stop before Fetch.
+Standard lookup builders inherit explicit endpoint policies without discarding
+additional caller restrictions. Explicit-policy registries reject external
+services without a constrained-access declaration, including prebuilt ordinary
+pkarr services; Arc/filtered wrappers preserve it. Ordinary registry behavior and
+old AddressLookup implementations remain available. Third-party declarations
+are contracts, not a sandbox around independently started tasks.
+
+See `docs/notes/2026-10-19-pkarr-redirect-compatibility.md` for the unchanged
+original consumer, private-builder test adapter, real redirects, product permission
+negatives and Chromium boundary evidence. No dependency or wire format changes.

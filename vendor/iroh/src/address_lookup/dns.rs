@@ -111,6 +111,11 @@ impl AddressLookupBuilder for DnsAddressLookupBuilder {
 }
 
 impl AddressLookup for DnsAddressLookup {
+    fn has_constrained_resource_access(&self) -> bool {
+        // DNS queries use this configured resolver without HTTP redirects.
+        true
+    }
+
     fn resource(&self) -> super::AddressLookupResource {
         match format!("dns://{}/", self.origin_domain).parse() {
             Ok(url) => super::AddressLookupResource::Facility(url),

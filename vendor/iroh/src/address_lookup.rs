@@ -182,6 +182,10 @@ impl<T: AddressLookup> AddressLookup for FilteredAddressLookup<T> {
         self.inner.resource()
     }
 
+    fn has_constrained_resource_access(&self) -> bool {
+        self.inner.has_constrained_resource_access()
+    }
+
     fn publish(&self, data: &EndpointData) {
         let data = data.apply_filter(&self.filter);
         self.inner.publish(data.borrow());
@@ -355,6 +359,15 @@ pub trait AddressLookup: std::fmt::Debug + Send + Sync + 'static {
         AddressLookupResource::Local
     }
 
+    /// Whether external requests enforce a facility constraint, including redirects.
+    ///
+    /// Explicit endpoint resource policies reject external services which do not
+    /// declare this capability. This does not grant permission: the configured
+    /// facility must still be allowed. Ordinary endpoints keep their old behavior.
+    fn has_constrained_resource_access(&self) -> bool {
+        false
+    }
+
     /// Publishes the given [`EndpointData`] to the Address Lookup mechanism.
     ///
     /// This is fire and forget, since the [`Endpoint`] can not wait for successful
@@ -376,6 +389,10 @@ pub trait AddressLookup: std::fmt::Debug + Send + Sync + 'static {
 impl<T: AddressLookup> AddressLookup for Arc<T> {
     fn resource(&self) -> AddressLookupResource {
         self.as_ref().resource()
+    }
+
+    fn has_constrained_resource_access(&self) -> bool {
+        self.as_ref().has_constrained_resource_access()
     }
 
     fn publish(&self, data: &EndpointData) {
@@ -508,6 +525,11 @@ impl AddressLookupServices {
         match service.resource() {
             AddressLookupResource::Local => true,
             AddressLookupResource::Facility(url) => {
+                if self.resource_policy.independent_uses
+                    && !service.has_constrained_resource_access()
+                {
+                    return false;
+                }
                 // Browser reqwest cannot disable Fetch redirects. Until a
                 // constrained browser lookup carrier exists, fail closed for
                 // external lookup services under an explicit resource policy.

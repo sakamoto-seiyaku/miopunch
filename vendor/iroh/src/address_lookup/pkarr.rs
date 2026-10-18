@@ -72,17 +72,17 @@ use n0_watcher::{Disconnected, Watchable, Watcher as _};
 use tracing::{Instrument, debug, info_span, trace, warn};
 use url::Url;
 
-#[cfg(not(wasm_browser))]
-use crate::dns::DnsResolver;
 use crate::{
     Endpoint,
     address_lookup::{
         AddressLookup, AddressLookupBuilder, AddressLookupBuilderError, EndpointData,
         Error as AddressLookupError, Item as AddressLookupItem,
     },
-    endpoint::force_staging_infra,
+    endpoint::{RelayResourcePolicy, force_staging_infra},
     util::reqwest_client_builder,
 };
+#[cfg(not(wasm_browser))]
+use crate::{dns::DnsResolver, endpoint::RelayResourceUse};
 
 #[allow(missing_docs)]
 #[stack_error(derive, add_meta)]
@@ -104,6 +104,8 @@ pub enum PkarrError {
     HttpSend { source: AnyError },
     #[error("Error resolving http request")]
     HttpRequest { status: http::StatusCode },
+    #[error("Pkarr facility is not permitted by the explicit resource policy")]
+    ResourceDenied,
     #[error("Http payload error")]
     HttpPayload { source: AnyError },
     #[error("EncodingError")]
@@ -151,6 +153,7 @@ pub const DEFAULT_REPUBLISH_INTERVAL: Duration = Duration::from_secs(60 * 5);
 #[derive(Debug)]
 pub struct PkarrPublisherBuilder {
     pkarr_relay: Url,
+    resource_policy: Option<RelayResourcePolicy>,
     ttl: u32,
     republish_interval: Duration,
     filter: AddrFilter,
@@ -163,6 +166,7 @@ impl PkarrPublisherBuilder {
     fn new(pkarr_relay: Url) -> Self {
         Self {
             pkarr_relay,
+            resource_policy: None,
             ttl: DEFAULT_PKARR_TTL,
             republish_interval: DEFAULT_REPUBLISH_INTERVAL,
             filter: AddrFilter::relay_only(),
@@ -195,6 +199,16 @@ impl PkarrPublisherBuilder {
     /// Default is [`DEFAULT_REPUBLISH_INTERVAL`].
     pub fn republish_interval(mut self, republish_interval: Duration) -> Self {
         self.republish_interval = republish_interval;
+        self
+    }
+
+    /// Constrain requests to facilities permitted for lookup by this policy.
+    ///
+    /// Native requests do not follow redirects. Browser requests fail before
+    /// Fetch because its redirects cannot be constrained equivalently. Without
+    /// an explicit policy, the ordinary HTTP redirect behavior is retained.
+    pub fn resource_policy(mut self, policy: RelayResourcePolicy) -> Self {
+        self.resource_policy = Some(policy);
         self
     }
 
@@ -232,6 +246,7 @@ impl PkarrPublisherBuilder {
             self.dns_resolver.unwrap_or_default(),
             tls_config,
             self.filter,
+            self.resource_policy,
         )
     }
 }
@@ -245,6 +260,10 @@ impl AddressLookupBuilder for PkarrPublisherBuilder {
         if self.dns_resolver.is_none() {
             self.dns_resolver = Some(endpoint.dns_resolver()?.clone());
         }
+        self.resource_policy = endpoint_resource_policy(
+            self.resource_policy,
+            &endpoint.address_lookup()?.resource_policy,
+        );
         let tls_config = endpoint.tls_config().clone();
         Ok(self.build(endpoint.secret_key().clone(), tls_config))
     }
@@ -269,6 +288,7 @@ impl AddressLookupBuilder for PkarrPublisherBuilder {
 /// [`AddressLookupServices`]: super::AddressLookupServices
 #[derive(derive_more::Debug, Clone)]
 pub struct PkarrPublisher {
+    constrained_resource_access: bool,
     resource: crate::RelayUrl,
     endpoint_id: EndpointId,
     watchable: Watchable<Option<EndpointInfo>>,
@@ -304,16 +324,24 @@ impl PkarrPublisher {
         #[cfg(not(wasm_browser))] dns_resolver: DnsResolver,
         tls_config: rustls::ClientConfig,
         addr_filter: AddrFilter,
+        resource_policy: Option<RelayResourcePolicy>,
     ) -> Self {
         debug!("creating pkarr publisher that publishes to {pkarr_relay}");
         let endpoint_id = secret_key.public();
         let resource = pkarr_relay.clone().into();
 
         #[cfg(wasm_browser)]
-        let pkarr_client = PkarrRelayClient::new(pkarr_relay);
+        let builder = PkarrRelayClient::builder(pkarr_relay);
 
         #[cfg(not(wasm_browser))]
-        let pkarr_client = PkarrRelayClient::new(pkarr_relay, tls_config, dns_resolver);
+        let builder = PkarrRelayClient::builder(pkarr_relay, tls_config, dns_resolver);
+
+        let constrained_resource_access = resource_policy.is_some();
+        let pkarr_client = PkarrRelayClientBuilder {
+            resource_policy,
+            ..builder
+        }
+        .build();
 
         let watchable = Watchable::default();
         let service = PublisherService {
@@ -325,6 +353,7 @@ impl PkarrPublisher {
         };
         let join_handle = task::spawn(service.run().instrument(info_span!("pkarr_publish")));
         Self {
+            constrained_resource_access,
             resource,
             watchable,
             endpoint_id,
@@ -358,6 +387,10 @@ impl PkarrPublisher {
 }
 
 impl AddressLookup for PkarrPublisher {
+    fn has_constrained_resource_access(&self) -> bool {
+        self.constrained_resource_access
+    }
+
     fn resource(&self) -> super::AddressLookupResource {
         super::AddressLookupResource::Facility(self.resource.clone())
     }
@@ -448,11 +481,22 @@ impl PublisherService {
 #[derive(Debug)]
 pub struct PkarrResolverBuilder {
     pkarr_relay: Url,
+    resource_policy: Option<RelayResourcePolicy>,
     #[cfg(not(wasm_browser))]
     dns_resolver: Option<DnsResolver>,
 }
 
 impl PkarrResolverBuilder {
+    /// Constrain requests to facilities permitted for lookup by this policy.
+    ///
+    /// Native requests do not follow redirects. Browser requests fail before
+    /// Fetch because its redirects cannot be constrained equivalently. Without
+    /// an explicit policy, the ordinary HTTP redirect behavior is retained.
+    pub fn resource_policy(mut self, policy: RelayResourcePolicy) -> Self {
+        self.resource_policy = Some(policy);
+        self
+    }
+
     /// Sets the DNS resolver to use for resolving the pkarr relay URL.
     #[cfg(not(wasm_browser))]
     pub fn dns_resolver(mut self, dns_resolver: DnsResolver) -> Self {
@@ -463,15 +507,20 @@ impl PkarrResolverBuilder {
     /// Creates a [`PkarrResolver`] from this builder.
     pub fn build(self, tls_config: rustls::ClientConfig) -> PkarrResolver {
         #[cfg(wasm_browser)]
-        let pkarr_client = PkarrRelayClient::new(self.pkarr_relay);
+        let builder = PkarrRelayClient::builder(self.pkarr_relay);
 
         #[cfg(not(wasm_browser))]
-        let pkarr_client = PkarrRelayClient::new(
+        let builder = PkarrRelayClient::builder(
             self.pkarr_relay,
             tls_config,
             self.dns_resolver.unwrap_or_default(),
         );
 
+        let pkarr_client = PkarrRelayClientBuilder {
+            resource_policy: self.resource_policy,
+            ..builder
+        }
+        .build();
         PkarrResolver { pkarr_client }
     }
 }
@@ -485,6 +534,10 @@ impl AddressLookupBuilder for PkarrResolverBuilder {
         if self.dns_resolver.is_none() {
             self.dns_resolver = Some(endpoint.dns_resolver()?.clone());
         }
+        self.resource_policy = endpoint_resource_policy(
+            self.resource_policy,
+            &endpoint.address_lookup()?.resource_policy,
+        );
         let tls_config = endpoint.tls_config().clone();
         Ok(self.build(tls_config))
     }
@@ -514,6 +567,7 @@ impl PkarrResolver {
     pub fn builder(pkarr_relay: Url) -> PkarrResolverBuilder {
         PkarrResolverBuilder {
             pkarr_relay,
+            resource_policy: None,
             #[cfg(not(wasm_browser))]
             dns_resolver: None,
         }
@@ -541,6 +595,10 @@ impl PkarrResolver {
 }
 
 impl AddressLookup for PkarrResolver {
+    fn has_constrained_resource_access(&self) -> bool {
+        self.pkarr_client.resource_policy.is_some()
+    }
+
     fn resource(&self) -> super::AddressLookupResource {
         super::AddressLookupResource::Facility(self.pkarr_client.pkarr_relay_url.clone().into())
     }
@@ -568,6 +626,7 @@ impl AddressLookup for PkarrResolver {
 #[derive(Debug, Clone)]
 pub struct PkarrRelayClient {
     http_client: reqwest::Client,
+    resource_policy: Option<RelayResourcePolicy>,
     pkarr_relay_url: Url,
 }
 
@@ -575,6 +634,7 @@ pub struct PkarrRelayClient {
 #[derive(Debug, Clone)]
 pub struct PkarrRelayClientBuilder {
     pkarr_relay_url: Url,
+    resource_policy: Option<RelayResourcePolicy>,
     #[cfg(not(wasm_browser))]
     dns_resolver: DnsResolver,
     #[cfg(not(wasm_browser))]
@@ -582,11 +642,27 @@ pub struct PkarrRelayClientBuilder {
 }
 
 impl PkarrRelayClientBuilder {
+    /// Constrain requests to facilities permitted for lookup by this policy.
+    ///
+    /// Native requests do not follow redirects. Browser requests fail before
+    /// Fetch because its redirects cannot be constrained equivalently. Without
+    /// an explicit policy, the ordinary HTTP redirect behavior is retained.
+    pub fn resource_policy(mut self, policy: RelayResourcePolicy) -> Self {
+        self.resource_policy = Some(policy);
+        self
+    }
+
     /// Build a [`PkarrRelayClient`].
     pub fn build(self) -> PkarrRelayClient {
         #[cfg(not(wasm_browser))]
-        let builder = reqwest_client_builder(self.tls_config, self.dns_resolver)
-            .redirect(reqwest::redirect::Policy::none());
+        let builder = {
+            let builder = reqwest_client_builder(self.tls_config, self.dns_resolver);
+            if self.resource_policy.is_some() {
+                builder.redirect(reqwest::redirect::Policy::none())
+            } else {
+                builder
+            }
+        };
 
         #[cfg(wasm_browser)]
         let builder = reqwest_client_builder();
@@ -595,40 +671,68 @@ impl PkarrRelayClientBuilder {
         PkarrRelayClient {
             http_client,
             pkarr_relay_url: self.pkarr_relay_url,
+            resource_policy: self.resource_policy,
         }
     }
 }
 
 impl PkarrRelayClient {
-    /// Creates a [`PkarrRelayClient`].
+    /// Creates a client using the ordinary native HTTP redirect policy.
     #[cfg(not(wasm_browser))]
     pub fn new(
         pkarr_relay_url: Url,
         tls_config: rustls::ClientConfig,
         dns_resolver: DnsResolver,
     ) -> Self {
-        let http_client = reqwest_client_builder(tls_config, dns_resolver)
-            // A lookup facility must not substitute another service origin.
-            // Configure canonical endpoints instead of following redirects.
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .expect("failed to create reqwest client");
-        Self {
-            http_client,
+        Self::builder(pkarr_relay_url, tls_config, dns_resolver).build()
+    }
+
+    /// Creates a client using the ordinary Browser Fetch behavior.
+    #[cfg(wasm_browser)]
+    pub fn new(pkarr_relay_url: Url) -> Self {
+        Self::builder(pkarr_relay_url).build()
+    }
+
+    /// Configures a native client, optionally with an explicit resource policy.
+    #[cfg(not(wasm_browser))]
+    pub fn builder(
+        pkarr_relay_url: Url,
+        tls_config: rustls::ClientConfig,
+        dns_resolver: DnsResolver,
+    ) -> PkarrRelayClientBuilder {
+        PkarrRelayClientBuilder {
             pkarr_relay_url,
+            tls_config,
+            dns_resolver,
+            resource_policy: None,
         }
     }
 
-    /// Creates a [`PkarrRelayClient`].
+    /// Configures a Browser client. An explicit resource policy refuses Fetch
+    /// requests because redirect destinations cannot be constrained equivalently.
     #[cfg(wasm_browser)]
-    pub fn new(pkarr_relay_url: Url) -> Self {
-        let http_client = reqwest_client_builder()
-            .build()
-            .expect("failed to create reqwest client");
-        Self {
-            http_client,
+    pub fn builder(pkarr_relay_url: Url) -> PkarrRelayClientBuilder {
+        PkarrRelayClientBuilder {
             pkarr_relay_url,
+            resource_policy: None,
         }
+    }
+
+    fn check_resource_permission(&self) -> Result<(), PkarrError> {
+        #[cfg(wasm_browser)]
+        if self.resource_policy.is_some() {
+            return Err(e!(PkarrError::ResourceDenied));
+        }
+        #[cfg(not(wasm_browser))]
+        if let Some(policy) = &self.resource_policy
+            && !policy.allows(
+                &self.pkarr_relay_url.clone().into(),
+                RelayResourceUse::Lookup,
+            )
+        {
+            return Err(e!(PkarrError::ResourceDenied));
+        }
+        Ok(())
     }
 
     /// Resolves a [`SignedPacket`] for the given [`EndpointId`].
@@ -636,6 +740,7 @@ impl PkarrRelayClient {
         &self,
         endpoint_id: EndpointId,
     ) -> Result<SignedPacket, AddressLookupError> {
+        self.check_resource_permission()?;
         let mut url = self.pkarr_relay_url.clone();
         url.path_segments_mut()
             .map_err(|_| {
@@ -670,6 +775,7 @@ impl PkarrRelayClient {
 
     /// Publishes a [`SignedPacket`].
     pub async fn publish(&self, signed_packet: &SignedPacket) -> Result<(), PkarrError> {
+        self.check_resource_permission()?;
         let mut url = self.pkarr_relay_url.clone();
         url.path_segments_mut()
             .map_err(|_| {
@@ -695,4 +801,22 @@ impl PkarrRelayClient {
 
         Ok(())
     }
+}
+
+// An endpoint's explicit startup policy is authoritative. Keep a builder's
+// additional restriction as well; neither may broaden the other.
+fn endpoint_resource_policy(
+    configured: Option<RelayResourcePolicy>,
+    policy: &RelayResourcePolicy,
+) -> Option<RelayResourcePolicy> {
+    if !policy.independent_uses {
+        return configured;
+    }
+    let policy = policy.clone();
+    Some(match configured {
+        None => policy,
+        Some(configured) => RelayResourcePolicy::new(move |url, usage| {
+            policy.allows(url, usage) && configured.allows(url, usage)
+        }),
+    })
 }

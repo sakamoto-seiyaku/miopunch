@@ -1927,3 +1927,238 @@ async fn allowed_lookup_cannot_redirect_access_to_a_disabled_facility() {
         "an allowed facility must not substitute a forbidden redirect destination"
     );
 }
+
+#[tokio::test]
+async fn explicit_pkarr_client_rechecks_permission_before_each_request() {
+    use iroh::address_lookup::{EndpointData, EndpointInfo, PkarrRelayClient};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+    let facility = PkarrFixture::start().await;
+    let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+        .bind()
+        .await
+        .unwrap();
+    let allowed = Arc::new(AtomicBool::new(true));
+    let check = allowed.clone();
+    let url = facility.url.clone();
+    let client = PkarrRelayClient::builder(
+        std::ops::Deref::deref(&url).clone(),
+        endpoint.tls_config().clone(),
+        endpoint.dns_resolver().unwrap().clone(),
+    )
+    .resource_policy(iroh::endpoint::RelayResourcePolicy::new(
+        move |resource, usage| {
+            *resource == url
+                && matches!(usage, iroh::endpoint::RelayResourceUse::Lookup)
+                && check.load(Ordering::SeqCst)
+        },
+    ))
+    .build();
+    let key = iroh::SecretKey::generate();
+    let packet = EndpointInfo::from_parts(key.public(), EndpointData::default())
+        .to_pkarr_signed_packet(&key, 30)
+        .unwrap();
+    client.publish(&packet).await.unwrap();
+    assert_eq!(
+        client
+            .resolve(key.public())
+            .await
+            .unwrap()
+            .to_relay_payload(),
+        packet.to_relay_payload()
+    );
+    allowed.store(false, Ordering::SeqCst);
+    assert!(client.publish(&packet).await.is_err());
+    assert!(client.resolve(key.public()).await.is_err());
+    endpoint.close().await;
+    let requests = facility.close().await;
+    assert_eq!(requests.len(), 2, "revoked requests must stop before HTTP");
+}
+
+#[tokio::test]
+async fn allowed_pkarr_publication_cannot_redirect_on_retry_or_reconnect() {
+    use iroh::address_lookup::PkarrPublisher;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+    let forbidden = PkarrFixture::start().await;
+    let redirecting = PkarrFixture::start_with_redirect(Some(forbidden.url.to_string())).await;
+    let dir = tempfile::tempdir().unwrap();
+    let node = NativeNetwork::create(dir.path().join("node"))
+        .await
+        .unwrap();
+    let config = ResourceConfig::with_defaults(ResourceTable {
+        revision: 1,
+        resources: vec![Resource {
+            url: redirecting.url.to_string(),
+            uses: BTreeSet::from([ResourceUse::Lookup]),
+            limitation: "owned redirect service; forbidden origin omitted".into(),
+        }],
+    });
+    node.save_resource_configuration(&config).unwrap();
+    let allowed = Arc::new(AtomicBool::new(true));
+    let check = allowed.clone();
+    let endpoint = node
+        .bind_endpoint_with(
+            Endpoint::builder(presets::Minimal)
+                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+                .address_lookup(
+                    PkarrPublisher::builder(std::ops::Deref::deref(&redirecting.url).clone())
+                        .resource_policy(iroh::endpoint::RelayResourcePolicy::new(move |_, _| {
+                            check.load(Ordering::SeqCst)
+                        })),
+                ),
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(4), async {
+        while redirecting.requests.lock().unwrap().len() < 2 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("real failed publication retried on a new HTTP connection");
+    allowed.store(false, Ordering::SeqCst);
+    let before = redirecting.requests.lock().unwrap().len();
+    endpoint.set_user_data_for_address_lookup(Some("permission-changed".parse().unwrap()));
+    tokio::time::sleep(Duration::from_millis(2200)).await;
+    assert_eq!(
+        redirecting.requests.lock().unwrap().len(),
+        before,
+        "revocation must apply to new publication and background retries"
+    );
+    endpoint.close().await;
+    node.close().await;
+    let permitted_requests = redirecting.close().await;
+    let forbidden_requests = forbidden.close().await;
+    assert!(permitted_requests.len() >= 2);
+    assert!(
+        permitted_requests
+            .iter()
+            .all(|request| request.starts_with("PUT "))
+    );
+    assert!(
+        forbidden_requests.is_empty(),
+        "every retry/reconnect must keep redirects disabled"
+    );
+}
+
+#[tokio::test]
+async fn pkarr_builder_preserves_both_endpoint_and_caller_restrictions() {
+    use iroh::address_lookup::{PkarrPublisher, PkarrResolver};
+    for endpoint_allows in [false, true] {
+        let facility = PkarrFixture::start().await;
+        let dir = tempfile::tempdir().unwrap();
+        let node = NativeNetwork::create(dir.path().join("node"))
+            .await
+            .unwrap();
+        let config = ResourceConfig::with_defaults(ResourceTable {
+            revision: 1,
+            resources: if endpoint_allows {
+                vec![Resource {
+                    url: facility.url.to_string(),
+                    uses: BTreeSet::from([ResourceUse::Lookup]),
+                    limitation: "owned lookup fixture".into(),
+                }]
+            } else {
+                vec![]
+            },
+        });
+        node.save_resource_configuration(&config).unwrap();
+        let policy = iroh::endpoint::RelayResourcePolicy::new(move |_, _| !endpoint_allows);
+        let url = std::ops::Deref::deref(&facility.url).clone();
+        let endpoint = node
+            .bind_endpoint_with(
+                Endpoint::builder(presets::Minimal)
+                    .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+                    .address_lookup(
+                        PkarrPublisher::builder(url.clone()).resource_policy(policy.clone()),
+                    )
+                    .address_lookup(PkarrResolver::builder(url).resource_policy(policy)),
+            )
+            .await
+            .unwrap();
+        let attempted = tokio::time::timeout(
+            Duration::from_millis(300),
+            endpoint.connect_control(iroh::SecretKey::generate().public(), ADMISSION_REQUEST_ALPN),
+        )
+        .await;
+        assert!(!matches!(attempted, Ok(Ok(_))));
+        endpoint.close().await;
+        node.close().await;
+        assert!(
+            facility.close().await.is_empty(),
+            "neither policy may broaden the other"
+        );
+    }
+}
+
+#[tokio::test]
+async fn prebuilt_unconstrained_pkarr_cannot_bypass_product_policy() {
+    use iroh::address_lookup::{AddrFilter, FilteredAddressLookup, PkarrPublisher, PkarrResolver};
+    use std::sync::Arc;
+    let ordinary = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+        .bind()
+        .await
+        .unwrap();
+    for before_bind in [true, false] {
+        let forbidden = PkarrFixture::start().await;
+        let redirecting = PkarrFixture::start_with_redirect(Some(forbidden.url.to_string())).await;
+        let dir = tempfile::tempdir().unwrap();
+        let node = NativeNetwork::create(dir.path().join("node"))
+            .await
+            .unwrap();
+        node.save_resource_configuration(&ResourceConfig::with_defaults(ResourceTable {
+            revision: 1,
+            resources: vec![Resource {
+                url: redirecting.url.to_string(),
+                uses: BTreeSet::from([ResourceUse::Lookup]),
+                limitation: "owned redirect origin".into(),
+            }],
+        }))
+        .unwrap();
+        let url = std::ops::Deref::deref(&redirecting.url).clone();
+        let publisher = Arc::new(FilteredAddressLookup::new(
+            PkarrPublisher::builder(url.clone())
+                .build(ordinary.secret_key().clone(), ordinary.tls_config().clone()),
+            AddrFilter::unfiltered(),
+        ));
+        let resolver = Arc::new(FilteredAddressLookup::new(
+            PkarrResolver::builder(url).build(ordinary.tls_config().clone()),
+            AddrFilter::unfiltered(),
+        ));
+        let mut builder = Endpoint::builder(presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled);
+        if before_bind {
+            builder = builder
+                .address_lookup(publisher.clone())
+                .address_lookup(resolver.clone());
+        }
+        let endpoint = node.bind_endpoint_with(builder).await.unwrap();
+        if !before_bind {
+            endpoint.address_lookup().unwrap().add(publisher.clone());
+            endpoint.address_lookup().unwrap().add(resolver.clone());
+        }
+        let attempted = tokio::time::timeout(
+            Duration::from_millis(300),
+            endpoint.connect_control(iroh::SecretKey::generate().public(), ADMISSION_REQUEST_ALPN),
+        )
+        .await;
+        assert!(!matches!(attempted, Ok(Ok(_))));
+        endpoint.close().await;
+        drop(publisher);
+        drop(resolver);
+        node.close().await;
+        assert!(
+            redirecting.close().await.is_empty(),
+            "ordinary prebuilt services require explicit constraints before product registration"
+        );
+        assert!(forbidden.close().await.is_empty());
+    }
+    ordinary.close().await;
+}
