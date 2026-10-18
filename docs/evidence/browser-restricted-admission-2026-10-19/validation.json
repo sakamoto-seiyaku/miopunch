@@ -1,0 +1,696 @@
+{
+  "baselineCommit": "e697315e1ed43fa8560930aa189690f89c4e7e42",
+  "implementationCommit": "ece50f3b1711f85c4beead1bffd31f2ca3e03733",
+  "protectedPreexistingFileCount": 249,
+  "protectedPreexistingHashesUnchanged": true,
+  "fixedBeforeEditJsConsumerSha256": "a44aa1769ec9d90a8eec1b2b9404036ae3b7173534e82880cd7855326868f7e5",
+  "finalConsumerBytesEqualBeforeEditConsumer": true,
+  "fixedNativeCounterpartSha256": "55bec236f396d72e96af508d98eebe904e1393f1639bd1dbae80e176cdf578c4",
+  "builds": {
+    "typed-browser-sdk-v2": {
+      "exit": 0,
+      "cargoSeconds": 9.602756039705127,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--features",
+        "rtc-probe",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 295,
+      "rebuiltArtifacts": 1,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m94-20261019/typed-browser-sdk-v2/miopunch_browser_probe.wasm": "14ac31d49d93ca4f525d85902618b3335b37130bde64717d30ed8687224e12e5",
+        "/tmp/miopunch-m94-20261019/typed-browser-sdk-v2/pkg/miopunch_browser_probe_bg.wasm": "c3533ebf53a58246fe955f362b63f8a6e92bed9a22b8bb83f74b0774e068a77a",
+        "/tmp/miopunch-m94-20261019/typed-browser-sdk-v2/pkg/miopunch_browser_probe_bg.wasm.d.ts": "8ff8262526f5b757036085ee949efd7a9446d40a7b190529a81fe34342347ff6",
+        "/tmp/miopunch-m94-20261019/typed-browser-sdk-v2/pkg/miopunch_browser_probe.js": "bb4fe604eaada550b72d5b1029edd3eab14530e9c18f1d362db1fe3852de0dc6",
+        "/tmp/miopunch-m94-20261019/typed-browser-sdk-v2/pkg/miopunch_browser_probe.d.ts": "5e32a31236b89872b32934454164ff64dd45cabe21cd4565ecbc5ca7b9c53c1e",
+        "/tmp/miopunch-m94-20261019/typed-browser-sdk-v2/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+        "/tmp/miopunch-m94-20261019/typed-browser-sdk-v2/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96"
+      },
+      "actualSelectedInputCount": 3162,
+      "actualCapturedDepfileCount": 264,
+      "actualSourceCopyCount": 201,
+      "sourceDigestBefore": "880a45fac40fcf3affc78a009e82fe9be6aa51a97469620f8a724325f999adf9",
+      "sourceDigestAfter": "880a45fac40fcf3affc78a009e82fe9be6aa51a97469620f8a724325f999adf9",
+      "diskAfter": {
+        "freeBytes": 10808995840,
+        "cacheBytes": 101710340096
+      }
+    },
+    "browser-default-check": {
+      "exit": 0,
+      "cargoSeconds": 12.198049711994827,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "-p",
+        "miopunch-browser-probe",
+        "--lib",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 291,
+      "rebuiltArtifacts": 5,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {},
+      "actualSelectedInputCount": 3150,
+      "actualCapturedDepfileCount": 263,
+      "actualSourceCopyCount": 189,
+      "sourceDigestBefore": "880a45fac40fcf3affc78a009e82fe9be6aa51a97469620f8a724325f999adf9",
+      "sourceDigestAfter": "880a45fac40fcf3affc78a009e82fe9be6aa51a97469620f8a724325f999adf9",
+      "diskAfter": {
+        "freeBytes": 10794876928,
+        "cacheBytes": 101716144128
+      }
+    },
+    "native-shared-primitives-check": {
+      "exit": 0,
+      "cargoSeconds": 17.61854834901169,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--lib",
+        "--features",
+        "rtc-probe",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 574,
+      "rebuiltArtifacts": 5,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {},
+      "actualSelectedInputCount": 6577,
+      "actualCapturedDepfileCount": 528,
+      "actualSourceCopyCount": 290,
+      "sourceDigestBefore": "880a45fac40fcf3affc78a009e82fe9be6aa51a97469620f8a724325f999adf9",
+      "sourceDigestAfter": "880a45fac40fcf3affc78a009e82fe9be6aa51a97469620f8a724325f999adf9",
+      "diskAfter": {
+        "freeBytes": 11325100032,
+        "cacheBytes": 101162536960
+      }
+    }
+  },
+  "selectedInputsAfterFinalChecks": {
+    "typed-browser-sdk-v2": {
+      "actualSelectedInputCount": 3162,
+      "allCurrentSelectedInputsUnchanged": true,
+      "sourceDigest": "880a45fac40fcf3affc78a009e82fe9be6aa51a97469620f8a724325f999adf9"
+    },
+    "browser-default-check": {
+      "actualSelectedInputCount": 3150,
+      "allCurrentSelectedInputsUnchanged": true,
+      "sourceDigest": "880a45fac40fcf3affc78a009e82fe9be6aa51a97469620f8a724325f999adf9"
+    },
+    "native-shared-primitives-check": {
+      "actualSelectedInputCount": 6577,
+      "allCurrentSelectedInputsUnchanged": true,
+      "sourceDigest": "880a45fac40fcf3affc78a009e82fe9be6aa51a97469620f8a724325f999adf9"
+    }
+  },
+  "finalSdkCases": {
+    "final-sdk-story": {
+      "qualified": true,
+      "execution": {
+        "publicTraffic": false,
+        "passed": true,
+        "containers": [
+          {
+            "name": "miopunch-m93-interop-owned-irc-1792350383362342312",
+            "removed": true
+          }
+        ],
+        "cleanup": {
+          "relayExit": 0,
+          "relayGraceful": true,
+          "relayProcessAbsent": true
+        },
+        "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+        "relayStarted": true,
+        "runtimeExit": 0,
+        "functionalAndSdkCleanupQualified": true,
+        "rawReceiptSha256": "55e2147b9d3ae158dda7a9a38f1373a471e7e6b421d60837770f9f040c6febf0",
+        "sourceArtifactControllerUnchangedAfterRuntime": true,
+        "wholeWallMs": 13872.183863073587,
+        "sourceDigest": "880a45fac40fcf3affc78a009e82fe9be6aa51a97469620f8a724325f999adf9",
+        "qualified": true
+      },
+      "privateRawReceiptSha256": "55e2147b9d3ae158dda7a9a38f1373a471e7e6b421d60837770f9f040c6febf0",
+      "strictRestrictedRequest": true,
+      "approvalRecords": 1,
+      "bothMaterialsDurable": true,
+      "sameBrowserIdentityReopened": true,
+      "sameNativeIdentityReopened": true,
+      "memberReply": "PONG",
+      "initialCarrier": "Relay",
+      "browserClose": {
+        "sdkStarted": true,
+        "closeReturned": true,
+        "freed": true,
+        "elapsedMs": 1.4000000953674316
+      },
+      "socketImmediateObservationPassed": true,
+      "lateSocketWaitMs": 0.010820999999850756,
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "ownedFixtureRemoved": true,
+      "privateMaterialCleanup": {
+        "actorsAbsentVerifiedBeforeRemoval": true,
+        "removed": [
+          "ca.key",
+          "leaf.key",
+          "nssdb"
+        ],
+        "privateKeysAndNssAbsentAfter": true
+      }
+    },
+    "final-sdk-active-rtc": {
+      "qualified": true,
+      "execution": {
+        "publicTraffic": false,
+        "passed": true,
+        "containers": [
+          {
+            "name": "miopunch-m93-interop-owned-irc-1792350421136400863",
+            "removed": true
+          }
+        ],
+        "cleanup": {
+          "relayExit": 0,
+          "relayGraceful": true,
+          "relayProcessAbsent": true
+        },
+        "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+        "relayStarted": true,
+        "runtimeExit": 0,
+        "functionalAndSdkCleanupQualified": true,
+        "rawReceiptSha256": "a5de7b03ccb32935de34c8e66b8920d789da377e84d24ae5ec1da4acc9330a27",
+        "sourceArtifactControllerUnchangedAfterRuntime": true,
+        "wholeWallMs": 14992.796677164733,
+        "sourceDigest": "880a45fac40fcf3affc78a009e82fe9be6aa51a97469620f8a724325f999adf9",
+        "qualified": true
+      },
+      "privateRawReceiptSha256": "a5de7b03ccb32935de34c8e66b8920d789da377e84d24ae5ec1da4acc9330a27",
+      "strictRestrictedRequest": true,
+      "approvalRecords": 1,
+      "bothMaterialsDurable": true,
+      "sameBrowserIdentityReopened": true,
+      "sameNativeIdentityReopened": true,
+      "memberReply": "PONG",
+      "initialCarrier": "Relay",
+      "browserClose": {
+        "sdkStarted": true,
+        "closeReturned": true,
+        "freed": true,
+        "elapsedMs": 0.7999997138977051
+      },
+      "socketImmediateObservationPassed": true,
+      "lateSocketWaitMs": 0.011571000000913045,
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "ownedFixtureRemoved": true,
+      "privateMaterialCleanup": {
+        "actorsAbsentVerifiedBeforeRemoval": true,
+        "removed": [
+          "ca.key",
+          "leaf.key",
+          "nssdb"
+        ],
+        "privateKeysAndNssAbsentAfter": true
+      },
+      "existingNativeBrowserMemberImprovement": {
+        "sameOriginal": true,
+        "freshAck": true,
+        "bothReady": true,
+        "selectedRtc": true,
+        "explicitFixturePolicy": "PreferDirect"
+      }
+    },
+    "final-sdk-negatives": {
+      "qualified": true,
+      "execution": {
+        "publicTraffic": false,
+        "passed": true,
+        "containers": [
+          {
+            "name": "miopunch-m93-interop-owned-irc-1792350481037747317",
+            "removed": true
+          }
+        ],
+        "cleanup": {
+          "relayExit": 0,
+          "relayGraceful": true,
+          "relayProcessAbsent": true
+        },
+        "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+        "relayStarted": true,
+        "runtimeExit": 0,
+        "functionalAndSdkCleanupQualified": true,
+        "rawReceiptSha256": "90586c417a4a9d9ef1ffc85c91e99099e0b7447f0f6f77a4a9dd7157ed42a48a",
+        "sourceArtifactControllerUnchangedAfterRuntime": true,
+        "wholeWallMs": 24614.765431266278,
+        "sourceDigest": "880a45fac40fcf3affc78a009e82fe9be6aa51a97469620f8a724325f999adf9",
+        "qualified": true
+      },
+      "privateRawReceiptSha256": "90586c417a4a9d9ef1ffc85c91e99099e0b7447f0f6f77a4a9dd7157ed42a48a",
+      "strictRestrictedRequest": true,
+      "approvalRecords": 1,
+      "bothMaterialsDurable": true,
+      "sameBrowserIdentityReopened": true,
+      "sameNativeIdentityReopened": true,
+      "memberReply": "PONG",
+      "initialCarrier": "RTC",
+      "browserClose": {
+        "sdkStarted": true,
+        "closeReturned": true,
+        "freed": true,
+        "elapsedMs": 1184.9000000953674
+      },
+      "socketImmediateObservationPassed": true,
+      "lateSocketWaitMs": 0.011402000000089174,
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "ownedFixtureRemoved": true,
+      "privateMaterialCleanup": {
+        "actorsAbsentVerifiedBeforeRemoval": true,
+        "removed": [
+          "ca.key",
+          "leaf.key",
+          "nssdb"
+        ],
+        "privateKeysAndNssAbsentAfter": true
+      },
+      "negativeCases": [
+        {
+          "case": "resources-disabled-signal-only",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 0
+        },
+        {
+          "case": "rtc-api-unavailable-signal-only",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 0
+        },
+        {
+          "case": "cancel-unqualified-channel",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 0,
+          "originalClosed": true,
+          "activeAssociations": 0,
+          "activePumps": 0,
+          "routeActive": false,
+          "routeQualified": false,
+          "queuedBytes": 0,
+          "checkpointFreshAck": false
+        },
+        {
+          "case": "deadline-unqualified-channel",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 0,
+          "originalClosed": true,
+          "activeAssociations": 0,
+          "activePumps": 0,
+          "routeActive": false,
+          "routeQualified": false,
+          "queuedBytes": 0,
+          "checkpointFreshAck": false
+        },
+        {
+          "case": "revocation-after-qualified-before-release",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 1,
+          "originalClosed": true,
+          "activeAssociations": 0,
+          "activePumps": 0,
+          "routeActive": false,
+          "routeQualified": false,
+          "queuedBytes": 0,
+          "checkpointFreshAck": true
+        }
+      ],
+      "revocationPropagationScope": "Browser-local departure refuses Browser delivery; the fixed counterpart has not received the new departure record.",
+      "initialRtcFinalChecks": {
+        "freshAck": true,
+        "stableUnchanged": true,
+        "bindingUnchanged": true,
+        "beforeRetainFrames": {
+          "datagramReceived": 0,
+          "datagramSent": 0,
+          "streamReceived": 0,
+          "streamSent": 0
+        }
+      }
+    },
+    "typed-browser-serving-v2": {
+      "qualified": true,
+      "execution": {
+        "publicTraffic": false,
+        "passed": true,
+        "containers": [
+          {
+            "name": "miopunch-m93-interop-owned-irc-1792350290387542637",
+            "removed": true
+          }
+        ],
+        "cleanup": {
+          "relayExit": 0,
+          "relayGraceful": true,
+          "relayProcessAbsent": true
+        },
+        "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+        "relayStarted": true,
+        "runtimeExit": 0,
+        "functionalAndSdkCleanupQualified": true,
+        "rawReceiptSha256": "eb4e51d038d6b6726ffc3401e1894f21dd3be3dfc83bfb8cadca94d2253b3145",
+        "sourceArtifactControllerUnchangedAfterRuntime": true,
+        "wholeWallMs": 28004.7365273349,
+        "sourceDigest": "880a45fac40fcf3affc78a009e82fe9be6aa51a97469620f8a724325f999adf9",
+        "qualified": true
+      },
+      "privateRawReceiptSha256": "eb4e51d038d6b6726ffc3401e1894f21dd3be3dfc83bfb8cadca94d2253b3145",
+      "strictRestrictedRequest": true,
+      "approvalRecords": 1,
+      "bothMaterialsDurable": true,
+      "sameBrowserIdentityReopened": true,
+      "sameNativeIdentityReopened": true,
+      "memberReply": "PONG",
+      "initialCarrier": "Relay",
+      "browserClose": {
+        "sdkStarted": true,
+        "closeReturned": true,
+        "freed": true,
+        "elapsedMs": 1.4000000953674316
+      },
+      "socketImmediateObservationPassed": true,
+      "lateSocketWaitMs": 0.011832000000140397,
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "ownedFixtureRemoved": true,
+      "privateMaterialCleanup": {
+        "actorsAbsentVerifiedBeforeRemoval": true,
+        "removed": [
+          "ca.key",
+          "leaf.key",
+          "nssdb"
+        ],
+        "privateKeysAndNssAbsentAfter": true
+      },
+      "browserIncoming": {
+        "manualApproval": true,
+        "durableMaterials": true,
+        "sameApplicantReopened": true,
+        "memberStream": true,
+        "precodeUses": 1,
+        "precodeRetryDoesNotConsumeAgain": true,
+        "replicaComplete": true,
+        "extraContextCleanup": [
+          {
+            "sdkClosed": true,
+            "socketImmediateObservationPassed": false,
+            "lateSocketWaitMs": 100.6564330000001,
+            "websocketsClosedBeforeContext": true
+          },
+          {
+            "sdkClosed": true,
+            "socketImmediateObservationPassed": false,
+            "lateSocketWaitMs": 100.54013399999894,
+            "websocketsClosedBeforeContext": true
+          }
+        ]
+      }
+    },
+    "final-browser-incoming-active-rtc": {
+      "qualified": true,
+      "execution": {
+        "publicTraffic": false,
+        "passed": true,
+        "containers": [
+          {
+            "name": "miopunch-m93-interop-owned-irc-1792350703156125706",
+            "removed": true
+          }
+        ],
+        "cleanup": {
+          "relayExit": 0,
+          "relayGraceful": true,
+          "relayProcessAbsent": true
+        },
+        "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+        "relayStarted": true,
+        "runtimeExit": 0,
+        "functionalAndSdkCleanupQualified": true,
+        "rawReceiptSha256": "d33d7595ccdcd1060b21d883331cdd67baa92d5e2b795909cb2c6e48a2da00ee",
+        "sourceArtifactControllerUnchangedAfterRuntime": true,
+        "wholeWallMs": 29968.05801987648,
+        "sourceDigest": "880a45fac40fcf3affc78a009e82fe9be6aa51a97469620f8a724325f999adf9",
+        "qualified": true
+      },
+      "privateRawReceiptSha256": "d33d7595ccdcd1060b21d883331cdd67baa92d5e2b795909cb2c6e48a2da00ee",
+      "strictRestrictedRequest": true,
+      "approvalRecords": 1,
+      "bothMaterialsDurable": true,
+      "sameBrowserIdentityReopened": true,
+      "sameNativeIdentityReopened": true,
+      "memberReply": "PONG",
+      "initialCarrier": "Relay",
+      "browserClose": {
+        "sdkStarted": true,
+        "closeReturned": true,
+        "freed": true,
+        "elapsedMs": 1.1999998092651367
+      },
+      "socketImmediateObservationPassed": true,
+      "lateSocketWaitMs": 0.009537999998428859,
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "ownedFixtureRemoved": true,
+      "privateMaterialCleanup": {
+        "actorsAbsentVerifiedBeforeRemoval": true,
+        "removed": [
+          "ca.key",
+          "leaf.key",
+          "nssdb"
+        ],
+        "privateKeysAndNssAbsentAfter": true
+      },
+      "browserIncoming": {
+        "manualApproval": true,
+        "durableMaterials": true,
+        "sameApplicantReopened": true,
+        "memberStream": true,
+        "precodeUses": 1,
+        "precodeRetryDoesNotConsumeAgain": true,
+        "replicaComplete": true,
+        "extraContextCleanup": [
+          {
+            "sdkClosed": true,
+            "socketImmediateObservationPassed": false,
+            "lateSocketWaitMs": 100.50746700000309,
+            "websocketsClosedBeforeContext": true
+          },
+          {
+            "sdkClosed": true,
+            "socketImmediateObservationPassed": false,
+            "lateSocketWaitMs": 99.67778700000054,
+            "websocketsClosedBeforeContext": true
+          }
+        ]
+      },
+      "browserIncomingActiveControl": {
+        "sides": {
+          "initiator": {
+            "sameOriginal": true,
+            "freshAck": true,
+            "bothReady": true,
+            "selectedRtc": true,
+            "beforeRetainFrames": {
+              "datagramReceived": 0,
+              "datagramSent": 0,
+              "streamReceived": 0,
+              "streamSent": 0
+            }
+          },
+          "responder": {
+            "sameOriginal": true,
+            "freshAck": true,
+            "bothReady": true,
+            "selectedRtc": true,
+            "beforeRetainFrames": {
+              "datagramReceived": 0,
+              "datagramSent": 0,
+              "streamReceived": 0,
+              "streamSent": 0
+            }
+          }
+        },
+        "originalMemberBusinessAfterRtc": true,
+        "explicitFixturePolicy": "PreferDirect"
+      }
+    }
+  },
+  "runtimeHistoryIncludingFailures": {
+    "final-sdk-negatives": {
+      "qualified": true,
+      "runtimeExit": 0,
+      "functionalPassed": true,
+      "sdkCleanupPassed": true,
+      "firstFailureClass": null,
+      "privateRawReceiptSha256": "90586c417a4a9d9ef1ffc85c91e99099e0b7447f0f6f77a4a9dd7157ed42a48a"
+    },
+    "baseline-sdk-story": {
+      "qualified": true,
+      "runtimeExit": 0,
+      "functionalPassed": true,
+      "sdkCleanupPassed": true,
+      "firstFailureClass": null,
+      "privateRawReceiptSha256": "ff9a23a96e76a65f38f71c1375580da4b28f91a2000441baa1ba5b9234d822a3"
+    },
+    "typed-browser-serving-v2": {
+      "qualified": true,
+      "runtimeExit": 0,
+      "functionalPassed": true,
+      "sdkCleanupPassed": true,
+      "firstFailureClass": null,
+      "privateRawReceiptSha256": "eb4e51d038d6b6726ffc3401e1894f21dd3be3dfc83bfb8cadca94d2253b3145"
+    },
+    "typed-sdk-story-1": {
+      "qualified": false,
+      "runtimeExit": 1,
+      "functionalPassed": false,
+      "sdkCleanupPassed": false,
+      "firstFailureClass": "PlaywrightError",
+      "privateRawReceiptSha256": "1ec59fcd63848e2e1e9eec05bb9db3a4f1b1ca625dcb6f6bbadd43bf4ca5d23c"
+    },
+    "final-sdk-active-rtc": {
+      "qualified": true,
+      "runtimeExit": 0,
+      "functionalPassed": true,
+      "sdkCleanupPassed": true,
+      "firstFailureClass": null,
+      "privateRawReceiptSha256": "a5de7b03ccb32935de34c8e66b8920d789da377e84d24ae5ec1da4acc9330a27"
+    },
+    "typed-sdk-active-rtc-v1": {
+      "qualified": true,
+      "runtimeExit": 0,
+      "functionalPassed": true,
+      "sdkCleanupPassed": true,
+      "firstFailureClass": null,
+      "privateRawReceiptSha256": "669cb1129b0f19343c699bcde06c379f071f72701f2a3ac771444772dbc4741a"
+    },
+    "typed-sdk-negatives-v3": {
+      "qualified": false,
+      "runtimeExit": 1,
+      "functionalPassed": false,
+      "sdkCleanupPassed": true,
+      "firstFailureClass": "Error",
+      "privateRawReceiptSha256": "ab08c7d21d8c7c38c056a20771d283fffeeba410ec0fb9a5f59115aa28369127"
+    },
+    "typed-sdk-story-v1": {
+      "qualified": true,
+      "runtimeExit": 0,
+      "functionalPassed": true,
+      "sdkCleanupPassed": true,
+      "firstFailureClass": null,
+      "privateRawReceiptSha256": "72b09dfa90664971cfc473b8ca07e60ba0e1813abc364bafdb77a50df23765d5"
+    },
+    "typed-sdk-rtc-v1": {
+      "qualified": true,
+      "runtimeExit": 0,
+      "functionalPassed": true,
+      "sdkCleanupPassed": true,
+      "firstFailureClass": null,
+      "privateRawReceiptSha256": "832a1f5d997ef6d4577f90c29679ce8390ec3b07c09ce9a323506ab560a37aad"
+    },
+    "typed-sdk-negatives-v1": {
+      "qualified": false,
+      "runtimeExit": 1,
+      "functionalPassed": false,
+      "sdkCleanupPassed": true,
+      "firstFailureClass": "PlaywrightError",
+      "privateRawReceiptSha256": "eb6c6e31f3cc880ed0a3043e5c87c36da0fe87980af2606518082f5b3f84b7a9"
+    },
+    "final-sdk-story": {
+      "qualified": true,
+      "runtimeExit": 0,
+      "functionalPassed": true,
+      "sdkCleanupPassed": true,
+      "firstFailureClass": null,
+      "privateRawReceiptSha256": "55e2147b9d3ae158dda7a9a38f1373a471e7e6b421d60837770f9f040c6febf0"
+    },
+    "typed-browser-serving-v1": {
+      "qualified": false,
+      "runtimeExit": 1,
+      "functionalPassed": true,
+      "sdkCleanupPassed": false,
+      "firstFailureClass": null,
+      "privateRawReceiptSha256": "c4eaf293224dfbd82b43ddf33ce01deeb6415e1350b71188d31967bde4a432c0"
+    },
+    "final-browser-incoming-active-rtc": {
+      "qualified": true,
+      "runtimeExit": 0,
+      "functionalPassed": true,
+      "sdkCleanupPassed": true,
+      "firstFailureClass": null,
+      "privateRawReceiptSha256": "d33d7595ccdcd1060b21d883331cdd67baa92d5e2b795909cb2c6e48a2da00ee"
+    },
+    "typed-sdk-negatives-v2": {
+      "qualified": false,
+      "runtimeExit": 1,
+      "functionalPassed": false,
+      "sdkCleanupPassed": false,
+      "firstFailureClass": "PlaywrightError",
+      "privateRawReceiptSha256": "ac8ea5013e9d42c6f427ac8b3740313552a8f887e8a90903f323bb23c5a65995"
+    },
+    "typed-sdk-negatives-v4": {
+      "qualified": true,
+      "runtimeExit": 0,
+      "functionalPassed": true,
+      "sdkCleanupPassed": true,
+      "firstFailureClass": null,
+      "privateRawReceiptSha256": "a94283d1cb7e1cbdad6bb643cf9e9642ea638395a64098268c2a47a0f41f0ff7"
+    }
+  },
+  "beforeEditBaselinePassed": true,
+  "scope": "M94 Browser restricted migration; owned loopback only, no public/physical or Android throughput/power matrix"
+}
