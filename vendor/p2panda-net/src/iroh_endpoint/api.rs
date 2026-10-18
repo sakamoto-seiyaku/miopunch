@@ -147,6 +147,28 @@ impl RestrictedEndpoint {
             .connect_with_config(node_id, protocol_id, config)
             .await
     }
+
+    /// Resolve missing address-book transport information using configured iroh lookups.
+    /// The same admission and data-path checks apply before a connection is returned.
+    pub async fn connect_resolving(
+        &self,
+        node_id: NodeId,
+        protocol_id: impl AsRef<[u8]>,
+    ) -> Result<iroh::endpoint::Connection, EndpointError> {
+        self.inner.connect_resolving(node_id, protocol_id).await
+    }
+
+    /// Like [`Self::connect_resolving`], with per-connection transport configuration.
+    pub async fn connect_resolving_with_config(
+        &self,
+        node_id: NodeId,
+        protocol_id: impl AsRef<[u8]>,
+        config: iroh::endpoint::QuicTransportConfig,
+    ) -> Result<iroh::endpoint::Connection, EndpointError> {
+        self.inner
+            .connect_resolving_with_config(node_id, protocol_id, config)
+            .await
+    }
 }
 
 impl Endpoint {
@@ -202,36 +224,85 @@ impl Endpoint {
     /// The ALPN byte string, or application-level protocol identifier, is also required. The
     /// remote endpoint must support this alpn, otherwise the connection attempt will fail with an
     /// error.
+    ///
+    /// Missing iroh transport information in the address book returns an immediate error,
+    /// without invoking iroh's address lookups. Use [`Self::connect_resolving`] to opt in.
     pub async fn connect(
         &self,
         node_id: NodeId,
         protocol_id: impl AsRef<[u8]>,
     ) -> Result<iroh::endpoint::Connection, EndpointError> {
-        let inner = self.inner.read().await;
-        let result = call!(
-            inner.actor_ref.as_ref().expect("actor spawned in builder"),
-            ToIrohEndpoint::Connect,
-            node_id,
-            protocol_id.as_ref().to_vec(),
-            None
-        )
-        .map_err(Box::new)??;
-        Ok(result)
+        self.connect_inner(node_id, protocol_id.as_ref(), None, false)
+            .await
     }
 
+    /// Like [`Self::connect`], with per-connection transport configuration.
+    /// Missing address-book transport information still fails without a lookup.
     pub async fn connect_with_config(
         &self,
         node_id: NodeId,
         protocol_id: impl AsRef<[u8]>,
         quic_transport_config: iroh::endpoint::QuicTransportConfig,
     ) -> Result<iroh::endpoint::Connection, EndpointError> {
+        self.connect_inner(
+            node_id,
+            protocol_id.as_ref(),
+            Some(quic_transport_config),
+            false,
+        )
+        .await
+    }
+
+    /// Connect using the address book, falling back to configured iroh address lookups
+    /// when the book has no iroh transport information for this node.
+    ///
+    /// Address-book read errors still fail immediately. Lookup, resource permissions,
+    /// admission and transport configuration remain those of the bound endpoint.
+    /// Resolution can wait for new information; callers may cancel with their own timeout.
+    pub async fn connect_resolving(
+        &self,
+        node_id: NodeId,
+        protocol_id: impl AsRef<[u8]>,
+    ) -> Result<iroh::endpoint::Connection, EndpointError> {
+        self.connect_inner(node_id, protocol_id.as_ref(), None, true)
+            .await
+    }
+
+    /// Like [`Self::connect_resolving`], with per-connection transport configuration.
+    pub async fn connect_resolving_with_config(
+        &self,
+        node_id: NodeId,
+        protocol_id: impl AsRef<[u8]>,
+        quic_transport_config: iroh::endpoint::QuicTransportConfig,
+    ) -> Result<iroh::endpoint::Connection, EndpointError> {
+        self.connect_inner(
+            node_id,
+            protocol_id.as_ref(),
+            Some(quic_transport_config),
+            true,
+        )
+        .await
+    }
+
+    async fn connect_inner(
+        &self,
+        node_id: NodeId,
+        protocol_id: &[u8],
+        quic_transport_config: Option<iroh::endpoint::QuicTransportConfig>,
+        resolving: bool,
+    ) -> Result<iroh::endpoint::Connection, EndpointError> {
         let inner = self.inner.read().await;
+        let request = if resolving {
+            ToIrohEndpoint::ConnectResolving
+        } else {
+            ToIrohEndpoint::Connect
+        };
         let result = call!(
             inner.actor_ref.as_ref().expect("actor spawned in builder"),
-            ToIrohEndpoint::Connect,
+            request,
             node_id,
-            protocol_id.as_ref().to_vec(),
-            Some(quic_transport_config)
+            protocol_id.to_vec(),
+            quic_transport_config
         )
         .map_err(Box::new)??;
         Ok(result)

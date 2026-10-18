@@ -138,7 +138,11 @@ async fn wrapped_actor_releases_member_after_checks_and_closes_on_revocation() {
         .unwrap();
     let connection = tokio::time::timeout(
         Duration::from_secs(5),
-        client.connect(server_key.verifying_key(), PROTOCOL),
+        client.connect_resolving_with_config(
+            server_key.verifying_key(),
+            PROTOCOL,
+            iroh::endpoint::QuicTransportConfig::default(),
+        ),
     )
     .await
     .unwrap()
@@ -155,7 +159,7 @@ async fn wrapped_actor_releases_member_after_checks_and_closes_on_revocation() {
     assert!(
         tokio::time::timeout(
             Duration::from_secs(5),
-            client.connect(server_key.verifying_key(), PROTOCOL)
+            client.connect_resolving(server_key.verifying_key(), PROTOCOL)
         )
         .await
         .unwrap()

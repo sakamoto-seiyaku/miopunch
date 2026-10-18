@@ -372,6 +372,7 @@ async fn serve_wrapped(key: &SigningKey, bind_ip: Ipv4Addr) -> Result<(), Box<dy
         local_udp_addr(&iroh_endpoint.addr())?
     );
     done_rx.recv().await.ok_or("server stopped before echo")?;
+    iroh_endpoint.close().await;
     drop(endpoint);
     Ok(())
 }
@@ -395,13 +396,20 @@ async fn send_wrapped(
         })
         .spawn()
         .await?;
-    let target = VerifyingKey::from_bytes(target.as_bytes())?;
-    let connection =
-        tokio::time::timeout(Duration::from_secs(8), endpoint.connect(target, PROBE_ALPN))
-            .await??;
-    ping(connection).await?;
+    let iroh_endpoint = endpoint.endpoint().await?;
+    let result = async {
+        let target = VerifyingKey::from_bytes(target.as_bytes())?;
+        let connection = tokio::time::timeout(
+            Duration::from_secs(8),
+            endpoint.connect_resolving(target, PROBE_ALPN),
+        )
+        .await??;
+        ping(connection).await
+    }
+    .await;
+    iroh_endpoint.close().await;
     drop(endpoint);
-    Ok(())
+    result
 }
 
 fn optional_bind_ip(args: &[String]) -> Result<Ipv4Addr, Box<dyn Error>> {

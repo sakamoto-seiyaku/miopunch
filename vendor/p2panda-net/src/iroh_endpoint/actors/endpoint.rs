@@ -69,6 +69,14 @@ pub enum ToIrohEndpoint {
         ConnectReplyPort,
     ),
 
+    /// Explicitly allow configured iroh lookups when transport information is missing.
+    ConnectResolving(
+        NodeId,
+        ProtocolId,
+        Option<QuicTransportConfig>,
+        ConnectReplyPort,
+    ),
+
     /// We've received a connection attempt from a remote iroh endpoint.
     Incoming(IncomingAccess),
 
@@ -174,6 +182,7 @@ impl ThreadLocalActor for IrohEndpoint {
         message: Self::Msg,
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
+        let resolving = matches!(&message, ToIrohEndpoint::ConnectResolving(..));
         match message {
             ToIrohEndpoint::Bind => {
                 let config = state.config.clone();
@@ -263,7 +272,8 @@ impl ThreadLocalActor for IrohEndpoint {
                     )
                     .set_alpns(protocols.keys().cloned().collect());
             }
-            ToIrohEndpoint::Connect(node_id, alpn, quic_transport_config, reply) => {
+            ToIrohEndpoint::Connect(node_id, alpn, quic_transport_config, reply)
+            | ToIrohEndpoint::ConnectResolving(node_id, alpn, quic_transport_config, reply) => {
                 let mixed_protocol_id = hash_protocol_id_with_network_id(&alpn, state.network_id);
 
                 // Ask address book for available node information.
@@ -275,11 +285,16 @@ impl ThreadLocalActor for IrohEndpoint {
                     }
                 };
 
-                // Let iroh's configured address lookups resolve a known identity when the
-                // address book has no iroh transport entry. Store errors still fail above.
-                let endpoint_addr = result
+                let endpoint_addr = match result
                     .and_then(|node_info| iroh::EndpointAddr::try_from(node_info).ok())
-                    .unwrap_or_else(|| iroh::EndpointAddr::new(from_verifying_key(node_id)));
+                {
+                    Some(address) => address,
+                    None if resolving => iroh::EndpointAddr::new(from_verifying_key(node_id)),
+                    None => {
+                        let _ = reply.send(Err(ConnectError::TransportInfoMissing(node_id)));
+                        return Ok(());
+                    }
+                };
 
                 // This actor will shut down immediately after the connection was established. The
                 // responsibility to handle the connection object is shifted to the caller from

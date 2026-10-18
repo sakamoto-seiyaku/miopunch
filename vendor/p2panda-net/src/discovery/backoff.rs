@@ -59,14 +59,28 @@ impl Default for Config {
 
 impl Config {
     /// Bounded local pacing for an admitted discovery integration. The random
-    /// increment range is half-open; callers must provide increasing bounds.
+    /// increment range is half-open and sampled in whole milliseconds. Both
+    /// increment bounds must be exact, positive whole milliseconds, no greater
+    /// than `u64::MAX` milliseconds, with `min_increment < max_increment`.
+    /// Initial delay and ceiling retain their full `Duration` precision;
+    /// `initial_value` must not exceed `max_value`. Every increment clamps to
+    /// the ceiling immediately, including when duration addition would overflow.
     pub fn bounded(
         initial_value: Duration,
         min_increment: Duration,
         max_increment: Duration,
         max_value: Duration,
     ) -> std::io::Result<Self> {
-        if min_increment.is_zero() || min_increment >= max_increment || initial_value > max_value {
+        let whole_milliseconds = |value: Duration| {
+            !value.is_zero()
+                && value.subsec_nanos().is_multiple_of(1_000_000)
+                && value.as_millis() <= u128::from(u64::MAX)
+        };
+        if !whole_milliseconds(min_increment)
+            || !whole_milliseconds(max_increment)
+            || min_increment >= max_increment
+            || initial_value > max_value
+        {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "invalid discovery backoff bounds",
@@ -101,7 +115,10 @@ impl Backoff {
             self.value = self.config.max_value;
         } else if self.value < self.config.max_value {
             let increment = self.random_increment();
-            self.value = (self.value + increment).min(self.config.max_value);
+            self.value = self
+                .value
+                .saturating_add(increment)
+                .min(self.config.max_value);
         }
 
         // Reset backoff after we've waited long enough.

@@ -631,7 +631,7 @@ async fn p2panda_endpoint_builder_hook_gates_the_actual_protocol_actor() {
         .unwrap();
     let connection = tokio::time::timeout(
         Duration::from_secs(9),
-        client.connect(server_key.verifying_key(), LOG_SYNC),
+        client.connect_resolving(server_key.verifying_key(), LOG_SYNC),
     )
     .await
     .unwrap()
@@ -642,8 +642,9 @@ async fn p2panda_endpoint_builder_hook_gates_the_actual_protocol_actor() {
     send.finish().unwrap();
     assert_eq!(recv.read_to_end(16).await.unwrap(), b"PONG");
     connection.close(0u32.into(), b"done");
-    drop(client);
-    drop(server);
+    let iroh_client = client.endpoint().await.unwrap();
+    tokio::join!(iroh_client.close(), iroh_server.close());
+    drop((connection, client, server, iroh_client, iroh_server));
 }
 
 #[tokio::test]
