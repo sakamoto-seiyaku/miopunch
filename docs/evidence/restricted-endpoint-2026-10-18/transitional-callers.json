@@ -1,0 +1,242 @@
+[
+  {
+    "path": "src/admission_gate.rs",
+    "line": 298,
+    "declaration": "builder.admission_gate(self.clone())"
+  },
+  {
+    "path": "src/admission_gate.rs",
+    "line": 769,
+    "declaration": "AfterHandshakeOutcome::AcceptData {"
+  },
+  {
+    "path": "src/admission_gate.rs",
+    "line": 780,
+    "declaration": "AfterHandshakeOutcome::AcceptRestricted"
+  },
+  {
+    "path": "src/bin/unified_native_member.rs",
+    "line": 241,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "src/connection_coordinator_native.rs",
+    "line": 514,
+    "declaration": "return iroh::endpoint::AfterHandshakeOutcome::AcceptRestricted;"
+  },
+  {
+    "path": "src/connection_coordinator_native.rs",
+    "line": 525,
+    "declaration": "iroh::endpoint::AfterHandshakeOutcome::AcceptRestricted"
+  },
+  {
+    "path": "src/connection_coordinator_native.rs",
+    "line": 527,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "src/message_bootstrap.rs",
+    "line": 28,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "browser-probe/src/network.rs",
+    "line": 1267,
+    "declaration": "return AfterHandshakeOutcome::AcceptRestricted;"
+  },
+  {
+    "path": "browser-probe/src/network.rs",
+    "line": 1269,
+    "declaration": "AfterHandshakeOutcome::AcceptData {"
+  },
+  {
+    "path": "browser-probe/src/network.rs",
+    "line": 1309,
+    "declaration": "AfterHandshakeOutcome::AcceptRestricted"
+  },
+  {
+    "path": "browser-probe/src/network.rs",
+    "line": 1313,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "browser-probe/src/network.rs",
+    "line": 1923,
+    "declaration": ".admission_gate(gate.clone());"
+  },
+  {
+    "path": "tests/admission_gate.rs",
+    "line": 489,
+    "declaration": ".admission_gate(NoOpHook)"
+  },
+  {
+    "path": "tests/admission_gate.rs",
+    "line": 497,
+    "declaration": ".admission_gate(NoOpHook)"
+  },
+  {
+    "path": "tests/irc_bootstrap.rs",
+    "line": 548,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "tests/member_attempt.rs",
+    "line": 18,
+    "declaration": "AfterHandshakeOutcome::AcceptData {"
+  },
+  {
+    "path": "tests/member_attempt.rs",
+    "line": 22,
+    "declaration": "async fn before_data_release(&self, _: &Endpoint, connection: &Connection) -> io::Result<()> {"
+  },
+  {
+    "path": "tests/member_attempt.rs",
+    "line": 69,
+    "declaration": "AfterHandshakeOutcome::AcceptData {"
+  },
+  {
+    "path": "tests/member_attempt.rs",
+    "line": 73,
+    "declaration": "async fn before_data_release(&self, _: &Endpoint, connection: &Connection) -> io::Result<()> {"
+  },
+  {
+    "path": "tests/member_attempt.rs",
+    "line": 92,
+    "declaration": ".admission_gate(gate)"
+  },
+  {
+    "path": "tests/member_attempt.rs",
+    "line": 153,
+    "declaration": "AfterHandshakeOutcome::AcceptData {"
+  },
+  {
+    "path": "tests/member_attempt.rs",
+    "line": 157,
+    "declaration": "async fn before_data_release(&self, _: &Endpoint, connection: &Connection) -> io::Result<()> {"
+  },
+  {
+    "path": "tests/mio74_rtc_offer_ownership.rs",
+    "line": 106,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "tests/mqtt_bootstrap.rs",
+    "line": 390,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "tests/negotiated_accept_context.rs",
+    "line": 46,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "tests/path_maintenance.rs",
+    "line": 22,
+    "declaration": "iroh::endpoint::AfterHandshakeOutcome::AcceptData {"
+  },
+  {
+    "path": "tests/rtc_control_release.rs",
+    "line": 49,
+    "declaration": "AfterHandshakeOutcome::AcceptData {"
+  },
+  {
+    "path": "tests/rtc_control_release.rs",
+    "line": 53,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "tests/rtc_control_release.rs",
+    "line": 184,
+    "declaration": ".admission_gate(gate)"
+  },
+  {
+    "path": "tests/rtc_control_release.rs",
+    "line": 300,
+    "declaration": "AfterHandshakeOutcome::AcceptData {"
+  },
+  {
+    "path": "tests/rtc_control_release.rs",
+    "line": 304,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "tests/rtc_control_release.rs",
+    "line": 355,
+    "declaration": ".admission_gate(RejectSignalingSeal(observed[index].clone()))"
+  },
+  {
+    "path": "tests/rtc_invalidation_barrier.rs",
+    "line": 23,
+    "declaration": "AfterHandshakeOutcome::AcceptData {"
+  },
+  {
+    "path": "tests/rtc_invalidation_barrier.rs",
+    "line": 34,
+    "declaration": ".admission_gate(Gate)"
+  },
+  {
+    "path": "tests/rtc_path_qualification.rs",
+    "line": 25,
+    "declaration": "AfterHandshakeOutcome::AcceptData {"
+  },
+  {
+    "path": "tests/rtc_path_qualification.rs",
+    "line": 37,
+    "declaration": ".admission_gate(CarrierGate)"
+  },
+  {
+    "path": "tests/rtc_release_validation.rs",
+    "line": 25,
+    "declaration": "AfterHandshakeOutcome::AcceptData {"
+  },
+  {
+    "path": "tests/rtc_release_validation.rs",
+    "line": 37,
+    "declaration": ".admission_gate(Gate)"
+  },
+  {
+    "path": "tests/tcp_punch.rs",
+    "line": 15,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "tests/unified_connection.rs",
+    "line": 278,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "tests/unified_connection.rs",
+    "line": 465,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "tests/unified_connection.rs",
+    "line": 695,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "tests/unified_connection.rs",
+    "line": 718,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "tests/unified_connection.rs",
+    "line": 1043,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "tests/unified_connection.rs",
+    "line": 1250,
+    "declaration": "async fn before_data_release("
+  },
+  {
+    "path": "tests/unified_connection.rs",
+    "line": 1895,
+    "declaration": "iroh::endpoint::AfterHandshakeOutcome::AcceptRestricted"
+  },
+  {
+    "path": "tests/unified_connection.rs",
+    "line": 1912,
+    "declaration": ".admission_gate(ClockHook(observed.clone()))"
+  }
+]

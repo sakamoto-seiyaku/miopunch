@@ -1,0 +1,755 @@
+{
+  "sourceCommit": "e878d95b57714496c497ac0480c50f85c5128823",
+  "interfaceValidationSourceDigest": "64b1263e0d748fdf74157e45865593a83d0efd620cff236769c1f35782887720",
+  "correctedFixtureSourceDigest": "1407f95615fc9c3ed4d53fa9ad7b2fe147b33208d72747581fe57850c9409ac8",
+  "scope": "MIOPUNCH-92 additive interface; SDK consumers stay on documented transitional hooks until M93/M94; original contract restoration M95",
+  "publicMatrixRun": false,
+  "existingRegressionNetworkTrafficNotPacketCaptured": true,
+  "suite": {
+    "cases": [
+      {
+        "binary": "member_path_protocol",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/member_path_protocol",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "5708451632d9c853d3362ab173ac517dafd33fdff5699c99111a5368fd897dad",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 0.6659116740338504,
+        "postconditionsPassed": true,
+        "testsPassed": 3,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "1e3c322cc2a32721c0c7d9ec97cc93c3c89239015f2a9227cc028d4842e1d504",
+          "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "binary": "unified_connection",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/unified_connection",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "1872a6738ab494c52c83246efc602608879d6d06829c7ccf71151a82dc35f596",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 28.834790694061667,
+        "postconditionsPassed": true,
+        "testsPassed": 15,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "a993d15b869d85b55668fb7b4c39a9ffb5dcaf4b9faa23a78836356513684b09",
+          "stderr.log": "76a52ea744ac349f84ba648fb26442420683ec60382a2245f30b36f719cb9fd6"
+        }
+      },
+      {
+        "binary": "unified_admission_story",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/unified_admission_story",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "e389fdbe614d9a065a70d9e2549de7fd26777ce62edccd46a89611a69e1958b5",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 6.480273405089974,
+        "postconditionsPassed": true,
+        "testsPassed": 6,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "f0cfeac7cf5b5e656b304388b36e79816c20b27313eb22f0c53e7f80759c611e",
+          "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "binary": "negotiated_accept_context",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/negotiated_accept_context",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "d9262a2788e09293823dc0e4d26d37ad4ad3ac6fc1f9c01793eb9b09c0ebf91f",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 10.990861008875072,
+        "postconditionsPassed": true,
+        "testsPassed": 3,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "089257558f5ecca564c114553d4ce33713c9ec7b362719d119e7d78fc1ea42a2",
+          "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "binary": "tcp_direct_member_preserved",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/tcp_direct_member_preserved",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "0b140a452aa5c4cbd451b93782e868085a09358104a7d5dc985d87f221f32480",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 42.21394091285765,
+        "postconditionsPassed": true,
+        "testsPassed": 10,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "0e1e629e9e671a70628c24896831860b839d28d64c332ca38e3975e613d3bb55",
+          "stderr.log": "d4041aa70096ba7e62bb67a1a265a0e8a22cd3ae2abe023f5c76ccb3cc05f665"
+        }
+      },
+      {
+        "binary": "irc_datagram",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/irc_datagram",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "bb5d2405aa250d953746b6045bb596ae380a62c591de7e3486b4d421ef8c8b37",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 0.31500542582944036,
+        "postconditionsPassed": true,
+        "testsPassed": 16,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "29e4a5f7a3f739685a6d0581274fddcce18ed450850bbfa92c244a29dc043948",
+          "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "binary": "legacy_multi_socket",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/legacy_multi_socket",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "c79421a0485ab6cd9aafe3e3993bd8180a102513afa65d78b824481e7160413d",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 28.884836767800152,
+        "postconditionsPassed": true,
+        "testsPassed": 1,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "5cc0f0be2c663bea5395a6620ec649fbff4e8d3586aeb0a029a23f45f14cb9da",
+          "stderr.log": "f704ce5ea5c09502e443098013d35cc537047be0026ee48486d63203966506b8"
+        }
+      },
+      {
+        "binary": "unified_path_selection",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/unified_path_selection",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "2b06fe9339e302e6b9ca5c3bd5c24a40192b72dbe7dcb4cb90bec326fa1aa57f",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 0.008007269818335772,
+        "postconditionsPassed": true,
+        "testsPassed": 6,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "1db6791b5775f70e692dac7830c18f2ab29b004d4dd366580206d8f2e2f1b223",
+          "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "binary": "rtc_association",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/rtc_association",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "aaa52b2e3538f61bca663782b527804e076f346e4c8991de139cfcd7ae0eab9e",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 0.003889829386025667,
+        "postconditionsPassed": true,
+        "testsPassed": 3,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "f40779677747342172a9976e9d9e04a64baa46a4c08f3242bc5b51e7a8252a6c",
+          "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "binary": "rtc_path_qualification",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/rtc_path_qualification",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "10fec1e4e580c49f1322bab3eadf96df00853d151a1ad30052a7c907bf891a2b",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 4.926726964768022,
+        "postconditionsPassed": true,
+        "testsPassed": 7,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "5806a55125eac15ab4d2b05212c1e8ddd7b000bc0c65b1836c52ac342fb583ba",
+          "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "binary": "rtc_invalidation_barrier",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/rtc_invalidation_barrier",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "c4fea55d0d2fd30801812c687307d954a1a2f00ab071ac9ca564da6376a7d9d5",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 0.21466804388910532,
+        "postconditionsPassed": true,
+        "testsPassed": 1,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "a4ef3866ae6be9d1d780670cd80da58e28d529d98511ea477ce6abb32df91adb",
+          "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "binary": "restricted_endpoint",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/restricted_endpoint",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "41b3383999007713f452499ea0d7b8c10c463c39dc83375401e8aff79a94e314",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 4.123845945112407,
+        "postconditionsPassed": true,
+        "testsPassed": 19,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "f9ebdb017cfcfff261bcf9065ed7507c8d6c5a12630b740b1ed50ba3a300dcbc",
+          "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "binary": "admission_gate",
+        "command": [
+          "/tmp/miopunch-m92-20261018/corrected-admission-build-v2/pinned/admission_gate",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "c0b3c3c5c84e80e260240a95fd1af81cf8a637ca409e42ca46a3d00e51098e04",
+        "buildContextSha256": "b9167d1024865bcf266d57e2ea0c19b5ef0e9fdf5500da4f2affbd6e1421a247",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "c1d9409dea3399005197224f206a4a266d4373ac26c6f289d0b444f5a8217c2d",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 15.601516840048134,
+        "postconditionsPassed": true,
+        "testsPassed": 18,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "ec24e0abbf7a247d7b388e6727d06f5b2c3cab2d7789b217ad2e59b559dde958",
+          "stderr.log": "9eb30d4cd347bbf862266e55bcf309de832e548f6c8f8f79a3c0829ac5efbd7d"
+        }
+      },
+      {
+        "binary": "mqtt_upgrade",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/mqtt_upgrade",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "80c767d2b152851d8939d6faa7944e9cb3130a46ef45ef07627661c11afa4290",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 6.179453925229609,
+        "postconditionsPassed": true,
+        "testsPassed": 5,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "71c4f187d008e418ca67d152b4ca66d5f8dab4a33fe0405294972b04acbbac4e",
+          "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "binary": "member_attempt",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/member_attempt",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "968b8a2b9e1cafbb497653bf34a3f1c2b02ba04afe9eaf460b9b7f0a71496e18",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 0.9164219298399985,
+        "postconditionsPassed": true,
+        "testsPassed": 4,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "f19605bd9c5e365cf623972065ad502d83aa45dc365baf18e5248133c5987dc2",
+          "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "binary": "rtc_control_release",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/rtc_control_release",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "d481531764f3d5b03d5bc0cd8556616c0a7088389059c77d4432ea8b8babcb67",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 1.016693547833711,
+        "postconditionsPassed": true,
+        "testsPassed": 3,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "4e3a2b11b28eeb4f734ec6aa5b2914068ae58a069161fa45872b7f97327561b7",
+          "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "binary": "rtc_release_validation",
+        "command": [
+          "/tmp/miopunch-m92-20261018/verified-affected-tests-v5/pinned/rtc_release_validation",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "buildReceiptSha256": "12cc0efbdcdca0f7bf0a7f53cafba381be82d72552df564bd3aaf83b863eeef6",
+        "buildContextSha256": "c945f118368dd7ef64f4c93297bbfb9e014c954685a196138f15731070c524c9",
+        "driverSha256": "1134fa0ecda8629d47cf50ddbce8df75eee19c7199eef59028656e7173ded66d",
+        "binarySha256": "55843b1f7671b83c71f38646f5b60d4956c4e5581b0a8dc4b1afba2700e1055f",
+        "preconditionsPassed": true,
+        "exit": 0,
+        "forcedTermination": false,
+        "seconds": 0.41514143580570817,
+        "postconditionsPassed": true,
+        "testsPassed": 1,
+        "testsFailed": 0,
+        "nonemptyTestSelection": true,
+        "rawLogs": {
+          "stdout.log": "20844430ecbe00fb3b6d040015d94fd68e6c8302cba37b64f54121e36731db43",
+          "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "testsPassed": 121,
+    "passed": true,
+    "brokerLifecycles": [
+      {
+        "brokerImage": "sha256:315e99cbcdc0133a74897e77da0eb7124eec55fc17b617188874e8240738ae39",
+        "brokerExit": 0,
+        "brokerStopped": true,
+        "brokerRemoved": true
+      },
+      {
+        "brokerImage": "sha256:315e99cbcdc0133a74897e77da0eb7124eec55fc17b617188874e8240738ae39",
+        "brokerExit": 0,
+        "brokerStopped": true,
+        "brokerRemoved": true
+      },
+      {
+        "brokerImage": "sha256:315e99cbcdc0133a74897e77da0eb7124eec55fc17b617188874e8240738ae39",
+        "brokerExit": 0,
+        "brokerStopped": true,
+        "brokerRemoved": true
+      }
+    ],
+    "initialAdmissionRunHadTwoPreexistingFixtureFailures": true,
+    "fixtureCorrection": {
+      "path": "tests/admission_gate.rs",
+      "beforeSha256": "cc9d8c673a3f6d31c25b8c4259f06298df8ddd729031bed656976ec6e2fe5a50",
+      "afterSha256": "cb0c70208430ffb2e2492d7aa598887981cfb2e429b22870bcc3ea5ff23f45c1",
+      "productionSourceChanged": false,
+      "reason": "Both failures reproduced on c08e9b4 iroh baseline: old default proof budget and request peer protocol/caller context. Fixtures now select short deadline or current paired coordinator/caller deadline and explicit empty resources.",
+      "commit": "3428278885400d1fa30b89a49fed4ffe0ffdb1e8"
+    },
+    "sourceEquivalence": {
+      "sourceChangesSinceCurrentSdkAndCompilerChecks": [
+        "tests/admission_gate.rs"
+      ],
+      "productionSourcesUnchanged": true,
+      "noSdkRebuildRequiredForTestOnlyCorrection": true,
+      "sdkActualInputs": {
+        "verified-native-sdk": {
+          "allSelectedInputsStillMatch": true,
+          "count": 6620
+        },
+        "verified-wasm-sdk": {
+          "allSelectedInputsStillMatch": true,
+          "count": 3160
+        },
+        "verified-owned-relay": {
+          "allSelectedInputsStillMatch": true,
+          "count": 6620
+        }
+      },
+      "currentSourceDigest": "1407f95615fc9c3ed4d53fa9ad7b2fe147b33208d72747581fe57850c9409ac8",
+      "changedFixtureSha256": "cb0c70208430ffb2e2492d7aa598887981cfb2e429b22870bcc3ea5ff23f45c1"
+    }
+  },
+  "consumerChecks": {
+    "caseCount": 16,
+    "passed": true,
+    "librarySha256": "2444519e7f5e3652a514ed1820aa489ed4f5707218fe97b9d7b9e5c2ad87a701",
+    "cases": [
+      {
+        "consumer": "ordinary_handoff",
+        "exit": 0,
+        "expectedError": null,
+        "actualErrorCodes": [],
+        "passed": true,
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "consumer": "endpoint_conversion",
+        "exit": 1,
+        "expectedError": "E0277",
+        "actualErrorCodes": [
+          "E0277"
+        ],
+        "passed": true,
+        "stderrSha256": "f3a50e7b8e65482d9702ea49cdf96b2c8904b4bdbe97f9246e2ad51f9e4b43d8"
+      },
+      {
+        "consumer": "endpoint_borrow",
+        "exit": 1,
+        "expectedError": "E0599",
+        "actualErrorCodes": [
+          "E0599"
+        ],
+        "passed": true,
+        "stderrSha256": "bd79c5c32e006b7155799f3a8391710e87e86910ad7e488c05a4c3f63e8db826"
+      },
+      {
+        "consumer": "builder_conversion",
+        "exit": 1,
+        "expectedError": "E0277",
+        "actualErrorCodes": [
+          "E0277"
+        ],
+        "passed": true,
+        "stderrSha256": "6bb9fd0062318ef62728de4eef69016c76310d7fee4763dcae858c1565c75f3c"
+      },
+      {
+        "consumer": "incoming_conversion",
+        "exit": 1,
+        "expectedError": "E0277",
+        "actualErrorCodes": [
+          "E0277"
+        ],
+        "passed": true,
+        "stderrSha256": "ee8862c985087aa7ae86b3066118d6db48403ce232c56126203cf47a84fddd81"
+      },
+      {
+        "consumer": "accepting_conversion",
+        "exit": 1,
+        "expectedError": "E0277",
+        "actualErrorCodes": [
+          "E0277"
+        ],
+        "passed": true,
+        "stderrSha256": "0c7e5abc8d8145a7d539e5c8cd35eee9550cade7d330dca953f2b97387917cb1"
+      },
+      {
+        "consumer": "outgoing_early_data",
+        "exit": 1,
+        "expectedError": "E0599",
+        "actualErrorCodes": [
+          "E0599"
+        ],
+        "passed": true,
+        "stderrSha256": "557bb83972e5bb0c0b186ce417cd7db6aa2c3f1178270da71742e8fc0a13b36e"
+      },
+      {
+        "consumer": "incoming_early_data",
+        "exit": 1,
+        "expectedError": "E0599",
+        "actualErrorCodes": [
+          "E0599"
+        ],
+        "passed": true,
+        "stderrSha256": "a460ac9ddd5743424f1039628cb9c2f36fca34017a4c8afb89f094900c471ee8"
+      },
+      {
+        "consumer": "control_outgoing_early_data",
+        "exit": 1,
+        "expectedError": "E0599",
+        "actualErrorCodes": [
+          "E0599"
+        ],
+        "passed": true,
+        "stderrSha256": "655906dc9188a248dc584d35f69291c19f0083a6ac5865dbf046407c28df43cf"
+      },
+      {
+        "consumer": "control_incoming_early_data",
+        "exit": 1,
+        "expectedError": "E0599",
+        "actualErrorCodes": [
+          "E0599"
+        ],
+        "passed": true,
+        "stderrSha256": "76d6afcc4553ba45463b32b0d6c3aae2f6fc52f4f6d1ebf93b6f3d1c26579483"
+      },
+      {
+        "consumer": "control_conversion",
+        "exit": 1,
+        "expectedError": "E0277",
+        "actualErrorCodes": [
+          "E0277"
+        ],
+        "passed": true,
+        "stderrSha256": "6c23afedbedd4dd0d2983bc211a2800cd1e463ade8599a3c6af06bf9f89aca68"
+      },
+      {
+        "consumer": "control_borrow",
+        "exit": 1,
+        "expectedError": "E0599",
+        "actualErrorCodes": [
+          "E0599"
+        ],
+        "passed": true,
+        "stderrSha256": "37d32fe4fcbc480cdf5a839e7f12c4e80b7f5b79a224c800bde0ce981bcf0a3c"
+      },
+      {
+        "consumer": "control_stream",
+        "exit": 1,
+        "expectedError": "E0599",
+        "actualErrorCodes": [
+          "E0599"
+        ],
+        "passed": true,
+        "stderrSha256": "1a7ed344aea27e7097ec86e07e53364545e62b10b6e99c6927d582776cdcbf0e"
+      },
+      {
+        "consumer": "control_datagram",
+        "exit": 1,
+        "expectedError": "E0599",
+        "actualErrorCodes": [
+          "E0599"
+        ],
+        "passed": true,
+        "stderrSha256": "72e7f25ca4728eaa5f993f705ac90a5238465cb309523560e72f4015adeda22f"
+      },
+      {
+        "consumer": "weak_upgrade",
+        "exit": 1,
+        "expectedError": "E0599",
+        "actualErrorCodes": [
+          "E0599"
+        ],
+        "passed": true,
+        "stderrSha256": "793629b0b64801ef070912bacf51f9b0287cad6a65ec6385fcc543686747bec1"
+      },
+      {
+        "consumer": "router_endpoint",
+        "exit": 1,
+        "expectedError": "E0308",
+        "actualErrorCodes": [
+          "E0308"
+        ],
+        "passed": true,
+        "stderrSha256": "92ff166e3e5fc29adb04a189e76d52a8eb9d0a5c4056c1b87f7c7feb512a8a18"
+      }
+    ]
+  },
+  "currentSdkDemo": {
+    "nativeBuild": "verified-native-sdk",
+    "browserBuild": "verified-wasm-sdk",
+    "controlledLoopback": true,
+    "freshSyntheticIdentities": true,
+    "pendingRequestResult": "AwaitingApproval",
+    "actualApproval": true,
+    "durableAuthorizationAndSecretSaved": true,
+    "persistentIdentityReopened": true,
+    "businessPingPong": true,
+    "cleanup": {
+      "browser": {
+        "sdkStarted": true,
+        "closeReturned": true,
+        "freed": true,
+        "elapsedMs": 0.19999980926513672
+      },
+      "socketImmediateObservationPassed": true,
+      "lateSocketWaitMs": 0.014355999999679625,
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "nativeClosedReceipt": {
+        "cleanup_elapsed_ms": 0,
+        "event": "closed",
+        "graceful_close": true,
+        "mqtt_traffic": null,
+        "traffic": {
+          "driver_active": 0,
+          "expired": 0,
+          "fragments": 0,
+          "pending": 0,
+          "protocol": {
+            "accepted_bytes": 0,
+            "accepted_datagrams": [],
+            "assembly": {
+              "completed_age_ms": 0,
+              "delivered": 0,
+              "expired": 0,
+              "pending": 0,
+              "pending_peak": 0,
+              "rejected": 0
+            },
+            "failure": null,
+            "fragments": [],
+            "max_line_bytes": 0,
+            "part_sent": false,
+            "pong_sent": 0,
+            "qualification": {
+              "capability": false,
+              "isupport": [],
+              "joined": false,
+              "names_done": false,
+              "own_prefix_bytes": null,
+              "ready": false,
+              "registered": false,
+              "retired": false,
+              "safe_rate": false
+            },
+            "queue_age_ms": 0,
+            "queue_peak": 0,
+            "queue_pending": 0,
+            "quit_sent": false,
+            "ready_ms": null,
+            "received_bytes": 0,
+            "server_prefix": "",
+            "tls": null,
+            "withdraw_ms": null
+          },
+          "received": 0,
+          "rejected": 0,
+          "sent": 0
+        }
+      },
+      "ownedBrowserContextClosed": true,
+      "ownedBrowserProcessClosed": true,
+      "ownedOriginClosed": true,
+      "nativeProcessAbsentImmediate": true,
+      "nativeProcessAbsentLate": true,
+      "ownedFixtureRemoved": true
+    },
+    "driverAndOwnedFacilities": {
+      "publicTraffic": false,
+      "passed": true,
+      "containers": [
+        {
+          "name": "miopunch-m92-owned-irc-1792329487987585603",
+          "removed": true
+        }
+      ],
+      "cleanup": {
+        "relayExit": 0,
+        "relayGraceful": true,
+        "relayProcessAbsent": true
+      },
+      "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+      "relayStarted": true,
+      "runtimeExit": 0,
+      "functionalAndSdkCleanupQualified": true,
+      "rawReceiptSha256": "96faddb046984cb466c19db8f4323ae3a3fbecbde6c215a18f59f491cc41ec32",
+      "sourceArtifactControllerUnchangedAfterRuntime": true,
+      "wholeWallMs": 11376.74022698775,
+      "sourceDigest": "64b1263e0d748fdf74157e45865593a83d0efd620cff236769c1f35782887720",
+      "qualified": true
+    },
+    "rawReceiptSha256": "96faddb046984cb466c19db8f4323ae3a3fbecbde6c215a18f59f491cc41ec32"
+  },
+  "staticChecks": {
+    "newRustFilesFormatted": 18,
+    "pythonSyntaxPassed": true,
+    "gitDiffCheckPassed": true,
+    "protectedFilesUnchanged": 249,
+    "fixtureOnlyCorrectionDiffCheckPassed": true
+  }
+}
