@@ -1,0 +1,51 @@
+{
+  "native-default-green": {
+    "allActualSelectedInputsUnchanged": true,
+    "inputCount": 2122,
+    "repositoryInputCount": 30,
+    "immutableArtifactsUnchanged": true,
+    "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22"
+  },
+  "native-no-default-green": {
+    "allActualSelectedInputsUnchanged": true,
+    "inputCount": 2122,
+    "repositoryInputCount": 30,
+    "immutableArtifactsUnchanged": true,
+    "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22"
+  },
+  "native-test-utils-green": {
+    "allActualSelectedInputsUnchanged": true,
+    "inputCount": 2321,
+    "repositoryInputCount": 31,
+    "immutableArtifactsUnchanged": true,
+    "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22"
+  },
+  "browser-traits-green": {
+    "allActualSelectedInputsUnchanged": true,
+    "inputCount": 1015,
+    "repositoryInputCount": 30,
+    "immutableArtifactsUnchanged": true,
+    "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22"
+  },
+  "affected-replica-tests": {
+    "allActualSelectedInputsUnchanged": true,
+    "inputCount": 6621,
+    "repositoryInputCount": 294,
+    "immutableArtifactsUnchanged": true,
+    "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22"
+  },
+  "final-native-sdk": {
+    "allActualSelectedInputsUnchanged": true,
+    "inputCount": 6623,
+    "repositoryInputCount": 296,
+    "immutableArtifactsUnchanged": true,
+    "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22"
+  },
+  "final-browser-sdk": {
+    "allActualSelectedInputsUnchanged": true,
+    "inputCount": 3162,
+    "repositoryInputCount": 201,
+    "immutableArtifactsUnchanged": true,
+    "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22"
+  }
+}

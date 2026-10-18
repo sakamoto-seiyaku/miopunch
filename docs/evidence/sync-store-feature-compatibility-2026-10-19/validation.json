@@ -1,0 +1,2342 @@
+{
+  "baselineCommit": "f3b52078de257c6b7b09e851259b87c1a6d629c6",
+  "implementationCommit": "96b4cd12ad31f0b3ada6abc5a557d27f3af483fc",
+  "protectedPreexistingFileCount": 249,
+  "protectedPreexistingHashesUnchanged": true,
+  "beforeProductionEdits": {
+    "reports": {
+      "original-default-baseline/receipt.json": "9fd68c05e3630abaabca2355f6fa0f5a9e459ec9fa3198f6a8508ac3b9a01781",
+      "original-no-default-baseline/receipt.json": "a959687ddbb0f0e194aa2bab44fc0218ad91be2e3f1bbad81037c6a5c4f19f4d",
+      "original-default-baseline-runtime/receipt.json": "0d84d98e86c8c1683595b5d69fc9a4b0fe7acbf0a680035397a3bbd4548047ee",
+      "original-no-default-baseline-runtime/receipt.json": "1ae7c34bb941bed01370fb4fcc527a52fc19c3537a6fa7b1d1681044ecb7dea8",
+      "current-no-default-red/receipt.json": "76b5f454638dfa8be0ef49d141e5ca3c6cfb33d1722afc3475465a9251b1665f",
+      "current-storage-red/receipt.json": "c73a97baeca75d128204aa0f81660270ae09505a06be70a51154b4cbad7c4837",
+      "browser-platform-before/receipt.json": "3b2f2165466646a86d290888a0f79b0e83db7f6340e362e170d4dfbd170bc5f6",
+      "graphs-before/receipt.json": "051ea332d868905c094b39a681531f9ace883d89bac6d1117617e4c01ecdae81",
+      "graphs-own-dev-before/receipt.json": "89e1d469e50e75fdeb8defa0129fbe8bd20b064d0116fe32f938484fa635c6ea"
+    },
+    "sourceSnapshot": "f3b52078de257c6b7b09e851259b87c1a6d629c6\n",
+    "fixedInputs": {
+      "/tmp/miopunch-m97-20261019/native-store-consumer.rs": "3707c39d390feb0fcacf65e603945a819e9b2b3c2038cfc1ae4eaefafe221652",
+      "/tmp/miopunch-m97-20261019/browser-store-consumer.rs": "b44a23e461f8c33131030a11c6f75da5222ede7f460950ce4815c03d856ed963",
+      "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/Cargo.toml": "932c2bc575fab17f90d9f94564f5b7b4330a07fb1a71b8c456a3d7be0dc6c040",
+      "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/lib.rs": "65004a21116d534e46300f96603918a0820c8531f601e90beb616dea0e2c893d",
+      "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/traits.rs": "08c945b7a38f6215a52c69ef291c4733cfb05a5b817bbe9a1d3383f98ee562bf",
+      "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/dedup.rs": "ff4547b6c351bab938fe91deec6a73aaf9e97aea150da313b46d16652273346b",
+      "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/test_utils.rs": "bb90144c6a9890b6dbc6f7a2c77e4d7a3f50a2a0c7eadb48b394ac69263b501a",
+      "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/mod.rs": "5f8a5c745830983982b5d4c675ca6dc0f39608fc6173b1a67599bc8900ceddd9",
+      "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/topic_log_sync.rs": "ce92fa265751fd102d8088164c914f8fd8204769699eae64ca3c4dd13a39e8af",
+      "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/topic_handshake.rs": "c59b24a894299b59d1c49604f80d67e8e9e52ef69e49f57665d2669dadf5f08e",
+      "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/log_sync.rs": "eb666fd0733a9d6b80befa051c752b8f99ecf7a1013d1ede4537e69f799a4949",
+      "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/mod.rs": "76bad2da32956160c1b1a91854fbd1cbb2554af9cc0d0664eb96ec4dd29790ed",
+      "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/session_map.rs": "4cc47d3b98a2e1705c7fc01ed45b980143a2f3d523d67e5875be59cadc72482c",
+      "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/event_stream.rs": "eaac7155d01add3ca1a0c6d4f1858f09a460c88dcb1311bf1dd9aa18429042eb"
+    }
+  },
+  "originalContractContinuity": {
+    "allSyncRustFilesByteIdenticalToPublished071": true,
+    "rustFileCount": 11,
+    "rustFiles": {
+      "src/lib.rs": "65004a21116d534e46300f96603918a0820c8531f601e90beb616dea0e2c893d",
+      "src/traits.rs": "08c945b7a38f6215a52c69ef291c4733cfb05a5b817bbe9a1d3383f98ee562bf",
+      "src/dedup.rs": "ff4547b6c351bab938fe91deec6a73aaf9e97aea150da313b46d16652273346b",
+      "src/test_utils.rs": "bb90144c6a9890b6dbc6f7a2c77e4d7a3f50a2a0c7eadb48b394ac69263b501a",
+      "src/protocols/mod.rs": "5f8a5c745830983982b5d4c675ca6dc0f39608fc6173b1a67599bc8900ceddd9",
+      "src/protocols/topic_log_sync.rs": "ce92fa265751fd102d8088164c914f8fd8204769699eae64ca3c4dd13a39e8af",
+      "src/protocols/topic_handshake.rs": "c59b24a894299b59d1c49604f80d67e8e9e52ef69e49f57665d2669dadf5f08e",
+      "src/protocols/log_sync.rs": "eb666fd0733a9d6b80befa051c752b8f99ecf7a1013d1ede4537e69f799a4949",
+      "src/manager/mod.rs": "76bad2da32956160c1b1a91854fbd1cbb2554af9cc0d0664eb96ec4dd29790ed",
+      "src/manager/session_map.rs": "4cc47d3b98a2e1705c7fc01ed45b980143a2f3d523d67e5875be59cadc72482c",
+      "src/manager/event_stream.rs": "eaac7155d01add3ca1a0c6d4f1858f09a460c88dcb1311bf1dd9aa18429042eb"
+    },
+    "permanentConsumersByteIdenticalToQualifiedBeforeEditConsumers": true,
+    "rootLockSha256": "34101f38f3db0aaa539a5fabe46746a0b13077cd24bcb817abaf6a8002dd926b",
+    "normalFuturesChannelSinkExplicit": true,
+    "protocolAndSchedulerChanges": false,
+    "targetBoundary": "Traits only on wasm32-unknown-unknown; upstream store defaults elsewhere; no WASI build claim",
+    "ownDevGraphsUseExactPublishedLockSha256": "3c4ed83548d7b9cc221ec82d39ac18002b50fe8a9423dc43272bec0ac0f8a389"
+  },
+  "fixedConsumerInputs": {
+    "/tmp/miopunch-m97-20261019/native-store-consumer.rs": "3707c39d390feb0fcacf65e603945a819e9b2b3c2038cfc1ae4eaefafe221652",
+    "/tmp/miopunch-m97-20261019/browser-store-consumer.rs": "b44a23e461f8c33131030a11c6f75da5222ede7f460950ce4815c03d856ed963",
+    "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/Cargo.toml": "932c2bc575fab17f90d9f94564f5b7b4330a07fb1a71b8c456a3d7be0dc6c040",
+    "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/lib.rs": "65004a21116d534e46300f96603918a0820c8531f601e90beb616dea0e2c893d",
+    "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/traits.rs": "08c945b7a38f6215a52c69ef291c4733cfb05a5b817bbe9a1d3383f98ee562bf",
+    "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/dedup.rs": "ff4547b6c351bab938fe91deec6a73aaf9e97aea150da313b46d16652273346b",
+    "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/test_utils.rs": "bb90144c6a9890b6dbc6f7a2c77e4d7a3f50a2a0c7eadb48b394ac69263b501a",
+    "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/mod.rs": "5f8a5c745830983982b5d4c675ca6dc0f39608fc6173b1a67599bc8900ceddd9",
+    "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/topic_log_sync.rs": "ce92fa265751fd102d8088164c914f8fd8204769699eae64ca3c4dd13a39e8af",
+    "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/topic_handshake.rs": "c59b24a894299b59d1c49604f80d67e8e9e52ef69e49f57665d2669dadf5f08e",
+    "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/log_sync.rs": "eb666fd0733a9d6b80befa051c752b8f99ecf7a1013d1ede4537e69f799a4949",
+    "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/mod.rs": "76bad2da32956160c1b1a91854fbd1cbb2554af9cc0d0664eb96ec4dd29790ed",
+    "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/session_map.rs": "4cc47d3b98a2e1705c7fc01ed45b980143a2f3d523d67e5875be59cadc72482c",
+    "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/event_stream.rs": "eaac7155d01add3ca1a0c6d4f1858f09a460c88dcb1311bf1dd9aa18429042eb"
+  },
+  "sameConsumerOriginalAndFork": {
+    "original-default-baseline": {
+      "exit": 0,
+      "cargoSeconds": 17.37262294907123,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m97-20261019/original-default/Cargo.toml",
+        "--bin",
+        "m97-native-store-consumer",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 133,
+      "rebuiltArtifacts": 41,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m97-20261019/original-default-baseline/pinned/m97-native-store-consumer": "7a1e5a674135a39f8f929ef65d28c710f32cca7ecf9ee28822268b4cf5e7d755"
+      },
+      "actualSelectedInputCount": 2122,
+      "actualCapturedDepfileCount": 156,
+      "actualSourceCopyCount": 20,
+      "sourceDigestBefore": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "sourceDigestAfter": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "diskAfter": {
+        "freeBytes": 11266416640,
+        "cacheBytes": 100785676288
+      }
+    },
+    "original-no-default-baseline": {
+      "exit": 0,
+      "cargoSeconds": 1.755796137265861,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m97-20261019/original-no-default/Cargo.toml",
+        "--bin",
+        "m97-native-store-consumer",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 172,
+      "rebuiltArtifacts": 2,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m97-20261019/original-no-default-baseline/pinned/m97-native-store-consumer": "516a88481d66d3381547f82ecf8749ff49988cc158ca09d98873615c24e55eb1"
+      },
+      "actualSelectedInputCount": 2122,
+      "actualCapturedDepfileCount": 156,
+      "actualSourceCopyCount": 20,
+      "sourceDigestBefore": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "sourceDigestAfter": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "diskAfter": {
+        "freeBytes": 11211259904,
+        "cacheBytes": 100813631488
+      }
+    },
+    "original-default-baseline-runtime": {
+      "exit": 0,
+      "seconds": 0.08463139133527875,
+      "forcedTermination": false,
+      "binarySha256": "7a1e5a674135a39f8f929ef65d28c710f32cca7ecf9ee28822268b4cf5e7d755",
+      "consumerSha256": "3707c39d390feb0fcacf65e603945a819e9b2b3c2038cfc1ae4eaefafe221652",
+      "sqlitePoolClosedAndFixtureRemoved": true,
+      "buildReceiptSha256": "9fd68c05e3630abaabca2355f6fa0f5a9e459ec9fa3198f6a8508ac3b9a01781",
+      "fixedInputsUnchanged": true,
+      "stdoutSha256": "49095fb7774d0d23453d3da9cdce1564226d0a915fe5de789581a012e7f11a54",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "original-no-default-baseline-runtime": {
+      "exit": 0,
+      "seconds": 0.08500042511150241,
+      "forcedTermination": false,
+      "binarySha256": "516a88481d66d3381547f82ecf8749ff49988cc158ca09d98873615c24e55eb1",
+      "consumerSha256": "3707c39d390feb0fcacf65e603945a819e9b2b3c2038cfc1ae4eaefafe221652",
+      "sqlitePoolClosedAndFixtureRemoved": true,
+      "buildReceiptSha256": "a959687ddbb0f0e194aa2bab44fc0218ad91be2e3f1bbad81037c6a5c4f19f4d",
+      "fixedInputsUnchanged": true,
+      "stdoutSha256": "49095fb7774d0d23453d3da9cdce1564226d0a915fe5de789581a012e7f11a54",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "current-no-default-red": {
+      "exit": 101,
+      "cargoSeconds": 9.636338202282786,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m97-20261019/current-no-default/Cargo.toml",
+        "--bin",
+        "m97-native-store-consumer",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 71,
+      "rebuiltArtifacts": 20,
+      "qualifiedForFrozenRun": false,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {},
+      "sourceDigestBefore": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "sourceDigestAfter": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "diskAfter": {
+        "freeBytes": 11097403392,
+        "cacheBytes": 100926902272
+      }
+    },
+    "current-storage-red": {
+      "exit": 101,
+      "cargoSeconds": 0.9188752537593246,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m97-20261019/current-storage-diagnostic/Cargo.toml",
+        "--bin",
+        "m97-native-store-consumer",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 91,
+      "rebuiltArtifacts": 2,
+      "qualifiedForFrozenRun": false,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {},
+      "sourceDigestBefore": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "sourceDigestAfter": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "diskAfter": {
+        "freeBytes": 11056607232,
+        "cacheBytes": 100966424576
+      }
+    },
+    "browser-platform-before": {
+      "exit": 101,
+      "cargoSeconds": 15.405481836758554,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m97-20261019/browser-platform-selector/Cargo.toml",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--lib",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 50,
+      "rebuiltArtifacts": 39,
+      "qualifiedForFrozenRun": false,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {},
+      "sourceDigestBefore": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "sourceDigestAfter": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "diskAfter": {
+        "freeBytes": 10904723456,
+        "cacheBytes": 101117857792
+      }
+    },
+    "native-default-green-runtime": {
+      "exit": 0,
+      "seconds": 0.08498937636613846,
+      "forcedTermination": false,
+      "binarySha256": "940e94019d1e4fb97e48355dfba41a34cb9e923b00822faebb5bffe4b3a6800e",
+      "consumerSha256": "3707c39d390feb0fcacf65e603945a819e9b2b3c2038cfc1ae4eaefafe221652",
+      "sqlitePoolClosedAndFixtureRemoved": true,
+      "buildReceiptSha256": "7277ef81a495bf7780f684fe6edf0d65532d85d3bd49e475bf997a9aabea74af",
+      "fixedInputsUnchanged": true,
+      "stdoutSha256": "49095fb7774d0d23453d3da9cdce1564226d0a915fe5de789581a012e7f11a54",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-no-default-green-runtime": {
+      "exit": 0,
+      "seconds": 0.09344037668779492,
+      "forcedTermination": false,
+      "binarySha256": "1dd638e3c4bffd865dbcada023d8a3e43252495e64a52986483f131bfff26f6c",
+      "consumerSha256": "3707c39d390feb0fcacf65e603945a819e9b2b3c2038cfc1ae4eaefafe221652",
+      "sqlitePoolClosedAndFixtureRemoved": true,
+      "buildReceiptSha256": "0b8f4a8b8812ad496209c5e9455e2910709b65e0d66262f666e48df70296088c",
+      "fixedInputsUnchanged": true,
+      "stdoutSha256": "49095fb7774d0d23453d3da9cdce1564226d0a915fe5de789581a012e7f11a54",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-test-utils-green-runtime": {
+      "exit": 0,
+      "seconds": 0.08782998379319906,
+      "forcedTermination": false,
+      "binarySha256": "4cc7856110e7c7c52fe7f6d37e2ae629857e0a986bbea99ca79a98988bd3810c",
+      "consumerSha256": "3707c39d390feb0fcacf65e603945a819e9b2b3c2038cfc1ae4eaefafe221652",
+      "sqlitePoolClosedAndFixtureRemoved": true,
+      "buildReceiptSha256": "0845314eaf394d107f9fcb6f05a2d81caad66fb564b275e165a48f659211a5f5",
+      "fixedInputsUnchanged": true,
+      "stdoutSha256": "49095fb7774d0d23453d3da9cdce1564226d0a915fe5de789581a012e7f11a54",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "featureGraphs": {
+    "graphs-before": {
+      "sourceDigest": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "allSourceLockToolInputsUnchanged": true,
+      "cargoCompilationInvoked": false,
+      "graphs": {
+        "original-default": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/original-default/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.387713769916445,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite",
+            "p2panda-store v0.7.1|default,macros,sqlite (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1)|default"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "2763d078f05e404c362c34783b17e5106ea8b7e4ade6113c6e709fc885687f44",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "original-no-default": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/original-no-default/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.3698891489766538,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite",
+            "p2panda-store v0.7.1|default,macros,sqlite (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1)|"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "6556549d178a5fc4601e34ab093960e7fa63f817af380977fa0c0c33c60721e5",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "current-default": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/current-default/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.34815340815111995,
+          "storeLines": [
+            "p2panda-store v0.7.1|",
+            "p2panda-store v0.7.1| (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|default"
+          ],
+          "sqlxPresent": false,
+          "stdoutSha256": "d991815bf677be16b4d11222cc7f282ace2053fadc0a4421ba6ca2863b19ddc7",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "current-no-default": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/current-no-default/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.34101910470053554,
+          "storeLines": [
+            "p2panda-store v0.7.1|",
+            "p2panda-store v0.7.1| (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|"
+          ],
+          "sqlxPresent": false,
+          "stdoutSha256": "98a7236c6059bef69a1498d43d2959ada7004fbf00d7fa323a7963a56d7d206e",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "browser-normal": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/browser-selector/Cargo.toml",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.34871595026925206,
+          "storeLines": [
+            "p2panda-store v0.7.1|",
+            "p2panda-store v0.7.1| (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|"
+          ],
+          "sqlxPresent": false,
+          "stdoutSha256": "3d22aff4885d283ed702296ea544962e399d7e1a0c4b8ebcdfed091f5dbc56f0",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "browser-explicit-test-utils": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/browser-selector/Cargo.toml",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}",
+            "--features",
+            "p2panda-sync/test_utils"
+          ],
+          "exit": 0,
+          "seconds": 0.37185658793896437,
+          "storeLines": [
+            "p2panda-store v0.7.1|sqlite,test_utils",
+            "p2panda-store v0.7.1|sqlite,test_utils (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|test_utils"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "dbaa8b56f1d8793ece07556dc2f6c940a99d9e7de2faf212dbd04067993a2a71",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "native-explicit-test-utils": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/current-no-default/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}",
+            "--features",
+            "p2panda-sync/test_utils"
+          ],
+          "exit": 0,
+          "seconds": 0.37984685273841023,
+          "storeLines": [
+            "p2panda-store v0.7.1|sqlite,test_utils",
+            "p2panda-store v0.7.1|sqlite,test_utils (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|test_utils"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "3a71054aed896a70652b229f074d5739aeabc1cae7b9012679d7d86573299963",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "browser-sdk-normal": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/home/js/Git/miopunch/Cargo.toml",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}",
+            "-p",
+            "miopunch-browser-probe"
+          ],
+          "exit": 0,
+          "seconds": 0.423995400313288,
+          "storeLines": [
+            "p2panda-store v0.7.1|",
+            "p2panda-store v0.7.1| (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|"
+          ],
+          "sqlxPresent": false,
+          "stdoutSha256": "f10d54cef6f0891eb0a02072e6b9d19c77a1194b11209c5019b004fd7c005c47",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "browser-sdk-dev": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/home/js/Git/miopunch/Cargo.toml",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--edges",
+            "normal,build,dev",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}",
+            "-p",
+            "miopunch-browser-probe"
+          ],
+          "exit": 0,
+          "seconds": 0.43282585963606834,
+          "storeLines": [
+            "p2panda-store v0.7.1|",
+            "p2panda-store v0.7.1| (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|"
+          ],
+          "sqlxPresent": false,
+          "stdoutSha256": "f10d54cef6f0891eb0a02072e6b9d19c77a1194b11209c5019b004fd7c005c47",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "native-workspace-dev": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/home/js/Git/miopunch/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build,dev",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}",
+            "--workspace"
+          ],
+          "exit": 0,
+          "seconds": 0.48259758623316884,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils",
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|default,test_utils",
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|default,test_utils (*)"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "c38c73b0ee623c1066290257f1b2be83d6510aa368d12fd7e1c782dd80a96b65",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "sync-own-native-dev": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/current-no-default/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build,dev",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}",
+            "-p",
+            "p2panda-sync"
+          ],
+          "exit": 0,
+          "seconds": 0.3655976359732449,
+          "storeLines": [
+            "p2panda-store v0.7.1|"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|"
+          ],
+          "sqlxPresent": false,
+          "stdoutSha256": "6bffb7622dc092ed2606af941c2c53bc7a3c7e9c3ebfa876447ddcb639e6a99c",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "sync-own-browser-dev": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/browser-selector/Cargo.toml",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--edges",
+            "normal,build,dev",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}",
+            "-p",
+            "p2panda-sync"
+          ],
+          "exit": 0,
+          "seconds": 0.3724818630144,
+          "storeLines": [
+            "p2panda-store v0.7.1|"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|"
+          ],
+          "sqlxPresent": false,
+          "stdoutSha256": "3c96efd80768bbe7fffcfc6e0f41da12cc17a4a0942b3449c11f857d4cf7c64f",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "wasi-default-boundary": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/current-no-default/Cargo.toml",
+            "--target",
+            "wasm32-wasip1",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.39058197755366564,
+          "storeLines": [
+            "p2panda-store v0.7.1|",
+            "p2panda-store v0.7.1| (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|"
+          ],
+          "sqlxPresent": false,
+          "stdoutSha256": "9f1be40768fab6044ca0930901938ae5b68ce0577c353dfb1d1c2888b4ff949a",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "fixedInputs": {
+        "/tmp/miopunch-m97-20261019/native-store-consumer.rs": "3707c39d390feb0fcacf65e603945a819e9b2b3c2038cfc1ae4eaefafe221652",
+        "/tmp/miopunch-m97-20261019/browser-store-consumer.rs": "b44a23e461f8c33131030a11c6f75da5222ede7f460950ce4815c03d856ed963",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/Cargo.toml": "932c2bc575fab17f90d9f94564f5b7b4330a07fb1a71b8c456a3d7be0dc6c040",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/lib.rs": "65004a21116d534e46300f96603918a0820c8531f601e90beb616dea0e2c893d",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/traits.rs": "08c945b7a38f6215a52c69ef291c4733cfb05a5b817bbe9a1d3383f98ee562bf",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/dedup.rs": "ff4547b6c351bab938fe91deec6a73aaf9e97aea150da313b46d16652273346b",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/test_utils.rs": "bb90144c6a9890b6dbc6f7a2c77e4d7a3f50a2a0c7eadb48b394ac69263b501a",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/mod.rs": "5f8a5c745830983982b5d4c675ca6dc0f39608fc6173b1a67599bc8900ceddd9",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/topic_log_sync.rs": "ce92fa265751fd102d8088164c914f8fd8204769699eae64ca3c4dd13a39e8af",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/topic_handshake.rs": "c59b24a894299b59d1c49604f80d67e8e9e52ef69e49f57665d2669dadf5f08e",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/log_sync.rs": "eb666fd0733a9d6b80befa051c752b8f99ecf7a1013d1ede4537e69f799a4949",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/mod.rs": "76bad2da32956160c1b1a91854fbd1cbb2554af9cc0d0664eb96ec4dd29790ed",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/session_map.rs": "4cc47d3b98a2e1705c7fc01ed45b980143a2f3d523d67e5875be59cadc72482c",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/event_stream.rs": "eaac7155d01add3ca1a0c6d4f1858f09a460c88dcb1311bf1dd9aa18429042eb",
+        "/tmp/miopunch-m97-20261019/original-default/Cargo.toml": "d4a20ba5c9c64a088ad73068736967ea0a14efc76c9decb3b29ecc149d5d36f0",
+        "/tmp/miopunch-m97-20261019/original-default/Cargo.lock": "5dadbbd0ba55bc3deb06fe56a6520133c75def67c3978f1782617cc924519162",
+        "/tmp/miopunch-m97-20261019/original-no-default/Cargo.toml": "f9518c2d02fff4e06152adc928902b326e2f596d9f336e5b3ff93a998dbb4868",
+        "/tmp/miopunch-m97-20261019/original-no-default/Cargo.lock": "5dadbbd0ba55bc3deb06fe56a6520133c75def67c3978f1782617cc924519162",
+        "/tmp/miopunch-m97-20261019/current-default/Cargo.toml": "26062f327ebd3c0ba87ea2f474c1793bf1a2477da8c789a3d33299bedab741f4",
+        "/tmp/miopunch-m97-20261019/current-default/Cargo.lock": "5dadbbd0ba55bc3deb06fe56a6520133c75def67c3978f1782617cc924519162",
+        "/tmp/miopunch-m97-20261019/current-no-default/Cargo.toml": "e13d399c3195a52291fd846ecaafcc8a3656b8bf6a13a1b3ec0793deff2ed2ef",
+        "/tmp/miopunch-m97-20261019/current-no-default/Cargo.lock": "5dadbbd0ba55bc3deb06fe56a6520133c75def67c3978f1782617cc924519162",
+        "/tmp/miopunch-m97-20261019/browser-selector/Cargo.toml": "207c861d0868c17fff94201a89eba72b4c480df82721eeaa4ba80d663bc13323",
+        "/tmp/miopunch-m97-20261019/browser-selector/Cargo.lock": "5dadbbd0ba55bc3deb06fe56a6520133c75def67c3978f1782617cc924519162",
+        "/home/js/Git/miopunch/Cargo.toml": "64c21c456112156acde174dc6aad6e1b235d101b776643e832d7295a65590979",
+        "/home/js/Git/miopunch/Cargo.lock": "34101f38f3db0aaa539a5fabe46746a0b13077cd24bcb817abaf6a8002dd926b"
+      }
+    },
+    "graphs-after": {
+      "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "allSourceLockToolInputsUnchanged": true,
+      "cargoCompilationInvoked": false,
+      "graphs": {
+        "original-default": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/original-default/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.39294721791520715,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite",
+            "p2panda-store v0.7.1|default,macros,sqlite (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1)|default"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "2763d078f05e404c362c34783b17e5106ea8b7e4ade6113c6e709fc885687f44",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "original-no-default": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/original-no-default/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.3915873640216887,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite",
+            "p2panda-store v0.7.1|default,macros,sqlite (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1)|"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "6556549d178a5fc4601e34ab093960e7fa63f817af380977fa0c0c33c60721e5",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "current-default": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/current-default/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.38935619313269854,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite",
+            "p2panda-store v0.7.1|default,macros,sqlite (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|default"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "9fff7f41f46f56c325995915c41a6284c56a1f4161a4ceb1f2a7d9acaf484a83",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "current-no-default": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/current-no-default/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.38785356003791094,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite",
+            "p2panda-store v0.7.1|default,macros,sqlite (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "9f022940cfd5f0613d8f6a5967f5894986c96be7cf336a7a28ccb1eb5bf43a2a",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "browser-normal": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/browser-platform-selector/Cargo.toml",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.386313296854496,
+          "storeLines": [
+            "p2panda-store v0.7.1|",
+            "p2panda-store v0.7.1| (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|"
+          ],
+          "sqlxPresent": false,
+          "stdoutSha256": "0f56de7ba5b0475945494d21933938d7e5edb08d805ddc3f8f2b24ff678403da",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "browser-explicit-test-utils": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/browser-platform-selector/Cargo.toml",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}",
+            "--features",
+            "p2panda-sync/test_utils"
+          ],
+          "exit": 0,
+          "seconds": 0.39707057923078537,
+          "storeLines": [
+            "p2panda-store v0.7.1|sqlite,test_utils",
+            "p2panda-store v0.7.1|sqlite,test_utils (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|test_utils"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "97a220ce0965035a69c3851c9a2cb7dffce2818be2b6c04588dece906fade425",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "native-explicit-test-utils": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/current-no-default/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}",
+            "--features",
+            "p2panda-sync/test_utils"
+          ],
+          "exit": 0,
+          "seconds": 0.4030655729584396,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils",
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|test_utils"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "bc7b7f7e28dfac30594a43afb5dbe270aeaed229c6aa56d569dce0a5686a7f5b",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "browser-sdk-normal": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/home/js/Git/miopunch/Cargo.toml",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}",
+            "-p",
+            "miopunch-browser-probe"
+          ],
+          "exit": 0,
+          "seconds": 0.4628770067356527,
+          "storeLines": [
+            "p2panda-store v0.7.1|",
+            "p2panda-store v0.7.1| (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|"
+          ],
+          "sqlxPresent": false,
+          "stdoutSha256": "f10d54cef6f0891eb0a02072e6b9d19c77a1194b11209c5019b004fd7c005c47",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "browser-sdk-dev": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/home/js/Git/miopunch/Cargo.toml",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--edges",
+            "normal,build,dev",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}",
+            "-p",
+            "miopunch-browser-probe"
+          ],
+          "exit": 0,
+          "seconds": 0.45722635742276907,
+          "storeLines": [
+            "p2panda-store v0.7.1|",
+            "p2panda-store v0.7.1| (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|"
+          ],
+          "sqlxPresent": false,
+          "stdoutSha256": "f10d54cef6f0891eb0a02072e6b9d19c77a1194b11209c5019b004fd7c005c47",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "native-workspace-dev": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/home/js/Git/miopunch/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build,dev",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}",
+            "--workspace"
+          ],
+          "exit": 0,
+          "seconds": 0.5380307738669217,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils",
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|default,test_utils",
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|default,test_utils (*)"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "c38c73b0ee623c1066290257f1b2be83d6510aa368d12fd7e1c782dd80a96b65",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "wasi-default-boundary": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/current-no-default/Cargo.toml",
+            "--target",
+            "wasm32-wasip1",
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.39085196889936924,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite",
+            "p2panda-store v0.7.1|default,macros,sqlite (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/home/js/Git/miopunch/vendor/p2panda-sync)|"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "3f3017c20ad57eb8dfeea5e6cf4a5a795269bc0e91e07918589be08f535c9f1e",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "fixedInputs": {
+        "/tmp/miopunch-m97-20261019/native-store-consumer.rs": "3707c39d390feb0fcacf65e603945a819e9b2b3c2038cfc1ae4eaefafe221652",
+        "/tmp/miopunch-m97-20261019/browser-store-consumer.rs": "b44a23e461f8c33131030a11c6f75da5222ede7f460950ce4815c03d856ed963",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/Cargo.toml": "932c2bc575fab17f90d9f94564f5b7b4330a07fb1a71b8c456a3d7be0dc6c040",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/lib.rs": "65004a21116d534e46300f96603918a0820c8531f601e90beb616dea0e2c893d",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/traits.rs": "08c945b7a38f6215a52c69ef291c4733cfb05a5b817bbe9a1d3383f98ee562bf",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/dedup.rs": "ff4547b6c351bab938fe91deec6a73aaf9e97aea150da313b46d16652273346b",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/test_utils.rs": "bb90144c6a9890b6dbc6f7a2c77e4d7a3f50a2a0c7eadb48b394ac69263b501a",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/mod.rs": "5f8a5c745830983982b5d4c675ca6dc0f39608fc6173b1a67599bc8900ceddd9",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/topic_log_sync.rs": "ce92fa265751fd102d8088164c914f8fd8204769699eae64ca3c4dd13a39e8af",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/topic_handshake.rs": "c59b24a894299b59d1c49604f80d67e8e9e52ef69e49f57665d2669dadf5f08e",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/log_sync.rs": "eb666fd0733a9d6b80befa051c752b8f99ecf7a1013d1ede4537e69f799a4949",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/mod.rs": "76bad2da32956160c1b1a91854fbd1cbb2554af9cc0d0664eb96ec4dd29790ed",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/session_map.rs": "4cc47d3b98a2e1705c7fc01ed45b980143a2f3d523d67e5875be59cadc72482c",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/event_stream.rs": "eaac7155d01add3ca1a0c6d4f1858f09a460c88dcb1311bf1dd9aa18429042eb",
+        "/tmp/miopunch-m97-20261019/original-default/Cargo.toml": "d4a20ba5c9c64a088ad73068736967ea0a14efc76c9decb3b29ecc149d5d36f0",
+        "/tmp/miopunch-m97-20261019/original-default/Cargo.lock": "5dadbbd0ba55bc3deb06fe56a6520133c75def67c3978f1782617cc924519162",
+        "/tmp/miopunch-m97-20261019/original-no-default/Cargo.toml": "f9518c2d02fff4e06152adc928902b326e2f596d9f336e5b3ff93a998dbb4868",
+        "/tmp/miopunch-m97-20261019/original-no-default/Cargo.lock": "5dadbbd0ba55bc3deb06fe56a6520133c75def67c3978f1782617cc924519162",
+        "/tmp/miopunch-m97-20261019/current-default/Cargo.toml": "26062f327ebd3c0ba87ea2f474c1793bf1a2477da8c789a3d33299bedab741f4",
+        "/tmp/miopunch-m97-20261019/current-default/Cargo.lock": "5dadbbd0ba55bc3deb06fe56a6520133c75def67c3978f1782617cc924519162",
+        "/tmp/miopunch-m97-20261019/current-no-default/Cargo.toml": "e13d399c3195a52291fd846ecaafcc8a3656b8bf6a13a1b3ec0793deff2ed2ef",
+        "/tmp/miopunch-m97-20261019/current-no-default/Cargo.lock": "5dadbbd0ba55bc3deb06fe56a6520133c75def67c3978f1782617cc924519162",
+        "/tmp/miopunch-m97-20261019/browser-platform-selector/Cargo.toml": "717fa264c4b460a34c299871b16f02efc78a22e70cec61b045ef5c06b5a2db37",
+        "/tmp/miopunch-m97-20261019/browser-platform-selector/Cargo.lock": "d38d5dcb173fa609b1031729539ed3c08bd28bd27e6a588103adcd500a137889",
+        "/home/js/Git/miopunch/Cargo.toml": "64c21c456112156acde174dc6aad6e1b235d101b776643e832d7295a65590979",
+        "/home/js/Git/miopunch/Cargo.lock": "34101f38f3db0aaa539a5fabe46746a0b13077cd24bcb817abaf6a8002dd926b"
+      }
+    },
+    "graphs-own-dev-before": {
+      "sourceDigest": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "allSourceLockToolInputsUnchanged": true,
+      "cargoCompilationInvoked": false,
+      "graphs": {
+        "original-own-native-dev": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build,dev",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.3023424060083926,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils",
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/tmp/miopunch-m97-20261019/sync-dev-original-lock-before)|default"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "fe44792ac0691fcedd413f45cf06e399642d4713dfb980419d4356578cbfca4b",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "original-own-browser-dev": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/Cargo.toml",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--edges",
+            "normal,build,dev",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.29840891994535923,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils",
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/tmp/miopunch-m97-20261019/sync-dev-original-lock-before)|default"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "492739cfcb71d65e79a55e19fec6c4217195241df000a0ea634f6273d609cc73",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "current-own-native-dev": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-before/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build,dev",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.2983420486561954,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils",
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/tmp/miopunch-m97-20261019/sync-dev-fork-lock-before)|default"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "f777203807a869229255d7db0322beec7065806d36c7790ae55bf1eb049f55fa",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "current-own-browser-dev": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-before/Cargo.toml",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--edges",
+            "normal,build,dev",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.29800952784717083,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils",
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/tmp/miopunch-m97-20261019/sync-dev-fork-lock-before)|default"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "98871fdb2ea77dfda82d948b67d5524022d1abc321ef24b1ac6b0abf3b89afd8",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "fixedInputs": {
+        "/tmp/miopunch-m97-20261019/native-store-consumer.rs": "3707c39d390feb0fcacf65e603945a819e9b2b3c2038cfc1ae4eaefafe221652",
+        "/tmp/miopunch-m97-20261019/browser-store-consumer.rs": "b44a23e461f8c33131030a11c6f75da5222ede7f460950ce4815c03d856ed963",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/Cargo.toml": "932c2bc575fab17f90d9f94564f5b7b4330a07fb1a71b8c456a3d7be0dc6c040",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/lib.rs": "65004a21116d534e46300f96603918a0820c8531f601e90beb616dea0e2c893d",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/traits.rs": "08c945b7a38f6215a52c69ef291c4733cfb05a5b817bbe9a1d3383f98ee562bf",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/dedup.rs": "ff4547b6c351bab938fe91deec6a73aaf9e97aea150da313b46d16652273346b",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/test_utils.rs": "bb90144c6a9890b6dbc6f7a2c77e4d7a3f50a2a0c7eadb48b394ac69263b501a",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/mod.rs": "5f8a5c745830983982b5d4c675ca6dc0f39608fc6173b1a67599bc8900ceddd9",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/topic_log_sync.rs": "ce92fa265751fd102d8088164c914f8fd8204769699eae64ca3c4dd13a39e8af",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/topic_handshake.rs": "c59b24a894299b59d1c49604f80d67e8e9e52ef69e49f57665d2669dadf5f08e",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/log_sync.rs": "eb666fd0733a9d6b80befa051c752b8f99ecf7a1013d1ede4537e69f799a4949",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/mod.rs": "76bad2da32956160c1b1a91854fbd1cbb2554af9cc0d0664eb96ec4dd29790ed",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/session_map.rs": "4cc47d3b98a2e1705c7fc01ed45b980143a2f3d523d67e5875be59cadc72482c",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/event_stream.rs": "eaac7155d01add3ca1a0c6d4f1858f09a460c88dcb1311bf1dd9aa18429042eb",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/Cargo.toml": "20ad28eea7d81aabe4718d520b1392442ef05ad549fdeadec5b150677cd043d1",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/Cargo.lock": "3c4ed83548d7b9cc221ec82d39ac18002b50fe8a9423dc43272bec0ac0f8a389",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-before/Cargo.toml": "b89079a0dd152b976cc76ae61f1b340a3ba8304179ce8166d082e9a3adbc518d",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-before/Cargo.lock": "3c4ed83548d7b9cc221ec82d39ac18002b50fe8a9423dc43272bec0ac0f8a389"
+      }
+    },
+    "graphs-own-dev-after": {
+      "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "allSourceLockToolInputsUnchanged": true,
+      "cargoCompilationInvoked": false,
+      "graphs": {
+        "original-own-native-dev": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build,dev",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.31350682908669114,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils",
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/tmp/miopunch-m97-20261019/sync-dev-original-lock-before)|default"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "fe44792ac0691fcedd413f45cf06e399642d4713dfb980419d4356578cbfca4b",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "original-own-browser-dev": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/Cargo.toml",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--edges",
+            "normal,build,dev",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.31364101311191916,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils",
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/tmp/miopunch-m97-20261019/sync-dev-original-lock-before)|default"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "492739cfcb71d65e79a55e19fec6c4217195241df000a0ea634f6273d609cc73",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "current-own-native-dev": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--edges",
+            "normal,build,dev",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.3140511913225055,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils",
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after)|default"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "fc04b4b763a12a4ccd0eb863161f34356bc24942ec27dfed56d956555436925e",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "current-own-browser-dev": {
+          "command": [
+            "rtk",
+            "proxy",
+            "cargo",
+            "tree",
+            "--locked",
+            "--offline",
+            "--manifest-path",
+            "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/Cargo.toml",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--edges",
+            "normal,build,dev",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}|{f}"
+          ],
+          "exit": 0,
+          "seconds": 0.3138039358891547,
+          "storeLines": [
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils",
+            "p2panda-store v0.7.1|default,macros,sqlite,test_utils (*)"
+          ],
+          "syncLines": [
+            "p2panda-sync v0.7.1 (/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after)|default"
+          ],
+          "sqlxPresent": true,
+          "stdoutSha256": "3920da1b2923550797f8f5b10ef1a847c7421c1d34431c226e4cea6176126378",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "fixedInputs": {
+        "/tmp/miopunch-m97-20261019/native-store-consumer.rs": "3707c39d390feb0fcacf65e603945a819e9b2b3c2038cfc1ae4eaefafe221652",
+        "/tmp/miopunch-m97-20261019/browser-store-consumer.rs": "b44a23e461f8c33131030a11c6f75da5222ede7f460950ce4815c03d856ed963",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/Cargo.toml": "932c2bc575fab17f90d9f94564f5b7b4330a07fb1a71b8c456a3d7be0dc6c040",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/lib.rs": "65004a21116d534e46300f96603918a0820c8531f601e90beb616dea0e2c893d",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/traits.rs": "08c945b7a38f6215a52c69ef291c4733cfb05a5b817bbe9a1d3383f98ee562bf",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/dedup.rs": "ff4547b6c351bab938fe91deec6a73aaf9e97aea150da313b46d16652273346b",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/test_utils.rs": "bb90144c6a9890b6dbc6f7a2c77e4d7a3f50a2a0c7eadb48b394ac69263b501a",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/mod.rs": "5f8a5c745830983982b5d4c675ca6dc0f39608fc6173b1a67599bc8900ceddd9",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/topic_log_sync.rs": "ce92fa265751fd102d8088164c914f8fd8204769699eae64ca3c4dd13a39e8af",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/topic_handshake.rs": "c59b24a894299b59d1c49604f80d67e8e9e52ef69e49f57665d2669dadf5f08e",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/protocols/log_sync.rs": "eb666fd0733a9d6b80befa051c752b8f99ecf7a1013d1ede4537e69f799a4949",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/mod.rs": "76bad2da32956160c1b1a91854fbd1cbb2554af9cc0d0664eb96ec4dd29790ed",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/session_map.rs": "4cc47d3b98a2e1705c7fc01ed45b980143a2f3d523d67e5875be59cadc72482c",
+        "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1/src/manager/event_stream.rs": "eaac7155d01add3ca1a0c6d4f1858f09a460c88dcb1311bf1dd9aa18429042eb",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/Cargo.toml": "20ad28eea7d81aabe4718d520b1392442ef05ad549fdeadec5b150677cd043d1",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/Cargo.lock": "3c4ed83548d7b9cc221ec82d39ac18002b50fe8a9423dc43272bec0ac0f8a389",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/Cargo.toml": "19e1fd1e23ed1a329aaf9e3ebae6f50b84e04e75f406d05350dfd99b9337e1a4",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/Cargo.lock": "3c4ed83548d7b9cc221ec82d39ac18002b50fe8a9423dc43272bec0ac0f8a389",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/src/lib.rs": "65004a21116d534e46300f96603918a0820c8531f601e90beb616dea0e2c893d",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/src/traits.rs": "08c945b7a38f6215a52c69ef291c4733cfb05a5b817bbe9a1d3383f98ee562bf",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/src/dedup.rs": "ff4547b6c351bab938fe91deec6a73aaf9e97aea150da313b46d16652273346b",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/src/test_utils.rs": "bb90144c6a9890b6dbc6f7a2c77e4d7a3f50a2a0c7eadb48b394ac69263b501a",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/src/protocols/mod.rs": "5f8a5c745830983982b5d4c675ca6dc0f39608fc6173b1a67599bc8900ceddd9",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/src/protocols/topic_log_sync.rs": "ce92fa265751fd102d8088164c914f8fd8204769699eae64ca3c4dd13a39e8af",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/src/protocols/topic_handshake.rs": "c59b24a894299b59d1c49604f80d67e8e9e52ef69e49f57665d2669dadf5f08e",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/src/protocols/log_sync.rs": "eb666fd0733a9d6b80befa051c752b8f99ecf7a1013d1ede4537e69f799a4949",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/src/manager/mod.rs": "76bad2da32956160c1b1a91854fbd1cbb2554af9cc0d0664eb96ec4dd29790ed",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/src/manager/session_map.rs": "4cc47d3b98a2e1705c7fc01ed45b980143a2f3d523d67e5875be59cadc72482c",
+        "/tmp/miopunch-m97-20261019/sync-dev-original-lock-before/src/manager/event_stream.rs": "eaac7155d01add3ca1a0c6d4f1858f09a460c88dcb1311bf1dd9aa18429042eb",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/src/lib.rs": "65004a21116d534e46300f96603918a0820c8531f601e90beb616dea0e2c893d",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/src/traits.rs": "08c945b7a38f6215a52c69ef291c4733cfb05a5b817bbe9a1d3383f98ee562bf",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/src/dedup.rs": "ff4547b6c351bab938fe91deec6a73aaf9e97aea150da313b46d16652273346b",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/src/test_utils.rs": "bb90144c6a9890b6dbc6f7a2c77e4d7a3f50a2a0c7eadb48b394ac69263b501a",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/src/protocols/mod.rs": "5f8a5c745830983982b5d4c675ca6dc0f39608fc6173b1a67599bc8900ceddd9",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/src/protocols/topic_log_sync.rs": "ce92fa265751fd102d8088164c914f8fd8204769699eae64ca3c4dd13a39e8af",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/src/protocols/topic_handshake.rs": "c59b24a894299b59d1c49604f80d67e8e9e52ef69e49f57665d2669dadf5f08e",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/src/protocols/log_sync.rs": "eb666fd0733a9d6b80befa051c752b8f99ecf7a1013d1ede4537e69f799a4949",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/src/manager/mod.rs": "76bad2da32956160c1b1a91854fbd1cbb2554af9cc0d0664eb96ec4dd29790ed",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/src/manager/session_map.rs": "4cc47d3b98a2e1705c7fc01ed45b980143a2f3d523d67e5875be59cadc72482c",
+        "/tmp/miopunch-m97-20261019/sync-dev-fork-lock-after/src/manager/event_stream.rs": "eaac7155d01add3ca1a0c6d4f1858f09a460c88dcb1311bf1dd9aa18429042eb"
+      }
+    }
+  },
+  "ownDevGraphQualification": "Actual package-root copies with exact original published lock; first dependency-subtree own-dev labels in graphs-before are unqualified and superseded by graphs-own-dev-before/after.",
+  "finalBuilds": {
+    "native-default-green": {
+      "exit": 0,
+      "cargoSeconds": 1.7033732063136995,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m97-20261019/current-default/Cargo.toml",
+        "--jobs",
+        "2",
+        "--bin",
+        "m97-native-store-consumer",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 172,
+      "rebuiltArtifacts": 2,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m97-20261019/native-default-green/pinned/m97-native-store-consumer": "940e94019d1e4fb97e48355dfba41a34cb9e923b00822faebb5bffe4b3a6800e"
+      },
+      "actualSelectedInputCount": 2122,
+      "actualCapturedDepfileCount": 156,
+      "actualSourceCopyCount": 30,
+      "sourceDigestBefore": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "sourceDigestAfter": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "diskAfter": {
+        "freeBytes": 11995807744,
+        "cacheBytes": 101145796608
+      }
+    },
+    "native-no-default-green": {
+      "exit": 0,
+      "cargoSeconds": 1.7028540661558509,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m97-20261019/current-no-default/Cargo.toml",
+        "--jobs",
+        "2",
+        "--bin",
+        "m97-native-store-consumer",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 172,
+      "rebuiltArtifacts": 2,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m97-20261019/native-no-default-green/pinned/m97-native-store-consumer": "1dd638e3c4bffd865dbcada023d8a3e43252495e64a52986483f131bfff26f6c"
+      },
+      "actualSelectedInputCount": 2122,
+      "actualCapturedDepfileCount": 156,
+      "actualSourceCopyCount": 30,
+      "sourceDigestBefore": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "sourceDigestAfter": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "diskAfter": {
+        "freeBytes": 11940552704,
+        "cacheBytes": 101173735424
+      }
+    },
+    "native-test-utils-green": {
+      "exit": 0,
+      "cargoSeconds": 9.461590306833386,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m97-20261019/current-no-default/Cargo.toml",
+        "--features",
+        "p2panda-sync/test_utils",
+        "--jobs",
+        "2",
+        "--bin",
+        "m97-native-store-consumer",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 174,
+      "rebuiltArtifacts": 18,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m97-20261019/native-test-utils-green/pinned/m97-native-store-consumer": "4cc7856110e7c7c52fe7f6d37e2ae629857e0a986bbea99ca79a98988bd3810c"
+      },
+      "actualSelectedInputCount": 2321,
+      "actualCapturedDepfileCount": 173,
+      "actualSourceCopyCount": 31,
+      "sourceDigestBefore": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "sourceDigestAfter": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "diskAfter": {
+        "freeBytes": 11785211904,
+        "cacheBytes": 101301063680
+      }
+    },
+    "browser-traits-green": {
+      "exit": 0,
+      "cargoSeconds": 0.8331887181848288,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m97-20261019/browser-platform-selector/Cargo.toml",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 89,
+      "rebuiltArtifacts": 4,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {},
+      "actualSelectedInputCount": 1015,
+      "actualCapturedDepfileCount": 80,
+      "actualSourceCopyCount": 30,
+      "sourceDigestBefore": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "sourceDigestAfter": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "diskAfter": {
+        "freeBytes": 11782201344,
+        "cacheBytes": 101302636544
+      }
+    },
+    "affected-replica-tests": {
+      "exit": 0,
+      "cargoSeconds": 4.591049158014357,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m96-20261019/affected-selector/Cargo.toml",
+        "--features",
+        "rtc-probe",
+        "--test",
+        "management_store",
+        "--test",
+        "offline_replica",
+        "--no-run",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 528,
+      "rebuiltArtifacts": 2,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m97-20261019/affected-replica-tests/pinned/management_store": "a4799d6f6648376454b7628d88c1ff60e2719930c1f0de90d180fc7dcd1a9949",
+        "/tmp/miopunch-m97-20261019/affected-replica-tests/pinned/offline_replica": "04187f0b940fd23c5c4715d812fab899aa4f5d5e1b217287c23317006ee90ae0"
+      },
+      "actualSelectedInputCount": 6621,
+      "actualCapturedDepfileCount": 479,
+      "actualSourceCopyCount": 294,
+      "sourceDigestBefore": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "sourceDigestAfter": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "diskAfter": {
+        "freeBytes": 10635059200,
+        "cacheBytes": 101862150144
+      }
+    },
+    "final-native-sdk": {
+      "exit": 0,
+      "cargoSeconds": 20.684806615114212,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m96-20261019/final-selector/Cargo.toml",
+        "--features",
+        "rtc-probe",
+        "--bin",
+        "native_sdk_counterpart",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 523,
+      "rebuiltArtifacts": 6,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m97-20261019/final-native-sdk/pinned/native_sdk_counterpart": "b595fe142c012a89180af726826e303ab4e07e1a27de51f445cafd58893b37ff"
+      },
+      "actualSelectedInputCount": 6623,
+      "actualCapturedDepfileCount": 478,
+      "actualSourceCopyCount": 296,
+      "sourceDigestBefore": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "sourceDigestAfter": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "diskAfter": {
+        "freeBytes": 11296780288,
+        "cacheBytes": 101584830464
+      }
+    },
+    "final-browser-sdk": {
+      "exit": 0,
+      "cargoSeconds": 0.3920737346634269,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--features",
+        "rtc-probe",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 296,
+      "rebuiltArtifacts": 0,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m97-20261019/final-browser-sdk/miopunch_browser_probe.wasm": "0cc9b5153bb66b1f9e310470b9e704b67e953d672e7941b683a45442cc9eecf6",
+        "/tmp/miopunch-m97-20261019/final-browser-sdk/pkg/miopunch_browser_probe_bg.wasm": "e9f4251ebffa409efce757ec5cb3a7da90b8f07ab4cd03a48154fa0ceab9ed48",
+        "/tmp/miopunch-m97-20261019/final-browser-sdk/pkg/miopunch_browser_probe_bg.wasm.d.ts": "8ff8262526f5b757036085ee949efd7a9446d40a7b190529a81fe34342347ff6",
+        "/tmp/miopunch-m97-20261019/final-browser-sdk/pkg/miopunch_browser_probe.js": "25b5636d29f71eccd7b33d60bc1ad313418b7fc52cf19c482d46e5b308bbb8da",
+        "/tmp/miopunch-m97-20261019/final-browser-sdk/pkg/miopunch_browser_probe.d.ts": "5e32a31236b89872b32934454164ff64dd45cabe21cd4565ecbc5ca7b9c53c1e",
+        "/tmp/miopunch-m97-20261019/final-browser-sdk/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+        "/tmp/miopunch-m97-20261019/final-browser-sdk/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96"
+      },
+      "actualSelectedInputCount": 3162,
+      "actualCapturedDepfileCount": 264,
+      "actualSourceCopyCount": 201,
+      "sourceDigestBefore": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "sourceDigestAfter": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "diskAfter": {
+        "freeBytes": 11203923968,
+        "cacheBytes": 101584830464
+      }
+    }
+  },
+  "actualSelectedInputContinuity": {
+    "native-default-green": {
+      "allActualSelectedInputsUnchanged": true,
+      "inputCount": 2122,
+      "repositoryInputCount": 30,
+      "immutableArtifactsUnchanged": true,
+      "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22"
+    },
+    "native-no-default-green": {
+      "allActualSelectedInputsUnchanged": true,
+      "inputCount": 2122,
+      "repositoryInputCount": 30,
+      "immutableArtifactsUnchanged": true,
+      "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22"
+    },
+    "native-test-utils-green": {
+      "allActualSelectedInputsUnchanged": true,
+      "inputCount": 2321,
+      "repositoryInputCount": 31,
+      "immutableArtifactsUnchanged": true,
+      "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22"
+    },
+    "browser-traits-green": {
+      "allActualSelectedInputsUnchanged": true,
+      "inputCount": 1015,
+      "repositoryInputCount": 30,
+      "immutableArtifactsUnchanged": true,
+      "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22"
+    },
+    "affected-replica-tests": {
+      "allActualSelectedInputsUnchanged": true,
+      "inputCount": 6621,
+      "repositoryInputCount": 294,
+      "immutableArtifactsUnchanged": true,
+      "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22"
+    },
+    "final-native-sdk": {
+      "allActualSelectedInputsUnchanged": true,
+      "inputCount": 6623,
+      "repositoryInputCount": 296,
+      "immutableArtifactsUnchanged": true,
+      "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22"
+    },
+    "final-browser-sdk": {
+      "allActualSelectedInputsUnchanged": true,
+      "inputCount": 3162,
+      "repositoryInputCount": 201,
+      "immutableArtifactsUnchanged": true,
+      "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22"
+    }
+  },
+  "affectedRuntimeTests": {
+    "runtime-management-store": {
+      "command": [
+        "/tmp/miopunch-m97-20261019/affected-replica-tests/pinned/management_store",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "buildReceiptSha256": "00bb0e2893df19cff7b0d422d72a3488eebbd4f7ba8ff498e76abb059df1871f",
+      "buildContextSha256": "37cad7a2d3ae8d5d8621596dcc2cd8aa1c649d4fc12bdd9b7cb40d2d4753b385",
+      "driverSha256": "a6840afa46f0c540e261886bc9d3e0d3100a522207549277e405f1fc1eca5c8c",
+      "binarySha256": "a4799d6f6648376454b7628d88c1ff60e2719930c1f0de90d180fc7dcd1a9949",
+      "compiledExecutablePins": {
+        "/home/js/Git/miopunch/target/debug/deps/management_store-d28133e45bfe3875": "a4799d6f6648376454b7628d88c1ff60e2719930c1f0de90d180fc7dcd1a9949",
+        "/home/js/Git/miopunch/target/debug/deps/offline_replica-1de95339a0e97fe5": "04187f0b940fd23c5c4715d812fab899aa4f5d5e1b217287c23317006ee90ae0"
+      },
+      "preconditionsPassed": true,
+      "exit": 0,
+      "forcedTermination": false,
+      "oldNativeCounterpartSha256": null,
+      "seconds": 0.7659745356068015,
+      "postconditionsPassed": true,
+      "testsPassed": 7,
+      "testsFailed": 0,
+      "nonemptyTestSelection": true,
+      "rawLogs": {
+        "stdout.log": "33e653c852877678c2d0142bc8452ff9879b9e9d900429c411d5483e0b519600",
+        "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "runtime-offline-replica": {
+      "command": [
+        "/tmp/miopunch-m97-20261019/affected-replica-tests/pinned/offline_replica",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "buildReceiptSha256": "00bb0e2893df19cff7b0d422d72a3488eebbd4f7ba8ff498e76abb059df1871f",
+      "buildContextSha256": "37cad7a2d3ae8d5d8621596dcc2cd8aa1c649d4fc12bdd9b7cb40d2d4753b385",
+      "driverSha256": "a6840afa46f0c540e261886bc9d3e0d3100a522207549277e405f1fc1eca5c8c",
+      "binarySha256": "04187f0b940fd23c5c4715d812fab899aa4f5d5e1b217287c23317006ee90ae0",
+      "compiledExecutablePins": {
+        "/home/js/Git/miopunch/target/debug/deps/management_store-d28133e45bfe3875": "a4799d6f6648376454b7628d88c1ff60e2719930c1f0de90d180fc7dcd1a9949",
+        "/home/js/Git/miopunch/target/debug/deps/offline_replica-1de95339a0e97fe5": "04187f0b940fd23c5c4715d812fab899aa4f5d5e1b217287c23317006ee90ae0"
+      },
+      "preconditionsPassed": true,
+      "exit": 0,
+      "forcedTermination": false,
+      "oldNativeCounterpartSha256": null,
+      "seconds": 5.727922129910439,
+      "postconditionsPassed": true,
+      "testsPassed": 4,
+      "testsFailed": 0,
+      "nonemptyTestSelection": true,
+      "rawLogs": {
+        "stdout.log": "548de033debf22f0cccee1dcd2d765d4c99837c10bc014eb1861c99e9df2a5e1",
+        "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  "selectedTestEntriesPassed": 11,
+  "subprocessWorkerScope": "One store entry is the existing child worker, also invoked by its process-restart parent test.",
+  "finalSdkCases": {
+    "final-sdk-story": {
+      "qualified": true,
+      "execution": {
+        "publicTraffic": false,
+        "passed": true,
+        "containers": [
+          {
+            "name": "miopunch-m97-owned-irc-1792356554763406949",
+            "removed": true
+          }
+        ],
+        "cleanup": {
+          "relayExit": 0,
+          "relayGraceful": true,
+          "relayProcessAbsent": true
+        },
+        "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+        "relayStarted": true,
+        "runtimeExit": 0,
+        "functionalAndSdkCleanupQualified": true,
+        "rawReceiptSha256": "d497c1141f105e6df35aa17f3933e508e4c55e06d135cd19ac3bd50380daa9f4",
+        "sourceArtifactControllerUnchangedAfterRuntime": true,
+        "wholeWallMs": 14134.917061775923,
+        "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+        "qualified": true
+      },
+      "privateRawReceiptSha256": "d497c1141f105e6df35aa17f3933e508e4c55e06d135cd19ac3bd50380daa9f4",
+      "strictRestrictedRequest": true,
+      "approvalRecords": 1,
+      "bothMaterialsDurable": true,
+      "sameBrowserIdentityReopened": true,
+      "sameNativeIdentityReopened": true,
+      "memberReply": "PONG",
+      "initialCarrier": "Relay",
+      "browserClose": {
+        "sdkStarted": true,
+        "closeReturned": true,
+        "freed": true,
+        "elapsedMs": 1.3000001907348633
+      },
+      "socketImmediateObservationPassed": true,
+      "lateSocketWaitMs": 0.022181000000273343,
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "ownedFixtureRemoved": true,
+      "privateMaterialCleanup": {
+        "sdkAndActorCleanupQualifiedBeforeSecretRemoval": true,
+        "containersActuallyAbsent": true,
+        "runtimeReceiptSha256": "d497c1141f105e6df35aa17f3933e508e4c55e06d135cd19ac3bd50380daa9f4",
+        "removedGeneratedKeys": [
+          {
+            "path": "private-fixture/ca.key",
+            "bytes": 1704
+          },
+          {
+            "path": "private-fixture/leaf.key",
+            "bytes": 1704
+          }
+        ],
+        "privateNssRemoved": true,
+        "remainingPrivateKeys": 0
+      }
+    },
+    "final-sdk-negatives": {
+      "qualified": true,
+      "execution": {
+        "publicTraffic": false,
+        "passed": true,
+        "containers": [
+          {
+            "name": "miopunch-m97-owned-irc-1792356589078337472",
+            "removed": true
+          }
+        ],
+        "cleanup": {
+          "relayExit": 0,
+          "relayGraceful": true,
+          "relayProcessAbsent": true
+        },
+        "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+        "relayStarted": true,
+        "runtimeExit": 0,
+        "functionalAndSdkCleanupQualified": true,
+        "rawReceiptSha256": "56842ee40a32a4224c5ddb9353dba9d0e270e4a3dd8acbad7ad7d89c59a6130a",
+        "sourceArtifactControllerUnchangedAfterRuntime": true,
+        "wholeWallMs": 26527.89643080905,
+        "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+        "qualified": true
+      },
+      "privateRawReceiptSha256": "56842ee40a32a4224c5ddb9353dba9d0e270e4a3dd8acbad7ad7d89c59a6130a",
+      "strictRestrictedRequest": true,
+      "approvalRecords": 1,
+      "bothMaterialsDurable": true,
+      "sameBrowserIdentityReopened": true,
+      "sameNativeIdentityReopened": true,
+      "memberReply": "PONG",
+      "initialCarrier": "RTC",
+      "browserClose": {
+        "sdkStarted": true,
+        "closeReturned": true,
+        "freed": true,
+        "elapsedMs": 1005.5999999046326
+      },
+      "socketImmediateObservationPassed": true,
+      "lateSocketWaitMs": 0.013265000001410954,
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "ownedFixtureRemoved": true,
+      "privateMaterialCleanup": {
+        "sdkAndActorCleanupQualifiedBeforeSecretRemoval": true,
+        "containersActuallyAbsent": true,
+        "runtimeReceiptSha256": "56842ee40a32a4224c5ddb9353dba9d0e270e4a3dd8acbad7ad7d89c59a6130a",
+        "removedGeneratedKeys": [
+          {
+            "path": "private-fixture/ca.key",
+            "bytes": 1704
+          },
+          {
+            "path": "private-fixture/leaf.key",
+            "bytes": 1704
+          }
+        ],
+        "privateNssRemoved": true,
+        "remainingPrivateKeys": 0
+      },
+      "negativeCases": [
+        {
+          "case": "resources-disabled-signal-only",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 0
+        },
+        {
+          "case": "rtc-api-unavailable-signal-only",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 0
+        },
+        {
+          "case": "cancel-unqualified-channel",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 0,
+          "originalClosed": true,
+          "activeAssociations": 0,
+          "activePumps": 0,
+          "routeActive": false,
+          "routeQualified": false,
+          "queuedBytes": 0,
+          "checkpointFreshAck": false
+        },
+        {
+          "case": "deadline-unqualified-channel",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 0,
+          "originalClosed": true,
+          "activeAssociations": 0,
+          "activePumps": 0,
+          "routeActive": false,
+          "routeQualified": false,
+          "queuedBytes": 0,
+          "checkpointFreshAck": false
+        },
+        {
+          "case": "revocation-after-qualified-before-release",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 1,
+          "originalClosed": true,
+          "activeAssociations": 0,
+          "activePumps": 0,
+          "routeActive": false,
+          "routeQualified": false,
+          "queuedBytes": 0,
+          "checkpointFreshAck": true
+        }
+      ],
+      "revocationPropagationScope": "Browser-local departure refuses Browser delivery; the fixed counterpart has not received the new departure record.",
+      "initialRtcFinalChecks": {
+        "freshAck": true,
+        "stableUnchanged": true,
+        "bindingUnchanged": true,
+        "beforeRetainFrames": {
+          "datagramReceived": 0,
+          "datagramSent": 0,
+          "streamReceived": 0,
+          "streamSent": 0
+        }
+      }
+    },
+    "final-browser-incoming-active-rtc": {
+      "qualified": true,
+      "execution": {
+        "publicTraffic": false,
+        "passed": true,
+        "containers": [
+          {
+            "name": "miopunch-m97-owned-irc-1792356652924114424",
+            "removed": true
+          }
+        ],
+        "cleanup": {
+          "relayExit": 0,
+          "relayGraceful": true,
+          "relayProcessAbsent": true
+        },
+        "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+        "relayStarted": true,
+        "runtimeExit": 0,
+        "functionalAndSdkCleanupQualified": true,
+        "rawReceiptSha256": "2c3284a7c3cd94d4f68ad6f89aa505835ae6bd748c6e25aa7cee65dbe96c20ba",
+        "sourceArtifactControllerUnchangedAfterRuntime": true,
+        "wholeWallMs": 30997.644234914333,
+        "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+        "qualified": true
+      },
+      "privateRawReceiptSha256": "2c3284a7c3cd94d4f68ad6f89aa505835ae6bd748c6e25aa7cee65dbe96c20ba",
+      "strictRestrictedRequest": true,
+      "approvalRecords": 1,
+      "bothMaterialsDurable": true,
+      "sameBrowserIdentityReopened": true,
+      "sameNativeIdentityReopened": true,
+      "memberReply": "PONG",
+      "initialCarrier": "Relay",
+      "browserClose": {
+        "sdkStarted": true,
+        "closeReturned": true,
+        "freed": true,
+        "elapsedMs": 1.3000001907348633
+      },
+      "socketImmediateObservationPassed": true,
+      "lateSocketWaitMs": 0.010309000001143431,
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "ownedFixtureRemoved": true,
+      "privateMaterialCleanup": {
+        "sdkAndActorCleanupQualifiedBeforeSecretRemoval": true,
+        "containersActuallyAbsent": true,
+        "runtimeReceiptSha256": "2c3284a7c3cd94d4f68ad6f89aa505835ae6bd748c6e25aa7cee65dbe96c20ba",
+        "removedGeneratedKeys": [
+          {
+            "path": "private-fixture/ca.key",
+            "bytes": 1704
+          },
+          {
+            "path": "private-fixture/leaf.key",
+            "bytes": 1704
+          }
+        ],
+        "privateNssRemoved": true,
+        "remainingPrivateKeys": 0
+      },
+      "browserIncoming": {
+        "manualApproval": true,
+        "durableMaterials": true,
+        "sameApplicantReopened": true,
+        "memberStream": true,
+        "precodeUses": 1,
+        "precodeRetryDoesNotConsumeAgain": true,
+        "replicaComplete": true,
+        "extraContextCleanup": [
+          {
+            "sdkClosed": true,
+            "socketImmediateObservationPassed": false,
+            "lateSocketWaitMs": 101.11534100000063,
+            "websocketsClosedBeforeContext": true
+          },
+          {
+            "sdkClosed": true,
+            "socketImmediateObservationPassed": false,
+            "lateSocketWaitMs": 100.40438099999665,
+            "websocketsClosedBeforeContext": true
+          }
+        ]
+      },
+      "browserIncomingActiveControl": {
+        "sides": {
+          "initiator": {
+            "sameOriginal": true,
+            "freshAck": true,
+            "bothReady": true,
+            "selectedRtc": true,
+            "beforeRetainFrames": {
+              "datagramReceived": 0,
+              "datagramSent": 0,
+              "streamReceived": 0,
+              "streamSent": 0
+            }
+          },
+          "responder": {
+            "sameOriginal": true,
+            "freshAck": true,
+            "bothReady": true,
+            "selectedRtc": true,
+            "beforeRetainFrames": {
+              "datagramReceived": 0,
+              "datagramSent": 0,
+              "streamReceived": 0,
+              "streamSent": 0
+            }
+          }
+        },
+        "originalMemberBusinessAfterRtc": true,
+        "explicitFixturePolicy": "PreferDirect"
+      },
+      "replicaDurableReplay": {
+        "completeRecordsSavedAndApplied": 5,
+        "scopeExactlyMatchesSavedAndApplied": true,
+        "sameRecipientIdentityReopened": true,
+        "sameRecordPendingAndPermissionView": true,
+        "duplicateFetchAddsNoRecord": true,
+        "comparator": "Unordered member IDs sorted before exact permission comparison"
+      }
+    }
+  },
+  "historicalTestStorage": {
+    "reason": "Lossless storage of obsolete M93 intermediate test executables only. Exact official baselines, final tests, all SDK pins, raw logs, inputs and build receipts remain. To replay an intermediate, decompress its verified bytes to originalPath before using its unchanged historical driver.",
+    "noSdkArtifactsAltered": true,
+    "noCargoCacheAltered": true,
+    "before": {
+      "freeBytes": 10887401472,
+      "cacheBytes": 101117857792
+    },
+    "after": {
+      "freeBytes": 12051951616,
+      "cacheBytes": 101117857792
+    },
+    "artifacts": [
+      {
+        "originalPath": "/tmp/miopunch-m93-20261018/native-request-first-green/pinned/native_restricted_admission",
+        "originalSha256": "2ae4096db5f8f022a6a12c2c43e1b59bb36c12c5a0c18e211718839e40f55a1a",
+        "originalBytes": 162522560,
+        "buildReceipt": "/tmp/miopunch-m93-20261018/native-request-first-green/receipt.json",
+        "buildReceiptSha256": "952fd69e342a2936c87e0f3ecf8e50b10ed2250f155ee53f294397660170c59a",
+        "compressedPath": "/tmp/miopunch-m97-20261019/historical-test-artifacts/native-request-first-green-2ae4096db5f8f022a6a12c2c43e1b59bb36c12c5a0c18e211718839e40f55a1a.bin.gz",
+        "compressedSha256": "c8671911eba9e6bfb6cc10cc19887de2e717d5d8e0674a39b2ed1d93a0e84519",
+        "compressedBytes": 41278419,
+        "roundTripSha256": "2ae4096db5f8f022a6a12c2c43e1b59bb36c12c5a0c18e211718839e40f55a1a"
+      },
+      {
+        "originalPath": "/tmp/miopunch-m93-20261018/native-relay-member-green-v1/pinned/native_restricted_admission",
+        "originalSha256": "55f8219d10921e0fd77d1eb7d10625de86b0aa34d5807da264aefcccb56f6937",
+        "originalBytes": 178694632,
+        "buildReceipt": "/tmp/miopunch-m93-20261018/native-relay-member-green-v1/receipt.json",
+        "buildReceiptSha256": "ab3276c7c31ab34bd5d1f7b8f195c9e9e5b465ba47d0a9452d6fab1ff939c9a2",
+        "compressedPath": "/tmp/miopunch-m97-20261019/historical-test-artifacts/native-relay-member-green-v1-55f8219d10921e0fd77d1eb7d10625de86b0aa34d5807da264aefcccb56f6937.bin.gz",
+        "compressedSha256": "d67ea9dc66abb6741ed69efe1a034c481e5f7a1e6261dba1951d556e7784ad3d",
+        "compressedBytes": 44934649,
+        "roundTripSha256": "55f8219d10921e0fd77d1eb7d10625de86b0aa34d5807da264aefcccb56f6937"
+      },
+      {
+        "originalPath": "/tmp/miopunch-m93-20261018/native-mqtt-member-green-v2/pinned/native_restricted_admission",
+        "originalSha256": "ace7fe37753f3bfc57734fb2e9db457f7a18fbf5240f542a1bc9c666e7d5dcc8",
+        "originalBytes": 167603480,
+        "buildReceipt": "/tmp/miopunch-m93-20261018/native-mqtt-member-green-v2/receipt.json",
+        "buildReceiptSha256": "9bd0d7d7ed31e060906fb13274426c2e4c3d579fa48a01cdc697cd982a9d41be",
+        "compressedPath": "/tmp/miopunch-m97-20261019/historical-test-artifacts/native-mqtt-member-green-v2-ace7fe37753f3bfc57734fb2e9db457f7a18fbf5240f542a1bc9c666e7d5dcc8.bin.gz",
+        "compressedSha256": "ca2eae6f6b6a1c9b1740c004e5735ca2f286451d41c5ffdb119ff1ccf40686bc",
+        "compressedBytes": 42446209,
+        "roundTripSha256": "ace7fe37753f3bfc57734fb2e9db457f7a18fbf5240f542a1bc9c666e7d5dcc8"
+      },
+      {
+        "originalPath": "/tmp/miopunch-m93-20261018/native-mqtt-member-green-v3/pinned/native_restricted_admission",
+        "originalSha256": "d5bc01f7341bb000bac11e5061d6e2ec792fac397cbaaa8fe017557fc32f2751",
+        "originalBytes": 167603656,
+        "buildReceipt": "/tmp/miopunch-m93-20261018/native-mqtt-member-green-v3/receipt.json",
+        "buildReceiptSha256": "47ea507d5ab57b198446f08b28d07d51dfd5eb5c0ef3419842c56ce8d8eb40bb",
+        "compressedPath": "/tmp/miopunch-m97-20261019/historical-test-artifacts/native-mqtt-member-green-v3-d5bc01f7341bb000bac11e5061d6e2ec792fac397cbaaa8fe017557fc32f2751.bin.gz",
+        "compressedSha256": "d3cd7af9c6a06dae85f2dbc77f425abdae500ccf445fb01f066e4052da1c79cd",
+        "compressedBytes": 42448511,
+        "roundTripSha256": "d5bc01f7341bb000bac11e5061d6e2ec792fac397cbaaa8fe017557fc32f2751"
+      },
+      {
+        "originalPath": "/tmp/miopunch-m93-20261018/native-member-green-v1/pinned/native_restricted_admission",
+        "originalSha256": "d9bc75e825ac40c67ebc6249449360c5a60f4ea6ccd2366a393e21b8b879a541",
+        "originalBytes": 163086360,
+        "buildReceipt": "/tmp/miopunch-m93-20261018/native-member-green-v1/receipt.json",
+        "buildReceiptSha256": "f589de1d6c5cb7ca158f98545faa04767d376afdd27b8006d6972f2d50d9a3a6",
+        "compressedPath": "/tmp/miopunch-m97-20261019/historical-test-artifacts/native-member-green-v1-d9bc75e825ac40c67ebc6249449360c5a60f4ea6ccd2366a393e21b8b879a541.bin.gz",
+        "compressedSha256": "9c855e31436c9bb36817b324a072d87728d1ac5df6fedcf07da9c00f2684b7df",
+        "compressedBytes": 41449373,
+        "roundTripSha256": "d9bc75e825ac40c67ebc6249449360c5a60f4ea6ccd2366a393e21b8b879a541"
+      },
+      {
+        "originalPath": "/tmp/miopunch-m93-20261018/canonical-resource-green-v1/pinned/native_restricted_admission",
+        "originalSha256": "79105835b130ecb43334cc7025b6d1fa3d5da66f2d93552dd961b22c81a70038",
+        "originalBytes": 180325872,
+        "buildReceipt": "/tmp/miopunch-m93-20261018/canonical-resource-green-v1/receipt.json",
+        "buildReceiptSha256": "064c516a129d9ff924007d51b31d93a7599c41bbaf2a629b4d6b3636b9b0f351",
+        "compressedPath": "/tmp/miopunch-m97-20261019/historical-test-artifacts/canonical-resource-green-v1-79105835b130ecb43334cc7025b6d1fa3d5da66f2d93552dd961b22c81a70038.bin.gz",
+        "compressedSha256": "ffac51987d5f6f8a6613aa477816961a191b1c491c1eba33f8030be54e60ca28",
+        "compressedBytes": 45270397,
+        "roundTripSha256": "79105835b130ecb43334cc7025b6d1fa3d5da66f2d93552dd961b22c81a70038"
+      },
+      {
+        "originalPath": "/tmp/miopunch-m93-20261018/canonical-native-bind-green-v2/pinned/native_restricted_admission",
+        "originalSha256": "9a21bc18c5e48aaa9ed1c162a7f816045a47e6ce66798ab5785f10faf7b8002a",
+        "originalBytes": 178693808,
+        "buildReceipt": "/tmp/miopunch-m93-20261018/canonical-native-bind-green-v2/receipt.json",
+        "buildReceiptSha256": "70dc6277db22dd35683c0f7110b5f80739295baa1029d22c6909055bb6c3ebba",
+        "compressedPath": "/tmp/miopunch-m97-20261019/historical-test-artifacts/canonical-native-bind-green-v2-9a21bc18c5e48aaa9ed1c162a7f816045a47e6ce66798ab5785f10faf7b8002a.bin.gz",
+        "compressedSha256": "2bd61708397c8bef08be3e090e83f0f2af2461863831c271479b193587099a1a",
+        "compressedBytes": 44944209,
+        "roundTripSha256": "9a21bc18c5e48aaa9ed1c162a7f816045a47e6ce66798ab5785f10faf7b8002a"
+      },
+      {
+        "originalPath": "/tmp/miopunch-m93-20261018/canonical-native-bind-green-v3/pinned/native_restricted_admission",
+        "originalSha256": "d320c6dd1ab43d6222c747e675ab8ca2221181ce550c3eb4586b387d308947a0",
+        "originalBytes": 178694480,
+        "buildReceipt": "/tmp/miopunch-m93-20261018/canonical-native-bind-green-v3/receipt.json",
+        "buildReceiptSha256": "107946398e76b1ecd168b7ad2d622f2e562f7c65c2a26c053a4dced5e48106e4",
+        "compressedPath": "/tmp/miopunch-m97-20261019/historical-test-artifacts/canonical-native-bind-green-v3-d320c6dd1ab43d6222c747e675ab8ca2221181ce550c3eb4586b387d308947a0.bin.gz",
+        "compressedSha256": "933fd0a9a52b4f94734b1fdc39950791a773630cb6150e9a605a17a96b0e73d0",
+        "compressedBytes": 44949899,
+        "roundTripSha256": "d320c6dd1ab43d6222c747e675ab8ca2221181ce550c3eb4586b387d308947a0"
+      },
+      {
+        "originalPath": "/tmp/miopunch-m93-20261018/relay-rejection-finish-green/pinned/native_restricted_admission",
+        "originalSha256": "fb1774430758923e5d667b770d7527041f65b1b15c27561b27fff814db1db1c2",
+        "originalBytes": 180328952,
+        "buildReceipt": "/tmp/miopunch-m93-20261018/relay-rejection-finish-green/receipt.json",
+        "buildReceiptSha256": "e30d5d455a75ad95ce17b55d17db813564c52e1ee0510041ce2636c625631817",
+        "compressedPath": "/tmp/miopunch-m97-20261019/historical-test-artifacts/relay-rejection-finish-green-fb1774430758923e5d667b770d7527041f65b1b15c27561b27fff814db1db1c2.bin.gz",
+        "compressedSha256": "1e69a3a00bab47952da8679033b00beae988f4bf60ad153e0afae927694ff34b",
+        "compressedBytes": 45279721,
+        "roundTripSha256": "fb1774430758923e5d667b770d7527041f65b1b15c27561b27fff814db1db1c2"
+      }
+    ]
+  },
+  "failedPreparations": {
+    "retained": [
+      {
+        "case": "browser-before",
+        "reason": "fixture omitted required getrandom js backend; corrected platform fixture retained"
+      },
+      {
+        "case": "graphs-before-platform",
+        "reason": "root lock cannot qualify sync own dev dependencies; exact published own lock used separately"
+      },
+      {
+        "case": "published-dev-fetch-v1",
+        "reason": "fixture accidentally specified resolver twice; manifest metadata corrected before locked fetch"
+      },
+      {
+        "case": "browser-replica-order-fixture-failure",
+        "functionalSdkCleanupPassed": true,
+        "reason": "test compared arbitrary member HashMap enumeration order; corrected comparator sorts IDs and checks exact permissions, count and pending state; product sources and artifacts unchanged",
+        "actualReplicaCompleteAndFiveRecordsSavedAndApplied": true
+      }
+    ]
+  },
+  "failedSdkFixtureCleanup": {
+    "sdkAndActorCleanupQualifiedBeforeSecretRemoval": true,
+    "containersActuallyAbsent": true,
+    "runtimeReceiptSha256": "52b68e14841f089d0970fd33621f8c1bbc1c237b32ffeaedfb94a97cf7d336c3",
+    "removedGeneratedKeys": [
+      {
+        "path": "private-fixture/ca.key",
+        "bytes": 1704
+      },
+      {
+        "path": "private-fixture/leaf.key",
+        "bytes": 1704
+      }
+    ],
+    "privateNssRemoved": true,
+    "remainingPrivateKeys": 0
+  },
+  "scope": "M97 native transitive store defaults, explicit channel sink and Browser graph/replica qualification. Owned loopback only; no WASI build promise or broader M91 physical/public matrix claim."
+}
