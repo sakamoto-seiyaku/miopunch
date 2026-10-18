@@ -1,7 +1,7 @@
 use miopunch_native_probe::management_auth::{
     AuthError, ManagementAuth, ManagementExtension, NetworkAnchor,
 };
-use p2panda_auth::group::{GroupAction, GroupCrdtError, GroupMember};
+use p2panda_auth::group::{GroupAction, GroupMember};
 use p2panda_auth::{Access, GroupsExtensionArgs};
 use p2panda_core::{Hash, Header, SigningKey, VerifyingKey};
 
@@ -94,7 +94,7 @@ fn signed_daily_approval_succeeds_but_admin_appointment_is_rejected() {
     );
     assert!(matches!(
         auth.accept(&appoint),
-        Err(AuthError::Group(GroupCrdtError::PolicyRejected(_)))
+        Err(AuthError::PolicyRejected(_))
     ));
     assert!(
         !auth
@@ -249,7 +249,7 @@ fn daily_manager_cannot_change_admins_or_exit_without_root_authority() {
         let bytes = signed(&admin, anchor.root, action, vec![add_id], tag);
         assert!(matches!(
             auth.accept(&bytes),
-            Err(AuthError::Group(GroupCrdtError::PolicyRejected(_)))
+            Err(AuthError::PolicyRejected(_))
         ));
     }
     assert_eq!(auth.headers().len(), 2);
@@ -295,7 +295,7 @@ fn alternate_create_wrong_root_and_tampered_signature_never_enter_graph() {
     );
     assert!(matches!(
         auth.accept(&alternate),
-        Err(AuthError::Group(GroupCrdtError::PolicyRejected(_)))
+        Err(AuthError::PolicyRejected(_))
     ));
 
     let wrong_root = signed(

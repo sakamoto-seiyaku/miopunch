@@ -7,7 +7,9 @@
 use std::collections::{HashMap, HashSet};
 
 use p2panda_auth::group::resolver::StrongRemove;
-use p2panda_auth::group::{GroupAction, GroupCrdt, GroupCrdtError, GroupCrdtState, GroupMember};
+use p2panda_auth::group::{
+    CheckedGroupCrdtError, GroupAction, GroupCrdt, GroupCrdtError, GroupCrdtState, GroupMember,
+};
 use p2panda_auth::{Access, GroupsExtensionArgs, GroupsOperation};
 use p2panda_core::{
     Body, Hash, Header, HeaderError, Operation, OperationError, VerifyingKey, validate_operation,
@@ -19,6 +21,7 @@ type Resolver = StrongRemove<VerifyingKey, Hash, GroupsOperation, ()>;
 type Crdt = GroupCrdt<VerifyingKey, Hash, GroupsOperation, (), Resolver>;
 type State = GroupCrdtState<VerifyingKey, Hash, GroupsOperation, ()>;
 type CrdtError = GroupCrdtError<VerifyingKey, Hash, GroupsOperation, (), Resolver>;
+type CheckedCrdtError = CheckedGroupCrdtError<VerifyingKey, Hash, GroupsOperation, (), Resolver>;
 
 /// The trusted, immutable identity of one network and its one canonical Create.
 /// It must be obtained from a trusted invitation or previously verified state.
@@ -57,6 +60,17 @@ pub enum AuthError {
     InvalidCausality,
     #[error("group authorization failed: {0}")]
     Group(#[from] CrdtError),
+    #[error("application policy rejected operation {0}")]
+    PolicyRejected(Hash),
+}
+
+impl From<CheckedCrdtError> for AuthError {
+    fn from(error: CheckedCrdtError) -> Self {
+        match error {
+            CheckedGroupCrdtError::Group(error) => Self::Group(error),
+            CheckedGroupCrdtError::PolicyRejected(id) => Self::PolicyRejected(id),
+        }
+    }
 }
 
 /// Verification graph shared by live receipt and durable replay.

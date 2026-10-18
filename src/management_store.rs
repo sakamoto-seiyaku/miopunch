@@ -601,7 +601,10 @@ impl ManagementStore {
                 if matches!(error, AuthError::Group(GroupCrdtError::Inner(_)))
                     || !matches!(
                         error,
-                        AuthError::Group(_) | AuthError::InvalidLog | AuthError::InvalidCausality
+                        AuthError::Group(_)
+                            | AuthError::PolicyRejected(_)
+                            | AuthError::InvalidLog
+                            | AuthError::InvalidCausality
                     )
                 {
                     return Err(StoreError::Auth(error));

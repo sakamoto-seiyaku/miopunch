@@ -56,6 +56,21 @@ where
 
     #[error("resolver error: {0}")]
     Resolver(RS::Error),
+}
+
+/// Errors returned by application-policy-checked group processing.
+///
+/// The ordinary group error keeps its original exhaustive contract. A checked
+/// caller can distinguish those errors from rejection by its own policy.
+#[derive(Debug, Error)]
+pub enum CheckedGroupCrdtError<ID, OP, M, C, RS>
+where
+    ID: Author,
+    OP: OperationId + Ord,
+    RS: Resolver<ID, OP, M, C>,
+{
+    #[error(transparent)]
+    Group(#[from] GroupCrdtError<ID, OP, M, C, RS>),
 
     #[error("application policy rejected operation {0}")]
     PolicyRejected(OP),
@@ -512,7 +527,7 @@ where
         y: GroupCrdtState<ID, OP, M, C>,
         operation: &M,
     ) -> Result<GroupCrdtState<ID, OP, M, C>, GroupCrdtError<ID, OP, M, C, RS>> {
-        Self::process_checked(y, operation, |_, _| true)
+        Self::process_inner(y, operation, |_, _| Ok(()))
     }
 
     /// Process an operation after checking application policy against the same causal
@@ -521,10 +536,28 @@ where
     /// require a temporary StrongRemove rebuild.
     #[allow(clippy::type_complexity)]
     pub fn process_checked(
-        mut y: GroupCrdtState<ID, OP, M, C>,
+        y: GroupCrdtState<ID, OP, M, C>,
         operation: &M,
         check: impl FnOnce(Option<&GroupMembersState<GroupMember<ID>, C>>, &M) -> bool,
-    ) -> Result<GroupCrdtState<ID, OP, M, C>, GroupCrdtError<ID, OP, M, C, RS>> {
+    ) -> Result<GroupCrdtState<ID, OP, M, C>, CheckedGroupCrdtError<ID, OP, M, C, RS>> {
+        Self::process_inner(y, operation, |causal, operation| {
+            if check(causal, operation) {
+                Ok(())
+            } else {
+                Err(CheckedGroupCrdtError::PolicyRejected(operation.id()))
+            }
+        })
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn process_inner<E>(
+        mut y: GroupCrdtState<ID, OP, M, C>,
+        operation: &M,
+        check: impl FnOnce(Option<&GroupMembersState<GroupMember<ID>, C>>, &M) -> Result<(), E>,
+    ) -> Result<GroupCrdtState<ID, OP, M, C>, E>
+    where
+        E: From<GroupCrdtError<ID, OP, M, C, RS>>,
+    {
         let operation_id = operation.id();
         let actor = operation.author();
         let dependencies = HashSet::from_iter(operation.dependencies().clone());
@@ -548,7 +581,10 @@ where
 
         // We don't need to check the state change result as validation was already performed
         // above.
-        let mut groups_y = y.inner.state_at(&dependencies)?;
+        let mut groups_y = y
+            .inner
+            .state_at(&dependencies)
+            .map_err(GroupCrdtError::Inner)?;
         groups_y = apply_action(
             groups_y,
             group_id,
@@ -577,18 +613,20 @@ where
     /// This is a relatively expensive computation and should only be used when a re-build is
     /// actually required.
     #[allow(clippy::type_complexity)]
-    pub(crate) fn validate(
+    fn validate<E>(
         y: GroupCrdtState<ID, OP, M, C>,
         operation: &M,
-        check: impl FnOnce(Option<&GroupMembersState<GroupMember<ID>, C>>, &M) -> bool,
-    ) -> Result<GroupCrdtState<ID, OP, M, C>, GroupCrdtError<ID, OP, M, C, RS>> {
+        check: impl FnOnce(Option<&GroupMembersState<GroupMember<ID>, C>>, &M) -> Result<(), E>,
+    ) -> Result<GroupCrdtState<ID, OP, M, C>, E>
+    where
+        E: From<GroupCrdtError<ID, OP, M, C, RS>>,
+    {
         // Detect already processed operations.
         if y.inner.operations.contains_key(&operation.id()) {
             // The operation has already been processed.
-            return Err(GroupCrdtError::DuplicateOperation(
-                operation.id(),
-                operation.group_id(),
-            ));
+            return Err(
+                GroupCrdtError::DuplicateOperation(operation.id(), operation.group_id()).into(),
+            );
         }
 
         // Adding a group as a manager of another group is currently not
@@ -601,7 +639,7 @@ where
             GroupAction::Add { member, access } | GroupAction::Promote { member, access }
                 if member.is_group() && access.is_manage() =>
             {
-                return Err(GroupCrdtError::ManagerGroupsNotAllowed(member.id()));
+                return Err(GroupCrdtError::ManagerGroupsNotAllowed(member.id()).into());
             }
             _ => (),
         };
@@ -658,18 +696,14 @@ where
                 unreachable!()
             };
 
-            return Err(GroupCrdtError::GroupCycle(
-                parent_group,
-                sub_group.id(),
-                operation.id(),
-            ));
+            return Err(
+                GroupCrdtError::GroupCycle(parent_group, sub_group.id(), operation.id()).into(),
+            );
         }
 
         // Apply the operation onto the temporary state.
         let causal_state = temp_y.inner.current_state();
-        if !check(causal_state.get(&operation.group_id()), operation) {
-            return Err(GroupCrdtError::PolicyRejected(operation.id()));
-        }
+        check(causal_state.get(&operation.group_id()), operation)?;
         let result = apply_action(
             causal_state,
             operation.group_id(),
@@ -684,7 +718,7 @@ where
             StateChangeResult::Error { error, .. } => {
                 // Noop shouldn't happen when processing new operations as the
                 // rebuild logic should have occurred instead.
-                return Err(GroupCrdtError::StateChangeError(operation.id(), error));
+                return Err(GroupCrdtError::StateChangeError(operation.id(), error).into());
             }
             StateChangeResult::Filtered { .. } => {
                 // Operations can't be filtered out before they were processed.

@@ -262,3 +262,82 @@ async fn rejected_signed_record_does_not_block_later_valid_history() {
     assert!(has_admin(&recovered.nodes(), &admin));
     recovered.close().await;
 }
+
+#[tokio::test]
+async fn policy_and_group_rejections_are_quarantined_across_reopen() {
+    let root = SigningKey::generate();
+    let admin = SigningKey::generate();
+    let stranger = SigningKey::generate();
+    let candidate = SigningKey::generate();
+    let valid_member = SigningKey::generate();
+    let genesis = create(&root, &admin, None);
+    let anchor = anchor(&root, &genesis);
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("checked-errors.sqlite");
+    let mut store = ManagementStore::open(&path, anchor).await.unwrap();
+    let create_id = store.ingest(&genesis).await.unwrap();
+    assert_eq!(store.apply_ready().await.unwrap(), 1);
+
+    let signed_action = |author: &SigningKey, access: Access, log: u8| {
+        ManagementRecord::new(
+            Header::<ManagementExtension>::builder()
+                .build(
+                    author,
+                    ManagementExtension {
+                        version: 1,
+                        log_id: [log; 16],
+                        group: GroupsExtensionArgs {
+                            group_id: anchor.root,
+                            action: GroupAction::Add {
+                                member: GroupMember::Individual(candidate.verifying_key()),
+                                access,
+                            },
+                            dependencies: vec![create_id],
+                        },
+                    },
+                )
+                .encode(),
+            None,
+        )
+    };
+    // The daily administrator cannot appoint an administrator (policy error).
+    let policy = signed_action(&admin, Access::manage(), 10);
+    // A stranger cannot add even an ordinary member (original group error).
+    let group = signed_action(&stranger, Access::read(), 11);
+    let policy_id = store.ingest(&policy).await.unwrap();
+    let group_id = store.ingest(&group).await.unwrap();
+    assert_eq!(store.apply_ready().await.unwrap(), 0);
+    assert!(!store.tips().contains(&policy_id) && !store.tips().contains(&group_id));
+    assert_eq!(store.applied_count(), 1);
+    assert_eq!(store.get_record(policy_id).await.unwrap(), None);
+    assert_eq!(store.get_record(group_id).await.unwrap(), None);
+    store.close().await;
+
+    let mut reopened = ManagementStore::open(&path, anchor).await.unwrap();
+    reopened.ingest(&policy).await.unwrap();
+    reopened.ingest(&group).await.unwrap();
+    let valid = add_member(&admin, anchor.root, &valid_member, create_id);
+    let valid_id = reopened.ingest(&valid).await.unwrap();
+    assert_eq!(reopened.apply_ready().await.unwrap(), 1);
+    assert_eq!(reopened.applied_count(), 2);
+    assert!(reopened.get_record(valid_id).await.unwrap().is_some());
+    assert!(reopened.get_record(policy_id).await.unwrap().is_none());
+    assert!(reopened.get_record(group_id).await.unwrap().is_none());
+    assert!(
+        !reopened
+            .nodes()
+            .iter()
+            .any(|(id, _)| *id == candidate.verifying_key())
+    );
+    reopened.close().await;
+    let replayed = ManagementStore::open(&path, anchor).await.unwrap();
+    assert_eq!(replayed.applied_count(), 2);
+    assert!(
+        replayed
+            .nodes()
+            .iter()
+            .any(|(id, access)| *id == valid_member.verifying_key() && *access == Access::read())
+    );
+    assert!(has_admin(&replayed.nodes(), &admin));
+    replayed.close().await;
+}

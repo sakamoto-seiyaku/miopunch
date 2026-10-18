@@ -15,7 +15,7 @@ pub(crate) use authority_graphs::AuthorityGraphs;
 pub(crate) use crdt::apply_action;
 pub use crdt::state::{GroupMembersState, GroupMembershipError, MemberState};
 pub use crdt::{
-    GroupCrdt, GroupCrdtError, GroupCrdtInnerError, GroupCrdtInnerState, GroupCrdtState,
-    StateChangeResult,
+    CheckedGroupCrdtError, GroupCrdt, GroupCrdtError, GroupCrdtInnerError, GroupCrdtInnerState,
+    GroupCrdtState, StateChangeResult,
 };
 pub use member::GroupMember;
