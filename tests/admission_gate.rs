@@ -379,26 +379,31 @@ async fn the_persisted_native_network_installs_the_same_gate() {
     let network = NativeNetwork::create(temp.path().join("network"))
         .await
         .unwrap();
-    let status = network.status();
+    let mut resources = network.resource_configuration().unwrap();
+    resources.replacement = Some(vec![]);
+    network.save_resource_configuration(&resources).unwrap();
     let server = network.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     server.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec(), BUSINESS.to_vec()]);
     network
         .admission_gate()
         .register_protocol(BUSINESS, ProtocolScope::Member);
 
-    let applicant_key = SecretKey::generate();
-    let applicant_gate = AdmissionGate::new(
-        applicant_key.public(),
-        AdmissionScope::new(*status.anchor.root.as_bytes(), 0),
-        None,
-    );
-    applicant_gate.register_protocol(BUSINESS, ProtocolScope::Member);
-    let applicant = applicant_gate
-        .configure(Endpoint::builder(presets::Minimal))
-        .secret_key(applicant_key)
-        .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
-        .unwrap()
-        .bind()
+    // Both persisted endpoints run the current protected coordinator protocol.
+    // A standalone AdmissionGate does not speak that wire protocol.
+    let applicant_network = NativeNetwork::join(
+        temp.path().join("applicant"),
+        network.manual_invitation().unwrap(),
+    )
+    .await
+    .unwrap();
+    applicant_network
+        .admission_gate()
+        .register_protocol(BUSINESS, ProtocolScope::Member);
+    applicant_network
+        .save_resource_configuration(&resources)
+        .unwrap();
+    let applicant = applicant_network
+        .bind_endpoint(Ipv4Addr::LOCALHOST)
         .await
         .unwrap();
     let target = EndpointAddr::new(server.id()).with_addrs(
@@ -408,10 +413,26 @@ async fn the_persisted_native_network_installs_the_same_gate() {
             .copied()
             .map(iroh_base::TransportAddr::Ip),
     );
+    // The unified request protocol requires the original caller context on both sides.
+    let deadline = n0_future::time::Instant::now() + Duration::from_secs(5);
+    let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
     let (out, incoming) = tokio::time::timeout(Duration::from_secs(9), async {
         tokio::join!(
-            applicant.connect(target.clone(), ADMISSION_REQUEST_ALPN),
-            async { server.accept().await.unwrap().await }
+            async {
+                applicant
+                    .connect_with_opts(target.clone(), ADMISSION_REQUEST_ALPN, options)
+                    .await
+                    .unwrap()
+                    .await
+            },
+            async {
+                server
+                    .accept()
+                    .await
+                    .unwrap()
+                    .with_caller_deadline(deadline)
+                    .await
+            }
         )
     })
     .await
@@ -435,6 +456,7 @@ async fn the_persisted_native_network_installs_the_same_gate() {
     assert!(out.is_err() && incoming.is_err());
     applicant.close().await;
     server.close().await;
+    applicant_network.close().await;
     network.close().await;
 }
 
@@ -673,7 +695,15 @@ async fn stalled_proof_times_out_and_fresh_connection_can_still_prove() {
             .map(iroh_base::TransportAddr::Ip),
     );
     let server = pair.server.clone();
-    let stalled = tokio::spawn(async move { server.accept().await.unwrap().await });
+    // Test a caller-selected short proof budget; the default setup budget is 60s.
+    let stalled = tokio::spawn(async move {
+        server
+            .accept()
+            .await
+            .unwrap()
+            .with_caller_deadline(n0_future::time::Instant::now() + Duration::from_millis(500))
+            .await
+    });
     let rogue_connection = rogue.connect(target, BUSINESS).await.unwrap();
     assert!(
         tokio::time::timeout(Duration::from_secs(7), stalled)
