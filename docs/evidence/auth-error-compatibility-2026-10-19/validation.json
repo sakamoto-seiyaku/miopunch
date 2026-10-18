@@ -1,0 +1,989 @@
+{
+  "baselineCommit": "a6cb8adb19dfe3b8cf95076c6201041dc6ed5163",
+  "implementationCommit": "e240107d3f805a0b18ad1c2979c7e4b0c4ccc922",
+  "protectedPreexistingFileCount": 249,
+  "protectedPreexistingHashesUnchanged": true,
+  "beforeProductionEdits": {
+    "officialConsumerBuildAndRuntimePassed": true,
+    "sameSourceForkFailedE0004": true,
+    "consumerSha256": "69e83ae576d6dedd2fa88b2484b882c3567e18c61e51d0b8e1138401b7ad24db",
+    "sources": {
+      "vendor/p2panda-auth/src/group/crdt/mod.rs": "b2c528cb6c5438bb3f8c96f76758a26ae2c59f5ca32a2982f55fb8a1b004d99b",
+      "vendor/p2panda-auth/src/group/mod.rs": "776f5bde6d7bf414c91df785c3c33015162a4a02f0c4011af1ece6f5748f0c30",
+      "vendor/p2panda-auth/UPSTREAM.md": "3a192b96fadba42515a7489d6aded20f0f03dc7322b995f19ac40e3dd4846036",
+      "src/management_auth.rs": "c2d6750d325a83d071f0061a125b102e6fd0f6a54caa2e1887f1eff26b37e34f",
+      "src/management_store.rs": "6f3ab314842348ab9a294b93b05307fcb4cfbec0ed10c33ad9b60b891bbdb343",
+      "tests/management_auth.rs": "3287fe1cdd1149f529cb5cabe8d44b816fcd6dc532714d01a173ed6c8472b782",
+      "tests/management_store.rs": "5a6d0a4c962f2b75e003743cfc7151e87f6e2dc1150ddaaf831d6298aa4eafe1"
+    }
+  },
+  "originalContractContinuity": {
+    "originalEnumDeclarationByteIdentical": true,
+    "unchangedConsumerSha256": "69e83ae576d6dedd2fa88b2484b882c3567e18c61e51d0b8e1138401b7ad24db",
+    "permanentConsumerIsSameQualifiedBytes": true,
+    "completeLockUnchangedFromM95": true
+  },
+  "sameConsumerOfficialAndForkBuildsAndRuntimes": {
+    "original-auth-baseline-v2": {
+      "exit": 0,
+      "cargoSeconds": 11.777857724111527,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m96-20261019/original-selector/Cargo.toml",
+        "--bin",
+        "m96-original-auth-consumer",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 34,
+      "rebuiltArtifacts": 36,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m96-20261019/original-auth-baseline-v2/pinned/m96-original-auth-consumer": "2289f80b6b0b6dbd0755bdd0f03883d8d7f97d2edee0b748adf706fa77a66576"
+      },
+      "actualSelectedInputCount": 687,
+      "actualCapturedDepfileCount": 60,
+      "actualSourceCopyCount": 3,
+      "sourceDigestBefore": "f48dcdbcf04cf118184ae076f2e3d9289d369ac81dd0681bb5ef02f376f1f231",
+      "sourceDigestAfter": "f48dcdbcf04cf118184ae076f2e3d9289d369ac81dd0681bb5ef02f376f1f231",
+      "diskAfter": {
+        "freeBytes": 11787399168,
+        "cacheBytes": 100188549120
+      }
+    },
+    "original-auth-baseline-v2-runtime": {
+      "exit": 0,
+      "seconds": 0.01190778473392129,
+      "forcedTermination": false,
+      "binarySha256": "2289f80b6b0b6dbd0755bdd0f03883d8d7f97d2edee0b748adf706fa77a66576",
+      "consumerSha256": "69e83ae576d6dedd2fa88b2484b882c3567e18c61e51d0b8e1138401b7ad24db",
+      "buildReceiptSha256": "690e6694099f35cf1c6f3c119cc0e476af9d6ecc8c74a508d6f388dcb960340a",
+      "fixedInputsUnchanged": true,
+      "stdoutSha256": "2928d9e863d74de2890870d2b0703df054982e252ba93bf09c99edd8cca3fd10",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "current-auth-red": {
+      "exit": 101,
+      "cargoSeconds": 0.6615140633657575,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m96-20261019/baseline-selector/Cargo.toml",
+        "--bin",
+        "m96-original-auth-consumer",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 68,
+      "rebuiltArtifacts": 1,
+      "qualifiedForFrozenRun": false,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {},
+      "sourceDigestBefore": "f48dcdbcf04cf118184ae076f2e3d9289d369ac81dd0681bb5ef02f376f1f231",
+      "sourceDigestAfter": "f48dcdbcf04cf118184ae076f2e3d9289d369ac81dd0681bb5ef02f376f1f231",
+      "diskAfter": {
+        "freeBytes": 11785486336,
+        "cacheBytes": 100190216192
+      }
+    },
+    "restored-auth-green-runtime": {
+      "exit": 0,
+      "seconds": 0.010858037043362856,
+      "forcedTermination": false,
+      "binarySha256": "b697186408f97dd1a402a71aa7472df1569607ea993ec48da542b0e5cc1cbace",
+      "consumerSha256": "69e83ae576d6dedd2fa88b2484b882c3567e18c61e51d0b8e1138401b7ad24db",
+      "buildReceiptSha256": "8ecaa583cf01f1b29c3f89dc4ed8d6d3450ed1ffefca40845aaeef3d4e864189",
+      "fixedInputsUnchanged": true,
+      "stdoutSha256": "2928d9e863d74de2890870d2b0703df054982e252ba93bf09c99edd8cca3fd10",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "fixedConsumerInputs": {
+    "/tmp/miopunch-m96-20261019/original-auth-consumer.rs": "69e83ae576d6dedd2fa88b2484b882c3567e18c61e51d0b8e1138401b7ad24db",
+    "/tmp/miopunch-m96-20261019/official-auth/Cargo.toml": "fb3d40bb3f73917eec3c4e4221ad81201d45be82742b4d358120a6658755cf12",
+    "/tmp/p2panda-0.7.1/p2panda-auth/Cargo.toml": "bb700da5ea373314bba6c73a91474eb14f5eba10d08ad8aab401b6de854b7c10",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/lib.rs": "1de087155cc3807c8af8b95bd24afad75bc1ed18b5c5d2d4b050fc12ee23102d",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/graph.rs": "4b73fe9779b2bd3e95d44698fe5f3fffb878a7ee26aab1518cf5e272db8b5560",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/access.rs": "34da767f89a42dcb1838ef7c47b92c7a5c39e19ae37fec2b31f5e16914b7c52b",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/operation.rs": "84107d5cd76f1154cadc75a536fc51bbb2df026b4020e48affc52b1afb1c84e8",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/extension.rs": "e712e848652b32eff805de5803b9b2f3811afeb103fd78f37c2bb70f17c36d84",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/test_utils/mod.rs": "19e39c8ea9a2204086a8fea9544b88e1fd29dbcdd535e9b9139a05a415e9182b",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/group/mod.rs": "776f5bde6d7bf414c91df785c3c33015162a4a02f0c4011af1ece6f5748f0c30",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/group/action.rs": "465750c4bbd360a14037b9a2097b41eae717224cc9d86981d428c10f5b6ff182",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/group/member.rs": "22b1843533d6405c0ba9b59256d0e7751cdc1359741e7d8b8f8082d7282095ce",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/group/display.rs": "47a5f25305fa2b9e991cd6b10b97bdf2924177e9037617819c95c389cc61c7ed",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/group/authority_graphs.rs": "0120e9fca98437357c3ec63d0f0a28b02da4594f9a2ad6e95e687a55de6d933a",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/group/resolver.rs": "bd3220c0c4b371cd78fee46443f683a817e1ae4230b4dce4f071c841e38927ce",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/traits/dgm.rs": "635e769d1b04bc17f7b4692fe580991023047060a2b14b89f94cb5bfcdf0e981",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/traits/mod.rs": "deabafefd08e0ed40719a849b26a577bd7a09738fa9417e030307b558309486a",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/traits/operation.rs": "5c813888387e2f7d97e6e446be108b610b5772f28f10c2f4805459183f52fbd9",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/traits/resolver.rs": "ac06dffaf649b2660c832b6a1e46514cb2fac83f0eb45288f923017884ffadab",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/group/crdt/mod.rs": "3322ec481f68fea431509d38c93738b9b4700cb6a89a5fe4d80bb7d4a5d949bd",
+    "/tmp/p2panda-0.7.1/p2panda-auth/src/group/crdt/state.rs": "b2a2250c9a0f17da18a1c2cc8701bf097af39facbe610ab2ef7b728e1ab6a6de",
+    "/tmp/miopunch-m96-20261019/official-auth/src/lib.rs": "1de087155cc3807c8af8b95bd24afad75bc1ed18b5c5d2d4b050fc12ee23102d",
+    "/tmp/miopunch-m96-20261019/official-auth/src/graph.rs": "4b73fe9779b2bd3e95d44698fe5f3fffb878a7ee26aab1518cf5e272db8b5560",
+    "/tmp/miopunch-m96-20261019/official-auth/src/access.rs": "34da767f89a42dcb1838ef7c47b92c7a5c39e19ae37fec2b31f5e16914b7c52b",
+    "/tmp/miopunch-m96-20261019/official-auth/src/operation.rs": "84107d5cd76f1154cadc75a536fc51bbb2df026b4020e48affc52b1afb1c84e8",
+    "/tmp/miopunch-m96-20261019/official-auth/src/extension.rs": "e712e848652b32eff805de5803b9b2f3811afeb103fd78f37c2bb70f17c36d84",
+    "/tmp/miopunch-m96-20261019/official-auth/src/test_utils/mod.rs": "19e39c8ea9a2204086a8fea9544b88e1fd29dbcdd535e9b9139a05a415e9182b",
+    "/tmp/miopunch-m96-20261019/official-auth/src/group/mod.rs": "776f5bde6d7bf414c91df785c3c33015162a4a02f0c4011af1ece6f5748f0c30",
+    "/tmp/miopunch-m96-20261019/official-auth/src/group/action.rs": "465750c4bbd360a14037b9a2097b41eae717224cc9d86981d428c10f5b6ff182",
+    "/tmp/miopunch-m96-20261019/official-auth/src/group/member.rs": "22b1843533d6405c0ba9b59256d0e7751cdc1359741e7d8b8f8082d7282095ce",
+    "/tmp/miopunch-m96-20261019/official-auth/src/group/display.rs": "47a5f25305fa2b9e991cd6b10b97bdf2924177e9037617819c95c389cc61c7ed",
+    "/tmp/miopunch-m96-20261019/official-auth/src/group/authority_graphs.rs": "0120e9fca98437357c3ec63d0f0a28b02da4594f9a2ad6e95e687a55de6d933a",
+    "/tmp/miopunch-m96-20261019/official-auth/src/group/resolver.rs": "bd3220c0c4b371cd78fee46443f683a817e1ae4230b4dce4f071c841e38927ce",
+    "/tmp/miopunch-m96-20261019/official-auth/src/traits/dgm.rs": "635e769d1b04bc17f7b4692fe580991023047060a2b14b89f94cb5bfcdf0e981",
+    "/tmp/miopunch-m96-20261019/official-auth/src/traits/mod.rs": "deabafefd08e0ed40719a849b26a577bd7a09738fa9417e030307b558309486a",
+    "/tmp/miopunch-m96-20261019/official-auth/src/traits/operation.rs": "5c813888387e2f7d97e6e446be108b610b5772f28f10c2f4805459183f52fbd9",
+    "/tmp/miopunch-m96-20261019/official-auth/src/traits/resolver.rs": "ac06dffaf649b2660c832b6a1e46514cb2fac83f0eb45288f923017884ffadab",
+    "/tmp/miopunch-m96-20261019/official-auth/src/group/crdt/mod.rs": "3322ec481f68fea431509d38c93738b9b4700cb6a89a5fe4d80bb7d4a5d949bd",
+    "/tmp/miopunch-m96-20261019/official-auth/src/group/crdt/state.rs": "b2a2250c9a0f17da18a1c2cc8701bf097af39facbe610ab2ef7b728e1ab6a6de"
+  },
+  "finalBuilds": {
+    "restored-auth-green": {
+      "exit": 0,
+      "cargoSeconds": 1.1391845988109708,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m96-20261019/baseline-selector/Cargo.toml",
+        "--bin",
+        "m96-original-auth-consumer",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 68,
+      "rebuiltArtifacts": 2,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m96-20261019/restored-auth-green/pinned/m96-original-auth-consumer": "b697186408f97dd1a402a71aa7472df1569607ea993ec48da542b0e5cc1cbace"
+      },
+      "actualSelectedInputCount": 687,
+      "actualCapturedDepfileCount": 60,
+      "actualSourceCopyCount": 19,
+      "sourceDigestBefore": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "sourceDigestAfter": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "diskAfter": {
+        "freeBytes": 11766788096,
+        "cacheBytes": 100198633472
+      }
+    },
+    "affected-auth-tests": {
+      "exit": 0,
+      "cargoSeconds": 18.146222408860922,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m96-20261019/affected-selector/Cargo.toml",
+        "--features",
+        "rtc-probe",
+        "--test",
+        "auth_compatibility",
+        "--test",
+        "management_auth",
+        "--test",
+        "management_store",
+        "--test",
+        "offline_replica",
+        "--no-run",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 526,
+      "rebuiltArtifacts": 6,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m96-20261019/affected-auth-tests/pinned/management_store": "0218b3da3029d97025e9f7fbe4f5266ee0c51db42a185187ee43aa080d6dbd16",
+        "/tmp/miopunch-m96-20261019/affected-auth-tests/pinned/auth_compatibility": "e15d2a8b7318a8659c5a71f1fde579bac02e944dafa95a67351d1e5e7f3388fa",
+        "/tmp/miopunch-m96-20261019/affected-auth-tests/pinned/management_auth": "3869ecca63c27e39114300808cce7ae4475aaf46267a2e732e5c6b236dd685f0",
+        "/tmp/miopunch-m96-20261019/affected-auth-tests/pinned/offline_replica": "0c6b814934b3cc7c2f8b33d5e4fde4417c2ec0f9621c321ee3a75343ca994d6f"
+      },
+      "actualSelectedInputCount": 6624,
+      "actualCapturedDepfileCount": 481,
+      "actualSourceCopyCount": 297,
+      "sourceDigestBefore": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "sourceDigestAfter": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "diskAfter": {
+        "freeBytes": 11005145088,
+        "cacheBytes": 100572344320
+      }
+    },
+    "final-native-sdk": {
+      "exit": 0,
+      "cargoSeconds": 5.4589960956946015,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m96-20261019/final-selector/Cargo.toml",
+        "--features",
+        "rtc-probe",
+        "--bin",
+        "native_sdk_counterpart",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 528,
+      "rebuiltArtifacts": 1,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m96-20261019/final-native-sdk/pinned/native_sdk_counterpart": "c60330d98ab0d454a91042524324ce0a55a5004a8af04bc36b09b048380c40bf"
+      },
+      "actualSelectedInputCount": 6623,
+      "actualCapturedDepfileCount": 478,
+      "actualSourceCopyCount": 296,
+      "sourceDigestBefore": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "sourceDigestAfter": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "diskAfter": {
+        "freeBytes": 11609088000,
+        "cacheBytes": 100572360704
+      }
+    },
+    "final-browser-sdk": {
+      "exit": 0,
+      "cargoSeconds": 11.257778813131154,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--features",
+        "rtc-probe",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 294,
+      "rebuiltArtifacts": 2,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m96-20261019/final-browser-sdk/miopunch_browser_probe.wasm": "0cc9b5153bb66b1f9e310470b9e704b67e953d672e7941b683a45442cc9eecf6",
+        "/tmp/miopunch-m96-20261019/final-browser-sdk/pkg/miopunch_browser_probe_bg.wasm": "e9f4251ebffa409efce757ec5cb3a7da90b8f07ab4cd03a48154fa0ceab9ed48",
+        "/tmp/miopunch-m96-20261019/final-browser-sdk/pkg/miopunch_browser_probe_bg.wasm.d.ts": "8ff8262526f5b757036085ee949efd7a9446d40a7b190529a81fe34342347ff6",
+        "/tmp/miopunch-m96-20261019/final-browser-sdk/pkg/miopunch_browser_probe.js": "25b5636d29f71eccd7b33d60bc1ad313418b7fc52cf19c482d46e5b308bbb8da",
+        "/tmp/miopunch-m96-20261019/final-browser-sdk/pkg/miopunch_browser_probe.d.ts": "5e32a31236b89872b32934454164ff64dd45cabe21cd4565ecbc5ca7b9c53c1e",
+        "/tmp/miopunch-m96-20261019/final-browser-sdk/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+        "/tmp/miopunch-m96-20261019/final-browser-sdk/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96"
+      },
+      "actualSelectedInputCount": 3162,
+      "actualCapturedDepfileCount": 264,
+      "actualSourceCopyCount": 201,
+      "sourceDigestBefore": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "sourceDigestAfter": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+      "diskAfter": {
+        "freeBytes": 11516182528,
+        "cacheBytes": 100572364800
+      }
+    }
+  },
+  "actualSelectedInputContinuity": {
+    "restored-auth-green": {
+      "allActualSelectedInputsUnchanged": true,
+      "inputCount": 687,
+      "repositoryInputCount": 19,
+      "immutableArtifactsUnchanged": true,
+      "sourceDigest": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57"
+    },
+    "affected-auth-tests": {
+      "allActualSelectedInputsUnchanged": true,
+      "inputCount": 6624,
+      "repositoryInputCount": 297,
+      "immutableArtifactsUnchanged": true,
+      "sourceDigest": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57"
+    },
+    "final-native-sdk": {
+      "allActualSelectedInputsUnchanged": true,
+      "inputCount": 6623,
+      "repositoryInputCount": 296,
+      "immutableArtifactsUnchanged": true,
+      "sourceDigest": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57"
+    },
+    "final-browser-sdk": {
+      "allActualSelectedInputsUnchanged": true,
+      "inputCount": 3162,
+      "repositoryInputCount": 201,
+      "immutableArtifactsUnchanged": true,
+      "sourceDigest": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57"
+    }
+  },
+  "affectedRuntimeTests": {
+    "runtime-auth-compatibility": {
+      "command": [
+        "/tmp/miopunch-m96-20261019/affected-auth-tests/pinned/auth_compatibility",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "buildReceiptSha256": "172aa78d848f32d24b1a33d17253481da47724eb2be60e11b67abca2b0728e48",
+      "buildContextSha256": "a266cf77cb044a72d7fbc3e9ef4a906cdfb12267873c39465add05c7a9c40c81",
+      "driverSha256": "4fff55166b6c63c95611e124b01ffb68e2be60bbd0623c2f9bc5407d23f9b278",
+      "binarySha256": "e15d2a8b7318a8659c5a71f1fde579bac02e944dafa95a67351d1e5e7f3388fa",
+      "compiledExecutablePins": {
+        "/home/js/Git/miopunch/target/debug/deps/management_store-cefed14eb1653eb7": "0218b3da3029d97025e9f7fbe4f5266ee0c51db42a185187ee43aa080d6dbd16",
+        "/home/js/Git/miopunch/target/debug/deps/auth_compatibility-4172ca9031225356": "e15d2a8b7318a8659c5a71f1fde579bac02e944dafa95a67351d1e5e7f3388fa",
+        "/home/js/Git/miopunch/target/debug/deps/management_auth-58bde357bad8d5a3": "3869ecca63c27e39114300808cce7ae4475aaf46267a2e732e5c6b236dd685f0",
+        "/home/js/Git/miopunch/target/debug/deps/offline_replica-e2c4dced60d3409a": "0c6b814934b3cc7c2f8b33d5e4fde4417c2ec0f9621c321ee3a75343ca994d6f"
+      },
+      "preconditionsPassed": true,
+      "exit": 0,
+      "forcedTermination": false,
+      "oldNativeCounterpartSha256": null,
+      "seconds": 0.0039003491401672363,
+      "postconditionsPassed": true,
+      "testsPassed": 3,
+      "testsFailed": 0,
+      "nonemptyTestSelection": true,
+      "rawLogs": {
+        "stdout.log": "ee30bbaa9fb1701f6519b4003ac4dfee1e1de3f1bb3c1e2fd0eebe69320c5783",
+        "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "runtime-management-auth": {
+      "command": [
+        "/tmp/miopunch-m96-20261019/affected-auth-tests/pinned/management_auth",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "buildReceiptSha256": "172aa78d848f32d24b1a33d17253481da47724eb2be60e11b67abca2b0728e48",
+      "buildContextSha256": "a266cf77cb044a72d7fbc3e9ef4a906cdfb12267873c39465add05c7a9c40c81",
+      "driverSha256": "4fff55166b6c63c95611e124b01ffb68e2be60bbd0623c2f9bc5407d23f9b278",
+      "binarySha256": "3869ecca63c27e39114300808cce7ae4475aaf46267a2e732e5c6b236dd685f0",
+      "compiledExecutablePins": {
+        "/home/js/Git/miopunch/target/debug/deps/management_store-cefed14eb1653eb7": "0218b3da3029d97025e9f7fbe4f5266ee0c51db42a185187ee43aa080d6dbd16",
+        "/home/js/Git/miopunch/target/debug/deps/auth_compatibility-4172ca9031225356": "e15d2a8b7318a8659c5a71f1fde579bac02e944dafa95a67351d1e5e7f3388fa",
+        "/home/js/Git/miopunch/target/debug/deps/management_auth-58bde357bad8d5a3": "3869ecca63c27e39114300808cce7ae4475aaf46267a2e732e5c6b236dd685f0",
+        "/home/js/Git/miopunch/target/debug/deps/offline_replica-e2c4dced60d3409a": "0c6b814934b3cc7c2f8b33d5e4fde4417c2ec0f9621c321ee3a75343ca994d6f"
+      },
+      "preconditionsPassed": true,
+      "exit": 0,
+      "forcedTermination": false,
+      "oldNativeCounterpartSha256": null,
+      "seconds": 0.4656869787722826,
+      "postconditionsPassed": true,
+      "testsPassed": 7,
+      "testsFailed": 0,
+      "nonemptyTestSelection": true,
+      "rawLogs": {
+        "stdout.log": "d889b94ba5f00407592018687c5db5343b0608c63e09120e8718992572eac8d2",
+        "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "runtime-management-store": {
+      "command": [
+        "/tmp/miopunch-m96-20261019/affected-auth-tests/pinned/management_store",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "buildReceiptSha256": "172aa78d848f32d24b1a33d17253481da47724eb2be60e11b67abca2b0728e48",
+      "buildContextSha256": "a266cf77cb044a72d7fbc3e9ef4a906cdfb12267873c39465add05c7a9c40c81",
+      "driverSha256": "4fff55166b6c63c95611e124b01ffb68e2be60bbd0623c2f9bc5407d23f9b278",
+      "binarySha256": "0218b3da3029d97025e9f7fbe4f5266ee0c51db42a185187ee43aa080d6dbd16",
+      "compiledExecutablePins": {
+        "/home/js/Git/miopunch/target/debug/deps/management_store-cefed14eb1653eb7": "0218b3da3029d97025e9f7fbe4f5266ee0c51db42a185187ee43aa080d6dbd16",
+        "/home/js/Git/miopunch/target/debug/deps/auth_compatibility-4172ca9031225356": "e15d2a8b7318a8659c5a71f1fde579bac02e944dafa95a67351d1e5e7f3388fa",
+        "/home/js/Git/miopunch/target/debug/deps/management_auth-58bde357bad8d5a3": "3869ecca63c27e39114300808cce7ae4475aaf46267a2e732e5c6b236dd685f0",
+        "/home/js/Git/miopunch/target/debug/deps/offline_replica-e2c4dced60d3409a": "0c6b814934b3cc7c2f8b33d5e4fde4417c2ec0f9621c321ee3a75343ca994d6f"
+      },
+      "preconditionsPassed": true,
+      "exit": 0,
+      "forcedTermination": false,
+      "oldNativeCounterpartSha256": null,
+      "seconds": 0.8160722283646464,
+      "postconditionsPassed": true,
+      "testsPassed": 7,
+      "testsFailed": 0,
+      "nonemptyTestSelection": true,
+      "rawLogs": {
+        "stdout.log": "87616a0da0d7ad411a198e8b1f546236b9c6ada5624d73ae286e5fe2d422bb3c",
+        "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "runtime-offline-replica": {
+      "command": [
+        "/tmp/miopunch-m96-20261019/affected-auth-tests/pinned/offline_replica",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "buildReceiptSha256": "172aa78d848f32d24b1a33d17253481da47724eb2be60e11b67abca2b0728e48",
+      "buildContextSha256": "a266cf77cb044a72d7fbc3e9ef4a906cdfb12267873c39465add05c7a9c40c81",
+      "driverSha256": "4fff55166b6c63c95611e124b01ffb68e2be60bbd0623c2f9bc5407d23f9b278",
+      "binarySha256": "0c6b814934b3cc7c2f8b33d5e4fde4417c2ec0f9621c321ee3a75343ca994d6f",
+      "compiledExecutablePins": {
+        "/home/js/Git/miopunch/target/debug/deps/management_store-cefed14eb1653eb7": "0218b3da3029d97025e9f7fbe4f5266ee0c51db42a185187ee43aa080d6dbd16",
+        "/home/js/Git/miopunch/target/debug/deps/auth_compatibility-4172ca9031225356": "e15d2a8b7318a8659c5a71f1fde579bac02e944dafa95a67351d1e5e7f3388fa",
+        "/home/js/Git/miopunch/target/debug/deps/management_auth-58bde357bad8d5a3": "3869ecca63c27e39114300808cce7ae4475aaf46267a2e732e5c6b236dd685f0",
+        "/home/js/Git/miopunch/target/debug/deps/offline_replica-e2c4dced60d3409a": "0c6b814934b3cc7c2f8b33d5e4fde4417c2ec0f9621c321ee3a75343ca994d6f"
+      },
+      "preconditionsPassed": true,
+      "exit": 0,
+      "forcedTermination": false,
+      "oldNativeCounterpartSha256": null,
+      "seconds": 5.828418574295938,
+      "postconditionsPassed": true,
+      "testsPassed": 4,
+      "testsFailed": 0,
+      "nonemptyTestSelection": true,
+      "rawLogs": {
+        "stdout.log": "acf76007d4481dd92f40c785e598e9228fed0ada257a872684bb63a4c4b96c4a",
+        "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  "selectedTestEntriesPassed": 21,
+  "subprocessWorkerScope": "One selected store entry is the existing worker, also invoked by the actual process-restart parent test.",
+  "finalSdkCases": {
+    "final-sdk-story": {
+      "qualified": true,
+      "execution": {
+        "publicTraffic": false,
+        "passed": true,
+        "containers": [
+          {
+            "name": "miopunch-m96-owned-irc-1792355110317944125",
+            "removed": true
+          }
+        ],
+        "cleanup": {
+          "relayExit": 0,
+          "relayGraceful": true,
+          "relayProcessAbsent": true
+        },
+        "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+        "relayStarted": true,
+        "runtimeExit": 0,
+        "functionalAndSdkCleanupQualified": true,
+        "rawReceiptSha256": "7841ed3c4e1136b4280e429e6593598742b8bcef778e450a851cf9b9264732b6",
+        "sourceArtifactControllerUnchangedAfterRuntime": true,
+        "wholeWallMs": 13476.855450309813,
+        "sourceDigest": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+        "qualified": true
+      },
+      "privateRawReceiptSha256": "7841ed3c4e1136b4280e429e6593598742b8bcef778e450a851cf9b9264732b6",
+      "strictRestrictedRequest": true,
+      "approvalRecords": 1,
+      "bothMaterialsDurable": true,
+      "sameBrowserIdentityReopened": true,
+      "sameNativeIdentityReopened": true,
+      "memberReply": "PONG",
+      "initialCarrier": "Relay",
+      "browserClose": {
+        "sdkStarted": true,
+        "closeReturned": true,
+        "freed": true,
+        "elapsedMs": 1.4000000953674316
+      },
+      "socketImmediateObservationPassed": true,
+      "lateSocketWaitMs": 0.01005899999927351,
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "ownedFixtureRemoved": true,
+      "privateMaterialCleanup": {
+        "sdkAndActorCleanupQualifiedBeforeSecretRemoval": true,
+        "containersActuallyAbsent": true,
+        "runtimeReceiptSha256": "7841ed3c4e1136b4280e429e6593598742b8bcef778e450a851cf9b9264732b6",
+        "removedGeneratedKeys": [
+          {
+            "path": "private-fixture/ca.key",
+            "bytes": 1704
+          },
+          {
+            "path": "private-fixture/leaf.key",
+            "bytes": 1704
+          }
+        ],
+        "privateNssRemoved": true,
+        "remainingPrivateKeys": 0
+      }
+    },
+    "final-sdk-negatives": {
+      "qualified": true,
+      "execution": {
+        "publicTraffic": false,
+        "passed": true,
+        "containers": [
+          {
+            "name": "miopunch-m96-owned-irc-1792355136365967533",
+            "removed": true
+          }
+        ],
+        "cleanup": {
+          "relayExit": 0,
+          "relayGraceful": true,
+          "relayProcessAbsent": true
+        },
+        "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+        "relayStarted": true,
+        "runtimeExit": 0,
+        "functionalAndSdkCleanupQualified": true,
+        "rawReceiptSha256": "f76096ee30c44a193efc87662f06a49ac9f91382c0f669b7092b981ab2e926f7",
+        "sourceArtifactControllerUnchangedAfterRuntime": true,
+        "wholeWallMs": 27030.29600623995,
+        "sourceDigest": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+        "qualified": true
+      },
+      "privateRawReceiptSha256": "f76096ee30c44a193efc87662f06a49ac9f91382c0f669b7092b981ab2e926f7",
+      "strictRestrictedRequest": true,
+      "approvalRecords": 1,
+      "bothMaterialsDurable": true,
+      "sameBrowserIdentityReopened": true,
+      "sameNativeIdentityReopened": true,
+      "memberReply": "PONG",
+      "initialCarrier": "RTC",
+      "browserClose": {
+        "sdkStarted": true,
+        "closeReturned": true,
+        "freed": true,
+        "elapsedMs": 942.6000003814697
+      },
+      "socketImmediateObservationPassed": true,
+      "lateSocketWaitMs": 0.012492999998357845,
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "ownedFixtureRemoved": true,
+      "privateMaterialCleanup": {
+        "sdkAndActorCleanupQualifiedBeforeSecretRemoval": true,
+        "containersActuallyAbsent": true,
+        "runtimeReceiptSha256": "f76096ee30c44a193efc87662f06a49ac9f91382c0f669b7092b981ab2e926f7",
+        "removedGeneratedKeys": [
+          {
+            "path": "private-fixture/ca.key",
+            "bytes": 1704
+          },
+          {
+            "path": "private-fixture/leaf.key",
+            "bytes": 1704
+          }
+        ],
+        "privateNssRemoved": true,
+        "remainingPrivateKeys": 0
+      },
+      "negativeCases": [
+        {
+          "case": "resources-disabled-signal-only",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 0
+        },
+        {
+          "case": "rtc-api-unavailable-signal-only",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 0
+        },
+        {
+          "case": "cancel-unqualified-channel",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 0,
+          "originalClosed": true,
+          "activeAssociations": 0,
+          "activePumps": 0,
+          "routeActive": false,
+          "routeQualified": false,
+          "queuedBytes": 0,
+          "checkpointFreshAck": false
+        },
+        {
+          "case": "deadline-unqualified-channel",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 0,
+          "originalClosed": true,
+          "activeAssociations": 0,
+          "activePumps": 0,
+          "routeActive": false,
+          "routeQualified": false,
+          "queuedBytes": 0,
+          "checkpointFreshAck": false
+        },
+        {
+          "case": "revocation-after-qualified-before-release",
+          "localOrdinaryHandle": false,
+          "counterpartReleasesUnderItsCurrentView": 1,
+          "originalClosed": true,
+          "activeAssociations": 0,
+          "activePumps": 0,
+          "routeActive": false,
+          "routeQualified": false,
+          "queuedBytes": 0,
+          "checkpointFreshAck": true
+        }
+      ],
+      "revocationPropagationScope": "Browser-local departure refuses Browser delivery; the fixed counterpart has not received the new departure record.",
+      "initialRtcFinalChecks": {
+        "freshAck": true,
+        "stableUnchanged": true,
+        "bindingUnchanged": true,
+        "beforeRetainFrames": {
+          "datagramReceived": 0,
+          "datagramSent": 0,
+          "streamReceived": 0,
+          "streamSent": 0
+        }
+      }
+    },
+    "final-browser-incoming-active-rtc": {
+      "qualified": true,
+      "execution": {
+        "publicTraffic": false,
+        "passed": true,
+        "containers": [
+          {
+            "name": "miopunch-m96-owned-irc-1792355183577581981",
+            "removed": true
+          }
+        ],
+        "cleanup": {
+          "relayExit": 0,
+          "relayGraceful": true,
+          "relayProcessAbsent": true
+        },
+        "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+        "relayStarted": true,
+        "runtimeExit": 0,
+        "functionalAndSdkCleanupQualified": true,
+        "rawReceiptSha256": "aa0a4cb806701dde7c9e848a1956f0b1e4f7a30c353f2e5f73fa6d3ea03dc060",
+        "sourceArtifactControllerUnchangedAfterRuntime": true,
+        "wholeWallMs": 28521.97904791683,
+        "sourceDigest": "63c96589d15b52669a2c260e4e274ca03a24eb4fa6635eb2dc19554660323c57",
+        "qualified": true
+      },
+      "privateRawReceiptSha256": "aa0a4cb806701dde7c9e848a1956f0b1e4f7a30c353f2e5f73fa6d3ea03dc060",
+      "strictRestrictedRequest": true,
+      "approvalRecords": 1,
+      "bothMaterialsDurable": true,
+      "sameBrowserIdentityReopened": true,
+      "sameNativeIdentityReopened": true,
+      "memberReply": "PONG",
+      "initialCarrier": "Relay",
+      "browserClose": {
+        "sdkStarted": true,
+        "closeReturned": true,
+        "freed": true,
+        "elapsedMs": 1.3000001907348633
+      },
+      "socketImmediateObservationPassed": true,
+      "lateSocketWaitMs": 0.01130100000227685,
+      "websocketsClosedBeforeContext": true,
+      "nativeExit": {
+        "code": 0,
+        "signal": null
+      },
+      "ownedFixtureRemoved": true,
+      "privateMaterialCleanup": {
+        "sdkAndActorCleanupQualifiedBeforeSecretRemoval": true,
+        "containersActuallyAbsent": true,
+        "runtimeReceiptSha256": "aa0a4cb806701dde7c9e848a1956f0b1e4f7a30c353f2e5f73fa6d3ea03dc060",
+        "removedGeneratedKeys": [
+          {
+            "path": "private-fixture/ca.key",
+            "bytes": 1704
+          },
+          {
+            "path": "private-fixture/leaf.key",
+            "bytes": 1704
+          }
+        ],
+        "privateNssRemoved": true,
+        "remainingPrivateKeys": 0
+      },
+      "browserIncoming": {
+        "manualApproval": true,
+        "durableMaterials": true,
+        "sameApplicantReopened": true,
+        "memberStream": true,
+        "precodeUses": 1,
+        "precodeRetryDoesNotConsumeAgain": true,
+        "replicaComplete": true,
+        "extraContextCleanup": [
+          {
+            "sdkClosed": true,
+            "socketImmediateObservationPassed": false,
+            "lateSocketWaitMs": 99.43105000000287,
+            "websocketsClosedBeforeContext": true
+          },
+          {
+            "sdkClosed": true,
+            "socketImmediateObservationPassed": false,
+            "lateSocketWaitMs": 100.49655200000052,
+            "websocketsClosedBeforeContext": true
+          }
+        ]
+      },
+      "browserIncomingActiveControl": {
+        "sides": {
+          "initiator": {
+            "sameOriginal": true,
+            "freshAck": true,
+            "bothReady": true,
+            "selectedRtc": true,
+            "beforeRetainFrames": {
+              "datagramReceived": 0,
+              "datagramSent": 0,
+              "streamReceived": 0,
+              "streamSent": 0
+            }
+          },
+          "responder": {
+            "sameOriginal": true,
+            "freshAck": true,
+            "bothReady": true,
+            "selectedRtc": true,
+            "beforeRetainFrames": {
+              "datagramReceived": 0,
+              "datagramSent": 0,
+              "streamReceived": 0,
+              "streamSent": 0
+            }
+          }
+        },
+        "originalMemberBusinessAfterRtc": true,
+        "explicitFixturePolicy": "PreferDirect"
+      }
+    }
+  },
+  "historicalTestStorage": [
+    {
+      "reason": "Lossless storage of obsolete M93 intermediate test executables only. Exact official baselines, final tests, all SDK pins, raw logs, inputs and build receipts remain. To replay an intermediate, decompress its verified bytes to originalPath before using its unchanged historical driver.",
+      "noSdkArtifactsAltered": true,
+      "noCargoCacheAltered": true,
+      "before": {
+        "freeBytes": 10750578688,
+        "cacheBytes": 100044214272
+      },
+      "after": {
+        "freeBytes": 11940855808,
+        "cacheBytes": 100044214272
+      },
+      "artifacts": [
+        {
+          "originalPath": "/tmp/miopunch-m93-20261018/typed-incoming-deadline-red/pinned/native_restricted_admission",
+          "originalSha256": "3522891c625e9684cc00b07902f84115604e535e184e30c378c16bbea9efe657",
+          "originalBytes": 205100992,
+          "buildReceipt": "/tmp/miopunch-m93-20261018/typed-incoming-deadline-red/receipt.json",
+          "buildReceiptSha256": "573826b2ca0bd5b561e4055801cb0404a6ecbae4f8c85eaa5aeeedc209198a7c",
+          "compressedPath": "/tmp/miopunch-m96-20261019/historical-test-artifacts/typed-incoming-deadline-red-3522891c625e9684cc00b07902f84115604e535e184e30c378c16bbea9efe657.bin.gz",
+          "compressedSha256": "84262ae79f25741ae7e78cbac29df03b312770698b4e60d16eedf837d89c4569",
+          "compressedBytes": 51884001,
+          "roundTripSha256": "3522891c625e9684cc00b07902f84115604e535e184e30c378c16bbea9efe657"
+        },
+        {
+          "originalPath": "/tmp/miopunch-m93-20261018/typed-maintained-recovery-red/pinned/native_restricted_admission",
+          "originalSha256": "aa23030525493b90cc409c6207cdca749dac3ebf2dc456a64a983cba04714a42",
+          "originalBytes": 205010512,
+          "buildReceipt": "/tmp/miopunch-m93-20261018/typed-maintained-recovery-red/receipt.json",
+          "buildReceiptSha256": "e75269c34b10601d11557d867907bce9cacbd672148591d53a900d72c27f681a",
+          "compressedPath": "/tmp/miopunch-m96-20261019/historical-test-artifacts/typed-maintained-recovery-red-aa23030525493b90cc409c6207cdca749dac3ebf2dc456a64a983cba04714a42.bin.gz",
+          "compressedSha256": "7d99e00167b67faa4ee447ad1ea2e56eaae751a5b378b685abded3e80c8f899e",
+          "compressedBytes": 51830334,
+          "roundTripSha256": "aa23030525493b90cc409c6207cdca749dac3ebf2dc456a64a983cba04714a42"
+        },
+        {
+          "originalPath": "/tmp/miopunch-m93-20261018/typed-startup-green-v1/pinned/native_restricted_admission",
+          "originalSha256": "e649f4398c49a1d1cee3c0efd43945b3fdd6b02eac60ddbb23170088cdc90735",
+          "originalBytes": 200244640,
+          "buildReceipt": "/tmp/miopunch-m93-20261018/typed-startup-green-v1/receipt.json",
+          "buildReceiptSha256": "699e8e9856dae81a879389f0afc847cb602118ca25e0d97dd5b6841078e9824c",
+          "compressedPath": "/tmp/miopunch-m96-20261019/historical-test-artifacts/typed-startup-green-v1-e649f4398c49a1d1cee3c0efd43945b3fdd6b02eac60ddbb23170088cdc90735.bin.gz",
+          "compressedSha256": "b16a1568280bf5b8a9c9bafa12356608ce7ada5c4a52875800836becab105467",
+          "compressedBytes": 50747623,
+          "roundTripSha256": "e649f4398c49a1d1cee3c0efd43945b3fdd6b02eac60ddbb23170088cdc90735"
+        },
+        {
+          "originalPath": "/tmp/miopunch-m93-20261018/typed-replica-green-v1/pinned/native_restricted_admission",
+          "originalSha256": "ee34722a43d789f7d57849f87ece270cc4d21de668e4d03c1c64df3e94a803db",
+          "originalBytes": 199559432,
+          "buildReceipt": "/tmp/miopunch-m93-20261018/typed-replica-green-v1/receipt.json",
+          "buildReceiptSha256": "9065b11ffcc3199744a324201e2a54e665f869a5c251fbbd9402d3b099d91d25",
+          "compressedPath": "/tmp/miopunch-m96-20261019/historical-test-artifacts/typed-replica-green-v1-ee34722a43d789f7d57849f87ece270cc4d21de668e4d03c1c64df3e94a803db.bin.gz",
+          "compressedSha256": "199f90ec26668151a172449500cc52faa97161a4c7207543da478404a5b8747a",
+          "compressedBytes": 50595122,
+          "roundTripSha256": "ee34722a43d789f7d57849f87ece270cc4d21de668e4d03c1c64df3e94a803db"
+        },
+        {
+          "originalPath": "/tmp/miopunch-m93-20261018/typed-precode-green/pinned/native_restricted_admission",
+          "originalSha256": "d439097efc4d7de3cbff0547a2426c63e9da66f39c89ecb18726477468b6f64a",
+          "originalBytes": 195760096,
+          "buildReceipt": "/tmp/miopunch-m93-20261018/typed-precode-green/receipt.json",
+          "buildReceiptSha256": "852b323a0f451df6d154baf58fb1e35d5d77004c90daca6698afc713a4f0e594",
+          "compressedPath": "/tmp/miopunch-m96-20261019/historical-test-artifacts/typed-precode-green-d439097efc4d7de3cbff0547a2426c63e9da66f39c89ecb18726477468b6f64a.bin.gz",
+          "compressedSha256": "a18587051d9b1035d2665b3c3c96f088709b9614aa63cb2e704ac808f3f1ee08",
+          "compressedBytes": 49676124,
+          "roundTripSha256": "d439097efc4d7de3cbff0547a2426c63e9da66f39c89ecb18726477468b6f64a"
+        },
+        {
+          "originalPath": "/tmp/miopunch-m93-20261018/typed-management-green-v1/pinned/native_restricted_admission",
+          "originalSha256": "2fd39e50150ec4addd5911009f7e497da12748ae1d9e4df15d21398e714d47bf",
+          "originalBytes": 196212200,
+          "buildReceipt": "/tmp/miopunch-m93-20261018/typed-management-green-v1/receipt.json",
+          "buildReceiptSha256": "895c604974b09f072410cdf5b785ddf78864959b75421bdbe8dd63b0a96338bc",
+          "compressedPath": "/tmp/miopunch-m96-20261019/historical-test-artifacts/typed-management-green-v1-2fd39e50150ec4addd5911009f7e497da12748ae1d9e4df15d21398e714d47bf.bin.gz",
+          "compressedSha256": "a9c2e0ad198ba8e80afd5fe24cd7fd70a35e7814c23f20e073c148d61944efad",
+          "compressedBytes": 49801124,
+          "roundTripSha256": "2fd39e50150ec4addd5911009f7e497da12748ae1d9e4df15d21398e714d47bf"
+        },
+        {
+          "originalPath": "/tmp/miopunch-m93-20261018/typed-rotation-green-v1/pinned/native_restricted_admission",
+          "originalSha256": "1161523d23026e35de9e13aea517c3a07426bd63270bdcaad125f950078af239",
+          "originalBytes": 197030264,
+          "buildReceipt": "/tmp/miopunch-m93-20261018/typed-rotation-green-v1/receipt.json",
+          "buildReceiptSha256": "c0dafb3a329e29e00554753e5aa473b17fedf73f3bedee7baf7499fb1c5e728b",
+          "compressedPath": "/tmp/miopunch-m96-20261019/historical-test-artifacts/typed-rotation-green-v1-1161523d23026e35de9e13aea517c3a07426bd63270bdcaad125f950078af239.bin.gz",
+          "compressedSha256": "100208d1fae4d7650c84978a469ae243b4c6d663be9ca4a3b392bc07931a0bba",
+          "compressedBytes": 50026893,
+          "roundTripSha256": "1161523d23026e35de9e13aea517c3a07426bd63270bdcaad125f950078af239"
+        },
+        {
+          "originalPath": "/tmp/miopunch-m93-20261018/typed-rtc-regression-v1/pinned/native_restricted_admission",
+          "originalSha256": "5fb243c5a0551bdecff8cdfce4311d182dc87f952e1c0d30746e94ad38063112",
+          "originalBytes": 195629080,
+          "buildReceipt": "/tmp/miopunch-m93-20261018/typed-rtc-regression-v1/receipt.json",
+          "buildReceiptSha256": "e1d90b44e86a946bb3fc8987ef13fa26422bd9b29ad7c64a32141eaa9dd6f95e",
+          "compressedPath": "/tmp/miopunch-m96-20261019/historical-test-artifacts/typed-rtc-regression-v1-5fb243c5a0551bdecff8cdfce4311d182dc87f952e1c0d30746e94ad38063112.bin.gz",
+          "compressedSha256": "5e808d56f2ae23f4e60097077045e1017ee2bc7ac46c4b5dbd93c146a4f46709",
+          "compressedBytes": 49644222,
+          "roundTripSha256": "5fb243c5a0551bdecff8cdfce4311d182dc87f952e1c0d30746e94ad38063112"
+        }
+      ]
+    },
+    {
+      "reason": "Lossless storage of obsolete M93 intermediate test executables only. Exact official baselines, final tests, all SDK pins, raw logs, inputs and build receipts remain. To replay an intermediate, decompress its verified bytes to originalPath before using its unchanged historical driver.",
+      "noSdkArtifactsAltered": true,
+      "noCargoCacheAltered": true,
+      "before": {
+        "freeBytes": 11004850176,
+        "cacheBytes": 100572360704
+      },
+      "after": {
+        "freeBytes": 11812098048,
+        "cacheBytes": 100572360704
+      },
+      "artifacts": [
+        {
+          "originalPath": "/tmp/miopunch-m93-20261018/typed-incoming-deadline-green-v1/pinned/native_restricted_admission",
+          "originalSha256": "65750c384dd904987d2a85ed829b7f43b8c609c130e7096678f4317debbf5723",
+          "originalBytes": 205103496,
+          "buildReceipt": "/tmp/miopunch-m93-20261018/typed-incoming-deadline-green-v1/receipt.json",
+          "buildReceiptSha256": "ffa6256dae5e86bfa44e4a0a684a6306b575c64a784bd179e91e3f2747f04294",
+          "compressedPath": "/tmp/miopunch-m96-20261019/historical-test-artifacts-round2/typed-incoming-deadline-green-v1-65750c384dd904987d2a85ed829b7f43b8c609c130e7096678f4317debbf5723.bin.gz",
+          "compressedSha256": "b50795afaa6817295b29ff342083cb4f2be35973fab9d26ccc877ee30a5050b6",
+          "compressedBytes": 51868572,
+          "roundTripSha256": "65750c384dd904987d2a85ed829b7f43b8c609c130e7096678f4317debbf5723"
+        },
+        {
+          "originalPath": "/tmp/miopunch-m93-20261018/native-mqtt-member-runtime-red-v3/pinned/native_restricted_admission",
+          "originalSha256": "7e7cb4b75e67d740da7e7d40b8558818cab84aee25c365210f858babd8831ad3",
+          "originalBytes": 164678232,
+          "buildReceipt": "/tmp/miopunch-m93-20261018/native-mqtt-member-runtime-red-v3/receipt.json",
+          "buildReceiptSha256": "77ae43e46cd2d8afb05c2bbdd0413d06f89888b9c9564637875a585795aa6562",
+          "compressedPath": "/tmp/miopunch-m96-20261019/historical-test-artifacts-round2/native-mqtt-member-runtime-red-v3-7e7cb4b75e67d740da7e7d40b8558818cab84aee25c365210f858babd8831ad3.bin.gz",
+          "compressedSha256": "e8dc6968ee3ce488bb5abab855dfd04409a63e5f9b6135d0ea68350355f1b3c0",
+          "compressedBytes": 41711395,
+          "roundTripSha256": "7e7cb4b75e67d740da7e7d40b8558818cab84aee25c365210f858babd8831ad3"
+        },
+        {
+          "originalPath": "/tmp/miopunch-m93-20261018/native-relay-member-red/pinned/native_restricted_admission",
+          "originalSha256": "de236b576c042c74b435dc28e991462488b36146a6933e9be4e048f06743011d",
+          "originalBytes": 178374768,
+          "buildReceipt": "/tmp/miopunch-m93-20261018/native-relay-member-red/receipt.json",
+          "buildReceiptSha256": "9d1ead5d850dc82ad070be49f9d3d0cbc711d4c2550598adc3642bd267526bb0",
+          "compressedPath": "/tmp/miopunch-m96-20261019/historical-test-artifacts-round2/native-relay-member-red-de236b576c042c74b435dc28e991462488b36146a6933e9be4e048f06743011d.bin.gz",
+          "compressedSha256": "95341549c5b9bcedd2670af561b8ec9c3c2f0c5dfeb6033aceb105b526874fbb",
+          "compressedBytes": 44854207,
+          "roundTripSha256": "de236b576c042c74b435dc28e991462488b36146a6933e9be4e048f06743011d"
+        },
+        {
+          "originalPath": "/tmp/miopunch-m93-20261018/native-mqtt-member-runtime-red-v2/pinned/native_restricted_admission",
+          "originalSha256": "213f75a4e45d3b51415c499447569d74536a20ebf43d22bb25a34a3c7dd8bec9",
+          "originalBytes": 164668576,
+          "buildReceipt": "/tmp/miopunch-m93-20261018/native-mqtt-member-runtime-red-v2/receipt.json",
+          "buildReceiptSha256": "8288382aa9fc7e46ccb4ada396cc92d9514c640d4a03b32f59e6ad7c1fe58a3b",
+          "compressedPath": "/tmp/miopunch-m96-20261019/historical-test-artifacts-round2/native-mqtt-member-runtime-red-v2-213f75a4e45d3b51415c499447569d74536a20ebf43d22bb25a34a3c7dd8bec9.bin.gz",
+          "compressedSha256": "4bb7c7c51b83767175ac695edee1674463eea35dc47d82b15e018ac258e8989c",
+          "compressedBytes": 41712955,
+          "roundTripSha256": "213f75a4e45d3b51415c499447569d74536a20ebf43d22bb25a34a3c7dd8bec9"
+        },
+        {
+          "originalPath": "/tmp/miopunch-m93-20261018/typed-maintained-recovery-green-v1/pinned/native_restricted_admission",
+          "originalSha256": "de6d38fd603673908a4238595ed69dd2980fe97735389633dde5671ba41d3146",
+          "originalBytes": 204975216,
+          "buildReceipt": "/tmp/miopunch-m93-20261018/typed-maintained-recovery-green-v1/receipt.json",
+          "buildReceiptSha256": "85c0cd0a29a409aaef882b2a50832ec4b7082df8359eb9fdf459a48c4528b9a2",
+          "compressedPath": "/tmp/miopunch-m96-20261019/historical-test-artifacts-round2/typed-maintained-recovery-green-v1-de6d38fd603673908a4238595ed69dd2980fe97735389633dde5671ba41d3146.bin.gz",
+          "compressedSha256": "f55071dd835db615057bbcea6f2b43c95c254509f130e02fc42dc05e43c9a388",
+          "compressedBytes": 51851610,
+          "roundTripSha256": "de6d38fd603673908a4238595ed69dd2980fe97735389633dde5671ba41d3146"
+        },
+        {
+          "originalPath": "/tmp/miopunch-m93-20261018/native-member-red/pinned/native_restricted_admission",
+          "originalSha256": "27d9b0994652c786455b97fb343fdd22473aa7c08b9754dbe95a04be5c06310c",
+          "originalBytes": 162781744,
+          "buildReceipt": "/tmp/miopunch-m93-20261018/native-member-red/receipt.json",
+          "buildReceiptSha256": "9861d0f4dfde5a28a8c20280e6108c78c4a05f005f40075a34ce37133e81ebfc",
+          "compressedPath": "/tmp/miopunch-m96-20261019/historical-test-artifacts-round2/native-member-red-27d9b0994652c786455b97fb343fdd22473aa7c08b9754dbe95a04be5c06310c.bin.gz",
+          "compressedSha256": "ac2d3bdfebfd7ca96f497108ad8e45109019379449c19cb30c788c2563eada3b",
+          "compressedBytes": 41348774,
+          "roundTripSha256": "27d9b0994652c786455b97fb343fdd22473aa7c08b9754dbe95a04be5c06310c"
+        }
+      ]
+    }
+  ],
+  "failedPreparations": {
+    "original-auth-baseline": {
+      "cargoInvoked": false,
+      "result": "CacheError: cache runner records Cargo JSON itself; omit --message-format",
+      "emptyOutputDirectoryVerified": true
+    },
+    "historical-cache-review": {
+      "selected": 0,
+      "filesRemoved": 0
+    },
+    "historical-test-dedup-review": {
+      "result": "assert plans failed because no qualifying byte-identical duplicates were selected",
+      "filesModified": 0
+    }
+  },
+  "scope": "M96 independent checked-auth error and affected application regressions; owned loopback only; broader M91 and public/physical matrix remain separate"
+}
