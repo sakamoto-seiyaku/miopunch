@@ -1,0 +1,1344 @@
+{
+  "baselineCommit": "1ddafa9da91beeefa981771bf2cc53f1239415c4",
+  "implementationCommit": "49213d3ae50fa493422fdfdfa9afc062a227212a",
+  "protectedPreexistingFileCount": 249,
+  "protectedHashesUnchanged": true,
+  "beforeProductionEdits": {
+    "ownedInputSnapshots": {
+      "browser-probe/src/lib.rs": "58dd469a8af4d959f7623c6e7efc3ca828333068e2f351af0ad617356d0ebac4",
+      "browser-probe/src/network.rs": "449564d0d6b6011b0758f6bda9c0e2c92a09580ee62343b24aa917bc9ba2b669",
+      "src/bin/browser_probe_native.rs": "d46c01c511e59688b3a5ba92f683b965ecca2bd4bd8b87b32c1dded9948f8a7c",
+      "src/bin/udp_nat_probe.rs": "def930937b852fae3f9427d9fdb8098c810be47a945e1925651c9288852eac35",
+      "src/bin/udp_observation_probe.rs": "d65a1e6f32541ac408c3e150e628f54ece49cffac6ca34bdf7b78742761c57c9",
+      "src/contact_listener.rs": "5f5bec893eaca3e4ef61cc21ed56a0dc207d10b5155a07fedabe9f6181d7bc1f",
+      "src/main.rs": "af70d1812773b784ff7e6d9a17b3d936a52b226201759ef8ff0c8dea92a5c822",
+      "tests/admission_gate.rs": "f85461514b27d066884b75d979771a1780e1e993db4766e39e64a709b78cfa0e",
+      "tests/admission_proof.rs": "3a7a98f06a78a902b50bff8d28fc91f4b81d0a044d1cad26cc2d2dabe866d611",
+      "tests/contact_listener.rs": "45506d6735ae3411383129715f52485488465db4297d7c66f1a4ed9cfcdb394b",
+      "tests/contact_member_priority.rs": "a37e911ef19650cd89c98b32a5fad6732a332f0567a98dd858d94e0a5003f2fd",
+      "tests/control_session_handoff.rs": "4ac232d398d7fa31a15f37be76b61820d0016bb5576fcd575f43c6e7bcb56928",
+      "tests/genesis_recovery.rs": "2bfeceeb75410ab5f3e351f3007c66032477414e4cb94b709e5d522ece03f0a6",
+      "tests/irc_bootstrap.rs": "3d44b0ff08dec4f0adb4ea306ca03662d1bd4eeab16eebe97cb3b79637528d85",
+      "tests/legacy_multi_socket.rs": "4e9a805e1661c1458673b91726cdcc81abb48f6a5a5f015d3eeea9e0484fe511",
+      "tests/legacy_nat_runtime.rs": "89225c4ae838b79c121f6484213044a5e8bd030df363e5aad11071f6b4d9b12b",
+      "tests/manual_admission.rs": "b81425a13ea189aca63fe51587f2bd3d37d9b5cf2e42cc52b262c3978df660d8",
+      "tests/member_attempt.rs": "63b7fa51b4b4763a3fac00f22a08830cb415dd8edc5646de0a99b5f36b45e13e",
+      "tests/member_forward.rs": "c60e195724941f05d44a397bb9c359a33e0989b0fc002654d417aaa28fc4dcc7",
+      "tests/member_path_protocol.rs": "dc16add9270facebc4ece6ed8890770485a30859ccf911d731082ec2fe8897aa",
+      "tests/member_relay.rs": "87e6727c7d9e74f9719f29670f01406dcb2d120174b799f29451c4fce7994f72",
+      "tests/mio74_rtc_offer_ownership.rs": "7580b07f372e2290dc4d685897e3d119e2047a9e7c2e5b144f96b77c53ff262e",
+      "tests/mqtt_bootstrap.rs": "e3f9c6e8820e19cd0df97c694e9ad05979ba4e3d7245e6cf99b2a047554328f5",
+      "tests/mqtt_probe.rs": "f118e2443d4cdcec6d4002de038277af20f5b72f86f30e6e03a2062058ca3f3c",
+      "tests/mqtt_upgrade.rs": "ff2bce43539b9bdb11dd1e37fe71edb7486ac42ea7cfe4bbbbc004aabff4434f",
+      "tests/native_restricted_admission.rs": "c55f9da751c67188714384460c54b9637d2872a0f46ea4cf3c4cb4a004dbc010",
+      "tests/negotiated_accept_context.rs": "c420442d35ba392bbbfb9bfe62a68da188115f18a4be711d1cb418505654b8e2",
+      "tests/path_maintenance.rs": "2f7949379884bdd8624356d401ca70442f8b24e45696c6a2ef9b90e98dcdf17c",
+      "tests/public_resources.rs": "fbfb0a221da39be285bc95cd60a5f73df7af7322a013cf54871e7d8280e1b1a4",
+      "tests/resources.rs": "9be3ee890482e52d6f804673537e189882a2848be3b7924a3432b48019970441",
+      "tests/restricted_endpoint.rs": "e1c252951d9eed86787e3977ae42c2870262f5ff004d1f297e7b6d8b63f7e8b5",
+      "tests/restricted_protocol_interop.rs": "84a07cf342b187e7173a399b05fb4294f604860f1d2fb8b4832125d7cadc476b",
+      "tests/rtc_control_release.rs": "84f436f633d1793750f554be86c69e159a08278cdc1d830fcf824a37b17332d0",
+      "tests/rtc_invalidation_barrier.rs": "47e1cb0fe07e309b22909d91d2b366ed7d64c33ed717366c3c92e4c5b34f12a4",
+      "tests/rtc_path_qualification.rs": "23ad001ec91630dfca7337338d8be9d79d3d4d82dfc97f07c50b771ea7aec662",
+      "tests/rtc_release_validation.rs": "80395258821d102638ea054a8cea5e0e7e4bb324e9f658b568d826340673fc63",
+      "tests/support/native_sdk_counterpart.rs": "f1d380415d8d64d6fef718e4963e194c5196d1d0d8aba4ded31a4212763615a1",
+      "tests/tcp_direct.rs": "2b7d70bbb20953c1c8840bf543e21c6c06ef8669f9ab7222f60b3fe3b00bf5c0",
+      "tests/tcp_punch.rs": "f05c9be024e28fe90e59777ae26e6174b6b7a8cd00229b531badc2e86154f6b5",
+      "tests/udp_observation.rs": "7d93b10ede57cebe42451e05232f71ab89a5a0674dfd17dca998dc8612d4cdf5",
+      "tests/unified_admission_story.rs": "f846f3fe7d39c7b8c10acffb47d4435cfa1175e6851145955ec8ad975aed0347",
+      "tests/unified_connection.rs": "6c78df98451ee13e4a478137b4c370fbff924df4590e888e396382abec86bf3c",
+      "tests/unknown_member_bootstrap.rs": "5b32dd09aaab35dbdc47f5a597e9cca76a9316912932b638995e76f50be2a772",
+      "vendor/iroh/UPSTREAM.md": "2a7c8ff1bb93bcf34221d35e4d44356d8f1ce97851e526bd52b2fe93e81fd7a7",
+      "vendor/iroh/src/endpoint/restricted.rs": "a085cbf98625536c628ad0ab42a3b213add61115c2177a80f33701bf141948ba",
+      "vendor/iroh/src/endpoint.rs": "4aa96b61f0a3df61af2203960f5c35aef26884b2991a3f010bdd96996cf8b6f6",
+      "vendor/iroh/src/portmapper.rs": "979ec90db8babf2380b41cb97da8bc7b098ce73035198624b963ab435962bc0e"
+    },
+    "consumerSha256": "55c8c36800890374a2f312b10df533751139f99441cc606a44bc0e36f529b812",
+    "fixedBeforeChecks": {
+      "original-default-final-before/receipt.json": "bfee4f22c38d5afbbf1d07a6eec41b869c5063039c9eeef7ac7d2c9607dbfb3a",
+      "original-upnp-default-baseline-runtime-v2/receipt.json": "514d207d4a716d4099c4e8bfd058cc72604403b42e63df7e147bfe76484b26ac",
+      "current-default-before/receipt.json": "3b9cdefb01e4378696f8c7a47ce81666d1f51ec9d4ab93c0acd84cc3d56f43d6",
+      "current-mapping-diagnostic-before-v2/receipt.json": "d0f89ae5da54954b7f5a0704dab6b9b5699ee5b30399eab44a40d400f32f3630",
+      "current-default-upnp-diagnostic-red-runtime/receipt.json": "514717f21b34af52f2c397732258d4de4694daedd14ff1129198b2b4caa5b7b6"
+    },
+    "allProductionSourcesUnchangedThroughOriginalMappingBaseline": true,
+    "originalConsumerNeverSetsServingPortmapperConfig": true,
+    "separateOrdinaryFeatureCompileFailure": "E0599 custom_addrs without unstable-custom-transports",
+    "mappingDiagnosticIsNotFeatureCompatibilityQualification": true
+  },
+  "fixedConsumerInputs": {
+    "/tmp/miopunch-m98-20261019/ordinary-default-consumer.rs": "55c8c36800890374a2f312b10df533751139f99441cc606a44bc0e36f529b812",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/Cargo.toml": "e864a74bab5f48ee634f9b36f33eb8eb223241d63c0046f9723402260479af61",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/Cargo.lock": "e6e239be4b836d733c655c46337863235d16a4e852753fbf22f82d41df6fee2a",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/build.rs": "da039420c41e8e7931646bc4dbb1606187468c97039d84063e74d437466a2d7f",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/lib.rs": "f74b3091a5aeb208f3ec1404ffe4e494563f954d546865263f13d71cfbdef7f5",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/net_report.rs": "e6ec7d076467a11dfbc177716ab819cfbb9482188957a658e51f2775c8840d08",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/util.rs": "9cec3dbcc06abf195aac152dc6343cae754e306b9e2d9bc239dcd4cda126abae",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/runtime.rs": "b6a6c66103fbab2fe22dd430218b613915761873a4efca090f89b88ff8c10291",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/address_lookup.rs": "b7f6975fc638fe076078b5d763b00b17a9170b526b79b503e1725aa67e77ca80",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/endpoint.rs": "0b6e752300765c89e619e637ea47b561e29a3bd030e738a82275bcb84fe055ed",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/metrics.rs": "e7e76f567260779094261d7e58bcd27a07034e0fd253647da85894a363af69c1",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/defaults.rs": "458eb1796935e62fae72fa311c55412e3973dab0d8c8c7b4e5991ef811693841",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/test_utils.rs": "45bc743e0125a3124e93dca60100ffd0a3558b232bf9d8a8f4ebcdd87e20f7d4",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/tls.rs": "5a7eb05750eac5c008d507dd9279546d1afcb805894f8c0a175e0a1860642ed6",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket.rs": "eb4d204ff47cfbf806a85fd8d1e1b738741e74d23d0504e96beab0d96a4ac4bf",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/portmapper.rs": "c291146c9918ffc077a4d4acb04e368dff508e3ebf973975815e9cca3488e06b",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/protocol.rs": "94435c807ab77e5d4babaeccabb47bcb3efc5a762e78394c8dde07c1082897d0",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/test_utils/qlog.rs": "2f343f2f5645fa5fc63516be67ef0bcdb661cbd3674e091d036d0fbf91c50cd0",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/test_utils/test_transport.rs": "926ca2193ea0d5ffe19d67df3073cf7ae5bf1cbb961fb087999c98042d6ac62f",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/endpoint/presets.rs": "e430d9a20b570dd4f2850d05c21e6a0218a41f4975dbb6b111292d15f5aa5aec",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/endpoint/quic.rs": "47f018c70d3bd3aeda7ec01bd88fe24070b2be68d64ec5275284e4d5085dd818",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/endpoint/hooks.rs": "3b477c9cefcaf0d70f1c81d145cb0f76353770220637534b8a93f217716eae73",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/endpoint/bind.rs": "086d3eafb81cc07349d687ae846d71f68351515339163333bd8d0bdf604213b7",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/endpoint/connection.rs": "61cfc8cdc1e89ce72da424b0885f1e581367d959ac699e743459c2036c633bfd",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/tls/misc.rs": "2f60333bd46626324052ec9cacc606470690f430769a6c7e8950dab83b95ad82",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/tls/name.rs": "0d1b1ca5d1c99c57199a232f3d658f21d889a2b20d3e590fe30e4f255c0c2acb",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/tls/verifier.rs": "2d1af5d853a64e38e5b0e6e01919c7385aae091d0ba34b93fa9971ddcf4e1345",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/tls/resolver.rs": "4bc17a87396badec8b93c72f815f4a9d9246c9206abe184a3abeca55a5683344",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/address_lookup/pkarr.rs": "6d2a30850429a7174737cbe7f299ab691ecc57022e4d118751e0302f131e51d1",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/address_lookup/memory.rs": "fb25a6bce0fdff098b71cc0679c9119368ef5d6e85fc7998661dc9c7a22e376e",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/address_lookup/dns.rs": "c74833719f3a5eeca6ed23f248ec17766d6e4786090190960d7a688807d12056",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket/biased_rtt_path_selector.rs": "6c7412b78d187fa5cf279a99d112e0fd4a056e43735ce8a66779eecf87cc4eba",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket/transports.rs": "7442cf59f91e4e2865208e61123e448e7f484214c537a61e9b1efb3bfe0cff19",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket/metrics.rs": "511817fe626bb1d7d395447737298ccb3ee081ebb1575927137e94a3c78a5593",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket/concurrent_read_map.rs": "a0148e157b08fae370da37179d0fd93ad673e018ccf25decb3ae1f6e8489a8e4",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket/mapped_addrs.rs": "c95accdd5f474a11e820b1d460696507ffd0195ccd074d439520cab9cd9c3ffa",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket/remote_map.rs": "488651d56a95daa54bb5169883c250119e37843cb7ccf0bc61e46ecf6b3a3be1",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/net_report/metrics.rs": "cdba2490daade1948c00114c4fe61778386eaf85dbf12fe94803573292fc971a",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/net_report/defaults.rs": "8e91cb8be17395dff36823edad5ebfe8ed9c8cd68f36d9b124d649f4ccdbc4ec",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/net_report/probes.rs": "5aba91dfaed0b5c235f4f0129c9fc866b56638e4745c39205687a3797f5d9b69",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/net_report/reportgen.rs": "a56a72380a456b07a810d5f6d1ed6522fe03dc490bb79d806f964e98ba333abc",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/net_report/report.rs": "88d590eacd0efa9e054f75472927552c74b6de7d2f1b5dfb09b8bb90418c93ed",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/net_report/options.rs": "4a8fbcebdc9a2961df7b26e89804667d750839eda8af3b740b03e86981cb903f",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket/transports/relay.rs": "2851298b047741eb0012f29b42060456cd8d4a4be3d205b31b56088fa4239c23",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket/transports/ip.rs": "0156c776d23bab328793653561cd994ce2f246e74eba38b68b83f16211f37b03",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket/transports/custom.rs": "82f397f780741ce201a6f5ba57bdcc835c8c075eeff82da774950d92ea8fe56e",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket/remote_map/remote_state.rs": "3ed2774da4280527bcba88fc69845766164c6cc32a36655354d6adf453380daa",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket/remote_map/remote_state/path_watcher.rs": "a163a216f7766fed961f1691fec3350f37c880afaee83e84ca6ed07dc81bd269",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket/remote_map/remote_state/remote_info.rs": "c868e120bc34c103040181b28927935c4b054981be5c2647d2b1bbc715180768",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket/remote_map/remote_state/path_state.rs": "d320c4becfacc9ecc32475e0cfa1cc52c9698b2011804f7bbb95b7f860b0a3ab",
+    "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0/src/socket/transports/relay/actor.rs": "8ba6ab8ec7d8f23cf1c7e9adef7cf5f8c85f771cca206e742d8cf55dd23bd6f9",
+    "/tmp/miopunch-m98-20261019/ordinary-diagnostic.rs": "c5c13bb02123e598ac773c87dc58b1c62e173c25dba1aaeb77bde522e753272d"
+  },
+  "originalContractContinuity": {
+    "preservedSourceAndLockFiles": {
+      "vendor/portmapper/src/current_mapping.rs": "d885ac49145c4bb493071e6a840c68c32f12b5d331eed23b49427b196dfeb013",
+      "vendor/portmapper/src/lib.rs": "62500098e1e07ecb43da105bd001e974f597033964c1ebc3c42f5242b8e8aa9b",
+      "vendor/portmapper/src/mapping.rs": "137610c8d9c91300e5084999bbc00e159ffc0c5ec6f3d3abf3499ebef29274d2",
+      "vendor/portmapper/src/metrics.rs": "adfbaf8236f0828528576919f2179bf6a3f988bebb480503456e58f0d81758f1",
+      "vendor/portmapper/src/nat_pmp.rs": "104a0fdd74f0cbff1b67fc9a6b7c1a1e3d9db0311cf36da0f9e0ec8738ff0cd4",
+      "vendor/portmapper/src/nat_pmp/protocol.rs": "6694bb4c2104d4409b9d50bc9fed380b51b1a59ace3aeb6d80a1b0984ff02550",
+      "vendor/portmapper/src/nat_pmp/protocol/request.rs": "15e51c56ec8745932ee5bbd8587e949c0292bbe1b97b7a1b7ba946ef27ea5c28",
+      "vendor/portmapper/src/nat_pmp/protocol/response.rs": "14f44d630e0ec986a90790ab055c6fef1988ed2f6c8d24f9582276026d8de370",
+      "vendor/portmapper/src/pcp.rs": "d2d72e27fcfbe570969b5f021ecbc5fd182288fb784e12c1a328ff9054dc5169",
+      "vendor/portmapper/src/pcp/protocol.rs": "749991b26b09d4a8bba2fb8e4ec045d604efe2638e6dc428998317f4ec9c9b12",
+      "vendor/portmapper/src/pcp/protocol/opcode_data.rs": "af9d7da0997819cd953eaace2d7cd52e803f39703911f629a6953c1f61144ad4",
+      "vendor/portmapper/src/pcp/protocol/request.rs": "f06b1fa2b939ac0304c7bd34642814b3cc4ceef94b36a5d26ac58f43615ad4a1",
+      "vendor/portmapper/src/pcp/protocol/response.rs": "33084fed9cfb526c27bab6d4860f6b03fcee595e78b7427ac42a39ced42961bb",
+      "vendor/portmapper/src/upnp.rs": "5a3f51f19fd57808d5c3e9dad7a2753900eb4f569ebc1166b5105056754bf588",
+      "vendor/portmapper/src/util.rs": "2845437aa1bbf691fd15bd51bcbb544198d80367a5e38eed4ec5e322511ab6b2",
+      "Cargo.lock": "34101f38f3db0aaa539a5fabe46746a0b13077cd24bcb817abaf6a8002dd926b",
+      "Cargo.toml": "64c21c456112156acde174dc6aad6e1b235d101b776643e832d7295a65590979",
+      "src/resources.rs": "223a9709f1eabfb9ca214921f80bb3cff58a306055f1e9b26749a819a9119168",
+      "src/tcp_transport.rs": "0de131a461dbc6914bad64d72f00811e9bddfa2755ca630709ee485c10eebd8a",
+      "src/native_network.rs": "9a1373afa8da9a26ad5ce85b749becb635b0a44313a112c737ec5fbe12696914"
+    },
+    "allPortmapperRustSourcesUnchanged": true,
+    "productSavedConsentAndMappingOwnershipAlgorithmsUnchanged": true,
+    "fixedPriorConsumersUnchanged": {
+      "tests/auth_consumers/original.rs": "69e83ae576d6dedd2fa88b2484b882c3567e18c61e51d0b8e1138401b7ad24db",
+      "tests/ordinary_endpoint_consumers/early_data.rs": "e98163b5d6e0d859f8027d5e2fce44bf8a657b3362d8a5aabaf907518ef2e7d3",
+      "tests/ordinary_endpoint_consumers/routes.rs": "341e7f37ee94be50e5d52b58f3fafec9f5e2c73b8c6a4c65c8b1190248f8f919",
+      "tests/restricted_endpoint_consumers/accepting_conversion.rs": "f4c1921de145c0deb83e0229f0b6dac80bdce726ad7575cb04f783da9038f9b1",
+      "tests/restricted_endpoint_consumers/builder_conversion.rs": "97fdf5bb89d7434b4fc8ec657addd54918757b3932195cf3997069b47edfd69c",
+      "tests/restricted_endpoint_consumers/control_borrow.rs": "0fff49e80d67844a6d9bad86a39c19fbc15d144d532a9519f133cf9c41d5980e",
+      "tests/restricted_endpoint_consumers/control_conversion.rs": "778cc368af5145a0cbbe048ef578cd0f999e44238dcfb6e456b13093f4015623",
+      "tests/restricted_endpoint_consumers/control_datagram.rs": "bd54569e32ead100c09c202efe1759651f015e6639af8d8d8e2d973151645704",
+      "tests/restricted_endpoint_consumers/control_incoming_early_data.rs": "710580b65b3f785cefc160a9a842f82ce6354ba53c48494c97ebcffce3f89e45",
+      "tests/restricted_endpoint_consumers/control_outgoing_early_data.rs": "d04bf9b9298b2e52c187b06c0a725ed826748b55d926a8222504a079b91edd35",
+      "tests/restricted_endpoint_consumers/control_stream.rs": "aa5361d20ba3a8eb56a66a76b8079e2fcc6a525aee11eca981a27fa493e952bf",
+      "tests/restricted_endpoint_consumers/endpoint_borrow.rs": "8c64eb50b88162886c54b1a0309662b96778a78a8ceccdc9dce3b869a5345b1f",
+      "tests/restricted_endpoint_consumers/endpoint_conversion.rs": "890a6350b15d6e20e9ba8fb0ef4e575b6be1a2f914f3b9ae27bbea3d195c3331",
+      "tests/restricted_endpoint_consumers/incoming_conversion.rs": "c853e274c408b76002979aa92613f86606b0614791620b5a9a058c51bb39bdb1",
+      "tests/restricted_endpoint_consumers/incoming_early_data.rs": "96ab3946f95b0852f5e23991831ed64bf7e885ab98d5ca36770c235ea4b371dc",
+      "tests/restricted_endpoint_consumers/native_member_links.rs": "eb1ed14e418f905788e472184ed208f91f78df1386d2fdeb292743b587dd7300",
+      "tests/restricted_endpoint_consumers/native_member_links_control.rs": "625963f5a077e27daeae73f152051affb25439c407d47edc3bd1a1c55734bba9",
+      "tests/restricted_endpoint_consumers/ordinary_handoff.rs": "bc217c7b19972764b28a31c033059accc190cadffeb87313aae51ffe71b79ab6",
+      "tests/restricted_endpoint_consumers/outgoing_early_data.rs": "83b8c7f3416ed6bf876466897e6beaebd5ea5934117b5ca451d6ea5e765c2e85",
+      "tests/restricted_endpoint_consumers/router_endpoint.rs": "b97e5e10aedb2f16a4eae0021f8913144bf23e5723a998fecbc91312e46114f3",
+      "tests/restricted_endpoint_consumers/weak_upgrade.rs": "3c426714f6e98a89f8caaa9c73dd939956191759a87d02d9e534c401ffdbec46",
+      "tests/sync_consumers/browser_store.rs": "b44a23e461f8c33131030a11c6f75da5222ede7f460950ce4815c03d856ed963",
+      "tests/sync_consumers/native_store.rs": "3707c39d390feb0fcacf65e603945a819e9b2b3c2038cfc1ae4eaefafe221652"
+    },
+    "newOrdinaryConsumerExactBeforeEditBytes": "55c8c36800890374a2f312b10df533751139f99441cc606a44bc0e36f529b812",
+    "ordinaryEnabledAndFeatureOffBuildsPassWithoutUnstableCustomFeature": true,
+    "finalTcpTestArtifactByteIdenticalToEightQualifiedTcpCases": "c052e87d542e4b980df6e51acb18304af72151485f113a128f22107b7bc52710",
+    "nativeBrowserAndCliRequalifiedWithoutSelectedSourceChange": true
+  },
+  "featureBoundaries": {
+    "ordinary-default-green": {
+      "features": [
+        "default",
+        "fast-apple-datapath",
+        "metrics",
+        "portmapper",
+        "tls-ring"
+      ],
+      "package": "path+file:///home/js/Git/miopunch/vendor/iroh#1.2.0",
+      "target": "iroh",
+      "fresh": false
+    },
+    "ordinary-no-portmapper-green": {
+      "features": [
+        "tls-ring"
+      ],
+      "package": "path+file:///home/js/Git/miopunch/vendor/iroh#1.2.0",
+      "target": "iroh",
+      "fresh": false
+    },
+    "final-native-sdk": {
+      "features": [
+        "metrics",
+        "miopunch-test-hooks",
+        "portmapper",
+        "tls-ring",
+        "unstable-custom-transports"
+      ],
+      "package": "path+file:///home/js/Git/miopunch/vendor/iroh#1.2.0",
+      "target": "iroh",
+      "fresh": true
+    },
+    "final-browser-sdk": {
+      "features": [
+        "tls-ring",
+        "unstable-custom-transports"
+      ],
+      "package": "path+file:///home/js/Git/miopunch/vendor/iroh#1.2.0",
+      "target": "iroh",
+      "fresh": false
+    }
+  },
+  "finalBuilds": {
+    "ordinary-default-green": {
+      "exit": 0,
+      "cargoSeconds": 11.689766093622893,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m98-20261019/current-default/Cargo.toml",
+        "--bin",
+        "m98-ordinary-default-consumer",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 300,
+      "rebuiltArtifacts": 2,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m98-20261019/ordinary-default-green/pinned/m98-ordinary-default-consumer": "8663881220fcf7a9ad421fd50b61ab662827b713805922c51c218b723e772c0d"
+      },
+      "actualSelectedInputCount": 3926,
+      "actualCapturedDepfileCount": 272,
+      "actualSourceCopyCount": 177,
+      "sourceDigestBefore": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "sourceDigestAfter": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "diskAfter": {
+        "freeBytes": 10878586880,
+        "cacheBytes": 102139691008
+      }
+    },
+    "ordinary-no-portmapper-green": {
+      "exit": 0,
+      "cargoSeconds": 22.063541191630065,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m98-20261019/current-no-portmapper/Cargo.toml",
+        "--bin",
+        "m98-ordinary-default-consumer",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 260,
+      "rebuiltArtifacts": 32,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m98-20261019/ordinary-no-portmapper-green/pinned/m98-ordinary-default-consumer": "6fac43370e546e84017cc7a57c809ac013c0c23bacef29f7d9175b39bb6e9d64"
+      },
+      "actualSelectedInputCount": 3728,
+      "actualCapturedDepfileCount": 262,
+      "actualSourceCopyCount": 162,
+      "sourceDigestBefore": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "sourceDigestAfter": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "diskAfter": {
+        "freeBytes": 10507112448,
+        "cacheBytes": 102417707008
+      }
+    },
+    "gateway-product-tests-final": {
+      "exit": 0,
+      "cargoSeconds": 3.4346585981547832,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m98-20261019/gateway-selector-v2/Cargo.toml",
+        "--test",
+        "udp_portmap",
+        "--test",
+        "tcp_portmap",
+        "--no-run",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 469,
+      "rebuiltArtifacts": 1,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m98-20261019/gateway-product-tests-final/pinned/tcp_portmap": "c052e87d542e4b980df6e51acb18304af72151485f113a128f22107b7bc52710",
+        "/tmp/miopunch-m98-20261019/gateway-product-tests-final/pinned/m96-original-auth-consumer": "f40035ac33fdc8589ead9606b0fb31346ffcf7658942638e3f7e942c07e562f1",
+        "/tmp/miopunch-m98-20261019/gateway-product-tests-final/pinned/udp_portmap": "ff7be9053af62b44d0edf3d6176ccba9a17932978827e02bc1f5b2c8caf36854"
+      },
+      "actualSelectedInputCount": 5722,
+      "actualCapturedDepfileCount": 427,
+      "actualSourceCopyCount": 283,
+      "sourceDigestBefore": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+      "sourceDigestAfter": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+      "diskAfter": {
+        "freeBytes": 11068669952,
+        "cacheBytes": 101836419072
+      }
+    },
+    "affected-fixture-typecheck-current": {
+      "exit": 0,
+      "cargoSeconds": 0.9353746143169701,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--features",
+        "rtc-probe",
+        "--tests",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 656,
+      "rebuiltArtifacts": 1,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {},
+      "actualSelectedInputCount": 6717,
+      "actualCapturedDepfileCount": 606,
+      "actualSourceCopyCount": 390,
+      "sourceDigestBefore": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+      "sourceDigestAfter": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+      "diskAfter": {
+        "freeBytes": 11052736512,
+        "cacheBytes": 101836423168
+      }
+    },
+    "probe-cli-build": {
+      "exit": 0,
+      "cargoSeconds": 30.76881099725142,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m98-20261019/probe-cli-selector/Cargo.toml",
+        "--features",
+        "rtc-probe",
+        "--bin",
+        "m98-native-probe-cli",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 524,
+      "rebuiltArtifacts": 5,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m98-20261019/probe-cli-build/pinned/m98-native-probe-cli": "201747d4f5084350eecead8816d62a2db5012c07a6005db537a162f96dbd7bf2"
+      },
+      "actualSelectedInputCount": 6625,
+      "actualCapturedDepfileCount": 478,
+      "actualSourceCopyCount": 298,
+      "sourceDigestBefore": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "sourceDigestAfter": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "diskAfter": {
+        "freeBytes": 10525843456,
+        "cacheBytes": 101836414976
+      }
+    },
+    "final-native-sdk": {
+      "exit": 0,
+      "cargoSeconds": 5.8155659842304885,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "/tmp/miopunch-m96-20261019/final-selector/Cargo.toml",
+        "--features",
+        "rtc-probe",
+        "--bin",
+        "native_sdk_counterpart",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 528,
+      "rebuiltArtifacts": 1,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m98-20261019/final-native-sdk/pinned/native_sdk_counterpart": "40942d33cbf48ea6227c9e208075e041ecff10333ba7652c231406d693cf89e8"
+      },
+      "actualSelectedInputCount": 6623,
+      "actualCapturedDepfileCount": 478,
+      "actualSourceCopyCount": 296,
+      "sourceDigestBefore": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "sourceDigestAfter": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "diskAfter": {
+        "freeBytes": 11511848960,
+        "cacheBytes": 101836419072
+      }
+    },
+    "final-browser-sdk": {
+      "exit": 0,
+      "cargoSeconds": 18.644134113099426,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--features",
+        "rtc-probe",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 294,
+      "rebuiltArtifacts": 2,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m98-20261019/final-browser-sdk/miopunch_browser_probe.wasm": "56f66b61e4021f48c90885e07a49e3c23ed14a154eae9427e96924ef43bfc6a6",
+        "/tmp/miopunch-m98-20261019/final-browser-sdk/pkg/miopunch_browser_probe_bg.wasm": "d3cca4ea6edddf9c710699b008f81d428ec6e02441531509de2532ba03e39056",
+        "/tmp/miopunch-m98-20261019/final-browser-sdk/pkg/miopunch_browser_probe_bg.wasm.d.ts": "8ff8262526f5b757036085ee949efd7a9446d40a7b190529a81fe34342347ff6",
+        "/tmp/miopunch-m98-20261019/final-browser-sdk/pkg/miopunch_browser_probe.js": "6f5e9735e753c1ba156df1939914b983538a802e8989eb9743697bec59ef87bb",
+        "/tmp/miopunch-m98-20261019/final-browser-sdk/pkg/miopunch_browser_probe.d.ts": "5e32a31236b89872b32934454164ff64dd45cabe21cd4565ecbc5ca7b9c53c1e",
+        "/tmp/miopunch-m98-20261019/final-browser-sdk/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+        "/tmp/miopunch-m98-20261019/final-browser-sdk/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96"
+      },
+      "actualSelectedInputCount": 3162,
+      "actualCapturedDepfileCount": 264,
+      "actualSourceCopyCount": 201,
+      "sourceDigestBefore": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "sourceDigestAfter": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "diskAfter": {
+        "freeBytes": 11418755072,
+        "cacheBytes": 101836423168
+      }
+    }
+  },
+  "actualSelectedInputContinuity": {
+    "ordinary-default-green": {
+      "selectedInputsUnchanged": true,
+      "selectedInputCount": 3926,
+      "repositoryInputCount": 177,
+      "immutableArtifactsUnchanged": true,
+      "compiledGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b"
+    },
+    "ordinary-no-portmapper-green": {
+      "selectedInputsUnchanged": true,
+      "selectedInputCount": 3728,
+      "repositoryInputCount": 162,
+      "immutableArtifactsUnchanged": true,
+      "compiledGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b"
+    },
+    "gateway-product-tests-final": {
+      "selectedInputsUnchanged": true,
+      "selectedInputCount": 5722,
+      "repositoryInputCount": 283,
+      "immutableArtifactsUnchanged": true,
+      "compiledGlobalSourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f"
+    },
+    "affected-fixture-typecheck-current": {
+      "selectedInputsUnchanged": true,
+      "selectedInputCount": 6717,
+      "repositoryInputCount": 390,
+      "immutableArtifactsUnchanged": true,
+      "compiledGlobalSourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f"
+    },
+    "probe-cli-build": {
+      "selectedInputsUnchanged": true,
+      "selectedInputCount": 6625,
+      "repositoryInputCount": 298,
+      "immutableArtifactsUnchanged": true,
+      "compiledGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b"
+    },
+    "final-native-sdk": {
+      "selectedInputsUnchanged": true,
+      "selectedInputCount": 6623,
+      "repositoryInputCount": 296,
+      "immutableArtifactsUnchanged": true,
+      "compiledGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b"
+    },
+    "final-browser-sdk": {
+      "selectedInputsUnchanged": true,
+      "selectedInputCount": 3162,
+      "repositoryInputCount": 201,
+      "immutableArtifactsUnchanged": true,
+      "compiledGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b"
+    }
+  },
+  "nonselectedFixtureRequalification": {
+    "graphs": {
+      "ordinary-default-green": {
+        "buildReceiptSha256": "814fc6fce313e1f54ef22a69cc824422de519f18444ff395bffecc0b47b16a4a",
+        "buildContextSha256": "9bedfa6513acdc1efaeb1d36b471bf1d845246ef828bb444349c8fcf3b4df521",
+        "selectedInputManifestSha256": "7884aae7a0ff3f06169be3f7722217f33ad9cc57627212447bc80a152a6361de",
+        "allSelectedInputsAndImmutableArtifactsUnchanged": true,
+        "selectedInputCount": 3926,
+        "oldGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+        "newGlobalSourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+        "onlyNonSelectedSourceChanges": [
+          "tests/admission_gate.rs",
+          "tests/resources.rs",
+          "tests/restricted_wrapped_endpoint.rs",
+          "tests/udp_portmap.rs"
+        ],
+        "noCompilationRequired": true
+      },
+      "ordinary-no-portmapper-green": {
+        "buildReceiptSha256": "cf6711b9c7cb8d74929a94033b3bc98d4dafa448a06dfce07833619bcfb7b8e1",
+        "buildContextSha256": "41db30a9e7ef71e1f0744a23280c94f39b938c79aaac9de5f58bcf689587b760",
+        "selectedInputManifestSha256": "8f3f59a9c2cc1e89c91949f7709e074c2f717654732a0b61826ee28799bc8a99",
+        "allSelectedInputsAndImmutableArtifactsUnchanged": true,
+        "selectedInputCount": 3728,
+        "oldGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+        "newGlobalSourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+        "onlyNonSelectedSourceChanges": [
+          "tests/admission_gate.rs",
+          "tests/resources.rs",
+          "tests/restricted_wrapped_endpoint.rs",
+          "tests/udp_portmap.rs"
+        ],
+        "noCompilationRequired": true
+      },
+      "gateway-product-tests-final": {
+        "buildReceiptSha256": "033f0dfd053bf57ed3af6aec44a52c060f76959f30643d5d54cdd87004e37e7f",
+        "buildContextSha256": "dceb5cc65bd6829e55957e78db54084ee74735276ca4753ace4c57d4e3235cc0",
+        "selectedInputManifestSha256": "e786d853d7f0ccd31769959f2dd1786ea07e88c7c559787ff4c5626850b07fec",
+        "allSelectedInputsAndImmutableArtifactsUnchanged": true,
+        "selectedInputCount": 5722,
+        "oldGlobalSourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+        "newGlobalSourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+        "onlyNonSelectedSourceChanges": [],
+        "noCompilationRequired": true
+      },
+      "probe-cli-build": {
+        "buildReceiptSha256": "0a8128956dad2565088214f4476797c8d200e8bd850a944d45952c22c3046887",
+        "buildContextSha256": "5048992f7286c19308436de23ba6b994b01f9b15a89a78b710de6f628ef7d45f",
+        "selectedInputManifestSha256": "75ef05a5a38601180452d99789ab252f4eaf5d207bf944d8de86cf87d293b662",
+        "allSelectedInputsAndImmutableArtifactsUnchanged": true,
+        "selectedInputCount": 6625,
+        "oldGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+        "newGlobalSourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+        "onlyNonSelectedSourceChanges": [
+          "tests/admission_gate.rs",
+          "tests/resources.rs",
+          "tests/restricted_wrapped_endpoint.rs",
+          "tests/udp_portmap.rs"
+        ],
+        "noCompilationRequired": true
+      },
+      "final-native-sdk": {
+        "buildReceiptSha256": "7d0b0d6badc2ab236544731488519c8079cc650b131ad9412ed3b3bad53fc135",
+        "buildContextSha256": "c7dba1974c512788013c6a68949197a2d0da98e192237986fa774ab4ade5aa9c",
+        "selectedInputManifestSha256": "d568790c2d553bf7be0cbf92bb98134686442660f865ce907b3717626d415f0e",
+        "allSelectedInputsAndImmutableArtifactsUnchanged": true,
+        "selectedInputCount": 6623,
+        "oldGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+        "newGlobalSourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+        "onlyNonSelectedSourceChanges": [
+          "tests/admission_gate.rs",
+          "tests/resources.rs",
+          "tests/restricted_wrapped_endpoint.rs",
+          "tests/udp_portmap.rs"
+        ],
+        "noCompilationRequired": true
+      },
+      "final-browser-sdk": {
+        "buildReceiptSha256": "65e07a975b88fa078b0c4dabc3f8522adb2913e528b2a2875ff2341eb428a130",
+        "buildContextSha256": "ccfe68c7df7af6b58194bfc049c2700e33aaf02b7c6af8232305e27a237ced45",
+        "selectedInputManifestSha256": "0ad9cf191c0beaa828fa4feda6d1cac308d8ebf9054e4679b1722fe934821632",
+        "allSelectedInputsAndImmutableArtifactsUnchanged": true,
+        "selectedInputCount": 3162,
+        "oldGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+        "newGlobalSourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+        "onlyNonSelectedSourceChanges": [
+          "tests/admission_gate.rs",
+          "tests/resources.rs",
+          "tests/restricted_wrapped_endpoint.rs",
+          "tests/udp_portmap.rs"
+        ],
+        "noCompilationRequired": true
+      }
+    },
+    "noSdkOrLibraryRebuild": true,
+    "guardSha256": "0592ae364ea25599977395e25831504296254ab62ee000d8e48475366c3cb9c4",
+    "driverSha256": "45b2c5f238287dc3aaff26d1a99467f0987ef486b40fb69cb111bb676616829e",
+    "sourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f"
+  },
+  "ordinaryRuntimeCases": {
+    "original-upnp-default-baseline-runtime-v2": {
+      "exit": 0,
+      "seconds": 8.055200247094035,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "lab": {
+        "expectation": "mapping",
+        "passed": true,
+        "workerExits": {
+          "client": 0,
+          "server": 0
+        },
+        "cleanup": {
+          "gatewayExit": 0,
+          "captureExit": 0,
+          "forcedSdkWorkers": [],
+          "ownedFixtureRemoved": true,
+          "namespacesAbsent": true
+        },
+        "gatewayConfirmedOwnedDelete": false,
+        "actualMappingRequests": 2,
+        "deleteRequests": 0,
+        "foreignOwnerRetainedBeforeGatewayStop": true,
+        "serverCloseReturned": true,
+        "sdkWorkersNaturallyExited": true,
+        "qualified": true
+      },
+      "binarySha256": "2ff51a224df151a96a98834189a8dab1f53198db6553ec6b94b8d385175c25ab",
+      "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "qualified": true
+    },
+    "restored-ordinary-default-runtime": {
+      "exit": 0,
+      "seconds": 5.01272993395105,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "lab": {
+        "expectation": "mapping",
+        "passed": true,
+        "workerExits": {
+          "client": 0,
+          "server": 0
+        },
+        "cleanup": {
+          "gatewayExit": 0,
+          "captureExit": 0,
+          "forcedSdkWorkers": [],
+          "ownedFixtureRemoved": true,
+          "namespacesAbsent": true
+        },
+        "gatewayConfirmedOwnedDelete": true,
+        "actualMappingRequests": 1,
+        "deleteRequests": 1,
+        "foreignOwnerRetainedBeforeGatewayStop": true,
+        "serverCloseReturned": true,
+        "sdkWorkersNaturallyExited": true,
+        "qualified": true
+      },
+      "binarySha256": "8663881220fcf7a9ad421fd50b61ab662827b713805922c51c218b723e772c0d",
+      "sourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "qualified": true
+    },
+    "no-portmapper-feature-runtime": {
+      "exit": 0,
+      "seconds": 6.656134746037424,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "lab": {
+        "expectation": "no-feature",
+        "passed": true,
+        "workerExits": {
+          "server": 0
+        },
+        "cleanup": {
+          "gatewayExit": 0,
+          "captureExit": 0,
+          "forcedSdkWorkers": [],
+          "ownedFixtureRemoved": true,
+          "namespacesAbsent": true
+        },
+        "actualMappingRequests": 0,
+        "deleteRequests": 0,
+        "foreignOwnerRetainedBeforeGatewayStop": true,
+        "serverCloseReturned": true,
+        "sdkWorkersNaturallyExited": true,
+        "noGatewayProtocolPackets": true,
+        "qualified": true
+      },
+      "binarySha256": "6fac43370e546e84017cc7a57c809ac013c0c23bacef29f7d9175b39bb6e9d64",
+      "sourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "qualified": true
+    },
+    "current-default-upnp-diagnostic-red-runtime": {
+      "exit": 0,
+      "seconds": 11.612913178745657,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "lab": {
+        "expectation": "absent-default",
+        "passed": true,
+        "workerExits": {
+          "server": 1
+        },
+        "cleanup": {
+          "gatewayExit": 0,
+          "captureExit": 0,
+          "forcedSdkWorkers": [],
+          "ownedFixtureRemoved": true,
+          "namespacesAbsent": true
+        },
+        "actualMappingRequests": 0,
+        "deleteRequests": 0,
+        "foreignOwnerRetainedBeforeGatewayStop": true,
+        "serverCloseReturned": true,
+        "sdkWorkersNaturallyExited": true,
+        "noGatewayProtocolPackets": true,
+        "qualified": true
+      },
+      "binarySha256": "5a9180f65dc45be0a6e9dfdd4d5dace3cad2392d4f65207292ef1b0c98161cef",
+      "sourceDigest": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+      "qualified": true
+    }
+  },
+  "actualOrdinaryFeatureCompileFailure": {
+    "exit": 101,
+    "cargoSeconds": 26.874403956811875,
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--manifest-path",
+      "/tmp/miopunch-m98-20261019/current-default/Cargo.toml",
+      "--bin",
+      "m98-ordinary-default-consumer",
+      "--jobs",
+      "2",
+      "--message-format=json"
+    ],
+    "freshArtifacts": 265,
+    "rebuiltArtifacts": 35,
+    "qualifiedForFrozenRun": false,
+    "sourceFrozenDuringBuild": true,
+    "artifacts": {},
+    "sourceDigestBefore": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+    "sourceDigestAfter": "57f6849b591d096afb79ac7433d772c30bd9ef0ca774ce9fb87d5dbfb3cdde22",
+    "diskAfter": {
+      "freeBytes": 11518377984,
+      "cacheBytes": 102118588416
+    }
+  },
+  "diagnosticScope": "Pre-edit runtime RED uses explicitly marked custom-feature diagnostic because ordinary features fail compilation. It is not the unchanged ordinary compatibility consumer.",
+  "gatewayCases": {
+    "final-gateway-udp-positive": {
+      "exit": 0,
+      "seconds": 4.534112615976483,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "kind": "udp",
+      "case": "positive",
+      "lab": {
+        "sdkWorkersAlreadyExitedZero": true,
+        "forcedProcesses": [],
+        "fixtureProcessExits": {
+          "prepare.log": 0,
+          "gateway.log": 0,
+          "tcpdump.log": 0,
+          "serve.log": 0,
+          "connect.log": 0
+        },
+        "namespacesAbsent": true,
+        "ownedFixtureRemoved": true,
+        "qualified": true
+      },
+      "closeReturnIsNotGatewayDeleteAcknowledgement": true,
+      "binarySha256": "ff7be9053af62b44d0edf3d6176ccba9a17932978827e02bc1f5b2c8caf36854",
+      "sourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+      "qualified": true
+    },
+    "final-gateway-udp-disabled": {
+      "exit": 0,
+      "seconds": 4.305900004692376,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "kind": "udp",
+      "case": "disabled",
+      "lab": {
+        "sdkWorkersAlreadyExitedZero": true,
+        "forcedProcesses": [],
+        "fixtureProcessExits": {
+          "prepare.log": 0,
+          "gateway.log": 0,
+          "tcpdump.log": 0,
+          "disabled.log": 0
+        },
+        "namespacesAbsent": true,
+        "ownedFixtureRemoved": true,
+        "qualified": true
+      },
+      "closeReturnIsNotGatewayDeleteAcknowledgement": true,
+      "binarySha256": "ff7be9053af62b44d0edf3d6176ccba9a17932978827e02bc1f5b2c8caf36854",
+      "sourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+      "qualified": true
+    },
+    "final-gateway-udp-allocation-timeout": {
+      "exit": 0,
+      "seconds": 4.44727003807202,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "kind": "udp",
+      "case": "allocation-timeout",
+      "lab": {
+        "sdkWorkersAlreadyExitedZero": true,
+        "forcedProcesses": [],
+        "fixtureProcessExits": {
+          "prepare.log": 0,
+          "gateway.log": 0,
+          "tcpdump.log": 0,
+          "allocation-timeout.log": 0
+        },
+        "namespacesAbsent": true,
+        "ownedFixtureRemoved": true,
+        "qualified": true
+      },
+      "closeReturnIsNotGatewayDeleteAcknowledgement": true,
+      "binarySha256": "ff7be9053af62b44d0edf3d6176ccba9a17932978827e02bc1f5b2c8caf36854",
+      "sourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+      "qualified": true
+    },
+    "final-gateway-udp-allocation-cancel": {
+      "exit": 0,
+      "seconds": 3.721915453672409,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "kind": "udp",
+      "case": "allocation-cancel",
+      "lab": {
+        "sdkWorkersAlreadyExitedZero": true,
+        "forcedProcesses": [],
+        "fixtureProcessExits": {
+          "prepare.log": 0,
+          "gateway.log": 0,
+          "tcpdump.log": 0,
+          "allocation-cancel.log": 0
+        },
+        "namespacesAbsent": true,
+        "ownedFixtureRemoved": true,
+        "qualified": true
+      },
+      "closeReturnIsNotGatewayDeleteAcknowledgement": true,
+      "binarySha256": "ff7be9053af62b44d0edf3d6176ccba9a17932978827e02bc1f5b2c8caf36854",
+      "sourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f",
+      "qualified": true
+    },
+    "gateway-tcp-positive": {
+      "exit": 0,
+      "seconds": 5.547146358992904,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "kind": "tcp",
+      "case": "positive",
+      "lab": {
+        "sdkWorkersAlreadyExitedZero": true,
+        "forcedProcesses": [],
+        "fixtureProcessExits": {
+          "prepare.log": 0,
+          "gateway.log": 0,
+          "tcpdump.log": 0,
+          "serve.log": 0,
+          "connect.log": 0
+        },
+        "namespacesAbsent": true,
+        "ownedFixtureRemoved": true,
+        "qualified": true
+      },
+      "closeReturnIsNotGatewayDeleteAcknowledgement": true,
+      "binarySha256": "c052e87d542e4b980df6e51acb18304af72151485f113a128f22107b7bc52710",
+      "sourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "qualified": true
+    },
+    "gateway-tcp-disabled": {
+      "exit": 0,
+      "seconds": 4.417271253652871,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "kind": "tcp",
+      "case": "disabled",
+      "lab": {
+        "sdkWorkersAlreadyExitedZero": true,
+        "forcedProcesses": [],
+        "fixtureProcessExits": {
+          "prepare.log": 0,
+          "gateway.log": 0,
+          "tcpdump.log": 0,
+          "disabled.log": 0
+        },
+        "namespacesAbsent": true,
+        "ownedFixtureRemoved": true,
+        "qualified": true
+      },
+      "closeReturnIsNotGatewayDeleteAcknowledgement": true,
+      "binarySha256": "c052e87d542e4b980df6e51acb18304af72151485f113a128f22107b7bc52710",
+      "sourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "qualified": true
+    },
+    "gateway-tcp-disabled-advanced": {
+      "exit": 0,
+      "seconds": 4.316319642122835,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "kind": "tcp",
+      "case": "disabled-advanced",
+      "lab": {
+        "sdkWorkersAlreadyExitedZero": true,
+        "forcedProcesses": [],
+        "fixtureProcessExits": {
+          "prepare.log": 0,
+          "gateway.log": 0,
+          "tcpdump.log": 0,
+          "disabled-advanced.log": 0
+        },
+        "namespacesAbsent": true,
+        "ownedFixtureRemoved": true,
+        "qualified": true
+      },
+      "closeReturnIsNotGatewayDeleteAcknowledgement": true,
+      "binarySha256": "c052e87d542e4b980df6e51acb18304af72151485f113a128f22107b7bc52710",
+      "sourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "qualified": true
+    },
+    "gateway-tcp-tcp-disabled-advanced": {
+      "exit": 0,
+      "seconds": 4.509216969832778,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "kind": "tcp",
+      "case": "tcp-disabled-advanced",
+      "lab": {
+        "sdkWorkersAlreadyExitedZero": true,
+        "forcedProcesses": [],
+        "fixtureProcessExits": {
+          "prepare.log": 0,
+          "gateway.log": 0,
+          "tcpdump.log": 0,
+          "tcp-disabled-advanced.log": 0
+        },
+        "namespacesAbsent": true,
+        "ownedFixtureRemoved": true,
+        "qualified": true
+      },
+      "closeReturnIsNotGatewayDeleteAcknowledgement": true,
+      "binarySha256": "c052e87d542e4b980df6e51acb18304af72151485f113a128f22107b7bc52710",
+      "sourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "qualified": true
+    },
+    "gateway-tcp-tcp-disabled": {
+      "exit": 0,
+      "seconds": 4.569480794947594,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "kind": "tcp",
+      "case": "tcp-disabled",
+      "lab": {
+        "sdkWorkersAlreadyExitedZero": true,
+        "forcedProcesses": [],
+        "fixtureProcessExits": {
+          "prepare.log": 0,
+          "gateway.log": 0,
+          "tcpdump.log": 0,
+          "tcp-disabled.log": 0
+        },
+        "namespacesAbsent": true,
+        "ownedFixtureRemoved": true,
+        "qualified": true
+      },
+      "closeReturnIsNotGatewayDeleteAcknowledgement": true,
+      "binarySha256": "c052e87d542e4b980df6e51acb18304af72151485f113a128f22107b7bc52710",
+      "sourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "qualified": true
+    },
+    "gateway-tcp-close-isolation": {
+      "exit": 0,
+      "seconds": 5.709583756048232,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "kind": "tcp",
+      "case": "close-isolation",
+      "lab": {
+        "sdkWorkersAlreadyExitedZero": true,
+        "forcedProcesses": [],
+        "fixtureProcessExits": {
+          "prepare.log": 0,
+          "gateway.log": 0,
+          "tcpdump.log": 0,
+          "udp-sentinel.log": 0,
+          "serve.log": 0,
+          "connect.log": 0,
+          "udp-probe.log": 0
+        },
+        "namespacesAbsent": true,
+        "ownedFixtureRemoved": true,
+        "qualified": true
+      },
+      "closeReturnIsNotGatewayDeleteAcknowledgement": true,
+      "binarySha256": "c052e87d542e4b980df6e51acb18304af72151485f113a128f22107b7bc52710",
+      "sourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "qualified": true
+    },
+    "gateway-tcp-allocation-timeout": {
+      "exit": 0,
+      "seconds": 4.256171707995236,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "kind": "tcp",
+      "case": "allocation-timeout",
+      "lab": {
+        "sdkWorkersAlreadyExitedZero": true,
+        "forcedProcesses": [],
+        "fixtureProcessExits": {
+          "prepare.log": 0,
+          "gateway.log": 0,
+          "tcpdump.log": 0,
+          "allocation-timeout.log": 0
+        },
+        "namespacesAbsent": true,
+        "ownedFixtureRemoved": true,
+        "qualified": true
+      },
+      "closeReturnIsNotGatewayDeleteAcknowledgement": true,
+      "binarySha256": "c052e87d542e4b980df6e51acb18304af72151485f113a128f22107b7bc52710",
+      "sourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "qualified": true
+    },
+    "gateway-tcp-allocation-cancel": {
+      "exit": 0,
+      "seconds": 3.5801742086187005,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "kind": "tcp",
+      "case": "allocation-cancel",
+      "lab": {
+        "sdkWorkersAlreadyExitedZero": true,
+        "forcedProcesses": [],
+        "fixtureProcessExits": {
+          "prepare.log": 0,
+          "gateway.log": 0,
+          "tcpdump.log": 0,
+          "allocation-cancel.log": 0
+        },
+        "namespacesAbsent": true,
+        "ownedFixtureRemoved": true,
+        "qualified": true
+      },
+      "closeReturnIsNotGatewayDeleteAcknowledgement": true,
+      "binarySha256": "c052e87d542e4b980df6e51acb18304af72151485f113a128f22107b7bc52710",
+      "sourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b",
+      "qualified": true
+    }
+  },
+  "uniqueGatewayCasesPassed": 12,
+  "productConsentUnits": {
+    "command": [
+      "/tmp/miopunch-m98-20261019/gateway-product-tests-final/pinned/udp_portmap",
+      "--skip",
+      "gateway_node_worker",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "buildReceiptSha256": "033f0dfd053bf57ed3af6aec44a52c060f76959f30643d5d54cdd87004e37e7f",
+    "buildContextSha256": "dceb5cc65bd6829e55957e78db54084ee74735276ca4753ace4c57d4e3235cc0",
+    "driverSha256": "3f487ee37337eaf8b2e117a12ec4a73311ec62140d96a1009bd0c8a1da02a876",
+    "binarySha256": "ff7be9053af62b44d0edf3d6176ccba9a17932978827e02bc1f5b2c8caf36854",
+    "compiledExecutablePins": {
+      "/home/js/Git/miopunch/target/debug/deps/tcp_portmap-8a8e4bd18548888f": "c052e87d542e4b980df6e51acb18304af72151485f113a128f22107b7bc52710",
+      "/home/js/Git/miopunch/target/debug/m96-original-auth-consumer": "f40035ac33fdc8589ead9606b0fb31346ffcf7658942638e3f7e942c07e562f1",
+      "/home/js/Git/miopunch/target/debug/deps/udp_portmap-63a83658866ec9a0": "ff7be9053af62b44d0edf3d6176ccba9a17932978827e02bc1f5b2c8caf36854"
+    },
+    "preconditionsPassed": true,
+    "exit": 0,
+    "forcedTermination": false,
+    "oldNativeCounterpartSha256": null,
+    "seconds": 0.21452101692557335,
+    "postconditionsPassed": true,
+    "testsPassed": 2,
+    "testsFailed": 0,
+    "nonemptyTestSelection": true,
+    "rawLogs": {
+      "stdout.log": "b70ba1497a3c9b05db1ac9e0ba053f308ed1df2a7dbca087903747b26d2e73fc",
+      "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "probeCliCases": {
+    "probe-cli-raw-runtime": {
+      "exit": 0,
+      "seconds": 3.456438081804663,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "lab": {
+        "expectation": "raw",
+        "passed": true,
+        "workerExits": {
+          "client": 0,
+          "server": 0
+        },
+        "cleanup": {
+          "gatewayExit": 0,
+          "captureExit": 0,
+          "forcedSdkWorkers": [],
+          "ownedFixtureRemoved": true,
+          "namespacesAbsent": true
+        },
+        "probeMode": "raw",
+        "actualPingPong": true,
+        "actualMappingRequests": 0,
+        "deleteRequests": 0,
+        "foreignOwnerRetainedBeforeGatewayStop": true,
+        "serverCloseReturned": true,
+        "sdkWorkersNaturallyExited": true,
+        "closeObservation": "Both actual CLI processes exited zero after their normal stream/actor shutdown; gateway consent is explicit Disabled.",
+        "noGatewayProtocolPackets": true,
+        "qualified": true
+      },
+      "binarySha256": "201747d4f5084350eecead8816d62a2db5012c07a6005db537a162f96dbd7bf2",
+      "sourceDigest": "fe90ac77a1675146afc5938863b2e9f276aa6e339e55614faccc9e35410b7bf6",
+      "qualified": true
+    },
+    "probe-cli-wrapped-runtime": {
+      "exit": 0,
+      "seconds": 3.5283397119492292,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "lab": {
+        "expectation": "wrapped",
+        "passed": true,
+        "workerExits": {
+          "client": 0,
+          "server": 0
+        },
+        "cleanup": {
+          "gatewayExit": 0,
+          "captureExit": 0,
+          "forcedSdkWorkers": [],
+          "ownedFixtureRemoved": true,
+          "namespacesAbsent": true
+        },
+        "probeMode": "wrapped",
+        "actualPingPong": true,
+        "actualMappingRequests": 0,
+        "deleteRequests": 0,
+        "foreignOwnerRetainedBeforeGatewayStop": true,
+        "serverCloseReturned": true,
+        "sdkWorkersNaturallyExited": true,
+        "closeObservation": "Both actual CLI processes exited zero after their normal stream/actor shutdown; gateway consent is explicit Disabled.",
+        "noGatewayProtocolPackets": true,
+        "qualified": true
+      },
+      "binarySha256": "201747d4f5084350eecead8816d62a2db5012c07a6005db537a162f96dbd7bf2",
+      "sourceDigest": "fe90ac77a1675146afc5938863b2e9f276aa6e339e55614faccc9e35410b7bf6",
+      "qualified": true
+    },
+    "probe-cli-tcp-runtime": {
+      "exit": 0,
+      "seconds": 3.492087362334132,
+      "preAndPostconditionsPassed": true,
+      "containerActuallyAbsent": true,
+      "lab": {
+        "expectation": "tcp",
+        "passed": true,
+        "workerExits": {
+          "client": 0,
+          "server": 0
+        },
+        "cleanup": {
+          "gatewayExit": 0,
+          "captureExit": 0,
+          "forcedSdkWorkers": [],
+          "ownedFixtureRemoved": true,
+          "namespacesAbsent": true
+        },
+        "probeMode": "tcp",
+        "actualPingPong": true,
+        "actualMappingRequests": 0,
+        "deleteRequests": 0,
+        "foreignOwnerRetainedBeforeGatewayStop": true,
+        "serverCloseReturned": true,
+        "sdkWorkersNaturallyExited": true,
+        "closeObservation": "Both actual CLI processes exited zero after their normal stream/actor shutdown; gateway consent is explicit Disabled.",
+        "noGatewayProtocolPackets": true,
+        "qualified": true
+      },
+      "binarySha256": "201747d4f5084350eecead8816d62a2db5012c07a6005db537a162f96dbd7bf2",
+      "sourceDigest": "fe90ac77a1675146afc5938863b2e9f276aa6e339e55614faccc9e35410b7bf6",
+      "qualified": true
+    }
+  },
+  "finalSdkStory": {
+    "execution": {
+      "publicTraffic": false,
+      "passed": true,
+      "containers": [
+        {
+          "name": "miopunch-m98-owned-irc-1792358888978731767",
+          "removed": true
+        }
+      ],
+      "cleanup": {
+        "relayExit": 0,
+        "relayGraceful": true,
+        "relayProcessAbsent": true
+      },
+      "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+      "relayStarted": true,
+      "runtimeExit": 0,
+      "functionalAndSdkCleanupQualified": true,
+      "rawReceiptSha256": "462f530b6205aa923a8158862b87418eeedc1471dfe7d7318f6a4314671d8513",
+      "sourceArtifactControllerUnchangedAfterRuntime": true,
+      "wholeWallMs": 14348.774308338761,
+      "sourceDigest": "fe90ac77a1675146afc5938863b2e9f276aa6e339e55614faccc9e35410b7bf6",
+      "qualified": true
+    },
+    "rawPrivateReceiptSha256": "462f530b6205aa923a8158862b87418eeedc1471dfe7d7318f6a4314671d8513",
+    "strictRestrictedRequest": true,
+    "approvalRecords": 1,
+    "bothMaterialsDurable": true,
+    "sameBrowserIdentityReopened": true,
+    "sameNativeIdentityReopened": true,
+    "memberReply": "PONG",
+    "browserClose": {
+      "sdkStarted": true,
+      "closeReturned": true,
+      "freed": true,
+      "elapsedMs": 0.8000001907348633
+    },
+    "websocketsClosedBeforeContext": true,
+    "socketImmediateObservationPassed": true,
+    "nativeExit": {
+      "code": 0,
+      "signal": null
+    },
+    "ownedFixtureRemoved": true,
+    "privateMaterialCleanup": {
+      "sdkAndActorCleanupQualifiedBeforeSecretRemoval": true,
+      "containersActuallyAbsent": true,
+      "runtimeReceiptSha256": "462f530b6205aa923a8158862b87418eeedc1471dfe7d7318f6a4314671d8513",
+      "removedGeneratedKeys": [
+        {
+          "path": "private-fixture/ca.key",
+          "bytes": 1704
+        },
+        {
+          "path": "private-fixture/leaf.key",
+          "bytes": 1704
+        }
+      ],
+      "privateNssRemoved": true,
+      "remainingPrivateKeys": 0
+    },
+    "runtimeGlobalDigest": "fe90ac77a1675146afc5938863b2e9f276aa6e339e55614faccc9e35410b7bf6",
+    "runtimeGuardOriginalBytesRetained": true,
+    "finalSourceQualification": "Only non-selected unit/wrapped fixture changes after SDK compilation/runtime; every actual selected input and immutable artifact revalidated against current source."
+  },
+  "failedPreparations": {
+    "unqualifiedBeforeProductionPreparations": [
+      {
+        "build": "original-default-baseline",
+        "exit": 101,
+        "reason": "offline cache lacked exact pinned h2; locked fetch completed without lock modification"
+      },
+      {
+        "runtime": "original-default-runtime",
+        "sdkWorkersClosedNaturally": true,
+        "reason": "upstream Minimal plus empty relay map never starts portmapper; fixed pre-qualification consumer now supplies an isolated nonempty relay map to exercise the ordinary mapping default; v1 bytes retained"
+      },
+      {
+        "build": "current-default-before",
+        "exit": 101,
+        "reason": "actual fork compile regression without unstable-custom-transports: restricted custom_addrs lacks matching cfg; retain as genuine ordinary default-feature failure"
+      },
+      {
+        "context": "current-mapping-diagnostic-before",
+        "executed": false,
+        "reason": "prepared against v1 fixture before nonempty upstream relay-map correction"
+      }
+    ],
+    "qualificationCorrections": {
+      "originalGateway": "Original mapping first attempts UPnP; NAT-PMP-only fixture was insufficient. Adding the isolated UPnP wire service with real forwarding qualifies the same consumer.",
+      "neighborWarmup": "The first warmup attempted unavailable ping and started no SDK worker; later fixture installs the owned real MAC directly.",
+      "upnpFixture": "A Python variable shadowed the http module before actors; corrected only in fixture v2.",
+      "selector": "First gateway selector omitted direct serde_json needed by existing unit checks; fixed v2 retains all foreign lock rows.",
+      "capacity": "Product build and later Native SDK build aborted below the unchanged 10 GiB floor before Cargo/outdir; exact reviewed cleanup receipts retained.",
+      "signedRevision": "Existing unit fixture signed revision 2 at current revision 2; corrected to current+1, production rollback rules unchanged; red and green runs retained."
+    }
+  },
+  "staleRevisionFixtureCorrection": {
+    "actualFailureReceipt": "runtime-local-gateway-consent/receipt.json",
+    "reason": "Fixture attempted a signed revision 2 update while bundled defaults already have revision 2; production rollback prevention correctly rejected it.",
+    "change": "Use config.defaults.revision + 1 in this existing test only.",
+    "productionUpdateRulesUnchanged": true,
+    "gatewayWorkerSourceUnchanged": true,
+    "beforeSourceSha256": "3ece50a4c6341da4cae9cd120cbf0cb98024730511367bf817edc8a2c90037d2",
+    "nativeBrowserProbeSelectedInputsUnaffected": true
+  },
+  "cleanupScope": "Close returning and gateway-confirmed deletion are separate. Original upstream baseline had successful mapping/business but no observed delete; restored controlled gateway observed own delete and foreign retention. No arbitrary-router guarantee.",
+  "scope": "M98 ordinary library defaults and explicit product/probe/fixture consent. Owned controlled facilities; broader public/physical matrix remains M91 followup.",
+  "reviews": {
+    "Standards": 0,
+    "Spec": 0,
+    "reranBuildOrRuntime": false
+  }
+}

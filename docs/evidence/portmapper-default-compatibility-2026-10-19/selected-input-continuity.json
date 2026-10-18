@@ -1,0 +1,51 @@
+{
+  "ordinary-default-green": {
+    "selectedInputsUnchanged": true,
+    "selectedInputCount": 3926,
+    "repositoryInputCount": 177,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b"
+  },
+  "ordinary-no-portmapper-green": {
+    "selectedInputsUnchanged": true,
+    "selectedInputCount": 3728,
+    "repositoryInputCount": 162,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b"
+  },
+  "gateway-product-tests-final": {
+    "selectedInputsUnchanged": true,
+    "selectedInputCount": 5722,
+    "repositoryInputCount": 283,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f"
+  },
+  "affected-fixture-typecheck-current": {
+    "selectedInputsUnchanged": true,
+    "selectedInputCount": 6717,
+    "repositoryInputCount": 390,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "9cb7143daf6a9c0ae07c68ea87e491cc3667e9c05c46a6c03fceffdc2fde923f"
+  },
+  "probe-cli-build": {
+    "selectedInputsUnchanged": true,
+    "selectedInputCount": 6625,
+    "repositoryInputCount": 298,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b"
+  },
+  "final-native-sdk": {
+    "selectedInputsUnchanged": true,
+    "selectedInputCount": 6623,
+    "repositoryInputCount": 296,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b"
+  },
+  "final-browser-sdk": {
+    "selectedInputsUnchanged": true,
+    "selectedInputCount": 3162,
+    "repositoryInputCount": 201,
+    "immutableArtifactsUnchanged": true,
+    "compiledGlobalSourceDigest": "096f3a5b946565b356dbfd02a8c7ab55aeaab725abbb2df3c40c7a91e183756b"
+  }
+}
