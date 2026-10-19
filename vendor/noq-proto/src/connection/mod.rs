@@ -187,6 +187,8 @@ pub struct Connection {
     path_generation_counter: u64,
     /// Socket chosen by the current transmit poll, including previous/off-path data.
     transmit_local_socket: Option<crate::LocalSocketId>,
+    /// Whether any encoded packet in the current transmit needs application permission.
+    transmit_requires_application_permission: bool,
     /// Whether MTU detection is supported in this environment
     allow_mtud: bool,
     state: State,
@@ -381,6 +383,7 @@ impl Connection {
             )]),
             path_generation_counter: 0,
             transmit_local_socket: None,
+            transmit_requires_application_permission: false,
             allow_mtud,
             state,
             side: connection_side,
@@ -1062,10 +1065,12 @@ impl Connection {
         buf: &mut Vec<u8>,
     ) -> Option<crate::SocketTransmit> {
         self.transmit_local_socket = None;
+        self.transmit_requires_application_permission = false;
         let transmit = self.poll_transmit_inner(now, max_datagrams, buf)?;
         Some(crate::SocketTransmit::new(
             transmit,
             self.transmit_local_socket,
+            self.transmit_requires_application_permission,
         ))
     }
 
@@ -2844,6 +2849,18 @@ impl Connection {
         self.application_data_permit
             .as_ref()
             .is_none_or(|permit| permit(path))
+    }
+
+    /// Recheck application permission immediately before sending a transmit from this connection.
+    ///
+    /// Drivers must retain the [`crate::SocketTransmit`] while waiting for I/O capacity and
+    /// call this again before each send attempt: a dynamic predicate can change after encoding.
+    /// Validation-only packets remain permitted, including when coalesced into a GSO batch;
+    /// a batch containing any ordinary frames requires permission for the complete batch.
+    /// The callback must not acquire this connection's runtime lock.
+    pub fn application_data_transmit_permitted(&self, transmit: &crate::SocketTransmit) -> bool {
+        !transmit.requires_application_permission
+            || self.application_data_allowed(transmit.network_path())
     }
 
     /// Queue an ACK-eliciting PING on every current path.
@@ -7891,6 +7908,8 @@ const MAX_HANDSHAKE_OR_0RTT_HEADER_SIZE: usize =
 
 #[derive(Default)]
 struct SentFrames {
+    /// Ordinary frames in this packet require a final application permission check.
+    requires_application_permission: bool,
     retransmits: ThinRetransmits,
     path_retransmits: PathRetransmits,
     /// The packet number of the largest acknowledged packet for each path
@@ -7917,6 +7936,17 @@ impl SentFrames {
 
     fn record_sent_frame(&mut self, frame: frame::EncodableFrame<'_>) {
         use frame::EncodableFrame::*;
+        self.requires_application_permission |= !matches!(
+            frame,
+            Ping(_)
+                | Ack(_)
+                | PathAck(_)
+                | PathChallenge(_)
+                | PathResponse(_)
+                | ObservedAddr(_)
+                | ImmediateAck(_)
+                | Close(_)
+        );
         match frame {
             PathAck(path_ack_encoder) => {
                 if let Some(max) = path_ack_encoder.ranges.max() {

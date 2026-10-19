@@ -462,6 +462,8 @@ impl<'a, 'b> PacketBuilder<'a, 'b> {
         }
         self.qlog.finalize(packet_len);
         conn.qlog.emit_packet_sent(self.qlog, now);
+        conn.transmit_requires_application_permission |=
+            self.space == SpaceId::Data && self.sent_frames.requires_application_permission;
         (packet_len, pad, self.sent_frames)
     }
 

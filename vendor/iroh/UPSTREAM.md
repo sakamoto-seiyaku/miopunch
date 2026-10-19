@@ -406,3 +406,13 @@ biased-RTT scorer; restricted connections without an explicit scoped selector
 use that same scorer on their qualified paths. Reevaluation stays opt-in and
 bounded. No socket ownership, generation, packet gate or QUIC wire contract is
 changed. See `docs/notes/2026-10-19-selector-compatibility.md` for evidence.
+
+The ordinary path-guard audit (MIOPUNCH-103) retains the existing final packet,
+application and native socket guards. Known ordinary IP/relay paths are
+permissive; unbound legacy custom senders do not acquire connection-owned data
+qualification. The native socket check is retained on every connection to reject
+wrong-owner arrivals on pool sockets introduced later. Ordinary paths with no
+local socket ID do not perform a pool lookup. Measured callback/method entries,
+actual streams, buffered-send rejection and scope limits are recorded in
+`docs/notes/2026-10-19-path-guard-compatibility.md`; zero custom-policy entries are
+not a claim of zero internal predicate cost.

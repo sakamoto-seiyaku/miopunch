@@ -377,13 +377,19 @@ impl LocalSocketId {
 pub struct SocketTransmit {
     transmit: Transmit,
     local_socket: Option<LocalSocketId>,
+    pub(crate) requires_application_permission: bool,
 }
 
 impl SocketTransmit {
-    pub(crate) fn new(transmit: Transmit, local_socket: Option<LocalSocketId>) -> Self {
+    pub(crate) fn new(
+        transmit: Transmit,
+        local_socket: Option<LocalSocketId>,
+        requires_application_permission: bool,
+    ) -> Self {
         Self {
             transmit,
             local_socket,
+            requires_application_permission,
         }
     }
 

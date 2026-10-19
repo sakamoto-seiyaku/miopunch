@@ -51,3 +51,14 @@ confirmation across a blackholed Available carrier. This can cost latency on a
 slow backup; ordinary `Path::ping` and ordinary connections keep upstream
 cross-path ACK routing. No public signatures, packet/frame permissions, close
 handling, wire frames, or authenticated probe watermarks change.
+
+MIOPUNCH-103 rechecks the current application-data predicate before every actual
+sender attempt, including an encrypted STREAM buffered while the sender was
+Pending. Previously, changing only that predicate after encoding could deliver
+forbidden plaintext. Noq-proto retains private actual-frame metadata on each
+SocketTransmit, so validation-only packets still pass while ordinary frames
+require current permission. Packet and socket restrictions remain independent.
+Permission callbacks run under the connection lock: they must not re-enter
+Connection; WeakConnectionHandle::is_open remains the lock-free terminal check.
+Ordinary unrestricted senders keep their original required methods and behavior.
+See `docs/notes/2026-10-19-path-guard-compatibility.md`.

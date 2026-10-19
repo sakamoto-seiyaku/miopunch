@@ -1792,6 +1792,7 @@ impl State {
                 .path_permit
                 .as_ref()
                 .is_some_and(|permit| !(permit.0)(t.network_path()))
+                || !self.inner.application_data_transmit_permitted(&t)
             {
                 self.path_filter_stats.denied_outbound += 1;
                 // QUIC will retransmit lost application data on an allowed

@@ -68,3 +68,18 @@ consumers show that always routing Backup ACKs locally can delay ordinary stream
 completion and actual loss recovery when the backup return path is slow. Packet
 and ordinary-frame permissions, authenticated ACK processing, connection close,
 loss detection, and congestion control are unchanged.
+
+## MIOPUNCH-103: recheck buffered application transmits
+
+Each actual encoded Data-space frame records whether it requires application
+permission, preserving the existing receive-side validation/control exceptions.
+The private bit is combined across coalesced packets and GSO datagrams, then
+retained on SocketTransmit. Connection::application_data_transmit_permitted lets
+the async driver recheck the current predicate immediately before each sender
+attempt, including a retry after Pending. The bit resets for each new transmit;
+PING, ACK, path validation, observation and close packets remain eligible while
+ordinary data is forbidden. A mixed batch requires permission for the whole
+batch. The original Transmit fields and poll_transmit return contract, socket
+metadata, wire encoding, loss recovery and congestion algorithms are unchanged.
+Unconfigured predicates remain permissive. See the M103 compatibility note for
+the pre-fix real plaintext leak, fixed original consumers and regression scope.
