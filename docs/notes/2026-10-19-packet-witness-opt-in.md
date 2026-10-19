@@ -33,10 +33,13 @@ callback 同步执行，Noq driver 的调用点已经持有 connection lock。�
 总字节。越界、递归或 callback panic 会记 loss 并停止接受，已有计数不清零。
 并发 producer 不能据此推断严格的最后事件顺序；finish 仍要求先回收 producer。
 
-Native 的既有 PrivatePacketCaptureFixture 另有 1,024 项有界 writer channel、
-每个 proof map 512 项及 24 MiB 文件上限。writer 提交使用 try-send；proof metadata
+Native 的既有 PrivatePacketCaptureFixture 另有 1,024 项有界 writer channel 和
+24 MiB 文件写入上限。proof map 的 512 项是插入后检查的报失／资格阈值，超限
+只增加 observerLost，不回滚该条目，也不停止核心 observer；map 可以超过 512，
+不能把它当作保留条目或 heap 的硬上限。核心 record／字段预算仍约束继续接收，
+fixture 自己的 loss 必须独立检查。writer 提交使用 try-send；proof metadata
 则使用 Mutex::lock，争用时可能阻塞并延长 Noq driver 持锁时间，不能称整个回调
-非阻塞。该临界区只处理有界元数据／proof，包括 hash 与 copy，不执行 I/O、SDK
+非阻塞。该临界区处理捕获预算下的元数据／proof，包括 hash 与 copy，不执行 I/O、SDK
 调用或 await；matcher 同样不得在持有它时等待 SDK 进展。既有 contention 回归
 要求保留真实记录，本项保留该行为，没有改成 try-lock 丢记录。文件 I/O 在独立
 writer thread；finish 在 producer 结束后送终止标记并 join。Unix 私有文件权限
