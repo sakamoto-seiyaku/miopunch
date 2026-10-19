@@ -1,0 +1,680 @@
+{
+  "task": "MIOPUNCH-105",
+  "fixedPoint": "090bde3d218897c38098288165d9dc079149591b",
+  "implementationCommit": "865e3ac2b96e9a3dd5e37f45e877571154ab20e6",
+  "mainImplementation": "44608104a1cbdc40923bbb8dd1db8b45d7ca0341",
+  "ownedPaths": {
+    "vendor/iroh/UPSTREAM.md": "64762791351ff1275763ee1683bb66bdfbcd864b391fdd48031d8d798c4df75e",
+    "vendor/noq-proto/Cargo.toml": "43b3d754b9a80831cc5fd2a689d9dd699119f8f90602a0b035ca691914215699",
+    "vendor/noq-proto/UPSTREAM.md": "9ebf0700629bcc1ed6f5905ac2e2744effa2536b8b1f48a4b97b31d764648e5e",
+    "vendor/noq/Cargo.toml": "31b9c49684d1710728759b34970cfbadeffd6d2ecb753d5122aa30b5be4ae31a",
+    "vendor/noq/UPSTREAM.md": "88361f0fbae069e83a865b11771c8e459a4ffcb9e251bf0e77829dff3012a501",
+    "docs/notes/2026-10-19-vendor-distribution.md": "16b350159660496aa1cd4b8d4805076f994669afea6bb60fcbaba1419c256f74",
+    "scripts/build_vendor_cdylib.py": "82bae9a37bb91468cd187b9259e0a98b1de74031e521dd1b79457ddf6739e03c",
+    "vendor/noq-proto/Cargo.lock": "6c021334e4f09cad0fccbb835bb4da83b73534a71e8ffa5fa4e0c6e09c38aa6a",
+    "vendor/noq-proto/benches/send_buffer.rs": "5e3f38256b9c0c70e7a60dd00b12e12bd35e170a50022338857c29502ebef561",
+    "vendor/noq/Cargo.lock": "c43ce586715d10436036aa4eb127761418098028ac611abd0d62ad166e5f70bf",
+    "vendor/noq/benches/bench.rs": "28f7cd5ab88fa44ca08d035cb9c8ea9776ef9ee97891778df230e23df5067998",
+    "vendor/noq/examples/README.md": "8e83b342ead7bc7a1c2d6ca5712e098ed851c14314d37f13f3467b75ffd111cf",
+    "vendor/noq/examples/client.rs": "1f8f92d9da7641aeca8338af55730550a677da5d56807f41429608574dd5535b",
+    "vendor/noq/examples/common/mod.rs": "6ddcf2e5a3f626fd8dc465a961039b54232ab539df68b56380657f2f735da4cf",
+    "vendor/noq/examples/connection.rs": "f8a8683e40beea8ed4978a8184ded7ea594d49d2f0b8cd17095af2798d5cf807",
+    "vendor/noq/examples/insecure_connection.rs": "b1f55b3595291aad3e70e82ba2ab83b43cc0c2f0e6ec7caf46ab71220f0296c1",
+    "vendor/noq/examples/server.rs": "af69cb7d531e926bc89cebc4e30ca8caa1a4e20d0f13b0e312832da123586e04",
+    "vendor/noq/examples/single_socket.rs": "906cd5a152743a98d560fc27c782834e373b1dab628386fe20a06c158e0c36d0",
+    "vendor/noq/tests/many_connections.rs": "c179de636e97ac9a15231ee2c292135ebc41fe8f054e803f1b1ece186c2b2882",
+    "vendor/noq/tests/post_quantum.rs": "ad196394fa229690798bde895829b5dcae921e19047ec5a63a04f10c9637ed88"
+  },
+  "restoration": {
+    "restoredFiles": [
+      {
+        "source": "/tmp/miopunch-fork-audit-20261012/baselines/noq/noq-1.3.0/examples/client.rs",
+        "destination": "vendor/noq/examples/client.rs",
+        "sha256": "1f8f92d9da7641aeca8338af55730550a677da5d56807f41429608574dd5535b"
+      },
+      {
+        "source": "/tmp/miopunch-fork-audit-20261012/baselines/noq/noq-1.3.0/examples/single_socket.rs",
+        "destination": "vendor/noq/examples/single_socket.rs",
+        "sha256": "906cd5a152743a98d560fc27c782834e373b1dab628386fe20a06c158e0c36d0"
+      },
+      {
+        "source": "/tmp/miopunch-fork-audit-20261012/baselines/noq/noq-1.3.0/examples/server.rs",
+        "destination": "vendor/noq/examples/server.rs",
+        "sha256": "af69cb7d531e926bc89cebc4e30ca8caa1a4e20d0f13b0e312832da123586e04"
+      },
+      {
+        "source": "/tmp/miopunch-fork-audit-20261012/baselines/noq/noq-1.3.0/examples/README.md",
+        "destination": "vendor/noq/examples/README.md",
+        "sha256": "8e83b342ead7bc7a1c2d6ca5712e098ed851c14314d37f13f3467b75ffd111cf"
+      },
+      {
+        "source": "/tmp/miopunch-fork-audit-20261012/baselines/noq/noq-1.3.0/examples/insecure_connection.rs",
+        "destination": "vendor/noq/examples/insecure_connection.rs",
+        "sha256": "b1f55b3595291aad3e70e82ba2ab83b43cc0c2f0e6ec7caf46ab71220f0296c1"
+      },
+      {
+        "source": "/tmp/miopunch-fork-audit-20261012/baselines/noq/noq-1.3.0/examples/connection.rs",
+        "destination": "vendor/noq/examples/connection.rs",
+        "sha256": "f8a8683e40beea8ed4978a8184ded7ea594d49d2f0b8cd17095af2798d5cf807"
+      },
+      {
+        "source": "/tmp/miopunch-fork-audit-20261012/baselines/noq/noq-1.3.0/examples/common/mod.rs",
+        "destination": "vendor/noq/examples/common/mod.rs",
+        "sha256": "6ddcf2e5a3f626fd8dc465a961039b54232ab539df68b56380657f2f735da4cf"
+      },
+      {
+        "source": "/tmp/miopunch-fork-audit-20261012/baselines/noq/noq-1.3.0/tests/many_connections.rs",
+        "destination": "vendor/noq/tests/many_connections.rs",
+        "sha256": "c179de636e97ac9a15231ee2c292135ebc41fe8f054e803f1b1ece186c2b2882"
+      },
+      {
+        "source": "/tmp/miopunch-fork-audit-20261012/baselines/noq/noq-1.3.0/tests/post_quantum.rs",
+        "destination": "vendor/noq/tests/post_quantum.rs",
+        "sha256": "ad196394fa229690798bde895829b5dcae921e19047ec5a63a04f10c9637ed88"
+      },
+      {
+        "source": "/tmp/miopunch-fork-audit-20261012/baselines/noq/noq-1.3.0/benches/bench.rs",
+        "destination": "vendor/noq/benches/bench.rs",
+        "sha256": "28f7cd5ab88fa44ca08d035cb9c8ea9776ef9ee97891778df230e23df5067998"
+      },
+      {
+        "source": "/tmp/miopunch-fork-audit-20261012/baselines/noq-proto/noq-proto-1.3.0/benches/send_buffer.rs",
+        "destination": "vendor/noq-proto/benches/send_buffer.rs",
+        "sha256": "5e3f38256b9c0c70e7a60dd00b12e12bd35e170a50022338857c29502ebef561"
+      }
+    ],
+    "count": 11,
+    "upstreamRustAndDocumentationCopiedByteForByte": true,
+    "noForeignLockRowChanged": true
+  },
+  "beforeFirstEdit": {
+    "sourceCommit": "090bde3d218897c38098288165d9dc079149591b",
+    "selectedOriginalSourceInputsAndRawArtifactsUnchanged": true,
+    "originalStandaloneExamples": [
+      {
+        "example": "connection",
+        "qualified": true,
+        "exit": 0,
+        "networkNone": true,
+        "forcedTermination": false,
+        "containerActuallyAbsent": true,
+        "connections": 1,
+        "seconds": 0.32216501515358686,
+        "originalExampleUnmodified": true,
+        "binarySha256": "defa23258de52a5b7363ab6899ab7bea0f9d1606fc184d0f372fa5be0a2af3d0",
+        "limits": "Published examples end by runtime/process teardown; no new explicit endpoint-join claim is inferred from this example."
+      },
+      {
+        "example": "single_socket",
+        "qualified": true,
+        "exit": 0,
+        "networkNone": true,
+        "forcedTermination": false,
+        "containerActuallyAbsent": true,
+        "connections": 3,
+        "seconds": 0.3114789598621428,
+        "originalExampleUnmodified": true,
+        "binarySha256": "205a0ce6c28a4013d3bf58be7c17e749b67e40e99f13fd3a6dd9c16079deb75b",
+        "limits": "Published examples end by runtime/process teardown; no new explicit endpoint-join claim is inferred from this example."
+      },
+      {
+        "example": "insecure_connection",
+        "qualified": true,
+        "exit": 0,
+        "networkNone": true,
+        "forcedTermination": false,
+        "containerActuallyAbsent": true,
+        "connections": 1,
+        "seconds": 1.28187952702865,
+        "originalExampleUnmodified": true,
+        "binarySha256": "79c420fb5f5e286326f916a8d751dbd2ddd8dcb3b3be014d3ebfa553d0bfc5e6",
+        "limits": "Published examples end by runtime/process teardown; no new explicit endpoint-join claim is inferred from this example."
+      }
+    ]
+  },
+  "sourcePackages": {
+    "noq": {
+      "exit": 0,
+      "archiveSha256": "7580ef50ada915a4f0658bffb187fb1f99725e32facf041bbadf76bb874365aa",
+      "membersReadBack": 33,
+      "allRustAndLicenseFilesVerified": 26
+    },
+    "noq-proto": {
+      "exit": 0,
+      "archiveSha256": "b0a9835bbd83bb2795f7a94904884136a803e7ece41ef7efa4e99b39f9348c4c",
+      "membersReadBack": 70,
+      "allRustAndLicenseFilesVerified": 63
+    }
+  },
+  "builds": {
+    "restored-noq-targets": {
+      "exit": 0,
+      "freshArtifacts": 193,
+      "rebuiltArtifacts": 9,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/insecure_connection": "75ac6ea839498c7d0f43c80807934330c6d4ad19eb1db8d4f25df18667dbcbb1",
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/server": "3765b57a98af604087400211dd1e4f171a04cf774dc26c4850adec150f03baa4",
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/single_socket": "1a57f30a48d5123b8f2824717ab74e280e5fcd468403b3e25acb811166e4929e",
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/client": "02c4ca6ced97b54537b38523196d0f296d439c2e6e554c4c56186a749828b603",
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/many_connections": "0c1f06d01d6076cbef30d17fd3cfde3ae0830cfac27fab9c272dc6d0c8ca56c6",
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/noq": "72826b7d367b55893b201acc70fca62f376b4b456bf7781d057257a1a11e0531",
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/connection": "727cc4e434f87b29152881657252f3a58735afe4ac2f7ac1264e572979008949",
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/bench": "bad3cea0299fb944aec88c033de4ee06fd71bd1bcdb0661af9928ebc6ac19233"
+      }
+    },
+    "restored-noq-examples": {
+      "exit": 0,
+      "freshArtifacts": 193,
+      "rebuiltArtifacts": 6,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/restored-noq-examples/pinned/insecure_connection": "689ab7515e1c508fa75d75546fea6ef29e5398647249bac0dd94d51e475d247a",
+        "/tmp/miopunch-m105-20261019/restored-noq-examples/pinned/server": "0e4b7e65e944dc8722694fab7b086e23cb9d294c80f84faf78c34316d547d2c4",
+        "/tmp/miopunch-m105-20261019/restored-noq-examples/pinned/single_socket": "8bf06ab86f481728eebe1907d11fc83bd12f8f65d14220721d04cacf33d73126",
+        "/tmp/miopunch-m105-20261019/restored-noq-examples/pinned/connection": "7e690b7de38a8a98ca09573e90e9ffd0c9ea2235ac944f1df9a22ca03985f92b",
+        "/tmp/miopunch-m105-20261019/restored-noq-examples/pinned/client": "da8e3eb581737a65579184c39e7fa771b56e4f98c9717f92eb7f42f06569e180"
+      }
+    },
+    "restored-proto-bench-v2": {
+      "exit": 0,
+      "freshArtifacts": 113,
+      "rebuiltArtifacts": 53,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/restored-proto-bench-v2/pinned/send_buffer": "510522edf103363b88cf1aff8608e1b89a2116996f6242529c8c3e9a7e6f4a9a"
+      }
+    },
+    "package-noq-examples": {
+      "exit": 0,
+      "freshArtifacts": 192,
+      "rebuiltArtifacts": 4,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/package-noq-examples/pinned/connection": "907daa2051254bca966b224b510bebe761bc2edbf3762c1352300c4293c4bcb2",
+        "/tmp/miopunch-m105-20261019/package-noq-examples/pinned/single_socket": "2556ffeea1ac29f17569ac4bb8857c5a8fefe532f2d6683de93b6e85eee9d0c4"
+      }
+    },
+    "relay-cli-v2": {
+      "exit": 0,
+      "freshArtifacts": 324,
+      "rebuiltArtifacts": 1,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/relay-cli-v2/pinned/iroh-relay": "b78e5d3a22017cd045179599260a6831443c06d007d49673c9e46ed33cb9c4f4"
+      }
+    },
+    "iroh-cdylib-final": {
+      "exit": 0,
+      "qualifiedForFrozenRun": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/iroh-cdylib-final/pinned/libiroh.so": "bff1d0b7518a7add8d69024ade70b814a3470c5c6ca59bd7780c986da7bf9aef"
+      },
+      "freshArtifacts": 351,
+      "rebuiltArtifacts": 3,
+      "sourceFrozenDuringBuild": true,
+      "pinnedUnderSharedLease": true,
+      "unversionedLeafRegenerated": true
+    },
+    "iroh-cdylib-corrupt-cache": {
+      "exit": 0,
+      "qualifiedForFrozenRun": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/iroh-cdylib-corrupt-cache/pinned/libiroh.so": "bff1d0b7518a7add8d69024ade70b814a3470c5c6ca59bd7780c986da7bf9aef"
+      },
+      "freshArtifacts": 353,
+      "rebuiltArtifacts": 1,
+      "sourceFrozenDuringBuild": true,
+      "pinnedUnderSharedLease": true,
+      "unversionedLeafRegenerated": true
+    },
+    "relay-cdylib-validated": {
+      "exit": 0,
+      "qualifiedForFrozenRun": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/relay-cdylib-validated/pinned/libiroh_relay.so": "663b5310628302400a8346fa9c4125b110171aee0435cb753feb1b7ab2964e42"
+      },
+      "freshArtifacts": 323,
+      "rebuiltArtifacts": 1,
+      "sourceFrozenDuringBuild": true,
+      "pinnedUnderSharedLease": true,
+      "unversionedLeafRegenerated": true
+    },
+    "relay-cdylib-required-inputs": {
+      "exit": 0,
+      "cargoSeconds": 2.7402556710876524,
+      "qualifiedForFrozenRun": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/relay-cdylib-required-inputs/pinned/libiroh_relay.so": "663b5310628302400a8346fa9c4125b110171aee0435cb753feb1b7ab2964e42"
+      },
+      "freshArtifacts": 323,
+      "rebuiltArtifacts": 1,
+      "sourceFrozenDuringBuild": true,
+      "protectedArtifactsUnchanged": true,
+      "pinnedUnderSharedLease": true,
+      "unversionedLeafRegenerated": true,
+      "actualSelectedInputCount": 3883,
+      "diskAfter": {
+        "freeBytes": 10711773184,
+        "cacheBytes": 102410313728
+      }
+    }
+  },
+  "runtimes": {
+    "restored-noq-examples-runtime": {
+      "qualified": true,
+      "exit": 0,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 1.7336220229044557,
+      "allSelectedSourcesAndRawArtifactsUnchanged": true,
+      "buildReceiptSha256": "b66a36cc36657b24654f435fd8cb3bda448b1f7007c846edcaa228aa6bfbba5e",
+      "connections": 5,
+      "records": [
+        {
+          "example": "connection",
+          "connections": 1,
+          "exit": 0,
+          "fixedPortsReboundAfterProcessExit": true
+        },
+        {
+          "example": "single_socket",
+          "connections": 3,
+          "exit": 0,
+          "fixedPortsReboundAfterProcessExit": true
+        },
+        {
+          "example": "insecure_connection",
+          "connections": 1,
+          "exit": 0,
+          "fixedPortsReboundAfterProcessExit": true
+        },
+        {
+          "example": "server",
+          "helpEntryExit": 0,
+          "noFileServingRuntimeClaim": true
+        },
+        {
+          "example": "client",
+          "helpEntryExit": 0,
+          "noFileServingRuntimeClaim": true
+        }
+      ]
+    },
+    "package-noq-examples-runtime": {
+      "qualified": true,
+      "exit": 0,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 0.539551833178848,
+      "allSelectedSourcesAndRawArtifactsUnchanged": true,
+      "buildReceiptSha256": "26ee22521931b2a08051e54d00d44d1fd783b61d39878b76a9fc7c8efd7beb81",
+      "connections": 4,
+      "records": [
+        {
+          "example": "connection",
+          "connections": 1,
+          "exit": 0,
+          "fixedPortsReboundAfterProcessExit": true
+        },
+        {
+          "example": "single_socket",
+          "connections": 3,
+          "exit": 0,
+          "fixedPortsReboundAfterProcessExit": true
+        }
+      ]
+    },
+    "restored-many-connections-runtime": {
+      "qualified": true,
+      "exit": 0,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 6.199359632097185,
+      "allSelectedSourcesAndRawArtifactsUnchanged": true,
+      "buildReceiptSha256": "15113c7127b96d8c28e894541bb1deb2d25307573be8f246cce4a9947c64565e",
+      "testsPassed": 1,
+      "testsFailed": 0
+    },
+    "send-buffer-runtime": {
+      "qualified": true,
+      "exit": 0,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 0.40066614327952266,
+      "allSelectedSourcesAndRawArtifactsUnchanged": true,
+      "buildReceiptSha256": "7474450e35264816a4e7dfce8abb2177325e0ed16a46fd8d684c62b546f49836",
+      "criterionSmokeOnly": true,
+      "noPerformanceClaim": true
+    },
+    "noq-bench-runtime": {
+      "qualified": true,
+      "exit": 0,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 1.1232047942467034,
+      "allSelectedSourcesAndRawArtifactsUnchanged": true,
+      "buildReceiptSha256": "15113c7127b96d8c28e894541bb1deb2d25307573be8f246cce4a9947c64565e",
+      "criterionSmokeOnly": true,
+      "noPerformanceClaim": true
+    },
+    "relay-cli-runtime": {
+      "qualified": true,
+      "exit": 0,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 0.5291125737130642,
+      "allSelectedSourcesAndRawArtifactsUnchanged": true,
+      "buildReceiptSha256": "8e24238764098c79005b61a067f8d6d8f07d0d049fef13dabea1db668ea03536",
+      "existingCliHelpEntryPassed": true,
+      "noNewRelayServiceRuntimeClaim": true
+    }
+  },
+  "artifactPreconditions": {
+    "cases": [
+      {
+        "case": "source",
+        "optimizedPython": false,
+        "exit": 1,
+        "refusedBeforeCargo": true
+      },
+      {
+        "case": "lock",
+        "optimizedPython": false,
+        "exit": 1,
+        "refusedBeforeCargo": true
+      },
+      {
+        "case": "artifact",
+        "optimizedPython": false,
+        "exit": 1,
+        "refusedBeforeCargo": true
+      },
+      {
+        "case": "source",
+        "optimizedPython": true,
+        "exit": 1,
+        "refusedBeforeCargo": true
+      },
+      {
+        "case": "lock",
+        "optimizedPython": true,
+        "exit": 1,
+        "refusedBeforeCargo": true
+      },
+      {
+        "case": "artifact",
+        "optimizedPython": true,
+        "exit": 1,
+        "refusedBeforeCargo": true
+      }
+    ],
+    "finalBuilderSha256": "82bae9a37bb91468cd187b9259e0a98b1de74031e521dd1b79457ddf6739e03c",
+    "positiveGenerationAndElfLoad": true
+  },
+  "cdylibCacheRecovery": {
+    "injectedStaleUnversionedCacheRecovered": true,
+    "actualLeafRebuilt": true,
+    "onlyOneCargoArtifactRebuilt": true,
+    "qualifiedOutputMatchesEarlierGoodRawPin": true,
+    "goodOutputSha256": "bff1d0b7518a7add8d69024ade70b814a3470c5c6ca59bd7780c986da7bf9aef",
+    "badCacheBytesRetainedByGenerator": true,
+    "allSdkRawPinsPreserved": true
+  },
+  "fullCurrentSdk": {
+    "execution": {
+      "publicTraffic": false,
+      "passed": true,
+      "containers": [
+        {
+          "name": "miopunch-m105-owned-irc-1792377774493782650",
+          "removed": true,
+          "stoppedBeforeRemoval": true,
+          "exitCode": 0
+        }
+      ],
+      "cleanup": {
+        "relayExit": 0,
+        "relayGraceful": true,
+        "relayProcessAbsent": true
+      },
+      "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+      "relayStarted": true,
+      "runtimeExit": 0,
+      "functionalAndSdkCleanupQualified": true,
+      "rawReceiptSha256": "6d22e26e6b193c1bab8cbe1fd07ab046776dcb3a8aac20c028262c1c5ebb8ad6",
+      "sourceArtifactControllerUnchangedAfterRuntime": true,
+      "wholeWallMs": 14855.690727941692,
+      "sourceDigest": "d16af3fa218b14845928b8e6b801a001409f5c2354b6776f86025e1729d8bade",
+      "qualified": true
+    },
+    "privateRawReceiptSha256": "6d22e26e6b193c1bab8cbe1fd07ab046776dcb3a8aac20c028262c1c5ebb8ad6",
+    "requestMs": 629.9000000953674,
+    "strictRestrictedRequest": true,
+    "approvalRecords": 1,
+    "bothMaterialsDurable": true,
+    "sameBrowserIdentityReopened": true,
+    "sameNativeIdentityReopened": true,
+    "memberReply": "PONG",
+    "nativeExit": {
+      "code": 0,
+      "signal": null
+    },
+    "ownedFixtureRemoved": true,
+    "websocketsClosedBeforeContext": true,
+    "privateMaterialCleanup": {
+      "sdkAndActorCleanupQualifiedBeforeSecretRemoval": true,
+      "containersActuallyAbsent": true,
+      "runtimeReceiptSha256": "6d22e26e6b193c1bab8cbe1fd07ab046776dcb3a8aac20c028262c1c5ebb8ad6",
+      "removedGeneratedKeys": [
+        {
+          "path": "private-fixture/ca.key",
+          "bytes": 1704
+        },
+        {
+          "path": "private-fixture/leaf.key",
+          "bytes": 1704
+        }
+      ],
+      "privateNssRemoved": true,
+      "remainingPrivateKeys": 0
+    },
+    "controllerQualification": "Reused M104 functional controller; its inherited diagnostic-default-off label is retained in the raw receipt. This is a fresh M105 run under the current selected-source guard."
+  },
+  "sourceGuardSha256": "c9589d67790df8b670ea0dc2b256fed6f0f0995faeadfe85e9f641c662455f45",
+  "sourceAudit": {
+    "inventory": "/tmp/miopunch-m105-20261019/current-fork-audit/inventory.json",
+    "sha256": "8b3fa81cdf526374af263d1e3d8c43f9d472f01a9a31ee5e38e857510421e3de",
+    "nineFixedArtifactsReverified": true,
+    "oldAuditUntouched": true,
+    "sourceSnapshotNotHeadRelabeled": true
+  },
+  "explicitBoundaries": [
+    "Noq and Noq-proto source packages require the companion fork and frozen local-record lock; package --no-verify alone is content only; extracted pair separately compiles/runs unchanged consumers.",
+    "The original mixed lib/cdylib default is not restored. Linux root-graph generation is explicit and pins under the cache lease. No new C ABI or other-platform claim.",
+    "iroh/portmapper standalone locks remain absent; root lock plus patch graph is their supported build entry. Other vendor package/platform builds are not claimed.",
+    "Optional PQ target source restored byte-for-byte; its conditional compile/runtime is not qualified by the default all-targets command.",
+    "Pinned original README whitespace is retained; authored paths pass whitespace checking."
+  ],
+  "missingRequiredInputsBeforePrepare": {
+    "builderSha256": "82bae9a37bb91468cd187b9259e0a98b1de74031e521dd1b79457ddf6739e03c",
+    "noRepositoryInputDeleted": true,
+    "cargoInvocationMarkerAbsentForAllCases": true,
+    "cases": [
+      {
+        "case": "lock",
+        "missingBeforePrepare": "Cargo.lock",
+        "optimizedPython": false,
+        "exit": 1,
+        "refusedBeforeCargo": true,
+        "noContextCreated": true,
+        "fixtureOnly": true
+      },
+      {
+        "case": "manifest",
+        "missingBeforePrepare": "Cargo.toml",
+        "optimizedPython": false,
+        "exit": 1,
+        "refusedBeforeCargo": true,
+        "noContextCreated": true,
+        "fixtureOnly": true
+      },
+      {
+        "case": "configuration",
+        "missingBeforePrepare": ".cargo/config.toml",
+        "optimizedPython": false,
+        "exit": 1,
+        "refusedBeforeCargo": true,
+        "noContextCreated": true,
+        "fixtureOnly": true
+      },
+      {
+        "case": "library-source",
+        "missingBeforePrepare": "vendor/iroh/src/lib.rs",
+        "optimizedPython": false,
+        "exit": 1,
+        "refusedBeforeCargo": true,
+        "noContextCreated": true,
+        "fixtureOnly": true
+      },
+      {
+        "case": "build-script",
+        "missingBeforePrepare": "vendor/iroh/build.rs",
+        "optimizedPython": false,
+        "exit": 1,
+        "refusedBeforeCargo": true,
+        "noContextCreated": true,
+        "fixtureOnly": true
+      },
+      {
+        "case": "lock",
+        "missingBeforePrepare": "Cargo.lock",
+        "optimizedPython": true,
+        "exit": 1,
+        "refusedBeforeCargo": true,
+        "noContextCreated": true,
+        "fixtureOnly": true
+      },
+      {
+        "case": "manifest",
+        "missingBeforePrepare": "Cargo.toml",
+        "optimizedPython": true,
+        "exit": 1,
+        "refusedBeforeCargo": true,
+        "noContextCreated": true,
+        "fixtureOnly": true
+      },
+      {
+        "case": "configuration",
+        "missingBeforePrepare": ".cargo/config.toml",
+        "optimizedPython": true,
+        "exit": 1,
+        "refusedBeforeCargo": true,
+        "noContextCreated": true,
+        "fixtureOnly": true
+      },
+      {
+        "case": "library-source",
+        "missingBeforePrepare": "vendor/iroh/src/lib.rs",
+        "optimizedPython": true,
+        "exit": 1,
+        "refusedBeforeCargo": true,
+        "noContextCreated": true,
+        "fixtureOnly": true
+      },
+      {
+        "case": "build-script",
+        "missingBeforePrepare": "vendor/iroh/build.rs",
+        "optimizedPython": true,
+        "exit": 1,
+        "refusedBeforeCargo": true,
+        "noContextCreated": true,
+        "fixtureOnly": true
+      }
+    ]
+  },
+  "reviewFix": {
+    "initialFinding": "Mandatory root inputs could be silently omitted if absent before preparation.",
+    "resolution": "Require root manifest/lock/config/builder/cache module, both declared libraries and build scripts before snapshot creation; direct always-on checks under python -O.",
+    "negativeCases": 10,
+    "noRepositoryInputDeleted": true,
+    "noCargoInvocationMarkerInAnyNegative": true,
+    "normalAndOptimizedPostPrepareMismatchCases": 6,
+    "realPositiveLeafRegeneratedAndLoaded": true,
+    "productionSdkInputsChanged": false,
+    "noSdkRebuildOrRerunNeededForBuildDriverOnlyFix": true,
+    "initialReportsRetained": true
+  },
+  "selectedInputContinuity": {
+    "restored-noq-targets": {
+      "buildReceiptSha256": "15113c7127b96d8c28e894541bb1deb2d25307573be8f246cce4a9947c64565e",
+      "selectedInputManifestSha256": "a0b8a7ceeb229c5759658f29f27b917b1b87eb39cb4611b19272fd96a7cf911d",
+      "actualSelectedInputs": 2316,
+      "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+    },
+    "restored-noq-examples": {
+      "buildReceiptSha256": "b66a36cc36657b24654f435fd8cb3bda448b1f7007c846edcaa228aa6bfbba5e",
+      "selectedInputManifestSha256": "d2347d94e23cb9d616a3ba1ef4f5ea2cfe55d2c8c5b9605db5881d98c419f255",
+      "actualSelectedInputs": 2335,
+      "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+    },
+    "restored-proto-bench-v2": {
+      "buildReceiptSha256": "7474450e35264816a4e7dfce8abb2177325e0ed16a46fd8d684c62b546f49836",
+      "selectedInputManifestSha256": "701a4ad514c89faf59f7eceecf52d11310c9ea88baac28a68c97dd5aeefe8e76",
+      "actualSelectedInputs": 2024,
+      "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+    },
+    "package-noq-examples": {
+      "buildReceiptSha256": "26ee22521931b2a08051e54d00d44d1fd783b61d39878b76a9fc7c8efd7beb81",
+      "selectedInputManifestSha256": "e0686f8874341aeedf6e443f01d1e9a124b1469fa36cba1db32a62d7200d7ebb",
+      "actualSelectedInputs": 2332,
+      "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+    },
+    "relay-cli-v2": {
+      "buildReceiptSha256": "8e24238764098c79005b61a067f8d6d8f07d0d049fef13dabea1db668ea03536",
+      "selectedInputManifestSha256": "4ca0b1662a5c8071dc9534ff39d9796b8bafd015fba97419bba59f5349f418f3",
+      "actualSelectedInputs": 3884,
+      "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+    },
+    "iroh-cdylib-final": {
+      "buildReceiptSha256": "f5f2e936b2fa93a0ea71ebbfbdb4b6ac7c56045406dca25c6ba680a0f28c45ef",
+      "selectedInputManifestSha256": "5c13ceb39760c025ea6383c97b1bb1e679cb98e88fcc7d57aa99cc4149da4296",
+      "actualSelectedInputs": 4561,
+      "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+    },
+    "iroh-cdylib-corrupt-cache": {
+      "buildReceiptSha256": "f6a6600fd0463f4071e6d307d462b3c8a3df7bf06f91cb21ca0ac9e946d14f65",
+      "selectedInputManifestSha256": "d3f49cae6bc41471324413b6ed1298379ee3744bbd6f5f2612b01851ec931907",
+      "actualSelectedInputs": 4561,
+      "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+    },
+    "relay-cdylib-validated": {
+      "buildReceiptSha256": "1b39c8570eb4299609a0afe3054dbe19f27520c0be85d58e49d5a76b3e816330",
+      "selectedInputManifestSha256": "8c7e6cd5efa084dfa2ae930d1c562b2ab2ac2d161132a078b14d1e6c597616f2",
+      "actualSelectedInputs": 3883,
+      "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+    },
+    "relay-cdylib-required-inputs": {
+      "buildReceiptSha256": "2e572cabf3fd858799c077a2602cc16b781c3f4c9e8a0261db84c8eabaa6ea4d",
+      "selectedInputManifestSha256": "9741d3afdb370a6ad96f0b2cffd46e99c02ab9e9af937ad0bc92f266c9295b48",
+      "actualSelectedInputs": 3883,
+      "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+    }
+  },
+  "reviews": {
+    "Standards": 0,
+    "Spec": 0,
+    "reviewersReranChecks": false
+  }
+}

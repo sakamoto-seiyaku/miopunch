@@ -1,0 +1,56 @@
+{
+  "restored-noq-targets": {
+    "buildReceiptSha256": "15113c7127b96d8c28e894541bb1deb2d25307573be8f246cce4a9947c64565e",
+    "selectedInputManifestSha256": "a0b8a7ceeb229c5759658f29f27b917b1b87eb39cb4611b19272fd96a7cf911d",
+    "actualSelectedInputs": 2316,
+    "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+  },
+  "restored-noq-examples": {
+    "buildReceiptSha256": "b66a36cc36657b24654f435fd8cb3bda448b1f7007c846edcaa228aa6bfbba5e",
+    "selectedInputManifestSha256": "d2347d94e23cb9d616a3ba1ef4f5ea2cfe55d2c8c5b9605db5881d98c419f255",
+    "actualSelectedInputs": 2335,
+    "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+  },
+  "restored-proto-bench-v2": {
+    "buildReceiptSha256": "7474450e35264816a4e7dfce8abb2177325e0ed16a46fd8d684c62b546f49836",
+    "selectedInputManifestSha256": "701a4ad514c89faf59f7eceecf52d11310c9ea88baac28a68c97dd5aeefe8e76",
+    "actualSelectedInputs": 2024,
+    "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+  },
+  "package-noq-examples": {
+    "buildReceiptSha256": "26ee22521931b2a08051e54d00d44d1fd783b61d39878b76a9fc7c8efd7beb81",
+    "selectedInputManifestSha256": "e0686f8874341aeedf6e443f01d1e9a124b1469fa36cba1db32a62d7200d7ebb",
+    "actualSelectedInputs": 2332,
+    "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+  },
+  "relay-cli-v2": {
+    "buildReceiptSha256": "8e24238764098c79005b61a067f8d6d8f07d0d049fef13dabea1db668ea03536",
+    "selectedInputManifestSha256": "4ca0b1662a5c8071dc9534ff39d9796b8bafd015fba97419bba59f5349f418f3",
+    "actualSelectedInputs": 3884,
+    "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+  },
+  "iroh-cdylib-final": {
+    "buildReceiptSha256": "f5f2e936b2fa93a0ea71ebbfbdb4b6ac7c56045406dca25c6ba680a0f28c45ef",
+    "selectedInputManifestSha256": "5c13ceb39760c025ea6383c97b1bb1e679cb98e88fcc7d57aa99cc4149da4296",
+    "actualSelectedInputs": 4561,
+    "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+  },
+  "iroh-cdylib-corrupt-cache": {
+    "buildReceiptSha256": "f6a6600fd0463f4071e6d307d462b3c8a3df7bf06f91cb21ca0ac9e946d14f65",
+    "selectedInputManifestSha256": "d3f49cae6bc41471324413b6ed1298379ee3744bbd6f5f2612b01851ec931907",
+    "actualSelectedInputs": 4561,
+    "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+  },
+  "relay-cdylib-validated": {
+    "buildReceiptSha256": "1b39c8570eb4299609a0afe3054dbe19f27520c0be85d58e49d5a76b3e816330",
+    "selectedInputManifestSha256": "8c7e6cd5efa084dfa2ae930d1c562b2ab2ac2d161132a078b14d1e6c597616f2",
+    "actualSelectedInputs": 3883,
+    "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+  },
+  "relay-cdylib-required-inputs": {
+    "buildReceiptSha256": "2e572cabf3fd858799c077a2602cc16b781c3f4c9e8a0261db84c8eabaa6ea4d",
+    "selectedInputManifestSha256": "9741d3afdb370a6ad96f0b2cffd46e99c02ab9e9af937ad0bc92f266c9295b48",
+    "actualSelectedInputs": 3883,
+    "actualSelectedInputsRawPinsAndSourceCopiesUnchanged": true
+  }
+}
