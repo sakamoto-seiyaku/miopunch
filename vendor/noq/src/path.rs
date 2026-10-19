@@ -284,6 +284,12 @@ impl Path {
 
     /// Start a fresh acknowledgment probe on this original QUIC path.
     /// Existing packet acknowledgments cannot satisfy the captured watermark.
+    ///
+    /// Opts this local binding into returning its own Backup ACKs on this path
+    /// until the binding is replaced or closed. Each peer must opt in locally
+    /// for bidirectional confirmation across a blackholed Available carrier.
+    /// This can increase ACK latency on a slow backup; ordinary [`Self::ping`]
+    /// retains upstream cross-path ACK routing. Frame permissions are unchanged.
     pub fn start_probe(&self) -> Result<PathProbe, ClosedPath> {
         let mut state = self.conn.lock_and_wake("start path probe");
         let (watermark, generation) = state.inner.start_bound_path_probe(self.id())?;

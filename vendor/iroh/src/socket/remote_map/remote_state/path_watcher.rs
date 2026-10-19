@@ -514,6 +514,9 @@ impl<'conn> Path<'conn> {
     }
 
     /// Queue fresh QUIC traffic and retain its acknowledgment watermark on this path.
+    /// Locally selects this binding for its own Backup ACKs until replacement or
+    /// close. Each peer must start a probe locally for bidirectional confirmation
+    /// across a blackholed Available carrier; see [`noq::Path::start_probe`].
     pub fn start_probe(&self) -> std::io::Result<noq::PathProbe> {
         self.data
             .upgrade(self.conn)

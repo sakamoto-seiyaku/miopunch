@@ -42,3 +42,12 @@ The driver retains `SocketTransmit` identity while sends are pending, including
 permission checks. Stateless responses use their actual ingress socket.
 `PathProbe` also captures the existing path generation, invalidating an old
 probe after migration. Ordinary upstream callers retain their original APIs.
+
+## MIOPUNCH-102: explicit probe ACK preference
+
+`Path::start_probe` selects its current local binding for its own Backup ACKs
+until replacement or close. Both peers opt in locally for two-way fresh probe
+confirmation across a blackholed Available carrier. This can cost latency on a
+slow backup; ordinary `Path::ping` and ordinary connections keep upstream
+cross-path ACK routing. No public signatures, packet/frame permissions, close
+handling, wire frames, or authenticated probe watermarks change.

@@ -51,3 +51,20 @@ metadata. A retained path keeps its local socket; receiving on a different socke
 move it or inherit its proof. Another socket requires an explicit new path on
 the same connection. Peer-address migration retains its existing rules, and
 bound probes reject previous generations. None of this metadata becomes a QUIC wire field.
+
+## MIOPUNCH-102: explicit Backup ACK routing
+
+Ordinary connections and `ping`/`ping_path` retain upstream cross-path ACK
+routing. Calling the fork's `start_path_probe` explicitly prefers that local
+binding for its own Backup ACKs until replacement or close; other paths are
+unchanged. Both peers must opt in locally for bidirectional fresh confirmation
+when an Available carrier is blackholed. New and migrated bindings start with
+the ordinary policy. Clearing or changing the local IP during in-place recovery
+also resets the preference; a notification that preserves the tuple does not.
+No new transport config or wire negotiation is needed.
+
+This is a selected probe behavior, not a universal defect fix: fixed real Noq
+consumers show that always routing Backup ACKs locally can delay ordinary stream
+completion and actual loss recovery when the backup return path is slow. Packet
+and ordinary-frame permissions, authenticated ACK processing, connection close,
+loss detection, and congestion control are unchanged.

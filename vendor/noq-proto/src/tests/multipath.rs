@@ -2579,10 +2579,30 @@ fn fresh_path_probe_rejects_old_acks_and_closed_paths() -> TestResult {
 }
 
 #[test]
-fn backup_returns_fresh_probe_acks_with_blackholed_available_primary_without_data() -> TestResult {
+fn ordinary_backup_ping_preserves_cross_path_ack_routing() -> TestResult {
     let _guard = subscribe();
-    let client_backup = "[::1:2]:1".parse()?;
-    let server_backup = "[::2:2]:1".parse()?;
+    let (mut pair, backup) = backup_ack_pair();
+    assert_ordinary_backup_ack_on_available(&mut pair, backup);
+    Ok(())
+}
+
+#[test]
+fn probing_one_backup_preserves_other_backup_ack_routing() -> TestResult {
+    let _guard = subscribe();
+    let (mut pair, backup) = backup_ack_pair();
+    let address = pair.network_path(Client, backup)?;
+    let other = pair.open_path(Client, address, PathStatus::Backup)?;
+    pair.drive();
+    pair.set_path_status(Server, other, PathStatus::Backup)?;
+    pair.conn_mut(Server).start_path_probe(other)?;
+    pair.drive();
+    assert_ordinary_backup_ack_on_available(&mut pair, backup);
+    Ok(())
+}
+
+fn backup_ack_pair() -> (ConnPair, PathId) {
+    let client_backup = "[::1:2]:1".parse().unwrap();
+    let server_backup = "[::2:2]:1".parse().unwrap();
     let mut pair = ConnPair::builder()
         .enable_multipath()
         .disable_mtud_discovery()
@@ -2592,18 +2612,188 @@ fn backup_returns_fresh_probe_acks_with_blackholed_available_primary_without_dat
         ))
         .connect();
     pair.drive();
-    let backup = pair.open_path(
-        Client,
-        FourTuple {
-            local_socket: None,
-            remote: server_backup,
-            local_ip: Some(client_backup.ip()),
-        },
-        PathStatus::Backup,
-    )?;
+    let backup = pair
+        .open_path(
+            Client,
+            FourTuple {
+                local_socket: None,
+                remote: server_backup,
+                local_ip: Some(client_backup.ip()),
+            },
+            PathStatus::Backup,
+        )
+        .unwrap();
     pair.drive();
-    pair.set_path_status(Server, backup, PathStatus::Backup)?;
+    pair.set_path_status(Server, backup, PathStatus::Backup)
+        .unwrap();
     pair.drive();
+    (pair, backup)
+}
+
+fn assert_ordinary_backup_ack_on_available(pair: &mut ConnPair, backup: PathId) {
+    let (available, backup) = backup_ping_ack_counts(pair, backup);
+    assert!(
+        available > 0,
+        "ordinary PING keeps upstream cross-path ACK routing"
+    );
+    assert_eq!(backup, 0);
+}
+
+fn backup_ping_ack_counts(pair: &mut ConnPair, backup: PathId) -> (u64, u64) {
+    let available_before = pair.path_stats(Server, PathId::ZERO).unwrap();
+    let backup_before = pair.path_stats(Server, backup).unwrap();
+    pair.conn_mut(Client).ping_path(backup).unwrap();
+    pair.drive();
+    let available_after = pair.path_stats(Server, PathId::ZERO).unwrap();
+    let backup_after = pair.path_stats(Server, backup).unwrap();
+    (
+        available_after.frame_tx.path_acks - available_before.frame_tx.path_acks,
+        backup_after.frame_tx.path_acks - backup_before.frame_tx.path_acks,
+    )
+}
+
+#[test]
+fn recoverable_network_change_clears_probe_preference_only_for_changed_binding() -> TestResult {
+    #[derive(Debug)]
+    struct RecoverableHint {
+        clear_backup: bool,
+        backup_remote: SocketAddr,
+    }
+    impl NetworkChangeHint for RecoverableHint {
+        fn is_path_recoverable(&self, _path: PathId, _network: FourTuple) -> bool {
+            true
+        }
+        fn local_ip_for_recovery(&self, network: FourTuple) -> Option<std::net::IpAddr> {
+            if self.clear_backup && network.remote() == self.backup_remote {
+                None
+            } else {
+                network.local_ip()
+            }
+        }
+    }
+    let _guard = subscribe();
+    for clear_backup in [false, true] {
+        let (mut pair, backup) = backup_ack_pair();
+        pair.conn_mut(Server).start_path_probe(backup)?;
+        pair.drive();
+        let hint = RecoverableHint {
+            clear_backup,
+            backup_remote: pair.network_path(Server, backup)?.remote(),
+        };
+        pair.handle_network_change(Server, Some(&hint));
+        pair.drive();
+        let (available_acks, backup_acks) = backup_ping_ack_counts(&mut pair, backup);
+        if clear_backup {
+            assert!(
+                available_acks > 0,
+                "an unknown local binding requires a new opt-in"
+            );
+            assert_eq!(backup_acks, 0);
+        } else {
+            assert_eq!(available_acks, 0);
+            assert!(
+                backup_acks > 0,
+                "an unchanged binding keeps its explicit preference"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn repeated_unknown_local_binding_clears_probe_preference() -> TestResult {
+    #[derive(Debug)]
+    struct RecoverableUnknown;
+    impl NetworkChangeHint for RecoverableUnknown {
+        fn is_path_recoverable(&self, _path: PathId, _network: FourTuple) -> bool {
+            true
+        }
+        fn local_ip_for_recovery(&self, _network: FourTuple) -> Option<std::net::IpAddr> {
+            None
+        }
+    }
+    let _guard = subscribe();
+    let (mut pair, backup) = backup_ack_pair();
+    pair.handle_network_change(Client, Some(&RecoverableUnknown));
+    assert_eq!(pair.network_path(Client, backup)?.local_ip(), None);
+    // A validated path can be explicitly probed while its local IP is unknown.
+    pair.conn_mut(Client).start_path_probe(backup)?;
+    pair.handle_network_change(Client, Some(&RecoverableUnknown));
+    assert_eq!(pair.network_path(Client, backup)?.local_ip(), None);
+    let unknown = pair.network_path(Client, backup)?;
+    assert_backup_ping_ack_on_available(&mut pair, backup, unknown);
+    Ok(())
+}
+
+#[test]
+fn passive_local_ip_migration_restores_ordinary_backup_ack_routing() -> TestResult {
+    let _guard = subscribe();
+    let (mut pair, backup) = backup_ack_pair();
+    pair.conn_mut(Client).start_path_probe(backup)?;
+    pair.drive();
+    let original = pair.network_path(Client, backup)?;
+    let migrated = FourTuple::new(original.remote(), Some("::1:3".parse()?));
+    assert_backup_ping_ack_on_available(&mut pair, backup, migrated);
+    assert_eq!(pair.network_path(Client, backup)?, migrated);
+    Ok(())
+}
+
+fn assert_backup_ping_ack_on_available(pair: &mut ConnPair, backup: PathId, incoming: FourTuple) {
+    pair.conn_mut(Server).ping_path(backup).unwrap();
+    let now = pair.time;
+    let mut wire = Vec::new();
+    let packet = pair
+        .conn_mut(Server)
+        .poll_transmit_with_socket(now, std::num::NonZeroUsize::MIN, &mut wire)
+        .expect("actual authenticated backup PING");
+    let before_available = pair.path_stats(Client, PathId::ZERO).unwrap();
+    let before_backup = pair.path_stats(Client, backup).unwrap();
+    let mut response = Vec::new();
+    let event = pair.client.endpoint.handle(
+        now,
+        incoming,
+        packet.transmit().ecn,
+        bytes::BytesMut::from(&wire[..packet.transmit().size]),
+        &mut response,
+    );
+    let Some(crate::DatagramEvent::ConnectionEvent(_, event)) = event else {
+        panic!("expected original connection's authenticated packet");
+    };
+    pair.conn_mut(Client).handle_event(event);
+    let after_ack_deadline = now + Duration::from_millis(50);
+    pair.handle_timeout(Client, after_ack_deadline);
+    for _ in 0..8 {
+        if pair
+            .conn_mut(Client)
+            .poll_transmit_with_socket(
+                after_ack_deadline,
+                std::num::NonZeroUsize::MIN,
+                &mut Vec::new(),
+            )
+            .is_none()
+        {
+            break;
+        }
+    }
+    assert!(
+        pair.path_stats(Client, PathId::ZERO)
+            .unwrap()
+            .frame_tx
+            .path_acks
+            > before_available.frame_tx.path_acks
+    );
+    assert_eq!(
+        pair.path_stats(Client, backup).unwrap().frame_tx.path_acks,
+        before_backup.frame_tx.path_acks
+    );
+}
+
+#[test]
+fn backup_returns_fresh_probe_acks_with_blackholed_available_primary_without_data() -> TestResult {
+    let _guard = subscribe();
+    let (mut pair, backup) = backup_ack_pair();
+    let client_backup = pair.network_path(Server, backup)?.remote();
+    let server_backup = pair.network_path(Client, backup)?.remote();
     let before_client = pair.path_stats(Client, backup).unwrap();
     let before_server = pair.path_stats(Server, backup).unwrap();
     // The primary remains Available in QUIC, but its real simulated carrier
@@ -2642,5 +2832,87 @@ fn backup_returns_fresh_probe_acks_with_blackholed_available_primary_without_dat
         assert_eq!(after.frame_rx.datagram, before.frame_rx.datagram);
         assert!(after.frame_rx.path_acks > before.frame_rx.path_acks);
     }
+    Ok(())
+}
+
+#[test]
+fn explicit_probe_never_acknowledges_gate_dropped_stream_packet() -> TestResult {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    let _guard = subscribe();
+    let (mut pair, backup) = backup_ack_pair();
+    pair.set_path_status(Client, backup, PathStatus::Available)?;
+    pair.set_path_status(Client, PathId::ZERO, PathStatus::Backup)?;
+    pair.conn_mut(Server).start_path_probe(backup)?;
+    pair.drive();
+    let allowed = Arc::new(AtomicBool::new(false));
+    let check = allowed.clone();
+    pair.conn_mut(Server)
+        .restrict_application_data_paths(move |_| check.load(Ordering::SeqCst));
+    let stream = pair.streams(Client).open(Dir::Uni).unwrap();
+    const MESSAGE: &[u8] = b"ordinary stream must survive a rejected probe packet";
+    pair.send_stream(Client, stream).write(MESSAGE)?;
+    pair.send_stream(Client, stream).finish()?;
+    let watermark = pair.conn_mut(Client).start_path_probe(backup)?;
+    let before = pair.path_stats(Client, backup).unwrap();
+    let now = pair.time;
+    let mut wire = Vec::new();
+    let packet = pair
+        .conn_mut(Client)
+        .poll_transmit_with_socket(now, std::num::NonZeroUsize::MIN, &mut wire)
+        .expect("actual ordinary STREAM and fresh PING packet");
+    assert!(pair.path_stats(Client, backup).unwrap().frame_tx.stream > before.frame_tx.stream);
+    let ingress = pair.network_path(Server, backup)?;
+    let mut response = Vec::new();
+    let mut deliver = |pair: &mut ConnPair, when| {
+        let event = pair.server.endpoint.handle(
+            when,
+            ingress,
+            packet.transmit().ecn,
+            bytes::BytesMut::from(&wire[..packet.transmit().size]),
+            &mut response,
+        );
+        let Some(crate::DatagramEvent::ConnectionEvent(_, event)) = event else {
+            panic!("expected original connection's authenticated packet");
+        };
+        pair.conn_mut(Server).handle_event(event);
+    };
+    deliver(&mut pair, now);
+    assert!(pair.streams(Server).accept(Dir::Uni).is_none());
+    let after_ack_deadline = now + Duration::from_millis(50);
+    pair.handle_timeout(Server, after_ack_deadline);
+    assert!(
+        pair.conn_mut(Server)
+            .poll_transmit_with_socket(
+                after_ack_deadline,
+                std::num::NonZeroUsize::MIN,
+                &mut Vec::new(),
+            )
+            .is_none(),
+        "rejecting the whole STREAM/PING packet must not schedule an ACK"
+    );
+    assert!(
+        !pair
+            .conn(Client)
+            .path_probe_acknowledged(backup, watermark)?
+    );
+
+    // A later qualification permits replay of the exact encrypted packet.
+    // Rejection must not have consumed its packet number or ordinary data.
+    allowed.store(true, Ordering::SeqCst);
+    deliver(&mut pair, after_ack_deadline);
+    assert_eq!(pair.streams(Server).accept(Dir::Uni), Some(stream));
+    {
+        let mut recv = pair.recv_stream(Server, stream);
+        let mut chunks = recv.read(false)?;
+        assert_matches!(chunks.next(usize::MAX), Ok(Some(chunk)) if chunk.bytes == MESSAGE);
+        let _ = chunks.finalize();
+    }
+    pair.time = after_ack_deadline;
+    pair.drive();
+    assert!(
+        pair.conn(Client)
+            .path_probe_acknowledged(backup, watermark)?
+    );
     Ok(())
 }

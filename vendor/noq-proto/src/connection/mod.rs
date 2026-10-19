@@ -1121,10 +1121,9 @@ impl Connection {
                 && self.peer_supports_ack_frequency();
         }
 
-        // An older Available carrier can be blackholed while still retained.
-        // Let a validated backup return its pending ACK before that carrier
-        // drains all packet-number spaces' ACKs onto the broken route. Keep
-        // the ordinary frame scheduling/permission decision unchanged.
+        // Explicit fresh-probe callers may need a backup's own ACK while an
+        // older Available carrier is blackholed. Ordinary paths retain the
+        // upstream cross-path routing, which avoids slow-backup ACK latency.
         let ack_backup = self.spaces[SpaceId::Data]
             .number_spaces
             .iter()
@@ -1133,7 +1132,9 @@ impl Connection {
                     && !self.abandoned_paths.contains(id)
                     && self.remote_cids.contains_key(id)
                     && self.paths.get(id).is_some_and(|path| {
-                        path.data.validated && path.data.local_status() == PathStatus::Backup
+                        path.data.probe_ack_routing
+                            && path.data.validated
+                            && path.data.local_status() == PathStatus::Backup
                     }))
                 .then_some(*id)
             });
@@ -1309,7 +1310,8 @@ impl Connection {
         // there is no other validated space to send it on, it can be sent on the path to be
         // abandoned itself if that was validated.
         let may_self_abandon = has_cids && validated && !have_validated_space;
-        let own_acks_only = has_cids
+        let own_acks_only = path_data.probe_ack_routing
+            && has_cids
             && !is_abandoned
             && validated
             && status == PathStatus::Backup
@@ -1319,7 +1321,7 @@ impl Connection {
             is_abandoned,
             may_send_data,
             own_acks_only,
-            // A validated backup must be able to acknowledge its fresh probe
+            // An explicitly probed backup can acknowledge its fresh probe
             // even while an unavailable-but-not-yet-expired primary retains
             // Available status. Sending ordinary data is still controlled by
             // may_send_data; these packets carry only validation/ACK frames.
@@ -2867,6 +2869,10 @@ impl Connection {
 
     /// Queue a data-space PING and capture the first not-yet-sent packet number.
     /// Callers must keep this watermark bound to this exact connection and path.
+    /// Also prefer this local binding for its own Backup ACKs until it is
+    /// replaced or closed. Each peer must opt in locally for bidirectional
+    /// confirmation across a blackholed Available carrier. Ordinary ping and
+    /// other paths retain upstream ACK routing; frame permissions do not change.
     pub fn start_path_probe(&mut self, path: PathId) -> Result<u64, ClosedPath> {
         if !self.state.is_established()
             || !self.paths.contains_key(&path)
@@ -2880,6 +2886,7 @@ impl Connection {
             .ok_or(ClosedPath { _private: () })?;
         let watermark = space.next_packet_number;
         space.pending_ping = true;
+        self.paths.get_mut(&path).unwrap().data.probe_ack_routing = true;
         Ok(watermark)
     }
 
@@ -5841,7 +5848,7 @@ impl Connection {
                     "local address passive migration"
                 );
             }
-            path_data.network_path.local_ip = Some(new_local_ip)
+            path_data.set_local_ip(Some(new_local_ip));
         }
 
         // If the peer migrated to a new address, trigger migration.
@@ -6087,8 +6094,8 @@ impl Connection {
         if self.highest_space < SpaceKind::Data {
             for path in self.paths.values_mut() {
                 // Clear the local address for it to be obtained from the socket again.
-                path.data.network_path.local_ip =
-                    hint.and_then(|h| h.local_ip_for_recovery(path.data.network_path));
+                let local_ip = hint.and_then(|h| h.local_ip_for_recovery(path.data.network_path));
+                path.data.set_local_ip(local_ip);
             }
 
             self.update_remote_cid(PathId::ZERO);
@@ -6119,8 +6126,8 @@ impl Connection {
 
             // Clear the local address for it to be obtained from the socket again. This applies to
             // all paths, regardless of being considered recoverable or not
-            path.data.network_path.local_ip =
-                hint.and_then(|h| h.local_ip_for_recovery(network_path));
+            path.data
+                .set_local_ip(hint.and_then(|h| h.local_ip_for_recovery(network_path)));
             let remote = network_path.remote;
 
             // Without multipath, the connection tries to recover the single path, whereas with

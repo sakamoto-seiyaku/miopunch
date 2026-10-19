@@ -1,4 +1,7 @@
-use std::{cmp, net::SocketAddr};
+use std::{
+    cmp,
+    net::{IpAddr, SocketAddr},
+};
 
 use identity_hash::IntMap;
 use thiserror::Error;
@@ -205,6 +208,9 @@ pub(super) struct PathData {
     /// Initially equal to `use_stateless_retry` for servers, and becomes false again on every
     /// migration. Always true for clients.
     pub(super) validated: bool,
+    /// Explicit fresh-probe callers prefer this binding for its Backup ACKs.
+    /// Ordinary paths retain cross-path ACK routing, including after migration.
+    pub(super) probe_ack_routing: bool,
     /// Total size of all UDP datagrams sent on this path
     pub(super) total_sent: u64,
     /// Total size of all UDP datagrams received on this path
@@ -316,6 +322,7 @@ impl PathData {
             lost_challenge_count: 0,
             pending_challenge: false,
             validated: false,
+            probe_ack_routing: false,
             total_sent: 0,
             total_recvd: 0,
             mtud: config
@@ -378,6 +385,7 @@ impl PathData {
             lost_challenge_count: 0,
             pending_challenge: false,
             validated: false,
+            probe_ack_routing: false,
             total_sent: 0,
             total_recvd: 0,
             mtud: prev.mtud.clone(),
@@ -396,6 +404,14 @@ impl PathData {
             recovery_metrics: prev.recovery_metrics.clone(),
             generation,
         }
+    }
+
+    /// A changed or unknown local binding needs an explicit new probe preference.
+    pub(super) fn set_local_ip(&mut self, local_ip: Option<IpAddr>) {
+        if local_ip.is_none() || self.network_path.local_ip != local_ip {
+            self.probe_ack_routing = false;
+        }
+        self.network_path.local_ip = local_ip;
     }
 
     /// Whether we're in the process of validating this path with PATH_CHALLENGEs
