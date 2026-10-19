@@ -1,0 +1,1136 @@
+{
+  "baselineCommit": "d1b873e93797a6bbe228eed108a09d44600f249c",
+  "implementationCommit": "26a107d1c0f415bd56744f614adfb64f236855c7",
+  "sourceCommit": {
+    "base": "d1b873e93797a6bbe228eed108a09d44600f249c",
+    "previousImplementationCommit": "54a55b83edf3614317663863a1aab6da26fabe92",
+    "commit": "26a107d1c0f415bd56744f614adfb64f236855c7",
+    "files": {
+      "tests/diagnostic_work.rs": "fa37cc64e7bcf14a50bd5183f4abe0082bd2e6150d05a0d4845f0e448e907098",
+      "docs/notes/2026-10-19-packet-witness-opt-in.md": "2f4382d79b0a11e669cc9ae2930e3a9e3bce30ebe3c74bf4ee5ba56a50678c3e",
+      "vendor/noq/UPSTREAM.md": "a3e75fd8a3c5178c8b975922d72a8983596f826c7365e7728d29c3b6537d8eea",
+      "vendor/noq-proto/UPSTREAM.md": "3b70386485e744c4ad67d94ab99da1c59d5ca74caf0e63d6e30dcf0551861485"
+    },
+    "protectedWipCount": 249,
+    "protectedWipHashesAndDirtySetUnchanged": true,
+    "indexEmptyAfterCommit": true,
+    "currentSdkSourceDigest": "f8851f8fc94b39400f3a17eeabb33b29ab9a095fab8099ca1260d84bf77f15e8"
+  },
+  "preEditBaselines": {
+    "baselineCommit": "d1b873e93797a6bbe228eed108a09d44600f249c",
+    "ordinaryRuns": {
+      "original-noq-before": {
+        "qualified": true,
+        "exit": 0,
+        "seconds": 0.8519677971489727,
+        "allActualSelectedInputsAndArtifactsUnchangedAfterRuntime": true,
+        "actualSelectedInputs": 2328,
+        "buildReceipt": "/tmp/miopunch-m102-20261019/ordinary-original-online/receipt.json",
+        "buildReceiptSha256": "e4409eab2413f48caf5164bebd3f4fd55a105d5e6b580b8bf012226f9a4c5fa4",
+        "binarySha256": "050dc8cfdeec513ba304f67f1028cc3199227c2a46931bf2757e50a4a2a4b727",
+        "driverSha256": "1e70e2c265581bed18c157fa2a09065c33a0fe51651c5fd3c4bf54a5c09837a8",
+        "networkNone": true,
+        "forcedTermination": false,
+        "containerActuallyAbsent": true,
+        "records": [
+          {
+            "case": "single",
+            "stage": "business",
+            "baselineMs": 1,
+            "success": true,
+            "elapsedMs": 1,
+            "ackCarrierA": 3,
+            "ackCarrierB": 0,
+            "aPackets": 11,
+            "bPackets": 0,
+            "aDropped": 0,
+            "lostA": 0,
+            "lostB": 0,
+            "sameConnection": true
+          },
+          {
+            "case": "single",
+            "stage": "close",
+            "observed": true,
+            "elapsedMs": 0
+          },
+          {
+            "case": "single",
+            "stage": "cleanup",
+            "allActorsJoinedAndPortsRebound": true
+          },
+          {
+            "case": "healthy",
+            "stage": "business",
+            "baselineMs": 1,
+            "success": true,
+            "elapsedMs": 0,
+            "ackCarrierA": 1,
+            "ackCarrierB": 0,
+            "aPackets": 17,
+            "bPackets": 5,
+            "aDropped": 0,
+            "lostA": 0,
+            "lostB": 0,
+            "sameConnection": true
+          },
+          {
+            "case": "healthy",
+            "stage": "close",
+            "observed": true,
+            "elapsedMs": 0
+          },
+          {
+            "case": "healthy",
+            "stage": "cleanup",
+            "allActorsJoinedAndPortsRebound": true
+          }
+        ]
+      },
+      "current-noq-before": {
+        "qualified": true,
+        "exit": 0,
+        "seconds": 0.8288177666254342,
+        "allActualSelectedInputsAndArtifactsUnchangedAfterRuntime": true,
+        "actualSelectedInputs": 2329,
+        "buildReceipt": "/tmp/miopunch-m103-20261019/noq-final/receipt.json",
+        "buildReceiptSha256": "192a800b7bd0d4e8dd8b90acc3b45f28710ed0b48b4dfc34dcdafd6abdd9cb5b",
+        "binarySha256": "8a7decb8f40e4e2a6e7ee504f4171166bc8cdb7a11c0eeb20286c650db61dcb5",
+        "driverSha256": "1e70e2c265581bed18c157fa2a09065c33a0fe51651c5fd3c4bf54a5c09837a8",
+        "networkNone": true,
+        "forcedTermination": false,
+        "containerActuallyAbsent": true,
+        "records": [
+          {
+            "case": "single",
+            "stage": "business",
+            "baselineMs": 1,
+            "success": true,
+            "elapsedMs": 0,
+            "ackCarrierA": 1,
+            "ackCarrierB": 0,
+            "aPackets": 11,
+            "bPackets": 0,
+            "aDropped": 0,
+            "lostA": 0,
+            "lostB": 0,
+            "sameConnection": true
+          },
+          {
+            "case": "single",
+            "stage": "close",
+            "observed": true,
+            "elapsedMs": 0
+          },
+          {
+            "case": "single",
+            "stage": "cleanup",
+            "allActorsJoinedAndPortsRebound": true
+          },
+          {
+            "case": "healthy",
+            "stage": "business",
+            "baselineMs": 1,
+            "success": true,
+            "elapsedMs": 1,
+            "ackCarrierA": 1,
+            "ackCarrierB": 0,
+            "aPackets": 17,
+            "bPackets": 5,
+            "aDropped": 0,
+            "lostA": 0,
+            "lostB": 0,
+            "sameConnection": true
+          },
+          {
+            "case": "healthy",
+            "stage": "close",
+            "observed": true,
+            "elapsedMs": 0
+          },
+          {
+            "case": "healthy",
+            "stage": "cleanup",
+            "allActorsJoinedAndPortsRebound": true
+          }
+        ]
+      },
+      "original-iroh-before": {
+        "qualified": true,
+        "exit": 0,
+        "seconds": 1.4706918997690082,
+        "allActualSelectedInputsAndArtifactsUnchangedAfterRuntime": true,
+        "actualSelectedInputs": 4903,
+        "buildReceipt": "/tmp/miopunch-m103-20261019/original-ordinary-v2/receipt.json",
+        "buildReceiptSha256": "c1f1279d5d597b14aec6e382c9672aecf814f237ebbefa005bc4f597e10cf9f0",
+        "binarySha256": "376c3ba7b945b2cf501be653cc83262d96c8df671334b69771f96f569b1b27ee",
+        "driverSha256": "1e70e2c265581bed18c157fa2a09065c33a0fe51651c5fd3c4bf54a5c09837a8",
+        "networkNone": true,
+        "forcedTermination": false,
+        "containerActuallyAbsent": true,
+        "records": [
+          {
+            "case": "ip",
+            "streams": 3,
+            "payloadBytesEachWayPerStream": 32768,
+            "elapsedMs": 82,
+            "legacyCounterUnits": [
+              "is_valid_send_addr_calls",
+              "poll_send_calls",
+              "successful_send_calls",
+              "sent_ciphertext_bytes",
+              "recv_buffers",
+              "received_ciphertext_bytes"
+            ],
+            "beforeBusinessCounters": [
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            ],
+            "afterBusinessCounters": [
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            ],
+            "left": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "right": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "normalClose": true,
+            "ownedUdpPortsRebound": true,
+            "relayClosedAndPortRebound": true
+          },
+          {
+            "case": "relay",
+            "streams": 3,
+            "payloadBytesEachWayPerStream": 32768,
+            "elapsedMs": 77,
+            "legacyCounterUnits": [
+              "is_valid_send_addr_calls",
+              "poll_send_calls",
+              "successful_send_calls",
+              "sent_ciphertext_bytes",
+              "recv_buffers",
+              "received_ciphertext_bytes"
+            ],
+            "beforeBusinessCounters": [
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            ],
+            "afterBusinessCounters": [
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            ],
+            "left": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "right": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "normalClose": true,
+            "ownedUdpPortsRebound": true,
+            "relayClosedAndPortRebound": true
+          },
+          {
+            "case": "legacy",
+            "streams": 3,
+            "payloadBytesEachWayPerStream": 32768,
+            "elapsedMs": 60,
+            "legacyCounterUnits": [
+              "is_valid_send_addr_calls",
+              "poll_send_calls",
+              "successful_send_calls",
+              "sent_ciphertext_bytes",
+              "recv_buffers",
+              "received_ciphertext_bytes"
+            ],
+            "beforeBusinessCounters": [
+              [
+                10,
+                10,
+                10,
+                6883,
+                4,
+                3942
+              ],
+              [
+                5,
+                5,
+                5,
+                3972,
+                7,
+                5406
+              ]
+            ],
+            "afterBusinessCounters": [
+              [
+                92,
+                92,
+                92,
+                110568,
+                87,
+                108998
+              ],
+              [
+                87,
+                87,
+                87,
+                108998,
+                92,
+                110568
+              ]
+            ],
+            "left": [
+              93,
+              93,
+              93,
+              110622,
+              88,
+              109035
+            ],
+            "right": [
+              88,
+              88,
+              88,
+              109035,
+              93,
+              110622
+            ],
+            "normalClose": true,
+            "ownedUdpPortsRebound": true,
+            "relayClosedAndPortRebound": true
+          }
+        ]
+      },
+      "current-iroh-before": {
+        "qualified": true,
+        "exit": 0,
+        "seconds": 1.4639524449594319,
+        "allActualSelectedInputsAndArtifactsUnchangedAfterRuntime": true,
+        "actualSelectedInputs": 4661,
+        "buildReceipt": "/tmp/miopunch-m103-20261019/ordinary-final/receipt.json",
+        "buildReceiptSha256": "c544df6bd1352d09d8f56be297be765f69b648e63b4f492675836be7649e14d7",
+        "binarySha256": "3743951b28e79499ef19567ed45aaeed68bbe11e80098125f732408ed318d5e0",
+        "driverSha256": "1e70e2c265581bed18c157fa2a09065c33a0fe51651c5fd3c4bf54a5c09837a8",
+        "networkNone": true,
+        "forcedTermination": false,
+        "containerActuallyAbsent": true,
+        "records": [
+          {
+            "case": "ip",
+            "streams": 3,
+            "payloadBytesEachWayPerStream": 32768,
+            "elapsedMs": 83,
+            "legacyCounterUnits": [
+              "is_valid_send_addr_calls",
+              "poll_send_calls",
+              "successful_send_calls",
+              "sent_ciphertext_bytes",
+              "recv_buffers",
+              "received_ciphertext_bytes"
+            ],
+            "beforeBusinessCounters": [
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            ],
+            "afterBusinessCounters": [
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            ],
+            "left": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "right": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "normalClose": true,
+            "ownedUdpPortsRebound": true,
+            "relayClosedAndPortRebound": true
+          },
+          {
+            "case": "relay",
+            "streams": 3,
+            "payloadBytesEachWayPerStream": 32768,
+            "elapsedMs": 81,
+            "legacyCounterUnits": [
+              "is_valid_send_addr_calls",
+              "poll_send_calls",
+              "successful_send_calls",
+              "sent_ciphertext_bytes",
+              "recv_buffers",
+              "received_ciphertext_bytes"
+            ],
+            "beforeBusinessCounters": [
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            ],
+            "afterBusinessCounters": [
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            ],
+            "left": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "right": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "normalClose": true,
+            "ownedUdpPortsRebound": true,
+            "relayClosedAndPortRebound": true
+          },
+          {
+            "case": "legacy",
+            "streams": 3,
+            "payloadBytesEachWayPerStream": 32768,
+            "elapsedMs": 63,
+            "legacyCounterUnits": [
+              "is_valid_send_addr_calls",
+              "poll_send_calls",
+              "successful_send_calls",
+              "sent_ciphertext_bytes",
+              "recv_buffers",
+              "received_ciphertext_bytes"
+            ],
+            "beforeBusinessCounters": [
+              [
+                12,
+                10,
+                10,
+                6884,
+                4,
+                3942
+              ],
+              [
+                5,
+                5,
+                5,
+                3972,
+                7,
+                5406
+              ]
+            ],
+            "afterBusinessCounters": [
+              [
+                95,
+                93,
+                93,
+                110603,
+                87,
+                108998
+              ],
+              [
+                87,
+                87,
+                87,
+                108998,
+                93,
+                110603
+              ]
+            ],
+            "left": [
+              96,
+              94,
+              94,
+              110661,
+              88,
+              109035
+            ],
+            "right": [
+              88,
+              88,
+              88,
+              109035,
+              94,
+              110661
+            ],
+            "normalClose": true,
+            "ownedUdpPortsRebound": true,
+            "relayClosedAndPortRebound": true
+          }
+        ]
+      }
+    },
+    "protectedWipFiles": 249,
+    "protectedHashesVerified": true,
+    "fixedOriginalNoqConsumer": {
+      "path": "/home/js/Git/miopunch/docs/evidence/backup-ack-compatibility-2026-10-19/consumers/ordinary.rs",
+      "sha256": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1"
+    },
+    "decision": "Retain existing explicit runtime install/finish, process-single observer and compiled diagnostic module. A separate diagnostic Cargo feature is not needed for the acceptance problem; document doc-hidden vs compiled/runtime opt-in accurately. No permission/scheduler/crypto/wire change. Test actual default/off/on/finished paths and defensive callback/budget boundaries through the existing public diagnostic entry."
+  },
+  "tests": {
+    "diagnostic-contract-runtime-v2": {
+      "qualified": true,
+      "exit": 0,
+      "testsPassed": 1,
+      "testsFailed": 0,
+      "expectedRed": false,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 3.3438198841176927,
+      "publicAlias": false,
+      "multicastLoopback": false,
+      "buildReceiptSha256": "ea9e1eec54545f7a989527f10c4c38694553f01ae965791b0d2c2d2759560bfc",
+      "driverSha256": "2585d08c17de7f824adb14e86b3bc86771bc9adab1cbf3a36ae2371175a01138"
+    },
+    "protocol-capabilities": {
+      "qualified": true,
+      "exit": 0,
+      "testsPassed": 23,
+      "testsFailed": 0,
+      "expectedRed": false,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 1.3582917717285454,
+      "publicAlias": false,
+      "multicastLoopback": false,
+      "buildReceiptSha256": "ac3558038e9344a2f2267a8df7d48835800fea4f61055aa3bac1197416e80312",
+      "driverSha256": "2585d08c17de7f824adb14e86b3bc86771bc9adab1cbf3a36ae2371175a01138"
+    },
+    "final-guard-capabilities": {
+      "qualified": true,
+      "exit": 0,
+      "testsPassed": 4,
+      "testsFailed": 0,
+      "expectedRed": false,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 6.148034223821014,
+      "publicAlias": false,
+      "multicastLoopback": false,
+      "buildReceiptSha256": "9ebc94b7b9838239d4eac0184f4da33c78c3b49851e4d862c984198d150ec7e0",
+      "driverSha256": "2585d08c17de7f824adb14e86b3bc86771bc9adab1cbf3a36ae2371175a01138"
+    }
+  },
+  "outerTestsPassed": 28,
+  "freshDiagnosticProcessCases": 10,
+  "diagnosticWork": {
+    "outerIntegrationTests": 1,
+    "freshProcessCases": 10,
+    "cases": [
+      {
+        "callbacks": 0,
+        "connectionContexts": 0,
+        "copiedBytesInObservedFields": 0,
+        "deniedActualOutbound": 3,
+        "forbiddenStreamDelivered": false,
+        "lost": 0,
+        "mode": "off",
+        "observedSha256Fields": 0,
+        "observerClosed": true,
+        "ordinaryStreamBytes": 32768,
+        "ownedUdpPortsRebound": true,
+        "records": 0,
+        "reservedFieldBytes": 0,
+        "scope": "record/field/callback counts, not total heap usage, CPU cost, timing equivalence or physical-send proof",
+        "stages": {},
+        "weakAtomicChecks": 0
+      },
+      {
+        "callbacks": 184,
+        "connectionContexts": 184,
+        "copiedBytesInObservedFields": 50426,
+        "deniedActualOutbound": 3,
+        "forbiddenStreamDelivered": false,
+        "lost": 0,
+        "mode": "on",
+        "observedSha256Fields": 81,
+        "observerClosed": true,
+        "ordinaryStreamBytes": 32768,
+        "ownedUdpPortsRebound": true,
+        "records": 184,
+        "reservedFieldBytes": 79849,
+        "scope": "record/field/callback counts, not total heap usage, CPU cost, timing equivalence or physical-send proof",
+        "stages": {
+          "actual-packet-encrypted": 55,
+          "actual-payload-appended": 26,
+          "actual-sender-poll-pending": 1,
+          "actual-sender-returned-ok": 23,
+          "before-actual-carrier-call": 24,
+          "builder-open": 55
+        },
+        "weakAtomicChecks": 150
+      },
+      {
+        "callbacks": 0,
+        "connectionContexts": 0,
+        "copiedBytesInObservedFields": 0,
+        "deniedActualOutbound": 3,
+        "forbiddenStreamDelivered": false,
+        "lost": 0,
+        "mode": "finished",
+        "observedSha256Fields": 0,
+        "observerClosed": true,
+        "ordinaryStreamBytes": 32768,
+        "ownedUdpPortsRebound": true,
+        "records": 0,
+        "reservedFieldBytes": 0,
+        "scope": "record/field/callback counts, not total heap usage, CPU cost, timing equivalence or physical-send proof",
+        "stages": {},
+        "weakAtomicChecks": 0
+      },
+      {
+        "callbacks": 1,
+        "connectionContexts": 1,
+        "copiedBytesInObservedFields": 0,
+        "deniedActualOutbound": 3,
+        "forbiddenStreamDelivered": false,
+        "lost": 1,
+        "mode": "recursive",
+        "observedSha256Fields": 0,
+        "observerClosed": true,
+        "ordinaryStreamBytes": 32768,
+        "ownedUdpPortsRebound": true,
+        "records": 1,
+        "reservedFieldBytes": 182,
+        "scope": "record/field/callback counts, not total heap usage, CPU cost, timing equivalence or physical-send proof",
+        "stages": {
+          "builder-open": 1
+        },
+        "weakAtomicChecks": 0
+      },
+      {
+        "callbacks": 1,
+        "connectionContexts": 1,
+        "copiedBytesInObservedFields": 0,
+        "deniedActualOutbound": 3,
+        "forbiddenStreamDelivered": false,
+        "lost": 1,
+        "mode": "panic",
+        "observedSha256Fields": 0,
+        "observerClosed": true,
+        "ordinaryStreamBytes": 32768,
+        "ownedUdpPortsRebound": true,
+        "records": 1,
+        "reservedFieldBytes": 182,
+        "scope": "record/field/callback counts, not total heap usage, CPU cost, timing equivalence or physical-send proof",
+        "stages": {
+          "builder-open": 1
+        },
+        "weakAtomicChecks": 0
+      },
+      {
+        "callbacks": 16384,
+        "connectionContexts": 0,
+        "copiedBytesInObservedFields": 0,
+        "deniedActualOutbound": 3,
+        "forbiddenStreamDelivered": false,
+        "lost": 1,
+        "mode": "record-cap",
+        "observedSha256Fields": 0,
+        "observerClosed": true,
+        "ordinaryStreamBytes": 32768,
+        "ownedUdpPortsRebound": true,
+        "records": 16384,
+        "reservedFieldBytes": 0,
+        "scope": "record/field/callback counts, not total heap usage, CPU cost, timing equivalence or physical-send proof",
+        "stages": {
+          "record-cap": 16384
+        },
+        "weakAtomicChecks": 0
+      },
+      {
+        "callbacks": 255,
+        "connectionContexts": 0,
+        "copiedBytesInObservedFields": 16711680,
+        "deniedActualOutbound": 3,
+        "forbiddenStreamDelivered": false,
+        "lost": 1,
+        "mode": "byte-cap",
+        "observedSha256Fields": 0,
+        "observerClosed": true,
+        "ordinaryStreamBytes": 32768,
+        "ownedUdpPortsRebound": true,
+        "records": 255,
+        "reservedFieldBytes": 16712955,
+        "scope": "record/field/callback counts, not total heap usage, CPU cost, timing equivalence or physical-send proof",
+        "stages": {
+          "byte-cap": 255
+        },
+        "weakAtomicChecks": 0
+      },
+      {
+        "callbacks": 0,
+        "connectionContexts": 0,
+        "copiedBytesInObservedFields": 0,
+        "deniedActualOutbound": 3,
+        "forbiddenStreamDelivered": false,
+        "lost": 1,
+        "mode": "field-cap",
+        "observedSha256Fields": 0,
+        "observerClosed": true,
+        "ordinaryStreamBytes": 32768,
+        "ownedUdpPortsRebound": true,
+        "records": 0,
+        "reservedFieldBytes": 0,
+        "scope": "record/field/callback counts, not total heap usage, CPU cost, timing equivalence or physical-send proof",
+        "stages": {},
+        "weakAtomicChecks": 0
+      },
+      {
+        "callbacks": 0,
+        "connectionContexts": 0,
+        "copiedBytesInObservedFields": 0,
+        "deniedActualOutbound": 3,
+        "forbiddenStreamDelivered": false,
+        "lost": 1,
+        "mode": "value-cap",
+        "observedSha256Fields": 0,
+        "observerClosed": true,
+        "ordinaryStreamBytes": 32768,
+        "ownedUdpPortsRebound": true,
+        "records": 0,
+        "reservedFieldBytes": 0,
+        "scope": "record/field/callback counts, not total heap usage, CPU cost, timing equivalence or physical-send proof",
+        "stages": {},
+        "weakAtomicChecks": 0
+      },
+      {
+        "callbacks": 0,
+        "connectionContexts": 0,
+        "copiedBytesInObservedFields": 0,
+        "deniedActualOutbound": 3,
+        "forbiddenStreamDelivered": false,
+        "lost": 1,
+        "mode": "text-cap",
+        "observedSha256Fields": 0,
+        "observerClosed": true,
+        "ordinaryStreamBytes": 32768,
+        "ownedUdpPortsRebound": true,
+        "records": 0,
+        "reservedFieldBytes": 0,
+        "scope": "record/field/callback counts, not total heap usage, CPU cost, timing equivalence or physical-send proof",
+        "stages": {},
+        "weakAtomicChecks": 0
+      }
+    ],
+    "rawStdoutSha256": "651e3f1c7aab9f73c79681751258af975f77d5716dfec0a6604fca6f1f6b7008",
+    "currentBuildReceiptSha256": "ea9e1eec54545f7a989527f10c4c38694553f01ae965791b0d2c2d2759560bfc",
+    "noCpuOrAllocationCountClaim": true,
+    "scope": "Observed fields/callbacks/copies/digest-record counts, plus source-level work classification. Counters are not total allocator bytes, hash function invocations, transport completion or physical wire proof. Callback failures occurred in actual drive polls."
+  },
+  "featureGraphs": {
+    "independentDiagnosticFeatureAdded": false,
+    "docHiddenIsNotCompileIsolation": true,
+    "moduleCompiledIntoAllThreeSelectedGraphs": true,
+    "graphs": {
+      "native-final": {
+        "noqArtifacts": [
+          {
+            "packageId": "path+file:///home/js/Git/miopunch/vendor/noq-proto#1.3.0",
+            "target": "noq_proto",
+            "features": [
+              "bloom",
+              "default",
+              "platform-verifier",
+              "ring",
+              "rustls",
+              "tracing-log"
+            ]
+          },
+          {
+            "packageId": "path+file:///home/js/Git/miopunch/vendor/noq#1.3.0",
+            "target": "noq",
+            "features": [
+              "platform-verifier",
+              "ring",
+              "runtime-tokio",
+              "rustls"
+            ]
+          }
+        ],
+        "packetWitnessActualInputs": [
+          "/home/js/Git/miopunch/vendor/noq-proto/src/packet_witness.rs"
+        ],
+        "sourceReceipt": "/tmp/miopunch-m103-20261019/native-final/receipt.json"
+      },
+      "browser-final": {
+        "noqArtifacts": [
+          {
+            "packageId": "path+file:///home/js/Git/miopunch/vendor/noq#1.3.0",
+            "target": "noq",
+            "features": [
+              "ring",
+              "rustls"
+            ]
+          },
+          {
+            "packageId": "path+file:///home/js/Git/miopunch/vendor/noq-proto#1.3.0",
+            "target": "noq_proto",
+            "features": [
+              "ring",
+              "rustls"
+            ]
+          }
+        ],
+        "packetWitnessActualInputs": [
+          "/home/js/Git/miopunch/vendor/noq-proto/src/packet_witness.rs"
+        ],
+        "sourceReceipt": "/tmp/miopunch-m103-20261019/browser-final/receipt.json"
+      },
+      "noq-final": {
+        "noqArtifacts": [
+          {
+            "packageId": "path+file:///tmp/miopunch-m102-20261019/fork-selector#noq@1.3.0",
+            "target": "noq",
+            "features": [
+              "bloom",
+              "default",
+              "platform-verifier",
+              "ring",
+              "runtime-tokio",
+              "rustls",
+              "tracing-log"
+            ]
+          },
+          {
+            "packageId": "path+file:///home/js/Git/miopunch/vendor/noq-proto#1.3.0",
+            "target": "noq_proto",
+            "features": [
+              "bloom",
+              "platform-verifier",
+              "ring",
+              "rustls",
+              "tracing-log"
+            ]
+          }
+        ],
+        "packetWitnessActualInputs": [
+          "/home/js/Git/miopunch/vendor/noq-proto/src/packet_witness.rs"
+        ],
+        "sourceReceipt": "/tmp/miopunch-m103-20261019/noq-final/receipt.json"
+      },
+      "diagnostic-contract-v2": {
+        "noqArtifacts": [
+          {
+            "packageId": "path+file:///home/js/Git/miopunch/vendor/noq-proto#1.3.0",
+            "target": "noq_proto",
+            "features": [
+              "bloom",
+              "default",
+              "platform-verifier",
+              "ring",
+              "rustls",
+              "tracing-log"
+            ]
+          },
+          {
+            "packageId": "path+file:///home/js/Git/miopunch/vendor/noq#1.3.0",
+            "target": "noq",
+            "features": [
+              "platform-verifier",
+              "ring",
+              "runtime-tokio",
+              "rustls"
+            ]
+          }
+        ],
+        "packetWitnessActualInputs": [
+          "/home/js/Git/miopunch/vendor/noq-proto/src/packet_witness.rs"
+        ],
+        "sourceReceipt": "/tmp/miopunch-m104-20261019/diagnostic-contract-v2/receipt.json"
+      }
+    },
+    "scope": "Actual fixed Native/WASM/ordinary consumer feature sets; no all-feature/all-target claim. Existing ring-gated encoder hash observations differ from the unconditional module and async carrier observer.",
+    "fixtureNoqAndProtoFeaturesExactlyEqualSelectedNativeSdk": true
+  },
+  "unchangedProduction": {
+    "baselineCommit": "d1b873e93797a6bbe228eed108a09d44600f249c",
+    "productionSources": {
+      "vendor/noq-proto/src/packet_witness.rs": "c2018176ca3a1dfd3e3c036fde9e4ae007a1da764e9505bc0e92b7aa0e6a3e32",
+      "vendor/noq-proto/src/connection/packet_builder.rs": "2daf87550c39a94e91863298e0003dbdd20cdfc1509026988dfe86e605de5a3a",
+      "vendor/noq-proto/src/connection/streams/state.rs": "b07af59be1e1878614c09c0568bfc50de025835714950f89a2b2f9a958de456f",
+      "vendor/noq/src/connection.rs": "72a6db5669f708d049d9a0c96a111ac7c9998115c64d988c7d7409f53b3251a7",
+      "src/rtc_member.rs": "c51eee3a0b6eb1e66cd604c63911f8bad0e73257234fe3fffe7c3f16dae12a6c",
+      "src/rtc_packet_witness_fixture.rs": "3a225e6d72ac0b8c459f2573bd6f4f36a4d40ef4f84488aea9bbeaeb53b6ee32"
+    },
+    "allSameAsQualifiedM103SdkSources": true,
+    "separateDiagnosticFeatureAdded": false,
+    "scope": "Only new test and documentation; no diagnostic logic, lock, permission, allocator, hash, frame or feature changes."
+  },
+  "fullCurrentSdk": {
+    "execution": {
+      "publicTraffic": false,
+      "passed": true,
+      "containers": [
+        {
+          "name": "miopunch-m104-owned-irc-1792375418396801473",
+          "removed": true,
+          "stoppedBeforeRemoval": true,
+          "exitCode": 0
+        }
+      ],
+      "cleanup": {
+        "relayExit": 0,
+        "relayGraceful": true,
+        "relayProcessAbsent": true
+      },
+      "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+      "relayStarted": true,
+      "runtimeExit": 0,
+      "functionalAndSdkCleanupQualified": true,
+      "rawReceiptSha256": "7198b0aa077ab3482175327730f99d2eb0f752bf5b4a00cff7bba94485582182",
+      "sourceArtifactControllerUnchangedAfterRuntime": true,
+      "wholeWallMs": 15295.425709336996,
+      "sourceDigest": "410620be906c06017092fce26ede7d7a8739c78fd88c34ea4fa9d51aa0ccc8a0",
+      "qualified": true
+    },
+    "privateRawReceiptSha256": "7198b0aa077ab3482175327730f99d2eb0f752bf5b4a00cff7bba94485582182",
+    "requestMs": 666.1999998092651,
+    "strictRestrictedRequest": true,
+    "approvalRecords": 1,
+    "bothMaterialsDurable": true,
+    "sameBrowserIdentityReopened": true,
+    "sameNativeIdentityReopened": true,
+    "memberReply": "PONG",
+    "nativeExit": {
+      "code": 0,
+      "signal": null
+    },
+    "ownedFixtureRemoved": true,
+    "websocketsClosedBeforeContext": true,
+    "privateMaterialCleanup": {
+      "sdkAndActorCleanupQualifiedBeforeSecretRemoval": true,
+      "containersActuallyAbsent": true,
+      "runtimeReceiptSha256": "7198b0aa077ab3482175327730f99d2eb0f752bf5b4a00cff7bba94485582182",
+      "removedGeneratedKeys": [
+        {
+          "path": "private-fixture/ca.key",
+          "bytes": 1704
+        },
+        {
+          "path": "private-fixture/leaf.key",
+          "bytes": 1704
+        }
+      ],
+      "privateNssRemoved": true,
+      "remainingPrivateKeys": 0
+    }
+  },
+  "sdkGuardContinuity": {
+    "wholeSdkRunGuardVersion": "/tmp/miopunch-m104-20261019/runtime-source-guard-before-metadata-lock-clarification.json",
+    "wholeSdkRunGuardSha256": "b794340ee69a9a0f49c2e9043bcf9de5973034c024b9548a34b676f589438846",
+    "currentGuardSha256": "d1a50a0990f22a358ae68ef0fac17783aeb74d6b817a466a915c59b61aea9864",
+    "changedGlobalSourcesAfterWholeSdkRun": [
+      "vendor/noq-proto/UPSTREAM.md"
+    ],
+    "onlyDocumentationChanged": true,
+    "allSdkActualSelectedInputsAndRawArtifactsUnchanged": true,
+    "oldSdkExecutionReceiptPreserved": true,
+    "noReceiptRelabeledOrSdkRebuilt": true,
+    "reason": "Clarify the existing Native fixture metadata mutex contention. Its code and SDK selected inputs did not change; preserve the SDK run exact source snapshot and qualify current inputs independently."
+  },
+  "runtimeSourceGuardSha256": "d1a50a0990f22a358ae68ef0fac17783aeb74d6b817a466a915c59b61aea9864",
+  "explicitContract": "Process-single observer, explicit runtime install/finish; module compiled Native/WASM, no separate feature. Callback cannot I/O, await SDK progress or reenter connection lock. Existing Native proof mutex can contend during bounded CPU metadata work; this is explicitly classified as enabled cost and preserved, not claimed wholly nonblocking. No production Rust or feature change.",
+  "scope": "Actual Noq UDP/TLS off/on/finished, defensive real driver callback failure and bounded-loss cases; exact old ordinary consumers unchanged; whole Native/Browser SDK uses verified retained raw pins. No total-allocator, CPU, timing-equivalence, physical-send, or public/physical/platform claim.",
+  "reviewCorrection": {
+    "initialFinding": "The Native proof map checks 512 only after insertion and records observerLost without rollback or core disable; it was incorrectly called a hard cap.",
+    "resolution": "Corrected note: 512 is a loss/qualification threshold, not retained-entry or heap cap. The 1024 writer queue, core record/field budgets, and 24MiB file-writing threshold are distinguished. Existing logic unchanged.",
+    "productionOrSelectedTestInputsChanged": false,
+    "initialReportsRetained": true
+  },
+  "selectedInputContinuity": {
+    "/tmp/miopunch-m104-20261019/diagnostic-contract-v2": {
+      "buildReceiptSha256": "ea9e1eec54545f7a989527f10c4c38694553f01ae965791b0d2c2d2759560bfc",
+      "selectedInputManifestSha256": "960a92249e0337438d08615e2ac7914d0eb2fad6b0621e574da5763d94b53848",
+      "actualSelectedInputs": 6619,
+      "allActualSelectedInputsAndRawArtifactsUnchanged": true
+    },
+    "/tmp/miopunch-m103-20261019/native-final": {
+      "buildReceiptSha256": "014229d5c17bfd568dd0b9d91ed0e9be3bee5bf50142fecf1dfd4fde4308db27",
+      "selectedInputManifestSha256": "09b7a7b6222e65e2eeb150366a37dc1a879288e5f7e94b09a7ee8b5163f1a78d",
+      "actualSelectedInputs": 6631,
+      "allActualSelectedInputsAndRawArtifactsUnchanged": true
+    },
+    "/tmp/miopunch-m103-20261019/browser-final": {
+      "buildReceiptSha256": "3cdf5485059196cd425edc82b89e07cae2d5032778183496261786b9f5846098",
+      "selectedInputManifestSha256": "5fb935a8e42ac4f6f3c8eaadd6274028b6551438862543e974fa7f00d1db5063",
+      "actualSelectedInputs": 3162,
+      "allActualSelectedInputsAndRawArtifactsUnchanged": true
+    },
+    "/tmp/miopunch-m103-20261019/proto-final": {
+      "buildReceiptSha256": "ac3558038e9344a2f2267a8df7d48835800fea4f61055aa3bac1197416e80312",
+      "selectedInputManifestSha256": "8cf188d1c711534e33f89dda8a2475071bd6b8329857ce28cf15e7ab1f855fec",
+      "actualSelectedInputs": 1780,
+      "allActualSelectedInputsAndRawArtifactsUnchanged": true
+    },
+    "/tmp/miopunch-m103-20261019/ordinary-final": {
+      "buildReceiptSha256": "c544df6bd1352d09d8f56be297be765f69b648e63b4f492675836be7649e14d7",
+      "selectedInputManifestSha256": "0c135dd4e0dc392ed0ceeb59d24d31a4884116928d7c093a65008f996e03dc15",
+      "actualSelectedInputs": 4661,
+      "allActualSelectedInputsAndRawArtifactsUnchanged": true
+    },
+    "/tmp/miopunch-m103-20261019/noq-final": {
+      "buildReceiptSha256": "192a800b7bd0d4e8dd8b90acc3b45f28710ed0b48b4dfc34dcdafd6abdd9cb5b",
+      "selectedInputManifestSha256": "cee4bf149c54ca0740efbd8a0265b80a225a4f547ec70c1cc262af1d62517913",
+      "actualSelectedInputs": 2329,
+      "allActualSelectedInputsAndRawArtifactsUnchanged": true
+    }
+  },
+  "reviews": {
+    "Standards": 0,
+    "Spec": 0,
+    "reviewersReranChecks": false
+  },
+  "priorFixedUpstreamEvidence": {
+    "archive": "../path-guard-compatibility-2026-10-19/raw-verification.tar.gz",
+    "sha256": "649de85340a37661c6f00e661f0718b4f65ec8b63098b2227107082e80c11c84",
+    "allMembersReadBackAtPublication": true
+  },
+  "intermediateResults": "diagnostic-contract and diagnostic-contract-runtime are retained preparation history; final actual-driver callback cases use the separately pinned v2 build/runtime."
+}

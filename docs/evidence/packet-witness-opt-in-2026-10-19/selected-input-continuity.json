@@ -1,0 +1,38 @@
+{
+  "/tmp/miopunch-m104-20261019/diagnostic-contract-v2": {
+    "buildReceiptSha256": "ea9e1eec54545f7a989527f10c4c38694553f01ae965791b0d2c2d2759560bfc",
+    "selectedInputManifestSha256": "960a92249e0337438d08615e2ac7914d0eb2fad6b0621e574da5763d94b53848",
+    "actualSelectedInputs": 6619,
+    "allActualSelectedInputsAndRawArtifactsUnchanged": true
+  },
+  "/tmp/miopunch-m103-20261019/native-final": {
+    "buildReceiptSha256": "014229d5c17bfd568dd0b9d91ed0e9be3bee5bf50142fecf1dfd4fde4308db27",
+    "selectedInputManifestSha256": "09b7a7b6222e65e2eeb150366a37dc1a879288e5f7e94b09a7ee8b5163f1a78d",
+    "actualSelectedInputs": 6631,
+    "allActualSelectedInputsAndRawArtifactsUnchanged": true
+  },
+  "/tmp/miopunch-m103-20261019/browser-final": {
+    "buildReceiptSha256": "3cdf5485059196cd425edc82b89e07cae2d5032778183496261786b9f5846098",
+    "selectedInputManifestSha256": "5fb935a8e42ac4f6f3c8eaadd6274028b6551438862543e974fa7f00d1db5063",
+    "actualSelectedInputs": 3162,
+    "allActualSelectedInputsAndRawArtifactsUnchanged": true
+  },
+  "/tmp/miopunch-m103-20261019/proto-final": {
+    "buildReceiptSha256": "ac3558038e9344a2f2267a8df7d48835800fea4f61055aa3bac1197416e80312",
+    "selectedInputManifestSha256": "8cf188d1c711534e33f89dda8a2475071bd6b8329857ce28cf15e7ab1f855fec",
+    "actualSelectedInputs": 1780,
+    "allActualSelectedInputsAndRawArtifactsUnchanged": true
+  },
+  "/tmp/miopunch-m103-20261019/ordinary-final": {
+    "buildReceiptSha256": "c544df6bd1352d09d8f56be297be765f69b648e63b4f492675836be7649e14d7",
+    "selectedInputManifestSha256": "0c135dd4e0dc392ed0ceeb59d24d31a4884116928d7c093a65008f996e03dc15",
+    "actualSelectedInputs": 4661,
+    "allActualSelectedInputsAndRawArtifactsUnchanged": true
+  },
+  "/tmp/miopunch-m103-20261019/noq-final": {
+    "buildReceiptSha256": "192a800b7bd0d4e8dd8b90acc3b45f28710ed0b48b4dfc34dcdafd6abdd9cb5b",
+    "selectedInputManifestSha256": "cee4bf149c54ca0740efbd8a0265b80a225a4f547ec70c1cc262af1d62517913",
+    "actualSelectedInputs": 2329,
+    "allActualSelectedInputsAndRawArtifactsUnchanged": true
+  }
+}
