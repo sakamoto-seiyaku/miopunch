@@ -1,0 +1,317 @@
+[
+  {
+    "task": "MIOPUNCH-92",
+    "title": "新增可实际建连的受限端点与独立准入接口",
+    "stories": [
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      16
+    ],
+    "evidence": [
+      "runtime-restricted-endpoint",
+      "restricted-compile-contracts"
+    ],
+    "parentStateMutationAuthorized": null
+  },
+  {
+    "task": "MIOPUNCH-93",
+    "title": "迁移 Native SDK 与原生夹具到新准入接线",
+    "stories": [
+      11,
+      15,
+      16,
+      18,
+      33,
+      34,
+      41,
+      42
+    ],
+    "evidence": [
+      "runtime-native-restricted",
+      "runtime-existing-protocol-counterpart",
+      "sdk-public-results"
+    ],
+    "parentStateMutationAuthorized": null
+  },
+  {
+    "task": "MIOPUNCH-94",
+    "title": "迁移 Browser SDK 到新准入接线",
+    "stories": [
+      9,
+      10,
+      11,
+      15,
+      16,
+      21,
+      29,
+      41,
+      42
+    ],
+    "evidence": [
+      "sdk-public-results",
+      "runtime-browser-policy"
+    ],
+    "parentStateMutationAuthorized": null
+  },
+  {
+    "task": "MIOPUNCH-95",
+    "title": "恢复原版 early-data 与旧 hooks 契约并移除过渡接线",
+    "stories": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      12,
+      13,
+      14
+    ],
+    "evidence": [
+      "runtime-ordinary-endpoint",
+      "original-m92-consumer",
+      "restricted-compile-contracts",
+      "runtime-control-protocol"
+    ],
+    "parentStateMutationAuthorized": null
+  },
+  {
+    "task": "MIOPUNCH-96",
+    "title": "恢复 p2panda-auth 旧错误并接通独立 checked error",
+    "stories": [
+      24,
+      25,
+      26,
+      27,
+      30,
+      37
+    ],
+    "evidence": [
+      "runtime-auth",
+      "runtime-management-auth",
+      "runtime-management-store",
+      "runtime-offline-replica",
+      "runtime-restored-auth-green"
+    ],
+    "parentStateMutationAuthorized": null
+  },
+  {
+    "task": "MIOPUNCH-97",
+    "title": "恢复 native sync 存储 features 并保留 browser 图",
+    "stories": [
+      28,
+      29,
+      30,
+      40
+    ],
+    "evidence": [
+      "runtime-native-default-green",
+      "runtime-native-no-default-green",
+      "runtime-native-test-utils-green",
+      "graphs-final",
+      "sdk-public-results"
+    ],
+    "parentStateMutationAuthorized": null
+  },
+  {
+    "task": "MIOPUNCH-98",
+    "title": "恢复 portmapper 原默认并保留产品显式配置",
+    "stories": [
+      17,
+      18,
+      37
+    ],
+    "evidence": [
+      "runtime-portmapper-mapping",
+      "runtime-portmapper-no-feature",
+      "runtime-gateway-settings",
+      "runtime-udp-disabled",
+      "runtime-tcp-positive"
+    ],
+    "parentStateMutationAuthorized": null
+  },
+  {
+    "task": "MIOPUNCH-99",
+    "title": "恢复 pkarr 默认跳转并提供受约束 lookup",
+    "stories": [
+      19,
+      20,
+      21
+    ],
+    "evidence": [
+      "runtime-pkarr",
+      "runtime-browser-policy",
+      "runtime-pkarr-resources"
+    ],
+    "parentStateMutationAuthorized": null
+  },
+  {
+    "task": "MIOPUNCH-100",
+    "title": "恢复 p2panda 缺地址默认并显式启用 resolving",
+    "stories": [
+      22,
+      23,
+      37
+    ],
+    "evidence": [
+      "runtime-missing-address",
+      "runtime-resolution"
+    ],
+    "parentStateMutationAuthorized": null
+  },
+  {
+    "task": "MIOPUNCH-101",
+    "title": "保留旧 selector 语义并接通显式连接级选路",
+    "stories": [
+      31,
+      32,
+      33,
+      34
+    ],
+    "evidence": [
+      "runtime-selector",
+      "runtime-socket-boundaries",
+      "runtime-unified-boundaries",
+      "runtime-maintenance-with-broker"
+    ],
+    "parentStateMutationAuthorized": null
+  },
+  {
+    "task": "MIOPUNCH-102",
+    "title": "实证分类 Backup ACK 并交付对应调度契约",
+    "stories": [
+      32,
+      34,
+      36,
+      37
+    ],
+    "evidence": [
+      "runtime-noq-ordinary-final",
+      "runtime-noq-probe-final",
+      "runtime-noq-loss-final",
+      "runtime-protocol-capabilities"
+    ],
+    "parentStateMutationAuthorized": null
+  },
+  {
+    "task": "MIOPUNCH-103",
+    "title": "核对普通收发过滤并保留显式路径 guards",
+    "stories": [
+      6,
+      15,
+      32,
+      33,
+      34,
+      38
+    ],
+    "evidence": [
+      "runtime-ordinary-iroh",
+      "runtime-final-guards",
+      "runtime-socket-boundaries",
+      "runtime-unified-boundaries"
+    ],
+    "parentStateMutationAuthorized": null
+  },
+  {
+    "task": "MIOPUNCH-104",
+    "title": "明确诊断 opt-in 并验证普通默认路径",
+    "stories": [
+      35,
+      38,
+      40,
+      43
+    ],
+    "evidence": [
+      "runtime-diagnostic-contract",
+      "runtime-protocol-capabilities",
+      "runtime-final-guards"
+    ],
+    "parentStateMutationAuthorized": null
+  },
+  {
+    "task": "MIOPUNCH-105",
+    "title": "恢复或明确原分发目标与产物兼容边界",
+    "stories": [
+      5,
+      6,
+      7,
+      28,
+      39,
+      40,
+      43
+    ],
+    "evidence": [
+      "final-noq-targets",
+      "final-noq-examples",
+      "runtime-restored-examples",
+      "convergence-validation",
+      "../miopunch-m105-20261019/missing-required-input-negatives",
+      "../miopunch-m105-20261019/artifact-precondition-required-input-negatives"
+    ],
+    "parentStateMutationAuthorized": null
+  },
+  {
+    "task": "MIOPUNCH-106",
+    "title": "汇合验收旧消费者与当前完整 SDK demo",
+    "stories": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44
+    ],
+    "evidence": [
+      "sdk-public-results",
+      "convergence-validation",
+      "sibling-status-before"
+    ],
+    "parentStateMutationAuthorized": false
+  }
+]

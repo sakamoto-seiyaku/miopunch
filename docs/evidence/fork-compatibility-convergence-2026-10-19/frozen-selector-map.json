@@ -1,0 +1,298 @@
+{
+  "/tmp/miopunch-m98-20261019/gateway-selector-v2/Cargo.toml": {
+    "sha256": "24cf49e4366609a9cf6d6f83ffa011710e81b84e7c3115223caddff3c9f52a36",
+    "archiveMember": "frozen-selector-inputs/24cf49e4366609a9cf6d6f83ffa011710e81b84e7c3115223caddff3c9f52a36/Cargo.toml"
+  },
+  "/tmp/miopunch-m98-20261019/gateway-selector-v2/Cargo.lock": {
+    "sha256": "01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea",
+    "archiveMember": "frozen-selector-inputs/01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea/Cargo.lock"
+  },
+  "/tmp/miopunch-m98-20261019/gateway-product-tests-final-context.json": {
+    "sha256": "dceb5cc65bd6829e55957e78db54084ee74735276ca4753ace4c57d4e3235cc0",
+    "archiveMember": "frozen-selector-inputs/dceb5cc65bd6829e55957e78db54084ee74735276ca4753ace4c57d4e3235cc0/gateway-product-tests-final-context.json"
+  },
+  "/tmp/miopunch-m106-20261019/recipes.json": {
+    "sha256": "9f73d145bc0d72d7aa3702064e58e1a5257c25b9c58287e380659866f5680726",
+    "archiveMember": "frozen-selector-inputs/9f73d145bc0d72d7aa3702064e58e1a5257c25b9c58287e380659866f5680726/recipes.json"
+  },
+  "/tmp/miopunch-m95-20261019/affected-selector/Cargo.toml": {
+    "sha256": "5b09f147eeaa93bc3d474d2eef7b57adc902ac146f1618d485b5b6d68693cc8c",
+    "archiveMember": "frozen-selector-inputs/5b09f147eeaa93bc3d474d2eef7b57adc902ac146f1618d485b5b6d68693cc8c/Cargo.toml"
+  },
+  "/tmp/miopunch-m95-20261019/affected-selector/Cargo.lock": {
+    "sha256": "01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea",
+    "archiveMember": "frozen-selector-inputs/01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea/Cargo.lock"
+  },
+  "/tmp/miopunch-m95-20261019/final-affected-tests-v2-context.json": {
+    "sha256": "b41c3353afae7c0d1d553e3dd8835835b523ed5e6467991ed5b7dca668adf937",
+    "archiveMember": "frozen-selector-inputs/b41c3353afae7c0d1d553e3dd8835835b523ed5e6467991ed5b7dca668adf937/final-affected-tests-v2-context.json"
+  },
+  "/tmp/miopunch-m100-20261019/current-selector/Cargo.toml": {
+    "sha256": "6e9a6a5bb19ff054f458b161f86f269a0fcf0a71b930a423e7e6054c7fa6d265",
+    "archiveMember": "frozen-selector-inputs/6e9a6a5bb19ff054f458b161f86f269a0fcf0a71b930a423e7e6054c7fa6d265/Cargo.toml"
+  },
+  "/tmp/miopunch-m100-20261019/current-selector/Cargo.lock": {
+    "sha256": "cf8f70689f799dfc912e63c5ef50038bb6a17aabac671925718b6f2199a14960",
+    "archiveMember": "frozen-selector-inputs/cf8f70689f799dfc912e63c5ef50038bb6a17aabac671925718b6f2199a14960/Cargo.lock"
+  },
+  "/tmp/miopunch-m100-20261019/final-ordinary-context.json": {
+    "sha256": "c87a14e036b913ad183a3ddb50be8046086a200a3ab51cdfc8a5ed4627cb1821",
+    "archiveMember": "frozen-selector-inputs/c87a14e036b913ad183a3ddb50be8046086a200a3ab51cdfc8a5ed4627cb1821/final-ordinary-context.json"
+  },
+  "/tmp/miopunch-m99-20261019/browser-policy-selector/Cargo.toml": {
+    "sha256": "38eb06e70d01e0b6683f5333df9fa38746f7b70ab7c3ffa7ad06dc988cfc375f",
+    "archiveMember": "frozen-selector-inputs/38eb06e70d01e0b6683f5333df9fa38746f7b70ab7c3ffa7ad06dc988cfc375f/Cargo.toml"
+  },
+  "/tmp/miopunch-m99-20261019/browser-policy-selector/Cargo.lock": {
+    "sha256": "22ae8a9a41d45e03b24b6796af1bc270218fc7f94d4ffa58275db0dc7091cad2",
+    "archiveMember": "frozen-selector-inputs/22ae8a9a41d45e03b24b6796af1bc270218fc7f94d4ffa58275db0dc7091cad2/Cargo.lock"
+  },
+  "/tmp/miopunch-m99-20261019/browser-policy-final-context.json": {
+    "sha256": "7c280b4c496e0240a312d4ad1ed4cc2ea49c31a4d354c4a49bb75285a9d4c7d5",
+    "archiveMember": "frozen-selector-inputs/7c280b4c496e0240a312d4ad1ed4cc2ea49c31a4d354c4a49bb75285a9d4c7d5/browser-policy-final-context.json"
+  },
+  "/tmp/miopunch-m106-20261019/recipes-extra.json": {
+    "sha256": "3aab3137eb57acf674a5463581b7ee881fbc2400918eccfb4eb8df1f1057ec02",
+    "archiveMember": "frozen-selector-inputs/3aab3137eb57acf674a5463581b7ee881fbc2400918eccfb4eb8df1f1057ec02/recipes-extra.json"
+  },
+  "/tmp/miopunch-m100-20261019/resolution-selector/Cargo.toml": {
+    "sha256": "a30e2b43d399b358ff7308c6d8933622160f2ed2fdc638d0c296e1e78ca0cb3a",
+    "archiveMember": "frozen-selector-inputs/a30e2b43d399b358ff7308c6d8933622160f2ed2fdc638d0c296e1e78ca0cb3a/Cargo.toml"
+  },
+  "/tmp/miopunch-m100-20261019/resolution-selector/Cargo.lock": {
+    "sha256": "97833703f4e189d4a69014e69dc24d4eb8359def064ef137cfe3f568c37082fa",
+    "archiveMember": "frozen-selector-inputs/97833703f4e189d4a69014e69dc24d4eb8359def064ef137cfe3f568c37082fa/Cargo.lock"
+  },
+  "/tmp/miopunch-m100-20261019/focused-final-v2-context.json": {
+    "sha256": "794b819a257cd91633ea73d42ff7f16a0abbe4a79d3d19926391c54bf6594bfd",
+    "archiveMember": "frozen-selector-inputs/794b819a257cd91633ea73d42ff7f16a0abbe4a79d3d19926391c54bf6594bfd/focused-final-v2-context.json"
+  },
+  "/tmp/miopunch-m98-20261019/current-no-portmapper/Cargo.toml": {
+    "sha256": "7b3449808023cbb10c6457766185605fd3c01e6e7b070510b24f6cd92cc4b7e5",
+    "archiveMember": "frozen-selector-inputs/7b3449808023cbb10c6457766185605fd3c01e6e7b070510b24f6cd92cc4b7e5/Cargo.toml"
+  },
+  "/tmp/miopunch-m98-20261019/current-no-portmapper/Cargo.lock": {
+    "sha256": "01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea",
+    "archiveMember": "frozen-selector-inputs/01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea/Cargo.lock"
+  },
+  "/tmp/miopunch-m98-20261019/ordinary-no-portmapper-green-context.json": {
+    "sha256": "41db30a9e7ef71e1f0744a23280c94f39b938c79aaac9de5f58bcf689587b760",
+    "archiveMember": "frozen-selector-inputs/41db30a9e7ef71e1f0744a23280c94f39b938c79aaac9de5f58bcf689587b760/ordinary-no-portmapper-green-context.json"
+  },
+  "/tmp/miopunch-m106-20261019/recipes-matrix.json": {
+    "sha256": "baaccc7f08448ba30d5e1bd28f66ed8175075028cb7c0ff94afa5046c97f6775",
+    "archiveMember": "frozen-selector-inputs/baaccc7f08448ba30d5e1bd28f66ed8175075028cb7c0ff94afa5046c97f6775/recipes-matrix.json"
+  },
+  "/tmp/miopunch-m102-20261019/fork-selector/Cargo.toml": {
+    "sha256": "3e42444df86a11659e271037f686ba3a0ab8bc03f08186bffe850945fb382cbc",
+    "archiveMember": "frozen-selector-inputs/3e42444df86a11659e271037f686ba3a0ab8bc03f08186bffe850945fb382cbc/Cargo.toml"
+  },
+  "/tmp/miopunch-m102-20261019/fork-selector/Cargo.lock": {
+    "sha256": "c43ce586715d10436036aa4eb127761418098028ac611abd0d62ad166e5f70bf",
+    "archiveMember": "frozen-selector-inputs/c43ce586715d10436036aa4eb127761418098028ac611abd0d62ad166e5f70bf/Cargo.lock"
+  },
+  "/tmp/miopunch-m103-20261019/noq-final-context.json": {
+    "sha256": "b2d6c8f4c9c340bfeb0388278aa577dec1e9d6dc5b28e201860807e481a95363",
+    "archiveMember": "frozen-selector-inputs/b2d6c8f4c9c340bfeb0388278aa577dec1e9d6dc5b28e201860807e481a95363/noq-final-context.json"
+  },
+  "/tmp/miopunch-m96-20261019/affected-selector/Cargo.toml": {
+    "sha256": "7f844c66ed505c4172b61a4e3aec27cad820ec1e11af5b9e2c584cfef3b072d3",
+    "archiveMember": "frozen-selector-inputs/7f844c66ed505c4172b61a4e3aec27cad820ec1e11af5b9e2c584cfef3b072d3/Cargo.toml"
+  },
+  "/tmp/miopunch-m96-20261019/affected-selector/Cargo.lock": {
+    "sha256": "01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea",
+    "archiveMember": "frozen-selector-inputs/01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea/Cargo.lock"
+  },
+  "/tmp/miopunch-m96-20261019/affected-auth-tests-context.json": {
+    "sha256": "a266cf77cb044a72d7fbc3e9ef4a906cdfb12267873c39465add05c7a9c40c81",
+    "archiveMember": "frozen-selector-inputs/a266cf77cb044a72d7fbc3e9ef4a906cdfb12267873c39465add05c7a9c40c81/affected-auth-tests-context.json"
+  },
+  "/home/js/Git/miopunch/vendor/noq/Cargo.toml": {
+    "sha256": "31b9c49684d1710728759b34970cfbadeffd6d2ecb753d5122aa30b5be4ae31a",
+    "archiveMember": "frozen-selector-inputs/31b9c49684d1710728759b34970cfbadeffd6d2ecb753d5122aa30b5be4ae31a/Cargo.toml"
+  },
+  "/home/js/Git/miopunch/vendor/noq/Cargo.lock": {
+    "sha256": "c43ce586715d10436036aa4eb127761418098028ac611abd0d62ad166e5f70bf",
+    "archiveMember": "frozen-selector-inputs/c43ce586715d10436036aa4eb127761418098028ac611abd0d62ad166e5f70bf/Cargo.lock"
+  },
+  "/tmp/miopunch-m106-20261019/noq-final-manifest-requalification.json": {
+    "sha256": "3e25cba33b1271a69a184176010f4fdb53036da3caa4466105c91f5f6d03202c",
+    "archiveMember": "frozen-selector-inputs/3e25cba33b1271a69a184176010f4fdb53036da3caa4466105c91f5f6d03202c/noq-final-manifest-requalification.json"
+  },
+  "/tmp/miopunch-m106-20261019/final-noq-examples-inputs.json": {
+    "sha256": "940be7c647def17b92b99abe26949a0573a57965555a7a236cd5f222b458971b",
+    "archiveMember": "frozen-selector-inputs/940be7c647def17b92b99abe26949a0573a57965555a7a236cd5f222b458971b/final-noq-examples-inputs.json"
+  },
+  "/tmp/miopunch-m106-20261019/recipes-distribution.json": {
+    "sha256": "4fa4147d5649a930eac000016d03f267615bca5148fbf0e26391fd51f2bc474e",
+    "archiveMember": "frozen-selector-inputs/4fa4147d5649a930eac000016d03f267615bca5148fbf0e26391fd51f2bc474e/recipes-distribution.json"
+  },
+  "/tmp/miopunch-m102-20261019/maintenance-selector/Cargo.toml": {
+    "sha256": "7bd05a0a1fc29f1ea7a59dd09891b0258cd5375c0c45a338e15b4e4a38f43b53",
+    "archiveMember": "frozen-selector-inputs/7bd05a0a1fc29f1ea7a59dd09891b0258cd5375c0c45a338e15b4e4a38f43b53/Cargo.toml"
+  },
+  "/tmp/miopunch-m102-20261019/maintenance-selector/Cargo.lock": {
+    "sha256": "01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea",
+    "archiveMember": "frozen-selector-inputs/01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea/Cargo.lock"
+  },
+  "/tmp/miopunch-m102-20261019/maintenance-final-v3-context.json": {
+    "sha256": "aea4224ab59e1ee71b0b7c0f2a5f68e9fe9641957b31a09995fae64c42f52e68",
+    "archiveMember": "frozen-selector-inputs/aea4224ab59e1ee71b0b7c0f2a5f68e9fe9641957b31a09995fae64c42f52e68/maintenance-final-v3-context.json"
+  },
+  "/tmp/miopunch-m99-20261019/current-selector/Cargo.toml": {
+    "sha256": "d237317200927c621aab7822598f9bc978d743556ec9f76d318d0659a485e296",
+    "archiveMember": "frozen-selector-inputs/d237317200927c621aab7822598f9bc978d743556ec9f76d318d0659a485e296/Cargo.toml"
+  },
+  "/tmp/miopunch-m99-20261019/current-selector/Cargo.lock": {
+    "sha256": "cf8f70689f799dfc912e63c5ef50038bb6a17aabac671925718b6f2199a14960",
+    "archiveMember": "frozen-selector-inputs/cf8f70689f799dfc912e63c5ef50038bb6a17aabac671925718b6f2199a14960/Cargo.lock"
+  },
+  "/tmp/miopunch-m99-20261019/final-ordinary-context.json": {
+    "sha256": "873c24ec5ff6149bac9a5bd643fddd3990e2f09280bc8d4572a4ec2116d897b7",
+    "archiveMember": "frozen-selector-inputs/873c24ec5ff6149bac9a5bd643fddd3990e2f09280bc8d4572a4ec2116d897b7/final-ordinary-context.json"
+  },
+  "/tmp/miopunch-m106-20261019/resources-selector/Cargo.toml": {
+    "sha256": "0ac55533612feaf58e9639d14fb47d818b0235cbb6027d4fae9cadfa4a4e0325",
+    "archiveMember": "frozen-selector-inputs/0ac55533612feaf58e9639d14fb47d818b0235cbb6027d4fae9cadfa4a4e0325/Cargo.toml"
+  },
+  "/tmp/miopunch-m106-20261019/resources-selector/Cargo.lock": {
+    "sha256": "3e553dae5d9acc29bcf43ebef79485e35f01873c29cb4e07589f892cc42ff60b",
+    "archiveMember": "frozen-selector-inputs/3e553dae5d9acc29bcf43ebef79485e35f01873c29cb4e07589f892cc42ff60b/Cargo.lock"
+  },
+  "/tmp/miopunch-m106-20261019/resources-lock-adapter.json": {
+    "sha256": "53ba1742910bce8e2f3d856835b4ee6293ac615799bd2d46ed5d6ab7c20a38bb",
+    "archiveMember": "frozen-selector-inputs/53ba1742910bce8e2f3d856835b4ee6293ac615799bd2d46ed5d6ab7c20a38bb/resources-lock-adapter.json"
+  },
+  "/tmp/miopunch-m106-20261019/resources-adapter-inputs.json": {
+    "sha256": "6ca8d6d5ee00d782dfab6df0fee558cdb7a9688d8a825b6d361fed5502492934",
+    "archiveMember": "frozen-selector-inputs/6ca8d6d5ee00d782dfab6df0fee558cdb7a9688d8a825b6d361fed5502492934/resources-adapter-inputs.json"
+  },
+  "/tmp/miopunch-m106-20261019/recipes-adapted.json": {
+    "sha256": "2bab0b09651110fbf6136ceab0a737773fb1d44e9a489e14367fed961c4e19ab",
+    "archiveMember": "frozen-selector-inputs/2bab0b09651110fbf6136ceab0a737773fb1d44e9a489e14367fed961c4e19ab/recipes-adapted.json"
+  },
+  "/tmp/miopunch-m106-20261019/final-noq-targets-inputs.json": {
+    "sha256": "241070417e33ad2fada4311d0ba37703330bf7b5e006730f92e40275232a9c7c",
+    "archiveMember": "frozen-selector-inputs/241070417e33ad2fada4311d0ba37703330bf7b5e006730f92e40275232a9c7c/final-noq-targets-inputs.json"
+  },
+  "/tmp/miopunch-m101-20261019/current-selector/Cargo.toml": {
+    "sha256": "6a14bc44f36e9d28e85710d0f2dcda9c0c91bd274d8d3874da8a6919d866ce24",
+    "archiveMember": "frozen-selector-inputs/6a14bc44f36e9d28e85710d0f2dcda9c0c91bd274d8d3874da8a6919d866ce24/Cargo.toml"
+  },
+  "/tmp/miopunch-m101-20261019/current-selector/Cargo.lock": {
+    "sha256": "cf8f70689f799dfc912e63c5ef50038bb6a17aabac671925718b6f2199a14960",
+    "archiveMember": "frozen-selector-inputs/cf8f70689f799dfc912e63c5ef50038bb6a17aabac671925718b6f2199a14960/Cargo.lock"
+  },
+  "/tmp/miopunch-m101-20261019/final-ordinary-context.json": {
+    "sha256": "09a8d6d2123c0ad1f244ad91f77379fc7d2157eeed070beb966824a937dfe153",
+    "archiveMember": "frozen-selector-inputs/09a8d6d2123c0ad1f244ad91f77379fc7d2157eeed070beb966824a937dfe153/final-ordinary-context.json"
+  },
+  "/tmp/miopunch-m98-20261019/current-default/Cargo.toml": {
+    "sha256": "966badfef05e9c370a2f437f36f4e9d1df293ce3724173b36f06912113042bb9",
+    "archiveMember": "frozen-selector-inputs/966badfef05e9c370a2f437f36f4e9d1df293ce3724173b36f06912113042bb9/Cargo.toml"
+  },
+  "/tmp/miopunch-m98-20261019/current-default/Cargo.lock": {
+    "sha256": "01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea",
+    "archiveMember": "frozen-selector-inputs/01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea/Cargo.lock"
+  },
+  "/tmp/miopunch-m98-20261019/ordinary-default-green-context.json": {
+    "sha256": "9bedfa6513acdc1efaeb1d36b471bf1d845246ef828bb444349c8fcf3b4df521",
+    "archiveMember": "frozen-selector-inputs/9bedfa6513acdc1efaeb1d36b471bf1d845246ef828bb444349c8fcf3b4df521/ordinary-default-green-context.json"
+  },
+  "/tmp/miopunch-m101-20261019/sdk-selector/Cargo.toml": {
+    "sha256": "010d398a2da30fa664cdeefd60e04429b8569d8ae53ec0f91d3ab567ba276f97",
+    "archiveMember": "frozen-selector-inputs/010d398a2da30fa664cdeefd60e04429b8569d8ae53ec0f91d3ab567ba276f97/Cargo.toml"
+  },
+  "/tmp/miopunch-m101-20261019/sdk-selector/Cargo.lock": {
+    "sha256": "01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea",
+    "archiveMember": "frozen-selector-inputs/01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea/Cargo.lock"
+  },
+  "/tmp/miopunch-m103-20261019/current-selector/Cargo.toml": {
+    "sha256": "0e2ac4d7fa758c9cdc7352764f1f1f92da1ce94f8c366dc8ce7bca922b6003a0",
+    "archiveMember": "frozen-selector-inputs/0e2ac4d7fa758c9cdc7352764f1f1f92da1ce94f8c366dc8ce7bca922b6003a0/Cargo.toml"
+  },
+  "/tmp/miopunch-m103-20261019/current-selector/Cargo.lock": {
+    "sha256": "cf8f70689f799dfc912e63c5ef50038bb6a17aabac671925718b6f2199a14960",
+    "archiveMember": "frozen-selector-inputs/cf8f70689f799dfc912e63c5ef50038bb6a17aabac671925718b6f2199a14960/Cargo.lock"
+  },
+  "/tmp/miopunch-m103-20261019/guard-selector/Cargo.toml": {
+    "sha256": "069d8128ee9aa3a29dffe631fd960a117bbae5cb0301fadf2d24a766c317b0bb",
+    "archiveMember": "frozen-selector-inputs/069d8128ee9aa3a29dffe631fd960a117bbae5cb0301fadf2d24a766c317b0bb/Cargo.toml"
+  },
+  "/tmp/miopunch-m103-20261019/guard-selector/Cargo.lock": {
+    "sha256": "ed6ac64c7edeadd1752be8f455ec2584a312c1822a9a3eb3dfaea844f66808c9",
+    "archiveMember": "frozen-selector-inputs/ed6ac64c7edeadd1752be8f455ec2584a312c1822a9a3eb3dfaea844f66808c9/Cargo.lock"
+  },
+  "/tmp/miopunch-m102-20261019/proto-selector/Cargo.toml": {
+    "sha256": "50e2613da625cbaccaff6d9c68c570365333c8631b956470251bee9b8cddeeaa",
+    "archiveMember": "frozen-selector-inputs/50e2613da625cbaccaff6d9c68c570365333c8631b956470251bee9b8cddeeaa/Cargo.toml"
+  },
+  "/tmp/miopunch-m102-20261019/proto-selector/Cargo.lock": {
+    "sha256": "fb1508d294a836f4eb68966c3fd332da188ea6a284fd129441a8b0bd235d2468",
+    "archiveMember": "frozen-selector-inputs/fb1508d294a836f4eb68966c3fd332da188ea6a284fd129441a8b0bd235d2468/Cargo.lock"
+  },
+  "/tmp/miopunch-native-socket-api-20261012/proto-selector/Cargo.toml": {
+    "sha256": "50e2613da625cbaccaff6d9c68c570365333c8631b956470251bee9b8cddeeaa",
+    "archiveMember": "frozen-selector-inputs/50e2613da625cbaccaff6d9c68c570365333c8631b956470251bee9b8cddeeaa/Cargo.toml"
+  },
+  "/tmp/miopunch-native-socket-api-20261012/proto-selector/Cargo.lock": {
+    "sha256": "fb1508d294a836f4eb68966c3fd332da188ea6a284fd129441a8b0bd235d2468",
+    "archiveMember": "frozen-selector-inputs/fb1508d294a836f4eb68966c3fd332da188ea6a284fd129441a8b0bd235d2468/Cargo.lock"
+  },
+  "/tmp/miopunch-m104-20261019/guard-selector/Cargo.toml": {
+    "sha256": "6418e814264ef300ca028c23f4faedb91befb5ae06a5a46605c7e3b7b6629f35",
+    "archiveMember": "frozen-selector-inputs/6418e814264ef300ca028c23f4faedb91befb5ae06a5a46605c7e3b7b6629f35/Cargo.toml"
+  },
+  "/tmp/miopunch-m104-20261019/guard-selector/Cargo.lock": {
+    "sha256": "ed6ac64c7edeadd1752be8f455ec2584a312c1822a9a3eb3dfaea844f66808c9",
+    "archiveMember": "frozen-selector-inputs/ed6ac64c7edeadd1752be8f455ec2584a312c1822a9a3eb3dfaea844f66808c9/Cargo.lock"
+  },
+  "/tmp/miopunch-m96-20261019/baseline-selector/Cargo.toml": {
+    "sha256": "0168040a9e31538120e759592f44f9922425734f881a5990d4eb614555c6aae7",
+    "archiveMember": "frozen-selector-inputs/0168040a9e31538120e759592f44f9922425734f881a5990d4eb614555c6aae7/Cargo.toml"
+  },
+  "/tmp/miopunch-m96-20261019/baseline-selector/Cargo.lock": {
+    "sha256": "01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea",
+    "archiveMember": "frozen-selector-inputs/01f5bbd692987987c9fc25e8f092d878d57df868996c784a95c5aa3240cb30ea/Cargo.lock"
+  },
+  "/tmp/miopunch-m97-20261019/current-default/Cargo.toml": {
+    "sha256": "26062f327ebd3c0ba87ea2f474c1793bf1a2477da8c789a3d33299bedab741f4",
+    "archiveMember": "frozen-selector-inputs/26062f327ebd3c0ba87ea2f474c1793bf1a2477da8c789a3d33299bedab741f4/Cargo.toml"
+  },
+  "/tmp/miopunch-m97-20261019/current-default/Cargo.lock": {
+    "sha256": "5dadbbd0ba55bc3deb06fe56a6520133c75def67c3978f1782617cc924519162",
+    "archiveMember": "frozen-selector-inputs/5dadbbd0ba55bc3deb06fe56a6520133c75def67c3978f1782617cc924519162/Cargo.lock"
+  },
+  "/tmp/miopunch-m97-20261019/current-no-default/Cargo.toml": {
+    "sha256": "e13d399c3195a52291fd846ecaafcc8a3656b8bf6a13a1b3ec0793deff2ed2ef",
+    "archiveMember": "frozen-selector-inputs/e13d399c3195a52291fd846ecaafcc8a3656b8bf6a13a1b3ec0793deff2ed2ef/Cargo.toml"
+  },
+  "/tmp/miopunch-m97-20261019/current-no-default/Cargo.lock": {
+    "sha256": "5dadbbd0ba55bc3deb06fe56a6520133c75def67c3978f1782617cc924519162",
+    "archiveMember": "frozen-selector-inputs/5dadbbd0ba55bc3deb06fe56a6520133c75def67c3978f1782617cc924519162/Cargo.lock"
+  },
+  "/tmp/miopunch-m97-20261019/browser-platform-selector/Cargo.toml": {
+    "sha256": "717fa264c4b460a34c299871b16f02efc78a22e70cec61b045ef5c06b5a2db37",
+    "archiveMember": "frozen-selector-inputs/717fa264c4b460a34c299871b16f02efc78a22e70cec61b045ef5c06b5a2db37/Cargo.toml"
+  },
+  "/tmp/miopunch-m97-20261019/browser-platform-selector/Cargo.lock": {
+    "sha256": "d38d5dcb173fa609b1031729539ed3c08bd28bd27e6a588103adcd500a137889",
+    "archiveMember": "frozen-selector-inputs/d38d5dcb173fa609b1031729539ed3c08bd28bd27e6a588103adcd500a137889/Cargo.lock"
+  },
+  "/home/js/Git/miopunch/vendor/noq-proto/Cargo.toml": {
+    "sha256": "43b3d754b9a80831cc5fd2a689d9dd699119f8f90602a0b035ca691914215699",
+    "archiveMember": "frozen-selector-inputs/43b3d754b9a80831cc5fd2a689d9dd699119f8f90602a0b035ca691914215699/Cargo.toml"
+  },
+  "/home/js/Git/miopunch/vendor/noq-proto/Cargo.lock": {
+    "sha256": "6c021334e4f09cad0fccbb835bb4da83b73534a71e8ffa5fa4e0c6e09c38aa6a",
+    "archiveMember": "frozen-selector-inputs/6c021334e4f09cad0fccbb835bb4da83b73534a71e8ffa5fa4e0c6e09c38aa6a/Cargo.lock"
+  },
+  "/tmp/miopunch-m105-20261019/package-consumer/noq-1.3.0/Cargo.toml": {
+    "sha256": "1e5a77424f1be501bb61aa5c7e4ee3e1d661f25b067832a5f44987098b75fdc3",
+    "archiveMember": "frozen-selector-inputs/1e5a77424f1be501bb61aa5c7e4ee3e1d661f25b067832a5f44987098b75fdc3/Cargo.toml"
+  },
+  "/tmp/miopunch-m105-20261019/package-consumer/noq-1.3.0/Cargo.lock": {
+    "sha256": "c43ce586715d10436036aa4eb127761418098028ac611abd0d62ad166e5f70bf",
+    "archiveMember": "frozen-selector-inputs/c43ce586715d10436036aa4eb127761418098028ac611abd0d62ad166e5f70bf/Cargo.lock"
+  }
+}

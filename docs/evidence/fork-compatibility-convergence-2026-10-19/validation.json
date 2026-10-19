@@ -1,0 +1,623 @@
+{
+  "runtimeSourceCommit": "5302ac8a11a8363d530c5048bb362cafe835aff8",
+  "currentBuilds": 22,
+  "continuedVerifiedBuilds": 16,
+  "continuity": {
+    "/tmp/miopunch-m106-20261019/udp_portmap": {
+      "receiptSha256": "e658ba47346805d1c6baa4995061066c97d82983003c6729e409ba78b1da219c",
+      "selectedInputManifestSha256": "ddb26c5a633bdfca6d8fab3468c658e34bfed871e6cc179f4761409e83d6b0b3",
+      "contextSha256": "d8a1fcec7394c9a0609dca9a4a85892ce6f971ecb6a4b7999a2dce71ab4558ae",
+      "actualSelectedInputs": 5721,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/udp_portmap/pinned/m96-original-auth-consumer": "f40035ac33fdc8589ead9606b0fb31346ffcf7658942638e3f7e942c07e562f1",
+        "/tmp/miopunch-m106-20261019/udp_portmap/pinned/udp_portmap": "d84d7024db3aa7db6b1f2c732abece12dd1af95d9e61d1e9ca784a52128b622f"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/restricted_protocol_interop": {
+      "receiptSha256": "fa4078f5a2751f2f2b15aaaf18ad4284ddbdc8c7850bb8a79a019f8a48ba9840",
+      "selectedInputManifestSha256": "e4662d2f98f4ed54b32c55338342e36d1030df289a441b760b4a7fb75de99be0",
+      "contextSha256": "368459d797827a9a80f375a859652f09a981c8a70646f431647ab21852e3f793",
+      "actualSelectedInputs": 6619,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/restricted_protocol_interop/pinned/restricted_protocol_interop": "1d53a50f72f56ccb8403ff7e1b032227237d597faff78ec50380d2a5de99c0ba"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/missing-address": {
+      "receiptSha256": "e2dc852aa02ae576d0060e401d69caf4735dd5d21676814ff52be52d18c93e83",
+      "selectedInputManifestSha256": "675a8128048386d848f8eb08c7d96071d62bc1f2cb403eb85fecadccdb15d81a",
+      "contextSha256": "694ea37b77618a249abc0dfdecca7ae51b090026e7544202c32887fef8a7a48c",
+      "actualSelectedInputs": 4557,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/missing-address/pinned/m100-ordinary-missing-transport": "e8c558a832f81e552b7ebb78bb5ea1601b0aa41bd5432143025c7be5d61c7ded"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/ordinary_endpoint": {
+      "receiptSha256": "e359552582caf50d63a8e854e78505267711c786fad07902086eae37829b75e8",
+      "selectedInputManifestSha256": "b387e0fe45bba7c9e3bc2e4a3c7667fb9e6b88bbb6d0f3705d095c8c5e1b6059",
+      "contextSha256": "cbf385d2b461710459048a31639b1d35bf71a150c9ae6752b9931caf0de8db20",
+      "actualSelectedInputs": 6621,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/ordinary_endpoint/pinned/ordinary_endpoint": "6c335ee56d0e7cbed1e993560ed48f214a3d6f2f468cb139d0410738dca2f170"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/browser-policy-final": {
+      "receiptSha256": "049718408ccdfaddfa54f4fadc7f61ede26eab9765e85867c57baa8df5909632",
+      "selectedInputManifestSha256": "823b623ae20c4a600df7392122b824d828db28b8bae1fc64c31fddcf38a548b6",
+      "contextSha256": "602858e0cfbb9b161b63ccaf9295dd27da04e5949b68f32ae1f24f026ca34668",
+      "actualSelectedInputs": 2733,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/browser-policy-final/miopunch_browser_probe.wasm": "af6026a56a1850de47d4306c62f169c08f4a94abd52d5f82ba1cbe827f947e0e",
+        "/tmp/miopunch-m106-20261019/browser-policy-final/pkg/miopunch_browser_probe_bg.wasm": "351d992b1dbf3dee510d9106e4ac6725879f2960092b7644f9b94a995c922d3a",
+        "/tmp/miopunch-m106-20261019/browser-policy-final/pkg/miopunch_browser_probe_bg.wasm.d.ts": "65afb3ca5786a2c4f5611986d16526d9558c7fa93e762ac894474eb6ed977fb0",
+        "/tmp/miopunch-m106-20261019/browser-policy-final/pkg/miopunch_browser_probe.js": "37721e3693c864fcdeed324f5d657f272d3593eb6a7f1ee40bf88c3ed8ecedcc",
+        "/tmp/miopunch-m106-20261019/browser-policy-final/pkg/miopunch_browser_probe.d.ts": "1aa42a4a5d1412b7baf2e56dc4105ebdeff769e163866853b05fe8a4c6642a65"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/resolution": {
+      "receiptSha256": "4a7a7a8564d13a3e2156cd4bad9dca6c151c289c0f1725c326f1b3bedbaf17ab",
+      "selectedInputManifestSha256": "f043b26cf6acf9e1ab0040e6e06a6835661a5ffb6d5625b3d79dc45d88e7a2df",
+      "contextSha256": "afcc369a91293f6ebc6730174aea8c7075c57b86c43779166542a3dbc6721ff1",
+      "actualSelectedInputs": 4553,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/resolution/pinned/p2panda_resolution": "25cadac04d80cd075aa05f04fdc409a37479f16aacfda3618a0008bdcd44e5a9"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/native_restricted_admission": {
+      "receiptSha256": "58eb545428a1454ca3af280cd6562ee5631523120a81be31bc95d6a6a2115478",
+      "selectedInputManifestSha256": "e4ad24027b66e900d3a6dc68fb3508a1b6e0c500691fc549aa52d9285e0e30c3",
+      "contextSha256": "15d43d774ad3e5481be1f351af8fb6c3738b5a4f5bc76c7fd99633eeff1fe8c4",
+      "actualSelectedInputs": 6620,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/native_restricted_admission/pinned/native_restricted_admission": "2d39e13ce7dd53ceccd673a94798433a5fa267dea209f59120f7beaa1687f538"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/portmapper-no-feature": {
+      "receiptSha256": "e1bee4d122f3a4927003831e1b6f6a48d184103dcbdb643bf0f82dd84ee05ed3",
+      "selectedInputManifestSha256": "efb84609f228c4817965a2b442edea8e37fc941edeaafab870955d33cca1de33",
+      "contextSha256": "9f49f55232aa892344802860a4ee26fae7372c48962889031a09814ce4c0e81b",
+      "actualSelectedInputs": 3728,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/portmapper-no-feature/pinned/m98-ordinary-default-consumer": "96a8b1435c3896e53ca1427ee6c50815f1b2c94755d523cbc179330fc8effffc"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/noq-matrix": {
+      "receiptSha256": "75229b3e3a97ecbc7fdd0b4e4362e1b1c098020f67fa819297d086b10142513e",
+      "selectedInputManifestSha256": "4fcbe63f3d107645a7dcd1ba45fb5cfd7a9d0b3b7ec02f91c32ad9f3e7722c4d",
+      "contextSha256": "eaa0678136f0afb29af112b1554628d2738b22689027478ddc87b7c80a0a9fbf",
+      "actualSelectedInputs": 2331,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/noq-matrix/pinned/ordinary": "8a7decb8f40e4e2a6e7ee504f4171166bc8cdb7a11c0eeb20286c650db61dcb5",
+        "/tmp/miopunch-m106-20261019/noq-matrix/pinned/ordinary_loss": "542dfe9fff53a3f13fb80ad1d9e31760f7c4432461af8edc2b7560560bbea425",
+        "/tmp/miopunch-m106-20261019/noq-matrix/pinned/probe": "a3477424ae2b83bd2b39c760a96c1cc1f1ba824194987438825b03ecddccded4"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/restricted_endpoint": {
+      "receiptSha256": "7de939ad4d5b7e49ab40736f5a3e4364325cf2acf70e0666267bc9cfcdb5ad86",
+      "selectedInputManifestSha256": "a9cc99228d1a9ac5a850c987f4f956e53b4bdbfd7f88496bb6368141b7c8429b",
+      "contextSha256": "ba727ad234ccc90d5e2631d91d436b4243391cfd5213b988be3840bb6727c455",
+      "actualSelectedInputs": 6620,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/restricted_endpoint/pinned/restricted_endpoint": "212121028b34ded28ef0907bc0d511f4582d51689246bbacf030987cceb5a34d"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/offline_replica": {
+      "receiptSha256": "665027e6ee6c1058ea7aaa09de9dc342e1d0e340f7ee1a63054a147d3f840c56",
+      "selectedInputManifestSha256": "1c5b98d5fa210843008f8a7a87292ce319d7a7295cfde770b35ba3a21dd3633a",
+      "contextSha256": "2f589b51f874b14601abbe06c90a099b5745fa2508fbe2f9ff44b0c42b11b268",
+      "actualSelectedInputs": 6620,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/offline_replica/pinned/offline_replica": "d707616632717bbbc1291fee7af94e8615c070ee9ae9b8ea5b585ffd6374be9a"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/final-noq-examples": {
+      "receiptSha256": "eab3f285a28afe63afa9c88c5288a41b2078acd6da19d9766da6604f1e55cbc7",
+      "selectedInputManifestSha256": "d2347d94e23cb9d616a3ba1ef4f5ea2cfe55d2c8c5b9605db5881d98c419f255",
+      "contextSha256": "2c34c005d941b0cbbaebeadbeb0d426b829348aa169e5b08920ad09e762f78be",
+      "actualSelectedInputs": 2335,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/restored-noq-examples/pinned/connection": "7e690b7de38a8a98ca09573e90e9ffd0c9ea2235ac944f1df9a22ca03985f92b",
+        "/tmp/miopunch-m105-20261019/restored-noq-examples/pinned/client": "da8e3eb581737a65579184c39e7fa771b56e4f98c9717f92eb7f42f06569e180",
+        "/tmp/miopunch-m105-20261019/restored-noq-examples/pinned/insecure_connection": "689ab7515e1c508fa75d75546fea6ef29e5398647249bac0dd94d51e475d247a",
+        "/tmp/miopunch-m105-20261019/restored-noq-examples/pinned/single_socket": "8bf06ab86f481728eebe1907d11fc83bd12f8f65d14220721d04cacf33d73126",
+        "/tmp/miopunch-m105-20261019/restored-noq-examples/pinned/server": "0e4b7e65e944dc8722694fab7b086e23cb9d294c80f84faf78c34316d547d2c4"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/maintenance": {
+      "receiptSha256": "24f445e3a6d1cf4668687a250a2dfa4d8470c4e5f4f2beba8ad31d807a1ddc2f",
+      "selectedInputManifestSha256": "48102784a12767ee5cc3ad3a47c71de08a4b38d33b2a0eabdd175a521a0a3075",
+      "contextSha256": "ce53d877acd6156e949720418ae9abb4b736a414a97ef51acef0484bd6a41f50",
+      "actualSelectedInputs": 6619,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/maintenance/pinned/path_maintenance": "a745de22660acf38de05e9949cb6c1ce50c90f99871e77548c12da8f59c8824e"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/management_auth": {
+      "receiptSha256": "a3bc53c76288d862431632b7b7087c54382947d97cd551dae9b3f8f84ef2e28d",
+      "selectedInputManifestSha256": "8118e8982cde176f3ecc26a52368b09fe1398789a6a3cefef5c65f3b363c574f",
+      "contextSha256": "03d74d9cc4ce424111fe4125c5bc1b1d821bed4add120448059324f16d47c129",
+      "actualSelectedInputs": 6619,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/management_auth/pinned/management_auth": "d4110f8744e31b8669590f5cba2795f8999bb3deeb384642ddb04e951150a3f6"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/tcp_portmap": {
+      "receiptSha256": "fa0b8492a69ec28b79ff9f570ed6cdd13bfd40771398d1284d190a3fc69a9d3a",
+      "selectedInputManifestSha256": "9886b2e4308f0374a1362eae17d0b0eeadfa94be292842bfb2847562e957cfe2",
+      "contextSha256": "da9a3bafcbb59d556e98480bcc58ee2aa8e1c1c36fcaad7f3e353cebd0fc7914",
+      "actualSelectedInputs": 5721,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/udp_portmap/pinned/m96-original-auth-consumer": "f40035ac33fdc8589ead9606b0fb31346ffcf7658942638e3f7e942c07e562f1",
+        "/tmp/miopunch-m106-20261019/tcp_portmap/pinned/tcp_portmap": "5d013fcbbe99ed37ab8ebbde96cb65bb5c44cc73f37b715c3ccdbee4cd18a554"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/management_store": {
+      "receiptSha256": "da1b1ded9be51c58833e84d48952cec56df9fb59f920f842fe4f1dbcd53cb1e7",
+      "selectedInputManifestSha256": "7f544c799baec8f2e8c28321ff22c01ee8b8d60071f01664d628ef56a13dca20",
+      "contextSha256": "e846a88559bd0a7d71ffd344bcdde29de3f82a0a5b725242234a8192d5f1c7f7",
+      "actualSelectedInputs": 6619,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/management_store/pinned/management_store": "a1ad1586f8f7070fbfbc08d1a5089d34e275dc32f881c951838ee34aa466a7f7"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/auth_compatibility": {
+      "receiptSha256": "12a15feaff48b48804a52563d0dd431f75bdf6ac231382ab7add33ae0776c4ad",
+      "selectedInputManifestSha256": "419fe5cbee420555297ec768ce8725a472c6fbd0a834a37e5ff5083f0d268875",
+      "contextSha256": "8affdf3a787038ab430ca9f8199478a8ffa95294def3358ed7e54703ca7c33f7",
+      "actualSelectedInputs": 6620,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/auth_compatibility/pinned/auth_compatibility": "9fc20d4ea9067a3959c64ba6f27759e8be77dac9711d74876ba13bbfcf031feb"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/pkarr": {
+      "receiptSha256": "4a65757f598a7dad1c9e58fb89eb37c4714af5be3026a95d6d5d7670611e6220",
+      "selectedInputManifestSha256": "264c1cbfe8e15e3ca6e2421d83760af8b82e1c28509d5c400c32ab3b566ddb0a",
+      "contextSha256": "9a7ea1b2530bec0c6f1e49063a25d7439397e4a4642c9858943fde3038326989",
+      "actualSelectedInputs": 3926,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/pkarr/pinned/m99-ordinary-pkarr-consumer": "c5e1dcf47b6ed6d9ab397d1b89f121f08692a3a4fdbb6abd718d63ef021b543e"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/resources-adapted": {
+      "receiptSha256": "9a608be1f8596bf2e0e33d1e5371577e9e6c686b77823707611e3bf3f9242da3",
+      "selectedInputManifestSha256": "f1a11a947cff93ce31eae2dbe706c49edd331b1029d52b1bc412d722b4a08bca",
+      "contextSha256": "3eadb0fec3a3d479978afe05cabb62892278c6d8e53b5bdc3ae3e043c6be7c69",
+      "actualSelectedInputs": 6631,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/resources-adapted/pinned/miopunch-native-probe": "4caab18e5f9348f3f30bdc993010d8101a95834309ae3dcb908de31b8698ef39",
+        "/tmp/miopunch-m106-20261019/resources-adapted/pinned/resources": "18cec7edee5c9f68c8bcbc6e95e5149b62a954b6e30ddc96c52fe903ef7de6ec"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/final-noq-targets": {
+      "receiptSha256": "fae8a6e62f9999ea17a8a97f9d22c0ce75eb1286eaa9aa6492809787b5f5163c",
+      "selectedInputManifestSha256": "a0b8a7ceeb229c5759658f29f27b917b1b87eb39cb4611b19272fd96a7cf911d",
+      "contextSha256": "9677b3c2c3ea9d8e846450d75a5dc40869e89da7c0ac7d1410799b1aa7b9a52e",
+      "actualSelectedInputs": 2316,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/many_connections": "0c1f06d01d6076cbef30d17fd3cfde3ae0830cfac27fab9c272dc6d0c8ca56c6",
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/bench": "bad3cea0299fb944aec88c033de4ee06fd71bd1bcdb0661af9928ebc6ac19233",
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/server": "3765b57a98af604087400211dd1e4f171a04cf774dc26c4850adec150f03baa4",
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/single_socket": "1a57f30a48d5123b8f2824717ab74e280e5fcd468403b3e25acb811166e4929e",
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/noq": "72826b7d367b55893b201acc70fca62f376b4b456bf7781d057257a1a11e0531",
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/insecure_connection": "75ac6ea839498c7d0f43c80807934330c6d4ad19eb1db8d4f25df18667dbcbb1",
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/connection": "727cc4e434f87b29152881657252f3a58735afe4ac2f7ac1264e572979008949",
+        "/tmp/miopunch-m105-20261019/restored-noq-targets/pinned/client": "02c4ca6ced97b54537b38523196d0f296d439c2e6e554c4c56186a749828b603"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/selector": {
+      "receiptSha256": "afeb620758a9b48bba9707c3a1cacd4a2faffda822760272aa33503d8ec0279f",
+      "selectedInputManifestSha256": "0a850c35fff4bfd8952265575789c0d49c69a731438cdedad843e64a88854bc9",
+      "contextSha256": "8c603c9c900dd674e8dd31280b9bf5ea0bc30b3b76a0d865f50d14be0cee8a18",
+      "actualSelectedInputs": 3926,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/selector/pinned/m101-ordinary-stateful-selector": "88549621100fddc128aa832a833a076e67e1d935702c3c750216f0a78dd2d840"
+      }
+    },
+    "/tmp/miopunch-m106-20261019/portmapper": {
+      "receiptSha256": "3e09cbe1cb1861c4cddaa94eddb3e19bd0b71f5da7b1e32ce6f2056298906397",
+      "selectedInputManifestSha256": "410c98c5a5fc48446d000b1d690ee836e437befb1c9762faadafdf217baec0d1",
+      "contextSha256": "7f720421b9a75bbee358d5394fd2ac0e0add8b941e99fec9832bf55b0c788dde",
+      "actualSelectedInputs": 3926,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m106-20261019/portmapper/pinned/m98-ordinary-default-consumer": "5eb607d53181f3aaa378fa6cf33c399ddb542c90a4f1fb371f672f6485983590"
+      }
+    },
+    "/tmp/miopunch-m103-20261019/native-final": {
+      "receiptSha256": "014229d5c17bfd568dd0b9d91ed0e9be3bee5bf50142fecf1dfd4fde4308db27",
+      "selectedInputManifestSha256": "09b7a7b6222e65e2eeb150366a37dc1a879288e5f7e94b09a7ee8b5163f1a78d",
+      "contextSha256": "fedcbb2233d681c6d66566a91e3059fe34a32b65d472b5c51460cd5733e08aff",
+      "actualSelectedInputs": 6631,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m103-20261019/native-final/pinned/legacy_multi_socket": "78e8c60964cb63ea1ebb45dcdb9a36a933b2866122c42499cbd346a2c438d1c1",
+        "/tmp/miopunch-m103-20261019/native-final/pinned/miopunch-native-probe": "b567e40307ae912bab8d0da40cea24629f7abd34f01d750d5596b457ac4eea96",
+        "/tmp/miopunch-m103-20261019/native-final/pinned/unified_connection": "bad52c7afcdfb13af5a51374a3e34e69f8c5ff7002a79d2eeaeb521cab6815cd",
+        "/tmp/miopunch-m103-20261019/native-final/pinned/native_sdk_counterpart": "a674e5a88d51dd2bc5cea9623b5c81239098fa73d5ea634d85f2329525ab1bdb"
+      }
+    },
+    "/tmp/miopunch-m103-20261019/browser-final": {
+      "receiptSha256": "3cdf5485059196cd425edc82b89e07cae2d5032778183496261786b9f5846098",
+      "selectedInputManifestSha256": "5fb935a8e42ac4f6f3c8eaadd6274028b6551438862543e974fa7f00d1db5063",
+      "contextSha256": "61c4c71150239f248371cb80b2df4147cea1b0b5645110ddca0398ef71cc2659",
+      "actualSelectedInputs": 3162,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m103-20261019/browser-final/miopunch_browser_probe.wasm": "6e00dc9dee09d3fd78201d11d79fed5114dd7221ba6425ed344b688f18be314c",
+        "/tmp/miopunch-m103-20261019/browser-final/pkg/miopunch_browser_probe_bg.wasm": "64e5139aee65181815a0c2c82aaf5da4f41b660c0724429dcea07e0ee3513c2c",
+        "/tmp/miopunch-m103-20261019/browser-final/pkg/miopunch_browser_probe_bg.wasm.d.ts": "8ff8262526f5b757036085ee949efd7a9446d40a7b190529a81fe34342347ff6",
+        "/tmp/miopunch-m103-20261019/browser-final/pkg/miopunch_browser_probe.js": "e1a76f1dd469531906e7f41ecce25606994fb4677e11dd24c72f343136500a10",
+        "/tmp/miopunch-m103-20261019/browser-final/pkg/miopunch_browser_probe.d.ts": "5e32a31236b89872b32934454164ff64dd45cabe21cd4565ecbc5ca7b9c53c1e",
+        "/tmp/miopunch-m103-20261019/browser-final/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+        "/tmp/miopunch-m103-20261019/browser-final/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96"
+      }
+    },
+    "/tmp/miopunch-m103-20261019/ordinary-final": {
+      "receiptSha256": "c544df6bd1352d09d8f56be297be765f69b648e63b4f492675836be7649e14d7",
+      "selectedInputManifestSha256": "0c135dd4e0dc392ed0ceeb59d24d31a4884116928d7c093a65008f996e03dc15",
+      "contextSha256": "e03d28a2cab6548c4338fe5ff048f39ddbeed1c46c6df264d608b1f6992c3631",
+      "actualSelectedInputs": 4661,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m103-20261019/ordinary-final/pinned/m103-ordinary": "3743951b28e79499ef19567ed45aaeed68bbe11e80098125f732408ed318d5e0"
+      }
+    },
+    "/tmp/miopunch-m103-20261019/application-buffer-green-v3": {
+      "receiptSha256": "9ebc94b7b9838239d4eac0184f4da33c78c3b49851e4d862c984198d150ec7e0",
+      "selectedInputManifestSha256": "ab7b18d0440acaee45c4123fc70ac8f0a9c8d40442fe5e8875e563a0865ecb46",
+      "contextSha256": "df15f49b170de243d867a1965de50937046d6bd8bf293749ebd2eafaed7fdad3",
+      "actualSelectedInputs": 6621,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m103-20261019/application-buffer-green-v3/pinned/path_guard_work": "b787b6726681be091db2611800c388ed2d8c50e0416f05661f01e133304c7460"
+      }
+    },
+    "/tmp/miopunch-m103-20261019/proto-final": {
+      "receiptSha256": "ac3558038e9344a2f2267a8df7d48835800fea4f61055aa3bac1197416e80312",
+      "selectedInputManifestSha256": "8cf188d1c711534e33f89dda8a2475071bd6b8329857ce28cf15e7ab1f855fec",
+      "contextSha256": "ddd3d7d5d6f2bece592c426dc48ff444e70177e732861bc4678216f45bdfc149",
+      "actualSelectedInputs": 1780,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m103-20261019/proto-final/pinned/noq_proto": "287ad57dd9b0fd59e4ba13075626ada488e13cb6081fb5fca246b6bcc90e4709"
+      }
+    },
+    "/tmp/miopunch-m104-20261019/diagnostic-contract-v2": {
+      "receiptSha256": "ea9e1eec54545f7a989527f10c4c38694553f01ae965791b0d2c2d2759560bfc",
+      "selectedInputManifestSha256": "960a92249e0337438d08615e2ac7914d0eb2fad6b0621e574da5763d94b53848",
+      "contextSha256": "55448b112c3a65e1b56b98c513c7931115a0c95118b846b55f4d8490f2074a22",
+      "actualSelectedInputs": 6619,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m104-20261019/diagnostic-contract-v2/pinned/diagnostic_work": "eefd1909c43aefdc180d3b346d832e64a83a7df20d7bf45058420b8cb6644459"
+      }
+    },
+    "/tmp/miopunch-m96-20261019/restored-auth-green": {
+      "receiptSha256": "8ecaa583cf01f1b29c3f89dc4ed8d6d3450ed1ffefca40845aaeef3d4e864189",
+      "selectedInputManifestSha256": "271a6a4f8cbb83abf15a59d979b120606b4c741ccfed6b798b3d203a13f62b52",
+      "contextSha256": "be3c5f9083c66ff68a7758180bde7fcc00ea8dcb8c578e3150a45baf8a3feab0",
+      "actualSelectedInputs": 687,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m96-20261019/restored-auth-green/pinned/m96-original-auth-consumer": "b697186408f97dd1a402a71aa7472df1569607ea993ec48da542b0e5cc1cbace"
+      }
+    },
+    "/tmp/miopunch-m97-20261019/native-default-green": {
+      "receiptSha256": "7277ef81a495bf7780f684fe6edf0d65532d85d3bd49e475bf997a9aabea74af",
+      "selectedInputManifestSha256": "f22627edb45aa114aadc4331604325340277ee2877d4b540032fd31c047b3c19",
+      "contextSha256": "356deb6a2b37ef69b50adf2891fc86882ead0719aaf43b34b52a181ca3f2a1fc",
+      "actualSelectedInputs": 2122,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m97-20261019/native-default-green/pinned/m97-native-store-consumer": "940e94019d1e4fb97e48355dfba41a34cb9e923b00822faebb5bffe4b3a6800e"
+      }
+    },
+    "/tmp/miopunch-m97-20261019/native-no-default-green": {
+      "receiptSha256": "0b8f4a8b8812ad496209c5e9455e2910709b65e0d66262f666e48df70296088c",
+      "selectedInputManifestSha256": "615384208055d52f09e593e2c4daeb3befadfc82a892687e21904ac02d1cd423",
+      "contextSha256": "cb7a37a96179bfaebd92a1fe5423b3f4063a873aad4b2ecd08db52fb8eedbd70",
+      "actualSelectedInputs": 2122,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m97-20261019/native-no-default-green/pinned/m97-native-store-consumer": "1dd638e3c4bffd865dbcada023d8a3e43252495e64a52986483f131bfff26f6c"
+      }
+    },
+    "/tmp/miopunch-m97-20261019/native-test-utils-green": {
+      "receiptSha256": "0845314eaf394d107f9fcb6f05a2d81caad66fb564b275e165a48f659211a5f5",
+      "selectedInputManifestSha256": "6ad8fa014f2a89955b03673e178e8eb06aeccca333c2c72f85179b49505ae809",
+      "contextSha256": "388523a095424651c77f4280d74c7eb72aa953c4c413c0068f91c058a1012b67",
+      "actualSelectedInputs": 2321,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m97-20261019/native-test-utils-green/pinned/m97-native-store-consumer": "4cc7856110e7c7c52fe7f6d37e2ae629857e0a986bbea99ca79a98988bd3810c"
+      }
+    },
+    "/tmp/miopunch-m97-20261019/browser-traits-green": {
+      "receiptSha256": "64a23ac53ef27c9d3fe46e7fd9e37c8f6371423fe7dd31413d2fb6824cb50677",
+      "selectedInputManifestSha256": "b6e7a49d43e3237a60652e56cf001de36cc9e4941b0ae7a18f7af07603527ec9",
+      "contextSha256": "5b2e6993ec53b1096ac797f4810a1c897a6a7f22d89b702c42a32d7c53c0431f",
+      "actualSelectedInputs": 1015,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {}
+    },
+    "/tmp/miopunch-m105-20261019/restored-proto-bench-v2": {
+      "receiptSha256": "7474450e35264816a4e7dfce8abb2177325e0ed16a46fd8d684c62b546f49836",
+      "selectedInputManifestSha256": "701a4ad514c89faf59f7eceecf52d11310c9ea88baac28a68c97dd5aeefe8e76",
+      "contextSha256": "e50d920e9fc098790e800bb5924d5cde2a1601cb9e1d5de7482736398b0fae62",
+      "actualSelectedInputs": 2024,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/restored-proto-bench-v2/pinned/send_buffer": "510522edf103363b88cf1aff8608e1b89a2116996f6242529c8c3e9a7e6f4a9a"
+      }
+    },
+    "/tmp/miopunch-m105-20261019/package-noq-examples": {
+      "receiptSha256": "26ee22521931b2a08051e54d00d44d1fd783b61d39878b76a9fc7c8efd7beb81",
+      "selectedInputManifestSha256": "e0686f8874341aeedf6e443f01d1e9a124b1469fa36cba1db32a62d7200d7ebb",
+      "contextSha256": "ff6425bcfab07582512f64e63736a9e69d3c3b7faa6000dbce771eafddb05627",
+      "actualSelectedInputs": 2332,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/package-noq-examples/pinned/connection": "907daa2051254bca966b224b510bebe761bc2edbf3762c1352300c4293c4bcb2",
+        "/tmp/miopunch-m105-20261019/package-noq-examples/pinned/single_socket": "2556ffeea1ac29f17569ac4bb8857c5a8fefe532f2d6683de93b6e85eee9d0c4"
+      }
+    },
+    "/tmp/miopunch-m105-20261019/relay-cli-v2": {
+      "receiptSha256": "8e24238764098c79005b61a067f8d6d8f07d0d049fef13dabea1db668ea03536",
+      "selectedInputManifestSha256": "4ca0b1662a5c8071dc9534ff39d9796b8bafd015fba97419bba59f5349f418f3",
+      "contextSha256": "2fd6ac2f950003b269061ba016c16de074f576397c4db8d289c504614915edf3",
+      "actualSelectedInputs": 3884,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/relay-cli-v2/pinned/iroh-relay": "b78e5d3a22017cd045179599260a6831443c06d007d49673c9e46ed33cb9c4f4"
+      }
+    },
+    "/tmp/miopunch-m105-20261019/iroh-cdylib-corrupt-cache": {
+      "receiptSha256": "f6a6600fd0463f4071e6d307d462b3c8a3df7bf06f91cb21ca0ac9e946d14f65",
+      "selectedInputManifestSha256": "d3f49cae6bc41471324413b6ed1298379ee3744bbd6f5f2612b01851ec931907",
+      "contextSha256": "2bba5347a7cfece477289ad12ae8c0d4fd33b01947ed366e0cd6072a25fb0cbf",
+      "actualSelectedInputs": 4561,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/iroh-cdylib-corrupt-cache/pinned/libiroh.so": "bff1d0b7518a7add8d69024ade70b814a3470c5c6ca59bd7780c986da7bf9aef"
+      }
+    },
+    "/tmp/miopunch-m105-20261019/relay-cdylib-required-inputs": {
+      "receiptSha256": "2e572cabf3fd858799c077a2602cc16b781c3f4c9e8a0261db84c8eabaa6ea4d",
+      "selectedInputManifestSha256": "9741d3afdb370a6ad96f0b2cffd46e99c02ab9e9af937ad0bc92f266c9295b48",
+      "contextSha256": "e2b43cbd9478c32921ff921ca07d09cb58c9d25d55548a57f83c4cc3cad6610b",
+      "actualSelectedInputs": 3883,
+      "actualSelectedInputsCopiesSelectorsAndArtifactsUnchanged": true,
+      "artifacts": {
+        "/tmp/miopunch-m105-20261019/relay-cdylib-required-inputs/pinned/libiroh_relay.so": "663b5310628302400a8346fa9c4125b110171aee0435cb753feb1b7ab2964e42"
+      }
+    }
+  },
+  "runtimes": {
+    "runtime-auth": {
+      "receiptSha256": "80bb065aafced28e95e404dc52411e1a96aaa8ca616eb42ad7a00e968e8b2190",
+      "testsPassed": 3,
+      "qualified": true
+    },
+    "runtime-browser-policy": {
+      "receiptSha256": "be89ab3aa15f261f4da9f6cd75413b67835564c07dc04792fe161fc19e9cbca8",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-control-protocol": {
+      "receiptSha256": "ac00a63af461cf4eee327653262b820aa0a6db3e59e463413f6f0574957a0290",
+      "testsPassed": 3,
+      "qualified": true
+    },
+    "runtime-diagnostic-contract": {
+      "receiptSha256": "0a283e264d6fd3f5f3274608871f36d1d529cafdcfe2dbef1b774901c0012812",
+      "testsPassed": 1,
+      "qualified": true
+    },
+    "runtime-existing-protocol-counterpart": {
+      "receiptSha256": "a8825df4e1566813f158bd5613a37dae72509ca55b09fd150c72a80a40e94eea",
+      "testsPassed": 1,
+      "qualified": true
+    },
+    "runtime-final-guards": {
+      "receiptSha256": "728ccf179e89b47cea3471fa8e4214f4bb1a011abb9dd65f17172b14ed0f8c53",
+      "testsPassed": 4,
+      "qualified": true
+    },
+    "runtime-gateway-settings": {
+      "receiptSha256": "56d9993cf157091100fa1684aec77448fa6a636f187a265f6864c6f3dfd5e693",
+      "testsPassed": 2,
+      "qualified": true
+    },
+    "runtime-maintenance-with-broker": {
+      "receiptSha256": "39422894afe8a2028e0c06d5af602b880c9e768ff44f2e50236ef5139bfe31f5",
+      "testsPassed": 7,
+      "qualified": true
+    },
+    "runtime-management-auth": {
+      "receiptSha256": "be56e58fc090b88c6dec6fa93e61de477eec4529d3b89f42fb8435e32c13b041",
+      "testsPassed": 7,
+      "qualified": true
+    },
+    "runtime-management-store": {
+      "receiptSha256": "f40d8a094700f60a64f313af997e7c9c420349ec82337276e6efcf8b84794b9f",
+      "testsPassed": 7,
+      "qualified": true
+    },
+    "runtime-missing-address": {
+      "receiptSha256": "e3de801b8220e52da0fbfb462fbc6e00cf4bc2e07c26c49d792e3f610a3aa198",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-native-default-green": {
+      "receiptSha256": "ab485491d836c1e11aaf435f0b5a22d61edca37882163e80f87c829c1dc4363a",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-native-no-default-green": {
+      "receiptSha256": "d94c9e81149e9942825748c77f9945a56936e652d3562e8f864146475820c3ad",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-native-restricted": {
+      "receiptSha256": "f40884d4c9373e2d7d19c8410b1fd96eaa5f0c28a7bcae33c91ad08d8917fb53",
+      "testsPassed": 11,
+      "qualified": true
+    },
+    "runtime-native-test-utils-green": {
+      "receiptSha256": "354c8464c4fc7f5dbad18644bae57c0cb3c5e5e9e15383549c50619fb7b583e9",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-noq-loss-final": {
+      "receiptSha256": "6b68f520b5b278e3c9e9ce82258ac62c041b6cd67c455a6dc33275face43ce96",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-noq-ordinary-final": {
+      "receiptSha256": "2b613a5762c14310c04d70e45dd92e005e89a70a8ce18b778c2b90f7e9531206",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-noq-probe-final": {
+      "receiptSha256": "47537651d1c4bfcc797ba4d083dd43df517fa868e48d217b8093be4bd80be336",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-offline-replica": {
+      "receiptSha256": "5466b769c35492ddcbc680a8e755a2ff9d9f569406f6142af803dcea3898b42f",
+      "testsPassed": 4,
+      "qualified": true
+    },
+    "runtime-ordinary-endpoint": {
+      "receiptSha256": "69cd57fce4d8111ba60897a7760fd621223e264c399a8317d18d4f6cff524b5b",
+      "testsPassed": 2,
+      "qualified": true
+    },
+    "runtime-ordinary-iroh": {
+      "receiptSha256": "c5adf293f07ac77129bf0d58bd265e1c4c058e4fab8ce2daad9279be1e3c26e3",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-pkarr": {
+      "receiptSha256": "b4890488859e74d95013e2fceabc812b4ebf0623c3041fa4067c685a23d119bc",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-pkarr-resources": {
+      "receiptSha256": "6dbf30d27c348132f1ecb81a711de339c576a41719a36d08a98079a968f2b7b8",
+      "testsPassed": 9,
+      "qualified": true
+    },
+    "runtime-portmapper-mapping": {
+      "receiptSha256": "88c3f74364ffb5832dff4b42857e4b55811c57a2b8080f588fc2edddfbcad7da",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-portmapper-no-feature": {
+      "receiptSha256": "8bfd523c1ae5da508de1e5071ba86d5a7a7bf93f98b90f5c41e6bd83b161830c",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-protocol-capabilities": {
+      "receiptSha256": "abb6eeab6efc011d87696a6ed26bcc56855562977717ccda77e0b028b3c01814",
+      "testsPassed": 23,
+      "qualified": true
+    },
+    "runtime-resolution": {
+      "receiptSha256": "c92f24d0bd521482dca4f7b7df056bb9106e31c0aaec4a99b2dccd7c6b0bbff0",
+      "testsPassed": 8,
+      "qualified": true
+    },
+    "runtime-restored-auth-green": {
+      "receiptSha256": "2a54af9d18b916b1075857741b97c0b80c2ff7f35d45bdf1c36bf269dbff79c1",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-restored-examples": {
+      "receiptSha256": "af3921d92522b0bebb2e685ceded197e6afed3ae6dbb94c527b33bf2b83382a5",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-restricted-endpoint": {
+      "receiptSha256": "a9c02548c7fcb26c7c87de39978632a7ff4f587c37ab2f2b32deac589d9f15c3",
+      "testsPassed": 19,
+      "qualified": true
+    },
+    "runtime-selector": {
+      "receiptSha256": "c5d3cf2330600de7c31a72c366bfa076a243637190e0da7ed4e39869ec50f758",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-socket-boundaries": {
+      "receiptSha256": "c35df64bc607b624da6a23657b39eceaa149970449bd241a4add0f6459aa1540",
+      "testsPassed": 12,
+      "qualified": true
+    },
+    "runtime-tcp-positive": {
+      "receiptSha256": "85fd312fba6fb16dc6aeb2512d49dcf285fc8051082dfa3fbc7375eae81ba2fb",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-udp-disabled": {
+      "receiptSha256": "aa290ef49478f09c2171381dd9555bdfd79062ec5124805765fd468e0616bb2f",
+      "testsPassed": 0,
+      "qualified": true
+    },
+    "runtime-unified-boundaries": {
+      "receiptSha256": "98cea1c24b09be65a5cda7bb35c42fb6eece4b4a1db359a588b185e9dfdea28e",
+      "testsPassed": 15,
+      "qualified": true
+    }
+  },
+  "reportedHarnessEntriesPassed": 138,
+  "compileContractCases": 18,
+  "unchangedOriginalM92ConsumerCompiled": true,
+  "syncFeatureGraphs": 11,
+  "freshCompleteSdkRuns": 3,
+  "protectedWip": 249,
+  "negativeOrUnqualifiedPreparationHistory": {
+    "runtime-portmapper": "Wrong controller expectation argument; final mapping scenario supersedes it. All owned processes and namespaces closed.",
+    "runtime-ordinary-noq": "Unsupported scenario strings only exercised ordinary branch. Not probe or loss evidence; strict whitelist and the separate immutable consumers supersede it."
+  },
+  "privateSdkRawReceiptsNeverPublished": true,
+  "noRuntimeProductionChangesInM106": true,
+  "sdkSourceGuardSha256": "44cc9b541380ab09a07172409c961a4a5befe647d6b6ba1f5a9d8a2084d622e8",
+  "review": {
+    "fixedPoint": "5302ac8a11a8363d530c5048bb362cafe835aff8",
+    "implementationCommit": "c95324fd9c6517e15cffa584a8e00ca7c6aec247",
+    "Standards": {
+      "hard": 0,
+      "heuristic": 0
+    },
+    "Spec": 0,
+    "reviewersReranChecks": false,
+    "reviewersInspectedPrivateSdkData": false
+  },
+  "documentationCommit": "c95324fd9c6517e15cffa584a8e00ca7c6aec247",
+  "priorFixedUpstreamEvidence": {
+    "archive": "../vendor-distribution-2026-10-19/raw-verification.tar.gz",
+    "sha256": "9837149069079dc5ed62c8d01d4f42cd3bd67ef794234991577631e101861ace",
+    "allMembersReadBackAtOriginalPublication": true,
+    "historicalInventoryHeaderPreserved": true
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "scanDriverSha256": "d04c82383a2bf988638e67898bad9e347e9a14f905503d3af700dad6f91e3dde",
+  "actualPrivateValuesScanned": 3,
+  "privateSdkReceiptHashesOnly": {
+    "final-sdk-story": "854c5cefd063f01bfe6c4f084069c2042b5e570fa8ddfbefa6c83c59f81e75a8",
+    "final-sdk-negatives": "bccb87651667b7e0c2e90388eaf5d115cb2b2b63621814d056ae9ea4ce14c7c9",
+    "final-browser-incoming-active-rtc": "4725aa2cc0bd6596c9f1d017afa21924537eeb0a239e41336dd5832c0168f403"
+  },
+  "matches": 0,
+  "allPublicFilesAndArchiveMembersScanned": true,
+  "archiveMembersScanned": 21310,
+  "nestedSourceMembersScanned": 0,
+  "privateRuntimeLogsStoresInvitationsKeysAndNssExcluded": true,
+  "generatedKeysAndNssRemovedAfterQualifiedSdkCleanup": true,
+  "archiveSha256": "1e60b4dd33d91eee1407821a9cdd30f6c9e25e778528dd81127b6dedfd0c597d"
+}

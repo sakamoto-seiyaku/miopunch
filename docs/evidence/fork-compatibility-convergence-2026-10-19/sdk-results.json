@@ -1,0 +1,987 @@
+{
+  "final-sdk-story": {
+    "execution": {
+      "publicTraffic": false,
+      "passed": true,
+      "containers": [
+        {
+          "name": "miopunch-m105-owned-irc-1792379148675974972",
+          "removed": true,
+          "stoppedBeforeRemoval": true,
+          "exitCode": 0
+        }
+      ],
+      "cleanup": {
+        "relayExit": 0,
+        "relayGraceful": true,
+        "relayProcessAbsent": true
+      },
+      "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+      "relayStarted": true,
+      "runtimeExit": 0,
+      "functionalAndSdkCleanupQualified": true,
+      "rawReceiptSha256": "854c5cefd063f01bfe6c4f084069c2042b5e570fa8ddfbefa6c83c59f81e75a8",
+      "sourceArtifactControllerUnchangedAfterRuntime": true,
+      "wholeWallMs": 13425.387609284371,
+      "sourceDigest": "d16af3fa218b14845928b8e6b801a001409f5c2354b6776f86025e1729d8bade",
+      "qualified": true
+    },
+    "rawPrivateReceiptSha256Only": "854c5cefd063f01bfe6c4f084069c2042b5e570fa8ddfbefa6c83c59f81e75a8",
+    "requestMs": 624.5999999046326,
+    "strictRestrictedRequest": true,
+    "approvalRecords": 1,
+    "bothMaterialsDurable": true,
+    "sameBrowserIdentityReopened": true,
+    "sameNativeIdentityReopened": true,
+    "memberReply": "PONG",
+    "allSdkActorsClosedNaturally": true,
+    "websocketsClosedBeforeContext": true,
+    "lateSocketWaitMs": 0.01208299999962037,
+    "privateKeysAndNssRemoved": true,
+    "profile": {
+      "pacing_ms": 10,
+      "assembly_ttl_ms": 8000,
+      "queue_ttl_ms": 30000,
+      "attempt_ms": 60000
+    }
+  },
+  "final-sdk-negatives": {
+    "execution": {
+      "publicTraffic": false,
+      "passed": true,
+      "containers": [
+        {
+          "name": "miopunch-m106-owned-irc-1792379231299979095",
+          "removed": true,
+          "stoppedBeforeRemoval": true,
+          "exitCode": 0
+        }
+      ],
+      "cleanup": {
+        "relayExit": 0,
+        "relayGraceful": true,
+        "relayProcessAbsent": true
+      },
+      "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+      "relayStarted": true,
+      "runtimeExit": 0,
+      "functionalAndSdkCleanupQualified": true,
+      "rawReceiptSha256": "bccb87651667b7e0c2e90388eaf5d115cb2b2b63621814d056ae9ea4ce14c7c9",
+      "sourceArtifactControllerUnchangedAfterRuntime": true,
+      "wholeWallMs": 27035.09503090754,
+      "sourceDigest": "d16af3fa218b14845928b8e6b801a001409f5c2354b6776f86025e1729d8bade",
+      "qualified": true
+    },
+    "rawPrivateReceiptSha256Only": "bccb87651667b7e0c2e90388eaf5d115cb2b2b63621814d056ae9ea4ce14c7c9",
+    "requestMs": 621.1999998092651,
+    "strictRestrictedRequest": true,
+    "approvalRecords": 1,
+    "bothMaterialsDurable": true,
+    "sameBrowserIdentityReopened": true,
+    "sameNativeIdentityReopened": true,
+    "memberReply": "PONG",
+    "allSdkActorsClosedNaturally": true,
+    "websocketsClosedBeforeContext": true,
+    "lateSocketWaitMs": 0.009998999998060754,
+    "privateKeysAndNssRemoved": true,
+    "profile": {
+      "pacing_ms": 10,
+      "assembly_ttl_ms": 8000,
+      "queue_ttl_ms": 30000,
+      "attempt_ms": 60000
+    },
+    "negativeCases": [
+      {
+        "name": "resources-disabled-signal-only",
+        "nativeOrdinaryReleases": 0
+      },
+      {
+        "name": "rtc-api-unavailable-signal-only",
+        "nativeOrdinaryReleases": 0
+      },
+      {
+        "name": "cancel-unqualified-channel",
+        "nativeOrdinaryReleases": 0,
+        "outcome": {
+          "ordinaryHandle": false,
+          "failure": "member attempt cancelled"
+        },
+        "retired": {
+          "activeAssociations": 0,
+          "activePumpTasks": 0,
+          "checkpoint": {
+            "cleanupDetails": null,
+            "cleanupHeld": false,
+            "dataChannel": {
+              "actualReceivedBytes": 0,
+              "actualReceivedPackets": 0,
+              "actualSentBytes": 0,
+              "actualSentPackets": 0,
+              "bufferPeak": 0,
+              "droppedQuicBytes": 0,
+              "droppedQuicPackets": 0
+            },
+            "held": false,
+            "metadata": {
+              "attempt": "b93d8fc99b505b3cab0c536c1cc476ad",
+              "authorizationRevision": 1,
+              "freshAck": false,
+              "localRoute": "4e724b445432842c8cbf0e719fc77af0",
+              "remoteRoute": "6315b82f937a017795edb3f6aced19d1",
+              "resourceRevision": 0,
+              "secretGeneration": 0,
+              "stableId": 2737272
+            },
+            "originalOpen": false,
+            "publishedRoutes": [],
+            "releaseProbe": null,
+            "route": {
+              "active": false,
+              "original_stable_id": 2737272,
+              "owned_pump_tasks": 0,
+              "qualified": false,
+              "received_bytes": 0,
+              "received_packets": 0,
+              "resource_revision": 0,
+              "rx_bytes": 0,
+              "rx_peak_bytes": 0,
+              "sent_bytes": 0,
+              "sent_packets": 0,
+              "tx_bytes": 0,
+              "tx_peak_bytes": 0
+            },
+            "stage": "channel-ready"
+          },
+          "cleanupObservers": 1,
+          "publishedRoutes": [],
+          "resourceAllowed": true,
+          "resourceRevision": 0,
+          "retiredMemberReports": {
+            "2737272": {
+              "rtcCleanup": [
+                {
+                  "dataChannelState": "closing",
+                  "lease": {
+                    "active": false,
+                    "original_stable_id": 2737272,
+                    "owned_pump_tasks": 1,
+                    "qualified": false,
+                    "received_bytes": 0,
+                    "received_packets": 0,
+                    "resource_revision": 0,
+                    "rx_bytes": 0,
+                    "rx_peak_bytes": 0,
+                    "sent_bytes": 0,
+                    "sent_packets": 0,
+                    "tx_bytes": 0,
+                    "tx_peak_bytes": 0
+                  },
+                  "observedUtcMs": 1792379243125,
+                  "pcClosed": true,
+                  "pcState": "closed",
+                  "phase": "immediate",
+                  "retirementElapsedMs": 0
+                }
+              ]
+            }
+          },
+          "secretGeneration": 0,
+          "sourceRevision": 1
+        }
+      },
+      {
+        "name": "deadline-unqualified-channel",
+        "nativeOrdinaryReleases": 0,
+        "outcome": {
+          "ordinaryHandle": false,
+          "failure": "member connection caller deadline exceeded"
+        },
+        "retired": {
+          "activeAssociations": 0,
+          "activePumpTasks": 0,
+          "checkpoint": {
+            "cleanupDetails": null,
+            "cleanupHeld": false,
+            "dataChannel": {
+              "actualReceivedBytes": 0,
+              "actualReceivedPackets": 0,
+              "actualSentBytes": 0,
+              "actualSentPackets": 0,
+              "bufferPeak": 0,
+              "droppedQuicBytes": 0,
+              "droppedQuicPackets": 0
+            },
+            "held": false,
+            "metadata": {
+              "attempt": "eefb1dc494a77eb9fcdf7d78da0289f1",
+              "authorizationRevision": 1,
+              "freshAck": false,
+              "localRoute": "5db9f20013a44aa1e8b0930a056f737c",
+              "remoteRoute": "95b1404e948a6cff1ebb0ab84b96f5ff",
+              "resourceRevision": 0,
+              "secretGeneration": 0,
+              "stableId": 2536608
+            },
+            "originalOpen": false,
+            "publishedRoutes": [],
+            "releaseProbe": null,
+            "route": {
+              "active": false,
+              "original_stable_id": 2536608,
+              "owned_pump_tasks": 0,
+              "qualified": false,
+              "received_bytes": 0,
+              "received_packets": 0,
+              "resource_revision": 0,
+              "rx_bytes": 0,
+              "rx_peak_bytes": 0,
+              "sent_bytes": 0,
+              "sent_packets": 0,
+              "tx_bytes": 0,
+              "tx_peak_bytes": 0
+            },
+            "stage": "channel-ready"
+          },
+          "cleanupObservers": 1,
+          "publishedRoutes": [],
+          "resourceAllowed": true,
+          "resourceRevision": 0,
+          "retiredMemberReports": {
+            "2536608": {
+              "rtcCleanup": [
+                {
+                  "dataChannelState": "closing",
+                  "lease": {
+                    "active": false,
+                    "original_stable_id": 2536608,
+                    "owned_pump_tasks": 1,
+                    "qualified": false,
+                    "received_bytes": 0,
+                    "received_packets": 0,
+                    "resource_revision": 0,
+                    "rx_bytes": 0,
+                    "rx_peak_bytes": 0,
+                    "sent_bytes": 0,
+                    "sent_packets": 0,
+                    "tx_bytes": 0,
+                    "tx_peak_bytes": 0
+                  },
+                  "observedUtcMs": 1792379248152,
+                  "pcClosed": true,
+                  "pcState": "closed",
+                  "phase": "immediate",
+                  "retirementElapsedMs": 0
+                }
+              ]
+            },
+            "2737272": {
+              "rtcCleanup": [
+                {
+                  "dataChannelState": "closing",
+                  "lease": {
+                    "active": false,
+                    "original_stable_id": 2737272,
+                    "owned_pump_tasks": 1,
+                    "qualified": false,
+                    "received_bytes": 0,
+                    "received_packets": 0,
+                    "resource_revision": 0,
+                    "rx_bytes": 0,
+                    "rx_peak_bytes": 0,
+                    "sent_bytes": 0,
+                    "sent_packets": 0,
+                    "tx_bytes": 0,
+                    "tx_peak_bytes": 0
+                  },
+                  "observedUtcMs": 1792379243125,
+                  "pcClosed": true,
+                  "pcState": "closed",
+                  "phase": "immediate",
+                  "retirementElapsedMs": 0
+                },
+                {
+                  "dataChannelState": "closed",
+                  "lease": {
+                    "active": false,
+                    "original_stable_id": 2737272,
+                    "owned_pump_tasks": 0,
+                    "qualified": false,
+                    "received_bytes": 0,
+                    "received_packets": 0,
+                    "resource_revision": 0,
+                    "rx_bytes": 0,
+                    "rx_peak_bytes": 0,
+                    "sent_bytes": 0,
+                    "sent_packets": 0,
+                    "tx_bytes": 0,
+                    "tx_peak_bytes": 0
+                  },
+                  "observedUtcMs": 1792379243229,
+                  "pcClosed": true,
+                  "pcState": "closed",
+                  "phase": "late",
+                  "retirementElapsedMs": 104
+                }
+              ]
+            }
+          },
+          "secretGeneration": 0,
+          "sourceRevision": 1
+        }
+      },
+      {
+        "name": "revocation-after-qualified-before-release",
+        "nativeOrdinaryReleases": 1,
+        "outcome": {
+          "ordinaryHandle": false,
+          "failure": "connection transport failed: closed"
+        },
+        "retired": {
+          "activeAssociations": 0,
+          "activePumpTasks": 0,
+          "checkpoint": {
+            "cleanupDetails": null,
+            "cleanupHeld": false,
+            "dataChannel": {
+              "actualReceivedBytes": 7292,
+              "actualReceivedPackets": 20,
+              "actualSentBytes": 8441,
+              "actualSentPackets": 19,
+              "bufferPeak": 1420,
+              "droppedQuicBytes": 0,
+              "droppedQuicPackets": 0
+            },
+            "held": false,
+            "metadata": {
+              "attempt": "72b0d1f4303e9add57b07bdeb79eb6d6",
+              "authorizationRevision": 1,
+              "bothConfirmed": true,
+              "freshAck": true,
+              "freshAckMs": 712,
+              "freshProbeStartedMs": 668,
+              "localRoute": "c7769a453ca01b7a6b6e105e17261d93",
+              "pathId": "1",
+              "probeWatermark": 5,
+              "remoteRoute": "6781a73399350aacd93220241cafcfd9",
+              "resourceRevision": 0,
+              "secretGeneration": 0,
+              "stableId": 2871152
+            },
+            "originalOpen": false,
+            "publishedRoutes": [],
+            "releaseProbe": null,
+            "route": {
+              "active": false,
+              "original_stable_id": 2871152,
+              "owned_pump_tasks": 0,
+              "qualified": false,
+              "received_bytes": 7292,
+              "received_packets": 20,
+              "resource_revision": 0,
+              "rx_bytes": 0,
+              "rx_peak_bytes": 1452,
+              "sent_bytes": 8441,
+              "sent_packets": 19,
+              "tx_bytes": 0,
+              "tx_peak_bytes": 2526
+            },
+            "stage": "before-release"
+          },
+          "cleanupObservers": 1,
+          "publishedRoutes": [],
+          "resourceAllowed": true,
+          "resourceRevision": 0,
+          "retiredMemberReports": {
+            "2536608": {
+              "rtcCleanup": [
+                {
+                  "dataChannelState": "closing",
+                  "lease": {
+                    "active": false,
+                    "original_stable_id": 2536608,
+                    "owned_pump_tasks": 1,
+                    "qualified": false,
+                    "received_bytes": 0,
+                    "received_packets": 0,
+                    "resource_revision": 0,
+                    "rx_bytes": 0,
+                    "rx_peak_bytes": 0,
+                    "sent_bytes": 0,
+                    "sent_packets": 0,
+                    "tx_bytes": 0,
+                    "tx_peak_bytes": 0
+                  },
+                  "observedUtcMs": 1792379248152,
+                  "pcClosed": true,
+                  "pcState": "closed",
+                  "phase": "immediate",
+                  "retirementElapsedMs": 0
+                },
+                {
+                  "dataChannelState": "closed",
+                  "lease": {
+                    "active": false,
+                    "original_stable_id": 2536608,
+                    "owned_pump_tasks": 0,
+                    "qualified": false,
+                    "received_bytes": 0,
+                    "received_packets": 0,
+                    "resource_revision": 0,
+                    "rx_bytes": 0,
+                    "rx_peak_bytes": 0,
+                    "sent_bytes": 0,
+                    "sent_packets": 0,
+                    "tx_bytes": 0,
+                    "tx_peak_bytes": 0
+                  },
+                  "observedUtcMs": 1792379248259,
+                  "pcClosed": true,
+                  "pcState": "closed",
+                  "phase": "late",
+                  "retirementElapsedMs": 107
+                }
+              ]
+            },
+            "2731960": {
+              "authorizationRevision": 1,
+              "beforeRetainFrames": {
+                "datagramReceived": 0,
+                "datagramSent": 0,
+                "streamReceived": 0,
+                "streamSent": 0
+              },
+              "bindingUnchanged": true,
+              "bothConfirmed": true,
+              "coordinator": {
+                "authorizationRevision": 1,
+                "bindingUnchanged": true,
+                "event": "unified-path-ready",
+                "freshAck": true,
+                "pathId": "1",
+                "peerPermitted": 8,
+                "peerRuntime": "Native",
+                "peerSupported": 13,
+                "permitted": 8,
+                "probeWatermark": 4,
+                "purpose": "member-business",
+                "purposeCode": 1,
+                "role": "initiator",
+                "route": "custom:6d696f727463_9e2e24eb0176c5103ab48314253ea586",
+                "rtcRole": "Offerer",
+                "runtime": "Browser",
+                "selected": true,
+                "selectedRoute": "custom:6d696f727463_9e2e24eb0176c5103ab48314253ea586",
+                "stableId": 2731960,
+                "stableUnchanged": true,
+                "supported": 12,
+                "version": 1
+              },
+              "dataChannel": {
+                "actualReceivedBytes": 7410,
+                "actualReceivedPackets": 19,
+                "actualSentBytes": 8840,
+                "actualSentPackets": 26,
+                "bufferPeak": 1389,
+                "droppedQuicBytes": 0,
+                "droppedQuicPackets": 0
+              },
+              "finalReleaseAckMs": 765,
+              "finalReleaseFreshAck": true,
+              "finalReleaseProbeStartedMs": 742,
+              "finalReleaseProbeWatermark": 22,
+              "finalized": true,
+              "freshAck": true,
+              "freshAckMs": 603,
+              "freshProbeStartedMs": 582,
+              "initialFreshAck": true,
+              "initialProbeWatermark": 4,
+              "memberStableId": 2731960,
+              "pathId": "1",
+              "prepared": false,
+              "privateStreamId": "client bidirectional stream 3",
+              "probeWatermark": 4,
+              "quicRole": "client",
+              "resourceRevision": 0,
+              "route": {
+                "active": true,
+                "original_stable_id": 2731960,
+                "owned_pump_tasks": 1,
+                "qualified": true,
+                "received_bytes": 7410,
+                "received_packets": 19,
+                "resource_revision": 0,
+                "rx_bytes": 0,
+                "rx_peak_bytes": 1452,
+                "sent_bytes": 8840,
+                "sent_packets": 26,
+                "tx_bytes": 0,
+                "tx_peak_bytes": 2526
+              },
+              "rtc": {
+                "channel": {
+                  "id": 0,
+                  "label": "mio-quic-datagram/1",
+                  "maxPacketLifeTime": null,
+                  "maxRetransmits": 0,
+                  "negotiated": true,
+                  "ordered": false,
+                  "protocol": "miopunch/quic-datagram/1"
+                },
+                "dtlsState": "connected",
+                "iceRole": null,
+                "iceServers": [],
+                "iceState": "connected",
+                "maxMessageSize": 65536,
+                "sctpState": "connected",
+                "stats": {
+                  "dataChannels": [
+                    {
+                      "bytesReceived": 0,
+                      "bytesSent": 0,
+                      "dataChannelIdentifier": 0,
+                      "id": "D5",
+                      "label": "mio-quic-datagram/1",
+                      "messagesReceived": 0,
+                      "messagesSent": 0,
+                      "protocol": "miopunch/quic-datagram/1",
+                      "state": "open",
+                      "timestamp": 1792379249691.883,
+                      "type": "data-channel"
+                    }
+                  ],
+                  "localCandidate": {
+                    "address": "",
+                    "candidateType": "prflx",
+                    "foundation": "2540463941",
+                    "id": "I57JGOhBO",
+                    "ip": "",
+                    "isRemote": false,
+                    "networkType": "unknown",
+                    "port": 45668,
+                    "priority": 1845501695,
+                    "protocol": "udp",
+                    "timestamp": 1792379249691.883,
+                    "transportId": "T01",
+                    "type": "local-candidate",
+                    "usernameFragment": "+g0S"
+                  },
+                  "remoteCandidate": {
+                    "address": "172.17.0.1",
+                    "candidateType": "host",
+                    "foundation": "4219973503",
+                    "id": "IXCTVGr+p",
+                    "ip": "172.17.0.1",
+                    "isRemote": true,
+                    "port": 44963,
+                    "priority": 2130706431,
+                    "protocol": "udp",
+                    "timestamp": 1792379249691.883,
+                    "transportId": "T01",
+                    "type": "remote-candidate",
+                    "usernameFragment": "neHVAcGMSTsJGcDB"
+                  },
+                  "selectedPair": {
+                    "bytesDiscardedOnSend": 0,
+                    "bytesReceived": 989,
+                    "bytesSent": 1020,
+                    "consentRequestsSent": 1,
+                    "currentRoundTripTime": 0.001,
+                    "id": "CP57JGOhBO_XCTVGr+p",
+                    "lastPacketReceivedTimestamp": 1792379249690,
+                    "lastPacketSentTimestamp": 1792379249690,
+                    "localCandidateId": "I57JGOhBO",
+                    "nominated": true,
+                    "packetsDiscardedOnSend": 0,
+                    "packetsReceived": 4,
+                    "packetsSent": 5,
+                    "priority": 7926369428998980000,
+                    "remoteCandidateId": "IXCTVGr+p",
+                    "requestsReceived": 4,
+                    "requestsSent": 3,
+                    "responsesReceived": 2,
+                    "responsesSent": 4,
+                    "state": "succeeded",
+                    "timestamp": 1792379249691.883,
+                    "totalRoundTripTime": 0.001,
+                    "transportId": "T01",
+                    "type": "candidate-pair",
+                    "writable": true
+                  },
+                  "transport": {
+                    "bytesReceived": 989,
+                    "bytesSent": 1020,
+                    "dtlsCipher": "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+                    "dtlsRole": "server",
+                    "dtlsState": "connected",
+                    "iceLocalUsernameFragment": "+g0S",
+                    "iceRole": "controlling",
+                    "iceState": "connected",
+                    "id": "T01",
+                    "localCertificateId": "CFAA:C1:18:58:21:A2:6C:8F:07:48:C6:67:22:81:25:8D:1C:69:67:E3:E4:30:94:D8:95:95:02:2F:F6:4E:88:FF",
+                    "packetsReceived": 4,
+                    "packetsSent": 5,
+                    "remoteCertificateId": "CF51:EA:FB:E4:15:06:9F:34:30:1B:34:13:94:0B:DB:51:8E:F1:DC:A3:0D:09:5F:16:1B:EE:BE:25:22:C2:61:C5",
+                    "selectedCandidatePairChanges": 1,
+                    "selectedCandidatePairId": "CP57JGOhBO_XCTVGr+p",
+                    "srtpCipher": "SRTP_AES128_CM_HMAC_SHA1_80",
+                    "timestamp": 1792379249691.883,
+                    "tlsVersion": "FEFD",
+                    "type": "transport"
+                  }
+                },
+                "turnServers": []
+              },
+              "rtcCleanup": [
+                {
+                  "dataChannelState": "closing",
+                  "lease": {
+                    "active": false,
+                    "original_stable_id": 2731960,
+                    "owned_pump_tasks": 0,
+                    "qualified": false,
+                    "received_bytes": 7508,
+                    "received_packets": 22,
+                    "resource_revision": 0,
+                    "rx_bytes": 0,
+                    "rx_peak_bytes": 1452,
+                    "sent_bytes": 9234,
+                    "sent_packets": 29,
+                    "tx_bytes": 0,
+                    "tx_peak_bytes": 2526
+                  },
+                  "observedUtcMs": 1792379249982,
+                  "pcClosed": true,
+                  "pcState": "closed",
+                  "phase": "immediate",
+                  "retirementElapsedMs": 0
+                },
+                {
+                  "dataChannelState": "closed",
+                  "lease": {
+                    "active": false,
+                    "original_stable_id": 2731960,
+                    "owned_pump_tasks": 0,
+                    "qualified": false,
+                    "received_bytes": 7508,
+                    "received_packets": 22,
+                    "resource_revision": 0,
+                    "rx_bytes": 0,
+                    "rx_peak_bytes": 1452,
+                    "sent_bytes": 9234,
+                    "sent_packets": 29,
+                    "tx_bytes": 0,
+                    "tx_peak_bytes": 2526
+                  },
+                  "observedUtcMs": 1792379250089,
+                  "pcClosed": true,
+                  "pcState": "closed",
+                  "phase": "late",
+                  "retirementElapsedMs": 106
+                }
+              ],
+              "rtcRole": "offerer",
+              "secretGeneration": 0,
+              "stableUnchanged": true,
+              "switched": true
+            },
+            "2737272": {
+              "rtcCleanup": [
+                {
+                  "dataChannelState": "closing",
+                  "lease": {
+                    "active": false,
+                    "original_stable_id": 2737272,
+                    "owned_pump_tasks": 1,
+                    "qualified": false,
+                    "received_bytes": 0,
+                    "received_packets": 0,
+                    "resource_revision": 0,
+                    "rx_bytes": 0,
+                    "rx_peak_bytes": 0,
+                    "sent_bytes": 0,
+                    "sent_packets": 0,
+                    "tx_bytes": 0,
+                    "tx_peak_bytes": 0
+                  },
+                  "observedUtcMs": 1792379243125,
+                  "pcClosed": true,
+                  "pcState": "closed",
+                  "phase": "immediate",
+                  "retirementElapsedMs": 0
+                },
+                {
+                  "dataChannelState": "closed",
+                  "lease": {
+                    "active": false,
+                    "original_stable_id": 2737272,
+                    "owned_pump_tasks": 0,
+                    "qualified": false,
+                    "received_bytes": 0,
+                    "received_packets": 0,
+                    "resource_revision": 0,
+                    "rx_bytes": 0,
+                    "rx_peak_bytes": 0,
+                    "sent_bytes": 0,
+                    "sent_packets": 0,
+                    "tx_bytes": 0,
+                    "tx_peak_bytes": 0
+                  },
+                  "observedUtcMs": 1792379243229,
+                  "pcClosed": true,
+                  "pcState": "closed",
+                  "phase": "late",
+                  "retirementElapsedMs": 104
+                }
+              ]
+            },
+            "2871152": {
+              "authorizationRevision": 1,
+              "beforeRetainFrames": {
+                "datagramReceived": 0,
+                "datagramSent": 0,
+                "streamReceived": 0,
+                "streamSent": 0
+              },
+              "bindingUnchanged": true,
+              "capabilitiesVersion": 1,
+              "dataChannel": {
+                "actualReceivedBytes": 6961,
+                "actualReceivedPackets": 10,
+                "actualSentBytes": 8116,
+                "actualSentPackets": 10,
+                "bufferPeak": 1420,
+                "droppedQuicBytes": 0,
+                "droppedQuicPackets": 0
+              },
+              "finalReleaseFreshAck": false,
+              "finalized": false,
+              "freshAck": true,
+              "freshAckMs": 712,
+              "freshProbeStartedMs": 668,
+              "initialFreshAck": true,
+              "initialProbeWatermark": 5,
+              "memberStableId": 2871152,
+              "pathId": "1",
+              "prepared": true,
+              "privateStreamId": "client bidirectional stream 3",
+              "probeWatermark": 5,
+              "quicRole": "client",
+              "resourceRevision": 0,
+              "route": {
+                "active": true,
+                "original_stable_id": 2871152,
+                "owned_pump_tasks": 1,
+                "qualified": true,
+                "received_bytes": 6961,
+                "received_packets": 10,
+                "resource_revision": 0,
+                "rx_bytes": 0,
+                "rx_peak_bytes": 1452,
+                "sent_bytes": 8150,
+                "sent_packets": 11,
+                "tx_bytes": 34,
+                "tx_peak_bytes": 2526
+              },
+              "rtc": {
+                "channel": {
+                  "id": 0,
+                  "label": "mio-quic-datagram/1",
+                  "maxPacketLifeTime": null,
+                  "maxRetransmits": 0,
+                  "negotiated": true,
+                  "ordered": false,
+                  "protocol": "miopunch/quic-datagram/1"
+                },
+                "dtlsState": "connected",
+                "iceRole": null,
+                "iceServers": [],
+                "iceState": "connected",
+                "maxMessageSize": 65536,
+                "sctpState": "connected",
+                "stats": {
+                  "dataChannels": [
+                    {
+                      "bytesReceived": 0,
+                      "bytesSent": 0,
+                      "dataChannelIdentifier": 0,
+                      "id": "D6",
+                      "label": "mio-quic-datagram/1",
+                      "messagesReceived": 0,
+                      "messagesSent": 0,
+                      "protocol": "miopunch/quic-datagram/1",
+                      "state": "open",
+                      "timestamp": 1792379251627.304,
+                      "type": "data-channel"
+                    }
+                  ],
+                  "localCandidate": {
+                    "address": "",
+                    "candidateType": "prflx",
+                    "foundation": "2299856542",
+                    "id": "IC1uKk2Qa",
+                    "ip": "",
+                    "isRemote": false,
+                    "networkType": "unknown",
+                    "port": 45875,
+                    "priority": 1845501695,
+                    "protocol": "udp",
+                    "timestamp": 1792379251627.304,
+                    "transportId": "T01",
+                    "type": "local-candidate",
+                    "usernameFragment": "A8Q6"
+                  },
+                  "remoteCandidate": {
+                    "address": "172.18.0.1",
+                    "candidateType": "host",
+                    "foundation": "2224329714",
+                    "id": "If+8CYG/o",
+                    "ip": "172.18.0.1",
+                    "isRemote": true,
+                    "port": 46931,
+                    "priority": 2130706431,
+                    "protocol": "udp",
+                    "timestamp": 1792379251627.304,
+                    "transportId": "T01",
+                    "type": "remote-candidate",
+                    "usernameFragment": "BPEcBkTUVzftzAQU"
+                  },
+                  "selectedPair": {
+                    "bytesDiscardedOnSend": 0,
+                    "bytesReceived": 991,
+                    "bytesSent": 1019,
+                    "consentRequestsSent": 1,
+                    "currentRoundTripTime": 0.001,
+                    "id": "CPC1uKk2Qa_f+8CYG/o",
+                    "lastPacketReceivedTimestamp": 1792379251626,
+                    "lastPacketSentTimestamp": 1792379251626,
+                    "localCandidateId": "IC1uKk2Qa",
+                    "nominated": true,
+                    "packetsDiscardedOnSend": 0,
+                    "packetsReceived": 4,
+                    "packetsSent": 5,
+                    "priority": 7926369428998980000,
+                    "remoteCandidateId": "If+8CYG/o",
+                    "requestsReceived": 7,
+                    "requestsSent": 3,
+                    "responsesReceived": 2,
+                    "responsesSent": 7,
+                    "state": "succeeded",
+                    "timestamp": 1792379251627.304,
+                    "totalRoundTripTime": 0.001,
+                    "transportId": "T01",
+                    "type": "candidate-pair",
+                    "writable": true
+                  },
+                  "transport": {
+                    "bytesReceived": 991,
+                    "bytesSent": 1019,
+                    "dtlsCipher": "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+                    "dtlsRole": "server",
+                    "dtlsState": "connected",
+                    "iceLocalUsernameFragment": "A8Q6",
+                    "iceRole": "controlling",
+                    "iceState": "connected",
+                    "id": "T01",
+                    "localCertificateId": "CF9D:93:33:C1:79:6B:E5:7A:66:BF:22:5C:36:C6:20:55:49:6E:1B:29:32:A1:70:69:73:60:D0:70:8A:2B:24:17",
+                    "packetsReceived": 4,
+                    "packetsSent": 5,
+                    "remoteCertificateId": "CF3E:02:DD:0F:C0:BA:BC:4D:C9:1F:C9:80:02:93:16:EA:91:7C:92:0C:FA:6F:0F:ED:B1:0A:34:98:38:21:AC:C2",
+                    "selectedCandidatePairChanges": 1,
+                    "selectedCandidatePairId": "CPC1uKk2Qa_f+8CYG/o",
+                    "srtpCipher": "SRTP_AES128_CM_HMAC_SHA1_80",
+                    "timestamp": 1792379251627.304,
+                    "tlsVersion": "FEFD",
+                    "type": "transport"
+                  }
+                },
+                "turnServers": []
+              },
+              "rtcCleanup": [
+                {
+                  "dataChannelState": "closing",
+                  "lease": {
+                    "active": false,
+                    "original_stable_id": 2871152,
+                    "owned_pump_tasks": 1,
+                    "qualified": false,
+                    "received_bytes": 7292,
+                    "received_packets": 20,
+                    "resource_revision": 0,
+                    "rx_bytes": 0,
+                    "rx_peak_bytes": 1452,
+                    "sent_bytes": 8441,
+                    "sent_packets": 19,
+                    "tx_bytes": 0,
+                    "tx_peak_bytes": 2526
+                  },
+                  "observedUtcMs": 1792379251887,
+                  "pcClosed": true,
+                  "pcState": "closed",
+                  "phase": "immediate",
+                  "retirementElapsedMs": 0
+                }
+              ],
+              "rtcRole": "offerer",
+              "secretGeneration": 0,
+              "stableUnchanged": true,
+              "switched": false
+            }
+          },
+          "secretGeneration": 0,
+          "sourceRevision": 2
+        }
+      }
+    ]
+  },
+  "final-browser-incoming-active-rtc": {
+    "execution": {
+      "publicTraffic": false,
+      "passed": true,
+      "containers": [
+        {
+          "name": "miopunch-m106-owned-irc-1792379306385241732",
+          "removed": true,
+          "stoppedBeforeRemoval": true,
+          "exitCode": 0
+        }
+      ],
+      "cleanup": {
+        "relayExit": 0,
+        "relayGraceful": true,
+        "relayProcessAbsent": true
+      },
+      "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+      "relayStarted": true,
+      "runtimeExit": 0,
+      "functionalAndSdkCleanupQualified": true,
+      "rawReceiptSha256": "4725aa2cc0bd6596c9f1d017afa21924537eeb0a239e41336dd5832c0168f403",
+      "sourceArtifactControllerUnchangedAfterRuntime": true,
+      "wholeWallMs": 32123.586902860552,
+      "sourceDigest": "d16af3fa218b14845928b8e6b801a001409f5c2354b6776f86025e1729d8bade",
+      "qualified": true
+    },
+    "rawPrivateReceiptSha256Only": "4725aa2cc0bd6596c9f1d017afa21924537eeb0a239e41336dd5832c0168f403",
+    "requestMs": 670.9000000953674,
+    "strictRestrictedRequest": true,
+    "approvalRecords": 1,
+    "bothMaterialsDurable": true,
+    "sameBrowserIdentityReopened": true,
+    "sameNativeIdentityReopened": true,
+    "memberReply": "PONG",
+    "allSdkActorsClosedNaturally": true,
+    "websocketsClosedBeforeContext": true,
+    "lateSocketWaitMs": 0.009957999998732703,
+    "privateKeysAndNssRemoved": true,
+    "profile": {
+      "pacing_ms": 10,
+      "assembly_ttl_ms": 8000,
+      "queue_ttl_ms": 30000,
+      "attempt_ms": 60000
+    },
+    "originalMemberPreservedAcrossRtc": true,
+    "browserIncomingActiveRtcCommitted": true,
+    "replicaRecords": 5,
+    "replicaSavedAppliedReopenedAndDuplicateReplayed": true,
+    "browserPrecodeUses": 1
+  }
+}
