@@ -103,3 +103,12 @@ hash observations retain their ring cfg. Budgets count fields, not total heap or
 physical sends. No new diagnostic feature or production logic change is made by
 this audit. See docs/notes/2026-10-19-packet-witness-opt-in.md for actual off/on,
 driver callback failure, bounds, Native/WASM provenance and proof limits.
+## MIOPUNCH-105: standalone benchmark and fixed lock
+
+The declared send_buffer benchmark is restored byte-for-byte from the pinned
+published Noq-proto 1.3.0 package. Its standalone Cargo.lock is the exact published
+lock, with no re-resolution. Repackaging excludes the repository snapshot's
+Cargo.toml.orig (Cargo generates that reserved member); the original file and
+licenses remain in the repository. Default features and runtime algorithms are
+unchanged. Source-package verification and the companion Noq fork's explicit
+patch requirements are documented in docs/notes/2026-10-19-vendor-distribution.md.

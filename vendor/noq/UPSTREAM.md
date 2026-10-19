@@ -70,3 +70,20 @@ while holding its existing lock; callbacks must not re-enter it. The default
 still performs enabled checks. Before-carrier records, Pending and sender Ok
 remain distinct from actual delivery or physical send proof. No production
 logic, permission or feature change; see the packet-witness-opt-in note.
+## MIOPUNCH-105: standalone target content and companion fork
+
+The declared five examples, two integration tests and benchmark, their common
+example module and example README are restored byte-for-byte from the pinned
+published Noq 1.3.0 package. The published lock is retained for standalone use;
+only the companion noq-proto record becomes local (source/checksum omitted).
+All foreign versions, sources, checksums and dependency rows are unchanged.
+Standalone builds explicitly patch noq-proto to the sibling fork, matching the
+root workspace's dependency selection. This patch is not inherited by consumers:
+applications depending on the fork must select both forks at their own root.
+
+Repackaging excludes the snapshot's Cargo.toml.orig because Cargo generates
+that reserved file itself. The repository retains the original file and licenses.
+The generated .crate is a source package, not a published registry release or
+proof that it can use the unmodified registry noq-proto. The accompanying local
+fork and frozen lock are required for its standalone verification. See
+docs/notes/2026-10-19-vendor-distribution.md for commands and qualified boundaries.

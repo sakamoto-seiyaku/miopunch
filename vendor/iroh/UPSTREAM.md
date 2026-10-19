@@ -416,3 +416,16 @@ local socket ID do not perform a pool lookup. Measured callback/method entries,
 actual streams, buffered-send rejection and scope limits are recorded in
 `docs/notes/2026-10-19-path-guard-compatibility.md`; zero custom-policy entries are
 not a claim of zero internal predicate cost.
+## MIOPUNCH-105: explicit distribution artifact boundary
+
+The ordinary manifest retains lib-only output, including the relay dependency.
+This preserves hashed Rust-library graphs and avoids the mixed-output cache and
+Windows PE export-limit problems described above; it does not restore an old
+default cdylib. Linux users who require a cdylib can explicitly generate and pin
+one using scripts/build_vendor_cdylib.py from the root workspace. It holds the
+shared cache lease through byte-for-byte pinning and refuses changed source,
+lock, toolchain or supplied protected-artifact preconditions before Cargo.
+It adds no C ABI, exports contract or cross-platform compatibility guarantee.
+The existing iroh-relay CLI declaration and main.rs are retained, not restored.
+See docs/notes/2026-10-19-vendor-distribution.md for actual artifact evidence and
+the remaining default/distribution differences from the fixed upstream packages.

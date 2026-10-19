@@ -10,6 +10,8 @@
 # See Cargo.toml.orig for the original contents.
 
 [package]
+# Cargo creates its own Cargo.toml.orig when repackaging the normalized snapshot.
+exclude = ["Cargo.toml.orig", ".cargo_vcs_info.json"]
 edition = "2024"
 rust-version = "1.88"
 name = "noq-proto"
