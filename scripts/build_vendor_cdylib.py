@@ -27,8 +27,19 @@ def sha(path):
 
 
 def sources():
-    paths = {ROOT / 'Cargo.toml', ROOT / 'Cargo.lock', ROOT / '.cargo/config.toml',
-             Path(__file__).resolve(), ROOT / 'scripts/cargo_cache.py'}
+    required = {ROOT / 'Cargo.toml', ROOT / 'Cargo.lock', ROOT / '.cargo/config.toml',
+                Path(__file__).resolve(), ROOT / 'scripts/cargo_cache.py'}
+    for package in ['iroh', 'iroh-relay']:
+        manifest = ROOT / 'vendor' / package / 'Cargo.toml'
+        require(manifest.is_file(), 'required build input missing: ' + str(manifest))
+        declared = tomllib.loads(manifest.read_text())
+        required.add(manifest)
+        required.add(manifest.parent / declared['lib']['path'])
+        if isinstance(declared['package'].get('build'), str):
+            required.add(manifest.parent / declared['package']['build'])
+    for path in required:
+        require(path.is_file(), 'required build input missing: ' + str(path))
+    paths = set(required)
     for directory in ['src', 'browser-probe', 'vendor']:
         paths.update(p for p in (ROOT / directory).rglob('*') if p.is_file()
                      and not {'target', '.git', '__pycache__', 'node_modules'}.intersection(p.parts))
@@ -93,6 +104,7 @@ def save(path, value):
 def prepare(args):
     require(sys.platform == 'linux', 'this entry qualifies Linux ELF output only')
     require(Path.cwd().resolve() == ROOT, 'run from the repository root')
+    snapshot = sources()
     for package in ['iroh', 'iroh-relay']:
         manifest = ROOT / 'vendor' / package / 'Cargo.toml'
         require(tomllib.loads(manifest.read_text())['lib']['crate-type'] == ['lib'], 'artifact generation invariant failed')
@@ -109,7 +121,7 @@ def prepare(args):
     args.output.mkdir(parents=True, exist_ok=False)
     command = ['rustc', '--locked', '--offline', '-p', args.package, '--lib',
                '--crate-type', 'cdylib', '--jobs', str(args.jobs)]
-    save(args.output / 'context.json', {'sources': sources(), 'tools': tools(),
+    save(args.output / 'context.json', {'sources': snapshot, 'tools': tools(),
          'protectedArtifacts': protected, 'command': command, 'package': args.package,
          'driverSha256': sha(__file__)})
 
