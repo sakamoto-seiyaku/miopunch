@@ -54,6 +54,16 @@ registry dependencies. An application selecting these sources must patch both
 `noq` and `noq-proto` at its own root, as the miopunch workspace already does.
 A bare Noq `.crate` with registry Noq-proto is not a supported distribution.
 
+These source-package checks cover Noq and Noq-proto. Other vendored crates remain
+source snapshots selected by the root's patches; their independent registry
+package builds are not qualified here. In particular, iroh and portmapper's
+published standalone locks remain absent: their supported frozen entry is the
+root Cargo.lock and full patch graph. Use the shared-cache runner with
+`build --locked --offline -p iroh --lib` (or `-p portmapper --lib`) from this root
+for those Rust-library entries. Library use in that graph is distinct from
+repackaging a standalone release. Declared files in the other snapshots are
+present; this ticket does not call every vendor target/platform build verified.
+
 The source archives and their complete member hashes are checked separately
 from compilation. `package --no-verify` is only package-content evidence. A
 standalone package consumer must also use the co-distributed Noq-proto source
