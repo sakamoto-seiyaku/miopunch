@@ -62,3 +62,11 @@ Permission callbacks run under the connection lock: they must not re-enter
 Connection; WeakConnectionHandle::is_open remains the lock-free terminal check.
 Ordinary unrestricted senders keep their original required methods and behavior.
 See `docs/notes/2026-10-19-path-guard-compatibility.md`.
+
+MIOPUNCH-104 documents the existing explicit packet witness observer and tests
+ordinary UDP streams with capture off/on, finished, bounded and disabled after
+callback failure. ConnectionDriver supplies synchronous thread-local context
+while holding its existing lock; callbacks must not re-enter it. The default
+still performs enabled checks. Before-carrier records, Pending and sender Ok
+remain distinct from actual delivery or physical send proof. No production
+logic, permission or feature change; see the packet-witness-opt-in note.

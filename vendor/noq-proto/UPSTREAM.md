@@ -83,3 +83,20 @@ batch. The original Transmit fields and poll_transmit return contract, socket
 metadata, wire encoding, loss recovery and congestion algorithms are unchanged.
 Unconfigured predicates remain permissive. See the M103 compatibility note for
 the pre-fix real plaintext leak, fixed original consumers and regression scope.
+
+## MIOPUNCH-104: explicit diagnostic runtime contract
+
+The existing doc-hidden packet_witness module is compiled in ordinary Native and
+WASM graphs; doc-hidden is not test-only or feature isolation. Installation is
+explicit, process-wide and once-only. finish disables observation after the
+caller has quiesced producers; it is not a join barrier and does not permit
+reinstallation. Synchronous callbacks cannot wait or re-enter a connection lock.
+Recursive emit, observer unwind panic and bounded field/record/byte failures
+mark loss and disable capture, without granting packet or application permission.
+
+Default paths retain atomic enabled checks and some ring STREAM scalar snapshots;
+enabled paths add hashing, copies, allocation and callback work. Some encoder
+hash observations retain their ring cfg. Budgets count fields, not total heap or
+physical sends. No new diagnostic feature or production logic change is made by
+this audit. See docs/notes/2026-10-19-packet-witness-opt-in.md for actual off/on,
+driver callback failure, bounds, Native/WASM provenance and proof limits.
