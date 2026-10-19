@@ -1,0 +1,320 @@
+{
+  "ordinaryLegacy": {
+    "original-run1": {
+      "bytesEachWay": 98304,
+      "phaseDelta": [
+        [
+          82,
+          82,
+          82,
+          103691,
+          83,
+          105059
+        ],
+        [
+          82,
+          82,
+          82,
+          105029,
+          85,
+          105168
+        ]
+      ],
+      "counterUnits": [
+        "is_valid_send_addr_calls",
+        "poll_send_calls",
+        "successful_send_calls",
+        "sent_ciphertext_bytes",
+        "recv_buffers",
+        "received_ciphertext_bytes"
+      ],
+      "allStreamAndCloseAssertionsPassed": true
+    },
+    "original-run2": {
+      "bytesEachWay": 98304,
+      "phaseDelta": [
+        [
+          83,
+          83,
+          83,
+          103712,
+          83,
+          105059
+        ],
+        [
+          82,
+          82,
+          82,
+          105029,
+          86,
+          105190
+        ]
+      ],
+      "counterUnits": [
+        "is_valid_send_addr_calls",
+        "poll_send_calls",
+        "successful_send_calls",
+        "sent_ciphertext_bytes",
+        "recv_buffers",
+        "received_ciphertext_bytes"
+      ],
+      "allStreamAndCloseAssertionsPassed": true
+    },
+    "current-run1": {
+      "bytesEachWay": 98304,
+      "phaseDelta": [
+        [
+          83,
+          83,
+          83,
+          103717,
+          83,
+          105061
+        ],
+        [
+          82,
+          82,
+          82,
+          105031,
+          86,
+          105195
+        ]
+      ],
+      "counterUnits": [
+        "is_valid_send_addr_calls",
+        "poll_send_calls",
+        "successful_send_calls",
+        "sent_ciphertext_bytes",
+        "recv_buffers",
+        "received_ciphertext_bytes"
+      ],
+      "allStreamAndCloseAssertionsPassed": true
+    },
+    "current-run2": {
+      "bytesEachWay": 98304,
+      "phaseDelta": [
+        [
+          83,
+          83,
+          83,
+          103724,
+          83,
+          105060
+        ],
+        [
+          82,
+          82,
+          82,
+          105030,
+          86,
+          105202
+        ]
+      ],
+      "counterUnits": [
+        "is_valid_send_addr_calls",
+        "poll_send_calls",
+        "successful_send_calls",
+        "sent_ciphertext_bytes",
+        "recv_buffers",
+        "received_ciphertext_bytes"
+      ],
+      "allStreamAndCloseAssertionsPassed": true
+    },
+    "ordinary-final-runtime": {
+      "bytesEachWay": 98304,
+      "phaseDelta": [
+        [
+          83,
+          83,
+          83,
+          103723,
+          83,
+          105056
+        ],
+        [
+          82,
+          82,
+          82,
+          105026,
+          86,
+          105201
+        ]
+      ],
+      "counterUnits": [
+        "is_valid_send_addr_calls",
+        "poll_send_calls",
+        "successful_send_calls",
+        "sent_ciphertext_bytes",
+        "recv_buffers",
+        "received_ciphertext_bytes"
+      ],
+      "allStreamAndCloseAssertionsPassed": true,
+      "runReceiptSha256": "768d2906ace2dee36e8783c638c5e33cccc42fe43e8570eafea32475039fb23c"
+    }
+  },
+  "rtc": {
+    "authorizationChecks": 20611,
+    "boundAfter": [
+      [
+        4328,
+        0,
+        4458,
+        4203,
+        1974,
+        122
+      ],
+      [
+        3640,
+        0,
+        3768,
+        3515,
+        1631,
+        122
+      ]
+    ],
+    "boundBefore": [
+      [
+        264,
+        0,
+        284,
+        249,
+        107,
+        12
+      ],
+      [
+        234,
+        0,
+        252,
+        219,
+        93,
+        12
+      ]
+    ],
+    "bytesEachWayInEachMeasuredPhase": 98304,
+    "ipAfter": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "ipBefore": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "pending": [
+      [
+        151,
+        0,
+        166,
+        139,
+        56,
+        10
+      ],
+      [
+        133,
+        0,
+        146,
+        121,
+        48,
+        10
+      ]
+    ],
+    "pumpsJoinedNaturally": true,
+    "retiredQueuedBytesRejected": true,
+    "sameStream": true,
+    "scope": "method entries across actor/packet paths in the phase, not CPU time or per-packet counts",
+    "units": [
+      "is_valid_send_addr_entries",
+      "can_bootstrap_entries",
+      "guards_application_data_entries",
+      "is_valid_connection_addr_entries",
+      "is_data_path_qualified_entries",
+      "poll_send_entries"
+    ],
+    "unqualifiedBytesRejected": true,
+    "wrongOwnerAndProbeRejected": true,
+    "phaseDelta": [
+      [
+        4064,
+        0,
+        4174,
+        3954,
+        1867,
+        110
+      ],
+      [
+        3406,
+        0,
+        3516,
+        3296,
+        1538,
+        110
+      ]
+    ]
+  },
+  "noqPacketRestriction": {
+    "actualCarrierSendsAfterLocalClose": 6,
+    "actualCarrierSendsBeforeRestriction": 6,
+    "actualCarrierSendsInPermissionWindow": 6,
+    "applicationOnly": false,
+    "deniedInboundDatagrams": 8,
+    "deniedOutboundTransmits": 6,
+    "explicitFilterCallbackCalls": 17,
+    "forbiddenCiphertextRepolls": 0,
+    "heldProbeRepollsWhileApplicationForbidden": 0,
+    "leakedPlaintext": null,
+    "ordinaryUnrestrictedFilterCallbackCalls": 0,
+    "ownedUdpPortsRebound": true,
+    "pendingCiphertextBytes": 47,
+    "pendingSenderPolls": 1,
+    "scope": "actual callback/poll/datagram/transmit entries, not byte-normalized CPU cost",
+    "terminalObservedWithoutRuntimeLock": true
+  },
+  "noqApplicationRestriction": {
+    "actualCarrierSendsAfterLocalClose": 17,
+    "actualCarrierSendsBeforeRestriction": 6,
+    "actualCarrierSendsInPermissionWindow": 10,
+    "applicationOnly": true,
+    "deniedInboundDatagrams": 0,
+    "deniedOutboundTransmits": 1,
+    "explicitFilterCallbackCalls": 115,
+    "forbiddenCiphertextRepolls": 0,
+    "heldProbeRepollsWhileApplicationForbidden": 1,
+    "leakedPlaintext": null,
+    "ordinaryUnrestrictedFilterCallbackCalls": 0,
+    "ownedUdpPortsRebound": true,
+    "pendingCiphertextBytes": 47,
+    "pendingSenderPolls": 2,
+    "scope": "actual callback/poll/datagram/transmit entries, not byte-normalized CPU cost",
+    "terminalObservedWithoutRuntimeLock": true
+  },
+  "finalGuardRunReceiptSha256": "694799992f8be75354fa8f822ff55b8fb1efb63c8e652f4592dc144aa44ae956",
+  "finalGuardStdoutSha256": "e25ffd2fe6ed4c6e09885b5055fbbe6d20d06efebcc51c4b1d08a9716f3bb0dc",
+  "scope": "Observed method/callback/packet/poll/byte counts in the specified phase. The RTC method counts include actor and packet evaluations. No estimate of ns/packet, CPU utilization, universal callback frequency, throughput or SLA. Iroh keeps internal mapping/Option/pool predicates even when no custom policy method runs."
+}

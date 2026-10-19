@@ -1,0 +1,51 @@
+{
+  "original-ordinary-v2": {
+    "buildReceiptSha256": "c1f1279d5d597b14aec6e382c9672aecf814f237ebbefa005bc4f597e10cf9f0",
+    "contextSha256": "accb55dff866c87d1558d74d972e6bb803428ec536a9f01c4060b81ed3810a97",
+    "selectedInputManifestSha256": "2bc77090ede540b51aa808b56ece2a59b85d067b17b86b62f2428cdc317a6131",
+    "actualSelectedInputs": 4903,
+    "allActualSelectedInputsAndArtifactsUnchanged": true
+  },
+  "application-buffer-green-v3": {
+    "buildReceiptSha256": "9ebc94b7b9838239d4eac0184f4da33c78c3b49851e4d862c984198d150ec7e0",
+    "contextSha256": "df15f49b170de243d867a1965de50937046d6bd8bf293749ebd2eafaed7fdad3",
+    "selectedInputManifestSha256": "ab7b18d0440acaee45c4123fc70ac8f0a9c8d40442fe5e8875e563a0865ecb46",
+    "actualSelectedInputs": 6621,
+    "allActualSelectedInputsAndArtifactsUnchanged": true
+  },
+  "proto-final": {
+    "buildReceiptSha256": "ac3558038e9344a2f2267a8df7d48835800fea4f61055aa3bac1197416e80312",
+    "contextSha256": "ddd3d7d5d6f2bece592c426dc48ff444e70177e732861bc4678216f45bdfc149",
+    "selectedInputManifestSha256": "8cf188d1c711534e33f89dda8a2475071bd6b8329857ce28cf15e7ab1f855fec",
+    "actualSelectedInputs": 1780,
+    "allActualSelectedInputsAndArtifactsUnchanged": true
+  },
+  "native-final": {
+    "buildReceiptSha256": "014229d5c17bfd568dd0b9d91ed0e9be3bee5bf50142fecf1dfd4fde4308db27",
+    "contextSha256": "fedcbb2233d681c6d66566a91e3059fe34a32b65d472b5c51460cd5733e08aff",
+    "selectedInputManifestSha256": "09b7a7b6222e65e2eeb150366a37dc1a879288e5f7e94b09a7ee8b5163f1a78d",
+    "actualSelectedInputs": 6631,
+    "allActualSelectedInputsAndArtifactsUnchanged": true
+  },
+  "browser-final": {
+    "buildReceiptSha256": "3cdf5485059196cd425edc82b89e07cae2d5032778183496261786b9f5846098",
+    "contextSha256": "61c4c71150239f248371cb80b2df4147cea1b0b5645110ddca0398ef71cc2659",
+    "selectedInputManifestSha256": "5fb935a8e42ac4f6f3c8eaadd6274028b6551438862543e974fa7f00d1db5063",
+    "actualSelectedInputs": 3162,
+    "allActualSelectedInputsAndArtifactsUnchanged": true
+  },
+  "ordinary-final": {
+    "buildReceiptSha256": "c544df6bd1352d09d8f56be297be765f69b648e63b4f492675836be7649e14d7",
+    "contextSha256": "e03d28a2cab6548c4338fe5ff048f39ddbeed1c46c6df264d608b1f6992c3631",
+    "selectedInputManifestSha256": "0c135dd4e0dc392ed0ceeb59d24d31a4884116928d7c093a65008f996e03dc15",
+    "actualSelectedInputs": 4661,
+    "allActualSelectedInputsAndArtifactsUnchanged": true
+  },
+  "noq-final": {
+    "buildReceiptSha256": "192a800b7bd0d4e8dd8b90acc3b45f28710ed0b48b4dfc34dcdafd6abdd9cb5b",
+    "contextSha256": "b2d6c8f4c9c340bfeb0388278aa577dec1e9d6dc5b28e201860807e481a95363",
+    "selectedInputManifestSha256": "cee4bf149c54ca0740efbd8a0265b80a225a4f547ec70c1cc262af1d62517913",
+    "actualSelectedInputs": 2329,
+    "allActualSelectedInputsAndArtifactsUnchanged": true
+  }
+}
