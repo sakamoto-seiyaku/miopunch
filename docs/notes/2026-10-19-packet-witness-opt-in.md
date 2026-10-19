@@ -34,7 +34,11 @@ callback 同步执行，Noq driver 的调用点已经持有 connection lock。�
 并发 producer 不能据此推断严格的最后事件顺序；finish 仍要求先回收 producer。
 
 Native 的既有 PrivatePacketCaptureFixture 另有 1,024 项有界 writer channel、
-每个 proof map 512 项及 24 MiB 文件上限。回调使用非阻塞提交，文件 I/O 在独立
+每个 proof map 512 项及 24 MiB 文件上限。writer 提交使用 try-send；proof metadata
+则使用 Mutex::lock，争用时可能阻塞并延长 Noq driver 持锁时间，不能称整个回调
+非阻塞。该临界区只处理有界元数据／proof，包括 hash 与 copy，不执行 I/O、SDK
+调用或 await；matcher 同样不得在持有它时等待 SDK 进展。既有 contention 回归
+要求保留真实记录，本项保留该行为，没有改成 try-lock 丢记录。文件 I/O 在独立
 writer thread；finish 在 producer 结束后送终止标记并 join。Unix 私有文件权限
 为 0600；该 Native 文件适配器不代表 Browser 已有对应 JS 安装接口。核心预算、
 observer／writer 丢失和 writer 结束必须一起核验，loss 不能当完整抓取证据。
@@ -49,7 +53,7 @@ observer／writer 丢失和 writer 结束必须一起核验，loss 不能当完�
 | async sender 边界 | 读取 enabled；packet／application／socket 许可照常 | 有界复制实际 ciphertext 到 Vec，再发观察记录 |
 | Native PONG／RTC pump | enabled 检查与普通传输工作 | 摘要、格式化、字段复制和观察 |
 | 核心 emit | 原子状态读取后返回 | TLS 递归标志、字段检查、原子预算预留、同步 callback |
-| 自有 Native writer | 未启动便无该 writer | proof map／同步元数据、try-send、JSON 序列化与文件写入 |
+| 自有 Native writer | 未启动便无该 writer | proof mutex 争用、hash／copy、try-send；writer 的 JSON 序列化／文件写入 |
 
 以上是源代码工作分类，不是指令、分配次数或 CPU 测量。没有诊断专属 hash／
 ciphertext-copy／字段 Vec 构造的生产分支，仍不等于整个网络路径没有分配、复制、

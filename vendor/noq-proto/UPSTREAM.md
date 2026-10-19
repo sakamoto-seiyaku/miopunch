@@ -90,7 +90,10 @@ The existing doc-hidden packet_witness module is compiled in ordinary Native and
 WASM graphs; doc-hidden is not test-only or feature isolation. Installation is
 explicit, process-wide and once-only. finish disables observation after the
 caller has quiesced producers; it is not a join barrier and does not permit
-reinstallation. Synchronous callbacks cannot wait or re-enter a connection lock.
+reinstallation. Synchronous callbacks must not do I/O, wait for SDK progress or
+re-enter a connection lock. The Native fixture's bounded metadata mutex can
+contend and extend driver lock hold; its critical section has no SDK calls, I/O
+or await. It is not a wholly nonblocking callback.
 Recursive emit, observer unwind panic and bounded field/record/byte failures
 mark loss and disable capture, without granting packet or application permission.
 
