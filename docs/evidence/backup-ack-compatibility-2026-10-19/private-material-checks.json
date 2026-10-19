@@ -1,0 +1,10 @@
+{
+  "privateRuntimeReceiptExcluded": true,
+  "privateFixtureKeysNssAndStoreLogsExcluded": true,
+  "uniqueActualPrivateInvitationValuesScanned": 1,
+  "matches": 0,
+  "allPublicFilesAndArchiveMembersScanned": true,
+  "archiveSha256": "49384b835747dfea530d801087757c98c6fdcd824ed31cc1ab8044cae53d2148",
+  "privateReceiptSha256Only": "689beb9c39f74eb0c08cdc123799776e5175fd34b98a727927a20fa27edd2c31",
+  "generatedKeysAndNssRemovedAfterQualifiedActorCleanup": true
+}

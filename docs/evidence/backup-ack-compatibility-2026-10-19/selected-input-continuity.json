@@ -1,0 +1,47 @@
+{
+  "proto-final-v3": {
+    "buildReceiptSha256": "0e83161480493940e83b375c73f9b13885acfcd1c0b71eb3ba3c3670ff680225",
+    "buildContextSha256": "2aa1ff39eb5e17ceb88a0d17cb1bb704511a7ff07f9b2f4c1c16bc11c75647f6",
+    "selectedInputManifestSha256": "b0a77f982d1a64f07175c97eac03adef9be038745e47470d15b660f2f128f15f",
+    "selectedInputs": 1780,
+    "repositoryInputs": 63,
+    "allActualSelectedInputsAndArtifactsCurrent": true,
+    "compiledGlobalSourceDigest": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54"
+  },
+  "ordinary-final-v3": {
+    "buildReceiptSha256": "4fe2628c4b7735230029614d92468c90161f8afb73b4ecb5b0ad7abec1724058",
+    "buildContextSha256": "f8624ea2af5149059118a354c91af7ddc688ce95deb21245f200628e29e63f88",
+    "selectedInputManifestSha256": "2a37b052c6857f448f6441959a0b43191b5781efa51abb8a9a8cc773fa678abe",
+    "selectedInputs": 2331,
+    "repositoryInputs": 67,
+    "allActualSelectedInputsAndArtifactsCurrent": true,
+    "compiledGlobalSourceDigest": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54"
+  },
+  "native-final-v3": {
+    "buildReceiptSha256": "371dca4fb92dce44cd6a8b344d2afa67c669014ef90c1f902f0aa77d3999b72f",
+    "buildContextSha256": "fd276d56adaf40ae916b8b11fb24efd6627ab302b2009edc0eb13f4b9ab7c370",
+    "selectedInputManifestSha256": "c3f37d4b5bc19f83d150d1040294e9bd859c9b96552a9ab5459c0eeedf67d5ae",
+    "selectedInputs": 6631,
+    "repositoryInputs": 304,
+    "allActualSelectedInputsAndArtifactsCurrent": true,
+    "compiledGlobalSourceDigest": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54"
+  },
+  "browser-final-v3": {
+    "buildReceiptSha256": "fecb331546afb32d9fc3e580e173a54f22c1eae373550950fbcdf335782a0122",
+    "buildContextSha256": "798984bfd178cc200f618a5a5aee8054b1276fd0e02e21e09ecc9bbf9259813f",
+    "selectedInputManifestSha256": "147aa5b9996210f49b2fbf6b8a2af93ce8fb76b4585aeacaf5213a335c30ea87",
+    "selectedInputs": 3162,
+    "repositoryInputs": 201,
+    "allActualSelectedInputsAndArtifactsCurrent": true,
+    "compiledGlobalSourceDigest": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54"
+  },
+  "maintenance-final-v3": {
+    "buildReceiptSha256": "76c23b1606f96c035171ccf6dbc05510038dd99e1ebca114a382e50c45885b62",
+    "buildContextSha256": "aea4224ab59e1ee71b0b7c0f2a5f68e9fe9641957b31a09995fae64c42f52e68",
+    "selectedInputManifestSha256": "fc34617a000234b6f79d01836235e75019a1b29c2563eb82ac4ce8872cef84ee",
+    "selectedInputs": 6619,
+    "repositoryInputs": 292,
+    "allActualSelectedInputsAndArtifactsCurrent": true,
+    "compiledGlobalSourceDigest": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54"
+  }
+}

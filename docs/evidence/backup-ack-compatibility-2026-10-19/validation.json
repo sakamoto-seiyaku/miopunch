@@ -1,0 +1,2019 @@
+{
+  "baselineCommit": "3be145a09bf8847d767e101a9b8c4a8642bf1070",
+  "implementationCommit": "5aa261890cd2a5e81ecab998e10ef0758a5080cc",
+  "protectedWipFiles": 249,
+  "protectedHashesAndDirtySetUnchanged": true,
+  "chosenContractBeforeProduction": {
+    "sourceBaseline": "3be145a09bf8847d767e101a9b8c4a8642bf1070",
+    "decision": "Ordinary upstream ACK routing remains default. Existing start_path_probe/start_probe explicitly opts only its current local path binding into own-path Backup ACK routing; new/migrated bindings start ordinary. Each peer must opt in locally for two-way blackhole backup proof. No ordinary ping or unrelated path opts in. Preserve current frame and packet gates, authenticated watermark and close handling.",
+    "basis": "Repeated real unchanged original/fork consumer shows 1ms vs253ms slow Backup data confirmation; actual one-packet loss 29ms vs532ms. Therefore unconditional policy is not a universal defect fix under ADR0012.",
+    "knownUnchangedBoundary": "Stale Available carrier blackhole can still prevent ordinary close delivery; recover/retire it first. ACK opt-in is not close routing or automatic migration. Existing maintained close/retirement scenarios remain mandatory.",
+    "qualifiedEvidence": {
+      "original-run1": "893415fd18073ee107a2f990872b27713d28383f0a7330a38b6fb5168e324231",
+      "original-run2": "e61eb3ca261ba66ae78ea9492542fd44c53a0f73886fd0e5f65a30c8ed162b52",
+      "fork-before-run1": "46864e227f35fdca4357dca47ba7478388d260ae95ac0cf51f9f8d49b2e5c384",
+      "fork-before-run2": "7044cd6d0804ca6064b5ee8c2ea39786bb50c92c5d348055866eed01bfb45957",
+      "loss-original-run1": "5bf5daaccae9c1147ab41983fc901af332a12bf3d692832a00954933b6338fa0",
+      "loss-fork-before-run1": "2b984d8475f779a23d34b72c0c32cfb233863299e20183f66f11e56bd1b5bae7",
+      "protocol-default-red": "e28f3e94a1c868b837ab56d477f51149a24e011c098392b98cf28c2f6f3df3ad"
+    },
+    "fixedOriginalConsumerBeforeFirstProductionChange": true
+  },
+  "durableConsumerCopies": {
+    "consumers": {
+      "ordinary.rs": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1",
+      "ordinary_loss.rs": "5ccd4e57d469198e0b3b03a7c0c6981207ac5149f510a27711da0c3aa592aa69",
+      "probe.rs": "30d01d18af8780b72c5a40f06a635c7f52a49231541d07425c0a5257c5337dde"
+    },
+    "copiesByteIdenticalToFrozenBuildInputs": true,
+    "originalConsumersUnmodifiedAfterQualification": true,
+    "copiesAreEvidenceNotAlternateProductionInterfaces": true
+  },
+  "ordinaryOriginalBeforeFinal": {
+    "original-run1": {
+      "exit": 0,
+      "seconds": 11.57507568411529,
+      "qualifiedRun": true,
+      "buildReceipt": "/tmp/miopunch-m102-20261019/ordinary-original-online/receipt.json",
+      "buildReceiptSha256": "e4409eab2413f48caf5164bebd3f4fd55a105d5e6b580b8bf012226f9a4c5fa4",
+      "binary": "/tmp/miopunch-m102-20261019/ordinary-original-online/pinned/ordinary",
+      "binarySha256": "050dc8cfdeec513ba304f67f1028cc3199227c2a46931bf2757e50a4a2a4b727",
+      "fixedConsumerSha256": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1",
+      "cases": [
+        "single",
+        "healthy",
+        "slow_backup",
+        "blackhole_available",
+        "recovery"
+      ],
+      "records": [
+        {
+          "case": "single",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 2,
+          "ackCarrierB": 0,
+          "aPackets": 9,
+          "bPackets": 0,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "single",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "single",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "healthy",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 1,
+          "ackCarrierB": 0,
+          "aPackets": 16,
+          "bPackets": 5,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "healthy",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "healthy",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 1,
+          "ackCarrierB": 0,
+          "aPackets": 15,
+          "bPackets": 5,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "slow_backup",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": false,
+          "elapsedMs": 4000,
+          "ackCarrierA": 9,
+          "ackCarrierB": 0,
+          "aPackets": 25,
+          "bPackets": 5,
+          "aDropped": 9,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "close",
+          "observed": false,
+          "elapsedMs": 2001
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "recovery",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": false,
+          "elapsedMs": 4000,
+          "ackCarrierA": 8,
+          "ackCarrierB": 0,
+          "aPackets": 23,
+          "bPackets": 5,
+          "aDropped": 8,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "restored",
+          "elapsedMs": 29,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "recovery",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        }
+      ]
+    },
+    "original-run2": {
+      "exit": 0,
+      "seconds": 11.611121625173837,
+      "qualifiedRun": true,
+      "buildReceipt": "/tmp/miopunch-m102-20261019/ordinary-original-online/receipt.json",
+      "buildReceiptSha256": "e4409eab2413f48caf5164bebd3f4fd55a105d5e6b580b8bf012226f9a4c5fa4",
+      "binary": "/tmp/miopunch-m102-20261019/ordinary-original-online/pinned/ordinary",
+      "binarySha256": "050dc8cfdeec513ba304f67f1028cc3199227c2a46931bf2757e50a4a2a4b727",
+      "fixedConsumerSha256": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1",
+      "cases": [
+        "single",
+        "healthy",
+        "slow_backup",
+        "blackhole_available",
+        "recovery"
+      ],
+      "records": [
+        {
+          "case": "single",
+          "stage": "business",
+          "baselineMs": 3,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 2,
+          "ackCarrierB": 0,
+          "aPackets": 11,
+          "bPackets": 0,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "single",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "single",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "healthy",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 1,
+          "ackCarrierB": 0,
+          "aPackets": 14,
+          "bPackets": 5,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "healthy",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "healthy",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 1,
+          "ackCarrierB": 0,
+          "aPackets": 15,
+          "bPackets": 5,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "slow_backup",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": false,
+          "elapsedMs": 4000,
+          "ackCarrierA": 8,
+          "ackCarrierB": 0,
+          "aPackets": 22,
+          "bPackets": 5,
+          "aDropped": 8,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "close",
+          "observed": false,
+          "elapsedMs": 2001
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "recovery",
+          "stage": "business",
+          "baselineMs": 3,
+          "success": false,
+          "elapsedMs": 4000,
+          "ackCarrierA": 8,
+          "ackCarrierB": 0,
+          "aPackets": 23,
+          "bPackets": 5,
+          "aDropped": 8,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "restored",
+          "elapsedMs": 29,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "recovery",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        }
+      ]
+    },
+    "fork-before-run1": {
+      "exit": 0,
+      "seconds": 4.650058830622584,
+      "qualifiedRun": true,
+      "buildReceipt": "/tmp/miopunch-m102-20261019/ordinary-fork/receipt.json",
+      "buildReceiptSha256": "da6e42bb9085deb099524e4f8050d102fc95d6d0e05c99e81d5ed8e93449ae18",
+      "binary": "/tmp/miopunch-m102-20261019/ordinary-fork/pinned/ordinary",
+      "binarySha256": "4640ed88c7aec7a790c6aa6b207d86dafc5e90c1cda5d8dfa98b1c4b7c641d7f",
+      "fixedConsumerSha256": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1",
+      "cases": [
+        "single",
+        "healthy",
+        "slow_backup",
+        "blackhole_available",
+        "recovery"
+      ],
+      "records": [
+        {
+          "case": "single",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 1,
+          "ackCarrierB": 0,
+          "aPackets": 8,
+          "bPackets": 0,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "single",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "single",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "healthy",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 0,
+          "ackCarrierB": 1,
+          "aPackets": 16,
+          "bPackets": 10,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "healthy",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "healthy",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 253,
+          "ackCarrierA": 3,
+          "ackCarrierB": 4,
+          "aPackets": 19,
+          "bPackets": 13,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "slow_backup",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 0,
+          "ackCarrierB": 1,
+          "aPackets": 14,
+          "bPackets": 10,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "close",
+          "observed": false,
+          "elapsedMs": 2000
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "recovery",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 0,
+          "ackCarrierB": 1,
+          "aPackets": 14,
+          "bPackets": 10,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "restored",
+          "elapsedMs": 1,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "recovery",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        }
+      ]
+    },
+    "fork-before-run2": {
+      "exit": 0,
+      "seconds": 4.675200026016682,
+      "qualifiedRun": true,
+      "buildReceipt": "/tmp/miopunch-m102-20261019/ordinary-fork/receipt.json",
+      "buildReceiptSha256": "da6e42bb9085deb099524e4f8050d102fc95d6d0e05c99e81d5ed8e93449ae18",
+      "binary": "/tmp/miopunch-m102-20261019/ordinary-fork/pinned/ordinary",
+      "binarySha256": "4640ed88c7aec7a790c6aa6b207d86dafc5e90c1cda5d8dfa98b1c4b7c641d7f",
+      "fixedConsumerSha256": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1",
+      "cases": [
+        "single",
+        "healthy",
+        "slow_backup",
+        "blackhole_available",
+        "recovery"
+      ],
+      "records": [
+        {
+          "case": "single",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 2,
+          "ackCarrierB": 0,
+          "aPackets": 9,
+          "bPackets": 0,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "single",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "single",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "healthy",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 0,
+          "ackCarrierB": 1,
+          "aPackets": 14,
+          "bPackets": 9,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "healthy",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "healthy",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "business",
+          "baselineMs": 3,
+          "success": true,
+          "elapsedMs": 253,
+          "ackCarrierA": 3,
+          "ackCarrierB": 4,
+          "aPackets": 18,
+          "bPackets": 12,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "slow_backup",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 2,
+          "ackCarrierA": 0,
+          "ackCarrierB": 1,
+          "aPackets": 15,
+          "bPackets": 10,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "close",
+          "observed": false,
+          "elapsedMs": 2001
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "recovery",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 0,
+          "ackCarrierB": 1,
+          "aPackets": 15,
+          "bPackets": 9,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "restored",
+          "elapsedMs": 1,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "recovery",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        }
+      ]
+    },
+    "loss-original-run1": {
+      "exit": 0,
+      "seconds": 0.7340557249262929,
+      "qualifiedRun": true,
+      "buildReceipt": "/tmp/miopunch-m102-20261019/loss-original/receipt.json",
+      "buildReceiptSha256": "a400cdb50bf7b851b3447c7461705d508fb36adf9c41a3e2f8c9fb8867b9b685",
+      "binary": "/tmp/miopunch-m102-20261019/loss-original/pinned/ordinary_loss",
+      "binarySha256": "aebbd8448243e6caeb6acd0639a383fbbe3d400c13972e4eb9ef52d92c8649a6",
+      "fixedConsumerSha256": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1",
+      "cases": [
+        "loss_recovery",
+        "slow_backup_loss"
+      ],
+      "records": [
+        {
+          "case": "loss_recovery",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 29,
+          "ackCarrierA": 2,
+          "ackCarrierB": 0,
+          "aPackets": 17,
+          "bPackets": 5,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "loss_recovery",
+          "stage": "loss",
+          "clientLostB": 1,
+          "injectedBClientDrops": 1
+        },
+        {
+          "case": "loss_recovery",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "loss_recovery",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "slow_backup_loss",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 29,
+          "ackCarrierA": 2,
+          "ackCarrierB": 0,
+          "aPackets": 17,
+          "bPackets": 5,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "slow_backup_loss",
+          "stage": "loss",
+          "clientLostB": 1,
+          "injectedBClientDrops": 1
+        },
+        {
+          "case": "slow_backup_loss",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "slow_backup_loss",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        }
+      ]
+    },
+    "loss-fork-before-run1": {
+      "exit": 0,
+      "seconds": 3.2631457238458097,
+      "qualifiedRun": true,
+      "buildReceipt": "/tmp/miopunch-m102-20261019/loss-fork-before/receipt.json",
+      "buildReceiptSha256": "af4ef08e209f1756a4c6b9d9a8deec371c679dbaf1b79ab0caa5e17f650e55e2",
+      "binary": "/tmp/miopunch-m102-20261019/loss-fork-before/pinned/ordinary_loss",
+      "binarySha256": "0f5f64b7e0ade00c16e45fe1dd2e69840560ca45a355931ebaf4bfc895c72c11",
+      "fixedConsumerSha256": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1",
+      "cases": [
+        "loss_recovery",
+        "slow_backup_loss"
+      ],
+      "records": [
+        {
+          "case": "loss_recovery",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 28,
+          "ackCarrierA": 0,
+          "ackCarrierB": 2,
+          "aPackets": 16,
+          "bPackets": 11,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "loss_recovery",
+          "stage": "loss",
+          "clientLostB": 1,
+          "injectedBClientDrops": 1
+        },
+        {
+          "case": "loss_recovery",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "loss_recovery",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "slow_backup_loss",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 532,
+          "ackCarrierA": 3,
+          "ackCarrierB": 5,
+          "aPackets": 17,
+          "bPackets": 14,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "slow_backup_loss",
+          "stage": "loss",
+          "clientLostB": 1,
+          "injectedBClientDrops": 1
+        },
+        {
+          "case": "slow_backup_loss",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "slow_backup_loss",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        }
+      ]
+    },
+    "ordinary-v3-run1": {
+      "exit": 0,
+      "seconds": 11.631519846152514,
+      "qualifiedRun": true,
+      "actualSelectedInputsVerifiedBeforeAndAfter": 2331,
+      "buildReceipt": "/tmp/miopunch-m102-20261019/ordinary-final-v3/receipt.json",
+      "buildReceiptSha256": "4fe2628c4b7735230029614d92468c90161f8afb73b4ecb5b0ad7abec1724058",
+      "binary": "/tmp/miopunch-m102-20261019/ordinary-final-v3/pinned/ordinary",
+      "binarySha256": "b7b8a30dce868c6034dcb1a43923c6bc8f941b656d3ddf036b1de26e6e25e99c",
+      "fixedConsumerSha256": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1",
+      "actualConsumerPath": "/tmp/miopunch-m102-20261019/ordinary.rs",
+      "actualConsumerSha256": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1",
+      "cases": [
+        "single",
+        "healthy",
+        "slow_backup",
+        "blackhole_available",
+        "recovery"
+      ],
+      "records": [
+        {
+          "case": "single",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 3,
+          "ackCarrierB": 0,
+          "aPackets": 11,
+          "bPackets": 0,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "single",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "single",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "healthy",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 1,
+          "ackCarrierB": 0,
+          "aPackets": 16,
+          "bPackets": 5,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "healthy",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "healthy",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 1,
+          "ackCarrierB": 0,
+          "aPackets": 16,
+          "bPackets": 5,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "slow_backup",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": false,
+          "elapsedMs": 4000,
+          "ackCarrierA": 8,
+          "ackCarrierB": 0,
+          "aPackets": 23,
+          "bPackets": 5,
+          "aDropped": 8,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "close",
+          "observed": false,
+          "elapsedMs": 2001
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "recovery",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": false,
+          "elapsedMs": 4000,
+          "ackCarrierA": 8,
+          "ackCarrierB": 0,
+          "aPackets": 24,
+          "bPackets": 5,
+          "aDropped": 8,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "restored",
+          "elapsedMs": 29,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "recovery",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        }
+      ]
+    },
+    "ordinary-v3-run2": {
+      "exit": 0,
+      "seconds": 11.645187826827168,
+      "qualifiedRun": true,
+      "actualSelectedInputsVerifiedBeforeAndAfter": 2331,
+      "buildReceipt": "/tmp/miopunch-m102-20261019/ordinary-final-v3/receipt.json",
+      "buildReceiptSha256": "4fe2628c4b7735230029614d92468c90161f8afb73b4ecb5b0ad7abec1724058",
+      "binary": "/tmp/miopunch-m102-20261019/ordinary-final-v3/pinned/ordinary",
+      "binarySha256": "b7b8a30dce868c6034dcb1a43923c6bc8f941b656d3ddf036b1de26e6e25e99c",
+      "fixedConsumerSha256": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1",
+      "actualConsumerPath": "/tmp/miopunch-m102-20261019/ordinary.rs",
+      "actualConsumerSha256": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1",
+      "cases": [
+        "single",
+        "healthy",
+        "slow_backup",
+        "blackhole_available",
+        "recovery"
+      ],
+      "records": [
+        {
+          "case": "single",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 2,
+          "ackCarrierB": 0,
+          "aPackets": 9,
+          "bPackets": 0,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "single",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "single",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "healthy",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 2,
+          "ackCarrierA": 1,
+          "ackCarrierB": 0,
+          "aPackets": 15,
+          "bPackets": 5,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "healthy",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "healthy",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "business",
+          "baselineMs": 3,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 1,
+          "ackCarrierB": 0,
+          "aPackets": 15,
+          "bPackets": 5,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "slow_backup",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": false,
+          "elapsedMs": 4000,
+          "ackCarrierA": 8,
+          "ackCarrierB": 0,
+          "aPackets": 22,
+          "bPackets": 5,
+          "aDropped": 8,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "close",
+          "observed": false,
+          "elapsedMs": 2001
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "recovery",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": false,
+          "elapsedMs": 4000,
+          "ackCarrierA": 8,
+          "ackCarrierB": 0,
+          "aPackets": 23,
+          "bPackets": 5,
+          "aDropped": 8,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "restored",
+          "elapsedMs": 29,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "recovery",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        }
+      ]
+    },
+    "probe-v3-run1": {
+      "exit": 0,
+      "seconds": 6.094072202220559,
+      "qualifiedRun": true,
+      "actualSelectedInputsVerifiedBeforeAndAfter": 2331,
+      "buildReceipt": "/tmp/miopunch-m102-20261019/ordinary-final-v3/receipt.json",
+      "buildReceiptSha256": "4fe2628c4b7735230029614d92468c90161f8afb73b4ecb5b0ad7abec1724058",
+      "binary": "/tmp/miopunch-m102-20261019/ordinary-final-v3/pinned/probe",
+      "binarySha256": "d12821ecc616d4bb9498705b8f38571294c3bcddbc8538a0b75271a5e909907c",
+      "fixedConsumerSha256": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1",
+      "actualConsumerPath": "/tmp/miopunch-m102-20261019/probe.rs",
+      "actualConsumerSha256": "30d01d18af8780b72c5a40f06a635c7f52a49231541d07425c0a5257c5337dde",
+      "cases": [
+        "healthy",
+        "slow_backup",
+        "blackhole_available",
+        "recovery"
+      ],
+      "records": [
+        {
+          "case": "healthy",
+          "stage": "explicitProbe",
+          "bothFreshAuthenticated": true,
+          "elapsedMs": 31
+        },
+        {
+          "case": "healthy",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 0,
+          "ackCarrierB": 1,
+          "aPackets": 16,
+          "bPackets": 8,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "healthy",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "healthy",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "explicitProbe",
+          "bothFreshAuthenticated": true,
+          "elapsedMs": 285
+        },
+        {
+          "case": "slow_backup",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 252,
+          "ackCarrierA": 0,
+          "ackCarrierB": 1,
+          "aPackets": 14,
+          "bPackets": 17,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "slow_backup",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "explicitProbe",
+          "bothFreshAuthenticated": true,
+          "elapsedMs": 30
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "business",
+          "baselineMs": 3,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 0,
+          "ackCarrierB": 1,
+          "aPackets": 16,
+          "bPackets": 8,
+          "aDropped": 1,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "backupPermission",
+          "queuedStreamStayedOffBackup": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "close",
+          "observed": false,
+          "elapsedMs": 2001
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "recovery",
+          "stage": "explicitProbe",
+          "bothFreshAuthenticated": true,
+          "elapsedMs": 30
+        },
+        {
+          "case": "recovery",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 0,
+          "ackCarrierB": 2,
+          "aPackets": 16,
+          "bPackets": 9,
+          "aDropped": 1,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "backupPermission",
+          "queuedStreamStayedOffBackup": true
+        },
+        {
+          "case": "recovery",
+          "stage": "restored",
+          "elapsedMs": 1,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "recovery",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        }
+      ]
+    },
+    "probe-v3-run2": {
+      "exit": 0,
+      "seconds": 6.082713212817907,
+      "qualifiedRun": true,
+      "actualSelectedInputsVerifiedBeforeAndAfter": 2331,
+      "buildReceipt": "/tmp/miopunch-m102-20261019/ordinary-final-v3/receipt.json",
+      "buildReceiptSha256": "4fe2628c4b7735230029614d92468c90161f8afb73b4ecb5b0ad7abec1724058",
+      "binary": "/tmp/miopunch-m102-20261019/ordinary-final-v3/pinned/probe",
+      "binarySha256": "d12821ecc616d4bb9498705b8f38571294c3bcddbc8538a0b75271a5e909907c",
+      "fixedConsumerSha256": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1",
+      "actualConsumerPath": "/tmp/miopunch-m102-20261019/probe.rs",
+      "actualConsumerSha256": "30d01d18af8780b72c5a40f06a635c7f52a49231541d07425c0a5257c5337dde",
+      "cases": [
+        "healthy",
+        "slow_backup",
+        "blackhole_available",
+        "recovery"
+      ],
+      "records": [
+        {
+          "case": "healthy",
+          "stage": "explicitProbe",
+          "bothFreshAuthenticated": true,
+          "elapsedMs": 30
+        },
+        {
+          "case": "healthy",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 0,
+          "ackCarrierB": 1,
+          "aPackets": 13,
+          "bPackets": 10,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "healthy",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "healthy",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "explicitProbe",
+          "bothFreshAuthenticated": true,
+          "elapsedMs": 280
+        },
+        {
+          "case": "slow_backup",
+          "stage": "business",
+          "baselineMs": 3,
+          "success": true,
+          "elapsedMs": 252,
+          "ackCarrierA": 0,
+          "ackCarrierB": 1,
+          "aPackets": 15,
+          "bPackets": 17,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "slow_backup",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "slow_backup",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "explicitProbe",
+          "bothFreshAuthenticated": true,
+          "elapsedMs": 31
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 0,
+          "ackCarrierB": 1,
+          "aPackets": 14,
+          "bPackets": 9,
+          "aDropped": 1,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "backupPermission",
+          "queuedStreamStayedOffBackup": true
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "close",
+          "observed": false,
+          "elapsedMs": 2001
+        },
+        {
+          "case": "blackhole_available",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "recovery",
+          "stage": "explicitProbe",
+          "bothFreshAuthenticated": true,
+          "elapsedMs": 30
+        },
+        {
+          "case": "recovery",
+          "stage": "business",
+          "baselineMs": 3,
+          "success": true,
+          "elapsedMs": 1,
+          "ackCarrierA": 0,
+          "ackCarrierB": 1,
+          "aPackets": 16,
+          "bPackets": 8,
+          "aDropped": 1,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "backupPermission",
+          "queuedStreamStayedOffBackup": true
+        },
+        {
+          "case": "recovery",
+          "stage": "restored",
+          "elapsedMs": 1,
+          "sameConnection": true
+        },
+        {
+          "case": "recovery",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "recovery",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        }
+      ]
+    },
+    "loss-v3-run1": {
+      "exit": 0,
+      "seconds": 0.7754605761729181,
+      "qualifiedRun": true,
+      "actualSelectedInputsVerifiedBeforeAndAfter": 2331,
+      "buildReceipt": "/tmp/miopunch-m102-20261019/ordinary-final-v3/receipt.json",
+      "buildReceiptSha256": "4fe2628c4b7735230029614d92468c90161f8afb73b4ecb5b0ad7abec1724058",
+      "binary": "/tmp/miopunch-m102-20261019/ordinary-final-v3/pinned/ordinary_loss",
+      "binarySha256": "31a8aa2300f16a23f838277e964364a860e7fd712971d4c727680e256531b7b6",
+      "fixedConsumerSha256": "b5609ceca6f000b3261b42d1d3d3fa66120b734c033a063e2fe2e75d72d561a1",
+      "actualConsumerPath": "/tmp/miopunch-m102-20261019/ordinary_loss.rs",
+      "actualConsumerSha256": "5ccd4e57d469198e0b3b03a7c0c6981207ac5149f510a27711da0c3aa592aa69",
+      "cases": [
+        "loss_recovery",
+        "slow_backup_loss"
+      ],
+      "records": [
+        {
+          "case": "loss_recovery",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 2,
+          "ackCarrierA": 2,
+          "ackCarrierB": 0,
+          "aPackets": 15,
+          "bPackets": 5,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "loss_recovery",
+          "stage": "loss",
+          "clientLostB": 1,
+          "injectedBClientDrops": 1
+        },
+        {
+          "case": "loss_recovery",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "loss_recovery",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        },
+        {
+          "case": "slow_backup_loss",
+          "stage": "business",
+          "baselineMs": 2,
+          "success": true,
+          "elapsedMs": 29,
+          "ackCarrierA": 2,
+          "ackCarrierB": 0,
+          "aPackets": 17,
+          "bPackets": 5,
+          "aDropped": 0,
+          "lostA": 0,
+          "lostB": 0,
+          "sameConnection": true
+        },
+        {
+          "case": "slow_backup_loss",
+          "stage": "loss",
+          "clientLostB": 1,
+          "injectedBClientDrops": 1
+        },
+        {
+          "case": "slow_backup_loss",
+          "stage": "close",
+          "observed": true,
+          "elapsedMs": 0
+        },
+        {
+          "case": "slow_backup_loss",
+          "stage": "cleanup",
+          "allActorsJoinedAndPortsRebound": true
+        }
+      ]
+    }
+  },
+  "regressionReds": {
+    "protocol-default-red": {
+      "qualified": true,
+      "exit": 101,
+      "testsPassed": 0,
+      "testsFailed": 1,
+      "expectedRed": true,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 0.4847992598079145,
+      "publicAlias": false,
+      "multicastLoopback": false,
+      "buildReceiptSha256": "cbb36fd28cf2fde4bb7c3ac028b4436f4debf64b14f5fb82696161706e40b7d8",
+      "driverSha256": "11527ca7663ed3a4e42a7cdf5014e66b0c1d105888df08232b6aefd2f164f891"
+    },
+    "protocol-binding-reset-red": {
+      "qualified": true,
+      "exit": 101,
+      "testsPassed": 0,
+      "testsFailed": 2,
+      "expectedRed": true,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 0.48431703681126237,
+      "publicAlias": false,
+      "multicastLoopback": false,
+      "buildReceiptSha256": "ae7760f3f2ae1afea1c6de49530ce7672a70e28300038b8107fdb01dbbfcdbf9",
+      "driverSha256": "11527ca7663ed3a4e42a7cdf5014e66b0c1d105888df08232b6aefd2f164f891"
+    },
+    "protocol-unknown-red": {
+      "qualified": true,
+      "exit": 101,
+      "testsPassed": 0,
+      "testsFailed": 1,
+      "expectedRed": true,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 0.46917970199137926,
+      "publicAlias": false,
+      "multicastLoopback": false,
+      "buildReceiptSha256": "19aa0d43217eac96514604061ff7ed94b787c5019960bb5f454657f4816f978a",
+      "driverSha256": "11527ca7663ed3a4e42a7cdf5014e66b0c1d105888df08232b6aefd2f164f891"
+    }
+  },
+  "invalidHistoricalPassiveFixture": {
+    "invalidPreparation": "A non-QNT ordinary server rejects new local-IP packets before the passive migration branch. The initial passive migration failure is not a product RED.",
+    "correction": "Receiver uses the client side where original local_ip_may_migrate is supported; real encrypted packet and ACK-carrier assertions retained.",
+    "validProductRed": "recoverable_network_change_clears_probe_preference_only_for_changed_binding failed before set_local_ip fix; its final case passed.",
+    "initialRawReceiptsRetained": [
+      "protocol-binding-reset-red/receipt.json",
+      "protocol-current/receipt.json"
+    ],
+    "productionFixUnchanged": true
+  },
+  "affectedTests": {
+    "protocol-final-v3": {
+      "qualified": true,
+      "exit": 0,
+      "testsPassed": 17,
+      "testsFailed": 0,
+      "expectedRed": false,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 1.0006246683187783,
+      "publicAlias": false,
+      "multicastLoopback": false,
+      "buildReceiptSha256": "0e83161480493940e83b375c73f9b13885acfcd1c0b71eb3ba3c3670ff680225",
+      "driverSha256": "11527ca7663ed3a4e42a7cdf5014e66b0c1d105888df08232b6aefd2f164f891"
+    },
+    "socket-final-v3": {
+      "qualified": true,
+      "exit": 0,
+      "testsPassed": 12,
+      "testsFailed": 0,
+      "expectedRed": false,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 34.89221552014351,
+      "publicAlias": false,
+      "multicastLoopback": false,
+      "buildReceiptSha256": "371dca4fb92dce44cd6a8b344d2afa67c669014ef90c1f902f0aa77d3999b72f",
+      "driverSha256": "11527ca7663ed3a4e42a7cdf5014e66b0c1d105888df08232b6aefd2f164f891"
+    },
+    "unified-final-v3": {
+      "qualified": true,
+      "exit": 0,
+      "testsPassed": 15,
+      "testsFailed": 0,
+      "expectedRed": false,
+      "networkNone": true,
+      "containerActuallyAbsent": true,
+      "forcedTermination": false,
+      "seconds": 32.90128104202449,
+      "publicAlias": false,
+      "multicastLoopback": true,
+      "buildReceiptSha256": "371dca4fb92dce44cd6a8b344d2afa67c669014ef90c1f902f0aa77d3999b72f",
+      "driverSha256": "11527ca7663ed3a4e42a7cdf5014e66b0c1d105888df08232b6aefd2f164f891"
+    },
+    "maintenance-final-v3-with-broker": {
+      "qualified": true,
+      "publicTraffic": false,
+      "forcedTermination": false,
+      "command": [
+        "rtk",
+        "proxy",
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "miopunch-m102-maintained-1792370771417083178",
+        "--network",
+        "container:miopunch-m102-owned-mqtt-1792370771417080272",
+        "--cap-add",
+        "NET_ADMIN",
+        "--env",
+        "MIOPUNCH_MQTT_BROKER=127.0.0.1:1883",
+        "--mount",
+        "type=bind,src=/tmp/miopunch-m102-20261019,dst=/task,readonly",
+        "--mount",
+        "type=bind,src=/tmp/miopunch-m102-20261019/maintenance-final-v3-with-broker,dst=/evidence",
+        "sha256:c9dbb88a37f58ae5105720e60bc5cc6eb40d8ad37106e57ce621d345b5ec62a2",
+        "python3",
+        "/task/isolated-multicast-loopback.py",
+        "/task/maintenance-final-v3/pinned/path_maintenance",
+        "--nocapture",
+        "--test-threads=1",
+        "--exact",
+        "control_paths_recover_a_new_tcp_carrier_within_the_original_connection_window",
+        "control_paths_stay_live_while_physical_business_loss_ends_queued_bytes",
+        "control_paths_recover_when_the_original_accepting_side_initiates",
+        "control_paths_do_not_report_stale_same_address_as_recovered",
+        "control_paths_never_recover_a_closed_business_connection",
+        "first_same_stream_survives_validated_tcp_to_udp_switch",
+        "living_paths_are_reevaluated_when_real_latency_changes"
+      ],
+      "buildReceiptSha256": "76c23b1606f96c035171ccf6dbc05510038dd99e1ebca114a382e50c45885b62",
+      "binarySha256": "f8af0e06eef2292c77b06dbaae4eb4aeaba16a4fd1913800858a591e91df79d6",
+      "driverSha256": "f45a5ce3d9233a50cc8b6d0b8e0b17cc215c89dcba746cf7c7b40aa90979d851",
+      "configSha256": "5bbf715cb2518197f7ad99ceff3986bf3e2b137798aae23613ce39cf5f24542c",
+      "actualSelectedInputs": 6619,
+      "brokerImage": "sha256:315e99cbcdc0133a74897e77da0eb7124eec55fc17b617188874e8240738ae39",
+      "testImage": "sha256:c9dbb88a37f58ae5105720e60bc5cc6eb40d8ad37106e57ce621d345b5ec62a2",
+      "sharedOwnedLoopbackOnly": true,
+      "actualBrokerReady": true,
+      "exit": 0,
+      "testsPassed": 7,
+      "testsFailed": 0,
+      "testsQualified": true,
+      "brokerStoppedNormally": true,
+      "brokerExitCode": 0,
+      "brokerActuallyAbsent": true,
+      "testContainerActuallyAbsent": true,
+      "allActualSelectedInputsAndArtifactsUnchangedAfterActors": true,
+      "seconds": 54.005396673921496
+    }
+  },
+  "outerTestsPassed": 51,
+  "finalBuilds": {
+    "proto-final-v3": {
+      "exit": 0,
+      "cargoSeconds": 10.768616528715938,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--manifest-path",
+        "/tmp/miopunch-m102-20261019/proto-selector/Cargo.toml",
+        "--locked",
+        "--offline",
+        "--lib",
+        "--no-run",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 145,
+      "rebuiltArtifacts": 1,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m102-20261019/proto-final-v3/pinned/noq_proto": "1d68aed63d34c5c03c1260faa4d36b72b7f95408ae88bf74ad7fb1a96eae5df3"
+      },
+      "actualSelectedInputCount": 1780,
+      "actualCapturedDepfileCount": 126,
+      "actualSourceCopyCount": 63,
+      "sourceDigestBefore": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54",
+      "sourceDigestAfter": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54",
+      "diskAfter": {
+        "freeBytes": 10997833728,
+        "cacheBytes": 102512525312
+      }
+    },
+    "ordinary-final-v3": {
+      "exit": 0,
+      "cargoSeconds": 7.1931257816031575,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--manifest-path",
+        "/tmp/miopunch-m102-20261019/fork-selector/Cargo.toml",
+        "--example",
+        "ordinary",
+        "--example",
+        "ordinary_loss",
+        "--example",
+        "probe",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 192,
+      "rebuiltArtifacts": 5,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m102-20261019/ordinary-final-v3/pinned/ordinary": "b7b8a30dce868c6034dcb1a43923c6bc8f941b656d3ddf036b1de26e6e25e99c",
+        "/tmp/miopunch-m102-20261019/ordinary-final-v3/pinned/probe": "d12821ecc616d4bb9498705b8f38571294c3bcddbc8538a0b75271a5e909907c",
+        "/tmp/miopunch-m102-20261019/ordinary-final-v3/pinned/ordinary_loss": "31a8aa2300f16a23f838277e964364a860e7fd712971d4c727680e256531b7b6"
+      },
+      "actualSelectedInputCount": 2331,
+      "actualCapturedDepfileCount": 176,
+      "actualSourceCopyCount": 67,
+      "sourceDigestBefore": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54",
+      "sourceDigestAfter": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54",
+      "diskAfter": {
+        "freeBytes": 10902740992,
+        "cacheBytes": 102512525312
+      }
+    },
+    "native-final-v3": {
+      "exit": 0,
+      "cargoSeconds": 43.349332614801824,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--manifest-path",
+        "/tmp/miopunch-m101-20261019/sdk-selector/Cargo.toml",
+        "--features",
+        "rtc-probe",
+        "--locked",
+        "--offline",
+        "--test",
+        "legacy_multi_socket",
+        "--test",
+        "unified_connection",
+        "--no-run",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 521,
+      "rebuiltArtifacts": 11,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m102-20261019/native-final-v3/pinned/legacy_multi_socket": "09c7e770840c57f52086ff231e5de7ad4087772ae812b2f337fadfc6798590e1",
+        "/tmp/miopunch-m102-20261019/native-final-v3/pinned/native_sdk_counterpart": "f58404dfeaa38c75077682756474cd2f6bee453b515b046a7d7410d6f6eff8dd",
+        "/tmp/miopunch-m102-20261019/native-final-v3/pinned/unified_connection": "f97dae3170392977c0319722ce11cabc29f815c265829642351edc46b102e0aa",
+        "/tmp/miopunch-m102-20261019/native-final-v3/pinned/miopunch-native-probe": "7524fc8e8042ca7192b310b57a4080c1ce098c0eacc91472188f023b59b2094a"
+      },
+      "actualSelectedInputCount": 6631,
+      "actualCapturedDepfileCount": 481,
+      "actualSourceCopyCount": 304,
+      "sourceDigestBefore": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54",
+      "sourceDigestAfter": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54",
+      "diskAfter": {
+        "freeBytes": 10489376768,
+        "cacheBytes": 102512537600
+      }
+    },
+    "browser-final-v3": {
+      "exit": 0,
+      "cargoSeconds": 22.143706128932536,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "miopunch-browser-probe",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--features",
+        "rtc-probe",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 291,
+      "rebuiltArtifacts": 5,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m102-20261019/browser-final-v3/miopunch_browser_probe.wasm": "6fbaf10334ca2bedd036b9f864c79e7e92ee2aeb13213f56164071d0f01d85c4",
+        "/tmp/miopunch-m102-20261019/browser-final-v3/pkg/miopunch_browser_probe_bg.wasm": "1dde5931fa1481b6665fcd65acf09f56b6f17a5a0e5b7351da71fb6ab8787f98",
+        "/tmp/miopunch-m102-20261019/browser-final-v3/pkg/miopunch_browser_probe_bg.wasm.d.ts": "8ff8262526f5b757036085ee949efd7a9446d40a7b190529a81fe34342347ff6",
+        "/tmp/miopunch-m102-20261019/browser-final-v3/pkg/miopunch_browser_probe.js": "e1a76f1dd469531906e7f41ecce25606994fb4677e11dd24c72f343136500a10",
+        "/tmp/miopunch-m102-20261019/browser-final-v3/pkg/miopunch_browser_probe.d.ts": "5e32a31236b89872b32934454164ff64dd45cabe21cd4565ecbc5ca7b9c53c1e",
+        "/tmp/miopunch-m102-20261019/browser-final-v3/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+        "/tmp/miopunch-m102-20261019/browser-final-v3/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96"
+      },
+      "actualSelectedInputCount": 3162,
+      "actualCapturedDepfileCount": 264,
+      "actualSourceCopyCount": 201,
+      "sourceDigestBefore": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54",
+      "sourceDigestAfter": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54",
+      "diskAfter": {
+        "freeBytes": 10871549952,
+        "cacheBytes": 102512529408
+      }
+    },
+    "maintenance-final-v3": {
+      "exit": 0,
+      "cargoSeconds": 6.041759413667023,
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--manifest-path",
+        "/tmp/miopunch-m102-20261019/maintenance-selector/Cargo.toml",
+        "--features",
+        "rtc-probe",
+        "--locked",
+        "--offline",
+        "--test",
+        "path_maintenance",
+        "--no-run",
+        "--jobs",
+        "2",
+        "--message-format=json"
+      ],
+      "freshArtifacts": 528,
+      "rebuiltArtifacts": 1,
+      "qualifiedForFrozenRun": true,
+      "sourceFrozenDuringBuild": true,
+      "artifacts": {
+        "/tmp/miopunch-m102-20261019/maintenance-final-v3/pinned/path_maintenance": "f8af0e06eef2292c77b06dbaae4eb4aeaba16a4fd1913800858a591e91df79d6"
+      },
+      "actualSelectedInputCount": 6619,
+      "actualCapturedDepfileCount": 478,
+      "actualSourceCopyCount": 292,
+      "sourceDigestBefore": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54",
+      "sourceDigestAfter": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54",
+      "diskAfter": {
+        "freeBytes": 11092013056,
+        "cacheBytes": 102512529408
+      }
+    }
+  },
+  "selectedInputContinuity": {
+    "proto-final-v3": {
+      "buildReceiptSha256": "0e83161480493940e83b375c73f9b13885acfcd1c0b71eb3ba3c3670ff680225",
+      "buildContextSha256": "2aa1ff39eb5e17ceb88a0d17cb1bb704511a7ff07f9b2f4c1c16bc11c75647f6",
+      "selectedInputManifestSha256": "b0a77f982d1a64f07175c97eac03adef9be038745e47470d15b660f2f128f15f",
+      "selectedInputs": 1780,
+      "repositoryInputs": 63,
+      "allActualSelectedInputsAndArtifactsCurrent": true,
+      "compiledGlobalSourceDigest": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54"
+    },
+    "ordinary-final-v3": {
+      "buildReceiptSha256": "4fe2628c4b7735230029614d92468c90161f8afb73b4ecb5b0ad7abec1724058",
+      "buildContextSha256": "f8624ea2af5149059118a354c91af7ddc688ce95deb21245f200628e29e63f88",
+      "selectedInputManifestSha256": "2a37b052c6857f448f6441959a0b43191b5781efa51abb8a9a8cc773fa678abe",
+      "selectedInputs": 2331,
+      "repositoryInputs": 67,
+      "allActualSelectedInputsAndArtifactsCurrent": true,
+      "compiledGlobalSourceDigest": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54"
+    },
+    "native-final-v3": {
+      "buildReceiptSha256": "371dca4fb92dce44cd6a8b344d2afa67c669014ef90c1f902f0aa77d3999b72f",
+      "buildContextSha256": "fd276d56adaf40ae916b8b11fb24efd6627ab302b2009edc0eb13f4b9ab7c370",
+      "selectedInputManifestSha256": "c3f37d4b5bc19f83d150d1040294e9bd859c9b96552a9ab5459c0eeedf67d5ae",
+      "selectedInputs": 6631,
+      "repositoryInputs": 304,
+      "allActualSelectedInputsAndArtifactsCurrent": true,
+      "compiledGlobalSourceDigest": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54"
+    },
+    "browser-final-v3": {
+      "buildReceiptSha256": "fecb331546afb32d9fc3e580e173a54f22c1eae373550950fbcdf335782a0122",
+      "buildContextSha256": "798984bfd178cc200f618a5a5aee8054b1276fd0e02e21e09ecc9bbf9259813f",
+      "selectedInputManifestSha256": "147aa5b9996210f49b2fbf6b8a2af93ce8fb76b4585aeacaf5213a335c30ea87",
+      "selectedInputs": 3162,
+      "repositoryInputs": 201,
+      "allActualSelectedInputsAndArtifactsCurrent": true,
+      "compiledGlobalSourceDigest": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54"
+    },
+    "maintenance-final-v3": {
+      "buildReceiptSha256": "76c23b1606f96c035171ccf6dbc05510038dd99e1ebca114a382e50c45885b62",
+      "buildContextSha256": "aea4224ab59e1ee71b0b7c0f2a5f68e9fe9641957b31a09995fae64c42f52e68",
+      "selectedInputManifestSha256": "fc34617a000234b6f79d01836235e75019a1b29c2563eb82ac4ce8872cef84ee",
+      "selectedInputs": 6619,
+      "repositoryInputs": 292,
+      "allActualSelectedInputsAndArtifactsCurrent": true,
+      "compiledGlobalSourceDigest": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54"
+    }
+  },
+  "fullCurrentSdk": {
+    "execution": {
+      "publicTraffic": false,
+      "passed": true,
+      "containers": [
+        {
+          "name": "miopunch-m102-owned-irc-1792370784775514156",
+          "removed": true,
+          "stoppedBeforeRemoval": true,
+          "exitCode": 0
+        }
+      ],
+      "cleanup": {
+        "relayExit": 0,
+        "relayGraceful": true,
+        "relayProcessAbsent": true
+      },
+      "imageId": "sha256:7277abd08bc94df484d5dee3e0c082fd2bf4cd290bfed249fd1647866a19c093",
+      "relayStarted": true,
+      "runtimeExit": 0,
+      "functionalAndSdkCleanupQualified": true,
+      "rawReceiptSha256": "689beb9c39f74eb0c08cdc123799776e5175fd34b98a727927a20fa27edd2c31",
+      "sourceArtifactControllerUnchangedAfterRuntime": true,
+      "wholeWallMs": 14947.035683784634,
+      "sourceDigest": "6d5e2bcdcb76f911e31dc6e02bfcb216bae278d6ed8bdfba011a274194307a54",
+      "qualified": true
+    },
+    "privateRawReceiptSha256": "689beb9c39f74eb0c08cdc123799776e5175fd34b98a727927a20fa27edd2c31",
+    "requestMs": 650.8000001907349,
+    "strictRestrictedRequest": true,
+    "approvalRecords": 1,
+    "bothMaterialsDurable": true,
+    "sameBrowserIdentityReopened": true,
+    "sameNativeIdentityReopened": true,
+    "memberReply": "PONG",
+    "websocketsClosedBeforeContext": true,
+    "nativeExit": {
+      "code": 0,
+      "signal": null
+    },
+    "ownedFixtureRemoved": true,
+    "privateMaterialCleanup": {
+      "sdkAndActorCleanupQualifiedBeforeSecretRemoval": true,
+      "containersActuallyAbsent": true,
+      "runtimeReceiptSha256": "689beb9c39f74eb0c08cdc123799776e5175fd34b98a727927a20fa27edd2c31",
+      "removedGeneratedKeys": [
+        {
+          "path": "private-fixture/ca.key",
+          "bytes": 1704
+        },
+        {
+          "path": "private-fixture/leaf.key",
+          "bytes": 1704
+        }
+      ],
+      "privateNssRemoved": true,
+      "remainingPrivateKeys": 0
+    }
+  },
+  "reviews": {
+    "Standards": 0,
+    "Spec": 0,
+    "reviewersReranChecks": false
+  },
+  "scope": "Ordinary Noq default cross-path ACK restored; existing start_path_probe/Path.start_probe explicitly selects current local binding own Backup ACK; clears on changed or unknown local IP, including None-to-None recovery. Current maintenance and whole SDK loopback acceptance passed. No claim of a universal defect fix or stale-Available close-routing fix; public/physical/all-platform matrix remains separately scoped."
+}
