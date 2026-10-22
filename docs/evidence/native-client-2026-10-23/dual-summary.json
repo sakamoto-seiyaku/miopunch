@@ -1,0 +1,440 @@
+{
+  "ticket": "MIOPUNCH-112",
+  "sourceBaseline": "acac1d729a9e22919f0eaa87b81515c2edfb5284 plus preserved starting worktree",
+  "runReceipt": "/tmp/m112-dual-20261023-1",
+  "linuxBuildReceipt": "/tmp/miopunch-m112-20261023/build-linux-2",
+  "linuxPinRepair": "/tmp/miopunch-m112-20261023/linux-pin-repair.json",
+  "windowsBuildReceipt": "/tmp/miopunch-m112-20261023/build-windows-2",
+  "pins": {
+    "linux": "/home/js/Git/miopunch/.artifacts/runs/m112-linux-2/miopunch-client",
+    "linux_sha": "df00bfe7910f16ad49c5e2447cf12755b8a275afbd5f25c9fe6da0a228b3e655",
+    "windows": "/home/js/Git/miopunch/.artifacts/runs/build-windows-2/miopunch-client.exe",
+    "windows_sha": "d85165cd21934febe2ed401383bc484967dc58336f2bdafe8b6e6aa285b3372f"
+  },
+  "result": {
+    "passed": true,
+    "cleanup": [
+      {
+        "host": "linux-creates-creator",
+        "exit": 0
+      },
+      {
+        "host": "linux-creates-joiner",
+        "exit": 0
+      },
+      {
+        "host": "linux-creates-joiner-reopen",
+        "exit": 0
+      },
+      {
+        "host": "linux-creates-joiner-reopen-reopen",
+        "exit": 0
+      },
+      {
+        "host": "linux-creates-creator-reopen",
+        "exit": 0
+      },
+      {
+        "host": "linux-creates-precode",
+        "exit": 0
+      },
+      {
+        "host": "linux-creates-precode-reopen",
+        "exit": 0
+      },
+      {
+        "host": "linux-creates-precode-reopen-reopen",
+        "exit": 0
+      },
+      {
+        "host": "windows-creates-creator",
+        "exit": 0
+      },
+      {
+        "host": "windows-creates-joiner",
+        "exit": 0
+      },
+      {
+        "host": "windows-creates-joiner-reopen",
+        "exit": 0
+      },
+      {
+        "host": "windows-creates-joiner-reopen-reopen",
+        "exit": 0
+      },
+      {
+        "host": "windows-creates-creator-reopen",
+        "exit": 0
+      },
+      {
+        "host": "windows-creates-precode",
+        "exit": 0
+      },
+      {
+        "host": "windows-creates-precode-reopen",
+        "exit": 0
+      },
+      {
+        "host": "windows-creates-precode-reopen-reopen",
+        "exit": 0
+      }
+    ]
+  },
+  "successfulBusinessExchanges": 16,
+  "requestStages": {
+    "AwaitingApproval": 4,
+    "PendingMaterials": 4,
+    "Complete": 8
+  },
+  "expectedRejections": [
+    {
+      "host": "linux-creates-joiner",
+      "operation": "ping",
+      "result": {
+        "error": "operation_failed",
+        "id": 2,
+        "ok": false
+      }
+    },
+    {
+      "host": "linux-creates-joiner",
+      "operation": "ping",
+      "result": {
+        "error": "operation_failed",
+        "id": 10,
+        "ok": false
+      }
+    },
+    {
+      "host": "windows-creates-joiner",
+      "operation": "ping",
+      "result": {
+        "error": "operation_failed",
+        "id": 39,
+        "ok": false
+      }
+    },
+    {
+      "host": "windows-creates-joiner",
+      "operation": "ping",
+      "result": {
+        "error": "operation_failed",
+        "id": 47,
+        "ok": false
+      }
+    }
+  ],
+  "businessPathEvidence": [
+    {
+      "host": "linux-creates-creator",
+      "id": 15,
+      "transport": {
+        "connection": 101122190346976,
+        "paths": [
+          {
+            "local": "Ip(Some(192.168.4.5))",
+            "remote": {
+              "Ip": "192.168.1.64:61064"
+            },
+            "rx_bytes": 9089,
+            "selected": true,
+            "tx_bytes": 11950
+          }
+        ],
+        "peer": "2f3507670ec19f7b8bbc331084b1b53171e7c801d7e66f65c71ee94a229b6a58"
+      }
+    },
+    {
+      "host": "linux-creates-joiner-reopen",
+      "id": 16,
+      "transport": {
+        "connection": 2268130815344,
+        "paths": [
+          {
+            "local": "Ip(Some(100.64.10.8))",
+            "remote": {
+              "Ip": "192.168.4.5:45560"
+            },
+            "rx_bytes": 6595,
+            "selected": true,
+            "tx_bytes": 23131
+          }
+        ],
+        "peer": "eba727dc5030df6a4bc13ebe9a88d2a7d807740f41725114c23db0e21a8c4a5f"
+      }
+    },
+    {
+      "host": "linux-creates-creator-reopen",
+      "id": 19,
+      "transport": {
+        "connection": 106937308580624,
+        "paths": [
+          {
+            "local": "Ip(Some(192.168.4.5))",
+            "remote": {
+              "Ip": "100.64.10.8:61080"
+            },
+            "rx_bytes": 5190,
+            "selected": true,
+            "tx_bytes": 20036
+          }
+        ],
+        "peer": "2f3507670ec19f7b8bbc331084b1b53171e7c801d7e66f65c71ee94a229b6a58"
+      }
+    },
+    {
+      "host": "linux-creates-joiner-reopen-reopen",
+      "id": 20,
+      "transport": {
+        "connection": 2204176828352,
+        "paths": [
+          {
+            "local": "Ip(Some(100.64.10.8))",
+            "remote": {
+              "Ip": "192.168.4.5:43722"
+            },
+            "rx_bytes": 7676,
+            "selected": true,
+            "tx_bytes": 21746
+          }
+        ],
+        "peer": "eba727dc5030df6a4bc13ebe9a88d2a7d807740f41725114c23db0e21a8c4a5f"
+      }
+    },
+    {
+      "host": "linux-creates-creator-reopen",
+      "id": 30,
+      "transport": {
+        "connection": 106937308633760,
+        "paths": [
+          {
+            "local": "Ip(Some(192.168.4.5))",
+            "remote": {
+              "Ip": "192.168.1.64:61108"
+            },
+            "rx_bytes": 11591,
+            "selected": true,
+            "tx_bytes": 13024
+          }
+        ],
+        "peer": "f7f91e556dfd8f10e963c4817d4681ce4d1280759c26ab06a27ee486c850baa9"
+      }
+    },
+    {
+      "host": "linux-creates-precode-reopen",
+      "id": 31,
+      "transport": {
+        "connection": 1526929274384,
+        "paths": [
+          {
+            "local": "Ip(Some(100.64.10.8))",
+            "remote": {
+              "Ip": "192.168.4.5:43722"
+            },
+            "rx_bytes": 6379,
+            "selected": true,
+            "tx_bytes": 20532
+          }
+        ],
+        "peer": "eba727dc5030df6a4bc13ebe9a88d2a7d807740f41725114c23db0e21a8c4a5f"
+      }
+    },
+    {
+      "host": "linux-creates-creator-reopen",
+      "id": 33,
+      "transport": {
+        "connection": 106937308481856,
+        "paths": [
+          {
+            "local": "Ip(Some(192.168.4.5))",
+            "remote": {
+              "Ip": "192.168.1.64:61121"
+            },
+            "rx_bytes": 9040,
+            "selected": true,
+            "tx_bytes": 10444
+          }
+        ],
+        "peer": "f7f91e556dfd8f10e963c4817d4681ce4d1280759c26ab06a27ee486c850baa9"
+      }
+    },
+    {
+      "host": "linux-creates-precode-reopen-reopen",
+      "id": 34,
+      "transport": {
+        "connection": 2302273154672,
+        "paths": [
+          {
+            "local": "Ip(Some(100.64.10.8))",
+            "remote": {
+              "Ip": "192.168.4.5:43722"
+            },
+            "rx_bytes": 6337,
+            "selected": true,
+            "tx_bytes": 20360
+          }
+        ],
+        "peer": "eba727dc5030df6a4bc13ebe9a88d2a7d807740f41725114c23db0e21a8c4a5f"
+      }
+    },
+    {
+      "host": "windows-creates-creator",
+      "id": 52,
+      "transport": {
+        "connection": 2210558110112,
+        "paths": [
+          {
+            "local": "Ip(Some(100.64.10.8))",
+            "remote": {
+              "Ip": "192.168.4.5:45345"
+            },
+            "rx_bytes": 6295,
+            "selected": true,
+            "tx_bytes": 20333
+          }
+        ],
+        "peer": "737e5de352f6b5e429c9d03ab041037f08ccea95bea1227dab4699c0e62af4bf"
+      }
+    },
+    {
+      "host": "windows-creates-joiner-reopen",
+      "id": 53,
+      "transport": {
+        "connection": 94193426442432,
+        "paths": [
+          {
+            "local": "Ip(Some(192.168.4.5))",
+            "remote": {
+              "Ip": "192.168.1.64:61141"
+            },
+            "rx_bytes": 10387,
+            "selected": true,
+            "tx_bytes": 11520
+          }
+        ],
+        "peer": "976a7cdbc10b73d4e27f3fdbeff502676dc8ed916f40e6697a97a154a8a18319"
+      }
+    },
+    {
+      "host": "windows-creates-creator-reopen",
+      "id": 56,
+      "transport": {
+        "connection": 2469312489728,
+        "paths": [
+          {
+            "local": "Ip(Some(100.64.10.8))",
+            "remote": {
+              "Ip": "192.168.4.5:44654"
+            },
+            "rx_bytes": 5099,
+            "selected": true,
+            "tx_bytes": 20271
+          }
+        ],
+        "peer": "737e5de352f6b5e429c9d03ab041037f08ccea95bea1227dab4699c0e62af4bf"
+      }
+    },
+    {
+      "host": "windows-creates-joiner-reopen-reopen",
+      "id": 57,
+      "transport": {
+        "connection": 111358196482288,
+        "paths": [
+          {
+            "local": "Ip(Some(192.168.4.5))",
+            "remote": {
+              "Ip": "192.168.1.64:54813"
+            },
+            "rx_bytes": 11564,
+            "selected": true,
+            "tx_bytes": 11870
+          }
+        ],
+        "peer": "976a7cdbc10b73d4e27f3fdbeff502676dc8ed916f40e6697a97a154a8a18319"
+      }
+    },
+    {
+      "host": "windows-creates-creator-reopen",
+      "id": 67,
+      "transport": {
+        "connection": 2469312489248,
+        "paths": [
+          {
+            "local": "Ip(Some(100.64.10.8))",
+            "remote": {
+              "Ip": "192.168.4.5:43873"
+            },
+            "rx_bytes": 6436,
+            "selected": true,
+            "tx_bytes": 20596
+          }
+        ],
+        "peer": "459cbcc2049cdb4955d1f86eaed3df312e097c3260903917f6385f4a2e749144"
+      }
+    },
+    {
+      "host": "windows-creates-precode-reopen",
+      "id": 68,
+      "transport": {
+        "connection": 95048926334816,
+        "paths": [
+          {
+            "local": "Ip(Some(192.168.4.5))",
+            "remote": {
+              "Ip": "192.168.1.64:54813"
+            },
+            "rx_bytes": 9182,
+            "selected": true,
+            "tx_bytes": 11448
+          }
+        ],
+        "peer": "976a7cdbc10b73d4e27f3fdbeff502676dc8ed916f40e6697a97a154a8a18319"
+      }
+    },
+    {
+      "host": "windows-creates-creator-reopen",
+      "id": 70,
+      "transport": {
+        "connection": 2469312489216,
+        "paths": [
+          {
+            "local": "Ip(Some(100.64.10.8))",
+            "remote": {
+              "Ip": "192.168.4.5:45094"
+            },
+            "rx_bytes": 6388,
+            "selected": true,
+            "tx_bytes": 20379
+          }
+        ],
+        "peer": "459cbcc2049cdb4955d1f86eaed3df312e097c3260903917f6385f4a2e749144"
+      }
+    },
+    {
+      "host": "windows-creates-precode-reopen-reopen",
+      "id": 71,
+      "transport": {
+        "connection": 97547806904176,
+        "paths": [
+          {
+            "local": "Ip(Some(192.168.4.5))",
+            "remote": {
+              "Ip": "192.168.1.64:54813"
+            },
+            "rx_bytes": 11602,
+            "selected": true,
+            "tx_bytes": 12247
+          }
+        ],
+        "peer": "976a7cdbc10b73d4e27f3fdbeff502676dc8ed916f40e6697a97a154a8a18319"
+      }
+    }
+  ],
+  "qualification": "Actual Windows PE and Linux SDK over available VPN/IP paths; no SSH business tunnel and no VPN-free WAN NAT qualification",
+  "sourceLockSha256": {
+    "Cargo.toml": "64c21c456112156acde174dc6aad6e1b235d101b776643e832d7295a65590979",
+    "Cargo.lock": "34101f38f3db0aaa539a5fabe46746a0b13077cd24bcb817abaf6a8002dd926b",
+    "src/native_client.rs": "199ca643a624f444f6d1d1ad0e0030263b1adba7d539e4ec8eedcacec72d15db",
+    "src/bin/miopunch-client.rs": "bb3cbea3b851ae04473b75bdfb829e925cecc950e221f036e39324eeae873971"
+  }
+}

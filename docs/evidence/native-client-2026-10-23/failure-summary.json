@@ -1,0 +1,172 @@
+{
+  "receipt": "/tmp/m112-failures-20261023-3",
+  "result": {
+    "passed": true,
+    "cleanup": [
+      {
+        "host": "input-linux",
+        "exit": 0
+      },
+      {
+        "host": "input-linux-reopen",
+        "exit": 0
+      },
+      {
+        "host": "input-windows",
+        "exit": 0
+      },
+      {
+        "host": "input-windows-reopen",
+        "exit": 0
+      },
+      {
+        "host": "laptop",
+        "action": "owned_process_check",
+        "forced": 0,
+        "remaining": 0
+      }
+    ]
+  },
+  "failureChecks": [
+    {
+      "host": "host",
+      "op": "invalid_invitation",
+      "answer": {
+        "exit": 1,
+        "state_created": false
+      },
+      "monotonic": 2599895.360223512
+    },
+    {
+      "host": "laptop",
+      "op": "invalid_invitation",
+      "answer": {
+        "exit": 1,
+        "state_created": false
+      },
+      "monotonic": 2599898.081048148
+    },
+    {
+      "host": "input-linux",
+      "op": "malformed_command",
+      "answer": {
+        "error": "invalid_command",
+        "id": null,
+        "ok": false
+      },
+      "monotonic": 2599898.285908262
+    },
+    {
+      "host": "input-linux",
+      "op": "malformed_command",
+      "answer": {
+        "error": "invalid_command",
+        "id": null,
+        "ok": false
+      },
+      "monotonic": 2599898.287157871
+    },
+    {
+      "host": "input-linux",
+      "op": "malformed_command",
+      "answer": {
+        "error": "invalid_command",
+        "id": null,
+        "ok": false
+      },
+      "monotonic": 2599898.28742524
+    },
+    {
+      "host": "input-windows",
+      "op": "malformed_command",
+      "answer": {
+        "error": "invalid_command",
+        "id": null,
+        "ok": false
+      },
+      "monotonic": 2599900.187052388
+    },
+    {
+      "host": "input-windows",
+      "op": "malformed_command",
+      "answer": {
+        "error": "invalid_command",
+        "id": null,
+        "ok": false
+      },
+      "monotonic": 2599900.218383269
+    },
+    {
+      "host": "input-windows",
+      "op": "malformed_command",
+      "answer": {
+        "error": "invalid_command",
+        "id": null,
+        "ok": false
+      },
+      "monotonic": 2599900.22655255
+    },
+    {
+      "host": "laptop",
+      "op": "cleanup",
+      "answer": {
+        "forced": 0,
+        "remaining": 0
+      },
+      "monotonic": 2599903.777691196
+    }
+  ],
+  "preservedStartupFailure": {
+    "receipt": "/tmp/m112-failures-20261023-2",
+    "windowsOsErrorCode": 5,
+    "classification": "PermissionDenied before ready; underlying operation/cause not identified",
+    "claimedFixed": false
+  },
+  "narrowDiagnosis": {
+    "receipt": "/tmp/m112-windows-create-diagnosis-20261023-1",
+    "hypotheses": [
+      "transient external file or directory handle during atomic publication",
+      "path-specific ACL or owned directory permission",
+      "native durable-store initialization failure"
+    ],
+    "attempts": [
+      {
+        "attempt": 0,
+        "ready": true,
+        "exit": 0
+      },
+      {
+        "attempt": 1,
+        "ready": true,
+        "exit": 0
+      },
+      {
+        "attempt": 2,
+        "ready": true,
+        "exit": 0
+      }
+    ],
+    "sameParentDirectoryCreateRenameRemove": true,
+    "cleanup": [
+      {
+        "host": "create-repro-0",
+        "exit": 0
+      },
+      {
+        "host": "create-repro-1",
+        "exit": 0
+      },
+      {
+        "host": "create-repro-2",
+        "exit": 0
+      },
+      {
+        "host": "laptop",
+        "action": "owned_process_check",
+        "forced": 0,
+        "remaining": 0
+      }
+    ]
+  },
+  "qualificationLimit": "One unexplained Windows startup PermissionDenied occurred. Same-parent directory rename probe and three subsequent same-pin independent native creates succeeded; final focused input/reopen/cleanup checks passed. No SDK retry or machine ACL change was introduced."
+}
