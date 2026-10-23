@@ -1,0 +1,2224 @@
+{
+  "schemaVersion": 2,
+  "ticket": "MIOPUNCH-113",
+  "date": "2026-10-23",
+  "rawEvidenceRoot": ".artifacts/runs/m113-max-20261023",
+  "currentBuilds": [
+    {
+      "receipt": ".artifacts/runs/m113-linux-retirement-12/build.json",
+      "receiptSHA256": "0e5bf1edecf6f2dedd62440a199419086d918039eb11b351ea40d9cf66e4f3d6",
+      "platform": "linux",
+      "binary": "miopunch-client",
+      "profile": "dev",
+      "features": [],
+      "exit": 0,
+      "freshArtifacts": 465,
+      "rebuiltArtifacts": 2,
+      "selectedRepositoryInputCount": 286,
+      "selectedDepfileCount": 424,
+      "sha256": "e796ef47ccf9efbb855d32855d9acfeddc3029fe815b38d96c36415a277f5ff6",
+      "pin": "/home/js/Git/miopunch/.artifacts/runs/m113-linux-retirement-12/miopunch-client"
+    },
+    {
+      "receipt": ".artifacts/runs/m113-windows-retirement-12/build.json",
+      "receiptSHA256": "678b585fdb416f88d273b8bdd07095e7444f76b9991ba92b0faeca3d712c35a2",
+      "platform": "windows",
+      "binary": "miopunch-client",
+      "profile": "dev",
+      "features": [],
+      "exit": 0,
+      "freshArtifacts": 526,
+      "rebuiltArtifacts": 2,
+      "selectedRepositoryInputCount": 286,
+      "selectedDepfileCount": 485,
+      "sha256": "d7722b0f6dc7468b561f6820d64331b85cf70b129a42453a38974bbd46dced6c",
+      "pin": "/home/js/Git/miopunch/.artifacts/runs/m113-windows-retirement-12/miopunch-client.exe",
+      "compilerCleanupExit": 0
+    },
+    {
+      "receipt": ".artifacts/runs/m113-linux-retirement-probe-12/build.json",
+      "receiptSHA256": "fb566117b87a632059659cbb6a394a3b9b6397463ad615bd977fe086b2e94400",
+      "platform": "linux",
+      "binary": "client_resource_probe",
+      "profile": "dev",
+      "features": [],
+      "exit": 0,
+      "freshArtifacts": 466,
+      "rebuiltArtifacts": 1,
+      "selectedRepositoryInputCount": 286,
+      "selectedDepfileCount": 424,
+      "sha256": "ea01104eaaf32d8c73364c95e30499954ae41f0ce44c524cef689e065a6f4018",
+      "pin": "/home/js/Git/miopunch/.artifacts/runs/m113-linux-retirement-probe-12/client_resource_probe"
+    },
+    {
+      "receipt": ".artifacts/runs/m113-wasm-flow-3/build.json",
+      "receiptSHA256": "a091c95d0b6ea61088122cd268bf996bd2b0c522a7a72c90d8521f3f49e5ac84",
+      "platform": "wasm32-unknown-unknown",
+      "profile": "dev",
+      "features": [
+        "rtc-probe"
+      ],
+      "exit": 0,
+      "freshArtifacts": 295,
+      "rebuiltArtifacts": 1,
+      "selectedRepositoryInputCount": 201,
+      "selectedDepfileCount": 263,
+      "packageSHA256": "2d7795e4de579035eb24e4ea1c70ee2c098d0ac6cd3d6917178ccd7446bf0ce6",
+      "compiledPin": "/home/js/Git/miopunch/.artifacts/runs/m113-wasm-flow-3/compiled.wasm",
+      "artifacts": {
+        "compiled.d.ts": "bc0aaa186fccc45eaeeb4b0d6698b6638e214ebf4fe1af1911c15bb937b5bcb1",
+        "compiled.js": "3ea8c4abd60d4e152c19bd2517cb78b21c2adac5d8276e353d7188059486aa65",
+        "compiled_bg.wasm": "e714451cce14d3f15c86f650fa0523f7684e8441fad2417a4d974d8a09790850",
+        "compiled_bg.wasm.d.ts": "2a04d3f0b978ee17f68e3ea4db17808cae7b025cf87d419e1cd3955f5d6b5c8d",
+        "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+        "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "e0b1251063fc30f76e163d8a293ffbe9f40948d2a7242c7758e2ee4837cdfaa0"
+      }
+    }
+  ],
+  "fullSuiteBuilds": [
+    {
+      "receipt": ".artifacts/runs/m113-linux-review-6/build.json",
+      "receiptSHA256": "56f4af159c32fe4b07b1b9f124970a6d17b5da44b5af0fbeb8045ee81689dccd",
+      "platform": "linux",
+      "profile": "dev",
+      "features": [],
+      "exit": 0,
+      "freshArtifacts": 465,
+      "rebuiltArtifacts": 2,
+      "selectedRepositoryInputCount": 286,
+      "selectedDepfileCount": 424,
+      "sha256": "fc32a3a53c5518117823c2472777739d90ceca5dd9338b55b67bc70c9f48b9d8",
+      "pin": "/home/js/Git/miopunch/.artifacts/runs/m113-linux-review-6/miopunch-client"
+    },
+    {
+      "receipt": ".artifacts/runs/m113-windows-review-6/build.json",
+      "receiptSHA256": "a2155f0f6522041ffa7ebc23b5aa50a9c7582d71cddacf51c571a9b6c8516e5e",
+      "platform": "windows",
+      "profile": "dev",
+      "features": [],
+      "exit": 0,
+      "freshArtifacts": 526,
+      "rebuiltArtifacts": 2,
+      "selectedRepositoryInputCount": 286,
+      "selectedDepfileCount": 485,
+      "sha256": "e8199db8b37603497f3683e1c4462182e5cdc85daf8dc17d139ca6a41ba02228",
+      "pin": "/home/js/Git/miopunch/.artifacts/runs/m113-windows-review-6/miopunch-client.exe",
+      "compilerCleanupExit": 0
+    },
+    {
+      "receipt": ".artifacts/runs/m113-linux-pair-fix-4/build.json",
+      "receiptSHA256": "438826fd5ffc11dd097091acb750a54c37f9c7aceeb4b87dd848805fcf407953",
+      "platform": "linux",
+      "profile": "dev",
+      "features": [],
+      "exit": 0,
+      "freshArtifacts": 465,
+      "rebuiltArtifacts": 2,
+      "selectedRepositoryInputCount": 286,
+      "selectedDepfileCount": 424,
+      "sha256": "0c2a26c55df483cea9666a6a8a4f159af56c45255314b85ae93117fec7085963",
+      "pin": "/home/js/Git/miopunch/.artifacts/runs/m113-linux-pair-fix-4/miopunch-client"
+    },
+    {
+      "receipt": ".artifacts/runs/m113-wasm-flow-3/build.json",
+      "receiptSHA256": "a091c95d0b6ea61088122cd268bf996bd2b0c522a7a72c90d8521f3f49e5ac84",
+      "platform": "wasm32-unknown-unknown",
+      "profile": "dev",
+      "features": [
+        "rtc-probe"
+      ],
+      "exit": 0,
+      "freshArtifacts": 295,
+      "rebuiltArtifacts": 1,
+      "selectedRepositoryInputCount": 201,
+      "selectedDepfileCount": 263,
+      "packageSHA256": "2d7795e4de579035eb24e4ea1c70ee2c098d0ac6cd3d6917178ccd7446bf0ce6",
+      "compiledPin": "/home/js/Git/miopunch/.artifacts/runs/m113-wasm-flow-3/compiled.wasm",
+      "artifacts": {
+        "compiled.d.ts": "bc0aaa186fccc45eaeeb4b0d6698b6638e214ebf4fe1af1911c15bb937b5bcb1",
+        "compiled.js": "3ea8c4abd60d4e152c19bd2517cb78b21c2adac5d8276e353d7188059486aa65",
+        "compiled_bg.wasm": "e714451cce14d3f15c86f650fa0523f7684e8441fad2417a4d974d8a09790850",
+        "compiled_bg.wasm.d.ts": "2a04d3f0b978ee17f68e3ea4db17808cae7b025cf87d419e1cd3955f5d6b5c8d",
+        "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+        "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "e0b1251063fc30f76e163d8a293ffbe9f40948d2a7242c7758e2ee4837cdfaa0"
+      }
+    }
+  ],
+  "qualification": {
+    "nativeFull": {
+      "scope": "Complete Native6 Windows/Linux suite after creator export ordering, pairing retry/anchor and atomic-private-file changes.",
+      "result": ".artifacts/runs/m113-max-20261023/native-review-full-6/result.json",
+      "resultSHA256": "179548a0fdad1a8f40b208fb314eb4902372fc25f182380516b78332fa0b31d3",
+      "passed": true,
+      "nativeProcesses": 46,
+      "memberExchanges": 16,
+      "selectedRouteKinds": {
+        "Ip": 16
+      },
+      "cleanup": [
+        {
+          "host": "linux-creates",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-manual-applicant",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-manual-applicant-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-manual-applicant-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-manual-applicant-reopen-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-precode-applicant",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-precode-applicant-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-precode-applicant-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-pair-receiver",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-pair-wrong-receiver",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-pair-impostor",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-pair-receiver-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-sender",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-wss-alias",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-logical-alias",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-replacement",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-replacement-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-disabled-use",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-disabled-use-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-disabled-origin",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-disabled-origin-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-manual-applicant",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-manual-applicant-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-manual-applicant-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-manual-applicant-reopen-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-precode-applicant",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-precode-applicant-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-precode-applicant-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-pair-receiver",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-pair-wrong-receiver",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-pair-impostor",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-pair-receiver-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-sender",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-wss-alias",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-logical-alias",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-replacement",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-replacement-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-disabled-use",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-disabled-use-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-disabled-origin",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-disabled-origin-reopen",
+          "exit": 0
+        },
+        {
+          "host": "laptop",
+          "action": "owned_process_check",
+          "forced": 0,
+          "remaining": 0
+        }
+      ],
+      "privateExportsRemoved": true,
+      "qualifiedChecks": [
+        {
+          "actor": "linux-creates",
+          "check": "recovery_qualified",
+          "facts": {
+            "plain": true,
+            "optional_encryption": true,
+            "wrong_password_rejected": true,
+            "ciphertext_change_rejected": true,
+            "canonical_create_roundtrip": true,
+            "explicit_save_durable": true
+          }
+        },
+        {
+          "actor": "linux-creates-manual",
+          "check": "rejection_qualified",
+          "facts": {
+            "retry_stopped": true,
+            "rejected_attempt_durable": true,
+            "explicit_fresh_attempt": true,
+            "approval_idempotent": true,
+            "saved_before_complete": true,
+            "offline_membership_retained": true
+          }
+        },
+        {
+          "actor": "linux-creates-pair",
+          "check": "pairing_qualified",
+          "facts": {
+            "wrong_sender_rejected": true,
+            "wrong_network_invitation_rejected_before_delivery": true,
+            "substituted_peer_and_routes_rejected": true,
+            "substituted_material_rejected": true,
+            "failed_publication_not_acknowledged": true,
+            "same_delivery_retry": true,
+            "received_identity_preserved": true,
+            "ordinary_admission_still_required": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources",
+          "check": "contact_policy_qualified",
+          "facts": {
+            "senderDisabledUsesNotOffered": true,
+            "disabledWssAndLogicalMappingsNotExportedRaw": true,
+            "explicitEmptyReplacementRetained": true,
+            "disabledUsesRetained": true,
+            "disabledOriginRetained": true,
+            "fallbackDidNotReenable": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates",
+          "check": "recovery_qualified",
+          "facts": {
+            "plain": true,
+            "optional_encryption": true,
+            "wrong_password_rejected": true,
+            "ciphertext_change_rejected": true,
+            "canonical_create_roundtrip": true,
+            "explicit_save_durable": true
+          }
+        },
+        {
+          "actor": "windows-creates-manual",
+          "check": "rejection_qualified",
+          "facts": {
+            "retry_stopped": true,
+            "rejected_attempt_durable": true,
+            "explicit_fresh_attempt": true,
+            "approval_idempotent": true,
+            "saved_before_complete": true,
+            "offline_membership_retained": true
+          }
+        },
+        {
+          "actor": "windows-creates-pair",
+          "check": "pairing_qualified",
+          "facts": {
+            "wrong_sender_rejected": true,
+            "wrong_network_invitation_rejected_before_delivery": true,
+            "substituted_peer_and_routes_rejected": true,
+            "substituted_material_rejected": true,
+            "failed_publication_not_acknowledged": true,
+            "same_delivery_retry": true,
+            "received_identity_preserved": true,
+            "ordinary_admission_still_required": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources",
+          "check": "contact_policy_qualified",
+          "facts": {
+            "senderDisabledUsesNotOffered": true,
+            "disabledWssAndLogicalMappingsNotExportedRaw": true,
+            "explicitEmptyReplacementRetained": true,
+            "disabledUsesRetained": true,
+            "disabledOriginRetained": true,
+            "fallbackDidNotReenable": true,
+            "durableReopen": true
+          }
+        }
+      ]
+    },
+    "browserFull": {
+      "scope": "Complete WASM3 with Native4 suite, nine independent actual Chromium153.0.8010.12 profiles, including original-issuer-offline fresh-admin continuation.",
+      "result": ".artifacts/runs/m113-max-20261023/browser-final-1/result.json",
+      "resultSHA256": "70a895ac4f521a7078dc4f3250b06246d10f1f9d6c3d30d340a57838af99e4aa",
+      "passed": true,
+      "nativeProcesses": 13,
+      "memberExchanges": 0,
+      "selectedRouteKinds": {},
+      "cleanup": [
+        {
+          "host": "native-provider",
+          "exit": 0
+        },
+        {
+          "host": "native-manual",
+          "exit": 0
+        },
+        {
+          "host": "native-manual-reopen",
+          "exit": 0
+        },
+        {
+          "host": "native-manual-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "native-manual-reopen-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "native-precode",
+          "exit": 0
+        },
+        {
+          "host": "native-precode-reopen",
+          "exit": 0
+        },
+        {
+          "host": "native-precode-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "pairing-impostor",
+          "exit": 0
+        },
+        {
+          "host": "native-pair",
+          "exit": 0
+        },
+        {
+          "host": "native-pair-reopen",
+          "exit": 0
+        },
+        {
+          "host": "native-continuation",
+          "exit": 0
+        },
+        {
+          "host": "native-continuation-resume",
+          "exit": 0
+        }
+      ],
+      "privateExportsRemoved": true,
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "browser-manual",
+            "closed": true
+          },
+          {
+            "actor": "browser-precode",
+            "closed": true
+          },
+          {
+            "actor": "browser-creator",
+            "closed": true
+          },
+          {
+            "actor": "resource-denial",
+            "closed": true
+          },
+          {
+            "actor": "resource-sender",
+            "closed": true
+          },
+          {
+            "actor": "browser-pair",
+            "closed": true
+          },
+          {
+            "actor": "browser-pair-wrong",
+            "closed": true
+          },
+          {
+            "actor": "browser-member",
+            "closed": true
+          },
+          {
+            "actor": "browser-continuation",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "qualifiedChecks": [
+        {
+          "actor": "browser-manual",
+          "check": "browser_join_qualified",
+          "facts": {
+            "precode": false,
+            "realNativeProvider": true,
+            "rejectedAttemptStops": true,
+            "explicitFreshRequest": true,
+            "authorizationBeforeSecret": true,
+            "progressRetained": true,
+            "offlineMembershipRetained": true,
+            "idempotentGrant": true,
+            "precodeUsedOnce": false
+          }
+        },
+        {
+          "actor": "browser-precode",
+          "check": "browser_join_qualified",
+          "facts": {
+            "precode": true,
+            "realNativeProvider": true,
+            "rejectedAttemptStops": false,
+            "explicitFreshRequest": false,
+            "authorizationBeforeSecret": true,
+            "progressRetained": true,
+            "offlineMembershipRetained": true,
+            "idempotentGrant": true,
+            "precodeUsedOnce": true
+          }
+        },
+        {
+          "actor": "browser-creator",
+          "check": "browser_recovery_qualified",
+          "facts": {
+            "actualIndexedDB": true,
+            "independentCreator": true,
+            "optionalEncryption": true,
+            "failedSaveNotAcknowledged": true,
+            "originalCredentialRoundtrip": true,
+            "wrongPasswordAndTamperRejected": true,
+            "explicitSavedGateDurable": true
+          }
+        },
+        {
+          "actor": "native-manual",
+          "check": "browser_provider_qualified",
+          "facts": {
+            "realNativeApplicant": true,
+            "precode": false,
+            "rejectionAndFreshAttempt": true,
+            "authorizationBeforeSecret": true,
+            "durableCompletion": true
+          }
+        },
+        {
+          "actor": "native-precode",
+          "check": "browser_provider_qualified",
+          "facts": {
+            "realNativeApplicant": true,
+            "precode": true,
+            "rejectionAndFreshAttempt": false,
+            "authorizationBeforeSecret": true,
+            "durableCompletion": true
+          }
+        },
+        {
+          "actor": "resources",
+          "check": "browser_contact_policy_qualified",
+          "facts": {
+            "explicitEmptyReplacementRetained": true,
+            "fallbackDidNotReenable": true,
+            "senderDisabledOriginNotOffered": true
+          }
+        },
+        {
+          "actor": "pairing",
+          "check": "native_browser_pairing_qualified",
+          "facts": {
+            "nativeToBrowser": true,
+            "browserToNative": true,
+            "wrongSenderRejected": true,
+            "substitutedPeerRoutesRejected": true,
+            "substitutedMaterialRejected": true,
+            "failedSaveNotAcknowledged": true,
+            "sameMaterialRetry": true,
+            "durableIdentityPreserved": true,
+            "ordinaryApprovalStillRequired": true
+          }
+        },
+        {
+          "actor": "browser-member",
+          "check": "real_wasm_member_exchange_qualified",
+          "facts": {
+            "independentIdentities": true,
+            "realIndexedDBReopen": true,
+            "messages": 2,
+            "sdkMemberProtocol": true
+          }
+        },
+        {
+          "actor": "continuation",
+          "check": "new_admin_precode_qualified",
+          "facts": {
+            "realNativeAndWasm": true,
+            "originalIssuerOffline": true,
+            "newCodeConsumedOnce": true,
+            "existingValidMembershipRetained": true,
+            "noDuplicateGrant": true,
+            "originalAuthorizationRetained": true,
+            "nodeIdentitiesRetained": true
+          }
+        }
+      ]
+    },
+    "browserAffectedPairing": {
+      "scope": "Affected Native6/WASM3 pairing and actual Browser member exchange after shared private-file helper change.",
+      "result": ".artifacts/runs/m113-max-20261023/browser-review-pair-6/result.json",
+      "resultSHA256": "fdece5c8c863cc12ee25b7a27ebea3b5c2aaad1f9a6a5b3130cec8f1670950ed",
+      "passed": true,
+      "nativeProcesses": 4,
+      "memberExchanges": 0,
+      "selectedRouteKinds": {},
+      "cleanup": [
+        {
+          "host": "native-provider",
+          "exit": 0
+        },
+        {
+          "host": "pairing-impostor",
+          "exit": 0
+        },
+        {
+          "host": "native-pair",
+          "exit": 0
+        },
+        {
+          "host": "native-pair-reopen",
+          "exit": 0
+        }
+      ],
+      "privateExportsRemoved": true,
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "browser-creator",
+            "closed": true
+          },
+          {
+            "actor": "browser-pair",
+            "closed": true
+          },
+          {
+            "actor": "browser-pair-wrong",
+            "closed": true
+          },
+          {
+            "actor": "browser-member",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "qualifiedChecks": [
+        {
+          "actor": "browser-creator",
+          "check": "browser_recovery_qualified",
+          "facts": {
+            "actualIndexedDB": true,
+            "independentCreator": true,
+            "optionalEncryption": true,
+            "failedSaveNotAcknowledged": true,
+            "originalCredentialRoundtrip": true,
+            "wrongPasswordAndTamperRejected": true,
+            "explicitSavedGateDurable": true
+          }
+        },
+        {
+          "actor": "pairing",
+          "check": "native_browser_pairing_qualified",
+          "facts": {
+            "nativeToBrowser": true,
+            "browserToNative": true,
+            "wrongCanonicalNetworkRejected": true,
+            "wrongSenderRejected": true,
+            "substitutedPeerRoutesRejected": true,
+            "substitutedMaterialRejected": true,
+            "failedSaveNotAcknowledged": true,
+            "sameMaterialRetry": true,
+            "durableIdentityPreserved": true,
+            "ordinaryApprovalStillRequired": true
+          }
+        },
+        {
+          "actor": "browser-member",
+          "check": "real_wasm_member_exchange_qualified",
+          "facts": {
+            "independentIdentities": true,
+            "realIndexedDBReopen": true,
+            "messages": 2,
+            "sdkMemberProtocol": true
+          }
+        }
+      ]
+    },
+    "configuredAndImportedResources": {
+      "scope": "Native10 complete configured resource matrix and sixteen actual public import cases on both platforms. Later Native12 adds shared raw recovery selection and physical live retirement.",
+      "result": ".artifacts/runs/m113-max-20261023/expanded-resource-import-final-10b/result.json",
+      "resultSHA256": "5cfc1b6348e396e089e436835ea945cc450e929434c8a7b25f7b94cd3e018fb8",
+      "passed": true,
+      "nativeProcesses": 88,
+      "memberExchanges": 32,
+      "selectedRouteKinds": {
+        "Ip": 32
+      },
+      "cleanup": [
+        {
+          "host": "linux-creates",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-sender",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-exact-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-exact-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-absolute-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-absolute-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-default-port-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-default-port-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-allowed-mapping",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-allowed-raw",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-native-default-denial-False",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-native-default-denial-True",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-exact-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-exact-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-absolute-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-absolute-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-default-port-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-default-port-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-allowed-mapping",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-allowed-raw",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-native-default-denial-False",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-native-default-denial-True",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-replacement",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-replacement-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-disabled-use",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-disabled-use-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-disabled-origin",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-disabled-origin-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-wss-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-logical-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-no-extra-permission",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-no-extra-permission-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-permitted",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-permitted-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-wss-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-logical-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-no-extra-permission",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-no-extra-permission-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-permitted",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-permitted-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-sender",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-exact-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-exact-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-absolute-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-absolute-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-default-port-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-default-port-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-allowed-mapping",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-allowed-raw",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-native-default-denial-False",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-native-default-denial-True",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-exact-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-exact-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-absolute-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-absolute-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-default-port-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-default-port-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-allowed-mapping",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-allowed-raw",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-native-default-denial-False",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-native-default-denial-True",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-replacement",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-replacement-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-disabled-use",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-disabled-use-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-disabled-origin",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-disabled-origin-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-wss-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-logical-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-no-extra-permission",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-no-extra-permission-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-permitted",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-permitted-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-wss-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-logical-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-no-extra-permission",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-no-extra-permission-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-permitted",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-permitted-reopen",
+          "exit": 0
+        },
+        {
+          "host": "laptop",
+          "action": "owned_process_check",
+          "forced": 0,
+          "remaining": 0
+        }
+      ],
+      "privateExportsRemoved": true,
+      "qualifiedChecks": [
+        {
+          "actor": "linux-creates-resources-import-mqtt-wss",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources-import-mqtt-logical",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources-import-mqtt-no-extra-permission",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources-import-mqtt-permitted",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": false,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources-import-irc-wss",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources-import-irc-logical",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources-import-irc-no-extra-permission",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources-import-irc-permitted",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": false,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources",
+          "check": "contact_policy_qualified",
+          "facts": {
+            "senderDisabledUsesNotOffered": true,
+            "disabledWssAndLogicalMappingsNotExportedRaw": true,
+            "explicitEmptyReplacementRetained": true,
+            "disabledUsesRetained": true,
+            "disabledOriginRetained": true,
+            "fallbackDidNotReenable": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-mqtt-wss",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-mqtt-logical",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-mqtt-no-extra-permission",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-mqtt-permitted",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": false,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-irc-wss",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-irc-logical",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-irc-no-extra-permission",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-irc-permitted",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": false,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources",
+          "check": "contact_policy_qualified",
+          "facts": {
+            "senderDisabledUsesNotOffered": true,
+            "disabledWssAndLogicalMappingsNotExportedRaw": true,
+            "explicitEmptyReplacementRetained": true,
+            "disabledUsesRetained": true,
+            "disabledOriginRetained": true,
+            "fallbackDidNotReenable": true,
+            "durableReopen": true
+          }
+        }
+      ]
+    },
+    "existingRunnerCurrent": {
+      "scope": "Original CLI runner on both Native6 platforms, including required creator saved acknowledgment.",
+      "result": ".artifacts/runs/m113-max-20261023/existing-runner-current-6/result.json",
+      "resultSHA256": "f26b9a1ad3608cf31c76870e382c605cf9888a7588b895d1ab824be1f97b838d",
+      "passed": true,
+      "nativeProcesses": 16,
+      "memberExchanges": 16,
+      "selectedRouteKinds": {
+        "Ip": 16
+      },
+      "cleanup": [
+        {
+          "host": "linux-creates-creator",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-joiner",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-joiner-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-joiner-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-creator-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-precode",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-precode-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-precode-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-creator",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-joiner",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-joiner-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-joiner-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-creator-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-precode",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-precode-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-precode-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "laptop",
+          "action": "owned_process_check",
+          "forced": 0,
+          "remaining": 0
+        }
+      ],
+      "privateExportsRemoved": null,
+      "qualifiedChecks": []
+    },
+    "existingRunnerM112Compatibility": {
+      "scope": "Same corrected original runner with accepted old M112 Linux pin.",
+      "result": ".artifacts/runs/m113-max-20261023/existing-runner-old-m112/result.json",
+      "resultSHA256": "9cd61fb71783cd32db4e7bb2634daa8dff50ba23c448a6be841b6b57e35ba077",
+      "passed": true,
+      "nativeProcesses": 8,
+      "memberExchanges": 8,
+      "selectedRouteKinds": {
+        "Ip": 8
+      },
+      "cleanup": [
+        {
+          "host": "linux-creates-creator",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-joiner",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-joiner-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-joiner-reopen-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-creator-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-precode",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-precode-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-precode-reopen-reopen",
+          "exit": 0
+        }
+      ],
+      "privateExportsRemoved": null,
+      "qualifiedChecks": []
+    },
+    "currentNativeResourceRegression": {
+      "scope": "Native12 complete affected configured/import matrix on both actual platforms with both Signaling and Lookup resource uses.",
+      "result": ".artifacts/runs/m113-max-20261023/retirement-resource-final-12/result.json",
+      "resultSHA256": "5cfc1b6348e396e089e436835ea945cc450e929434c8a7b25f7b94cd3e018fb8",
+      "passed": true,
+      "nativeProcesses": 88,
+      "memberExchanges": 32,
+      "selectedRouteKinds": {
+        "Ip": 32
+      },
+      "cleanup": [
+        {
+          "host": "linux-creates",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-sender",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-exact-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-exact-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-absolute-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-absolute-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-default-port-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-default-port-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-allowed-mapping",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-allowed-raw",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-native-default-denial-False",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-mqtt-native-default-denial-True",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-exact-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-exact-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-absolute-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-absolute-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-default-port-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-default-port-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-allowed-mapping",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-allowed-raw",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-native-default-denial-False",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-irc-native-default-denial-True",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-replacement",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-replacement-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-disabled-use",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-disabled-use-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-disabled-origin",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-disabled-origin-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-wss-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-logical-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-no-extra-permission",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-no-extra-permission-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-permitted",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-mqtt-permitted-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-wss",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-wss-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-logical",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-logical-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-no-extra-permission",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-no-extra-permission-reopen",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-permitted",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-resources-import-irc-permitted-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-sender",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-exact-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-exact-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-absolute-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-absolute-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-default-port-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-default-port-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-allowed-mapping",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-allowed-raw",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-native-default-denial-False",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-mqtt-native-default-denial-True",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-exact-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-exact-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-absolute-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-absolute-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-default-port-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-default-port-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-allowed-mapping",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-allowed-raw",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-native-default-denial-False",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-irc-native-default-denial-True",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-replacement",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-replacement-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-disabled-use",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-disabled-use-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-disabled-origin",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-disabled-origin-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-wss-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-logical-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-no-extra-permission",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-no-extra-permission-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-permitted",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-mqtt-permitted-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-wss",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-wss-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-logical",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-logical-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-no-extra-permission",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-no-extra-permission-reopen",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-permitted",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-resources-import-irc-permitted-reopen",
+          "exit": 0
+        },
+        {
+          "host": "laptop",
+          "action": "owned_process_check",
+          "forced": 0,
+          "remaining": 0
+        }
+      ],
+      "privateExportsRemoved": true,
+      "qualifiedChecks": [
+        {
+          "actor": "linux-creates-resources-import-mqtt-wss",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources-import-mqtt-logical",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources-import-mqtt-no-extra-permission",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources-import-mqtt-permitted",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": false,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources-import-irc-wss",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources-import-irc-logical",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources-import-irc-no-extra-permission",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources-import-irc-permitted",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": false,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "linux-creates-resources",
+          "check": "contact_policy_qualified",
+          "facts": {
+            "senderDisabledUsesNotOffered": true,
+            "disabledWssAndLogicalMappingsNotExportedRaw": true,
+            "explicitEmptyReplacementRetained": true,
+            "disabledUsesRetained": true,
+            "disabledOriginRetained": true,
+            "fallbackDidNotReenable": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-mqtt-wss",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-mqtt-logical",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-mqtt-no-extra-permission",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-mqtt-permitted",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": false,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-irc-wss",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-irc-logical",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-irc-no-extra-permission",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": true,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources-import-irc-permitted",
+          "check": "import_policy_qualified",
+          "facts": {
+            "mappingMetadataRetained": true,
+            "explicitReplacementAndDenialRetained": true,
+            "noSignalingPermissionGrantedByMetadata": false,
+            "independentApprovalRequired": true,
+            "durableReopen": true
+          }
+        },
+        {
+          "actor": "windows-creates-resources",
+          "check": "contact_policy_qualified",
+          "facts": {
+            "senderDisabledUsesNotOffered": true,
+            "disabledWssAndLogicalMappingsNotExportedRaw": true,
+            "explicitEmptyReplacementRetained": true,
+            "disabledUsesRetained": true,
+            "disabledOriginRetained": true,
+            "fallbackDidNotReenable": true,
+            "durableReopen": true
+          }
+        }
+      ]
+    }
+  },
+  "currentBrokerContactRegression": {
+    "scope": "Native12 public client startup plus existing public maintenance-owner technical probe; actual pinned Mosquitto contacts, live retirement, subsequent queries, independently observed replies and durable reopen.",
+    "result": ".artifacts/runs/m113-max-20261023/live-retirement-green-12/result.json",
+    "resultSHA256": "747381a905754369b0e91848965fd1874ee14ab671dc2d81b85a619c0213703c",
+    "passed": true,
+    "brokerImage": "sha256:315e99cbcdc0133a74897e77da0eb7124eec55fc17b617188874e8240738ae39",
+    "observations": [
+      {
+        "case": "disabled-wss",
+        "actualDiscoveryContacts": [
+          0,
+          0
+        ],
+        "expectedDiscoveryContacts": [
+          0,
+          0
+        ]
+      },
+      {
+        "case": "disabled-logical",
+        "actualDiscoveryContacts": [
+          0,
+          0
+        ],
+        "expectedDiscoveryContacts": [
+          0,
+          0
+        ]
+      },
+      {
+        "case": "signaling-only",
+        "actualDiscoveryContacts": [
+          0,
+          0
+        ],
+        "expectedDiscoveryContacts": [
+          0,
+          0
+        ]
+      },
+      {
+        "case": "lookup-only",
+        "actualDiscoveryContacts": [
+          0,
+          0
+        ],
+        "expectedDiscoveryContacts": [
+          0,
+          0
+        ]
+      },
+      {
+        "case": "permitted-raw",
+        "actualDiscoveryContacts": [
+          1,
+          0
+        ],
+        "expectedDiscoveryContacts": [
+          1,
+          0
+        ],
+        "actualPublicDiscoveryReplyVerified": true
+      },
+      {
+        "case": "unrelated-permitted-lookup",
+        "actualDiscoveryContacts": [
+          0,
+          1
+        ],
+        "expectedDiscoveryContacts": [
+          0,
+          1
+        ],
+        "actualPublicDiscoveryReplyVerified": true
+      },
+      {
+        "case": "live-physical-origin-retirement",
+        "remainingDisabledSubscriptions": 0,
+        "subsequentQueryContacts": [
+          0,
+          1
+        ],
+        "discoveryRounds": 1,
+        "unrelatedSubscriptionRetained": true,
+        "savedDenialRetainedOnReopen": true,
+        "unrelatedReplyVerifiedAfterReopen": true
+      }
+    ],
+    "cleanup": [
+      {
+        "host": "disabled-wss",
+        "exit": 0
+      },
+      {
+        "host": "disabled-logical",
+        "exit": 0
+      },
+      {
+        "host": "signaling-only",
+        "exit": 0
+      },
+      {
+        "host": "lookup-only",
+        "exit": 0
+      },
+      {
+        "host": "permitted-raw",
+        "exit": 0
+      },
+      {
+        "host": "unrelated-permitted-lookup",
+        "exit": 0
+      },
+      {
+        "host": "retirement",
+        "exit": 0
+      },
+      {
+        "host": "retirement-reopen",
+        "exit": 0
+      },
+      {
+        "broker": "m113-contact-policy-1792751966249394022-0",
+        "removed": true
+      },
+      {
+        "broker": "m113-contact-policy-1792751966603335284-1",
+        "removed": true
+      },
+      {
+        "broker": "m113-contact-policy-1792751969786565690-2",
+        "removed": true
+      }
+    ],
+    "privateExportsRemoved": true
+  },
+  "validationStrategy": "Complete Native6 and WASM3 baseline suites plus all subsequently affected Native resource/import and broker-contact regressions. Unchanged WASM selected inputs and unrelated slow NAT graphs were reused, not rebuilt or repeatedly qualified.",
+  "networkScope": "Available VPN/Tailscale/IP and explicitly permitted browser/native bootstrap relays; no VPN-free WAN/NAT-matrix qualification. SSH only deploys, controls and transfers private invitation material.",
+  "provenance": "Fresh listed build source snapshots/selected depfiles/raw Cargo and runtime receipts are retained. Pre-transfer /tmp originals were erased; they are not reconstructed.",
+  "retainedFailures": [
+    "review-import-metadata-red",
+    "lookup-contact-red-10",
+    "review-irc-alias-red",
+    "review-origin-alias-red",
+    "native-save-red-1",
+    "native-invite-anchor-red",
+    "pair-save-debug-confirmed",
+    "browser-pairing-1",
+    "expanded-resource-fixture-failure-9",
+    "import-direct-only-fixture-failure-10",
+    "expanded-resource-startup-failure-9b",
+    "import-purpose-order-fixture-failure-11",
+    "live-retirement-red-11"
+  ],
+  "limitations": [
+    "The isolated Windows startup OS5 occurred again before readiness in Native9. Raw failed result and cleanup are retained; root cause is not claimed fixed. Later Native10 and current Native12 full resource/import runs passed.",
+    "Actual carrier observation uses owned local MQTT brokers; no new public MQTT/IRC or RTC/NAT success-rate claim."
+  ],
+  "notClaimed": [
+    "product UI",
+    "M111 RTC fix",
+    "M116 per-operation genesis confirmation/custody/management recovery",
+    "Android lifecycle",
+    "successor business modules"
+  ],
+  "wasmSelectedCurrentInputMatches": 201,
+  "nativeCurrentFrozenInputMatches": 508,
+  "currentRuntimeControllerMatches": 8
+}

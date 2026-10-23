@@ -2,6 +2,7 @@
 use miopunch_native_probe::{
     manual_admission::AdmissionRequest,
     native_client::{ClientError, ClientInvitation, NativeClient},
+    native_pairing::NativePairing,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -17,10 +18,32 @@ struct Request {
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 enum Command {
+    ExportRecoveryCard {
+        path: String,
+        password_path: Option<String>,
+    },
+    AcknowledgeRecoverySaved,
+    InspectRecoveryCard {
+        path: String,
+        password_path: Option<String>,
+    },
     Status,
     Address,
     Invite {
         path: String,
+        #[serde(default)]
+        text: bool,
+    },
+    PairingInformation {
+        path: String,
+    },
+    PairingStatus,
+    FinishPairing {
+        path: String,
+    },
+    DeliverInvitation {
+        pairing_path: String,
+        invitation_path: String,
     },
     IssuePrecode {
         path: String,
@@ -36,6 +59,13 @@ enum Command {
         authorization_only: bool,
     },
     Requests,
+    Reject {
+        applicant: String,
+        request_id: String,
+    },
+    NewManualAttempt {
+        path: String,
+    },
     Approve {
         applicant: String,
         request_id: String,
@@ -46,9 +76,12 @@ enum Command {
     Stop,
 }
 fn read_invitation(path: &str) -> Result<ClientInvitation, ClientError> {
-    ClientInvitation::decode(&std::fs::read(path)?)
+    Ok(ClientInvitation::decode(&std::fs::read(path)?)?)
 }
 fn save_invitation(path: &str, invitation: &ClientInvitation) -> Result<Value, ClientError> {
+    save_private(path, &invitation.encode()?)
+}
+fn save_private(path: &str, bytes: &[u8]) -> Result<Value, ClientError> {
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]
@@ -57,22 +90,74 @@ fn save_invitation(path: &str, invitation: &ClientInvitation) -> Result<Value, C
         options.mode(0o600);
     }
     let mut file = options.open(path)?;
-    file.write_all(&invitation.encode()?)?;
+    file.write_all(bytes)?;
     file.sync_all()?;
     Ok(json!({"saved":true}))
 }
 async fn status(client: &NativeClient) -> Value {
     let status = client.status().await;
     json!({"node":status.node.node_id.to_string(), "network":status.node.anchor.root.to_string(),
-        "stage":format!("{:?}",status.admission), "records":status.node.applied_count,
+        "genesis":status.node.anchor.genesis.to_string(),
+        "stage":if !status.recovery_saved {"AwaitingRecoverySave".into()} else if status.manual_rejected {"Rejected".into()} else {format!("{:?}",status.admission)},
+        "automatic_retry":!status.manual_rejected,
+        "recovery_saved":status.recovery_saved, "records":status.node.applied_count,
         "members":status.node.members.iter().map(|(key,role)| json!({"node":key.to_string(),
             "role":if *role == p2panda_auth::Access::manage() {"admin"} else {"member"}})).collect::<Vec<_>>()})
 }
 async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, ClientError> {
     match command {
+        Command::ExportRecoveryCard {
+            path,
+            password_path,
+        } => {
+            let password = password_path.map(std::fs::read_to_string).transpose()?;
+            client
+                .export_recovery_card_to(&path, password.as_deref())
+                .await?;
+            Ok(json!({"saved":true}))
+        }
+        Command::AcknowledgeRecoverySaved => {
+            client.acknowledge_recovery_saved().await?;
+            Ok(json!({"saved_acknowledged":true}))
+        }
+        Command::InspectRecoveryCard {
+            path,
+            password_path,
+        } => {
+            let password = password_path.map(std::fs::read_to_string).transpose()?;
+            let card = miopunch_native_probe::recovery_card::RecoveryCard::import(
+                &std::fs::read_to_string(path)?,
+                password.as_deref(),
+            )?;
+            Ok(
+                json!({"network":card.anchor().root.to_string(),"genesis":card.anchor().genesis.to_string()}),
+            )
+        }
         Command::Status => Ok(status(client).await),
         Command::Address => Ok(json!({"address":client.address()})),
-        Command::Invite { path } => save_invitation(&path, &client.invitation().await?),
+        Command::Invite { path, text } => {
+            let invitation = client.invitation().await?;
+            if text {
+                save_private(&path, invitation.text()?.as_bytes())
+            } else {
+                save_invitation(&path, &invitation)
+            }
+        }
+        Command::DeliverInvitation {
+            pairing_path,
+            invitation_path,
+        } => {
+            let pairing = miopunch_native_probe::invitation_pairing::PairingInfo::decode(
+                &std::fs::read(pairing_path)?,
+            )?;
+            client
+                .deliver_invitation(&pairing, &read_invitation(&invitation_path)?)
+                .await?;
+            Ok(json!({"invitation_saved":true}))
+        }
+        Command::PairingInformation { .. }
+        | Command::PairingStatus
+        | Command::FinishPairing { .. } => Err("not a pairing receiver".into()),
         Command::IssuePrecode {
             path,
             seconds,
@@ -93,12 +178,33 @@ async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, Clie
             authorization_only,
         } => {
             let invitation = read_invitation(&path)?;
-            let stage = if authorization_only {
-                client.receive_authorization(&invitation).await?
+            let result = if authorization_only {
+                client.receive_authorization(&invitation).await
             } else {
-                client.request_admission(&invitation).await?
+                client.request_admission(&invitation).await
             };
+            if client.status().await.manual_rejected {
+                return Ok(json!({"stage":"Rejected","automatic_retry":false}));
+            }
+            let stage = result?;
             Ok(json!({"stage":format!("{stage:?}")}))
+        }
+        Command::NewManualAttempt { path } => {
+            client.new_manual_attempt(&read_invitation(&path)?).await?;
+            Ok(json!({"stage":"AwaitingApproval"}))
+        }
+        Command::Reject {
+            applicant,
+            request_id,
+        } => {
+            let request = AdmissionRequest {
+                applicant: applicant.parse()?,
+                request_id: hex::decode(request_id)?
+                    .try_into()
+                    .map_err(|_| "invalid request identifier")?,
+            };
+            client.reject(&request).await?;
+            Ok(json!({"rejected":true}))
         }
         Command::Requests => Ok(
             json!({"requests":client.requests().await?.iter().map(|request|
@@ -125,9 +231,124 @@ fn emit(value: Value) {
     let _ = std::io::stdout().flush();
 }
 
+enum ControlInput {
+    Eof,
+    Invalid,
+    Request(Request),
+}
+async fn read_control(
+    input: &mut BufReader<tokio::io::Stdin>,
+) -> Result<ControlInput, ClientError> {
+    let mut line = Vec::new();
+    let mut oversized = false;
+    loop {
+        let bytes = input.fill_buf().await?;
+        if bytes.is_empty() {
+            break;
+        }
+        let consumed = bytes
+            .iter()
+            .position(|b| *b == b'\n')
+            .map(|n| n + 1)
+            .unwrap_or(bytes.len());
+        let end = bytes[consumed - 1] == b'\n';
+        if line.len() + consumed <= 65536 && !oversized {
+            line.extend_from_slice(&bytes[..consumed]);
+        } else {
+            oversized = true;
+        }
+        input.consume(consumed);
+        if end {
+            break;
+        }
+    }
+    if line.is_empty() && !oversized {
+        return Ok(ControlInput::Eof);
+    }
+    if !oversized {
+        if let Ok(request) = serde_json::from_slice::<Request>(&line) {
+            return Ok(ControlInput::Request(request));
+        }
+    }
+    Ok(ControlInput::Invalid)
+}
+
+async fn pairing_host(
+    pairing: NativePairing,
+    input: &mut BufReader<tokio::io::Stdin>,
+) -> Result<Option<NativeClient>, ClientError> {
+    emit(
+        json!({"event":"ready","status":{"node":pairing.information().receiver().to_string(),"stage":"Pairing"},"address":pairing.information().address()}),
+    );
+    loop {
+        let request = match read_control(input).await? {
+            ControlInput::Eof => {
+                pairing.close().await?;
+                return Ok(None);
+            }
+            ControlInput::Invalid => {
+                emit(json!({"id":null,"ok":false,"error":"invalid_command"}));
+                continue;
+            }
+            ControlInput::Request(request) => request,
+        };
+        if matches!(request.command, Command::Stop) {
+            pairing.close().await?;
+            emit(json!({"id":request.id,"ok":true,"result":{"stopped":true}}));
+            return Ok(None);
+        }
+        if let Command::FinishPairing { path } = request.command {
+            if pairing.received().await {
+                let result = save_invitation(&path, &pairing.invitation().await?);
+                if result.is_ok() {
+                    let client = pairing.join(Ipv4Addr::UNSPECIFIED).await?;
+                    emit(
+                        json!({"id":request.id,"ok":true,"result":{"status":status(&client).await,"address":client.address()}}),
+                    );
+                    return Ok(Some(client));
+                }
+            }
+            emit(json!({"id":request.id,"ok":false,"error":"operation_failed"}));
+            continue;
+        }
+        let result = match request.command {
+            Command::PairingInformation { path } => {
+                save_private(&path, &pairing.information().encode()?)
+            }
+            Command::PairingStatus => Ok(json!({"invitation_saved":pairing.received().await})),
+            _ => Err("not a pairing operation".into()),
+        };
+        match result {
+            Ok(value) => emit(json!({"id":request.id,"ok":true,"result":value})),
+            Err(_) => emit(json!({"id":request.id,"ok":false,"error":"operation_failed"})),
+        }
+    }
+}
+fn configuration(
+    path: &str,
+) -> Result<miopunch_native_probe::resources::ResourceConfig, ClientError> {
+    Ok(serde_json::from_slice(&std::fs::read(path)?)?)
+}
+
 #[tokio::main]
 async fn main() -> Result<(), ClientError> {
     let args: Vec<_> = std::env::args().skip(1).collect();
+    let mut input = BufReader::new(tokio::io::stdin());
+    if args.first().is_some_and(|arg| arg == "pair") {
+        let pairing = match args.as_slice() {
+            [_, path] => {
+                NativePairing::start(path, Ipv4Addr::UNSPECIFIED, Default::default()).await?
+            }
+            [_, path, resources] => {
+                NativePairing::start(path, Ipv4Addr::UNSPECIFIED, configuration(resources)?).await?
+            }
+            _ => return Err("usage: miopunch-client pair DATA_DIR [RESOURCES_FILE]".into()),
+        };
+        let Some(client) = pairing_host(pairing, &mut input).await? else {
+            return Ok(());
+        };
+        return run_client(client, input, false).await;
+    }
     let client = match args.as_slice() {
         [action, path] if action == "create" => {
             NativeClient::create(path, Ipv4Addr::UNSPECIFIED).await?
@@ -138,6 +359,26 @@ async fn main() -> Result<(), ClientError> {
         [action, path, invitation] if action == "join" => {
             NativeClient::join(path, &read_invitation(invitation)?, Ipv4Addr::UNSPECIFIED).await?
         }
+        [action, path, resources] if action == "create" => {
+            NativeClient::create_with_resources(
+                path,
+                Ipv4Addr::UNSPECIFIED,
+                configuration(resources)?,
+            )
+            .await?
+        }
+        [action, path, invitation, resources] if action == "join" => {
+            NativeClient::join_with_resources(
+                path,
+                &read_invitation(invitation)?,
+                Ipv4Addr::UNSPECIFIED,
+                configuration(resources)?,
+            )
+            .await?
+        }
+        [action, path, invitation] if action == "resume" => {
+            NativeClient::resume(path, &read_invitation(invitation)?, Ipv4Addr::UNSPECIFIED).await?
+        }
         _ => {
             return Err(
                 "usage: miopunch-client create|open DATA_DIR | join DATA_DIR INVITATION_FILE"
@@ -145,46 +386,27 @@ async fn main() -> Result<(), ClientError> {
             );
         }
     };
-    emit(json!({"event":"ready","status":status(&client).await,"address":client.address()}));
+    run_client(client, input, true).await
+}
+async fn run_client(
+    client: NativeClient,
+    mut input: BufReader<tokio::io::Stdin>,
+    ready: bool,
+) -> Result<(), ClientError> {
+    if ready {
+        emit(json!({"event":"ready","status":status(&client).await,"address":client.address()}));
+    }
     // Limit control input as well as network messages; malformed/oversized
     // commands cannot force an unbounded JSON-lines allocation.
-    let mut input = BufReader::new(tokio::io::stdin());
     let result = async {
         loop {
-            let mut line = Vec::new();
-            let mut oversized = false;
-            loop {
-                let bytes = input.fill_buf().await?;
-                if bytes.is_empty() {
-                    break;
+            let request = match read_control(&mut input).await? {
+                ControlInput::Eof => break,
+                ControlInput::Invalid => {
+                    emit(json!({"id":null,"ok":false,"error":"invalid_command"}));
+                    continue;
                 }
-                let consumed = bytes
-                    .iter()
-                    .position(|b| *b == b'\n')
-                    .map(|n| n + 1)
-                    .unwrap_or(bytes.len());
-                let end = bytes[consumed - 1] == b'\n';
-                if line.len() + consumed <= 65536 && !oversized {
-                    line.extend_from_slice(&bytes[..consumed]);
-                } else {
-                    oversized = true;
-                }
-                input.consume(consumed);
-                if end {
-                    break;
-                }
-            }
-            if line.is_empty() && !oversized {
-                break;
-            }
-            let request = if oversized {
-                None
-            } else {
-                serde_json::from_slice::<Request>(&line).ok()
-            };
-            let Some(request) = request else {
-                emit(json!({"id":null,"ok":false,"error":"invalid_command"}));
-                continue;
+                ControlInput::Request(request) => request,
             };
             if matches!(request.command, Command::Stop) {
                 return Ok::<_, ClientError>(Some(request.id));

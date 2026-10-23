@@ -80,6 +80,10 @@ pub struct ResourceConfig {
     /// Explicit trusted native/WSS contact mapping; no implicit public facility.
     #[serde(default)]
     pub mqtt_facilities: Vec<crate::mqtt_datagram::MqttFacility>,
+    /// Optional trusted native/WSS mappings supplied by complete invitations.
+    /// Empty preserves the existing raw native IRC assembly.
+    #[serde(default)]
+    pub irc_facilities: Vec<crate::irc_datagram::IrcFacility>,
     /// Explicitly trusted configuration publisher, distinct from membership.
     #[serde(default)]
     pub trusted_update_key: Option<VerifyingKey>,
@@ -141,6 +145,35 @@ impl Default for ResourceConfig {
 }
 
 impl ResourceConfig {
+    pub(crate) fn validate_contact_facilities(&self) -> std::io::Result<()> {
+        self.validate_mqtt_facilities()?;
+        if self.irc_facilities.len() > 4 {
+            return Err(std::io::Error::other("too many IRC facilities"));
+        }
+        let mut ids: BTreeSet<_> = self.mqtt_facilities.iter().map(|f| &f.logical_id).collect();
+        for facility in &self.irc_facilities {
+            facility.validate()?;
+            if !ids.insert(&facility.logical_id) {
+                return Err(std::io::Error::other("duplicate signaling facility"));
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn allowed_irc_facilities(&self) -> Vec<&crate::irc_datagram::IrcFacility> {
+        let disabled: Vec<_> = self
+            .disabled
+            .iter()
+            .filter(|(_, usage)| *usage == ResourceUse::Signaling)
+            .map(|(url, _)| url.clone())
+            .collect();
+        self.irc_facilities
+            .iter()
+            .filter(|facility| {
+                self.allows(&facility.native_url, ResourceUse::Signaling)
+                    && facility.check_allowed(&disabled).is_ok()
+            })
+            .collect()
+    }
     /// Permitted RFC 8489 UDP observers, separate from HTTPS QAD facilities.
     pub fn udp_stun_resources(&self) -> Vec<iroh::RelayUrl> {
         self.stun_resources("stun")
@@ -205,12 +238,33 @@ impl ResourceConfig {
             })
             .collect()
     }
-    /// Approved message origins retain independently qualified routes.
-    pub(crate) fn mqtt_resources(&self) -> Vec<iroh::RelayUrl> {
-        self.signaling_resources("mqtt")
+    /// A configured mapping reserves its physical native origin even when the
+    /// mapping is disabled. A spelling/default-port alias cannot borrow raw
+    /// signaling permission and bypass the mapping's WSS/logical-ID consent.
+    pub(crate) fn has_mqtt_mapping_for(&self, resource: &RelayUrl) -> bool {
+        self.mqtt_facilities
+            .iter()
+            .any(|facility| same_contact_origin(&facility.native_url, resource.as_str()))
     }
-    pub(crate) fn irc_resources(&self) -> Vec<iroh::RelayUrl> {
+    pub(crate) fn has_irc_mapping_for(&self, resource: &RelayUrl) -> bool {
+        self.irc_facilities
+            .iter()
+            .any(|facility| same_contact_origin(&facility.native_url, resource.as_str()))
+    }
+    /// Raw carriers cannot borrow a configured mapping's native permission.
+    /// Share this selection with discovery before it makes any broker contact;
+    /// mapped logical tags are not compatible with legacy raw discovery tags.
+    pub(crate) fn raw_mqtt_resources(&self) -> Vec<iroh::RelayUrl> {
+        self.signaling_resources("mqtt")
+            .into_iter()
+            .filter(|url| !self.has_mqtt_mapping_for(url))
+            .collect()
+    }
+    pub(crate) fn raw_irc_resources(&self) -> Vec<iroh::RelayUrl> {
         self.signaling_resources("irc")
+            .into_iter()
+            .filter(|url| !self.has_irc_mapping_for(url))
+            .collect()
     }
     fn signaling_resources(&self, scheme: &str) -> Vec<iroh::RelayUrl> {
         let mut origins = BTreeMap::new();
@@ -244,6 +298,7 @@ impl ResourceConfig {
             path_selection: Default::default(),
             maintenance: Default::default(),
             mqtt_facilities: Vec::new(),
+            irc_facilities: Vec::new(),
             trusted_update_key: None,
         }
     }
@@ -253,9 +308,10 @@ impl ResourceConfig {
             return false;
         };
         !self.disabled_uses.contains(&usage)
-            && !self.disabled.iter().any(|(disabled, purpose)| {
-                *purpose == usage && resource_origin(disabled).as_ref() == Some(&origin)
-            })
+            && !self
+                .disabled
+                .iter()
+                .any(|(disabled, purpose)| *purpose == usage && same_contact_origin(disabled, url))
             && self
                 .replacement
                 .as_ref()
@@ -495,6 +551,28 @@ pub(crate) fn resource_origin(value: &str) -> Option<String> {
     Some(normalized.to_string())
 }
 
+fn same_contact_origin(left: &str, right: &str) -> bool {
+    fn origin(value: &str) -> Option<String> {
+        let normalized = resource_origin(value)?;
+        let parsed: RelayUrl = normalized.parse().ok()?;
+        let mut url = std::ops::Deref::deref(&parsed).clone();
+        if url.port().is_none() {
+            let port = match url.scheme() {
+                "mqtt" => 1883,
+                "mqtts" => 8883,
+                "irc" => 6667,
+                "ircs" => 6697,
+                _ => return Some(normalized),
+            };
+            url.set_port(Some(port)).ok()?;
+        }
+        Some(url.to_string())
+    }
+    // resource_origin also defines legacy raw-MQTT wire tags. Keep those
+    // bytes unchanged; this stricter comparison only prevents raw fallback.
+    origin(left).is_some_and(|left| origin(right).as_ref() == Some(&left))
+}
+
 #[derive(Default)]
 struct ContactBackoff {
     failures: u32,
@@ -594,6 +672,67 @@ impl TcpStunObservation {
 }
 
 impl ResourceEndpoint {
+    pub(crate) fn invitation_contact(
+        &self,
+    ) -> std::io::Result<(
+        iroh::EndpointAddr,
+        crate::client_invitation::BootstrapContact,
+    )> {
+        use iroh::endpoint::transports::CustomTransport;
+        let mut bootstrap = crate::client_invitation::BootstrapContact {
+            relays: self
+                .config
+                .relay_map(ResourceUse::DataRelay)?
+                .urls::<Vec<_>>()
+                .into_iter()
+                .map(|url| url.to_string())
+                .collect(),
+            irc: self
+                .config
+                .allowed_irc_facilities()
+                .into_iter()
+                .cloned()
+                .collect(),
+            ..Default::default()
+        };
+        for transport in &self.mqtt {
+            if let Some(facility) = transport.facility() {
+                bootstrap.mqtt.push(facility.clone());
+            } else if let Some((url, _)) = transport.resource() {
+                bootstrap.native_signaling.push(url.to_string());
+            }
+        }
+        bootstrap.native_signaling.extend(
+            self.config
+                .raw_irc_resources()
+                .into_iter()
+                .map(|url| url.to_string()),
+        );
+        let mut address = self.endpoint.addr();
+        address.addrs.retain(|route| match route {
+            iroh::TransportAddr::Ip(_) => !self.config.udp_direct_disabled,
+            iroh::TransportAddr::Relay(url) => {
+                self.config.allows(url.as_str(), ResourceUse::DataRelay)
+            }
+            _ => false,
+        });
+        address.addrs.extend(
+            self.endpoint
+                .custom_addrs()
+                .into_iter()
+                .filter(|addr| {
+                    matches!(
+                        addr.id(),
+                        crate::mqtt_datagram::TRANSPORT_ID
+                            | crate::irc_datagram::TRANSPORT_ID
+                            | crate::tcp_transport::DATA_TRANSPORT_ID
+                    ) && self.config.allows_custom(addr)
+                })
+                .map(iroh::TransportAddr::Custom),
+        );
+        bootstrap.validate()?;
+        Ok((address, bootstrap))
+    }
     pub(crate) fn new(
         endpoint: iroh::endpoint::RestrictedEndpoint,
         config: ResourceConfig,
@@ -791,12 +930,7 @@ impl ResourceEndpoint {
             config
                 .disabled
                 .insert((facility.wss_url.clone(), ResourceUse::Signaling));
-        } else if config.mqtt_facilities.iter().any(|facility| {
-            facility
-                .native_url
-                .parse::<iroh::RelayUrl>()
-                .is_ok_and(|native| native == url)
-        }) {
+        } else if config.has_mqtt_mapping_for(&url) {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::PermissionDenied,
                 "unmapped contact cannot disable a saved MQTT facility",
@@ -1092,7 +1226,8 @@ impl ResourceEndpoint {
             .extend(responders);
     }
 
-    /// Retire only standing discovery tasks for the selected contact origin.
+    /// Retire standing discovery tasks for every spelling of this physical
+    /// contact origin, while retaining the responder keys' legacy wire tags.
     /// Lookup permission and tasks belonging to other origins remain unchanged.
     pub(crate) async fn retire_recovery_origin(
         &self,
@@ -1107,7 +1242,7 @@ impl ResourceEndpoint {
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             let (retiring, remaining): (Vec<_>, Vec<_>) = std::mem::take(&mut *responders)
                 .into_iter()
-                .partition(|(owned, _)| owned == &origin);
+                .partition(|(owned, _)| same_contact_origin(owned, &origin));
             *responders = remaining;
             retiring
         }; // Release the synchronous ownership lock before any await.
@@ -1125,15 +1260,14 @@ impl ResourceEndpoint {
 
     pub(crate) fn recovery_origins(&self) -> Vec<iroh::RelayUrl> {
         self.config
-            .mqtt_resources()
+            .raw_mqtt_resources()
             .into_iter()
             .filter(|url| self.config.allows(url.as_str(), ResourceUse::Lookup))
             .filter(|url| {
                 !self.contact_listener.as_ref().is_some_and(|listener| {
                     listener.status().phase
                         == crate::contact_listener::ContactListenerPhase::Stopped
-                        && resource_origin(url.as_str())
-                            == resource_origin(listener.resource_url().as_str())
+                        && same_contact_origin(url.as_str(), listener.resource_url().as_str())
                 })
             })
             .take(4)

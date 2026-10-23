@@ -1,7 +1,50 @@
 //! Platform-specific publication of already-flushed native private files.
 //! Windows has no Unix directory-fsync equivalent here: use write-through
 //! MoveFileExW for publication, and FlushFileBuffers (File::sync_all) for data.
-use std::{io, path::Path};
+use std::{
+    fs::{File, OpenOptions},
+    io::{self, Write},
+    path::Path,
+};
+
+fn create_private_file(path: &Path) -> io::Result<File> {
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    options.open(path)
+}
+
+fn write_private_contents(mut file: File, bytes: &[u8]) -> io::Result<()> {
+    file.write_all(bytes)?;
+    file.sync_all()
+}
+
+pub(crate) fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    write_private_contents(create_private_file(path)?, bytes)
+}
+
+/// Same-directory replacement of a fully flushed private file. Only a file
+/// successfully created by this operation is eligible for temporary cleanup.
+pub(crate) fn write_private_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let temporary = parent.join(format!(".mio-{:032x}", rand::random::<u128>()));
+    let file = create_private_file(&temporary)?;
+    let result = (|| {
+        // Drop the file before MoveFileExW on Windows.
+        write_private_contents(file, bytes)?;
+        replace_file(&temporary, path)?;
+        sync_directory(parent)
+    })();
+    let _ = std::fs::remove_file(temporary);
+    result
+}
 
 #[cfg(not(windows))]
 pub(crate) fn sync_directory(path: &Path) -> io::Result<()> {

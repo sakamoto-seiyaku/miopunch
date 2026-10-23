@@ -36,8 +36,8 @@ pub mod nat_mapping;
 pub mod nat_punch;
 pub mod nat_scheduler;
 pub mod nat_selector;
-pub mod native_network;
 pub mod native_client;
+pub mod native_network;
 mod native_path_adapter;
 pub mod network_migration;
 pub mod offline_replica;
@@ -64,6 +64,11 @@ mod precode_policy;
 pub mod mqtt_datagram;
 mod native_files;
 
+mod client_contact;
+pub mod client_invitation;
+pub mod invitation_pairing;
+pub mod native_pairing;
+pub mod recovery_card;
 #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
 mod rtc_actual_dequeue_fixture;
 pub mod rtc_association;

@@ -28,10 +28,12 @@ def quote(value):
 
 
 class Host:
-    def __init__(self, runner, label, remote, action, directory, invitation=None):
+    def __init__(self, runner, label, remote, action, directory, invitation=None, configuration=None):
         self.runner, self.label, self.remote = runner, label, remote
         self.directory = directory
         args = [action, directory] + ([invitation] if invitation else [])
+        if configuration:
+            args.append(configuration)
         if remote:
             command = ps("[Console]::OutputEncoding=[Text.UTF8Encoding]::new(); & "
                          + quote(runner.remote_binary) + " " + " ".join(map(quote, args)) + "; exit $LASTEXITCODE")
@@ -100,7 +102,7 @@ class Host:
 class Runner:
     def __init__(self, args):
         self.output = args.output.resolve()
-        self.output.mkdir(parents=True, exist_ok=False)
+        self.output.mkdir(parents=True, mode=0o700, exist_ok=False)
         self.linux = args.linux.resolve()
         self.windows = args.windows.resolve() if args.windows else None
         self.remote_root = "C:/Users/stati/AppData/Local/Temp/" + self.output.name
@@ -185,6 +187,9 @@ class Runner:
     def scenario(self, creator_remote, prefix):
         join_remote = not creator_remote if not self.local_only else False
         creator = self.start(prefix + "-creator", creator_remote)
+        if creator.ready["status"]["stage"] == "AwaitingRecoverySave":
+            creator.call("export_recovery_card", path=self.path(prefix + "-recovery-card.json", creator_remote))
+            creator.call("acknowledge_recovery_saved")
         name = prefix + "-invite.json"
         creator.call("invite", path=self.path(name, creator_remote))
         invitation = self.transfer(name, creator_remote, join_remote)
@@ -272,7 +277,8 @@ class Runner:
             except Exception as error:
                 results.append(dict(host="laptop", action="remove_deployment", error=type(error).__name__))
         # Bearer files are removed; durable state/raw evidence remain private.
-        for path in [*self.output.glob("*-invite.json"), *self.output.glob("*-precode.json")]:
+        for path in [*self.output.glob("*-invite.json"), *self.output.glob("*-precode.json"),
+                     *self.output.glob("*-recovery-card.json")]:
             try:
                 path.unlink()
             except Exception as error:

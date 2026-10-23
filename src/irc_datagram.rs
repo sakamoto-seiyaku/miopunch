@@ -56,7 +56,7 @@ impl Profile {
         Ok(())
     }
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct IrcFacility {
     pub logical_id: String,
     pub native_url: String,

@@ -1,4 +1,5 @@
-//! Foreground, device-local management session. Root material is never saved.
+//! Foreground, device-local management session. Elevation does not persist its
+//! supplied root; explicit creator custody is separate from this legacy API.
 use super::*;
 use crate::management_action::ManagementAction;
 use crate::management_auth::ManagementExtension;
@@ -26,7 +27,7 @@ impl Session {
 #[wasm_bindgen]
 impl BrowserNetwork {
     pub fn begin_management_session(&mut self) -> Result<String, JsValue> {
-        if self.lease.is_none() {
+        if self.lease.is_none() || self.saved.creator_seed.is_some() && !self.saved.recovery_saved {
             return Err(rejected());
         }
         let id = hex::encode(rand::random::<[u8; 16]>());

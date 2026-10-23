@@ -37,6 +37,8 @@ extern "C" {
     async fn acquire_node() -> Result<JsValue, JsValue>;
     #[wasm_bindgen(js_name = releaseNode)]
     fn release_node(token: u32);
+    #[wasm_bindgen(catch, js_name = releaseNodeAndWait)]
+    async fn release_node_and_wait(token: u32) -> Result<JsValue, JsValue>;
     #[wasm_bindgen(catch, js_name = readNode)]
     async fn read_node(token: u32) -> Result<JsValue, JsValue>;
     #[wasm_bindgen(catch, js_name = saveNode)]
@@ -79,6 +81,16 @@ struct SavedNode {
     codes: Vec<admission::Code>,
     #[serde(default)]
     approvals: Vec<admission::Approval>,
+    #[serde(default)]
+    creator_seed: Option<[u8; 32]>,
+    #[serde(default)]
+    recovery_exported: bool,
+    #[serde(default)]
+    recovery_saved: bool,
+    #[serde(default)]
+    manual_rejected: bool,
+    #[serde(default)]
+    complete_invitation: Option<crate::client_invitation::ClientInvitation>,
 }
 
 #[derive(Clone, Copy)]
@@ -111,6 +123,18 @@ impl SavedNode {
     }
     fn verify(&self) -> Result<Option<ManagementAuth>, JsValue> {
         self.verify_ledger()?;
+        if let Some(full) = &self.complete_invitation {
+            full.encode().map_err(error)?;
+            if self.invitation.as_deref() != Some(full.material_bytes().map_err(error)?.as_slice())
+                || full
+                    .precode_bytes()
+                    .map_err(error)?
+                    .map(|bytes| bytes[96..].try_into().unwrap())
+                    != self.precode
+            {
+                return Err(rejected());
+            }
+        }
         if self.version != 1 || self.generation > i64::MAX as u64 {
             return Err(rejected());
         }
@@ -124,6 +148,14 @@ impl SavedNode {
             return Ok(None);
         }
         let invitation = self.invitation()?;
+        if self.recovery_saved && !self.recovery_exported
+            || self.creator_seed.is_some_and(|seed| {
+                p2panda_core::SigningKey::from_bytes(&seed).verifying_key()
+                    != invitation.anchor.root
+            })
+        {
+            return Err(rejected());
+        }
         if self.records.len() + self.pending.len() > 4096 {
             return Err(rejected());
         }
@@ -141,7 +173,11 @@ impl SavedNode {
         Ok(Some(auth))
     }
     fn stage(&self) -> &'static str {
-        if self.authorization.is_none() {
+        if self.creator_seed.is_some() && !self.recovery_saved {
+            "AwaitingRecoverySave"
+        } else if self.authorization.is_none() && self.manual_rejected {
+            "Rejected"
+        } else if self.authorization.is_none() {
             "AwaitingApproval"
         } else if self.verify().ok().flatten().is_some_and(|auth| {
             !auth.membership_authorization_valid(self.authorization.unwrap(), self.identity())
@@ -174,6 +210,8 @@ struct GateState {
     snapshot_hash: Option<[u8; 32]>,
     request_handshake: Option<serde_json::Value>,
     request_deadline: Option<n0_future::time::Instant>,
+    pairing_receiver: bool,
+    pairing_peer: Option<iroh_base::EndpointId>,
     lease: Option<u32>,
     #[cfg(feature = "rtc-probe")]
     rtc: Option<crate::rtc_transport::RtcTransport>,
@@ -1185,14 +1223,14 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
 struct BrowserBeforeConnect(BrowserGate);
 impl EndpointHooks for BrowserBeforeConnect {
     async fn before_connect(&self, target: &EndpointAddr, alpn: &[u8]) -> BeforeConnectOutcome {
-        if self
-            .0
-            .0
-            .lock()
-            .unwrap()
-            .saved
-            .as_ref()
-            .is_some_and(|saved| BrowserGate::permits(saved, target.id, alpn))
+        let state = self.0.0.lock().unwrap();
+        let pairing = alpn == crate::invitation_pairing::PAIRING_ALPN
+            && state.pairing_peer == Some(target.id);
+        if pairing
+            || state
+                .saved
+                .as_ref()
+                .is_some_and(|saved| BrowserGate::permits(saved, target.id, alpn))
         {
             BeforeConnectOutcome::Accept
         } else {
@@ -1347,6 +1385,16 @@ impl iroh::endpoint::EndpointAdmission for BrowserGate {
         connection: &iroh::endpoint::ControlConnection,
     ) -> std::io::Result<iroh::endpoint::AdmissionOutcome> {
         send_wrapper::SendWrapper::new(async {
+            if connection.alpn() == crate::invitation_pairing::PAIRING_ALPN {
+                if !self.pairing_permitted(connection) {
+                    return Err(std::io::Error::other("invitation pairing rejected"));
+                }
+                return iroh::endpoint::EndpointAdmission::admit(
+                    &crate::invitation_pairing::PairingGate,
+                    connection,
+                )
+                .await;
+            }
             use crate::connection_coordinator::{SessionPurpose, control_error};
             let handle = connection.control_handle();
             let started = self.authenticate(&handle).await?;
@@ -1422,6 +1470,9 @@ impl iroh::endpoint::EndpointAdmission for BrowserGate {
         .await
     }
     fn is_current(&self, connection: &iroh::endpoint::ControlConnection) -> bool {
+        if connection.alpn() == crate::invitation_pairing::PAIRING_ALPN {
+            return self.pairing_permitted(connection);
+        }
         let state = self.0.lock().unwrap();
         let Some(saved) = state.saved.as_ref() else {
             return false;
@@ -1456,6 +1507,11 @@ struct IrcConfiguration {
 fn rtc_enabled_by_default() -> bool {
     true
 }
+fn legacy_resource_replacement() -> bool {
+    // Older snapshots stored only the selected vectors. Preserve that saved
+    // allow-list conservatively when no explicit preference marker exists.
+    true
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 struct Configuration {
@@ -1467,6 +1523,12 @@ struct Configuration {
     path_selection: crate::path_selection::PathSelectionPolicy,
     relays: Vec<String>,
     disabled: Vec<String>,
+    #[serde(default = "legacy_resource_replacement")]
+    relay_replacement: bool,
+    #[serde(default = "legacy_resource_replacement")]
+    mqtt_replacement: bool,
+    #[serde(default = "legacy_resource_replacement")]
+    irc_replacement: bool,
     #[serde(default)]
     mqtt: Vec<crate::mqtt_datagram::MqttFacility>,
     #[serde(default)]
@@ -1544,6 +1606,9 @@ impl Default for Configuration {
                 .map(|url| url.to_string())
                 .collect(),
             disabled: Vec::new(),
+            relay_replacement: false,
+            mqtt_replacement: false,
+            irc_replacement: false,
             mqtt: Vec::new(),
             irc: Vec::new(),
             contact_routes: Vec::new(),
@@ -1651,6 +1716,14 @@ pub struct BrowserNetwork {
     committed: String,
     delivery: Option<Delivery>,
     management: Option<management::Session>,
+    pairing: Option<crate::invitation_pairing::PairingInfo>,
+}
+
+enum Startup {
+    Existing,
+    Create,
+    Join(crate::client_invitation::ClientInvitation),
+    Pairing,
 }
 
 #[wasm_bindgen]
@@ -1709,6 +1782,13 @@ impl BrowserNetwork {
         configuration: String,
         caller_override: Option<std::time::Duration>,
     ) -> Result<BrowserNetwork, JsValue> {
+        Self::start_onboarding(configuration, caller_override, Startup::Existing).await
+    }
+    async fn start_onboarding(
+        configuration: String,
+        caller_override: Option<std::time::Duration>,
+        startup: Startup,
+    ) -> Result<BrowserNetwork, JsValue> {
         let input: ConfigurationInput = serde_json::from_str(&configuration).map_err(error)?;
         if let Some(policy) = &input.maintenance {
             policy.validate()?;
@@ -1724,7 +1804,7 @@ impl BrowserNetwork {
         let carrier_started = n0_future::time::Instant::now();
         n0_future::time::timeout(
             startup_budget,
-            Self::start_inner(configuration, caller_override, carrier_started),
+            Self::start_inner(configuration, caller_override, carrier_started, startup),
         )
         .await
         .map_err(|_| error("temporarily unreachable: browser startup caller deadline"))?
@@ -1733,6 +1813,7 @@ impl BrowserNetwork {
         configuration: String,
         caller_override: Option<std::time::Duration>,
         carrier_started: n0_future::time::Instant,
+        startup: Startup,
     ) -> Result<BrowserNetwork, JsValue> {
         let input: ConfigurationInput = serde_json::from_str(&configuration).map_err(error)?;
         let lease = Lease(acquire_node().await?.as_f64().ok_or_else(rejected)? as u32);
@@ -1759,6 +1840,11 @@ impl BrowserNetwork {
                 precode: None,
                 codes: Vec::new(),
                 approvals: Vec::new(),
+                creator_seed: None,
+                recovery_exported: false,
+                recovery_saved: false,
+                manual_rejected: false,
+                complete_invitation: None,
             }
         };
         saved.verify()?;
@@ -1778,21 +1864,36 @@ impl BrowserNetwork {
         }
         if let Some(relays) = input.relays {
             configuration.relays = relays;
+            configuration.relay_replacement = true;
         }
         if let Some(disabled) = input.disabled {
             configuration.disabled = disabled;
         }
         if let Some(mqtt) = input.mqtt {
             configuration.mqtt = mqtt;
+            configuration.mqtt_replacement = true;
         }
         if let Some(irc) = input.irc {
             configuration.irc = irc;
+            configuration.irc_replacement = true;
         }
         if let Some(routes) = input.contact_routes {
             configuration.contact_routes = routes;
         }
         if let Some(maintenance) = input.maintenance {
             configuration.maintenance = maintenance;
+        }
+        let pairing_receiver = matches!(startup, Startup::Pairing);
+        match startup {
+            Startup::Create => saved.create()?,
+            Startup::Join(invitation) => {
+                configuration.import_contact(&invitation)?;
+                saved.select_invitation(invitation)?;
+            }
+            Startup::Pairing if saved.invitation.is_some() => {
+                return Err(error("a network is already selected"));
+            }
+            Startup::Existing | Startup::Pairing => {}
         }
         configuration.maintenance.validate()?;
         let caller_budget = caller_override.unwrap_or_else(|| {
@@ -1980,6 +2081,7 @@ impl BrowserNetwork {
         gate.0.lock().unwrap().rtc_capability = Some(rtc_capability.clone());
         gate.0.lock().unwrap().lease = Some(lease.0);
         gate.0.lock().unwrap().member_data = member_data_transport.clone();
+        gate.0.lock().unwrap().pairing_receiver = pairing_receiver;
         let mut signaling: Vec<iroh::RelayUrl> = mqtt
             .iter()
             .map(|(facility, _)| facility.wss_url.parse().unwrap())
@@ -2042,13 +2144,19 @@ impl BrowserNetwork {
                         .any(|service| crate::irc_datagram::route_from_addr(addr, *service).is_ok())
                 }),
             )
-            .alpns(vec![
-                BUSINESS_ALPN.to_vec(),
-                crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN.to_vec(),
-                REPLICA_ALPN.to_vec(),
-                REQUEST_ALPN.to_vec(),
-                PRECODE_REQUEST_ALPN.to_vec(),
-            ])
+            .alpns({
+                let mut alpns = vec![
+                    BUSINESS_ALPN.to_vec(),
+                    crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN.to_vec(),
+                    REPLICA_ALPN.to_vec(),
+                    REQUEST_ALPN.to_vec(),
+                    PRECODE_REQUEST_ALPN.to_vec(),
+                ];
+                if pairing_receiver {
+                    alpns.push(crate::invitation_pairing::PAIRING_ALPN.to_vec());
+                }
+                alpns
+            })
             .hooks(BrowserBeforeConnect(gate.clone()));
         if let Some(transport) = &member_data_transport {
             builder = builder.add_custom_transport(Arc::new(transport.clone()));
@@ -2188,7 +2296,7 @@ impl BrowserNetwork {
                 },
             );
         }
-        Ok(Self {
+        let mut network = Self {
             endpoint,
             incoming,
             member_data_transport,
@@ -2211,7 +2319,15 @@ impl BrowserNetwork {
             committed,
             delivery: None,
             management: None,
-        })
+            pairing: None,
+        };
+        if pairing_receiver {
+            let (address, bootstrap) = network.contact();
+            network.pairing = Some(crate::invitation_pairing::PairingInfo::new(
+                address, bootstrap,
+            ));
+        }
+        Ok(network)
     }
 }
 
@@ -2221,7 +2337,13 @@ impl BrowserNetwork {
         self.endpoint.id().to_string()
     }
     pub fn status(&self) -> String {
-        serde_json::json!({"id":self.id(), "stage":self.saved.stage(), "authorization_saved":self.saved.authorization.is_some(), "secret_saved":self.saved.secret.is_some(), "running":self.lease.is_some()}).to_string()
+        let anchor = self.saved.invitation().ok().map(|i| i.anchor);
+        let stage = if self.pairing.is_some() && self.saved.complete_invitation.is_none() {
+            "Pairing"
+        } else {
+            self.saved.stage()
+        };
+        serde_json::json!({"id":self.id(), "stage":stage, "network":anchor.map(|a|a.root.to_string()),"genesis":anchor.map(|a|a.genesis.to_string()),"recovery_saved":self.saved.creator_seed.is_none()||self.saved.recovery_saved,"automatic_retry":!self.saved.manual_rejected,"authorization_saved":self.saved.authorization.is_some(), "secret_saved":self.saved.secret.is_some(), "running":self.lease.is_some()}).to_string()
     }
 
     /// Redacted loaded material receipt, checked against the actual leased store.
@@ -2267,6 +2389,9 @@ impl BrowserNetwork {
     }
 
     pub async fn request_admission(&mut self, invitation: String) -> Result<String, JsValue> {
+        if self.saved.manual_rejected {
+            return Ok("Rejected".into());
+        }
         let started = self
             .startup_request_started
             .take()
@@ -2288,6 +2413,16 @@ impl BrowserNetwork {
         let mut next = self.saved.clone();
         next.invitation = Some(bytes);
         next.precode = None;
+        if next.complete_invitation.as_ref().is_some_and(|full| {
+            full.material_bytes()
+                .ok()
+                .as_ref()
+                .map(|bytes| bytes.as_slice())
+                != next.invitation.as_deref()
+                || full.precode_bytes().ok().flatten().is_some()
+        }) {
+            next.complete_invitation = None;
+        }
         let result = n0_future::time::timeout(
             self.caller_budget.saturating_sub(started.elapsed()),
             async {
@@ -2352,6 +2487,16 @@ impl BrowserNetwork {
         let mut next = self.saved.clone();
         next.invitation = Some(bytes[..96].to_vec());
         next.precode = Some(bytes[96..].try_into().unwrap());
+        if next.complete_invitation.as_ref().is_some_and(|full| {
+            full.precode_bytes()
+                .ok()
+                .flatten()
+                .as_ref()
+                .map(|code| code.as_slice())
+                != Some(bytes.as_slice())
+        }) {
+            next.complete_invitation = None;
+        }
         self.last_request = Some(serde_json::json!({"stage":"connecting","business_handle":false}));
         n0_future::time::timeout(
             self.caller_budget.saturating_sub(started.elapsed()),
@@ -2446,6 +2591,8 @@ impl BrowserNetwork {
     pub async fn close(&mut self) {
         self.delivery = None;
         self.management = None;
+        self.gate.0.lock().unwrap().pairing_peer = None;
+        self.gate.0.lock().unwrap().pairing_receiver = false;
         self.gate.retire_member_data();
         if let Some(mut lease) = self.member_data_lease.take() {
             let _ = lease.close().await;
@@ -2453,7 +2600,9 @@ impl BrowserNetwork {
         self.incoming.close();
         self.incoming.stopped().await;
         self.endpoint.close().await;
-        self.lease = None;
+        if let Some(lease) = self.lease.take() {
+            let _ = release_node_and_wait(lease.0).await;
+        }
     }
 }
 
@@ -2651,6 +2800,13 @@ impl BrowserNetwork {
                 exchange.finish_send().await.map_err(error)?;
                 return Ok("AwaitingApproval".to_string());
             }
+            if status == [2] && self.saved.precode.is_none() {
+                let mut next = self.saved.clone();
+                next.manual_rejected = true;
+                self.commit(next).await?;
+                exchange.finish_send().await.map_err(error)?;
+                return Ok("Rejected".into());
+            }
             if status != [1] {
                 return Err(rejected());
             }
@@ -2672,6 +2828,7 @@ impl BrowserNetwork {
             let mut next = self.saved.clone();
             next = next.merge_records(records)?;
             next.authorization = Some(authorization);
+            next.manual_rejected = false;
             next.generation = generation;
             // A newly received grant is never completed by a previously saved
             // secret, even when the identity is retained across a rejoin.
@@ -2770,3 +2927,6 @@ mod rtc_member;
 #[path = "member_data_sdk.rs"]
 mod member_data_sdk;
 use member_data_sdk::{MemberDataConfiguration, MemberDataQualificationSource};
+
+#[path = "onboarding.rs"]
+mod onboarding;

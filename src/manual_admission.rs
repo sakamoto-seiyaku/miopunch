@@ -129,6 +129,8 @@ pub struct AdmissionDelivery {
 
 #[derive(Debug, Error)]
 pub enum ManualAdmissionError {
+    #[error("this manual request was declined; submit a new request explicitly")]
+    RequestDeclined,
     #[error("manual admission rejected")]
     Rejected,
     #[error("current admission path unavailable; durable progress is retained")]
@@ -203,6 +205,40 @@ impl NativeNetwork {
         Ok(self.store.admission_requests().await?)
     }
 
+    /// A rejection ends this authenticated attempt, not the device identity.
+    /// Already granted membership cannot be undone through this operation.
+    pub async fn reject_manual_admission(
+        &mut self,
+        request: &AdmissionRequest,
+    ) -> Result<(), ManualAdmissionError> {
+        self.recover_admission_state().await?;
+        self.store.ensure_admissions_open().await?;
+        if !self.is_admin(self.node_key.verifying_key())
+            || !self.store.admission_requests().await?.contains(request)
+            || self.store.approved_admission(request).await?.is_some()
+        {
+            return Err(ManualAdmissionError::Rejected);
+        }
+        self.store.save_admission_rejection(request).await?;
+        Ok(())
+    }
+
+    pub async fn manual_request_declined(&self) -> Result<bool, ManualAdmissionError> {
+        if self.is_member(self.node_key.verifying_key()) {
+            return Ok(false);
+        }
+        let Some(binding) = self.join else {
+            return Ok(false);
+        };
+        Ok(self
+            .store
+            .admission_rejected(&AdmissionRequest {
+                applicant: self.node_key.verifying_key(),
+                request_id: binding.request_id,
+            })
+            .await?)
+    }
+
     /// Shared read boundary for an approved result and its delivery progress.
     /// Invalidated grants are rejected even when a new grant later restores
     /// the same stable identity's membership.
@@ -232,6 +268,7 @@ impl NativeNetwork {
         self.store.ensure_admissions_open().await?;
         if !self.is_admin(self.node_key.verifying_key())
             || !self.store.admission_requests().await?.contains(request)
+            || self.store.admission_rejected(request).await?
             || request.applicant == self.anchor.root
         {
             return Err(ManualAdmissionError::Rejected);
@@ -385,6 +422,16 @@ impl NativeNetwork {
             self.redeem_precode(token, &request).await?
         } else {
             self.store.record_admission_request(&request).await?;
+            if self.store.admission_rejected(&request).await? {
+                write_fixed(&exchange, &[2])
+                    .await
+                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+                exchange
+                    .finish_send()
+                    .await
+                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+                return Ok(AdmissionStage::AwaitingApproval);
+            }
             let Some(approved) = self.store.approved_admission(&request).await? else {
                 write_fixed(&exchange, &[0])
                     .await
@@ -520,6 +567,9 @@ impl NativeNetwork {
         self.store.ensure_admissions_open().await?;
         self.restricted_connection(connection)?;
         let binding = self.join.ok_or(ManualAdmissionError::Rejected)?;
+        if token.is_none() && self.manual_request_declined().await? {
+            return Err(ManualAdmissionError::RequestDeclined);
+        }
         if binding.invitation.anchor != self.anchor
             || connection.remote_id() != binding.invitation.contact
         {
@@ -556,6 +606,15 @@ impl NativeNetwork {
                 .await
                 .map_err(|_| ManualAdmissionError::PathUnavailable)?;
             return Ok(ManualExchange::AwaitingApproval);
+        }
+        if status == [2] && token.is_none() {
+            self.store
+                .save_admission_rejection(&AdmissionRequest {
+                    applicant: self.node_key.verifying_key(),
+                    request_id: binding.request_id,
+                })
+                .await?;
+            return Err(ManualAdmissionError::RequestDeclined);
         }
         if status != [1] {
             return Err(ManualAdmissionError::Rejected);

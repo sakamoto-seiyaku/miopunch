@@ -7,16 +7,28 @@ let nextLease = 1;
 export async function acquireNode() {
   if (!navigator.locks || !globalThis.indexedDB) throw new Error('durable browser storage and Web Locks required');
   return new Promise((resolve, reject) => {
+    let released;
+    const closed = new Promise(done => { released = done; });
     navigator.locks.request('miopunch-browser-network-v1', { ifAvailable: true }, async lock => {
       if (!lock) { reject(new Error('identity already active in another page')); return; }
       const token = nextLease++;
-      await new Promise(release => { leases.set(token, release); resolve(token); });
+      await new Promise(release => { leases.set(token, { release, closed }); resolve(token); });
       leases.delete(token);
-    }).catch(reject);
+    }).then(released, reject);
   });
 }
 
-export function releaseNode(token) { leases.get(token)?.(); }
+export function releaseNode(token) { leases.get(token)?.release(); }
+
+// Explicit close/rebind waits for the Web Locks request promise, which resolves
+// after the browser has released the lock, rather than merely resolving the
+// callback's release promise. Drop still has the non-blocking release above.
+export async function releaseNodeAndWait(token) {
+  const lease = leases.get(token);
+  if (!lease) return;
+  lease.release();
+  await lease.closed;
+}
 
 function database() {
   return new Promise((resolve, reject) => {

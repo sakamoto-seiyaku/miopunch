@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import shlex
 import subprocess
+import tarfile
 import time
 import tomllib
 
@@ -62,9 +63,47 @@ def validate_inputs(expected):
             raise RuntimeError(f"source precondition failed: {name}")
 
 
+def capture_depfiles(artifacts, output, expected, top):
+    """Retain selected compiler dependency evidence without copying the cache."""
+    paths = set()
+    for artifact in artifacts:
+        for filename in artifact["filenames"]:
+            path = Path(filename)
+            candidate = path.with_name(path.stem.removeprefix("lib") + ".d")
+            if candidate.is_file():
+                paths.add(candidate)
+    if top.is_file():
+        paths.add(top)
+    if not paths:
+        raise RuntimeError("graph emitted no selected dependency information")
+    selected, depfiles = {}, {}
+    for path in sorted(paths):
+        relative = path.relative_to(ROOT / "target")
+        destination = output / "depfiles" / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        content = path.read_bytes()
+        destination.write_bytes(content)
+        depfiles[str(relative)] = hashlib.sha256(content).hexdigest()
+        for line in content.decode().replace("\\\n", "").splitlines():
+            if ": " not in line:
+                continue
+            for name in shlex.split(line.split(": ", 1)[1]):
+                source = Path(name)
+                if not source.is_absolute():
+                    source = ROOT / source
+                source = source.resolve()
+                if source.is_relative_to(ROOT) and not source.is_relative_to(ROOT / "target"):
+                    name = source.relative_to(ROOT).as_posix()
+                    if name not in expected or hashlib.sha256(source.read_bytes()).hexdigest() != expected[name]:
+                        raise RuntimeError("selected compiler input was not frozen: " + name)
+                    selected[name] = expected[name]
+    return {"depfiles": depfiles, "selectedRepositoryInputs": selected}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--platform", choices=["linux", "windows"], required=True)
+    parser.add_argument("--bin", dest="binary", choices=["miopunch-client", "client_resource_probe"], default="miopunch-client")
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--validate-only", action="store_true", help="Check complete inputs/toolchain without Cargo or pinning")
@@ -79,18 +118,21 @@ def main():
         return
     args.output.mkdir(parents=True, exist_ok=False)
     (args.output / "inputs.json").write_text(json.dumps(expected, indent=2) + "\n")
+    with tarfile.open(args.output / "source.tar.gz", "w:gz") as archive:
+        for name in sorted(expected):
+            archive.add(ROOT / name, arcname=name)
     target = ROOT / "target"
     environment = build_environment(target)
     container = None
-    report = {"platform": args.platform, "profile": "dev", "features": [],
+    report = {"platform": args.platform, "binary": args.binary, "profile": "dev", "features": [],
               "toolchain": toolchain,
               "exit": None}
     try:
         with cache_lease(target) as before:
             validate_inputs(expected)
             report["diskBefore"] = before
-            arguments = ["build", "--locked", "--offline", "--bin", "miopunch-client", "--jobs", "2"]
-            binary = target / "debug/miopunch-client"
+            arguments = ["build", "--locked", "--offline", "--bin", args.binary, "--jobs", "2"]
+            binary = target / "debug" / args.binary
             if args.platform == "windows":
                 actual = subprocess.check_output(["rtk", "proxy", "docker", "image", "inspect",
                     "miopunch-desktop-compiler:bookworm", "--format", "{{.Id}}"], text=True).strip()
@@ -117,7 +159,7 @@ def main():
                     CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=str(tools / "x86_64-w64-mingw32-gcc"))
                 environment["PATH"] = str(tools) + os.pathsep + environment["PATH"]
                 arguments += ["--target", "x86_64-pc-windows-gnu"]
-                binary = target / "x86_64-pc-windows-gnu/debug/miopunch-client.exe"
+                binary = target / "x86_64-pc-windows-gnu/debug" / (args.binary + ".exe")
                 report["compilerImage"] = IMAGE
             command = cargo_command(arguments, target)
             report["command"] = command
@@ -132,6 +174,10 @@ def main():
             if result.returncode:
                 raise RuntimeError("Cargo failed; inspect raw logs before retrying")
             validate_inputs(expected)
+            dependencies = capture_depfiles(artifacts, args.output, expected, binary.with_suffix(".d"))
+            (args.output / "selected-dependency-inputs.json").write_text(json.dumps(dependencies, indent=2) + "\n")
+            report.update(selectedRepositoryInputCount=len(dependencies["selectedRepositoryInputs"]),
+                          selectedDepfileCount=len(dependencies["depfiles"]))
             pin_path = ROOT / ".artifacts" / "runs" / args.output.name / binary.name
             report["pin"] = pin_artifact(binary, pin_path)
             report["sha256"] = hashlib.sha256(binary.read_bytes()).hexdigest()

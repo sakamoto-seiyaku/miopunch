@@ -5,11 +5,10 @@
 //! invitation, then independently persists verified membership and the current
 //! secret. Ordinary joined devices never acquire the genesis private key.
 
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs;
 use std::net::{Ipv4Addr, SocketAddr};
 #[cfg(unix)]
-use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
+use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -78,6 +77,11 @@ enum Initialization<'a> {
     Create,
     Join(ManualInvitation),
     Migration(ManualInvitation, &'a SigningKey),
+    Pairing(
+        &'a crate::client_invitation::ClientInvitation,
+        &'a SigningKey,
+        &'a crate::resources::ResourceConfig,
+    ),
     Recover(&'a GenesisCredential, iroh_base::EndpointId),
 }
 
@@ -165,6 +169,18 @@ pub struct NativeNetwork {
 }
 
 impl NativeNetwork {
+    pub(crate) async fn join_from_pairing(
+        path: impl AsRef<Path>,
+        invitation: &crate::client_invitation::ClientInvitation,
+        key: &SigningKey,
+        config: &crate::resources::ResourceConfig,
+    ) -> Result<Self, NodeError> {
+        Self::initialize(
+            path.as_ref(),
+            Initialization::Pairing(invitation, key, config),
+        )
+        .await
+    }
     /// Create a fresh network and device in a new directory. Publishing the
     /// prepared directory is the final step, so readers never see half a Create.
     pub async fn create(path: impl AsRef<Path>) -> Result<Self, NodeError> {
@@ -217,6 +233,22 @@ impl NativeNetwork {
                 match Self::prepare_join(&staging, invitation, key).await {
                     Ok(()) => write_private(&staging.join("migration.managed"), b"1")
                         .and_then(|_| sync_directory(&staging).map_err(NodeError::from)),
+                    Err(error) => Err(error),
+                }
+            }
+            Initialization::Pairing(invitation, key, config) => {
+                let material = ManualInvitation::decode(&invitation.material_bytes()?)
+                    .map_err(|_| NodeError::InvalidData)?;
+                match Self::prepare_join(&staging, material, key).await {
+                    Ok(()) => (|| {
+                        write_private(
+                            &staging.join(RESOURCE_CONFIGURATION),
+                            &serde_json::to_vec(config).map_err(std::io::Error::other)?,
+                        )?;
+                        write_private(&staging.join("client.invitation"), &invitation.encode()?)?;
+                        sync_directory(&staging)?;
+                        Ok(())
+                    })(),
                     Err(error) => Err(error),
                 }
             }
@@ -589,7 +621,7 @@ impl NativeNetwork {
         ),
         NodeError,
     > {
-        resources.validate_mqtt_facilities()?;
+        resources.validate_contact_facilities()?;
         #[cfg(feature = "rtc-probe")]
         if let Some(rtc) = &rtc {
             let disabled: Vec<_> = resources
@@ -652,12 +684,7 @@ impl NativeNetwork {
                     // Raw legacy contacts retain their explicit URL policy only
                     // for unmapped resources; they cannot borrow a facility's
                     // logical-ID/WSS consent from its shared native URL.
-                    !resources.mqtt_facilities.iter().any(|facility| {
-                        facility
-                            .native_url
-                            .parse::<iroh::RelayUrl>()
-                            .is_ok_and(|url| url == resource)
-                    })
+                    !resources.has_mqtt_mapping_for(&resource)
                 };
                 if !matches!(usage, iroh::endpoint::RelayResourceUse::Signaling)
                     || !resources
@@ -680,14 +707,7 @@ impl NativeNetwork {
                         None,
                     )?,
                 ))
-            } else if let Some(resource) = resources.mqtt_resources().iter().find(|resource| {
-                !resources.mqtt_facilities.iter().any(|facility| {
-                    facility
-                        .native_url
-                        .parse::<iroh::RelayUrl>()
-                        .is_ok_and(|url| &url == *resource)
-                })
-            }) {
+            } else if let Some(resource) = resources.raw_mqtt_resources().first() {
                 Some(Arc::new(
                     crate::mqtt_transport::MqttTransport::from_resource(
                         resource.clone(),
@@ -703,7 +723,25 @@ impl NativeNetwork {
                 builder = builder.add_custom_transport(Arc::new(listener));
                 mqtt.push(transport);
             }
-            for resource in resources.irc_resources() {
+            let disabled: Vec<_> = resources
+                .disabled
+                .iter()
+                .filter(|(_, usage)| *usage == crate::resources::ResourceUse::Signaling)
+                .map(|(url, _)| url.clone())
+                .collect();
+            for facility in resources.allowed_irc_facilities() {
+                let transport = Arc::new(
+                    crate::irc_transport::IrcTransport::from_maintained_facility(
+                        facility,
+                        &disabled,
+                        crate::irc_datagram::Profile::default(),
+                        None,
+                    )?,
+                );
+                builder = builder.add_custom_transport(transport.clone());
+                irc.push(transport);
+            }
+            for resource in resources.raw_irc_resources() {
                 let transport =
                     Arc::new(crate::irc_transport::IrcTransport::from_resource(resource)?);
                 builder = builder.add_custom_transport(transport.clone());
@@ -846,21 +884,12 @@ impl NativeNetwork {
         &self,
         config: &crate::resources::ResourceConfig,
     ) -> Result<(), NodeError> {
-        config.validate_mqtt_facilities()?;
-        let temporary = self
-            .directory
-            .join(format!(".resources-{:032x}", rand::random::<u128>()));
-        let result = (|| {
-            write_private(
-                &temporary,
-                &serde_json::to_vec(config).map_err(std::io::Error::other)?,
-            )?;
-            replace_file(&temporary, &self.directory.join(RESOURCE_CONFIGURATION))?;
-            sync_directory(&self.directory)?;
-            Ok::<_, NodeError>(())
-        })();
-        let _ = fs::remove_file(temporary);
-        result
+        config.validate_contact_facilities()?;
+        crate::native_files::write_private_atomic(
+            &self.directory.join(RESOURCE_CONFIGURATION),
+            &serde_json::to_vec(config).map_err(std::io::Error::other)?,
+        )?;
+        Ok(())
     }
 
     /// Normal client startup uses bundled defaults or the saved local replacement.
@@ -1298,13 +1327,7 @@ async fn copy_node_backup(source: &Path, target: &Path, restoring: bool) -> Resu
 }
 
 pub(crate) fn write_private(path: &Path, bytes: &[u8]) -> Result<(), NodeError> {
-    let mut options = OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    options.mode(0o600);
-    let mut file = options.open(path)?;
-    file.write_all(bytes)?;
-    file.sync_all()?;
+    crate::native_files::write_private(path, bytes)?;
     Ok(())
 }
 

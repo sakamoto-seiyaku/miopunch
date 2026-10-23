@@ -20,6 +20,8 @@ pub(super) struct Approval {
     authorization: Option<Hash>,
     code: Option<[u8; 32]>,
     complete: bool,
+    #[serde(default)]
+    rejected: bool,
 }
 fn now() -> Result<u64, JsValue> {
     n0_future::time::SystemTime::now()
@@ -53,6 +55,8 @@ impl SavedNode {
             if !requests.insert((approval.applicant, approval.request))
                 || approval.code.is_some_and(|token| !codes.contains(&token))
                 || approval.complete && approval.authorization.is_none()
+                || approval.rejected
+                    && (approval.authorization.is_some() || approval.code.is_some())
             {
                 return Err(rejected());
             }
@@ -68,7 +72,7 @@ impl BrowserNetwork {
         Ok(hex::encode(self.own_invitation()?))
     }
     pub fn admission_requests(&self) -> String {
-        serde_json::json!(self.saved.approvals.iter().map(|a|serde_json::json!({"applicant":a.applicant.to_string(),"request":hex::encode(a.request),"approved":a.authorization.is_some(),"delivery_confirmed":a.complete})).collect::<Vec<_>>()).to_string()
+        serde_json::json!(self.saved.approvals.iter().map(|a|serde_json::json!({"applicant":a.applicant.to_string(),"request":hex::encode(a.request),"approved":a.authorization.is_some(),"rejected":a.rejected,"delivery_confirmed":a.complete})).collect::<Vec<_>>()).to_string()
     }
     pub async fn approve_admission(
         &mut self,
@@ -91,6 +95,30 @@ impl BrowserNetwork {
         let id = next.approvals[index].authorization.ok_or_else(rejected)?;
         self.commit(next).await?;
         Ok(id.to_string())
+    }
+    pub async fn reject_admission(
+        &mut self,
+        applicant: String,
+        request: String,
+    ) -> Result<(), JsValue> {
+        self.check_store().await?;
+        self.administrator()?;
+        let applicant: VerifyingKey = applicant.parse().map_err(error)?;
+        let request: [u8; 16] = hex::decode(request)
+            .map_err(error)?
+            .try_into()
+            .map_err(|_| rejected())?;
+        let mut next = self.saved.clone();
+        let approval = next
+            .approvals
+            .iter_mut()
+            .find(|a| a.applicant == applicant && a.request == request)
+            .ok_or_else(rejected)?;
+        if approval.authorization.is_some() || approval.code.is_some() {
+            return Err(rejected());
+        }
+        approval.rejected = true;
+        self.commit(next).await
     }
     /// Return bearer material only to the caller for trusted out-of-band delivery.
     pub async fn issue_precode(
@@ -181,7 +209,7 @@ impl BrowserNetwork {
     }
 }
 impl BrowserNetwork {
-    fn administrator(&self) -> Result<ManagementAuth, JsValue> {
+    pub(super) fn administrator(&self) -> Result<ManagementAuth, JsValue> {
         let auth = self.saved.verify()?.ok_or_else(rejected)?;
         if self.saved.stage() != "Complete"
             || !auth
@@ -192,7 +220,7 @@ impl BrowserNetwork {
         }
         Ok(auth)
     }
-    fn own_invitation(&self) -> Result<Vec<u8>, JsValue> {
+    pub(super) fn own_invitation(&self) -> Result<Vec<u8>, JsValue> {
         let anchor = self.saved.invitation()?.anchor;
         let mut bytes = anchor.root.as_bytes().to_vec();
         bytes.extend_from_slice(anchor.genesis.as_bytes());
@@ -209,6 +237,9 @@ impl BrowserNetwork {
     fn approve_snapshot(&self, mut next: SavedNode, index: usize) -> Result<SavedNode, JsValue> {
         let mut auth = self.administrator()?;
         let applicant = next.approvals[index].applicant;
+        if next.approvals[index].rejected {
+            return Err(rejected());
+        }
         if applicant == next.invitation()?.anchor.root {
             return Err(rejected());
         }
@@ -288,6 +319,7 @@ impl BrowserNetwork {
                 authorization: None,
                 code: token,
                 complete: false,
+                rejected: false,
             });
             next.approvals.len() - 1
         };
@@ -326,6 +358,12 @@ impl BrowserNetwork {
             next = self.approve_snapshot(next, index)?;
         }
         self.commit(next).await?;
+        if self.saved.approvals[index].rejected {
+            send_fixed(&exchange, &[2]).await?;
+            exchange.finish_send().await.map_err(error)?;
+            connection.revocation_handle().closed().await;
+            return Ok("Rejected".into());
+        }
         let Some(authorization) = self.saved.approvals[index].authorization else {
             send_fixed(&exchange, &[0]).await?;
             exchange.finish_send().await.map_err(error)?;

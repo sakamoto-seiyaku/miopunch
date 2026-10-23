@@ -148,6 +148,14 @@ impl ManagementStore {
         .execute(&pool)
         .await?;
         sqlx::query(
+            "CREATE TABLE IF NOT EXISTS admission_rejections (
+                applicant BLOB NOT NULL, request_id BLOB NOT NULL,
+                PRIMARY KEY (applicant, request_id)
+            )",
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query(
             "CREATE TABLE IF NOT EXISTS precodes (
             token BLOB PRIMARY KEY, origin BLOB NOT NULL, expires INTEGER NOT NULL,
             max_uses INTEGER, used INTEGER NOT NULL DEFAULT 0,
@@ -437,6 +445,36 @@ impl ManagementStore {
             .collect()
     }
 
+    pub(crate) async fn admission_rejected(
+        &self,
+        request: &AdmissionRequest,
+    ) -> Result<bool, StoreError> {
+        Ok(
+            sqlx::query(
+                "SELECT 1 FROM admission_rejections WHERE applicant = ? AND request_id = ?",
+            )
+            .bind(request.applicant.as_bytes().as_slice())
+            .bind(request.request_id.as_slice())
+            .fetch_optional(&self.pool)
+            .await?
+            .is_some(),
+        )
+    }
+
+    pub(crate) async fn save_admission_rejection(
+        &self,
+        request: &AdmissionRequest,
+    ) -> Result<(), StoreError> {
+        sqlx::query(
+            "INSERT OR IGNORE INTO admission_rejections (applicant, request_id) VALUES (?, ?)",
+        )
+        .bind(request.applicant.as_bytes().as_slice())
+        .bind(request.request_id.as_slice())
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub(crate) async fn approved_admission(
         &self,
         request: &AdmissionRequest,
@@ -480,7 +518,7 @@ impl ManagementStore {
     ) -> Result<(), StoreError> {
         let header = decode_complete(record.header(), record.body(), self.anchor)?;
         let mut tx = self.pool.begin().await?;
-        let changed = sqlx::query("UPDATE admission_deliveries SET authorization = ?, phase = 1 WHERE applicant = ? AND request_id = ? AND authorization IS NULL")
+        let changed = sqlx::query("UPDATE admission_deliveries SET authorization = ?, phase = 1 WHERE applicant = ? AND request_id = ? AND authorization IS NULL AND NOT EXISTS (SELECT 1 FROM admission_rejections r WHERE r.applicant = admission_deliveries.applicant AND r.request_id = admission_deliveries.request_id)")
             .bind(header.hash().as_bytes().as_slice())
             .bind(request.applicant.as_bytes().as_slice()).bind(request.request_id.as_slice())
             .execute(&mut *tx).await?;

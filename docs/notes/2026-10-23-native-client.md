@@ -3,6 +3,11 @@
 2026-10-23 — [MIOPUNCH-112](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/484dce1e-445a-4e7b-86c4-1e5ede14e10f).
 This implements the accepted non-UI P0/P1 slice of the parent client PRD.
 
+MIOPUNCH-113 extends current creators with a required recovery-card save gate;
+see the [current onboarding operations](2026-10-23-client-onboarding.md). The
+validation runner exports the card privately and acknowledges it when this new
+stage is present, while still accepting the earlier M112 pin's ready state.
+
 `native_client::NativeClient` owns the existing `NativeNetwork` durable node,
 its configured `ResourceEndpoint`, and one bounded incoming dispatcher. It
 exposes create/join/open, secret-free status and address, private invitation
