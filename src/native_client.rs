@@ -56,9 +56,10 @@ pub struct ClientStatus {
 /// A bounded native host. Incoming admission and member exchanges run while the
 /// caller controls the client; there is no UI, alternate transport or SSH path.
 pub struct NativeClient {
-    node: Arc<Mutex<NativeNetwork>>,
-    resources: Arc<ResourceEndpoint>,
-    files: Arc<crate::native_file_transfer::NativeFiles>,
+    pub(crate) node: Arc<Mutex<NativeNetwork>>,
+    pub(crate) resources: Arc<ResourceEndpoint>,
+    pub(crate) files: Arc<crate::native_file_transfer::NativeFiles>,
+    pub(crate) services: Arc<Mutex<crate::native_services::NativeServices>>,
     _file_owner: crate::native_file_transfer::FileOwner,
     cancel: CancellationToken,
     _drop_cancel: tokio_util::sync::DropGuard,
@@ -122,7 +123,7 @@ impl NativeClient {
     pub async fn open(path: impl AsRef<Path>, bind: Ipv4Addr) -> Result<Self, ClientError> {
         Self::start(NativeNetwork::open(path).await?, bind).await
     }
-    async fn start(node: NativeNetwork, bind: Ipv4Addr) -> Result<Self, ClientError> {
+    pub(crate) async fn start(node: NativeNetwork, bind: Ipv4Addr) -> Result<Self, ClientError> {
         let manual_rejected = AtomicBool::new(node.manual_request_declined().await?);
         let recovery_saved = Arc::new(AtomicBool::new(
             recovery_state(&node)?.is_none_or(|state| state.saved),
@@ -131,6 +132,12 @@ impl NativeClient {
             .register_protocol(MEMBER_MESSAGE, ProtocolScope::Member);
         node.admission_gate()
             .register_protocol(crate::file_transfer::FILE_ALPN, ProtocolScope::Member);
+        node.admission_gate()
+            .register_protocol(crate::service_policy::POLICY_ALPN, ProtocolScope::Member);
+        node.admission_gate().register_protocol(
+            crate::service_policy::GUEST_ALPN,
+            ProtocolScope::AdmissionRequest,
+        );
         // Dial-only pre-admission invitation delivery. This ALPN is not in
         // this network host's advertised incoming protocol set.
         node.admission_gate().register_protocol(
@@ -143,8 +150,16 @@ impl NativeClient {
             PRECODE_REQUEST_ALPN.to_vec(),
             MEMBER_MESSAGE.to_vec(),
             crate::file_transfer::FILE_ALPN.to_vec(),
+            crate::service_policy::POLICY_ALPN.to_vec(),
+            crate::service_policy::GUEST_ALPN.to_vec(),
         ]);
-        let files = Arc::new(crate::native_file_transfer::NativeFiles::default());
+        let files = Arc::new(crate::native_file_transfer::NativeFiles::new(
+            node.admission_gate().clone(),
+        ));
+        let mut services = crate::native_services::NativeServices::load(&node).await?;
+        services.declare_files(&node, &files, false).await?;
+        files.update_access(services.access(&node).await?);
+        let services = Arc::new(Mutex::new(services));
         let node = Arc::new(Mutex::new(node));
         let cancel = CancellationToken::new();
         let listener = {
@@ -153,6 +168,7 @@ impl NativeClient {
             let cancel = cancel.clone();
             let recovery_saved = recovery_saved.clone();
             let files = files.clone();
+            let services = services.clone();
             tokio::spawn(async move {
                 let mut handlers = tokio::task::JoinSet::new();
                 let mut expiry = tokio::time::interval(Duration::from_secs(1));
@@ -166,6 +182,7 @@ impl NativeClient {
                             let node = node.clone();
                             let recovery_saved = recovery_saved.clone();
                             let files = files.clone();
+                            let services = services.clone();
                             handlers.spawn(async move {
                                 // The handshake has a finite budget. A large file has no
                                 // total-duration cap: its stream enforces an idle timeout.
@@ -182,14 +199,36 @@ impl NativeClient {
                                 let Ok(Ok((accepting, alpn))) = accepted else { return };
                                 if alpn == crate::file_transfer::FILE_ALPN {
                                     if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
+                                        let access = {
+                                            let node = node.lock().await;
+                                            services.lock().await.access(&node).await
+                                        };
+                                        let Ok(access) = access else {
+                                            connection.close(1u32.into(), b"file authorization unavailable");
+                                            return;
+                                        };
+                                        files.update_access(access);
                                         files.receive(connection);
                                     }
+                                    return;
+                                }
+                                if alpn == crate::service_policy::POLICY_ALPN {
+                                    if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
+                                        let _ = tokio::time::timeout_at(deadline, crate::native_services::serve_policy(connection, node, services, files)).await;
+                                    }
+                                    return;
+                                }
+                                if alpn == crate::service_policy::GUEST_ALPN {
+                                    let _ = tokio::time::timeout_at(deadline, async {
+                                        let connection = Arc::new(accepting.into_control().await?);
+                                        crate::native_services::serve_guest(connection.retain_control(), node, services, files).await
+                                    }).await;
                                     return;
                                 }
                                 let _ = tokio::time::timeout_at(deadline, async {
                                     if matches!(alpn.as_slice(), ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN) {
                                         let connection = Arc::new(accepting.into_control().await?);
-                                        serve_admission(connection.retain_control(), node).await
+                                        serve_admission(connection.retain_control(), node, services, files).await
                                     } else {
                                         let connection = accepting.await?;
                                         let result = async {
@@ -218,6 +257,7 @@ impl NativeClient {
             resources,
             _file_owner: crate::native_file_transfer::FileOwner(files.clone()),
             files,
+            services,
             cancel,
             _drop_cancel: drop_cancel,
             listener,
@@ -240,14 +280,33 @@ impl NativeClient {
     /// Explicit local opt-in. Membership alone never starts the receiver.
     pub async fn enable_files(&self, directory: impl AsRef<Path>) -> Result<(), ClientError> {
         self.require_ready()?;
-        if self.node.lock().await.admission_stage() != AdmissionStage::Complete {
+        let node = self.node.lock().await;
+        let access = self.services.lock().await.access(&node).await?;
+        if node.admission_stage() != AdmissionStage::Complete && access.guest_pairs().is_empty() {
             return Err("membership required".into());
         }
+        self.files.update_access(access);
         self.files.enable(directory.as_ref()).await?;
+        if let Err(error) = self
+            .services
+            .lock()
+            .await
+            .declare_files(&node, &self.files, true)
+            .await
+        {
+            self.files.disable().await;
+            return Err(error);
+        }
         Ok(())
     }
-    pub async fn disable_files(&self) {
+    pub async fn disable_files(&self) -> Result<(), ClientError> {
         self.files.disable().await;
+        let node = self.node.lock().await;
+        self.services
+            .lock()
+            .await
+            .declare_files(&node, &self.files, false)
+            .await
     }
     pub fn files_enabled(&self) -> bool {
         self.files.enabled()
@@ -258,9 +317,13 @@ impl NativeClient {
         path: impl AsRef<Path>,
     ) -> Result<String, ClientError> {
         self.require_ready()?;
-        if self.node.lock().await.admission_stage() != AdmissionStage::Complete {
+        let node = self.node.lock().await;
+        let access = self.services.lock().await.access(&node).await?;
+        if node.admission_stage() != AdmissionStage::Complete && access.guest_pairs().is_empty() {
             return Err("membership required".into());
         }
+        self.files.update_access(access);
+        drop(node);
         Ok(self
             .files
             .send(self.resources.clone(), address, path.as_ref().to_owned())
@@ -274,6 +337,12 @@ impl NativeClient {
     }
     pub fn disconnect_file(&self, id: &str) -> Result<(), ClientError> {
         Ok(self.files.tasks.disconnect(id)?)
+    }
+    pub fn approve_file(&self, id: &str) -> Result<bool, ClientError> {
+        Ok(self.files.tasks.decide_file(id, true)?)
+    }
+    pub fn reject_file(&self, id: &str) -> Result<bool, ClientError> {
+        Ok(self.files.tasks.decide_file(id, false)?)
     }
     pub async fn invitation(&self) -> Result<ClientInvitation, ClientError> {
         self.require_ready()?;
@@ -346,18 +415,18 @@ impl NativeClient {
             return Err("no declined manual request".into());
         }
         node.begin_rejoin(invitation.material()?).await?;
+        self.files
+            .update_access(self.services.lock().await.access(&node).await?);
         self.manual_rejected.store(false, Ordering::Release);
         Ok(())
     }
     pub async fn approve(&self, request: &AdmissionRequest) -> Result<AdmissionStage, ClientError> {
         self.require_ready()?;
-        Ok(self
-            .node
-            .lock()
-            .await
-            .approve_manual_admission(request)
-            .await?
-            .stage)
+        let mut node = self.node.lock().await;
+        let stage = node.approve_manual_admission(request).await?.stage;
+        self.files
+            .update_access(self.services.lock().await.access(&node).await?);
+        Ok(stage)
     }
     /// Resume the same durable SDK attempt. Complete is returned only after
     /// verified membership and the current admission secret have been saved.
@@ -386,11 +455,10 @@ impl NativeClient {
             return Err("request declined; explicit new attempt required".into());
         }
         if let Some(code) = &code {
-            self.node
-                .lock()
-                .await
-                .begin_precode_completion(code)
-                .await?;
+            let mut node = self.node.lock().await;
+            node.begin_precode_completion(code).await?;
+            self.files
+                .update_access(self.services.lock().await.access(&node).await?);
         }
         let connection = self
             .resources
@@ -421,6 +489,8 @@ impl NativeClient {
                     node.complete_manual_admission(delivery).await?;
                 }
             }
+            self.files
+                .update_access(self.services.lock().await.access(&node).await?);
             Ok(node.admission_stage())
         }
         .await;
@@ -451,6 +521,7 @@ impl NativeClient {
     /// Stop this host's listener and handlers, close endpoint resources, then
     /// close the durable store. Identity and authorization remain on disk.
     pub async fn close(self) -> Result<(), ClientError> {
+        let service_stop = self.disable_files().await;
         self.cancel.cancel();
         self.listener.await?;
         self.files.close().await;
@@ -463,6 +534,7 @@ impl NativeClient {
             .into_inner()
             .close()
             .await;
+        service_stop?;
         Ok(())
     }
 }
@@ -529,7 +601,7 @@ impl NativeClient {
         result??;
         Ok(())
     }
-    fn require_ready(&self) -> Result<(), ClientError> {
+    pub(crate) fn require_ready(&self) -> Result<(), ClientError> {
         if !self.recovery_saved.load(Ordering::Acquire) {
             return Err("recovery card save confirmation required".into());
         }
@@ -596,12 +668,19 @@ impl NativeClient {
 async fn serve_admission(
     connection: ControlOwner,
     node: Arc<Mutex<NativeNetwork>>,
+    services: Arc<Mutex<crate::native_services::NativeServices>>,
+    files: Arc<crate::native_file_transfer::NativeFiles>,
 ) -> Result<(), ClientError> {
+    let mut node = node.lock().await;
     let result = match connection.alpn() {
-        PRECODE_REQUEST_ALPN => node.lock().await.serve_precode_admission(&connection).await,
-        ADMISSION_REQUEST_ALPN => node.lock().await.serve_manual_admission(&connection).await,
+        PRECODE_REQUEST_ALPN => node.serve_precode_admission(&connection).await,
+        ADMISSION_REQUEST_ALPN => node.serve_manual_admission(&connection).await,
         _ => return Err("unsupported admission operation".into()),
     };
+    // Admission can save membership before secret delivery ends. Publish that
+    // same verified view to an already enabled service on either outcome.
+    files.update_access(services.lock().await.access(&node).await?);
+    drop(node);
     if let Err(error) = result {
         connection.close(0u32.into(), b"client admission failed");
         return Err(error.into());

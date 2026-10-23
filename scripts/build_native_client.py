@@ -107,6 +107,7 @@ def main():
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--validate-only", action="store_true", help="Check complete inputs/toolchain without Cargo or pinning")
+    parser.add_argument("--pin-library", action="store_true", help="Pin this graph's own SDK library for a declared standalone test consumer")
     args = parser.parse_args()
     expected = json.loads(args.inputs.read_text())
     validate_inputs(expected)
@@ -181,6 +182,12 @@ def main():
             pin_path = ROOT / ".artifacts" / "runs" / args.output.name / binary.name
             report["pin"] = pin_artifact(binary, pin_path)
             report["sha256"] = hashlib.sha256(binary.read_bytes()).hexdigest()
+            if args.pin_library:
+                library = next(Path(name) for entry in artifacts if entry["target"]["name"] == "miopunch_native_probe"
+                               for name in entry["filenames"] if name.endswith(".rlib"))
+                library_pin = args.output.resolve() / "sdk" / "libmiopunch_native_probe.rlib"
+                report["sdkLibrary"] = {"pin": pin_artifact(library, library_pin),
+                                        "sha256": hashlib.sha256(library.read_bytes()).hexdigest()}
             report["diskAfter"] = disk_state(target)
     finally:
         if container:

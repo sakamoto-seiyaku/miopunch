@@ -214,6 +214,14 @@ impl BrowserNetwork {
         let full = ClientInvitation::decode(invitation.as_bytes()).map_err(error)?;
         Self::start_onboarding(configuration, None, Startup::Join(full)).await
     }
+    pub async fn join_guest(
+        configuration: String,
+        invitation: String,
+    ) -> Result<BrowserNetwork, JsValue> {
+        let invitation =
+            crate::service_policy::GuestInvitation::decode(invitation.as_bytes()).map_err(error)?;
+        Self::start_onboarding(configuration, None, Startup::Guest(invitation)).await
+    }
 
     /// Pre-network receiver. Possessing a node ID or route is insufficient:
     /// delivery must prove the private scanned capability on this exact TLS C.

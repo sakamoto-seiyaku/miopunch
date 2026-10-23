@@ -36,7 +36,7 @@ class FileRunner(Runner):
                 if path.suffix == ".py" and path.is_relative_to(root / "scripts"):
                     sources.add(path)
         if "check_browser_onboarding" in sys.modules:
-            sources.add(root / "browser-probe/harness/client-onboarding.mjs")
+            sources.add(Path(getattr(args, "harness", root / "browser-probe/harness/client-onboarding.mjs")).resolve())
         main = getattr(sys.modules["__main__"], "__file__", None)
         if main and Path(main).resolve().is_relative_to(root):
             sources.add(Path(main).resolve())

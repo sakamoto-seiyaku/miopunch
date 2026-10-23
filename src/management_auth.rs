@@ -4,12 +4,16 @@
 //! p2panda header carries a group action and causal dependencies. Every path
 //! (local creation, remote receipt, or history replay) enters through `accept`.
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+};
 
 use p2panda_auth::group::resolver::StrongRemove;
 use p2panda_auth::group::{
     CheckedGroupCrdtError, GroupAction, GroupCrdt, GroupCrdtError, GroupCrdtState, GroupMember,
 };
+use p2panda_auth::traits::Resolver as _;
 use p2panda_auth::{Access, GroupsExtensionArgs, GroupsOperation};
 use p2panda_core::{
     Body, Hash, Header, HeaderError, Operation, OperationError, VerifyingKey, validate_operation,
@@ -190,6 +194,142 @@ impl ManagementAuth {
             .into_iter()
             .filter(|(id, _)| *id != self.anchor.root)
             .collect()
+    }
+
+    /// The verified membership at signed causal heads. Service records use
+    /// this same graph rather than trusting a sender's role or current UI.
+    pub fn nodes_at(
+        &self,
+        dependencies: &[Hash],
+    ) -> Result<Vec<(VerifyingKey, Access)>, AuthError> {
+        let state = self.causal_state(dependencies)?;
+        Ok(state
+            .members(self.anchor.root)
+            .into_iter()
+            .filter(|(id, _)| *id != self.anchor.root)
+            .collect())
+    }
+
+    fn causal_state(&self, dependencies: &[Hash]) -> Result<Cow<'_, State>, AuthError> {
+        if dependencies.is_empty() || dependencies.iter().any(|id| !self.contains_operation(*id)) {
+            return Err(AuthError::MissingHistory);
+        }
+        if dependencies.iter().copied().collect::<HashSet<_>>() == self.state.inner.heads() {
+            return Ok(Cow::Borrowed(&self.state));
+        }
+        // StrongRemove can rebuild stored historical states after a later
+        // concurrent correction. Validate the originally signed predecessor
+        // on its pruned graph, as process_checked does for management actions.
+        let mut ancestors = HashSet::new();
+        let mut pending = dependencies.to_vec();
+        while let Some(id) = pending.pop() {
+            if ancestors.insert(id) {
+                pending.extend(
+                    self.state
+                        .inner
+                        .operations
+                        .get(&id)
+                        .ok_or(AuthError::MissingHistory)?
+                        .dependencies
+                        .iter()
+                        .copied(),
+                );
+            }
+        }
+        let mut state = self.state.clone();
+        for id in self
+            .state
+            .inner
+            .operations
+            .keys()
+            .filter(|id| !ancestors.contains(id))
+        {
+            state.inner.graph.remove_node(*id);
+        }
+        state
+            .inner
+            .operations
+            .retain(|id, _| ancestors.contains(id));
+        state.inner.states.retain(|id, _| ancestors.contains(id));
+        state.inner = Resolver::process(state.inner).map_err(|_| AuthError::MissingHistory)?;
+        Ok(Cow::Owned(state))
+    }
+
+    /// Every dependency of a service predecessor must remain in the signed
+    /// management view of its successor.
+    pub(crate) fn covers(&self, heads: &[Hash], required: &[Hash]) -> bool {
+        required
+            .iter()
+            .all(|id| has_ancestor(*id, heads, &self.state))
+    }
+
+    pub fn authorization_origin_at(
+        &self,
+        target: VerifyingKey,
+        dependencies: &[Hash],
+        administrator: bool,
+    ) -> Option<Hash> {
+        if target == self.anchor.root {
+            return None;
+        }
+        let state = self.causal_state(dependencies).ok()?;
+        let nodes = state.members(self.anchor.root);
+        if !nodes
+            .iter()
+            .any(|(id, role)| *id == target && (!administrator || *role == Access::manage()))
+        {
+            return None;
+        }
+        let mut origins: Vec<_> = state
+            .inner
+            .operations
+            .values()
+            .filter(|grant| {
+                if !has_ancestor(grant.id, dependencies, &state)
+                    || state.inner.ignore.contains(&grant.id)
+                {
+                    return false;
+                }
+                let granted = match &grant.action {
+                    GroupAction::Create { initial_members } => {
+                        initial_members.iter().any(|(member, role)| {
+                            *member == GroupMember::Individual(target)
+                                && (!administrator || *role == Access::manage())
+                        })
+                    }
+                    GroupAction::Add { member, access } => {
+                        *member == GroupMember::Individual(target)
+                            && (!administrator || *access == Access::manage())
+                    }
+                    GroupAction::Promote { member, access } => {
+                        administrator
+                            && *member == GroupMember::Individual(target)
+                            && *access == Access::manage()
+                    }
+                    _ => false,
+                };
+                granted
+                    && !state.inner.operations.values().any(|loss| {
+                        !state.inner.ignore.contains(&loss.id)
+                            && has_ancestor(loss.id, dependencies, &state)
+                            && !has_ancestor(loss.id, &grant.dependencies, &state)
+                            && match &loss.action {
+                                GroupAction::Remove { member } => {
+                                    *member == GroupMember::Individual(target)
+                                }
+                                GroupAction::Demote { member, access } => {
+                                    administrator
+                                        && *member == GroupMember::Individual(target)
+                                        && *access != Access::manage()
+                                }
+                                _ => false,
+                            }
+                    })
+            })
+            .map(|grant| grant.id)
+            .collect();
+        origins.sort_by_key(|id| *id.as_bytes());
+        origins.into_iter().next()
     }
 
     /// A previously recorded identity absent from the current member view.

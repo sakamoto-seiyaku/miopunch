@@ -78,6 +78,33 @@ enum Command {
     },
     FilesDisable,
     FilesStatus,
+    ServiceStatus,
+    ServiceRule {
+        provider: p2panda_core::VerifyingKey,
+        service: miopunch_native_probe::service_policy::Service,
+        previous: Option<p2panda_core::Hash>,
+        rule: miopunch_native_probe::service_policy::ServiceRule,
+    },
+    ServiceSync {
+        address: iroh::EndpointAddr,
+    },
+    GuestIssue {
+        path: String,
+        provider: iroh::EndpointAddr,
+        seconds: u64,
+    },
+    GuestRedeem,
+    GuestStatus,
+    GuestEnd,
+    GuestRevoke {
+        invitation: p2panda_core::Hash,
+    },
+    FileApprove {
+        task: String,
+    },
+    FileReject {
+        task: String,
+    },
     FileSend {
         address: iroh::EndpointAddr,
         path: String,
@@ -111,13 +138,20 @@ fn save_private(path: &str, bytes: &[u8]) -> Result<Value, ClientError> {
 }
 async fn status(client: &NativeClient) -> Value {
     let status = client.status().await;
-    json!({"node":status.node.node_id.to_string(), "network":status.node.anchor.root.to_string(),
+    let guest = client.guest_status().await.ok().flatten();
+    let mut result = json!({"node":status.node.node_id.to_string(), "network":status.node.anchor.root.to_string(),
         "genesis":status.node.anchor.genesis.to_string(),
         "stage":if !status.recovery_saved {"AwaitingRecoverySave".into()} else if status.manual_rejected {"Rejected".into()} else {format!("{:?}",status.admission)},
         "automatic_retry":!status.manual_rejected,
         "recovery_saved":status.recovery_saved, "records":status.node.applied_count,
         "members":status.node.members.iter().map(|(key,role)| json!({"node":key.to_string(),
-            "role":if *role == p2panda_auth::Access::manage() {"admin"} else {"member"}})).collect::<Vec<_>>()})
+            "role":if *role == p2panda_auth::Access::manage() {"admin"} else {"member"}})).collect::<Vec<_>>()});
+    if let Some(guest) = guest {
+        result["stage"] = guest["stage"].clone();
+        result["guest"] = guest;
+        result["members"] = json!([]);
+    }
+    result
 }
 async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, ClientError> {
     match command {
@@ -243,7 +277,7 @@ async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, Clie
             Ok(json!({"enabled":client.files_enabled()}))
         }
         Command::FilesDisable => {
-            client.disable_files().await;
+            client.disable_files().await?;
             Ok(json!({"enabled":false}))
         }
         Command::FilesStatus => Ok(
@@ -252,6 +286,35 @@ async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, Clie
             "active_limit":miopunch_native_probe::file_transfer::ACTIVE_TASKS,
             "history_limit":miopunch_native_probe::file_transfer::TASK_HISTORY}),
         ),
+        Command::ServiceStatus => client.service_status().await,
+        Command::ServiceRule {
+            provider,
+            service,
+            previous,
+            rule,
+        } => Ok(
+            json!({"revision":client.set_service_rule(provider, service, previous, rule).await?,"saved_locally":true}),
+        ),
+        Command::ServiceSync { address } => client.sync_services(address).await,
+        Command::GuestIssue {
+            path,
+            provider,
+            seconds,
+        } => {
+            let expires = miopunch_native_probe::service_policy::now()
+                .checked_add(seconds)
+                .ok_or("invalid guest deadline")?;
+            let invitation = client.issue_guest(provider, expires).await?;
+            save_private(&path, invitation.text()?.as_bytes())
+        }
+        Command::GuestRedeem => client.redeem_guest().await,
+        Command::GuestStatus => Ok(client.guest_status().await?.unwrap_or(Value::Null)),
+        Command::GuestEnd => client.end_guest().await,
+        Command::GuestRevoke { invitation } => {
+            Ok(json!({"revision":client.revoke_guest(invitation).await?,"saved_locally":true}))
+        }
+        Command::FileApprove { task } => Ok(json!({"approved":client.approve_file(&task)?})),
+        Command::FileReject { task } => Ok(json!({"rejected":client.reject_file(&task)?})),
         Command::FileSend { address, path } => {
             Ok(json!({"task":client.send_file(address,path).await?}))
         }
@@ -395,6 +458,12 @@ async fn main() -> Result<(), ClientError> {
         }
         [action, path, invitation] if action == "join" => {
             NativeClient::join(path, &read_invitation(invitation)?, Ipv4Addr::UNSPECIFIED).await?
+        }
+        [action, path, invitation] if action == "join-guest" => {
+            let invitation = miopunch_native_probe::service_policy::GuestInvitation::decode(
+                &std::fs::read(invitation)?,
+            )?;
+            NativeClient::join_guest(path, &invitation, Ipv4Addr::UNSPECIFIED).await?
         }
         [action, path, resources] if action == "create" => {
             NativeClient::create_with_resources(

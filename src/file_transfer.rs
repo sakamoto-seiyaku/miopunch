@@ -1,6 +1,11 @@
 //! Shared bounded file protocol and task state. Platform adapters own actual
 //! sources and saves; a successful receipt is emitted only after `save` returns.
-use std::{collections::VecDeque, future::Future, pin::Pin, sync::Mutex};
+use std::{
+    collections::VecDeque,
+    future::Future,
+    pin::Pin,
+    sync::{Arc, Mutex},
+};
 
 use futures_util::FutureExt;
 use iroh::endpoint::Connection;
@@ -237,7 +242,7 @@ pub(crate) async fn run_receive<S: FileSink>(
             .await;
         let _ = stream.finish();
     }
-    tasks.finish(&id, &result);
+    tasks.finish_receive(&partial.offer, &partial.peer, &result);
     result
 }
 
@@ -277,7 +282,26 @@ pub(crate) async fn discard_partial<S: FileSink>(
             .and_then(|status| status.error)
             .unwrap_or(reason))
     };
-    tasks.finish(&id, &result);
+    tasks.finish_receive(&partial.offer, &partial.peer, &result);
+}
+
+/// Reject only this owned offer. A retained committed file with the same id
+/// but different metadata belongs to an older transfer and is never deleted
+/// or reused as the new offer's receipt. Return whether this partial was removed.
+pub(crate) async fn reject_owned_partial<S: FileSink>(
+    partial: &mut PartialFile<S>,
+    tasks: &FileTasks,
+    offer: &FileOffer,
+    peer: &str,
+    reason: FileError,
+) -> bool {
+    if partial.offer != *offer || partial.peer != peer {
+        tasks.fail_receive(&offer.id, reason);
+        return false;
+    }
+    let remove = partial.receipt.is_none();
+    discard_partial(partial, tasks, reason).await;
+    remove
 }
 
 pub async fn receive_file<S: FileSink>(
@@ -351,6 +375,7 @@ pub async fn receive_file<S: FileSink>(
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum FileState {
+    AwaitingApproval,
     Preparing,
     Transferring,
     Interrupted,
@@ -405,13 +430,111 @@ struct Entry {
     cancel: CancellationToken,
     connection: Option<Connection>,
     touched: n0_future::time::Instant,
+    approval: Option<Arc<Approval>>,
+    offer: Option<FileOffer>,
+    receive_owner: bool,
+}
+struct Approval {
+    decision: Mutex<Option<bool>>,
+    ready: CancellationToken,
 }
 #[derive(Default)]
 pub struct FileTasks(Mutex<VecDeque<Entry>>);
 
+/// One connection owns a receive from its approval reservation until platform
+/// preparation and I/O have returned. A duplicate never acquires task mutation
+/// or storage ownership, including while an asynchronous sink is opening.
+pub struct ReceiveReservation<'a> {
+    tasks: &'a FileTasks,
+    id: String,
+    cancel: CancellationToken,
+    approval: Option<Arc<Approval>>,
+    preparation_started: bool,
+    retained: bool,
+}
+impl ReceiveReservation<'_> {
+    pub(crate) fn token(&self) -> CancellationToken {
+        self.cancel.clone()
+    }
+    pub(crate) fn preparing(&mut self) {
+        self.preparation_started = true;
+    }
+    pub(crate) fn completed_receipt(&self) -> Option<FileReceipt> {
+        self.tasks
+            .status_for(&self.id)
+            .filter(|task| task.state == FileState::Complete)
+            .and_then(|task| task.receipt)
+    }
+    pub async fn wait_for_approval(&self, connection: &Connection) -> Result<(), FileError> {
+        let Some(approval) = self.approval.as_ref() else {
+            return Ok(());
+        };
+        let result = n0_future::time::timeout(std::time::Duration::from_secs(60), async {
+            let decision = approval.ready.cancelled().fuse();
+            let cancelled = self.cancel.cancelled().fuse();
+            let closed = connection.closed().fuse();
+            futures_util::pin_mut!(decision, cancelled, closed);
+            futures_util::select_biased! {
+                _ = cancelled => Err(FileError::Cancelled),
+                _ = closed => Err(FileError::Interrupted),
+                _ = decision => if *approval.decision.lock().unwrap() == Some(true) { Ok(()) } else { Err(FileError::Rejected) },
+            }
+        }).await.unwrap_or(Err(FileError::Interrupted));
+        if result.is_ok() {
+            self.tasks.update(&self.id, |task| {
+                if task.state != FileState::Complete {
+                    task.state = FileState::Preparing;
+                }
+            });
+        }
+        // The platform still owns this reservation and any retained partial.
+        // It joins cleanup before an approval error becomes terminal.
+        result
+    }
+}
+impl Drop for ReceiveReservation<'_> {
+    fn drop(&mut self) {
+        let mut entries = self.tasks.0.lock().unwrap();
+        let Some(entry) = entries.iter_mut().find(|e| e.status.id == self.id) else {
+            return;
+        };
+        entry.receive_owner = false;
+        // These states have not handed a retained partial to the resume path.
+        // Platform preparation errors call fail only after storage cleanup.
+        if !self.preparation_started && self.retained && !entry.status.state.terminal() {
+            if !entry.cancel.is_cancelled() {
+                entry.status.state = FileState::Interrupted;
+            }
+        } else if !self.preparation_started && !entry.status.state.terminal() {
+            let reason = if entry.cancel.is_cancelled() {
+                FileError::Cancelled
+            } else {
+                FileError::Interrupted
+            };
+            entry.status.state = if reason == FileError::Cancelled {
+                FileState::Cancelled
+            } else {
+                FileState::Failed
+            };
+            entry.status.error = Some(reason);
+            entry.connection = None;
+        }
+    }
+}
+
 impl FileTasks {
     pub fn begin(&self, status: FileTaskStatus) -> Result<CancellationToken, FileError> {
         let mut entries = self.0.lock().unwrap();
+        Self::insert(&mut entries, status, None, None, false)
+    }
+
+    fn insert(
+        entries: &mut VecDeque<Entry>,
+        status: FileTaskStatus,
+        offer: Option<FileOffer>,
+        approval: Option<Arc<Approval>>,
+        receive_owner: bool,
+    ) -> Result<CancellationToken, FileError> {
         if entries.iter().any(|entry| entry.status.id == status.id)
             || entries
                 .iter()
@@ -424,7 +547,7 @@ impl FileTasks {
         if entries.len() == TASK_HISTORY {
             let index = entries
                 .iter()
-                .position(|entry| entry.status.state.terminal())
+                .position(|entry| entry.status.state.terminal() && !entry.receive_owner)
                 .ok_or(FileError::Busy)?;
             entries.remove(index);
         }
@@ -434,8 +557,120 @@ impl FileTasks {
             cancel: cancel.clone(),
             connection: None,
             touched: n0_future::time::Instant::now(),
+            approval,
+            offer,
+            receive_owner,
         });
         Ok(cancel)
+    }
+
+    /// A guest request reserves the same bounded task slot as an ordinary
+    /// receive, but no platform file is created before explicit approval.
+    pub fn begin_guest_receive(
+        &self,
+        offer: &FileOffer,
+        peer: &str,
+    ) -> Result<ReceiveReservation<'_>, FileError> {
+        self.reserve_receive(offer, peer, true)
+    }
+
+    fn reserve_receive(
+        &self,
+        offer: &FileOffer,
+        peer: &str,
+        require_approval: bool,
+    ) -> Result<ReceiveReservation<'_>, FileError> {
+        offer.validate()?;
+        let mut entries = self.0.lock().unwrap();
+        let fresh = !entries.iter().any(|entry| entry.status.id == offer.id);
+        if fresh {
+            let mut status = FileTaskStatus::new(
+                offer.id.clone(),
+                "receive",
+                peer.into(),
+                offer.name.clone(),
+                offer.size,
+            );
+            let approval = require_approval.then(|| {
+                Arc::new(Approval {
+                    decision: Mutex::new(None),
+                    ready: CancellationToken::new(),
+                })
+            });
+            if require_approval {
+                status.state = FileState::AwaitingApproval;
+            }
+            // Publish the bounded entry and its owner in the same critical
+            // section; cancellation can never observe an unowned reservation.
+            Self::insert(&mut entries, status, Some(offer.clone()), approval, true)?;
+        }
+        {
+            let entry = entries
+                .iter_mut()
+                .find(|e| e.status.id == offer.id)
+                .ok_or(FileError::UnknownTask)?;
+            if !fresh
+                && (entry.receive_owner
+                    || entry.cancel.is_cancelled()
+                    || entry.status.peer != peer
+                    || entry.status.direction != "receive"
+                    || (!matches!(
+                        entry.status.state,
+                        FileState::Interrupted | FileState::Complete
+                    ) || entry.offer.as_ref() != Some(offer)))
+            {
+                return Err(FileError::Busy);
+            }
+            entry.offer = Some(offer.clone());
+            entry.receive_owner = true;
+            entry.touched = n0_future::time::Instant::now();
+            if require_approval && entry.approval.is_none() {
+                entry.approval = Some(Arc::new(Approval {
+                    decision: Mutex::new(None),
+                    ready: CancellationToken::new(),
+                }));
+            }
+            if entry
+                .approval
+                .as_ref()
+                .is_some_and(|a| a.decision.lock().unwrap().is_none())
+            {
+                entry.status.state = FileState::AwaitingApproval;
+            }
+            Ok(ReceiveReservation {
+                tasks: self,
+                id: offer.id.clone(),
+                cancel: entry.cancel.clone(),
+                approval: entry.approval.clone(),
+                preparation_started: false,
+                retained: !fresh,
+            })
+        }
+    }
+    pub fn decide_file(&self, id: &str, approve: bool) -> Result<bool, FileError> {
+        let entries = self.0.lock().unwrap();
+        let entry = entries
+            .iter()
+            .find(|e| e.status.id == id)
+            .ok_or(FileError::UnknownTask)?;
+        let approval = entry.approval.as_ref().ok_or(FileError::Rejected)?;
+        if entry.status.state != FileState::AwaitingApproval || entry.cancel.is_cancelled() {
+            return Ok(false);
+        }
+        let mut decision = approval.decision.lock().unwrap();
+        if decision.is_some() {
+            return Ok(false);
+        }
+        *decision = Some(approve);
+        approval.ready.cancel();
+        Ok(true)
+    }
+    pub fn begin_receive(
+        &self,
+        offer: &FileOffer,
+        peer: &str,
+    ) -> Result<ReceiveReservation<'_>, FileError> {
+        self.reserve_receive(offer, peer, false)
     }
 
     pub fn update(&self, id: &str, update: impl FnOnce(&mut FileTaskStatus)) {
@@ -495,7 +730,16 @@ impl FileTasks {
     }
 
     pub fn finish(&self, id: &str, result: &Result<FileReceipt, FileError>) {
-        self.update(id, |status| match result {
+        let mut entries = self.0.lock().unwrap();
+        let Some(entry) = entries.iter_mut().find(|entry| entry.status.id == id) else {
+            return;
+        };
+        Self::finish_entry(entry, result);
+    }
+
+    fn finish_entry(entry: &mut Entry, result: &Result<FileReceipt, FileError>) {
+        let status = &mut entry.status;
+        match result {
             Ok(receipt) => {
                 status.state = FileState::Complete;
                 status.bytes = receipt.size;
@@ -510,8 +754,51 @@ impl FileTasks {
                 };
                 status.error = Some(*error);
             }
-        });
-        self.connection(id, None);
+        }
+        entry.connection = None;
+        entry.touched = n0_future::time::Instant::now();
+    }
+
+    fn finish_receive(
+        &self,
+        offer: &FileOffer,
+        peer: &str,
+        result: &Result<FileReceipt, FileError>,
+    ) {
+        let mut entries = self.0.lock().unwrap();
+        let entry = entries
+            .iter_mut()
+            .find(|entry| entry.status.id == offer.id)
+            .filter(|entry| {
+                entry.status.direction == "receive"
+                    && entry.status.peer == peer
+                    && entry.status.name == offer.name
+                    && entry.status.size == offer.size
+                    && entry.offer.as_ref().is_none_or(|saved| saved == offer)
+            });
+        if let Some(entry) = entry {
+            Self::finish_entry(entry, result);
+        }
+    }
+
+    pub(crate) fn fail_receive(&self, id: &str, reason: FileError) {
+        let mut entries = self.0.lock().unwrap();
+        let Some(entry) = entries.iter_mut().find(|entry| entry.status.id == id) else {
+            return;
+        };
+        // Another cleanup owner may already have published SaveFailed, or a
+        // committed receipt. A later refusal never overwrites that truth.
+        if entry.status.state.terminal() {
+            return;
+        }
+        entry.status.state = if reason == FileError::Cancelled {
+            FileState::Cancelled
+        } else {
+            FileState::Failed
+        };
+        entry.status.error = Some(reason);
+        entry.connection = None;
+        entry.touched = n0_future::time::Instant::now();
     }
 
     pub fn cancel(&self, id: &str) -> Result<bool, FileError> {
@@ -561,7 +848,8 @@ impl FileTasks {
             .iter()
             .find(|entry| entry.status.id == id)
             .is_none_or(|entry| {
-                entry.status.state == FileState::Interrupted
+                !entry.receive_owner
+                    && entry.status.state == FileState::Interrupted
                     && entry.touched.elapsed().as_secs() >= 60
             })
     }
@@ -716,6 +1004,8 @@ mod storage_tests {
         assert_eq!(status.error, Some(FileError::SaveFailed));
         assert!(status.receipt.is_none());
         assert!(directory.0.is_dir());
+        tasks.fail_receive(&offer.id, FileError::Cancelled);
+        assert_eq!(tasks.status()[0].error, Some(FileError::SaveFailed));
     }
 
     #[tokio::test]
@@ -738,5 +1028,110 @@ mod storage_tests {
         assert_eq!(status.state, FileState::Failed);
         assert_eq!(status.error, Some(FileError::SaveFailed));
         assert!(status.receipt.is_none());
+    }
+
+    #[tokio::test]
+    async fn resumed_approval_refusal_joins_retained_storage_before_terminal() {
+        let directory = Directory::new();
+        let path = directory.0.join(".partial");
+        std::fs::write(&path, b"partial").unwrap();
+        let tasks = FileTasks::default();
+        let offer = offer();
+        let mut original = tasks.begin_guest_receive(&offer, "peer").unwrap();
+        tasks.decide_file(&offer.id, true).unwrap();
+        original.preparing();
+        tasks.update(&offer.id, |status| status.state = FileState::Interrupted);
+        drop(original);
+        // Dropping an unprepared resume retains its cleanup/expiry ownership.
+        drop(tasks.begin_guest_receive(&offer, "peer").unwrap());
+        assert_eq!(tasks.status()[0].state, FileState::Interrupted);
+        let resumed = tasks.begin_guest_receive(&offer, "peer").unwrap();
+        let (release, waiting) = tokio::sync::oneshot::channel();
+        let mut partial = PartialFile::new(
+            offer.clone(),
+            "peer".into(),
+            Storage {
+                path: path.clone(),
+                release: Some(waiting),
+            },
+        );
+        let mut cleanup = Box::pin(reject_owned_partial(
+            &mut partial,
+            &tasks,
+            &offer,
+            "peer",
+            FileError::Interrupted,
+        ));
+        assert!(futures_util::poll!(cleanup.as_mut()).is_pending());
+        assert!(!tasks.status()[0].state.terminal());
+        assert!(path.is_file());
+        assert!(!tasks.expired(&offer.id));
+        release.send(()).unwrap();
+        assert!(cleanup.await);
+        assert_eq!(tasks.status()[0].state, FileState::Failed);
+        assert_eq!(tasks.status()[0].error, Some(FileError::Interrupted));
+        assert!(tasks.status()[0].receipt.is_none());
+        assert!(!path.exists());
+        drop(resumed);
+    }
+
+    #[tokio::test]
+    async fn evicted_summary_mismatch_preserves_committed_file_and_finishes_new_owner() {
+        let directory = Directory::new();
+        let path = directory.0.join("saved");
+        std::fs::write(&path, b"").unwrap();
+        let tasks = FileTasks::default();
+        let offer = offer();
+        let receipt = FileReceipt {
+            id: offer.id.clone(),
+            size: offer.size,
+            sha256: offer.sha256.clone(),
+            saved_name: offer.saved_name(),
+        };
+        let mut original = tasks.begin_receive(&offer, "peer").unwrap();
+        original.preparing();
+        tasks.finish(&offer.id, &Ok(receipt.clone()));
+        drop(original);
+        let replay = tasks.begin_receive(&offer, "peer").unwrap();
+        assert_eq!(replay.completed_receipt(), Some(receipt.clone()));
+        drop(replay);
+        for number in 0..TASK_HISTORY {
+            let id = format!("{number:032x}");
+            tasks
+                .begin(FileTaskStatus::new(
+                    id.clone(),
+                    "send",
+                    "other".into(),
+                    "other.bin".into(),
+                    0,
+                ))
+                .unwrap();
+            tasks.finish(&id, &Err(FileError::Cancelled));
+        }
+        assert!(tasks.status_for(&offer.id).is_none());
+        let mut partial = PartialFile::new(
+            offer.clone(),
+            "peer".into(),
+            Storage {
+                path: path.clone(),
+                release: None,
+            },
+        );
+        partial.receipt = Some(receipt.clone());
+        let mut changed = offer.clone();
+        changed.name = "different.bin".into();
+        let mut incoming = tasks.begin_receive(&changed, "peer").unwrap();
+        incoming.preparing();
+        assert!(
+            !reject_owned_partial(&mut partial, &tasks, &changed, "peer", FileError::Rejected)
+                .await
+        );
+        let status = tasks.status_for(&offer.id).unwrap();
+        assert_eq!(status.state, FileState::Failed);
+        assert_eq!(status.error, Some(FileError::Rejected));
+        assert!(status.receipt.is_none());
+        assert!(path.is_file());
+        assert_eq!(partial.receipt, Some(receipt));
+        drop(incoming);
     }
 }

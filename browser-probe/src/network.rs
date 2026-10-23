@@ -91,6 +91,10 @@ struct SavedNode {
     manual_rejected: bool,
     #[serde(default)]
     complete_invitation: Option<crate::client_invitation::ClientInvitation>,
+    #[serde(default)]
+    services: Vec<Vec<u8>>,
+    #[serde(default)]
+    guest: Option<crate::service_policy::GuestInvitation>,
 }
 
 #[derive(Clone, Copy)]
@@ -139,7 +143,7 @@ impl SavedNode {
             return Err(rejected());
         }
         if self.records.is_empty() {
-            if self.secret.is_some() || self.authorization.is_some() {
+            if self.secret.is_some() || self.authorization.is_some() || !self.services.is_empty() {
                 return Err(rejected());
             }
             if let Some(bytes) = &self.invitation {
@@ -170,9 +174,20 @@ impl SavedNode {
         {
             return Err(rejected());
         }
+        crate::service_policy::ServiceLedger::replay(invitation.anchor, &auth, &self.services)
+            .map_err(error)?;
+        if let Some(guest) = &self.guest {
+            guest.encode().map_err(error)?;
+            if guest.anchor != invitation.anchor {
+                return Err(rejected());
+            }
+        }
         Ok(Some(auth))
     }
     fn stage(&self) -> &'static str {
+        if self.guest.is_some() {
+            return self.guest_stage();
+        }
         if self.creator_seed.is_some() && !self.recovery_saved {
             "AwaitingRecoverySave"
         } else if self.authorization.is_none() && self.manual_rejected {
@@ -238,6 +253,9 @@ impl BrowserControlSession {
     fn permitted(&self, saved: &SavedNode) -> bool {
         if !self.connection.is_open() {
             return false;
+        }
+        if self.alpn == crate::service_policy::GUEST_ALPN && !self.client {
+            return saved.stage() == "Complete";
         }
         if is_request_alpn(&self.alpn) && !self.client {
             saved.stage() == "Complete"
@@ -499,8 +517,27 @@ impl BrowserGate {
         if is_request_alpn(alpn) {
             return target == invitation.contact;
         }
+        if alpn == crate::service_policy::GUEST_ALPN {
+            return saved
+                .guest
+                .as_ref()
+                .is_some_and(|guest| target == guest.issuer.id || target == guest.provider.id)
+                || saved.stage() == "Complete"
+                    && saved.verify().ok().flatten().is_some_and(|auth| {
+                        auth.nodes()
+                            .iter()
+                            .any(|(id, _)| id.as_bytes() == target.as_bytes())
+                    });
+        }
+        if alpn == crate::file_transfer::FILE_ALPN {
+            return saved.service_access().ok().is_some_and(|access| {
+                VerifyingKey::from_bytes(target.as_bytes())
+                    .ok()
+                    .is_some_and(|peer| access.can_receive(peer) || access.can_send(peer))
+            });
+        }
         if (alpn != BUSINESS_ALPN
-            && alpn != crate::file_transfer::FILE_ALPN
+            && alpn != crate::service_policy::POLICY_ALPN
             && alpn != REPLICA_ALPN
             && alpn != crate::connection_recovery_core::CONNECTION_RECOVERY_ALPN
             && alpn != crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN)
@@ -566,13 +603,7 @@ impl BrowserGate {
             || read_node(lease).await?.as_string().as_deref()
                 != Some(&serde_json::to_string(&saved).map_err(error)?)
             || !Self::permits(&saved, connection.remote_id(), connection.alpn())
-            || !self
-                .0
-                .lock()
-                .unwrap()
-                .proofs
-                .iter()
-                .any(|proof| proof.applies_to_id(connection.stable_id(), &scope))
+            || !Self::proved_member_current(&self.0.lock().unwrap(), &saved, connection)
         {
             return Err(rejected());
         }
@@ -870,6 +901,13 @@ impl BrowserGate {
         peer: iroh_base::EndpointId,
         alpn: &[u8],
     ) -> bool {
+        if alpn == crate::file_transfer::FILE_ALPN && saved.guest_pair(peer) {
+            return Self::permits(saved, peer, alpn)
+                && gate
+                    .control_sessions
+                    .get(&stable)
+                    .is_some_and(|s| s.peer == peer && s.alpn == alpn && s.connection.is_open());
+        }
         let (Ok(invitation), Some(secret)) = (saved.invitation(), saved.secret) else {
             return false;
         };
@@ -1248,7 +1286,11 @@ impl BrowserGate {
         let saved = self.0.lock().unwrap().saved.clone();
 
         let Some(saved) = saved.filter(|saved| {
-            let permits = if is_request_alpn(connection.alpn()) && !connection.side().is_client() {
+            let permits = if connection.alpn() == crate::service_policy::GUEST_ALPN
+                && !connection.side().is_client()
+            {
+                saved.stage() == "Complete"
+            } else if is_request_alpn(connection.alpn()) && !connection.side().is_client() {
                 saved.stage() == "Complete"
                     && saved.verify().ok().flatten().is_some_and(|auth| {
                         auth.nodes().contains(&(saved.identity(), Access::manage()))
@@ -1277,7 +1319,11 @@ impl BrowserGate {
         }
         // No 0-RTT API is exposed. Members retain mutual proof and stage
         // agreement; requests wait for the shared restricted nonce confirmation.
-        let proof = if !is_request_alpn(connection.alpn()) {
+        let proof = if !is_request_alpn(connection.alpn())
+            && connection.alpn() != crate::service_policy::GUEST_ALPN
+            && !(connection.alpn() == crate::file_transfer::FILE_ALPN
+                && saved.guest_pair(connection.remote_id()))
+        {
             let Ok(invitation) = saved.invitation() else {
                 return Err(control_error("IdentityOrAdmissionRejected"));
             };
@@ -1486,6 +1532,7 @@ impl iroh::endpoint::EndpointAdmission for BrowserGate {
                     && session.alpn == connection.alpn()
                     && session.permitted(saved)
                     && (is_request_alpn(connection.alpn())
+                        || connection.alpn() == crate::service_policy::GUEST_ALPN
                         || Self::proved_member_current(&state, saved, connection))
             })
     }
@@ -1696,6 +1743,8 @@ pub struct BrowserNetwork {
     incoming: std::rc::Rc<incoming::IncomingDispatcher>,
     files: std::rc::Rc<files::BrowserFiles>,
     _file_owner: files::FileOwner,
+    services: std::rc::Rc<services::BrowserServices>,
+    _service_owner: services::ServiceOwner,
     member_data_transport: Option<crate::member_data::BrowserMemberDataTransport>,
     member_data_lease: Option<crate::member_data::MemberDataLease>,
     #[cfg(feature = "rtc-probe")]
@@ -1727,6 +1776,7 @@ enum Startup {
     Create,
     Join(crate::client_invitation::ClientInvitation),
     Pairing,
+    Guest(crate::service_policy::GuestInvitation),
 }
 
 #[wasm_bindgen]
@@ -1848,6 +1898,8 @@ impl BrowserNetwork {
                 recovery_saved: false,
                 manual_rejected: false,
                 complete_invitation: None,
+                services: Vec::new(),
+                guest: None,
             }
         };
         saved.verify()?;
@@ -1892,6 +1944,12 @@ impl BrowserNetwork {
             Startup::Join(invitation) => {
                 configuration.import_contact(&invitation)?;
                 saved.select_invitation(invitation)?;
+            }
+            Startup::Guest(invitation) => {
+                let ordinary = invitation.ordinary_contact().map_err(error)?;
+                configuration.import_contact(&ordinary)?;
+                saved.select_invitation(ordinary)?;
+                saved.guest = Some(invitation);
             }
             Startup::Pairing if saved.invitation.is_some() => {
                 return Err(error("a network is already selected"));
@@ -2063,6 +2121,9 @@ impl BrowserNetwork {
             ))
             .map_err(error)?;
         saved.resources = Some(configuration);
+        if saved.invitation.is_some() {
+            saved = saved.declare_files(false)?;
+        }
         let committed = serde_json::to_string(&saved).map_err(error)?;
         let previous = raw
             .as_string()
@@ -2151,6 +2212,8 @@ impl BrowserNetwork {
                 let mut alpns = vec![
                     BUSINESS_ALPN.to_vec(),
                     crate::file_transfer::FILE_ALPN.to_vec(),
+                    crate::service_policy::POLICY_ALPN.to_vec(),
+                    crate::service_policy::GUEST_ALPN.to_vec(),
                     crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN.to_vec(),
                     REPLICA_ALPN.to_vec(),
                     REQUEST_ALPN.to_vec(),
@@ -2307,11 +2370,21 @@ impl BrowserNetwork {
             caller_budget,
         );
         let file_owner = files::FileOwner(files.clone());
+        let services = services::BrowserServices::start(
+            endpoint.clone(),
+            gate.clone(),
+            incoming.clone(),
+            files.clone(),
+            caller_budget,
+        );
+        let service_owner = services::ServiceOwner(services.clone());
         let mut network = Self {
             endpoint,
             incoming,
             files,
             _file_owner: file_owner,
+            services,
+            _service_owner: service_owner,
             member_data_transport,
             member_data_lease: None,
             #[cfg(feature = "rtc-probe")]
@@ -2350,13 +2423,17 @@ impl BrowserNetwork {
         self.endpoint.id().to_string()
     }
     pub fn status(&self) -> String {
-        let anchor = self.saved.invitation().ok().map(|i| i.anchor);
-        let stage = if self.pairing.is_some() && self.saved.complete_invitation.is_none() {
+        let saved = self
+            .gate
+            .service_snapshot()
+            .unwrap_or_else(|_| self.saved.clone());
+        let anchor = saved.invitation().ok().map(|i| i.anchor);
+        let stage = if self.pairing.is_some() && saved.complete_invitation.is_none() {
             "Pairing"
         } else {
-            self.saved.stage()
+            saved.stage()
         };
-        serde_json::json!({"id":self.id(), "stage":stage, "network":anchor.map(|a|a.root.to_string()),"genesis":anchor.map(|a|a.genesis.to_string()),"recovery_saved":self.saved.creator_seed.is_none()||self.saved.recovery_saved,"automatic_retry":!self.saved.manual_rejected,"authorization_saved":self.saved.authorization.is_some(), "secret_saved":self.saved.secret.is_some(), "running":self.lease.is_some()}).to_string()
+        serde_json::json!({"id":self.id(), "stage":stage, "network":anchor.map(|a|a.root.to_string()),"genesis":anchor.map(|a|a.genesis.to_string()),"recovery_saved":saved.creator_seed.is_none()||saved.recovery_saved,"automatic_retry":!saved.manual_rejected,"authorization_saved":saved.authorization.is_some(), "secret_saved":saved.secret.is_some(), "running":self.lease.is_some()}).to_string()
     }
 
     /// Redacted loaded material receipt, checked against the actual leased store.
@@ -2602,6 +2679,7 @@ impl BrowserNetwork {
     /// Disconnect only. Closing, freezing or reclaiming a page never authors
     /// a membership Remove, and successful saved admission survives restart.
     pub async fn close(&mut self) {
+        self.services.close().await;
         self.files.close().await;
         self.delivery = None;
         self.management = None;
@@ -2636,7 +2714,18 @@ impl BrowserNetwork {
             .as_ref()
             .ok_or_else(|| error("browser node disconnected"))?
             .0;
-        if read_node(token).await?.as_string().as_deref() != Some(&self.committed) {
+        let installed = self
+            .gate
+            .0
+            .lock()
+            .unwrap()
+            .saved
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(error)?;
+        let actual = read_node(token).await?.as_string();
+        if actual.as_deref() != Some(&self.committed) && actual != installed {
             return Err(error(
                 "browser materials cleared or changed; restore or rejoin",
             ));
@@ -2933,6 +3022,8 @@ mod incoming;
 
 #[path = "files.rs"]
 mod files;
+#[path = "services.rs"]
+mod services;
 
 #[path = "data_stream.rs"]
 mod data_stream;

@@ -20,7 +20,7 @@ from host_native_runtime import group_absent, group_snapshot
 ROOT = Path(__file__).resolve().parents[1]
 RELAY = "https://aps1-1.relay.n0.iroh.link./"
 CONFIGURATION = {"rtc_enabled": False, "relays": [RELAY]}
-PRIVATE_OPERATIONS = {"invitation", "precode_invitation", "pairing_information", "export_recovery_card", "member_call", "begin_management_session"}
+PRIVATE_OPERATIONS = {"invitation", "precode_invitation", "pairing_information", "export_recovery_card", "member_call", "begin_management_session", "issue_guest"}
 
 
 def material(invitation):
@@ -34,7 +34,7 @@ class BrowserControl:
         self.runner, self.sequence, self.responses = runner, 0, {}
         self.condition = threading.Condition()
         self.stderr = (runner.output / "private-browser.stderr").open("w")
-        command = ["rtk", "proxy", "node", str(ROOT / "browser-probe/harness/client-onboarding.mjs"),
+        command = ["rtk", "proxy", "node", str(getattr(args, "harness", ROOT / "browser-probe/harness/client-onboarding.mjs")),
                    str(args.package.resolve()), str(args.chromium.resolve()), str(getattr(runner, "browser_private", runner.output / "private-browser-profiles"))]
         self.process = subprocess.Popen(command, cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=self.stderr, text=True, start_new_session=True)

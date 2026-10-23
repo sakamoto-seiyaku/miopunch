@@ -51,6 +51,7 @@ struct Session {
     scope: ProtocolScope,
     alpn: Vec<u8>,
     proof: Option<Arc<BootstrapProof>>,
+    client: bool,
 }
 
 impl Drop for Session {
@@ -66,6 +67,14 @@ impl Session {
     fn valid(&self, policy: &Policy) -> bool {
         if !self.connection.is_open() {
             return false;
+        }
+        if self.alpn == crate::file_transfer::FILE_ALPN {
+            if !self.client && policy.file_denied.contains(&self.peer) {
+                return false;
+            }
+            if policy.file_guest(&self.peer) {
+                return true;
+            }
         }
         match self.scope {
             ProtocolScope::AdmissionRequest => true,
@@ -105,6 +114,18 @@ struct Policy {
     members: HashSet<[u8; 32]>,
     removed: HashSet<[u8; 32]>,
     authorization_epoch: u64,
+    file_guests: HashMap<[u8; 32], u64>,
+    file_denied: HashSet<[u8; 32]>,
+}
+impl Policy {
+    fn file_guest(&self, peer: &[u8; 32]) -> bool {
+        !self.removed.contains(peer)
+            && !self.removed.contains(&self.local_id)
+            && self
+                .file_guests
+                .get(peer)
+                .is_some_and(|expires| crate::service_policy::now() < *expires)
+    }
 }
 
 #[derive(Debug)]
@@ -151,6 +172,23 @@ impl PathQualification {
 }
 
 impl AdmissionGate {
+    /// Applied only after the service ledger has been verified and saved.
+    /// Existing file sessions are retired as part of this same local update.
+    pub(crate) fn update_file_policy(
+        &self,
+        guests: Vec<([u8; 32], u64)>,
+        denied: HashSet<[u8; 32]>,
+    ) {
+        let mut state = self.state.lock().expect("admission policy lock");
+        let guests = guests.into_iter().collect();
+        if state.policy.file_guests != guests || state.policy.file_denied != denied {
+            self.invalidate_path_qualifications();
+        }
+        state.policy.file_guests = guests;
+        state.policy.file_denied = denied;
+        let policy = state.policy.clone();
+        state.sessions.retain(|_, session| session.valid(&policy));
+    }
     pub fn new(
         local_id: EndpointId,
         scope: AdmissionScope,
@@ -213,6 +251,8 @@ impl AdmissionGate {
                     members: HashSet::new(),
                     removed: HashSet::new(),
                     authorization_epoch: 0,
+                    file_guests: HashMap::new(),
+                    file_denied: HashSet::new(),
                 },
                 protocols,
                 lifecycle_protocols: None,
@@ -629,6 +669,12 @@ impl AdmissionGate {
             return Err(());
         }
         let proof = match protocol {
+            ProtocolScope::Member
+                if connection.alpn() == crate::file_transfer::FILE_ALPN
+                    && policy.file_guest(&peer) =>
+            {
+                None
+            }
             ProtocolScope::AdmissionRequest | ProtocolScope::GenesisRecovery => None,
             ProtocolScope::Bootstrap | ProtocolScope::Member | ProtocolScope::Rotation => {
                 // A fresh rotation TLS connection chooses one generation before
@@ -696,6 +742,8 @@ impl AdmissionGate {
             let state = self.state.lock().expect("admission policy lock");
             if (protocol != ProtocolScope::AdmissionRequest && state.policy.removed.contains(&peer))
                 || (matches!(protocol, ProtocolScope::Member | ProtocolScope::Rotation)
+                    && !(connection.alpn() == crate::file_transfer::FILE_ALPN
+                        && state.policy.file_guest(&peer))
                     && (!state.policy.members.contains(&peer)
                         || !state.policy.members.contains(&state.policy.local_id)))
             {
@@ -742,6 +790,7 @@ impl AdmissionGate {
                 scope: protocol,
                 alpn: connection.alpn().to_vec(),
                 proof,
+                client: connection.side().is_client(),
             };
             if !session.valid(&state.policy) {
                 return Err(());

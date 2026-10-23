@@ -18,6 +18,7 @@ use tokio::sync::Notify;
 
 #[wasm_bindgen(module = "/src/file_storage.js")]
 extern "C" {
+    fn file_capable() -> bool;
     #[wasm_bindgen(catch)]
     fn file_metadata(file: &JsValue) -> Result<String, JsValue>;
     #[wasm_bindgen(catch)]
@@ -38,6 +39,9 @@ extern "C" {
     async fn sink_abort(sink: &JsValue) -> Result<(), JsValue>;
     #[wasm_bindgen(catch)]
     async fn received_file(namespace: &str, name: &str) -> Result<JsValue, JsValue>;
+}
+pub(super) fn capable() -> bool {
+    file_capable()
 }
 
 struct BrowserSource(JsValue);
@@ -99,10 +103,11 @@ impl FileSink for BrowserSink {
 type Partial = Rc<tokio::sync::Mutex<PartialFile<BrowserSink>>>;
 
 pub(super) struct BrowserFiles {
-    enabled: Cell<bool>,
+    pub(super) enabled: Cell<bool>,
+    gate: BrowserGate,
     namespace: String,
     partials: RefCell<BTreeMap<String, Partial>>,
-    tasks: FileTasks,
+    pub(super) tasks: FileTasks,
     cancel: tokio_util::sync::CancellationToken,
     running: Cell<usize>,
     joined: Notify,
@@ -144,6 +149,7 @@ impl BrowserFiles {
     ) -> Rc<Self> {
         let service = Rc::new(Self {
             enabled: Cell::new(false),
+            gate: gate.clone(),
             namespace: endpoint.id().to_string(),
             partials: RefCell::new(BTreeMap::new()),
             tasks: FileTasks::default(),
@@ -242,7 +248,7 @@ impl BrowserFiles {
         }
     }
 
-    fn request_cancel(self: &Rc<Self>, id: &str) -> Result<bool, FileError> {
+    pub(super) fn request_cancel(self: &Rc<Self>, id: &str) -> Result<bool, FileError> {
         let requested = self.tasks.cancel(id)?;
         if requested
             && self
@@ -270,40 +276,59 @@ impl BrowserFiles {
         Ok(requested)
     }
 
-    async fn prepare(&self, offer: &FileOffer, peer: &str) -> Result<Partial, FileError> {
+    async fn prepare(
+        &self,
+        offer: &FileOffer,
+        peer: &str,
+        cancel: &tokio_util::sync::CancellationToken,
+    ) -> Result<Partial, FileError> {
         offer.validate()?;
         let generation = self.generation.get();
         if !self.enabled.get() {
             return Err(FileError::ServiceDisabled);
         }
+        let access = self
+            .gate
+            .service_snapshot()
+            .and_then(|saved| saved.service_access())
+            .map_err(|_| FileError::Rejected)?;
+        if !peer
+            .parse()
+            .ok()
+            .is_some_and(|peer| access.can_receive(peer))
+        {
+            return Err(FileError::Rejected);
+        }
         self.expire().await;
         if !self.enabled.get() || generation != self.generation.get() {
             return Err(FileError::ServiceDisabled);
         }
-        if let Some(partial) = self.partials.borrow().get(&offer.id) {
-            return Ok(partial.clone());
+        let existing = self.partials.borrow().get(&offer.id).cloned();
+        if let Some(partial) = existing {
+            let matches = {
+                let file = partial.lock().await;
+                file.offer == *offer && file.peer == peer
+            };
+            return if matches {
+                Ok(partial)
+            } else {
+                Err(FileError::Rejected)
+            };
         }
         if self.partials.borrow().len() >= file_transfer::TASK_HISTORY {
-            let completed = self
-                .tasks
-                .status()
-                .into_iter()
-                .find(|task| {
-                    task.state == FileState::Complete
-                        && self.partials.borrow().contains_key(&task.id)
-                })
-                .map(|task| task.id);
+            let completed = self.partials.borrow().iter().find_map(|(id, partial)| {
+                partial
+                    .try_lock()
+                    .ok()
+                    .filter(|file| file.receipt.is_some())
+                    .map(|_| id.clone())
+            });
             if let Some(id) = completed {
                 self.partials.borrow_mut().remove(&id);
+            } else {
+                return Err(FileError::Busy);
             }
         }
-        let cancel = self.tasks.begin(FileTaskStatus::new(
-            offer.id.clone(),
-            "receive",
-            peer.into(),
-            offer.name.clone(),
-            offer.size,
-        ))?;
         let sink = match sink_open(&self.namespace, &offer.saved_name(), &offer.id).await {
             Ok(sink)
                 if !cancel.is_cancelled()
@@ -324,7 +349,6 @@ impl BrowserFiles {
                 return Err(reason);
             }
             Err(_) => {
-                self.tasks.finish(&offer.id, &Err(FileError::SaveFailed));
                 return Err(FileError::SaveFailed);
             }
         };
@@ -339,6 +363,25 @@ impl BrowserFiles {
         Ok(partial)
     }
 
+    async fn reject_receive(&self, offer: &FileOffer, peer: &str, reason: FileError) {
+        let partial = self.partials.borrow().get(&offer.id).cloned();
+        if let Some(partial) = partial {
+            let remove = file_transfer::reject_owned_partial(
+                &mut *partial.lock().await,
+                &self.tasks,
+                offer,
+                peer,
+                reason,
+            )
+            .await;
+            if remove {
+                self.partials.borrow_mut().remove(&offer.id);
+            }
+        } else {
+            self.tasks.fail_receive(&offer.id, reason);
+        }
+    }
+
     async fn receive(&self, connection: Connection) {
         let mut stream = match DataStream::accept(&connection).await {
             Ok(stream) => stream,
@@ -348,11 +391,46 @@ impl BrowserFiles {
             Ok(offer) => offer,
             Err(_) => return,
         };
-        let partial = match self
-            .prepare(&offer, &connection.remote_id().to_string())
-            .await
-        {
-            Ok(partial) => partial,
+        let peer = connection.remote_id().to_string();
+        let allowed = self
+            .gate
+            .service_snapshot()
+            .and_then(|saved| saved.service_access())
+            .ok()
+            .is_some_and(|access| {
+                peer.parse()
+                    .ok()
+                    .is_some_and(|peer| access.can_receive(peer))
+            });
+        if !self.enabled.get() || !allowed {
+            let reason = if self.enabled.get() {
+                FileError::Rejected
+            } else {
+                FileError::ServiceDisabled
+            };
+            let _ = stream.write_control(&Reply::Failed { reason }).await;
+            let _ = stream.finish();
+            wait_for_sender(&connection).await;
+            return;
+        }
+        let needs_approval = self.enabled.get()
+            && self
+                .gate
+                .service_snapshot()
+                .and_then(|saved| saved.service_access())
+                .ok()
+                .is_some_and(|access| {
+                    peer.parse()
+                        .ok()
+                        .is_some_and(|peer| !access.member(peer) && access.can_receive(peer))
+                });
+        let reservation = if needs_approval {
+            self.tasks.begin_guest_receive(&offer, &peer)
+        } else {
+            self.tasks.begin_receive(&offer, &peer)
+        };
+        let mut reservation = match reservation {
+            Ok(reservation) => reservation,
             Err(reason) => {
                 let _ = stream.write_control(&Reply::Failed { reason }).await;
                 let _ = stream.finish();
@@ -360,17 +438,44 @@ impl BrowserFiles {
                 return;
             }
         };
-        let Ok(mut partial) = partial.try_lock() else {
-            let _ = stream
-                .write_control(&Reply::Failed {
-                    reason: FileError::Busy,
-                })
-                .await;
+        if let Err(reason) = reservation.wait_for_approval(&connection).await {
+            self.reject_receive(&offer, &peer, reason).await;
+            let _ = stream.write_control(&Reply::Failed { reason }).await;
             let _ = stream.finish();
             wait_for_sender(&connection).await;
             return;
+        }
+        if let Some(receipt) = reservation.completed_receipt() {
+            let _ = stream.write_control(&Reply::Saved { receipt }).await;
+            let _ = stream.finish();
+            wait_for_sender(&connection).await;
+            return;
+        }
+        reservation.preparing();
+        let partial = match self.prepare(&offer, &peer, &reservation.token()).await {
+            Ok(partial) => partial,
+            Err(reason) => {
+                self.reject_receive(&offer, &peer, reason).await;
+                let _ = stream.write_control(&Reply::Failed { reason }).await;
+                let _ = stream.finish();
+                wait_for_sender(&connection).await;
+                return;
+            }
         };
+        let mut partial = partial.lock().await;
         if partial.offer != offer || partial.peer != connection.remote_id().to_string() {
+            let remove = file_transfer::reject_owned_partial(
+                &mut partial,
+                &self.tasks,
+                &offer,
+                &peer,
+                FileError::Rejected,
+            )
+            .await;
+            drop(partial);
+            if remove {
+                self.partials.borrow_mut().remove(&offer.id);
+            }
             let _ = stream
                 .write_control(&Reply::Failed {
                     reason: FileError::Rejected,
@@ -397,14 +502,20 @@ impl BrowserFiles {
         for connection in self.connections.borrow().iter() {
             connection.close(1u32.into(), b"browser file service disabled");
         }
-        let partials = std::mem::take(&mut *self.partials.borrow_mut());
-        for (_, partial) in partials {
+        let partials: Vec<_> = self
+            .partials
+            .borrow()
+            .iter()
+            .map(|(id, partial)| (id.clone(), partial.clone()))
+            .collect();
+        for (id, partial) in partials {
             file_transfer::discard_partial(
                 &mut *partial.lock().await,
                 &self.tasks,
                 FileError::Cancelled,
             )
             .await;
+            self.partials.borrow_mut().remove(&id);
         }
     }
 
@@ -423,6 +534,36 @@ impl BrowserFiles {
         }
         self.disable().await;
     }
+    pub(super) fn enforce_access(self: &Rc<Self>) {
+        let Ok(access) = self
+            .gate
+            .service_snapshot()
+            .and_then(|saved| saved.service_access())
+        else {
+            return;
+        };
+        for connection in self.connections.borrow().iter() {
+            if !VerifyingKey::from_bytes(connection.remote_id().as_bytes())
+                .ok()
+                .is_some_and(|peer| access.can_receive(peer))
+            {
+                connection.close(1u32.into(), b"file access revoked");
+            }
+        }
+        for task in self.tasks.status() {
+            if !task.state.terminal()
+                && !task.peer.parse().ok().is_some_and(|peer| {
+                    if task.direction == "receive" {
+                        access.can_receive(peer)
+                    } else {
+                        access.can_send(peer)
+                    }
+                })
+            {
+                let _ = self.request_cancel(&task.id);
+            }
+        }
+    }
 }
 
 async fn wait_for_sender(connection: &Connection) {
@@ -433,8 +574,9 @@ async fn wait_for_sender(connection: &Connection) {
 #[wasm_bindgen]
 impl BrowserNetwork {
     /// Explicit local opt-in to this node's origin-private file directory.
-    pub async fn enable_files(&self) -> Result<(), JsValue> {
-        if self.saved.stage() != "Complete" || self.files.enabled.get() {
+    pub async fn enable_files(&mut self) -> Result<(), JsValue> {
+        self.refresh_service_snapshot().await?;
+        if !matches!(self.saved.stage(), "Complete" | "GuestActive") || self.files.enabled.get() {
             return Err(rejected());
         }
         let generation = self.files.generation.get();
@@ -446,14 +588,19 @@ impl BrowserNetwork {
         {
             return Err(rejected());
         }
+        let next = self.saved.declare_files(true)?;
+        self.commit(next).await?;
         self.files
             .generation
             .set(self.files.generation.get().wrapping_add(1));
         self.files.enabled.set(true);
         Ok(())
     }
-    pub async fn disable_files(&self) {
+    pub async fn disable_files(&mut self) -> Result<(), JsValue> {
         self.files.disable().await;
+        self.refresh_service_snapshot().await?;
+        let next = self.saved.declare_files(false)?;
+        self.commit(next).await
     }
     pub fn file_status(&self) -> String {
         serde_json::json!({"enabled":self.files.enabled.get(), "tasks":self.files.tasks.status(),
@@ -464,6 +611,12 @@ impl BrowserNetwork {
     }
     pub fn disconnect_file(&self, task: String) -> Result<(), JsValue> {
         self.files.tasks.disconnect(&task).map_err(error)
+    }
+    pub fn approve_file(&self, task: String) -> Result<bool, JsValue> {
+        self.files.tasks.decide_file(&task, true).map_err(error)
+    }
+    pub fn reject_file(&self, task: String) -> Result<bool, JsValue> {
+        self.files.tasks.decide_file(&task, false).map_err(error)
     }
     /// Returns a real saved File handle; the host may export it through platform
     /// save UI. This does not allocate or serialize its complete contents.
@@ -479,8 +632,12 @@ impl BrowserNetwork {
             size: u64,
         }
         self.check_store().await?;
-        let target = target.parse().map_err(error)?;
-        if !BrowserGate::permits(&self.saved, target, file_transfer::FILE_ALPN) {
+        let target: iroh_base::EndpointId = target.parse().map_err(error)?;
+        let saved = self.gate.service_snapshot()?;
+        if !saved
+            .service_access()?
+            .can_send(VerifyingKey::from_bytes(target.as_bytes()).map_err(error)?)
+        {
             return Err(rejected());
         }
         let address = self.target_address(target)?;

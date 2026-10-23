@@ -10,6 +10,10 @@ pub mod data_stream;
 #[path = "../../src/file_transfer.rs"]
 pub mod file_transfer;
 mod rtc_capability;
+#[path = "../../src/service_policy.rs"]
+pub mod service_policy;
+#[path = "../../src/service_protocol.rs"]
+pub mod service_protocol;
 use iroh::{Endpoint, EndpointAddr, RelayMode, endpoint::presets};
 use iroh_base::{PublicKey, RelayUrl, SecretKey};
 use p2panda_core::SigningKey;

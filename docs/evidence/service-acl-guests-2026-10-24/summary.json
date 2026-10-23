@@ -1,0 +1,258 @@
+{
+  "ticket": "MIOPUNCH-115",
+  "status": "qualified for the authorized non-UI package",
+  "qualifiedUTC": "2026-10-23T18:52:54.827864+00:00",
+  "currentGraphs": {
+    "linux": "m115-linux-services-11",
+    "windows": "m115-windows-services-11",
+    "wasm": "m115-wasm-services-6"
+  },
+  "builds": {
+    "linux": {
+      "receipt": "m115-linux-services-11",
+      "receiptSHA256": "8d4630caca98460550b5dee1aaabea030f713efb32f33993dad37e4083414762",
+      "freshArtifacts": 465,
+      "rebuiltArtifacts": 2,
+      "profile": "dev",
+      "features": [],
+      "binarySHA256": "894cafb366c90651ae98f8611e7d39bf7ffa09be15ec421e34d699d07696f47f"
+    },
+    "windows": {
+      "receipt": "m115-windows-services-11",
+      "receiptSHA256": "b974971cd3657b3a85ffa2bc2570840ff2f76b9086b13abc9f173520c51fb33d",
+      "freshArtifacts": 526,
+      "rebuiltArtifacts": 2,
+      "profile": "dev",
+      "features": [],
+      "binarySHA256": "10d9be67763558922aab43b1de949cbee0af52739f16ac359f2bfa86274dd380"
+    },
+    "wasm": {
+      "receipt": "m115-wasm-services-6",
+      "receiptSHA256": "fcc1b10e05cc207ddfce6680466d02f0ce5093cb6747148af32fbbeab1a4e2d7",
+      "freshArtifacts": 295,
+      "rebuiltArtifacts": 1,
+      "profile": "dev",
+      "features": [
+        "rtc-probe"
+      ],
+      "packageSHA256": "a487fe51c1c721b653fd6f19505fdd4c410b12d206c0ee16bbe8fe1e21ed7355"
+    }
+  },
+  "currentGraphQualification": {
+    "NativeFiles": {
+      "receipt": "m115-native-file-regression-11",
+      "resultSHA256": "e302700f9ec6625ce4042bfc7ded09658dc903dd9ae7e584535d71e08280d00a",
+      "savedHashes": 20,
+      "continuations": 4,
+      "cleanupPassed": true,
+      "controllerSourceDrift": []
+    },
+    "NativeGuests": {
+      "receipt": "m115-native-guests-11",
+      "resultSHA256": "3a6726ebfd055fcd9757fba898f25b0c82bf637fb3a3033d0798e042dc065c10",
+      "savedHashes": 6,
+      "continuations": 0,
+      "cleanupPassed": true,
+      "controllerSourceDrift": []
+    },
+    "BrowserFiles": {
+      "receipt": "m115-browser-file-regression-11-6",
+      "resultSHA256": "6b4b91ca535088020e3874c8dd7d5a3df6990ba5dd9b994d1f93d7c87c99ede3",
+      "savedHashes": 20,
+      "continuations": 4,
+      "cleanupPassed": true,
+      "controllerSourceDrift": []
+    },
+    "BrowserServicesAndGuests": {
+      "receipt": "m115-browser-guests-11-6",
+      "resultSHA256": "49b1f16b3026034185a76065b8fecc00f408dab27a3b27c32a228741088d7990",
+      "savedHashes": 7,
+      "continuations": 0,
+      "cleanupPassed": true,
+      "controllerSourceDrift": []
+    },
+    "BrowserStrongRemove": {
+      "receipt": "m115-browser-correction-11-6",
+      "resultSHA256": "eab2b183d890f461f4a18780bef2f1454515f620a47bc9973abd99210a7ddd11",
+      "savedHashes": 4,
+      "continuations": 0,
+      "cleanupPassed": true,
+      "controllerSourceDrift": []
+    },
+    "NativeWindowsGuestExpiry": {
+      "receipt": "m115-native-expiry-11c",
+      "resultSHA256": "1a5d2795883db047bbafb89b76ad62a2697fa13defc181250d9d66aa0ef5255b",
+      "savedHashes": 1,
+      "continuations": 0,
+      "cleanupPassed": true,
+      "controllerSourceDrift": []
+    },
+    "PublicAndExactStorageAssertions": {
+      "receipt": "m115-public-boundaries-11",
+      "assertions": 26,
+      "exit": 0,
+      "resultSHA256": "e982f20157242099736299f0d99cadaeb089aae8280aef1e5a8c932be37b8efa",
+      "testOutputSHA256": "d1fb3c69e4b0e7d693151205caaf8c73268c2bbe0033eef457935d8b7f4437eb"
+    },
+    "NativeStrongRemove": {
+      "receipt": "m115-host-correction-retention-11",
+      "actualCases": 2,
+      "cases": [
+        {
+          "actualBytesAtStop": 2490368,
+          "actualBytesBeforeCorrection": 196608,
+          "baselineAndPostCorrectionSavedHashes": true,
+          "case": "incoming_obsolete_policy",
+          "controlReplyAccepted": false,
+          "independentDirectoryEmpty": true,
+          "managementSavedDespitePolicyRejection": true,
+          "noReceipt": true,
+          "serviceStillEnabled": true
+        },
+        {
+          "actualBytesAtStop": 2555904,
+          "actualBytesBeforeCorrection": 196608,
+          "baselineAndPostCorrectionSavedHashes": true,
+          "case": "retained_declaration",
+          "controlReplyAccepted": true,
+          "independentDirectoryEmpty": true,
+          "managementSavedDespitePolicyRejection": false,
+          "noReceipt": true,
+          "serviceStillEnabled": true
+        }
+      ],
+      "resultSHA256": "c71b967bfa381fd1e775dda7251c2917a1cbe5cd6c21cc319d425e4336ad0087"
+    },
+    "NativeCompletedCacheRetirement": {
+      "receipt": "m115-retirement-assertions-11b",
+      "actualSavedDeliveries": 66,
+      "allSavedHashesIndependent": true,
+      "currentResultSurvivedDisable": true,
+      "evictedSummary": true,
+      "originalSavedFilePreserved": true,
+      "retainedCacheNegativeObserved": false,
+      "retainedNegativeError": null,
+      "resultSHA256": "a97eb0ecc6fd88ae510f34a3f91fe2d658ceef6798d7581ffe7a0cc058dff169",
+      "qualification": "retirement/fresh-save branch; retained-cache rejection covered by the separate exact-source storage negative"
+    },
+    "NativeLivePolicyStops": {
+      "sourceGraph": "Native11",
+      "actualCases": 6,
+      "fiveCases": {
+        "receipt": "m115-native-lifecycle-11",
+        "overallRunPassed": false,
+        "qualifiedObservations": [
+          {
+            "host": "linux-creates-member",
+            "cause": "received_acl_stops_live_file",
+            "bytesAtStop": 21954560
+          },
+          {
+            "host": "linux-creates-member",
+            "cause": "received_guest_revocation_stops_live_file",
+            "bytesAtStop": 26214400
+          },
+          {
+            "host": "linux-creates-member",
+            "cause": "original_deadline_stops_live_file",
+            "bytesAtStop": 94699520
+          },
+          {
+            "host": "windows-creates-member",
+            "cause": "received_acl_stops_live_file",
+            "bytesAtStop": 160694272
+          },
+          {
+            "host": "windows-creates-member",
+            "cause": "received_guest_revocation_stops_live_file",
+            "bytesAtStop": 183894016
+          }
+        ],
+        "firstRoleExpiryAuditSHA256": "861f96c8da3d41a4adfc8dfa853163f5e6273a598978f29706c43ad44d495993",
+        "secondRoleExpiryNotExecutedInThisReceipt": true
+      },
+      "missingSixthCase": {
+        "receipt": "m115-native-expiry-11c",
+        "resultSHA256": "1a5d2795883db047bbafb89b76ad62a2697fa13defc181250d9d66aa0ef5255b",
+        "savedHashes": 1,
+        "continuations": 0,
+        "cleanupPassed": true,
+        "controllerSourceDrift": []
+      },
+      "physicalAssertions": "actual bytes>0; terminal without receipt; independent directory has no saved/partial file; receiver remains enabled; subsequent real saved hash"
+    }
+  },
+  "qualifiedBreadthAtExactPriorGraphs": {
+    "Native10ACL": {
+      "receipt": "m115-native-acl-10b",
+      "resultSHA256": "3d7067a10b79ed5d697ab4c9cb5aa0cc02ae078cde8738bf82099df593459a25",
+      "savedHashes": 10,
+      "continuations": 0,
+      "cleanupPassed": true,
+      "controllerSourceDrift": []
+    },
+    "Native10Admission": {
+      "receipt": "m115-native-admission-10",
+      "resultSHA256": "b050b6e5d4298c6e2bba5d6a884da69ecf4a3b86383b2dcea33ab0b38a0ce8cb",
+      "savedHashes": 4,
+      "continuations": 0,
+      "cleanupPassed": true,
+      "controllerSourceDrift": []
+    },
+    "Native10WASM5LiveServices": {
+      "receipt": "m115-browser-full-10-5",
+      "resultSHA256": "8c9c4857f8749e7ec4e34073b58e6c0504b1a7ca71908f53622cffd82bc1666d",
+      "savedHashes": 7,
+      "continuations": 0,
+      "cleanupPassed": true,
+      "controllerSourceDrift": []
+    }
+  },
+  "reuseReason": "Native10\u219211 changes only src/file_transfer.rs and src/native_file_transfer.rs; WASM5\u21926 additionally changes browser-probe/src/files.rs. Final current ordinary/guest/correction/Native lifecycle cases cover those ownership and receipt changes; unchanged policy/admission and prior advanced WASM lifecycle remain explicitly revision-labelled.",
+  "retainedProductRED": [
+    "m115-acl-local-2",
+    "m115-public-boundaries-red-8",
+    "m115-public-boundaries-red-9b",
+    "m115-host-correction-red-9",
+    "m115-browser-correction-red-9-4",
+    "m115-receipt-context-red-10"
+  ],
+  "retainedAssertionFixtureAndEnvironmentFailures": [
+    "m115-browser-full-8-3",
+    "m115-browser-full-8-3b",
+    "m115-lifecycle-local-7",
+    "m115-native-lifecycle-8",
+    "m115-native-lifecycle-10",
+    "m115-native-lifecycle-10b",
+    "m115-native-lifecycle-11",
+    "m115-native-expiry-11b",
+    "m115-metadata-alias-red-10",
+    "m115-metadata-alias-red-10b",
+    "m115-native-acl-10"
+  ],
+  "review": {
+    "fullRound": "R3",
+    "fixedBase": "cae59abcb50bc1972ba648a9b02a74c9bb13acfa",
+    "ownedFiles": 34,
+    "standardsRemaining": 0,
+    "specRemaining": 0,
+    "focusedAssertionChecks": 2,
+    "productionChangedAfterR3": false,
+    "originalPatchSHA256": "8b31954910e3d876dddf3c7ff264a8419da99b25e3b8df91b7c4e284200c4769",
+    "assertionPatchSHA256": "bbcaa4586717fcfc53bb9ca4297c20be356d5fc06703d69959fbafb73b01093c",
+    "preparationPatchSHA256": "cb7ff4169219813b1a3ca111bb431f476ceac93119de9a0c4d1cea059b5d5fd1"
+  },
+  "budgets": {
+    "batchBytes": 8589934592,
+    "cacheBytes": 103079215104,
+    "artifactStoreBytes": 34359738368,
+    "newCargoTargetCreated": false,
+    "dependencyGraphsRebuiltForRuntimeRetries": false
+  },
+  "pending": [],
+  "privateStateAndBearersPublished": false,
+  "formalUI": false,
+  "unrestrictedWANNATClaim": false,
+  "AndroidLifecycleQualification": false,
+  "M111RTCUnchanged": true
+}

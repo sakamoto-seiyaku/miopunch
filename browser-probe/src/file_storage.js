@@ -127,3 +127,7 @@ export async function received_file(namespace, name) {
     const dir = await directory(namespace);
     return (await dir.getFileHandle(name)).getFile();
 }
+export function file_capable() {
+  return typeof File === 'function' && typeof Blob.prototype.slice === 'function'
+    && typeof navigator.storage?.getDirectory === 'function';
+}
