@@ -500,6 +500,7 @@ impl BrowserGate {
             return target == invitation.contact;
         }
         if (alpn != BUSINESS_ALPN
+            && alpn != crate::file_transfer::FILE_ALPN
             && alpn != REPLICA_ALPN
             && alpn != crate::connection_recovery_core::CONNECTION_RECOVERY_ALPN
             && alpn != crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN)
@@ -1693,6 +1694,8 @@ impl Drop for Delivery {
 pub struct BrowserNetwork {
     endpoint: RestrictedEndpoint,
     incoming: std::rc::Rc<incoming::IncomingDispatcher>,
+    files: std::rc::Rc<files::BrowserFiles>,
+    _file_owner: files::FileOwner,
     member_data_transport: Option<crate::member_data::BrowserMemberDataTransport>,
     member_data_lease: Option<crate::member_data::MemberDataLease>,
     #[cfg(feature = "rtc-probe")]
@@ -2147,6 +2150,7 @@ impl BrowserNetwork {
             .alpns({
                 let mut alpns = vec![
                     BUSINESS_ALPN.to_vec(),
+                    crate::file_transfer::FILE_ALPN.to_vec(),
                     crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN.to_vec(),
                     REPLICA_ALPN.to_vec(),
                     REQUEST_ALPN.to_vec(),
@@ -2296,9 +2300,18 @@ impl BrowserNetwork {
                 },
             );
         }
+        let files = files::BrowserFiles::start(
+            endpoint.clone(),
+            gate.clone(),
+            incoming.clone(),
+            caller_budget,
+        );
+        let file_owner = files::FileOwner(files.clone());
         let mut network = Self {
             endpoint,
             incoming,
+            files,
+            _file_owner: file_owner,
             member_data_transport,
             member_data_lease: None,
             #[cfg(feature = "rtc-probe")]
@@ -2589,6 +2602,7 @@ impl BrowserNetwork {
     /// Disconnect only. Closing, freezing or reclaiming a page never authors
     /// a membership Remove, and successful saved admission survives restart.
     pub async fn close(&mut self) {
+        self.files.close().await;
         self.delivery = None;
         self.management = None;
         self.gate.0.lock().unwrap().pairing_peer = None;
@@ -2916,6 +2930,12 @@ pub use member_connection::{
 
 #[path = "incoming.rs"]
 mod incoming;
+
+#[path = "files.rs"]
+mod files;
+
+#[path = "data_stream.rs"]
+mod data_stream;
 
 #[cfg(feature = "rtc-probe")]
 #[path = "rtc.rs"]

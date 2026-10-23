@@ -35,7 +35,7 @@ class BrowserControl:
         self.condition = threading.Condition()
         self.stderr = (runner.output / "private-browser.stderr").open("w")
         command = ["rtk", "proxy", "node", str(ROOT / "browser-probe/harness/client-onboarding.mjs"),
-                   str(args.package.resolve()), str(args.chromium.resolve()), str(runner.output / "private-browser-profiles")]
+                   str(args.package.resolve()), str(args.chromium.resolve()), str(getattr(runner, "browser_private", runner.output / "private-browser-profiles"))]
         self.process = subprocess.Popen(command, cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=self.stderr, text=True, start_new_session=True)
         assert json.loads(self.process.stdout.readline())["event"] == "ready"

@@ -13,8 +13,42 @@ use tokio::sync::{Notify, oneshot};
 struct Waiter {
     id: u64,
     alpn: Vec<u8>,
-    attempt: crate::connection_coordinator::AttemptContext,
-    sender: oneshot::Sender<iroh::endpoint::RestrictedAccepting>,
+    clock: WaiterClock,
+    sender: oneshot::Sender<DeliveredIncoming>,
+}
+
+enum WaiterClock {
+    Caller(crate::connection_coordinator::AttemptContext),
+    Service {
+        budget: Duration,
+        cancel: tokio_util::sync::CancellationToken,
+    },
+}
+impl WaiterClock {
+    fn current(&self, now: n0_future::time::Instant) -> bool {
+        match self {
+            Self::Caller(attempt) => !attempt.cancellation.is_cancelled() && attempt.deadline > now,
+            Self::Service { cancel, .. } => !cancel.is_cancelled(),
+        }
+    }
+    fn deadline(&self, received: n0_future::time::Instant) -> n0_future::time::Instant {
+        match self {
+            Self::Caller(attempt) => attempt.deadline,
+            Self::Service { budget, .. } => received + *budget,
+        }
+    }
+}
+
+struct DeliveredIncoming {
+    accepting: iroh::endpoint::RestrictedAccepting,
+    deadline: n0_future::time::Instant,
+}
+
+struct ClassifiedIncoming {
+    alpn: Vec<u8>,
+    accepting: iroh::endpoint::RestrictedAccepting,
+    active_deadline: Option<n0_future::time::Instant>,
+    received_at: n0_future::time::Instant,
 }
 
 #[derive(Default)]
@@ -69,18 +103,7 @@ impl Drop for ActiveHandler {
 enum Event {
     Closed,
     Changed,
-    Classified(
-        Option<
-            Result<
-                (
-                    Vec<u8>,
-                    iroh::endpoint::RestrictedAccepting,
-                    Option<n0_future::time::Instant>,
-                ),
-                JsValue,
-            >,
-        >,
-    ),
+    Classified(Option<Result<ClassifiedIncoming, JsValue>>),
     Incoming(Option<iroh::endpoint::RestrictedIncoming>),
 }
 
@@ -106,11 +129,10 @@ impl IncomingDispatcher {
             let mut classifications = FuturesUnordered::new();
             loop {
                 let now = n0_future::time::Instant::now();
-                state.waiters.borrow_mut().retain(|waiter| {
-                    !waiter.sender.is_closed()
-                        && !waiter.attempt.cancellation.is_cancelled()
-                        && waiter.attempt.deadline > now
-                });
+                state
+                    .waiters
+                    .borrow_mut()
+                    .retain(|waiter| !waiter.sender.is_closed() && waiter.clock.current(now));
                 let waiting = state.waiters.borrow().len();
                 let active_route = state.active.borrow().is_some();
                 // An installed active route owns incoming classification even
@@ -161,7 +183,13 @@ impl IncomingDispatcher {
                     Event::Closed => break,
                     Event::Changed => continue,
                     Event::Classified(item) => {
-                        if let Some(Ok((alpn, accepting, active_deadline))) = item {
+                        if let Some(Ok(ClassifiedIncoming {
+                            alpn,
+                            accepting,
+                            active_deadline,
+                            received_at,
+                        })) = item
+                        {
                             let waiter = {
                                 let mut waiters = state.waiters.borrow_mut();
                                 waiters
@@ -171,7 +199,11 @@ impl IncomingDispatcher {
                             };
                             if let Some(waiter) = waiter {
                                 // Dropping the receiver on cancellation drops this exact raw M.
-                                let _ = waiter.sender.send(accepting);
+                                let deadline = waiter.clock.deadline(received_at);
+                                let _ = waiter.sender.send(DeliveredIncoming {
+                                    accepting: accepting.with_caller_deadline(deadline),
+                                    deadline,
+                                });
                             } else if let Some(route) = state
                                 .active
                                 .borrow()
@@ -215,11 +247,12 @@ impl IncomingDispatcher {
                         };
                         // Use only registered callers' existing clocks while the negotiated
                         // purpose is unknown. The selected caller's own clock remains final.
+                        let received_at = incoming.received_at();
                         let deadline = state
                             .waiters
                             .borrow()
                             .iter()
-                            .map(|waiter| waiter.attempt.deadline)
+                            .map(|waiter| waiter.clock.deadline(received_at))
                             .max();
                         let active_deadline = state
                             .active
@@ -247,7 +280,12 @@ impl IncomingDispatcher {
                                 .await
                                 .map_err(error)?
                                 .map_err(error)?;
-                                Ok::<_, JsValue>((alpn, accepting, active_deadline))
+                                Ok::<_, JsValue>(ClassifiedIncoming {
+                                    alpn,
+                                    accepting,
+                                    active_deadline,
+                                    received_at,
+                                })
                             });
                         } else {
                             incoming.refuse();
@@ -277,16 +315,53 @@ impl IncomingDispatcher {
         alpn: &[u8],
         attempt: &crate::connection_coordinator::AttemptContext,
     ) -> Result<iroh::endpoint::RestrictedAccepting, JsValue> {
+        Ok(self
+            .wait(alpn, WaiterClock::Caller(attempt.clone()))
+            .await?
+            .accepting)
+    }
+
+    /// Automatic services have no caller waiting since idle time. Their setup
+    /// clock starts at the actual incoming packet; foreground clocks stay fixed.
+    pub(super) async fn receive_service(
+        &self,
+        alpn: &[u8],
+        budget: Duration,
+        cancel: &tokio_util::sync::CancellationToken,
+    ) -> Result<
+        (
+            iroh::endpoint::RestrictedAccepting,
+            n0_future::time::Instant,
+        ),
+        JsValue,
+    > {
+        let delivered = self
+            .wait(
+                alpn,
+                WaiterClock::Service {
+                    budget,
+                    cancel: cancel.clone(),
+                },
+            )
+            .await?;
+        Ok((delivered.accepting, delivered.deadline))
+    }
+
+    async fn wait(&self, alpn: &[u8], clock: WaiterClock) -> Result<DeliveredIncoming, JsValue> {
         if self.cancel.is_cancelled() {
             return Err(error("browser incoming dispatcher closed"));
         }
         let id = self.state.sequence.get() + 1;
         self.state.sequence.set(id);
         let (sender, receiver) = oneshot::channel();
+        let (caller_deadline, cancellation) = match &clock {
+            WaiterClock::Caller(attempt) => (Some(attempt.deadline), attempt.cancellation.clone()),
+            WaiterClock::Service { cancel, .. } => (None, cancel.clone()),
+        };
         self.state.waiters.borrow_mut().push_back(Waiter {
             id,
             alpn: alpn.to_vec(),
-            attempt: attempt.clone(),
+            clock,
             sender,
         });
         let _registration = Registration {
@@ -295,19 +370,26 @@ impl IncomingDispatcher {
         };
         self.state.changed.notify_one();
         let received = receiver.fuse();
-        let cancelled = attempt.cancellation.cancelled().fuse();
+        let cancelled = cancellation.cancelled().fuse();
         let closed = self.cancel.cancelled().fuse();
         futures_util::pin_mut!(received, cancelled, closed);
-        n0_future::time::timeout(
-            attempt.deadline.saturating_duration_since(n0_future::time::Instant::now()),
-            async {
-                futures_util::select_biased! {
-                    _ = cancelled => Err(error("incoming attempt cancelled")),
-                    _ = closed => Err(error("browser incoming dispatcher closed")),
-                    result = received => result.map_err(|_| error("browser incoming dispatcher closed")),
-                }
-            },
-        ).await.map_err(|_| error("incoming caller deadline exceeded"))?
+        let work = async {
+            futures_util::select_biased! {
+                _ = cancelled => Err(error("incoming attempt cancelled")),
+                _ = closed => Err(error("browser incoming dispatcher closed")),
+                result = received => result.map_err(|_| error("browser incoming dispatcher closed")),
+            }
+        };
+        if let Some(deadline) = caller_deadline {
+            n0_future::time::timeout(
+                deadline.saturating_duration_since(n0_future::time::Instant::now()),
+                work,
+            )
+            .await
+            .map_err(|_| error("incoming caller deadline exceeded"))?
+        } else {
+            work.await
+        }
     }
 
     pub(super) fn close(&self) {

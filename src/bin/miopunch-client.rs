@@ -73,6 +73,21 @@ enum Command {
     Ping {
         address: iroh::EndpointAddr,
     },
+    FilesEnable {
+        directory: String,
+    },
+    FilesDisable,
+    FilesStatus,
+    FileSend {
+        address: iroh::EndpointAddr,
+        path: String,
+    },
+    FileCancel {
+        task: String,
+    },
+    FileDisconnect {
+        task: String,
+    },
     Stop,
 }
 fn read_invitation(path: &str) -> Result<ClientInvitation, ClientError> {
@@ -223,6 +238,28 @@ async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, Clie
             Ok(json!({"stage":format!("{:?}",client.approve(&request).await?)}))
         }
         Command::Ping { address } => client.ping(address).await,
+        Command::FilesEnable { directory } => {
+            client.enable_files(directory).await?;
+            Ok(json!({"enabled":client.files_enabled()}))
+        }
+        Command::FilesDisable => {
+            client.disable_files().await;
+            Ok(json!({"enabled":false}))
+        }
+        Command::FilesStatus => Ok(
+            json!({"enabled":client.files_enabled(),"tasks":client.file_tasks(),
+            "chunk_bytes":miopunch_native_probe::data_stream::CHUNK_BYTES,
+            "active_limit":miopunch_native_probe::file_transfer::ACTIVE_TASKS,
+            "history_limit":miopunch_native_probe::file_transfer::TASK_HISTORY}),
+        ),
+        Command::FileSend { address, path } => {
+            Ok(json!({"task":client.send_file(address,path).await?}))
+        }
+        Command::FileCancel { task } => Ok(json!({"cancel_requested":client.cancel_file(&task)?})),
+        Command::FileDisconnect { task } => {
+            client.disconnect_file(&task)?;
+            Ok(json!({"disconnected":true}))
+        }
         Command::Stop => Ok(json!({"stopped":true})),
     }
 }

@@ -114,7 +114,7 @@ impl SessionPurpose {
     }
     pub fn from_alpn(alpn: &[u8]) -> Option<Self> {
         match alpn {
-            MEMBER_ALPN => Some(Self::MemberBusiness),
+            MEMBER_ALPN | crate::file_transfer::FILE_ALPN => Some(Self::MemberBusiness),
             ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN => Some(Self::AdmissionRequest),
             REPLICA_ALPN => Some(Self::Replica),
             ACTIVE_IMPROVEMENT_ALPN => Some(Self::ActiveImprovement),

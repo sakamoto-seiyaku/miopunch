@@ -5,6 +5,10 @@ pub mod connection_coordinator;
 #[path = "../../src/control_protocol.rs"]
 pub mod control_protocol;
 mod custom_datagram;
+#[path = "../../src/data_stream.rs"]
+pub mod data_stream;
+#[path = "../../src/file_transfer.rs"]
+pub mod file_transfer;
 mod rtc_capability;
 use iroh::{Endpoint, EndpointAddr, RelayMode, endpoint::presets};
 use iroh_base::{PublicKey, RelayUrl, SecretKey};

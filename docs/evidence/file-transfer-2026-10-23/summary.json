@@ -1,0 +1,1183 @@
+{
+  "issue": "MIOPUNCH-114",
+  "issueUUID": "918b2f20-b668-4a72-93da-f5dc5419ea29",
+  "baseline": "a4c376179496530152552a4c2c8573bbcd57e270",
+  "generatedUTC": "2026-10-23T15:07:03.706096+00:00",
+  "runtimeControllersNeverCompile": true,
+  "sshBusinessTransfer": false,
+  "platforms": [
+    "Linux x86_64 host",
+    "Windows11 Enterprise LTSC x64 laptop / PowerShell5.1",
+    "Chromium153 independent BrowserNetwork WASM profiles"
+  ],
+  "builds": [
+    {
+      "receipt": ".artifacts/runs/m114-linux-file-6/build.json",
+      "resultSHA256": "4df2ddb06e4e639cee830b2710a3d0f329a8148f4c4ead1e05bfc0edd3b52475",
+      "platform": "linux",
+      "profile": "dev",
+      "features": [],
+      "artifactSHA256": "af78b2b1fb7755675c71222295b352dbfc0bcb7cee25dfe4031732e76ab919a7",
+      "wasmSHA256": null,
+      "fresh": 465,
+      "rebuilt": 2,
+      "selectedInputs": 289,
+      "selectedDepfiles": 424
+    },
+    {
+      "receipt": ".artifacts/runs/m114-windows-file-6/build.json",
+      "resultSHA256": "618609ee3bec220190a450b8b647d13abb71416bbe8223499a71901bd980614b",
+      "platform": "windows",
+      "profile": "dev",
+      "features": [],
+      "artifactSHA256": "9913d43c2c860e89e6c4b6eabc5c214e825588f5c803ecdd00591547985d82a6",
+      "wasmSHA256": null,
+      "fresh": 526,
+      "rebuilt": 2,
+      "selectedInputs": 289,
+      "selectedDepfiles": 485
+    },
+    {
+      "receipt": ".artifacts/runs/m114-wasm-file-4/build.json",
+      "resultSHA256": "486faca36dd982bfb0e0c35bfa9f96cbf3843ac73ec79a65168079525be39a97",
+      "platform": "wasm32-unknown-unknown",
+      "profile": "dev",
+      "features": [
+        "rtc-probe"
+      ],
+      "artifactSHA256": "6000661eae6fab66dd5da96cd773107eb93c9702e0f0683a0839344a8c8a5f60",
+      "wasmSHA256": "7d041557ba694f1314200cfcb7be52a07e86c4784eac421b021458aab1c29b04",
+      "fresh": 295,
+      "rebuilt": 1,
+      "selectedInputs": 206,
+      "selectedDepfiles": 263
+    },
+    {
+      "receipt": ".artifacts/runs/m114-wasm-file-5/build.json",
+      "resultSHA256": "beab434e540b5a24a4e76bc1d923d3da5a99764813675cea30ed573cb35424b7",
+      "platform": "wasm32-unknown-unknown",
+      "profile": "dev",
+      "features": [
+        "rtc-probe"
+      ],
+      "artifactSHA256": "4cc51a562c6d21916237c01f3e748a4a47ee110f24392d0f54c317512bd8420b",
+      "wasmSHA256": "6af81572d4f49b49fcdb3e86fa696ac9948414aa885784cb8a090a5dec1b478c",
+      "fresh": 295,
+      "rebuilt": 1,
+      "selectedInputs": 206,
+      "selectedDepfiles": 263
+    },
+    {
+      "receipt": ".artifacts/runs/m114-linux-file-7/build.json",
+      "resultSHA256": "41f98e1dba0f28e98e02b806162a14e64b1107322217304ae41463482cdfbd8e",
+      "platform": "linux",
+      "profile": "dev",
+      "features": [],
+      "artifactSHA256": "a2159346b09ed7f1196b28907ebfcef8986cf61e3b2b5c42335ad037ab3a4cd4",
+      "wasmSHA256": null,
+      "fresh": 465,
+      "rebuilt": 2,
+      "selectedInputs": 289,
+      "selectedDepfiles": 424,
+      "compilerCleanupExit": null
+    },
+    {
+      "receipt": ".artifacts/runs/m114-windows-file-7/build.json",
+      "resultSHA256": "6c9ecc02ca372268440f865db1ced0db1ae11b202231a65261e40a915d94fba5",
+      "platform": "windows",
+      "profile": "dev",
+      "features": [],
+      "artifactSHA256": "782ca3d3a5e0d04966e42e6db137cc8f65efbea6fc1a75304a39f61426a38a7d",
+      "wasmSHA256": null,
+      "fresh": 526,
+      "rebuilt": 2,
+      "selectedInputs": 289,
+      "selectedDepfiles": 485,
+      "compilerCleanupExit": 0
+    },
+    {
+      "receipt": ".artifacts/runs/m114-wasm-file-6/build.json",
+      "resultSHA256": "442a2c8dca270ab4a622e0daebd7b5fb94e05dc63b743eae5529f6f081e9d329",
+      "platform": "wasm32-unknown-unknown",
+      "profile": "dev",
+      "features": [
+        "rtc-probe"
+      ],
+      "artifactSHA256": "27e000b42b45d47d3df876195412a3342c76f4b0618fcd292cf225ba9d776a4c",
+      "wasmSHA256": "18a5050302458b4fe808d45281e4bfa17abb98258e3cfd838b738457534dbc98",
+      "fresh": 295,
+      "rebuilt": 1,
+      "selectedInputs": 206,
+      "selectedDepfiles": 263,
+      "compilerCleanupExit": null
+    },
+    {
+      "receipt": ".artifacts/runs/m114-linux-file-8/build.json",
+      "resultSHA256": "2f8037f08eefe7df6f38591fd677e861f7d68d8de51fc99793917720610754ed",
+      "platform": "linux",
+      "profile": "dev",
+      "features": [],
+      "artifactSHA256": "52e53626c63af6d02e938ee424439afb994a6d4727bc7f3dc01deff414f82388",
+      "wasmSHA256": null,
+      "fresh": 465,
+      "rebuilt": 2,
+      "selectedInputs": 289,
+      "selectedDepfiles": 424,
+      "compilerCleanupExit": null
+    },
+    {
+      "receipt": ".artifacts/runs/m114-windows-file-8/build.json",
+      "resultSHA256": "e7d2d23542c3158a56604be3bd3850e63c4f9977e480fe17fd832b0c113b7c2f",
+      "platform": "windows",
+      "profile": "dev",
+      "features": [],
+      "artifactSHA256": "2e63b29f97a5fa384c86fa1ddc981674f416852491bbbbbf90095025f50a84af",
+      "wasmSHA256": null,
+      "fresh": 526,
+      "rebuilt": 2,
+      "selectedInputs": 289,
+      "selectedDepfiles": 485,
+      "compilerCleanupExit": 0
+    },
+    {
+      "receipt": ".artifacts/runs/m114-wasm-file-7/build.json",
+      "resultSHA256": "f708323e589a2f935a0c971da09f11842e536c307211cfa5e6fb84503fc6a4f0",
+      "platform": "wasm32-unknown-unknown",
+      "profile": "dev",
+      "features": [
+        "rtc-probe"
+      ],
+      "artifactSHA256": "ea17295c3afedaa07c568a10331d207bec698c4cfc3494ff242edd6c341e30ab",
+      "wasmSHA256": "f0a1e99b18a025fcd2e79802c2a50051928df97785e4a92c37d633afea22f1b1",
+      "fresh": 295,
+      "rebuilt": 1,
+      "selectedInputs": 206,
+      "selectedDepfiles": 263,
+      "compilerCleanupExit": null
+    },
+    {
+      "receipt": ".artifacts/runs/m114-wasm-file-8/build.json",
+      "resultSHA256": "4f28c174c224aa8acc241fca1a7a27996af2cdcda986abd13070301f7037cf98",
+      "platform": "wasm32-unknown-unknown",
+      "profile": "dev",
+      "features": [
+        "rtc-probe"
+      ],
+      "artifactSHA256": "b8d02c708799cf2e8a2b55e231515e965eea5c54f47f0af3361e8f78a34594f7",
+      "wasmSHA256": "f0a1e99b18a025fcd2e79802c2a50051928df97785e4a92c37d633afea22f1b1",
+      "fresh": 295,
+      "rebuilt": 1,
+      "selectedInputs": 206,
+      "selectedDepfiles": 263,
+      "compilerCleanupExit": null
+    }
+  ],
+  "runtimes": [
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/native-final-full-6",
+      "resultSHA256": "0c0d53a81dedbf473e7241e4c93c4d5dd0086f778173138151ec1cbf5ae1e36c",
+      "passed": true,
+      "savedDeliveries": 20,
+      "resumedDeliveries": 4,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/native-final-full-6/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "linux-creates-creator",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-member",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-creator",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-member",
+          "exit": 0
+        },
+        {
+          "host": "laptop",
+          "action": "owned_process_check",
+          "forced": 0,
+          "remaining": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        },
+        {
+          "host": "laptop",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": null,
+      "selectedEvents": {
+        "file_before_membership_rejected": 2
+      }
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/native-final-bounds-6",
+      "resultSHA256": "e187fb7fe34477ac3db9a68e9a01a8c29bff05461ca9baf9b000814641244257",
+      "passed": true,
+      "savedDeliveries": null,
+      "resumedDeliveries": null,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/native-final-bounds-6/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "linux-creates-creator",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-member",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-creator-other-network",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-member-other-network",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-creator",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-member",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-creator-other-network",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-member-other-network",
+          "exit": 0
+        },
+        {
+          "host": "laptop",
+          "action": "owned_process_check",
+          "forced": 0,
+          "remaining": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        },
+        {
+          "host": "laptop",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": null,
+      "selectedEvents": {
+        "file_before_membership_rejected": 2,
+        "other_network_file_rejected": 4,
+        "bounded_concurrent_tasks": 4
+      }
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/browser-final-full-4",
+      "resultSHA256": "d1fa50c6e521e7c551dd0513a5a4ed48fa6dd32b616692e1ec249a824a1c64c8",
+      "passed": true,
+      "savedDeliveries": 20,
+      "resumedDeliveries": 4,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/browser-final-full-4/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "native-provider",
+          "exit": 0
+        },
+        {
+          "host": "native-member",
+          "exit": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "browser-member",
+            "closed": true
+          },
+          {
+            "actor": "browser-provider",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "selectedEvents": {
+        "cancellation_owns_actual_publication": 4,
+        "cancel_waits_for_actual_OPFS_cleanup": 2
+      }
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/browser-final-seams-4",
+      "resultSHA256": "2459feffe92b61510b707494a2a0d0f547484650676ae45e30396c3037f630e5",
+      "passed": true,
+      "savedDeliveries": 2,
+      "resumedDeliveries": 0,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/browser-final-seams-4/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "stream-native",
+          "exit": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "stream-provider",
+            "closed": true
+          },
+          {
+            "actor": "stream-peer",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "selectedEvents": {
+        "actual_browser_stream_seam": 1,
+        "actual_browser_task_bound": 1
+      }
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/retained-green-6-4-linux",
+      "resultSHA256": "2b593e51b61d0a59ab4c0293433443be8a7105f07e25907130cf9c1f15375e65",
+      "passed": true,
+      "savedDeliveries": null,
+      "resumedDeliveries": null,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/retained-green-6-4-linux/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "native-native",
+          "exit": 0
+        },
+        {
+          "host": "browser-native",
+          "exit": 0
+        },
+        {
+          "host": "browser-native-reopen1",
+          "exit": 0
+        },
+        {
+          "host": "browser-native-reopen1-reopen2",
+          "exit": 0
+        },
+        {
+          "host": "browser-native-reopen1-reopen2-reopen3",
+          "exit": 0
+        },
+        {
+          "host": "browser-native-reopen1-reopen2-reopen3-reopen4",
+          "exit": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "native-browser",
+            "closed": true
+          },
+          {
+            "actor": "browser-browser",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "selectedEvents": {
+        "inactive_partial_cleanup_GREEN": 8,
+        "fifth_transfer_after_four_retained_cleanups": 2
+      }
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/retained-green-6-4-windows",
+      "resultSHA256": "2fce753c9d19bb2dee471f497384b6a8d6cfd99b8d0f8238ab0279b6a543e249",
+      "passed": true,
+      "savedDeliveries": null,
+      "resumedDeliveries": null,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/retained-green-6-4-windows/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "native-native",
+          "exit": 0
+        },
+        {
+          "host": "browser-native",
+          "exit": 0
+        },
+        {
+          "host": "browser-native-reopen1",
+          "exit": 0
+        },
+        {
+          "host": "browser-native-reopen1-reopen2",
+          "exit": 0
+        },
+        {
+          "host": "browser-native-reopen1-reopen2-reopen3",
+          "exit": 0
+        },
+        {
+          "host": "browser-native-reopen1-reopen2-reopen3-reopen4",
+          "exit": 0
+        },
+        {
+          "host": "laptop",
+          "action": "owned_process_check",
+          "forced": 0,
+          "remaining": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        },
+        {
+          "host": "laptop",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "native-browser",
+            "closed": true
+          },
+          {
+            "actor": "browser-browser",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "selectedEvents": {
+        "inactive_partial_cleanup_GREEN": 8,
+        "fifth_transfer_after_four_retained_cleanups": 2
+      }
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/browser-idle-green-4",
+      "resultSHA256": "6b1ba5530a33789c50d69c717e94d495f9ee2ac8c5ed03b121a29ae808b676e2",
+      "passed": true,
+      "savedDeliveries": null,
+      "resumedDeliveries": null,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/browser-idle-green-4/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "native-idle",
+          "exit": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "browser-idle",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "selectedEvents": {}
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/browser-foreground-clock-5",
+      "resultSHA256": "5ced5308a4c55f02ea3bc6c910870024a114a78d3ecb50a22010ca0f1edeee52",
+      "passed": true,
+      "savedDeliveries": null,
+      "resumedDeliveries": null,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/browser-foreground-clock-5/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "foreground-clock",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "selectedEvents": {}
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/browser-formatting-smoke-5",
+      "resultSHA256": "03a0c34388d924cfb1394a710f3ef8eb2764a38f1d780051f6bfe6e0ff677282",
+      "passed": true,
+      "savedDeliveries": 8,
+      "resumedDeliveries": 0,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/browser-formatting-smoke-5/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "native-provider",
+          "exit": 0
+        },
+        {
+          "host": "native-member",
+          "exit": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "browser-member",
+            "closed": true
+          },
+          {
+            "actor": "browser-provider",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "selectedEvents": {
+        "cancellation_owns_actual_publication": 4
+      }
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/native-final-full-7",
+      "qualification": "Native7 historical",
+      "resultSHA256": "57054862a92e2c9962d617a3cf16ce01c508760839d322521529b613a8cacee2",
+      "passed": true,
+      "savedDeliveries": 20,
+      "resumedDeliveries": 4,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/native-final-full-7/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "linux-creates-creator",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-member",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-creator",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-member",
+          "exit": 0
+        },
+        {
+          "host": "laptop",
+          "action": "owned_process_check",
+          "forced": 0,
+          "remaining": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        },
+        {
+          "host": "laptop",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": null,
+      "selectedEvents": {},
+      "heldStorageOrInjectedErrorHooksInvoked": null
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/native-final-full-8",
+      "qualification": "Native8 current",
+      "resultSHA256": "6f59c29952e50a7cc2003c818d6cb94d364a173f750e7b59c5fb5ecb2e45a826",
+      "passed": true,
+      "savedDeliveries": 20,
+      "resumedDeliveries": 4,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/native-final-full-8/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "linux-creates-creator",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-member",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-creator",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-member",
+          "exit": 0
+        },
+        {
+          "host": "laptop",
+          "action": "owned_process_check",
+          "forced": 0,
+          "remaining": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        },
+        {
+          "host": "laptop",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": null,
+      "selectedEvents": {},
+      "heldStorageOrInjectedErrorHooksInvoked": false
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/native-bounds-8",
+      "qualification": "Native8 current",
+      "resultSHA256": "e187fb7fe34477ac3db9a68e9a01a8c29bff05461ca9baf9b000814641244257",
+      "passed": true,
+      "savedDeliveries": 0,
+      "resumedDeliveries": 0,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/native-bounds-8/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "linux-creates-creator",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-member",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-creator-other-network",
+          "exit": 0
+        },
+        {
+          "host": "linux-creates-member-other-network",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-creator",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-member",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-creator-other-network",
+          "exit": 0
+        },
+        {
+          "host": "windows-creates-member-other-network",
+          "exit": 0
+        },
+        {
+          "host": "laptop",
+          "action": "owned_process_check",
+          "forced": 0,
+          "remaining": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        },
+        {
+          "host": "laptop",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": null,
+      "selectedEvents": {
+        "other_network_file_rejected": 4,
+        "bounded_concurrent_tasks": 4
+      },
+      "heldStorageOrInjectedErrorHooksInvoked": false,
+      "savedConcurrentFiles": 16
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/browser-functional-7",
+      "qualification": "Native8/WASM7 current ordinary public operations",
+      "resultSHA256": "6d38e802d548cc8ace0597985700aa8644356a00509aaf742aeb62d318202e9d",
+      "passed": true,
+      "savedDeliveries": 20,
+      "resumedDeliveries": 4,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/browser-functional-7/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "native-provider",
+          "exit": 0
+        },
+        {
+          "host": "native-member",
+          "exit": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "browser-member",
+            "closed": true
+          },
+          {
+            "actor": "browser-provider",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "selectedEvents": {},
+      "heldStorageOrInjectedErrorHooksInvoked": false
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/expiry-8-7-linux",
+      "qualification": "Native8 Linux expiry with WASM7 source",
+      "resultSHA256": "b52db54ab2d7ff972cb860dfd786f08cdb711f5ece4bc138cd201e530ca75c58",
+      "passed": true,
+      "savedDeliveries": null,
+      "resumedDeliveries": null,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/expiry-8-7-linux/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "native-native",
+          "exit": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "native-browser",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "selectedEvents": {
+        "retained_expiry_cleanup_GREEN": 1,
+        "transfer_after_expiry_cleanup": 1
+      },
+      "heldStorageOrInjectedErrorHooksInvoked": false
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/expiry-8-7-windows",
+      "qualification": "Native8 Windows and WASM7 OPFS expiry",
+      "resultSHA256": "1efabab51422b4b258ca9eb46ccf9b14e8d83de0fe3f263f4bf92badcc38a88c",
+      "passed": true,
+      "savedDeliveries": null,
+      "resumedDeliveries": null,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/expiry-8-7-windows/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "native-native",
+          "exit": 0
+        },
+        {
+          "host": "browser-native",
+          "exit": 0
+        },
+        {
+          "host": "browser-native-reopen1",
+          "exit": 0
+        },
+        {
+          "host": "laptop",
+          "action": "owned_process_check",
+          "forced": 0,
+          "remaining": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        },
+        {
+          "host": "laptop",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "native-browser",
+            "closed": true
+          },
+          {
+            "actor": "browser-browser",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "selectedEvents": {
+        "retained_expiry_cleanup_GREEN": 2,
+        "transfer_after_expiry_cleanup": 2
+      },
+      "heldStorageOrInjectedErrorHooksInvoked": false
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/browser-functional-8",
+      "qualification": "Native8/WASM8 current ordinary public operations",
+      "resultSHA256": "e207f7d1e16336e0d9ebf7e37125b834e2ee0d5469eb3ad76c2f1c96cbbc3ab6",
+      "passed": true,
+      "savedDeliveries": 20,
+      "resumedDeliveries": 4,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/browser-functional-8/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "native-provider",
+          "exit": 0
+        },
+        {
+          "host": "native-member",
+          "exit": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "browser-member",
+            "closed": true
+          },
+          {
+            "actor": "browser-provider",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "selectedEvents": {},
+      "heldStorageOrInjectedErrorHooksInvoked": false
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/retained-browser-8",
+      "qualification": "WASM8 current inactive OPFS cancel/disable with Native8 peer",
+      "resultSHA256": "1e692b631adf3d6b548969055f53b852305a317dd99fc12eefdaa3f74c217bf5",
+      "passed": true,
+      "savedDeliveries": null,
+      "resumedDeliveries": null,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/retained-browser-8/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "browser-native",
+          "exit": 0
+        },
+        {
+          "host": "browser-native-reopen1",
+          "exit": 0
+        },
+        {
+          "host": "browser-native-reopen1-reopen2",
+          "exit": 0
+        },
+        {
+          "host": "browser-native-reopen1-reopen2-reopen3",
+          "exit": 0
+        },
+        {
+          "host": "browser-native-reopen1-reopen2-reopen3-reopen4",
+          "exit": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "browser-browser",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "selectedEvents": {
+        "inactive_partial_cleanup_GREEN": 4,
+        "fifth_transfer_after_four_retained_cleanups": 1
+      },
+      "heldStorageOrInjectedErrorHooksInvoked": false
+    },
+    {
+      "receipt": ".artifacts/runs/m114-max-20261023/expiry-browser-8",
+      "qualification": "WASM8 current inactive OPFS expiry with Native8 peer",
+      "resultSHA256": "4b86d133a31eec95a4af52e24608f1c30787f78de79454c052ed07588cfd931e",
+      "passed": true,
+      "savedDeliveries": null,
+      "resumedDeliveries": null,
+      "controllerSourceDrift": [],
+      "controllerSources": ".artifacts/runs/m114-max-20261023/expiry-browser-8/controller-sources.json",
+      "cleanup": [
+        {
+          "host": "browser-native",
+          "exit": 0
+        },
+        {
+          "host": "browser-native-reopen1",
+          "exit": 0
+        },
+        {
+          "host": "host",
+          "action": "remove_owned_private_runtime",
+          "removed": true
+        }
+      ],
+      "browserCleanup": {
+        "cleanup": [
+          {
+            "actor": "browser-browser",
+            "closed": true
+          }
+        ],
+        "exit": 0,
+        "readerEnded": true,
+        "processGroupAbsent": true,
+        "ownedGroupObservedBefore": true
+      },
+      "selectedEvents": {
+        "retained_expiry_cleanup_GREEN": 1,
+        "transfer_after_expiry_cleanup": 1
+      },
+      "heldStorageOrInjectedErrorHooksInvoked": false
+    }
+  ],
+  "sourceGraph": {
+    "nativeInputs": ".artifacts/runs/m114-max-20261023/native-inputs-8.json",
+    "wasmInputs": ".artifacts/runs/m114-max-20261023/wasm-inputs-8.json",
+    "inputCounts": [
+      511,
+      534
+    ],
+    "currentNativeRevision": 8,
+    "currentWASMRevision": 8,
+    "currentBrowserFunctionalQualificationRevision": 8,
+    "earlierFullBrowserExceptionalSuiteRevision": 4,
+    "earlierForegroundDeadlineRevision": 5,
+    "rawBrowserStreamQualificationRevision": 4,
+    "rawStreamQualifiedRoles": "Browser-to-Browser only",
+    "WASM7To8": {
+      "compiledWasmEqual": true,
+      "packageEqual": false,
+      "changedInput": "browser-probe/src/file_storage.js",
+      "currentSnippetSHA256": "99ede556b824fd01dcede44f537b83269e33e636ad884c371a5e0d7fe707b1a7"
+    }
+  },
+  "staticChecks": ".artifacts/runs/m114-max-20261023/final-checks-8-8/result.json",
+  "originalFailures": [
+    ".artifacts/runs/m114-max-20261023/red-native.json",
+    ".artifacts/runs/m114-max-20261023/native-bounds-red-2",
+    ".artifacts/runs/m114-max-20261023/browser-cancel-red-1",
+    ".artifacts/runs/m114-max-20261023/browser-publish-red-2",
+    ".artifacts/runs/m114-max-20261023/browser-final-full-3",
+    ".artifacts/runs/m114-max-20261023/browser-idle-red-3",
+    ".artifacts/runs/m114-max-20261023/retained-red-5-3",
+    ".artifacts/runs/m114-max-20261023/native-create-close-red-6",
+    ".artifacts/runs/m114-max-20261023/browser-create-abort-red-5b",
+    ".artifacts/runs/m114-max-20261023/js-publication-red-7-direct",
+    ".artifacts/runs/m114-max-20261023/js-save-observation-red-8-b",
+    ".artifacts/runs/m114-max-20261023/js-writer-abort-red-8-c",
+    ".artifacts/runs/m114-max-20261023/js-fallback-open-red-8-d"
+  ],
+  "controllerProvenanceAudit": ".artifacts/runs/m114-max-20261023/controller-provenance-audit.json",
+  "reviewProblemClasses": ".artifacts/runs/m114-max-20261023/review-problem-classes.json",
+  "budgets": {
+    "additionalBatchBytes": 8589934592,
+    "cacheBytes": 103079215104,
+    "artifactStoreBytes": 34359738368,
+    "cacheCleanupPerformed": false
+  },
+  "limitations": [
+    "No full guest/ACL integration: M115",
+    "No formal UI",
+    "No Android lifecycle qualification",
+    "No persistent transfer recovery after process loss",
+    "No unrestricted WAN/NAT claim or M111 RTC fix",
+    "Explicit raw stream test only Browser-to-Browser; shared framing used inside actual Native-to-Native and Native-to-WASM file protocol",
+    "Earlier live-edited runtime controllers remain development traces; no reconstructed source provenance",
+    "Historical isolated Windows OS5 startup root cause not claimed fixed",
+    "Exceptional cleanup propagation qualified at owned Rust FileSink and exported JS filesystem-adapter seams; no current Chromium exceptional-removal GREEN claimed"
+  ],
+  "storageAdapterRegression": {
+    "receipt": ".artifacts/runs/m114-storage-tests-8",
+    "resultSHA256": "5204a6eaa79eb7cdc90ac676fb8e4138c2041a26e20a4597e12037b98640c8f9",
+    "testsPassed": 3,
+    "pinSHA256": "d543d5ccc2da5658a1cb29bc5c0aa2297e60992a4f70a28b7167595cc68f3173",
+    "fileSinkSeam": "Owned adapter with ordinary filesystem remove failure and adapter-owned asynchronous cleanup gate",
+    "requirements": [
+      "preparation cancellation waits for real cleanup before terminal",
+      "preparation cleanup error reports SaveFailed",
+      "retained expiry cleanup error reports SaveFailed"
+    ],
+    "scope": "Shared production cleanup helpers used by Native/WASM; not a current Chromium exceptional-removal reproduction",
+    "runtimeExit": 0,
+    "remainingOwnedTemporaryDirectories": [],
+    "sourceDrift": [],
+    "CargoInvoked": false,
+    "dependencyArtifactsRebuilt": 0,
+    "originatingNativeBuildReceipt": ".artifacts/runs/m114-linux-file-8/build.json",
+    "buildReceipt": ".artifacts/runs/m114-storage-tests-8/build-completed.json",
+    "rawBuildReceipt": ".artifacts/runs/m114-storage-tests-8/build.json",
+    "receiptControllerFailure": ".artifacts/runs/m114-storage-tests-8/controller-failure.json",
+    "recompiledForReceiptRecovery": false
+  },
+  "currentArtifactReceipts": [
+    ".artifacts/runs/m114-linux-file-8/build.json",
+    ".artifacts/runs/m114-windows-file-8/build.json",
+    ".artifacts/runs/m114-wasm-file-8/build.json"
+  ],
+  "unownedPreservation": ".artifacts/runs/m114-max-20261023/continuation/unowned-preservation-r4.json",
+  "graphDeclaration": ".artifacts/runs/m114-max-20261023/continuation/r3-js-graph-declaration.json",
+  "historicalFaultFixtureEvidence": {
+    "completedBeforeContinuation": [
+      "native-create-close-red-6",
+      "native-create-close-green-7",
+      "browser-create-abort-red-5b"
+    ],
+    "executionInContinuation": false,
+    "browserInjectedResidueCleanup": "Technical host removed it; not SDK cleanup",
+    "retention": ".artifacts/runs/m114-max-20261023/retained-r2-fixtures/retention.json"
+  },
+  "javascriptStorageRegression": {
+    "receipt": ".artifacts/runs/m114-max-20261023/js-final-storage-8",
+    "resultSHA256": "b2020eb9b8cce817304a27c19f1caa07fdf0e34d4044d35c6a16869a07bae46b",
+    "testsPassed": 6,
+    "scope": "Exported sink_save/sink_abort with owned ordinary filesystem capability adapter",
+    "currentChromiumExceptionalRemovalClaimed": false,
+    "SDKBuildInvoked": false,
+    "sourceDrift": [],
+    "remainingOwnedTemporaryDirectories": [],
+    "sequentialREDGREEN": [
+      [
+        "js-publication-red-7-direct",
+        "js-publication-green-8-a"
+      ],
+      [
+        "js-save-observation-red-8-b",
+        "js-save-observation-green-8-b"
+      ],
+      [
+        "js-writer-abort-red-8-c",
+        "js-writer-abort-green-8-c"
+      ],
+      [
+        "js-fallback-open-red-8-d",
+        "js-fallback-open-green-8-d"
+      ]
+    ],
+    "finalSourceSHA256": {
+      "/home/js/Git/miopunch/browser-probe/harness/file-storage.test.mjs": "2420c1c6395d06adf58878c8492b43a523a1839878e7332347b320345214726c",
+      "/home/js/Git/miopunch/browser-probe/src/file_storage.js": "99ede556b824fd01dcede44f537b83269e33e636ad884c371a5e0d7fe707b1a7",
+      "/home/js/Git/miopunch/browser-probe/harness/package.json": "510a3856fc117e0d6743244c32ed68ba5ece6813e3c1ab096e46af294e8a5b7f",
+      "/home/js/Git/miopunch/.artifacts/runs/m114-max-20261023/continuation/run_js_storage_test.py": "9e843c9c7374359d03a31dd8583bd5762458c9954d9da23f0d4f54e5da387346"
+    },
+    "limitedOuterRunnerTrace": ".artifacts/runs/m114-max-20261023/js-publication-red-7",
+    "exceptionalResidueCleanup": "Test fixture finally, not SDK cleanup"
+  }
+}

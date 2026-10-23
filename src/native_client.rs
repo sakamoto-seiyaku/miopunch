@@ -57,7 +57,9 @@ pub struct ClientStatus {
 /// caller controls the client; there is no UI, alternate transport or SSH path.
 pub struct NativeClient {
     node: Arc<Mutex<NativeNetwork>>,
-    resources: ResourceEndpoint,
+    resources: Arc<ResourceEndpoint>,
+    files: Arc<crate::native_file_transfer::NativeFiles>,
+    _file_owner: crate::native_file_transfer::FileOwner,
     cancel: CancellationToken,
     _drop_cancel: tokio_util::sync::DropGuard,
     listener: JoinHandle<()>,
@@ -127,18 +129,22 @@ impl NativeClient {
         ));
         node.admission_gate()
             .register_protocol(MEMBER_MESSAGE, ProtocolScope::Member);
+        node.admission_gate()
+            .register_protocol(crate::file_transfer::FILE_ALPN, ProtocolScope::Member);
         // Dial-only pre-admission invitation delivery. This ALPN is not in
         // this network host's advertised incoming protocol set.
         node.admission_gate().register_protocol(
             crate::invitation_pairing::PAIRING_ALPN,
             ProtocolScope::AdmissionRequest,
         );
-        let resources = node.bind_configured_endpoint(bind).await?;
+        let resources = Arc::new(node.bind_configured_endpoint(bind).await?);
         resources.endpoint().set_alpns(vec![
             ADMISSION_REQUEST_ALPN.to_vec(),
             PRECODE_REQUEST_ALPN.to_vec(),
             MEMBER_MESSAGE.to_vec(),
+            crate::file_transfer::FILE_ALPN.to_vec(),
         ]);
+        let files = Arc::new(crate::native_file_transfer::NativeFiles::default());
         let node = Arc::new(Mutex::new(node));
         let cancel = CancellationToken::new();
         let listener = {
@@ -146,24 +152,41 @@ impl NativeClient {
             let node = node.clone();
             let cancel = cancel.clone();
             let recovery_saved = recovery_saved.clone();
+            let files = files.clone();
             tokio::spawn(async move {
                 let mut handlers = tokio::task::JoinSet::new();
+                let mut expiry = tokio::time::interval(Duration::from_secs(1));
                 loop {
                     tokio::select! {
                         _ = cancel.cancelled() => break,
+                        _ = expiry.tick() => files.expire().await,
                         incoming = endpoint.accept() => {
                             let Some(incoming) = incoming else { break };
                             if handlers.len() >= 16 { incoming.refuse(); continue; }
                             let node = node.clone();
                             let recovery_saved = recovery_saved.clone();
+                            let files = files.clone();
                             handlers.spawn(async move {
-                                let _ = tokio::time::timeout(Duration::from_secs(60), async {
+                                // The handshake has a finite budget. A large file has no
+                                // total-duration cap: its stream enforces an idle timeout.
+                                let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+                                let accepted = tokio::time::timeout_at(deadline, async {
                                     if !recovery_saved.load(Ordering::Acquire) {
                                         incoming.refuse();
                                         return Err("recovery card save confirmation required".into());
                                     }
                                     let mut accepting = incoming.accept()?;
                                     let alpn = accepting.alpn().await?;
+                                    Ok::<_, ClientError>((accepting, alpn))
+                                }).await;
+                                let Ok(Ok((accepting, alpn))) = accepted else { return };
+                                if alpn == crate::file_transfer::FILE_ALPN {
+                                    if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
+                                        files.receive(connection);
+                                    }
+                                    return;
+                                }
+                                let _ = tokio::time::timeout_at(deadline, async {
                                     if matches!(alpn.as_slice(), ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN) {
                                         let connection = Arc::new(accepting.into_control().await?);
                                         serve_admission(connection.retain_control(), node).await
@@ -193,6 +216,8 @@ impl NativeClient {
         Ok(Self {
             node,
             resources,
+            _file_owner: crate::native_file_transfer::FileOwner(files.clone()),
+            files,
             cancel,
             _drop_cancel: drop_cancel,
             listener,
@@ -211,6 +236,44 @@ impl NativeClient {
     }
     pub fn address(&self) -> EndpointAddr {
         self.resources.addr()
+    }
+    /// Explicit local opt-in. Membership alone never starts the receiver.
+    pub async fn enable_files(&self, directory: impl AsRef<Path>) -> Result<(), ClientError> {
+        self.require_ready()?;
+        if self.node.lock().await.admission_stage() != AdmissionStage::Complete {
+            return Err("membership required".into());
+        }
+        self.files.enable(directory.as_ref()).await?;
+        Ok(())
+    }
+    pub async fn disable_files(&self) {
+        self.files.disable().await;
+    }
+    pub fn files_enabled(&self) -> bool {
+        self.files.enabled()
+    }
+    pub async fn send_file(
+        &self,
+        address: EndpointAddr,
+        path: impl AsRef<Path>,
+    ) -> Result<String, ClientError> {
+        self.require_ready()?;
+        if self.node.lock().await.admission_stage() != AdmissionStage::Complete {
+            return Err("membership required".into());
+        }
+        Ok(self
+            .files
+            .send(self.resources.clone(), address, path.as_ref().to_owned())
+            .await?)
+    }
+    pub fn file_tasks(&self) -> Vec<crate::file_transfer::FileTaskStatus> {
+        self.files.tasks.status()
+    }
+    pub fn cancel_file(&self, id: &str) -> Result<bool, ClientError> {
+        Ok(self.files.cancel(id)?)
+    }
+    pub fn disconnect_file(&self, id: &str) -> Result<(), ClientError> {
+        Ok(self.files.tasks.disconnect(id)?)
     }
     pub async fn invitation(&self) -> Result<ClientInvitation, ClientError> {
         self.require_ready()?;
@@ -390,7 +453,11 @@ impl NativeClient {
     pub async fn close(self) -> Result<(), ClientError> {
         self.cancel.cancel();
         self.listener.await?;
-        self.resources.close().await;
+        self.files.close().await;
+        Arc::try_unwrap(self.resources)
+            .map_err(|_| "client resources still owned")?
+            .close()
+            .await;
         Arc::try_unwrap(self.node)
             .map_err(|_| "client node still owned")?
             .into_inner()
