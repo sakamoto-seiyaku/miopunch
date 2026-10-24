@@ -19,9 +19,13 @@ pub(crate) struct NativeServices {
     records: Vec<Vec<u8>>,
     pub guest: Option<GuestInvitation>,
     pub clipboard: Option<std::sync::Weak<crate::native_clipboard::NativeClipboard>>,
+    pub forwarding: Option<std::sync::Weak<crate::native_forwarding::NativeForwarding>>,
 }
 impl NativeServices {
     fn publish_access(&self, files: &Arc<NativeFiles>, access: ServiceAccess) {
+        if let Some(forwarding) = self.forwarding.as_ref().and_then(std::sync::Weak::upgrade) {
+            forwarding.enforce_access(&access);
+        }
         if let Some(clipboard) = self.clipboard.as_ref().and_then(std::sync::Weak::upgrade) {
             clipboard.enforce_access(&access);
         }
@@ -78,6 +82,7 @@ impl NativeServices {
             records,
             guest,
             clipboard: None,
+            forwarding: None,
         };
         state.snapshot(node).await?.verify(node.anchor)?;
         Ok(state)
@@ -270,9 +275,16 @@ impl crate::native_client::NativeClient {
         invitation: &GuestInvitation,
         bind: std::net::Ipv4Addr,
     ) -> Result<Self, ClientError> {
+        Self::join_guest_with_resources(path, invitation, bind, Default::default()).await
+    }
+    pub async fn join_guest_with_resources(
+        path: impl AsRef<std::path::Path>,
+        invitation: &GuestInvitation,
+        bind: std::net::Ipv4Addr,
+        local: crate::resources::ResourceConfig,
+    ) -> Result<Self, ClientError> {
         let ordinary = invitation.ordinary_contact()?;
-        let config =
-            crate::client_contact::import_contact(Default::default(), ordinary.bootstrap())?;
+        let config = crate::client_contact::import_contact(local, ordinary.bootstrap())?;
         let node = NativeNetwork::join(
             path,
             crate::manual_admission::ManualInvitation::decode(&ordinary.material_bytes()?)?,
@@ -309,7 +321,7 @@ impl crate::native_client::NativeClient {
         expires: u64,
     ) -> Result<GuestInvitation, ClientError> {
         self.require_ready()?;
-        if !matches!(service, Service::Files | Service::Clipboard) {
+        if !service.guest_supported() {
             return Err("service guest adapter unavailable".into());
         }
         let created = crate::service_policy::now();
@@ -510,6 +522,10 @@ impl crate::native_client::NativeClient {
                     clipboard_capability.read && clipboard_capability.write,
                     clipboard.enabled,
                 ));
+            for protocol in [crate::forwarding::Protocol::Tcp, crate::forwarding::Protocol::Udp] {
+                status["services"].as_array_mut().ok_or("invalid service status")?.push(access.local_service_status(
+                    protocol.service(), true, self.forwarding_enabled(protocol)));
+            }
         }
         Ok(status)
     }

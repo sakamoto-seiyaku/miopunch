@@ -17,6 +17,8 @@ pub mod device_operation;
 pub mod device_protocol;
 #[path = "../../src/file_transfer.rs"]
 pub mod file_transfer;
+#[path = "../../src/forwarding.rs"]
+pub mod forwarding;
 #[path = "../../src/node_backup.rs"]
 pub mod node_backup;
 #[path = "../../src/node_control_backup.rs"]

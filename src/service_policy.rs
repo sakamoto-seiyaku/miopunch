@@ -132,11 +132,12 @@ impl GuestInvitation {
         match header.extensions.command {
             ServiceAction::InviteGuest {
                 provider,
-                service: Service::Files | Service::Clipboard,
+                service,
                 token_hash,
                 created,
                 expires,
             } if provider.as_bytes() == self.provider.id.as_bytes()
+                && service.guest_supported()
                 && token_hash == Hash::digest(self.token)
                 && created < expires =>
             {
@@ -156,6 +157,12 @@ pub enum Service {
     UdpForward,
     Web,
     Terminal,
+}
+impl Service {
+    /// One supported invitation boundary shared by encoders and platform APIs.
+    pub fn guest_supported(self) -> bool {
+        matches!(self, Self::Files | Self::Clipboard | Self::TcpForward | Self::UdpForward)
+    }
 }
 
 /// One effective rule, edited through either authorized entry point. A guest

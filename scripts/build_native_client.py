@@ -103,7 +103,7 @@ def capture_depfiles(artifacts, output, expected, top):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--platform", choices=["linux", "windows"], required=True)
-    parser.add_argument("--bin", dest="binary", choices=["miopunch-client", "client_resource_probe"], default="miopunch-client")
+    parser.add_argument("--bin", dest="binary", choices=["miopunch-client", "client_resource_probe", "browser-probe-native"], default="miopunch-client")
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--validate-only", action="store_true", help="Check complete inputs/toolchain without Cargo or pinning")

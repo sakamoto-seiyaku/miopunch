@@ -63,6 +63,8 @@ pub struct NativeClient {
     pub(crate) files: Arc<crate::native_file_transfer::NativeFiles>,
     pub(crate) services: Arc<Mutex<crate::native_services::NativeServices>>,
     pub(crate) clipboard: Arc<crate::native_clipboard::NativeClipboard>,
+    pub(crate) forwarding: Arc<crate::native_forwarding::NativeForwarding>,
+    _forwarding_owner: crate::native_forwarding::ForwardingOwner,
     _clipboard_owner: crate::native_clipboard::ClipboardOwner,
     _file_owner: crate::native_file_transfer::FileOwner,
     cancel: CancellationToken,
@@ -138,6 +140,9 @@ impl NativeClient {
         ));
         node.admission_gate()
             .register_protocol(MEMBER_MESSAGE, ProtocolScope::Member);
+        for protocol in [crate::forwarding::Protocol::Tcp, crate::forwarding::Protocol::Udp] {
+            node.admission_gate().register_protocol(protocol.alpn(), ProtocolScope::Member);
+        }
         node.admission_gate()
             .register_protocol(crate::clipboard::CLIPBOARD_ALPN, ProtocolScope::Member);
         node.admission_gate()
@@ -169,6 +174,8 @@ impl NativeClient {
             ADMISSION_REQUEST_ALPN.to_vec(),
             PRECODE_REQUEST_ALPN.to_vec(),
             MEMBER_MESSAGE.to_vec(),
+            crate::forwarding::TCP_ALPN.to_vec(),
+            crate::forwarding::UDP_ALPN.to_vec(),
             crate::clipboard::CLIPBOARD_ALPN.to_vec(),
             crate::file_transfer::FILE_ALPN.to_vec(),
             crate::service_policy::POLICY_ALPN.to_vec(),
@@ -193,12 +200,21 @@ impl NativeClient {
                 false,
             )
             .await?;
+        for protocol in [crate::forwarding::Protocol::Tcp, crate::forwarding::Protocol::Udp] {
+            let access = services.access(&node).await?;
+            if let Some(change) = access.declaration_change(protocol.service(), true, false) {
+                services.apply(&node, &files, change).await?;
+            }
+        }
         files.update_access(services.access(&node).await?);
         let services = Arc::new(Mutex::new(services));
         let clipboard =
             crate::native_clipboard::NativeClipboard::new(node.admission_gate().clone());
         clipboard.enforce_access(&services.lock().await.access(&node).await?);
         services.lock().await.clipboard = Some(Arc::downgrade(&clipboard));
+        let forwarding = crate::native_forwarding::NativeForwarding::new(node.admission_gate().clone());
+        forwarding.enforce_access(&services.lock().await.access(&node).await?);
+        services.lock().await.forwarding = Some(Arc::downgrade(&forwarding));
         let node = Arc::new(Mutex::new(node));
         let cancel = CancellationToken::new();
         let listener = {
@@ -210,13 +226,18 @@ impl NativeClient {
             let files = files.clone();
             let services = services.clone();
             let clipboard = clipboard.clone();
+            let forwarding = forwarding.clone();
             tokio::spawn(async move {
                 let mut handlers = tokio::task::JoinSet::new();
                 let mut expiry = tokio::time::interval(Duration::from_secs(1));
                 loop {
                     tokio::select! {
                         _ = cancel.cancelled() => break,
-                        _ = expiry.tick() => files.expire().await,
+                        _ = expiry.tick() => {
+                            files.expire().await;
+                            let node = node.lock().await;
+                            if let Ok(access) = services.lock().await.access(&node).await { forwarding.enforce_access(&access); }
+                        },
                         incoming = endpoint.accept() => {
                             let Some(incoming) = incoming else { break };
                             if handlers.len() >= 16 { incoming.refuse(); continue; }
@@ -226,6 +247,7 @@ impl NativeClient {
                             let files = files.clone();
                             let services = services.clone();
                             let clipboard = clipboard.clone();
+                            let forwarding = forwarding.clone();
                             let clipboard_request = clipboard.state.request();
                             handlers.spawn(async move {
                                 // The handshake has a finite budget. A large file has no
@@ -241,6 +263,12 @@ impl NativeClient {
                                     Ok::<_, ClientError>((accepting, alpn))
                                 }).await;
                                 let Ok(Ok((accepting, alpn))) = accepted else { return };
+                                if let Some(protocol) = crate::forwarding::Protocol::from_alpn(&alpn) {
+                                    if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
+                                        let _ = forwarding.receive(connection, protocol).await;
+                                    }
+                                    return;
+                                }
                                 if alpn == crate::clipboard::CLIPBOARD_ALPN {
                                     if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
                                         let _ = clipboard.run(connection, node, services, false, clipboard_request).await;
@@ -329,6 +357,11 @@ impl NativeClient {
                 }
                 handlers.abort_all();
                 while handlers.join_next().await.is_some() {}
+                // Drop also reaches this owned listener through its cancel
+                // guard. Keep the endpoint alive while QUIC close frames are
+                // drained, so peer forwarding sockets need not wait for idle
+                // timeout after the local owners have already ended.
+                endpoint.close().await;
             })
         };
         let drop_cancel = cancel.clone().drop_guard();
@@ -340,6 +373,8 @@ impl NativeClient {
             services,
             _clipboard_owner: crate::native_clipboard::ClipboardOwner(clipboard.clone()),
             clipboard,
+            _forwarding_owner: crate::native_forwarding::ForwardingOwner(forwarding.clone()),
+            forwarding,
             cancel,
             _drop_cancel: drop_cancel,
             listener,
@@ -606,6 +641,7 @@ impl NativeClient {
     /// Stop this host's listener and handlers, close endpoint resources, then
     /// close the durable store. Identity and authorization remain on disk.
     pub async fn close(self) -> Result<(), ClientError> {
+        let forwarding_stop = self.forwarding.close().await;
         let clipboard_stop = self.disable_clipboard().await;
         self.clipboard.close().await;
         let service_stop = self.disable_files().await;
@@ -623,6 +659,7 @@ impl NativeClient {
             .await;
         service_stop?;
         clipboard_stop?;
+        forwarding_stop?;
         Ok(())
     }
 }
@@ -792,7 +829,7 @@ async fn serve_admission(
     Ok(())
 }
 
-fn path_status(connection: &Connection) -> Value {
+pub(crate) fn path_status(connection: &Connection) -> Value {
     json!({"peer": connection.remote_id().to_string(), "connection": connection.stable_id(),
         "paths": connection.paths().iter().map(|path| json!({"remote": path.remote_addr(),
             "local": format!("{:?}", path.local_addr()), "selected": path.is_selected(),

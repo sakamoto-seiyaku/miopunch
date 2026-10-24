@@ -51,6 +51,8 @@ impl SavedNode {
         let service = match alpn {
             crate::file_transfer::FILE_ALPN => Service::Files,
             crate::clipboard::CLIPBOARD_ALPN => Service::Clipboard,
+            crate::forwarding::TCP_ALPN => Service::TcpForward,
+            crate::forwarding::UDP_ALPN => Service::UdpForward,
             _ => return false,
         };
         self.service_access().ok().is_some_and(|access| {
@@ -485,6 +487,9 @@ impl BrowserNetwork {
                     capability.read && capability.write,
                     clipboard.enabled,
                 ));
+            for service in [Service::TcpForward, Service::UdpForward] {
+                status["services"].as_array_mut().ok_or_else(rejected)?.push(access.local_service_status(service, false, false));
+            }
         }
         Ok(status.to_string())
     }
@@ -566,7 +571,7 @@ impl BrowserNetwork {
         self.require_device_ready()?;
         let service: Service =
             serde_json::from_value(serde_json::Value::String(service)).map_err(error)?;
-        if !matches!(service, Service::Files | Service::Clipboard) {
+        if !service.guest_supported() {
             return Err(error("service guest adapter unavailable"));
         }
         let created = crate::service_policy::now();

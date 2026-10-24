@@ -121,9 +121,18 @@ impl DataWriter {
 
 impl DataReader {
     pub async fn read_chunk(&mut self) -> io::Result<Vec<u8>> {
+        self.read_chunk_or_end().await?.ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "application stream ended"))
+    }
+
+    /// Clean FIN is distinct from a truncated record or a reset. Duplex TCP
+    /// consumers can half-close without suppressing actual transport failures.
+    pub async fn read_chunk_or_end(&mut self) -> io::Result<Option<Vec<u8>>> {
         n0_future::time::timeout(IDLE, async {
             let mut length = [0; 4];
-            self.0.read_exact(&mut length).await.map_err(transport)?;
+            if self.0.read(&mut length[..1]).await.map_err(transport)?.is_none() {
+                return Ok(None);
+            }
+            self.0.read_exact(&mut length[1..]).await.map_err(transport)?;
             let length = u32::from_be_bytes(length) as usize;
             if length > CHUNK_BYTES {
                 return Err(io::Error::new(
@@ -133,7 +142,7 @@ impl DataReader {
             }
             let mut bytes = vec![0; length];
             self.0.read_exact(&mut bytes).await.map_err(transport)?;
-            Ok(bytes)
+            Ok(Some(bytes))
         })
         .await
         .map_err(transport)?

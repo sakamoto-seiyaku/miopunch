@@ -18,6 +18,12 @@ struct Request {
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 enum Command {
+    ForwardEnable { protocol: miopunch_native_probe::forwarding::Protocol, targets: Vec<std::net::SocketAddr> },
+    ForwardDisable { protocol: miopunch_native_probe::forwarding::Protocol },
+    ForwardStart { address: iroh::EndpointAddr, protocol: miopunch_native_probe::forwarding::Protocol, target: std::net::SocketAddr, bind: std::net::SocketAddr },
+    ForwardStop { task: String },
+    ForwardStatus,
+    ForwardCancel { task: String },
     ClipboardEnable,
     ClipboardDisable,
     ClipboardStart {
@@ -219,6 +225,12 @@ async fn status(client: &NativeClient) -> Value {
 }
 async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, ClientError> {
     match command {
+        Command::ForwardEnable { protocol, targets } => client.enable_forwarding(protocol, targets).await,
+        Command::ForwardDisable { protocol } => client.disable_forwarding(protocol).await,
+        Command::ForwardStart { address, protocol, target, bind } => client.start_forwarding(address, protocol, target, bind).await,
+        Command::ForwardStop { task } => client.stop_forwarding(&task).await,
+        Command::ForwardStatus => Ok(client.forwarding_status()),
+        Command::ForwardCancel { task } => { client.cancel_forwarding_flow(&task).await?; Ok(client.forwarding_status()) },
         Command::ClipboardEnable => client.enable_clipboard().await,
         Command::ClipboardDisable => {
             client.disable_clipboard().await?;
@@ -655,6 +667,12 @@ async fn main() -> Result<(), ClientError> {
                 &std::fs::read(invitation)?,
             )?;
             NativeClient::join_guest(path, &invitation, Ipv4Addr::UNSPECIFIED).await?
+        }
+        [action, path, invitation, resources] if action == "join-guest" => {
+            let invitation = miopunch_native_probe::service_policy::GuestInvitation::decode(
+                &std::fs::read(invitation)?,
+            )?;
+            NativeClient::join_guest_with_resources(path, &invitation, Ipv4Addr::UNSPECIFIED, configuration(resources)?).await?
         }
         [action, path, resources] if action == "create" => {
             NativeClient::create_with_resources(
