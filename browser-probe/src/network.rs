@@ -650,6 +650,13 @@ impl BrowserGate {
                         .is_some_and(|peer| crate::forwarding::peer_permitted(&access, peer, protocol))
                 });
         }
+        if alpn == crate::web::WEB_ALPN {
+            return matches!(saved.stage(), "Complete" | "GuestActive")
+                && saved.service_access().ok().is_some_and(|access| {
+                    VerifyingKey::from_bytes(target.as_bytes()).ok()
+                        .is_some_and(|peer| crate::web::peer_permitted(&access, peer))
+                });
+        }
         if (alpn != BUSINESS_ALPN
             && alpn != crate::service_policy::POLICY_ALPN
             && alpn != crate::device_operation::DEVICE_ALPN
@@ -1866,6 +1873,8 @@ pub struct BrowserNetwork {
     _file_owner: files::FileOwner,
     clipboard: std::rc::Rc<clipboard_host::BrowserClipboard>,
     forwarding: std::rc::Rc<forwarding_host::BrowserForwarding>,
+    web: std::rc::Rc<web_host::BrowserWeb>,
+    _web_owner: web_host::WebOwner,
     _clipboard_owner: clipboard_host::ClipboardOwner,
     services: std::rc::Rc<services::BrowserServices>,
     _service_owner: services::ServiceOwner,
@@ -2551,6 +2560,7 @@ impl BrowserNetwork {
             caller_budget,
         );
         let service_owner = services::ServiceOwner(services.clone());
+        let web = std::rc::Rc::new(web_host::BrowserWeb::default());
         let mut network = Self {
             endpoint,
             incoming,
@@ -2558,6 +2568,8 @@ impl BrowserNetwork {
             _file_owner: file_owner,
             clipboard,
             forwarding: Default::default(),
+            _web_owner: web_host::WebOwner(web.clone()),
+            web,
             _clipboard_owner: clipboard_owner,
             services,
             _service_owner: service_owner,
@@ -2862,6 +2874,7 @@ impl BrowserNetwork {
         }
     }
     pub(super) async fn stop_runtime(&mut self) {
+        self.web.close().await;
         self.clipboard.close().await;
         self.services.close().await;
         self.files.close().await;
@@ -3205,6 +3218,8 @@ mod incoming;
 mod clipboard_host;
 #[path = "forwarding.rs"]
 mod forwarding_host;
+#[path = "web.rs"]
+mod web_host;
 #[path = "device_custody.rs"]
 mod device_custody;
 #[path = "device_management.rs"]

@@ -64,6 +64,8 @@ pub struct NativeClient {
     pub(crate) services: Arc<Mutex<crate::native_services::NativeServices>>,
     pub(crate) clipboard: Arc<crate::native_clipboard::NativeClipboard>,
     pub(crate) forwarding: Arc<crate::native_forwarding::NativeForwarding>,
+    pub(crate) web: Arc<crate::native_web::NativeWeb>,
+    _web_owner: crate::native_web::WebOwner,
     _forwarding_owner: crate::native_forwarding::ForwardingOwner,
     _clipboard_owner: crate::native_clipboard::ClipboardOwner,
     _file_owner: crate::native_file_transfer::FileOwner,
@@ -140,6 +142,8 @@ impl NativeClient {
         ));
         node.admission_gate()
             .register_protocol(MEMBER_MESSAGE, ProtocolScope::Member);
+        node.admission_gate()
+            .register_protocol(crate::web::WEB_ALPN, ProtocolScope::Member);
         for protocol in [crate::forwarding::Protocol::Tcp, crate::forwarding::Protocol::Udp] {
             node.admission_gate().register_protocol(protocol.alpn(), ProtocolScope::Member);
         }
@@ -174,6 +178,7 @@ impl NativeClient {
             ADMISSION_REQUEST_ALPN.to_vec(),
             PRECODE_REQUEST_ALPN.to_vec(),
             MEMBER_MESSAGE.to_vec(),
+            crate::web::WEB_ALPN.to_vec(),
             crate::forwarding::TCP_ALPN.to_vec(),
             crate::forwarding::UDP_ALPN.to_vec(),
             crate::clipboard::CLIPBOARD_ALPN.to_vec(),
@@ -206,6 +211,10 @@ impl NativeClient {
                 services.apply(&node, &files, change).await?;
             }
         }
+        let access = services.access(&node).await?;
+        if let Some(change) = access.declaration_change(crate::service_policy::Service::Web, true, false) {
+            services.apply(&node, &files, change).await?;
+        }
         files.update_access(services.access(&node).await?);
         let services = Arc::new(Mutex::new(services));
         let clipboard =
@@ -215,6 +224,9 @@ impl NativeClient {
         let forwarding = crate::native_forwarding::NativeForwarding::new(node.admission_gate().clone());
         forwarding.enforce_access(&services.lock().await.access(&node).await?);
         services.lock().await.forwarding = Some(Arc::downgrade(&forwarding));
+        let web = crate::native_web::NativeWeb::new(node.admission_gate().clone());
+        web.enforce_access(&services.lock().await.access(&node).await?);
+        services.lock().await.web = Some(Arc::downgrade(&web));
         let node = Arc::new(Mutex::new(node));
         let cancel = CancellationToken::new();
         let listener = {
@@ -227,6 +239,7 @@ impl NativeClient {
             let services = services.clone();
             let clipboard = clipboard.clone();
             let forwarding = forwarding.clone();
+            let web = web.clone();
             tokio::spawn(async move {
                 let mut handlers = tokio::task::JoinSet::new();
                 let mut expiry = tokio::time::interval(Duration::from_secs(1));
@@ -236,7 +249,10 @@ impl NativeClient {
                         _ = expiry.tick() => {
                             files.expire().await;
                             let node = node.lock().await;
-                            if let Ok(access) = services.lock().await.access(&node).await { forwarding.enforce_access(&access); }
+                            if let Ok(access) = services.lock().await.access(&node).await {
+                                forwarding.enforce_access(&access);
+                                web.enforce_access(&access);
+                            }
                         },
                         incoming = endpoint.accept() => {
                             let Some(incoming) = incoming else { break };
@@ -248,6 +264,7 @@ impl NativeClient {
                             let services = services.clone();
                             let clipboard = clipboard.clone();
                             let forwarding = forwarding.clone();
+                            let web = web.clone();
                             let clipboard_request = clipboard.state.request();
                             handlers.spawn(async move {
                                 // The handshake has a finite budget. A large file has no
@@ -263,6 +280,12 @@ impl NativeClient {
                                     Ok::<_, ClientError>((accepting, alpn))
                                 }).await;
                                 let Ok(Ok((accepting, alpn))) = accepted else { return };
+                                if alpn == crate::web::WEB_ALPN {
+                                    if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
+                                        let _ = web.receive(connection).await;
+                                    }
+                                    return;
+                                }
                                 if let Some(protocol) = crate::forwarding::Protocol::from_alpn(&alpn) {
                                     if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
                                         let _ = forwarding.receive(connection, protocol).await;
@@ -375,6 +398,8 @@ impl NativeClient {
             clipboard,
             _forwarding_owner: crate::native_forwarding::ForwardingOwner(forwarding.clone()),
             forwarding,
+            _web_owner: crate::native_web::WebOwner(web.clone()),
+            web,
             cancel,
             _drop_cancel: drop_cancel,
             listener,
@@ -641,6 +666,7 @@ impl NativeClient {
     /// Stop this host's listener and handlers, close endpoint resources, then
     /// close the durable store. Identity and authorization remain on disk.
     pub async fn close(self) -> Result<(), ClientError> {
+        let web_stop = self.web.close().await;
         let forwarding_stop = self.forwarding.close().await;
         let clipboard_stop = self.disable_clipboard().await;
         self.clipboard.close().await;
@@ -659,6 +685,7 @@ impl NativeClient {
             .await;
         service_stop?;
         clipboard_stop?;
+        web_stop?;
         forwarding_stop?;
         Ok(())
     }

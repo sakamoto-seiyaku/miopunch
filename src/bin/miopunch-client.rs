@@ -15,9 +15,21 @@ struct Request {
     #[serde(flatten)]
     command: Command,
 }
+fn socket_wait() -> u64 { 100 }
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 enum Command {
+    WebEnable { targets: Vec<String>, #[serde(default)] trust_roots_pem: Vec<String> },
+    WebDisable,
+    WebStatus,
+    WebSocketOpen { address: iroh::EndpointAddr, url: String, #[serde(default)] headers: Vec<(String, String)> },
+    WebSocketSend { socket: String, message: miopunch_native_probe::web::WebSocketMessage },
+    WebSocketRead { socket: String, #[serde(default = "socket_wait")] timeout_ms: u64 },
+    WebSocketClose { socket: String },
+    WebOpen { address: iroh::EndpointAddr, url: String, #[serde(default)] method: Option<String>, #[serde(default)] headers: Vec<(String, String)>, #[serde(default)] body: String },
+    WebBegin { address: iroh::EndpointAddr, url: String, #[serde(default)] method: Option<String>, #[serde(default)] headers: Vec<(String, String)>, #[serde(default)] body: String },
+    WebResult { job: String },
+    WebCancel { job: String },
     ForwardEnable { protocol: miopunch_native_probe::forwarding::Protocol, targets: Vec<std::net::SocketAddr> },
     ForwardDisable { protocol: miopunch_native_probe::forwarding::Protocol },
     ForwardStart { address: iroh::EndpointAddr, protocol: miopunch_native_probe::forwarding::Protocol, target: std::net::SocketAddr, bind: std::net::SocketAddr },
@@ -225,6 +237,27 @@ async fn status(client: &NativeClient) -> Value {
 }
 async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, ClientError> {
     match command {
+        Command::WebEnable { targets, trust_roots_pem } => client.enable_web(targets, trust_roots_pem).await,
+        Command::WebDisable => client.disable_web().await,
+        Command::WebStatus => Ok(client.web_status()),
+        Command::WebResult { job } => client.web_request_result(&job),
+        Command::WebCancel { job } => client.cancel_web_request(&job).await,
+        Command::WebBegin { address, url, method, headers, body } => {
+            use base64::Engine;
+            let request = miopunch_native_probe::web::WebRequest { url, method: method.unwrap_or_else(|| "GET".into()), headers,
+                body: base64::engine::general_purpose::STANDARD.decode(body)? };
+            client.begin_web_request(address, request).await
+        },
+        Command::WebSocketOpen { address, url, headers } => client.open_web_socket(address, url, headers).await,
+        Command::WebSocketSend { socket, message } => { client.send_web_socket(&socket, message).await?; Ok(json!({"queued":true})) },
+        Command::WebSocketRead { socket, timeout_ms } => client.read_web_socket(&socket, std::time::Duration::from_millis(timeout_ms)).await,
+        Command::WebSocketClose { socket } => client.close_web_socket(&socket).await,
+        Command::WebOpen { address, url, method, headers, body } => {
+            use base64::Engine;
+            let request = miopunch_native_probe::web::WebRequest { url, method: method.unwrap_or_else(|| "GET".into()), headers,
+                body: base64::engine::general_purpose::STANDARD.decode(body)? };
+            Ok(serde_json::to_value(client.request_web(address, request).await?)?)
+        },
         Command::ForwardEnable { protocol, targets } => client.enable_forwarding(protocol, targets).await,
         Command::ForwardDisable { protocol } => client.disable_forwarding(protocol).await,
         Command::ForwardStart { address, protocol, target, bind } => client.start_forwarding(address, protocol, target, bind).await,

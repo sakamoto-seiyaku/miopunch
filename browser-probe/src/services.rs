@@ -53,6 +53,7 @@ impl SavedNode {
             crate::clipboard::CLIPBOARD_ALPN => Service::Clipboard,
             crate::forwarding::TCP_ALPN => Service::TcpForward,
             crate::forwarding::UDP_ALPN => Service::UdpForward,
+            crate::web::WEB_ALPN => Service::Web,
             _ => return false,
         };
         self.service_access().ok().is_some_and(|access| {
@@ -487,7 +488,7 @@ impl BrowserNetwork {
                     capability.read && capability.write,
                     clipboard.enabled,
                 ));
-            for service in [Service::TcpForward, Service::UdpForward] {
+            for service in [Service::TcpForward, Service::UdpForward, Service::Web] {
                 status["services"].as_array_mut().ok_or_else(rejected)?.push(access.local_service_status(service, false, false));
             }
         }

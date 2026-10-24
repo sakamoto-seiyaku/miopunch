@@ -25,7 +25,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native-receipt", type=Path, required=True)
     parser.add_argument("--source-archive-sha", required=True)
-    parser.add_argument("--test", choices=["device_replacement", "device_operations", "clipboard_lifecycle", "clipboard_guest_projection", "forwarding_lifecycle"], required=True)
+    parser.add_argument("--test", choices=["device_replacement", "device_operations", "clipboard_lifecycle", "clipboard_guest_projection", "forwarding_lifecycle", "web_lifecycle"], required=True)
     parser.add_argument("--test-sha", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()

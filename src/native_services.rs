@@ -20,9 +20,13 @@ pub(crate) struct NativeServices {
     pub guest: Option<GuestInvitation>,
     pub clipboard: Option<std::sync::Weak<crate::native_clipboard::NativeClipboard>>,
     pub forwarding: Option<std::sync::Weak<crate::native_forwarding::NativeForwarding>>,
+    pub web: Option<std::sync::Weak<crate::native_web::NativeWeb>>,
 }
 impl NativeServices {
     fn publish_access(&self, files: &Arc<NativeFiles>, access: ServiceAccess) {
+        if let Some(web) = self.web.as_ref().and_then(std::sync::Weak::upgrade) {
+            web.enforce_access(&access);
+        }
         if let Some(forwarding) = self.forwarding.as_ref().and_then(std::sync::Weak::upgrade) {
             forwarding.enforce_access(&access);
         }
@@ -83,6 +87,7 @@ impl NativeServices {
             guest,
             clipboard: None,
             forwarding: None,
+            web: None,
         };
         state.snapshot(node).await?.verify(node.anchor)?;
         Ok(state)
@@ -526,6 +531,8 @@ impl crate::native_client::NativeClient {
                 status["services"].as_array_mut().ok_or("invalid service status")?.push(access.local_service_status(
                     protocol.service(), true, self.forwarding_enabled(protocol)));
             }
+            status["services"].as_array_mut().ok_or("invalid service status")?.push(
+                access.local_service_status(Service::Web, true, self.web.status()["enabled"] == true));
         }
         Ok(status)
     }

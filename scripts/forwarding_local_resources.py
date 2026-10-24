@@ -64,7 +64,7 @@ class OwnedProcess:
 
 
 class LoopbackRelay:
-    def __init__(self, runner, binary, receipt):
+    def __init__(self, runner, binary, receipt, owner_factory=OwnedProcess):
         build = json.loads(Path(receipt).read_text())
         binary = Path(binary).resolve()
         assert build["exit"] == 0 and build["binary"] == "browser-probe-native" and str(binary) == build["pin"]
@@ -74,11 +74,14 @@ class LoopbackRelay:
         self.process = subprocess.Popen([str(binary), "relay", "0"], env=isolated_environment(),
                                         stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=self.stderr, text=True)
         self.reader_error = None
-        self.owner = OwnedProcess(self.process, runner.output / "local-relay-owner.jsonl")
+        self.owner = None
         self.queue = queue.Queue(maxsize=32)
         self.reader = threading.Thread(target=self.read, daemon=True)
+        self.reader_started = False
         runner.nodes.append(self)
+        self.owner = owner_factory(self.process, runner.output / "local-relay-owner.jsonl")
         self.reader.start()
+        self.reader_started = True
         ready = self.queue.get(timeout=10)
         assert ready is not None and ready.startswith("RELAY ")
         self.url = "http://" + ready.split()[1] + "/"
@@ -97,19 +100,27 @@ class LoopbackRelay:
     def close(self):
         errors = []
         try:
+            if self.owner is None:
+                raise RuntimeError("relay launch identity unqualified; no signal sent")
             self.owner.send(signal.SIGINT)
             self.process.wait(timeout=10)
         except BaseException as failure:
             errors.append(type(failure).__name__)
-        if self.process.poll() is None:
+        if self.process.poll() is None and self.owner is None:
+            try:
+                self.process.wait(timeout=3)
+            except BaseException as failure:
+                errors.append(type(failure).__name__)
+        if self.process.poll() is None and self.owner:
             try:
                 self.owner.send(signal.SIGTERM)
                 self.process.wait(timeout=5)
             except BaseException as failure:
                 errors.append(type(failure).__name__)
-        self.reader.join(timeout=3)
+        if self.reader_started:
+            self.reader.join(timeout=3)
         self.stderr.close()
-        if self.process.poll() is not None:
+        if self.process.poll() is not None and self.owner:
             self.owner.close()
         self.cleanup = {"owner": "local-relay", "exit": self.process.poll(), "reader_joined": not self.reader.is_alive(),
                         "reader_error": self.reader_error, "errors": errors}
@@ -117,11 +128,11 @@ class LoopbackRelay:
         return self.cleanup
 
     def terminal(self):
-        return self.process.poll() is not None and not self.reader.is_alive() and self.owner.pidfd is None
+        return self.process.poll() is not None and not self.reader.is_alive() and (self.owner is None or self.owner.pidfd is None)
 
 
-def configure_local_resources(runner, args):
-    relay = LoopbackRelay(runner, args.relay_binary, args.relay_receipt)
+def configure_local_resources(runner, args, owner_factory=OwnedProcess):
+    relay = LoopbackRelay(runner, args.relay_binary, args.relay_receipt, owner_factory)
     resource = {"url": relay.url, "uses": ["DataRelay"], "limitation": "fresh owned loopback-only forwarding fixture"}
     config = {"defaults": {"revision": 2, "resources": []}, "replacement": [resource], "disabled": [],
               "disabled_uses": ["Observation", "Lookup", "Signaling"], "lan_discovery": "Disabled", "port_mapping": "Disabled"}

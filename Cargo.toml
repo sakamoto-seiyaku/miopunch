@@ -115,6 +115,9 @@ rustls = { version = "0.23.45", default-features = false, features = ["ring", "s
 tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring"] }
 rustls-pemfile = "2.2.0"
 webpki-roots = "1.0.9"
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls-no-provider", "stream"] }
+url = "=2.5.8"
+tokio-websockets = { version = "=0.13.3", default-features = false, features = ["client", "rustls-bring-your-own-connector", "getrandom", "rand", "ring", "sha1_smol"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 p2panda-net = { path = "vendor/p2panda-net", default-features = false, features = ["iroh_mdns"] }

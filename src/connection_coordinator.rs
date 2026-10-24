@@ -119,6 +119,7 @@ impl SessionPurpose {
             | crate::clipboard::CLIPBOARD_ALPN
             | crate::forwarding::TCP_ALPN
             | crate::forwarding::UDP_ALPN
+            | crate::web::WEB_ALPN
             | crate::service_policy::POLICY_ALPN
             | crate::device_operation::DEVICE_ALPN
             | crate::credential_custody::CUSTODY_ALPN => Some(Self::MemberBusiness),
