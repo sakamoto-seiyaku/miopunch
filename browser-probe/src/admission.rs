@@ -4,25 +4,7 @@ use super::*;
 use crate::management_action::ManagementAction;
 use p2panda_core::SigningKey;
 
-#[derive(Clone, Serialize, Deserialize)]
-pub(super) struct Code {
-    token: [u8; 32],
-    origin: Hash,
-    expires: u64,
-    limit: Option<u64>,
-    used: u64,
-    revoked: bool,
-}
-#[derive(Clone, Serialize, Deserialize)]
-pub(super) struct Approval {
-    applicant: VerifyingKey,
-    request: [u8; 16],
-    authorization: Option<Hash>,
-    code: Option<[u8; 32]>,
-    complete: bool,
-    #[serde(default)]
-    rejected: bool,
-}
+pub(super) use crate::node_control_backup::{SavedApproval as Approval, SavedCode as Code};
 fn now() -> Result<u64, JsValue> {
     n0_future::time::SystemTime::now()
         .duration_since(n0_future::time::SystemTime::UNIX_EPOCH)
@@ -147,6 +129,7 @@ impl BrowserNetwork {
             limit: max_uses,
             used: 0,
             revoked: false,
+            stopped: false,
         });
         self.commit(next).await?;
         Ok(hex::encode(code))
@@ -269,6 +252,7 @@ impl BrowserNetwork {
             id
         };
         next.approvals[index].authorization = Some(id);
+        next.approvals[index].delivery_phase = Some(1);
         Ok(next)
     }
     async fn serve_admission_inner(
@@ -320,6 +304,7 @@ impl BrowserNetwork {
                 code: token,
                 complete: false,
                 rejected: false,
+                delivery_phase: Some(0),
             });
             next.approvals.len() - 1
         };
@@ -344,7 +329,7 @@ impl BrowserNetwork {
                     expires: code.expires,
                     max_uses: code.limit,
                     used: code.used,
-                    stopped: false,
+                    stopped: code.stopped,
                     revoked: code.revoked,
                     ledger_consistent: code.used == actual,
                     issuer_authorized: auth
@@ -411,6 +396,7 @@ impl BrowserNetwork {
         }
         let mut next = self.saved.clone();
         next.approvals[index].complete = true;
+        next.approvals[index].delivery_phase = Some(3);
         self.commit(next).await?;
         send_fixed(&exchange, b"DONE").await?;
         exchange.finish_send().await.map_err(error)?;

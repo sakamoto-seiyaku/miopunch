@@ -124,6 +124,10 @@ impl SavedGenesisCredential {
 
 #[derive(Debug, Error)]
 pub enum NodeError {
+    #[error(
+        "this node is paused or retired for device replacement; use its explicit replacement operation"
+    )]
+    ReplacementPaused,
     #[error("this directory is owned by NetworkMigration; reopen its lifecycle entry")]
     MigrationManaged,
     #[error("node data directory already exists")]
@@ -409,10 +413,19 @@ impl NativeNetwork {
 
     pub async fn open(path: impl AsRef<Path>) -> Result<Self, NodeError> {
         let path = path.as_ref();
+        if path.join("replacement.source").exists() || path.join("replacement.retired").exists() {
+            return Err(NodeError::ReplacementPaused);
+        }
         if path.join("migration.invitation").exists() || path.join("migration.managed").exists() {
             return Err(NodeError::MigrationManaged);
         }
-        Self::open_migration_context(path).await
+        let node = Self::open_migration_context(path).await?;
+        // The lower-level public opener has the same inherited-counter stop
+        // as the client host; opening a known backup is itself an activation.
+        crate::native_node_replacement::prepare_for_open(&node)
+            .await
+            .map_err(|_| NodeError::InvalidData)?;
+        Ok(node)
     }
 
     pub(crate) async fn join_migration(
@@ -443,17 +456,12 @@ impl NativeNetwork {
         } else {
             None
         };
-        if recovery.is_some() && !path.join(GENESIS_CREDENTIAL).exists() {
-            return Err(NodeError::InvalidData);
-        }
         if path.join(GENESIS_CREDENTIAL).exists() {
             let credential =
                 SavedGenesisCredential(read_array::<64>(&path.join(GENESIS_CREDENTIAL))?).decode();
             if credential.anchor() != anchor {
                 return Err(NodeError::InvalidCredential);
             }
-        } else if join.is_none() {
-            return Err(NodeError::InvalidData);
         }
         if !path.join(MANAGEMENT_DB).is_file() {
             return Err(NodeError::InvalidData);
@@ -464,9 +472,7 @@ impl NativeNetwork {
         // reopened node's authority or making admission decisions.
         store.apply_ready().await?;
         crate::admission_rotation::recover_rotation_material(&mut store, path).await?;
-        if path.join(GENESIS_CREDENTIAL).exists()
-            && recovery.is_none()
-            && store.get_record(anchor.genesis).await?.is_none()
+        if join.is_none() && recovery.is_none() && store.get_record(anchor.genesis).await?.is_none()
         {
             return Err(NodeError::InvalidData);
         }
@@ -534,6 +540,16 @@ impl NativeNetwork {
             udp: Arc::new(NatConnector::new(None, UdpPolicy::default())),
         };
         node.restore_rotation_gate().await?;
+        // Completed recovery and the signed canonical creation history remain
+        // usable after local custody deletion. Only incomplete recovery still
+        // needs the retained credential to resume its root proof.
+        if let Some(binding) = node.recovery {
+            if !path.join(GENESIS_CREDENTIAL).exists()
+                && !node.has_completed_root_recovery(binding).await?
+            {
+                return Err(NodeError::InvalidData);
+            }
+        }
         if node.join.is_some() {
             if let Some(binding) = node.recovery {
                 if !node.has_completed_root_recovery(binding).await? {
@@ -1282,6 +1298,15 @@ async fn copy_node_backup(source: &Path, target: &Path, restoring: bool) -> Resu
             ADMISSION_MATERIAL,
             RECOVERY_BINDING,
             RESOURCE_CONFIGURATION,
+            MAINTENANCE_CONTACTS,
+            "services.records",
+            "services.guest-invitation",
+            "client.invitation",
+            "client.recovery-save",
+            "device.operations",
+            "credential.custody",
+            "replacement.package",
+            "replacement.settings",
         ] {
             let path = source.join(name);
             if path.exists() {
@@ -1304,14 +1329,28 @@ async fn copy_node_backup(source: &Path, target: &Path, restoring: bool) -> Resu
         // Replay verifies the copied signed history/anchor/material before
         // publishing anything; restoration's stop is committed in this copy.
         let node = NativeNetwork::open(&staging).await?;
-        if restoring {
-            sqlx::query("UPDATE precodes SET stopped=1")
-                .execute(&node.store.pool)
-                .await
-                .map_err(StoreError::from)?;
-        } else {
+        crate::native_services::NativeServices::load(&node)
+            .await
+            .map_err(|_| NodeError::InvalidData)?;
+        crate::native_device_management::validate_saved_operations(&staging, &node)
+            .map_err(|_| NodeError::InvalidData)?;
+        crate::native_custody::validate(&node).map_err(|_| NodeError::InvalidData)?;
+        if !restoring {
             write_private(&staging.join("backup.version"), b"miopunch node backup 1\n")?;
         }
+        // Every new backup copy requires its own current-peer qualification,
+        // including direct open and a backup made from an unqualified import.
+        // A prior receipt describes its prior destination, not this new copy.
+        let package =
+            crate::node_backup::ReplacementPackage::new(node.status().node_id, node.anchor);
+        write_private(
+            &staging.join("replacement.restore"),
+            &serde_json::to_vec(&crate::node_backup::RestoredNode::new(package))
+                .map_err(std::io::Error::other)?,
+        )?;
+        crate::native_node_replacement::prepare_for_open(&node)
+            .await
+            .map_err(|_| NodeError::InvalidData)?;
         node.close().await;
         sync_directory(&staging)?;
         ensure_absent(target)?;
@@ -1350,7 +1389,11 @@ fn ensure_absent(path: &Path) -> Result<(), NodeError> {
     target_os = "macos",
     target_os = "ios"
 ))]
-fn publish_new_directory(staging: &Path, target: &Path, parent: &Path) -> Result<(), NodeError> {
+pub(crate) fn publish_new_directory(
+    staging: &Path,
+    target: &Path,
+    parent: &Path,
+) -> Result<(), NodeError> {
     use rustix::fs::{RenameFlags, renameat_with};
 
     let parent_dir = fs::File::open(parent)?;
@@ -1381,12 +1424,20 @@ fn publish_new_directory(staging: &Path, target: &Path, parent: &Path) -> Result
         target_os = "ios"
     ))
 ))]
-fn publish_new_directory(_staging: &Path, _target: &Path, _parent: &Path) -> Result<(), NodeError> {
+pub(crate) fn publish_new_directory(
+    _staging: &Path,
+    _target: &Path,
+    _parent: &Path,
+) -> Result<(), NodeError> {
     Err(NodeError::UnsupportedAtomicPublication)
 }
 
 #[cfg(windows)]
-fn publish_new_directory(staging: &Path, target: &Path, _parent: &Path) -> Result<(), NodeError> {
+pub(crate) fn publish_new_directory(
+    staging: &Path,
+    target: &Path,
+    _parent: &Path,
+) -> Result<(), NodeError> {
     crate::native_files::move_windows(staging, target, false).map_err(|error| {
         if error.kind() == std::io::ErrorKind::AlreadyExists {
             NodeError::AlreadyExists
@@ -1397,7 +1448,11 @@ fn publish_new_directory(staging: &Path, target: &Path, _parent: &Path) -> Resul
 }
 
 #[cfg(all(not(unix), not(windows)))]
-fn publish_new_directory(staging: &Path, target: &Path, _parent: &Path) -> Result<(), NodeError> {
+pub(crate) fn publish_new_directory(
+    staging: &Path,
+    target: &Path,
+    _parent: &Path,
+) -> Result<(), NodeError> {
     fs::rename(staging, target)?;
     Ok(())
 }

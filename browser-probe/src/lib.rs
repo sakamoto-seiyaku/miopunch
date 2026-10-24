@@ -4,11 +4,23 @@ mod connection_budget;
 pub mod connection_coordinator;
 #[path = "../../src/control_protocol.rs"]
 pub mod control_protocol;
+#[path = "../../src/credential_custody.rs"]
+pub mod credential_custody;
+#[path = "../../src/custody_protocol.rs"]
+pub mod custody_protocol;
 mod custom_datagram;
 #[path = "../../src/data_stream.rs"]
 pub mod data_stream;
+#[path = "../../src/device_operation.rs"]
+pub mod device_operation;
+#[path = "../../src/device_protocol.rs"]
+pub mod device_protocol;
 #[path = "../../src/file_transfer.rs"]
 pub mod file_transfer;
+#[path = "../../src/node_backup.rs"]
+pub mod node_backup;
+#[path = "../../src/node_control_backup.rs"]
+pub mod node_control_backup;
 mod rtc_capability;
 #[path = "../../src/service_policy.rs"]
 pub mod service_policy;
@@ -35,6 +47,8 @@ pub mod irc_datagram;
 #[path = "../../src/management_auth.rs"]
 #[allow(dead_code)] // Durable native-store helpers are outside this platform adapter.
 pub mod management_auth;
+#[path = "../../src/management_recovery_wire.rs"]
+pub mod management_recovery_wire;
 mod member_data;
 #[path = "../../src/member_path_protocol.rs"]
 pub mod member_path_protocol;

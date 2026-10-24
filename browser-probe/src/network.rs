@@ -12,7 +12,7 @@ use iroh::endpoint::{Connection, RecvStream, RelayResourcePolicy, RelayResourceU
 use iroh::{Endpoint, EndpointAddr, RelayMode, RelayUrl, endpoint::presets};
 use iroh_base::SecretKey;
 use p2panda_auth::Access;
-use p2panda_core::{Hash, VerifyingKey};
+use p2panda_core::{Hash, SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
@@ -25,6 +25,11 @@ const PRECODE_REQUEST_ALPN: &[u8] = crate::connection_coordinator::PRECODE_REQUE
 fn is_request_alpn(alpn: &[u8]) -> bool {
     crate::connection_coordinator::SessionPurpose::from_alpn(alpn)
         == Some(crate::connection_coordinator::SessionPurpose::AdmissionRequest)
+}
+fn credential_bound_control(alpn: &[u8]) -> bool {
+    // Recovery proves the root on this TLS session. Saving its newly received
+    // admission secret must not close the session before SAVE/DONE completes.
+    !is_request_alpn(alpn) && alpn != crate::management_recovery_wire::RECOVERY_ALPN
 }
 const BUSINESS_ALPN: &[u8] = crate::connection_coordinator::MEMBER_ALPN;
 const TIMEOUT: Duration = Duration::from_secs(12);
@@ -95,6 +100,26 @@ struct SavedNode {
     services: Vec<Vec<u8>>,
     #[serde(default)]
     guest: Option<crate::service_policy::GuestInvitation>,
+    #[serde(default)]
+    operations: crate::device_operation::OperationJournal,
+    #[serde(default)]
+    custody: crate::credential_custody::CustodyJournal,
+    #[serde(default)]
+    custody_check: Option<device_custody::CustodyCheck>,
+    #[serde(default)]
+    recovery: Option<device_recovery::BrowserRecovery>,
+    #[serde(default)]
+    served_recoveries: Vec<device_recovery::ServedRecovery>,
+    #[serde(default)]
+    replacement_source: Option<node_replacement::SourcePause>,
+    #[serde(default)]
+    restored: Option<crate::node_backup::RestoredNode>,
+    #[serde(default)]
+    portable_settings: Option<crate::node_backup::PortableSettings>,
+    #[serde(default)]
+    material_generations: Vec<crate::node_control_backup::MaterialGeneration>,
+    #[serde(default)]
+    native_rotation: crate::node_control_backup::NativeRotationState,
 }
 
 #[derive(Clone, Copy)]
@@ -147,11 +172,40 @@ impl SavedNode {
                 return Err(rejected());
             }
             if let Some(bytes) = &self.invitation {
-                Invitation::decode(bytes)?;
+                let invitation = Invitation::decode(bytes)?;
+                if self.creator_seed.is_some_and(|s| {
+                    SigningKey::from_bytes(&s).verifying_key() != invitation.anchor.root
+                }) {
+                    return Err(rejected());
+                }
+                self.verify_device_recovery()?;
+            }
+            if !self.operations.entries.is_empty()
+                || !self.custody.entries.is_empty()
+                || self.restored.is_some()
+                || self.replacement_source.is_some()
+            {
+                return Err(rejected());
             }
             return Ok(None);
         }
         let invitation = self.invitation()?;
+        self.operations.verify(invitation.anchor).map_err(error)?;
+        self.custody.verify(invitation.anchor).map_err(error)?;
+        if let Some(source) = &self.replacement_source {
+            source.package.verify().map_err(error)?;
+            if source.package.identity != self.identity()
+                || source.package.network != invitation.anchor
+            {
+                return Err(rejected());
+            }
+        }
+        if let Some(restored) = &self.restored {
+            restored
+                .verify(self.identity(), invitation.anchor)
+                .map_err(error)?;
+        }
+        self.verify_device_recovery()?;
         if self.recovery_saved && !self.recovery_exported
             || self.creator_seed.is_some_and(|seed| {
                 p2panda_core::SigningKey::from_bytes(&seed).verifying_key()
@@ -185,6 +239,15 @@ impl SavedNode {
         Ok(Some(auth))
     }
     fn stage(&self) -> &'static str {
+        if self.replacement_source.is_some() {
+            return "ReplacementPaused";
+        }
+        if self.restored.as_ref().is_some_and(|r| r.receipt.is_none()) {
+            return "RestoringAuthorization";
+        }
+        if self.recovery.as_ref().is_some_and(|r| !r.complete) {
+            return "AwaitingManagementRecovery";
+        }
         if self.guest.is_some() {
             return self.guest_stage();
         }
@@ -493,7 +556,7 @@ impl BrowserGate {
                 return false;
             }
             if !Self::permits(saved, connection.remote_id(), connection.alpn())
-                || (credential_changed && !is_request_alpn(connection.alpn()))
+                || (credential_changed && credential_bound_control(connection.alpn()))
             {
                 connection.close(0u32.into(), b"membership revoked");
                 return false;
@@ -502,7 +565,7 @@ impl BrowserGate {
         });
         gate.control_sessions.retain(|_, session| {
             let allowed = session.permitted(saved)
-                && !(credential_changed && !is_request_alpn(&session.alpn));
+                && !(credential_changed && credential_bound_control(&session.alpn));
             if !allowed {
                 session.connection.close(0u32.into(), b"membership revoked");
             }
@@ -514,6 +577,30 @@ impl BrowserGate {
         let Ok(invitation) = saved.invitation() else {
             return false;
         };
+        if saved.replacement_source.is_some() {
+            return false;
+        }
+        if saved.restored.as_ref().is_some_and(|r| r.receipt.is_none())
+            && !matches!(
+                alpn,
+                crate::service_policy::POLICY_ALPN
+                    | crate::service_policy::GUEST_ALPN
+                    | crate::device_operation::DEVICE_RESULT_ALPN
+            )
+        {
+            return false;
+        }
+        if alpn == crate::device_operation::DEVICE_RESULT_ALPN {
+            return true;
+        }
+        if alpn == device_recovery::RECOVERY_ALPN {
+            return saved.recovery.as_ref().is_some_and(|r| r.contact == target)
+                || saved.stage() == "Complete"
+                    && saved.verify().ok().flatten().is_some_and(|a| {
+                        !a.known_removed(VerifyingKey::from_bytes(target.as_bytes()).unwrap())
+                            && a.nodes().iter().any(|(id, _)| *id == saved.identity())
+                    });
+        }
         if is_request_alpn(alpn) {
             return target == invitation.contact;
         }
@@ -538,10 +625,14 @@ impl BrowserGate {
         }
         if (alpn != BUSINESS_ALPN
             && alpn != crate::service_policy::POLICY_ALPN
+            && alpn != crate::device_operation::DEVICE_ALPN
+            && alpn != crate::credential_custody::CUSTODY_ALPN
             && alpn != REPLICA_ALPN
             && alpn != crate::connection_recovery_core::CONNECTION_RECOVERY_ALPN
             && alpn != crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN)
             || saved.stage() != "Complete"
+                && !(alpn == crate::service_policy::POLICY_ALPN
+                    && saved.stage() == "RestoringAuthorization")
         {
             return false;
         }
@@ -1321,6 +1412,8 @@ impl BrowserGate {
         // agreement; requests wait for the shared restricted nonce confirmation.
         let proof = if !is_request_alpn(connection.alpn())
             && connection.alpn() != crate::service_policy::GUEST_ALPN
+            && connection.alpn() != crate::device_operation::DEVICE_RESULT_ALPN
+            && connection.alpn() != device_recovery::RECOVERY_ALPN
             && !(connection.alpn() == crate::file_transfer::FILE_ALPN
                 && saved.guest_pair(connection.remote_id()))
         {
@@ -1533,6 +1626,8 @@ impl iroh::endpoint::EndpointAdmission for BrowserGate {
                     && session.permitted(saved)
                     && (is_request_alpn(connection.alpn())
                         || connection.alpn() == crate::service_policy::GUEST_ALPN
+                        || connection.alpn() == crate::device_operation::DEVICE_RESULT_ALPN
+                        || connection.alpn() == device_recovery::RECOVERY_ALPN
                         || Self::proved_member_current(&state, saved, connection))
             })
     }
@@ -1777,6 +1872,8 @@ enum Startup {
     Join(crate::client_invitation::ClientInvitation),
     Pairing,
     Guest(crate::service_policy::GuestInvitation),
+    Recovery(crate::recovery_card::RecoveryCard, iroh_base::EndpointId),
+    Restore(crate::node_backup::NodeBackup),
 }
 
 #[wasm_bindgen]
@@ -1875,6 +1972,14 @@ impl BrowserNetwork {
             if raw.len() > 80 * 1024 * 1024 {
                 return Err(error("browser state too large"));
             }
+            if serde_json::from_str::<serde_json::Value>(&raw)
+                .ok()
+                .is_some_and(|v| v["miopunch_replacement_retired"] == true)
+            {
+                return Err(error(
+                    "source retired after node replacement; use a separate device identity",
+                ));
+            }
             serde_json::from_str(&raw).map_err(|_| {
                 error("browser materials corrupt; restore backup or explicitly clear and rejoin")
             })?
@@ -1900,9 +2005,24 @@ impl BrowserNetwork {
                 complete_invitation: None,
                 services: Vec::new(),
                 guest: None,
+                operations: Default::default(),
+                custody: Default::default(),
+                custody_check: None,
+                recovery: None,
+                served_recoveries: Vec::new(),
+                replacement_source: None,
+                restored: None,
+                portable_settings: None,
+                material_generations: Vec::new(),
+                native_rotation: Default::default(),
             }
         };
         saved.verify()?;
+        if saved.replacement_source.is_some() {
+            return Err(error(
+                "source paused for node replacement; explicitly finalize or abort the replacement",
+            ));
+        }
         let mut configuration = saved.resources.clone().unwrap_or_default();
         if let Some(path_selection) = input.path_selection {
             configuration.path_selection = path_selection;
@@ -1940,6 +2060,15 @@ impl BrowserNetwork {
         }
         let pairing_receiver = matches!(startup, Startup::Pairing);
         match startup {
+            Startup::Recovery(card, contact) => saved.prepare_device_recovery(card, contact)?,
+            Startup::Restore(backup) => {
+                if saved.invitation.is_some() || !saved.records.is_empty() {
+                    return Err(error("replacement requires empty target storage"));
+                }
+                let restored = SavedNode::from_node_backup(&backup)?;
+                configuration = restored.resources.clone().ok_or_else(rejected)?;
+                saved = restored;
+            }
             Startup::Create => saved.create()?,
             Startup::Join(invitation) => {
                 configuration.import_contact(&invitation)?;
@@ -2214,6 +2343,10 @@ impl BrowserNetwork {
                     crate::file_transfer::FILE_ALPN.to_vec(),
                     crate::service_policy::POLICY_ALPN.to_vec(),
                     crate::service_policy::GUEST_ALPN.to_vec(),
+                    crate::device_operation::DEVICE_ALPN.to_vec(),
+                    crate::device_operation::DEVICE_RESULT_ALPN.to_vec(),
+                    crate::credential_custody::CUSTODY_ALPN.to_vec(),
+                    device_recovery::RECOVERY_ALPN.to_vec(),
                     crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN.to_vec(),
                     REPLICA_ALPN.to_vec(),
                     REQUEST_ALPN.to_vec(),
@@ -2679,6 +2812,12 @@ impl BrowserNetwork {
     /// Disconnect only. Closing, freezing or reclaiming a page never authors
     /// a membership Remove, and successful saved admission survives restart.
     pub async fn close(&mut self) {
+        self.stop_runtime().await;
+        if let Some(lease) = self.lease.take() {
+            let _ = release_node_and_wait(lease.0).await;
+        }
+    }
+    pub(super) async fn stop_runtime(&mut self) {
         self.services.close().await;
         self.files.close().await;
         self.delivery = None;
@@ -2692,9 +2831,6 @@ impl BrowserNetwork {
         self.incoming.close();
         self.incoming.stopped().await;
         self.endpoint.close().await;
-        if let Some(lease) = self.lease.take() {
-            let _ = release_node_and_wait(lease.0).await;
-        }
     }
 }
 
@@ -3020,8 +3156,16 @@ pub use member_connection::{
 #[path = "incoming.rs"]
 mod incoming;
 
+#[path = "device_custody.rs"]
+mod device_custody;
+#[path = "device_management.rs"]
+mod device_management;
+#[path = "device_recovery.rs"]
+mod device_recovery;
 #[path = "files.rs"]
 mod files;
+#[path = "node_replacement.rs"]
+mod node_replacement;
 #[path = "services.rs"]
 mod services;
 

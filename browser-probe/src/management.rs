@@ -9,19 +9,6 @@ use p2panda_core::{Header, SigningKey};
 
 pub(super) struct Session {
     id: String,
-    elevation: Option<(SigningKey, Instant)>,
-}
-impl Session {
-    fn elevated(&mut self) -> bool {
-        if self
-            .elevation
-            .as_ref()
-            .is_some_and(|(_, deadline)| *deadline <= Instant::now())
-        {
-            self.elevation = None;
-        }
-        self.elevation.is_some()
-    }
 }
 
 #[wasm_bindgen]
@@ -31,10 +18,7 @@ impl BrowserNetwork {
             return Err(rejected());
         }
         let id = hex::encode(rand::random::<[u8; 16]>());
-        self.management = Some(Session {
-            id: id.clone(),
-            elevation: None,
-        });
+        self.management = Some(Session { id: id.clone() });
         Ok(id)
     }
     /// Explicitly supplied root seed and pinned canonical Create. The caller
@@ -46,27 +30,14 @@ impl BrowserNetwork {
         genesis: String,
         window_ms: u32,
     ) -> Result<(), JsValue> {
-        let key: [u8; 32] = hex::decode(seed)
-            .map_err(error)?
-            .try_into()
-            .map_err(|_| rejected())?;
-        let key = SigningKey::from_bytes(&key);
-        let anchor = self.saved.invitation()?.anchor;
-        if key.verifying_key() != anchor.root
-            || genesis != anchor.genesis.to_string()
-            || window_ms == 0
-        {
-            return Err(rejected());
-        }
-        let session = self.session(&session)?;
-        let deadline = Instant::now()
-            .checked_add(Duration::from_millis(window_ms.into()))
-            .ok_or_else(rejected)?;
-        session.elevation = Some((key, deadline));
-        Ok(())
+        self.session(&session)?;
+        let _ = (seed, genesis, window_ms);
+        Err(error(
+            "general genesis windows are retired; propose and confirm one device operation",
+        ))
     }
     pub fn exit_genesis_elevation(&mut self, session: String) -> Result<(), JsValue> {
-        self.session(&session)?.elevation = None;
+        self.session(&session)?;
         Ok(())
     }
     pub fn end_management_session(&mut self, session: String) -> Result<(), JsValue> {
@@ -95,17 +66,17 @@ impl BrowserNetwork {
             .into_iter()
             .find(|(id, _)| *id == target)
             .map(|(_, access)| access);
-        let elevated = self.session(&session)?.elevated();
-        if action.requires_genesis(current) && !elevated {
-            return Err(error("genesis elevation required"));
+        self.session(&session)?;
+        self.require_device_ready()?;
+        if action.requires_genesis(current) {
+            return Err(error("this action requires its own genesis confirmation"));
         }
-        let (author, deadline) = if elevated {
-            let elevation = self.session(&session)?.elevation.as_ref().unwrap();
-            (elevation.0.clone(), Some(elevation.1))
-        } else {
-            (SigningKey::from_bytes(&self.saved.key), None)
-        };
-        let header = self.author_action(&auth, &author, action, deadline)?;
+        let header = self.author_action(
+            &auth,
+            &SigningKey::from_bytes(&self.saved.key),
+            action,
+            None,
+        )?;
         let record = self.ingest_record(header, None).await?;
         Ok(record.to_string())
     }

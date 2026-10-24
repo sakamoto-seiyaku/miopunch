@@ -66,7 +66,7 @@ class BrowserControl:
                 self.condition.wait(timeout=0.1)
             response = self.responses.pop(identifier)
         public = {key: value for key, value in response.items() if key != "privateError"}
-        if operation in PRIVATE_OPERATIONS:
+        if operation in getattr(self, "private_operations", PRIVATE_OPERATIONS):
             public.pop("result", None)
             public["privateReturn"] = response["ok"]
         self.runner.record(actor, operation, public)

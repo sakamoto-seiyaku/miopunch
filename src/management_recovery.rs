@@ -25,7 +25,7 @@ use crate::management_store::{ManagementRecord, ManagementStore, StoreError};
 use crate::native_network::{NativeNetwork, NodeError};
 
 /// A distinct wire entry leaves the earlier one-shot proof validation intact.
-pub const MANAGEMENT_RECOVERY_ALPN: &[u8] = b"miopunch/management-recovery/1";
+pub const MANAGEMENT_RECOVERY_ALPN: &[u8] = crate::management_recovery_wire::RECOVERY_ALPN;
 const MAX_HISTORY_BYTES: usize = 16 * 1024 * 1024;
 const MAX_GRANT_BYTES: usize = 256 * 1024;
 const MAX_RECORDS: usize = 4096;
@@ -93,6 +93,59 @@ pub enum ManagementRecoveryError {
 }
 
 impl ManagementStore {
+    pub(crate) async fn export_recovery_evidence(
+        &self,
+    ) -> Result<Vec<crate::management_recovery_wire::RecoveryProof>, StoreError> {
+        let rows=sqlx::query("SELECT target,attempt,authorization,proof_statement,proof_signature,phase FROM management_recoveries ORDER BY target,attempt").fetch_all(&self.pool).await?;
+        rows.into_iter()
+            .map(|row| {
+                let target: Vec<u8> = row.try_get("target")?;
+                let attempt: Vec<u8> = row.try_get("attempt")?;
+                let authorization: Option<Vec<u8>> = row.try_get("authorization")?;
+                Ok(crate::management_recovery_wire::RecoveryProof {
+                    target: VerifyingKey::from_bytes(
+                        &target
+                            .try_into()
+                            .map_err(|_| StoreError::Corrupt("invalid recovery target"))?,
+                    )
+                    .map_err(|_| StoreError::Corrupt("invalid recovery target"))?,
+                    attempt: attempt
+                        .try_into()
+                        .map_err(|_| StoreError::Corrupt("invalid recovery attempt"))?,
+                    authorization: authorization
+                        .map(|b| {
+                            b.try_into()
+                                .map(Hash::from_bytes)
+                                .map_err(|_| StoreError::Corrupt("invalid recovery grant"))
+                        })
+                        .transpose()?,
+                    statement: row.try_get("proof_statement")?,
+                    signature: row.try_get("proof_signature")?,
+                    phase: row.try_get::<i64, _>("phase")? as u8,
+                })
+            })
+            .collect()
+    }
+    pub(crate) async fn import_recovery_evidence(
+        &self,
+        proofs: &[crate::management_recovery_wire::RecoveryProof],
+    ) -> Result<(), StoreError> {
+        let records = self
+            .applied_records()
+            .await?
+            .iter()
+            .map(|r| (r.header().to_vec(), r.body().map(Vec::from)))
+            .collect();
+        for proof in proofs {
+            proof
+                .verify(self.anchor(), &records)
+                .map_err(|_| StoreError::Corrupt("invalid portable recovery evidence"))?;
+            sqlx::query("INSERT INTO management_recoveries (target,attempt,authorization,proof_statement,proof_signature,phase) VALUES (?,?,?,?,?,?)")
+                .bind(proof.target.as_bytes().as_slice()).bind(proof.attempt.as_slice()).bind(proof.authorization.map(|h|h.as_bytes().to_vec()))
+                .bind(&proof.statement).bind(&proof.signature).bind(i64::from(proof.phase)).execute(&self.pool).await?;
+        }
+        Ok(())
+    }
     async fn recovery_result(
         &self,
         request: RecoveryRequest,

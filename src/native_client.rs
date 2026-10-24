@@ -51,6 +51,8 @@ pub struct ClientStatus {
     pub admission: AdmissionStage,
     pub recovery_saved: bool,
     pub manual_rejected: bool,
+    pub membership_ended: bool,
+    pub replacement_ready: bool,
 }
 
 /// A bounded native host. Incoming admission and member exchanges run while the
@@ -65,6 +67,7 @@ pub struct NativeClient {
     _drop_cancel: tokio_util::sync::DropGuard,
     listener: JoinHandle<()>,
     recovery_saved: Arc<AtomicBool>,
+    pub(crate) replacement_ready: Arc<AtomicBool>,
     manual_rejected: AtomicBool,
 }
 impl NativeClient {
@@ -128,12 +131,25 @@ impl NativeClient {
         let recovery_saved = Arc::new(AtomicBool::new(
             recovery_state(&node)?.is_none_or(|state| state.saved),
         ));
+        let replacement_ready = Arc::new(AtomicBool::new(
+            crate::native_node_replacement::prepare_for_open(&node).await?,
+        ));
         node.admission_gate()
             .register_protocol(MEMBER_MESSAGE, ProtocolScope::Member);
         node.admission_gate()
             .register_protocol(crate::file_transfer::FILE_ALPN, ProtocolScope::Member);
         node.admission_gate()
             .register_protocol(crate::service_policy::POLICY_ALPN, ProtocolScope::Member);
+        node.admission_gate()
+            .register_protocol(crate::device_operation::DEVICE_ALPN, ProtocolScope::Member);
+        node.admission_gate().register_protocol(
+            crate::credential_custody::CUSTODY_ALPN,
+            ProtocolScope::Member,
+        );
+        node.admission_gate().register_protocol(
+            crate::device_operation::DEVICE_RESULT_ALPN,
+            ProtocolScope::AdmissionRequest,
+        );
         node.admission_gate().register_protocol(
             crate::service_policy::GUEST_ALPN,
             ProtocolScope::AdmissionRequest,
@@ -151,11 +167,17 @@ impl NativeClient {
             MEMBER_MESSAGE.to_vec(),
             crate::file_transfer::FILE_ALPN.to_vec(),
             crate::service_policy::POLICY_ALPN.to_vec(),
+            crate::device_operation::DEVICE_ALPN.to_vec(),
+            crate::credential_custody::CUSTODY_ALPN.to_vec(),
+            crate::device_operation::DEVICE_RESULT_ALPN.to_vec(),
+            crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
             crate::service_policy::GUEST_ALPN.to_vec(),
         ]);
         let files = Arc::new(crate::native_file_transfer::NativeFiles::new(
             node.admission_gate().clone(),
         ));
+        crate::native_device_management::validate_saved_operations(&node.directory, &node)?;
+        crate::native_custody::validate(&node)?;
         let mut services = crate::native_services::NativeServices::load(&node).await?;
         services.declare_files(&node, &files, false).await?;
         files.update_access(services.access(&node).await?);
@@ -167,6 +189,7 @@ impl NativeClient {
             let node = node.clone();
             let cancel = cancel.clone();
             let recovery_saved = recovery_saved.clone();
+            let replacement_ready = replacement_ready.clone();
             let files = files.clone();
             let services = services.clone();
             tokio::spawn(async move {
@@ -181,6 +204,7 @@ impl NativeClient {
                             if handlers.len() >= 16 { incoming.refuse(); continue; }
                             let node = node.clone();
                             let recovery_saved = recovery_saved.clone();
+                            let replacement_ready = replacement_ready.clone();
                             let files = files.clone();
                             let services = services.clone();
                             handlers.spawn(async move {
@@ -188,7 +212,7 @@ impl NativeClient {
                                 // total-duration cap: its stream enforces an idle timeout.
                                 let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
                                 let accepted = tokio::time::timeout_at(deadline, async {
-                                    if !recovery_saved.load(Ordering::Acquire) {
+                                    if !recovery_saved.load(Ordering::Acquire) || !replacement_ready.load(Ordering::Acquire) {
                                         incoming.refuse();
                                         return Err("recovery card save confirmation required".into());
                                     }
@@ -216,6 +240,36 @@ impl NativeClient {
                                     if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
                                         let _ = tokio::time::timeout_at(deadline, crate::native_services::serve_policy(connection, node, services, files)).await;
                                     }
+                                    return;
+                                }
+                                if alpn == crate::device_operation::DEVICE_ALPN {
+                                    if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
+                                        let _ = tokio::time::timeout_at(deadline, crate::native_device_management::serve_device(connection, node, services, files)).await;
+                                    }
+                                    return;
+                                }
+                                if alpn == crate::credential_custody::CUSTODY_ALPN {
+                                    if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
+                                        let _ = tokio::time::timeout_at(deadline, crate::native_custody::serve_custody(connection, node, services, files)).await;
+                                    }
+                                    return;
+                                }
+                                if alpn == crate::device_operation::DEVICE_RESULT_ALPN {
+                                    let _ = tokio::time::timeout_at(deadline, async {
+                                        let connection = Arc::new(accepting.into_control().await?);
+                                        crate::native_device_management::serve_result(connection.retain_control(), node).await
+                                    }).await;
+                                    return;
+                                }
+                                if alpn == crate::management_recovery::MANAGEMENT_RECOVERY_ALPN {
+                                    let _ = tokio::time::timeout_at(deadline, async {
+                                        let connection = Arc::new(accepting.into_control().await?);
+                                        let connection = connection.retain_control();
+                                        let mut node = node.lock().await;
+                                        let result = node.serve_management_recovery(&connection).await;
+                                        files.update_access(services.lock().await.access(&node).await?);
+                                        result.map(|_| ()).map_err(ClientError::from)
+                                    }).await;
                                     return;
                                 }
                                 if alpn == crate::service_policy::GUEST_ALPN {
@@ -262,6 +316,7 @@ impl NativeClient {
             _drop_cancel: drop_cancel,
             listener,
             recovery_saved,
+            replacement_ready,
             manual_rejected,
         })
     }
@@ -272,6 +327,8 @@ impl NativeClient {
             admission: node.admission_stage(),
             recovery_saved: self.recovery_saved.load(Ordering::Acquire),
             manual_rejected: self.manual_rejected.load(Ordering::Acquire),
+            membership_ended: node.store.known_removed(node.status().node_id),
+            replacement_ready: self.replacement_ready.load(Ordering::Acquire),
         }
     }
     pub fn address(&self) -> EndpointAddr {
@@ -570,6 +627,16 @@ fn save_recovery_state(node: &NativeNetwork, state: &RecoverySave) -> Result<(),
     )?;
     Ok(())
 }
+pub(crate) fn record_received_credential(node: &NativeNetwork) -> Result<(), ClientError> {
+    save_recovery_state(
+        node,
+        &RecoverySave {
+            genesis: node.anchor.genesis,
+            exported: true,
+            saved: true,
+        },
+    )
+}
 impl NativeClient {
     pub async fn deliver_invitation(
         &self,
@@ -604,6 +671,11 @@ impl NativeClient {
     pub(crate) fn require_ready(&self) -> Result<(), ClientError> {
         if !self.recovery_saved.load(Ordering::Acquire) {
             return Err("recovery card save confirmation required".into());
+        }
+        if !self.replacement_ready.load(Ordering::Acquire) {
+            return Err(
+                "restored node must verify current authorization before ordinary use".into(),
+            );
         }
         Ok(())
     }

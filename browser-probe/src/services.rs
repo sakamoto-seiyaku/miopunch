@@ -13,7 +13,7 @@ use std::{
 use tokio::sync::Notify;
 
 impl SavedNode {
-    fn service_bundle(&self) -> ServiceBundle {
+    pub(super) fn service_bundle(&self) -> ServiceBundle {
         ServiceBundle {
             management: self.records.clone(),
             services: self.services.clone(),
@@ -76,7 +76,7 @@ impl SavedNode {
             .map_err(error)?;
         Ok((self.with_service_record(record.clone())?, record))
     }
-    fn with_service_bundle(
+    pub(super) fn with_service_bundle(
         &self,
         incoming: &ServiceBundle,
     ) -> Result<(Self, Option<std::io::Error>), JsValue> {
@@ -126,7 +126,7 @@ impl BrowserGate {
     }
 }
 
-async fn installed(gate: &BrowserGate) -> Result<(SavedNode, String, u32), JsValue> {
+pub(super) async fn installed(gate: &BrowserGate) -> Result<(SavedNode, String, u32), JsValue> {
     let (saved, token) = {
         let state = gate.0.lock().unwrap();
         (
@@ -141,7 +141,7 @@ async fn installed(gate: &BrowserGate) -> Result<(SavedNode, String, u32), JsVal
     }
     Ok((saved, raw, token))
 }
-async fn commit_installed(
+pub(super) async fn commit_installed(
     gate: &BrowserGate,
     previous: &str,
     token: u32,
@@ -199,6 +199,10 @@ impl BrowserServices {
         for alpn in [
             crate::service_policy::POLICY_ALPN,
             crate::service_policy::GUEST_ALPN,
+            crate::device_operation::DEVICE_ALPN,
+            crate::device_operation::DEVICE_RESULT_ALPN,
+            crate::credential_custody::CUSTODY_ALPN,
+            device_recovery::RECOVERY_ALPN,
         ] {
             let owner = Running::new(&service);
             let endpoint = endpoint.clone();
@@ -219,7 +223,12 @@ impl BrowserServices {
                             continue;
                         }
                     };
-                    if alpn == crate::service_policy::GUEST_ALPN {
+                    if matches!(
+                        alpn,
+                        crate::service_policy::GUEST_ALPN
+                            | crate::device_operation::DEVICE_RESULT_ALPN
+                            | device_recovery::RECOVERY_ALPN
+                    ) {
                         if let Ok(Ok(control)) = n0_future::time::timeout(
                             deadline.saturating_duration_since(n0_future::time::Instant::now()),
                             accepting.into_control(),
@@ -232,7 +241,14 @@ impl BrowserServices {
                                 .borrow_mut()
                                 .push(control.revocation_handle());
                             let _close = RequestConnection(Some(control.clone()));
-                            let _ = service.serve_guest(&control, &gate, &files).await;
+                            if alpn == crate::device_operation::DEVICE_RESULT_ALPN {
+                                let _ = device_management::serve_result(&control, &gate).await;
+                            } else if alpn == device_recovery::RECOVERY_ALPN {
+                                let _ =
+                                    device_recovery::serve_recovery(&control, &gate, &files).await;
+                            } else {
+                                let _ = service.serve_guest(&control, &gate, &files).await;
+                            }
                         }
                     } else {
                         use crate::connection_coordinator::{AttemptContext, SessionPurpose};
@@ -256,7 +272,15 @@ impl BrowserServices {
                                 .borrow_mut()
                                 .push(connection.revocation_handle());
                             let _close = RequestConnection(Some(connection.clone()));
-                            let _ = service.serve_policy(&connection, &gate, &files).await;
+                            if alpn == crate::device_operation::DEVICE_ALPN {
+                                let _ = device_management::serve_device(&connection, &gate, &files)
+                                    .await;
+                            } else if alpn == crate::credential_custody::CUSTODY_ALPN {
+                                let _ =
+                                    device_custody::serve_custody(&connection, &gate, &files).await;
+                            } else {
+                                let _ = service.serve_policy(&connection, &gate, &files).await;
+                            }
                         }
                     }
                     service
@@ -440,6 +464,7 @@ impl BrowserNetwork {
         rule: String,
     ) -> Result<String, JsValue> {
         self.refresh_service_snapshot().await?;
+        self.require_device_ready()?;
         let (next, record) = self.saved.with_service_action(ServiceAction::SetRule {
             provider: provider.parse().map_err(error)?,
             service: serde_json::from_value(serde_json::Value::String(service)).map_err(error)?,
@@ -452,6 +477,7 @@ impl BrowserNetwork {
     }
     pub async fn sync_services(&mut self, target: String) -> Result<String, JsValue> {
         self.refresh_service_snapshot().await?;
+        self.require_device_ready()?;
         let connection = self
             .connect_target(
                 target.parse().map_err(error)?,
@@ -483,6 +509,7 @@ impl BrowserNetwork {
         expires_unix_seconds: u64,
     ) -> Result<String, JsValue> {
         self.refresh_service_snapshot().await?;
+        self.require_device_ready()?;
         let created = crate::service_policy::now();
         if expires_unix_seconds <= created {
             return Err(error("guest deadline must be in the future"));
@@ -551,6 +578,7 @@ impl BrowserNetwork {
     }
     pub async fn revoke_guest(&mut self, invitation: String) -> Result<String, JsValue> {
         self.refresh_service_snapshot().await?;
+        self.require_device_ready()?;
         let (next, record) = self.saved.with_service_action(ServiceAction::EndGuest {
             invitation: invitation.parse().map_err(error)?,
         })?;

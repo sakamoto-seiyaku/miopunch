@@ -18,6 +18,59 @@ struct Request {
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 enum Command {
+    ReplacementPrepare {
+        path: String,
+    },
+    ReplacementStatus,
+    ReplacementComplete {
+        address: iroh::EndpointAddr,
+        receipt_path: String,
+    },
+    CustodyStatus,
+    ManagementRecover {
+        address: iroh::EndpointAddr,
+    },
+    ManagementRecoveryStatus,
+    CustodyPropose {
+        recipient: p2panda_core::VerifyingKey,
+    },
+    CustodyAccept {
+        offer: p2panda_core::Hash,
+    },
+    CustodyTransfer {
+        offer: p2panda_core::Hash,
+        address: iroh::EndpointAddr,
+    },
+    CustodyCheck {
+        #[serde(default)]
+        addresses: Vec<iroh::EndpointAddr>,
+    },
+    CustodyStop {
+        check: p2panda_core::Hash,
+        #[serde(default)]
+        force_without_confirmed_copy: bool,
+    },
+    GenesisPropose {
+        action: miopunch_native_probe::device_operation::DeviceAction,
+        target: p2panda_core::VerifyingKey,
+    },
+    DeviceOperations,
+    GenesisConfirm {
+        operation: p2panda_core::Hash,
+        card_path: Option<String>,
+        password_path: Option<String>,
+    },
+    GenesisRequest {
+        operation: p2panda_core::Hash,
+        address: iroh::EndpointAddr,
+    },
+    GenesisResult {
+        operation: p2panda_core::Hash,
+        address: iroh::EndpointAddr,
+    },
+    DeviceExecute {
+        operation: p2panda_core::Hash,
+    },
     ExportRecoveryCard {
         path: String,
         password_path: Option<String>,
@@ -141,13 +194,15 @@ async fn status(client: &NativeClient) -> Value {
     let guest = client.guest_status().await.ok().flatten();
     let mut result = json!({"node":status.node.node_id.to_string(), "network":status.node.anchor.root.to_string(),
         "genesis":status.node.anchor.genesis.to_string(),
-        "stage":if !status.recovery_saved {"AwaitingRecoverySave".into()} else if status.manual_rejected {"Rejected".into()} else {format!("{:?}",status.admission)},
+        "stage":if !status.recovery_saved {"AwaitingRecoverySave".into()} else if !status.replacement_ready {"RestoringAuthorization".into()} else if status.membership_ended {"Removed".into()} else if status.manual_rejected {"Rejected".into()} else {format!("{:?}",status.admission)},
         "automatic_retry":!status.manual_rejected,
-        "recovery_saved":status.recovery_saved, "records":status.node.applied_count,
+        "recovery_saved":status.recovery_saved, "replacement_ready":status.replacement_ready, "records":status.node.applied_count,
         "members":status.node.members.iter().map(|(key,role)| json!({"node":key.to_string(),
             "role":if *role == p2panda_auth::Access::manage() {"admin"} else {"member"}})).collect::<Vec<_>>()});
     if let Some(guest) = guest {
-        result["stage"] = guest["stage"].clone();
+        if status.replacement_ready && status.recovery_saved {
+            result["stage"] = guest["stage"].clone();
+        }
         result["guest"] = guest;
         result["members"] = json!([]);
     }
@@ -155,6 +210,78 @@ async fn status(client: &NativeClient) -> Value {
 }
 async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, ClientError> {
     match command {
+        Command::ReplacementPrepare { .. } => {
+            Err("replacement export consumes the running host".into())
+        }
+        Command::ReplacementStatus => client.node_replacement_status().await,
+        Command::ReplacementComplete {
+            address,
+            receipt_path,
+        } => {
+            let result = client.complete_node_replacement(address).await?;
+            let bytes = serde_json::to_vec(&result["receipt"])?;
+            if std::path::Path::new(&receipt_path).exists() {
+                if std::fs::read(&receipt_path)? != bytes {
+                    return Err("another receipt already exists".into());
+                }
+            } else {
+                save_private(&receipt_path, &bytes)?;
+            }
+            Ok(result)
+        }
+        Command::ManagementRecover { address } => {
+            client.restore_management_authority(address).await
+        }
+        Command::ManagementRecoveryStatus => client.management_recovery_status().await,
+        Command::CustodyStatus => client.credential_custody().await,
+        Command::CustodyPropose { recipient } => client.propose_credential_custody(recipient).await,
+        Command::CustodyAccept { offer } => client.accept_credential_custody(offer).await,
+        Command::CustodyTransfer { offer, address } => {
+            client.transfer_credential_custody(offer, address).await
+        }
+        Command::CustodyCheck { addresses } => {
+            client.check_other_credential_custodians(addresses).await
+        }
+        Command::CustodyStop {
+            check,
+            force_without_confirmed_copy,
+        } => {
+            client
+                .stop_credential_custody(check, force_without_confirmed_copy)
+                .await
+        }
+        Command::GenesisPropose { action, target } => {
+            client.propose_device_operation(action, target).await
+        }
+        Command::DeviceOperations => client.device_operations().await,
+        Command::GenesisConfirm {
+            operation,
+            card_path,
+            password_path,
+        } => {
+            if let Some(path) = card_path {
+                let password = password_path.map(std::fs::read_to_string).transpose()?;
+                let card = miopunch_native_probe::recovery_card::RecoveryCard::import(
+                    &std::fs::read_to_string(path)?,
+                    password.as_deref(),
+                )?;
+                client
+                    .confirm_device_operation_offline(operation, &card)
+                    .await
+            } else {
+                if password_path.is_some() {
+                    return Err("card path required".into());
+                }
+                client.confirm_device_operation(operation).await
+            }
+        }
+        Command::GenesisRequest { operation, address } => {
+            client.request_device_confirmation(operation, address).await
+        }
+        Command::GenesisResult { operation, address } => {
+            client.collect_device_result(operation, address).await
+        }
+        Command::DeviceExecute { operation } => client.execute_device_operation(operation).await,
         Command::ExportRecoveryCard {
             path,
             password_path,
@@ -433,6 +560,20 @@ fn configuration(
 #[tokio::main]
 async fn main() -> Result<(), ClientError> {
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if let [action, source, receipt] = args.as_slice() {
+        if action == "finalize-replacement" {
+            let receipt = serde_json::from_slice(&std::fs::read(receipt)?)?;
+            emit(NativeClient::finalize_node_replacement(source, &receipt)?);
+            return Ok(());
+        }
+    }
+    if let [action, source, package, acknowledgement] = args.as_slice() {
+        if action == "abort-replacement" && acknowledgement == "target-not-activated" {
+            NativeClient::abort_node_replacement(source, package.parse()?, true)?;
+            emit(json!({"source_resumption_authorized":true}));
+            return Ok(());
+        }
+    }
     let mut input = BufReader::new(tokio::io::stdin());
     if args.first().is_some_and(|arg| arg == "pair") {
         let pairing = match args.as_slice() {
@@ -450,6 +591,29 @@ async fn main() -> Result<(), ClientError> {
         return run_client(client, input, false).await;
     }
     let client = match args.as_slice() {
+        [action, path, backup] if action == "restore" => {
+            NativeClient::restore_node_replacement(
+                &std::fs::read_to_string(backup)?,
+                path,
+                Ipv4Addr::UNSPECIFIED,
+            )
+            .await?
+        }
+        [action, path, card, contact] if action == "recover" => {
+            let card = miopunch_native_probe::recovery_card::RecoveryCard::import(
+                &std::fs::read_to_string(card)?,
+                None,
+            )?;
+            let contact: iroh::EndpointAddr = serde_json::from_slice(&std::fs::read(contact)?)?;
+            NativeClient::prepare_management_recovery(
+                path,
+                &card,
+                contact.id,
+                Ipv4Addr::UNSPECIFIED,
+                Default::default(),
+            )
+            .await?
+        }
         [action, path] if action == "create" => {
             NativeClient::create(path, Ipv4Addr::UNSPECIFIED).await?
         }
@@ -499,6 +663,10 @@ async fn run_client(
     mut input: BufReader<tokio::io::Stdin>,
     ready: bool,
 ) -> Result<(), ClientError> {
+    enum Ending {
+        Stop(u64),
+        Replace(u64, String),
+    }
     if ready {
         emit(json!({"event":"ready","status":status(&client).await,"address":client.address()}));
     }
@@ -515,7 +683,10 @@ async fn run_client(
                 ControlInput::Request(request) => request,
             };
             if matches!(request.command, Command::Stop) {
-                return Ok::<_, ClientError>(Some(request.id));
+                return Ok::<_, ClientError>(Some(Ending::Stop(request.id)));
+            }
+            if let Command::ReplacementPrepare { path } = request.command {
+                return Ok(Some(Ending::Replace(request.id, path)));
             }
             match dispatch(&client, request.command).await {
                 Ok(value) => emit(json!({"id":request.id,"ok":true,"result":value})),
@@ -526,9 +697,19 @@ async fn run_client(
     }
     .await;
     // A stop response is emitted only after the SDK and owned tasks close.
-    client.close().await?;
-    if let Some(id) = result? {
-        emit(json!({"id":id,"ok":true,"result":{"stopped":true}}));
+    match result {
+        Ok(Some(Ending::Replace(id, path))) => match client.prepare_node_replacement(path).await {
+            Ok(value) => emit(json!({"id":id,"ok":true,"result":value})),
+            Err(_) => {
+                emit(json!({"id":id,"ok":false,"error":"replacement_export_failed_host_stopped"}))
+            }
+        },
+        other => {
+            client.close().await?;
+            if let Some(Ending::Stop(id)) = other? {
+                emit(json!({"id":id,"ok":true,"result":{"stopped":true}}));
+            }
+        }
     }
     Ok(())
 }

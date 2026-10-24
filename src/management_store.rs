@@ -798,6 +798,15 @@ impl ManagementStore {
             .collect()
     }
 
+    pub(crate) async fn unapplied_records(
+        &self,
+    ) -> Result<crate::service_protocol::ManagementRecords, StoreError> {
+        let rows=sqlx::query("SELECT header,body FROM management_records WHERE applied_order IS NULL ORDER BY arrival").fetch_all(&self.pool).await?;
+        rows.into_iter()
+            .map(|row| Ok((row.try_get("header")?, row.try_get("body")?)))
+            .collect()
+    }
+
     pub(crate) async fn checkpoint_backup(&self) -> Result<(), StoreError> {
         let checkpoint = sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
             .fetch_one(&self.pool)

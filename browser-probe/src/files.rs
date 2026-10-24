@@ -634,6 +634,9 @@ impl BrowserNetwork {
         self.check_store().await?;
         let target: iroh_base::EndpointId = target.parse().map_err(error)?;
         let saved = self.gate.service_snapshot()?;
+        if !matches!(saved.stage(), "Complete" | "GuestActive") {
+            return Err(rejected());
+        }
         if !saved
             .service_access()?
             .can_send(VerifyingKey::from_bytes(target.as_bytes()).map_err(error)?)
