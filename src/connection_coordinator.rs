@@ -116,6 +116,7 @@ impl SessionPurpose {
         match alpn {
             MEMBER_ALPN
             | crate::file_transfer::FILE_ALPN
+            | crate::clipboard::CLIPBOARD_ALPN
             | crate::service_policy::POLICY_ALPN
             | crate::device_operation::DEVICE_ALPN
             | crate::credential_custody::CUSTODY_ALPN => Some(Self::MemberBusiness),

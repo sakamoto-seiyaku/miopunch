@@ -13,6 +13,22 @@ use std::{
 use tokio::sync::Notify;
 
 impl SavedNode {
+    pub(super) fn declare_clipboard(&self, capable: bool, enabled: bool) -> Result<Self, JsValue> {
+        if self.guest.is_some() || self.invitation.is_none() {
+            return Ok(self.clone());
+        }
+        let access = self.service_access()?;
+        if !access.member(access.local) {
+            return Ok(self.clone());
+        }
+        if enabled && !capable {
+            return Err(error("system clipboard API unavailable"));
+        }
+        match access.declaration_change(Service::Clipboard, capable, enabled) {
+            Some(change) => self.with_service_action(change).map(|(next, _)| next),
+            None => Ok(self.clone()),
+        }
+    }
     pub(super) fn service_bundle(&self) -> ServiceBundle {
         ServiceBundle {
             management: self.records.clone(),
@@ -31,10 +47,15 @@ impl SavedNode {
             ledger,
         })
     }
-    pub(super) fn guest_pair(&self, peer: iroh_base::EndpointId) -> bool {
+    pub(super) fn guest_pair(&self, peer: iroh_base::EndpointId, alpn: &[u8]) -> bool {
+        let service = match alpn {
+            crate::file_transfer::FILE_ALPN => Service::Files,
+            crate::clipboard::CLIPBOARD_ALPN => Service::Clipboard,
+            _ => return false,
+        };
         self.service_access().ok().is_some_and(|access| {
             access
-                .guest_pairs()
+                .guest_pairs_for(service)
                 .iter()
                 .any(|(id, _)| id == peer.as_bytes())
         })
@@ -98,25 +119,14 @@ impl SavedNode {
         if !access.member(access.local) {
             return Ok(self.clone());
         }
-        let previous = access.ledger.declaration(access.local, Service::Files);
         let capable = files::capable();
         if enabled && !capable {
             return Err(error("file storage unavailable in this browser"));
         }
-        if previous
-            .as_ref()
-            .is_some_and(|d| d.capable == capable && d.enabled == enabled)
-        {
-            return Ok(self.clone());
+        match access.declaration_change(Service::Files, capable, enabled) {
+            Some(change) => self.with_service_action(change).map(|(next, _)| next),
+            None => Ok(self.clone()),
         }
-        self.with_service_action(ServiceAction::Declare {
-            provider: access.local,
-            service: Service::Files,
-            previous: previous.map(|d| d.revision),
-            capable,
-            enabled,
-        })
-        .map(|(next, _)| next)
     }
 }
 
@@ -158,6 +168,7 @@ pub(super) async fn commit_installed(
 }
 
 pub(super) struct BrowserServices {
+    clipboard: Rc<clipboard_host::BrowserClipboard>,
     cancel: tokio_util::sync::CancellationToken,
     connections: RefCell<Vec<iroh::endpoint::WeakControlConnection>>,
     running: Cell<usize>,
@@ -188,9 +199,11 @@ impl BrowserServices {
         gate: BrowserGate,
         incoming: Rc<incoming::IncomingDispatcher>,
         files: Rc<files::BrowserFiles>,
+        clipboard: Rc<clipboard_host::BrowserClipboard>,
         budget: Duration,
     ) -> Rc<Self> {
         let service = Rc::new(Self {
+            clipboard,
             cancel: Default::default(),
             connections: Default::default(),
             running: Cell::new(0),
@@ -303,6 +316,7 @@ impl BrowserServices {
                     gate.install(&saved);
                 }
                 files.enforce_access();
+                service.clipboard.enforce_access().await;
             }
         });
         service
@@ -325,6 +339,7 @@ impl BrowserServices {
         }
         commit_installed(gate, &raw, token, &next).await?;
         files.enforce_access();
+        self.clipboard.enforce_access().await;
         if let Some(policy_error) = policy_error {
             return Err(error(policy_error));
         }
@@ -396,6 +411,7 @@ impl BrowserServices {
         }
         commit_installed(gate, &raw, token, &next).await?;
         files.enforce_access();
+        self.clipboard.enforce_access().await;
         if redeem {
             write_guest(&exchange, &next.service_bundle())
                 .await
@@ -433,17 +449,44 @@ impl BrowserServices {
 
 #[wasm_bindgen]
 impl BrowserNetwork {
-    pub fn service_status(&self) -> Result<String, JsValue> {
+    pub async fn service_status(&self) -> Result<String, JsValue> {
+        let capability = clipboard_host::capability().await;
+        let clipboard = self.clipboard.state.status();
         let saved = self.gate.service_snapshot()?;
         let access = saved.service_access()?;
-        Ok(access
+        let clipboard_guest = saved
+            .guest
+            .as_ref()
+            .map(GuestInvitation::details)
+            .transpose()
+            .map_err(error)?
+            .is_some_and(|scope| scope.service == Service::Clipboard);
+        let mut status = access
             .status(
                 saved.guest.as_ref(),
-                files::capable(),
-                self.files.enabled.get(),
+                if clipboard_guest {
+                    capability.read && capability.write
+                } else {
+                    files::capable()
+                },
+                if clipboard_guest {
+                    clipboard.enabled
+                } else {
+                    self.files.enabled.get()
+                },
             )
-            .map_err(error)?
-            .to_string())
+            .map_err(error)?;
+        if saved.guest.is_none() {
+            status["services"]
+                .as_array_mut()
+                .ok_or_else(rejected)?
+                .push(access.local_service_status(
+                    Service::Clipboard,
+                    capability.read && capability.write,
+                    clipboard.enabled,
+                ));
+        }
+        Ok(status.to_string())
     }
     pub fn guest_status(&self) -> Result<String, JsValue> {
         let saved = self.gate.service_snapshot()?;
@@ -473,6 +516,7 @@ impl BrowserNetwork {
         })?;
         self.commit(next).await?;
         self.files.enforce_access();
+        self.clipboard.enforce_access().await;
         Ok(Hash::digest(record).to_string())
     }
     pub async fn sync_services(&mut self, target: String) -> Result<String, JsValue> {
@@ -498,6 +542,7 @@ impl BrowserNetwork {
         let (next, policy_error) = self.saved.with_service_bundle(&incoming)?;
         self.commit(next).await?;
         self.files.enforce_access();
+        self.clipboard.enforce_access().await;
         if let Some(policy_error) = policy_error {
             return Err(error(policy_error));
         }
@@ -508,8 +553,22 @@ impl BrowserNetwork {
         provider_address: String,
         expires_unix_seconds: u64,
     ) -> Result<String, JsValue> {
+        self.issue_service_guest(provider_address, "files".into(), expires_unix_seconds)
+            .await
+    }
+    pub async fn issue_service_guest(
+        &mut self,
+        provider_address: String,
+        service: String,
+        expires_unix_seconds: u64,
+    ) -> Result<String, JsValue> {
         self.refresh_service_snapshot().await?;
         self.require_device_ready()?;
+        let service: Service =
+            serde_json::from_value(serde_json::Value::String(service)).map_err(error)?;
+        if !matches!(service, Service::Files | Service::Clipboard) {
+            return Err(error("service guest adapter unavailable"));
+        }
         let created = crate::service_policy::now();
         if expires_unix_seconds <= created {
             return Err(error("guest deadline must be in the future"));
@@ -517,13 +576,13 @@ impl BrowserNetwork {
         let provider: EndpointAddr = serde_json::from_str(&provider_address).map_err(error)?;
         let provider_id = VerifyingKey::from_bytes(provider.id.as_bytes()).map_err(error)?;
         let access = self.saved.service_access()?;
-        if !access.ledger.rule(provider_id, Service::Files).rule.guests {
+        if !access.ledger.rule(provider_id, service).rule.guests {
             return Err(rejected());
         }
         let token: [u8; 32] = rand::random();
         let (next, record) = self.saved.with_service_action(ServiceAction::InviteGuest {
             provider: provider_id,
-            service: Service::Files,
+            service,
             token_hash: Hash::digest(token),
             created,
             expires: expires_unix_seconds,
@@ -561,13 +620,14 @@ impl BrowserNetwork {
         let (next, policy_error) = self.saved.with_service_bundle(&incoming)?;
         self.commit(next).await?;
         self.files.enforce_access();
+        self.clipboard.enforce_access().await;
         if let Some(policy_error) = policy_error {
             return Err(error(policy_error));
         }
         let access = self.saved.service_access()?;
         if !access.ledger.guest_access(
             VerifyingKey::from_bytes(invitation.provider.id.as_bytes()).map_err(error)?,
-            Service::Files,
+            invitation.details().map_err(error)?.service,
             access.local,
             &access.auth,
             crate::service_policy::now(),
@@ -584,6 +644,7 @@ impl BrowserNetwork {
         })?;
         self.commit(next).await?;
         self.files.enforce_access();
+        self.clipboard.enforce_access().await;
         Ok(Hash::digest(record).to_string())
     }
     pub async fn end_guest(&mut self) -> Result<String, JsValue> {
@@ -606,6 +667,7 @@ impl BrowserNetwork {
                 .0;
             self.commit(next).await?;
             self.files.enforce_access();
+            self.clipboard.enforce_access().await;
         }
         let record = self
             .saved

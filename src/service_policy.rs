@@ -132,7 +132,7 @@ impl GuestInvitation {
         match header.extensions.command {
             ServiceAction::InviteGuest {
                 provider,
-                service: Service::Files,
+                service: Service::Files | Service::Clipboard,
                 token_hash,
                 created,
                 expires,
@@ -276,6 +276,48 @@ pub struct ServiceAccess {
     pub ledger: ServiceLedger,
 }
 impl ServiceAccess {
+    /// One signed provider rule, including a guest's exact invited service.
+    pub fn permits_service(&self, service: Service, peer: VerifyingKey) -> bool {
+        if self.member(self.local) {
+            self.ledger
+                .allows(self.local, service, peer, &self.auth, now())
+        } else {
+            self.ledger
+                .guest_access(peer, service, self.local, &self.auth, now())
+        }
+    }
+    pub fn declaration_change(
+        &self,
+        service: Service,
+        capable: bool,
+        enabled: bool,
+    ) -> Option<ServiceAction> {
+        if !self.member(self.local) {
+            return None;
+        }
+        let previous = self.ledger.declaration(self.local, service);
+        if previous.as_ref().is_some_and(|declaration| {
+            declaration.capable == capable && declaration.enabled == enabled
+        }) {
+            return None;
+        }
+        Some(ServiceAction::Declare {
+            provider: self.local,
+            service,
+            previous: previous.map(|declaration| declaration.revision),
+            capable,
+            enabled,
+        })
+    }
+    pub fn local_service_status(
+        &self,
+        service: Service,
+        capable: bool,
+        enabled: bool,
+    ) -> serde_json::Value {
+        serde_json::json!({"service":service,"capable":capable,"enabled":enabled,
+            "policy":self.ledger.rule(self.local, service)})
+    }
     pub fn status(
         &self,
         invitation: Option<&GuestInvitation>,
@@ -285,18 +327,23 @@ impl ServiceAccess {
         let mut declarations = self.ledger.declarations();
         let mut policies = self.ledger.policies();
         let mut guests = self.ledger.guests();
+        let service = invitation
+            .map(GuestInvitation::details)
+            .transpose()?
+            .map_or(Service::Files, |scope| scope.service);
         let provider = if let Some(invitation) = invitation {
-            let provider = invitation.details()?.provider;
-            declarations.retain(|d| d.provider == provider && d.service == Service::Files);
-            policies.retain(|p| p.provider == provider && p.service == Service::Files);
+            let scope = invitation.details()?;
+            let provider = scope.provider;
+            declarations.retain(|d| d.provider == provider && d.service == scope.service);
+            policies.retain(|p| p.provider == provider && p.service == scope.service);
             guests.retain(|g| g.invitation == invitation.id());
             provider
         } else {
             self.local
         };
         Ok(
-            serde_json::json!({"node":self.local,"services":[{"service":"files","capable":capable,"enabled":enabled,
-            "policy":self.ledger.rule(provider, Service::Files)}],"declarations":declarations,"policies":policies,"guests":guests}),
+            serde_json::json!({"node":self.local,"services":[{"service":service,"capable":capable,"enabled":enabled,
+            "policy":self.ledger.rule(provider, service)}],"declarations":declarations,"policies":policies,"guests":guests}),
         )
     }
     pub fn guest_status(
@@ -334,13 +381,7 @@ impl ServiceAccess {
         self.auth.nodes().iter().any(|(id, _)| *id == peer)
     }
     pub fn can_receive(&self, peer: VerifyingKey) -> bool {
-        if self.member(self.local) {
-            self.ledger
-                .allows(self.local, Service::Files, peer, &self.auth, now())
-        } else {
-            self.ledger
-                .guest_access(peer, Service::Files, self.local, &self.auth, now())
-        }
+        self.permits_service(Service::Files, peer)
     }
     pub fn can_send(&self, peer: VerifyingKey) -> bool {
         if self.member(self.local) && self.member(peer) {
@@ -355,15 +396,27 @@ impl ServiceAccess {
         }
     }
     pub fn guest_pairs(&self) -> Vec<([u8; 32], u64)> {
+        self.guest_pairs_for(Service::Files)
+    }
+    pub fn guest_pairs_for(&self, service: Service) -> Vec<([u8; 32], u64)> {
+        let current = now();
         let pairs = self
             .ledger
-            .guests()
-            .into_iter()
-            .filter_map(|guest| {
+            .guests
+            .values()
+            .filter_map(|entry| {
+                let guest = &entry.status;
                 let id = guest.guest?;
-                if !self
-                    .ledger
-                    .guest_access(guest.provider, Service::Files, id, &self.auth, now())
+                // The deadline must come from this exact live scoped record,
+                // not another invitation which happens to authorize its peer.
+                if guest.service != service
+                    || self
+                        .ledger
+                        .rule(guest.provider, service)
+                        .rule
+                        .denied
+                        .contains(&id)
+                    || !self.ledger.invitation_live(entry, &self.auth, current)
                 {
                     return None;
                 }

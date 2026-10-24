@@ -37,6 +37,8 @@ use wasm_bindgen::prelude::*;
 pub mod admission_proof;
 #[path = "../../src/client_invitation.rs"]
 pub mod client_invitation;
+#[path = "../../src/clipboard.rs"]
+pub mod clipboard;
 #[path = "../../src/connection_recovery_core.rs"]
 mod connection_recovery_core;
 #[path = "../../src/invitation_pairing.rs"]

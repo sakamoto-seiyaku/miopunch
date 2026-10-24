@@ -278,6 +278,7 @@ struct RelayCheckAttempt {
 
 #[derive(Default)]
 struct GateState {
+    clipboard: Option<Arc<crate::clipboard::ClipboardState>>,
     rtc_capability: Option<crate::rtc_capability::RtcCapability>,
     saved: Option<SavedNode>,
     proofs: Vec<BootstrapProof>,
@@ -484,6 +485,17 @@ fn relay_probe_debug_details(
 impl BrowserGate {
     fn install(&self, saved: &SavedNode) {
         let mut gate = self.0.lock().unwrap();
+        if let Some(clipboard) = &gate.clipboard {
+            if let Some(peer) = clipboard.status().peer {
+                if !saved
+                    .service_access()
+                    .ok()
+                    .is_some_and(|access| crate::clipboard::permitted(&access, peer))
+                {
+                    clipboard.stop(false);
+                }
+            }
+        }
         let snapshot_hash =
             *blake3::hash(&serde_json::to_vec(saved).expect("serializable browser snapshot"))
                 .as_bytes();
@@ -622,6 +634,14 @@ impl BrowserGate {
                     .ok()
                     .is_some_and(|peer| access.can_receive(peer) || access.can_send(peer))
             });
+        }
+        if alpn == crate::clipboard::CLIPBOARD_ALPN {
+            return matches!(saved.stage(), "Complete" | "GuestActive")
+                && saved.service_access().ok().is_some_and(|access| {
+                    VerifyingKey::from_bytes(target.as_bytes())
+                        .ok()
+                        .is_some_and(|peer| crate::clipboard::permitted(&access, peer))
+                });
         }
         if (alpn != BUSINESS_ALPN
             && alpn != crate::service_policy::POLICY_ALPN
@@ -992,7 +1012,7 @@ impl BrowserGate {
         peer: iroh_base::EndpointId,
         alpn: &[u8],
     ) -> bool {
-        if alpn == crate::file_transfer::FILE_ALPN && saved.guest_pair(peer) {
+        if saved.guest_pair(peer, alpn) {
             return Self::permits(saved, peer, alpn)
                 && gate
                     .control_sessions
@@ -1414,8 +1434,7 @@ impl BrowserGate {
             && connection.alpn() != crate::service_policy::GUEST_ALPN
             && connection.alpn() != crate::device_operation::DEVICE_RESULT_ALPN
             && connection.alpn() != device_recovery::RECOVERY_ALPN
-            && !(connection.alpn() == crate::file_transfer::FILE_ALPN
-                && saved.guest_pair(connection.remote_id()))
+            && !(saved.guest_pair(connection.remote_id(), connection.alpn()))
         {
             let Ok(invitation) = saved.invitation() else {
                 return Err(control_error("IdentityOrAdmissionRejected"));
@@ -1838,6 +1857,8 @@ pub struct BrowserNetwork {
     incoming: std::rc::Rc<incoming::IncomingDispatcher>,
     files: std::rc::Rc<files::BrowserFiles>,
     _file_owner: files::FileOwner,
+    clipboard: std::rc::Rc<clipboard_host::BrowserClipboard>,
+    _clipboard_owner: clipboard_host::ClipboardOwner,
     services: std::rc::Rc<services::BrowserServices>,
     _service_owner: services::ServiceOwner,
     member_data_transport: Option<crate::member_data::BrowserMemberDataTransport>,
@@ -2252,6 +2273,8 @@ impl BrowserNetwork {
         saved.resources = Some(configuration);
         if saved.invitation.is_some() {
             saved = saved.declare_files(false)?;
+            let capability = clipboard_host::capability().await;
+            saved = saved.declare_clipboard(capability.read && capability.write, false)?;
         }
         let committed = serde_json::to_string(&saved).map_err(error)?;
         let previous = raw
@@ -2341,6 +2364,7 @@ impl BrowserNetwork {
                 let mut alpns = vec![
                     BUSINESS_ALPN.to_vec(),
                     crate::file_transfer::FILE_ALPN.to_vec(),
+                    crate::clipboard::CLIPBOARD_ALPN.to_vec(),
                     crate::service_policy::POLICY_ALPN.to_vec(),
                     crate::service_policy::GUEST_ALPN.to_vec(),
                     crate::device_operation::DEVICE_ALPN.to_vec(),
@@ -2503,11 +2527,19 @@ impl BrowserNetwork {
             caller_budget,
         );
         let file_owner = files::FileOwner(files.clone());
+        let clipboard = clipboard_host::BrowserClipboard::start(
+            endpoint.clone(),
+            gate.clone(),
+            incoming.clone(),
+            caller_budget,
+        );
+        let clipboard_owner = clipboard_host::ClipboardOwner(clipboard.clone());
         let services = services::BrowserServices::start(
             endpoint.clone(),
             gate.clone(),
             incoming.clone(),
             files.clone(),
+            clipboard.clone(),
             caller_budget,
         );
         let service_owner = services::ServiceOwner(services.clone());
@@ -2516,6 +2548,8 @@ impl BrowserNetwork {
             incoming,
             files,
             _file_owner: file_owner,
+            clipboard,
+            _clipboard_owner: clipboard_owner,
             services,
             _service_owner: service_owner,
             member_data_transport,
@@ -2818,6 +2852,7 @@ impl BrowserNetwork {
         }
     }
     pub(super) async fn stop_runtime(&mut self) {
+        self.clipboard.close().await;
         self.services.close().await;
         self.files.close().await;
         self.delivery = None;
@@ -3156,6 +3191,8 @@ pub use member_connection::{
 #[path = "incoming.rs"]
 mod incoming;
 
+#[path = "clipboard.rs"]
+mod clipboard_host;
 #[path = "device_custody.rs"]
 mod device_custody;
 #[path = "device_management.rs"]

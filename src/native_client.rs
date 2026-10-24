@@ -62,6 +62,8 @@ pub struct NativeClient {
     pub(crate) resources: Arc<ResourceEndpoint>,
     pub(crate) files: Arc<crate::native_file_transfer::NativeFiles>,
     pub(crate) services: Arc<Mutex<crate::native_services::NativeServices>>,
+    pub(crate) clipboard: Arc<crate::native_clipboard::NativeClipboard>,
+    _clipboard_owner: crate::native_clipboard::ClipboardOwner,
     _file_owner: crate::native_file_transfer::FileOwner,
     cancel: CancellationToken,
     _drop_cancel: tokio_util::sync::DropGuard,
@@ -137,6 +139,8 @@ impl NativeClient {
         node.admission_gate()
             .register_protocol(MEMBER_MESSAGE, ProtocolScope::Member);
         node.admission_gate()
+            .register_protocol(crate::clipboard::CLIPBOARD_ALPN, ProtocolScope::Member);
+        node.admission_gate()
             .register_protocol(crate::file_transfer::FILE_ALPN, ProtocolScope::Member);
         node.admission_gate()
             .register_protocol(crate::service_policy::POLICY_ALPN, ProtocolScope::Member);
@@ -165,6 +169,7 @@ impl NativeClient {
             ADMISSION_REQUEST_ALPN.to_vec(),
             PRECODE_REQUEST_ALPN.to_vec(),
             MEMBER_MESSAGE.to_vec(),
+            crate::clipboard::CLIPBOARD_ALPN.to_vec(),
             crate::file_transfer::FILE_ALPN.to_vec(),
             crate::service_policy::POLICY_ALPN.to_vec(),
             crate::device_operation::DEVICE_ALPN.to_vec(),
@@ -180,8 +185,20 @@ impl NativeClient {
         crate::native_custody::validate(&node)?;
         let mut services = crate::native_services::NativeServices::load(&node).await?;
         services.declare_files(&node, &files, false).await?;
+        services
+            .declare_clipboard(
+                &node,
+                &files,
+                crate::system_clipboard::current_capability().await.read,
+                false,
+            )
+            .await?;
         files.update_access(services.access(&node).await?);
         let services = Arc::new(Mutex::new(services));
+        let clipboard =
+            crate::native_clipboard::NativeClipboard::new(node.admission_gate().clone());
+        clipboard.enforce_access(&services.lock().await.access(&node).await?);
+        services.lock().await.clipboard = Some(Arc::downgrade(&clipboard));
         let node = Arc::new(Mutex::new(node));
         let cancel = CancellationToken::new();
         let listener = {
@@ -192,6 +209,7 @@ impl NativeClient {
             let replacement_ready = replacement_ready.clone();
             let files = files.clone();
             let services = services.clone();
+            let clipboard = clipboard.clone();
             tokio::spawn(async move {
                 let mut handlers = tokio::task::JoinSet::new();
                 let mut expiry = tokio::time::interval(Duration::from_secs(1));
@@ -207,6 +225,8 @@ impl NativeClient {
                             let replacement_ready = replacement_ready.clone();
                             let files = files.clone();
                             let services = services.clone();
+                            let clipboard = clipboard.clone();
+                            let clipboard_request = clipboard.state.request();
                             handlers.spawn(async move {
                                 // The handshake has a finite budget. A large file has no
                                 // total-duration cap: its stream enforces an idle timeout.
@@ -221,6 +241,12 @@ impl NativeClient {
                                     Ok::<_, ClientError>((accepting, alpn))
                                 }).await;
                                 let Ok(Ok((accepting, alpn))) = accepted else { return };
+                                if alpn == crate::clipboard::CLIPBOARD_ALPN {
+                                    if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
+                                        let _ = clipboard.run(connection, node, services, false, clipboard_request).await;
+                                    }
+                                    return;
+                                }
                                 if alpn == crate::file_transfer::FILE_ALPN {
                                     if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
                                         let access = {
@@ -312,6 +338,8 @@ impl NativeClient {
             _file_owner: crate::native_file_transfer::FileOwner(files.clone()),
             files,
             services,
+            _clipboard_owner: crate::native_clipboard::ClipboardOwner(clipboard.clone()),
+            clipboard,
             cancel,
             _drop_cancel: drop_cancel,
             listener,
@@ -578,6 +606,8 @@ impl NativeClient {
     /// Stop this host's listener and handlers, close endpoint resources, then
     /// close the durable store. Identity and authorization remain on disk.
     pub async fn close(self) -> Result<(), ClientError> {
+        let clipboard_stop = self.disable_clipboard().await;
+        self.clipboard.close().await;
         let service_stop = self.disable_files().await;
         self.cancel.cancel();
         self.listener.await?;
@@ -592,6 +622,7 @@ impl NativeClient {
             .close()
             .await;
         service_stop?;
+        clipboard_stop?;
         Ok(())
     }
 }

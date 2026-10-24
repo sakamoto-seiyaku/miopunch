@@ -18,6 +18,13 @@ struct Request {
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 enum Command {
+    ClipboardEnable,
+    ClipboardDisable,
+    ClipboardStart {
+        address: iroh::EndpointAddr,
+    },
+    ClipboardStop,
+    ClipboardStatus,
     ReplacementPrepare {
         path: String,
     },
@@ -142,6 +149,8 @@ enum Command {
         address: iroh::EndpointAddr,
     },
     GuestIssue {
+        #[serde(default)]
+        service: Option<miopunch_native_probe::service_policy::Service>,
         path: String,
         provider: iroh::EndpointAddr,
         seconds: u64,
@@ -210,6 +219,17 @@ async fn status(client: &NativeClient) -> Value {
 }
 async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, ClientError> {
     match command {
+        Command::ClipboardEnable => client.enable_clipboard().await,
+        Command::ClipboardDisable => {
+            client.disable_clipboard().await?;
+            client.clipboard_status().await
+        }
+        Command::ClipboardStart { address } => client.start_clipboard(address).await,
+        Command::ClipboardStop => {
+            client.stop_clipboard().await;
+            client.clipboard_status().await
+        }
+        Command::ClipboardStatus => client.clipboard_status().await,
         Command::ReplacementPrepare { .. } => {
             Err("replacement export consumes the running host".into())
         }
@@ -424,6 +444,7 @@ async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, Clie
         ),
         Command::ServiceSync { address } => client.sync_services(address).await,
         Command::GuestIssue {
+            service,
             path,
             provider,
             seconds,
@@ -431,7 +452,13 @@ async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, Clie
             let expires = miopunch_native_probe::service_policy::now()
                 .checked_add(seconds)
                 .ok_or("invalid guest deadline")?;
-            let invitation = client.issue_guest(provider, expires).await?;
+            let invitation = client
+                .issue_service_guest(
+                    provider,
+                    service.unwrap_or(miopunch_native_probe::service_policy::Service::Files),
+                    expires,
+                )
+                .await?;
             save_private(&path, invitation.text()?.as_bytes())
         }
         Command::GuestRedeem => client.redeem_guest().await,

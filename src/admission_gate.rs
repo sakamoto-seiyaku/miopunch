@@ -68,11 +68,11 @@ impl Session {
         if !self.connection.is_open() {
             return false;
         }
-        if self.alpn == crate::file_transfer::FILE_ALPN {
-            if !self.client && policy.file_denied.contains(&self.peer) {
+        if let Some(service) = policy.services.get(self.alpn.as_slice()) {
+            if !self.client && service.denied.contains(&self.peer) {
                 return false;
             }
-            if policy.file_guest(&self.peer) {
+            if policy.service_guest(&self.alpn, &self.peer) {
                 return true;
             }
         }
@@ -114,16 +114,21 @@ struct Policy {
     members: HashSet<[u8; 32]>,
     removed: HashSet<[u8; 32]>,
     authorization_epoch: u64,
-    file_guests: HashMap<[u8; 32], u64>,
-    file_denied: HashSet<[u8; 32]>,
+    services: HashMap<Vec<u8>, ScopedService>,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ScopedService {
+    guests: HashMap<[u8; 32], u64>,
+    denied: HashSet<[u8; 32]>,
 }
 impl Policy {
-    fn file_guest(&self, peer: &[u8; 32]) -> bool {
+    fn service_guest(&self, alpn: &[u8], peer: &[u8; 32]) -> bool {
         !self.removed.contains(peer)
             && !self.removed.contains(&self.local_id)
             && self
-                .file_guests
-                .get(peer)
+                .services
+                .get(alpn)
+                .and_then(|service| service.guests.get(peer))
                 .is_some_and(|expires| crate::service_policy::now() < *expires)
     }
 }
@@ -172,20 +177,34 @@ impl PathQualification {
 }
 
 impl AdmissionGate {
-    /// Applied only after the service ledger has been verified and saved.
-    /// Existing file sessions are retired as part of this same local update.
     pub(crate) fn update_file_policy(
         &self,
         guests: Vec<([u8; 32], u64)>,
         denied: HashSet<[u8; 32]>,
     ) {
+        self.update_service_policy(crate::file_transfer::FILE_ALPN, guests, denied);
+    }
+    /// Only implemented service ALPNs can receive a verified scoped guest.
+    /// Updating one service never broadens another service's transport scope.
+    pub(crate) fn update_service_policy(
+        &self,
+        alpn: &[u8],
+        guests: Vec<([u8; 32], u64)>,
+        denied: HashSet<[u8; 32]>,
+    ) {
+        assert!(matches!(
+            alpn,
+            crate::file_transfer::FILE_ALPN | crate::clipboard::CLIPBOARD_ALPN
+        ));
         let mut state = self.state.lock().expect("admission policy lock");
-        let guests = guests.into_iter().collect();
-        if state.policy.file_guests != guests || state.policy.file_denied != denied {
+        let service = ScopedService {
+            guests: guests.into_iter().collect(),
+            denied,
+        };
+        if state.policy.services.get(alpn) != Some(&service) {
             self.invalidate_path_qualifications();
         }
-        state.policy.file_guests = guests;
-        state.policy.file_denied = denied;
+        state.policy.services.insert(alpn.to_vec(), service);
         let policy = state.policy.clone();
         state.sessions.retain(|_, session| session.valid(&policy));
     }
@@ -251,8 +270,7 @@ impl AdmissionGate {
                     members: HashSet::new(),
                     removed: HashSet::new(),
                     authorization_epoch: 0,
-                    file_guests: HashMap::new(),
-                    file_denied: HashSet::new(),
+                    services: HashMap::new(),
                 },
                 protocols,
                 lifecycle_protocols: None,
@@ -669,12 +687,7 @@ impl AdmissionGate {
             return Err(());
         }
         let proof = match protocol {
-            ProtocolScope::Member
-                if connection.alpn() == crate::file_transfer::FILE_ALPN
-                    && policy.file_guest(&peer) =>
-            {
-                None
-            }
+            ProtocolScope::Member if policy.service_guest(connection.alpn(), &peer) => None,
             ProtocolScope::AdmissionRequest | ProtocolScope::GenesisRecovery => None,
             ProtocolScope::Bootstrap | ProtocolScope::Member | ProtocolScope::Rotation => {
                 // A fresh rotation TLS connection chooses one generation before
@@ -742,8 +755,7 @@ impl AdmissionGate {
             let state = self.state.lock().expect("admission policy lock");
             if (protocol != ProtocolScope::AdmissionRequest && state.policy.removed.contains(&peer))
                 || (matches!(protocol, ProtocolScope::Member | ProtocolScope::Rotation)
-                    && !(connection.alpn() == crate::file_transfer::FILE_ALPN
-                        && state.policy.file_guest(&peer))
+                    && !state.policy.service_guest(connection.alpn(), &peer)
                     && (!state.policy.members.contains(&peer)
                         || !state.policy.members.contains(&state.policy.local_id)))
             {

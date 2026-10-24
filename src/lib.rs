@@ -84,7 +84,9 @@ mod native_files;
 
 mod client_contact;
 pub mod client_invitation;
+pub mod clipboard;
 pub mod invitation_pairing;
+mod native_clipboard;
 pub mod native_pairing;
 pub mod recovery_card;
 #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
@@ -101,3 +103,4 @@ pub mod rtc_packet_witness_fixture;
 pub mod rtc_probe;
 pub mod rtc_transport;
 pub mod rtc_wire;
+mod system_clipboard;

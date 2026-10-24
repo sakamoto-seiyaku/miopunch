@@ -18,8 +18,31 @@ pub(crate) struct NativeServices {
     path: PathBuf,
     records: Vec<Vec<u8>>,
     pub guest: Option<GuestInvitation>,
+    pub clipboard: Option<std::sync::Weak<crate::native_clipboard::NativeClipboard>>,
 }
 impl NativeServices {
+    fn publish_access(&self, files: &Arc<NativeFiles>, access: ServiceAccess) {
+        if let Some(clipboard) = self.clipboard.as_ref().and_then(std::sync::Weak::upgrade) {
+            clipboard.enforce_access(&access);
+        }
+        files.update_access(access);
+    }
+    pub async fn declare_clipboard(
+        &mut self,
+        node: &NativeNetwork,
+        files: &Arc<NativeFiles>,
+        capable: bool,
+        enabled: bool,
+    ) -> Result<(), ClientError> {
+        let access = self.access(node).await?;
+        if !access.member(access.local) || self.guest.is_some() {
+            return Ok(());
+        }
+        if let Some(change) = access.declaration_change(Service::Clipboard, capable, enabled) {
+            self.apply(node, files, change).await?;
+        }
+        Ok(())
+    }
     pub async fn declare_files(
         &mut self,
         node: &NativeNetwork,
@@ -30,25 +53,9 @@ impl NativeServices {
         if !access.member(access.local) || self.guest.is_some() {
             return Ok(());
         }
-        let previous = access.ledger.declaration(access.local, Service::Files);
-        if previous
-            .as_ref()
-            .is_some_and(|d| d.capable && d.enabled == enabled)
-        {
-            return Ok(());
+        if let Some(change) = access.declaration_change(Service::Files, true, enabled) {
+            self.apply(node, files, change).await?;
         }
-        self.apply(
-            node,
-            files,
-            ServiceAction::Declare {
-                provider: access.local,
-                service: Service::Files,
-                previous: previous.map(|d| d.revision),
-                capable: true,
-                enabled,
-            },
-        )
-        .await?;
         Ok(())
     }
     pub async fn load(node: &NativeNetwork) -> Result<Self, ClientError> {
@@ -70,6 +77,7 @@ impl NativeServices {
             path,
             records,
             guest,
+            clipboard: None,
         };
         state.snapshot(node).await?.verify(node.anchor)?;
         Ok(state)
@@ -122,7 +130,7 @@ impl NativeServices {
             &serde_json::to_vec(ledger.records())?,
         )?;
         self.records = ledger.records().to_vec();
-        files.update_access(ServiceAccess { ledger, ..access });
+        self.publish_access(files, ServiceAccess { ledger, ..access });
         Ok(())
     }
     pub async fn merge(
@@ -141,17 +149,20 @@ impl NativeServices {
         }
         // This authority change is already durable even if publishing the
         // separate service file fails. Enforce it with the old saved policy.
-        files.update_access(self.access(node).await?);
+        self.publish_access(files, self.access(node).await?);
         crate::native_files::write_private_atomic(
             &self.path,
             &serde_json::to_vec(ledger.records())?,
         )?;
         self.records = ledger.records().to_vec();
-        files.update_access(ServiceAccess {
-            local: node.node_key.verifying_key(),
-            auth,
-            ledger,
-        });
+        self.publish_access(
+            files,
+            ServiceAccess {
+                local: node.node_key.verifying_key(),
+                auth,
+                ledger,
+            },
+        );
         if let Some(error) = result.policy_error {
             return Err(error.into());
         }
@@ -288,7 +299,19 @@ impl crate::native_client::NativeClient {
         provider: iroh::EndpointAddr,
         expires: u64,
     ) -> Result<GuestInvitation, ClientError> {
+        self.issue_service_guest(provider, Service::Files, expires)
+            .await
+    }
+    pub async fn issue_service_guest(
+        &self,
+        provider: iroh::EndpointAddr,
+        service: Service,
+        expires: u64,
+    ) -> Result<GuestInvitation, ClientError> {
         self.require_ready()?;
+        if !matches!(service, Service::Files | Service::Clipboard) {
+            return Err("service guest adapter unavailable".into());
+        }
         let created = crate::service_policy::now();
         if expires <= created {
             return Err("guest deadline must be in the future".into());
@@ -297,7 +320,7 @@ impl crate::native_client::NativeClient {
         let mut state = self.services.lock().await;
         let access = state.access(&node).await?;
         let provider_id = VerifyingKey::from_bytes(provider.id.as_bytes())?;
-        if !access.ledger.rule(provider_id, Service::Files).rule.guests {
+        if !access.ledger.rule(provider_id, service).rule.guests {
             return Err("guest sharing disabled by effective rule".into());
         }
         let token: [u8; 32] = rand::random();
@@ -307,7 +330,7 @@ impl crate::native_client::NativeClient {
                 &self.files,
                 ServiceAction::InviteGuest {
                     provider: provider_id,
-                    service: Service::Files,
+                    service,
                     token_hash: Hash::digest(token),
                     created,
                     expires,
@@ -362,7 +385,7 @@ impl crate::native_client::NativeClient {
             let access = state.access(&node).await?;
             if !access.ledger.guest_access(
                 VerifyingKey::from_bytes(invitation.provider.id.as_bytes())?,
-                Service::Files,
+                invitation.details()?.service,
                 access.local,
                 &access.auth,
                 crate::service_policy::now(),
@@ -451,10 +474,44 @@ impl crate::native_client::NativeClient {
         Ok(json!({"ended_locally":true,"delivery":delivered}))
     }
     pub async fn service_status(&self) -> Result<Value, ClientError> {
+        let clipboard_capability = crate::system_clipboard::current_capability().await;
+        self.clipboard
+            .state
+            .capability(clipboard_capability.clone());
+        let clipboard = self.clipboard.state.status();
         let node = self.node.lock().await;
         let state = self.services.lock().await;
         let access = state.access(&node).await?;
-        Ok(access.status(state.guest.as_ref(), true, self.files_enabled())?)
+        let clipboard_guest = state
+            .guest
+            .as_ref()
+            .map(GuestInvitation::details)
+            .transpose()?
+            .is_some_and(|scope| scope.service == Service::Clipboard);
+        let mut status = access.status(
+            state.guest.as_ref(),
+            if clipboard_guest {
+                clipboard_capability.read && clipboard_capability.write
+            } else {
+                true
+            },
+            if clipboard_guest {
+                clipboard.enabled
+            } else {
+                self.files_enabled()
+            },
+        )?;
+        if state.guest.is_none() {
+            status["services"]
+                .as_array_mut()
+                .ok_or("invalid service status")?
+                .push(access.local_service_status(
+                    Service::Clipboard,
+                    clipboard_capability.read && clipboard_capability.write,
+                    clipboard.enabled,
+                ));
+        }
+        Ok(status)
     }
     pub async fn set_service_rule(
         &self,
