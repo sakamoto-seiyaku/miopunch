@@ -22,7 +22,7 @@ fn start_server_on(
     data_dir: &std::path::Path,
     bind_ip: Option<&str>,
 ) -> (Server, String, String) {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_miopunch-native-probe"))
+    let mut child = Command::new(test_cli::executable())
         .args(["serve", mode])
         .arg(data_dir)
         .args(bind_ip)
@@ -51,7 +51,7 @@ fn wrapped_probe_accepts_a_wildcard_bind_for_a_lan_peer() {
     let (_server, server_id, address) =
         start_server_on("wrapped", &root.path().join("server"), Some("0.0.0.0"));
     let port = address.parse::<std::net::SocketAddr>().unwrap().port();
-    let result = Command::new(env!("CARGO_BIN_EXE_miopunch-native-probe"))
+    let result = Command::new(test_cli::executable())
         .args(["send", "wrapped"])
         .arg(root.path().join("client"))
         .arg(server_id)
@@ -66,7 +66,7 @@ fn wrapped_probe_accepts_a_wildcard_bind_for_a_lan_peer() {
 fn invalid_mode_does_not_create_an_identity() {
     let root = tempfile::tempdir().unwrap();
     let data_dir = root.path().join("unused");
-    let result = Command::new(env!("CARGO_BIN_EXE_miopunch-native-probe"))
+    let result = Command::new(test_cli::executable())
         .args(["serve", "invalid"])
         .arg(&data_dir)
         .output()
@@ -80,7 +80,7 @@ fn assert_two_nodes_exchange_a_message(mode: &str) {
     let server_dir = root.path().join("server");
     let client_dir = root.path().join("client");
     let (_server, server_id, address) = start_server(mode, &server_dir);
-    let result = Command::new(env!("CARGO_BIN_EXE_miopunch-native-probe"))
+    let result = Command::new(test_cli::executable())
         .args(["send", mode])
         .arg(client_dir)
         .arg(server_id)
@@ -129,7 +129,7 @@ fn assert_tcp_fault_is_bounded(frame: &[u8], half_close: bool, expected_error: &
         server.0.try_wait().unwrap().is_none(),
         "malformed peer ended the server"
     );
-    let result = Command::new(env!("CARGO_BIN_EXE_miopunch-native-probe"))
+    let result = Command::new(test_cli::executable())
         .args(["send", "tcp"])
         .arg(root.path().join("client"))
         .arg(server_id)
@@ -181,7 +181,7 @@ fn wrong_target_identity_fails_on_reachable_tcp_carrier() {
     let (_real_server, real_id, address) = start_server("tcp", &root.path().join("real"));
     let (_other_server, wrong_id, _) = start_server("tcp", &root.path().join("other"));
     assert_ne!(real_id, wrong_id);
-    let result = Command::new(env!("CARGO_BIN_EXE_miopunch-native-probe"))
+    let result = Command::new(test_cli::executable())
         .args(["send", "tcp"])
         .arg(root.path().join("client"))
         .arg(wrong_id)
@@ -198,7 +198,7 @@ fn wrong_target_identity_fails_even_at_a_reachable_udp_address() {
     let (_real_server, real_id, address) = start_server("wrapped", &root.path().join("real"));
     let (_other_server, wrong_id, _) = start_server("wrapped", &root.path().join("other"));
     assert_ne!(real_id, wrong_id);
-    let result = Command::new(env!("CARGO_BIN_EXE_miopunch-native-probe"))
+    let result = Command::new(test_cli::executable())
         .args(["send", "wrapped"])
         .arg(root.path().join("client"))
         .arg(wrong_id)
@@ -218,3 +218,6 @@ fn restarting_a_node_keeps_its_identity() {
     let (_second, second_id, _) = start_server("wrapped", &data_dir);
     assert_eq!(first_id, second_id);
 }
+
+#[path = "support/cli.rs"]
+mod test_cli;

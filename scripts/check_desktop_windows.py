@@ -17,6 +17,13 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
+from check_build_cache import CheckBuilds
+from build_native_client import input_paths
+from pin_artifact import sha256
+
+builds = CheckBuilds()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True)
@@ -28,13 +35,11 @@ def main():
     commands = []
     containers = []
     runtime_name = f"miopunch-desktop-runtime-{os.getpid()}"
-    compiler_name = f"miopunch-desktop-compiler-{os.getpid()}"
-    env = os.environ.copy()
 
     def run(label, command, command_env=None):
         started = time.monotonic()
         with (output / (label + ".log")).open("w") as log:
-            result = subprocess.run(command, cwd=ROOT, env=command_env, stdout=log,
+            result = builds.run(command, cwd=ROOT, env=command_env, stdout=log,
                                     stderr=subprocess.STDOUT)
         commands.append({"label": label, "command": command, "exit": result.returncode,
                          "seconds": round(time.monotonic() - started, 3)})
@@ -45,25 +50,18 @@ def main():
     try:
         for stage, image in [("compiler", "miopunch-desktop-compiler:bookworm"),
                              ("runtime", "miopunch-desktop-runtime:trixie")]:
-            run("image-" + stage, ["docker", "build", "--target", stage, "-t", image,
-                                  "-f", "scripts/desktop_windows_lab.Dockerfile", "scripts"])
+            run("image-" + stage, ["rtk", "proxy", "docker", "image", "inspect", image])
         mounts = ["-v", f"{pathlib.Path.home()}:{pathlib.Path.home()}:ro",
                   "-v", f"{ROOT}:{ROOT}",
                   "-v", f"{tempfile.gettempdir()}:{tempfile.gettempdir()}",
                   "-v", f"{output}:{output}"]
-        for name, image in [(compiler_name, "miopunch-desktop-compiler:bookworm"),
-                            (runtime_name, "miopunch-desktop-runtime:trixie")]:
+        for name, image in [(runtime_name, "miopunch-desktop-runtime:trixie")]:
             containers.append(name)
             run("start-" + name, ["docker", "run", "-d", "--name", name, "--network", "host",
                                  "--user", f"{os.getuid()}:{os.getgid()}", *mounts,
                                  "-w", str(ROOT), image, "sleep", "infinity"])
         wrappers = output / "tools"
         wrappers.mkdir()
-        for tool in ["x86_64-w64-mingw32-gcc", "x86_64-w64-mingw32-ar", "x86_64-w64-mingw32-dlltool"]:
-            path = wrappers / tool
-            path.write_text("#!/bin/sh\nexec docker exec -i -w \"$PWD\" " +
-                            shlex.quote(compiler_name) + " " + tool + ' "$@"\n')
-            path.chmod(0o700)
         prefix = output / "wine-prefix"
         runtime_dir = output / "xdg-runtime"
         runtime_dir.mkdir(mode=0o700)
@@ -75,22 +73,26 @@ def main():
         runner.write_text("#!/bin/sh\nexec " + shlex.join(wine_command) + ' "$@"\n')
         runner.chmod(0o700)
         run("rust-version", ["rustc", "--version"])
-        run("compiler-version", ["docker", "exec", compiler_name, "x86_64-w64-mingw32-gcc", "--version"])
         run("wine-version", ["docker", "exec", runtime_name, "/usr/lib/wine/wine64", "--version"])
-        run("windows-target", ["rustup", "target", "add", "x86_64-pc-windows-gnu"])
-        run("linux-build", ["cargo", "build", "--locked", "--bin", "miopunch-native-probe"])
-        env["PATH"] = str(wrappers) + os.pathsep + env["PATH"]
-        env["CC_x86_64_pc_windows_gnu"] = str(wrappers / "x86_64-w64-mingw32-gcc")
-        env["AR_x86_64_pc_windows_gnu"] = str(wrappers / "x86_64-w64-mingw32-ar")
-        env["CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER"] = env["CC_x86_64_pc_windows_gnu"]
-        run("windows-build", ["cargo", "build", "--locked", "--target", "x86_64-pc-windows-gnu",
-                              "--bin", "miopunch-native-probe"], env)
+        installed = subprocess.check_output(["rtk", "proxy", "rustup", "target", "list", "--installed"], text=True)
+        if "x86_64-pc-windows-gnu" not in installed.splitlines():
+            raise RuntimeError("install the declared Windows target before this verification")
+        inputs = output / "native-inputs.json"
+        inputs.write_text(json.dumps({name: sha256(ROOT / name) for name in sorted(input_paths())}, indent=2) + "\n")
+        pins = {}
+        for platform in ("linux", "windows"):
+            receipt = output / (platform + "-build")
+            run(platform + "-build", ["rtk", "proxy", "python3", "-B", "scripts/build_native_client.py",
+                                      "--platform", platform, "--bin", "miopunch-native-probe",
+                                      "--inputs", str(inputs), "--output", str(receipt)])
+            pins[platform] = json.loads((receipt / "build.json").read_text())["pin"]
         run("desktop-matrix", ["python3", "scripts/check_desktop_management.py", "--output",
-                               str(output / "matrix"), "--windows-runner", str(runner), "--case", args.case])
+                               str(output / "matrix"), "--linux-bin", pins["linux"], "--windows-bin", pins["windows"],
+                               "--windows-runner", str(runner), "--case", args.case])
     finally:
         cleanup = []
         for name in reversed(containers):
-            result = subprocess.run(["docker", "rm", "-f", name], capture_output=True, text=True)
+            result = builds.run(["docker", "rm", "-f", name], capture_output=True, text=True)
             cleanup.append({"container": name, "exit": result.returncode})
         (output / "cleanup.json").write_text(json.dumps(cleanup, indent=2) + "\n")
     print(f"Desktop checks passed; evidence: {output}")

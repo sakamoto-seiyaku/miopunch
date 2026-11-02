@@ -24,6 +24,11 @@ CASES = [
 ]
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=pathlib.Path, required=True)
@@ -44,7 +49,7 @@ def main():
         print(f'Starting {name}', flush=True)
         start = time.monotonic()
         with (output / (name + '.log')).open('w') as log:
-            result = subprocess.run(['rtk', 'proxy', *command], cwd=root, env=environment,
+            result = builds.run(['rtk', 'proxy', *command], cwd=root, env=environment,
                                     stdout=log, stderr=subprocess.STDOUT, timeout=timeout)
         receipt['checks'].append({'name': name, 'argv': command, 'exit': result.returncode,
                                   'seconds': round(time.monotonic() - start, 3),
@@ -123,8 +128,8 @@ def main():
         receipt['cleanup'] = []
         for name in owned:
             with (output / (name + '-server.log')).open('w') as log:
-                subprocess.run(['rtk', 'proxy', 'docker', 'logs', name], stdout=log, stderr=subprocess.STDOUT)
-            result = subprocess.run(['rtk', 'proxy', 'docker', 'rm', '--force', '--volumes', name], capture_output=True, text=True)
+                builds.run(['rtk', 'proxy', 'docker', 'logs', name], stdout=log, stderr=subprocess.STDOUT)
+            result = builds.run(['rtk', 'proxy', 'docker', 'rm', '--force', '--volumes', name], capture_output=True, text=True)
             receipt['cleanup'].append({'owned_container': name, 'exit': result.returncode})
             receipt['passed'] &= result.returncode == 0
         save()

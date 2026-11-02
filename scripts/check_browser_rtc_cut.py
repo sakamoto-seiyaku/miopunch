@@ -16,9 +16,16 @@ from check_browser_rtc import ROOT, sha256, source_snapshot, reject_retired_fixt
 IMAGE = "sha256:c9dbb88a37f58ae5105720e60bc5cc6eb40d8ad37106e57ce621d345b5ec62a2"
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
+from build_browser_client import default_bindgen
+
 def cleanup_command(receipt, name, argv, budget):
     try:
-        result = subprocess.run(["rtk", "proxy", *argv], capture_output=True, text=True, timeout=budget)
+        result = builds.run(["rtk", "proxy", *argv], capture_output=True, text=True, timeout=budget)
         entry = {"name": name, "exit": result.returncode}
         receipt["cleanup"].append(entry)
         if result.returncode:
@@ -42,7 +49,7 @@ def main():
     parser.add_argument("--invalidation-mode", choices=("cancel", "member", "secret", "secret-standard", "resource"), default="cancel")
     parser.add_argument("--target-dir", type=Path, default=ROOT / "target")
     parser.add_argument("--skip-build", action="store_true")
-    parser.add_argument("--wasm-bindgen", default=shutil.which("wasm-bindgen") or "/tmp/miopunch-wasm-tools/bin/wasm-bindgen")
+    parser.add_argument("--wasm-bindgen", default=default_bindgen())
     args = parser.parse_args()
     reject_retired_fixture()
     output = args.output.resolve()
@@ -61,18 +68,24 @@ def main():
     def command(name, argv, budget, *, capture=False, expected=(0,)):
         started = time.monotonic()
         with (output / f"{name}.log").open("w") as log:
-            process = subprocess.Popen(["rtk", "proxy", *argv], cwd=ROOT,
-                stdout=subprocess.PIPE if capture else log, stderr=log, text=True, start_new_session=True)
-            try:
-                stdout, _ = process.communicate(timeout=max(0.001, budget))
-            except BaseException:
-                os.killpg(process.pid, signal.SIGTERM)
+            if builds.compiles(["rtk", "proxy", *argv]):
+                process = builds.run(["rtk", "proxy", *argv], cwd=ROOT,
+                stdout=subprocess.PIPE if capture else log, stderr=log, text=True, start_new_session=True, timeout=max(0.001, budget))
+                code = process.returncode
+                stdout = process.stdout
+            else:
+                process = builds.popen(["rtk", "proxy", *argv], cwd=ROOT,
+                    stdout=subprocess.PIPE if capture else log, stderr=log, text=True, start_new_session=True)
                 try:
-                    process.communicate(timeout=min(1, max(0.001, budget)))
-                except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
-                    process.communicate()
-                raise
+                    stdout, _ = process.communicate(timeout=max(0.001, budget))
+                except BaseException:
+                    os.killpg(process.pid, signal.SIGTERM)
+                    try:
+                        process.communicate(timeout=min(1, max(0.001, budget)))
+                    except subprocess.TimeoutExpired:
+                        os.killpg(process.pid, signal.SIGKILL)
+                        process.communicate()
+                    raise
             entry = {"name": name, "argv": argv, "exit": process.returncode, "expectedExitCodes": list(expected), "seconds": round(time.monotonic()-started, 3)}
             receipt["commands"].append(entry)
             if capture:

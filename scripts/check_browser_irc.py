@@ -17,12 +17,19 @@ from browser_mqtt_trust import certificates, private_nss
 ROOT = Path(__file__).resolve().parents[1]
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
+from build_browser_client import default_bindgen
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case', choices=['irc-datagram', 'irc-restricted-handshake', 'irc-mixed-retry'], default='irc-datagram')
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--skip-build', action='store_true')
-    parser.add_argument('--wasm-bindgen', default=shutil.which('wasm-bindgen') or '/tmp/miopunch-wasm-tools/bin/wasm-bindgen')
+    parser.add_argument('--wasm-bindgen', default=default_bindgen())
     parser.add_argument('--caller-budget-ms', type=int, choices=[12000,45000], default=12000)
     parser.add_argument('--mode', choices=['retry', 'delayed-first'], default='retry')
     args = parser.parse_args()
@@ -46,19 +53,26 @@ def main():
     def run(name, command, budget, environment=None):
         started = time.monotonic()
         with (output / f'{name}.log').open('w') as log:
-            process = subprocess.Popen(['rtk', 'proxy', *command], cwd=ROOT,
+            if builds.compiles(['rtk', 'proxy', *command]):
+                process = builds.run(['rtk', 'proxy', *command], cwd=ROOT,
                                        stdout=log, stderr=subprocess.STDOUT,
-                                       env=environment, start_new_session=True)
-            try:
-                code = process.wait(timeout=budget)
-            except (subprocess.TimeoutExpired, KeyboardInterrupt, TimeoutError):
-                os.killpg(process.pid, signal.SIGTERM)
+                                       env=environment, start_new_session=True, timeout=budget)
+                code = process.returncode
+                stdout = process.stdout
+            else:
+                process = builds.popen(['rtk', 'proxy', *command], cwd=ROOT,
+                                           stdout=log, stderr=subprocess.STDOUT,
+                                           env=environment, start_new_session=True)
                 try:
-                    process.wait(timeout=3)
-                except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
-                    process.wait()
-                code = 'deadline-or-cancel'
+                    code = process.wait(timeout=budget)
+                except (subprocess.TimeoutExpired, KeyboardInterrupt, TimeoutError):
+                    os.killpg(process.pid, signal.SIGTERM)
+                    try:
+                        process.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(process.pid, signal.SIGKILL)
+                        process.wait()
+                    code = 'deadline-or-cancel'
         receipt['checks'].append({'name': name, 'argv': command, 'exit': code,
                                   'budget_seconds': budget, 'seconds': round(time.monotonic() - started, 3)})
         save()
@@ -95,7 +109,7 @@ def main():
             config = fixture / 'ergo.yaml'
             config.write_text(configured)
             image = 'ergochat/ergo@sha256:cf50544214cf196d25913553a451b766101edce114b5e005a7c063da578851a7'
-            subprocess.run(['rtk', 'proxy', 'docker', 'run', '--detach', '--name', owned,
+            builds.run(['rtk', 'proxy', 'docker', 'run', '--detach', '--name', owned,
                             '--publish', '127.0.0.1::6697', '--publish', '127.0.0.1::8097',
                             '--mount', f'type=bind,src={fixture},target=/fixture,readonly',
                             '--entrypoint', '/ircd-bin/ergo', image, 'run', '--conf', '/fixture/ergo.yaml'],
@@ -119,7 +133,7 @@ def main():
             broker_arguments = []
             if args.case == 'irc-mixed-retry':
                 owned_mqtt = f'miopunch-irc-mqtt-retry-{time.time_ns()}'
-                subprocess.run(['rtk', 'proxy', 'docker', 'run', '--detach', '--name', owned_mqtt,
+                builds.run(['rtk', 'proxy', 'docker', 'run', '--detach', '--name', owned_mqtt,
                                 '--publish', '127.0.0.1::1883', '--mount',
                                 f'type=bind,src={ROOT / "scripts/mosquitto-test.conf"},target=/mosquitto/config/mosquitto.conf,readonly',
                                 'eclipse-mosquitto:2'], check=True, capture_output=True, text=True, timeout=10)
@@ -163,14 +177,14 @@ def main():
             # Logging is optional diagnostics. Its failure must never skip removal.
             try:
                 with (output / ('ergo-server.log' if cleanup_container == owned else 'mqtt-server.log')).open('w') as log:
-                    result = subprocess.run(['rtk', 'proxy', 'docker', 'logs', cleanup_container],
+                    result = builds.run(['rtk', 'proxy', 'docker', 'logs', cleanup_container],
                                             stdout=log, stderr=subprocess.STDOUT,
                                             timeout=remaining_cleanup(2 / len(cleanup_containers), reserve=5))
                     cleanup['log_exit'] = result.returncode
             except (Exception, KeyboardInterrupt) as error:
                 cleanup['log_error'] = str(error) or 'cancelled during log collection'
             try:
-                result = subprocess.run(['rtk', 'proxy', 'docker', 'rm', '--force', '--volumes', cleanup_container],
+                result = builds.run(['rtk', 'proxy', 'docker', 'rm', '--force', '--volumes', cleanup_container],
                                         capture_output=True, text=True, timeout=remaining_cleanup(5 / len(cleanup_containers)))
                 code = result.returncode
             except (Exception, KeyboardInterrupt) as error:

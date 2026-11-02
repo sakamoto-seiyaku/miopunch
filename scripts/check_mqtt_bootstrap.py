@@ -7,6 +7,11 @@ import subprocess
 import time
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=pathlib.Path, required=True)
@@ -21,7 +26,7 @@ def main():
     def execute(command, name):
         start = time.monotonic()
         with (output / name).open('w') as log:
-            result = subprocess.run(['rtk', 'proxy', *command], cwd=root, stdout=log, stderr=subprocess.STDOUT)
+            result = builds.run(['rtk', 'proxy', *command], cwd=root, stdout=log, stderr=subprocess.STDOUT)
         receipt['commands'].append({'argv': command, 'exit': result.returncode, 'seconds': round(time.monotonic()-start, 3), 'log': name})
         (output / 'results.json').write_text(json.dumps(receipt, indent=2)+'\n')
         if result.returncode:

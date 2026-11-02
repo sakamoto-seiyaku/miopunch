@@ -8,7 +8,7 @@ use p2panda_auth::group::{GroupAction, GroupMember};
 use p2panda_core::{Hash, Header, SigningKey};
 
 fn cli(args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_miopunch-native-probe"))
+    Command::new(test_cli::executable())
         .args(args)
         .output()
         .unwrap()
@@ -17,7 +17,7 @@ fn cli(args: &[&str]) -> std::process::Output {
 #[test]
 fn relative_data_directory_is_a_public_entry() {
     let dir = tempfile::tempdir().unwrap();
-    let binary = env!("CARGO_BIN_EXE_miopunch-native-probe");
+    let binary = test_cli::executable();
     let created = Command::new(binary)
         .current_dir(dir.path())
         .args(["network", "create", "node"])
@@ -223,3 +223,6 @@ async fn invalid_record_cannot_create_a_valid_view() {
         1
     );
 }
+
+#[path = "support/cli.rs"]
+mod test_cli;

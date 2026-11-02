@@ -13,12 +13,19 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
+from build_browser_client import default_bindgen
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--facility', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--skip-build', action='store_true')
-    parser.add_argument('--wasm-bindgen', default='/tmp/miopunch-wasm-tools/bin/wasm-bindgen')
+    parser.add_argument('--wasm-bindgen', default=default_bindgen())
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -33,20 +40,26 @@ def main():
     def run(name, command, budget):
         started = time.monotonic()
         with (output / f'{name}.log').open('w') as log:
-            child = subprocess.Popen(['rtk', 'proxy', *command], cwd=ROOT, stdout=log,
-                                     stderr=subprocess.STDOUT, start_new_session=True)
             forced = False
-            try:
-                code = child.wait(timeout=budget)
-            except (subprocess.TimeoutExpired, KeyboardInterrupt):
-                os.killpg(child.pid, signal.SIGTERM)
-                try:
-                    child.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    forced = True
-                    os.killpg(child.pid, signal.SIGKILL)
-                    child.wait()
+            if builds.compiles(['rtk', 'proxy', *command]):
+                child = builds.run(['rtk', 'proxy', *command], cwd=ROOT, stdout=log,
+                                     stderr=subprocess.STDOUT, start_new_session=True, timeout=budget)
                 code = child.returncode
+                stdout = child.stdout
+            else:
+                child = builds.popen(['rtk', 'proxy', *command], cwd=ROOT, stdout=log,
+                                         stderr=subprocess.STDOUT, start_new_session=True)
+                try:
+                    code = child.wait(timeout=budget)
+                except (subprocess.TimeoutExpired, KeyboardInterrupt):
+                    os.killpg(child.pid, signal.SIGTERM)
+                    try:
+                        child.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        forced = True
+                        os.killpg(child.pid, signal.SIGKILL)
+                        child.wait()
+                    code = child.returncode
             receipt['checks'].append({'name': name, 'argv': ['rtk', 'proxy', *command],
                                       'exit': code, 'forced_kill': forced,
                                       'budget_seconds': budget, 'seconds': time.monotonic() - started})

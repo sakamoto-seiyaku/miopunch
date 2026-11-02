@@ -1,3 +1,4 @@
+import { artifactPath } from './artifact-path.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -153,7 +154,7 @@ function quote(value) { return `'${value.replaceAll("'", "'\\''")}'`; }
 function nativeFixture(config, name, restricted = false) {
   const configPath = join(fixture, `native-${name}.json`);
   writeFileSync(configPath, JSON.stringify(config));
-  const child = spawn('rtk', ['proxy', join(root, `target/debug/${restricted ? 'browser_restricted_native' : 'browser_mqtt_datagram'}`), configPath, join(fixture, 'ca.pem'), ...(restricted ? [join(fixture, `node-${name}`)] : [])], { stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawn('rtk', ['proxy', artifactPath(join(root, `target/debug/${restricted ? 'browser_restricted_native' : 'browser_mqtt_datagram'}`)), configPath, join(fixture, 'ca.pem'), ...(restricted ? [join(fixture, `node-${name}`)] : [])], { stdio: ['pipe', 'pipe', 'pipe'] });
   child.restricted = restricted;
   nativeProcesses.add(child);
   const entries = [];

@@ -1,3 +1,4 @@
+import { artifactPath } from './artifact-path.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createReadStream, existsSync, readdirSync } from 'node:fs';
@@ -9,7 +10,7 @@ import { createInterface } from 'node:readline';
 import { chromium } from 'playwright-core';
 
 const root = resolve(fileURLToPath(new URL('../../', import.meta.url)));
-const probe = join(root, 'target/debug/browser-probe-native');
+const probe = artifactPath(join(root, 'target/debug/browser-probe-native'));
 const browserRoot = join(root, 'browser-probe');
 const children = [];
 

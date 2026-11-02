@@ -13,13 +13,20 @@ CASES = ["first", "lifecycle", "persistent-restart", "multi-page", "delivery-int
          "storage-clear", "commit-loss", "no-relay", "disabled-relay", "unavailable-relay", "tls"]
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
+from build_browser_client import default_bindgen
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path, help="new evidence directory")
     parser.add_argument("--case", choices=CASES, help="one scenario after the first admission check")
     parser.add_argument("--checks", action="store_true", help="also run affected native checks")
     parser.add_argument("--skip-build", action="store_true", help="use the existing compiled build")
-    parser.add_argument("--wasm-bindgen", default=shutil.which("wasm-bindgen") or "/tmp/miopunch-wasm-tools/bin/wasm-bindgen")
+    parser.add_argument("--wasm-bindgen", default=default_bindgen())
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -30,7 +37,7 @@ def main():
         start = time.monotonic()
         with (output / f"{name}.log").open("w") as log:
             try:
-                process = subprocess.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
+                process = builds.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
                                          timeout=timeout, env=os.environ.copy(), check=False)
                 code = process.returncode
             except subprocess.TimeoutExpired:

@@ -7,7 +7,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import subprocess
 import tarfile
 import socket
@@ -16,9 +15,14 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
 def snapshot(output):
     sources = sorted({path.relative_to(ROOT).as_posix() for prefix in ["src", "tests", "browser-probe/src", "vendor/iroh/src", "vendor/p2panda-net/src", "vendor/p2panda-auth/src", "vendor/noq/src", "vendor/noq-proto/src", "vendor/netwatch/src"] for path in (ROOT / prefix).rglob("*.rs")})
-    sources += ["Cargo.toml", "Cargo.lock", "browser-probe/Cargo.toml", "scripts/check_resources.py", "scripts/mosquitto-test.conf"]
+    sources += ["Cargo.toml", "Cargo.lock", ".cargo/config.toml", "tools/native/Cargo.toml", "scripts/check_build_cache.py", "scripts/cargo_cache.py", "scripts/pin_artifact.py", "browser-probe/Cargo.toml", "scripts/check_resources.py", "scripts/mosquitto-test.conf"]
     sources += [path.relative_to(ROOT).as_posix() for path in (ROOT / "vendor").glob("*/Cargo.toml")]
     hashes = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in sources}
     (output / "prestart-source-sha256.json").write_text(json.dumps(hashes, indent=2) + "\n")
@@ -92,27 +96,28 @@ def run_suite(output, lookup_fixes=False):
         receipt["mqtt_broker"] = address
         save()
         environment = dict(os.environ, MIOPUNCH_MQTT_BROKER=address)
+        builds.plan(suite_checks(lookup_fixes))
         for name, command in suite_checks(lookup_fixes):
             check = {"name": name, "started_utc": datetime.now(timezone.utc).isoformat(), "argv": command}
             receipt["checks"].append(check)
             save()
             print(f"Starting {name}", flush=True)
-            result = subprocess.run(["rtk", "proxy", "python", "-B", str(Path(__file__).resolve()), "--output", str(output / name), "--", *command], cwd=ROOT, env=environment)
-            check["actual_wrapper_exit"] = result.returncode
+            code = run_single(output / name, command, environment=environment, frozen_sources=hashes)
+            check["actual_wrapper_exit"] = code
             (output / (name + "-exit.json")).write_text(json.dumps(check, indent=2) + "\n")
             save()
-            if result.returncode or not unchanged(hashes):
-                return result.returncode or 2
+            if code or not unchanged(hashes):
+                return code or 2
         receipt["success"] = True
     finally:
         if container:
-            removed = subprocess.run(["rtk", "proxy", "docker", "rm", "--force", "--volumes", container], cwd=ROOT, capture_output=True, text=True)
+            removed = builds.run(["rtk", "proxy", "docker", "rm", "--force", "--volumes", container], cwd=ROOT, capture_output=True, text=True)
             receipt["cleanup_exit"] = removed.returncode
             receipt["cleanup_output"] = removed.stdout + removed.stderr
             receipt["owned_resource_absence"] = []
             for kind, names in [("container", [container]), ("volume", volumes)]:
                 for name in names:
-                    result = subprocess.run(["rtk", "proxy", "docker", kind, "inspect", name], cwd=ROOT, capture_output=True, text=True)
+                    result = builds.run(["rtk", "proxy", "docker", kind, "inspect", name], cwd=ROOT, capture_output=True, text=True)
                     raw = result.stdout + result.stderr
                     receipt["owned_resource_absence"].append({"kind": kind, "name": name, "actual_exit": result.returncode, "output": raw, "absent": result.returncode != 0 and f"no such {kind}" in raw.lower() and name.lower() in raw.lower()})
             receipt["success"] &= removed.returncode == 0 and all(entry["absent"] for entry in receipt["owned_resource_absence"])
@@ -133,30 +138,26 @@ def main():
     output = args.output.resolve()
     if args.suite or args.lookup_fixes:
         return run_suite(output, args.lookup_fixes)
-    output.mkdir(parents=True, exist_ok=False)
-    hashes = snapshot(output)
     command = args.command or ["cargo", "test", "--locked", "--test", "resources", "--", "--test-threads=1", "--nocapture"]
+    return run_single(output, command)
+
+
+def run_single(output, command, *, environment=None, frozen_sources=None):
+    output.mkdir(parents=True, exist_ok=False)
+    hashes = snapshot(output) if frozen_sources is None else frozen_sources
     if command[0] == "--":
         command = command[1:]
     receipt = {"started_utc": datetime.now(timezone.utc).isoformat(), "argv": ["rtk", "proxy", *command], "source_sha256": hashes}
     (output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
     with (output / "command.log").open("w") as log:
-        result = subprocess.run(receipt["argv"], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+        result = builds.run(receipt["argv"], cwd=ROOT, env=environment, stdout=log, stderr=subprocess.STDOUT)
     receipt.update(exit_code=result.returncode, finished_utc=datetime.now(timezone.utc).isoformat(), source_unchanged=unchanged(hashes))
     # Persist the real boundary before executable freezing or log parsing.
     (output / "command-exit.json").write_text(json.dumps(receipt, indent=2) + "\n")
-    # Freeze the executable from the actual Cargo run before any later compile.
     log_text = (output / "command.log").read_text()
-    frozen = Path("/tmp/mio38-frozen-executables")
-    frozen.mkdir(exist_ok=True)
-    receipt["executables"] = []
-    for name in re.findall(r"Running [^\n]+\(([^\n)]+)\)", log_text):
-        executable = ROOT / name
-        digest = hashlib.sha256(executable.read_bytes()).hexdigest()
-        saved = frozen / (executable.name + "-" + digest)
-        if not saved.exists():
-            shutil.copy2(executable, saved)
-        receipt["executables"].append({"actual_path": name, "frozen_path": str(saved), "sha256": digest, "frozen_after_actual_run": True})
+    receipt["executables"] = [dict(actual_path=p["pin"], frozen_path=p["pin"],
+                                    sha256=p["sha256"], pinned_before_run=True)
+                              for p in builds.last_programs] if command[:2] == ["cargo", "test"] else []
     totals = [tuple(map(int, row)) for row in re.findall(r"test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored", log_text)]
     receipt["test_totals"] = {label: sum(row[i] for row in totals) for i, label in enumerate(["passed", "failed", "ignored"])}
     (output / "command-exit.json").write_text(json.dumps(receipt, indent=2) + "\n")

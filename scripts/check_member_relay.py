@@ -12,6 +12,11 @@ import time
 
 CASES = {'first': 'explicitly_enabled_member_relay_carries_a_real_end_to_end_business_session', 'priority': 'disabling_data_relay_stops_new_forwarding_and_the_only_inner_path_fails', 'default': 'ordinary_member_data_service_is_disabled_by_default_and_bootstrap_is_insufficient', 'security': 'b_has_separate_outer_tls_keys_and_cannot_substitute_the_inner_endpoint_identity', 'backup-disabled': 'disabling_member_relay_keeps_the_original_connection_and_stream_on_an_allowed_backup', 'backup-disconnected': 'disconnected_b_keeps_the_original_connection_and_stream_on_an_allowed_backup', 'backup-removed': 'removing_b_retires_its_routes_and_preserves_the_original_ac_stream_on_an_allowed_backup', 'backup-interrupted': 'interrupted_member_circuit_keeps_the_original_ac_stream_on_an_allowed_backup', 'expiry': 'expired_data_routes_cannot_revive_after_reenabling_the_service', 'one-hop': 'an_inner_member_relay_connection_cannot_be_used_as_another_relay_outer_link', 'routes': 'forged_destinations_and_retired_tokens_cannot_redirect_member_data', 'bounds': 'malformed_and_over_budget_member_frames_have_bounded_forwarding', 'restriction': 'explicit_consumer_data_relay_restriction_blocks_the_route_at_actual_send', 'signal-isolation': 'live_signaling_service_never_becomes_business_fallback_when_b_disables_data_relay'}
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
@@ -33,7 +38,7 @@ def main():
         print(f'Starting {name}', flush=True)
         started = time.monotonic()
         with (output/(name+'.log')).open('w') as log:
-            result = subprocess.run(['rtk', 'proxy', *command], cwd=root, env=environment, stdout=log, stderr=subprocess.STDOUT)
+            result = builds.run(['rtk', 'proxy', *command], cwd=root, env=environment, stdout=log, stderr=subprocess.STDOUT)
         raw = (output/(name+'.log')).read_text()
         passed = sum(map(int, re.findall(r'test result: ok\. (\d+) passed', raw)))
         receipt['checks'].append({'name': name, 'argv': ['rtk','proxy',*command], 'exit': result.returncode, 'seconds': round(time.monotonic()-started,3), 'reported_passed': passed, 'log': name+'.log'})
@@ -95,7 +100,7 @@ def main():
     finally:
         receipt['cleanup'] = []
         for name in owned:
-            result = subprocess.run(['rtk','proxy','docker','rm','--force','--volumes',name],capture_output=True,text=True)
+            result = builds.run(['rtk','proxy','docker','rm','--force','--volumes',name],capture_output=True,text=True)
             receipt['cleanup'].append({'owned':name,'exit':result.returncode})
             receipt['passed'] &= result.returncode == 0
         (output/'results.json').write_text(json.dumps(receipt,indent=2)+'\n')

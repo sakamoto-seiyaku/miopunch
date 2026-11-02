@@ -29,6 +29,11 @@ CASES = [
 ]
 FEATURES = "nat-lab-test-hooks,replica-test-hooks,member-signaling-test-hooks"
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
@@ -59,7 +64,7 @@ def main():
         print(f"Starting {name}", flush=True)
         started = time.monotonic()
         with (output / (name + ".log")).open("w") as log:
-            result = subprocess.run(command, cwd=root, env=environment, stdout=log, stderr=subprocess.STDOUT)
+            result = builds.run(command, cwd=root, env=environment, stdout=log, stderr=subprocess.STDOUT)
         log = (output / (name + ".log")).read_text()
         counts = [int(value) for value in re.findall(r"test result: ok\. (\d+) passed", log)]
         receipt["checks"].append({"command": command, "exit": result.returncode, "seconds": round(time.monotonic() - started, 3), "log": name + ".log", "reported_passed": sum(counts)})
@@ -91,7 +96,7 @@ def main():
             for _ in range(2 if args.suite else 1):
                 name = f"miopunch47-maintenance-{time.time_ns()}"
                 command = ["rtk", "proxy", "docker", "run", "--detach", "--name", name, "--publish", "127.0.0.1::1883", "--mount", f'type=bind,src={root / "scripts/mosquitto-test.conf"},target=/mosquitto/config/mosquitto.conf,readonly', "eclipse-mosquitto:2"]
-                subprocess.run(command, check=True, capture_output=True, text=True)
+                builds.run(command, check=True, capture_output=True, text=True)
                 owned.append(name)
                 broker = subprocess.check_output(["rtk", "proxy", "docker", "port", name, "1883/tcp"], text=True).strip()
                 host, port = broker.rsplit(":", 1)
@@ -136,6 +141,7 @@ def main():
             ]
             if args.start_at:
                 checks = checks[next(index for index, (name, _) in enumerate(checks) if name == args.start_at):]
+            builds.plan(checks)
             for name, command in checks:
                 run(name, command)
         receipt["passed"] = True
@@ -147,7 +153,7 @@ def main():
     finally:
         receipt["cleanup"] = []
         for name in owned:
-            result = subprocess.run(["rtk", "proxy", "docker", "rm", "--force", "--volumes", name], capture_output=True, text=True)
+            result = builds.run(["rtk", "proxy", "docker", "rm", "--force", "--volumes", name], capture_output=True, text=True)
             receipt["cleanup"].append({"owned": name, "exit": result.returncode})
             receipt["passed"] &= result.returncode == 0
         save()

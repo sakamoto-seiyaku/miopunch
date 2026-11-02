@@ -18,6 +18,13 @@ from browser_mqtt_trust import certificates, private_nss
 ROOT = Path(__file__).resolve().parents[1]
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
+from build_browser_client import default_bindgen
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case', choices=['mqtt-datagram', 'wss-restricted-handshake', 'irc-datagram', 'rtc-channel', 'relay-member-rtc', 'wss-member-rtc', 'rtc-data-cut', 'rtc-invalidation', 'rtc-member-replica', 'wss-admission-materials', 'rtc-cross-network'], required=True)
@@ -25,7 +32,7 @@ def main():
     parser.add_argument('--invalidation-mode', choices=['cancel', 'member', 'secret-standard', 'resource'], default='cancel')
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--skip-build', action='store_true')
-    parser.add_argument('--wasm-bindgen', default=shutil.which('wasm-bindgen') or '/tmp/miopunch-wasm-tools/bin/wasm-bindgen')
+    parser.add_argument('--wasm-bindgen', default=default_bindgen())
     parser.add_argument('--target-dir', type=Path, default=ROOT / 'target')
     args = parser.parse_args()
     if args.case not in ('mqtt-datagram', 'wss-restricted-handshake', 'irc-datagram', 'rtc-channel'):
@@ -78,19 +85,26 @@ def main():
     def run(name, command, budget, environment=None):
         started = time.monotonic()
         with (output / f'{name}.log').open('w') as log:
-            process = subprocess.Popen(['rtk', 'proxy', *command], cwd=ROOT,
+            if builds.compiles(['rtk', 'proxy', *command]):
+                process = builds.run(['rtk', 'proxy', *command], cwd=ROOT,
                                        stdout=log, stderr=subprocess.STDOUT,
-                                       env=environment, start_new_session=True)
-            try:
-                code = process.wait(timeout=budget)
-            except (subprocess.TimeoutExpired, KeyboardInterrupt, TimeoutError):
-                os.killpg(process.pid, signal.SIGTERM)
+                                       env=environment, start_new_session=True, timeout=budget)
+                code = process.returncode
+                stdout = process.stdout
+            else:
+                process = builds.popen(['rtk', 'proxy', *command], cwd=ROOT,
+                                           stdout=log, stderr=subprocess.STDOUT,
+                                           env=environment, start_new_session=True)
                 try:
-                    process.wait(timeout=3)
-                except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
-                    process.wait()
-                code = 'deadline-or-cancel'
+                    code = process.wait(timeout=budget)
+                except (subprocess.TimeoutExpired, KeyboardInterrupt, TimeoutError):
+                    os.killpg(process.pid, signal.SIGTERM)
+                    try:
+                        process.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(process.pid, signal.SIGKILL)
+                        process.wait()
+                    code = 'deadline-or-cancel'
         receipt['checks'].append({'name': name, 'argv': command, 'exit': code,
                                   'budget_seconds': budget, 'seconds': round(time.monotonic() - started, 3)})
         save()
@@ -118,7 +132,7 @@ def main():
             receipt['certificate'] = {'normal_verification': True, 'private_trust_only': True,
                                       'leaf_pem_sha256': hashlib.sha256(leaf.read_bytes()).hexdigest()}
             owned = f'miopunch-rtc-mqtt-{time.time_ns()}'
-            subprocess.run(['rtk', 'proxy', 'docker', 'run', '--detach', '--name', owned,
+            builds.run(['rtk', 'proxy', 'docker', 'run', '--detach', '--name', owned,
                             '--publish', '127.0.0.1::1883', '--mount',
                             f'type=bind,src={ROOT / "scripts/mosquitto-test.conf"},target=/mosquitto/config/mosquitto.conf,readonly',
                             'eclipse-mosquitto:2'], check=True, capture_output=True, text=True, timeout=15)
@@ -149,7 +163,7 @@ def main():
         signal.setitimer(signal.ITIMER_REAL, 0)
         if owned:
             try:
-                result = subprocess.run(['rtk', 'proxy', 'docker', 'rm', '--force', '--volumes', owned],
+                result = builds.run(['rtk', 'proxy', 'docker', 'rm', '--force', '--volumes', owned],
                                         capture_output=True, text=True, timeout=15)
                 code = result.returncode
             except Exception as error:

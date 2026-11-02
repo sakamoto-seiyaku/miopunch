@@ -10,6 +10,11 @@ import subprocess
 import time
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=pathlib.Path, required=True)
@@ -30,7 +35,7 @@ def main():
         for _ in range(2):
             name = f'miopunch46-recovery-{time.time_ns()}'
             command = ['rtk', 'proxy', 'docker', 'run', '--detach', '--name', name, '--publish', '127.0.0.1::1883', '--mount', f'type=bind,src={root / "scripts/mosquitto-test.conf"},target=/mosquitto/config/mosquitto.conf,readonly', 'eclipse-mosquitto:2']
-            subprocess.run(command, check=True, capture_output=True, text=True)
+            builds.run(command, check=True, capture_output=True, text=True)
             owned.append(name)
             address = subprocess.check_output(['rtk', 'proxy', 'docker', 'port', name, '1883/tcp'], text=True).strip()
             host, port = address.rsplit(':', 1)
@@ -97,11 +102,12 @@ def main():
             if not args.suite or args.start_at not in [name for name, _ in checks]:
                 parser.error('start-at requires a suite check name')
             checks = checks[next(i for i, (name, _) in enumerate(checks) if name == args.start_at):]
+        builds.plan(checks)
         for name, command in checks:
             print(f'Starting {name}', flush=True)
             started = time.monotonic()
             with (output/(name+'.log')).open('w') as log:
-                result = subprocess.run(['rtk', 'proxy', *command], cwd=root, env=environment, stdout=log, stderr=subprocess.STDOUT)
+                result = builds.run(['rtk', 'proxy', *command], cwd=root, env=environment, stdout=log, stderr=subprocess.STDOUT)
             receipt['checks'].append({'argv': command, 'exit': result.returncode, 'seconds': round(time.monotonic()-started, 3), 'log': name+'.log'})
             (output/'results.json').write_text(json.dumps(receipt, indent=2)+'\n')
             if result.returncode:
@@ -114,7 +120,7 @@ def main():
     finally:
         receipt['cleanup'] = []
         for name in owned:
-            result = subprocess.run(['rtk', 'proxy', 'docker', 'rm', '--force', '--volumes', name], capture_output=True, text=True)
+            result = builds.run(['rtk', 'proxy', 'docker', 'rm', '--force', '--volumes', name], capture_output=True, text=True)
             receipt['cleanup'].append({'owned_container': name, 'exit': result.returncode})
             receipt['passed'] &= result.returncode == 0
         (output/'results.json').write_text(json.dumps(receipt, indent=2)+'\n')

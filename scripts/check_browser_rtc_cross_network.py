@@ -17,6 +17,13 @@ from rtc_cross_network_evidence import validate as validate_network_evidence
 from rtc_cross_network_topology import OwnedLab
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
+from build_browser_client import default_bindgen
+
 def build(target, output):
     output.mkdir(parents=True, exist_ok=False)
     checks = []
@@ -25,13 +32,14 @@ def build(target, output):
             "--bin", "browser_network_native", "--bin", "browser-probe-native", "--bin", "browser_wss_member_native"]),
         ("wasm", ["cargo", "build", "--locked", "--offline", "-p", "miopunch-browser-probe", "--features", "rtc-probe", "--jobs", "2",
             "--target", "wasm32-unknown-unknown", "--target-dir", str(target)]),
-        ("bindgen", ["/tmp/miopunch-wasm-tools/bin/wasm-bindgen", "--target", "web", "--out-dir", str(ROOT/"browser-probe/pkg"),
+        ("bindgen", [default_bindgen(), "--target", "web", "--out-dir", str(ROOT/"browser-probe/pkg"),
             str(target/"wasm32-unknown-unknown/debug/miopunch_browser_probe.wasm")]),
     ]
+    builds.plan(commands)
     for name, argv in commands:
         started = time.monotonic()
         with (output/(name+".log")).open("w") as log:
-            completed = subprocess.run(["rtk", "proxy", *argv], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, timeout=600)
+            completed = builds.run(["rtk", "proxy", *argv], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, timeout=600)
         checks.append({"name": name, "argv": argv, "exit": completed.returncode, "seconds": time.monotonic()-started})
         (output/"results.json").write_text(json.dumps({"scope": "builds outside each120s protocol clock", "commands": checks}, indent=2)+"\n")
         if completed.returncode:
@@ -41,15 +49,15 @@ def build(target, output):
 def artifacts(target):
     paths = [target/"debug/browser_network_native", target/"debug/browser-probe-native", target/"debug/browser_wss_member_native",
              ROOT/"browser-probe/pkg/miopunch_browser_probe.js", ROOT/"browser-probe/pkg/miopunch_browser_probe_bg.wasm"]
-    return {str(path): sha256(path) for path in paths}
+    return {builds.path(path): sha256(Path(builds.path(path))) for path in paths}
 
 
 def trust(fixture):
     ca, leaf, key = certificates(fixture, dns_names=("localhost", "mio-mqtt.test", "mio-relay.test"))
     private_nss(fixture/"nssdb", ca)
     for source, name in ((ca, "ca.der"), (leaf, "leaf.der")):
-        subprocess.run(["rtk", "proxy", "openssl", "x509", "-in", str(source), "-outform", "DER", "-out", str(fixture/name)], check=True, capture_output=True, timeout=3)
-    subprocess.run(["rtk", "proxy", "openssl", "pkcs8", "-topk8", "-nocrypt", "-in", str(key), "-outform", "DER", "-out", str(fixture/"leaf-key.der")], check=True, capture_output=True, timeout=3)
+        builds.run(["rtk", "proxy", "openssl", "x509", "-in", str(source), "-outform", "DER", "-out", str(fixture/name)], check=True, capture_output=True, timeout=3)
+    builds.run(["rtk", "proxy", "openssl", "pkcs8", "-topk8", "-nocrypt", "-in", str(key), "-outform", "DER", "-out", str(fixture/"leaf-key.der")], check=True, capture_output=True, timeout=3)
     (fixture/"runtime").mkdir()
 
 
@@ -79,6 +87,7 @@ def member_case(output, target, mode, seed, source_record=None, expected_browser
         temporary = tempfile.TemporaryDirectory(prefix="mio-rtc-s11-case-")
         fixture = Path(temporary.name)
     lab = OwnedLab(output, fixture, target, mode=mode)
+    lab.artifact_paths = dict(builds.paths)
     receipt = {"mode": mode, "scope": "controlled separated kernel networks, not physical WAN/cellular",
                "passed": False, "sourceBefore": source_snapshot(), "builtArtifactSet": artifacts(target), "cleanup": [],
                "executedArtifactPaths": [str(ROOT/"browser-probe/pkg/miopunch_browser_probe.js"), str(ROOT/"browser-probe/pkg/miopunch_browser_probe_bg.wasm"), str(target/"debug/browser_wss_member_native")] +

@@ -12,6 +12,7 @@ import tempfile
 import time
 
 import cargo_cache
+from pin_artifact import pin_artifact
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,6 +23,8 @@ def capture(args):
 
 def sources(extra=()):
     paths = {ROOT / "Cargo.toml", ROOT / "Cargo.lock", ROOT / "build.rs",
+             ROOT / "tools/native/Cargo.toml", ROOT / "browser-probe/Cargo.toml",
+             ROOT / "scripts/cargo_cache.py", ROOT / "scripts/pin_artifact.py",
              ROOT / ".cargo/config", ROOT / ".cargo/config.toml", Path(__file__).resolve(),
              ROOT / "scripts/android/MioPublicShell.java", *map(Path, extra)}
     for directory in (ROOT / "src", ROOT / "vendor"):
@@ -108,6 +111,7 @@ def prepare_deployment(artifacts, destination):
                                  "deployedPath": str(copied), "compiledBytes": artifact.stat().st_size}
         try:
             shutil.copy2(artifact, copied)
+            copied.chmod(copied.stat().st_mode | 0o200)
         except OSError as error:
             result[artifact.name]["transformation"] = {"operation": "copy byte-for-byte", "exit": None,
                                                         "failureClass": type(error).__name__}
@@ -181,6 +185,7 @@ def build(args, target, environment):
         command += ["--features", args.features]
     for binary in bins:
         command += ["--bin", binary]
+    command = cargo_cache.cargo_command(command[3:], target)
     input_tools = [clang, archiver, ndk / "source.properties"]
     if args.jni_shell:
         input_tools.append(args.d8_jar.resolve())
@@ -201,6 +206,16 @@ def build(args, target, environment):
         result = subprocess.run(command, cwd=ROOT, env=environment, stdout=log, stderr=subprocess.STDOUT)
     report.update(exit=result.returncode, cargoExit=result.returncode,
                   callerElapsedMs=round((time.monotonic() - started) * 1000, 3))
+    entries = []
+    for line in (output / "build.log").read_text().splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if entry.get("reason") == "compiler-artifact":
+            entries.append(entry)
+    report.update(freshArtifacts=sum(e.get("fresh") is True for e in entries),
+                  rebuiltArtifacts=sum(e.get("fresh") is False for e in entries))
     artifacts = [target / "aarch64-linux-android/debug" / binary for binary in bins]
     if args.jni_shell and result.returncode == 0:
         library_command = ["rtk", "proxy", "cargo", "rustc", "--locked", "--lib",
@@ -210,6 +225,7 @@ def build(args, target, environment):
             library_command.append("--offline")
         if args.features:
             library_command += ["--features", args.features]
+        library_command = cargo_cache.cargo_command(library_command[3:], target)
         library_started = time.monotonic()
         with (output / "jni-library-build.log").open("w") as log:
             library_result = subprocess.run(library_command, cwd=ROOT, env=environment,
@@ -243,9 +259,17 @@ def build(args, target, environment):
             artifacts.append(output / "android-shell.jar")
     report["artifacts"] = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
                            for path in artifacts if path.is_file() and result.returncode == 0}
+    report["compiledArtifacts"] = report["artifacts"]
+    pinned = []
+    report["artifacts"] = {}
+    for path, digest_value in report["compiledArtifacts"].items():
+        saved = pin_artifact(Path(path), output / "pinned" / Path(path).name, store=ROOT / ".artifacts")
+        pinned.append(saved)
+        # pin_artifact verifies the copy; reuse the source digest already recorded.
+        report["artifacts"][str(saved)] = digest_value
     if args.strip_deployment_debug and report["exit"] == 0:
         try:
-            report["deployment"] = prepare_deployment(artifacts, output / "deploy")
+            report["deployment"] = prepare_deployment(pinned, output / "deploy")
         except DeploymentFailure as error:
             report["deployment"] = error.partial
             report["deploymentFailure"] = str(error)

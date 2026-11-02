@@ -11,6 +11,11 @@ import subprocess
 import time
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True, type=pathlib.Path)
@@ -29,7 +34,7 @@ def main():
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, interrupted)
     try:
-        subprocess.run(['rtk', 'proxy', 'docker', 'run', '--detach', '--name', name, '--publish', '127.0.0.1::1883', '--mount', f'type=bind,src={root / "scripts/mosquitto-test.conf"},target=/mosquitto/config/mosquitto.conf,readonly', 'eclipse-mosquitto:2'], check=True, capture_output=True, text=True)
+        builds.run(['rtk', 'proxy', 'docker', 'run', '--detach', '--name', name, '--publish', '127.0.0.1::1883', '--mount', f'type=bind,src={root / "scripts/mosquitto-test.conf"},target=/mosquitto/config/mosquitto.conf,readonly', 'eclipse-mosquitto:2'], check=True, capture_output=True, text=True)
         owned_names.append(name)
         broker = subprocess.check_output(['rtk', 'proxy', 'docker', 'port', name, '1883/tcp'], text=True).strip()
         host, port = broker.rsplit(':', 1)
@@ -44,7 +49,7 @@ def main():
                 time.sleep(0.1)
         # A distinct live origin is available to multi-origin regression checks.
         second_name = name + '-second'
-        subprocess.run(['rtk', 'proxy', 'docker', 'run', '--detach', '--name', second_name, '--publish', '127.0.0.1::1883', '--mount', f'type=bind,src={root / "scripts/mosquitto-test.conf"},target=/mosquitto/config/mosquitto.conf,readonly', 'eclipse-mosquitto:2'], check=True, capture_output=True, text=True)
+        builds.run(['rtk', 'proxy', 'docker', 'run', '--detach', '--name', second_name, '--publish', '127.0.0.1::1883', '--mount', f'type=bind,src={root / "scripts/mosquitto-test.conf"},target=/mosquitto/config/mosquitto.conf,readonly', 'eclipse-mosquitto:2'], check=True, capture_output=True, text=True)
         owned_names.append(second_name)
         second_broker = subprocess.check_output(['rtk', 'proxy', 'docker', 'port', second_name, '1883/tcp'], text=True).strip()
         host, port = second_broker.rsplit(':', 1)
@@ -103,11 +108,12 @@ def main():
             if not args.suite or args.start_at not in names:
                 parser.error('start-at requires a valid suite check')
             checks = checks[names.index(args.start_at):]
+        builds.plan(checks)
         for check, command in checks:
             print(f'Starting {check}', flush=True)
             started = time.monotonic()
             with (output / f'{check}.log').open('w') as log:
-                result = subprocess.run(['rtk', 'proxy', *command], cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT)
+                result = builds.run(['rtk', 'proxy', *command], cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT)
             receipt['checks'].append({'name': check, 'argv': command, 'exit': result.returncode, 'seconds': round(time.monotonic()-started, 3), 'log': f'{check}.log', 'reported_passed': sum(map(int, re.findall(r'test result: ok\. (\d+) passed', (output / f'{check}.log').read_text())))})
             (output / 'results.json').write_text(json.dumps(receipt, indent=2)+'\n')
             if result.returncode:
@@ -124,7 +130,7 @@ def main():
         receipt['error'] = str(error)
     finally:
         for name in owned_names:
-            result = subprocess.run(['rtk', 'proxy', 'docker', 'rm', '--force', '--volumes', name], capture_output=True, text=True)
+            result = builds.run(['rtk', 'proxy', 'docker', 'rm', '--force', '--volumes', name], capture_output=True, text=True)
             receipt['cleanup'].append({'owned_container': name, 'exit': result.returncode})
             receipt['passed'] &= result.returncode == 0
         (output / 'results.json').write_text(json.dumps(receipt, indent=2)+'\n')

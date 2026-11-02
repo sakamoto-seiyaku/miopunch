@@ -1,3 +1,4 @@
+import { artifactPath } from './artifact-path.mjs';
 // Real public IRC qualification through the existing startup-inclusive SDK seam.
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
@@ -73,7 +74,7 @@ try {
     window.setInterval=(callback,delay,...args)=>{const id=start(callback,delay,...args);window.ownedIntervals.add(id);return id;};window.clearInterval=id=>{window.ownedIntervals.delete(id);stop(id);};
   },{js,wasm:readFileSync(join(root,'browser-probe/pkg/miopunch_browser_probe_bg.wasm')).toString('base64')});
   const configPath=join(fixture,'config.json');writeFileSync(configPath,JSON.stringify({facility,profile,caller_budget_ms:12000,disabled:[]}));
-  native=spawn('rtk',['proxy',join(root,'target/debug/browser_irc_restricted_native'),configPath,'-',join(fixture,'native-store')],{stdio:['pipe','pipe','pipe']});
+  native=spawn('rtk',['proxy',artifactPath(join(root,'target/debug/browser_irc_restricted_native')),configPath,'-',join(fixture,'native-store')],{stdio:['pipe','pipe','pipe']});
   processExit=new Promise(resolveExit=>native.once('exit',(code,signal)=>{report.cleanup.nativeExit={code,signal};save();for(const p of pending.splice(0))p.reject(new Error(`native exit ${code}/${signal}`));resolveExit({code,signal});}));
   native.on('error',error=>{for(const p of pending.splice(0))p.reject(error);});
   native.stderr.on('data',data=>{report.nativeStderr=(report.nativeStderr??'')+String(data);});

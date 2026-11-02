@@ -13,13 +13,20 @@ CASES = ["replica", "precode", "replica-faults", "management", "browser-admissio
          "new-code", "revocation", "storage-corrupt", "browser-precode"]
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
+from build_browser_client import default_bindgen
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path, help="new evidence directory")
     parser.add_argument("--case", choices=CASES)
     parser.add_argument("--checks", action="store_true", help="affected native and previous browser regressions")
     parser.add_argument("--skip-build", action="store_true")
-    parser.add_argument("--wasm-bindgen", default=shutil.which("wasm-bindgen") or "/tmp/miopunch-wasm-tools/bin/wasm-bindgen")
+    parser.add_argument("--wasm-bindgen", default=default_bindgen())
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -32,7 +39,7 @@ def main():
         logfile = output / f"{name}.log"
         with logfile.open("w") as log:
             try:
-                process = subprocess.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
+                process = builds.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
                                          timeout=timeout, env=os.environ.copy(), check=False)
                 code = process.returncode
             except subprocess.TimeoutExpired:

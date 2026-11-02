@@ -17,6 +17,13 @@ ROOT = Path(__file__).resolve().parent.parent
 RELAYS = tuple(f"https://{region}.relay.n0.iroh.link./" for region in ("aps1-1", "use1-1", "usw1-1", "euc1-1"))
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
+from build_browser_client import default_bindgen
+
 def reject_retired_fixture():
     raise SystemExit(
         "Historical RTC member fixtures are retired with the old protocol. "
@@ -72,7 +79,7 @@ def main():
     parser.add_argument("--pump-failure-only", action="store_true", help="narrow owned S5 pump termination regression")
     parser.add_argument("--legacy-no-rtc", action="store_true", help="owned WSS member legacy peer with no joint data path")
     parser.add_argument("--legacy-relay", action="store_true", help="owned MQTT-started legacy member with an explicitly permitted relay")
-    parser.add_argument("--wasm-bindgen", default=shutil.which("wasm-bindgen") or "/tmp/miopunch-wasm-tools/bin/wasm-bindgen")
+    parser.add_argument("--wasm-bindgen", default=default_bindgen())
     args = parser.parse_args()
     if args.case != "rtc-channel" or args.legacy_no_rtc or args.legacy_relay or args.pump_failure_only:
         reject_retired_fixture()
@@ -90,17 +97,22 @@ def main():
     def run(name, command, timeout=900):
         started = time.monotonic()
         with (output / f"{name}.log").open("w") as log:
-            process = subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
-            try:
-                code = process.wait(timeout=timeout)
-            except BaseException as error:
-                os.killpg(process.pid, signal.SIGTERM)
+            if builds.compiles(command):
+                process = builds.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, start_new_session=True, timeout=timeout)
+                code = process.returncode
+                stdout = process.stdout
+            else:
+                process = builds.popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
                 try:
-                    process.wait(timeout=3)
-                except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
-                    process.wait()
-                code = "timeout" if isinstance(error, (subprocess.TimeoutExpired, TimeoutError)) else "cancelled"
+                    code = process.wait(timeout=timeout)
+                except BaseException as error:
+                    os.killpg(process.pid, signal.SIGTERM)
+                    try:
+                        process.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(process.pid, signal.SIGKILL)
+                        process.wait()
+                    code = "timeout" if isinstance(error, (subprocess.TimeoutExpired, TimeoutError)) else "cancelled"
         entry = {"name": name, "command": command, "seconds": round(time.monotonic()-started, 3), "exit": code}
         result["commands"].append(entry)
         save()
@@ -120,7 +132,7 @@ def main():
             run("native-build", ["rtk", "cargo", "build", "--locked", "--offline", "--features", "rtc-probe", "--bin", "browser_network_native", "--bin", "browser-probe-native", *(["--bin", "browser_wss_member_native"] if args.case == "wss-member-rtc" else []), "--target-dir", str(target), "--jobs", "2"])
             run("wasm-build", ["rtk", "cargo", "build", "--locked", "--offline", "-p", "miopunch-browser-probe", "--features", "rtc-probe", "--target", "wasm32-unknown-unknown", "--target-dir", str(target), "--jobs", "2"])
             run("wasm-bindgen", ["rtk", "proxy", args.wasm_bindgen, "--target", "web", "--out-dir", "browser-probe/pkg", str(target / "wasm32-unknown-unknown/debug/miopunch_browser_probe.wasm")])
-        result["builtArtifacts"] = {str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else str(path): sha256(path) for path in (target / "debug/browser_network_native", target / "debug/browser-probe-native", ROOT / "browser-probe/pkg/miopunch_browser_probe.js", ROOT / "browser-probe/pkg/miopunch_browser_probe_bg.wasm")}
+        result["builtArtifacts"] = {str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else str(path): sha256(Path(builds.path(path))) for path in (target / "debug/browser_network_native", target / "debug/browser-probe-native", ROOT / "browser-probe/pkg/miopunch_browser_probe.js", ROOT / "browser-probe/pkg/miopunch_browser_probe_bg.wasm")}
         command = ["rtk", "proxy", "node", "browser-probe/harness/run-rtc.mjs", "--case", args.case, "--relay", args.relay, "--native", str(target / "debug/browser_network_native"), "--evidence", str(output)]
         if args.pump_failure_only:
             command.append("--pump-failure-only")
@@ -140,12 +152,12 @@ def main():
                 ca, leaf, key = certificates(fixture)
                 private_nss(fixture / "nssdb", ca)
                 for source, destination in [(ca, "ca.der"), (leaf, "leaf.der")]:
-                    subprocess.run(["rtk", "proxy", "openssl", "x509", "-in", str(source), "-outform", "DER", "-out", str(fixture / destination)], check=True, capture_output=True, timeout=10)
-                subprocess.run(["rtk", "proxy", "openssl", "pkcs8", "-topk8", "-nocrypt", "-in", str(key), "-outform", "DER", "-out", str(fixture / "leaf-key.der")], check=True, capture_output=True, timeout=10)
+                    builds.run(["rtk", "proxy", "openssl", "x509", "-in", str(source), "-outform", "DER", "-out", str(fixture / destination)], check=True, capture_output=True, timeout=10)
+                builds.run(["rtk", "proxy", "openssl", "pkcs8", "-topk8", "-nocrypt", "-in", str(key), "-outform", "DER", "-out", str(fixture / "leaf-key.der")], check=True, capture_output=True, timeout=10)
                 result["certificate"] = {"normalVerification": True, "privateNssOnly": True, "caPemSha256": hashlib.sha256(ca.read_bytes()).hexdigest()}
                 if args.case == "wss-member-rtc":
                     owned_broker = f"miopunch-s6-wss-{time.time_ns()}"
-                    subprocess.run(["rtk", "proxy", "docker", "run", "--detach", "--name", owned_broker,
+                    builds.run(["rtk", "proxy", "docker", "run", "--detach", "--name", owned_broker,
                                     "--publish", "127.0.0.1::1883", "--mount",
                                     f"type=bind,src={ROOT / 'scripts/mosquitto-test.conf'},target=/mosquitto/config/mosquitto.conf,readonly",
                                     "eclipse-mosquitto:2"], check=True, capture_output=True, timeout=10)
@@ -176,7 +188,7 @@ def main():
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         if owned_broker:
-            cleanup = subprocess.run(["rtk", "proxy", "docker", "rm", "--force", "--volumes", owned_broker], capture_output=True, timeout=15)
+            cleanup = builds.run(["rtk", "proxy", "docker", "rm", "--force", "--volumes", owned_broker], capture_output=True, timeout=15)
             result["brokerCleanupExit"] = cleanup.returncode
             result["passed"] &= cleanup.returncode == 0
         result["sourceAfter"] = source_snapshot()

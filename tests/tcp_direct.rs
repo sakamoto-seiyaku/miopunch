@@ -771,7 +771,7 @@ async fn normal_cli_starts_with_tcp_only_and_exits_on_interrupt() {
     let id = node.status().node_id.to_string();
     node.close().await;
     let mut child = Child(
-        Command::new(env!("CARGO_BIN_EXE_miopunch-native-probe"))
+        Command::new(test_cli::executable())
             .args(["network", "run"])
             .arg(&path)
             .arg("127.0.0.1")
@@ -809,3 +809,6 @@ async fn normal_cli_starts_with_tcp_only_and_exits_on_interrupt() {
     assert!(status.success());
     eprintln!("MIO40_CLI tcp_only_ready={address} interrupt_exit=0");
 }
+
+#[path = "support/cli.rs"]
+mod test_cli;

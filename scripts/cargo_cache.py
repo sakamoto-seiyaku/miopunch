@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 GIB = 1024 ** 3
@@ -114,10 +115,54 @@ def cleanup_incremental(target, root=ROOT):
         return {"removedIncrementalCaches": removed, "diskAfter": disk_state(target)}
 
 
+def select_packages(arguments):
+    """Select moved native programs explicitly while keeping SDK/library builds at root."""
+    arguments = list(arguments)
+    end = arguments.index("--") if "--" in arguments else len(arguments)
+    options = arguments[:end]
+    manifest = ROOT / "tools/native/Cargo.toml"
+    if manifest.is_file() and not any(a in ("-p", "--package", "--manifest-path", "--workspace") or
+                                      a.startswith(("--package=", "--manifest-path=")) for a in options):
+        tools = {b["name"] for b in tomllib.loads(manifest.read_text()).get("bin", [])}
+        bins = [options[i + 1] for i, a in enumerate(options[:-1]) if a == "--bin"]
+        bins += [a.split("=", 1)[1] for a in options if a.startswith("--bin=")]
+        packages = set()
+        for binary in bins:
+            if binary in tools:
+                packages.add("miopunch-native-tools")
+            elif binary == "miopunch-native-probe":
+                packages.add("miopunch-native-probe")
+        for package in sorted(packages):
+            arguments[1:1] = ["--package", package]
+    # Before the split these flags also configured the auxiliary binaries.
+    selected_packages = {arguments[i + 1] for i, a in enumerate(arguments[:-1]) if a in ("--package", "-p")}
+    selected_packages.update(a.split("=", 1)[1] for a in arguments if a.startswith("--package="))
+    if ("--workspace" in options or {"miopunch-native-probe", "miopunch-native-tools"} <= selected_packages) and manifest.is_file():
+        features = set(tomllib.loads(manifest.read_text()).get("features", {}))
+        end = arguments.index("--") if "--" in arguments else len(arguments)
+        for i in range(end):
+            value = arguments[i]
+            if value == "--features" and i + 1 < end:
+                value = arguments[i + 1]
+                index, prefix = i + 1, ""
+            elif value.startswith("--features="):
+                value = value.split("=", 1)[1]
+                index, prefix = i, "--features="
+            else:
+                continue
+            selected = []
+            for feature in value.replace(",", " ").split():
+                selected.extend([f"miopunch-native-probe/{feature}", f"miopunch-native-tools/{feature}"]
+                                if feature in features else [feature])
+            arguments[index] = prefix + ",".join(selected)
+    return arguments
+
+
 def cargo_command(arguments, target):
     arguments = list(arguments)
     if arguments and arguments[0] == "cargo":
         arguments.pop(0)
+    arguments = select_packages(arguments)
     if not arguments or arguments[0] not in ("build", "check", "test", "rustc"):
         raise CacheError("run accepts cargo build, check, test or rustc")
     cargo_end = arguments.index("--") if "--" in arguments else len(arguments)

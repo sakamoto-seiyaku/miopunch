@@ -15,13 +15,20 @@ OFFICIAL_RELAYS = tuple(f"https://{region}.relay.n0.iroh.link./"
                         for region in ("aps1-1", "use1-1", "usw1-1", "euc1-1"))
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
+from build_browser_client import default_bindgen
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path, help="new evidence directory")
     parser.add_argument("--relay", choices=OFFICIAL_RELAYS, default=OFFICIAL_RELAYS[0])
     parser.add_argument("--skip-build", action="store_true", help="explicitly reuse current build")
     parser.add_argument("--checks", action="store_true", help="short affected checks; unchanged slow NAT excluded")
-    parser.add_argument("--wasm-bindgen", default=shutil.which("wasm-bindgen") or "/tmp/miopunch-wasm-tools/bin/wasm-bindgen")
+    parser.add_argument("--wasm-bindgen", default=default_bindgen())
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -34,18 +41,24 @@ def main():
         env = os.environ.copy()
         env.update(environment or {})
         with (output / f"{name}.log").open("w") as log:
-            process = subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
-                                       env=env, start_new_session=True)
-            try:
-                code = process.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGTERM)
+            if builds.compiles(command):
+                process = builds.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
+                                       env=env, start_new_session=True, timeout=timeout)
+                code = process.returncode
+                stdout = process.stdout
+            else:
+                process = builds.popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
+                                           env=env, start_new_session=True)
                 try:
-                    process.wait(timeout=5)
+                    code = process.wait(timeout=timeout)
                 except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
-                    process.wait()
-                code = "timeout"
+                    os.killpg(process.pid, signal.SIGTERM)
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(process.pid, signal.SIGKILL)
+                        process.wait()
+                    code = "timeout"
         result = {"name": name, "command": command, "exit": code,
                   "seconds": round(time.monotonic() - start, 3)}
         results["checks"].append(result)

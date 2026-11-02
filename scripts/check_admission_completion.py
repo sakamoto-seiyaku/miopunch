@@ -24,6 +24,11 @@ SOURCES = [
 ]
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
 def hashes():
     return {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in SOURCES}
 
@@ -33,7 +38,7 @@ def utc():
 
 
 def owned_resource_absent(kind, name):
-    inspected = subprocess.run(["rtk", "proxy", "docker", kind, "inspect", name],
+    inspected = builds.run(["rtk", "proxy", "docker", kind, "inspect", name],
                                cwd=ROOT, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True)
     # Docker uses "No such container" but "no such volume" on this daemon.
@@ -92,6 +97,7 @@ def main():
             ("fault-build-typecheck", ["cargo", "check", "--locked", "--workspace", "--tests", "--features", "replica-test-hooks"]),
             ("format", ["cargo", "fmt", "--check"]),
         ]
+        builds.plan(checks)
         for name, command in checks:
             check = {"name": name, "argv": ["rtk", "proxy", *command], "started_utc": utc()}
             receipt["commands"].append(check)
@@ -99,7 +105,7 @@ def main():
             (output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
             started = time.monotonic()
             with (output / (name + ".log")).open("w") as log:
-                result = subprocess.run(check["argv"], cwd=ROOT, env=environment,
+                result = builds.run(check["argv"], cwd=ROOT, env=environment,
                                         stdout=log, stderr=subprocess.STDOUT)
             check.update(exit_code=result.returncode, finished_utc=utc(),
                          wall_seconds=time.monotonic() - started)
@@ -123,7 +129,7 @@ def main():
         success = True
     finally:
         if container:
-            cleanup = subprocess.run(["rtk", "proxy", "docker", "rm", "--force", "--volumes", container],
+            cleanup = builds.run(["rtk", "proxy", "docker", "rm", "--force", "--volumes", container],
                                      cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                      text=True)
             receipt["owned_container_cleanup_exit"] = cleanup.returncode

@@ -11,7 +11,6 @@ import socket
 import subprocess
 import time
 import tarfile
-import shutil
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -92,6 +91,11 @@ NAT_EXCLUSIONS = {
 }
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
 def cargo_tests(targets, selector=None):
     command = ["cargo", "test", "--locked", "--features", "replica-test-hooks"]
     for target in targets:
@@ -132,7 +136,7 @@ def utc():
 
 
 def owned_resource_absent(kind, name):
-    inspected = subprocess.run(["rtk", "proxy", "docker", kind, "inspect", name],
+    inspected = builds.run(["rtk", "proxy", "docker", kind, "inspect", name],
                                cwd=ROOT, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True)
     # Docker uses "No such container" but "no such volume" on this daemon.
@@ -203,6 +207,7 @@ def main():
             receipt["broker_tcp_preflight"] = True
             environment = os.environ.copy()
             environment["MIOPUNCH_MQTT_BROKER"] = address
+        builds.plan(checks(args.affected_rotation, args.recovery_fixes))
         for name, command in checks(args.affected_rotation, args.recovery_fixes):
             check = {"name": name, "argv": ["rtk", "proxy", *command], "started_utc": utc()}
             receipt["commands"].append(check)
@@ -210,19 +215,12 @@ def main():
             (output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
             started = time.monotonic()
             with (output / (name + ".log")).open("w") as log:
-                result = subprocess.run(check["argv"], cwd=ROOT, env=environment,
+                result = builds.run(check["argv"], cwd=ROOT, env=environment,
                                         stdout=log, stderr=subprocess.STDOUT)
             raw_log = (output / (name + ".log")).read_text()
-            for binary in re.findall(r"Running [^\n]+\((target/debug/deps/[^) ]+)\)", raw_log):
-                path = ROOT / binary
-                digest = hashlib.sha256(path.read_bytes()).hexdigest()
-                frozen = Path("/tmp/mio37-frozen-executables") / digest / path.name
-                frozen.parent.mkdir(parents=True, exist_ok=True)
-                if not frozen.exists():
-                    shutil.copyfile(path, frozen)
-                    frozen.chmod(0o500)
-                assert hashlib.sha256(frozen.read_bytes()).hexdigest() == digest
-                receipt["executables"].append({"command": name, "path": binary, "sha256": digest, "frozen_path": str(frozen)})
+            receipt["executables"].extend(dict(command=name, path=p["pin"], sha256=p["sha256"],
+                                                 frozen_path=p["pin"], pinned_before_run=True)
+                                           for p in builds.last_programs if command[:2] == ["cargo", "test"])
             check.update(exit_code=result.returncode, finished_utc=utc(),
                          wall_seconds=time.monotonic() - started)
             # Save each actual exit boundary before parsing or broader checks.
@@ -245,7 +243,7 @@ def main():
         success = True
     finally:
         if container:
-            cleanup = subprocess.run(["rtk", "proxy", "docker", "rm", "--force", "--volumes", container],
+            cleanup = builds.run(["rtk", "proxy", "docker", "rm", "--force", "--volumes", container],
                                      cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                      text=True)
             receipt["owned_container_cleanup_exit"] = cleanup.returncode

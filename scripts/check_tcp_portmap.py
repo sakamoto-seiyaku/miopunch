@@ -7,6 +7,11 @@ import subprocess
 import time
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=pathlib.Path, required=True)
@@ -22,7 +27,7 @@ def main():
     def execute(command, name):
         started = time.monotonic()
         with (output / name).open('w') as out:
-            result = subprocess.run(['rtk', 'proxy', *command], cwd=root, text=True, stdout=out, stderr=subprocess.STDOUT)
+            result = builds.run(['rtk', 'proxy', *command], cwd=root, text=True, stdout=out, stderr=subprocess.STDOUT)
         receipt['commands'].append({'argv': command, 'exit': result.returncode, 'seconds': round(time.monotonic() - started, 3), 'log': name})
         (output / 'results.json').write_text(json.dumps(receipt, indent=2) + '\n')
         if result.returncode:
@@ -36,13 +41,12 @@ def main():
         receipt['reused_worker'] = str(binary)
     else:
         build = ['cargo', 'rustc', '--locked', '--test', 'tcp_portmap', '--message-format=json']
-        if args.strip_debug:
-            build[1:1] = ['--config', 'profile.dev.package.miopunch-native-probe.debug=0', '--config', 'profile.dev.package.miopunch-native-probe.incremental=false', '--config', 'profile.dev.package.miopunch-native-probe.strip="debuginfo"']
-            build.extend(['--', '-C', 'link-arg=-Wl,--strip-debug'])
         execute(build, 'build.log')
         executables = [item['executable'] for line in (output / 'build.log').read_text().splitlines() if line.startswith('{') for item in [json.loads(line)] if item.get('executable') and item.get('target', {}).get('name') == 'tcp_portmap']
         binary = pathlib.Path(executables[-1]).resolve().relative_to(root)
-    execute(['docker', 'run', '--rm', '--name', f'miopunch41-{time.time_ns()}', '--privileged', '--network', 'none', '--mount', f'type=bind,src={root},target=/repo,readonly', '--mount', f'type=bind,src={output},target=/evidence', 'miopunch-nat61-lab:bookworm', 'python3', '/repo/scripts/tcp_portmap_lab.py', 'lab', str(pathlib.Path('/repo') / binary), '/evidence', args.case], 'lab.log')
+    with builds.deployment(root / binary, strip_debug=args.strip_debug) as deployed:
+        binary = deployed.relative_to(root)
+        execute(['docker', 'run', '--rm', '--name', f'miopunch41-{time.time_ns()}', '--privileged', '--network', 'none', '--mount', f'type=bind,src={root},target=/repo,readonly', '--mount', f'type=bind,src={output},target=/evidence', 'miopunch-nat61-lab:bookworm', 'python3', '/repo/scripts/tcp_portmap_lab.py', 'lab', str(pathlib.Path('/repo') / binary), '/evidence', args.case], 'lab.log')
     receipt['passed'] = True
     (output / 'results.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print(f'PASS {args.case}: real gateway + formal node evidence={output}')

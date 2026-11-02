@@ -1,3 +1,4 @@
+import { artifactPath } from './artifact-path.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { readFileSync, createReadStream, existsSync, readdirSync, mkdtempSync, rmSync } from 'node:fs';
@@ -28,7 +29,7 @@ function bounded(promise, label) {
   })]).finally(() => clearTimeout(timer));
 }
 function child(binary, args) {
-  const process = spawn(join(root, 'target/debug', binary), args, { stdio: ['pipe', 'pipe', 'pipe'] });
+  const process = spawn(artifactPath(join(root, 'target/debug', binary)), args, { stdio: ['pipe', 'pipe', 'pipe'] });
   children.push(process);
   const lines = [];
   const waiters = [];

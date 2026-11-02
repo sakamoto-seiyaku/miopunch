@@ -8,7 +8,6 @@ use std::time::{Duration, Instant};
 use miopunch_native_probe::mqtt_transport::{MqttTransport, Traffic};
 use rumqttc::{Client, Event, MqttOptions, Packet, QoS};
 
-const BIN: &str = env!("CARGO_BIN_EXE_miopunch-native-probe");
 
 struct Server(Child);
 impl Drop for Server {
@@ -19,13 +18,13 @@ impl Drop for Server {
 }
 
 fn identity(dir: &Path) -> String {
-    let result = Command::new(BIN).arg("identity").arg(dir).output().unwrap();
+    let result = Command::new(test_cli::executable()).arg("identity").arg(dir).output().unwrap();
     assert!(result.status.success(), "{result:?}");
     String::from_utf8(result.stdout).unwrap().trim().to_owned()
 }
 
 fn start_server(dir: &Path, broker: &str, expected: &str) -> (Server, String, String) {
-    let mut child = Command::new(BIN)
+    let mut child = Command::new(test_cli::executable())
         .args(["serve", "mqtt"])
         .arg(dir)
         .args([broker, expected])
@@ -49,7 +48,7 @@ fn start_server(dir: &Path, broker: &str, expected: &str) -> (Server, String, St
 }
 
 fn send(dir: &Path, broker: &str, target: &str, route: &str) -> Output {
-    Command::new(BIN)
+    Command::new(test_cli::executable())
         .args(["send", "mqtt"])
         .arg(dir)
         .args([target, route, broker])
@@ -108,7 +107,7 @@ fn cancelling_a_subscribed_mqtt_endpoint_completes() {
         return;
     };
     let root = tempfile::tempdir().unwrap();
-    let result = Command::new(BIN)
+    let result = Command::new(test_cli::executable())
         .args(["cancel", "mqtt"])
         .arg(root.path().join("node"))
         .arg(broker)
@@ -264,3 +263,6 @@ fn wrong_identity_and_other_subscriber_cannot_get_control_or_plaintext() {
         packets.iter().map(Vec::len).max().unwrap()
     );
 }
+
+#[path = "support/cli.rs"]
+mod test_cli;

@@ -7,6 +7,11 @@ import subprocess
 import time
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=pathlib.Path, required=True)
@@ -42,11 +47,12 @@ def main():
             ('default-member-build', ['cargo', 'check', '--locked', '--test', 'member_forward']),
         ]
     try:
+        builds.plan(checks)
         for name, command in checks:
             print(f'Starting {name}', flush=True)
             started = time.monotonic()
             with (output/(name+'.log')).open('w') as log:
-                result = subprocess.run(['rtk', 'proxy', *command], cwd=root,
+                result = builds.run(['rtk', 'proxy', *command], cwd=root,
                                         stdout=log, stderr=subprocess.STDOUT)
             receipt['checks'].append({'name': name, 'argv': command, 'exit': result.returncode,
                                       'seconds': round(time.monotonic()-started, 3),

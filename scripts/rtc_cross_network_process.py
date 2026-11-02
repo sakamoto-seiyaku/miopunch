@@ -7,6 +7,7 @@ import selectors
 import signal
 import subprocess
 import time
+from check_build_cache import runtime_artifact
 
 
 def public_event(value, key=""):
@@ -27,6 +28,10 @@ class OwnedProcess:
         command = ["rtk", "proxy", "docker", "exec", "--user", f"{os.getuid()}:{os.getgid()}", "-i"]
         for key, value in environment:
             command += ["--env", key+"="+str(value)]
+        mappings = getattr(lab, "artifact_paths", {})
+        argv = [runtime_artifact(arg, mappings) for arg in argv]
+        if mappings:
+            command += ["--env", "MIOPUNCH_TEST_ARTIFACTS=" + json.dumps(mappings)]
         wrapped = argv
         if name in ("browser-driver", "mqtt-services", "stun", "relay", "broker"):
             wrapped = ["python3", "/repo/scripts/rtc_cross_network_cost.py", "/evidence/cost-"+name+".json",

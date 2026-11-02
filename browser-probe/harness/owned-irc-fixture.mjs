@@ -1,3 +1,4 @@
+import { artifactPath } from './artifact-path.mjs';
 // Concrete owned IRC fixture utilities shared by the independent carrier,
 // restricted-budget and mixed-retry entry points. No network work on import.
 import assert from 'node:assert/strict';
@@ -39,7 +40,7 @@ async function listen(server) {
 function nativeFixture(config, name, restricted = false) {
   const configPath = join(fixture, `native-${name}.json`);
   writeFileSync(configPath, JSON.stringify(config));
-  const child = spawn('rtk', ['proxy', join(root, restricted ? 'target/debug/browser_irc_restricted_native' : 'target/debug/browser_irc_datagram'), configPath, join(fixture, 'ca.pem'), ...(restricted ? [join(fixture, `node-${name}`)] : [])], { stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawn('rtk', ['proxy', artifactPath(join(root, restricted ? 'target/debug/browser_irc_restricted_native' : 'target/debug/browser_irc_datagram')), configPath, join(fixture, 'ca.pem'), ...(restricted ? [join(fixture, `node-${name}`)] : [])], { stdio: ['pipe', 'pipe', 'pipe'] });
   nativeProcesses.add(child);
   const entries = [];
   const pending = [];

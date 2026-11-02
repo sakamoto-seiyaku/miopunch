@@ -1434,7 +1434,7 @@ async fn p2panda_high_level_active_publishes_while_its_passive_branch_is_inactiv
 async fn cli_import_update_and_startup_preserve_local_resource_choices() {
     use miopunch_native_probe::resources::{LanDiscovery, SignedResourceTable};
     use tokio::io::{AsyncBufReadExt, BufReader};
-    let binary = env!("CARGO_BIN_EXE_miopunch-native-probe");
+    let binary = test_cli::executable();
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("node");
     let node = NativeNetwork::create(&path).await.unwrap();
@@ -2162,3 +2162,6 @@ async fn prebuilt_unconstrained_pkarr_cannot_bypass_product_policy() {
     }
     ordinary.close().await;
 }
+
+#[path = "support/cli.rs"]
+mod test_cli;

@@ -2507,6 +2507,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "miopunch-native-tools"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "blake3",
+ "hex",
+ "iroh",
+ "iroh-base",
+ "iroh-relay",
+ "miopunch-native-probe",
+ "n0-future",
+ "n0-watcher",
+ "p2panda-auth",
+ "p2panda-core",
+ "rand 0.10.3",
+ "rcgen",
+ "ring",
+ "rustix",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "socket2",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
 name = "mock_instant"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

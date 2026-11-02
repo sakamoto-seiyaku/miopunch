@@ -1,3 +1,4 @@
+import { artifactPath } from './artifact-path.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createReadStream, existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -45,7 +46,7 @@ function executable() {
   throw new Error('install the pinned Playwright Chromium');
 }
 function nativeFixture() {
-  const process = spawn('rtk', ['proxy', join(root, 'target/debug/browser_network_native'), join(temporary, 'admin'), relay], { stdio: ['pipe', 'pipe', 'pipe'] });
+  const process = spawn('rtk', ['proxy', artifactPath(join(root, 'target/debug/browser_network_native')), join(temporary, 'admin'), relay], { stdio: ['pipe', 'pipe', 'pipe'] });
   const lines = [];
   const waiters = [];
   createInterface({ input: process.stdout }).on('line', line => {

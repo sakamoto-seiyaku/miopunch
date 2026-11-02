@@ -20,6 +20,11 @@ SOURCES = [
 ]
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -43,7 +48,7 @@ def main():
     def run(name, command):
         print(f"RUN {name}: {' '.join(command)}", flush=True)
         started = time.monotonic()
-        result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
+        result = builds.run(command, cwd=ROOT, capture_output=True, text=True)
         stdout, stderr = args.output / f"{name}.stdout", args.output / f"{name}.stderr"
         stdout.write_text(result.stdout)
         stderr.write_text(result.stderr)

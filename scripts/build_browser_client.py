@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import tarfile
 import time
@@ -15,6 +16,16 @@ import time
 from build_native_client import input_paths as native_inputs, capture_depfiles, RUSTC_VERSION
 from cargo_cache import ROOT, build_environment, cache_lease, cargo_command, disk_state
 from pin_artifact import pin_artifact
+
+WASM_BINDGEN_VERSION = "0.2.129"
+WASM_BINDGEN = ROOT / ".artifacts/tools/wasm-bindgen" / WASM_BINDGEN_VERSION / "wasm-bindgen"
+
+
+def default_bindgen():
+    """Prefer the project pin; PATH remains available for explicitly installed tools."""
+    if WASM_BINDGEN.is_file():
+        return str(WASM_BINDGEN)
+    return shutil.which("wasm-bindgen") or str(WASM_BINDGEN)
 
 
 def sha(path):
@@ -51,7 +62,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--wasm-bindgen", type=Path, required=True)
+    parser.add_argument("--wasm-bindgen", type=Path, default=default_bindgen())
     parser.add_argument("--wasm-bindgen-sha", required=True)
     parser.add_argument("--validate-only", action="store_true")
     args = parser.parse_args()

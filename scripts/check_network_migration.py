@@ -8,6 +8,11 @@ import subprocess
 import tempfile
 
 
+from check_build_cache import CheckBuilds
+
+builds = CheckBuilds()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
@@ -25,7 +30,7 @@ def main():
         os.chmod(temporary, 0o755)
         os.chmod(config, 0o644)
         try:
-            subprocess.run(["docker", "run", "-d", "--name", name,
+            builds.run(["docker", "run", "-d", "--name", name,
                             "-p", "127.0.0.1:0:1883", "-v",
                             f"{config}:/mosquitto/config/mosquitto.conf:ro",
                             "eclipse-mosquitto:2"], check=True, capture_output=True)
@@ -46,9 +51,10 @@ def main():
                     ("check-wasm", ["cargo", "check", "--locked", "-p", "miopunch-browser-probe", "--target", "wasm32-unknown-unknown"]),
                     ("fmt", ["cargo", "fmt", "--all", "--", "--check"]),
                 ])
+            builds.plan(commands)
             for label, command in commands:
                 with (output / f"{label}.log").open("w") as log:
-                    completed = subprocess.run(command, cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT)
+                    completed = builds.run(command, cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT)
                 receipts.append({"check": label, "command": command, "exit": completed.returncode})
                 (output / "results.json").write_text(json.dumps(receipts, indent=2) + "\n")
                 print(f"{label}: exit {completed.returncode}", flush=True)
@@ -56,7 +62,7 @@ def main():
                     raise SystemExit(completed.returncode)
         finally:
             if created:
-                removed = subprocess.run(["docker", "rm", "-f", "-v", name], capture_output=True, text=True)
+                removed = builds.run(["docker", "rm", "-f", "-v", name], capture_output=True, text=True)
                 (output / "cleanup.json").write_text(json.dumps({"container": name, "exit": removed.returncode, "stdout": removed.stdout, "stderr": removed.stderr}, indent=2) + "\n")
                 if removed.returncode:
                     raise RuntimeError("owned MQTT cleanup failed")
