@@ -1,0 +1,29 @@
+{
+  "scope": "local environment evidence and source snapshots; no new wire/SDK member/NAT pass",
+  "files": {
+    "docs/evidence/android-pair-environment-2026-10-05/browser-pixel-current.json": "73260ef6756d55d0e65c4d631119646fe76ccc7f65938bd3fd732a3440daf160",
+    "docs/evidence/android-pair-environment-2026-10-05/browser-pixel-initial.json": "d20e0d55cb4cba386bd12fa9e23f78a4fc47535f9cbed5b60f4318f1a86e8310",
+    "docs/evidence/android-pair-environment-2026-10-05/browser-y700-current.json": "af9d2e530d6892b729711fa21576dd5891158fa90e4ed283e628f834dcd12bd3",
+    "docs/evidence/android-pair-environment-2026-10-05/build-initial.json": "34581496e92af3444a4f1ef94d2ee7277d79d588a9dca50e71e4ab610a64c4ec",
+    "docs/evidence/android-pair-environment-2026-10-05/deployment-initial.json": "a1b02129ef7ada0e14e4bfad4de27a645ae4fa92d237f4549f58dfe5e3adac7a",
+    "docs/evidence/android-pair-environment-2026-10-05/helper-before-review-manifest.json": "6951efc9ae430d110eee0c63de40ce6793b31eefc747776b7f2d43d3107fcebb",
+    "docs/evidence/android-pair-environment-2026-10-05/native-startup-initial.json": "38a4dfa28f375cefd8a7d2aaa4363a75306f56d9543f182c41977c410f52cb86",
+    "docs/evidence/android-pair-environment-2026-10-05/native-y700-startup-deployment.json": "f9f13a4b5d19a16d285aa70d5216d4629108587ad38df9f159120549adeab93d",
+    "docs/evidence/android-pair-environment-2026-10-05/pair-physical-prerequisites.json": "77bb02f42d5f72c3067f92bd9bf2121a9ae08eb70fec2d977f0df72acc9c7a25",
+    "docs/evidence/android-pair-environment-2026-10-05/pixel-cdp-first-failure.json": "1271f5bbab3134b7ed44e2332c131291c645a5d8e8762a4bef64930d1dbf9d2a",
+    "docs/evidence/android-pair-environment-2026-10-05/pixel-cloudflare-udp-comparison.json": "e5d457dd3ed39a283bfa0c49f6861fcb9703318660a3f6bb92cc69e0f3ce971f",
+    "docs/evidence/android-pair-environment-2026-10-05/pixel-curl-first-failure.json": "55bc6b33de14ebcb76e465837e54b399078e6070b05e954e7760aec356addb42",
+    "docs/evidence/android-pair-environment-2026-10-05/pixel-google-udp-failure.json": "aa191644acf7ea03de4dc3863820175e6d3d535ed9ddd733f44e9632b3c1c5ca",
+    "docs/evidence/android-pair-environment-2026-10-05/pixel-java-tls.json": "3aa2005ea58f41888cca142db0e70379375680186379064ebced3cc0a4cfa2ba",
+    "docs/evidence/android-pair-environment-2026-10-05/pixel-target-saved.json": "2df20e698776d7fb1cb084565baa03042708db2fd63d9f6992f3a57e0c62ce44",
+    "docs/evidence/android-pair-environment-2026-10-05/pixel-wifi-connect.json": "a40c32062f07130850931d36aaea7fafc91a0fdc739e59dfbe16a376e1e537bf",
+    "docs/evidence/android-pair-environment-2026-10-05/pixel-wifi-post-switch.json": "7dc84b475c42e9beac59923a0d7ff09d565e320964b629bcb7ecaa9fc4f7f436",
+    "docs/evidence/android-pair-environment-2026-10-05/probe-sources/Mio82CloudflareUdpStun.java": "7fc96a497883570b14975743c5ddd6505d37f94f266d8f4f2c34cf86583d3b98",
+    "docs/evidence/android-pair-environment-2026-10-05/probe-sources/Mio82TlsTrace.java": "8dcf957f3d6721f44d4b079a61d90e25951eafaf52c845d99b12b5ffad0f88ee",
+    "docs/evidence/android-pair-environment-2026-10-05/probe-sources/Mio82UdpStun.java": "06f81b9af3cb4f2db4b9aaf07c421a4e4458e1b0453c248b43e0ead59bfdbea1",
+    "docs/evidence/android-pair-environment-2026-10-05/tooling-before-review/android-pair-page.js": "243b83f596b6f54c0a33481e61fc64988d6d18d9458f646e629f6c6b2f9b22f2",
+    "docs/evidence/android-pair-environment-2026-10-05/tooling-before-review/android_pair_runtime.py": "424601a146208119fe501f7cca6eb1a76940472754790ba9f3393733a7236f1d",
+    "docs/evidence/android-pair-environment-2026-10-05/tooling-before-review/build_android_pair.py": "94e4edf78a6af0258745bdd08f60983a4607f0b5a02df2d6b943ee5bfa3c2d9f",
+    "docs/evidence/android-pair-environment-2026-10-05/tooling-before-review/wan_environment_preflight.py": "bbefa9512d29a35aa483178ecaa67d40dbe5213caa1e270f679d1aa2b75c2509"
+  }
+}

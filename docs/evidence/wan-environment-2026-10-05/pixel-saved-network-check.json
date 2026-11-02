@@ -1,0 +1,175 @@
+{
+  "scope": "explicitly authorized Pixel USB saved-target check; no Wi-Fi switch performed",
+  "startedUtc": "2026-10-05T02:18:02Z",
+  "model": "Pixel_6a",
+  "controlTransport": "USB",
+  "targetActual5GHzSsid": "CU_7WFb_5G",
+  "initialCachedTargetScan": [
+    {
+      "ssid": "CU_7WFb_5G",
+      "frequencyMHz": 5180
+    },
+    {
+      "ssid": "CU_7WFb",
+      "frequencyMHz": 2447
+    }
+  ],
+  "targetSaved": false,
+  "networkChanged": false,
+  "passwordReadOrLogged": false,
+  "targetTlsProbePerformed": false,
+  "scriptSha256": "bbefa9512d29a35aa483178ecaa67d40dbe5213caa1e270f679d1aa2b75c2509",
+  "commands": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "cmd wifi list-networks"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "result": {
+        "savedNetworkCount": 1,
+        "targetSavedMatches": [],
+        "currentOpenwrtSaved": true
+      },
+      "elapsedMs": 105.358
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "cmd wifi list-scan-results"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "result": {
+        "visibleTargetMatches": [
+          {
+            "ssid": "CU_7WFb_5G",
+            "frequencyMHz": 5180
+          },
+          {
+            "ssid": "CU_7WFb",
+            "frequencyMHz": 2447
+          }
+        ]
+      },
+      "elapsedMs": 117.702
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "cmd wifi status"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "result": {
+        "wifiEnabled": true,
+        "currentSsid": "Openwrt_5G"
+      },
+      "elapsedMs": 90.843
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "uiautomator dump /data/local/tmp/mio82-pixel-wifi.xml"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "result": {
+        "ownedXmlCreated": true
+      },
+      "elapsedMs": 2259.701
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "cat /data/local/tmp/mio82-pixel-wifi.xml"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "result": {
+        "savedPageObserved": true,
+        "targetMatches": [],
+        "currentOpenwrtSaved": true
+      },
+      "elapsedMs": 115.122
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "rm -f /data/local/tmp/mio82-pixel-wifi.xml"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "result": {
+        "ownedXmlRemoveCommandCompleted": true
+      },
+      "elapsedMs": 119.865
+    }
+  ],
+  "missingCondition": "Target network must first be saved/connected using credentials; no guessed credential or network-config overwrite",
+  "cleanup": {
+    "ownedUiXmlRemoveExit": 0,
+    "noOwnedForwardReverseCreated": true
+  }
+}

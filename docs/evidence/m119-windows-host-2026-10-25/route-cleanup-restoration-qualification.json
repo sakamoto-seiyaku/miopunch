@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-28",
+  "status": "EXACT_BASE_SDK_RESTORED_AND_READONLY_RECHECKED",
+  "prior_cleanup_erratum_sha256": "506c46fe4fd2f893fc62b0854177898c5f135e403f4ad06d0317f8d4566c1282",
+  "exact_user_approval_sha256": "f43c7cbf00c7501f9b1b7fd729cc098fe591cee2408be60182c4493745499a16",
+  "restore_receipt_sha256": "b962484c4a61170f0a3add54f5bca2ffdcccb6e377bca553c7df66e6369d30fe",
+  "restored_remote_relative": "app/sdk/miopunch-client-sdk11.exe",
+  "restored_sha256": "6de63b7756d7e9d627d6437bdc5c5c6fea22dc0b326ba44d4f2d58b1a7159690",
+  "bytes": 187160555,
+  "base_manifest_sha256": "d3303f22f927d00361fc81e6f2036078d8f1d2f5de5e40c50b48b6d9c47800ce",
+  "post_restore_readonly_census_sha256": "756d182939ac00a576e0b4267190cdc097cd83615ef669cd8d27fa776534a22c",
+  "owned_root_bytes": 927130523,
+  "one_direction_reserve_bytes": 109136242,
+  "conservative_total_bytes": 1036266765,
+  "root_limit_bytes": 1073741824,
+  "margin_bytes": 37475059,
+  "all_four_SDK_deployment_hashes": {
+    "miopunch-client-sdk11-init-diagnostic.exe": "70aba7ef847b4ca4409c28d643ba6ac1a5bf32ecbc28b6ed48c70529cd1c1f40",
+    "miopunch-client-route-a5633e1d.exe": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+    "miopunch-client-sdk11.exe": "6de63b7756d7e9d627d6437bdc5c5c6fea22dc0b326ba44d4f2d58b1a7159690",
+    "miopunch-client-admission-88a67340.exe": "ddb5617a5604fd9f55813cf5563f09c0097d9e076fa725f23c7590f39248d1ff"
+  },
+  "Task_started_by_restore": false,
+  "M119_business_accepted": false
+}

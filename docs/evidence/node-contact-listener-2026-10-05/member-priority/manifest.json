@@ -1,0 +1,515 @@
+{
+  "scope": "only two new controlled original SDK contact-selection cases; no public/device/STUN qualification",
+  "files": [
+    {
+      "sourcePath": "/tmp/mio78-member-priority-first-20261005/available_member_contact_precedes_ready_configured_mqtt.stderr.log",
+      "storedPath": "first-sandbox/available_member_contact_precedes_ready_configured_mqtt.stderr.log.gz",
+      "originalBytes": 329,
+      "originalSha256": "5178e1068fd25e6745ee68bd9d429090913678b4744a2bcf0f260b68d055e5c7",
+      "storedBytes": 272,
+      "storedSha256": "96ec3d0015cbc1f9013be99590f6f5f035088852eff568ec95cede0cd7d5ea7d",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-first-20261005/available_member_contact_precedes_ready_configured_mqtt.stdout.log",
+      "storedPath": "first-sandbox/available_member_contact_precedes_ready_configured_mqtt.stdout.log.gz",
+      "originalBytes": 270,
+      "originalSha256": "eb32b418b7166eaf91cdf6ed0250d902832092e5e31d7cd0e64ea44efcd9f290",
+      "storedBytes": 174,
+      "storedSha256": "8c0f4a4eab98eecadd1fecda7266884439da8bd3eaf30b8dfd7b05905fa22a73",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-first-20261005/build.stderr.log",
+      "storedPath": "first-sandbox/build.stderr.log.gz",
+      "originalBytes": 194,
+      "originalSha256": "30be4874e2a8924edd9fecd0d7bb61afc3aef6a734477e0adb35cf1c81dab0c3",
+      "storedBytes": 170,
+      "storedSha256": "c3865bb6426069621f636684a49713692d391facd9c99cc8837f086aca17f286",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-first-20261005/build.stdout.log",
+      "storedPath": "first-sandbox/build.stdout.log.gz",
+      "originalBytes": 442303,
+      "originalSha256": "a13792b4fd84da143928ddd0c1f7ff8aca0e6861ef34c1d7a2d8c85e5952e779",
+      "storedBytes": 32428,
+      "storedSha256": "04275fcb56aa711af3cf31ecca0eaa3ae3f69bbda3f9e7217f732e57fdb654e0",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-first-20261005/receipt.json",
+      "storedPath": "first-sandbox/receipt.json.gz",
+      "originalBytes": 142662,
+      "originalSha256": "1a0cd77320949f6d126464eaa7ca55472282d00ad2ae902282410ea2e66bac31",
+      "storedBytes": 59913,
+      "storedSha256": "8a3231295e3a3025f82a196a44e2b3639417b0598eafe29fccf9e60c738a1dc8",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-first-20261005/unavailable_member_contact_falls_back_with_original_deadline.stderr.log",
+      "storedPath": "first-sandbox/unavailable_member_contact_falls_back_with_original_deadline.stderr.log.gz",
+      "originalBytes": 334,
+      "originalSha256": "29140eef91f2f9ca9c470fe3bf696d3c8d6d7ab0ec72928f00faa5aea6ea0c96",
+      "storedBytes": 274,
+      "storedSha256": "4e6b90cfadb1483f594ec19a6eacec29c833dc0b86538ad00a1248858181e4b3",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-first-20261005/unavailable_member_contact_falls_back_with_original_deadline.stdout.log",
+      "storedPath": "first-sandbox/unavailable_member_contact_falls_back_with_original_deadline.stdout.log.gz",
+      "originalBytes": 280,
+      "originalSha256": "920974124249108ea722c49f7dfe42c7f72437335ea90f7fa5fb971928294830",
+      "storedBytes": 177,
+      "storedSha256": "bda8604d2036383529808a5a057cf4e3449507d9820cda601e59c17d374c97df",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-owned-loopback-20261005/available_member_contact_precedes_ready_configured_mqtt.stderr.log",
+      "storedPath": "first-owned-loopback/available_member_contact_precedes_ready_configured_mqtt.stderr.log.gz",
+      "originalBytes": 255,
+      "originalSha256": "3c6ca1f7b44cced8ad4b2cb38301eaa872a7120c3e91e10748d3ef6bcb645079",
+      "storedBytes": 221,
+      "storedSha256": "8d7d8ab6336659d3e05ccf4669e409afa533c1e8df047fe7cfa4afaa085378ff",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-owned-loopback-20261005/available_member_contact_precedes_ready_configured_mqtt.stdout.log",
+      "storedPath": "first-owned-loopback/available_member_contact_precedes_ready_configured_mqtt.stdout.log.gz",
+      "originalBytes": 7662,
+      "originalSha256": "24c289c4dfc9cfbf0816eb699562009c7af649a771ff1f2dbf4344eeca10ae4f",
+      "storedBytes": 1430,
+      "storedSha256": "eb4fc20849791db614fe29d0aa191fd1c8320816adf0d55e0eed27519a57ca95",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-owned-loopback-20261005/receipt.json",
+      "storedPath": "first-owned-loopback/receipt.json.gz",
+      "originalBytes": 212238,
+      "originalSha256": "871bc35bceaa2b921aa38fe9bcb840c827f686901fd5ccb8081e692af931fb88",
+      "storedBytes": 81266,
+      "storedSha256": "5f634f2a3b72e23bd811877e12c5a5971569e019b36efbf17d3f1bdeaa83ab74",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-owned-loopback-20261005/unavailable_member_contact_falls_back_with_original_deadline.stderr.log",
+      "storedPath": "first-owned-loopback/unavailable_member_contact_falls_back_with_original_deadline.stderr.log.gz",
+      "originalBytes": 383,
+      "originalSha256": "123183300dbdfa7aa791f1da290d7e43fed3a42443e17789ede7d4b499174314",
+      "storedBytes": 287,
+      "storedSha256": "1be5868cb5c030812fd90105215e76b83443d4fc6027aaf92667b29ae82451c5",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-owned-loopback-20261005/unavailable_member_contact_falls_back_with_original_deadline.stdout.log",
+      "storedPath": "first-owned-loopback/unavailable_member_contact_falls_back_with_original_deadline.stdout.log.gz",
+      "originalBytes": 5060,
+      "originalSha256": "24ad82ffcb09acde05e5435d1c9a88c2e0b96920a60d27aed537e0d18acd1f10",
+      "storedBytes": 962,
+      "storedSha256": "ea86428eda0502fc2f7fe37cd305a295295575098b4524d9cf353bdfe25d0ef5",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-fixture-fix-20261005/available_member_contact_precedes_ready_configured_mqtt.stderr.log",
+      "storedPath": "final-fixture-corrected/available_member_contact_precedes_ready_configured_mqtt.stderr.log.gz",
+      "originalBytes": 340,
+      "originalSha256": "baf8b3a01503f2a204821a1dc0e0381892e99c99c7e9da529ef9268db2dfb0d6",
+      "storedBytes": 261,
+      "storedSha256": "de531439f2112a850b62590b0d10f70b3cf99b1daa8a16f30879773c9a0aefcb",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-fixture-fix-20261005/available_member_contact_precedes_ready_configured_mqtt.stdout.log",
+      "storedPath": "final-fixture-corrected/available_member_contact_precedes_ready_configured_mqtt.stdout.log.gz",
+      "originalBytes": 8235,
+      "originalSha256": "bf1739fdd284e26168f082e54891fc90b8bccd112b3251f330bfb56b7753c00c",
+      "storedBytes": 1454,
+      "storedSha256": "78156fe979cec393c9776530f71ea6ec9a80f045b13e06df653d10249e192365",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-fixture-fix-20261005/build.stderr.log",
+      "storedPath": "final-fixture-corrected/build.stderr.log.gz",
+      "originalBytes": 139,
+      "originalSha256": "515f739a1bdacf3d5991a0164b3e9b9527f4602f825d7ce78fe2fe6c5ccb930c",
+      "storedBytes": 138,
+      "storedSha256": "d3058e5124021bdb6e9c00c4521a69aa2c5c8b6d96d43ebdf35f0bc870bc13f9",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-fixture-fix-20261005/build.stdout.log",
+      "storedPath": "final-fixture-corrected/build.stdout.log.gz",
+      "originalBytes": 442303,
+      "originalSha256": "cf2a50c147a9716bf68e2832dcba641ff64ca817cb3a7fba0423b30a2d42f5b8",
+      "storedBytes": 32513,
+      "storedSha256": "c3bd5137f0eed50219d7ac53bc031acbb0b2074417a49bfa71cf7c9b6f642106",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-fixture-fix-20261005/receipt.json",
+      "storedPath": "final-fixture-corrected/receipt.json.gz",
+      "originalBytes": 171835,
+      "originalSha256": "f889c16da978e0a5127e59d8893734c5ac00620141c94b051da7ff9e2d8c0da8",
+      "storedBytes": 61805,
+      "storedSha256": "770e61216ded061e238b239aabfe5382c82a45aad8e4923d26611890de398184",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-fixture-fix-20261005/unavailable_member_contact_falls_back_with_original_deadline.stderr.log",
+      "storedPath": "final-fixture-corrected/unavailable_member_contact_falls_back_with_original_deadline.stderr.log.gz",
+      "originalBytes": 0,
+      "originalSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "storedBytes": 20,
+      "storedSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-fixture-fix-20261005/unavailable_member_contact_falls_back_with_original_deadline.stdout.log",
+      "storedPath": "final-fixture-corrected/unavailable_member_contact_falls_back_with_original_deadline.stdout.log.gz",
+      "originalBytes": 8396,
+      "originalSha256": "7dfce5356bda7e85a95ab5a1089f1a26f8b1a360deaece2c22079d6e76e6e82a",
+      "storedBytes": 1431,
+      "storedSha256": "bca2e70b7e5a9eb75ddc416eb7553d02ac2795660627651f234393ebf6793bb2",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "tests/contact_member_priority.rs",
+      "storedPath": "sources/final/tests/contact_member_priority.rs",
+      "originalBytes": 20530,
+      "originalSha256": "dae5e668b07030187a8ef4e77f28a273e27857dff70c896bd5cb02c683014152",
+      "storedBytes": 20530,
+      "storedSha256": "dae5e668b07030187a8ef4e77f28a273e27857dff70c896bd5cb02c683014152",
+      "transformation": "byte-exact source snapshot"
+    },
+    {
+      "sourcePath": "tests/support/member_contact_observation.rs",
+      "storedPath": "sources/final/tests/support/member_contact_observation.rs",
+      "originalBytes": 3592,
+      "originalSha256": "4cd7558e561fcd6a087f80533cd2cfd846ac2d935d21adbc824c51589e477bc3",
+      "storedBytes": 3592,
+      "storedSha256": "4cd7558e561fcd6a087f80533cd2cfd846ac2d935d21adbc824c51589e477bc3",
+      "transformation": "byte-exact source snapshot"
+    },
+    {
+      "sourcePath": "tests/support/member_priority_broker.rs",
+      "storedPath": "sources/final/tests/support/member_priority_broker.rs",
+      "originalBytes": 9753,
+      "originalSha256": "f1fd210620af167c07f29667e89fd51b5b64239bf0651e1b18b16f23b232929b",
+      "storedBytes": 9753,
+      "storedSha256": "f1fd210620af167c07f29667e89fd51b5b64239bf0651e1b18b16f23b232929b",
+      "transformation": "byte-exact source snapshot"
+    },
+    {
+      "sourcePath": "scripts/check_member_contact_priority.py",
+      "storedPath": "sources/final/scripts/check_member_contact_priority.py",
+      "originalBytes": 7975,
+      "originalSha256": "2954f3fbe46441cff6f18771d9cdb6d85fe066bc875fdba8e96906a2f6855d24",
+      "storedBytes": 7975,
+      "storedSha256": "2954f3fbe46441cff6f18771d9cdb6d85fe066bc875fdba8e96906a2f6855d24",
+      "transformation": "byte-exact source snapshot"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-owned-loopback-20261005/compiled-owned-sources/tests/contact_member_priority.rs",
+      "storedPath": "sources/before-fixture-correction/tests/contact_member_priority.rs",
+      "originalBytes": 20355,
+      "originalSha256": "62cd7fef953090f133b4954c6cc16189695b90e97aa5a05e967369978be45212",
+      "storedBytes": 20355,
+      "storedSha256": "62cd7fef953090f133b4954c6cc16189695b90e97aa5a05e967369978be45212",
+      "transformation": "byte-exact earlier compiled Rust source snapshot"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-owned-loopback-20261005/compiled-owned-sources/tests/support/member_contact_observation.rs",
+      "storedPath": "sources/before-fixture-correction/tests/support/member_contact_observation.rs",
+      "originalBytes": 3592,
+      "originalSha256": "4cd7558e561fcd6a087f80533cd2cfd846ac2d935d21adbc824c51589e477bc3",
+      "storedBytes": 3592,
+      "storedSha256": "4cd7558e561fcd6a087f80533cd2cfd846ac2d935d21adbc824c51589e477bc3",
+      "transformation": "byte-exact earlier compiled Rust source snapshot"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-owned-loopback-20261005/compiled-owned-sources/tests/support/member_priority_broker.rs",
+      "storedPath": "sources/before-fixture-correction/tests/support/member_priority_broker.rs",
+      "originalBytes": 8391,
+      "originalSha256": "acc8edc20c012feb636958c17fbb0cf3f7fa29353798e13fc64335fecc2911a0",
+      "storedBytes": 8391,
+      "storedSha256": "acc8edc20c012feb636958c17fbb0cf3f7fa29353798e13fc64335fecc2911a0",
+      "transformation": "byte-exact earlier compiled Rust source snapshot"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-product-fix-20261005/available_member_contact_precedes_ready_configured_mqtt.stderr.log",
+      "storedPath": "product-fix-green/available_member_contact_precedes_ready_configured_mqtt.stderr.log.gz",
+      "originalBytes": 0,
+      "originalSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "storedBytes": 20,
+      "storedSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-product-fix-20261005/available_member_contact_precedes_ready_configured_mqtt.stdout.log",
+      "storedPath": "product-fix-green/available_member_contact_precedes_ready_configured_mqtt.stdout.log.gz",
+      "originalBytes": 4882,
+      "originalSha256": "4117c69aa503ed69b17a562af435acede75336fb080d5bca27951453ae2780a5",
+      "storedBytes": 1232,
+      "storedSha256": "033148035a3032f8096331ffc17ab5c1883917e04f458c5d1e9985ccfebfcd12",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-product-fix-20261005/browser-typecheck.stderr.log",
+      "storedPath": "product-fix-green/browser-typecheck.stderr.log.gz",
+      "originalBytes": 4724,
+      "originalSha256": "1535671aa54ed0eb25238493406722fb9935a577f2a8a894d1b375975fd34ef3",
+      "storedBytes": 1286,
+      "storedSha256": "1eb31838998458b9798d8f0c4ed447929bf8e2ecde34201c94cebc4eb9ee1d68",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-product-fix-20261005/browser-typecheck.stdout.log",
+      "storedPath": "product-fix-green/browser-typecheck.stdout.log.gz",
+      "originalBytes": 0,
+      "originalSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "storedBytes": 20,
+      "storedSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-product-fix-20261005/build.stderr.log",
+      "storedPath": "product-fix-green/build.stderr.log.gz",
+      "originalBytes": 140,
+      "originalSha256": "8462c9c0d0919bcd93e4e12a00815699fa6023199e2df108f1cffe356d045772",
+      "storedBytes": 139,
+      "storedSha256": "bffc069e53482df5ad116b6d2b8a43d5d5759ac46d4f1cf86adcb789fdfbeedc",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-product-fix-20261005/build.stdout.log",
+      "storedPath": "product-fix-green/build.stdout.log.gz",
+      "originalBytes": 443011,
+      "originalSha256": "c04670c1dd6e39f5676dae35835e4c01559d02f84c8d0a3101e257821aecf4fc",
+      "storedBytes": 32549,
+      "storedSha256": "80e331a12a2190e6b24403a0b77396496f451d47144aa8409ddc70a5b835d9d8",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-product-fix-20261005/focused-pending-cancel-deadline-cleanup.stderr.log",
+      "storedPath": "product-fix-green/focused-pending-cancel-deadline-cleanup.stderr.log.gz",
+      "originalBytes": 0,
+      "originalSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "storedBytes": 20,
+      "storedSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-product-fix-20261005/focused-pending-cancel-deadline-cleanup.stdout.log",
+      "storedPath": "product-fix-green/focused-pending-cancel-deadline-cleanup.stdout.log.gz",
+      "originalBytes": 1270,
+      "originalSha256": "1f834896ea19dfa0bbd092ba57b9c4617a757d865b7d12516915fec019b515ae",
+      "storedBytes": 491,
+      "storedSha256": "00e942160ec655ac17519af77b7073b9b54bd9eb342c852059e4b287fb7a585c",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-product-fix-20261005/native-typecheck.stderr.log",
+      "storedPath": "product-fix-green/native-typecheck.stderr.log.gz",
+      "originalBytes": 692,
+      "originalSha256": "ba6bde403dc458164c9df77a9b66c97a09a2c625407810275f46d1ec1ab0fb64",
+      "storedBytes": 422,
+      "storedSha256": "9417b613507294e17e6cb839610dc19f8b236095a1862c403bae0ba095ca2557",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-product-fix-20261005/native-typecheck.stdout.log",
+      "storedPath": "product-fix-green/native-typecheck.stdout.log.gz",
+      "originalBytes": 0,
+      "originalSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "storedBytes": 20,
+      "storedSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-product-fix-20261005/receipt.json",
+      "storedPath": "product-fix-green/receipt.json.gz",
+      "originalBytes": 186919,
+      "originalSha256": "b647841b82911194cc7b1693204eca61e756d68371473c737b3a4ae30003763b",
+      "storedBytes": 71019,
+      "storedSha256": "0f2122702d2dcf74cccad60b13f302d3a2392934984d170941559f5728462e05",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-product-fix-20261005/unavailable_member_contact_falls_back_with_original_deadline.stderr.log",
+      "storedPath": "product-fix-green/unavailable_member_contact_falls_back_with_original_deadline.stderr.log.gz",
+      "originalBytes": 0,
+      "originalSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "storedBytes": 20,
+      "storedSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "/tmp/mio78-member-priority-product-fix-20261005/unavailable_member_contact_falls_back_with_original_deadline.stdout.log",
+      "storedPath": "product-fix-green/unavailable_member_contact_falls_back_with_original_deadline.stdout.log.gz",
+      "originalBytes": 7953,
+      "originalSha256": "75ad30d12d9cda5bc1eee766064c735b1f278192612b2f43c51365fe36d7ca9d",
+      "storedBytes": 1428,
+      "storedSha256": "75323d6a77eb76c1e3916a6e5de3b6f55da5edbc0c0cf36157f827e2a91fa716",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    },
+    {
+      "sourcePath": "src/connection_coordinator.rs",
+      "storedPath": "sources/product-fix-green/src/connection_coordinator.rs",
+      "originalBytes": 28482,
+      "originalSha256": "8e17162adfc963bf766da314c61989e44b1e99ba6c79d34ad8d36226f776bd33",
+      "storedBytes": 28482,
+      "storedSha256": "8e17162adfc963bf766da314c61989e44b1e99ba6c79d34ad8d36226f776bd33",
+      "transformation": "byte-exact compiled source snapshot",
+      "ownership": "78 contact-priority owned source"
+    },
+    {
+      "sourcePath": "src/resources.rs",
+      "storedPath": "sources/product-fix-green/src/resources.rs",
+      "originalBytes": 35027,
+      "originalSha256": "3d7552ef841e7ef6840baf484fe017a0039ee99260041147d11f09be7cfe9e5a",
+      "storedBytes": 35027,
+      "storedSha256": "3d7552ef841e7ef6840baf484fe017a0039ee99260041147d11f09be7cfe9e5a",
+      "transformation": "byte-exact compiled source snapshot",
+      "ownership": "73/74 integration/focused existing test, snapshot only"
+    },
+    {
+      "sourcePath": "tests/contact_member_priority.rs",
+      "storedPath": "sources/product-fix-green/tests/contact_member_priority.rs",
+      "originalBytes": 21401,
+      "originalSha256": "219859a2cb0ad96d361d023fd44f41320640bb3281c4b0db40fa1fbc8fd61b93",
+      "storedBytes": 21401,
+      "storedSha256": "219859a2cb0ad96d361d023fd44f41320640bb3281c4b0db40fa1fbc8fd61b93",
+      "transformation": "byte-exact compiled source snapshot",
+      "ownership": "78 contact-priority owned source"
+    },
+    {
+      "sourcePath": "tests/support/member_contact_observation.rs",
+      "storedPath": "sources/product-fix-green/tests/support/member_contact_observation.rs",
+      "originalBytes": 3592,
+      "originalSha256": "4cd7558e561fcd6a087f80533cd2cfd846ac2d935d21adbc824c51589e477bc3",
+      "storedBytes": 3592,
+      "storedSha256": "4cd7558e561fcd6a087f80533cd2cfd846ac2d935d21adbc824c51589e477bc3",
+      "transformation": "byte-exact compiled source snapshot",
+      "ownership": "78 contact-priority owned source"
+    },
+    {
+      "sourcePath": "tests/support/member_priority_broker.rs",
+      "storedPath": "sources/product-fix-green/tests/support/member_priority_broker.rs",
+      "originalBytes": 9753,
+      "originalSha256": "f1fd210620af167c07f29667e89fd51b5b64239bf0651e1b18b16f23b232929b",
+      "storedBytes": 9753,
+      "storedSha256": "f1fd210620af167c07f29667e89fd51b5b64239bf0651e1b18b16f23b232929b",
+      "transformation": "byte-exact compiled source snapshot",
+      "ownership": "78 contact-priority owned source"
+    },
+    {
+      "sourcePath": "scripts/check_member_contact_priority.py",
+      "storedPath": "sources/product-fix-green/scripts/check_member_contact_priority.py",
+      "originalBytes": 10452,
+      "originalSha256": "816a3940166762da19e56ce706c6384eea18bb4962985a0800326e4b831846e8",
+      "storedBytes": 10452,
+      "storedSha256": "816a3940166762da19e56ce706c6384eea18bb4962985a0800326e4b831846e8",
+      "transformation": "byte-exact compiled source snapshot",
+      "ownership": "78 contact-priority owned source"
+    },
+    {
+      "sourcePath": "tests/unified_connection.rs",
+      "storedPath": "sources/product-fix-green/tests/unified_connection.rs",
+      "originalBytes": 68173,
+      "originalSha256": "691cf747ee2a52bcfc97914c9ea6caf7dde36eb54699d667154a89e4cfc3b903",
+      "storedBytes": 68173,
+      "storedSha256": "691cf747ee2a52bcfc97914c9ea6caf7dde36eb54699d667154a89e4cfc3b903",
+      "transformation": "byte-exact compiled source snapshot",
+      "ownership": "73/74 integration/focused existing test, snapshot only"
+    },
+    {
+      "sourcePath": "git:24007b9c81ec2b4ca3f6c3b9c1ee78a01b98e391:src/connection_coordinator.rs",
+      "storedPath": "sources/pre-product-sdk/src/connection_coordinator.rs",
+      "originalBytes": 24321,
+      "originalSha256": "d235a8ea770e41885b43cc7be0d17a71d9d487a5247cbad2d43deea50609da93",
+      "storedBytes": 24321,
+      "storedSha256": "d235a8ea770e41885b43cc7be0d17a71d9d487a5247cbad2d43deea50609da93",
+      "transformation": "byte-exact pre-product SDK source snapshot, verified against actual RED receipt"
+    },
+    {
+      "sourcePath": "git:24007b9c81ec2b4ca3f6c3b9c1ee78a01b98e391:src/resources.rs",
+      "storedPath": "sources/pre-product-sdk/src/resources.rs",
+      "originalBytes": 34959,
+      "originalSha256": "f7644eb3318af539cedcb223a94ae61ea7db3943a0deaba537f3b5ec1dcb01f8",
+      "storedBytes": 34959,
+      "storedSha256": "f7644eb3318af539cedcb223a94ae61ea7db3943a0deaba537f3b5ec1dcb01f8",
+      "transformation": "byte-exact pre-product SDK source snapshot, verified against actual RED receipt"
+    },
+    {
+      "sourcePath": "actual build compiler-artifact JSON plus post-run file hash audit",
+      "storedPath": "product-fix-green/compiled-cargo-dependencies.json.gz",
+      "originalBytes": 690739,
+      "originalSha256": "cd89f8a945e4f24dd91c5655191a6dd81cce70a61454b15e5ff380245cf97761",
+      "storedBytes": 77966,
+      "storedSha256": "c2246190f3f39bd0583119d324bbf5b09f68df6618ec8a0deda812e80d13e0da",
+      "transformation": "deterministic gzip, byte-exact decompression"
+    }
+  ],
+  "runs": {
+    "first-sandbox": {
+      "commandExit": 1,
+      "receiptSha256": "1a0cd77320949f6d126464eaa7ca55472282d00ad2ae902282410ea2e66bac31",
+      "artifact": {
+        "builtPath": "/home/js/Git/miopunch/target/debug/deps/contact_member_priority-48464088bb86ddfb",
+        "frozenPath": "/tmp/mio78-member-priority-first-20261005/contact_member_priority.test-bin",
+        "sha256": "3cf5347a079e21b0d36284d7e809ccb3e43157480f935986df89eb018159c625",
+        "bytes": 201425720
+      },
+      "sourceHead": "24007b9c81ec2b4ca3f6c3b9c1ee78a01b98e391",
+      "sourcesFrozenDuringBuild": true,
+      "sourcesFrozenDuringRun": true
+    },
+    "first-owned-loopback": {
+      "commandExit": 1,
+      "receiptSha256": "871bc35bceaa2b921aa38fe9bcb840c827f686901fd5ccb8081e692af931fb88",
+      "artifact": {
+        "builtPath": "/tmp/mio78-member-priority-first-20261005/contact_member_priority.test-bin",
+        "frozenPath": "/tmp/mio78-member-priority-owned-loopback-20261005/contact_member_priority.test-bin",
+        "sha256": "3cf5347a079e21b0d36284d7e809ccb3e43157480f935986df89eb018159c625",
+        "bytes": 201425720
+      },
+      "sourceHead": "24007b9c81ec2b4ca3f6c3b9c1ee78a01b98e391",
+      "sourcesFrozenDuringBuild": true,
+      "sourcesFrozenDuringRun": false
+    },
+    "final-fixture-corrected": {
+      "commandExit": 1,
+      "receiptSha256": "f889c16da978e0a5127e59d8893734c5ac00620141c94b051da7ff9e2d8c0da8",
+      "artifact": {
+        "builtPath": "/home/js/Git/miopunch/target/debug/deps/contact_member_priority-48464088bb86ddfb",
+        "frozenPath": "/tmp/mio78-member-priority-fixture-fix-20261005/contact_member_priority.test-bin",
+        "sha256": "359d9de0a927402af2b871894b7b63ed0760db24d8075a0f9374fce484434bb4",
+        "bytes": 201845248
+      },
+      "sourceHead": "24007b9c81ec2b4ca3f6c3b9c1ee78a01b98e391",
+      "sourcesFrozenDuringBuild": true,
+      "sourcesFrozenDuringRun": true
+    },
+    "product-fix-green": {
+      "commandExit": 0,
+      "receiptSha256": "b647841b82911194cc7b1693204eca61e756d68371473c737b3a4ae30003763b",
+      "artifact": {
+        "builtPath": "/home/js/Git/miopunch/target/debug/deps/contact_member_priority-48464088bb86ddfb",
+        "frozenPath": "/tmp/mio78-member-priority-product-fix-20261005/contact_member_priority.test-bin",
+        "sha256": "13692eb408ad4f321aec20e68c726e27b4b1d6fe91abcc3612d73056073a87da",
+        "bytes": 201889504
+      },
+      "focusedCoordinatorArtifact": {
+        "builtPath": "/home/js/Git/miopunch/target/debug/deps/unified_connection-e4d05e85b52d46cc",
+        "frozenPath": "/tmp/mio78-member-priority-product-fix-20261005/unified_connection.test-bin",
+        "sha256": "153ddf3d856fccb8e6eaf8660ae6483aa64a4df67729d194683636b22b185d8b",
+        "bytes": 198402672
+      },
+      "sourceHead": "24007b9c81ec2b4ca3f6c3b9c1ee78a01b98e391",
+      "sourcesFrozenDuringBuild": true,
+      "sourcesFrozenDuringRun": true,
+      "coordinatorCompiledSha256": "8e17162adfc963bf766da314c61989e44b1e99ba6c79d34ad8d36226f776bd33",
+      "ownerResourcesCompiledSha256": "3d7552ef841e7ef6840baf484fe017a0039ee99260041147d11f09be7cfe9e5a"
+    }
+  }
+}

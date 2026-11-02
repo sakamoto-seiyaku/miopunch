@@ -1,0 +1,647 @@
+{
+  "scope": "Controlled host loopback supplement; physical/public story pending",
+  "artifactsFrozenAndHashesVerified": true,
+  "sourceUnchangedDuringBuild": true,
+  "archives": [
+    {
+      "source": "/tmp/mio78-generation-red/receipt.json",
+      "retained": "mio78-generation-red/receipt.json",
+      "sourceSha256": "bf771111655c14ed5f19df09c79475eddac6c803d7011a2c2e87d1a0b0d230d2",
+      "retainedSha256": "bf771111655c14ed5f19df09c79475eddac6c803d7011a2c2e87d1a0b0d230d2",
+      "sourceBytes": 390,
+      "retainedBytes": 390,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-generation-red/test.log",
+      "retained": "mio78-generation-red/test.log.gz",
+      "sourceSha256": "4d16e560a964375777ff1592be99b4cbae551a84e1a9348662b5383786276c01",
+      "retainedSha256": "f95a3ae89d77cf75cda8667178d8fd6f7819f06a8dc4cb917bdfd160caa3f546",
+      "sourceBytes": 1954,
+      "retainedBytes": 885,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-generation-green/receipt.json",
+      "retained": "mio78-generation-green/receipt.json",
+      "sourceSha256": "345122b9769e58d4bf0deef0ac3d8d1b9e29c8b3dc4520bd1c65610f87194c2f",
+      "retainedSha256": "345122b9769e58d4bf0deef0ac3d8d1b9e29c8b3dc4520bd1c65610f87194c2f",
+      "sourceBytes": 259,
+      "retainedBytes": 259,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-generation-green/test.log",
+      "retained": "mio78-generation-green/test.log.gz",
+      "sourceSha256": "7e499d2b21070e33853963aa26174c59307c24c03a84c00baa1c12f88dbc43ca",
+      "retainedSha256": "96273e7f51fe4cbad10b4d3c3f360d15307c5c3460d146d4731f835fb76cfdc8",
+      "sourceBytes": 1544,
+      "retainedBytes": 716,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-listener-lifecycle/receipt.json",
+      "retained": "mio78-listener-lifecycle/receipt.json",
+      "sourceSha256": "80e770695c10daebd4a0a03f7bd4778e17cb8a88ce7e383746daec80fc216fda",
+      "retainedSha256": "80e770695c10daebd4a0a03f7bd4778e17cb8a88ce7e383746daec80fc216fda",
+      "sourceBytes": 489,
+      "retainedBytes": 489,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-listener-lifecycle/test.log",
+      "retained": "mio78-listener-lifecycle/test.log.gz",
+      "sourceSha256": "6722188b7ac37bfc4fdaa84a636bdf1e124a97f23cee42332f1e3fb73d7a28ec",
+      "retainedSha256": "ef7334229d0f415202400391ab372d5a46bdc61bcb3fad91410a39965bdb2b82",
+      "sourceBytes": 4599,
+      "retainedBytes": 1521,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-node-supplement-first/receipt.json",
+      "retained": "mio78-node-supplement-first/receipt.json",
+      "sourceSha256": "0e475fcd7cbde08808cb73a7d67b1b34b9b04fe8174f99ba552dfad984a3c680",
+      "retainedSha256": "0e475fcd7cbde08808cb73a7d67b1b34b9b04fe8174f99ba552dfad984a3c680",
+      "sourceBytes": 1322,
+      "retainedBytes": 1322,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-node-supplement-first/test.log",
+      "retained": "mio78-node-supplement-first/test.log.gz",
+      "sourceSha256": "7cc1a59efd39f2caac3dbaae18760ecec67027e38a52ca6c0c4a6c5f44b1cd9b",
+      "retainedSha256": "504a6940a6e19cb341c21c021ffe3ee8347d45a3f38e0d385d90028c0ff2f5b6",
+      "sourceBytes": 3042,
+      "retainedBytes": 1054,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-node-supplement-current/receipt.json",
+      "retained": "mio78-node-supplement-current/receipt.json",
+      "sourceSha256": "5a500fb8ff9df66e9e2eee00dd2f012bd6a08e82836598e7a64a5e34ce5def09",
+      "retainedSha256": "5a500fb8ff9df66e9e2eee00dd2f012bd6a08e82836598e7a64a5e34ce5def09",
+      "sourceBytes": 1320,
+      "retainedBytes": 1320,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-node-supplement-current/test.log",
+      "retained": "mio78-node-supplement-current/test.log.gz",
+      "sourceSha256": "d4f871eaabb37d10a7d18e4d78e0b0db446818cae2196dcd460555c216b89f95",
+      "retainedSha256": "4fa8c90b5a0243a5764e3cd0ab2381ea1ebe8cb2bcf1921829d1ed21eacd8189",
+      "sourceBytes": 4148,
+      "retainedBytes": 1553,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-current-frozen-supplement/build.stderr.log",
+      "retained": "mio78-current-frozen-supplement/build.stderr.log.gz",
+      "sourceSha256": "f4f4461a3913e4ef22a67e84524ecb7c3c1da91683b826012d129d2aab39e6c4",
+      "retainedSha256": "5aa7eef5f07a03b66659d75790c123e203d4080af657d1096719901230c96c4a",
+      "sourceBytes": 140,
+      "retainedBytes": 139,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-current-frozen-supplement/build.stdout.log",
+      "retained": "mio78-current-frozen-supplement/build.stdout.log.gz",
+      "sourceSha256": "e3d895a45c4a5f8d335c2b01b548f2e69a01e99e39e23747926590ce92a2f67e",
+      "retainedSha256": "38074d97ef8cc9b558ee3348fd0c9016495b59d621e10279ca0acd4226e083ab",
+      "sourceBytes": 445110,
+      "retainedBytes": 32544,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-current-frozen-supplement/contact_listener.test-bin",
+      "retained": "mio78-current-frozen-supplement/contact_listener.test-bin",
+      "sourceSha256": "f8a8ea84bec4ed75da9836124080c73284a287c67d805a30e81c0d568f562c27",
+      "retainedSha256": "f8a8ea84bec4ed75da9836124080c73284a287c67d805a30e81c0d568f562c27",
+      "sourceBytes": 199686760,
+      "retainedBytes": 199686760,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-current-frozen-supplement/generation.stderr.log",
+      "retained": "mio78-current-frozen-supplement/generation.stderr.log.gz",
+      "sourceSha256": "8f80bbe97dbf2df2cb3e45efbac79e8048bf9a9a531176593da497d20075898a",
+      "retainedSha256": "5b0d75ad118fea12ae40d395cbacbb057db1b10c3f53bf73faac0ebe7109f26b",
+      "sourceBytes": 65,
+      "retainedBytes": 85,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-current-frozen-supplement/generation.stdout.log",
+      "retained": "mio78-current-frozen-supplement/generation.stdout.log.gz",
+      "sourceSha256": "0c3d7231ae0bb88a73fcf6ce1a532689989ea7bef18216c0ccc10c01ff5b5695",
+      "retainedSha256": "29ce1899a7b0fae9cb616bab3f95d7b7f88ef39d3dd587acb729f8def235d3c2",
+      "sourceBytes": 585,
+      "retainedBytes": 341,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-current-frozen-supplement/maintained-node.stderr.log",
+      "retained": "mio78-current-frozen-supplement/maintained-node.stderr.log.gz",
+      "sourceSha256": "8f80bbe97dbf2df2cb3e45efbac79e8048bf9a9a531176593da497d20075898a",
+      "retainedSha256": "5b0d75ad118fea12ae40d395cbacbb057db1b10c3f53bf73faac0ebe7109f26b",
+      "sourceBytes": 65,
+      "retainedBytes": 85,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-current-frozen-supplement/maintained-node.stdout.log",
+      "retained": "mio78-current-frozen-supplement/maintained-node.stdout.log.gz",
+      "sourceSha256": "d615b98c977079a504d63e25a319d6e615c425ecb084b4223ba0122d6868aa03",
+      "retainedSha256": "9b766bfb70565c19b0f891ba0a3f637ac55f9e0b141eab02291ba2f1796ef03f",
+      "sourceBytes": 1053,
+      "retainedBytes": 525,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-current-frozen-supplement/miopunch_native_probe.test-bin",
+      "retained": "mio78-current-frozen-supplement/miopunch_native_probe.test-bin",
+      "sourceSha256": "961ae83970392475cc33c8fc5af844776ecc3475b058e3ff618f912e1582d2ae",
+      "retainedSha256": "961ae83970392475cc33c8fc5af844776ecc3475b058e3ff618f912e1582d2ae",
+      "sourceBytes": 162006088,
+      "retainedBytes": 162006088,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-current-frozen-supplement/receipt.json",
+      "retained": "mio78-current-frozen-supplement/receipt.json",
+      "sourceSha256": "1105c7b3ac8154f9ee6a4a4ade4f183bc5cc1e0b7b0a280cb0b330b4dccdfe8a",
+      "retainedSha256": "1105c7b3ac8154f9ee6a4a4ade4f183bc5cc1e0b7b0a280cb0b330b4dccdfe8a",
+      "sourceBytes": 17566,
+      "retainedBytes": 17566,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-node-first/build.stderr.log",
+      "retained": "mio78-member-node-first/build.stderr.log.gz",
+      "sourceSha256": "9597a8efd423cb94c9e792538ba0c2e88c0f90c4a8c69f512731d6b865974cc5",
+      "retainedSha256": "83ea1925f32ac976f5784234d53014d562b2bd4bf06cfd5a6f1151900e6acd19",
+      "sourceBytes": 140,
+      "retainedBytes": 138,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-node-first/build.stdout.log",
+      "retained": "mio78-member-node-first/build.stdout.log.gz",
+      "sourceSha256": "7f736813b3b519353d511d464521a1dc91cf1344045b6d972d3071fdda506584",
+      "retainedSha256": "7552f85e503039138bd42b4543bb8e19e701e94adab44eed231e37c94b6c41ae",
+      "sourceBytes": 442287,
+      "retainedBytes": 32529,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-node-first/contact_listener.test-bin",
+      "retained": "mio78-member-node-first/contact_listener.test-bin",
+      "sourceSha256": "bd79357f5af3605732e7dc1cb8888b2f40d00e133ebfbc335e06d3faea182e95",
+      "retainedSha256": "bd79357f5af3605732e7dc1cb8888b2f40d00e133ebfbc335e06d3faea182e95",
+      "sourceBytes": 200882304,
+      "retainedBytes": 200882304,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-node-first/failing-contact_listener.rs",
+      "retained": "mio78-member-node-first/failing-contact_listener.rs",
+      "sourceSha256": "654055f3568bff82cffbe0d9b03472b4d212b6fd0df84e50a7569b91268064d1",
+      "retainedSha256": "654055f3568bff82cffbe0d9b03472b4d212b6fd0df84e50a7569b91268064d1",
+      "sourceBytes": 18125,
+      "retainedBytes": 18125,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-node-first/member.stderr.log",
+      "retained": "mio78-member-node-first/member.stderr.log.gz",
+      "sourceSha256": "1cbccaa2b91f80936bf5a2c4d1a8bc05596e2d03d64a8a0c32d265616cb7645a",
+      "retainedSha256": "91a46a6e909a97ea02561ca4b78a850829be90be041d8e0c5ecf5d87b4eea857",
+      "sourceBytes": 344,
+      "retainedBytes": 271,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-node-first/member.stdout.log",
+      "retained": "mio78-member-node-first/member.stdout.log.gz",
+      "sourceSha256": "94d65d770bfde5aad66c6fbe471486097fcbf33863c23d95c92a8ed38c62ca07",
+      "retainedSha256": "6f43a9227d2a1e721febffcbd147d55c7b2f068defc5ebf7a9b99565330c37bf",
+      "sourceBytes": 310,
+      "retainedBytes": 188,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-node-first/receipt.json",
+      "retained": "mio78-member-node-first/receipt.json",
+      "sourceSha256": "811b98994c24bd3e81b55dfdae483eed509fe04cae1ae7968de71727bca3cab6",
+      "retainedSha256": "811b98994c24bd3e81b55dfdae483eed509fe04cae1ae7968de71727bca3cab6",
+      "sourceBytes": 16319,
+      "retainedBytes": 16319,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-node-unsandboxed/member.stderr.log",
+      "retained": "mio78-member-node-unsandboxed/member.stderr.log.gz",
+      "sourceSha256": "77c9a4177f6a1c6d931639d1bee1f147a1a6091dd3f53a0a3d213d9f57860ef3",
+      "retainedSha256": "c8c99a048b6a0a2aa9ad65beea795e216df02174014c70741db49e789e830448",
+      "sourceBytes": 284,
+      "retainedBytes": 237,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-node-unsandboxed/member.stdout.log",
+      "retained": "mio78-member-node-unsandboxed/member.stdout.log.gz",
+      "sourceSha256": "4d31153b26bce4050dfc159292edc058c3d21f000832b7782481f833de3e2671",
+      "retainedSha256": "9434db6397153905192927e0901ded7dcf34efdaf3c9f5c8b236bf7cc30fcb38",
+      "sourceBytes": 310,
+      "retainedBytes": 187,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-node-unsandboxed/receipt.json",
+      "retained": "mio78-member-node-unsandboxed/receipt.json",
+      "sourceSha256": "86f803d36e36b79a1ef3551b3a92fcc5cecc511c7f81368e672364e3bc59afef",
+      "retainedSha256": "86f803d36e36b79a1ef3551b3a92fcc5cecc511c7f81368e672364e3bc59afef",
+      "sourceBytes": 947,
+      "retainedBytes": 947,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-boundary/build.stderr.log",
+      "retained": "mio78-member-boundary/build.stderr.log.gz",
+      "sourceSha256": "7f2ec589342a6c0c0ba638f0b6219b3888b36efa3b111b852f8bfff806da8e87",
+      "retainedSha256": "72f3e6c066111689236fa7e4fbe4fb2859f7ff0c3cc579f65f65b454aa32cad4",
+      "sourceBytes": 139,
+      "retainedBytes": 137,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-boundary/build.stdout.log",
+      "retained": "mio78-member-boundary/build.stdout.log.gz",
+      "sourceSha256": "47ed08b897504919b87955a5c5b39979adf0a8b81f63717987f8a642b87ca1d6",
+      "retainedSha256": "73ade07017fcf7420a55b82448b4fa960fbdfd7894acc81733f01ea3de541376",
+      "sourceBytes": 442276,
+      "retainedBytes": 32560,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-boundary/contact_listener.test-bin",
+      "retained": "mio78-member-boundary/contact_listener.test-bin",
+      "sourceSha256": "d2cf18b1751f9a87c5dd5d2b3bf2609d3bc1f341333da5c6fd4bfb6fb82d134f",
+      "retainedSha256": "d2cf18b1751f9a87c5dd5d2b3bf2609d3bc1f341333da5c6fd4bfb6fb82d134f",
+      "sourceBytes": 200892520,
+      "retainedBytes": 200892520,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-boundary/failing-contact_listener.rs",
+      "retained": "mio78-member-boundary/failing-contact_listener.rs",
+      "sourceSha256": "fab44c965675c85988c9d6ae0fd3e126c6081a0258020da613ffac8ca19ac15d",
+      "retainedSha256": "fab44c965675c85988c9d6ae0fd3e126c6081a0258020da613ffac8ca19ac15d",
+      "sourceBytes": 18910,
+      "retainedBytes": 18910,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-boundary/member.stderr.log",
+      "retained": "mio78-member-boundary/member.stderr.log.gz",
+      "sourceSha256": "bf87eb8874ba52d90983943e2b1a1ad1d1a95bf925582b2827a3d41303a4ff32",
+      "retainedSha256": "d43b37c18736cabf19d0efbd7f00b59e201bcd88d8984884da01f90aae333421",
+      "sourceBytes": 284,
+      "retainedBytes": 236,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-boundary/member.stdout.log",
+      "retained": "mio78-member-boundary/member.stdout.log.gz",
+      "sourceSha256": "747f7e793f6b9cc35fbd1fac053569d412be33191e087791db0f78c36c812d88",
+      "retainedSha256": "0d42cc52ea20745541151a8babfb186888da70db8d51e4499f48ac86a99fa09a",
+      "sourceBytes": 532,
+      "retainedBytes": 302,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-boundary/receipt.json",
+      "retained": "mio78-member-boundary/receipt.json",
+      "sourceSha256": "a6ecbbb036fbc14ac869ac34bde60ae7968bd807322e886df40178c47d2d1093",
+      "retainedSha256": "a6ecbbb036fbc14ac869ac34bde60ae7968bd807322e886df40178c47d2d1093",
+      "sourceBytes": 15819,
+      "retainedBytes": 15819,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-tls-current/build.stderr.log",
+      "retained": "mio78-member-tls-current/build.stderr.log.gz",
+      "sourceSha256": "d11bb0232563bc0b44f0008678e32561622cdca94a348a484b85058c2b5cc0e9",
+      "retainedSha256": "9f030c5a2248f78d869b2720d86c69316a2fba91608773e6df984ded1b019ecd",
+      "sourceBytes": 140,
+      "retainedBytes": 138,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-tls-current/build.stdout.log",
+      "retained": "mio78-member-tls-current/build.stdout.log.gz",
+      "sourceSha256": "ce4e1d39d3e55efdf05b02a986c2c9424d30af61df283f21cd3c1fdd2ff37974",
+      "retainedSha256": "1cc68348f5d5fa416a27463360fc72129b8f35f27ea78fc8037247fee38ef893",
+      "sourceBytes": 445110,
+      "retainedBytes": 32601,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-tls-current/contact_listener.test-bin",
+      "retained": "mio78-member-tls-current/contact_listener.test-bin",
+      "sourceSha256": "609b573e2aff79433f464dde459c12413c04519fcd30fdfc97cd2ef3c23e00c1",
+      "retainedSha256": "609b573e2aff79433f464dde459c12413c04519fcd30fdfc97cd2ef3c23e00c1",
+      "sourceBytes": 200892128,
+      "retainedBytes": 200892128,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-tls-current/failing-contact_listener.rs",
+      "retained": "mio78-member-tls-current/failing-contact_listener.rs",
+      "sourceSha256": "2f35223e7b67c5ed3e8564eb8421065c429fa52afc288f114aef13127dc39e91",
+      "retainedSha256": "2f35223e7b67c5ed3e8564eb8421065c429fa52afc288f114aef13127dc39e91",
+      "sourceBytes": 18484,
+      "retainedBytes": 18484,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-tls-current/member.stderr.log",
+      "retained": "mio78-member-tls-current/member.stderr.log.gz",
+      "sourceSha256": "039c913ab58fbe8049ca327b2c7866c0e58e2085da55ee941f6ad167c626e462",
+      "retainedSha256": "963995dc677953070e7736ee64c483e51486a864ba7d6cbc169e632880357dbe",
+      "sourceBytes": 332,
+      "retainedBytes": 274,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-tls-current/member.stdout.log",
+      "retained": "mio78-member-tls-current/member.stdout.log.gz",
+      "sourceSha256": "bd82d6507cbddd8435b475c250b2d87584f16f2e83e20daf9549d99152ac6228",
+      "retainedSha256": "4a373eb401751881036310f244a7c1d09760f1dfa227d6e943f88ecd8dc52eb2",
+      "sourceBytes": 1041,
+      "retainedBytes": 446,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-tls-current/miopunch_native_probe.test-bin",
+      "retained": "mio78-member-tls-current/miopunch_native_probe.test-bin",
+      "sourceSha256": "a20bebaeb7de8b7b87130aacd8fb2b1b59cfc8c41fd7270a522842631c2126fa",
+      "retainedSha256": "a20bebaeb7de8b7b87130aacd8fb2b1b59cfc8c41fd7270a522842631c2126fa",
+      "sourceBytes": 162122400,
+      "retainedBytes": 162122400,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-tls-current/receipt.json",
+      "retained": "mio78-member-tls-current/receipt.json",
+      "sourceSha256": "026406365a2b3efc5cffe34c137c282b83f0c2802ce11be844722fcb97d0e181",
+      "retainedSha256": "026406365a2b3efc5cffe34c137c282b83f0c2802ce11be844722fcb97d0e181",
+      "sourceBytes": 16992,
+      "retainedBytes": 16992,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-tls-current/tls.stderr.log",
+      "retained": "mio78-member-tls-current/tls.stderr.log.gz",
+      "sourceSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "retainedSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "sourceBytes": 0,
+      "retainedBytes": 20,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-tls-current/tls.stdout.log",
+      "retained": "mio78-member-tls-current/tls.stdout.log.gz",
+      "sourceSha256": "eeb603a38cfaafe1daafac179de9234489b6006b62995876af4a7074e78eb722",
+      "retainedSha256": "2b05aebbbd20b7689ca02f29f4ba5c3821bf3f1923cf8556af8aab0bcc7c17b5",
+      "sourceBytes": 217,
+      "retainedBytes": 167,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-cleanup-current/build.stderr.log",
+      "retained": "mio78-member-cleanup-current/build.stderr.log.gz",
+      "sourceSha256": "ff4437088b6e0be5f296f14e2ca31aa0061f16eda01cb877ad6cb384e67d7c37",
+      "retainedSha256": "5680ed32fcf7f6522ef1a0b6554526aa8d8abbded62d59b28ffe94d09a7651f2",
+      "sourceBytes": 139,
+      "retainedBytes": 137,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-cleanup-current/build.stdout.log",
+      "retained": "mio78-member-cleanup-current/build.stdout.log.gz",
+      "sourceSha256": "ba96e458c5836cf1c31749021090e4ba02c864eb345e94e5961a666074118031",
+      "retainedSha256": "26237e6937440c73fcae56c62abfe9462cf8e68483ba305fb5009ac3b568c961",
+      "sourceBytes": 442275,
+      "retainedBytes": 32557,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-cleanup-current/contact_listener.test-bin",
+      "retained": "mio78-member-cleanup-current/contact_listener.test-bin",
+      "sourceSha256": "623a16c60efce88f1bdb0316cc516962dc90729d50c18754c79e93ca388374d7",
+      "retainedSha256": "623a16c60efce88f1bdb0316cc516962dc90729d50c18754c79e93ca388374d7",
+      "sourceBytes": 200906568,
+      "retainedBytes": 200906568,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-cleanup-current/member.stderr.log",
+      "retained": "mio78-member-cleanup-current/member.stderr.log.gz",
+      "sourceSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "retainedSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "sourceBytes": 0,
+      "retainedBytes": 20,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-cleanup-current/member.stdout.log",
+      "retained": "mio78-member-cleanup-current/member.stdout.log.gz",
+      "sourceSha256": "b4b2edc5bce268cd172699b8ab82dc1c6666397e5ccb99a395c83c2976499109",
+      "retainedSha256": "9757181b2b37ffe2706564c4ae4040f8c30bfee6f6f2e26f1cb87b847162b699",
+      "sourceBytes": 1365,
+      "retainedBytes": 655,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-member-cleanup-current/receipt.json",
+      "retained": "mio78-member-cleanup-current/receipt.json",
+      "sourceSha256": "f8297b2469d40fd9f79f3251e9e23a9d144f8f4e2ee7281c7150fef73eae4aff",
+      "retainedSha256": "f8297b2469d40fd9f79f3251e9e23a9d144f8f4e2ee7281c7150fef73eae4aff",
+      "sourceBytes": 16229,
+      "retainedBytes": 16229,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-lifecycle-member-current-final/build.stderr.log",
+      "retained": "mio78-lifecycle-member-current-final/build.stderr.log.gz",
+      "sourceSha256": "3b8d0b0abf504613b158428470c4592f495642d92cdf5aaa156d8d5ef9277d5a",
+      "retainedSha256": "6e4c97bf2123225a94614152374625f33c5f3d391b89845f57183ca276b95242",
+      "sourceBytes": 73,
+      "retainedBytes": 92,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-lifecycle-member-current-final/build.stdout.log",
+      "retained": "mio78-lifecycle-member-current-final/build.stdout.log.gz",
+      "sourceSha256": "234f4b0046f674718fc50ec84f2c62029374f9f81d76364955cc25fe4f6cd54b",
+      "retainedSha256": "8cc746d361db8997996b73b2bee58d8aee6e07954a3696b66c904a438afeca68",
+      "sourceBytes": 445096,
+      "retainedBytes": 32583,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-lifecycle-member-current-final/contact_listener.test-bin",
+      "retained": "mio78-lifecycle-member-current-final/contact_listener.test-bin",
+      "sourceSha256": "623a16c60efce88f1bdb0316cc516962dc90729d50c18754c79e93ca388374d7",
+      "retainedSha256": "623a16c60efce88f1bdb0316cc516962dc90729d50c18754c79e93ca388374d7",
+      "sourceBytes": 200906568,
+      "retainedBytes": 200906568,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-lifecycle-member-current-final/generation.stderr.log",
+      "retained": "mio78-lifecycle-member-current-final/generation.stderr.log.gz",
+      "sourceSha256": "8f80bbe97dbf2df2cb3e45efbac79e8048bf9a9a531176593da497d20075898a",
+      "retainedSha256": "5b0d75ad118fea12ae40d395cbacbb057db1b10c3f53bf73faac0ebe7109f26b",
+      "sourceBytes": 65,
+      "retainedBytes": 85,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-lifecycle-member-current-final/generation.stdout.log",
+      "retained": "mio78-lifecycle-member-current-final/generation.stdout.log.gz",
+      "sourceSha256": "f75bbd75b253dd91fc41a1af3819553c77d110bf80064b31c0c6b424fb590871",
+      "retainedSha256": "775302a01fbcd03a6cfa268291892b431140de78f6098d997a6721a98b2602a2",
+      "sourceBytes": 585,
+      "retainedBytes": 341,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-lifecycle-member-current-final/maintained-node.stderr.log",
+      "retained": "mio78-lifecycle-member-current-final/maintained-node.stderr.log.gz",
+      "sourceSha256": "8f80bbe97dbf2df2cb3e45efbac79e8048bf9a9a531176593da497d20075898a",
+      "retainedSha256": "5b0d75ad118fea12ae40d395cbacbb057db1b10c3f53bf73faac0ebe7109f26b",
+      "sourceBytes": 65,
+      "retainedBytes": 85,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-lifecycle-member-current-final/maintained-node.stdout.log",
+      "retained": "mio78-lifecycle-member-current-final/maintained-node.stdout.log.gz",
+      "sourceSha256": "a95fd7e2d89fe96fb41a07d4d1e20fe72b9bb8292864d497f4d8b31e5d772f7e",
+      "retainedSha256": "2bb15812845bef9bba5b7b116051033068697a48e2eb136b8c0e9e45c8f02dca",
+      "sourceBytes": 2306,
+      "retainedBytes": 842,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-lifecycle-member-current-final/miopunch_native_probe.test-bin",
+      "retained": "mio78-lifecycle-member-current-final/miopunch_native_probe.test-bin",
+      "sourceSha256": "a20bebaeb7de8b7b87130aacd8fb2b1b59cfc8c41fd7270a522842631c2126fa",
+      "retainedSha256": "a20bebaeb7de8b7b87130aacd8fb2b1b59cfc8c41fd7270a522842631c2126fa",
+      "sourceBytes": 162122400,
+      "retainedBytes": 162122400,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-lifecycle-member-current-final/receipt.json",
+      "retained": "mio78-lifecycle-member-current-final/receipt.json",
+      "sourceSha256": "a8397c948b2940d230511f6ac5087732d3ba9a947cf7587fa9f4b360387b4663",
+      "retainedSha256": "a8397c948b2940d230511f6ac5087732d3ba9a947cf7587fa9f4b360387b4663",
+      "sourceBytes": 18059,
+      "retainedBytes": 18059,
+      "compression": null,
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-lifecycle-member-current-final/tls-negative.stderr.log",
+      "retained": "mio78-lifecycle-member-current-final/tls-negative.stderr.log.gz",
+      "sourceSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "retainedSha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "sourceBytes": 0,
+      "retainedBytes": 20,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    },
+    {
+      "source": "/tmp/mio78-lifecycle-member-current-final/tls-negative.stdout.log",
+      "retained": "mio78-lifecycle-member-current-final/tls-negative.stdout.log.gz",
+      "sourceSha256": "eeb603a38cfaafe1daafac179de9234489b6006b62995876af4a7074e78eb722",
+      "retainedSha256": "2b05aebbbd20b7689ca02f29f4ba5c3821bf3f1923cf8556af8aab0bcc7c17b5",
+      "sourceBytes": 217,
+      "retainedBytes": 167,
+      "compression": "gzip",
+      "decompressedByteExact": true
+    }
+  ],
+  "memberSupplement": "New strict SDK member-only contact with maintained healthy-relay receiver passed; earlier eligibility and cleanup-observer failures retained",
+  "negativeTls": "Same Android production config rejects self-signed peer in real in-memory rustls handshake; no socket/public traffic",
+  "currentFocusedRun": {
+    "receipt": "mio78-lifecycle-member-current-final/receipt.json",
+    "testsPassed": 6,
+    "commandsExit0": 4,
+    "sourceUnchangedDuringBuild": true,
+    "frozenArtifactsAfterShaVerified": true,
+    "publicTraffic": false
+  }
+}

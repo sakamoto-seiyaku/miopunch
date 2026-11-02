@@ -1,0 +1,83 @@
+{
+  "status": "LOCAL_CAUSAL_ROUTE_ORDER_COMPARISON",
+  "reused_linux_sdk_sha256": "b63a7f6280417399df02731ce0c2980edb20f24099244107e8c1b38be47a8c46",
+  "origin_build_finalization_sha256": "e21af4537952139ac8a2ba7d015d268aa67e240e6aaa92437af1d64b881d22c9",
+  "lock_sha256": "7f77e9317f1c17dd78b45ab54ce980b783bd191735fe2652f6cfb7aaf40c44f7",
+  "endpoint_addr_source_sha256": "ad84dc582592f417492cec158d198cbdc50385f77f7e86b12b99484b55d29e11",
+  "coordinator_source_sha256": "615a799f57a5994ba9c9e7493e3994255ec05a00e08c73a112c945f10205c48c",
+  "transport_addr_order": "EndpointAddr.addrs is BTreeSet<TransportAddr>; all 127.0.0.1 blackholes sort before 127.0.0.2 reachable address regardless JSON list position; changing JSON list alone did not change dial order. Corrected comparison used reachable 127.0.0.1 and blackholes 127.0.0.2.",
+  "cases": [
+    {
+      "case": "json_fourth",
+      "controller_path": "/tmp/m119-route-feedback-20261028/local_sync_five_address.py",
+      "controller_sha256": "e426e35941134566c23b10e9c450872198240aea35e88e4c95a26327d5e38ec8",
+      "result_path": "/tmp/m119-route-feedback-20261028/local-sync-feedback-five-address/result.json",
+      "result_sha256": "a1cf05925282494bed38e03cffa8685cc24496cec3a274bf1a8897e2eee48915",
+      "reverse_service_sync_seconds": 48.96996876504272,
+      "both_nodes_terminal": true,
+      "business_saved": true,
+      "blackholes": 4
+    },
+    {
+      "case": "json_first_same_canonical",
+      "controller_path": "/tmp/m119-route-feedback-20261028/local_sync_five_address_good_first.py",
+      "controller_sha256": "508bc8e4a2faba55403bd6956fb4e7901cd7b8754679bff75e2948175e110098",
+      "result_path": "/tmp/m119-route-feedback-20261028/local-sync-feedback-five-address-good-first/result.json",
+      "result_sha256": "8493dca398f390130fdc98654575503f2874fcc1ded70de961e1f743584cd685",
+      "reverse_service_sync_seconds": 48.96497094101505,
+      "both_nodes_terminal": true,
+      "business_saved": true,
+      "blackholes": 4
+    },
+    {
+      "case": "canonical_first",
+      "controller_path": "/tmp/m119-route-feedback-20261028/local_sync_five_address_sorted_first.py",
+      "controller_sha256": "9143403e9f05d22a829052cfecedc7349556775797758a2e7f943bd68c48592f",
+      "result_path": "/tmp/m119-route-feedback-20261028/local-sync-feedback-five-address-sorted-first/result.json",
+      "result_sha256": "75b29e2d760f55164b2ff0aa707413cc84772ec9f4560d25bae6457df826f369",
+      "reverse_service_sync_seconds": 0.9829218790400773,
+      "both_nodes_terminal": true,
+      "business_saved": true,
+      "blackholes": 4
+    }
+  ],
+  "saved_time_seconds": 47.987046886002645,
+  "interpretation": "For this local five-address direct-loopback case, the SDK cold-address order accounts for roughly 48 seconds of extra service_sync latency; a JSON position change cannot control that order.",
+  "limits": [
+    "This is local loopback with synthetic nonresponding UDP sockets, not the Windows-to-Linux route or a WAN/NAT qualification.",
+    "No product code was changed; the original Windows reverse failure cause remains unproven.",
+    "The new v4 reverse Web packet remains unexecuted."
+  ],
+  "new_cargo_builds": 0,
+  "new_artifact_pins": 0,
+  "remote_actions": 0,
+  "sorted_first_output_allocated_bytes": 307200,
+  "declared_output_budget_bytes": 16777216,
+  "environment_attempt": "Initial sandboxed invocation failed before socket creation/output with Operation not permitted; the same local-only command under normal approval review ran once and passed. No product retry or remote action.",
+  "durable_public_snapshots": {
+    "canonical-first.py": {
+      "path": "docs/evidence/m119-windows-host-2026-10-25/five-address-order/canonical-first.py",
+      "sha256": "9143403e9f05d22a829052cfecedc7349556775797758a2e7f943bd68c48592f"
+    },
+    "canonical-first.result.json": {
+      "path": "docs/evidence/m119-windows-host-2026-10-25/five-address-order/canonical-first.result.json",
+      "sha256": "75b29e2d760f55164b2ff0aa707413cc84772ec9f4560d25bae6457df826f369"
+    },
+    "json-first.py": {
+      "path": "docs/evidence/m119-windows-host-2026-10-25/five-address-order/json-first.py",
+      "sha256": "508bc8e4a2faba55403bd6956fb4e7901cd7b8754679bff75e2948175e110098"
+    },
+    "json-first.result.json": {
+      "path": "docs/evidence/m119-windows-host-2026-10-25/five-address-order/json-first.result.json",
+      "sha256": "8493dca398f390130fdc98654575503f2874fcc1ded70de961e1f743584cd685"
+    },
+    "json-fourth.py": {
+      "path": "docs/evidence/m119-windows-host-2026-10-25/five-address-order/json-fourth.py",
+      "sha256": "e426e35941134566c23b10e9c450872198240aea35e88e4c95a26327d5e38ec8"
+    },
+    "json-fourth.result.json": {
+      "path": "docs/evidence/m119-windows-host-2026-10-25/five-address-order/json-fourth.result.json",
+      "sha256": "a1cf05925282494bed38e03cffa8685cc24496cec3a274bf1a8897e2eee48915"
+    }
+  }
+}

@@ -63,7 +63,8 @@ def main():
             print(json.dumps(report))
             return
         assert command and Path(command[0]).resolve().parent == ROOT / "scripts"
-        assert Path(command[0]).name.startswith("check_web_"), "only the declared Web controller may run"
+        assert (Path(command[0]).name.startswith("check_web_")
+                or Path(command[0]).name in {"check_browser_host.py", "check_headless_host.py", "check_device_effects.py", "check_terminal_service.py", "check_terminal_browser.py", "check_terminal_sdk.py", "check_terminal_policy.py"}), "only a declared service controller may run"
         os.execv(sys.executable, [sys.executable, *command])
     environment = isolated_environment()
     environment["M119_WEB_PARENT_NETWORK_NAMESPACE"] = os.readlink("/proc/self/ns/net")

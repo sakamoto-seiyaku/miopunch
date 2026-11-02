@@ -1,0 +1,30 @@
+{
+  "pid": 347901,
+  "start_ticks": 32503489,
+  "launch_monotonic": 325034.895278423,
+  "cmdline_sha256": "3a49107a5cbbdfb43c7623eadbee69243b11725040389f4f0509b4085ceee512",
+  "quota": {
+    "identity": {
+      "scope": "linux-endpoint",
+      "nonce": "401c2888-db73-4706-a5ca-ed794e4562de",
+      "pid": 347901
+    },
+    "first_failure": {
+      "kind": "capacity",
+      "key": "result.json:132538501703488",
+      "bytes": 23272,
+      "offset": 0,
+      "type": null
+    },
+    "trigger": {
+      "kind": "capacity",
+      "key": "result.json:132538501703488",
+      "bytes": 23272,
+      "offset": 0,
+      "type": null
+    }
+  },
+  "reason": "original test writer blocked above immutable hard cap after SDK cleanup; retain failure, do not accept runtime",
+  "signal": "SIGTERM",
+  "monotonic": 325230.769737445
+}

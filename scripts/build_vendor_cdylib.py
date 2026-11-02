@@ -12,6 +12,7 @@ import time
 import tomllib
 
 import cargo_cache
+from pin_artifact import pin_artifact
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -28,7 +29,7 @@ def sha(path):
 
 def sources():
     required = {ROOT / 'Cargo.toml', ROOT / 'Cargo.lock', ROOT / '.cargo/config.toml',
-                Path(__file__).resolve(), ROOT / 'scripts/cargo_cache.py'}
+                Path(__file__).resolve(), ROOT / 'scripts/cargo_cache.py', ROOT / 'scripts/pin_artifact.py'}
     for package in ['iroh', 'iroh-relay']:
         manifest = ROOT / 'vendor' / package / 'Cargo.toml'
         require(manifest.is_file(), 'required build input missing: ' + str(manifest))
@@ -158,7 +159,7 @@ def run(output):
             dest = output / 'previous-cache-output' / (digest + '.so')
             dest.parent.mkdir(exist_ok=True)
             if not dest.exists():
-                shutil.copy2(artifact, dest)
+                pin_artifact(artifact, dest)
             require(sha(dest) == digest, 'artifact generation invariant failed')
             previous[str(artifact)] = {'sha256': digest, 'retainedCopy': str(dest)}
         for path, value in previous.items():
@@ -192,7 +193,7 @@ def run(output):
             pinned.mkdir()
             for artifact in sorted(candidates):
                 dest = pinned / artifact.name
-                shutil.copy2(artifact, dest)
+                pin_artifact(artifact, dest)
                 require(sha(artifact) == sha(dest), 'artifact generation invariant failed')
                 report['artifacts'][str(dest)] = sha(dest)
             # Pin before releasing the lease: an unversioned Cargo output is mutable.

@@ -25,10 +25,24 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native-receipt", type=Path, required=True)
     parser.add_argument("--source-archive-sha", required=True)
-    parser.add_argument("--test", choices=["device_replacement", "device_operations", "clipboard_lifecycle", "clipboard_guest_projection", "forwarding_lifecycle", "web_lifecycle"], required=True)
+    parser.add_argument("--test", choices=["client_host", "device_effects", "device_replacement", "device_operations", "clipboard_lifecycle", "clipboard_guest_projection", "forwarding_lifecycle", "web_lifecycle", "terminal_lifecycle"], required=True)
     parser.add_argument("--test-sha", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--artifact-store-review", type=Path, help="Explicit retained-store inventory and bounded allowance")
     args = parser.parse_args()
+    store_budget = 32 * 1024**3
+    store_review = None
+    if args.artifact_store_review:
+        review_path = args.artifact_store_review.resolve()
+        review_hash = sha(review_path)
+        review = json.loads(review_path.read_text())
+        store_budget = review["batch_store_budget_bytes"]
+        if not review.get("decision") or review["consumer_budget_bytes"] != 256 * 1024**2:
+            raise RuntimeError("artifact retention review lacks the bounded consumer decision")
+        if store_budget <= review["allocated_bytes"] + review["consumer_budget_bytes"]:
+            raise RuntimeError("artifact retention allowance cannot fit the consumer")
+        store_review = dict(path=str(review_path), sha256=review_hash, budgetBytes=store_budget,
+                            allocatedBefore=review["allocated_bytes"], consumerBudgetBytes=review["consumer_budget_bytes"])
     receipt = args.native_receipt.resolve()
     sdk = json.loads(receipt.read_text())
     expected = json.loads(receipt.with_name("inputs.json").read_text())
@@ -46,6 +60,12 @@ def main():
     toolchain = subprocess.check_output(["rtk", "proxy", "rustc", "-Vv"], text=True)
 
     def validate():
+        if store_review:
+            if sha(Path(store_review["path"])) != store_review["sha256"]:
+                raise RuntimeError("artifact retention review changed")
+            allocated = sum(path.stat().st_blocks * 512 for path in (ROOT / ".artifacts/sha256").rglob("*") if path.is_file())
+            if allocated != store_review["allocatedBefore"]:
+                raise RuntimeError("artifact store changed since its retention review")
         if not toolchain.startswith(RUSTC_VERSION) or sdk["exit"] != 0:
             raise RuntimeError("SDK/toolchain precondition failed")
         if sha(archive) != args.source_archive_sha or sha(test) != args.test_sha:
@@ -74,7 +94,7 @@ def main():
     report = dict(toolchain=toolchain, SDKReceipt=str(receipt), SDKLibrary=str(library),
         SDKSourceArchive=str(archive), SDKSourceArchiveSHA256=args.source_archive_sha,
         selectedDependencies=dependencies, controllerInputs=controllers, testSHA256=args.test_sha,
-        CargoInvoked=False, dependencyRebuilds=0, platform="x86_64-unknown-linux-gnu",
+        artifactStoreReview=store_review, CargoInvoked=False, dependencyRebuilds=0, platform="x86_64-unknown-linux-gnu",
         profile="standalone line tables", features=[], budgetBytes=256 * 1024**2, exit=None)
     try:
         with cache_lease(ROOT / "target") as before:
@@ -93,7 +113,9 @@ def main():
             if result.returncode:
                 raise RuntimeError("device consumer compile failed; inspect retained stderr")
             validate()
-            report["pin"] = pin_artifact(binary, output / binary.name)
+            if binary.stat().st_size > report["budgetBytes"]:
+                raise RuntimeError("compiled consumer exceeds declared artifact budget")
+            report["pin"] = pin_artifact(binary, output / binary.name, max_bytes=store_budget)
             report["sha256"] = sha(binary)
             report["diskAfter"] = disk_state(ROOT / "target")
     finally:

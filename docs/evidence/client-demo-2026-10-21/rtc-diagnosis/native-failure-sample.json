@@ -1,0 +1,25 @@
+[
+  {
+    "event": "rtc-path-cleanup",
+    "failure": "deadline has elapsed",
+    "events": [
+      {
+        "elapsedMs": 3,
+        "kind": "connection",
+        "state": "connecting"
+      },
+      {
+        "elapsedMs": 3,
+        "kind": "ice",
+        "state": "checking"
+      },
+      {
+        "elapsedMs": 240,
+        "kind": "gathering",
+        "state": "complete"
+      }
+    ],
+    "statsEntries": 9,
+    "switched": false
+  }
+]

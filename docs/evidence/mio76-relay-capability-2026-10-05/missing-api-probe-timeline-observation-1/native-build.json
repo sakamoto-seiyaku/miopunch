@@ -1,0 +1,58 @@
+{
+  "scope": "formal SDK Android build only; no device/NAT/SDK story pass",
+  "head": "24007b9c81ec2b4ca3f6c3b9c1ee78a01b98e391",
+  "command": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "build",
+    "--locked",
+    "--target",
+    "aarch64-linux-android",
+    "--target-dir",
+    "/tmp/miopunch-android-pair-target-20261005",
+    "--offline",
+    "--features",
+    "rtc-probe",
+    "--bin",
+    "browser_wss_member_native"
+  ],
+  "targetDirectory": "/tmp/miopunch-android-pair-target-20261005",
+  "rust": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: x86_64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8",
+  "compiler": "Debian clang version 14.0.6\nTarget: aarch64-unknown-linux-android24\nThread model: posix\nInstalledDir: /usr/bin",
+  "ndk": "Pkg.Desc = Android NDK\nPkg.Revision = 29.0.14206865\nPkg.BaseRevision = 29.0.14206865\nPkg.ReleaseName = r29\n",
+  "sourceDigestBefore": "8aeb8d8df3f237b6e4cd08d2b2bc1ee2ae42cf0293fece3144ccd160e8b7f19c",
+  "builderSha256": "06fc024b5afd8392790e6579495d5c65b2347f1c44657fe6a184cef412f33d8e",
+  "exit": 0,
+  "cargoExit": 0,
+  "callerElapsedMs": 126066.732,
+  "artifacts": {
+    "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/browser_wss_member_native": "476670f3a73069ce1608df2a5733674ffa5275d32f058bc7ba85d1e51f7328f3"
+  },
+  "deployment": {
+    "browser_wss_member_native": {
+      "compiledPath": "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/browser_wss_member_native",
+      "compiledSha256": "476670f3a73069ce1608df2a5733674ffa5275d32f058bc7ba85d1e51f7328f3",
+      "deployedPath": "/tmp/mio76-probe-timeline-current-android-build-20261005/deploy/browser_wss_member_native",
+      "compiledBytes": 184763928,
+      "transformation": {
+        "operation": "strip debug sections on owned copy only",
+        "command": [
+          "rtk",
+          "proxy",
+          "/usr/bin/llvm-strip",
+          "--strip-debug",
+          "/tmp/mio76-probe-timeline-current-android-build-20261005/deploy/browser_wss_member_native"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "deployedSha256": "f97cb31a09957c109b88dfa7a67051a306fad370f8fb31ef19b13213e7841d45",
+      "deployedBytes": 101096520
+    }
+  },
+  "sourceDigestAfter": "8aeb8d8df3f237b6e4cd08d2b2bc1ee2ae42cf0293fece3144ccd160e8b7f19c",
+  "sourceFrozenDuringBuild": true,
+  "qualifiedForFrozenRun": true
+}

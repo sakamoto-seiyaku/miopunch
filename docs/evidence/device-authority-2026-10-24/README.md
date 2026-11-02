@@ -1,5 +1,13 @@
 # 设备权限与完整节点恢复验收
 
+## 2026-10-29 实机补充
+
+当前 Native 构件已完成 Windows/Linux 两方向的具体权限确认、凭证托管与恢复、完整节点替换；修复共享 SQLite 关闭竞态后的构件还完整通过双方向审批／precode 账本续办及独立文件读取，16 个全新 Windows 申请节点初始化均通过。原地址前置失败、主线程误改 CLI 断言的失败、Windows OS5 原始失败及清理记录均保留。详见[本次实机资格与构件来源](../device-authority-2026-10-29/current-platform-qualification.json)。
+
+SQLx 0.8.6 在连接归还与池关闭交错时可能在仍有连接的情况下返回；真实 SQLite 同时序测试 RED 为剩余连接 1，修复后为 0。共享存储关闭现在等待晚归还连接的 worker 真正结束，覆盖创建、加入、恢复和备份。Linux 465 Fresh／2 rebuilt、Windows 526 Fresh／2 rebuilt；WASM 实际 229 个输入未变，未重建。历史 Windows OS5 的具体占用句柄未逐个建立，不能一概归因于此竞态。
+
+以下旧记录中的 Windows 授权／账本待运行状态已被本次实际运行补充；原图来源保持不变。2026-10-29 随后的当前 Native 效果验证补齐旧凭证交付与组合备份权限缺口，主线程据此完成 M116 非 UI 验收；后文 UNPROVEN／PENDING 是保留的历史状态。详见[实际效果资格](../device-authority-2026-10-29/effect-qualification.json)。
+
 MIOPUNCH-116；比较起点 `7da3b11d46b8342851874c502c998c86a63667c5`。公开操作见[接口说明](../../notes/2026-10-24-device-authority-and-node-replacement.md)。这里记录非 UI SDK／JSON host／真实 Chromium 的实际观察，原始秘密状态不进入 Git。
 
 ## 构件与来源

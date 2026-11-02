@@ -1,0 +1,58 @@
+{
+  "status": "CURRENT_WINDOWS_BUILT_AND_DEPLOYED_RUNTIME_PENDING",
+  "build_receipt": "/tmp/m107-main-20261029/m107-windows-current-20261029/build.json",
+  "build_receipt_sha256": "a9057dfaa8a8b2fd11ea92e8e8108a7c002d8cb231eb0b9768a1e4f58ca08fae",
+  "original_pin": "/home/js/Git/miopunch/.artifacts/runs/m107-windows-current-20261029/miopunch-client.exe",
+  "original_sha256": "e6444ac4482d54bdff87504ccaf93398ebc9f65e8f69849b4c56588c50fa39f5",
+  "fresh_artifacts": 519,
+  "rebuilt_artifacts": 9,
+  "deployment": {
+    "original_pin": "/home/js/Git/miopunch/.artifacts/runs/m107-windows-current-20261029/miopunch-client.exe",
+    "original_sha256": "e6444ac4482d54bdff87504ccaf93398ebc9f65e8f69849b4c56588c50fa39f5",
+    "original_bytes": 189723181,
+    "deployment_copy": "/tmp/m107-main-20261029/windows-deployment/miopunch-client.exe",
+    "deployment_sha256": "51d82ddf647b5e08a4f6cc2fef8dbbd70e13251b07284190f96af57426de6283",
+    "deployment_bytes": 65107456,
+    "transform": [
+      "x86_64-w64-mingw32-strip --strip-debug",
+      "x86_64-w64-mingw32-strip --strip-all"
+    ],
+    "compiler_image": "sha256:af5de852d8a8ae263b8eaa6278aea87c3fedc9030d7eb51a0d1b2613c9ce4c4f",
+    "pin_mutated": false
+  },
+  "remote": {
+    "status": "DEPLOYED_HASH_VERIFIED_NO_SDK_RUNTIME_YET",
+    "sha256": "51d82ddf647b5e08a4f6cc2fef8dbbd70e13251b07284190f96af57426de6283",
+    "bytes": 65107456,
+    "remote": "C:/Users/stati/AppData/Local/Temp/miopunch-m119-20261025-real-01/app/sdk/miopunch-client-current-51d82ddf.exe",
+    "stages": [
+      {
+        "label": "preflight",
+        "exit": 0
+      },
+      {
+        "label": "scp",
+        "exit": 0
+      },
+      {
+        "label": "verify",
+        "exit": 0
+      }
+    ],
+    "reserve_bytes": 12582912,
+    "root_cap": 1073741824,
+    "reservation_scope": "Windows provider only: no WebView profile,8MiB private state+4MiB generated/controller",
+    "source_pin_unchanged": true,
+    "preflight": {
+      "rootBytes": 993384265,
+      "conservative": 1071172937,
+      "destinationAbsent": true
+    },
+    "verified": {
+      "bytes": 65107456,
+      "sha256": "51d82ddf647b5e08a4f6cc2fef8dbbd70e13251b07284190f96af57426de6283"
+    }
+  },
+  "WSL": "explicitly deferred again by user; do not install or qualify",
+  "SDK_runtime_passed": false
+}

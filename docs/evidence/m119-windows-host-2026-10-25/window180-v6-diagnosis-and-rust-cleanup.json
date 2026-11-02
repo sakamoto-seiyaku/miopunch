@@ -1,0 +1,110 @@
+{
+  "status": "PARTIAL_REMOTE_BUSINESS_PASSED_ISOLATION_PENDING",
+  "packet_sha256": "3847b3c37450f61407b56bb9cd740ab671c31ba4cf0ba12463e6625b13f1533b",
+  "raw_count": 41,
+  "raw_bytes": 123947,
+  "raw_hashes_verified": true,
+  "raw_path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v6-reverse-preparation-20261029/runtime/raw/admission-wp-6fe6fb94",
+  "STOP_sha256": "b46a93277cfa637be77b2afe68240e186ccad17d374d4b5a8185bca0ddd100db",
+  "remote_passed": [
+    "resources",
+    "form",
+    "cookie",
+    "303 redirect",
+    "navigation",
+    "WebSocket text/binary/clean close"
+  ],
+  "remote_failure": "management-control profile name made WebKit bus-proxy pathname exceed Unix socket capacity",
+  "local_fixed_two_hosts": {
+    "result": "/home/js/Git/miopunch/docs/evidence/m119-windows-host-2026-10-25/window180-two-host-local-result.json",
+    "sha256": "a82b82e93614647b9420e2293142ffc099cf4033a89068916caadb0ae535d40e",
+    "worker_candidate": "/tmp/m119-route-feedback-20261028/worker_host_paths_fixed.py"
+  },
+  "fixes": [
+    "short private batch",
+    "expand bwrap --args inherited FD before tmpfs budgeting",
+    "close terminal private desktop/bus owners",
+    "fixed short per-host profile identifier; explicit generated socket path bound"
+  ],
+  "rust_changes": [
+    "borrow message for target validation instead of cloning full payload",
+    "single BTreeMap entry lookup and release global lock before result JSON serialization"
+  ],
+  "rust_check": {
+    "command": [
+      "rtk",
+      "proxy",
+      "cargo",
+      "check",
+      "--locked",
+      "--offline",
+      "--lib",
+      "--jobs",
+      "2",
+      "--message-format=json"
+    ],
+    "targetDirectory": "/home/js/Git/miopunch/target",
+    "isolationReason": null,
+    "incremental": false,
+    "exit": 0,
+    "diskBefore": {
+      "freeBytes": 162330963968,
+      "cacheBytes": 78184017920
+    },
+    "cargoSeconds": 24.039370506012347,
+    "freshArtifacts": 510,
+    "rebuiltArtifacts": 11,
+    "rebuiltTargets": [
+      {
+        "package": "path+file:///home/js/Git/miopunch/vendor/netwatch#0.19.3",
+        "target": "netwatch"
+      },
+      {
+        "package": "path+file:///home/js/Git/miopunch/vendor/portmapper#0.19.3",
+        "target": "portmapper"
+      },
+      {
+        "package": "path+file:///home/js/Git/miopunch/vendor/p2panda-auth#0.7.1",
+        "target": "p2panda_auth"
+      },
+      {
+        "package": "path+file:///home/js/Git/miopunch/vendor/noq-proto#1.3.0",
+        "target": "noq_proto"
+      },
+      {
+        "package": "path+file:///home/js/Git/miopunch/vendor/p2panda-sync#0.7.1",
+        "target": "p2panda_sync"
+      },
+      {
+        "package": "path+file:///home/js/Git/miopunch/vendor/noq#1.3.0",
+        "target": "noq"
+      },
+      {
+        "package": "path+file:///home/js/Git/miopunch/vendor/iroh-relay#1.2.0",
+        "target": "iroh_relay"
+      },
+      {
+        "package": "path+file:///home/js/Git/miopunch/vendor/iroh#1.2.0",
+        "target": "iroh"
+      },
+      {
+        "package": "registry+https://github.com/rust-lang/crates.io-index#iroh-mdns-address-lookup@0.5.0",
+        "target": "iroh_mdns_address_lookup"
+      },
+      {
+        "package": "path+file:///home/js/Git/miopunch/vendor/p2panda-net#0.7.1",
+        "target": "p2panda_net"
+      },
+      {
+        "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+        "target": "miopunch_native_probe"
+      }
+    ],
+    "diskAfter": {
+      "freeBytes": 162298507264,
+      "cacheBytes": 78215811072
+    }
+  },
+  "rust_runtime_tested": false,
+  "whole_M119": false
+}

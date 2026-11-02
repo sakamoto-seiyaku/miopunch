@@ -1,0 +1,65 @@
+{
+  "task": "MIOPUNCH-120",
+  "date": "2026-10-29",
+  "status": "PASS_CURRENT_NON_WSL_QUALIFICATION",
+  "whole_ticket_accepted": false,
+  "whole_M107_accepted": false,
+  "root_acceptance": {
+    "path": ".artifacts/runs/m120-platform-current-20261029/qualification/root-acceptance.json",
+    "bytes": 23794,
+    "sha256": "8f1c132300df0cb1b8a2a40a8523f1b384076ff9fc9b8148f7a18fe80c57074f"
+  },
+  "raw_manifest": {
+    "path": ".artifacts/runs/m120-platform-current-20261029/manifest.json",
+    "bytes": 314459,
+    "sha256": "d6e4b34ac70118b8d0529be154b88cb241c50a8c6342ee4b3c17face72f71a86"
+  },
+  "qualified_cases": 17,
+  "source_snapshots_verified": 210,
+  "actual_platforms": [
+    "Linux provider and Native consumer",
+    "Windows laptop Native consumer of Linux PTYs",
+    "sandboxed Chromium with independent WASM identities"
+  ],
+  "qualified_behavior": [
+    "Multiple real PTYs and independently read command effects",
+    "Detach, client close/drop, actual tab close and saved-identity reopen retain workspaces; explicit selected end terminates them",
+    "Current ACL, received administrator changes, member removal, guest scope/exit/revoke/original expiry stop access",
+    "Native16 and Browser8 attachment limits;16 workspace limit;16384-byte real input and oversized rejection",
+    "Native and Browser finite16MiB output pressure, pending input callers, truthful bounded detach and owner settlement"
+  ],
+  "browser_fix": {
+    "source": {
+      "path": "browser-probe/src/terminal.rs",
+      "bytes": 14298,
+      "sha256": "f5e3ba0c49f2adb1142480abe9780bdcf9441cc3984a31259c87d0e634233e00"
+    },
+    "cause": "Concurrent sends prepared1024 IndexedDB reads before bounded queue; actual event loop timer gap36.8s and detach40.7s",
+    "change": "Per-attachment bounded send preparation, per-message storage and authorization checks retained, cancellation across waiting work, browser task yield between accepted records",
+    "regression": "The same 1024-call burst and accepted-prefix pressure settle in about 5.04 seconds; all callers settle and workspaces remain. Uninstrumented bounds and authorization/reconnect regressions passed.",
+    "package_sha256": "c22bcdfc2460c8ba1c4489349b1c2ab55dc795aecb22f044fece06801136c3c1"
+  },
+  "original_failures": "All five failed runs retained, including receipt-schema assertion, forwarding-only host allowlist, two original Browser pressure cases and Chrome argv qualification race; none relabeled pass",
+  "resource_accounting": {
+    "path": ".artifacts/runs/m120-platform-current-20261029/raw/m120-final-resource-accounting.json",
+    "bytes": 757,
+    "sha256": "5fc49dca84bdbd39e8c902d9f149ef356d537ca67bb83e707e96e413c5fc7aa1"
+  },
+  "raw_bytes": 23147714,
+  "initial_raw_budget_exceeded": true,
+  "reviewed_completion_raw_budget_bytes": 33554432,
+  "notes": [
+    "Actual WSL provider explicitly deferred by user; no WSL query, installation or substitute terminal in this batch",
+    "Android consumer platform host is M121 scope",
+    "Browser accepted-prefix pressure observes pending public callers, not exact internal channel occupancy",
+    "Failed Chrome startup normal exit was unproven inside the case; later host-visible namespace/root absence verified before removing its private directory",
+    "Private runtime peak and filesystem blocks freed during failed-profile removal were not measured",
+    "Existing Native graphs reused; one directSDK test consumer and one WASM rebuild,295 Fresh and1 rebuilt artifact; no dependency rebuilds",
+    "Mainthread reviewed Standards/Spec and code/assertions; no new subagents or independent reviewer claim"
+  ],
+  "tracker_readback": {
+    "path": ".artifacts/runs/m120-platform-current-20261029/qualification/tracker-readback.json",
+    "bytes": 919,
+    "sha256": "62e01c1aaf813484cb0fb3f8d3fbdc43a97ba96a1a3d579c0534d5f9198b4faf"
+  }
+}

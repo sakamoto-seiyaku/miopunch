@@ -1,0 +1,39 @@
+{
+  "status": "qualified_bounded_phase",
+  "scope": "MIOPUNCH-121 Linux shared-host and headless deployment; whole ticket remains open",
+  "source_pin_sha256": "e6e18169589ca723894f8789da79bd95dac52b813c054f71b7e7198698d9c371",
+  "evidence": ".artifacts/runs/m121-headless-qualified-20261029",
+  "manifest_sha256": "520d894f91193f2189231015db437ae46d51e6c4df31aaa8ee23181296ac6706",
+  "facts": {
+    "old_cli_duplicate_identity_reproduced": true,
+    "canonical_directory_lock_shared_by_cli_and_host": true,
+    "duplicate_entry_negatives": 14,
+    "stdin_eof_and_controller_disconnect_do_not_stop_service": true,
+    "actual_saved_bytes": 65539,
+    "pending_real_http_stop_seconds": 0.36042221600655466,
+    "same_identity_membership_after_reopen": true,
+    "owned_sigterm_graceful_exit": 0,
+    "actual_user_systemd_managed": true,
+    "actual_login_trigger": false
+  },
+  "build": {
+    "seconds": 27.347942302003503,
+    "freshArtifacts": 465,
+    "rebuiltArtifacts": 2
+  },
+  "preserved_failures": [
+    "fast rejection exited before test process registration",
+    "test cleanup redundantly sent stop after acknowledged stop and socket removal"
+  ],
+  "cleanup": "All original processes and namespaces settled; private state removed after host-visible reference checks. Temporary systemd unit not-found/inactive and runtime directory removed.",
+  "limits": [
+    "Tauri desktop/window qualification is separate and ongoing",
+    "actual Linux/Windows login-trigger qualification remains open",
+    "Android foreground/reboot, clipboard and WSL remain deferred as previously recorded"
+  ],
+  "implementation_decisions": [
+    "Sibling HostLease is canonicalized and shared by all CLI state mutation/start entries and ClientHost; cooperative application exclusion only",
+    "Linux serve uses a private 0600 Unix socket and same-user credentials; node lifetime survives control EOF; explicit stop/replacement or service SIGTERM/SIGINT closes SDK",
+    "Stale control socket paths are refused, never unlinked opportunistically; systemd RuntimeDirectory owns its path lifecycle"
+  ]
+}

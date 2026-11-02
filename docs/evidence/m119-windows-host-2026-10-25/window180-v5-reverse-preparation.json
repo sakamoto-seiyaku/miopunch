@@ -1,0 +1,59 @@
+{
+  "status": "PREPARED_NO_RUNTIME_REQUIRES_NEW_EXACT_REMOTE_AUTHORIZATION",
+  "cause": "v4 Linux output quota rejected web_process_owner os.open(O_CREAT|O_TRUNC) during owned xauth capture",
+  "v4_result_sha256": "3edf1607002f0d7adab6acddb66cff90f2a9c664d29e695a95a576987567cec9",
+  "source_change": {
+    "path": "scripts/web_process_owner.py",
+    "sha256": "13adc59fbb095ca62b6cb5ff6e9252ff8016eb479f48fff6db530621b8d5b1a1",
+    "semantics": "exclusive first capture; append only new bytes from later complete capture; reject non-prefix changes; preserve 0600"
+  },
+  "packet": {
+    "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v5-reverse-preparation-20261028/packet.json",
+    "sha256": "2211109741ea713cd2407a47b9ef3f873907b5b97fd992fc11b2dc75548f1db5",
+    "source_tree_sha256": "cacbc03a790bee7a638c752647d965df274ae905fb3a87917f34d53b649baa32",
+    "source_files": 15,
+    "source_bytes": 159458,
+    "payload_bytes": 86137,
+    "payload_files": 6,
+    "remote_root": "C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+    "mode": "REVERSE_ONLY_FULL_WEB_WINDOWS_TO_LINUX",
+    "runtime_started": false
+  },
+  "local_checks": {
+    "frozen_fixture": "PASS, source pins and sandbox positive/missing/wrong hash",
+    "owner_tests": "8 passed",
+    "quota_capture": "PASS: partial/full/repeat, non-prefix negative, real child stdout/stderr, pending empty",
+    "private_desktop_bus": "PASS: real xauth, Xvfb, authenticated probe and private bus, all owners terminal, quota pending empty",
+    "private_desktop_report_sha256": "8bc33e9db44c774290e6d70cef025e8765c94f12945259b04ed98fcc3a78c3a4",
+    "check_local": "PASS, no build or remote action",
+    "budget": {
+      "source_bytes": 159458,
+      "source_cap": 159744,
+      "metadata_growth": 4968291,
+      "metadata_cap": 5200000,
+      "root_admin_actual": 507214,
+      "root_admin_cap": 512904,
+      "global_reservation": 30087522,
+      "global_cap": 30088472
+    }
+  },
+  "remote_readonly_precheck": {
+    "report_sha256": "e4b168d8dcfd0c15cfbe235d87cae3e4f1b0402ab851edd57587b4229142a18b",
+    "collisions": [],
+    "owned_root_bytes": 992362133,
+    "reserve": 67195001,
+    "conservative": 1059557134,
+    "root_cap": 1073741824,
+    "sdk_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+    "remote_mutations": 0
+  },
+  "new_builds": 0,
+  "new_pins": 0,
+  "remote_payload_transfer": false,
+  "reverse_Web_business_accepted": false,
+  "whole_M119": false,
+  "limitations": [
+    "The local desktop chain does not exercise the Windows Task or reverse Web business.",
+    "The v4 authorization covered v4 only; this changed v5 packet has not been sent or run."
+  ]
+}

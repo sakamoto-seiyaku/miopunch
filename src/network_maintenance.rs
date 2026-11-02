@@ -1132,6 +1132,24 @@ impl Coordinator {
     }
 }
 impl NativeNetwork {
+    /// Install the existing active-path control handler in an application-owned
+    /// restricted Router. Use the ResourceEndpoint bound by this same node and
+    /// register it with `accept_control(ACTIVE_IMPROVEMENT_ALPN, handler)`.
+    /// The handler keeps the resource owner alive and resolves the exact live
+    /// member session through this node's authorization and exporter binding.
+    /// It never hands an ordinary connection to the control protocol caller.
+    pub fn active_improvement_handler(
+        &self,
+        resources: Arc<ResourceEndpoint>,
+    ) -> impl ControlProtocolHandler + Clone + use<> {
+        ActiveImprovementHandler {
+            endpoint: resources.endpoint().clone(),
+            gate: self.gate.clone(),
+            adapter: resources.active_coordinator(self.gate.clone()),
+            _resources: resources,
+        }
+    }
+
     pub async fn maintain_network(self, bind_ip: Ipv4Addr) -> Result<MaintainedNetwork, NodeError> {
         self.maintain_network_with(bind_ip, |router| router).await
     }
@@ -1283,12 +1301,7 @@ impl NativeNetwork {
                 policy.max_neighbors + policy.max_concurrent_contacts,
             )),
         };
-        let active_handler = ActiveImprovementHandler {
-            endpoint: resources.endpoint().clone(),
-            gate: self.gate.clone(),
-            adapter: active_adapter.clone(),
-            _resources: resources.clone(),
-        };
+        let active_handler = self.active_improvement_handler(resources.clone());
         let router = routes(
             Router::builder(resources.endpoint().clone())
                 .accept(REPLICA_ALPN, handler.clone())

@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-j",
+    "2",
+    "--test",
+    "contact_listener",
+    "--",
+    "--nocapture"
+  ],
+  "exit": 0,
+  "seconds": 26.47669759206474,
+  "public_traffic": false
+}

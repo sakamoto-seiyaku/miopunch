@@ -1,0 +1,11 @@
+{
+  "captureValidatedByStunSelfTestBothDirections": true,
+  "scope": "62-byte STUN headers for the advertised user public IPv4, Linux ens18",
+  "packetCount": 64,
+  "outboundBindingRequests": 64,
+  "inboundBindingRequests": 0,
+  "inboundSuccessResponses": 0,
+  "inboundErrorResponses": 0,
+  "nativeSourcePorts": 4,
+  "interpretation": "Linux emitted ICE checks to the supplied candidate; no STUN packet from that advertised IP reached the observed interface during this attempt. Specific NAT/VPN/firewall hop is unconfirmed."
+}

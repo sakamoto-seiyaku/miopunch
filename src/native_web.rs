@@ -511,13 +511,17 @@ impl NativeClient {
     }
     /// Consume a completed response, or report that its owner is still running.
     pub fn web_request_result(&self, id: &str) -> Result<Value, ClientError> {
-        let mut state = self.web.state.lock().unwrap();
         let id = id.parse::<u64>()?;
-        let slot = state.requests.get(&id).ok_or("unknown Web request handle")?;
-        if !slot.done.load(Ordering::Acquire) {
-            return Ok(json!({"pending":true}));
-        }
-        let slot = state.requests.remove(&id).unwrap();
+        let slot = {
+            let mut state = self.web.state.lock().unwrap();
+            let std::collections::btree_map::Entry::Occupied(entry) = state.requests.entry(id) else {
+                return Err("unknown Web request handle".into());
+            };
+            if !entry.get().done.load(Ordering::Acquire) {
+                return Ok(json!({"pending":true}));
+            }
+            entry.remove()
+        };
         let result = slot.result.lock().unwrap().take().ok_or("Web request result unavailable")?;
         match result {
             Ok(response) => Ok(json!({"pending":false,"response":response})),

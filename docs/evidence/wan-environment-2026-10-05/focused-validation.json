@@ -1,0 +1,59 @@
+{
+  "nonzero": {
+    "command": [
+      "rtk",
+      "proxy",
+      "/home/js/.local/bin/python3",
+      "-c",
+      "import sys; print(\"not-json\"); sys.exit(42)"
+    ],
+    "exit": 42,
+    "stderr": "",
+    "cleanup": {
+      "forced": false,
+      "leaderWaitedFor": true,
+      "processGroupAbsentImmediately": true
+    },
+    "filteredOutputOmittedOnFailure": true,
+    "elapsedMs": 14.496
+  },
+  "malformed": {
+    "command": [
+      "rtk",
+      "proxy",
+      "/home/js/.local/bin/python3",
+      "-c",
+      "print(\"not-json\")"
+    ],
+    "exit": 0,
+    "stderr": "",
+    "cleanup": {
+      "forced": false,
+      "leaderWaitedFor": true,
+      "processGroupAbsentImmediately": true
+    },
+    "parseFailure": "Expecting value: line 1 column 1 (char 0)",
+    "elapsedMs": 14.074
+  },
+  "timeout": {
+    "command": [
+      "rtk",
+      "proxy",
+      "/home/js/.local/bin/python3",
+      "-c",
+      "import subprocess,sys,time; subprocess.Popen([sys.executable,\"-c\",\"import time; time.sleep(25)\"]); time.sleep(25)"
+    ],
+    "exit": -15,
+    "stderr": "",
+    "cleanup": {
+      "forced": true,
+      "leaderWaitedFor": true,
+      "reason": "local command wait exceeded 12 seconds",
+      "termSent": true,
+      "elapsedMs": 1.485,
+      "processGroupAbsentImmediately": true
+    },
+    "stdout": "",
+    "elapsedMs": 12014.109
+  }
+}

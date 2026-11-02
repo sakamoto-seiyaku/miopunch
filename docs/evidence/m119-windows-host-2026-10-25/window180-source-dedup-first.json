@@ -1,0 +1,51 @@
+{
+  "process_count": 248,
+  "matching_live": [],
+  "groups": [
+    {
+      "paths": [
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v3-reverse-preparation-20261028/common.py",
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v4-reverse-preparation-20261028/common.py",
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v5-reverse-preparation-20261028/common.py",
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v6-reverse-preparation-20261029/common.py"
+      ],
+      "sha256": "095a4f9bce3e6103e02a4b194fecb461f5d312e17322db30cbb24b39def588b7",
+      "mode": 420,
+      "freed_allocated_blocks": 73728,
+      "changed": [
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v4-reverse-preparation-20261028/common.py",
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v5-reverse-preparation-20261028/common.py",
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v6-reverse-preparation-20261029/common.py"
+      ]
+    },
+    {
+      "paths": [
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v3-reverse-preparation-20261028/output_quota.py",
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v4-reverse-preparation-20261028/output_quota.py",
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v5-reverse-preparation-20261028/output_quota.py",
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v6-reverse-preparation-20261029/output_quota.py"
+      ],
+      "sha256": "0a730de0e8d409c04ab1bbeb88e9f61d877cf6fed620b0674fddb20f743fc282",
+      "mode": 420,
+      "freed_allocated_blocks": 49152,
+      "changed": [
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v4-reverse-preparation-20261028/output_quota.py",
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v5-reverse-preparation-20261028/output_quota.py",
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v6-reverse-preparation-20261029/output_quota.py"
+      ]
+    },
+    {
+      "paths": [
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v4-reverse-preparation-20261028/worker.py",
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v5-reverse-preparation-20261028/worker.py"
+      ],
+      "sha256": "9d89fb1a64f0201d51c2cc143aa9d0206a6dd95685a25c7b0f220c7deedc29dc",
+      "mode": 420,
+      "freed_allocated_blocks": 45056,
+      "changed": [
+        "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v5-reverse-preparation-20261028/worker.py"
+      ]
+    }
+  ],
+  "excluded": "all raw runtime, SDK pins and nonlisted sources"
+}

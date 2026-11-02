@@ -79,6 +79,7 @@ def main():
         assert result.returncode == 0 and not report["sourceDrift"], "typed host compile failed; original diagnostic retained"
         checks = json.loads((output/"compiler-result.json").read_text(encoding="utf-8-sig"))
         assert checks["csharpCompiled"] and not checks["powerShellParseErrors"] and not checks["nativeMethodsInvoked"]
+        assert (output/"Miopunch.WindowsWebContentHost.dll").stat().st_size <= 1024 * 1024, "managed host exceeds declared 1MiB pin allowance"
         report["pin"] = str(pin_artifact(output/"Miopunch.WindowsWebContentHost.dll",output/"pinned/Miopunch.WindowsWebContentHost.dll"))
         report["sha256"] = sha(report["pin"])
     finally:

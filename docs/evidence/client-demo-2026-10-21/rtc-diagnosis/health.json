@@ -1,0 +1,33 @@
+{
+  "temporaryActorsStopped": true,
+  "health": {
+    "ready": {
+      "ready": true,
+      "native": true
+    },
+    "running": true,
+    "restarts": 0,
+    "deployedSHA256Matched": true,
+    "manifestSHA256": "a7331f5de475c759ff51923767836db970beef902affacc9e24975669c623c03",
+    "u22s": {
+      "ready": true,
+      "native": true
+    },
+    "originalForward": "active"
+  },
+  "headerProbe": {
+    "temporaryProbeRemoved": true,
+    "demoHealth": {
+      "ready": true,
+      "native": true
+    }
+  },
+  "browserResourceUpdate": {
+    "nativeRestarted": false,
+    "containerUnchanged": true,
+    "health": {
+      "ready": true,
+      "native": true
+    }
+  }
+}

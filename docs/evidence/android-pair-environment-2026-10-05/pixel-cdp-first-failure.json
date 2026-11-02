@@ -1,0 +1,8 @@
+{
+  "forwardExit": 0,
+  "forwardPort": "50283",
+  "scope": "owned Pixel CDP forwarding only",
+  "cdpAvailable": false,
+  "failure": "RemoteDisconnected",
+  "ownedForwardRemoveExit": 0
+}

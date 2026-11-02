@@ -141,15 +141,19 @@ def main():
                     raise RuntimeError("Windows compiler image changed")
                 tools = target / ".miopunch-toolchains" / "windows" / IMAGE.removeprefix("sha256:")
                 tools.mkdir(parents=True, exist_ok=True)
-                container = "miopunch-client-compiler-" + IMAGE[7:19]
-                command = ["rtk", "proxy", "docker", "run", "--rm", "-d", "--name", container,
+                container_name = "miopunch-client-compiler-" + IMAGE[7:19]
+                command = ["rtk", "proxy", "docker", "run", "--rm", "-d", "--name", container_name,
                     "--network", "none", "--user", f"{os.getuid()}:{os.getgid()}",
-                    "-v", f"{ROOT}:{ROOT}", "-v", f"{Path.home()}:{Path.home()}:ro",
+                    "-v", f"{ROOT}:{ROOT}:ro", "-v", f"{target}:{target}",
+                    "-v", f"{Path.home() / '.cargo/registry'}:{Path.home() / '.cargo/registry'}:ro",
+                    "-v", f"{Path.home() / '.rustup/toolchains/stable-x86_64-unknown-linux-gnu'}:{Path.home() / '.rustup/toolchains/stable-x86_64-unknown-linux-gnu'}:ro",
                     "-v", "/tmp:/tmp", "-w", str(ROOT), IMAGE, "sleep", "infinity"]
-                subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
+                container = subprocess.check_output(command, text=True).strip()
+                report["compilerContainer"] = container
+                report["compilerContainerCommand"] = command
                 for tool in ["gcc", "ar", "dlltool"]:
                     path = tools / ("x86_64-w64-mingw32-" + tool)
-                    content = "#!/bin/sh\nexec rtk proxy docker exec -i -w \"$PWD\" " + shlex.quote(container) + " " + path.name + ' "$@"\n'
+                    content = "#!/bin/sh\nexec rtk proxy docker exec -i -w \"$PWD\" " + shlex.quote(container_name) + " " + path.name + ' "$@"\n'
                     if path.exists() and path.read_text() != content:
                         raise RuntimeError("stable compiler wrapper changed")
                     if not path.exists():
@@ -191,7 +195,7 @@ def main():
             report["diskAfter"] = disk_state(target)
     finally:
         if container:
-            report["compilerCleanupExit"] = subprocess.run(["rtk", "proxy", "docker", "rm", "-f", container],
+            report["compilerCleanupExit"] = subprocess.run(["rtk", "proxy", "docker", "stop", "--time", "10", container],
                 stdout=subprocess.DEVNULL).returncode
         (args.output / "build.json").write_text(json.dumps(report, indent=2, default=str) + "\n")
     print(json.dumps(report, indent=2, default=str))

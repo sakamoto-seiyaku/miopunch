@@ -2,7 +2,9 @@
 
 Status: the behavioral baseline is specified; concrete integration and validation
 remain open. This glossary and reading map accompanies the current
-[implementation specification](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/4700bf29-2a4e-40bc-93fe-7f5148207189).
+[network foundation specification](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/4700bf29-2a4e-40bc-93fe-7f5148207189).
+The accepted client flows and platform requirements are consolidated in the
+[first-release client PRD, MIOPUNCH-107](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/6159ec62-a03e-4eb7-9b95-4ddc19ce7a02).
 The [product direction draft](docs/notes/2026-09-27-product-mainline-draft.md)
 separates confirmed preferences from proposals; the
 [scenario walkthrough](docs/notes/2026-09-28-network-scenario-walkthrough.md)
@@ -18,6 +20,10 @@ records the concrete behavior discussed so far.
   from backup does not create a new network; it can restore management authority
   on a new node without approval from an old administrator, even when all old
   administrator devices are unavailable.
+- **Genesis recovery card** is a portable, confidential backup containing the
+  complete genesis credential, including its pinned original creation record.
+  It recovers that credential; management history and business data require
+  their own retained copies. See [the recovery-card decision](docs/adr/0013-genesis-recovery-card-without-mandatory-password.md).
 - **Network admission secret** is a shared network secret used to gate bootstrap
   access, distinct from node identity and the genesis credential; possession
   alone does not establish current membership or grant business or management
@@ -36,18 +42,21 @@ records the concrete behavior discussed so far.
   New admission processing and admission-secret delivery pause during rotation;
   distribution of the replacement secret to retained members is part of rotation.
 - **Daily administrator** is a node authorized to approve ordinary members,
-  issue ordinary-member invitations, and remove ordinary members without
-  using the genesis credential. Granting or revoking administrator status,
+  issue ordinary-member invitations, remove ordinary members, and administer
+  service-access policies without using the genesis credential. Granting or
+  revoking administrator status,
   or removing a node that still has that status, requires genesis authority.
 - **Administrator revocation** removes administrator status while retaining
   ordinary membership; removing the node from the network is a separate act.
-- **Genesis elevation** is temporary genesis authority verified using the
-  genesis credential, scoped to the current device and management session.
-  Like sudo, it permits repeated privileged operations within a temporary
-  window; expiry or explicit exit requires verification again.
+- **Genesis elevation** is user-confirmed authorization to use the genesis
+  credential for one specific privileged operation, bound to its network,
+  action, target and intended effect. Continuing the same operation does not
+  authorize another operation; see [ADR 0015](docs/adr/0015-confirm-each-genesis-operation.md).
 - **Management recovery** restores administrator authority on a new node
-  using the existing genesis credential without automatically revoking old
-  administrators; their revocation is an explicit, separate operation.
+  using a retained copy of the existing genesis credential without automatically
+  revoking old administrators; their revocation is an explicit, separate operation.
+  Permanent loss of all copies prevents this recovery; creating a new network
+  and migrating to it is a separate operation.
 - **Network migration** is a transition to a new network, with each device
   confirming its own participation once and validating the destination before
   switching and leaving the source. A smoother transition does not make the
@@ -62,6 +71,11 @@ records the concrete behavior discussed so far.
 - **Node identity** is stable across address, network, and transport changes.
   It is distinct from the address or path currently used to contact a node,
   and is retained when that node migrates to a new private network.
+- **Node migration** moves the same logical node to a replacement device,
+  preserving its identity, applicable settings, and still-valid authorization,
+  with any held genesis credential included in the transfer. The source stops
+  participating under that identity; adding a concurrently used device instead
+  creates an independent node. See [ADR 0016](docs/adr/0016-preserve-node-identity-on-device-replacement.md).
 - **Invitation trust** starts with invitation material personally passed through
   a trusted channel, identifying the intended network and designated contact;
   replacement of that entire invitation is outside the current threat scope.
@@ -75,8 +89,15 @@ records the concrete behavior discussed so far.
   they may do. A discovery or relay facility does not grant either by itself.
   A migrating node obtains membership in the destination network anew, with
   authorization evaluated independently in that network.
-- **Membership lifetime** has no automatic expiry in the current scope;
-  temporary membership is out of scope.
+- **Node role** is guest, ordinary member, or administrator; genesis credential
+  custody is independent of these roles.
+- **Guest node** participates temporarily through a dedicated invitation link
+  or QR code, with access limited to the specified sharing purpose or services.
+  It does not automatically become an ordinary member or gain other service
+  permissions; see [ADR 0017](docs/adr/0017-guest-access-with-scoped-invitations.md).
+- **Membership lifetime** has no automatic expiry for ordinary members;
+  ordinary invitation expiry does not end membership already granted. Guest
+  access instead follows its explicit temporary authorization and end conditions.
 - **Local authorization state** is the membership and authority view derived
   from the valid management records currently available to a node. It may
   change after missing records arrive and conflicts are resolved, including
@@ -86,6 +107,9 @@ records the concrete behavior discussed so far.
   saved both its membership authorization and the network admission secret,
   whether admitted by manual approval or precode redemption; it does not
   require network-wide synchronization or reachability of every member.
+- **Manual-admission rejection** ends a specific manual joining request and
+  its automatic retries; the applicant may explicitly submit a new request.
+  It does not permanently ban the device identity.
 - **Pending admission completion** means approval has succeeded but the joining
   node has not yet saved all required admission material. Interrupted delivery
   may resume from the original delivery node for the same authenticated node
@@ -134,9 +158,35 @@ records the concrete behavior discussed so far.
   effort. Mobile devices may favor lower consumption while always-on routers or
   gateways may work more actively, without changing their identity or permissions.
 - **Browser client** is an independently identified network participant with the
-  same admission and membership semantics as native clients. Its initial connection
-  capability requires a browser-reachable public or self-hosted relay; direct paths
-  can be added later.
+  same admission and membership semantics as native clients, using contact and
+  data-path resources available to the browser. A data relay is one permitted
+  connection resource; contact through a side channel does not itself establish
+  a usable data path.
+- **Browser role parity** means browser and PWA nodes follow the same
+  authorization rules as installed clients for administration, genesis authority
+  and credential custody; platform differences are explained through reminders
+  rather than browser-specific role restrictions. See [ADR 0014](docs/adr/0014-browser-role-parity-with-contextual-reminders.md).
+- **Application service** is a user-facing capability used between network
+  nodes, such as clipboard synchronization, file transfer, or access to a
+  forwarded service. Each has its own purpose within the shared private network.
+- **Clipboard synchronization** shares clipboard changes between one pair of
+  nodes automatically once enabled, within their effective authorization and
+  available platform capabilities. Group synchronization is outside the current scope.
+- **Service capability declaration** describes the application services a node
+  can provide within its platform and runtime capabilities; declaring a
+  capability does not itself authorize a peer to use it.
+- **Service-access policy** is the single effective set of rules governing
+  access to a node's application services. Authorized administrators edit it
+  remotely and nodes manage their own services through the same policy, which
+  each provider enforces within its actual platform capabilities.
+- **Remote shell session** is a terminal workspace on a remote device whose
+  lifetime can extend beyond the connection used to access it. Reconnecting
+  may reattach to that retained workspace while authorization remains valid.
+  Multiple remote shell sessions may be used concurrently. Closing a terminal
+  tab detaches its interface without ending the retained remote session.
+- **Data relay** is a permitted facility or explicitly authorized forwarding node
+  that carries the end-to-end session's application data. Forwarding only
+  contact or signaling messages does not make a node a data relay.
 - **Data path** carries the end-to-end session, directly or through an allowed
   relay. Signaling forwarding and application-data relaying are separate uses.
 - **Local network state** includes verifiable membership, authorization, and
@@ -169,14 +219,21 @@ Pixel6a support this approach; see the
 
 The [shared Web and client UI discussion](docs/notes/2026-10-03-shared-web-client-ui-direction.md)
 records the preference for code reuse and lower long-term maintenance cost,
-with UI still deferred. Vue and Tauri remain a recommendation, not an accepted
-framework decision or an instruction to begin implementation.
+with full client integration still open. The accepted technology and runtime
+responsibility decision is recorded in
+[ADR 0018](docs/adr/0018-shared-vue-ui-with-tauri-shells.md); it does not itself
+start implementation.
+
+The later explicit authorization on 2026-10-21 starts a scoped
+[Linux/browser functional demo](demo/README.md), tracked by MIOPUNCH-109.
+It does not imply completion of the full client PRD or installed-platform lifecycle.
 
 The detailed admission-proof mechanism, unknown-peer discovery messages,
 signaling-carrier integration, and concrete iroh/p2panda composition still need
 technical work. Resource-selection details, runtime policy changes, client
 delivery, and persistence boundaries remain subject to the specification's
-validation prerequisites; service ACL design is paused. Reuse or replacement
+validation prerequisites; service capability declarations and authorization
+are now being discussed first through a two-device scenario. Reuse or replacement
 of the archived tests and lab scripts is also undecided. Research in
 `docs/notes/` informs these choices but does not decide them. Record accepted,
 hard-to-reverse decisions in `docs/adr/`; track unresolved work in Plane.

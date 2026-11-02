@@ -1,8 +1,8 @@
 //! Real Browser Web consumption through the shared protocol and current gate.
 //! No host listener/provider, management bridge or second ACL is introduced.
 use super::*;
-use crate::web::{self, WebRequest, WebSocketMessage};
-use futures_util::FutureExt;
+use crate::web::{self, WebRequest, WebResponse, WebSocketMessage};
+use futures_util::{FutureExt, future::LocalBoxFuture};
 use std::{
     cell::{Cell, RefCell},
     collections::BTreeMap,
@@ -17,6 +17,7 @@ pub(super) struct BrowserWeb {
     next: Cell<u64>,
     closed: Cell<bool>,
     active: RefCell<BTreeMap<u64, (CancellationToken, Option<Connection>)>>,
+    requests: RefCell<BTreeMap<u64, Rc<RequestSlot>>>,
     sockets: RefCell<BTreeMap<u64, Rc<Socket>>>,
     joined: Notify,
     connecting: Mutex<()>,
@@ -55,6 +56,17 @@ struct Socket {
     incoming: Mutex<mpsc::Receiver<WebSocketMessage>>,
     cancel: CancellationToken,
     outcome: Rc<Cell<Option<bool>>>,
+}
+struct RequestSlot {
+    cancel: CancellationToken,
+    result: RefCell<Option<Result<WebResponse, String>>>,
+    done: Cell<bool>,
+    joined: Notify,
+}
+struct PreparedRequest {
+    id: u64,
+    cancel: CancellationToken,
+    exchange: LocalBoxFuture<'static, Result<WebResponse, JsValue>>,
 }
 impl BrowserWeb {
     fn claim(self: &Rc<Self>) -> Result<OperationOwner, JsValue> {
@@ -108,6 +120,7 @@ impl BrowserWeb {
             }
             joined.await;
         }
+        self.requests.borrow_mut().clear();
     }
     pub async fn close(&self) {
         self.closed.set(true);
@@ -198,6 +211,7 @@ impl BrowserNetwork {
     pub fn web_status(&self) -> String {
         serde_json::json!({"provider":false,"native_listener":false,"available":!self.web.closed.get(),
             "active_operations":self.web.active.borrow().len(),"max_operations":MAX_OPERATIONS,
+            "request_handles":self.web.requests.borrow().len(),"max_request_handles":MAX_OPERATIONS,
             "socket_handles":self.web.sockets.borrow().len(),"socket_queue_capacity":16,
             "max_response_bytes":web::MAX_BODY,"max_request_bytes":web::MAX_REQUEST_BODY,
             "max_socket_message_bytes":web::MAX_SOCKET_MESSAGE}).to_string()
@@ -206,33 +220,89 @@ impl BrowserNetwork {
         self.web.stop().await;
     }
     pub async fn request_web(&self, peer: String, request: String) -> Result<String, JsValue> {
-        self.require_device_ready()?;
-        self.check_store().await?;
-        if request.len() > web::MAX_REQUEST_BODY * 2 + web::MAX_HEADERS {
-            return Err(error("Web request too large"));
+        let response = self
+            .prepare_web_request(peer, request)
+            .await?
+            .exchange
+            .await?;
+        serde_json::to_string(&response).map_err(error)
+    }
+    /// Own one HTTP request without keeping the caller's control Promise pending.
+    /// Completed responses retain a bounded handle until consumed or cancelled.
+    pub async fn begin_web_request(
+        &self,
+        peer: String,
+        request: String,
+    ) -> Result<String, JsValue> {
+        let prepared = self.prepare_web_request(peer, request).await?;
+        if self.web.requests.borrow().len() >= MAX_OPERATIONS {
+            return Err(error("Web request handle limit reached"));
         }
-        let request: WebRequest = serde_json::from_str(&request).map_err(error)?;
-        if request.body.len() > web::MAX_REQUEST_BODY {
-            return Err(error("Web request body too large"));
+        let PreparedRequest {
+            id,
+            cancel,
+            exchange,
+        } = prepared;
+        let slot = Rc::new(RequestSlot {
+            cancel,
+            result: RefCell::new(None),
+            done: Cell::new(false),
+            joined: Notify::new(),
+        });
+        self.web.requests.borrow_mut().insert(id, slot.clone());
+        wasm_bindgen_futures::spawn_local(async move {
+            let result = exchange.await;
+            *slot.result.borrow_mut() = Some(result.map_err(|_| "Web request failed".to_string()));
+            slot.done.set(true);
+            slot.joined.notify_waiters();
+        });
+        Ok(serde_json::json!({"id":id.to_string(),"pending":true}).to_string())
+    }
+    /// Consume only this completed handle. Unknown or already consumed IDs fail.
+    pub fn web_request_result(&self, id: String) -> Result<String, JsValue> {
+        let id = id.parse::<u64>().map_err(error)?;
+        let mut requests = self.web.requests.borrow_mut();
+        let slot = requests
+            .get(&id)
+            .ok_or_else(|| error("unknown Web request handle"))?;
+        if !slot.done.get() {
+            return Ok(serde_json::json!({"pending":true}).to_string());
         }
-        let peer = peer.parse().map_err(error)?;
-        let mut owner = self.web.claim()?;
-        let cancel = owner.cancel.clone();
-        let work = async {
-            let connection = {
-                let _contact = self.web.connecting.lock().await;
-                self.connect_target(peer, web::WEB_ALPN).await?
-            };
-            self.web.attach(&mut owner, connection.clone())?;
-            let response = web::request(&connection, request).await.map_err(error)?;
-            let response = serde_json::to_string(&response).map_err(error)?;
-            owner.completed.set(true);
-            Ok(response)
+        let slot = requests.remove(&id).expect("checked Web request handle");
+        drop(requests);
+        let result = slot
+            .result
+            .borrow_mut()
+            .take()
+            .ok_or_else(|| error("Web request result unavailable"))?;
+        match result {
+            Ok(response) => {
+                Ok(serde_json::json!({"pending":false,"response":response}).to_string())
+            }
+            Err(failure) => Err(error(failure)),
         }
-        .fuse();
-        let stop = cancel.cancelled().fuse();
-        futures_util::pin_mut!(work, stop);
-        futures_util::select_biased! { _ = stop => Err(error("Web request stopped")), result = work => result }
+    }
+    /// Cancel and join this request owner; the node and other requests stay live.
+    pub async fn cancel_web_request(&self, id: String) -> Result<String, JsValue> {
+        let slot = self
+            .web
+            .requests
+            .borrow_mut()
+            .remove(&id.parse::<u64>().map_err(error)?)
+            .ok_or_else(|| error("unknown Web request handle"))?;
+        slot.cancel.cancel();
+        n0_future::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let notified = slot.joined.notified();
+                if slot.done.get() {
+                    break;
+                }
+                notified.await;
+            }
+        })
+        .await
+        .map_err(|_| error("Web request cancelled owner did not finish"))?;
+        Ok(serde_json::json!({"cancelled":true,"joined":true}).to_string())
     }
     pub async fn open_web_socket(
         &self,
@@ -370,5 +440,91 @@ impl BrowserNetwork {
             serde_json::json!({"closed":true,"failed":socket.outcome.get() != Some(true)})
                 .to_string(),
         )
+    }
+}
+
+impl BrowserNetwork {
+    async fn prepare_web_request(
+        &self,
+        peer: String,
+        request: String,
+    ) -> Result<PreparedRequest, JsValue> {
+        self.require_device_ready()?;
+        self.check_store().await?;
+        if request.len() > web::MAX_REQUEST_BODY * 2 + web::MAX_HEADERS {
+            return Err(error("Web request too large"));
+        }
+        let request: WebRequest = serde_json::from_str(&request).map_err(error)?;
+        if request.body.len() > web::MAX_REQUEST_BODY {
+            return Err(error("Web request body too large"));
+        }
+        let peer = peer.parse().map_err(error)?;
+        let address = self.target_address(peer)?;
+        let coordinator = self.connection_coordinator();
+        let budget = self.caller_budget;
+        let token = self
+            .lease
+            .as_ref()
+            .ok_or_else(|| error("browser node disconnected"))?
+            .0;
+        let committed = self.committed.clone();
+        let gate = self.gate.clone();
+        let runtime = self.web.clone();
+        let mut owner = runtime.claim()?;
+        let id = owner.id;
+        let cancel = owner.cancel.clone();
+        let stopping = cancel.clone();
+        let exchange = async move {
+            let work = async {
+                let connection = {
+                    let _contact = runtime.connecting.lock().await;
+                    // Recheck the same current store after queued contact work,
+                    // without borrowing the JS node while this owner is running.
+                    let installed = gate
+                        .0
+                        .lock()
+                        .unwrap()
+                        .saved
+                        .as_ref()
+                        .map(serde_json::to_string)
+                        .transpose()
+                        .map_err(error)?;
+                    let actual = read_node(token).await?.as_string();
+                    if actual.as_deref() != Some(&committed) && actual != installed {
+                        return Err(error(
+                            "browser materials cleared or changed; restore or rejoin",
+                        ));
+                    }
+                    coordinator
+                        .connect_alpn(
+                            address,
+                            web::WEB_ALPN,
+                            crate::connection_coordinator::AttemptContext::new(
+                                n0_future::time::Instant::now() + budget,
+                                stopping.clone(),
+                            ),
+                        )
+                        .await
+                        .map_err(error)?
+                };
+                runtime.attach(&mut owner, connection.clone())?;
+                let response = web::request(&connection, request).await.map_err(error)?;
+                owner.completed.set(true);
+                Ok(response)
+            }
+            .fuse();
+            let stop = stopping.cancelled().fuse();
+            futures_util::pin_mut!(work, stop);
+            futures_util::select_biased! {
+                _ = stop => Err(error("Web request stopped")),
+                result = work => result,
+            }
+        }
+        .boxed_local();
+        Ok(PreparedRequest {
+            id,
+            cancel,
+            exchange,
+        })
     }
 }

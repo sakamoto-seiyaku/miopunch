@@ -1,0 +1,74 @@
+{
+  "scope": "owned deployment copies only; initial sourceFrozen=false remains",
+  "artifacts": {
+    "miopunch-native-probe": {
+      "compiledPath": "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/miopunch-native-probe",
+      "compiledSha256": "9c4a0b71a068fa1aa7663d6ec839bbc66ee555351e7434e14e43320a7c8e1f82",
+      "deployedPath": "/tmp/miopunch-android-pair-build-first-20261005/deploy/miopunch-native-probe",
+      "deployedSha256": "f396fbc386e0b9f4b3d978b762de6bc4564bf69bdbce90e1c318043ea45bf46e",
+      "compiledBytes": 195795296,
+      "deployedBytes": 110158232,
+      "transformation": {
+        "operation": "strip debug sections on owned copy only",
+        "command": [
+          "rtk",
+          "proxy",
+          "/usr/bin/llvm-strip",
+          "--strip-debug",
+          "/tmp/miopunch-android-pair-build-first-20261005/deploy/miopunch-native-probe"
+        ],
+        "exit": 0
+      }
+    },
+    "browser_wss_member_native": {
+      "compiledPath": "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/browser_wss_member_native",
+      "compiledSha256": "10101d671aeb2fa05a94db47ef5daa55beba3a7cf0562de7d73aa484e97e82cc",
+      "deployedPath": "/tmp/miopunch-android-pair-build-first-20261005/deploy/browser_wss_member_native",
+      "deployedSha256": "eeda2dd9f9ca53f1e20c69a46353b1294aeebc4e4b6775426d220eda4bc3fab2",
+      "compiledBytes": 183368368,
+      "deployedBytes": 100150600,
+      "transformation": {
+        "operation": "strip debug sections on owned copy only",
+        "command": [
+          "rtk",
+          "proxy",
+          "/usr/bin/llvm-strip",
+          "--strip-debug",
+          "/tmp/miopunch-android-pair-build-first-20261005/deploy/browser_wss_member_native"
+        ],
+        "exit": 0
+      }
+    },
+    "libmiopunch_native_probe.so": {
+      "compiledPath": "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/libmiopunch_native_probe.so",
+      "compiledSha256": "063562b646f33f98f0d0d5e131a07ebd4dd7ef0f017c2623fe5d737f29bcaf0e",
+      "deployedPath": "/tmp/miopunch-android-pair-build-first-20261005/deploy/libmiopunch_native_probe.so",
+      "deployedSha256": "46a9ad847ac072fca85a364f39251e11e6f87f0ec8ce2783535c1f0ca4f0b4bc",
+      "compiledBytes": 183575040,
+      "deployedBytes": 101009304,
+      "transformation": {
+        "operation": "strip debug sections on owned copy only",
+        "command": [
+          "rtk",
+          "proxy",
+          "/usr/bin/llvm-strip",
+          "--strip-debug",
+          "/tmp/miopunch-android-pair-build-first-20261005/deploy/libmiopunch_native_probe.so"
+        ],
+        "exit": 0
+      }
+    },
+    "android-shell.jar": {
+      "compiledPath": "/tmp/miopunch-android-pair-build-first-20261005/android-shell.jar",
+      "compiledSha256": "b8b8a0897c4663af494f918a9ac10daf5fdb7951f1f21157923b3e56ca2ea0a2",
+      "deployedPath": "/tmp/miopunch-android-pair-build-first-20261005/deploy/android-shell.jar",
+      "deployedSha256": "b8b8a0897c4663af494f918a9ac10daf5fdb7951f1f21157923b3e56ca2ea0a2",
+      "compiledBytes": 1470,
+      "deployedBytes": 1470,
+      "transformation": {
+        "operation": "copy byte-for-byte",
+        "exit": 0
+      }
+    }
+  }
+}

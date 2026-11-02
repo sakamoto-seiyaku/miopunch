@@ -1,0 +1,126 @@
+{
+  "scope": "system-default TLS observation after confirmed Pixel target connection; not SDK/NAT pass",
+  "targetSsid": "CU_7WFb_5G",
+  "controlTransport": "USB",
+  "normalTrustAndHostnameVerifierUnchanged": true,
+  "sourceSha256": "8dcf957f3d6721f44d4b079a61d90e25951eafaf52c845d99b12b5ffad0f88ee",
+  "dexSha256": "204211269437fbe9dd29bf8d6077b1da4e27ca9a33384accf21cd9f2f4010b72",
+  "commands": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "cmd wifi status"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "result": {
+        "targetConnected": true
+      },
+      "elapsedMs": 136.198
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "push",
+        "/tmp/miopunch-mio82-pixel-tls-20261005/dex/classes.dex",
+        "/data/local/tmp/mio82-pixel-tls-20261005.dex"
+      ],
+      "exit": 0,
+      "stderr": "/tmp/miopunch-mio82-pixel-tls-20261005/dex/classes.dex: 1 file pushed, 0 skipped. 35.4 MB/s (3624 bytes in 0.000s)\n",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "",
+      "elapsedMs": 72.141
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "env CLASSPATH=/data/local/tmp/mio82-pixel-tls-20261005.dex app_process /system/bin Mio82TlsTrace"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "result": {
+        "httpStatus": "200",
+        "normalTlsVerification": "true",
+        "cipherSuite": "TLS_AES_128_GCM_SHA256",
+        "ip": "2408:8207:1855:7360:86f3:9ae8:8ebc:3814",
+        "http": "http/1.1",
+        "tls": "TLSv1.3",
+        "warp": "off",
+        "callerElapsedMs": "4812.767459",
+        "cleanupElapsedMs": "0.011597",
+        "httpsDisconnected": "true"
+      },
+      "elapsedMs": 5124.099
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "rm -f /data/local/tmp/mio82-pixel-tls-20261005.dex"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "",
+      "elapsedMs": 118.992
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "test '!' -e /data/local/tmp/mio82-pixel-tls-20261005.dex"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "",
+      "elapsedMs": 92.646
+    }
+  ],
+  "ownedDeviceDexRemoved": true,
+  "installedApplication": false
+}

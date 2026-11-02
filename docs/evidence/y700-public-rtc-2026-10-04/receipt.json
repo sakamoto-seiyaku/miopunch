@@ -1,0 +1,224 @@
+{
+  "passed": true,
+  "scope": "physical RTC datagram interoperability only, not full miopunch admission/member/QUIC bridge/replica validation",
+  "mainCommit": "9c95dcb4e78dba041d6d1b2fe151f7607c6c6fd0",
+  "requestedTarget": {
+    "y700": "100.64.10.11:44117",
+    "host": "192.168.4.5"
+  },
+  "publicSignalingOnly": true,
+  "selfHostedMqttOrIrc": false,
+  "normalTlsVerification": true,
+  "ephemeralSignalingEncryption": "AES-256-GCM; per-case key delivered through local/ADB control; no key or plaintext SDP in these receipts",
+  "androidBrowser": {
+    "Browser": "Chrome/154.0.8037.92",
+    "ProtocolVersion": "1.3",
+    "UserAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+  },
+  "hostBrowser": "153.0.8010.12",
+  "nativeLibrary": "webrtc 0.21.0 runtime-tokio crypto-ring",
+  "matrix": [
+    {
+      "carrier": "mqtt",
+      "pair": "native",
+      "passed": true,
+      "y700SignalingUrl": "wss://broker.emqx.io:8084/mqtt",
+      "hostSignalingUrl": "wss://broker.emqx.io:8084/mqtt",
+      "eachDirectionMatchedBytes": 1200,
+      "dataPath": {
+        "y700": {
+          "address": "100.64.10.11",
+          "port": 47541,
+          "type": "prflx"
+        },
+        "host": {
+          "address": "192.168.4.5",
+          "port": 44037,
+          "type": "host"
+        },
+        "protocol": "udp",
+        "viaTailscaleVpn": true,
+        "turnUsed": false
+      },
+      "channel": {
+        "id": 0,
+        "label": "mio-quic-datagram/1",
+        "protocol": "miopunch/quic-datagram/1",
+        "ordered": false,
+        "maxRetransmits": 0,
+        "negotiated": true
+      }
+    },
+    {
+      "carrier": "mqtt",
+      "pair": "browser",
+      "passed": true,
+      "y700SignalingUrl": "wss://broker.emqx.io:8084/mqtt",
+      "hostSignalingUrl": "wss://broker.emqx.io:8084/mqtt",
+      "eachDirectionMatchedBytes": 1200,
+      "dataPath": {
+        "y700": {
+          "address": "100.64.10.11",
+          "port": 42995,
+          "type": "prflx"
+        },
+        "host": {
+          "address": "192.168.4.5",
+          "port": 43480,
+          "type": "host"
+        },
+        "protocol": "udp",
+        "viaTailscaleVpn": true,
+        "turnUsed": false
+      },
+      "channel": {
+        "id": 0,
+        "label": "mio-quic-datagram/1",
+        "protocol": "miopunch/quic-datagram/1",
+        "ordered": false,
+        "maxRetransmits": 0,
+        "negotiated": true
+      }
+    },
+    {
+      "carrier": "irc",
+      "pair": "native",
+      "passed": true,
+      "y700SignalingUrl": "wss://irc.ergo.chat/webirc",
+      "hostSignalingUrl": "ircs://irc.ergo.chat:6697",
+      "eachDirectionMatchedBytes": 1200,
+      "dataPath": {
+        "y700": {
+          "address": "100.64.10.11",
+          "port": 40444,
+          "type": "prflx"
+        },
+        "host": {
+          "address": "192.168.4.5",
+          "port": 45817,
+          "type": "host"
+        },
+        "protocol": "udp",
+        "viaTailscaleVpn": true,
+        "turnUsed": false
+      },
+      "channel": {
+        "id": 0,
+        "label": "mio-quic-datagram/1",
+        "protocol": "miopunch/quic-datagram/1",
+        "ordered": false,
+        "maxRetransmits": 0,
+        "negotiated": true
+      }
+    },
+    {
+      "carrier": "irc",
+      "pair": "browser",
+      "passed": true,
+      "y700SignalingUrl": "wss://irc.ergo.chat/webirc",
+      "hostSignalingUrl": "wss://irc.ergo.chat/webirc",
+      "eachDirectionMatchedBytes": 1200,
+      "dataPath": {
+        "y700": {
+          "address": "100.64.10.11",
+          "port": 38329,
+          "type": "prflx"
+        },
+        "host": {
+          "address": "192.168.4.5",
+          "port": 45613,
+          "type": "host"
+        },
+        "protocol": "udp",
+        "viaTailscaleVpn": true,
+        "turnUsed": false
+      },
+      "channel": {
+        "id": 0,
+        "label": "mio-quic-datagram/1",
+        "protocol": "miopunch/quic-datagram/1",
+        "ordered": false,
+        "maxRetransmits": 0,
+        "negotiated": true
+      }
+    }
+  ],
+  "temporaryConditions": [
+    "Host test Chrome exposes numeric host ICE candidates; normal certificate verification",
+    "IRC browser page uses actual https://irc.ergo.chat Origin accepted by the public service; native uses its TLS 6697 endpoint",
+    "Native RTC test binds only 192.168.4.5 and uses empty ICE-server configuration; browser uses explicit Google numeric STUN",
+    "Both peers confirm RTC-open through the same public signaling service before test data; final payload receipt also through that service"
+  ],
+  "limits": [
+    "Selected data route uses Tailscale/VPN, not proof of physical public-WAN NAT punching",
+    "Native public-STUN gathering timed out in prior attempts; remains unresolved",
+    "Finite single 1200-byte message each direction per case, not reliability/throughput/success-rate measurement",
+    "Temporary Rust RTC actor and browser RTCPeerConnection adapter; does not test miopunch membership/admission/signaling cryptographic protocol"
+  ],
+  "firstFailuresPreserved": true,
+  "failureHistory": [
+    "01: main IRC rejected localhost Origin; host mDNS hidden; native public-STUN gather deadline; MQTT keepalive missing",
+    "02: legitimate IRC Origin/TLS and numeric host candidates made both browser/browser cases pass; native public-STUN gather still timed out",
+    "03: native binding restricted to host 4.5; public-STUN gather still timed out",
+    "04: native empty profile built RTC; close-race in synthetic DONE and unreliable first-send timing made the harness fail",
+    "final: both peers ready before payload, public completion receipts before teardown; all four pass"
+  ],
+  "sourcesAndNativeBinarySha256": {
+    "native.rs": "605e3fe6ea69e434a9fbf4401d1023fa0802b8817aaa88ab0728ccb3d246c539",
+    "probe.js": "b1508860185a094da4292e8472dedf14a85086909a4865fdbcf3ac00bc252cc8",
+    "run.mjs": "ffded10feee8cebc90e85f4f3b190cc3e2238587629c225a17a15d23e99047b3",
+    "native": "ac4f1a9e61fccc3809e94b4e45eeee9ae9fbce3a5a48b5d0e2f9679da86e0c0b"
+  },
+  "runs": [
+    {
+      "stage": "01",
+      "file": "runs/01.json",
+      "sha256": "b552e704b9b5c00b0e3f5664c87f7cd08e2072c7745a8156cda015e9c82fc9b8",
+      "byteExact": true
+    },
+    {
+      "stage": "02",
+      "file": "runs/02.json",
+      "sha256": "3c7153a0bebba13d24c78eb92319e71957cfec0b9d91d49d7a9445483858d9fe",
+      "byteExact": true
+    },
+    {
+      "stage": "03",
+      "file": "runs/03.json",
+      "sha256": "c7d262360fd49a517be60d0f6fc32873d70cd4edc35f012fb485748154255b09",
+      "byteExact": true
+    },
+    {
+      "stage": "04",
+      "file": "runs/04.json",
+      "sha256": "dd16815a6e1aedffda9c35eb9ad54926aedcd7defeffc3e04ff5d7a9048349be",
+      "byteExact": true
+    },
+    {
+      "stage": "final",
+      "file": "runs/final.json",
+      "sha256": "38e95a8609abb7fe4d7e1c1c426102818a2582ae6e3e935aa1b8093ee18f0cde",
+      "byteExact": true
+    }
+  ],
+  "cleanup": {
+    "allFinalOwnedForwardReverseAbsent": true,
+    "nativeProcessesExitedZero": true,
+    "allFinalPeerConnectionsClosed": true,
+    "finalCleanup": [
+      {
+        "kind": "forward",
+        "port": "tcp:62413",
+        "removed": true
+      },
+      {
+        "kind": "reverse",
+        "port": "tcp:44550",
+        "removed": true
+      }
+    ]
+  },
+  "noProductSourceEdits": true,
+  "noDeviceNetworkOrVpnSettingsChanged": true,
+  "savedUtc": "2026-10-04T15:25:50.928042+00:00"
+}

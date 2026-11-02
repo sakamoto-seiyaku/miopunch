@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-28",
+  "status": "PREPARED_NOT_EXECUTED_EXACT_PAYLOAD_APPROVAL_PENDING",
+  "packet_sha256": "618ed39d5ed928de2e5a887833078932112c7fb6ad2b9ec2a9478ec1b2775d11",
+  "plan_sha256": "7c0ab02468ac92c2978dfd1c828693904e4ea23726f313fe6f7b3b0576e19a48",
+  "payload_bytes": 84338,
+  "destination": "stati@100.64.10.8 C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+  "sdk_reused_remote_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+  "sdk_transfer": false,
+  "same_role_operation": "one Linux provider to Windows consumer admission request",
+  "stage_and_pre_run_guards": "one-direction reserve; original 1 GiB remote root cap unchanged",
+  "post_restore_census_sha256": "756d182939ac00a576e0b4267190cdc097cd83615ef669cd8d27fa776534a22c",
+  "remote_root_bytes": 927130523,
+  "one_direction_reserve_bytes": 109136242,
+  "capacity_margin_bytes": 37475059,
+  "local_global_evidence_cap_bytes": 26644480,
+  "prior_original_failure_sha256": "ea8e84ca55a225e4bcbfcad957ce4bc2a12c50a91419de3351e92ebb555f4905",
+  "runtime_created": false,
+  "remote_test_files_transferred": false,
+  "Task_started": false,
+  "business_accepted": false
+}

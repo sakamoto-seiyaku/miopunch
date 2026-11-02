@@ -1,0 +1,18 @@
+{
+  "finalService": {
+    "health": {
+      "ready": true,
+      "native": true
+    },
+    "running": true,
+    "restartCount": 0,
+    "manifestSHA256": "9c0c2f498a7f9d7b119a32ab03ea25144a6903fe26525963bcf5d6a3f7c05ea5",
+    "deployedHashesMatched": true,
+    "u22sHealth": {
+      "ready": true,
+      "native": true
+    },
+    "originalForwardService": "active"
+  },
+  "temporaryTestActorsStopped": true
+}

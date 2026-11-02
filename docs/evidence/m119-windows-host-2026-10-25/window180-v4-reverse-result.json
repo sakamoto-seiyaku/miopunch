@@ -1,0 +1,109 @@
+{
+  "status": "FAILED_TEST_HARNESS_CAPTURE_BEFORE_REVERSE_WEB_BUSINESS",
+  "packet_sha256": "cffb0c9c7bf71b2383bfcbc2d2e8d512e563c966e7ac0e6c13ebd0447a86a836",
+  "STOP_sha256": "28fce8d67c1753e7424f45e0328a9e7ab7e22fe252a65e9f11343adbd01568ce",
+  "qualification_sha256": "e2fdce45787b1e39bd62fd1a0562efc6dc283ad09eabb85a45e00c4ba3fb8459",
+  "coordinator_sha256": "51c053ca4afead03005c40cf9a881ee76d7b89f4813484dc70fe78f5c49ca2a1",
+  "raw_location": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v4-reverse-preparation-20261028/runtime/raw/admission-wp-6473ca87",
+  "raw_file_count": 27,
+  "raw_bytes": 61420,
+  "raw_hashes_verified": true,
+  "first_specific_failure": {
+    "type": "AssertionError",
+    "phase": "exercise",
+    "oracle": null,
+    "frames": [
+      {
+        "source": "worker.py",
+        "line": 622,
+        "function": "run"
+      },
+      {
+        "source": "worker.py",
+        "line": 583,
+        "function": "command"
+      },
+      {
+        "source": "worker.py",
+        "line": 409,
+        "function": "exercise"
+      },
+      {
+        "source": "worker.py",
+        "line": 336,
+        "function": "host"
+      },
+      {
+        "source": "worker.py",
+        "line": 371,
+        "function": "prepare_linux_desktop"
+      },
+      {
+        "source": "web_content_runtime.py",
+        "line": 142,
+        "function": "__init__"
+      },
+      {
+        "source": "web_process_owner.py",
+        "line": 175,
+        "function": "run_process"
+      },
+      {
+        "source": "web_process_owner.py",
+        "line": 165,
+        "function": "run_process"
+      },
+      {
+        "source": "web_process_owner.py",
+        "line": 117,
+        "function": "communicate"
+      },
+      {
+        "source": "web_process_owner.py",
+        "line": 106,
+        "function": "retain_output"
+      },
+      {
+        "source": "output_quota.py",
+        "line": 241,
+        "function": "low_open"
+      }
+    ],
+    "SDK_operation": "service_sync",
+    "SDK_metadata": {
+      "id": 3,
+      "ok": true,
+      "result": {
+        "saved_locally": true
+      }
+    }
+  },
+  "classification": "test harness output quota adapter rejected web_process_owner.retain_output os.open(O_TRUNC) while starting owned xauth for Linux private desktop; actual page navigation/isolation was not reached",
+  "windows_provider_created_admission_and_service_sync": true,
+  "linux_consumer_service_sync_saved": true,
+  "reverse_Web_business_accepted": false,
+  "Task_GUID": "{815E921C-555F-4A56-9434-A668E645BD84}",
+  "Task_original_terminal": true,
+  "Task_registration_removed": true,
+  "reader_joined": true,
+  "original_pending": [],
+  "remote_unknown": {},
+  "xauth_child_exit": 0,
+  "xauth_child_cleanup_errors": [
+    "AssertionError"
+  ],
+  "sdk_node_exits": {
+    "linux": 0,
+    "windows": 0
+  },
+  "new_builds": 0,
+  "new_pins": 0,
+  "runtime_retry": false,
+  "whole_M119": false,
+  "user_stop_after_v4": true,
+  "limits": [
+    "This exact v4 was executed once and failed. No fix or rerun was performed.",
+    "The xauth helper journal records an AssertionError during its own capture cleanup; do not claim fully error-free cleanup.",
+    "Post-run remote root capacity was not queried because the user directed stopping after v4."
+  ]
+}

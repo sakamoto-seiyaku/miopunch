@@ -1,0 +1,12 @@
+{
+  "task": "MIOPUNCH-118",
+  "id": "e8c77110-9570-4e6a-bcfd-b934760dabcd",
+  "state": "Done",
+  "comment_id": "39aa926d-87fc-40c4-b9bc-4732c6db0f8b",
+  "completed_at": "2026-10-29T11:48:29.593497+08:00",
+  "fields_and_native_relations_preserved": true,
+  "parent_m107_still_open": true,
+  "accepted_count": 6,
+  "total": 10,
+  "qualification": "docs/evidence/port-forwarding-2026-10-29/current-platform-qualification.json"
+}

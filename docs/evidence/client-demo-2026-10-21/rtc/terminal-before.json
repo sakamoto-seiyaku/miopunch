@@ -1,0 +1,9 @@
+{
+  "origin": "http://172.16.3.11:18843",
+  "session": "term-replay-mvhv2r18",
+  "rtcSelected": true,
+  "historicalDeviceQuery": true,
+  "screen": "demo@debian:~$ 0;276;0cecho $((6*7))bash: 0: command not foundbash: 276: command not foundbash: 0cecho: command not founddemo@debian:~$  ",
+  "passed": false,
+  "failure": "AssertionError [ERR_ASSERTION]: historical device replies must not become shell input"
+}

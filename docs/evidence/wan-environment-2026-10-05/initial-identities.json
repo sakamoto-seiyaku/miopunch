@@ -1,0 +1,10 @@
+{
+  "scope": "environment tool artifacts only; no SDK product artifact was executed",
+  "files": {
+    "scripts/wan_environment_preflight.py": "ddd0655656374b8de1c68b42a1037fbeac8211dad082aa162a33686c8bc83132",
+    "/home/js/Android/Sdk/platform-tools/adb": "00108217733707a40debfc92c86d4232fd6e68870be5966515d74c071193ea90",
+    "docs/evidence/wan-environment-2026-10-05/preflight.json": "8beed99215a68c97637a691edb01c2e7bcd92b17f778a74c07575eab0e5ed226",
+    "docs/evidence/wan-environment-2026-10-05/sandbox-and-wrapper-failure.json": "80ec3324f00c13f2cf59fbb4576fae9a5c486f36cc578bbc2be7a0f08573834e",
+    "docs/evidence/wan-environment-2026-10-05/observed-failures.json": "e02d1159ca0ed7314fc0148c6beb49dff788c792a4f4af0c2099f8aaa3e5a796"
+  }
+}

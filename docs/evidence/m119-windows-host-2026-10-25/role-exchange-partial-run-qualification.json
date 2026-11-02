@@ -1,0 +1,190 @@
+{
+  "status": "PARTIAL_ROLE_RUN_FAILED_TASK_DIAGNOSED_NOT_ACCEPTED",
+  "date": "2026-10-27",
+  "task": "MIOPUNCH-119",
+  "scope": "Linux provider to Windows consumer; reverse direction gated and not run. Corrected framing driver executed once after normal review.",
+  "original_failure": "Initial guard returned exit 0 and empty output; first SCP failed before any role case. Same-host read-only comparison established missing final PowerShell input newline; original records retained.",
+  "corrected_run": {
+    "session": 47872,
+    "driver_exit": 1,
+    "guard_creation_and_capacity": "PASS",
+    "six_SCP_transfers": "PASS",
+    "six_file_verification": "PASS",
+    "pre_run_capacity": "PASS",
+    "first_case": "FAILED",
+    "first_case_mail": "original rendezvous deadline expired",
+    "task_transport": "COMException; no original GUID; terminal ownership unproved by the transport itself",
+    "reverse": "NOT_STARTED"
+  },
+  "linux_provider": {
+    "worker_pid": 1881610,
+    "worker_exit": -6,
+    "worker_readers_alive": 0,
+    "worker_stderr": "Python fatal finalizing while buffered stdin reader lock was held",
+    "sdk_pid": 1881617,
+    "sdk_exit": 0,
+    "sdk_readers_alive": 0,
+    "result": "FAILED: Empty",
+    "business": false,
+    "meaning": "Original process termination is not clean worker completion."
+  },
+  "readonly_task_diagnostic": {
+    "session": 48173,
+    "ssh_pid": 1905331,
+    "exit": 0,
+    "timeout": false,
+    "exact_task_currently": "absent",
+    "journal": "absent",
+    "entry_and_child_receipts": "all absent",
+    "inference": "Combined with retained original controller ordering (journal before registration and run), this supports a failure before registration; later external interference is not excluded.",
+    "original_xml_hresult": "8004131A; unable to switch the encoding",
+    "declaration_only_hresult": "80041316; AllowDemandStart",
+    "declaration_only_fix_sufficient": false,
+    "corrected_variant_in_this_diagnostic": "not tested",
+    "observation": "No task was registered, started or stopped by this read-only diagnostic."
+  },
+  "official_schema": [
+    "https://learn.microsoft.com/en-us/windows/win32/taskschd/taskschedulerschema-allowstartondemand-settingstype-element",
+    "https://learn.microsoft.com/en-us/windows/win32/taskschd/taskschedulerschema-settingstype-complextype"
+  ],
+  "independent_review": "Root verified original 25 frozen source/payload pins and all 12 transport stdout/stderr pairs, then separately verified the retained process and read-only diagnostic records. The diagnostics did not run business or establish a complete role pass.",
+  "references": {
+    "first_failure_handoff": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/root-scheduling-20261023/m119-role-exchange-explicit-human-approval-actual-runtime-handoff-20261027.json",
+      "bytes": 7815,
+      "sha256": "963e0d10bce6a354c885f3ec11ba8f0d0c9335d627247ef81cabb926676ef16d"
+    },
+    "corrected_run_handoff": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/root-scheduling-20261023/m119-role-exchange-framing-corrected-runtime-handoff-20261027.json",
+      "bytes": 5881,
+      "sha256": "5baa43d9638c4e16ba8b9b696b6cedb609e9bf28f66f2db1f0e13aede0b9e1ad"
+    },
+    "plan": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-Web-role-exchange-preparation-20261027/plan.json",
+      "bytes": 7607,
+      "sha256": "accf85e41aac33ed65539e633df35df44a76fbc740c903f47260dd06da37916d"
+    },
+    "repair_packet": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-framing-repair-20261027/packet.json",
+      "bytes": 4070,
+      "sha256": "8a888706eeafd09c792c226467d105a73a5c165a6e519296c08fb1546af5236e"
+    },
+    "repair_adapter": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-framing-repair-20261027/repair.py",
+      "bytes": 15037,
+      "sha256": "8981feb31873cc58e644584968df343daa6bac73365aa51cd767783224a390ac"
+    },
+    "old_guard_receipt": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-Web-role-exchange-preparation-20261027/runtime/001-guard-stage.json",
+      "bytes": 617,
+      "sha256": "e2655b9d24e1cadf1cc6e24ce1f64d10f3a8e141a34492f28eade0ecce92625d"
+    },
+    "old_first_scp_stderr": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-Web-role-exchange-preparation-20261027/runtime/002-stage-worker.py.stderr",
+      "bytes": 433,
+      "sha256": "ea063383e9239f4e3bf818b50febb3cbac65d863da6f1ae5f8ff99471936700e"
+    },
+    "corrected_guard": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-framing-repair-20261027/runtime/001-guard-stage.stdout",
+      "bytes": 276,
+      "sha256": "728a0a6b578e2cd30e035e84722562cca75cae0b7c44651266ec4d2e9e1f8788"
+    },
+    "corrected_verify": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-framing-repair-20261027/runtime/008-verify.stdout",
+      "bytes": 87,
+      "sha256": "83f22f045c97ffec7246e98de177882f3dfb9f8ef07e19dbcc1d032e98332e30"
+    },
+    "task_transport": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-framing-repair-20261027/runtime/011-linux-provider-Task.stdout",
+      "bytes": 384,
+      "sha256": "4ce67cd80647464d0f3619a8315e041d65582dc410d3ac13b2feacf490cbb0b0"
+    },
+    "mail_error": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-framing-repair-20261027/runtime/012-linux-provider-mail-receive.stderr",
+      "bytes": 1366,
+      "sha256": "b91b6a4ce39ec13b2b55ef1e6cd56dc6128c72833d79bd5abdca43f1a32936db"
+    },
+    "stop": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-framing-repair-20261027/runtime/STOP.json",
+      "bytes": 543,
+      "sha256": "6d44f4ba9b69160f54448c0d9929a49796f84e7af571c9c6be5793c92072c402"
+    },
+    "corrected_original_tool_streams": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-framing-repair-20261027/runtime/outer-tool-observations.json",
+      "bytes": 3776,
+      "sha256": "fa1df6376b7f924bd88929d9c6cee3393162f19f909abb8d1e4ac0d1006b7d81"
+    },
+    "first_independent_qa": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/root-scheduling-20261023/m119-role-exchange-framing-independent-qa-20261027.stdout",
+      "bytes": 841,
+      "sha256": "4b0e290c2d4ecb8dc3715e3edf77a7fd2f0a8f76fe7292a740a3400c3bf2485b"
+    },
+    "first_independent_qa_receipt": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/root-scheduling-20261023/m119-role-exchange-framing-independent-qa-20261027.receipt.json",
+      "bytes": 539,
+      "sha256": "a486d26a8afc3f8016da8c2835e286d8f34caec7ff89ab69402acc92533e0bc5"
+    },
+    "task_diagnostic_plan": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-framing-repair-20261027/runtime/task-diagnostic-plan.json",
+      "bytes": 3456,
+      "sha256": "e5e1a7666a21ed103df914c4c635e9224967bb2db2cf88f31879103d03e88d58"
+    },
+    "task_diagnostic_input": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-framing-repair-20261027/runtime/task-diagnostic-v1/stdin",
+      "bytes": 2686,
+      "sha256": "4a3f3f4798bea2f4d41dbaf1e8c5bccaf5fe465762a425172b5d8a0aad866f4f"
+    },
+    "task_diagnostic_stdout": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-framing-repair-20261027/runtime/task-diagnostic-v1/stdout",
+      "bytes": 758,
+      "sha256": "c4f231ded6df659bc82ab4d5978133f10bdaa9e9bb08fb5f26e3a86b4207a7e7"
+    },
+    "task_diagnostic_stderr": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-framing-repair-20261027/runtime/task-diagnostic-v1/stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "task_diagnostic_receipt": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-framing-repair-20261027/runtime/task-diagnostic-v1/receipt.json",
+      "bytes": 407,
+      "sha256": "aabd3aa0d6afc30c1bb55dac5d4b8f59c7f8d67715f19eb7d83bc4c4372b2ca0"
+    },
+    "task_diagnostic_independent_qa": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/root-scheduling-20261023/m119-role-exchange-task-diagnostic-independent-qa-20261027.stdout",
+      "bytes": 552,
+      "sha256": "604da551c8d99decc204761221e29b891aae8fe11f93182f7a1f95a3fefcb116"
+    },
+    "task_diagnostic_independent_qa_receipt": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/root-scheduling-20261023/m119-role-exchange-task-diagnostic-independent-qa-20261027.receipt.json",
+      "bytes": 547,
+      "sha256": "7e08d1a1127a5a7c49acde04f4ed61ced20b662be35659be44eb2e00811ad596"
+    },
+    "linux_worker_owner": {
+      "path": "/tmp/miopunch-m119-runtime-20261025/linux-role-b7b2cf30/role-lp-00e3628d/generated/linux-control/worker.owner.jsonl",
+      "bytes": 1112,
+      "sha256": "1c0554e1785e220aba93b5ccda42c7dfb3f8211f088313378bcda4b36d9988cd"
+    },
+    "linux_worker_stderr": {
+      "path": "/tmp/miopunch-m119-runtime-20261025/linux-role-b7b2cf30/role-lp-00e3628d/generated/linux-control/worker.stderr",
+      "bytes": 303,
+      "sha256": "f0ee459caa2a96bd0e86f6a468418d3c29aa7acf7d185d7c9e2678cf7e8092ff"
+    },
+    "linux_sdk_owner": {
+      "path": "/tmp/miopunch-m119-runtime-20261025/linux-role-b7b2cf30/role-lp-00e3628d/generated/linux/node.owner.jsonl",
+      "bytes": 620,
+      "sha256": "347afa4dabe365f595505f8666040cafe7b0acfc104c6d570e6d6e75078630e3"
+    },
+    "linux_result": {
+      "path": "/tmp/miopunch-m119-runtime-20261025/linux-role-b7b2cf30/role-lp-00e3628d/generated/linux/result.json",
+      "bytes": 7604,
+      "sha256": "b2806e4c92caa8c33c2afa7cf2cb12e64c5acd7319ac4293ef295b3803bb893d"
+    }
+  },
+  "limits": [
+    "No corrected two-element XML parse or subsequent business run is claimed by these observations.",
+    "The original Windows SDK Os5 cause is not established.",
+    "No whole M119 or M107 completion, current held Native graph, or formal review is claimed."
+  ],
+  "whole_M119_complete": false,
+  "whole_M107_complete": false
+}

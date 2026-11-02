@@ -1,0 +1,52 @@
+{
+  "scope": "frozen formal browser WASM build only; no device story pass",
+  "sourceDigestBefore": "3417474305d2d18637c764a7a9130c023e198841d72fe2cdc93d7816916a2366",
+  "commands": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "miopunch-browser-probe",
+        "--features",
+        "rtc-probe",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--jobs",
+        "2"
+      ],
+      "exit": 0,
+      "elapsedMs": 9819.610017118976
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/tmp/miopunch-wasm-tools/bin/wasm-bindgen",
+        "--target",
+        "web",
+        "--out-dir",
+        "/tmp/mio76-causal-current-wasm-build-20261005/pkg",
+        "/home/js/Git/miopunch/target/wasm32-unknown-unknown/debug/miopunch_browser_probe.wasm"
+      ],
+      "exit": 0,
+      "elapsedMs": 2387.5734771136194
+    }
+  ],
+  "sourceDigestAfter": "3417474305d2d18637c764a7a9130c023e198841d72fe2cdc93d7816916a2366",
+  "sourceFrozenDuringBuild": true,
+  "commandExit": 0,
+  "qualifiedForFrozenRun": true,
+  "artifacts": {
+    "miopunch_browser_probe_bg.wasm": "9d5bf6def3628b9d8db68a510804c1743b76b42bd34e4e2809d96e5be21a368c",
+    "miopunch_browser_probe_bg.wasm.d.ts": "49f794146780a1628dbf4b2bd5163df65971aa2cea697a7fd3a8787e9deb8f0b",
+    "miopunch_browser_probe.js": "e6e1cdf10257426a584020b8c8ca6d5a889cb3b65aae850892460e46d541cf18",
+    "miopunch_browser_probe.d.ts": "c65f354cb761d5d75da899dac80d8d629262cd6b7c5e370afce2a139d015495a",
+    "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+    "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "726368b4e8c636d4cc3c0b90a647f87dce5e624ec4e7a7e7f8dc6b9429ca6eda"
+  }
+}

@@ -5,12 +5,12 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import shutil
 import signal
 import subprocess
 import time
 
 from check_build_cache import compiled_artifacts
+from pin_artifact import pin_artifact
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = ["available_member_contact_precedes_ready_configured_mqtt",
@@ -31,7 +31,7 @@ def sources():
     paths |= set(ROOT.glob("tests/**/*.rs")) | {path for path in ROOT.glob("browser-probe/src/**/*") if path.is_file()}
     paths |= set(ROOT.glob("vendor/**/Cargo.toml"))
     paths |= {ROOT / name for name in ["Cargo.toml", "Cargo.lock", ".cargo/config.toml", "browser-probe/Cargo.toml", __file__,
-        "scripts/cargo_cache.py", "scripts/check_build_cache.py",
+        "scripts/cargo_cache.py", "scripts/check_build_cache.py", "scripts/pin_artifact.py",
         "tests/contact_member_priority.rs", "tests/support/member_priority_broker.rs",
         "tests/support/member_contact_observation.rs"]}
     return {str(path.relative_to(ROOT)): digest(path) for path in sorted(paths)
@@ -121,7 +121,7 @@ def main():
         artifact = output / "contact_member_priority.test-bin"
         focused = None
         if prior_binary is not None:
-            shutil.copy2(prior_binary, artifact)
+            pin_artifact(prior_binary, artifact)
             if digest(artifact) != prior["artifact"]["sha256"]:
                 raise RuntimeError("immutable artifact changed while copying")
             report["artifact"] = {"builtPath": str(prior_binary), "frozenPath": str(artifact),
@@ -139,7 +139,7 @@ def main():
                     and value.get("profile", {}).get("test") and value.get("executable")]
                 if len(binaries) != 1:
                     raise RuntimeError("one actual priority test artifact required")
-                shutil.copy2(binaries[0], artifact)
+                pin_artifact(binaries[0], artifact)
                 report["artifact"] = {"builtPath": str(binaries[0]), "frozenPath": str(artifact),
                     "sha256": digest(artifact), "bytes": artifact.stat().st_size}
                 if args.focused_coordinator_check:
@@ -149,7 +149,7 @@ def main():
                     if len(focused_binaries) != 1:
                         raise RuntimeError("one focused coordinator artifact required")
                     focused = output / "unified_connection.test-bin"
-                    shutil.copy2(focused_binaries[0], focused)
+                    pin_artifact(focused_binaries[0], focused)
                     report["focusedCoordinatorArtifact"] = {"builtPath": str(focused_binaries[0]),
                         "frozenPath": str(focused), "sha256": digest(focused), "bytes": focused.stat().st_size}
                 report["sourcesAfterBuild"] = sources()

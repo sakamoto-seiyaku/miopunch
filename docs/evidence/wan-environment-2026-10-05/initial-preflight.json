@@ -1,0 +1,1079 @@
+{
+  "schema": 1,
+  "scope": "read-only WAN prerequisites, not physical NAT or SDK pass",
+  "physicalWanQualified": false,
+  "startedUtc": "2026-10-05T02:03:14Z",
+  "scriptSha256": "ddd0655656374b8de1c68b42a1037fbeac8211dad082aa162a33686c8bc83132",
+  "proxyEnvironmentNames": [],
+  "normalTlsVerification": true,
+  "commands": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": "9c95dcb4e78dba041d6d1b2fe151f7607c6c6fd0\n",
+      "elapsedMs": 10.08
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "ip",
+        "-j",
+        "address",
+        "show"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "result": [
+        {
+          "interface": "lo",
+          "flags": [
+            "LOOPBACK",
+            "UP",
+            "LOWER_UP"
+          ],
+          "addresses": [
+            {
+              "family": "inet",
+              "local": "127.0.0.1",
+              "prefixlen": 8
+            },
+            {
+              "family": "inet",
+              "local": "10.255.255.254",
+              "prefixlen": 32
+            },
+            {
+              "family": "inet6",
+              "local": "::1",
+              "prefixlen": 128
+            }
+          ]
+        },
+        {
+          "interface": "loopback0",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "addresses": []
+        },
+        {
+          "interface": "eth0",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST"
+          ],
+          "addresses": []
+        },
+        {
+          "interface": "eth1",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "addresses": [
+            {
+              "family": "inet",
+              "local": "169.254.83.107",
+              "prefixlen": 16
+            },
+            {
+              "family": "inet6",
+              "local": "fe80::ac67:ed9e:b1a6:c8e8",
+              "prefixlen": 64
+            }
+          ]
+        },
+        {
+          "interface": "eth2",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "addresses": [
+            {
+              "family": "inet",
+              "local": "192.168.4.5",
+              "prefixlen": 24
+            },
+            {
+              "family": "inet6",
+              "local": "fd76:d462:c4e3:0:e0d6:a65f:b229:b175",
+              "prefixlen": 128
+            },
+            {
+              "family": "inet6",
+              "local": "fd76:d462:c4e3:0:49f3:929a:a311:d6e7",
+              "prefixlen": 64
+            },
+            {
+              "family": "inet6",
+              "local": "fe80::8f0a:e48e:5439:1899",
+              "prefixlen": 64
+            }
+          ]
+        },
+        {
+          "interface": "virbr260",
+          "flags": [
+            "NO-CARRIER",
+            "BROADCAST",
+            "MULTICAST",
+            "UP"
+          ],
+          "addresses": [
+            {
+              "family": "inet",
+              "local": "192.168.254.1",
+              "prefixlen": 24
+            }
+          ]
+        },
+        {
+          "interface": "br-00e153b97ba4",
+          "flags": [
+            "NO-CARRIER",
+            "BROADCAST",
+            "MULTICAST",
+            "UP"
+          ],
+          "addresses": [
+            {
+              "family": "inet",
+              "local": "172.19.0.1",
+              "prefixlen": 16
+            }
+          ]
+        },
+        {
+          "interface": "docker0",
+          "flags": [
+            "NO-CARRIER",
+            "BROADCAST",
+            "MULTICAST",
+            "UP"
+          ],
+          "addresses": [
+            {
+              "family": "inet",
+              "local": "172.17.0.1",
+              "prefixlen": 16
+            }
+          ]
+        },
+        {
+          "interface": "br-cecf21e17fe9",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "addresses": [
+            {
+              "family": "inet",
+              "local": "172.18.0.1",
+              "prefixlen": 16
+            }
+          ]
+        },
+        {
+          "interface": "veth641a07e",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "addresses": []
+        },
+        {
+          "interface": "veth0b21303",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "addresses": []
+        },
+        {
+          "interface": "dummy0",
+          "flags": [
+            "BROADCAST",
+            "NOARP"
+          ],
+          "addresses": []
+        }
+      ],
+      "elapsedMs": 11.713
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "ip",
+        "-j",
+        "route",
+        "show",
+        "table",
+        "all"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "result": [
+        {
+          "dst": "127.0.0.1",
+          "gateway": "169.254.73.152",
+          "dev": "loopback0",
+          "table": "127",
+          "protocol": "kernel",
+          "prefsrc": "127.0.0.1",
+          "flags": [
+            "onlink"
+          ]
+        },
+        {
+          "dst": "169.254.83.107",
+          "gateway": "169.254.73.152",
+          "dev": "eth1",
+          "table": "128",
+          "protocol": "kernel",
+          "prefsrc": "169.254.83.107",
+          "flags": [
+            "onlink"
+          ]
+        },
+        {
+          "dst": "192.168.4.5",
+          "gateway": "169.254.73.152",
+          "dev": "eth2",
+          "table": "128",
+          "protocol": "kernel",
+          "prefsrc": "192.168.4.5",
+          "flags": [
+            "onlink"
+          ]
+        },
+        {
+          "dst": "default",
+          "gateway": "192.168.4.11",
+          "dev": "eth2",
+          "protocol": "kernel",
+          "metric": 276,
+          "flags": []
+        },
+        {
+          "dst": "169.254.0.0/16",
+          "dev": "eth1",
+          "protocol": "kernel",
+          "scope": "link",
+          "metric": 261,
+          "flags": []
+        },
+        {
+          "dst": "172.17.0.0/16",
+          "dev": "docker0",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "172.17.0.1",
+          "flags": [
+            "linkdown"
+          ]
+        },
+        {
+          "dst": "172.18.0.0/16",
+          "dev": "br-cecf21e17fe9",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "172.18.0.1",
+          "flags": []
+        },
+        {
+          "dst": "172.19.0.0/16",
+          "dev": "br-00e153b97ba4",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "172.19.0.1",
+          "flags": [
+            "linkdown"
+          ]
+        },
+        {
+          "dst": "192.168.4.0/24",
+          "dev": "eth2",
+          "protocol": "kernel",
+          "scope": "link",
+          "metric": 276,
+          "flags": []
+        },
+        {
+          "dst": "192.168.4.11",
+          "dev": "eth2",
+          "protocol": "kernel",
+          "scope": "link",
+          "metric": 276,
+          "flags": []
+        },
+        {
+          "dst": "192.168.254.0/24",
+          "dev": "virbr260",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "192.168.254.1",
+          "flags": [
+            "linkdown"
+          ]
+        },
+        {
+          "type": "local",
+          "dst": "10.255.255.254",
+          "dev": "lo",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "host",
+          "prefsrc": "10.255.255.254",
+          "flags": []
+        },
+        {
+          "type": "broadcast",
+          "dst": "10.255.255.254",
+          "dev": "lo",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "10.255.255.254",
+          "flags": []
+        },
+        {
+          "type": "local",
+          "dst": "127.0.0.0/8",
+          "dev": "lo",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "host",
+          "prefsrc": "127.0.0.1",
+          "flags": []
+        },
+        {
+          "type": "local",
+          "dst": "127.0.0.1",
+          "dev": "lo",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "host",
+          "prefsrc": "127.0.0.1",
+          "flags": []
+        },
+        {
+          "type": "broadcast",
+          "dst": "127.255.255.255",
+          "dev": "lo",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "127.0.0.1",
+          "flags": []
+        },
+        {
+          "type": "local",
+          "dst": "169.254.83.107",
+          "dev": "eth1",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "host",
+          "prefsrc": "169.254.83.107",
+          "flags": []
+        },
+        {
+          "type": "broadcast",
+          "dst": "169.254.255.255",
+          "dev": "eth1",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "169.254.83.107",
+          "flags": []
+        },
+        {
+          "type": "local",
+          "dst": "172.17.0.1",
+          "dev": "docker0",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "host",
+          "prefsrc": "172.17.0.1",
+          "flags": []
+        },
+        {
+          "type": "broadcast",
+          "dst": "172.17.255.255",
+          "dev": "docker0",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "172.17.0.1",
+          "flags": [
+            "linkdown"
+          ]
+        },
+        {
+          "type": "local",
+          "dst": "172.18.0.1",
+          "dev": "br-cecf21e17fe9",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "host",
+          "prefsrc": "172.18.0.1",
+          "flags": []
+        },
+        {
+          "type": "broadcast",
+          "dst": "172.18.255.255",
+          "dev": "br-cecf21e17fe9",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "172.18.0.1",
+          "flags": []
+        },
+        {
+          "type": "local",
+          "dst": "172.19.0.1",
+          "dev": "br-00e153b97ba4",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "host",
+          "prefsrc": "172.19.0.1",
+          "flags": []
+        },
+        {
+          "type": "broadcast",
+          "dst": "172.19.255.255",
+          "dev": "br-00e153b97ba4",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "172.19.0.1",
+          "flags": [
+            "linkdown"
+          ]
+        },
+        {
+          "type": "local",
+          "dst": "192.168.4.5",
+          "dev": "eth2",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "host",
+          "prefsrc": "192.168.4.5",
+          "flags": []
+        },
+        {
+          "type": "broadcast",
+          "dst": "192.168.4.255",
+          "dev": "eth2",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "192.168.4.5",
+          "flags": []
+        },
+        {
+          "type": "local",
+          "dst": "192.168.254.1",
+          "dev": "virbr260",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "host",
+          "prefsrc": "192.168.254.1",
+          "flags": []
+        },
+        {
+          "type": "broadcast",
+          "dst": "192.168.254.255",
+          "dev": "virbr260",
+          "table": "local",
+          "protocol": "kernel",
+          "scope": "link",
+          "prefsrc": "192.168.254.1",
+          "flags": [
+            "linkdown"
+          ]
+        },
+        {
+          "dst": "fd76:d462:c4e3::/64",
+          "dev": "eth2",
+          "protocol": "kernel",
+          "metric": 36,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "dst": "fd76:d462:c4e3::/48",
+          "gateway": "fe80::4a5f:8ff:fe65:2351",
+          "dev": "eth2",
+          "protocol": "kernel",
+          "metric": 276,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "dst": "fe80::249b:8bff:fefd:87c5",
+          "dev": "eth2",
+          "protocol": "kernel",
+          "metric": 36,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "dst": "fe80::4a5f:8ff:fe65:2351",
+          "dev": "eth2",
+          "protocol": "kernel",
+          "metric": 276,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "dst": "fe80::/64",
+          "dev": "eth2",
+          "protocol": "kernel",
+          "metric": 276,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "dst": "default",
+          "gateway": "fe80::249b:8bff:fefd:87c5",
+          "dev": "eth2",
+          "protocol": "kernel",
+          "metric": 36,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "type": "local",
+          "dst": "::1",
+          "dev": "lo",
+          "table": "local",
+          "protocol": "kernel",
+          "metric": 0,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "type": "local",
+          "dst": "fd76:d462:c4e3:0:49f3:929a:a311:d6e7",
+          "dev": "eth2",
+          "table": "local",
+          "protocol": "kernel",
+          "metric": 0,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "type": "local",
+          "dst": "fd76:d462:c4e3:0:e0d6:a65f:b229:b175",
+          "dev": "eth2",
+          "table": "local",
+          "protocol": "kernel",
+          "metric": 0,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "type": "local",
+          "dst": "fe80::8f0a:e48e:5439:1899",
+          "dev": "eth2",
+          "table": "local",
+          "protocol": "kernel",
+          "metric": 0,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "type": "local",
+          "dst": "fe80::ac67:ed9e:b1a6:c8e8",
+          "dev": "eth1",
+          "table": "local",
+          "protocol": "kernel",
+          "metric": 0,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "type": "multicast",
+          "dst": "ff00::/8",
+          "dev": "loopback0",
+          "table": "local",
+          "protocol": "kernel",
+          "metric": 256,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "type": "multicast",
+          "dst": "ff00::/8",
+          "dev": "eth1",
+          "table": "local",
+          "protocol": "kernel",
+          "metric": 256,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "type": "multicast",
+          "dst": "ff00::/8",
+          "dev": "eth2",
+          "table": "local",
+          "protocol": "kernel",
+          "metric": 256,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "type": "multicast",
+          "dst": "ff00::/8",
+          "dev": "br-cecf21e17fe9",
+          "table": "local",
+          "protocol": "kernel",
+          "metric": 256,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "type": "multicast",
+          "dst": "ff00::/8",
+          "dev": "veth641a07e",
+          "table": "local",
+          "protocol": "kernel",
+          "metric": 256,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "type": "multicast",
+          "dst": "ff00::/8",
+          "dev": "veth0b21303",
+          "table": "local",
+          "protocol": "kernel",
+          "metric": 256,
+          "flags": [],
+          "pref": "medium"
+        },
+        {
+          "type": "multicast",
+          "dst": "ff00::/8",
+          "dev": "docker0",
+          "table": "local",
+          "protocol": "kernel",
+          "metric": 256,
+          "flags": [
+            "linkdown"
+          ],
+          "pref": "medium"
+        }
+      ],
+      "elapsedMs": 111.929
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "ip",
+        "-j",
+        "rule",
+        "show"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "result": [
+        {
+          "priority": 0,
+          "src": "all",
+          "iif": "loopback0",
+          "ipproto": "tcp",
+          "table": "local"
+        },
+        {
+          "priority": 0,
+          "src": "all",
+          "iif": "loopback0",
+          "ipproto": "udp",
+          "table": "local"
+        },
+        {
+          "priority": 0,
+          "src": "all",
+          "iif": "eth0",
+          "ipproto": "tcp",
+          "table": "local"
+        },
+        {
+          "priority": 0,
+          "src": "all",
+          "iif": "eth0",
+          "ipproto": "udp",
+          "table": "local"
+        },
+        {
+          "priority": 0,
+          "src": "all",
+          "iif": "eth1",
+          "ipproto": "tcp",
+          "table": "local"
+        },
+        {
+          "priority": 0,
+          "src": "all",
+          "iif": "eth1",
+          "ipproto": "udp",
+          "table": "local"
+        },
+        {
+          "priority": 0,
+          "src": "all",
+          "iif": "eth2",
+          "ipproto": "tcp",
+          "table": "local"
+        },
+        {
+          "priority": 0,
+          "src": "all",
+          "iif": "eth2",
+          "ipproto": "udp",
+          "table": "local"
+        },
+        {
+          "priority": 1,
+          "src": "all",
+          "ipproto": "tcp",
+          "table": "127"
+        },
+        {
+          "priority": 1,
+          "src": "all",
+          "ipproto": "udp",
+          "table": "127"
+        },
+        {
+          "priority": 1,
+          "src": "all",
+          "ipproto": "tcp",
+          "table": "128"
+        },
+        {
+          "priority": 1,
+          "src": "all",
+          "ipproto": "udp",
+          "table": "128"
+        },
+        {
+          "priority": 2,
+          "src": "all",
+          "table": "local"
+        },
+        {
+          "priority": 32766,
+          "src": "all",
+          "table": "main"
+        },
+        {
+          "priority": 32767,
+          "src": "all",
+          "table": "default"
+        }
+      ],
+      "elapsedMs": 11.592
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "curl",
+        "--noproxy",
+        "*",
+        "--interface",
+        "192.168.4.5",
+        "--connect-timeout",
+        "3",
+        "--max-time",
+        "6",
+        "--silent",
+        "--show-error",
+        "https://www.cloudflare.com/cdn-cgi/trace"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "result": {
+        "ip": "104.28.195.192",
+        "http": "http/2",
+        "tls": "TLSv1.3",
+        "warp": "on"
+      },
+      "elapsedMs": 425.219
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "ip",
+        "-j",
+        "route",
+        "get",
+        "74.125.250.129",
+        "from",
+        "192.168.4.5"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "result": [
+        {
+          "dst": "74.125.250.129",
+          "from": "192.168.4.5",
+          "gateway": "192.168.4.11",
+          "dev": "eth2",
+          "flags": [],
+          "uid": 1000,
+          "cache": []
+        }
+      ],
+      "elapsedMs": 20.427
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "version"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": "Android Debug Bridge version 1.0.41\nVersion 37.0.0-14910828\nInstalled as /home/js/Android/Sdk/platform-tools/adb\nRunning on Linux 6.6.114.1-microsoft-standard-WSL2 (x86_64)\n",
+      "elapsedMs": 12.301
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "devices",
+        "-l"
+      ],
+      "exit": 0,
+      "matchingDeviceCount": 1
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<model-selected-device>",
+        "shell",
+        "ip -o addr show"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "result": [
+        {
+          "interface": "lo",
+          "family": "inet",
+          "address": "127.0.0.1/8"
+        },
+        {
+          "interface": "lo",
+          "family": "inet6",
+          "address": "::1/128"
+        },
+        {
+          "interface": "dummy0",
+          "family": "inet6",
+          "address": "fe80::10ab:e0ff:fe36:7707/64"
+        },
+        {
+          "interface": "wlan0",
+          "family": "inet",
+          "address": "192.168.0.107/24"
+        },
+        {
+          "interface": "wlan0",
+          "family": "inet6",
+          "address": "fd00:6cb1:589b:ff4:bce5:408b:bb39:3522/64"
+        },
+        {
+          "interface": "wlan0",
+          "family": "inet6",
+          "address": "fd00:6cb1:589b:ff4:4ca4:3f1d:cd3c:299e/64"
+        },
+        {
+          "interface": "wlan0",
+          "family": "inet6",
+          "address": "fd00:6cb1:589b:ff4:b8d9:63a7:9c8f:485d/64"
+        },
+        {
+          "interface": "wlan0",
+          "family": "inet6",
+          "address": "fe80::acd8:1560:476:22f9/64"
+        },
+        {
+          "interface": "tun1",
+          "family": "inet",
+          "address": "100.64.10.11/32"
+        },
+        {
+          "interface": "tun1",
+          "family": "inet6",
+          "address": "fd7a:115c:a1e0::b/128"
+        },
+        {
+          "interface": "tun1",
+          "family": "inet6",
+          "address": "fe80::3253:4674:d054:ca4/64"
+        }
+      ],
+      "elapsedMs": 295.708
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<model-selected-device>",
+        "shell",
+        "ip route show table all"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": "192.168.0.0/24 dev wlan0 table 1000000015 proto static scope link \n224.0.0.0/24 dev wlan0 table 1000000015 proto static scope link \n100.64.10.1 dev tun1 table 1059 proto static scope link \n100.64.10.2 dev tun1 table 1059 proto static scope link \n100.64.10.4/30 dev tun1 table 1059 proto static scope link \n100.64.10.8/31 dev tun1 table 1059 proto static scope link \n100.64.10.10 dev tun1 table 1059 proto static scope link \n100.64.10.11 dev tun1 table 1059 proto static scope link \n100.100.100.100 dev tun1 table 1059 proto static scope link \n192.168.4.0/24 dev tun1 table 1059 proto static scope link \n100.64.10.1 dev tun1 table 1000000059 proto static scope link \n100.64.10.2 dev tun1 table 1000000059 proto static scope link \n100.64.10.4/30 dev tun1 table 1000000059 proto static scope link \n100.64.10.8/31 dev tun1 table 1000000059 proto static scope link \n100.64.10.10 dev tun1 table 1000000059 proto static scope link \n100.64.10.11 dev tun1 table 1000000059 proto static scope link \n100.100.100.100 dev tun1 table 1000000059 proto static scope link \n192.168.4.0/24 dev tun1 table 1000000059 proto static scope link \ndefault dev dummy0 table 1002 proto static scope link \ndefault via 192.168.0.1 dev wlan0 table 1015 proto static \n192.168.0.0/24 dev wlan0 table 1015 proto static scope link \n192.168.0.0/24 dev wlan0 proto kernel scope link src 192.168.0.107 \nlocal 100.64.10.11 dev tun1 table local proto kernel scope host src 100.64.10.11 \nlocal 127.0.0.0/8 dev lo table local proto kernel scope host src 127.0.0.1 \nlocal 127.0.0.1 dev lo table local proto kernel scope host src 127.0.0.1 \nbroadcast 127.255.255.255 dev lo table local proto kernel scope link src 127.0.0.1 \nlocal 192.168.0.107 dev wlan0 table local proto kernel scope host src 192.168.0.107 \nbroadcast 192.168.0.255 dev wlan0 table local proto kernel scope link src 192.168.0.107 \nfd00:6cb1:589b:ff4::/64 dev wlan0 table 1000000015 proto static metric 1024 pref medium\nfe80::/64 dev wlan0 table 1000000015 proto static metric 1024 pref medium\nfd7a:115c:a1e0::b dev tun1 table 1059 proto kernel metric 256 pref medium\nfd7a:115c:a1e0::b dev tun1 table 1059 proto static metric 1024 pref medium\nfd7a:115c:a1e0::/48 dev tun1 table 1059 proto static metric 1024 pref medium\nfe80::/64 dev tun1 table 1059 proto kernel metric 256 pref medium\nfd7a:115c:a1e0::b dev tun1 table 1000000059 proto static metric 1024 pref medium\nfd7a:115c:a1e0::/48 dev tun1 table 1000000059 proto static metric 1024 pref medium\nfe80::/64 dev dummy0 table 1002 proto kernel metric 256 pref medium\ndefault dev dummy0 table 1002 proto static metric 1024 pref medium\nfd00:6cb1:589b:ff4::/64 dev wlan0 table 1015 proto kernel metric 256 expires 85846sec pref medium\nfd00:6cb1:589b:ff4::/64 dev wlan0 table 1015 proto static metric 1024 pref medium\nfe80::/64 dev wlan0 table 1015 proto kernel metric 256 pref medium\nfe80::/64 dev wlan0 table 1015 proto static metric 1024 pref medium\ndefault via fe80::6eb1:58ff:fe9b:ff4 dev wlan0 table 1015 proto ra metric 1024 expires 1246sec hoplimit 64 pref medium\nlocal ::1 dev lo table local proto kernel metric 0 pref medium\nlocal fd00:6cb1:589b:ff4:4ca4:3f1d:cd3c:299e dev wlan0 table local proto kernel metric 0 pref medium\nlocal fd00:6cb1:589b:ff4:b8d9:63a7:9c8f:485d dev wlan0 table local proto kernel metric 0 pref medium\nlocal fd00:6cb1:589b:ff4:bce5:408b:bb39:3522 dev wlan0 table local proto kernel metric 0 pref medium\nlocal fd7a:115c:a1e0::b dev tun1 table local proto kernel metric 0 pref medium\nlocal fe80::10ab:e0ff:fe36:7707 dev dummy0 table local proto kernel metric 0 pref medium\nlocal fe80::3253:4674:d054:ca4 dev tun1 table local proto kernel metric 0 pref medium\nlocal fe80::acd8:1560:476:22f9 dev wlan0 table local proto kernel metric 0 pref medium\nmulticast ff00::/8 dev dummy0 table local proto kernel metric 256 pref medium\nmulticast ff00::/8 dev tun1 table local proto kernel metric 256 pref medium\nmulticast ff00::/8 dev wlan0 table local proto kernel metric 256 pref medium\n",
+      "elapsedMs": 139.073
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<model-selected-device>",
+        "shell",
+        "ip rule show"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": "0:\tfrom all lookup local \n11000:\tfrom all iif lo oif dummy0 uidrange 0-0 lookup 1002 \n11000:\tfrom all iif lo oif wlan0 uidrange 0-0 lookup 1015 \n12000:\tfrom all iif tun1 lookup 97 \n13000:\tfrom all fwmark 0x0/0x20000 iif lo uidrange 0-10287 lookup 1059 \n13000:\tfrom all fwmark 0x0/0x20000 iif lo uidrange 10289-20287 lookup 1059 \n13000:\tfrom all fwmark 0x0/0x20000 iif lo uidrange 20289-99999 lookup 1059 \n13000:\tfrom all fwmark 0xc00af/0xcffff lookup 1059 \n15040:\tfrom all fwmark 0x100b1/0x1ffff iif lo uidrange 10300-10300 lookup 1015 \n15040:\tfrom all fwmark 0x100b1/0x1ffff iif lo uidrange 10344-10344 lookup 1015 \n15040:\tfrom all fwmark 0x100b1/0x1ffff iif lo uidrange 10389-10389 lookup 1015 \n15040:\tfrom all fwmark 0x100b1/0x1ffff iif lo uidrange 10431-10431 lookup 1015 \n15040:\tfrom all fwmark 0x100b1/0x1ffff iif lo uidrange 1010389-1010389 lookup 1015 \n15040:\tfrom all fwmark 0x100b1/0x1ffff iif lo uidrange 10288-10288 lookup 1015 \n15998:\tfrom all fwmark 0x100b1/0x1ffff iif lo uidrange 0-2147483647 lookup 1015 \n16000:\tfrom all fwmark 0x10063/0x1ffff iif lo lookup 97 \n16000:\tfrom all fwmark 0x100af/0x1ffff iif lo uidrange 0-10287 lookup 1059 \n16000:\tfrom all fwmark 0x100af/0x1ffff iif lo uidrange 10289-20287 lookup 1059 \n16000:\tfrom all fwmark 0x100af/0x1ffff iif lo uidrange 20289-99999 lookup 1059 \n16000:\tfrom all fwmark 0x100af/0x1ffff iif lo uidrange 0-0 lookup 1059 \n16000:\tfrom all fwmark 0x100b1/0x1ffff iif lo lookup 1015 \n17000:\tfrom all iif lo oif dummy0 lookup 1002 \n17000:\tfrom all iif lo oif tun1 uidrange 0-10287 lookup 1059 \n17000:\tfrom all iif lo oif tun1 uidrange 10289-20287 lookup 1059 \n17000:\tfrom all iif lo oif tun1 uidrange 20289-99999 lookup 1059 \n17000:\tfrom all fwmark 0xc0000/0xc0000 iif lo oif wlan0 lookup 1015 \n20000:\tfrom all fwmark 0x0/0x10000 lookup 97 \n22040:\tfrom all fwmark 0xb1/0x1ffff iif lo uidrange 10300-10300 lookup 1015 \n22040:\tfrom all fwmark 0xb1/0x1ffff iif lo uidrange 10344-10344 lookup 1015 \n22040:\tfrom all fwmark 0xb1/0x1ffff iif lo uidrange 10389-10389 lookup 1015 \n22040:\tfrom all fwmark 0xb1/0x1ffff iif lo uidrange 10431-10431 lookup 1015 \n22040:\tfrom all fwmark 0xb1/0x1ffff iif lo uidrange 1010389-1010389 lookup 1015 \n22040:\tfrom all fwmark 0xb1/0x1ffff iif lo uidrange 10288-10288 lookup 1015 \n22998:\tfrom all fwmark 0xb1/0x1ffff iif lo uidrange 0-2147483647 lookup 1015 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10300-10300 lookup 1000000015 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10344-10344 lookup 1000000015 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10389-10389 lookup 1000000015 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10431-10431 lookup 1000000015 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 1010389-1010389 lookup 1000000015 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10288-10288 lookup 1000000015 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 0-2147483647 lookup 1000000015 \n28000:\tfrom all fwmark 0xc00af/0xdffff lookup 1015 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10300-10300 lookup 1015 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10344-10344 lookup 1015 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10389-10389 lookup 1015 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10431-10431 lookup 1015 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 1010389-1010389 lookup 1015 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10288-10288 lookup 1015 \n29998:\tfrom all fwmark 0x0/0xffff iif lo uidrange 0-2147483647 lookup 1015 \n31000:\tfrom all fwmark 0xc0000/0xcffff iif lo lookup 1015 \n32000:\tfrom all unreachable\n",
+      "elapsedMs": 140.39
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<model-selected-device>",
+        "shell",
+        "dumpsys connectivity"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "result": [
+        {
+          "interface": "tun1",
+          "transports": "WIFI|VPN"
+        },
+        {
+          "interface": "wlan0",
+          "transports": "WIFI"
+        }
+      ],
+      "elapsedMs": 285.557
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<model-selected-device>",
+        "shell",
+        "ip route get 74.125.250.129"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": "74.125.250.129 via 192.168.0.1 dev wlan0 table 1015 src 192.168.0.107 uid 2000 \n    cache \n",
+      "elapsedMs": 129.48
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<model-selected-device>",
+        "shell",
+        "curl --noproxy '*' --interface 192.168.0.107 --connect-timeout 3 --max-time 6 --silent --show-error https://www.cloudflare.com/cdn-cgi/trace"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "result": {
+        "ip": "183.197.94.96",
+        "http": "http/1.1",
+        "tls": "TLSv1.3",
+        "warp": "off"
+      },
+      "elapsedMs": 1544.639
+    }
+  ],
+  "hostStun": {
+    "operation": "one raw STUN datagram",
+    "bind": "192.168.4.5",
+    "server": [
+      "74.125.250.129",
+      19302
+    ],
+    "scope": "UDP observation only; not RTC/SDK/path qualification",
+    "source": [
+      "192.168.4.5",
+      43284
+    ],
+    "responsePeer": [
+      "74.125.250.129",
+      19302
+    ],
+    "responseBytes": 32,
+    "transactionMatched": true,
+    "mapped": [
+      "104.28.195.186",
+      31038
+    ],
+    "exit": 0,
+    "callerElapsedMs": 201.212,
+    "cleanupElapsedMs": 0.023,
+    "ownedSocketClosed": true
+  },
+  "android": {
+    "model": "TB322FC",
+    "controlTransport": "network"
+  },
+  "firstCommandFailure": null,
+  "cleanup": {
+    "createdPersistentProcessesOrForwardings": false,
+    "createdPeerConnections": false,
+    "localCommandChildrenReaped": true,
+    "hostUdpSocket": true
+  }
+}

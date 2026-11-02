@@ -847,6 +847,7 @@ mod enabled {
                             emit(json!({"event":"admission-ended","alpn":String::from_utf8_lossy(connection.alpn()),
                                 "stableId":connection.stable_id(),"succeeded":result.is_ok(),
                                 "providerFailureClass":result.as_ref().err().map(|error|match error {
+                                    miopunch_native_probe::manual_admission::ManualAdmissionError::RequestDeclined => "RequestDeclined",
                                     miopunch_native_probe::manual_admission::ManualAdmissionError::Rejected => "Rejected",
                                     miopunch_native_probe::manual_admission::ManualAdmissionError::PathUnavailable => "PathUnavailable",
                                     miopunch_native_probe::manual_admission::ManualAdmissionError::Store(_) => "Store",

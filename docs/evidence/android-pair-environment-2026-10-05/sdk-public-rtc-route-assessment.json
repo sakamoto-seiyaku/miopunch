@@ -1,0 +1,390 @@
+{
+  "scope": "read-only environment assessment of first complete formal SDK public RTC story; no new device/network operation",
+  "assessedUtc": "2026-10-05T04:48:41Z",
+  "sourceReceipt": {
+    "localPath": "/tmp/mio73-public-pixel-y700-bounded-retry-20261005/receipt.json",
+    "sha256": "603dc22b6ee53851d62c19afe5abef0608cec78f576023a2672943b982bd1ede",
+    "startedUtc": "2026-10-05T04:42:52Z",
+    "completedUtc": "2026-10-05T04:43:34Z",
+    "commandExit": 0,
+    "passed": true,
+    "sourceFrozenDuringRun": true,
+    "artifactsFrozenDuringRun": true,
+    "physicalWanQualified": false
+  },
+  "artifacts": {
+    "compiledNativeSha256": "c49bc263719e0594731780d7e30ad274cce396865d6bd5e8cbde9becb6db666b",
+    "deployedNativeSha256": "0aab5bc1e05860e26899d09a4bc41aa989ca6349e477fdd93654cb4e75664444",
+    "wasmSha256": "a80f83b8a33274fc2c2c0d857f37f3021736aa9f4b5202b596d2294ec381c873",
+    "buildReceiptSha256": "c116d0d75e18172588c55c20c98654cc11a15f7e3cd89266288c393018ae6503",
+    "wasmBuildReceiptSha256": "fbc04a30cf07fa72ef44bdfc2a45d19849d8b45a8d9166ada1b84a0a640f6385",
+    "runnerSha256": "f0ffb6bb33f6d918c7819fabe9b484657b9c227cfbaf3162533626c96d52e3d0"
+  },
+  "helperHashesUsed": {
+    "scripts/android_pair_runtime.py": "eb051f733893ae24a08620ca1cfebdccc17e5062fe8cc89b33cd5fe591b57998",
+    "scripts/build_android_pair.py": "06fc024b5afd8392790e6579495d5c65b2347f1c44657fe6a184cef412f33d8e",
+    "browser-probe/harness/android-pair-page.js": "fea281329fe13f0de7f8f6612f426cfd7b2aff5bc25f2a1890aa3e3ad1d09830"
+  },
+  "layers": {
+    "normalPublicTls": {
+      "qualifiedForThisFacilityAndRun": true,
+      "facilities": {
+        "logical_id": "mio73-explicit-public-emqx",
+        "native_url": "mqtts://broker.emqx.io:8883/",
+        "wss_url": "wss://broker.emqx.io:8084/mqtt"
+      },
+      "normalVerification": true,
+      "nativeOuterTls": true,
+      "browserOuterWssTls": true,
+      "limits": "Only actual selected EMQX MQTTs/WSS facility; not other public resources or browser UDP routing."
+    },
+    "completeRestrictedGate": {
+      "qualifiedForThisStory": true,
+      "savedMaterials": {
+        "stage": "Complete",
+        "authorizationSaved": true,
+        "secretSaved": true
+      },
+      "persistedIdentitiesReopened": [
+        true,
+        true
+      ],
+      "browserProof": {
+        "alpn": "miopunch/session/member/1",
+        "newProtocol": true,
+        "expectedPeerMatched": true,
+        "memberAuthorized": true,
+        "ordinaryHandle": true
+      },
+      "nativeMemberReleased": {
+        "alpn": "miopunch/session/member/1",
+        "memberAuthorized": true,
+        "event": "member-released",
+        "quicRole": "server"
+      },
+      "commonConnectCallerMs": 10910.920000076294,
+      "limits": "Actual member direction only; no nonempty replica, opposite initiator or every platform pair qualified."
+    },
+    "dataRtcOnOriginalSession": {
+      "qualifiedForThisStory": true,
+      "browserRoles": {
+        "quic": "initiator",
+        "rtc": "offerer"
+      },
+      "nativeRoles": {
+        "quic": "responder",
+        "rtc": "answerer"
+      },
+      "sameSession": {
+        "stableUnchanged": true,
+        "bindingUnchanged": true,
+        "freshAck": true,
+        "finalReleaseFreshAck": true,
+        "freshProbeStartedMs": 3727,
+        "freshAckMs": 3840,
+        "finalReleaseProbeStartedMs": 5057,
+        "finalReleaseAckMs": 5197
+      },
+      "nativeSameSession": {
+        "stableUnchanged": true,
+        "bindingUnchanged": true,
+        "freshAck": true
+      },
+      "selectedBrowserCandidatePair": {
+        "state": "succeeded",
+        "nominated": true,
+        "writable": true,
+        "packetsSent": 60,
+        "packetsReceived": 60,
+        "bytesSent": 13398,
+        "bytesReceived": 16943,
+        "currentRoundTripTime": 0.051
+      },
+      "selectedBrowserLocal": {
+        "address": "111.197.237.227",
+        "port": 37644,
+        "protocol": "udp",
+        "candidateType": "srflx",
+        "relatedAddress": "192.168.1.104",
+        "relatedPort": 53189,
+        "url": "stun:162.159.207.0:3478"
+      },
+      "selectedBrowserRemote": {
+        "address": "183.197.94.96",
+        "port": 26729,
+        "protocol": "udp",
+        "candidateType": "srflx",
+        "relatedAddress": "192.168.0.107",
+        "relatedPort": 54041
+      },
+      "selectedNativePair": {
+        "local": {
+          "address": "192.168.0.107",
+          "port": 54041,
+          "protocol": "udp",
+          "typ": "host",
+          "related_address": "",
+          "related_port": 0,
+          "url": null
+        },
+        "remote": {
+          "address": "111.197.237.227",
+          "port": 37644,
+          "protocol": "udp",
+          "typ": "srflx",
+          "related_address": "192.168.1.104",
+          "related_port": 53189,
+          "url": null
+        }
+      },
+      "browserPathsBeforeBusiness": [
+        {
+          "isIp": false,
+          "isRelay": false,
+          "isRtc": true,
+          "isSignal": false,
+          "pathId": "1",
+          "receivedBytes": 12664,
+          "route": "custom:6d696f727463_b4ffa72467ec777f701d8e3853e10cd0",
+          "selected": true,
+          "sentBytes": 8988
+        }
+      ],
+      "browserPathsAfterBusiness": [
+        {
+          "isIp": false,
+          "isRelay": false,
+          "isRtc": true,
+          "isSignal": false,
+          "pathId": "1",
+          "receivedBytes": 12760,
+          "route": "custom:6d696f727463_b4ffa72467ec777f701d8e3853e10cd0",
+          "selected": true,
+          "sentBytes": 9054
+        }
+      ],
+      "bidirectionalStreamMatched": true,
+      "nativeBusiness": {
+        "alpn": "miopunch/session/member/1",
+        "event": "business",
+        "bytes": 4,
+        "reply": "PONG",
+        "memberMessage": true
+      },
+      "iceServers": [
+        "stun:162.159.207.0:3478"
+      ],
+      "turnServers": [],
+      "independentPublicStunProbe": false,
+      "limits": "Actual ICE tuple and SDK selected route; candidate publication filters do not bind browser sockets or prove OS egress."
+    },
+    "physicalNatWithoutOverlay": {
+      "qualified": false,
+      "supportedBy": "Actual public srflx pair related to physical Wi-Fi addresses; native physical bind; prior distinct WLAN gateways, normal TLS warp-off and matching mapped IPs. Prior Pixel rules have no tun route; prior Y700 tun tables carry Tailscale and workstation LAN routes but not the selected public peer destinations.",
+      "missing": [
+        "Contemporaneous actual Chrome/socket UID/network mark and exact selected-peer egress proof.",
+        "Contemporaneous owned native process/socket UID/mark and exact selected-peer OS route or equivalent physical-interface packet witness."
+      ],
+      "limits": "Neither passed, public address ranges, srflx, absence of TURN, prior shell UID2000 observer routes nor earlier HTTPS warp-off alone proves actual SDK data avoided overlay. Current reads cannot retrofit contemporaneous evidence for an ended run.",
+      "minimumRootCoordinatedReadOnlyCollection": [
+        "Timestamped physical IPv4 address, ip4 rules and all IPv4 route tables on both endpoints.",
+        "Exact Chrome package UID and exact owned native PID Uid line, keeping socket UID unknown unless actually observed.",
+        "Selected-peer destination/from-physical-source/observed-UID route lookup; socket mark unknown unless a matching owned fixture reports actual getsockopt(SO_MARK) success for the same PID/local tuple. Unsupported queries retain actual failure with no UID or mark fallback.",
+        "Correlate with an already-authorized live SDK story. No standalone STUN/TLS probe, network changes, additional privileges or new SDK session by this owner."
+      ]
+    }
+  },
+  "cleanup": {
+    "browser": {
+      "sdk": {
+        "ownedMemberCount": 1,
+        "memberCloseCount": 1,
+        "memberFreeCount": 1,
+        "ownedMemberHandles": 0,
+        "networkClosed": true,
+        "networkFreed": true,
+        "networkDiagnostics": [
+          {
+            "delayMs": 0,
+            "observed": {
+              "activeAssociations": 0,
+              "activePumpTasks": 0,
+              "checkpoint": null,
+              "publishedRoutes": [],
+              "resourceAllowed": true,
+              "resourceRevision": 0,
+              "secretGeneration": 0,
+              "sourceRevision": 1
+            }
+          },
+          {
+            "delayMs": 100,
+            "observed": {
+              "activeAssociations": 0,
+              "activePumpTasks": 0,
+              "checkpoint": null,
+              "publishedRoutes": [],
+              "resourceAllowed": true,
+              "resourceRevision": 0,
+              "secretGeneration": 0,
+              "sourceRevision": 1
+            }
+          }
+        ],
+        "errors": [],
+        "cleanupSucceeded": true,
+        "generation": 2,
+        "storage": {
+          "required": true,
+          "ownedDatabaseClaimed": true,
+          "exclusiveStorageLock": true,
+          "outcome": "success",
+          "deleted": true,
+          "pending": false,
+          "terminal": true
+        }
+      },
+      "tab": {
+        "method": "exact owned URL CDP close",
+        "ownedTargetAbsent": true
+      },
+      "forwardRuleAbsent": true,
+      "reverseRuleAbsent": true,
+      "localListenerClosed": true,
+      "cleanupSucceeded": true
+    },
+    "native": {
+      "forced": false,
+      "commandExit": 0,
+      "leaderWaitedFor": true,
+      "ownedRemoteProcessAbsent": true,
+      "ownedRemoteProcessAbsentLate": true,
+      "localReadersEnded": true,
+      "ownedDirectoryRemoved": true,
+      "elapsedMs": 1763.297,
+      "sdkRetirement": {
+        "activeRtcAssociations": 0,
+        "activeRtcPumps": 0,
+        "cleanupMs": 102,
+        "event": "closed",
+        "socketsBefore": 6,
+        "socketsImmediate": 6,
+        "socketsLate": 6,
+        "traffic": {
+          "driver_active": 0,
+          "generation": 1,
+          "max_datagram": 2048,
+          "protocol": {
+            "connack": 0,
+            "disconnect_sent": true,
+            "failure": null,
+            "ready_ms": 1791175403377,
+            "suback_codes": [
+              0
+            ],
+            "suback_id": 1,
+            "subscribe_id": 1,
+            "unsubscribe_sent": true,
+            "withdraw_ms": 1791175420586
+          },
+          "queue_depth": 64,
+          "queue_peak": 2,
+          "queued_packets": 0,
+          "received_bytes": 12713,
+          "received_packets": 50,
+          "rejected_packets": 0,
+          "rx_queue_peak": 2,
+          "sent_bytes": 11170,
+          "sent_packets": 52
+        }
+      }
+    },
+    "nativeSocketInterpretation": "Retirement observes baseline 6 sockets before/immediate/late, not zero OS sockets. Owned PID absent immediately and later, then owned directory removed.",
+    "limits": "Actual owned resources only; not every unrelated device/browser socket."
+  },
+  "profiles": {
+    "native": {
+      "localSource": "/tmp/mio73-native-physical-profile.json",
+      "sha256": "b759f7ab673490695eb06d334270d6f911fa637919063a5e3c608e4d889ea632",
+      "configuration": {
+        "stun_servers": [
+          "stun:162.159.207.0:3478"
+        ],
+        "local_bind_addresses": [
+          "192.168.0.107"
+        ],
+        "candidate_addresses": [
+          "183.197.94.96",
+          "111.197.237.227"
+        ]
+      }
+    },
+    "browser": {
+      "localSource": "/tmp/mio73-browser-physical-profile.json",
+      "sha256": "1a0da7e606f9875d6c36e1d619eee8dd61e1e3cd7352334e000c3f572f9b6d4e",
+      "configuration": {
+        "stun_servers": [
+          "stun:162.159.207.0:3478"
+        ],
+        "local_bind_addresses": [],
+        "candidate_addresses": [
+          "183.197.94.96",
+          "111.197.237.227"
+        ]
+      }
+    }
+  },
+  "priorEvidence": {
+    "pair-physical-prerequisites.json": {
+      "sha256": "77bb02f42d5f72c3067f92bd9bf2121a9ae08eb70fec2d977f0df72acc9c7a25",
+      "startedUtc": "2026-10-05T02:30:08Z",
+      "endpointSummaries": [
+        {
+          "model": "Pixel_6a",
+          "physicalIpv4": "192.168.1.104",
+          "normalSystemTls": {
+            "httpStatus": "200",
+            "normalTlsVerification": "true",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "ip": "2408:8207:1855:7360:86f3:9ae8:8ebc:3814",
+            "http": "http/1.1",
+            "tls": "TLSv1.3",
+            "warp": "off",
+            "callerElapsedMs": "5809.908694",
+            "cleanupElapsedMs": "0.007731",
+            "httpsDisconnected": "true"
+          }
+        },
+        {
+          "model": "TB322FC",
+          "physicalIpv4": "192.168.0.107",
+          "normalSystemTls": {
+            "httpStatus": "200",
+            "normalTlsVerification": "true",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "ip": "183.197.94.96",
+            "http": "http/1.1",
+            "tls": "TLSv1.3",
+            "warp": "off",
+            "callerElapsedMs": "2080.273593",
+            "cleanupElapsedMs": "0.003906",
+            "httpsDisconnected": "true"
+          }
+        }
+      ]
+    },
+    "pixel-wifi-post-switch.json": {
+      "sha256": "7dc84b475c42e9beac59923a0d7ff09d565e320964b629bcb7ecaa9fc4f7f436"
+    },
+    "pixel-cloudflare-udp-comparison.json": {
+      "sha256": "e5d457dd3ed39a283bfa0c49f6861fcb9703318660a3f6bb92cc69e0f3ce971f"
+    },
+    "pixel-java-tls.json": {
+      "sha256": "3aa2005ea58f41888cca142db0e70379375680186379064ebced3cc0a4cfa2ba"
+    }
+  },
+  "newDeviceExecution": false,
+  "newPublicProbe": false,
+  "ticketStateChanged": false,
+  "frozenHelperSourceChanged": false
+}

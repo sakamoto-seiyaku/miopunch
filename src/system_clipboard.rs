@@ -240,9 +240,19 @@ mod windows;
 #[cfg(target_os = "windows")]
 pub use windows::SystemClipboard;
 
-#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+#[cfg(target_os = "android")]
+#[path = "android_clipboard.rs"]
+mod android;
+#[cfg(target_os = "android")]
+pub use android::SystemClipboard;
+#[cfg(target_os = "android")]
+pub(crate) use android::{
+    install_context as install_android, window_focus as android_window_focus,
+};
+
+#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "android")))]
 pub struct SystemClipboard;
-#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "android")))]
 impl SystemClipboard {
     pub fn detect() -> Result<Self, ClipboardError> {
         Err(ClipboardError::Unavailable)

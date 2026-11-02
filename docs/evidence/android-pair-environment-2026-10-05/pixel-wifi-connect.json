@@ -1,0 +1,30 @@
+{
+  "scope": "authorized Pixel USB target Wi-Fi connection",
+  "targetSsid": "CU_7WFb_5G",
+  "commands": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "sh"
+      ],
+      "stdinOperation": "cmd wifi connect-network CU_7WFb_5G wpa2 <credential supplied via stdin>",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "scan": {
+    "exit": 0,
+    "matchingTargetCount": 1,
+    "securityFlags": [
+      "[WPA2-PSK-CCMP-128][RSN-PSK-CCMP-128][ESS][WPS]"
+    ]
+  },
+  "credentialInArgvOrEvidence": false,
+  "temporaryCredentialDeleted": true
+}

@@ -21,8 +21,32 @@ from web_network_namespace import validate_namespace
 ROOT = Path(__file__).resolve().parents[1]
 
 
+class BrowserWebRequests:
+    """Browser Adapter for the gateway's owned HTTP request Interface."""
+
+    def __init__(self, peer):
+        self.peer, self.browser = peer, None
+        self.callbacks = {"begin": self.begin, "result": self.result, "cancel": self.cancel}
+
+    def bind(self, browser):
+        assert self.browser is None, "Web request Adapter already bound"
+        self.browser = browser
+
+    def request(self, arguments):
+        return self.browser.call("request_web", self.peer, json.dumps(arguments))
+
+    def begin(self, arguments):
+        return self.browser.call("begin_web_request", self.peer, json.dumps(arguments))
+
+    def result(self, identifier):
+        return self.browser.call("web_request_result", identifier)
+
+    def cancel(self, identifier):
+        return self.browser.call("cancel_web_request", identifier)
+
+
 class WebBrowser:
-    def __init__(self, runner, args, gateway):
+    def __init__(self, runner, args, gateway=None):
         boundary = validate_namespace()
         runner.freeze_source(Path(__file__).with_name("web_network_namespace.py"))
         runner.record("controller", "browser_loopback_only_boundary", boundary)
@@ -39,9 +63,12 @@ class WebBrowser:
         for source in [Path(__file__), harness, ROOT / "browser-probe/harness/node_modules/playwright-core/package.json",
                        ROOT / "browser-probe/harness/node_modules/playwright-core/lib/coreBundle.js"]:
             runner.freeze_source(source)
+        entry_site = getattr(args, "entry_site", None)
+        assert gateway is not None or entry_site is not None, "a declared browser entry is required"
         options = runner.private / "browser-web-options.json"
-        options.write_text(json.dumps({"contentOrigin": gateway.address, "contentSPKI": gateway.spki,
-                          "managementHost": gateway.management_host, "certificate": str(gateway.certificate), "key": str(gateway.key_path)}))
+        if gateway is not None:
+            options.write_text(json.dumps({"contentOrigin": gateway.address, "contentSPKI": gateway.spki,
+                              "managementHost": gateway.management_host, "certificate": str(gateway.certificate), "key": str(gateway.key_path)}))
         self.stderr = (runner.output / "browser-host.stderr").open("w")
         environment = isolated_environment()
         runtime = runner.private / "browser-runtime"
@@ -55,8 +82,11 @@ class WebBrowser:
             directory = runtime / name.lower()
             directory.mkdir(mode=0o700)
             environment[name] = str(directory)
-        self.process = subprocess.Popen([shutil.which("node"), str(harness), str(args.package.resolve()),
-                                        str(args.chromium.resolve()), str(runner.private / "browser-profiles"), str(options)],
+        command = [shutil.which("node"), str(harness), str(args.package.resolve()),
+                   str(args.chromium.resolve()), str(runner.private / "browser-profiles"), str(options) if gateway is not None else ""]
+        if entry_site is not None:
+            command.append(str(entry_site.resolve()))
+        self.process = subprocess.Popen(command,
                                        env=environment, cwd=ROOT, stdin=subprocess.PIPE,
                                        stdout=subprocess.PIPE, stderr=self.stderr, text=True)
         self.owner = None
@@ -71,8 +101,11 @@ class WebBrowser:
         assert self.ready.get(timeout=10)["event"] == "ready"
         runner.record("controller", "browser_package", {"package_sha256": build["packageSHA256"],
                       "source_receipt": str(args.browser_receipt), "chromium_sha256": hashlib.sha256(args.chromium.read_bytes()).hexdigest(),
-                      "own_content_certificate_spki_pinned": True, "main_storage_origin_host": gateway.management_host,
-                      "content_origin_host": gateway.content_host, "same_site_separate_https_origins": True})
+                      "own_content_certificate_spki_pinned": gateway is not None,
+                      "main_storage_origin_host": gateway.management_host if gateway else "owned localhost platform entry",
+                      "content_origin_host": gateway.content_host if gateway else None,
+                      "same_site_separate_https_origins": gateway is not None,
+                      "packaged_platform_entry": str(entry_site) if entry_site else None})
 
     def read(self):
         try:

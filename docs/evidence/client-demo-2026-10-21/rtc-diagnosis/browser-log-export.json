@@ -1,0 +1,21 @@
+{
+  "preview": {
+    "case": "browser-log-export-with-test-only-unavailable-ICE",
+    "checks": [
+      "download works before connection without access credential",
+      "failed ICE export retains exact error, timestamped attempt, browser ICE and both current paths",
+      "unavailable broker exports cached diagnostics within a bounded wait, without business content"
+    ],
+    "passed": true
+  },
+  "live": {
+    "checks": [
+      "live browser downloads valid JSON containing last probe and both endpoint paths without access credentials",
+      "member RPC remains usable after export"
+    ],
+    "selectedPath": "WebRTC 直连",
+    "passed": true
+  },
+  "frontendOnly": true,
+  "nativeRestarted": false
+}

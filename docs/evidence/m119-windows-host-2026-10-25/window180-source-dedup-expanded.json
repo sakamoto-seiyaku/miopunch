@@ -1,0 +1,249 @@
+{
+  "groups": [
+    {
+      "sha256": "39f635538428e5482b5c7b91dc2dbe7d0aca673d08839ac55fe425d4c6d509c0",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v7-reverse-preparation-20261029/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v3-reverse-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-reverse-shared-config-fixed-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v6-reverse-preparation-20261029/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-sync-single-route-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-shared-config-fixed-budget-v2-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-reverse-shared-config-fixed-budget-v2-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-admission-route-fair-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-first-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v4-reverse-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-route-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-reverse-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-stage-fixed-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-admission-route-reuse-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-shared-config-fixed-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-first-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-sync-single-route-budgeted-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v5-reverse-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-admission-route-next-preparation-20261028/windows-build-result.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-reverse-preparation-20261028/windows-build-result.json"
+      ],
+      "bytes": 1039,
+      "freed_blocks": 77824
+    },
+    {
+      "sha256": "e21af4537952139ac8a2ba7d015d268aa67e240e6aaa92437af1d64b881d22c9",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v7-reverse-preparation-20261029/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v3-reverse-preparation-20261028/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-reverse-shared-config-fixed-preparation-20261028/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v6-reverse-preparation-20261029/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-sync-single-route-preparation-20261028/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-shared-config-fixed-budget-v2-preparation-20261028/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-reverse-shared-config-fixed-budget-v2-preparation-20261028/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-first-preparation-20261028/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v4-reverse-preparation-20261028/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-route-preparation-20261028/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-reverse-preparation-20261028/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-stage-fixed-preparation-20261028/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-shared-config-fixed-preparation-20261028/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-first-preparation-20261028/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-sync-single-route-budgeted-preparation-20261028/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v5-reverse-preparation-20261028/linux-build-finalization.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-reverse-preparation-20261028/linux-build-finalization.json"
+      ],
+      "bytes": 1311,
+      "freed_blocks": 65536
+    },
+    {
+      "sha256": "244476ee3f866b5a5a1a8ad70bd7f2781b3561b7d58c8306d7fb932dcddd8aa8",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v7-reverse-preparation-20261029/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v3-reverse-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-reverse-shared-config-fixed-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v6-reverse-preparation-20261029/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-sync-single-route-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-shared-config-fixed-budget-v2-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-reverse-shared-config-fixed-budget-v2-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-admission-route-fair-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-first-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v4-reverse-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-route-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-reverse-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-stage-fixed-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-admission-route-reuse-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-shared-config-fixed-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-first-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-sync-single-route-budgeted-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v5-reverse-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-admission-route-next-preparation-20261028/bounds.json",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-reverse-preparation-20261028/bounds.json"
+      ],
+      "bytes": 563,
+      "freed_blocks": 77824
+    },
+    {
+      "sha256": "13adc59fbb095ca62b6cb5ff6e9252ff8016eb479f48fff6db530621b8d5b1a1",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v7-reverse-preparation-20261029/web_process_owner.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v6-reverse-preparation-20261029/web_process_owner.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v5-reverse-preparation-20261028/web_process_owner.py"
+      ],
+      "bytes": 8696,
+      "freed_blocks": 24576
+    },
+    {
+      "sha256": "095a4f9bce3e6103e02a4b194fecb461f5d312e17322db30cbb24b39def588b7",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v7-reverse-preparation-20261029/common.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-first-preparation-20261028/common.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-reverse-preparation-20261028/common.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-first-preparation-20261028/common.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-reverse-preparation-20261028/common.py"
+      ],
+      "bytes": 23110,
+      "freed_blocks": 98304
+    },
+    {
+      "sha256": "81948027b1046c7af0c1a0d5f65e8ae882b68d5c6ec7869f702b77f8d41718d6",
+      "mode": 448,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v7-reverse-preparation-20261029/sandbox_bwrap.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v6-reverse-preparation-20261029/sandbox_bwrap.py"
+      ],
+      "bytes": 2679,
+      "freed_blocks": 4096
+    },
+    {
+      "sha256": "0a730de0e8d409c04ab1bbeb88e9f61d877cf6fed620b0674fddb20f743fc282",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v7-reverse-preparation-20261029/output_quota.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-admission-phase-xml-repaired-preparation-20261028/output_quota.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-reverse-shared-config-fixed-preparation-20261028/output_quota.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-shared-config-fixed-budget-v2-preparation-20261028/output_quota.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-reverse-shared-config-fixed-budget-v2-preparation-20261028/output_quota.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-first-preparation-20261028/output_quota.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-reverse-preparation-20261028/output_quota.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-admission-phase-preparation-20261027/output_quota.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-shared-config-fixed-preparation-20261028/output_quota.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-first-preparation-20261028/output_quota.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-reverse-preparation-20261028/output_quota.py"
+      ],
+      "bytes": 15377,
+      "freed_blocks": 163840
+    },
+    {
+      "sha256": "47aaa6b3e57c360f4cc811c086ad452490c22e7d587ddc5523c0a504eef23c81",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-admission-phase-xml-repaired-preparation-20261028/collect_admission.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-admission-phase-preparation-20261027/collect_admission.py"
+      ],
+      "bytes": 6501,
+      "freed_blocks": 8192
+    },
+    {
+      "sha256": "8d058f8c4eaa1f7d37d177ac3ec78f5e5a48cb60640eb276183b0e4b6025ae1f",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-admission-phase-xml-repaired-preparation-20261028/linux_launcher.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-admission-phase-preparation-20261027/linux_launcher.py"
+      ],
+      "bytes": 2292,
+      "freed_blocks": 4096
+    },
+    {
+      "sha256": "3f08bd14e74eec7f3ef664b43f2ad7a8f8bc08f48ca2f90cad79dba06a0cb1ba",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v3-reverse-preparation-20261028/linux_launcher.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-first-preparation-20261028/linux_launcher.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-reverse-preparation-20261028/linux_launcher.py"
+      ],
+      "bytes": 2186,
+      "freed_blocks": 8192
+    },
+    {
+      "sha256": "4641d2ba81c419a28e63fff4b8a7cd3c8ba3fb4198dfcf1b383fb0667b9c23b1",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v3-reverse-preparation-20261028/worker.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-first-preparation-20261028/worker.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-reverse-preparation-20261028/worker.py"
+      ],
+      "bytes": 44554,
+      "freed_blocks": 90112
+    },
+    {
+      "sha256": "25fde15e66303a410c42cfc98f100d8e9f8b669831fe66603c4b51105b431cfe",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-reverse-shared-config-fixed-preparation-20261028/linux_launcher.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-shared-config-fixed-budget-v2-preparation-20261028/linux_launcher.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-reverse-shared-config-fixed-budget-v2-preparation-20261028/linux_launcher.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-shared-config-fixed-preparation-20261028/linux_launcher.py"
+      ],
+      "bytes": 2242,
+      "freed_blocks": 12288
+    },
+    {
+      "sha256": "1f3c9d5e2c9195730fa6490f15ebe80b6f59b535935f1d6a05c5882db007945d",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-reverse-shared-config-fixed-preparation-20261028/worker.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-shared-config-fixed-budget-v2-preparation-20261028/worker.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-reverse-shared-config-fixed-budget-v2-preparation-20261028/worker.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-shared-config-fixed-preparation-20261028/worker.py"
+      ],
+      "bytes": 44375,
+      "freed_blocks": 135168
+    },
+    {
+      "sha256": "a65ea81cb0cad1617aabeb0e6dff2469de55fcd4ae4ed13d56e42c3beadd7244",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v4-reverse-preparation-20261028/linux_launcher.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v5-reverse-preparation-20261028/linux_launcher.py"
+      ],
+      "bytes": 2186,
+      "freed_blocks": 4096
+    },
+    {
+      "sha256": "bf6e0cc28cb68667df42240904eea5d8bcf3219a31dbc0c16a8a3f5567ba591f",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v4-reverse-preparation-20261028/operate_full_stage_fixed.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v5-reverse-preparation-20261028/operate_full_stage_fixed.py"
+      ],
+      "bytes": 19003,
+      "freed_blocks": 20480
+    },
+    {
+      "sha256": "9fe53b65fceef959a8fba844a484d313cba7801a7edde3c1e4ba3ccbfe1b9317",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-reverse-preparation-20261028/linux_launcher.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-first-preparation-20261028/linux_launcher.py"
+      ],
+      "bytes": 2186,
+      "freed_blocks": 4096
+    },
+    {
+      "sha256": "73c2bd4943f23d7796a11d14556fd5867c755e0f6ee9f0fc68693b3f0b533e08",
+      "mode": 420,
+      "paths": [
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-reverse-preparation-20261028/worker.py",
+        ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-first-preparation-20261028/worker.py"
+      ],
+      "bytes": 44554,
+      "freed_blocks": 45056
+    }
+  ],
+  "process_count": 248,
+  "live": [],
+  "freed_blocks": 843776,
+  "unique_bytes": 222854,
+  "exclusions": "all raw runtime and SDK pins"
+}

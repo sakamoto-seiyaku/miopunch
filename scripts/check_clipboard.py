@@ -168,6 +168,8 @@ class Host:
         args = [str(runner.binary), action, str(self.directory)]
         if invitation:
             args.append(str(invitation))
+        if action in {"create", "join", "join-guest"} and hasattr(runner, "configuration"):
+            args.append(str(runner.configuration))
         self.log = (runner.output / (label + ".stderr")).open("w")
         self.process = subprocess.Popen(args, env=desktop.env, stdin=subprocess.PIPE,
                                         stdout=subprocess.PIPE, stderr=self.log, text=True)

@@ -1,0 +1,49 @@
+{
+  "recordedAt": "2026-10-21T06:54:32.226089+00:00",
+  "requestedByUser": true,
+  "publicManagementOrigin": "http://172.16.3.11:18443",
+  "publicContentOrigin": "http://172.16.3.11:18444",
+  "upstreamOrigins": [
+    "http://192.168.4.14:18443",
+    "http://192.168.4.14:18444"
+  ],
+  "u22sGateway": {
+    "unit": "miopunch-demo-forward.service",
+    "path": "/home/u22s/.local/share/miopunch-demo-forward/gateway.py",
+    "sha256": "206d49b442f3c81798e06acb896fc423377e4cd5d5aee4c8f906bc98136911a0",
+    "listeners": [
+      "172.16.3.11:18443",
+      "172.16.3.11:18444"
+    ],
+    "upstreams": [
+      "127.0.0.1:28443",
+      "127.0.0.1:28444"
+    ]
+  },
+  "sshTunnel": {
+    "unit": "miopunch-demo-u22s-link.service",
+    "host": "current development host",
+    "automaticReconnect": true,
+    "ControlMaster": "no",
+    "ControlPersist": "no"
+  },
+  "lifecycle": "Transient user services survive SSH shell closure; not configured to start after host reboot.",
+  "originalDeploymentChanged": false,
+  "cargoInvoked": false,
+  "verification": {
+    "driverSource": "demo/check.mjs",
+    "driverSourceSHA256": "7b027b9027b90d0c68a560cecf547328a6ba86ceb7d3765f500d7409c7aaec06",
+    "adaptedDriverSHA256": "9ab6cbf650580a6204a02f94d21b3776b5408df269a5a2888f233ba64ae4210f",
+    "adaptations": [
+      "absolute Playwright import",
+      "temporary SOCKS routing for validation browser"
+    ],
+    "temporaryValidationSOCKSStopped": true,
+    "passed": true,
+    "checkCount": 15,
+    "pageErrors": 0,
+    "result": "u22s-forward-result.json",
+    "resultSHA256": "c653f1e39a0056b4357b3e50a3c0af157bb9c2d5f18dfaf72d22eca63a3a1eae"
+  },
+  "limitations": "Original demo limits remain; mapping adds no product feature qualification."
+}

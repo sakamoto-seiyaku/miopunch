@@ -1,0 +1,79 @@
+{
+  "scope": "Throwaway inner-Web proof; no production protocol/container decision",
+  "sourceFiles": {
+    "src/bin/prototype_inner_web.rs": "9eae406238530b5136c4f15e2b0b6fa03eb39df03846f29731992cad81c1892f",
+    "browser-probe/harness/prototype-inner-web.mjs": "0dabf42bf1e7e691c4c249b90955914ae88b971c2bc6833a6d6589478cec4e15",
+    "browser-probe/prototype-web/README.md": "81453799f97e54ec548e7712749e7cabd0b8df2cfc2cc941fff15ef1e7eb8d02",
+    "browser-probe/prototype-web/bridge.html": "d0f570005024a06bf0df446950fd82c57cea7945e6e4711b02d4948e1f1e009e",
+    "browser-probe/prototype-web/index.html": "a540b8db3d151b848dbabbe2fc56e3d769c3bb09374d4a1d48b6f46f6c1d5a2a",
+    "browser-probe/prototype-web/run.py": "62d54eec8e4bb86e317a5bad3b010bec680ecbdee11191dd1b74d9e5807a592c",
+    "browser-probe/prototype-web/service-worker.js": "269ed29de1caf11ce84e18b7159172a417efd9a0f909a71f19be7c5ef9a3306f",
+    "scripts/cargo_cache.py": "30590d5ff3b1ecfcb05773c67dd644618ee6ee11eb74c5d3000bc652b9435c8d",
+    "scripts/pin_artifact.py": "ea40d74a869af2ee4191ff21af91d2ab0da9766cb980d26a558a033e013d01ff"
+  },
+  "evidenceFiles": {
+    "connected-page.png": "3274fa94a21563b724dab7414cdfe3ef55bf1b59160054c806dc1a097f66f080",
+    "result.json": "b3fb1baf7b432a24eaac4552d2da02d4a460c0dcecf6bd69f80bc6a67e785728",
+    "logged-in-page.png": "a5b6c5768dfc1e4b5a6f485fadb3ba6ee1a780ef3a6833dce7935e838f225589",
+    "provider.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "relay.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "inputs.json": "15476be7cf360bdbe1958e8e05b99ad8b4ed33bb7f38330fb28bbc34a72a9b11"
+  },
+  "builds": [
+    {
+      "receipt": "/tmp/miopunch-inner-web-prototype-20261021/builds/1792553973173568448-f0191d77f0f5/receipt.json",
+      "sha256": "f97a66e755e9a8c0f9ddfdd20fb4c8b7469414cc3a94c1a04c2c04cbe91374d3",
+      "exit": 0,
+      "freshArtifacts": 527,
+      "rebuiltArtifacts": 2,
+      "rebuiltTargets": [
+        {
+          "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+          "name": "browser-probe-native"
+        },
+        {
+          "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+          "name": "prototype_inner_web"
+        }
+      ]
+    },
+    {
+      "receipt": "/tmp/miopunch-inner-web-prototype-20261021/builds/1792554274895519849-13e15ce99dcc/receipt.json",
+      "sha256": "64fa33c5e00c000900ddaddb6bd76e4926b7c4ed72f72ce5f786347da0fbb6f1",
+      "exit": 101,
+      "freshArtifacts": 528,
+      "rebuiltArtifacts": 0,
+      "rebuiltTargets": []
+    },
+    {
+      "receipt": "/tmp/miopunch-inner-web-prototype-20261021/builds/1792554324203992859-79d385b97db3/receipt.json",
+      "sha256": "831e2b5c86d935b844ddc33f64f228f925a550f4916f15e8d80101fc545bc5f8",
+      "exit": 0,
+      "freshArtifacts": 528,
+      "rebuiltArtifacts": 1,
+      "rebuiltTargets": [
+        {
+          "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+          "name": "prototype_inner_web"
+        }
+      ]
+    }
+  ],
+  "passedRuntime": "/tmp/miopunch-inner-web-prototype-20261021/runs/1792554428956520682",
+  "runtimeInputsSha256": "15476be7cf360bdbe1958e8e05b99ad8b4ed33bb7f38330fb28bbc34a72a9b11",
+  "initialRuntimeFailures": [
+    {
+      "path": "/tmp/miopunch-inner-web-prototype-20261021/runs/1792554178106851677/result.json",
+      "reason": "sandbox listen EPERM; repeated with authorized host loopback access"
+    },
+    {
+      "path": "/tmp/miopunch-inner-web-prototype-20261021/runs/1792554192681641805/result.json",
+      "reason": "prototype used an ordinary incoming handle for restricted admission; fixed prototype only"
+    }
+  ],
+  "firstPassingRuntime": "/tmp/miopunch-inner-web-prototype-20261021/runs/1792554331226378270/result.json",
+  "noCargoInvocationForFinalRuntime": true,
+  "nativeCodeChangeScope": "src/bin/prototype_inner_web.rs only",
+  "noDependencyLibraryChanges": true,
+  "cacheCleanupByThisTask": false
+}

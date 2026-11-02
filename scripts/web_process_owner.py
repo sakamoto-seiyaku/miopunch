@@ -91,6 +91,8 @@ class OrdinaryChild:
         self.process, self.receipt, self.owner = process, Path(receipt), None
         self.cleanup = None
         self.stdout, self.stderr = None, None
+        self.persisted = {"stdout": b"", "stderr": b""}
+        self.created = set()
 
     def retain_output(self, stdout=None, stderr=None):
         # TimeoutExpired may carry bytes even for a text-mode Popen. A later
@@ -103,10 +105,23 @@ class OrdinaryChild:
             retained = getattr(self, name)
             if retained is not None:
                 path = self.receipt.with_suffix("."+name)
-                with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "wb") as output:
-                    output.write(retained)
+                previous = self.persisted[name]
+                if not retained.startswith(previous):
+                    raise RuntimeError("owned child output changed after capture")
+                if name not in self.created:
+                    mode = "xb"
+                elif len(retained) > len(previous):
+                    mode = "ab"
+                else:
+                    continue
+                with path.open(mode) as output:
+                    if mode == "xb":
+                        path.chmod(0o600)
+                    self.created.add(name)
+                    output.write(retained[len(previous):])
                     output.flush()
                     os.fsync(output.fileno())
+                self.persisted[name] = retained
 
     def communicate(self, **arguments):
         try:

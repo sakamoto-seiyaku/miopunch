@@ -1,0 +1,23 @@
+{
+  "first_failure": null,
+  "cleanup": [
+    {
+      "node": "consumer",
+      "exit": 0,
+      "reader_joined": true,
+      "reader_error": null,
+      "errors": []
+    },
+    {
+      "node": "provider",
+      "exit": 0,
+      "reader_joined": true,
+      "reader_error": null,
+      "errors": []
+    }
+  ],
+  "pin_sha256": "b63a7f6280417399df02731ce0c2980edb20f24099244107e8c1b38be47a8c46",
+  "scope": "fresh local two-node five-ordered-address direct-loopback CLI sequence",
+  "blackhole_count": 4,
+  "reverse_sync_seconds": 0.9829218790400773
+}

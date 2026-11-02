@@ -1,0 +1,339 @@
+{
+  "scope": "owned local Browser WASM -> admitted Iroh member stream -> Native HTTP -> isolated content origin",
+  "publicTraffic": false,
+  "inputs": "/tmp/miopunch-inner-web-prototype-20261021/runs/1792554428956520682/inputs.json",
+  "checks": [
+    "unadmitted node cannot open member business",
+    "HTML, CSS, script, image and Fetch API all traverse member connection",
+    "content cannot read management window or its node handle",
+    "navigation, POST, redirect and provider-side HTTP cookie session",
+    "provider rejects out-of-scope target before HTTP",
+    "browser never requests target directly; HTTP requests originate at provider",
+    "unreachable target returns an explicit request failure",
+    "closed member connection cannot continue requests"
+  ],
+  "providerHttp": [
+    {
+      "bytes": 505,
+      "event": "http",
+      "method": "GET",
+      "path": "/",
+      "status": 200
+    },
+    {
+      "bytes": 161,
+      "event": "http",
+      "method": "GET",
+      "path": "/style.css",
+      "status": 200
+    },
+    {
+      "bytes": 194,
+      "event": "http",
+      "method": "GET",
+      "path": "/mark.svg",
+      "status": 200
+    },
+    {
+      "bytes": 164,
+      "event": "http",
+      "method": "GET",
+      "path": "/app.js",
+      "status": 200
+    },
+    {
+      "bytes": 26,
+      "event": "http",
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "bytes": 127,
+      "event": "http",
+      "method": "GET",
+      "path": "/next",
+      "status": 200
+    },
+    {
+      "bytes": 161,
+      "event": "http",
+      "method": "GET",
+      "path": "/style.css",
+      "status": 200
+    },
+    {
+      "bytes": 505,
+      "event": "http",
+      "method": "GET",
+      "path": "/",
+      "status": 200
+    },
+    {
+      "bytes": 161,
+      "event": "http",
+      "method": "GET",
+      "path": "/style.css",
+      "status": 200
+    },
+    {
+      "bytes": 194,
+      "event": "http",
+      "method": "GET",
+      "path": "/mark.svg",
+      "status": 200
+    },
+    {
+      "bytes": 164,
+      "event": "http",
+      "method": "GET",
+      "path": "/app.js",
+      "status": 200
+    },
+    {
+      "bytes": 26,
+      "event": "http",
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "bytes": 0,
+      "event": "http",
+      "method": "POST",
+      "path": "/login",
+      "status": 303
+    },
+    {
+      "bytes": 196,
+      "event": "http",
+      "method": "GET",
+      "path": "/private",
+      "status": 200
+    },
+    {
+      "bytes": 161,
+      "event": "http",
+      "method": "GET",
+      "path": "/style.css",
+      "status": 200
+    }
+  ],
+  "browserRequests": [
+    "http://127.0.0.1:44312/",
+    "http://127.0.0.1:44312/pkg/miopunch_browser_probe.js",
+    "http://127.0.0.1:44312/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js",
+    "http://127.0.0.1:44312/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js",
+    "http://127.0.0.1:44312/__config",
+    "http://127.0.0.1:44312/pkg/miopunch_browser_probe_bg.wasm",
+    "http://127.0.0.1:44842/__bridge.html?parent=http%3A%2F%2F127.0.0.1%3A44312",
+    "http://127.0.0.1:44842/",
+    "http://127.0.0.1:44842/style.css",
+    "http://127.0.0.1:44842/mark.svg",
+    "http://127.0.0.1:44842/app.js",
+    "http://127.0.0.1:44842/api/status",
+    "http://127.0.0.1:44842/next",
+    "http://127.0.0.1:44842/style.css",
+    "http://127.0.0.1:44842/",
+    "http://127.0.0.1:44842/style.css",
+    "http://127.0.0.1:44842/mark.svg",
+    "http://127.0.0.1:44842/app.js",
+    "http://127.0.0.1:44842/api/status",
+    "http://127.0.0.1:44842/login",
+    "http://127.0.0.1:44842/private",
+    "http://127.0.0.1:44842/style.css"
+  ],
+  "cleanup": {
+    "provider": {
+      "code": 0,
+      "signal": null
+    },
+    "relay": {
+      "code": 0,
+      "signal": null
+    },
+    "privateStateRemoved": true
+  },
+  "managementOrigin": "http://127.0.0.1:44312",
+  "contentOrigin": "http://127.0.0.1:44842",
+  "providerId": "a012ff02cf46c273b04538bc1c068c0fa44d6b9d931723fa73b7a624eda3cf0f",
+  "nativeHttpFixturePort": 45076,
+  "browserId": "35fe498291722f9580eadc387bb7d690e85d219298a149900a3756acb0829138",
+  "session": {
+    "alpn": "miopunch/session/member/1",
+    "bootstrap": {
+      "coordinator": {
+        "authorizationRevision": 4,
+        "bindingUnchanged": true,
+        "event": "unified-path-ready",
+        "freshAck": true,
+        "pathId": "0",
+        "peerPermitted": 4,
+        "peerRuntime": "Native",
+        "peerSupported": 5,
+        "permitted": 12,
+        "probeWatermark": 25,
+        "purpose": "member-business",
+        "purposeCode": 1,
+        "role": "initiator",
+        "route": "relay:http://127.0.0.1:43764/",
+        "rtcRole": "Offerer",
+        "runtime": "Browser",
+        "selected": true,
+        "selectedRoute": "relay:http://127.0.0.1:43764/",
+        "stableId": 2607304,
+        "stableUnchanged": true,
+        "supported": 12,
+        "version": 1
+      }
+    },
+    "coordinator": {
+      "authorizationRevision": 4,
+      "bindingUnchanged": true,
+      "event": "unified-path-ready",
+      "freshAck": true,
+      "pathId": "0",
+      "peerPermitted": 4,
+      "peerRuntime": "Native",
+      "peerSupported": 5,
+      "permitted": 12,
+      "probeWatermark": 25,
+      "purpose": "member-business",
+      "purposeCode": 1,
+      "role": "initiator",
+      "route": "relay:http://127.0.0.1:43764/",
+      "rtcRole": "Offerer",
+      "runtime": "Browser",
+      "selected": true,
+      "selectedRoute": "relay:http://127.0.0.1:43764/",
+      "stableId": 2607304,
+      "stableUnchanged": true,
+      "supported": 12,
+      "version": 1
+    },
+    "expectedPeerMatched": true,
+    "memberAuthorized": true,
+    "newProtocol": true,
+    "ordinaryHandle": true,
+    "paths": [
+      {
+        "datagramReceived": 0,
+        "datagramSent": 0,
+        "isIp": false,
+        "isMemberData": false,
+        "isRelay": true,
+        "isRtc": false,
+        "isSignal": false,
+        "pathId": "0",
+        "receivedBytes": 9168,
+        "route": "relay:http://127.0.0.1:43764/",
+        "rttMicros": 15958,
+        "selected": true,
+        "sentBytes": 10596,
+        "streamReceived": 6,
+        "streamSent": 6
+      }
+    ],
+    "remoteId": "a012ff02cf46c273b04538bc1c068c0fa44d6b9d931723fa73b7a624eda3cf0f"
+  },
+  "isolation": {
+    "managementReadBlocked": true,
+    "ownOrigin": "http://127.0.0.1:44842",
+    "managementBridgeAbsent": true
+  },
+  "requestCount": 15,
+  "browserErrors": [],
+  "passed": true,
+  "fixtureRequests": [
+    {
+      "path": "/",
+      "method": "GET",
+      "cookiePresent": false,
+      "agent": "curl/7.88.1"
+    },
+    {
+      "path": "/style.css",
+      "method": "GET",
+      "cookiePresent": false,
+      "agent": "curl/7.88.1"
+    },
+    {
+      "path": "/mark.svg",
+      "method": "GET",
+      "cookiePresent": false,
+      "agent": "curl/7.88.1"
+    },
+    {
+      "path": "/app.js",
+      "method": "GET",
+      "cookiePresent": false,
+      "agent": "curl/7.88.1"
+    },
+    {
+      "path": "/api/status",
+      "method": "GET",
+      "cookiePresent": false,
+      "agent": "curl/7.88.1"
+    },
+    {
+      "path": "/next",
+      "method": "GET",
+      "cookiePresent": false,
+      "agent": "curl/7.88.1"
+    },
+    {
+      "path": "/style.css",
+      "method": "GET",
+      "cookiePresent": false,
+      "agent": "curl/7.88.1"
+    },
+    {
+      "path": "/",
+      "method": "GET",
+      "cookiePresent": false,
+      "agent": "curl/7.88.1"
+    },
+    {
+      "path": "/style.css",
+      "method": "GET",
+      "cookiePresent": false,
+      "agent": "curl/7.88.1"
+    },
+    {
+      "path": "/mark.svg",
+      "method": "GET",
+      "cookiePresent": false,
+      "agent": "curl/7.88.1"
+    },
+    {
+      "path": "/app.js",
+      "method": "GET",
+      "cookiePresent": false,
+      "agent": "curl/7.88.1"
+    },
+    {
+      "path": "/api/status",
+      "method": "GET",
+      "cookiePresent": false,
+      "agent": "curl/7.88.1"
+    },
+    {
+      "path": "/login",
+      "method": "POST",
+      "cookiePresent": false,
+      "agent": "curl/7.88.1"
+    },
+    {
+      "path": "/private",
+      "method": "GET",
+      "cookiePresent": true,
+      "agent": "curl/7.88.1"
+    },
+    {
+      "path": "/style.css",
+      "method": "GET",
+      "cookiePresent": true,
+      "agent": "curl/7.88.1"
+    }
+  ]
+}

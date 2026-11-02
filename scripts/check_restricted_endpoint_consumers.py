@@ -11,10 +11,10 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-import shutil
 import subprocess
 
 import cargo_cache
+from pin_artifact import pin_artifact
 
 ROOT = Path(__file__).resolve().parents[1]
 CONSUMERS = ROOT / "tests/restricted_endpoint_consumers"
@@ -81,6 +81,7 @@ def main():
     inputs.update({str(CONSUMERS / (name + ".rs")): sha(CONSUMERS / (name + ".rs")) for name in cases})
     inputs.update({str(rlib): sha(rlib), str(context_path): sha(context_path),
                    str(receipt_path): sha(receipt_path), str(Path(__file__).resolve()): sha(__file__)})
+    inputs[str(ROOT / 'scripts/pin_artifact.py')] = sha(ROOT / 'scripts/pin_artifact.py')
 
     if native_library is not None:
         inputs[str(native_library)]=sha(native_library)
@@ -100,13 +101,13 @@ def main():
         pinned = output / "pinned"
         pinned.mkdir()
         library = pinned / rlib.name
-        shutil.copy2(rlib, library)
+        pin_artifact(rlib, library)
         assert sha(library) == inputs[str(rlib)]
         native_copy=None
         if native_library is not None:
             assert native_library.parent==rlib.parent
             native_copy=pinned/native_library.name
-            shutil.copy2(native_library,native_copy)
+            pin_artifact(native_library,native_copy)
             assert sha(native_copy)==inputs[str(native_library)]
         for name, expected in cases.items():
             guard()

@@ -1,0 +1,50 @@
+{
+  "status": "CORE_DUPLEX_PASSED_REMAINING_CLIPBOARD_EXPLICITLY_DEFERRED",
+  "full_m117_accepted": false,
+  "actual_windows_source_compile": true,
+  "actual_interactive_desktop": true,
+  "session": 1,
+  "first_failure": "private_snapshot before Windows SDK launch; initial fixed receipt had no detailed exception code",
+  "followup_same_readonly_seam": {
+    "code": "clipboard_open_failed",
+    "win32_error": 5,
+    "open_holder_pid": null,
+    "clipboard_changed": false,
+    "clipboard_content_or_digest_exported": false
+  },
+  "cause": "UNKNOWN: access denied; absent holder window does not prove no lock because a clipboard opener may use NULL HWND",
+  "task_cleanup": {
+    "original_com_refresh_failure_preserved": true,
+    "original_registration_removed_after_zero_instances_confirmed": true,
+    "two_followup_tasks_normal_terminal_and_registration_removed": true
+  },
+  "runtime_business_qualification": {
+    "core": "PASS",
+    "seconds": 66.37431585299782,
+    "facts": [
+      "real Windows interactive and Linux X11 system clipboard",
+      "Unicode forward and reverse",
+      "independent Win32/X11 equality and each written acknowledgment",
+      "no echo, initial baseline not overwritten, stop prevents further write",
+      "all original task and SDK owners terminal, private states removed"
+    ],
+    "clipboard_restored": false,
+    "restore_disposition": "later_or_unproven_revision_preserved; no forced overwrite; reason for changed revision not localized",
+    "original_open_error_cause": "UNKNOWN; succeeded after user ordinary copy, not a proven product fix"
+  },
+  "source_fix": "task natural termination handles SCHED_E_TASK_NOT_RUNNING, verifies no running instances before deleting fresh registration; terminal reports now require actual task-terminal evidence",
+  "pending_user_environment_observation": "User confirmed ordinary copy succeeded; original same public cross-platform chain then passed",
+  "raw_manifest": {
+    "path": ".artifacts/runs/m117-platform-current-20261029/manifest.json",
+    "sha256": "7aa14f93153a9a02c041ddc4d7d8b67c955f93ccf56711d2d55ab4567fb3c979"
+  },
+  "official_contracts": [
+    "https://learn.microsoft.com/en-us/windows/win32/winstation/window-station-security-and-access-rights",
+    "https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getopenclipboardwindow"
+  ],
+  "user_deferral": "\u526a\u8d34\u677f\u4f9d\u8d56\u4e8e \u6d4b\u8bd5\u673a\u5668 \u6b63\u5e38\u89e3\u9501.. \u8fd9\u4e00\u9879\u5ef6\u540e,\u7ee7\u7eed\u5176\u4ed6\u4efb\u52a1",
+  "deferred": [
+    "third-node current Windows isolation",
+    "Windows disable/effective ACL and remaining platform matrix"
+  ]
+}

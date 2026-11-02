@@ -1,0 +1,793 @@
+{
+  "kind": "M119_WINDOWS_DIRECTORY_EVENT_DIAGNOSTIC_ACTUAL_QUALIFICATION",
+  "date": "2026-10-26",
+  "task": "MIOPUNCH-119",
+  "task_url": "http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/26c5a8ef-787f-4983-8ddf-f9ba53c102c1",
+  "status": "ONE_AUTHORIZED_DIRECTORY_EVENT_DIAGNOSTIC_RECONCILED; UNLOCALIZED_SUCCESS; STAGING_OBSERVABILITY_QUALIFIED_NOT_ORIGINAL_OS5_REPAIR",
+  "whole_M119_accepted": false,
+  "original_policy_OS5_cause": "UNKNOWN",
+  "original_policy_OS5_fixed": false,
+  "case": "publish-events-a93e37ce",
+  "nonce": "a93e37ce-3ad3-46a3-9014-a8463c5a1332",
+  "source_receipt_root": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026",
+  "source_snapshot": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/plan.json",
+    "bytes": 5129,
+    "sha256": "846afe31424674c225fddb552bae15383b63b0e304751c1a8dc968f14a4f625c"
+  },
+  "source_driver": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/adapter.py",
+    "bytes": 6472,
+    "sha256": "cc5d2a72f2f22567c7f0f1e32e3fe5ffaa862ae2a54842edb4a852255a704f11"
+  },
+  "prepared_source_at_grant": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-curated-records-before-event-diagnostic-result-20261026/directory-event-diagnostic-preparation.json",
+    "bytes": 16070,
+    "sha256": "8bfd918ed58b15c44879d3f8db39fc19e561833d5f4681de9489b0c6b6852f51"
+  },
+  "historical_pin_resolution": {
+    "original_published_path": "docs/evidence/m119-windows-host-2026-10-25/directory-event-diagnostic-preparation.json",
+    "original_published_sha256": "8bfd918ed58b15c44879d3f8db39fc19e561833d5f4681de9489b0c6b6852f51",
+    "retained_snapshot": {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-curated-records-before-event-diagnostic-result-20261026/directory-event-diagnostic-preparation.json",
+      "bytes": 16070,
+      "sha256": "8bfd918ed58b15c44879d3f8db39fc19e561833d5f4681de9489b0c6b6852f51"
+    }
+  },
+  "actual_user_approval": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-event-diagnostic-actual-user-approval-20261026.json",
+    "bytes": 7746,
+    "sha256": "d5cfd7c907534d2579f122ed3b40b7f937786e20ca25ca370672dd0aa0427566"
+  },
+  "Root_release": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-event-diagnostic-runtime-release-20261026.json",
+    "bytes": 5955,
+    "sha256": "481d7c29a4045d2c4892cdff00a16412e2411312e04fbe7e5d7791495dda64e8"
+  },
+  "normal_automatic_review": "ACCEPTED",
+  "execution": {
+    "review": "ACCEPTED",
+    "session": 73275,
+    "chunks": [
+      "e9d8f6",
+      "496713",
+      "eb05a6",
+      "959f60",
+      "a4fb79",
+      "238048"
+    ],
+    "exit": 0,
+    "transports": [
+      [
+        "budget-stage",
+        1354661,
+        0,
+        251,
+        0
+      ],
+      [
+        "stage-controller",
+        1354670,
+        0,
+        0,
+        0
+      ],
+      [
+        "stage-extra",
+        1354672,
+        0,
+        0,
+        0
+      ],
+      [
+        "stage-Task",
+        1354675,
+        0,
+        0,
+        0
+      ],
+      [
+        "verify",
+        1354677,
+        0,
+        71,
+        0
+      ],
+      [
+        "budget-pre-run",
+        1354720,
+        0,
+        253,
+        0
+      ],
+      [
+        "run-one",
+        1354748,
+        0,
+        493,
+        0
+      ],
+      [
+        "metadata-fixed13",
+        1354768,
+        0,
+        2158,
+        0
+      ],
+      [
+        "collect-existing",
+        1354770,
+        0,
+        0,
+        0
+      ],
+      [
+        "budget-final",
+        1354821,
+        0,
+        260,
+        0
+      ]
+    ],
+    "columns": [
+      "label",
+      "originalPID",
+      "exit",
+      "stdoutBytes",
+      "stderrBytes"
+    ],
+    "timeout": false,
+    "retry": false,
+    "admin_prewrite_failures": [
+      "24feb5:4514",
+      "f0cc61:4175"
+    ],
+    "admin_failure_scope": "memory>4096 only;no writes;duplicate prose compacted"
+  },
+  "operator_full_handoff": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/events-diagnostic-handoff.json",
+    "bytes": 4041,
+    "sha256": "210b595c4c03e928a21f91640d994b6aee387b5e795a0d1b82a0dedb5b4a7b85"
+  },
+  "operator_runtime_qualification": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/qualification.json",
+    "bytes": 3206,
+    "sha256": "94824ac69a9f02e746126f775f28c1148c01c1ada9ca84e6f68afe4e17ac1fa1"
+  },
+  "Root_independent_qualification": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-event-runtime-root-qualification-20261026.json",
+    "bytes": 13213,
+    "sha256": "20c3c0d6de1d51b6a770e0aa9dfa9836303de765744471a43e6fcd7c89149e5a"
+  },
+  "Root_verifier": {
+    "path": ".artifacts/runs/root-scheduling-20261023/qualify-m119-Windows-event-runtime-20261026.py",
+    "bytes": 19692,
+    "sha256": "5b0d0f29a1b050a30db550dbedfc7ee1e1b94e71a232bbfccf9fb0629b047bb9"
+  },
+  "Root_original_execution": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-event-runtime-root-original-execution-20261026.json",
+    "bytes": 546,
+    "sha256": "f362e379f93f8cf9d1c610f97aa50eba932c39b416b76847ef8fa1aa6b5e44c2"
+  },
+  "Root_stdout": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-event-runtime-root-original.stdout",
+    "bytes": 13213,
+    "sha256": "20c3c0d6de1d51b6a770e0aa9dfa9836303de765744471a43e6fcd7c89149e5a"
+  },
+  "Root_stderr": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-event-runtime-root-original.stderr",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "Root_validation": {
+    "first_run": true,
+    "original_exit": 0,
+    "stdout_bytes": 13213,
+    "stderr_bytes": 0,
+    "no_controller_or_qualifier_import": true,
+    "checks": "All14 actualremote/local hashes/caps; independent framedFNI decoder; all15eventrows; fourMoveFileExW8controltriplets+timing; strict140SDKlines+singleReady/owner/streams; oneactualTaskGUID/principal/outeroriginalwait; everyTLSloop/observedserver earlyandfinalclosed; no source drift; payload/private/raw exactfootprint andsameallreserves.",
+    "no_second_SDK_or_case": true
+  },
+  "fixed_collection": {
+    "files": {
+      "publish-events-a93e37ce-context-task-run.jsonl": {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-task-run.jsonl",
+        "bytes": 4763,
+        "sha256": "241934c0e9ca002d4e09676ac885c80e535659349d19f897e73ee096043bdc83"
+      },
+      "observations.jsonl": {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/observations.jsonl",
+        "bytes": 18227,
+        "sha256": "797c4a26857b37f4bdfbe83cb8dfff1b26d25b284dbe3d6aeb5a3bb188fdd4e8"
+      },
+      "publish-events-a93e37ce-context-child-owner.json": {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-child-owner.json",
+        "bytes": 1008,
+        "sha256": "d87905c1dd6d6d5e91ed0c80270b1c072099135d5aeec537261a6d00581c395a"
+      },
+      "publish-events-a93e37ce-context-1.stdout": {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-1.stdout",
+        "bytes": 90,
+        "sha256": "560fbdce57ec6f0d174409161d22658ac6f429cb42b4af53e991b5f8fef97b5c"
+      },
+      "creator.owner.jsonl": {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/creator.owner.jsonl",
+        "bytes": 880,
+        "sha256": "c9c0925dc1b6378413dc5c16c9b93b6f5fefe91200c8c94445375afc2f16320e"
+      },
+      "creator.stdout": {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/creator.stdout",
+        "bytes": 848,
+        "sha256": "3cb2ab2210112e26ffa52b824b11e2ae14f6c1a34fb88ba284380e28d0a779d5"
+      },
+      "creator.stderr": {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/creator.stderr",
+        "bytes": 18912,
+        "sha256": "8df508c0bf6a36450a6848736b864e121857f8a3df140b2391e5b70ad3372c19"
+      },
+      "directory.bin": {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/directory.bin",
+        "bytes": 982,
+        "sha256": "ad270bdd702fe466b1cb7e3bcca307fe82da4863d06822f44d40b8ad479611de"
+      },
+      "result.json": {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/result.json",
+        "bytes": 8728,
+        "sha256": "7f5a49c3c35da8ace940107bad507813e6e03e53d65184252da6307324db966b"
+      },
+      "publish-events-a93e37ce-context-1.completed.json": {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-1.completed.json",
+        "bytes": 157,
+        "sha256": "cac7f17be7403c4f676ae1ba4bdab77fa90198285e8c35bcdbd04bfe907c6b61"
+      },
+      "publish-events-a93e37ce-context-1.stderr": {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-1.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "publish-events-a93e37ce-context-task-run.json": {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-task-run.json",
+        "bytes": 492,
+        "sha256": "26011e16230d624a3357231b8bb03655260301d391dfb6a5d6a5aeb79890a317"
+      },
+      "publish-events-a93e37ce-context-child-exit.json": {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-child-exit.json",
+        "bytes": 105,
+        "sha256": "4a56c70754458263fe837696f0942d8d4c4ab57099af4c82934acf76707b1607"
+      },
+      "publish-events-a93e37ce-context-entry.json": {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-entry.json",
+        "bytes": 294,
+        "sha256": "06855b552e26a2e8b45f1f3f590ccffd843ef59d43ee86811b7a3af9c1c64196"
+      }
+    },
+    "count": 14,
+    "total_bytes": 55486,
+    "max_bytes": 131072,
+    "remote_inventory": {
+      "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/metadata-fixed13.stdout",
+      "bytes": 2158,
+      "sha256": "9f6fe0390bd9fc22f051d9178b69315968fadccc8d0e5b56ce79a07ec8cf5c6f"
+    },
+    "local_collection": {
+      "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/collection.json",
+      "bytes": 131,
+      "sha256": "8c6385d30f2099a29e1f38ec28f667898dd680851789df3521eb891b3db8e628"
+    },
+    "missing": []
+  },
+  "observed": {
+    "SDK": {
+      "sha256": "70aba7ef847b4ca4409c28d643ba6ac1a5bf32ecbc28b6ed48c70529cd1c1f40",
+      "operation": "one CREATE only",
+      "ready": "AwaitingRecoverySave",
+      "recovery_saved": false,
+      "stdout_records": 1,
+      "stdout_bytes": 848,
+      "stderr_strict_lines": 140,
+      "stderr_bytes": 18912,
+      "stderr_sha256": "8df508c0bf6a36450a6848736b864e121857f8a3df140b2391e5b70ad3372c19",
+      "owner": {
+        "owner": "creator",
+        "pid": 9288,
+        "exit": 0,
+        "original_handle": 976,
+        "readers_alive": 0,
+        "errors": []
+      },
+      "no_RPC_card_or_ack": true,
+      "original43line_prefix_matches_failed_policy": true
+    },
+    "controls": [
+      {
+        "phase": "before",
+        "kind": "bare",
+        "closed_file_before_call": false,
+        "returned": 1,
+        "raw_os_error": 0,
+        "flags": 8,
+        "same_parent": true,
+        "destination_absent_before": true,
+        "source_utf16_units": 128,
+        "target_utf16_units": 128,
+        "event_sequences": [
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "phase": "before",
+        "kind": "closed-file",
+        "closed_file_before_call": true,
+        "returned": 1,
+        "raw_os_error": 0,
+        "flags": 8,
+        "same_parent": true,
+        "destination_absent_before": true,
+        "source_utf16_units": 135,
+        "target_utf16_units": 135,
+        "event_sequences": [
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "phase": "after",
+        "kind": "bare",
+        "closed_file_before_call": false,
+        "returned": 1,
+        "raw_os_error": 0,
+        "flags": 8,
+        "same_parent": true,
+        "destination_absent_before": true,
+        "source_utf16_units": 127,
+        "target_utf16_units": 127,
+        "event_sequences": [
+          10,
+          11,
+          12
+        ]
+      },
+      {
+        "phase": "after",
+        "kind": "closed-file",
+        "closed_file_before_call": true,
+        "returned": 1,
+        "raw_os_error": 0,
+        "flags": 8,
+        "same_parent": true,
+        "destination_absent_before": true,
+        "source_utf16_units": 134,
+        "target_utf16_units": 134,
+        "event_sequences": [
+          13,
+          14,
+          15
+        ]
+      }
+    ],
+    "native_directory_watch": {
+      "parent_handle": 548,
+      "event_handle": 608,
+      "access": 1,
+      "share": 7,
+      "watch_subtree": false,
+      "filter": 2,
+      "buffer_bytes": 4096,
+      "overlapped_size": 32,
+      "overlapped_event_offset": 24,
+      "requests": 11,
+      "actual_completions": 11,
+      "normal_data_frames": 10,
+      "native_events": [
+        {
+          "sequence": 1,
+          "request": 1,
+          "action": 1,
+          "name": "before-bare-source",
+          "offset": 0,
+          "next": 0,
+          "name_bytes": 36
+        },
+        {
+          "sequence": 2,
+          "request": 2,
+          "action": 4,
+          "name": "before-bare-source",
+          "offset": 0,
+          "next": 48,
+          "name_bytes": 36
+        },
+        {
+          "sequence": 3,
+          "request": 2,
+          "action": 5,
+          "name": "before-bare-target",
+          "offset": 48,
+          "next": 0,
+          "name_bytes": 36
+        },
+        {
+          "sequence": 4,
+          "request": 3,
+          "action": 1,
+          "name": "before-closed-file-source",
+          "offset": 0,
+          "next": 0,
+          "name_bytes": 50
+        },
+        {
+          "sequence": 5,
+          "request": 4,
+          "action": 4,
+          "name": "before-closed-file-source",
+          "offset": 0,
+          "next": 64,
+          "name_bytes": 50
+        },
+        {
+          "sequence": 6,
+          "request": 4,
+          "action": 5,
+          "name": "before-closed-file-target",
+          "offset": 64,
+          "next": 0,
+          "name_bytes": 50
+        },
+        {
+          "sequence": 7,
+          "request": 5,
+          "action": 1,
+          "name": ".miopunch-create-c12e09a3cb44101ac6047ca9bc743b20",
+          "offset": 0,
+          "next": 0,
+          "name_bytes": 98
+        },
+        {
+          "sequence": 8,
+          "request": 6,
+          "action": 4,
+          "name": ".miopunch-create-c12e09a3cb44101ac6047ca9bc743b20",
+          "offset": 0,
+          "next": 112,
+          "name_bytes": 98
+        },
+        {
+          "sequence": 9,
+          "request": 6,
+          "action": 5,
+          "name": "provider",
+          "offset": 112,
+          "next": 0,
+          "name_bytes": 16
+        },
+        {
+          "sequence": 10,
+          "request": 7,
+          "action": 1,
+          "name": "after-bare-source",
+          "offset": 0,
+          "next": 0,
+          "name_bytes": 34
+        },
+        {
+          "sequence": 11,
+          "request": 8,
+          "action": 4,
+          "name": "after-bare-source",
+          "offset": 0,
+          "next": 48,
+          "name_bytes": 34
+        },
+        {
+          "sequence": 12,
+          "request": 8,
+          "action": 5,
+          "name": "after-bare-target",
+          "offset": 48,
+          "next": 0,
+          "name_bytes": 34
+        },
+        {
+          "sequence": 13,
+          "request": 9,
+          "action": 1,
+          "name": "after-closed-file-source",
+          "offset": 0,
+          "next": 0,
+          "name_bytes": 48
+        },
+        {
+          "sequence": 14,
+          "request": 10,
+          "action": 4,
+          "name": "after-closed-file-source",
+          "offset": 0,
+          "next": 60,
+          "name_bytes": 48
+        },
+        {
+          "sequence": 15,
+          "request": 10,
+          "action": 5,
+          "name": "after-closed-file-target",
+          "offset": 60,
+          "next": 0,
+          "name_bytes": 48
+        }
+      ],
+      "framed_original_bytes": 982,
+      "original_file": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw/directory.bin",
+        "bytes": 982,
+        "sha256": "ad270bdd702fe466b1cb7e3bcca307fe82da4863d06822f44d40b8ad479611de"
+      },
+      "cancel": {
+        "request": 11,
+        "CancelIoEx_returned": 1,
+        "actual_completion_error": 995,
+        "pending_after": false,
+        "completion_before_resource_close": true
+      },
+      "parent_and_event_closed": true,
+      "reader_joined": true,
+      "first_failure": null
+    },
+    "staging": {
+      "name": ".miopunch-create-c12e09a3cb44101ac6047ca9bc743b20",
+      "added_sequences": [
+        7
+      ],
+      "renamed_old_new": [
+        [
+          8,
+          9
+        ]
+      ],
+      "destination": "provider",
+      "delete_event_observed": false,
+      "absence_or_deletion_inference": "NONE; old-name query after rename returned error2; no retrospective deletion proof",
+      "parent_metadata": {
+        "operation": "own_parent_metadata",
+        "value": {
+          "attributes": 16,
+          "owner_sid": "S-1-5-21-3134535485-232963460-4157575699-1001",
+          "dacl_sddl": "D:AI(A;OICIID;0x1301bf;;;S-1-5-21-3527626106-2528708108-3606536554-1512354540)(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)(A;OICIID;FA;;;S-1-5-21-3134535485-232963460-4157575699-1001)"
+        },
+        "monotonic": 870346.7474967
+      },
+      "stage_metadata": [
+        {
+          "operation": "SDK_stage_metadata",
+          "value": {
+            "name": ".miopunch-create-c12e09a3cb44101ac6047ca9bc743b20",
+            "event_sequence": 7,
+            "attributes": 16,
+            "owner_sid": "S-1-5-21-3134535485-232963460-4157575699-1001",
+            "dacl_sddl": "D:AI(A;OICIID;0x1301bf;;;S-1-5-21-3527626106-2528708108-3606536554-1512354540)(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)(A;OICIID;FA;;;S-1-5-21-3134535485-232963460-4157575699-1001)"
+          },
+          "monotonic": 870348.6297101
+        },
+        {
+          "operation": "SDK_stage_metadata",
+          "value": {
+            "name": ".miopunch-create-c12e09a3cb44101ac6047ca9bc743b20",
+            "event_sequence": 8,
+            "status": "DISAPPEARED_OR_INACCESSIBLE_UNKNOWN",
+            "error": 2
+          },
+          "monotonic": 870348.7324075
+        }
+      ],
+      "current_parent_and_stage_attributes_owner_DACL_equal": true,
+      "metadata_old_name_error_2": "Preserved UNKNOWN, not original policy ACL/cause evidence"
+    },
+    "TLS": {
+      "actual_HTTPS_status": 200,
+      "actual_HTTPS_body": "owned M119 web target",
+      "WebSocket_duplex": "M119 direct target prerequisite -> owned-target exact reply",
+      "same_original_server_alive_before_after_SDK": true,
+      "target_alive": [
+        {
+          "phase": "before_controls",
+          "reader_alive": true,
+          "loop_id": 2484379857792,
+          "loop_running": true,
+          "loop_closed": false,
+          "server_id": 2484380359312,
+          "listeners": 1,
+          "errors": [],
+          "close_started": false
+        },
+        {
+          "phase": "before_SDK",
+          "reader_alive": true,
+          "loop_id": 2484379857792,
+          "loop_running": true,
+          "loop_closed": false,
+          "server_id": 2484380359312,
+          "listeners": 1,
+          "errors": [],
+          "close_started": false
+        },
+        {
+          "phase": "after_SDK",
+          "reader_alive": true,
+          "loop_id": 2484379857792,
+          "loop_running": true,
+          "loop_closed": false,
+          "server_id": 2484380359312,
+          "listeners": 1,
+          "errors": [],
+          "close_started": false
+        }
+      ],
+      "loop_ids": [
+        2484379857792,
+        2484379926224
+      ],
+      "loop_class": "ProactorEventLoop",
+      "loop_count": 2,
+      "observed_server_count": 1,
+      "observed_servers_match_early_closed_and_final": true,
+      "early_and_final_listeners": 0,
+      "early_and_final_attached_clients": 0,
+      "callbacks_failed": 0,
+      "overflow": 0,
+      "reader_joined": true,
+      "active_websockets": 0
+    },
+    "Task": {
+      "GUID": "{004DB420-F68B-4564-83BC-93651A0955B0}",
+      "seconds": 9.700298199999999,
+      "last_result": 0,
+      "one_run": true,
+      "terminal": true,
+      "exact_registration_removed_absent": true,
+      "SID": "S-1-5-21-3134535485-232963460-4157575699-1001",
+      "session": 1,
+      "interactive": true,
+      "administrator_role_enabled": false,
+      "logonType": 3,
+      "runLevel": 0
+    },
+    "outer_original_owner": {
+      "nonce": "a93e37ce-3ad3-46a3-9014-a8463c5a1332",
+      "pid": 4896,
+      "originalHandle": 2596,
+      "executable": "C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01\\app\\python\\python.exe",
+      "arguments": "-I -S -B -c \"import runpy,sys; sys.path[:0]=sys.argv[1:3]; sys.argv=sys.argv[3:]; runpy.run_path(sys.argv[0],run_name='__main__')\" \"C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01\\app\\controllers-publish-events-a93e37ce\" \"C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01\\app\\controllers-content-tls\" \"C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01\\app\\controllers-publish-events-a93e37ce\\check_windows_publish_api.py\" --root \"C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01\\app\" --output \"C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01\\app\\evidence\\publish-events-a93e37ce\" --extra deployment-publish-events-a93e37ce-extra.json",
+      "useShellExecute": false
+    },
+    "all10_original_transports_exit0_stderr0": true,
+    "source_union_files": 481,
+    "source_drift": [],
+    "profiles_created": 0,
+    "private_state_bytes": 113738,
+    "not_created": [
+      "consumer",
+      "joiner",
+      "reopen",
+      "gateway",
+      "GUI",
+      "guest"
+    ]
+  },
+  "ownership": {
+    "known_live": [],
+    "all_current_owned_resources_terminal": true,
+    "source_build_runtime_metadata_released": true,
+    "authoritative_current_event_overlay": {
+      "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/events-diagnostic-handoff.json",
+      "bytes": 4041,
+      "sha256": "210b595c4c03e928a21f91640d994b6aee387b5e795a0d1b82a0dedb5b4a7b85"
+    },
+    "historical_base_handles_preserved": {
+      "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-handles.json",
+      "bytes": 20484,
+      "sha256": "cb4cf4dfd18454e530bb3a194ddcb8b7e919b64e547bd792c829cd53318a6b04"
+    },
+    "older_historical_unknowns": "Unchanged; no hostwide process absence or zero egress claim"
+  },
+  "budget": {
+    "local": {
+      "source": 57304,
+      "source_cap": 57344,
+      "runtime_metadata": 17589,
+      "runtime_cap": 20480,
+      "admin_cap": 4096,
+      "initial": 22801754,
+      "received": 134032,
+      "raw_shared_cap": 2097152,
+      "metadata_cap": 257311,
+      "global_cap": 25165824,
+      "roots": "same2/nlink1/no reset/exclusions/cleanup",
+      "remote": {
+        "phase": "final",
+        "ownedRootBytes": 519627054,
+        "profileBytes": 87310319,
+        "privateNonProfileBytes": 1730829,
+        "failedPolicyStateBytes": 1788,
+        "diagnosticStateBytes": 113738,
+        "diagnosticProfileBytes": 0,
+        "diagnosticRawUsed": 55486,
+        "reserve": 77460592,
+        "conservative": 597087646
+      },
+      "store": "375/log34523428417/alloc34525192192;32/THIS33/M120723517440/cohort320/staging256/cache96 unchanged;no build/pin/PEcopy",
+      "admin_bytes": 4041,
+      "actual_after": 23190111,
+      "metadata_growth_after": 254325,
+      "metadata_remaining": 2986,
+      "all_reserved": 25156217
+    },
+    "remote_actual": {
+      "phase": "final",
+      "ownedRootBytes": 519627054,
+      "profileBytes": 87310319,
+      "privateNonProfileBytes": 1730829,
+      "failedPolicyStateBytes": 1788,
+      "diagnosticStateBytes": 113738,
+      "diagnosticProfileBytes": 0,
+      "diagnosticRawUsed": 55486,
+      "reserve": 77460592,
+      "conservative": 597087646
+    },
+    "remote_growth": {
+      "previous_owned_root": 519429437,
+      "current_owned_root": 519627054,
+      "delta": 197617,
+      "new_payload": 28393,
+      "new_private_state": 113738,
+      "new_fixed_raw": 55486,
+      "exact_sum": true
+    },
+    "source57304_le57344": true,
+    "runtime17589_le20480": true,
+    "admin4041_le4096": true,
+    "same_2parents_nlink1_initial22801754": true,
+    "cumulative_fixed_raw": 134032,
+    "metadata_growth": 254325,
+    "metadata_total_max": 257311,
+    "metadata_remaining": 2986,
+    "actual_global_raw": 23190111,
+    "all_same_remaining_reserves_total": 25156217,
+    "same_global_cap": 25165824,
+    "no_cleanup_baseline_root_exclusion_or_received_reset": true,
+    "no_Cargo_build_new_pin_PEcopy_or_graph_change": true
+  },
+  "first_failures_preserved": {
+    "original_policy_provider_stderr": {
+      "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/provider.stderr",
+      "bytes": 6260,
+      "sha256": "2ae086933041fabf829c6bf877aa9a5e12280dd8f1b9962f9a13ec611a694d1b"
+    },
+    "original_policy_qualification": {
+      "path": "docs/evidence/m119-windows-host-2026-10-25/acl-guest-runtime-qualification.json",
+      "bytes": 14744,
+      "sha256": "734803f6986ac5f08a1ea3e5f85d43b2eac2a51c81407a67380b8f9fb0ef299b"
+    },
+    "prior_unlocalized_case_unchanged": {
+      "path": "docs/evidence/m119-windows-host-2026-10-25/publication-diagnostic-qualification.json",
+      "bytes": 13105,
+      "sha256": "b7375f1b6214aee4620adfc37f79e6584f4f55afda3ec023ace1b9f2ff12bf36"
+    },
+    "collector_and_earlier_SDK_TLS_failures": "Unchanged; previous qualification records retain original raw evidence",
+    "current_admin_prewrite_assertions": [
+      "24feb5:4514",
+      "f0cc61:4175"
+    ],
+    "current_admin_assertion_scope": "memory>4096 only;no writes;duplicate prose compacted"
+  },
+  "limits": [
+    "This successful new-parent diagnostic records native creation/rename and current directory metadata. It does not establish old failed-parent/staging ACL or instantaneous external handles and does not repair the original Os5. Instrumentation can affect timing.",
+    "The original policy/ACL assertions and dependent guest case were not retried here. No consumer, renderer, gateway, recovery card or management RPC was created by this operation.",
+    "Frozen SDK70aba is retained diagnostic SDK11, not qualification of held current Native work or the final platform shell. Windows/Linux role exchange, ACL/guest, remaining platform coverage and formal acceptance remain open.",
+    "All original current-scope owners are terminal; historical foreign engine/process and whole-host egress facts remain unqualified.",
+    "The actual user grant covered exactly this one operation and is consumed. Other M116/M118/M120/clipboard/WSL held scopes remain unchanged; fullgoal112-121 stillonly4/10accepted."
+  ],
+  "current_grant_consumed": true,
+  "whole_goal_complete": false
+}

@@ -1,0 +1,100 @@
+{
+  "status": "PASS_CURRENT_RUST_NATIVE_WEB_RUNTIME",
+  "build_receipt": "/tmp/m107-main-20261029/m107-linux-current-20261029/build.json",
+  "build_receipt_sha256": "c4f7c52fda9cd166140cb1e064fc9e1fea10810e07d5ce1c90bd0fa234c5348a",
+  "sdk_sha256": "a8be96b3243798c41ef553c8fcc9cc00e5aa5915b046aa45093723bba5eb5fd1",
+  "library_sha256": "b3f881e20858cd8a403fc332892bcbf0194b9bf13c0e3e3b1fe995c179d2e96e",
+  "source_manifest_sha256": "23977b902b69059d188ad68be2132661cd0eff9752a8dba7928bed4622700d4a",
+  "source_changes": [
+    "src/native_web.rs",
+    "src/native_web_socket.rs"
+  ],
+  "runtime": "/tmp/m107-main-20261029/web-current-https",
+  "result_sha256": "73cc0c03dbc08afa27eb5911cfb6c79948467a8096215b88ff0486f3e10b00c2",
+  "events_sha256": "fa51e25a507f8c1724ce33fb093ce7cb5b08ff0161cc0558aed04b736d8cf8e7",
+  "namespace": {
+    "exit": 0,
+    "all_owned_terminal": true,
+    "namespace_receipt": "/tmp/m107-main-20261029/web-current-namespace.namespace.json",
+    "controller_source_sha256": "55eaca5eefc71d76c238e1ba189c73b0c815927eb684041692acfc861afc1ebf",
+    "global_network_changes": false
+  },
+  "seconds": 13.607050939986948,
+  "cleanup_errors": [],
+  "observations": {
+    "private_desktop_preflight": {
+      "wrong_owned_auth_rejected": true,
+      "retired_display_unavailable": true,
+      "other_owned_display_live": true,
+      "clipboard_accessed": false
+    },
+    "untrusted_https_no_effect": {
+      "public_request_failed": true,
+      "target_http_unchanged": true
+    },
+    "actual_content_event": {
+      "event": "load_state",
+      "state": "finished"
+    },
+    "actual_content_resources": {
+      "actual_container": "Linux/WebKit",
+      "script_fetch_exact": true,
+      "stylesheet_applied": true,
+      "image_decoded": true,
+      "provider_target_observed_all": true
+    },
+    "actual_content_login_navigation": {
+      "form_post": true,
+      "cookie_received_by_target": true,
+      "redirect_303": true,
+      "navigation": true
+    },
+    "actual_content_websocket": {
+      "native_websocket_api": true,
+      "unsolicited_greeting": true,
+      "text_and_binary_exact": true,
+      "login_cookie_reached_socket_target": true,
+      "target_independently_observed": true,
+      "normal_close": true,
+      "content_close_code": 1000,
+      "content_wasClean": true,
+      "SDK_failed": false,
+      "module_and_target_owners_settled": true,
+      "target_tls": true
+    },
+    "actual_content_isolation": {
+      "platform": "Linux/WebKit",
+      "attempts": {
+        "parentStorageDenied": true,
+        "contentIDBWorked": true,
+        "managementIndexedDBAbsent": true,
+        "managementRPCDenied": true,
+        "externalFetchDenied": true,
+        "nativeCallDenied": true,
+        "parentNodeDenied": true,
+        "fileDenied": true,
+        "managementCookieAbsent": true,
+        "noNode": true,
+        "externalSocketDenied": true,
+        "managementStorageAbsent": true,
+        "noNativeIPC": true,
+        "done": true
+      },
+      "fresh_management_file_unchanged": true,
+      "direct_http_ws_frame_image_no_target_effect": true,
+      "provider_configuration_unchanged": true
+    },
+    "actual_content_pending_close": {
+      "platform": "Linux/WebKit",
+      "target_observed_pending": true,
+      "close_seconds": 0.26421574800042436,
+      "all_module_owners_joined": true
+    }
+  },
+  "whole_M119": false,
+  "windows_current_runtime": false,
+  "current_sources": {
+    "src/native_web.rs": "2255b052733fc2ecadf2b8628dff17042c4f67c33cd7aa7e843f5a3f58947ba7",
+    "src/native_web_socket.rs": "2e704a3e3ab66b32f368c5c5b613a7106d7ea86cf89000fb845618e6b186300a"
+  }
+}

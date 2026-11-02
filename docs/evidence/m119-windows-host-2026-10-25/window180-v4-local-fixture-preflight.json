@@ -1,0 +1,20 @@
+{
+  "status": "LOCAL_PACKET_FIXTURE_RED_GREEN",
+  "checker": "scripts/check_m119_packet_fixture.py",
+  "checker_sha256": "241f56e6a806bebdcb18d83836640a68db5f7c3c01a01bdd267abae3e1077dc8",
+  "red_packet_sha256": "542c91a49923b64f82d7c6bd9263d3ae7a177278a7bea48c0c924d850da4d03c",
+  "red_exit": 1,
+  "red_failure": "Worker.prepare_linux_desktop -> freeze_source: selected helper source changed",
+  "red_matches_original_failure_sha256": "e89d2cbe5527801e865dd90a9226d15a3588e21c6a5824ccf3cc38beb3cec241",
+  "green_packet_sha256": "cffb0c9c7bf71b2383bfcbc2d2e8d512e563c966e7ac0e6c13ebd0447a86a836",
+  "green_exit": 0,
+  "green_source_pin_count": 12,
+  "green_payload_file_count": 6,
+  "green_sandbox_wrapper_sha256": "50e759458e1150354927b553d987adeea1f68867b42322ce11b871cff6e563e8",
+  "missing_pin_rejected": true,
+  "wrong_hash_rejected": true,
+  "accidental_pyc_cleanup_sha256": "db35365f07553eeda6a3f3a948299d37bc542f187e777ec62590fadfb2a40154",
+  "new_remote_actions": 0,
+  "new_builds": 0,
+  "scope": "Linux fixture path selection and manifest/source closure only; full reverse Web business remains unverified"
+}

@@ -1,0 +1,1847 @@
+{
+  "kind": "curated runtime evidence summary; not a full business/isolation acceptance",
+  "date": "2026-10-25",
+  "task": "MIOPUNCH-119",
+  "task_url": "http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/26c5a8ef-787f-4983-8ddf-f9ba53c102c1",
+  "source_receipt_root": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain",
+  "environment": {
+    "Windows_build": "10.0.26100.0",
+    "architecture": "x64",
+    ".NET4_Full_release": 533320,
+    "PowerShell": "5.1.26100.8655",
+    "Python_fixture": "3.13.17",
+    "WebView2_SDK": "1.0.2849.39",
+    "WebView2_runtime": "155.0.4283.62",
+    "runtime_kind": "existing versioned Evergreen directory; not complete immutable Fixed Version package"
+  },
+  "pins": {
+    "host_assembly": "3f7c4de580909474f8a153a745ee6d49b90f1c490790b724db96365cfc363f30",
+    "controller": "54b35af30da85f31336bd726919e3a948ec36d25b5ae4846e54843f99a33ec90",
+    "process_helper": "05b6d13fec1706d9551284ebef582ebe60d5cbb0c7ca952fbc95c617f98dec91",
+    "python_exe": "7c2fc2b303a4ee3cc14cc17b47bc6e8bca98c78792edd123b846a560da44b203",
+    "runtime_exe": "93acbcad0b6f390ae1ce6a1dbf1e09e165520a7f1196eb22323afa64a9bba96b"
+  },
+  "fixtures": {
+    "Python_and_gateway_dependencies": "app-local, exact Windows/pure wheels; no system PATH or registry change",
+    "purpose": "test dependencies, not a new product runtime choice",
+    "SDK_or_real_provider_used_for_page": false,
+    "page_source": "owned loopback HTTPS gateway with fixed harmless callback fixture",
+    "scope": "initial fixed-page host-plumbing case; later headless and integrated cases described separately"
+  },
+  "SSH_observations": {
+    "attempts": 3,
+    "final_graph_error_phase": "initialization:ensure_core",
+    "hresult": "80070578",
+    "final_own_HWND_and_UI_thread_premises": true,
+    "context_user_interactive": false,
+    "engine_exit_qualification": "false/unqualified in all original failed cases; not retroactively fixed"
+  },
+  "desktop_observations": {
+    "same_final_graph_as_SSH_case3": true,
+    "same_authenticated_account": true,
+    "session": 1,
+    "user_interactive": true,
+    "administrator_role_enabled": false,
+    "fresh_profile": true,
+    "HTTPS_page_loaded": true,
+    "private_evaluate": true,
+    "private_close": true,
+    "original_stdin_joined": true,
+    "engine_exit_event_observed": true,
+    "original_host_process_exit": 0,
+    "readers_alive": 0,
+    "gateway_thread_joined": true,
+    "gateway_loop_closed": true,
+    "executor_threads_alive": 0,
+    "cleanup_errors": [],
+    "source_drift": [],
+    "runtime_hash_checked_pre_and_post": true,
+    "bad_pin_rejected_without_profile_or_host_events": true,
+    "host_created_to_join_seconds": 3.412171799922362
+  },
+  "temporary_task": {
+    "same_user_interactive_token": true,
+    "run_level": "LUA/least privilege",
+    "triggers": 0,
+    "registrations": 1,
+    "demand_starts": 1,
+    "password_or_other_user": false,
+    "removed_and_absent": true,
+    "observer_correction": "completed original instance Refresh returned 8004130b; exact owned task state/zero own instances and original child completion verified before retirement"
+  },
+  "qualification_limits": {
+    "management_chrome_webview_object_exists": true,
+    "absence_of_management_handler_declared_by_host": true,
+    "actual_management_storage_or_native_IPC_isolation_proved": false,
+    "actual_SDK_provider_HTTP_or_WS_business_proved": true,
+    "engine_background_destinations": "UNKNOWN",
+    "whole_host_zero_egress": false,
+    "whole_M119_accepted": false,
+    "actual_provider_bound_WebView2_business_proved": true,
+    "current_ACL_and_guest_lifecycle_in_integrated_Windows_container_proved": false,
+    "actual_provider_bound_WebView2_business_scope": "original SDK6de page/resource entry; instrumented SDK70aba content/login/Cookie/navigation/nativeWS/gateway negatives and scoped isolation observations; full lifecycle/currentACL/guest/crossplatform acceptance remains open",
+    "remaining_content_login_Cookie_navigation_WebSocket_proved": true,
+    "reliable_SDK11_initialization_in_ordinary_context_proved": false,
+    "remaining_content_login_Cookie_navigation_WebSocket_scope": "instrumented SDK70aba/this current Windows fixture only; callback-clean transport lifecycle remains unqualified",
+    "actual_Windows_management_storage_separation_with_positive_controls_proved": true,
+    "actual_Windows_content_IPC_file_origin_no_effect_attempts_proved": true,
+    "actual_management_storage_or_native_IPC_isolation_scope": "specific positive storage and actual IPC/file/origin no-effect observations are recorded below; no full combined native-management-bridge acceptance is claimed; host declares no native management handlers",
+    "callback_clean_and_all_private_TCP_transport_closure_proved": false
+  },
+  "separate_SDK_entry_observation": {
+    "SDK11_PE_sha256": "6de63b7756d7e9d627d6437bdc5c5c6fea22dc0b326ba44d4f2d58b1a7159690",
+    "Windows_provider_create_and_readiness": true,
+    "Windows_provider_normal_exit": 0,
+    "consumer_public_join": "exited before ready with Os code 5 PermissionDenied",
+    "consumer_destination_published": false,
+    "owned_invitation_and_resource_config_open_read_succeeded": true,
+    "cause_proved": false,
+    "system_ACL_changed": false,
+    "context": "SSH-created process"
+  },
+  "raw_receipt_hashes": {
+    "desktop-1-raw/task-child-owner.json": {
+      "bytes": 277,
+      "sha256": "3363727d27a7d7eb5d796e1cccc2d5738be3b30f7c3167486def31d0aab0cdc5"
+    },
+    "desktop-1-raw/task-run-v3.jsonl": {
+      "bytes": 3134,
+      "sha256": "3232e55fc203ed2d0eaf63d70a2f42745c87f2dfcc53cbfa613cb022571592df"
+    },
+    "desktop-1-raw/content.owner.jsonl": {
+      "bytes": 969,
+      "sha256": "1f8910bfbe1b099a37ac4643ea16e0077a8b256f0ed2a3e6cc59196e54163408"
+    },
+    "desktop-1-raw/task-entry.json": {
+      "bytes": 338,
+      "sha256": "c2f4ac965f46a89cdbd68ef3dc2dea179c095df0e20ea56a1e50f363a79d31d5"
+    },
+    "desktop-1-raw/negative.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "desktop-1-raw/result.json": {
+      "bytes": 2103,
+      "sha256": "be03d23816c3bb4a17a6e068a4f26a50ebd0139befe5ca807db79040621827f0"
+    },
+    "desktop-1-raw/content.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "desktop-1-raw/desktop-1.completed.json": {
+      "bytes": 183,
+      "sha256": "fe68a8f97f88c7569d5805d131bc23a414cdd0257cb784de1df6e9b59e6577f5"
+    },
+    "desktop-1-raw/content.stdout": {
+      "bytes": 1055,
+      "sha256": "9083bebfa4f538510f05232694b17b6a9c0e14a611f3eccff1d805529ec7d67b"
+    },
+    "desktop-1-raw/negative.owner.jsonl": {
+      "bytes": 979,
+      "sha256": "8568db7a9193bd55bf7dfe414b444b4ca78f0d6be4d0a0c1d5fe9b29b6776b60"
+    },
+    "desktop-1-raw/task-run-v3.json": {
+      "bytes": 1133,
+      "sha256": "a7b2872e4d8321652ca3daa99401c3fe3ef04c44eef00502a6577b19f45bdcda"
+    },
+    "desktop-1-raw/desktop-1.stdout": {
+      "bytes": 1721,
+      "sha256": "f6d85e26c537c9389f7b9459f6c01163bf9c2ad725364dd8b2d9cd705293c987"
+    },
+    "desktop-1-raw/desktop-1.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "desktop-1-raw/task-child-exit.json": {
+      "bytes": 109,
+      "sha256": "ad7a393efd6177f3820af23a58ff512b97b14909b64a2bee733890bf7e238742"
+    },
+    "desktop-1-raw/negative.stderr": {
+      "bytes": 466,
+      "sha256": "b6b06cf9a5b1de8d98921915c0567c126a0045121768a9cf501fcd2fd4e06ccb"
+    },
+    "task-retire.stdout": {
+      "bytes": 453,
+      "sha256": "2a3e8de8afc4801dbc94021d14c579a40830f35042926455692604b12bde3e6c"
+    },
+    "sdk-desktop-1-raw/consumer.owner.jsonl": {
+      "bytes": 1008,
+      "sha256": "8b24d3ff5e7056c53bf8faecbc780a2da56a5d6c7d0a648b5d3ce034b7712bac"
+    },
+    "sdk-desktop-1-raw/consumer.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "sdk-desktop-1-raw/consumer.stdout": {
+      "bytes": 9001,
+      "sha256": "84118c0f746a9c7a34504005cbd26d0b6f04b15212e0a6d5eaf0cb5b33c7da3c"
+    },
+    "sdk-desktop-1-raw/events.jsonl": {
+      "bytes": 2175,
+      "sha256": "10409478d59f89832270fcbe3f26852efbab526aaa36e6a1188d66003570e100"
+    },
+    "sdk-desktop-1-raw/provider.owner.jsonl": {
+      "bytes": 869,
+      "sha256": "23985c6b7bc1d75b0ae5a2dcb146a4aa70f027b6c433cf6bb2115ac54198571c"
+    },
+    "sdk-desktop-1-raw/provider.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "sdk-desktop-1-raw/provider.stdout": {
+      "bytes": 4944,
+      "sha256": "ab221327060b83b52d0ec9385014fa75992f56a3e47e327581211b4d1a775723"
+    },
+    "sdk-desktop-1-raw/result.json": {
+      "bytes": 1030,
+      "sha256": "27cc56856d653237151db3f6c5744bcc5b5065d7dec3102ba366ef16346d511c"
+    },
+    "sdk-desktop-1-raw/sdk-context-1.completed.json": {
+      "bytes": 161,
+      "sha256": "18b7e1a7a0d0ede84967dd2594f7899585f80d13e8fc69377e2f5b02dbc6533f"
+    },
+    "sdk-desktop-1-raw/sdk-context-1.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "sdk-desktop-1-raw/sdk-context-1.stdout": {
+      "bytes": 790,
+      "sha256": "fb2f0294454497e7a6f942aee77b9bf7f61df55d3b0ad405b38f2cf832fbaa14"
+    },
+    "sdk-desktop-1-raw/sdk-context-child-exit.json": {
+      "bytes": 110,
+      "sha256": "668db10001ad5652b88fc4130bcfa3d05553fe77833868c8a4d9767d34c662b4"
+    },
+    "sdk-desktop-1-raw/sdk-context-child-owner.json": {
+      "bytes": 853,
+      "sha256": "0139e28cee20c5e9627b8f09902df1196f11305029289b3218fd48e6d56f7494"
+    },
+    "sdk-desktop-1-raw/sdk-context-entry.json": {
+      "bytes": 298,
+      "sha256": "74b81f558d6a35a58d773f4b41e81fd0342dcd80feea58cd37bae3451e62c4d5"
+    },
+    "sdk-desktop-1-raw/sdk-context-task-run.json": {
+      "bytes": 589,
+      "sha256": "749776e38c3fe624c8e34f06dbb7c9465759ae1caead7f69276ebae2edfabac2"
+    },
+    "sdk-desktop-1-raw/sdk-context-task-run.jsonl": {
+      "bytes": 4624,
+      "sha256": "d49fa4c5fd12e4635ed73d2e3a12b540ade4a58ab22e3b49637c36719f60c8e2"
+    },
+    "integration-entry-1-raw/consumer.owner.jsonl": {
+      "bytes": 997,
+      "sha256": "00f28e361ab7ae7d7a556b7872cdddf5e571aa6fbff307df8d874e552cac0211"
+    },
+    "integration-entry-1-raw/consumer.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integration-entry-1-raw/consumer.stdout": {
+      "bytes": 16347,
+      "sha256": "3fc3be9d1af22e49456589ea9d3379f98276047b620a3ebeff2515f3e8d5bfca"
+    },
+    "integration-entry-1-raw/content.owner.jsonl": {
+      "bytes": 865,
+      "sha256": "995080ce6449da2b3cb2d6807b584e896120898d8809eb8e85a72ad50f28b58b"
+    },
+    "integration-entry-1-raw/content.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integration-entry-1-raw/content.stdout": {
+      "bytes": 2052,
+      "sha256": "6805aac2e94782b0691cfc74b49693d3d1e57b67fb6e465e30b6b5d1f9c5dba6"
+    },
+    "integration-entry-1-raw/events.jsonl": {
+      "bytes": 2825,
+      "sha256": "07fb52215f51a2d86106acf65977a5e513b7f92a35af97363234607840af6d3e"
+    },
+    "integration-entry-1-raw/integration-context-1.completed.json": {
+      "bytes": 161,
+      "sha256": "94e0fe5a03af69dca7075d1819ac263a4d35cd47b8a1806259697ee59697c102"
+    },
+    "integration-entry-1-raw/integration-context-1.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integration-entry-1-raw/integration-context-1.stdout": {
+      "bytes": 1185,
+      "sha256": "085bf2dcde2a5707ec60da420d206401b78a254b1742b135f34d755a202316bb"
+    },
+    "integration-entry-1-raw/integration-context-child-exit.json": {
+      "bytes": 110,
+      "sha256": "9adbd235ef106e264f70f43d82349404add2971a9dc599e4687202eb1429e83b"
+    },
+    "integration-entry-1-raw/integration-context-child-owner.json": {
+      "bytes": 895,
+      "sha256": "fd50af2cf713361114462b896ac4f94ddfec2b4bf6775327e4ab9daeb7ea4ea7"
+    },
+    "integration-entry-1-raw/integration-context-entry.json": {
+      "bytes": 298,
+      "sha256": "68b6dea77a97664654729020f5e46b169ff7fc5327d20c7e9c5cb477a8908860"
+    },
+    "integration-entry-1-raw/integration-context-task-run.json": {
+      "bytes": 589,
+      "sha256": "06b5bdebe9156c38cf28280bd0b3060e77df038def4116409fbf6534b529376a"
+    },
+    "integration-entry-1-raw/integration-context-task-run.jsonl": {
+      "bytes": 4631,
+      "sha256": "b9565a7292b459c09aa77d729a6b4b31863dc7a47f174cc8f866e3a07ef90553"
+    },
+    "integration-entry-1-raw/provider.owner.jsonl": {
+      "bytes": 862,
+      "sha256": "eee9a883d340fc1db6002a09f712abad0bfea10c2a040ff592fcd0ffefc47045"
+    },
+    "integration-entry-1-raw/provider.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integration-entry-1-raw/provider.stdout": {
+      "bytes": 5056,
+      "sha256": "29dd572d96cc0b856e0100d80f7c2c08de74993b4a96b433efbb492acdca23ee"
+    },
+    "integration-entry-1-raw/result.json": {
+      "bytes": 1603,
+      "sha256": "c8c50d1fed6d693a17cb8d4f13cb1d8a370a0fc3c6eeedca9d774c22b65cea09"
+    },
+    "integration-content-1-raw/content-context-1.completed.json": {
+      "bytes": 161,
+      "sha256": "76f9479690913e989f7b9bcdce802f6d7ea7dc412f38d8856458f9e835b4906d"
+    },
+    "integration-content-1-raw/content-context-1.stderr": {
+      "bytes": 2104,
+      "sha256": "b683cca0d1828ea2e1417c3a0177d8a33e8b9cee15cc85f38e17357f47075239"
+    },
+    "integration-content-1-raw/content-context-1.stdout": {
+      "bytes": 666,
+      "sha256": "ba7a478c35121d1910c6d6cd2276605190699f5c56be85a807611e478475a640"
+    },
+    "integration-content-1-raw/content-context-child-exit.json": {
+      "bytes": 109,
+      "sha256": "39856ac3e0a60f0e17f35b9b980d25ba63ce46d44ca4b20f10c0ef7dd8af473b"
+    },
+    "integration-content-1-raw/content-context-child-owner.json": {
+      "bytes": 886,
+      "sha256": "ecaae1744f6b1fe027d6ce523b5ead1f2f614280a1fc27c71276c4f74e40b8fa"
+    },
+    "integration-content-1-raw/content-context-entry.json": {
+      "bytes": 298,
+      "sha256": "05c43706e6a4a329ed070ea4fb9934df7f19e9a05f1427e3b1f55a270c18578b"
+    },
+    "integration-content-1-raw/content-context-task-run.json": {
+      "bytes": 590,
+      "sha256": "973d1e928c60c2a9b78c2324ddac65e09fa4e4e28f2daec2953c4b083ab92da4"
+    },
+    "integration-content-1-raw/content-context-task-run.jsonl": {
+      "bytes": 4617,
+      "sha256": "a6018da274e06a39be1c8588fe4163ee0f8a7d78d72e31adcd6bd3658f1294d7"
+    },
+    "integration-content-1-raw/events.jsonl": {
+      "bytes": 447,
+      "sha256": "e8ffe0371b4d72b4cf15db7f60738e1fa7ffde430970ccfc534731434c40fafe"
+    },
+    "integration-content-1-raw/provider.owner.jsonl": {
+      "bytes": 867,
+      "sha256": "4d041bb85866427dd25b396461e0fef2c9af2c6090214d2ead281dc99e8d8695"
+    },
+    "integration-content-1-raw/provider.stderr": {
+      "bytes": 79,
+      "sha256": "18ed7861be374b66e9fad2f1cf0ee580ddc36aca85e967af1837c3f7236da4b9"
+    },
+    "integration-content-1-raw/provider.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integration-content-1-raw/result.json": {
+      "bytes": 803,
+      "sha256": "7e52d627dda4cfb83b80628c9ccdf5838ff8c2b2612fd9d4d5b8845d9018aed1"
+    },
+    "sdk-init-diagnostic-1-raw/creator.owner.jsonl": {
+      "bytes": 879,
+      "sha256": "cc4d042c07e69d2274335da74efc233468dc63d5f086a913219e6cc7d1398eab"
+    },
+    "sdk-init-diagnostic-1-raw/creator.stderr": {
+      "bytes": 22884,
+      "sha256": "87c7294124ec4b95048872b13c5dfe3eb59fa69d5370df429e511320cdfeaf86"
+    },
+    "sdk-init-diagnostic-1-raw/creator.stdout": {
+      "bytes": 1040,
+      "sha256": "748516d59e09546fab5dbb594e9a3390d99201c22238d021d26dd5201a1d2c43"
+    },
+    "sdk-init-diagnostic-1-raw/events.jsonl": {
+      "bytes": 2281,
+      "sha256": "d3ee3d09ac205544c9433a685852311e30ac0893642c632e54112cbaa8a49f2f"
+    },
+    "sdk-init-diagnostic-1-raw/joiner.owner.jsonl": {
+      "bytes": 1013,
+      "sha256": "1142a6c6dd6d1b768fde7392107a74591b3960001d0e862c47cec2ab29cbadf3"
+    },
+    "sdk-init-diagnostic-1-raw/joiner.stderr": {
+      "bytes": 11284,
+      "sha256": "d956e2e7da99d6e82c9160c0339ef986d74a8ed8125d1b22ece0c9c92bbd26bf"
+    },
+    "sdk-init-diagnostic-1-raw/joiner.stdout": {
+      "bytes": 800,
+      "sha256": "daa4454ddeab6e52d9e8afe5545f2e352bb3bc81545ecf8fcd59ed23c4d7afa6"
+    },
+    "sdk-init-diagnostic-1-raw/opened-joiner.owner.jsonl": {
+      "bytes": 743,
+      "sha256": "0b46f83ef0b35be40377fc165ee9d68f541479c103e8794ea1235a5934dac897"
+    },
+    "sdk-init-diagnostic-1-raw/opened-joiner.stderr": {
+      "bytes": 2400,
+      "sha256": "4c21a79d1bf6e254d12423cb1ed173ae63c601d1406a27eb29b10a68ded89a95"
+    },
+    "sdk-init-diagnostic-1-raw/opened-joiner.stdout": {
+      "bytes": 800,
+      "sha256": "9721f919494ddf65d95b61f1dca9680c76485e73352ca1aab2e5f55e54e83a22"
+    },
+    "sdk-init-diagnostic-1-raw/result.json": {
+      "bytes": 1358,
+      "sha256": "5aa61ca50bbae33c9f4d7669afce9d4354f59a6131eeb35146ed92c4dc85a0aa"
+    },
+    "sdk-init-diagnostic-1-raw/sdk-init-context-1.completed.json": {
+      "bytes": 161,
+      "sha256": "2706bb8ecead8014c6008f8874532b75c1bfe54dd33872730548a5a783b7d239"
+    },
+    "sdk-init-diagnostic-1-raw/sdk-init-context-1.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "sdk-init-diagnostic-1-raw/sdk-init-context-1.stdout": {
+      "bytes": 1077,
+      "sha256": "5ce2defc0f3eeccd20b51eb096c24cbc0475cac923cadbdcdcc3e488f56376c8"
+    },
+    "sdk-init-diagnostic-1-raw/sdk-init-context-child-exit.json": {
+      "bytes": 109,
+      "sha256": "1a6bca4abc4087ea2f69c104df19fd1fd37f55aadc4528f98ca0aa9d8555b441"
+    },
+    "sdk-init-diagnostic-1-raw/sdk-init-context-child-owner.json": {
+      "bytes": 877,
+      "sha256": "0727a478dd1020be4a2fd96c78120ce1b3274d760eb4ebc24508f73e41d00824"
+    },
+    "sdk-init-diagnostic-1-raw/sdk-init-context-entry.json": {
+      "bytes": 298,
+      "sha256": "32e66f8b2b9fdce57f01f15a6276d95e05c76659974a55b6cf861278f73692fe"
+    },
+    "sdk-init-diagnostic-1-raw/sdk-init-context-task-run.json": {
+      "bytes": 592,
+      "sha256": "f445e939b9d98e9cbb02dc4cfde135a62c9a78fcf517b3040f961205ca003e13"
+    },
+    "sdk-init-diagnostic-1-raw/sdk-init-context-task-run.jsonl": {
+      "bytes": 4662,
+      "sha256": "f63437a9cb4e34b8633758918adf76d7f5ea74ba41cdf38cfbb83fecc8f9a911"
+    },
+    "integration-content-diagnostic-1-raw/consumer.owner.jsonl": {
+      "bytes": 1053,
+      "sha256": "c7f5a4e7ebf077cb73a8b1cea9eb66b3553d01ef708d86fd1e89fc2ebd8c8be4"
+    },
+    "integration-content-diagnostic-1-raw/consumer.stderr": {
+      "bytes": 16784,
+      "sha256": "17cb8fac0be18879c99022b8314f297ee8a2e7cce806fc23e90e6d0298e375c9"
+    },
+    "integration-content-diagnostic-1-raw/consumer.stdout": {
+      "bytes": 27343,
+      "sha256": "9f270e1c9de40af2d5c35065554fde38f400e2d82e48a32c1caa14b5c3436014"
+    },
+    "integration-content-diagnostic-1-raw/content-diag-context-1.completed.json": {
+      "bytes": 161,
+      "sha256": "87360a8dde3d873126cc64d06d42913b83a67e159a2d7c4ea6bb5759cff82c1f"
+    },
+    "integration-content-diagnostic-1-raw/content-diag-context-1.stderr": {
+      "bytes": 441,
+      "sha256": "d1065bc12950a56fea587013f78ec975b2670e9cdf81680f72742c99757ea8ea"
+    },
+    "integration-content-diagnostic-1-raw/content-diag-context-1.stdout": {
+      "bytes": 1725,
+      "sha256": "4076fb676c6ebae8d886c5744bd3ce40cff46af2b1d8e988036fdead422560c0"
+    },
+    "integration-content-diagnostic-1-raw/content-diag-context-child-exit.json": {
+      "bytes": 110,
+      "sha256": "d464457c521f046e5c66d4c7cf1276992b0cda30043cd3763582e7fe4d1118fc"
+    },
+    "integration-content-diagnostic-1-raw/content-diag-context-child-owner.json": {
+      "bytes": 947,
+      "sha256": "eb03e0409de06b0bd435059ade9a0510bc907978a379bfff145df036812376ab"
+    },
+    "integration-content-diagnostic-1-raw/content-diag-context-entry.json": {
+      "bytes": 298,
+      "sha256": "8c438bb767d823133eecb971d42523ae83bb483f7ce24214f6815cca3a33a072"
+    },
+    "integration-content-diagnostic-1-raw/content-diag-context-task-run.json": {
+      "bytes": 585,
+      "sha256": "9424784e0f5f9bbf9bb16f69415b33b126da387d875f84fffa0cc3f446079b78"
+    },
+    "integration-content-diagnostic-1-raw/content-diag-context-task-run.jsonl": {
+      "bytes": 4576,
+      "sha256": "20c79a70c8b1bf7b50e2c2b9f56bc4d51a7aa162072e588ad6d43d90b4a42b01"
+    },
+    "integration-content-diagnostic-1-raw/content.owner.jsonl": {
+      "bytes": 879,
+      "sha256": "d469f3fad6f6de8e227d78aa5c9bbf8c9d283d85e85eb665871f267dafa43649"
+    },
+    "integration-content-diagnostic-1-raw/content.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integration-content-diagnostic-1-raw/content.stdout": {
+      "bytes": 4501,
+      "sha256": "ab023d0a3b9bd77893ce8b4c2a51cc4466deb345bc9e1b5665b59ea41fdee782"
+    },
+    "integration-content-diagnostic-1-raw/events.jsonl": {
+      "bytes": 8309,
+      "sha256": "6ad4ad2a74aef794c7ff884de5b65120478d33799a650b8a6de5d10fb489cba1"
+    },
+    "integration-content-diagnostic-1-raw/management-control.owner.jsonl": {
+      "bytes": 904,
+      "sha256": "90fc865a06748571188cd48f8de9a3316256d9d8b4c00adefa9a42f749fcb788"
+    },
+    "integration-content-diagnostic-1-raw/management-control.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integration-content-diagnostic-1-raw/management-control.stdout": {
+      "bytes": 1456,
+      "sha256": "6228784ff0b06db4a74e0bb6083b7e611bbbb935eaf6a93dcf9964ca7b0b346c"
+    },
+    "integration-content-diagnostic-1-raw/provider.owner.jsonl": {
+      "bytes": 902,
+      "sha256": "544e71a4b7b1e021eebfd010d0ca3a968ca602957a8432dcbda7d1ec01fb8b66"
+    },
+    "integration-content-diagnostic-1-raw/provider.stderr": {
+      "bytes": 25636,
+      "sha256": "7066369da4b811fb9ff31e11ad3d9507749b086a0c0d1ae4792df98727509ca5"
+    },
+    "integration-content-diagnostic-1-raw/provider.stdout": {
+      "bytes": 16299,
+      "sha256": "86fbde46ddd03ce0fc175753fa61e909ffdf66ce069d113844f93531c04549fb"
+    },
+    "integration-content-diagnostic-1-raw/result.json": {
+      "bytes": 2361,
+      "sha256": "1eb76fcf587b47478f0c02ba27947b49d8599530c5dc07d31464a045efa8e7a5"
+    },
+    "integration-content-loopnostic-1-raw/consumer.owner.jsonl": {
+      "bytes": 1064,
+      "sha256": "575991f6521e905213ce382e0d79309b77fd8d3a8decdc02ba7ee153122d662d"
+    },
+    "integration-content-loopnostic-1-raw/consumer.stderr": {
+      "bytes": 16784,
+      "sha256": "17cb8fac0be18879c99022b8314f297ee8a2e7cce806fc23e90e6d0298e375c9"
+    },
+    "integration-content-loopnostic-1-raw/consumer.stdout": {
+      "bytes": 29077,
+      "sha256": "5de1c63cb83c28738e44a44a11c5d39d0120cee90b9ac7acabcfc657b3bc24bb"
+    },
+    "integration-content-loopnostic-1-raw/content-loop-context-1.completed.json": {
+      "bytes": 161,
+      "sha256": "90dde0829e2b0d215a1fa0a30e57cb7f3dc78c1562915e2116dc05dd5c20a19a"
+    },
+    "integration-content-loopnostic-1-raw/content-loop-context-1.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integration-content-loopnostic-1-raw/content-loop-context-1.stdout": {
+      "bytes": 17408,
+      "sha256": "bce1bd0e7630a752e6e44ac4d1757a1234ff2cd1b2883b9c4c530a2b9cf74490"
+    },
+    "integration-content-loopnostic-1-raw/content-loop-context-child-exit.json": {
+      "bytes": 110,
+      "sha256": "7e547c473ccace72a50d27a9d91b14c1192b41c43dae58cee4ba57cdcf500022"
+    },
+    "integration-content-loopnostic-1-raw/content-loop-context-child-owner.json": {
+      "bytes": 950,
+      "sha256": "61ac7c2b9c0b0892800feccf5f96de9f01afa8f337e56bf2a29f13bef6be0d5c"
+    },
+    "integration-content-loopnostic-1-raw/content-loop-context-entry.json": {
+      "bytes": 298,
+      "sha256": "24382640c3a2c2a21e5ea78691b073e15fc38bf4c7edf977ce2345bd6abf30dd"
+    },
+    "integration-content-loopnostic-1-raw/content-loop-context-task-run.json": {
+      "bytes": 585,
+      "sha256": "2115cb61bd9f61fc8d3accd00f9e89804ebf24681c6554f62fa41b4b598f51dd"
+    },
+    "integration-content-loopnostic-1-raw/content-loop-context-task-run.jsonl": {
+      "bytes": 4558,
+      "sha256": "4c8960c0973049364a2274108f944c8c6315ef7b25ddfdaf6e176c24065417d2"
+    },
+    "integration-content-loopnostic-1-raw/content.owner.jsonl": {
+      "bytes": 881,
+      "sha256": "5d6aacfd19129e12e210ce1a1f7f8a5d2f3fbd3270737ddfe54bafafcfc7c9b4"
+    },
+    "integration-content-loopnostic-1-raw/content.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integration-content-loopnostic-1-raw/content.stdout": {
+      "bytes": 4790,
+      "sha256": "1cb20f1a3657f7b353f07eb550d497a8eb7611517debb39c8c0e089d9b70231d"
+    },
+    "integration-content-loopnostic-1-raw/events.jsonl": {
+      "bytes": 29567,
+      "sha256": "26c4b2a2d7b4225d4d164a5e19609ebad87f4769c03f55e3a48c97f0421f5d5d"
+    },
+    "integration-content-loopnostic-1-raw/management-control.owner.jsonl": {
+      "bytes": 904,
+      "sha256": "b0d22521506627570699a0905f2a01b04087b664f1319de83b52a4e3cc93d3a9"
+    },
+    "integration-content-loopnostic-1-raw/management-control.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integration-content-loopnostic-1-raw/management-control.stdout": {
+      "bytes": 1426,
+      "sha256": "f65eafb7a42d2cdf9f9f5e7a824c1897acf6db95dbc488747cbabe370b5d2be5"
+    },
+    "integration-content-loopnostic-1-raw/provider.owner.jsonl": {
+      "bytes": 911,
+      "sha256": "e9f5cf8d83a0002c75dd072d87dfaf2203dd1a06a6a07e8ff67d2dc6ff6aab12"
+    },
+    "integration-content-loopnostic-1-raw/provider.stderr": {
+      "bytes": 25636,
+      "sha256": "7066369da4b811fb9ff31e11ad3d9507749b086a0c0d1ae4792df98727509ca5"
+    },
+    "integration-content-loopnostic-1-raw/provider.stdout": {
+      "bytes": 16305,
+      "sha256": "e0a47f7ac7d44c3e0523ae24a1b3601ef9d1bd50835e8d37e7bd8e3d733c0ab8"
+    },
+    "integration-content-loopnostic-1-raw/result.json": {
+      "bytes": 29967,
+      "sha256": "e2da96e8fc943e6fe8c74ba7e888134c2136dc62d9e7ee94158096b5f266937b"
+    },
+    "integration-content-tls-closed-1-raw/consumer.owner.jsonl": {
+      "bytes": 1056,
+      "sha256": "a01761637c3c46d9418084191a7859a89c400d9163cc2af2dd0ec958b9b84f14"
+    },
+    "integration-content-tls-closed-1-raw/consumer.stderr": {
+      "bytes": 16784,
+      "sha256": "17cb8fac0be18879c99022b8314f297ee8a2e7cce806fc23e90e6d0298e375c9"
+    },
+    "integration-content-tls-closed-1-raw/consumer.stdout": {
+      "bytes": 28501,
+      "sha256": "b1d28598dd60f8442cd0e516d34f298cbc6c4b9c79102840a719ae16b64596b5"
+    },
+    "integration-content-tls-closed-1-raw/content-tls-context-1.completed.json": {
+      "bytes": 161,
+      "sha256": "f0d576b8a87553d8cce39faa920420f6f982842d255fe77b5edb9ea0bc258b7e"
+    },
+    "integration-content-tls-closed-1-raw/content-tls-context-1.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integration-content-tls-closed-1-raw/content-tls-context-1.stdout": {
+      "bytes": 20146,
+      "sha256": "4b27f50f271bcf41cb9a91926194ef77fc9892eeb388cd711fe1f5d695ecc7d9"
+    },
+    "integration-content-tls-closed-1-raw/content-tls-context-child-exit.json": {
+      "bytes": 110,
+      "sha256": "6d69f110a463f7602f594cc8afd2e483366e0ad6cb74d6e636b8e86e4b5ff59e"
+    },
+    "integration-content-tls-closed-1-raw/content-tls-context-child-owner.json": {
+      "bytes": 944,
+      "sha256": "5d60e3d16d930ac05fde10555d5ee9d6a2049783ab5144d203d58e8d3ba352b8"
+    },
+    "integration-content-tls-closed-1-raw/content-tls-context-entry.json": {
+      "bytes": 298,
+      "sha256": "02c1b16e33b1a16dc8aab22b94f254e6c865526738cb7bc17542e207b97daca3"
+    },
+    "integration-content-tls-closed-1-raw/content-tls-context-task-run.json": {
+      "bytes": 584,
+      "sha256": "a4ba6c9dcd7797f959d0160c2a97982712985813e4ab8956cd77b9d17e696e9f"
+    },
+    "integration-content-tls-closed-1-raw/content-tls-context-task-run.jsonl": {
+      "bytes": 4546,
+      "sha256": "a03f04f9f03c702c411a9578d40c0f95e413b34d7fb064538903ed327a1c0d71"
+    },
+    "integration-content-tls-closed-1-raw/content.owner.jsonl": {
+      "bytes": 875,
+      "sha256": "e40b4bb5d66de1e9c27547779d315677ce042ca774c8adb8aa85b01f5e23c208"
+    },
+    "integration-content-tls-closed-1-raw/content.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integration-content-tls-closed-1-raw/content.stdout": {
+      "bytes": 4395,
+      "sha256": "f304953e10aa544621b2af57b0373bf1ce38cb3c29769d58afe5647d5a14804d"
+    },
+    "integration-content-tls-closed-1-raw/events.jsonl": {
+      "bytes": 33965,
+      "sha256": "5ede6a6fa097eef66a8e8c5aeb88fde2f60a6c5ca86e6d7714f82d5e68aa38a4"
+    },
+    "integration-content-tls-closed-1-raw/management-control.owner.jsonl": {
+      "bytes": 899,
+      "sha256": "cfc2a4414160980ea07b7e9786fe32d11c9156ad44d7a0e2276c81713ae00ea7"
+    },
+    "integration-content-tls-closed-1-raw/management-control.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integration-content-tls-closed-1-raw/management-control.stdout": {
+      "bytes": 1423,
+      "sha256": "d00178302e3b15a53e63346cc4e17a3207a98c17ee5e3b6205d90bf7d4d1e236"
+    },
+    "integration-content-tls-closed-1-raw/provider.owner.jsonl": {
+      "bytes": 903,
+      "sha256": "d01122cc1a65422214ad6e2f16d949c85e2417962e6212d0c62bd9a7ab3ccbe0"
+    },
+    "integration-content-tls-closed-1-raw/provider.stderr": {
+      "bytes": 25636,
+      "sha256": "7066369da4b811fb9ff31e11ad3d9507749b086a0c0d1ae4792df98727509ca5"
+    },
+    "integration-content-tls-closed-1-raw/provider.stdout": {
+      "bytes": 16305,
+      "sha256": "a6f305cecc7c3192527107675b8580c2afe316bb03dd68d5aedabacae8cbbd76"
+    },
+    "integration-content-tls-closed-1-raw/result.json": {
+      "bytes": 34869,
+      "sha256": "cc980024b3b1a629e5209cab78090f0fb933e99bdc6a45e165a9f47bfe5e7cc5"
+    },
+    "windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-entry.json": {
+      "bytes": 298,
+      "sha256": "15fef2bcf7304a898d729e82a24c4f69e5c33f3666d965f4e07b9bfbb90d1cd6"
+    },
+    "windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-child-owner.json": {
+      "bytes": 1187,
+      "sha256": "f55820c5faced721d4513d247e86980af555146291b90fdd55f240d4e41d8a46"
+    },
+    "windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-child-exit.json": {
+      "bytes": 110,
+      "sha256": "df48936133145d30b75aca51e0db2325a5bab6341e174c0a187ee9eccc044152"
+    },
+    "windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-1.completed.json": {
+      "bytes": 161,
+      "sha256": "7252adbeb4fbeb9f175b8ca6b9d3adbae303068d61be9b0118796ebdfd06f623"
+    },
+    "windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-1.stdout": {
+      "bytes": 6614,
+      "sha256": "770ee7880445da2fb129e19069ae5fdd7dac98bd1dab02e8b69409db112d1db8"
+    },
+    "windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-1.stderr": {
+      "bytes": 2285,
+      "sha256": "3fc47236d2a91871b5f70aa03967ad89124aa198463470a58bdd7580beafe8fe"
+    },
+    "windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-task-run.json": {
+      "bytes": 583,
+      "sha256": "7c1f47a8e83c0de9fe8a62ec94e02d3fd9219b6e1e0275b7569265e8f5ecff9c"
+    },
+    "windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-task-run.jsonl": {
+      "bytes": 4531,
+      "sha256": "0c36cd797d450324c05632ef538e79d72f8201cf2ca566d392526b192133747c"
+    },
+    "windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/result.json": {
+      "bytes": 11196,
+      "sha256": "6aa90a311feb2cfeb965e9c317131208c3ab3bc67c862790a4774b0181a64e30"
+    },
+    "windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/events.jsonl": {
+      "bytes": 8792,
+      "sha256": "ed62f4c821dc515b6159f4d3381ad32c1b42cf9214d35fd59d12191bb7f15cc4"
+    },
+    "windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/provider.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/provider.stderr": {
+      "bytes": 6260,
+      "sha256": "2ae086933041fabf829c6bf877aa9a5e12280dd8f1b9962f9a13ec611a694d1b"
+    },
+    "windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/provider.owner.jsonl": {
+      "bytes": 877,
+      "sha256": "3f88b445214b6f60ee861edb26ce2ea961d38dc312f262d6bd23dff85aa8cbfa"
+    },
+    "windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-entry.json": {
+      "bytes": 294,
+      "sha256": "bc8e723d8ac195642f00bc85267db974e480db47a6db503c198ecad0685e523f"
+    },
+    "windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-child-owner.json": {
+      "bytes": 997,
+      "sha256": "5019b19a7dcb3a118f7de4679b5aec91d81b79e5a1a635ad60661458dd129a27"
+    },
+    "windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-child-exit.json": {
+      "bytes": 106,
+      "sha256": "3cb3189ef73e924804fc2743e4f57faa9c24d28e2d05452c05ff9e491d4400ff"
+    },
+    "windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-1.completed.json": {
+      "bytes": 157,
+      "sha256": "23def0ed9eac9dd9f9da3f69880d5e7ba6b90c626e0f29397e30a8a51dec3aed"
+    },
+    "windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-1.stdout": {
+      "bytes": 111,
+      "sha256": "d39cc7d519ebdc12b673195a460ff27cb2fede6cc62b843a22cf3039117ed28c"
+    },
+    "windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-1.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-task-run.json": {
+      "bytes": 489,
+      "sha256": "79c318008561d29377b8f4aaa3ede81b70669a7f3a6d1bb7ed3f2628abf835df"
+    },
+    "windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-task-run.jsonl": {
+      "bytes": 4714,
+      "sha256": "51cb1b85311132decff43bc8478403ac6469ba1521e41c5812978e07d8717c0e"
+    },
+    "windows-publish-diagnostic-preparation-20261026/runtime/raw/result.json": {
+      "bytes": 4466,
+      "sha256": "11546faa67d97c765d8756610e60686698b375a513fb9e36ec4a780e9869c6b6"
+    },
+    "windows-publish-diagnostic-preparation-20261026/runtime/raw/observations.jsonl": {
+      "bytes": 3670,
+      "sha256": "a7b2fdab2a8650d396cef21342f857e13394fee4a16f306b7a65c5ec9fec0fc0"
+    },
+    "windows-publish-diagnostic-preparation-20261026/runtime/raw/creator.stdout": {
+      "bytes": 848,
+      "sha256": "04e8ee67a84d1ccbd1fc4b37768d0ae4846e1352b24becd25b4b418e6bdadb69"
+    },
+    "windows-publish-diagnostic-preparation-20261026/runtime/raw/creator.stderr": {
+      "bytes": 18912,
+      "sha256": "8df508c0bf6a36450a6848736b864e121857f8a3df140b2391e5b70ad3372c19"
+    },
+    "windows-publish-diagnostic-preparation-20261026/runtime/raw/creator.owner.jsonl": {
+      "bytes": 888,
+      "sha256": "83cac2ee66966b23e0db18c7070d7141202e1d23d54c09e19fcfa48be955e7c8"
+    },
+    "windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-task-run.jsonl": {
+      "bytes": 4763,
+      "sha256": "241934c0e9ca002d4e09676ac885c80e535659349d19f897e73ee096043bdc83"
+    },
+    "windows-publish-events-preparation-20261026/runtime/raw/observations.jsonl": {
+      "bytes": 18227,
+      "sha256": "797c4a26857b37f4bdfbe83cb8dfff1b26d25b284dbe3d6aeb5a3bb188fdd4e8"
+    },
+    "windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-child-owner.json": {
+      "bytes": 1008,
+      "sha256": "d87905c1dd6d6d5e91ed0c80270b1c072099135d5aeec537261a6d00581c395a"
+    },
+    "windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-1.stdout": {
+      "bytes": 90,
+      "sha256": "560fbdce57ec6f0d174409161d22658ac6f429cb42b4af53e991b5f8fef97b5c"
+    },
+    "windows-publish-events-preparation-20261026/runtime/raw/creator.owner.jsonl": {
+      "bytes": 880,
+      "sha256": "c9c0925dc1b6378413dc5c16c9b93b6f5fefe91200c8c94445375afc2f16320e"
+    },
+    "windows-publish-events-preparation-20261026/runtime/raw/creator.stdout": {
+      "bytes": 848,
+      "sha256": "3cb2ab2210112e26ffa52b824b11e2ae14f6c1a34fb88ba284380e28d0a779d5"
+    },
+    "windows-publish-events-preparation-20261026/runtime/raw/creator.stderr": {
+      "bytes": 18912,
+      "sha256": "8df508c0bf6a36450a6848736b864e121857f8a3df140b2391e5b70ad3372c19"
+    },
+    "windows-publish-events-preparation-20261026/runtime/raw/directory.bin": {
+      "bytes": 982,
+      "sha256": "ad270bdd702fe466b1cb7e3bcca307fe82da4863d06822f44d40b8ad479611de"
+    },
+    "windows-publish-events-preparation-20261026/runtime/raw/result.json": {
+      "bytes": 8728,
+      "sha256": "7f5a49c3c35da8ace940107bad507813e6e03e53d65184252da6307324db966b"
+    },
+    "windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-1.completed.json": {
+      "bytes": 157,
+      "sha256": "cac7f17be7403c4f676ae1ba4bdab77fa90198285e8c35bcdbd04bfe907c6b61"
+    },
+    "windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-1.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-task-run.json": {
+      "bytes": 492,
+      "sha256": "26011e16230d624a3357231b8bb03655260301d391dfb6a5d6a5aeb79890a317"
+    },
+    "windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-child-exit.json": {
+      "bytes": 105,
+      "sha256": "4a56c70754458263fe837696f0942d8d4c4ab57099af4c82934acf76707b1607"
+    },
+    "windows-publish-events-preparation-20261026/runtime/raw/publish-events-a93e37ce-context-entry.json": {
+      "bytes": 294,
+      "sha256": "06855b552e26a2e8b45f1f3f590ccffd843ef59d43ee86811b7a3af9c1c64196"
+    }
+  },
+  "personal_profile_paths_and_SID": "omitted from this curated summary; original owned-fixture receipts retained separately",
+  "SDK_ordinary_desktop_context": {
+    "same_cached_SDK11_controller_and_runtime": true,
+    "new_Rust_or_SDK_build": false,
+    "same_authenticated_account": true,
+    "session": 1,
+    "user_interactive": true,
+    "administrator_role_enabled": false,
+    "selected_pins_verified_before_SDK": true,
+    "distinct_member_public_join_complete": true,
+    "disabled_service_no_target_effect": true,
+    "asynchronous_HTTP_status": 200,
+    "exact_body_and_independent_target_observation": true,
+    "provider_bound_gateway_HTTP": true,
+    "provider_bound_gateway_WebSocket": {
+      "text": true,
+      "binary": true,
+      "close_code": 1000,
+      "SDK_closed": true,
+      "SDK_failed": false
+    },
+    "actual_target_started_pending_cancel_joined": true,
+    "stale_request_handle_rejected": true,
+    "remaining_request_handles": 0,
+    "remaining_socket_handles": 0,
+    "remaining_active_flows": 0,
+    "original_provider_and_consumer_exit": [
+      0,
+      0
+    ],
+    "live_process_readers": 0,
+    "gateway_thread_and_loop_joined": true,
+    "gateway_executor_threads_alive": 0,
+    "target_reader_joined": true,
+    "target_active_websockets": 0,
+    "cleanup_errors": [],
+    "unsettled": [],
+    "source_drift": [],
+    "temporary_task": {
+      "same_account_interactive_token": true,
+      "run_level": "LUA/least privilege",
+      "triggers": 0,
+      "registrations": 1,
+      "demand_starts": 1,
+      "run_seconds": 17.3296593,
+      "original_instance_terminal": true,
+      "removed_and_absent": true
+    },
+    "qualification": "headless SDK/public-Web/gateway business; actual content-container integration and isolation remain unproved",
+    "original_SSH_Os5_failure_preserved": true,
+    "specific_SSH_failure_cause": "UNKNOWN",
+    "ACL_workaround_or_Rust_fix_applied": false
+  },
+  "WebView2_integrated_entry": {
+    "cached_SDK11_and_final_host_reused": true,
+    "new_compiler_SDK_pin_or_SDK_copy": false,
+    "same_authenticated_account": true,
+    "session": 1,
+    "user_interactive": true,
+    "administrator_role_enabled": false,
+    "distinct_consumer_public_join_complete": true,
+    "callback_is_real_SDK": true,
+    "provider_bound": true,
+    "actual_page_script_fetch_exact": true,
+    "actual_computed_CSS": "rgb(12, 34, 56)",
+    "actual_decoded_image_width": 2,
+    "independent_target_observation": true,
+    "SDK_HTTP_resource_records": [
+      "page",
+      "style.css",
+      "pixel.svg",
+      "app.js",
+      "api"
+    ],
+    "own_HWND_and_UI_thread_match_before_and_after_environment": true,
+    "private_close": true,
+    "original_stdin_input_joined": true,
+    "engine_exit_observed": true,
+    "engine_exit_event_observed": true,
+    "initialization_finished": true,
+    "host_failed": false,
+    "original_host_exit": 0,
+    "live_host_readers": 0,
+    "original_provider_and_consumer_exit": [
+      0,
+      0
+    ],
+    "live_SDK_readers": 0,
+    "gateway_thread_and_loop_joined": true,
+    "gateway_executor_threads_alive": 0,
+    "target_reader_joined": true,
+    "target_active_websockets": 0,
+    "cleanup_errors": [],
+    "unsettled": [],
+    "source_drift": [],
+    "runtime_hash_unchanged": true,
+    "temporary_task": {
+      "same_account_interactive_token": true,
+      "run_level": "LUA/least privilege",
+      "triggers": 0,
+      "registrations": 1,
+      "demand_starts": 1,
+      "run_seconds": 25.137672,
+      "original_instance_terminal": true,
+      "removed_and_absent": true
+    },
+    "new_sources": {
+      "check_web_windows_integration.py": "1328e5b537c3c8fefb4e576527961acb9115ebca0f1956bfdb6052cdfba9ffc2",
+      "web_windows_content_runtime.py": "b94fc2baf9d9b4db9ad526f562ba57f83464b80e2902649a7762eeead8b4d28a"
+    },
+    "qualification": "actual page/resource entry and original ownership settlement only",
+    "remaining": [
+      "content login/Cookie/navigation and native WebSocket",
+      "management/origin/storage/native IPC isolation",
+      "current ACL and guest lifecycle",
+      "Windows/Linux provider roles and independent WASM"
+    ],
+    "whole_M119_accepted": false
+  },
+  "ordinary_context_initialization_failure": {
+    "case": "integration-content-1",
+    "same_authenticated_account": true,
+    "session": 1,
+    "user_interactive": true,
+    "administrator_role_enabled": false,
+    "selected_pins_verified": true,
+    "entry": "SDK11 public create provider",
+    "error": "Io(Os5 PermissionDenied) beforeReady",
+    "provider_original_exit": 1,
+    "provider_live_readers": 0,
+    "consumer_created": false,
+    "content_renderer_created": false,
+    "management_control_renderer_created": false,
+    "content_or_isolation_oracles_reached": false,
+    "independent_target_preconditions_passed": true,
+    "target_cleanup_passed": true,
+    "original_Python_exit": 1,
+    "whole_case_result": "FAILED",
+    "cleanup_errors": [
+      {
+        "owner": "provider",
+        "type": "RuntimeError",
+        "message": "owned Windows child did not settle cleanly"
+      }
+    ],
+    "unsettled": [],
+    "source_drift": [],
+    "exact_task_terminal_and_removed_absent": true,
+    "partial_collection": {
+      "existing_files": 13,
+      "bytes": 11627,
+      "exit": 1,
+      "missing_never_created_files": 9
+    },
+    "SSH_only_explanation_disproved": true,
+    "specific_operation_and_cause": "UNKNOWN",
+    "earlier_narrow_passes_preserved": true,
+    "system_ACL_changed": false,
+    "Rust_fix_applied": false
+  },
+  "expanded_initialization_diagnosis": {
+    "status": "instrumented create/join/open startup case qualified as unlocalized; original Os5 remains unresolved",
+    "original_SDK11_source_archive_sha256": "872d6f889052e2e262ca45ff8506b24820cd67fbf9a023b4d01b9382743655fb",
+    "source_preparation_receipt": "sdk11-init-diagnostic-source/final/source-graph.json",
+    "scope": [
+      "shared create/join/open initialization",
+      "private file and SQLite caller boundaries",
+      "atomic publication and postpublication startup"
+    ],
+    "diagnostic_source_files": 3,
+    "logging": "tagged static operation/path-kind/stage/error-code fields; no private paths or values",
+    "behavior_fix_qualified": false,
+    "runtime_cause_proved": false,
+    "source_preparation_is_runtime_evidence": false,
+    "build_replay_gap": {
+      "status": "native source archive is not a complete workspace replay input",
+      "error": "Cargo manifest parsing cannot find browser-probe/src/lib.rs",
+      "Cargo_invocations": 1,
+      "compiler_artifact_messages": 0,
+      "new_diagnostic_pin": false,
+      "original_runtime_passes_and_failures_retained": true,
+      "scope": "original parse-failing replay; original535 archive retained; exact32 historical members restored for the later qualified diagnostic build",
+      "remediation": "completed with matching historical archive; original root/browser manifests and lock unchanged"
+    },
+    "historical_workspace_supplement_archive_sha256": "00eebc57c3a53f79fab93b85e8377ba069432ddb71ed8208e65c5e610a5f6040",
+    "complete_diagnostic_source_manifest_sha256": "e04ddc7af88e7bbc9740eda11a7835ab2ed704da382ec8f5bed28b07df79299e",
+    "diagnostic_build": {
+      "PE_sha256": "70aba7ef847b4ca4409c28d643ba6ac1a5bf32ecbc28b6ed48c70529cd1c1f40",
+      "PE_bytes": 187218409,
+      "source_files": 567,
+      "Cargo_exit": 0,
+      "outer_driver_exit": 1,
+      "outer_failure": "post-pin JSON receipt serialization; original failed result preserved and settlement qualified separately",
+      "Fresh": 519,
+      "rebuilt": 9,
+      "own_rebuilt": 2,
+      "unexpected_dependency_rebuilt": 7,
+      "all528_artifact_identity_records_equal_to_original_graph_except_fresh": true,
+      "all485_depfile_hashes_equal": true,
+      "exact_prior_dirty_trigger": "UNKNOWN; not retained before compilation",
+      "original_processes_and_exact_compiler_container_settled": true,
+      "runtime_attempted": true,
+      "runtime_cause_proved": false
+    },
+    "runtime_case": {
+      "case": "sdk-init-diagnostic-1",
+      "outcome": "UNLOCALIZED_WITHIN_THIS_CASE",
+      "PE_sha256": "70aba7ef847b4ca4409c28d643ba6ac1a5bf32ecbc28b6ed48c70529cd1c1f40",
+      "scope": "onecreate; onepre-admissionjoin AwaitingApproval; stop/open samejoiner identity; no JoinComplete or business claim",
+      "same_authenticated_account": true,
+      "session": 1,
+      "user_interactive": true,
+      "administrator_role_enabled": false,
+      "all_three_original_processes_exit0_and_readers0": true,
+      "tag_rows": 270,
+      "tagged_error_or_raw_OS_code": false,
+      "original_Python_exit": 0,
+      "temporary_task_run_seconds": 8.9050423,
+      "temporary_task_terminal_and_removed_absent": true,
+      "cleanup_errors": [],
+      "unsettled": [],
+      "source_drift": [],
+      "original_failures_resolved": false,
+      "failing_operation_or_cause_localized": false,
+      "reliable_initialization_proved": false,
+      "raw_files": 19,
+      "raw_bytes": 53258,
+      "instrumentation_may_affect_occurrence": true
+    }
+  },
+  "instrumented_Windows_content_case": {
+    "case": "integration-content-diagnostic-1",
+    "SDK_SHA256": "70aba7ef847b4ca4409c28d643ba6ac1a5bf32ecbc28b6ed48c70529cd1c1f40",
+    "original_result_label": "PASS",
+    "overall_clean_PASS_accepted": false,
+    "coverage": {
+      "actual_https_WS_prerequisite": true,
+      "distinct_public_SDK_members": true,
+      "real_SDK_provider_bound_WebView2_resources": true,
+      "form_POST_Cookie_authenticated_read_303_navigation": true,
+      "native_WS_greeting_text_37bytes_Cookie_clean1000_SDK_failed_false": true,
+      "seven_gateway_denials_with_target_no_effect": true,
+      "positive_management_renderer_storage_before_after": true,
+      "actual_content_IPC_file_origin_storage_attempts_no_effect": true,
+      "generic_WebView_and_postMessage_exception_not_oracles": true,
+      "pending_target_hit_close_under5_no_false_success": true
+    },
+    "native_management_handlers_declared": false,
+    "generic_WebView_object_exists": true,
+    "actual_postMessage_attempt_completed": true,
+    "postMessage_error": false,
+    "positive_storage_controls_and_provider_state_unchanged": true,
+    "recorded_all_four_process_exit0_and_readers0": true,
+    "recorded_both_host_engine_exit_and_event": true,
+    "pending_close_seconds": 0.35333900002297014,
+    "callback_anomaly": {
+      "raw_file": "content-diag-context-1.stderr",
+      "bytes": 441,
+      "sha256": "d1065bc12950a56fea587013f78ec975b2670e9cdf81680f72742c99757ea8ea",
+      "type": "ConnectionResetError",
+      "winerror": 10054,
+      "callback": "_ProactorBasePipeTransport._call_connection_lost",
+      "exact_loop_transport_phase": "UNKNOWN",
+      "expected_or_harmless": "NOT_PROVED",
+      "new_issue_family": "shared fixture asyncio callback/transport observability; mature related lifecycle history retained, no common cause assumed"
+    },
+    "all_private_TCP_and_callback_clean_lifecycle_proved": false,
+    "original_Os5_failures_resolved": false,
+    "runtime_hash_unchanged": true,
+    "source_drift": [],
+    "temporary_task_seconds": 38.618178799999995,
+    "temporary_task_terminal_and_removed_absent": true,
+    "raw_files": 22,
+    "raw_bytes": 115270,
+    "all312_SDK_trace_rows_no_error_or_rawOS": true,
+    "scope": "current typed Windows fixture and diagnostic SDK only; callback gap does not erase real functional observations and does prevent clean lifecycle acceptance"
+  },
+  "local_owned_loop_close_regression": {
+    "status": "LOCAL_PUBLIC_CONSTRUCTORS_RED_THEN_GREEN; WINDOWS10054_IO_CAUSE_UNRESOLVED",
+    "qualification_receipt_sha256": "5ce2c963bead326d993a1bc0ace8c75857b3df630b50dcc9efad25a541ec51dd",
+    "independent_Root_qualification_sha256": "1ec39388c4e7c07fb8232d90c40edeb54ffcf8fd7bfa8a2cfa92aaa0eb1837c3",
+    "same_harness_sha256": "6c82cc100f592009bcd1060fcfea857166b71ff7780d28c4464894f045318159",
+    "meaningful_RED_result_sha256": "0f87094cf7fcab80c9f42eace3ecff11473d6919918e8af6d46f2ffb4462a2db",
+    "GREEN_result_sha256": "96b6e573e662e48315528d91b52598dbc9eb9cf323ad1902f91901ba391cf261",
+    "cases": "gateway and target; normal close and recorded callback-context replay; four cases each version",
+    "RED": "all four fail repeated-close assertions; first outcome lost; closed loop rescheduled; gateway unawaited coroutine warnings",
+    "GREEN": "all four pass unchanged assertions; same first receipt or error; zero second-close scheduling calls and warnings; original owned loops/threads/executors/listeners/attached clients settled",
+    "default_reporter_two_replayed_exceptions_preserved": true,
+    "source": {
+      "web_asyncio_observer.py": {
+        "bytes": 5745,
+        "sha256": "6412c41e13da033af3a762fcc91ba6d0c8b1b84627d3dd8b497f14830efec113"
+      },
+      "web_content_gateway.py": {
+        "bytes": 20944,
+        "sha256": "5b7db83b3c1716919df964d2a51df8835a44807b1154be53bb7a42c13a2c9ab6"
+      },
+      "web_protocol_target.py": {
+        "bytes": 12967,
+        "sha256": "0e820cd2a06cf5f065410d0b8d3c3a297b5bbe18420491948784746ad2f5a23d"
+      },
+      "check_web_windows_sdk.py": {
+        "bytes": 10409,
+        "sha256": "99a2fe843e6f8297f139e2b25f81f8958cab6f9907f1c94599b595e0c27f90c7"
+      },
+      "check_web_service.py": {
+        "bytes": 11853,
+        "sha256": "6d5b156ba5a69dc7c71226c08c7fe422073b52932f98997c53bcbdea5a5b9d92"
+      },
+      "check_web_owned_loop_cleanup.py": {
+        "bytes": 6640,
+        "sha256": "6c82cc100f592009bcd1060fcfea857166b71ff7780d28c4464894f045318159"
+      }
+    },
+    "dependency_scope": {
+      "Python": "3.13.11 Linux",
+      "aiohttp": "3.13.3",
+      "cryptography": "46.0.5",
+      "cffi_backend": "2.1.0 existing Linux extension hash535ac8449b387bb7ed1e9d5a1cb6731efae0c80182380ef1fbab6e696b4b404d",
+      "same_source_and_dependency_harness_for_RED_and_GREEN": true,
+      "no_install_download_newpin_or_nativecopy": true
+    },
+    "next_frozen_packet": {
+      "plan_sha256": "015c67c4de464efe4ac47235e209f0cbc4eab1be7496b84dd155ceb4a4330e74",
+      "files": 15,
+      "bytes": 180004,
+      "manifest_files": 463,
+      "new_builds_pins_PE_copies": 0,
+      "deployment_or_Windows_test_executed": true,
+      "exact_new_user_authorization_pending": false,
+      "explicit_user_authorization_received": true,
+      "authorization_receipt_sha256": "f006d48735a679661493013c3a7ab42f34d91f5dd30ba432ffc94b7ec72be1a4",
+      "single_approved_run_consumed": true
+    },
+    "limits": [
+      "recorded error-context replay does not reproduce Windows Proactor I/O",
+      "original callback loop/phase/transport remains unknown",
+      "original 441-byte stderr and PASS label remain retained",
+      "no Windows10054 repair, reliable initialization or whole M119 acceptance"
+    ],
+    "known_live": []
+  },
+  "observed_Windows_owned_loop_case": {
+    "status": "ORIGINAL_PASS_LABEL_RETAINED; FROZEN_SERVER_ATTACHED_CLIENT_ZERO_ORACLE_FAILED; NO_CLEAN_LIFECYCLE_ACCEPTANCE",
+    "root_independent_qualification_sha256": "e2490a4ed056790cfa6c46593e3a94763a9fd7e0998a8481e3992579dcaa8169",
+    "case": "integration-content-loop-observed-1",
+    "nonce": "ca7f16f6-6a50-4cce-8424-a2e0be7bb7c2",
+    "raw_directory_literal": "integration-content-loopnostic-1-raw",
+    "raw_files": 22,
+    "raw_total_bytes": 181382,
+    "original_processes": {
+      "stage": 31376,
+      "task": 85618,
+      "collection": 97566,
+      "all_terminal_exit": 0
+    },
+    "original_Task_GUID": "{BCC972D7-B7CE-406E-8CCA-343964C6C062}",
+    "run_seconds": 44.646009,
+    "Task_terminal_and_registration_removed": true,
+    "ordinary_context": {
+      "session": 1,
+      "interactive": true,
+      "enabled_administrator": false,
+      "selected_pins_verified_before_SDK": true
+    },
+    "original_business_result": "PASS",
+    "functional_observations": {
+      "actual_SDK_provider_WebView2_resources": {
+        "actual_page": true,
+        "script_fetch_exact": true,
+        "stylesheet_applied": true,
+        "image_decoded": true,
+        "independent_target_observed": true,
+        "provider_bound": true,
+        "callback_is_real_SDK": true
+      },
+      "gateway_negative_outcomes": {
+        "outcomes": [
+          {
+            "case": "missing_cookie",
+            "actual": 403,
+            "expected": 403
+          },
+          {
+            "case": "wrong_host",
+            "actual": 403,
+            "expected": 403
+          },
+          {
+            "case": "other_absolute_origin",
+            "actual": 403,
+            "expected": 403
+          },
+          {
+            "case": "wrong_origin",
+            "actual": 403,
+            "expected": 403
+          },
+          {
+            "case": "opaque_origin",
+            "actual": 403,
+            "expected": 403
+          },
+          {
+            "case": "management_rpc",
+            "actual": 404,
+            "expected": 404
+          },
+          {
+            "case": "connect",
+            "actual": 403,
+            "expected": 403
+          }
+        ],
+        "target_requests_before": 7,
+        "target_requests_after": 7
+      },
+      "actual_content_login_navigation": {
+        "form_post": true,
+        "cookie_received_by_target": true,
+        "redirect_303": true,
+        "navigation": true
+      },
+      "actual_content_websocket": {
+        "native_websocket_api": true,
+        "unsolicited_greeting": true,
+        "text_and_binary_exact": true,
+        "login_cookie_reached_socket_target": true,
+        "target_independently_observed": true,
+        "normal_close": true,
+        "content_close_code": 1000,
+        "content_wasClean": true,
+        "SDK_failed": false,
+        "module_and_target_owners_settled": true,
+        "target_tls": true
+      },
+      "positive_management_storage_controls": {
+        "separate_actual_renderer": true,
+        "different_origin": true,
+        "different_profile": true,
+        "localStorage_seeded": true,
+        "Cookie_seeded": true,
+        "IndexedDB_seeded_and_read": true,
+        "synthetic_file_present": true
+      },
+      "actual_Windows_content_isolation": {
+        "attempts": {
+          "contentIDBWorked": true,
+          "done": true,
+          "externalFetchDenied": true,
+          "externalSocketDenied": true,
+          "fileDenied": true,
+          "genericWebViewObject": true,
+          "managementCookieAbsent": true,
+          "managementHostObjectDenied": true,
+          "managementIndexedDBAbsent": true,
+          "managementOriginDenied": true,
+          "managementRPCDenied": true,
+          "managementStorageAbsent": true,
+          "nativeIPCAttemptCompleted": true,
+          "nativeIPCError": false,
+          "noNode": true,
+          "noTauriIPC": true,
+          "parentNodeDenied": true
+        },
+        "positive_management_controls_still_intact": true,
+        "synthetic_file_unchanged": true,
+        "direct_owned_http_ws_frame_image_no_effect": true,
+        "management_origin_no_effect": true,
+        "provider_configuration_unchanged": true,
+        "actual_native_handlers_declared": false
+      },
+      "actual_content_pending_close": {
+        "platform": "Windows WebView2",
+        "target_observed_pending": true,
+        "close_seconds": 0.33244069991633296,
+        "all_module_owners_joined": true
+      }
+    },
+    "all_original_native_handles_readers_and_host_input_engine_observations_settled": true,
+    "outer_and_host_stderr_empty": true,
+    "observed_loops": [
+      {
+        "owner": "gateway:content-gateway",
+        "failures": 0,
+        "overflow": 0,
+        "loop_id": 1679608739984,
+        "loop_class": "ProactorEventLoop",
+        "loop_running": false,
+        "loop_closed": true,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 1679609283600,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 3,
+            "client_set_available": true
+          },
+          {
+            "name": "http-proxy",
+            "server_id": 1679609282960,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      },
+      {
+        "owner": "gateway:management-control-gateway",
+        "failures": 0,
+        "overflow": 0,
+        "loop_id": 1679608552656,
+        "loop_class": "ProactorEventLoop",
+        "loop_running": false,
+        "loop_closed": true,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 1679608553568,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 0,
+            "client_set_available": true
+          },
+          {
+            "name": "http-proxy",
+            "server_id": 1679608553872,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      },
+      {
+        "owner": "target:2",
+        "failures": 0,
+        "overflow": 0,
+        "loop_id": 1679607099952,
+        "loop_class": "ProactorEventLoop",
+        "loop_running": false,
+        "loop_closed": true,
+        "servers": [
+          {
+            "name": "http",
+            "server_id": 1679609311120,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      },
+      {
+        "owner": "target:1",
+        "failures": 0,
+        "overflow": 0,
+        "loop_id": 1679609219792,
+        "loop_class": "ProactorEventLoop",
+        "loop_running": false,
+        "loop_closed": true,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 1679609222816,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      },
+      {
+        "owner": "target:1:socket-prerequisite",
+        "failures": 0,
+        "overflow": 0,
+        "loop_id": 1679608739024,
+        "loop_class": "ProactorEventLoop",
+        "loop_running": false,
+        "loop_closed": true,
+        "servers": []
+      }
+    ],
+    "callback_failures_and_overflow": 0,
+    "first_failed_closure_oracle": {
+      "owner": "gateway:content-gateway",
+      "loop_id": 1679608739984,
+      "server": {
+        "name": "https",
+        "server_id": 1679609283600,
+        "serving": false,
+        "listeners": 0,
+        "attached_clients": 3,
+        "client_set_available": true
+      }
+    },
+    "main_gateway_phase_history": [
+      {
+        "phase": "created",
+        "loop_closed": false,
+        "loop_running": false,
+        "servers": []
+      },
+      {
+        "phase": "starting",
+        "loop_closed": false,
+        "loop_running": false,
+        "servers": []
+      },
+      {
+        "phase": "server_registered",
+        "loop_closed": false,
+        "loop_running": true,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 1679609283600,
+            "serving": true,
+            "listeners": 1,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      },
+      {
+        "phase": "server_registered",
+        "loop_closed": false,
+        "loop_running": true,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 1679609283600,
+            "serving": true,
+            "listeners": 1,
+            "attached_clients": 0,
+            "client_set_available": true
+          },
+          {
+            "name": "http-proxy",
+            "server_id": 1679609282960,
+            "serving": true,
+            "listeners": 1,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      },
+      {
+        "phase": "running",
+        "loop_closed": false,
+        "loop_running": false,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 1679609283600,
+            "serving": true,
+            "listeners": 1,
+            "attached_clients": 0,
+            "client_set_available": true
+          },
+          {
+            "name": "http-proxy",
+            "server_id": 1679609282960,
+            "serving": true,
+            "listeners": 1,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      },
+      {
+        "phase": "cancelling_requests",
+        "loop_closed": false,
+        "loop_running": true,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 1679609283600,
+            "serving": true,
+            "listeners": 1,
+            "attached_clients": 3,
+            "client_set_available": true
+          },
+          {
+            "name": "http-proxy",
+            "server_id": 1679609282960,
+            "serving": true,
+            "listeners": 1,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      },
+      {
+        "phase": "app_runner_cleanup",
+        "loop_closed": false,
+        "loop_running": true,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 1679609283600,
+            "serving": true,
+            "listeners": 1,
+            "attached_clients": 3,
+            "client_set_available": true
+          },
+          {
+            "name": "http-proxy",
+            "server_id": 1679609282960,
+            "serving": true,
+            "listeners": 1,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      },
+      {
+        "phase": "ssl_callback_drain",
+        "loop_closed": false,
+        "loop_running": true,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 1679609283600,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 3,
+            "client_set_available": true
+          },
+          {
+            "name": "http-proxy",
+            "server_id": 1679609282960,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      },
+      {
+        "phase": "shutdown_complete",
+        "loop_closed": false,
+        "loop_running": true,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 1679609283600,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 3,
+            "client_set_available": true
+          },
+          {
+            "name": "http-proxy",
+            "server_id": 1679609282960,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      },
+      {
+        "phase": "shutdown_asyncgens",
+        "loop_closed": false,
+        "loop_running": false,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 1679609283600,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 3,
+            "client_set_available": true
+          },
+          {
+            "name": "http-proxy",
+            "server_id": 1679609282960,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      },
+      {
+        "phase": "loop_close",
+        "loop_closed": false,
+        "loop_running": false,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 1679609283600,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 3,
+            "client_set_available": true
+          },
+          {
+            "name": "http-proxy",
+            "server_id": 1679609282960,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      },
+      {
+        "phase": "loop_closed",
+        "loop_closed": true,
+        "loop_running": false,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 1679609283600,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 3,
+            "client_set_available": true
+          },
+          {
+            "name": "http-proxy",
+            "server_id": 1679609282960,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      }
+    ],
+    "main_gateway_early_close_not_repeated_in_result_cleanup": true,
+    "frozen_all_server_attached_clients_zero_oracle_passed": false,
+    "clean_transport_lifecycle_accepted": false,
+    "SDK_diagnostic_tags_without_error": 312,
+    "SDK_stdout_rows_parsed": 401,
+    "consumer_pending_only_rows_counted_not_individually_full_read": 319,
+    "previous_10054_cause_or_repair_claim": false,
+    "single_approved_run_repeated": false,
+    "limits": [
+      "weak attached-client membership is not proof of live OS socket or process",
+      "no individual retained transport state captured; exact TLS state and closure cause unknown",
+      "original prior441-byte10054stderr unchanged; no recurrence does not establish repair or cause",
+      "new attached-client0 qualification was enforced externally; original errors-only PASS label does not implement that stronger oracle",
+      "current ACL/guest/crossplatform/reliable SDK initialization and fullM119 remain open"
+    ],
+    "known_live": []
+  },
+  "local_registered_server_TLS_close_fix": {
+    "status": "LOCAL_FIX_AND_EXPLICIT_ONE_WINDOWS_TLS_CASE_QUALIFIED; FULL_M119_INCOMPLETE",
+    "root_qualification_sha256": "3192f919d6b3a39074f04cae8702f55527c47c11e061d7e965a92212a81a9543",
+    "source_graph_sha256": "d9d6443df013a5c6ba2973bd4da4f056b6e516764308cc2cccfc14dfa5a64a6d",
+    "source": {
+      "web_content_gateway.py": {
+        "bytes": 20989,
+        "sha256": "13cd01c6650209b7af045d9b2a09ed095c9db131db81270ccd0f386cc92ef618"
+      },
+      "web_protocol_target.py": {
+        "bytes": 13016,
+        "sha256": "f0e055ace19603870e5509a75f6f24ff7364fd53dc48fb99ace8242ee15f6d54"
+      },
+      "web_asyncio_observer.py": {
+        "bytes": 6970,
+        "sha256": "10a135e6baf008cf3b461bb23975374e9eff87bee9d20b61f2ef9a4ad6c2a2d8"
+      },
+      "web_tls_fixture.py": {
+        "bytes": 3933,
+        "sha256": "a7ccc92f2c505a0d976326f54999825b53e8aeda959aa87fc45c80f8db85b13f"
+      },
+      "web_process_owner.py": {
+        "bytes": 8089,
+        "sha256": "0b4f9d4b27fa610590d3cf0d237eb89ebdc9eeb352faca58c0e1d1107968331c"
+      },
+      "forwarding_local_resources.py": {
+        "bytes": 6852,
+        "sha256": "baec2ff7aba006cdc23cbb60a80ffb62b5342cdda6f198295cfcca0722eeec11"
+      },
+      "check_forwarding.py": {
+        "bytes": 14011,
+        "sha256": "e6970b129f505e3cdcebdc0153f3308f18ef8a03ebafec1698cc714fd88e726c"
+      }
+    },
+    "same_TLS_harness_sha256": "1a843b7d01b99fdc6fe9cdf6020367659a85efd6416e330fa85cfe27a671b1b0",
+    "same_callback_harness_sha256": "6c82cc100f592009bcd1060fcfea857166b71ff7780d28c4464894f045318159",
+    "TLS_RED_result_sha256": "21e7c77286e4bb423ba47eeed7a95a3ebca539f1c335bf5c4632b1b35b4968c2",
+    "TLS_GREEN_result_sha256": "e027bcdb30aab71f280281b35ca803203013b305cdb5f365f356a861dd4e8ea4",
+    "meaningful_TLS_RED": "gateway and target with client kept open: attached1/socket_unreleased/nonnegative_fd after loopclose; both client-closed-first controls passed",
+    "TLS_GREEN": "same four cases passed; zero attached/listeners/remaining transport snapshots, close0.26298-0.26334s<unchanged5s",
+    "affected_callback_repeated_close": {
+      "result": "PASS",
+      "source_graph_sha256": "d9d6443df013a5c6ba2973bd4da4f056b6e516764308cc2cccfc14dfa5a64a6d",
+      "harness_sha256": "6c82cc100f592009bcd1060fcfea857166b71ff7780d28c4464894f045318159",
+      "result_sha256": "850b0ee5347abff5235c88fb1e3d436c4bba372bdbd808ccaf4124482a01a096",
+      "all_four_pass": true,
+      "first_error_or_receipt_identity_retained": true,
+      "second_scheduling_and_warnings_zero": true,
+      "default_reporter_two_replayed_contexts_preserved": true
+    },
+    "actual_terminal_sessions": {
+      "TLS_RED": {
+        "session": 8439,
+        "exit": 1
+      },
+      "TLS_GREEN": {
+        "session": 2927,
+        "exit": 0
+      },
+      "affected_callback_regression": {
+        "session": 10501,
+        "exit": 0
+      }
+    },
+    "fix": "public close/close_clients/wait_closed on exact registered original-loop servers before loopstop; called by shared gateway and target; zero attached/listener predicate enforced",
+    "original_business_client_order_and_deadlines_preserved": true,
+    "Windows_corrected_source_deployed_or_tested": true,
+    "original_Windows3_transport_states_or_Win10054_cause_claim": false,
+    "dependency_scope": "same LinuxPython3.13.11/aiohttp3.13.3/cryptography46.0.5/cffi2.1.0 as earlier local regression; no install/newpin/Cargo/PEcopy",
+    "limits": [
+      "local Linux3.13.11 proof does not establish states/cause of prior Windows three retained members",
+      "no original Win10054 or SDKOs5 cause/fix claim",
+      "Windows3.13.17 ONE902 case passed after separate explicit user authorization; its grant is consumed",
+      "Python3.12 lacks public close_clients; live-client fixture qualification explicitly fails rather than silently passes; no product version decision",
+      "no fullM119 acceptance"
+    ],
+    "known_live_local_test_handles": [],
+    "next_Windows_packet": {
+      "plan_sha256": "787395ce0af2fc8480076b19a9906db9eec16faa68da1584364296893dedb615",
+      "files": 15,
+      "bytes": 182932,
+      "full_manifest_files": 476,
+      "case": "integration-content-tls-closed-1",
+      "nonce": "902b4a63-d54a-4edc-a097-95fdb45a5d38",
+      "Root_packet_review_sha256": "c63933930c8a59f8947d0f4cf346f16ef4c9297c228d40f88861cb4913ce652a",
+      "exact_new_user_authorization_pending": false,
+      "actual_post_previous_case_owned_root": 499470103,
+      "conservative_after_new_reserve": 644356523,
+      "same_remote_cap": 757585899,
+      "status": "EXECUTED_ONCE_AND_QUALIFIED_AFTER_EXPLICIT_USER_AUTHORIZATION",
+      "original_16MiB_stage_driver_remains_unexecuted": true,
+      "executed_stage_driver_sha256": "4e968de3e961aa8e411678ca5868b3028565b66844c556af9986d130da700dd3",
+      "single_case_grant_consumed": true
+    }
+  },
+  "Windows_TLS_closure_case": {
+    "path": "tls-closure-qualification.json",
+    "sha256": "3496478f6ce968798e51c50d4416306689190f183f1c4f0c5b69f79008dc3a14",
+    "status": "ONE_WINDOWS_TLS_CLOSURE_CASE_PASS; GRANT_CONSUMED"
+  },
+  "Windows_ACL_guest_source_preparation": {
+    "path": "acl-guest-source-preparation.json",
+    "bytes": 4716,
+    "sha256": "027c2ace3a59c2775d82bf8523d8ef00741c242fb2a5cb60f6dd2c45b6f17b58",
+    "status": "SOURCE_REVIEW_PASSED; AUTHORIZED_FIRST_CASE_FAILED; GUEST_NOT_STARTED"
+  },
+  "Windows_ACL_guest_first_runtime_result": {
+    "path": "acl-guest-runtime-qualification.json",
+    "bytes": 14744,
+    "sha256": "734803f6986ac5f08a1ea3e5f85d43b2eac2a51c81407a67380b8f9fb0ef299b",
+    "status": "FIRST_WINDOWS_POLICY_CASE_FAILED_AT_PROVIDER_CREATE; GUEST_NOT_STARTED"
+  },
+  "Windows_publication_diagnostic_source_preparation": {
+    "path": "publication-diagnostic-preparation.json",
+    "bytes": 6303,
+    "sha256": "f611a61cbe82a0df127eb4efe5118c2589a3dc9b4efb3391d616dec606f32a03",
+    "status": "EXPLICITLY_AUTHORIZED_AND_EXECUTED_ONCE; DIAGNOSTIC_UNLOCALIZED; ORIGINAL_POLICY_STILL_FAILED"
+  },
+  "Windows_publication_diagnostic_result": {
+    "path": "publication-diagnostic-qualification.json",
+    "bytes": 13105,
+    "sha256": "b7375f1b6214aee4620adfc37f79e6584f4f55afda3ec023ace1b9f2ff12bf36",
+    "status": "ONE_PUBLICATION_DIAGNOSTIC_RECONCILED; UNLOCALIZED_SUCCESS; ORIGINAL_OS5_NOT_REPAIRED"
+  },
+  "Windows_publication_event_diagnostic_source_preparation": {
+    "path": "directory-event-diagnostic-preparation.json",
+    "bytes": 17586,
+    "sha256": "6eb092366bc4c1499a3aab3953416772ea4a289adcca753cd0334d8aeb169fd8",
+    "status": "EXPLICITLY_AUTHORIZED_AND_EXECUTED_ONCE; UNLOCALIZED_SUCCESS_WITH_NATIVE_STAGING_EVENTS_AND_METADATA; ORIGINAL_OS5_NOT_REPAIRED"
+  },
+  "Windows_publication_event_diagnostic_result": {
+    "path": "directory-event-diagnostic-qualification.json",
+    "bytes": 29172,
+    "sha256": "b4ddb958e8fda189ac7fca1215bf3c44b8f03bf5aad17b3b527edc54c8680bdf",
+    "status": "ONE_AUTHORIZED_DIRECTORY_EVENT_DIAGNOSTIC_RECONCILED; UNLOCALIZED_SUCCESS; STAGING_OBSERVABILITY_QUALIFIED_NOT_ORIGINAL_OS5_REPAIR"
+  }
+}

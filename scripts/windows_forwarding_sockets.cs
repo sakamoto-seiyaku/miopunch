@@ -206,7 +206,10 @@ public sealed class MioForwardSockets : IDisposable
         }
         try
         {
-            socket.SendTimeout = socket.ReceiveTimeout = 10000;
+            // A native listener accepts locally before its remote SDK contact
+            // completes (default 60s), followed by a bounded 10s target dial.
+            // The independent observer must not abort that valid setup at 10s.
+            socket.SendTimeout = socket.ReceiveTimeout = 75000;
             IAsyncResult connecting = socket.BeginConnect(endpoint, null, null);
             using (connecting.AsyncWaitHandle)
             {

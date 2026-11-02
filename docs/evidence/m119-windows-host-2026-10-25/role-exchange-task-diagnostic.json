@@ -1,0 +1,85 @@
+{
+  "status": "DIAGNOSTIC_ONLY_ROLE_BUSINESS_UNQUALIFIED",
+  "date": "2026-10-27",
+  "task": "MIOPUNCH-119",
+  "windows_diagnostic": {
+    "scope": "One specifically approved read-only check of the original task and its fixed records, followed by an unregistered in-memory check of the original task definition.",
+    "observed": "The exact task, controller journal and four entry/child/completion records were absent. The original task definition passed its guard in memory with the current entry and XML hashes.",
+    "limit": "These observations support failure before registration under the original controller contract, but do not prove historical state against external changes or establish original Windows owner termination.",
+    "handoff": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-reader-proof-repair-20261027/runtime/task-definition-readonly-20261027/operator-handoff.json",
+    "handoff_sha256": "c2ce796aa68cc84b1231a0ec7f609ffba8a30830a375cbc32dcca436ac3ba09e"
+  },
+  "local_powershell_comparison": {
+    "scope": "On local Windows PowerShell 5.1, both variants use the original journal logic with only filesystem append replaced by an in-memory marker.",
+    "observed": "The original unscoped counter initialization raised RuntimeException for an unset script-scoped counter before append. Changing only the initialization to script scope reached the append marker and passed.",
+    "limit": "This reproduces the mechanism locally; the original laptop exception message was not captured, so its historical cause is not proven.",
+    "evidence": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-reader-proof-repair-20261027/runtime/task-definition-readonly-20261027/local-journal-escalated-evidence.json",
+    "evidence_sha256": "6ad9b5bfd1e948e0ea87dee9b7e2bd94c2b6fff90e66398fbae7b4af903a6176"
+  },
+  "local_workspace_regression": {
+    "scope": "Both role variants use the original journal function and real workspace files. A seeded byte counter exercises the exact 32768-byte boundary.",
+    "observed": "Both roles appended the expected records; the boundary was accepted, overflow added no record, and the first exception's phase, type and HRESULT were retained.",
+    "limit": "The fixed full PowerShell wires and the cross-machine business have not yet been qualified.",
+    "evidence": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-reader-proof-repair-20261027/runtime/task-definition-readonly-20261027/journal-workspace-test-result.json",
+    "evidence_sha256": "d434326399624e73d275cf398bba404ab71065c3650c0817f41a7e5be93eeab8"
+  },
+  "new_packet_preflight_failure": {
+    "status": "LOCAL_PRECONDITION_FAILED_NO_RUNTIME",
+    "plan_sha256": "9eb80cc3f819a5cc25bb680418c008ec5f61a50895e82c7bfd1e42bcb7fa3baf",
+    "packet_sha256": "30272aebde04de206c86b1f8d99d42dc866fe1c7bd372e1b5e81cd10f8020ee0",
+    "driver_sha256": "e0142ee2a0260176868e31f94ab3d4c507e313cd7e3d612cfc2a01cce2c1afc4",
+    "failure": "The worker source path included operate.py as a directory. The actual prepare entry rejected it before runtime or network; the initial anonymous-grant test also retained a separate local environment error.",
+    "raw_tool_chunks": ["485ed9", "27aa5f", "1e21bf"]
+  },
+  "new_packet_preflight_corrected": {
+    "status": "LOCAL_PREPARE_AND_LOADING_CHAIN_PASSED_NO_RUNTIME",
+    "plan_sha256": "c7bbab30d3c6a2230546c1c01320f4deddc0e12f2eb9254cfbf58a3e91558ba0",
+    "packet_sha256": "4eb32223204477068f84376785428d7a57e9b96cba54fbf77b4fb9bc83e5df40",
+    "driver_sha256": "e0142ee2a0260176868e31f94ab3d4c507e313cd7e3d612cfc2a01cce2c1afc4",
+    "verification": "The corrected worker path passed the same prepare entry. All six payloads, prior input pins, both fixed registration wires, owner/reader loading and command framing were verified without external processes or remote calls. The original failing plan and packet are reversibly reconstructible.",
+    "raw_tool_chunks": ["e320f7", "aca99c", "5b3335"]
+  },
+  "budget_adjusted_packet": {
+    "status": "LOCAL_PREPARE_AND_CAPACITY_BOUNDARIES_PASSED_NO_RUNTIME",
+    "plan_sha256": "f41fad1e8e79fc713b553294ba2c70039a2379571f86fbca99b2164da8c7fe13",
+    "packet_sha256": "eced55fdd91e2ee82adc05f397f4cebc1800e6e35ee1bef0f8134a80aade1b1e",
+    "driver_sha256": "2d0565ebf1b2abfdac9589d9bf29f821acdf68eabe7b73b29f4d4ba1ca26f11c",
+    "allocation": "12,288 bytes moved from unused raw reserve to root administrative reserve to include new documents. Total reservation is unchanged; 820,346 bytes of raw reserve remain. Full first-direction qualification and a capacity check still gate the reverse.",
+    "raw_tool_chunk": "fb7cbe"
+  },
+  "fresh_packet_review": {
+    "status": "REJECTED_BEFORE_PROCESS_CREATION",
+    "reason": "Automatic review did not interpret the general M119 authorization as specific authorization for the new payload and destination transfer.",
+    "evidence": ".artifacts/runs/root-scheduling-20261023/m119-journal-fix-normal-review-rejection-20261027.json",
+    "evidence_sha256": "20470d567544fcc80d7bdf9ad1cdb7fd557ce36680ef4e24aac4aae513aac947",
+    "effects": "No process, SSH, transfer, task or runtime was created."
+  },
+  "first_only_actual_run": {
+    "status": "FAILED_BEFORE_WINDOWS_SDK_START",
+    "observed": "After specific first-direction authorization, the new Windows task registered, ran, reached its original terminal state and its registration was removed. Its entry reported RuntimeException before creating the SDK process. The later mailbox timed out; the original cause remains unknown.",
+    "ownership": "The new task and Linux worker are terminal; the older task's historical owner remains unknown. No reverse test ran.",
+    "evidence": ".artifacts/runs/root-scheduling-20261023/m119-first-only-actual-terminal-20261027.json",
+    "evidence_sha256": "d18cd207ae180868c439fcfa341d1a440eb67735fde8958ebcd6f9df351fa70d"
+  },
+  "local_entry_count_diagnostic": {
+    "status": "LOCAL_DEFECT_CONFIRMED_REMOTE_FIRST_FAILURE_UNKNOWN",
+    "observed": "On local PowerShell 5.1, the original property-count expression rejected all 475, 476 and 477-property cases for both roles. Explicitly counting the property array accepted 476 and rejected 475 and 477. The retained base manifest has 476 files.",
+    "limit": "The actual Windows entry did not record its failure phase or message, so the first remote failing premise is still unknown.",
+    "evidence": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-journal-fixed-20261027/runtime/local-count-diagnostic/diagnosis.json",
+    "evidence_sha256": "6a45662a44493abc5f2790b49f837ebc3e165eee4d270f68fe5fa9737cb24b40"
+  },
+  "local_entry_repair": {
+    "status": "LOCAL_PRELAUNCH_CHECKS_PASSED",
+    "scope": "Both roles retain the 476-file assertion and add bounded failure phase and error-code reporting, including a completion record for early manifest failures.",
+    "limit": "The complete entry was parsed and prelaunch conditions were exercised with in-memory OS and file fixtures; no real child or remote business was run.",
+    "evidence": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-role-exchange-journal-fixed-20261027/runtime/local-entry-repair/review.json",
+    "evidence_sha256": "fc7b0208d4e75f5346895f1af889b6c9b2558831b88063a2965671ce23dbad0a"
+  },
+  "repaired_first_only_run": {
+    "status": "WINDOWS_ADMISSION_REQUEST_FAILED",
+    "evidence": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-first-only-entry-repaired-preparation-20261027/runtime/actual-terminal-handoff.json",
+    "evidence_sha256": "12177cd656f20b43a85e5ecb298f8f35971c2396007d14daf4bd3a78066735e5"
+  },
+  "reverse_direction_run": false,
+  "whole_m119_complete": false
+}

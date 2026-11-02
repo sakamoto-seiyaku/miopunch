@@ -1,0 +1,12 @@
+{
+  "README.md": "deaf690e843375f82c4c8f492df3c69667ebfeb11f86f2dc9897f0ed28579d84",
+  "actual-inputs.d.gz": "6d31d3686254d3a1e31f7c3bae0159a486ff9f42553da3f38db252e359011717",
+  "android-build.json": "202c4b55f9dc823c22d8e01cc416b8211fb5afce3f4eae1f34685c43c1347146",
+  "android-sources-after.json": "e233f451343409fc51730be46301884ab8f3e2d0c5ae66b5be9dffd188c57234",
+  "android-sources-before.json": "e233f451343409fc51730be46301884ab8f3e2d0c5ae66b5be9dffd188c57234",
+  "compiled-input-source-snapshots.tar.gz": "7298d9f0784eaf62258bbffdea07509fd70c618e1a518cbfcfdb2d23e005fc20",
+  "controller.py.gz": "daf293833c4ec77373c46a38d640e4feff209c1dd77224206d206806dd37cc27",
+  "receipt.json": "a2422752864268156cb5326ae16fa18e87abc4b9e7daf417f0018978c20496e6",
+  "root-independent-verification.json": "9bfff9dce46427bbbfc0c3e28be2efd924bc9e21bed6604a3cc8384b6efbab6b",
+  "startup-dto.json": "56799f44fa3aa3c27f1da748d237a72068b3bf920c302421625734e1add24598"
+}

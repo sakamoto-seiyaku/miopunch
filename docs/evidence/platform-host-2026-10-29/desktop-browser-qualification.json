@@ -1,0 +1,192 @@
+{
+  "status": "qualified_bounded_phase",
+  "scope": "MIOPUNCH-121 current desktop/headless/browser delivery and source-matched Android verification APK",
+  "whole_M121_accepted": false,
+  "whole_M107_accepted": false,
+  "evidence": ".artifacts/runs/m121-desktop-browser-qualified-20261029",
+  "root_acceptance_sha256": "e18ce602713f703eb8ca999a66b82f51a941effaf6ce26580ced620bb7d7421c",
+  "artifacts": [
+    {
+      "kind": "linux-desktop",
+      "path": ".artifacts/runs/m121-platform-packages-20261029/miopunch-linux-x86_64-desktop.tar.gz",
+      "sha256": "a90c57999b3703267689d4093f671df2bace6f729a6d144aaafb192730fef0c4",
+      "bytes": 50490246,
+      "runtime_qualified": true,
+      "actual_login_trigger_qualified": false,
+      "source_sha256": "478011a2abd85c49649271b656c0d9975b54c6a2253272ed9d923023b4a24519"
+    },
+    {
+      "kind": "windows-desktop",
+      "path": ".artifacts/runs/m121-platform-packages-20261029/miopunch-windows-x86_64-desktop.zip",
+      "sha256": "41db78e0cb5bc482ac38101be6cd665b0588873207528aa2520522b121f23869",
+      "bytes": 26175334,
+      "runtime_qualified": true,
+      "actual_login_trigger_qualified": false,
+      "source_sha256": "dffecb00bfe2f6cacb35d8cdfb0056d2c8e90a3546529c14509ed761d29b0586"
+    },
+    {
+      "kind": "linux-headless",
+      "path": ".artifacts/runs/m121-platform-packages-20261029/miopunch-linux-x86_64-headless.tar.gz",
+      "sha256": "36ff9c1c21d30b6dc37781bbade5f43f8e267f0504a19018016c1d10c7d3e371",
+      "bytes": 38369430,
+      "runtime_qualified": true,
+      "actual_login_trigger_qualified": false,
+      "source_sha256": "e6e18169589ca723894f8789da79bd95dac52b813c054f71b7e7198698d9c371"
+    },
+    {
+      "kind": "browser",
+      "path": ".artifacts/runs/m121-platform-packages-20261029/miopunch-browser.tar.gz",
+      "sha256": "d7dc078901950e5d92c80cf958a548ae7f333dc1838c63d4008034a347da88a7",
+      "bytes": 6811247,
+      "runtime_qualified": true,
+      "published": false,
+      "PWA_install_qualified": false
+    },
+    {
+      "kind": "android-verification",
+      "path": ".artifacts/runs/m121-platform-packages-20261029/miopunch-android-arm64-host-verification.apk",
+      "sha256": "c7866e2deb01951f7a7597fb1930d390e5632e5a4fb6fc32f81fdccbbf94c22f",
+      "bytes": 21930474,
+      "runtime_qualified": false,
+      "current_source_built": true,
+      "JNI_sha256": "66d16d4e29b76caff639678e11e15cfe53d635f2bf2aca4c9326a0a14e7d6ee5",
+      "historical_other_source_business_phases_qualified": true,
+      "foreground_and_reboot_deferred": true,
+      "final_Tauri_mobile_delivery": false
+    }
+  ],
+  "facts": {
+    "Linux_desktop": {
+      "real_Tauri_WebKit_IPC": true,
+      "window_close_preserves_node": true,
+      "same_process_window_reopen": true,
+      "same_identity_membership_after_restart": true,
+      "background_saved_file_bytes": 65539,
+      "default_autostart_enabled": true,
+      "off_setting_persisted": true,
+      "explicit_quit_normal": true,
+      "runtime": "Ubuntu24.04 container through actual WSLg X11",
+      "actual_login_trigger": false
+    },
+    "Windows_desktop": {
+      "real_Tauri_WebView2_IPC": true,
+      "actual_interactive_session": true,
+      "actual_owned_foreground_HWND": true,
+      "same_process_and_identity_after_window_reopen": true,
+      "Windows_to_Linux_saved_bytes": 8193,
+      "Linux_to_Windows_saved_while_window_absent_bytes": 65539,
+      "silent_restart_same_identity_and_Complete": true,
+      "autostart_off_persisted": true,
+      "current_user_only_Run_registration": true,
+      "actual_space_path_registered_command_exit": 0,
+      "explicit_quit_normal": true,
+      "actual_login_trigger": false
+    },
+    "Linux_headless": {
+      "current_shared_SDK_source_verified": true,
+      "prior_bounded_result": "docs/evidence/platform-host-2026-10-29/headless-qualification.json",
+      "actual_user_systemd_unit": true,
+      "actual_login_trigger": false
+    },
+    "Browser": {
+      "reused_current_WASM_selected_inputs": 229,
+      "independent_identity": true,
+      "duplicate_tab_denied": true,
+      "independent_duplex_saved_file_bytes": [
+        65539,
+        8193
+      ],
+      "page_close_without_SDK_close_reopened": true,
+      "full_Chromium_process_restart_same_identity_and_membership": true,
+      "network_service_sync_after_each_reopen": true,
+      "published": false,
+      "PWA_install_qualified": false
+    },
+    "Android_current": {
+      "JNI_source_sha256": "66d16d4e29b76caff639678e11e15cfe53d635f2bf2aca4c9326a0a14e7d6ee5",
+      "JNI_Fresh": 542,
+      "JNI_rebuilt_own_targets": 1,
+      "JNI_rebuilt_dependencies": 0,
+      "reused_identical_DEX_binary_manifest_and_resources": true,
+      "Java_or_manifest_recompiled": false,
+      "APK_signed_and_aligned": true,
+      "current_APK_installed": false,
+      "current_runtime_qualified": false,
+      "historical_business_evidence": "docs/evidence/platform-host-2026-10-29/initial-qualification.json",
+      "historical_full_Android_failure_preserved": true
+    }
+  },
+  "preserved_failures": [
+    "Original Windows unquoted registered command exited101; corrected current-user registration passed the same actual operation with space paths.",
+    "Initial Windows controller deadline expired before eventual successful SDK admission; unchanged core Complete/file/ownership assertions passed with the SDK budget respected.",
+    "Two foreground checks timed out; the instrumented check saw a visible own HWND and SetForegroundWindow=false. User-ready run later observed actual own foreground HWND at initial display and reopening.",
+    "Original Linux mount/home assumptions and Tauri post-build directory collector failures remain preserved; no identical SDK graph was rebuilt to retry runtime/collection.",
+    "First new Android package reuse guard omitted aapt2 resources.arsc; original partial receipt retained. Corrected package reused all three exact platform entries, without Cargo/Java recompilation. Cancelled tool exit was not observed."
+  ],
+  "implementation_decisions": [
+    "Standalone Tauri2 delivery workspace/lock preserves the SDK lock. ClientHost owns node lifetime independently of windows, with bounded8MiB native worker stacks and separate lifecycle capacity.",
+    "Windows startup registration uses HKCU only and Windows argument quoting after an actual unquoted-command failure. First-launch default-on and the off switch remain as specified.",
+    "Ubuntu GLIBC2.39 host build outputs use one stable image-identified leaf under the same repository target lease; Debian/Windows/WASM/Android keep their existing cache locations. Archived fingerprint-only repair preserved binaries and libraries.",
+    "Browser delivery is a dedicated secure-origin static entry with its own real WASM identity. The historical demo was not overwritten.",
+    "Android current source changes in shared HostLease required one new JNI graph. Unchanged verified Java DEX, binary manifest and resource table are reused from the prior signed APK."
+  ],
+  "resources": {
+    "raw_bytes": 52152432,
+    "raw_budget_bytes": 67108864,
+    "linux_current_cohort_cgroup_peak_bytes": 690540544,
+    "linux_runtime_memory_limit_bytes": 2147483648,
+    "Windows_application_peak_not_measured": true,
+    "Android_current_runtime_not_run": true,
+    "local_private_allocated_removed_bytes": 6090752,
+    "Windows_last_link_file_allocation_removed_bytes": 187378056,
+    "Windows_directory_allocation_not_counted": true,
+    "SDK_builds_reused_for_all_runtime_retries": true,
+    "reviewed_store_cap_bytes": 40802189312,
+    "default_store_policy_bytes": 34359738368,
+    "cumulative_cache_baseline_bytes": 78852927488,
+    "cumulative_cache_growth_budget_bytes": 12884901888,
+    "store_allocated_after_bytes": 39768891392
+  },
+  "cleanup": {
+    "local_private_roots_removed": 4,
+    "Windows_private_roots_and_new_profiles_removed": 6,
+    "host_visible_references": [],
+    "Windows_startup_values_restored": true,
+    "Windows_temporary_task_registrations_removed": true,
+    "old_Windows_runtime_preserved": true,
+    "signals": []
+  },
+  "user_deferrals": [
+    "Windows actual logout/login startup trigger",
+    "Android foreground/window and physical reboot",
+    "Clipboard validation",
+    "Windows WSL terminal provider"
+  ],
+  "limits": [
+    "Windows login trigger explicitly deferred by user; no logout performed.",
+    "Linux actual login/session autostart not qualified in WSLg/container window tests; transient systemd unit was qualified separately.",
+    "Android current APK is signed/aligned and source-matched, but uninstalled and runtime-unqualified. Historical Android business phases and original full failures remain separately recorded.",
+    "Android foreground/window and physical reboot, clipboard and Windows WSL provider remain deferred.",
+    "No public browser deployment or PWA-install qualification; deployable static bundle is prepared.",
+    "Minimal technical hosts do not establish delivery of the deferred shared Vue UI."
+  ],
+  "evidence_links": [
+    ".artifacts/runs/m121-desktop-browser-qualified-20261029/manifest.json",
+    ".artifacts/runs/m121-desktop-browser-qualified-20261029/qualification/root-acceptance.json",
+    ".artifacts/runs/m121-desktop-browser-qualified-20261029/qualification/android-current-manifest.json",
+    ".artifacts/runs/m121-desktop-browser-qualified-20261029/qualification/local-cleanup-result.json",
+    ".artifacts/runs/m121-desktop-browser-qualified-20261029/qualification/windows-cleanup-result.json",
+    ".artifacts/runs/m121-desktop-browser-qualified-20261029/qualification/windows-login-deferral.json",
+    ".artifacts/runs/m121-platform-packages-20261029/delivery-index.json"
+  ],
+  "official_references": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setforegroundwindow",
+      "use": "Windows may deny programmatic foreground activation; actual owned HWND focus is observed separately."
+    },
+    {
+      "url": "https://v2.tauri.app/start/prerequisites/",
+      "use": "Linux WebKitGTK4.1/GTK runtime prerequisites for the desktop build."
+    }
+  ]
+}

@@ -31,6 +31,9 @@ class Host:
     def __init__(self, runner, label, remote, action, directory, invitation=None, configuration=None):
         self.runner, self.label, self.remote = runner, label, remote
         self.directory = directory
+        if (configuration is None and action in {"create", "join", "join-guest"}
+                and hasattr(runner, "native_configuration")):
+            configuration = runner.native_configuration(remote)
         args = [action, directory] + ([invitation] if invitation else [])
         if configuration:
             args.append(configuration)

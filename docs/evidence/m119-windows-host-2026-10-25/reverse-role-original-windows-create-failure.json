@@ -1,0 +1,26 @@
+{
+  "status": "REVERSE_ROLE_FAILED_AT_WINDOWS_SDK_CREATE_BEFORE_READY",
+  "packet_sha256": "78ac432c9d85326f9238f94aca36497d88aee28e7c27f7ee13c3fc72ba5d6f54",
+  "raw_file_count": 16,
+  "raw_bytes": 30844,
+  "windows": {
+    "role": "provider",
+    "initialization_failure": "SDK stderr Io(Os code5 PermissionDenied)",
+    "ready_event_observed": false,
+    "SDK_operation": null,
+    "Task_and_worker_terminal": true
+  },
+  "linux_consumer_started": false,
+  "Web_business_started": false,
+  "original_STOP": {
+    "pending": [],
+    "remote_unknown": {},
+    "reverse_started": true
+  },
+  "classification": "Windows SDK create path or platform environment, exact cause unresolved",
+  "limits": [
+    "No reverse admission, sync, HTTPS or isolation result",
+    "Cannot infer file ACL versus socket or security subsystem from generic OS5 alone",
+    "Need targeted read-only path metadata or phase-specific SDK startup evidence before fix/retest"
+  ]
+}

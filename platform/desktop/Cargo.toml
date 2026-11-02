@@ -1,0 +1,38 @@
+[package]
+name = "miopunch-desktop"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+publish = false
+
+# The platform shell has its own delivery graph. The SDK workspace lock remains
+# unchanged when WebView/platform dependencies are added.
+[workspace]
+resolver = "2"
+
+[build-dependencies]
+tauri-build = "=2.7.4"
+
+[dependencies]
+miopunch-native-probe = { path = "../.." }
+tauri = "=2.12.5"
+tauri-plugin-single-instance = "=2.5.5"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+tokio = { version = "=1.53.1", features = ["sync"] }
+
+[target.'cfg(not(windows))'.dependencies]
+tauri-plugin-autostart = "=2.7.0"
+
+[target.'cfg(windows)'.dependencies]
+windows-registry = "=0.6.1"
+
+[patch.crates-io]
+iroh-relay = { path = "../../vendor/iroh-relay" }
+p2panda-sync = { path = "../../vendor/p2panda-sync" }
+iroh = { path = "../../vendor/iroh" }
+noq = { path = "../../vendor/noq" }
+noq-proto = { path = "../../vendor/noq-proto" }
+p2panda-auth = { path = "../../vendor/p2panda-auth" }
+netwatch = { path = "../../vendor/netwatch" }
+portmapper = { path = "../../vendor/portmapper" }

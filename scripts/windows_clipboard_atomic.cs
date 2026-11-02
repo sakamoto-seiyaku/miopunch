@@ -43,7 +43,9 @@ public sealed class OwnedClipboard : IDisposable {
 
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern IntPtr CreateWindowExW(uint ex, string cls, string title, uint style, int x, int y, int width, int height, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
     [DllImport("user32.dll")] static extern bool DestroyWindow(IntPtr window);
-    [DllImport("user32.dll")] static extern bool OpenClipboard(IntPtr window);
+    [DllImport("user32.dll", SetLastError=true)] static extern bool OpenClipboard(IntPtr window);
+    [DllImport("user32.dll")] static extern IntPtr GetOpenClipboardWindow();
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
     [DllImport("user32.dll")] static extern bool CloseClipboard();
     [DllImport("user32.dll")] static extern bool EmptyClipboard();
     [DllImport("user32.dll")] static extern uint GetClipboardSequenceNumber();
@@ -67,8 +69,12 @@ public sealed class OwnedClipboard : IDisposable {
             if (window == IntPtr.Zero) throw new InvalidOperationException("clipboard_owner_window_failed");
             for (int attempt = 0; attempt < 10; attempt++) {
                 if (OpenClipboard(window)) { opened = true; return; }
+                LastOpenError = Marshal.GetLastWin32Error();
                 Thread.Sleep(20);
             }
+            uint holder;
+            GetWindowThreadProcessId(GetOpenClipboardWindow(), out holder);
+            LastOpenHolderPid = holder;
             DestroyWindow(window); window = IntPtr.Zero;
             throw new InvalidOperationException("clipboard_open_failed");
         }
@@ -156,6 +162,18 @@ public sealed class OwnedClipboard : IDisposable {
     }
 
     public bool HasSnapshot { get { return original != null; } }
+    public static int LastOpenError { get; private set; }
+    public static uint LastOpenHolderPid { get; private set; }
+    // Read the exact preservation seam without changing clipboard ownership.
+    // Only fixed implementation codes leave this method; values remain in RAM.
+    public static string SnapshotPreflight() {
+        try {
+            using (Transaction transaction = new Transaction()) { CaptureUnderLock(); }
+            return "snapshot_supported";
+        } catch (InvalidOperationException failure) {
+            return failure.Message;
+        }
+    }
     public void Begin(string initialMarker) {
         if (original != null) throw new InvalidOperationException("clipboard_session_already_begun");
         // Preserve and establish the first marker under the same lock. A user

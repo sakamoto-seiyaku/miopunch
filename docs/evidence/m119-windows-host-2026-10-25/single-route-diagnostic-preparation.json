@@ -1,0 +1,46 @@
+{
+  "status": "PREPARED_NO_REMOTE_RUNTIME_REQUIRES_EXACT_USER_APPROVAL",
+  "purpose": "Same Windows consumer service_sync after manual admission; Linux provider address restricted to its freshly advertised 192.168.4.5 UDP endpoint; retains full first-direction Web assertions if sync succeeds",
+  "packet_sha256": "ac110cd7c5a0cca9751710db76dca7c693cc6240592a49634f76f812e2d05ade",
+  "plan_sha256": "c352cc3744a98db971e6ddea190bb46479a2dc75768c961abcf4d6ac51f2478e",
+  "payload_bytes": 84369,
+  "remote_destination": "stati@100.64.10.8 C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+  "current_windows_sdk_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+  "current_linux_sdk_sha256": "b63a7f6280417399df02731ce0c2980edb20f24099244107e8c1b38be47a8c46",
+  "no_new_build_or_pin": true,
+  "source_route": {
+    "from": "five advertised Linux provider IPs in failed original",
+    "to": "one freshly advertised Linux 192.168.4.5 IP",
+    "same_sdk_operation": "service_sync",
+    "full_success_assertions_retained": true,
+    "reverse_role_authorized": false
+  },
+  "local_budget_review": {
+    "prior_metadata_cap": 2687072,
+    "new_metadata_cap": 3211360,
+    "prior_global_cap": 27538680,
+    "new_global_cap": 28062968,
+    "increase_bytes": 524288,
+    "remote_root_cap_unchanged": 1073741824,
+    "reason": "Retained previous failed run and both local prepared packet closures consumed prior metadata cap; no evidence deletion",
+    "pre_runtime_actual_bytes": 26423587,
+    "metadata_remaining_before_runtime": 452827,
+    "runtime_reserve": 131072
+  },
+  "remote_readonly_precheck": {
+    "owned_root_bytes": 927771711,
+    "reserve_bytes": 109136273,
+    "conservative_bytes": 1036907984,
+    "root_cap": 1073741824,
+    "margin_bytes": 36833840,
+    "collisions": [],
+    "current_sdk_hash_match": true,
+    "base_sdk_hash_match": true,
+    "base_manifest_sha256": "d3303f22f927d00361fc81e6f2036078d8f1d2f5de5e40c50b48b6d9c47800ce",
+    "ssh_exit": 0,
+    "stderr_class": "PowerShell progress CLIXML only"
+  },
+  "original_failed_case": "full-stage-fixed-sync-failure.json",
+  "business_accepted": false,
+  "remote_actions": 0
+}

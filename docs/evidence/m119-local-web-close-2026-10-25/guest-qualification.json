@@ -1,0 +1,472 @@
+{
+  "task": "MIOPUNCH-119",
+  "status": "CURRENT_WEB_ACL_GUEST_ISSUER_CONSUMER_AND_PERSISTENCE_CASE_QUALIFIED; NATURAL_EXPIRY_AND_WINDOWS_NOT_ESTABLISHED",
+  "updated_UTC": "2026-10-25T16:59:53.296307+00:00",
+  "Root_qualification": {
+    "UTC": "2026-10-25T16:27:06.498786+00:00",
+    "status": "SINGLE_FULL_CURRENT_WEB_ACL_ISSUER_CONSUMER_AND_GUEST_PERSISTENCE_CASE_QUALIFIED",
+    "Root_release_sha256": "a98b18f42fa6eddbe59c7257f8a52f05bc70d413c9264efef553272192ecc6fe",
+    "actor_qualification_sha256": "08f3b713275afd396e84c5ce0befb1d2e95657957e0fdce6899a3830465eed4e",
+    "session": 32406,
+    "pid": 534965,
+    "terminal_exit": 0,
+    "seconds": 34.279624899994815,
+    "whole_marker": {
+      "browser_issuer_native_guest": true,
+      "native_issuer_browser_guest": true,
+      "pending_no_effect": true,
+      "real_exact_http_and_socket": true,
+      "issuer_revoke_and_guest_exit_close_socket": true,
+      "no_effect_after": true,
+      "browser_administrator_current_acl_deny_restore": true,
+      "browser_guest_saved_identity_original_deadline_after_reopen": true
+    },
+    "Root_individual_actual_assertions": {
+      "first_admission": [
+        "AwaitingApproval",
+        "Complete"
+      ],
+      "Native_guest_HTTP_sequence": [
+        false,
+        true,
+        false,
+        true,
+        false
+      ],
+      "Browser_guest_HTTP_sequence": [
+        false,
+        true,
+        true,
+        false
+      ],
+      "Native_ACL_then_revoke_socket_failedclose_twice": true,
+      "Native_original_deadline_after_restore_unchanged": true,
+      "Browser_identity_binding_and_deadline_after_ownreload_unchanged": true,
+      "Browser_exit_delivery_saved_and_failedclose": true,
+      "source_literal_body_and_noeffect_assertions_executed": true
+    },
+    "closed_loop_summaries": {
+      "created_ids": [
+        140436383003856,
+        140436383050656
+      ],
+      "closed_summary_ids": [
+        140436383003856,
+        140436383050656
+      ],
+      "summary_count": 2,
+      "servers": [
+        {
+          "name": "https",
+          "server_id": 140436381943120,
+          "serving": false,
+          "listeners": 0,
+          "attached_clients": 0,
+          "client_set_available": true
+        },
+        {
+          "name": "http-proxy",
+          "server_id": 140436381943440,
+          "serving": false,
+          "listeners": 0,
+          "attached_clients": 0,
+          "client_set_available": true
+        },
+        {
+          "name": "http",
+          "server_id": 140436383053680,
+          "serving": false,
+          "listeners": 0,
+          "attached_clients": 0,
+          "client_set_available": true
+        }
+      ],
+      "callback_failures": 0,
+      "overflow": 0
+    },
+    "owners": {
+      "browser-actor-guest-owner.jsonl": {
+        "phases": [
+          "spawn_created",
+          "launch_observed",
+          "qualified",
+          "private_endpoint_pinned",
+          "normal_close_identity_observed",
+          "normal_close_original_child_proof",
+          "normal_cdp_close_intent",
+          "exit_observed"
+        ],
+        "terminal": {
+          "phase": "exit_observed",
+          "pid": 256,
+          "monotonic": 33441.755681,
+          "terminal": true,
+          "exit": 0,
+          "signal": null
+        }
+      },
+      "browser-actor-wasm-owner.jsonl": {
+        "phases": [
+          "spawn_created",
+          "launch_observed",
+          "qualified",
+          "private_endpoint_pinned",
+          "normal_close_identity_observed",
+          "normal_close_original_child_proof",
+          "normal_cdp_close_intent",
+          "exit_observed"
+        ],
+        "terminal": {
+          "phase": "exit_observed",
+          "pid": 33,
+          "monotonic": 33347.942536,
+          "terminal": true,
+          "exit": 0,
+          "signal": null
+        }
+      },
+      "browser-host-owner.jsonl": {
+        "phases": [
+          "popen_created",
+          "launch_observed",
+          "registered",
+          "qualified_namespaces",
+          "retired"
+        ],
+        "terminal": {
+          "phase": "retired",
+          "monotonic": 37379.141955603,
+          "exit": 0
+        }
+      },
+      "local-relay-owner.jsonl": {
+        "phases": [
+          "popen_created",
+          "launch_observed",
+          "registered",
+          "qualified_namespaces",
+          "signal_intent",
+          "signal_sent",
+          "retired"
+        ],
+        "terminal": {
+          "phase": "retired",
+          "monotonic": 37379.41531783,
+          "exit": 0
+        }
+      },
+      "native-guest-owner.jsonl": {
+        "phases": [
+          "popen_created",
+          "launch_observed",
+          "registered",
+          "qualified_namespaces",
+          "retired"
+        ],
+        "terminal": {
+          "phase": "retired",
+          "monotonic": 37378.072216704,
+          "exit": 0
+        }
+      },
+      "native-provider-owner.jsonl": {
+        "phases": [
+          "popen_created",
+          "launch_observed",
+          "registered",
+          "qualified_namespaces",
+          "retired"
+        ],
+        "terminal": {
+          "phase": "retired",
+          "monotonic": 37378.885210545,
+          "exit": 0
+        }
+      },
+      "guest-namespace.owner.jsonl": {
+        "phases": [
+          "popen_created",
+          "launch_observed",
+          "registered",
+          "qualified_namespaces",
+          "retired",
+          "ordinary_cleanup"
+        ],
+        "terminal": {
+          "phase": "ordinary_cleanup",
+          "owner": "ordinary-helper",
+          "pid": 534966,
+          "exit": 0,
+          "errors": [],
+          "registered": true,
+          "stdout": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest-namespace.owner.stdout",
+          "stderr": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest-namespace.owner.stderr"
+        }
+      }
+    },
+    "observed_original_browser_descendant_identities_absent": 25,
+    "no_descendant_signals": true,
+    "scope": "only fresh owned namespace/Popen subtree; no host-wide process absence or zero-egress claim",
+    "namespace": {
+      "network_namespace": "net:[4026532416]",
+      "parent_network_namespace": "net:[4026531840]",
+      "pid_namespace": "pid:[4026532415]",
+      "interfaces": [
+        "lo"
+      ],
+      "only_loopback_routes": true,
+      "effective_capabilities": "0",
+      "own_loopback_socket_exact": true,
+      "external_probe_performed": false
+    },
+    "all_readers_and_owners_closed_private_removed_source_drift_empty": true,
+    "raw_files": [
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/browser-actor-guest-owner.jsonl",
+        "bytes": 1460,
+        "sha256": "759813f10496ad4d96a2849c025831acdd62a1b05182e0b90dc1115ee72d1b0e"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/browser-actor-wasm-owner.jsonl",
+        "bytes": 1445,
+        "sha256": "a266f774caf90e669beb183636657890233c179dbbce3aaf18d52b2956e243fb"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/browser-host-owner.jsonl",
+        "bytes": 962,
+        "sha256": "6f443e1d864fb9aa17cd169c663996be4bf553c70806f5e05b770a6626a68a34"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/browser-host.stderr",
+        "bytes": 10502,
+        "sha256": "3f67bc574c3d34e24b2bb94da1947636a8f5d209cf2e16952d61b4caac7e2396"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-end.json",
+        "bytes": 3388,
+        "sha256": "fad28b1c6c46eeda734adf3cbb78e01f1a8dd4e0fa2dbe807b1e60422e6ba353"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/browser-probe/harness/forwarding.mjs",
+        "bytes": 21449,
+        "sha256": "b970ded563e549f6d53acf39b797ce8b96bc03ec30a6cdec8a879eed0e207309"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/external/9ddf89e96023b894df354c24dda0dc59217ae6bc7f97e664be2ac83063e37847/package.json",
+        "bytes": 876,
+        "sha256": "f061c58427e47e843e26d201f0a57076c734e57c734ecbbd87d4a23b7a20db9b"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/scripts/check_forwarding.py",
+        "bytes": 14011,
+        "sha256": "e6970b129f505e3cdcebdc0153f3308f18ef8a03ebafec1698cc714fd88e726c"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/scripts/check_web_browser_guests.py",
+        "bytes": 9226,
+        "sha256": "6865752ac64a9907e0311751cf8f7dd494f99d5ceb77bffdf23f3f52252fb4b8"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/scripts/check_web_browser_guests_retained.py",
+        "bytes": 2758,
+        "sha256": "de0b2116c7f097c215f5e555fae9bc437ca49f8b6a57cbee97b601fc5078eacb"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/scripts/check_web_service.py",
+        "bytes": 10747,
+        "sha256": "a1a26ae10b456b3f7e6b2cb211f79c3dacc870de0878d6c2a52a522ce192b170"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/scripts/forwarding_local_resources.py",
+        "bytes": 6852,
+        "sha256": "baec2ff7aba006cdc23cbb60a80ffb62b5342cdda6f198295cfcca0722eeec11"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/scripts/web_asyncio_observer.py",
+        "bytes": 6970,
+        "sha256": "10a135e6baf008cf3b461bb23975374e9eff87bee9d20b61f2ef9a4ad6c2a2d8"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/scripts/web_browser_runtime.py",
+        "bytes": 9712,
+        "sha256": "a6be6aac2fc4c67fd2288e0191b052af0ab7d9593bff770f53b6cf44379d20af"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/scripts/web_content_gateway.py",
+        "bytes": 20989,
+        "sha256": "13cd01c6650209b7af045d9b2a09ed095c9db131db81270ccd0f386cc92ef618"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/scripts/web_content_runtime.py",
+        "bytes": 19364,
+        "sha256": "6760d48bb7b9f9389f3709d42db348864299ebb5d73d380811220164dab99051"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/scripts/web_network_namespace.py",
+        "bytes": 4947,
+        "sha256": "cf31b1ccf6b94593303affd7b0c8ed870be11714e2e47f3a8eac6a34aaecc125"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/scripts/web_process_owner.py",
+        "bytes": 8089,
+        "sha256": "0b4f9d4b27fa610590d3cf0d237eb89ebdc9eeb352faca58c0e1d1107968331c"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/scripts/web_protocol_target.py",
+        "bytes": 13202,
+        "sha256": "4ca30e499066424b88d728e48552da95abee61a501a297ac7605acce73b62e77"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-sources/scripts/web_tls_fixture.py",
+        "bytes": 3933,
+        "sha256": "a7ccc92f2c505a0d976326f54999825b53e8aeda959aa87fc45c80f8db85b13f"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/controller-start.json",
+        "bytes": 3388,
+        "sha256": "fad28b1c6c46eeda734adf3cbb78e01f1a8dd4e0fa2dbe807b1e60422e6ba353"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/events.jsonl",
+        "bytes": 34004,
+        "sha256": "063b69c142d99d447a2fc40c69711dd5b4d35cf62c637b25671f860f0e51ff91"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/local-relay-owner.jsonl",
+        "bytes": 1247,
+        "sha256": "7b93332a4a2377becd44cd459ae815947f014f6280b631117dc7d76c5a2c2e83"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/local-relay.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/native-guest-owner.jsonl",
+        "bytes": 966,
+        "sha256": "4417c3ef48e8cdcab445475324e5566f2a9b7c9c2a6113e508af3fdbd78fb091"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/native-guest.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/native-provider-owner.jsonl",
+        "bytes": 966,
+        "sha256": "9d505f7f96a3849e67ade0cdbb67040688ff6195e5378584eee7c08e5407cb6b"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/native-provider.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/result.json",
+        "bytes": 23383,
+        "sha256": "693d44f96b5c1fe4e1611ad1a2fc6e7eb6fa367eca9df2fcfdad0f3028c1f820"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest/source-references.json",
+        "bytes": 489,
+        "sha256": "5a43b3cdf2be25e4a98fb5142a8700fb721ddb1d231e6a73aebd65f15031df3b"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest-namespace.json",
+        "bytes": 358,
+        "sha256": "6a50326085f5d7198fb4c5f25af7aef1c9ae7969c8fbeba1841b92f0b86f04ec"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest-namespace.namespace.json",
+        "bytes": 306,
+        "sha256": "4a5f33554f0e60af6d3620bd45cf128431446607729a501d0ef46d3292836f0f"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest-namespace.owner.jsonl",
+        "bytes": 1424,
+        "sha256": "08588cf5936dd1b717eca261bd06fd0562b5ea1d2f959a3d7f3bf3e22c630dba"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest-namespace.owner.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest-namespace.owner.stdout",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest-namespace.stderr.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-1/selector/evidence/guest-namespace.stdout.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "raw_files_count": 37,
+    "raw_bytes": 237413,
+    "source14_and_startend_manifest_verified": true,
+    "browser_stderr": {
+      "bytes": 10502,
+      "sha256": "3f67bc574c3d34e24b2bb94da1947636a8f5d209cf2e16952d61b4caac7e2396",
+      "FULL_Root_read_chunk": "3723ca",
+      "classification": "deliberately absent isolated DBus sockets and own loopback DevTools only; no Python callback exception, fatal TLS or transport trace"
+    },
+    "Root_verification": {
+      "completed_checks_chunk": "b66e93",
+      "passed_before_root_lookup_error": [
+        "all37raw bytes/hash",
+        "89rows and complete8marker",
+        "actual Native/Browser HTTP sequences and first admission",
+        "actual Native/Browserverifiedidentity/deadline/reload/exit-delivery andfailedsocketclose",
+        "all observed IDs/created IDs/closed IDs equal2; three servers0andpreloopowned_servers_closed0",
+        "allcleanupownerprocess/readers/actors/executorloopzero",
+        "sevenoriginalownerhistories terminal; outerretired0ANDordinarycleanup0"
+      ],
+      "lookup_error": "Root assumed descendant marker node=controller; actual dedicated node=browser-host",
+      "shape_confirmation_chunk": "3e3cf2",
+      "corrected_only_uniqueoperation/scopedhost_node_then_completed_remaining_checks": true,
+      "product_failure_or_runtime_retry": false
+    },
+    "actor_qualifier_errors_retained": {
+      "events_only_scan_omitted_buffered_created": "corrected by allraw observer-history union, allobserved=created=closed",
+      "outer_helper_post_retired_ordinary_cleanup": "requires retired exit0 AND later ordinary_cleanup exit0/errors[]",
+      "runtime_retries": 0
+    },
+    "handoff": {
+      "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/handoff-current-Web-guest-incomplete.md",
+      "bytes": 4784,
+      "sha256": "9c03af1b0f9d8510e7d93cd344f5381d415d8ca7061dd8e0958ac82a881d8b83",
+      "FULL_Root_read": true,
+      "mirror_exact": true
+    },
+    "no_new_build_pin_or_product_source_change": true,
+    "not_qualified": [
+      "natural guest expiry runtime",
+      "Windows and fullM119",
+      "M118orM116heldoperations"
+    ],
+    "Windows787_user_approval": "still pending/no stage",
+    "Plane_mutations_commit_push": 0,
+    "known_live": []
+  },
+  "provenance": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-current-Web-ACL-guest-root-qualification-20261026.json",
+    "bytes": 19235,
+    "sha256": "079dd1a0b67f44fd0127fc687d552f3f4ad87b392ece9e3bb6117ad316e9b719"
+  },
+  "budget_scope": {
+    "global_raw_cap_unchanged_bytes": 25165824,
+    "same_family_explicit_cap_bytes": 3145728,
+    "first_guest_case_entire_increment_cap_bytes": 1048576,
+    "store_objects": 375,
+    "new_graphs_pins_native_or_Core_copies": 0,
+    "all_original_source_failures_raw_retained": true
+  },
+  "full_M119_accepted": false,
+  "Plane_state_unchanged": true
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-host",
+  "description": "The bundled technical surface can operate its native host.",
+  "windows": ["main"],
+  "permissions": [
+    "allow-host-request", "allow-host-start", "allow-host-state", "allow-set-autostart",
+    "allow-window-ready", "allow-verification-next", "allow-verification-result",
+    "allow-close-window", "allow-quit"
+  ]
+}

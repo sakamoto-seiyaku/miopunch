@@ -1,0 +1,199 @@
+{
+  "scope": "physical Android browser formal-WASM load/control prerequisites only",
+  "hostRole": "build/ADB/code delivery/control/evidence; not a business peer",
+  "physicalWanQualified": false,
+  "endpoints": [
+    {
+      "model": "Pixel_6a",
+      "ready": {
+        "event": "ready",
+        "wasmLoaded": true,
+        "rtc": {
+          "secureContext": true,
+          "peerConnectionApi": true,
+          "indexedDb": true,
+          "webLocks": true,
+          "peerCreated": true,
+          "channelCreated": true,
+          "channelParametersMatched": true,
+          "peerClosed": true
+        },
+        "sdk": {
+          "start": true,
+          "memberConnection": true
+        }
+      },
+      "cdpAvailableAfterOwnedPageStart": true,
+      "browserVersion": "Chrome/154.0.8037.126",
+      "cdpFailure": null,
+      "unsupportedOperationRejected": true,
+      "cleanup": {
+        "sdk": {
+          "id": 2,
+          "ok": true,
+          "result": {
+            "ownedMemberHandles": 0,
+            "networkClosed": true,
+            "memberDiagnostics": [],
+            "cleanupElapsedMs": 0.13499999046325684
+          },
+          "callerElapsedMs": 0.5849997997283936
+        },
+        "tab": {
+          "method": "exact owned URL CDP close",
+          "ownedTargetAbsent": true
+        },
+        "forwardRemoveExit": 0,
+        "forwardRuleAbsent": true,
+        "reverseRemoveExit": 0,
+        "reverseRuleAbsent": true,
+        "localListenerClosed": true,
+        "elapsedMs": 517.393
+      },
+      "commands": [
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "reverse",
+            "tcp:45166",
+            "tcp:45166"
+          ],
+          "exit": 0,
+          "elapsedMs": 85.451,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "am start --user 0 -a android.intent.action.VIEW -d 'http://127.0.0.1:45166/android-pair?actor=296403e3022a4f6589d94dcf8b8661d6&environmentRtcProbe=true' --ez create_new_tab true com.android.chrome"
+          ],
+          "exit": 0,
+          "elapsedMs": 170.002,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "forward",
+            "tcp:0",
+            "localabstract:chrome_devtools_remote"
+          ],
+          "exit": 0,
+          "elapsedMs": 76.674,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "forward",
+            "--remove",
+            "tcp:55735"
+          ],
+          "exit": 0,
+          "elapsedMs": 43.202,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "forward",
+            "--list"
+          ],
+          "exit": 0,
+          "elapsedMs": 40.681,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "reverse",
+            "--remove",
+            "tcp:45166"
+          ],
+          "exit": 0,
+          "elapsedMs": 43.238,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "reverse",
+            "--list"
+          ],
+          "exit": 0,
+          "elapsedMs": 43.149,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        }
+      ]
+    }
+  ],
+  "sourceSha256": "8d799d80f6f584906a801b20480ab71d8ccdd1edea0d7a8dd06e89c7aa5cf51e",
+  "pageSha256": "243b83f596b6f54c0a33481e61fc64988d6d18d9458f646e629f6c6b2f9b22f2",
+  "preludeSha256": null,
+  "environmentRtcProbeSkipped": false,
+  "wasmSha256": "e80743d7ccc7e539d5d2860ffae78282ddc0bbac977794a472f63ab12fdcf66e"
+}

@@ -83,7 +83,7 @@ async fn install(
 ) -> Result<(), ClientError> {
     node.ingest_management_record(&approval.record, None)
         .await?;
-    files.update_access(services.access(node).await?);
+    services.publish_access(files, services.access(node).await?);
     Ok(())
 }
 

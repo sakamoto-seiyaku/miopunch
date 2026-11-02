@@ -24,6 +24,13 @@ class CargoCacheTests(unittest.TestCase):
                 cache.build_environment(Path('/tmp/shared'), environment)
         self.assertEqual(cache.build_environment(Path('/tmp/shared'), {})['CARGO_INCREMENTAL'], '0')
 
+    def test_environment_compiler_flags_cannot_silently_split_the_cache(self):
+        for name in ('RUSTFLAGS', 'CARGO_ENCODED_RUSTFLAGS', 'RUSTC_WRAPPER',
+                     'RUSTC_WORKSPACE_WRAPPER', 'CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS'):
+            with self.subTest(name=name), self.assertRaises(cache.CacheError):
+                cache.build_environment(Path('/tmp/shared'), {name: 'different compiler input'})
+        cache.build_environment(Path('/tmp/shared'), {'RUSTFLAGS': ''})
+
     def test_low_disk_or_oversized_cache_refuses_before_compilation(self):
         with tempfile.TemporaryDirectory() as directory:
             for state in ({'freeBytes': 1, 'cacheBytes': 0},

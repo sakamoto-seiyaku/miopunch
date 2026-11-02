@@ -1,0 +1,589 @@
+{
+  "scope": "Y700 real Chrome versus 192.168.4.5 Rust RTC or Chrome; public MQTT and IRC signaling only, no self-hosted message facility; carrier interoperability, not full SDK membership",
+  "startedUtc": "2026-10-04T15:12:35.466Z",
+  "adbControlOnly": true,
+  "vpnAllowed": true,
+  "cases": [
+    {
+      "carrier": "mqtt",
+      "kind": "native",
+      "run": "8aeabc117c1f6036fd",
+      "url": "wss://broker.emqx.io:8084/mqtt",
+      "startedUtc": "2026-10-04T15:12:36.663Z",
+      "passed": false,
+      "y700": {
+        "config": {
+          "carrier": "mqtt",
+          "url": "wss://broker.emqx.io:8084/mqtt",
+          "run": "8aeabc117c1f6036fd",
+          "role": "y700"
+        },
+        "scope": "physical RTC datagram interoperability only; no SDK admission/current-M/replica assertion",
+        "passed": false,
+        "signaling": {
+          "carrier": "mqtt",
+          "url": "wss://broker.emqx.io:8084/mqtt",
+          "normalTLS": true,
+          "ready": true,
+          "txMessages": 1,
+          "rxMessages": 0,
+          "txFragments": 0,
+          "rxFragments": 0,
+          "events": [
+            {
+              "kind": "websocket-open",
+              "at": 1791126765167,
+              "protocol": "mqtt"
+            },
+            {
+              "kind": "connack",
+              "at": 1791126765605,
+              "code": 0
+            },
+            {
+              "kind": "suback",
+              "at": 1791126765892,
+              "code": 0
+            },
+            {
+              "kind": "offer",
+              "at": 1791126766142,
+              "bytes": 1332
+            },
+            {
+              "kind": "pingreq",
+              "at": 1791126780894
+            },
+            {
+              "kind": "pingresp",
+              "at": 1791126781203
+            },
+            {
+              "kind": "pingreq",
+              "at": 1791126795894
+            },
+            {
+              "kind": "pingresp",
+              "at": 1791126796172
+            },
+            {
+              "kind": "pingreq",
+              "at": 1791126810894
+            },
+            {
+              "kind": "pingresp",
+              "at": 1791126811362
+            },
+            {
+              "kind": "pingreq",
+              "at": 1791126825893
+            }
+          ],
+          "closeRequested": true
+        },
+        "rtc": {
+          "role": "y700",
+          "offerer": true,
+          "iceServers": [
+            "stun:74.125.250.129:19302"
+          ],
+          "turnServers": [],
+          "sentBytes": 0,
+          "matchedBytes": 0,
+          "events": [
+            {
+              "kind": "icegatheringstatechange",
+              "state": "gathering|new|new",
+              "ms": 5.5
+            },
+            {
+              "kind": "icegatheringstatechange",
+              "state": "complete|new|new",
+              "ms": 227.19999992847443
+            }
+          ],
+          "passed": false,
+          "failure": "Error: public signaling receive deadline",
+          "ice": "new",
+          "connection": "new",
+          "stats": {
+            "rows": [
+              {
+                "id": "D1",
+                "timestamp": 1791126826144.678,
+                "type": "data-channel",
+                "bytesReceived": 0,
+                "bytesSent": 0,
+                "dataChannelIdentifier": 0,
+                "label": "mio-quic-datagram/1",
+                "messagesReceived": 0,
+                "messagesSent": 0,
+                "protocol": "miopunch/quic-datagram/1",
+                "state": "connecting"
+              },
+              {
+                "id": "I90TpiRGd",
+                "timestamp": 1791126826144.678,
+                "type": "local-candidate",
+                "address": "fd00:6cb1:589b:ff4:bce5:408b:bb39:3522",
+                "candidateType": "host",
+                "foundation": "3845671411",
+                "ip": "fd00:6cb1:589b:ff4:bce5:408b:bb39:3522",
+                "isRemote": false,
+                "networkType": "unknown",
+                "port": 34656,
+                "priority": 2113942271,
+                "protocol": "udp",
+                "transportId": "T01",
+                "usernameFragment": "9zNq"
+              },
+              {
+                "id": "IEYVD09Pk",
+                "timestamp": 1791126826144.678,
+                "type": "local-candidate",
+                "address": "192.168.0.107",
+                "candidateType": "host",
+                "foundation": "3160632499",
+                "ip": "192.168.0.107",
+                "isRemote": false,
+                "networkType": "unknown",
+                "port": 46522,
+                "priority": 2113937151,
+                "protocol": "udp",
+                "transportId": "T01",
+                "usernameFragment": "9zNq"
+              },
+              {
+                "id": "IWnR+Sbo7",
+                "timestamp": 1791126826144.678,
+                "type": "local-candidate",
+                "address": "183.197.94.96",
+                "candidateType": "srflx",
+                "foundation": "698902810",
+                "ip": "183.197.94.96",
+                "isRemote": false,
+                "networkType": "unknown",
+                "port": 27105,
+                "priority": 1677729535,
+                "protocol": "udp",
+                "relatedAddress": "192.168.0.107",
+                "relatedPort": 46522,
+                "transportId": "T01",
+                "url": "stun:74.125.250.129:19302",
+                "usernameFragment": "9zNq"
+              },
+              {
+                "id": "IdH0DpIpJ",
+                "timestamp": 1791126826144.678,
+                "type": "local-candidate",
+                "address": "::",
+                "candidateType": "host",
+                "foundation": "1683741484",
+                "ip": "::",
+                "isRemote": false,
+                "networkType": "unknown",
+                "port": 9,
+                "priority": 1509959935,
+                "protocol": "tcp",
+                "tcpType": "active",
+                "transportId": "T01",
+                "usernameFragment": "9zNq"
+              },
+              {
+                "id": "Io04onWtL",
+                "timestamp": 1791126826144.678,
+                "type": "local-candidate",
+                "address": "0.0.0.0",
+                "candidateType": "host",
+                "foundation": "1273508843",
+                "ip": "0.0.0.0",
+                "isRemote": false,
+                "networkType": "unknown",
+                "port": 9,
+                "priority": 1509957375,
+                "protocol": "tcp",
+                "tcpType": "active",
+                "transportId": "T01",
+                "usernameFragment": "9zNq"
+              },
+              {
+                "id": "T01",
+                "timestamp": 1791126826144.678,
+                "type": "transport",
+                "bytesReceived": 0,
+                "bytesSent": 0,
+                "dtlsRole": "unknown",
+                "dtlsState": "new",
+                "iceLocalUsernameFragment": "9zNq",
+                "iceRole": "controlling",
+                "iceState": "new",
+                "localCertificateId": "CFDF:E3:F6:F1:3F:57:F9:54:7D:4F:EC:26:33:C3:B7:35:31:BC:03:31:FF:A4:20:40:01:BE:77:BF:7F:9C:AB:58",
+                "packetsReceived": 0,
+                "packetsSent": 0,
+                "selectedCandidatePairChanges": 0
+              }
+            ],
+            "selectedPair": null
+          },
+          "pcClosed": true,
+          "dataChannelClosed": true
+        },
+        "endedUtc": "2026-10-04T15:13:46.153Z"
+      },
+      "host": {
+        "role": "host-native",
+        "passed": false,
+        "signaling": {
+          "carrier": "mqtt",
+          "url": "wss://broker.emqx.io:8084/mqtt",
+          "normalTLS": true,
+          "ready": true,
+          "txMessages": 0,
+          "rxMessages": 1,
+          "txFragments": 0,
+          "rxFragments": 0,
+          "events": [
+            {
+              "kind": "websocket-open",
+              "at": 1791126757871,
+              "protocol": "mqtt"
+            },
+            {
+              "kind": "connack",
+              "at": 1791126758427,
+              "code": 0
+            },
+            {
+              "kind": "suback",
+              "at": 1791126758859,
+              "code": 0
+            },
+            {
+              "kind": "offer",
+              "at": 1791126759634,
+              "bytes": 949
+            },
+            {
+              "kind": "websocket-close",
+              "at": 1791126772048,
+              "code": 1000,
+              "reason": "normal"
+            }
+          ],
+          "closeRequested": true
+        },
+        "failure": "Error: native exit 1/null Error: Elapsed(())\n",
+        "nativeEvents": [
+          {
+            "event": "complete",
+            "events": [
+              {
+                "kind": "connection",
+                "ms": 27,
+                "state": "connecting"
+              },
+              {
+                "kind": "ice",
+                "ms": 27,
+                "state": "checking"
+              }
+            ],
+            "failure": "deadline has elapsed",
+            "passed": false,
+            "pcClosed": true,
+            "report": null
+          }
+        ],
+        "nativeStderr": "Error: Elapsed(())\n",
+        "nativeStopped": true
+      },
+      "endedUtc": "2026-10-04T15:13:39.361Z"
+    },
+    {
+      "carrier": "irc",
+      "kind": "native",
+      "run": "af65a68815ab5af29b",
+      "url": "wss://irc.ergo.chat/webirc",
+      "startedUtc": "2026-10-04T15:13:39.361Z",
+      "passed": false,
+      "y700": {
+        "config": {
+          "carrier": "irc",
+          "url": "wss://irc.ergo.chat/webirc",
+          "run": "af65a68815ab5af29b",
+          "role": "y700"
+        },
+        "scope": "physical RTC datagram interoperability only; no SDK admission/current-M/replica assertion",
+        "passed": false,
+        "signaling": {
+          "carrier": "irc",
+          "url": "wss://irc.ergo.chat/webirc",
+          "normalTLS": true,
+          "ready": true,
+          "txMessages": 1,
+          "rxMessages": 0,
+          "txFragments": 5,
+          "rxFragments": 0,
+          "events": [
+            {
+              "kind": "websocket-open",
+              "at": 1791126827613,
+              "protocol": "text.ircv3.net"
+            },
+            {
+              "kind": "registered",
+              "at": 1791126827889
+            },
+            {
+              "kind": "join-ready",
+              "at": 1791126828164,
+              "room": "#mioyaf65a68815ab"
+            },
+            {
+              "kind": "offer",
+              "at": 1791126831413,
+              "bytes": 1332
+            }
+          ],
+          "closeRequested": true
+        },
+        "rtc": {
+          "role": "y700",
+          "offerer": true,
+          "iceServers": [
+            "stun:74.125.250.129:19302"
+          ],
+          "turnServers": [],
+          "sentBytes": 0,
+          "matchedBytes": 0,
+          "events": [
+            {
+              "kind": "icegatheringstatechange",
+              "state": "gathering|new|new",
+              "ms": 4.5
+            },
+            {
+              "kind": "icegatheringstatechange",
+              "state": "complete|new|new",
+              "ms": 223.70000004768372
+            }
+          ],
+          "passed": false,
+          "failure": "Error: public signaling receive deadline",
+          "ice": "new",
+          "connection": "new",
+          "stats": {
+            "rows": [
+              {
+                "id": "D1",
+                "timestamp": 1791126891416.688,
+                "type": "data-channel",
+                "bytesReceived": 0,
+                "bytesSent": 0,
+                "dataChannelIdentifier": 0,
+                "label": "mio-quic-datagram/1",
+                "messagesReceived": 0,
+                "messagesSent": 0,
+                "protocol": "miopunch/quic-datagram/1",
+                "state": "connecting"
+              },
+              {
+                "id": "I1vxG88D/",
+                "timestamp": 1791126891416.688,
+                "type": "local-candidate",
+                "address": "183.197.94.96",
+                "candidateType": "srflx",
+                "foundation": "2982854676",
+                "ip": "183.197.94.96",
+                "isRemote": false,
+                "networkType": "unknown",
+                "port": 26980,
+                "priority": 1677729535,
+                "protocol": "udp",
+                "relatedAddress": "192.168.0.107",
+                "relatedPort": 34429,
+                "transportId": "T01",
+                "url": "stun:74.125.250.129:19302",
+                "usernameFragment": "5gsa"
+              },
+              {
+                "id": "IEBu2JgAH",
+                "timestamp": 1791126891416.688,
+                "type": "local-candidate",
+                "address": "fd00:6cb1:589b:ff4:bce5:408b:bb39:3522",
+                "candidateType": "host",
+                "foundation": "2103107837",
+                "ip": "fd00:6cb1:589b:ff4:bce5:408b:bb39:3522",
+                "isRemote": false,
+                "networkType": "unknown",
+                "port": 47719,
+                "priority": 2113942271,
+                "protocol": "udp",
+                "transportId": "T01",
+                "usernameFragment": "5gsa"
+              },
+              {
+                "id": "IiPp93FNp",
+                "timestamp": 1791126891416.688,
+                "type": "local-candidate",
+                "address": "::",
+                "candidateType": "host",
+                "foundation": "4231623202",
+                "ip": "::",
+                "isRemote": false,
+                "networkType": "unknown",
+                "port": 9,
+                "priority": 1509959935,
+                "protocol": "tcp",
+                "tcpType": "active",
+                "transportId": "T01",
+                "usernameFragment": "5gsa"
+              },
+              {
+                "id": "IskiDeoD3",
+                "timestamp": 1791126891416.688,
+                "type": "local-candidate",
+                "address": "192.168.0.107",
+                "candidateType": "host",
+                "foundation": "604095933",
+                "ip": "192.168.0.107",
+                "isRemote": false,
+                "networkType": "unknown",
+                "port": 34429,
+                "priority": 2113937151,
+                "protocol": "udp",
+                "transportId": "T01",
+                "usernameFragment": "5gsa"
+              },
+              {
+                "id": "IuSXsFVQg",
+                "timestamp": 1791126891416.688,
+                "type": "local-candidate",
+                "address": "0.0.0.0",
+                "candidateType": "host",
+                "foundation": "3549076197",
+                "ip": "0.0.0.0",
+                "isRemote": false,
+                "networkType": "unknown",
+                "port": 9,
+                "priority": 1509957375,
+                "protocol": "tcp",
+                "tcpType": "active",
+                "transportId": "T01",
+                "usernameFragment": "5gsa"
+              },
+              {
+                "id": "T01",
+                "timestamp": 1791126891416.688,
+                "type": "transport",
+                "bytesReceived": 0,
+                "bytesSent": 0,
+                "dtlsRole": "unknown",
+                "dtlsState": "new",
+                "iceLocalUsernameFragment": "5gsa",
+                "iceRole": "controlling",
+                "iceState": "new",
+                "localCertificateId": "CFBA:44:56:7A:6A:B1:B0:C0:D8:5E:32:34:9B:55:81:C5:01:2C:D0:02:37:19:78:33:F8:AE:D9:FB:1A:90:71:BA",
+                "packetsReceived": 0,
+                "packetsSent": 0,
+                "selectedCandidatePairChanges": 0
+              }
+            ],
+            "selectedPair": null
+          },
+          "pcClosed": true,
+          "dataChannelClosed": true
+        },
+        "endedUtc": "2026-10-04T15:14:51.423Z"
+      },
+      "host": {
+        "role": "host-native",
+        "passed": false,
+        "signaling": {
+          "carrier": "irc",
+          "url": "ircs://irc.ergo.chat:6697",
+          "normalTLS": true,
+          "ready": true,
+          "txMessages": 0,
+          "rxMessages": 1,
+          "txFragments": 0,
+          "rxFragments": 5,
+          "events": [
+            {
+              "kind": "websocket-open",
+              "at": 1791126820288,
+              "protocol": "native-irc-tls"
+            },
+            {
+              "kind": "registered",
+              "at": 1791126820541
+            },
+            {
+              "kind": "join-ready",
+              "at": 1791126820792,
+              "room": "#mioyaf65a68815ab"
+            },
+            {
+              "kind": "offer",
+              "at": 1791126824233,
+              "bytes": 949
+            },
+            {
+              "kind": "websocket-close",
+              "at": 1791126836311,
+              "code": 1000,
+              "reason": "normal"
+            }
+          ],
+          "closeRequested": true
+        },
+        "failure": "Error: native exit 1/null Error: Elapsed(())\n",
+        "nativeEvents": [
+          {
+            "event": "complete",
+            "events": [
+              {
+                "kind": "connection",
+                "ms": 28,
+                "state": "connecting"
+              },
+              {
+                "kind": "ice",
+                "ms": 28,
+                "state": "checking"
+              }
+            ],
+            "failure": "deadline has elapsed",
+            "passed": false,
+            "pcClosed": true,
+            "report": null
+          }
+        ],
+        "nativeStderr": "Error: Elapsed(())\n",
+        "nativeStopped": true
+      },
+      "endedUtc": "2026-10-04T15:14:44.635Z"
+    }
+  ],
+  "cleanup": [
+    {
+      "kind": "forward",
+      "port": "tcp:52292",
+      "removed": true
+    },
+    {
+      "kind": "reverse",
+      "port": "tcp:44624",
+      "removed": true
+    }
+  ],
+  "sourceSha256": "6819620eb3581a7d0dc5b6d841be67963d87f9be0f760ab725645d0278a7e342",
+  "androidBrowser": {
+    "Browser": "Chrome/154.0.8037.92",
+    "ProtocolVersion": "1.3",
+    "UserAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+  },
+  "hostBrowser": "153.0.8010.12",
+  "passed": false,
+  "endedUtc": "2026-10-04T15:14:44.957Z"
+}

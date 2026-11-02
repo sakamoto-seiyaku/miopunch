@@ -1,0 +1,282 @@
+{
+  "task": "MIOPUNCH-119",
+  "status": "FIRST_WINDOWS_POLICY_CASE_FAILED_AT_PROVIDER_CREATE; GUEST_NOT_STARTED",
+  "updated_UTC": "2026-10-26T02:50:13.547151+00:00",
+  "Root_independent_qualification": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-policy-original-failure-root-qualification-20261026.json",
+    "bytes": 7172,
+    "sha256": "0d70d45988c46de3e0e576150b534f8bd97fa24e03469dc4da564b97184a6d52"
+  },
+  "Root_readonly_qualifier": {
+    "path": ".artifacts/runs/root-scheduling-20261023/qualify-m119-Windows-policy-original-failure-20261026.py",
+    "bytes": 8857,
+    "sha256": "c2c3b7e3923fe4f2fd030a91af9b739a8809f59440e25ac97093ac91af705565"
+  },
+  "operator_first_frozen_qualification": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-policy-original-qualification.json",
+    "bytes": 2983,
+    "sha256": "c6751fdaef6e96edf83152b1695859c65689881e23036b5ec9a941fe172c875e"
+  },
+  "source_plan": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/payload-plan.json",
+    "bytes": 7599,
+    "sha256": "16d0ff23bfa70b6e1fb5e916e2ddd89d5bb0ae937a5f263008f893c2028ea078"
+  },
+  "source_custody": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/preparation-custody.json",
+    "bytes": 6509,
+    "sha256": "26a76c75c2352d6e1818bea0b215b38a5184972554fde20c39e951e21c20b16a"
+  },
+  "original_control": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/control.py",
+    "bytes": 17013,
+    "sha256": "0dbb7e9a160d0ae6f275a7fbcfd8b50a4d0a72d04de4caca35622e6d1faba4c6"
+  },
+  "original_actual_approval": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-ACL-Web-guest-actual-user-approval-20261026.json",
+    "bytes": 1450,
+    "sha256": "533ed1caea60355dad260d2b2f85664b6e029517f8a88857431ce44f50427b85"
+  },
+  "first_case": {
+    "case": "policy-web-e64cff5d",
+    "nonce": "e64cff5d-fb4d-411e-ad82-b97c8d60f6b8",
+    "Task_GUID": "{51D2D934-10FD-420C-ADA7-611C3885ED08}",
+    "only_one_Task_run": true,
+    "ordinary_interactive_session": 1,
+    "enabled_Administrator_role": false,
+    "result": "FAILED",
+    "original_python_PID": 14308,
+    "original_python_handle": 2708,
+    "original_python_wait_exit": 1,
+    "provider_PID": 12040,
+    "provider_handle": 884,
+    "provider_wait_exit": 1,
+    "provider_readers_alive": 0,
+    "Task_last_result": 1,
+    "original_Task_terminal": true,
+    "exact_Task_registration_removed_and_absent": true
+  },
+  "actual_failure": {
+    "controller": {
+      "type": "RuntimeError",
+      "message": "original child stdout ended before expected response"
+    },
+    "SDK_action": "create",
+    "SQLite_prepare_open_and_close_reported_success": true,
+    "first_reported_error": {
+      "API": "MoveFileExW_no_replace",
+      "raw_os_error": 5,
+      "kind": "PermissionDenied"
+    },
+    "error_propagation": [
+      "MoveFileExW_no_replace/Io",
+      "publish_new_directory/Io",
+      "NativeNetwork_create/NodeIo"
+    ],
+    "provider_stdout_bytes": 0,
+    "diagnostic_lines": 46,
+    "provider_cleanup_error": "owned Windows child did not settle cleanly",
+    "cleanup_interpretation": "Original provider is joined at exit1 with readers0/errors[]; cleanup API rejected its nonzero exit. This is not evidence of a live remaining child.",
+    "environment_lock_or_permission_cause": "UNKNOWN",
+    "old_Os5_or_Win10054_causes_or_fix_inferred": false
+  },
+  "reached_and_not_reached": {
+    "actual_owned_TLS_HTTP_and_WebSocket_prerequisites": true,
+    "provider_constructed_but_not_ready": true,
+    "consumer_gateway_or_content_host_created": false,
+    "actual_content_renderer_created": false,
+    "policy_or_ACL_assertions_reached": false,
+    "dependent_guest_case_started": false,
+    "case_full_expected4loops4servers_passed": false
+  },
+  "failure_path_ownership": {
+    "actual_created_closed_loops": 2,
+    "actual_owned_servers": 1,
+    "early_and_final_server_listeners_and_clients": 0,
+    "callback_failures": 0,
+    "overflow": 0,
+    "target_reader_joined": true,
+    "provider_and_outer_original_processes_terminal": true,
+    "source_drift": [],
+    "known_live_within_observed_owned_process_scope": [],
+    "whole_host_zero_egress": false,
+    "engine_background_destinations": "NOT_OBSERVED; content host not created"
+  },
+  "fixed_evidence": {
+    "selected_files": 19,
+    "existing_files": 13,
+    "bytes": 42894,
+    "missing_not_created": [
+      "consumer.stdout",
+      "consumer.stderr",
+      "consumer.owner.jsonl",
+      "policy-content.stdout",
+      "policy-content.stderr",
+      "policy-content.owner.jsonl"
+    ],
+    "files": {
+      "policy-web-e64cff5d-context-entry.json": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-entry.json",
+        "bytes": 298,
+        "sha256": "15fef2bcf7304a898d729e82a24c4f69e5c33f3666d965f4e07b9bfbb90d1cd6"
+      },
+      "policy-web-e64cff5d-context-child-owner.json": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-child-owner.json",
+        "bytes": 1187,
+        "sha256": "f55820c5faced721d4513d247e86980af555146291b90fdd55f240d4e41d8a46"
+      },
+      "policy-web-e64cff5d-context-child-exit.json": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-child-exit.json",
+        "bytes": 110,
+        "sha256": "df48936133145d30b75aca51e0db2325a5bab6341e174c0a187ee9eccc044152"
+      },
+      "policy-web-e64cff5d-context-1.completed.json": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-1.completed.json",
+        "bytes": 161,
+        "sha256": "7252adbeb4fbeb9f175b8ca6b9d3adbae303068d61be9b0118796ebdfd06f623"
+      },
+      "policy-web-e64cff5d-context-1.stdout": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-1.stdout",
+        "bytes": 6614,
+        "sha256": "770ee7880445da2fb129e19069ae5fdd7dac98bd1dab02e8b69409db112d1db8"
+      },
+      "policy-web-e64cff5d-context-1.stderr": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-1.stderr",
+        "bytes": 2285,
+        "sha256": "3fc47236d2a91871b5f70aa03967ad89124aa198463470a58bdd7580beafe8fe"
+      },
+      "policy-web-e64cff5d-context-task-run.json": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-task-run.json",
+        "bytes": 583,
+        "sha256": "7c1f47a8e83c0de9fe8a62ec94e02d3fd9219b6e1e0275b7569265e8f5ecff9c"
+      },
+      "policy-web-e64cff5d-context-task-run.jsonl": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/policy-web-e64cff5d-context-task-run.jsonl",
+        "bytes": 4531,
+        "sha256": "0c36cd797d450324c05632ef538e79d72f8201cf2ca566d392526b192133747c"
+      },
+      "result.json": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/result.json",
+        "bytes": 11196,
+        "sha256": "6aa90a311feb2cfeb965e9c317131208c3ab3bc67c862790a4774b0181a64e30"
+      },
+      "events.jsonl": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/events.jsonl",
+        "bytes": 8792,
+        "sha256": "ed62f4c821dc515b6159f4d3381ad32c1b42cf9214d35fd59d12191bb7f15cc4"
+      },
+      "provider.stdout": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/provider.stdout",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "provider.stderr": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/provider.stderr",
+        "bytes": 6260,
+        "sha256": "2ae086933041fabf829c6bf877aa9a5e12280dd8f1b9962f9a13ec611a694d1b"
+      },
+      "provider.owner.jsonl": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/policy-recovery-raw/provider.owner.jsonl",
+        "bytes": 877,
+        "sha256": "3f88b445214b6f60ee861edb26ce2ea961d38dc312f262d6bd23dff85aa8cbfa"
+      }
+    }
+  },
+  "collector_failure_and_recovery": {
+    "original_empty_metadata": {
+      "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/metadata-policy.json",
+      "bytes": 953,
+      "sha256": "2a74e2a04dcb69e901fba9f433c1d118869b9b4ef0fc4b01da35309c5a66d3ef"
+    },
+    "original_first_STOP": {
+      "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/runtime/STOP-first-failure.json",
+      "bytes": 966,
+      "sha256": "56885bf56bc1c2b8f7d3def743a1d31515c852b6a59e3b463b861e4190e994bb"
+    },
+    "original_exit": 0,
+    "original_stdout_and_stderr_bytes": 0,
+    "original_stdin_sha256": "880d107f07faff4245924102eee8c83448faaca1ca89474b2052bdc75d43abe5",
+    "recovery_driver": {
+      "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/policy-evidence-recovery/recover.py",
+      "bytes": 11050,
+      "sha256": "73f3d36f15f1c20e4d30acd27e07f1ed6add448375ddf09e2f3ab97f65d05398"
+    },
+    "unified_framing_diagnosis": {
+      "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/policy-evidence-recovery/source-ready.json",
+      "bytes": 7242,
+      "sha256": "8192a02fd8eb1101517e06252ab276dad193e53b5aab6d1c0f6592df74d28bb4"
+    },
+    "only_added_one_LF": true,
+    "corrected_stdin_sha256": "90a341d417cb9f24cbb110b776baf727a5c895dbbd56918de004db2d514e5be5",
+    "exact_manifest": {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-policy-fixed19-exact-collection-manifest-20261026.json",
+      "bytes": 10423,
+      "sha256": "cb93c22e8afe53475c0e44387240b374bac93fec904abd4294130ed2bb59361d"
+    },
+    "automatic_review_first_rejected_without_process_creation": {
+      "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/policy-fixed19-recovery-automatic-review-STOP.json",
+      "bytes": 1987,
+      "sha256": "67ff518107e987639a0b51da753aa9dcd5e6cafddd9c4feb09ead3d354f027bd"
+    },
+    "actual_new_user_approval_after_rejection": {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-policy-fixed19-actual-user-approval-after-review-rejection-20261026.json",
+      "bytes": 1805,
+      "sha256": "9029a8e327942841e0c81972a95c47a7a7fa2eae03434241364b76011ddb7732"
+    },
+    "executed_new_release": {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-policy-fixed19-after-explicit-user-approval-runtime-release-20261026.json",
+      "bytes": 2780,
+      "sha256": "c0a15c744030ce1311747f7fc633dbe29ac048657051b53d7823fe5c29ca82c4"
+    },
+    "actual_metadata_exit": 0,
+    "actual_SCP_exit": 0,
+    "metadata_and_SCP_stderr_bytes": 0,
+    "same_body_plus_LF_produced_JSON": true,
+    "local_collection": {
+      "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/policy-evidence-recovery/attempt/collection.json",
+      "bytes": 539,
+      "sha256": "a838fd85ee9372563228e84507bc4fdab4f70af901675c1d9c05fb580afa9d7f"
+    },
+    "Task_or_business_retry": false,
+    "original_failure_and_first_frozen_qualifier_preserved": true
+  },
+  "limits": {
+    "raw_total_shared_cap": 2097152,
+    "same_global_raw_cap": 25165824,
+    "source_and_recovery_attempt_cap": 24576,
+    "no_new_SDK_host_runtime_build_pin_or_copy": true,
+    "no_cleanup_or_counting_root_exclusion_baseline_reset": true,
+    "no_remote_presecond_or_final_owned_metadata_after_failed_case": true,
+    "postcase_remote_footprint": "UNKNOWN; no extra owned-root query performed",
+    "full_M119_accepted": false,
+    "formal_whole_ticket_review_passed": false,
+    "Plane_state_unchanged": true
+  },
+  "full_operator_handoff": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/handoff-Windows-policy-original-failure-incomplete.md",
+    "bytes": 11228,
+    "sha256": "a804e4baf1c502db8537c533c2fb92804a82da2216aa9e2dacb59283b56e047c"
+  },
+  "expanded_shared_initialization_source_and_positive_negative_evidence": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-policy-failure-owner-and-init-source-audit.json",
+    "bytes": 19305,
+    "sha256": "72cc674460ece22b8edac82d93e8396c2085f7d1bc3ce55ffd46ad0777ba814a"
+  },
+  "operator_final_budget": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-policy-final-transition-budget.json",
+    "bytes": 1287,
+    "sha256": "6d98505b8fd200d05bcf855910628f7b61612745cc50276e682860cf60d7cc84"
+  },
+  "source_analysis_limits": {
+    "Create_and_Join_share_initialize_then_no_replace_publication": true,
+    "SQLite_close_await_and_private_File_drop_before_publication_in_selected_source": true,
+    "all_OS_external_handles_closed_proved": false,
+    "current_environmental_denial_cause": "UNKNOWN",
+    "old_uninstrumented_Os5_API_boundaries": "UNKNOWN",
+    "reopen_does_not_test_fresh_publication": true,
+    "same_retained_SDK_previous_publication_success_does_not_prove_reliability": true,
+    "staging_removal_attempt_on_failure_result_discarded": "actual remaining private files UNKNOWN; no remote cleanup or extra query performed",
+    "source_archive_and_four_selected_members_independently_hash_verified": true,
+    "fourteen_retained_stderr_references_independently_hash_verified": true
+  }
+}

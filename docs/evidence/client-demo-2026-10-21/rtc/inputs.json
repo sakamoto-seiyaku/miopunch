@@ -1,0 +1,173 @@
+{
+  "source": {
+    "src/bin/miopunch_demo.rs": "95319067a826b524c3ed1f3b402dd2657e08a0e3d68cddea9daf935adb0ff2a8",
+    "demo/host/services.rs": "9f8732edd7c49dce9577ee00aa43581ab042bf625a4537553540ca6724b62831",
+    "demo/client/src/TerminalPane.vue": "4a514e5226b5eb40890a97fc0ee70280e9bb2931d66de49029851c883c41a104",
+    "demo/client/src/main.ts": "4f28b634f509f112d7c3fa22fd11a5611bd9b47ebc0553b770a468d09952bfd6",
+    "demo/client/src/App.vue": "32b6fe28043b5e8246fc2a0a3f1ff20a1a7240a7ccdd6f6a173dcb4b8273d76b",
+    "demo/client/src/web.ts": "416b86c6f4d983c29d4d47046f550f17238e3b9304e014bba8d860d95578fc1c",
+    "demo/client/src/style.css": "5a8c853a26babe286ac7e9a5d703b4c3adcaf3467684911563b2eaec5f6c55e5",
+    "demo/client/src/node.ts": "2b0d3bc8281b6b812fba5abf16428ef2681fd747ceb35643c95dd08dc372e0dd",
+    "demo/client/src/window-node.ts": "d1a4d1a4f372966a3bf4946c8b0639a7b3f2970de35afa19fa361b38c683988a",
+    "demo/client/public/node-worker.js": "4097cfc4fabef388f3a2b3d6a6f6514c0e7fb9c4d4d5c0761f08720e55c2a19a",
+    "demo/runtime/server.py": "0e6e45572ab1a43c96addeed75790f35a9082edf24c09c08c6c76a6a00fc6415",
+    "demo/runtime/web_queue.py": "79fb0d3e40798e238cf3453bf36c926c1b3f962ec34085d64bce02ce45e540ce",
+    "demo/host/terminal.py": "d6d197bcbc49579260a9283e320f17ab5530445f7d6e85bfe1f36c1f1da8f281",
+    "demo/client/package-lock.json": "e63f773e3caa443e3d79e3f30a6fa72193a8477978c84a2af269705a943dcc81",
+    "src/network_maintenance.rs": "f3bdc93c102edc144b11283cd393db606ae087cac895d223177c0a05fc32875c",
+    "demo/build.py": "2bc59ed160334931ad6a29e59dd18c068e51da680816483d4013c3d0e8f6cc7e",
+    "demo/check.mjs": "0d05f491d58dd1aa1d534d9027dc1028317cec96d6e4a3ba7857b0d500e9f546",
+    "demo/check-terminal.mjs": "00dffe05bf90be6b25f1ccd138ee6722a97d590a2cd3975d79ba46fabc5b21b8",
+    "demo/check-lifecycle.mjs": "9b95281da55bc1771d51598281408e2f734e8a3c2c55d6ac468e8447a8f175d8",
+    "demo/README.md": "515100defd97b9cd419b4ebbc92151cbd42118f3169ae37ad9303fe05e5df750",
+    "docs/agents/build-cache.md": "3a9bfc0592abe70beb55d639e5cd8155b1c70616f708a644005c9ff41e591783"
+  },
+  "deployment": {
+    "native": {
+      "graphId": "4858954e7322ff03768a64bbd105d27d88fee6f2407718ee2ac5f184cedd2d34",
+      "originatingReceipt": "/tmp/miopunch-client-demo-20261021/builds/1792569728378832276-4858954e7322/receipt.json",
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--features",
+        "rtc-probe",
+        "--jobs",
+        "2",
+        "--bin",
+        "miopunch_demo",
+        "--bin",
+        "browser-probe-native",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "freshArtifacts": 526,
+      "rebuiltArtifacts": 3,
+      "rebuiltTargets": [
+        {
+          "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+          "name": "miopunch_native_probe"
+        },
+        {
+          "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+          "name": "browser-probe-native"
+        },
+        {
+          "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+          "name": "miopunch_demo"
+        }
+      ],
+      "diskBefore": {
+        "freeBytes": 208608567296,
+        "cacheBytes": 71472685056
+      },
+      "diskAfter": {
+        "freeBytes": 208543346688,
+        "cacheBytes": 71537119232
+      },
+      "programs": {
+        "miopunch_demo": "/home/js/Git/miopunch/.artifacts/runs/client-demo/1792569728378832276-4858954e7322/miopunch_demo",
+        "browser-probe-native": "/home/js/Git/miopunch/.artifacts/runs/client-demo/1792569728378832276-4858954e7322/browser-probe-native"
+      },
+      "artifacts": {
+        "/home/js/Git/miopunch/.artifacts/runs/client-demo/1792569728378832276-4858954e7322/miopunch_demo": "23a5bac0f9ff08730ba15e8f1f4f91352d053f80a2569dcdd719150100de1c6b",
+        "/home/js/Git/miopunch/.artifacts/runs/client-demo/1792569728378832276-4858954e7322/browser-probe-native": "49c68da2dade5f0da04cda6e1fe133deb10dd62a4edc2b6562e9faf9da1959be"
+      },
+      "selectedInputManifests": {
+        "miopunch_demo": "/tmp/miopunch-client-demo-20261021/builds/1792569728378832276-4858954e7322/miopunch_demo-selected-inputs.json",
+        "browser-probe-native": "/tmp/miopunch-client-demo-20261021/builds/1792569728378832276-4858954e7322/browser-probe-native-selected-inputs.json"
+      },
+      "selectedInputManifestHashes": {
+        "miopunch_demo": "1e63554b8ae44712fce7d9176c9208901a04af17891a86bfe143b906963e5473",
+        "browser-probe-native": "b8233f7c8a377074a0b60864e799362d370f87df32cc1dbc96af2f34ebd0185f"
+      },
+      "sourceUnchangedAfterBuild": true,
+      "reused": true
+    },
+    "browser": {
+      "originatingReceipt": "/tmp/miopunch-m103-20261019/browser-final/receipt.json",
+      "receiptSha256": "3cdf5485059196cd425edc82b89e07cae2d5032778183496261786b9f5846098",
+      "selectedInputManifestSha256": "5fb935a8e42ac4f6f3c8eaadd6274028b6551438862543e974fa7f00d1db5063",
+      "verifiedInputCount": 3162,
+      "artifacts": {
+        "/tmp/miopunch-m103-20261019/browser-final/miopunch_browser_probe.wasm": "6e00dc9dee09d3fd78201d11d79fed5114dd7221ba6425ed344b688f18be314c",
+        "/tmp/miopunch-m103-20261019/browser-final/pkg/miopunch_browser_probe_bg.wasm": "64e5139aee65181815a0c2c82aaf5da4f41b660c0724429dcea07e0ee3513c2c",
+        "/tmp/miopunch-m103-20261019/browser-final/pkg/miopunch_browser_probe_bg.wasm.d.ts": "8ff8262526f5b757036085ee949efd7a9446d40a7b190529a81fe34342347ff6",
+        "/tmp/miopunch-m103-20261019/browser-final/pkg/miopunch_browser_probe.js": "e1a76f1dd469531906e7f41ecce25606994fb4677e11dd24c72f343136500a10",
+        "/tmp/miopunch-m103-20261019/browser-final/pkg/miopunch_browser_probe.d.ts": "5e32a31236b89872b32934454164ff64dd45cabe21cd4565ecbc5ca7b9c53c1e",
+        "/tmp/miopunch-m103-20261019/browser-final/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+        "/tmp/miopunch-m103-20261019/browser-final/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96"
+      },
+      "pkg": "/tmp/miopunch-m103-20261019/browser-final/pkg"
+    },
+    "relay": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/client-demo/1792569728378832276-4858954e7322/browser-probe-native",
+      "sha256": "49c68da2dade5f0da04cda6e1fe133deb10dd62a4edc2b6562e9faf9da1959be",
+      "originatingReceipt": "/tmp/miopunch-client-demo-20261021/builds/1792569728378832276-4858954e7322/receipt.json",
+      "selectedInputManifest": "/tmp/miopunch-client-demo-20261021/builds/1792569728378832276-4858954e7322/browser-probe-native-selected-inputs.json",
+      "selectedInputManifestSHA256": "b8233f7c8a377074a0b60864e799362d370f87df32cc1dbc96af2f34ebd0185f"
+    },
+    "deployed": {
+      "miopunch_demo": "bdea2df0f3521e71e0c9d4ef974daf258c8169b80d96ae39a31dc8b6a061d1d4",
+      "terminal.py": "d6d197bcbc49579260a9283e320f17ab5530445f7d6e85bfe1f36c1f1da8f281",
+      "web_queue.py": "79fb0d3e40798e238cf3453bf36c926c1b3f962ec34085d64bce02ce45e540ce",
+      "server.py": "0e6e45572ab1a43c96addeed75790f35a9082edf24c09c08c6c76a6a00fc6415",
+      "browser-probe-native": "768201105bef4180fe7a2cacf680e727ff10c65768affe8a2262844a8ed5ffd2",
+      "pkg/miopunch_browser_probe_bg.wasm": "64e5139aee65181815a0c2c82aaf5da4f41b660c0724429dcea07e0ee3513c2c",
+      "pkg/miopunch_browser_probe_bg.wasm.d.ts": "8ff8262526f5b757036085ee949efd7a9446d40a7b190529a81fe34342347ff6",
+      "pkg/miopunch_browser_probe.js": "e1a76f1dd469531906e7f41ecce25606994fb4677e11dd24c72f343136500a10",
+      "pkg/miopunch_browser_probe.d.ts": "5e32a31236b89872b32934454164ff64dd45cabe21cd4565ecbc5ca7b9c53c1e",
+      "client/node-worker.js": "4097cfc4fabef388f3a2b3d6a6f6514c0e7fb9c4d4d5c0761f08720e55c2a19a",
+      "client/index.html": "f6741a99326faf02cf59fa452766acf28be9346c82a85b66197a04f7074bdb6a",
+      "client/assets/index--MIEO6k4.js": "04877d4bc29251cb05d8f49080e768d11f2f8be42bf7c15c98a5c8a5a772112b",
+      "client/assets/index-BjptYjpO.css": "09db904772d87d68356646fa1f02eb375a1389ab08715920fa5ff309c0f38979",
+      "client/assets/index-BoZtxpG4.js": "2bc887eab7fe297eb26d3c8caa0844ae911636330fdcfcd153014eef300952bf",
+      "client/assets/index-Pp6XuTto.js": "cc5c283ee9f37206115b80f5e078a3d0057428b44709fd9f5dbce8f4ce02d84b",
+      "pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+      "pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+      "client/assets/index-BY8fm_-6.js": "ca045a0b0d360986c021310011899f1b46ed6a781ceff5f39bf83a1f3ad4ad4f"
+    },
+    "source": {
+      "src/bin/miopunch_demo.rs": "95319067a826b524c3ed1f3b402dd2657e08a0e3d68cddea9daf935adb0ff2a8",
+      "demo/host/services.rs": "9f8732edd7c49dce9577ee00aa43581ab042bf625a4537553540ca6724b62831",
+      "demo/client/src/TerminalPane.vue": "4a514e5226b5eb40890a97fc0ee70280e9bb2931d66de49029851c883c41a104",
+      "demo/client/src/main.ts": "4f28b634f509f112d7c3fa22fd11a5611bd9b47ebc0553b770a468d09952bfd6",
+      "demo/client/src/App.vue": "32b6fe28043b5e8246fc2a0a3f1ff20a1a7240a7ccdd6f6a173dcb4b8273d76b",
+      "demo/client/src/web.ts": "416b86c6f4d983c29d4d47046f550f17238e3b9304e014bba8d860d95578fc1c",
+      "demo/client/src/style.css": "5a8c853a26babe286ac7e9a5d703b4c3adcaf3467684911563b2eaec5f6c55e5",
+      "demo/client/src/node.ts": "2b0d3bc8281b6b812fba5abf16428ef2681fd747ceb35643c95dd08dc372e0dd",
+      "demo/client/src/window-node.ts": "d1a4d1a4f372966a3bf4946c8b0639a7b3f2970de35afa19fa361b38c683988a",
+      "demo/client/public/node-worker.js": "4097cfc4fabef388f3a2b3d6a6f6514c0e7fb9c4d4d5c0761f08720e55c2a19a",
+      "demo/runtime/server.py": "0e6e45572ab1a43c96addeed75790f35a9082edf24c09c08c6c76a6a00fc6415",
+      "demo/runtime/web_queue.py": "79fb0d3e40798e238cf3453bf36c926c1b3f962ec34085d64bce02ce45e540ce",
+      "demo/host/terminal.py": "d6d197bcbc49579260a9283e320f17ab5530445f7d6e85bfe1f36c1f1da8f281",
+      "demo/client/package-lock.json": "e63f773e3caa443e3d79e3f30a6fa72193a8477978c84a2af269705a943dcc81",
+      "src/network_maintenance.rs": "f3bdc93c102edc144b11283cd393db606ae087cac895d223177c0a05fc32875c",
+      "demo/build.py": "2bc59ed160334931ad6a29e59dd18c068e51da680816483d4013c3d0e8f6cc7e"
+    }
+  },
+  "rollout": {
+    "health": {
+      "ready": true,
+      "native": true
+    },
+    "manifestSHA256": "9c0c2f498a7f9d7b119a32ab03ea25144a6903fe26525963bcf5d6a3f7c05ea5",
+    "backup": "/home/js/miopunch-demo-before-rtc-20261021/old-app.tar.gz"
+  },
+  "preservation": {
+    "originalIdentityAndAccessUnchanged": true,
+    "originalUserPeer": "e3ae7df0913fb19e150a8380fe372916984aabfa2edf5a28c7fe0ef3548e2bd9",
+    "originalFileBytes": 6635,
+    "originalFileSHA256": "dd15f558c30d4af3c0be29fbc18ce109bae76ca4456ee948d07245ecb210d155",
+    "originalUserClipboardBytes": 27,
+    "allSelectedHashesMatched": true
+  },
+  "rawEvidence": "/tmp/miopunch-client-demo-rtc-20261021",
+  "wasmRebuilt": false,
+  "newNativeBuildFresh": 526,
+  "newNativeBuildRebuilt": 3,
+  "maintainedTestsPassed": 5
+}

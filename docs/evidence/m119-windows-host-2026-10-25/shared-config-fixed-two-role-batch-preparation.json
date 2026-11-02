@@ -1,0 +1,67 @@
+{
+  "status": "TWO_EXACT_PACKETS_PREPARED_UNEXECUTED_AWAITING_USER_APPROVAL",
+  "destination": "stati@100.64.10.8 C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+  "packets": [
+    {
+      "case": "linux_provider_windows_consumer",
+      "packet_path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-shared-config-fixed-preparation-20261028/packet.json",
+      "packet_sha256": "3009a1d93ad3b3237cbee428ddc05896ef49b839fd85dbc6969464a9f113f97a",
+      "plan_sha256": "0fc7ec4620381ac8216cf192feef3d9c0133fa95ca1dd87e2adb4966fd45dc83",
+      "payload_bytes": 85029,
+      "mode": "FIRST_ONLY_FULL_WEB_LINUX_TO_WINDOWS",
+      "current_windows_sdk_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+      "current_linux_sdk_sha256": "b63a7f6280417399df02731ce0c2980edb20f24099244107e8c1b38be47a8c46",
+      "shared_worker_sha256": "1f3c9d5e2c9195730fa6490f15ebe80b6f59b535935f1d6a05c5882db007945d",
+      "local_cap": 28591352,
+      "root_admin_cap": 480136,
+      "remote_precheck_sha256": "b05f20ef302806b1c4da2ff485bf359c12fdd2a4a8416539ec6e9b368b73c68c",
+      "remote_margin_now": 18581937,
+      "remote_collision_count": 0,
+      "runtime_started": false
+    },
+    {
+      "case": "windows_provider_linux_consumer",
+      "packet_path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-reverse-shared-config-fixed-preparation-20261028/packet.json",
+      "packet_sha256": "1af2876b5508f5b302f62756a70260083e153db5d7356127d2f4cc035d784f27",
+      "plan_sha256": "65b9e1f8856ea808ca61e9e0eb0278cdbf631b75f0399ceb37e0f0c7580644ed",
+      "payload_bytes": 85045,
+      "mode": "REVERSE_ONLY_FULL_WEB_WINDOWS_TO_LINUX",
+      "current_windows_sdk_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+      "current_linux_sdk_sha256": "b63a7f6280417399df02731ce0c2980edb20f24099244107e8c1b38be47a8c46",
+      "shared_worker_sha256": "1f3c9d5e2c9195730fa6490f15ebe80b6f59b535935f1d6a05c5882db007945d",
+      "local_cap": 28595448,
+      "root_admin_cap": 484232,
+      "remote_precheck_sha256": "e995dd121e3e313f30f67f48a23b4c2da6af88497ec64e1d5ce7b5074659c1fc",
+      "remote_margin_now": 18581921,
+      "remote_collision_count": 0,
+      "runtime_started": false
+    }
+  ],
+  "payload_total_bytes": 170074,
+  "operation_scope": [
+    "manual admission",
+    "signed service_sync",
+    "real HTTP(S) resources and login/redirect",
+    "real WebSocket text/binary close",
+    "WebView2 and Linux content isolation",
+    "provider configuration and signed service state invariants",
+    "owned Task and SDK cleanup"
+  ],
+  "execution_order": [
+    "Linux provider/Windows consumer first",
+    "fresh read-only capacity and collision check",
+    "Windows provider/Linux consumer second if current guards pass"
+  ],
+  "no_new_sdk_build_or_transfer": true,
+  "remote_root_cap_unchanged": 1073741824,
+  "same_worker_fix": "completed Web flows may increase; every other web_status field and full service_status remain equal",
+  "negative_assertion_regression": "origin/service mutation and no completed-flow progress rejected",
+  "limits": [
+    "Each packet has its own immutable closure and must pass its own guards",
+    "After the first runtime, second remote capacity must be checked again",
+    "Unexpected product/test failures stop that case with original raw preserved; no blind retry",
+    "These two packets do not authorize unknown later changed private payloads"
+  ],
+  "whole_M119_accepted": false,
+  "remote_actions_for_this_batch": 0
+}

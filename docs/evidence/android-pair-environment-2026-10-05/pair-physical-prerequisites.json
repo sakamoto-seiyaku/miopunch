@@ -1,0 +1,533 @@
+{
+  "scope": "Pixel versus Y700 physical prerequisites: bound IPv4 raw STUN and system-normal TLS; not SDK/NAT pass",
+  "startedUtc": "2026-10-05T02:30:08Z",
+  "hostRole": "build/control/evidence only; no business endpoint",
+  "probeSourceSha256": {
+    "Mio82UdpStun.java": "06f81b9af3cb4f2db4b9aaf07c421a4e4458e1b0453c248b43e0ead59bfdbea1",
+    "Mio82TlsTrace.java": "8dcf957f3d6721f44d4b079a61d90e25951eafaf52c845d99b12b5ffad0f88ee"
+  },
+  "dexSha256": "7739946284e97471faf0860d22d4911b37f2ca92635f421c35cf49a0f01d1635",
+  "endpoints": [
+    {
+      "model": "Pixel_6a",
+      "controlTransport": "usb",
+      "physicalIpv4": "192.168.1.104",
+      "commands": [
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "ip -o -4 addr show wlan0"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "result": [
+            {
+              "interface": "wlan0",
+              "family": "inet",
+              "address": "192.168.1.104/24"
+            }
+          ],
+          "elapsedMs": 116.993
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "ip route get 74.125.250.129 from 192.168.1.104"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "stdout": "74.125.250.129 from 192.168.1.104 via 192.168.1.1 dev wlan0 table 1047 uid 2000 \n    cache \n",
+          "elapsedMs": 106.905
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "ip route show table all"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "stdout": "default via 192.168.1.1 dev wlan0 table 1047 proto static \n192.168.1.0/24 dev wlan0 table 1047 proto static scope link \n192.168.1.0/24 dev wlan0 table 1000000047 proto static scope link \n224.0.0.0/24 dev wlan0 table 1000000047 proto static scope link \ndefault dev dummy0 table 1002 proto static scope link \n192.168.1.0/24 dev wlan0 proto kernel scope link src 192.168.1.104 \nlocal 127.0.0.0/8 dev lo table local proto kernel scope host src 127.0.0.1 \nlocal 127.0.0.1 dev lo table local proto kernel scope host src 127.0.0.1 \nbroadcast 127.255.255.255 dev lo table local proto kernel scope link src 127.0.0.1 \nlocal 192.168.1.104 dev wlan0 table local proto kernel scope host src 192.168.1.104 \nbroadcast 192.168.1.255 dev wlan0 table local proto kernel scope link src 192.168.1.104 \n2408:8207:1855:7360::/64 dev wlan0 table 1047 proto kernel metric 256 expires 259058sec pref medium\n2408:8207:1855:7360::/64 via fe80::1 dev wlan0 table 1047 proto ra metric 1024 expires 259058sec pref high\nfe80::/64 dev wlan0 table 1047 proto kernel metric 256 pref medium\nfe80::/64 dev wlan0 table 1047 proto static metric 1024 pref medium\ndefault via fe80::1 dev wlan0 table 1047 proto ra metric 1024 expires 1658sec hoplimit 64 pref low\n2408:8207:1855:7360::/64 dev wlan0 table 1000000047 proto static metric 1024 pref medium\nfe80::/64 dev wlan0 table 1000000047 proto static metric 1024 pref medium\nfe80::/64 dev dummy0 table 1002 proto kernel metric 256 pref medium\ndefault dev dummy0 table 1002 proto static metric 1024 pref medium\nlocal ::1 dev lo table local proto kernel metric 0 pref medium\nlocal 2408:8207:1855:7360:40bd:dff:fe47:f666 dev wlan0 table local proto kernel metric 0 pref medium\nlocal 2408:8207:1855:7360:86f3:9ae8:8ebc:3814 dev wlan0 table local proto kernel metric 0 pref medium\nlocal fe80::34a2:3eff:fe3b:e9e4 dev dummy0 table local proto kernel metric 0 pref medium\nlocal fe80::40bd:dff:fe47:f666 dev wlan0 table local proto kernel metric 0 pref medium\nmulticast ff00::/8 dev dummy0 table local proto kernel metric 256 pref medium\nmulticast ff00::/8 dev wlan0 table local proto kernel metric 256 pref medium\n",
+          "elapsedMs": 119.844
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "ip rule show"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "stdout": "0:\tfrom all lookup local \n10000:\tfrom all fwmark 0xc0000/0xd0000 lookup 99 \n11000:\tfrom all iif lo oif dummy0 uidrange 0-0 lookup 1002 \n11000:\tfrom all iif lo oif wlan0 uidrange 0-0 lookup 1047 \n15040:\tfrom all fwmark 0x1027e/0x1ffff iif lo uidrange 10119-10119 lookup 1047 \n15040:\tfrom all fwmark 0x1027e/0x1ffff iif lo uidrange 10120-10120 lookup 1047 \n15040:\tfrom all fwmark 0x1027e/0x1ffff iif lo uidrange 10163-10163 lookup 1047 \n15040:\tfrom all fwmark 0x1027e/0x1ffff iif lo uidrange 10176-10176 lookup 1047 \n15040:\tfrom all fwmark 0x1027e/0x1ffff iif lo uidrange 10199-10199 lookup 1047 \n15040:\tfrom all fwmark 0x1027e/0x1ffff iif lo uidrange 10167-10167 lookup 1047 \n16000:\tfrom all fwmark 0x10063/0x1ffff iif lo lookup 97 \n16000:\tfrom all fwmark 0x1027e/0x1ffff iif lo lookup 1047 \n17000:\tfrom all iif lo oif dummy0 lookup 1002 \n17000:\tfrom all iif lo oif wlan0 lookup 1047 \n18000:\tfrom all fwmark 0x0/0x10000 lookup 99 \n19000:\tfrom all fwmark 0x0/0x10000 lookup 98 \n20000:\tfrom all fwmark 0x0/0x10000 lookup 97 \n22040:\tfrom all fwmark 0x27e/0x1ffff iif lo uidrange 10119-10119 lookup 1047 \n22040:\tfrom all fwmark 0x27e/0x1ffff iif lo uidrange 10120-10120 lookup 1047 \n22040:\tfrom all fwmark 0x27e/0x1ffff iif lo uidrange 10163-10163 lookup 1047 \n22040:\tfrom all fwmark 0x27e/0x1ffff iif lo uidrange 10176-10176 lookup 1047 \n22040:\tfrom all fwmark 0x27e/0x1ffff iif lo uidrange 10199-10199 lookup 1047 \n22040:\tfrom all fwmark 0x27e/0x1ffff iif lo uidrange 10167-10167 lookup 1047 \n23000:\tfrom all fwmark 0x27e/0x1ffff iif lo lookup 1047 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10119-10119 lookup 1000000047 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10120-10120 lookup 1000000047 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10163-10163 lookup 1000000047 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10176-10176 lookup 1000000047 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10199-10199 lookup 1000000047 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10167-10167 lookup 1000000047 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10119-10119 lookup 1047 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10120-10120 lookup 1047 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10163-10163 lookup 1047 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10176-10176 lookup 1047 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10199-10199 lookup 1047 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10167-10167 lookup 1047 \n31000:\tfrom all fwmark 0x0/0xffff iif lo lookup 1047 \n32000:\tfrom all unreachable\n",
+          "elapsedMs": 99.802
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "dumpsys connectivity"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "result": [
+            {
+              "interface": "wlan0",
+              "transports": "WIFI"
+            }
+          ],
+          "elapsedMs": 127.649
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "push",
+            "/tmp/miopunch-mio82-pixel-tls-20261005/dex/classes.dex",
+            "/data/local/tmp/mio82-network-observation-20261005.dex"
+          ],
+          "exit": 0,
+          "stderr": "/tmp/miopunch-mio82-pixel-tls-20261005/dex/classes.dex: 1 file pushed, 0 skipped. 70.4 MB/s (7248 bytes in 0.000s)\n",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "stdout": "",
+          "elapsedMs": 66.694
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "env CLASSPATH=/data/local/tmp/mio82-network-observation-20261005.dex app_process /system/bin Mio82UdpStun 192.168.1.104"
+          ],
+          "exit": 1,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "filteredOutputOmittedOnFailure": true,
+          "elapsedMs": 3284.908
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "env CLASSPATH=/data/local/tmp/mio82-network-observation-20261005.dex app_process /system/bin Mio82TlsTrace"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "result": {
+            "httpStatus": "200",
+            "normalTlsVerification": "true",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "ip": "2408:8207:1855:7360:86f3:9ae8:8ebc:3814",
+            "http": "http/1.1",
+            "tls": "TLSv1.3",
+            "warp": "off",
+            "callerElapsedMs": "5809.908694",
+            "cleanupElapsedMs": "0.007731",
+            "httpsDisconnected": "true"
+          },
+          "elapsedMs": 6166.956
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "rm -f /data/local/tmp/mio82-network-observation-20261005.dex"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "stdout": "",
+          "elapsedMs": 117.835
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "test '!' -e /data/local/tmp/mio82-network-observation-20261005.dex"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "stdout": "",
+          "elapsedMs": 98.912
+        }
+      ],
+      "Mio82UdpStun": {
+        "exit": 1,
+        "result": null
+      },
+      "Mio82TlsTrace": {
+        "exit": 0,
+        "result": {
+          "httpStatus": "200",
+          "normalTlsVerification": "true",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "ip": "2408:8207:1855:7360:86f3:9ae8:8ebc:3814",
+          "http": "http/1.1",
+          "tls": "TLSv1.3",
+          "warp": "off",
+          "callerElapsedMs": "5809.908694",
+          "cleanupElapsedMs": "0.007731",
+          "httpsDisconnected": "true"
+        }
+      },
+      "ownedDeviceDexRemoved": true
+    },
+    {
+      "model": "TB322FC",
+      "controlTransport": "network",
+      "physicalIpv4": "192.168.0.107",
+      "commands": [
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "ip -o -4 addr show wlan0"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "result": [
+            {
+              "interface": "wlan0",
+              "family": "inet",
+              "address": "192.168.0.107/24"
+            }
+          ],
+          "elapsedMs": 129.895
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "ip route get 74.125.250.129 from 192.168.0.107"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "stdout": "74.125.250.129 from 192.168.0.107 via 192.168.0.1 dev wlan0 table 1015 uid 2000 \n    cache \n",
+          "elapsedMs": 164.467
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "ip route show table all"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "stdout": "192.168.0.0/24 dev wlan0 table 1000000015 proto static scope link \n224.0.0.0/24 dev wlan0 table 1000000015 proto static scope link \n100.64.10.1 dev tun1 table 1059 proto static scope link \n100.64.10.2 dev tun1 table 1059 proto static scope link \n100.64.10.4/30 dev tun1 table 1059 proto static scope link \n100.64.10.8/31 dev tun1 table 1059 proto static scope link \n100.64.10.10 dev tun1 table 1059 proto static scope link \n100.64.10.11 dev tun1 table 1059 proto static scope link \n100.100.100.100 dev tun1 table 1059 proto static scope link \n192.168.4.0/24 dev tun1 table 1059 proto static scope link \n100.64.10.1 dev tun1 table 1000000059 proto static scope link \n100.64.10.2 dev tun1 table 1000000059 proto static scope link \n100.64.10.4/30 dev tun1 table 1000000059 proto static scope link \n100.64.10.8/31 dev tun1 table 1000000059 proto static scope link \n100.64.10.10 dev tun1 table 1000000059 proto static scope link \n100.64.10.11 dev tun1 table 1000000059 proto static scope link \n100.100.100.100 dev tun1 table 1000000059 proto static scope link \n192.168.4.0/24 dev tun1 table 1000000059 proto static scope link \ndefault dev dummy0 table 1002 proto static scope link \ndefault via 192.168.0.1 dev wlan0 table 1015 proto static \n192.168.0.0/24 dev wlan0 table 1015 proto static scope link \n192.168.0.0/24 dev wlan0 proto kernel scope link src 192.168.0.107 \nlocal 100.64.10.11 dev tun1 table local proto kernel scope host src 100.64.10.11 \nlocal 127.0.0.0/8 dev lo table local proto kernel scope host src 127.0.0.1 \nlocal 127.0.0.1 dev lo table local proto kernel scope host src 127.0.0.1 \nbroadcast 127.255.255.255 dev lo table local proto kernel scope link src 127.0.0.1 \nlocal 192.168.0.107 dev wlan0 table local proto kernel scope host src 192.168.0.107 \nbroadcast 192.168.0.255 dev wlan0 table local proto kernel scope link src 192.168.0.107 \nfd00:6cb1:589b:ff4::/64 dev wlan0 table 1000000015 proto static metric 1024 pref medium\nfe80::/64 dev wlan0 table 1000000015 proto static metric 1024 pref medium\nfd7a:115c:a1e0::b dev tun1 table 1059 proto kernel metric 256 pref medium\nfd7a:115c:a1e0::b dev tun1 table 1059 proto static metric 1024 pref medium\nfd7a:115c:a1e0::/48 dev tun1 table 1059 proto static metric 1024 pref medium\nfe80::/64 dev tun1 table 1059 proto kernel metric 256 pref medium\nfd7a:115c:a1e0::b dev tun1 table 1000000059 proto static metric 1024 pref medium\nfd7a:115c:a1e0::/48 dev tun1 table 1000000059 proto static metric 1024 pref medium\nfe80::/64 dev dummy0 table 1002 proto kernel metric 256 pref medium\ndefault dev dummy0 table 1002 proto static metric 1024 pref medium\nfd00:6cb1:589b:ff4::/64 dev wlan0 table 1015 proto kernel metric 256 expires 86338sec pref medium\nfd00:6cb1:589b:ff4::/64 dev wlan0 table 1015 proto static metric 1024 pref medium\nfe80::/64 dev wlan0 table 1015 proto kernel metric 256 pref medium\nfe80::/64 dev wlan0 table 1015 proto static metric 1024 pref medium\ndefault via fe80::6eb1:58ff:fe9b:ff4 dev wlan0 table 1015 proto ra metric 1024 expires 1738sec hoplimit 64 pref medium\nlocal ::1 dev lo table local proto kernel metric 0 pref medium\nlocal fd00:6cb1:589b:ff4:4ca4:3f1d:cd3c:299e dev wlan0 table local proto kernel metric 0 pref medium\nlocal fd00:6cb1:589b:ff4:b8d9:63a7:9c8f:485d dev wlan0 table local proto kernel metric 0 pref medium\nlocal fd00:6cb1:589b:ff4:bce5:408b:bb39:3522 dev wlan0 table local proto kernel metric 0 pref medium\nlocal fd7a:115c:a1e0::b dev tun1 table local proto kernel metric 0 pref medium\nlocal fe80::10ab:e0ff:fe36:7707 dev dummy0 table local proto kernel metric 0 pref medium\nlocal fe80::3253:4674:d054:ca4 dev tun1 table local proto kernel metric 0 pref medium\nlocal fe80::acd8:1560:476:22f9 dev wlan0 table local proto kernel metric 0 pref medium\nmulticast ff00::/8 dev dummy0 table local proto kernel metric 256 pref medium\nmulticast ff00::/8 dev tun1 table local proto kernel metric 256 pref medium\nmulticast ff00::/8 dev wlan0 table local proto kernel metric 256 pref medium\n",
+          "elapsedMs": 123.247
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "ip rule show"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "stdout": "0:\tfrom all lookup local \n11000:\tfrom all iif lo oif dummy0 uidrange 0-0 lookup 1002 \n11000:\tfrom all iif lo oif wlan0 uidrange 0-0 lookup 1015 \n12000:\tfrom all iif tun1 lookup 97 \n13000:\tfrom all fwmark 0x0/0x20000 iif lo uidrange 0-10287 lookup 1059 \n13000:\tfrom all fwmark 0x0/0x20000 iif lo uidrange 10289-20287 lookup 1059 \n13000:\tfrom all fwmark 0x0/0x20000 iif lo uidrange 20289-99999 lookup 1059 \n13000:\tfrom all fwmark 0xc00af/0xcffff lookup 1059 \n15040:\tfrom all fwmark 0x100b1/0x1ffff iif lo uidrange 10300-10300 lookup 1015 \n15040:\tfrom all fwmark 0x100b1/0x1ffff iif lo uidrange 10344-10344 lookup 1015 \n15040:\tfrom all fwmark 0x100b1/0x1ffff iif lo uidrange 10389-10389 lookup 1015 \n15040:\tfrom all fwmark 0x100b1/0x1ffff iif lo uidrange 10431-10431 lookup 1015 \n15040:\tfrom all fwmark 0x100b1/0x1ffff iif lo uidrange 1010389-1010389 lookup 1015 \n15040:\tfrom all fwmark 0x100b1/0x1ffff iif lo uidrange 10288-10288 lookup 1015 \n15998:\tfrom all fwmark 0x100b1/0x1ffff iif lo uidrange 0-2147483647 lookup 1015 \n16000:\tfrom all fwmark 0x10063/0x1ffff iif lo lookup 97 \n16000:\tfrom all fwmark 0x100af/0x1ffff iif lo uidrange 0-10287 lookup 1059 \n16000:\tfrom all fwmark 0x100af/0x1ffff iif lo uidrange 10289-20287 lookup 1059 \n16000:\tfrom all fwmark 0x100af/0x1ffff iif lo uidrange 20289-99999 lookup 1059 \n16000:\tfrom all fwmark 0x100af/0x1ffff iif lo uidrange 0-0 lookup 1059 \n16000:\tfrom all fwmark 0x100b1/0x1ffff iif lo lookup 1015 \n17000:\tfrom all iif lo oif dummy0 lookup 1002 \n17000:\tfrom all iif lo oif tun1 uidrange 0-10287 lookup 1059 \n17000:\tfrom all iif lo oif tun1 uidrange 10289-20287 lookup 1059 \n17000:\tfrom all iif lo oif tun1 uidrange 20289-99999 lookup 1059 \n17000:\tfrom all fwmark 0xc0000/0xc0000 iif lo oif wlan0 lookup 1015 \n20000:\tfrom all fwmark 0x0/0x10000 lookup 97 \n22040:\tfrom all fwmark 0xb1/0x1ffff iif lo uidrange 10300-10300 lookup 1015 \n22040:\tfrom all fwmark 0xb1/0x1ffff iif lo uidrange 10344-10344 lookup 1015 \n22040:\tfrom all fwmark 0xb1/0x1ffff iif lo uidrange 10389-10389 lookup 1015 \n22040:\tfrom all fwmark 0xb1/0x1ffff iif lo uidrange 10431-10431 lookup 1015 \n22040:\tfrom all fwmark 0xb1/0x1ffff iif lo uidrange 1010389-1010389 lookup 1015 \n22040:\tfrom all fwmark 0xb1/0x1ffff iif lo uidrange 10288-10288 lookup 1015 \n22998:\tfrom all fwmark 0xb1/0x1ffff iif lo uidrange 0-2147483647 lookup 1015 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10300-10300 lookup 1000000015 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10344-10344 lookup 1000000015 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10389-10389 lookup 1000000015 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10431-10431 lookup 1000000015 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 1010389-1010389 lookup 1000000015 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10288-10288 lookup 1000000015 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 0-2147483647 lookup 1000000015 \n28000:\tfrom all fwmark 0xc00af/0xdffff lookup 1015 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10300-10300 lookup 1015 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10344-10344 lookup 1015 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10389-10389 lookup 1015 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10431-10431 lookup 1015 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 1010389-1010389 lookup 1015 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10288-10288 lookup 1015 \n29998:\tfrom all fwmark 0x0/0xffff iif lo uidrange 0-2147483647 lookup 1015 \n31000:\tfrom all fwmark 0xc0000/0xcffff iif lo lookup 1015 \n32000:\tfrom all unreachable\n",
+          "elapsedMs": 122.02
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "dumpsys connectivity"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "result": [
+            {
+              "interface": "tun1",
+              "transports": "WIFI|VPN"
+            },
+            {
+              "interface": "wlan0",
+              "transports": "WIFI"
+            }
+          ],
+          "elapsedMs": 208.949
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "push",
+            "/tmp/miopunch-mio82-pixel-tls-20261005/dex/classes.dex",
+            "/data/local/tmp/mio82-network-observation-20261005.dex"
+          ],
+          "exit": 0,
+          "stderr": "/tmp/miopunch-mio82-pixel-tls-20261005/dex/classes.dex: 1 file pushed, 0 skipped. 67.8 MB/s (7248 bytes in 0.000s)\n",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "stdout": "",
+          "elapsedMs": 206.686
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "env CLASSPATH=/data/local/tmp/mio82-network-observation-20261005.dex app_process /system/bin Mio82UdpStun 192.168.0.107"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "result": {
+            "source": "192.168.0.107:43412",
+            "transactionAndSourceMatched": "true",
+            "responsePeer": "74.125.250.129:19302",
+            "mapped": "183.197.94.96:27093",
+            "callerElapsedMs": "222.591979",
+            "cleanupElapsedMs": "0.585937",
+            "ownedSocketClosed": "true"
+          },
+          "elapsedMs": 834.876
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "env CLASSPATH=/data/local/tmp/mio82-network-observation-20261005.dex app_process /system/bin Mio82TlsTrace"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "result": {
+            "httpStatus": "200",
+            "normalTlsVerification": "true",
+            "cipherSuite": "TLS_AES_128_GCM_SHA256",
+            "ip": "183.197.94.96",
+            "http": "http/1.1",
+            "tls": "TLSv1.3",
+            "warp": "off",
+            "callerElapsedMs": "2080.273593",
+            "cleanupElapsedMs": "0.003906",
+            "httpsDisconnected": "true"
+          },
+          "elapsedMs": 2633.269
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "rm -f /data/local/tmp/mio82-network-observation-20261005.dex"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "stdout": "",
+          "elapsedMs": 154.015
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "test '!' -e /data/local/tmp/mio82-network-observation-20261005.dex"
+          ],
+          "exit": 0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          },
+          "stdout": "",
+          "elapsedMs": 133.472
+        }
+      ],
+      "Mio82UdpStun": {
+        "exit": 0,
+        "result": {
+          "source": "192.168.0.107:43412",
+          "transactionAndSourceMatched": "true",
+          "responsePeer": "74.125.250.129:19302",
+          "mapped": "183.197.94.96:27093",
+          "callerElapsedMs": "222.591979",
+          "cleanupElapsedMs": "0.585937",
+          "ownedSocketClosed": "true"
+        }
+      },
+      "Mio82TlsTrace": {
+        "exit": 0,
+        "result": {
+          "httpStatus": "200",
+          "normalTlsVerification": "true",
+          "cipherSuite": "TLS_AES_128_GCM_SHA256",
+          "ip": "183.197.94.96",
+          "http": "http/1.1",
+          "tls": "TLSv1.3",
+          "warp": "off",
+          "callerElapsedMs": "2080.273593",
+          "cleanupElapsedMs": "0.003906",
+          "httpsDisconnected": "true"
+        }
+      },
+      "ownedDeviceDexRemoved": true
+    }
+  ],
+  "physicalWanQualified": false
+}

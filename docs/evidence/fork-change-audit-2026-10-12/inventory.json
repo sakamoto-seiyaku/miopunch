@@ -1,0 +1,1361 @@
+{
+  "head": "5beb2c791a929e5343576dfc3e26d7a831e2087f",
+  "p2panda_git_snapshot_sha256": "bf5cbf9d6bc03b420b0ffe060a75eff164fb5e11241e33bb91347889292803c5",
+  "count_method": "git diff --no-index --numstat, original packaged release or pinned p2panda git snapshot, current working tree; unchanged vendored upstream files excluded; Rust totals include inline tests/formatting",
+  "packages": [
+    {
+      "name": "iroh",
+      "version": "1.2.0",
+      "origin": {
+        "kind": "crates.io package",
+        "version": "1.2.0",
+        "artifact_sha256": "b2f8d1cfffc83efe39a1031aab423ce09cb8048071baba550508931e9a81ce46",
+        "vcs": {
+          "git": {
+            "sha1": "17c0612f80f78f5288e97b818b1360ae6ea0a51a"
+          },
+          "path_in_vcs": "iroh"
+        }
+      },
+      "baseline": "/tmp/miopunch-fork-audit-20261012/baselines/iroh/iroh-1.2.0",
+      "current": "/home/js/Git/miopunch/vendor/iroh",
+      "baseline_rust_files": 73,
+      "current_rust_files": 75,
+      "unchanged_rust_files": 53,
+      "baseline_rust_lines": 34579,
+      "current_rust_lines": 39109,
+      "category_totals": {
+        "build_manifest_lock": {
+          "files": 2,
+          "added": 2,
+          "deleted": 5118
+        },
+        "documentation_other": {
+          "files": 2,
+          "added": 259,
+          "deleted": 1
+        },
+        "packaging_metadata": {
+          "files": 1,
+          "added": 0,
+          "deleted": 6
+        },
+        "rust_runtime_or_mixed": {
+          "files": 22,
+          "added": 4719,
+          "deleted": 189
+        }
+      },
+      "changes": [
+        {
+          "path": ".cargo_vcs_info.json",
+          "status": "removed",
+          "category": "packaging_metadata",
+          "added": 0,
+          "deleted": 6,
+          "baseline_sha256": "027c10ce64fb8158f267b2bf3dc366e40f305912fac5544ebb3657d6e52bf4ec",
+          "current_sha256": null,
+          "baseline_lines": 6,
+          "current_lines": 0
+        },
+        {
+          "path": "Cargo.lock",
+          "status": "removed",
+          "category": "build_manifest_lock",
+          "added": 0,
+          "deleted": 5114,
+          "baseline_sha256": "e6e239be4b836d733c655c46337863235d16a4e852753fbf22f82d41df6fee2a",
+          "current_sha256": null,
+          "baseline_lines": 5114,
+          "current_lines": 0
+        },
+        {
+          "path": "Cargo.toml",
+          "status": "modified",
+          "category": "build_manifest_lock",
+          "added": 2,
+          "deleted": 4,
+          "baseline_sha256": "e864a74bab5f48ee634f9b36f33eb8eb223241d63c0046f9723402260479af61",
+          "current_sha256": "c762269320a266ce8e1cfa25e5b23cb71322c8b8e63444010408c46488f49af1",
+          "baseline_lines": 539,
+          "current_lines": 537
+        },
+        {
+          "path": "UPSTREAM.md",
+          "status": "added",
+          "category": "documentation_other",
+          "added": 259,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "0c8bde79af55bb9f35319d7f3ea8a13661b7b2e87ce5073658356374cf32b903",
+          "baseline_lines": 0,
+          "current_lines": 259
+        },
+        {
+          "path": "release.toml",
+          "status": "removed",
+          "category": "documentation_other",
+          "added": 0,
+          "deleted": 1,
+          "baseline_sha256": "87e26b561e04dc6a18b37ea434b469a33a1cd9982deecfbc6ac8b89202044d4d",
+          "current_sha256": null,
+          "baseline_lines": 1,
+          "current_lines": 0
+        },
+        {
+          "path": "src/address_lookup.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 61,
+          "deleted": 2,
+          "baseline_sha256": "b7f6975fc638fe076078b5d763b00b17a9170b526b79b503e1725aa67e77ca80",
+          "current_sha256": "73a6ea540049f176956114bbda8a5b224d7a92dafb2ca7250ab885c87bb03d29",
+          "baseline_lines": 1401,
+          "current_lines": 1460
+        },
+        {
+          "path": "src/address_lookup/dns.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 7,
+          "deleted": 0,
+          "baseline_sha256": "c74833719f3a5eeca6ed23f248ec17766d6e4786090190960d7a688807d12056",
+          "current_sha256": "5d4afe24ff18915829514259d2c4c888b2693562f0ce6d3300d5ef2fbebe919e",
+          "baseline_lines": 136,
+          "current_lines": 143
+        },
+        {
+          "path": "src/address_lookup/pkarr.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 16,
+          "deleted": 1,
+          "baseline_sha256": "6d2a30850429a7174737cbe7f299ab691ecc57022e4d118751e0302f131e51d1",
+          "current_sha256": "73cd85e1b66f4dfebac803315b6d0ef5d1fbf4ca682fc84f029df8f1ffcf75e1",
+          "baseline_lines": 683,
+          "current_lines": 698
+        },
+        {
+          "path": "src/endpoint.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 528,
+          "deleted": 9,
+          "baseline_sha256": "0b6e752300765c89e619e637ea47b561e29a3bd030e738a82275bcb84fe055ed",
+          "current_sha256": "faed51a72702086839031961c9720694f54820ec0529debc1fe08a01589c158e",
+          "baseline_lines": 4224,
+          "current_lines": 4743
+        },
+        {
+          "path": "src/endpoint/connection.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 249,
+          "deleted": 30,
+          "baseline_sha256": "61cfc8cdc1e89ce72da424b0885f1e581367d959ac699e743459c2036c633bfd",
+          "current_sha256": "3f7bed0f0cc8ce3b5cfd83c09db26a8b26dca1822d2db3a8242e36e19cd0ef70",
+          "baseline_lines": 1652,
+          "current_lines": 1871
+        },
+        {
+          "path": "src/endpoint/hooks.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 87,
+          "deleted": 3,
+          "baseline_sha256": "3b477c9cefcaf0d70f1c81d145cb0f76353770220637534b8a93f217716eae73",
+          "current_sha256": "81a77f84220ef1719b509432ca8076b53553d1e691966001c22eb9dc9db01325",
+          "baseline_lines": 171,
+          "current_lines": 255
+        },
+        {
+          "path": "src/endpoint/quic.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 14,
+          "deleted": 0,
+          "baseline_sha256": "47f018c70d3bd3aeda7ec01bd88fe24070b2be68d64ec5275284e4d5085dd818",
+          "current_sha256": "82a88b76f5807402e2eeb7c142b2ac3c070fdcd61b91f7a607ea5553e966862c",
+          "baseline_lines": 716,
+          "current_lines": 730
+        },
+        {
+          "path": "src/net_report.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 65,
+          "deleted": 0,
+          "baseline_sha256": "e6ec7d076467a11dfbc177716ab819cfbb9482188957a658e51f2775c8840d08",
+          "current_sha256": "0d50b791dde813a796e60e4f2598caff66f0cd2fd895ce758ad9789430536e6d",
+          "baseline_lines": 1255,
+          "current_lines": 1320
+        },
+        {
+          "path": "src/net_report/reportgen.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 2,
+          "deleted": 0,
+          "baseline_sha256": "a56a72380a456b07a810d5f6d1ed6522fe03dc490bb79d806f964e98ba333abc",
+          "current_sha256": "524c0bd8e9efbcd2a485a48b5146a75ef7138f9b9c20e7755a56f82a319ae1ff",
+          "baseline_lines": 997,
+          "current_lines": 999
+        },
+        {
+          "path": "src/portmapper.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 23,
+          "deleted": 3,
+          "baseline_sha256": "c291146c9918ffc077a4d4acb04e368dff508e3ebf973975815e9cca3488e06b",
+          "current_sha256": "979ec90db8babf2380b41cb97da8bc7b098ce73035198624b963ab435962bc0e",
+          "baseline_lines": 100,
+          "current_lines": 120
+        },
+        {
+          "path": "src/socket.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 1395,
+          "deleted": 23,
+          "baseline_sha256": "eb4d204ff47cfbf806a85fd8d1e1b738741e74d23d0504e96beab0d96a4ac4bf",
+          "current_sha256": "077c1ecbabf8ffe564ce755f71d47b697f5db1748372db48bda7ae2dc2a061cb",
+          "baseline_lines": 2866,
+          "current_lines": 4238
+        },
+        {
+          "path": "src/socket/remote_map.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 46,
+          "deleted": 2,
+          "baseline_sha256": "488651d56a95daa54bb5169883c250119e37843cb7ccf0bc61e46ecf6b3a3be1",
+          "current_sha256": "bd2710b30ff105cc69c9faf9d390355a9dd2dd5247fe4634f0e4e57f7e8cdb32",
+          "baseline_lines": 515,
+          "current_lines": 559
+        },
+        {
+          "path": "src/socket/remote_map/remote_state.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 951,
+          "deleted": 52,
+          "baseline_sha256": "3ed2774da4280527bcba88fc69845766164c6cc32a36655354d6adf453380daa",
+          "current_sha256": "b160536ec7409d80f677fee06bb87bc76a6a6cbaaf0226fd36b6abebea14dc59",
+          "baseline_lines": 1523,
+          "current_lines": 2422
+        },
+        {
+          "path": "src/socket/remote_map/remote_state/path_watcher.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 53,
+          "deleted": 8,
+          "baseline_sha256": "a163a216f7766fed961f1691fec3350f37c880afaee83e84ca6ed07dc81bd269",
+          "current_sha256": "838bbcd605addbe1afaf911c20b4efc5be87499a7758aba0933e58101dce32b9",
+          "baseline_lines": 556,
+          "current_lines": 601
+        },
+        {
+          "path": "src/socket/stun.rs",
+          "status": "added",
+          "category": "rust_runtime_or_mixed",
+          "added": 373,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "dd490f7b61c41806c09842fca1556b28ba4c1de608fb3819f27e91795ccfd00f",
+          "baseline_lines": 0,
+          "current_lines": 373
+        },
+        {
+          "path": "src/socket/transports.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 138,
+          "deleted": 28,
+          "baseline_sha256": "7442cf59f91e4e2865208e61123e448e7f484214c537a61e9b1efb3bfe0cff19",
+          "current_sha256": "d2aeff1b846d69349e2467a84709c8a2c3b82eb1c597d57882c984a00037647b",
+          "baseline_lines": 1460,
+          "current_lines": 1570
+        },
+        {
+          "path": "src/socket/transports/custom.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 139,
+          "deleted": 0,
+          "baseline_sha256": "82f397f780741ce201a6f5ba57bdcc835c8c075eeff82da774950d92ea8fe56e",
+          "current_sha256": "e739348d80b68d129a8a94a0f13d17abf77a0b81ed6e8de1168f6c18620ec619",
+          "baseline_lines": 105,
+          "current_lines": 244
+        },
+        {
+          "path": "src/socket/transports/ip.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 36,
+          "deleted": 0,
+          "baseline_sha256": "0156c776d23bab328793653561cd994ce2f246e74eba38b68b83f16211f37b03",
+          "current_sha256": "0066ec3d3ad5fa750d9017dd37982ee314d9fefa257b832649cd56a90be544bf",
+          "baseline_lines": 548,
+          "current_lines": 584
+        },
+        {
+          "path": "src/socket/transports/ip/pool.rs",
+          "status": "added",
+          "category": "rust_runtime_or_mixed",
+          "added": 384,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "d75aaa9c38343b1049298475fe30bce88a2cc50f803ff619c3d96fac0714fde3",
+          "baseline_lines": 0,
+          "current_lines": 384
+        },
+        {
+          "path": "src/socket/transports/relay.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 2,
+          "deleted": 0,
+          "baseline_sha256": "2851298b047741eb0012f29b42060456cd8d4a4be3d205b31b56088fa4239c23",
+          "current_sha256": "d853a7e8fe8fed76fe46c77a908d77bc2264de3b810e715c78cb26dddd6fc191",
+          "baseline_lines": 464,
+          "current_lines": 466
+        },
+        {
+          "path": "src/socket/transports/relay/actor.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 130,
+          "deleted": 26,
+          "baseline_sha256": "8ba6ab8ec7d8f23cf1c7e9adef7cf5f8c85f771cca206e742d8cf55dd23bd6f9",
+          "current_sha256": "665b842e5fde4a4d591b915f6a5bd7333f9bd3d37c1785e3f9f959d9e727cffe",
+          "baseline_lines": 2030,
+          "current_lines": 2134
+        },
+        {
+          "path": "src/tls.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 20,
+          "deleted": 2,
+          "baseline_sha256": "5a7eb05750eac5c008d507dd9279546d1afcb805894f8c0a175e0a1860642ed6",
+          "current_sha256": "c2cc7dd836df5a1086bc3e397c07f4a63b2154f802016e994b565fd7e943030c",
+          "baseline_lines": 147,
+          "current_lines": 165
+        }
+      ]
+    },
+    {
+      "name": "iroh-relay",
+      "version": "1.2.0",
+      "origin": {
+        "kind": "crates.io package",
+        "version": "1.2.0",
+        "artifact_sha256": "beb2294a9749d6a25fd7cd8bcf0fccd932f20716d4f967d85d3f23c7135ae6a2",
+        "vcs": {
+          "git": {
+            "sha1": "17c0612f80f78f5288e97b818b1360ae6ea0a51a"
+          },
+          "path_in_vcs": "iroh-relay"
+        }
+      },
+      "baseline": "/tmp/miopunch-fork-audit-20261012/baselines/iroh-relay/iroh-relay-1.2.0",
+      "current": "/home/js/Git/miopunch/vendor/iroh-relay",
+      "baseline_rust_files": 32,
+      "current_rust_files": 32,
+      "unchanged_rust_files": 32,
+      "baseline_rust_lines": 13211,
+      "current_rust_lines": 13211,
+      "category_totals": {
+        "build_manifest_lock": {
+          "files": 1,
+          "added": 1,
+          "deleted": 4
+        },
+        "documentation_other": {
+          "files": 1,
+          "added": 12,
+          "deleted": 0
+        },
+        "packaging_metadata": {
+          "files": 1,
+          "added": 0,
+          "deleted": 6
+        }
+      },
+      "changes": [
+        {
+          "path": ".cargo_vcs_info.json",
+          "status": "removed",
+          "category": "packaging_metadata",
+          "added": 0,
+          "deleted": 6,
+          "baseline_sha256": "ba513d773e2913565bfd93869e36676a28c1a04739fa1d21c6c4c099deb581bc",
+          "current_sha256": null,
+          "baseline_lines": 6,
+          "current_lines": 0
+        },
+        {
+          "path": "Cargo.toml",
+          "status": "modified",
+          "category": "build_manifest_lock",
+          "added": 1,
+          "deleted": 4,
+          "baseline_sha256": "7d58b69379a19657ff33f96f5df39242d478bf98003e991a61a781e92ad0e9eb",
+          "current_sha256": "ac5408bdd32b7fdd2a4badecefe64aeb52a470e227ac7e7ca692a5afdbb78bf1",
+          "baseline_lines": 437,
+          "current_lines": 434
+        },
+        {
+          "path": "MIOPUNCH.md",
+          "status": "added",
+          "category": "documentation_other",
+          "added": 12,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "e721ae5d6d6d9259e1b1b2d252bfc5cba38efc0ad2e20860d97baf1b9dcbb9ad",
+          "baseline_lines": 0,
+          "current_lines": 12
+        }
+      ]
+    },
+    {
+      "name": "noq",
+      "version": "1.3.0",
+      "origin": {
+        "kind": "crates.io package",
+        "version": "1.3.0",
+        "artifact_sha256": "b78be567e796cfa74bb9bdc4117790af2d505eb887019cf8803244353eb09d89",
+        "vcs": {
+          "git": {
+            "sha1": "c1f411562e6078852749b8bcf1190523096a107f"
+          },
+          "path_in_vcs": "noq"
+        }
+      },
+      "baseline": "/tmp/miopunch-fork-audit-20261012/baselines/noq/noq-1.3.0",
+      "current": "/home/js/Git/miopunch/vendor/noq",
+      "baseline_rust_files": 24,
+      "current_rust_files": 15,
+      "unchanged_rust_files": 12,
+      "baseline_rust_lines": 9341,
+      "current_rust_lines": 8224,
+      "category_totals": {
+        "build_manifest_lock": {
+          "files": 1,
+          "added": 0,
+          "deleted": 2839
+        },
+        "documentation_other": {
+          "files": 3,
+          "added": 31,
+          "deleted": 95
+        },
+        "rust_build": {
+          "files": 1,
+          "added": 0,
+          "deleted": 169
+        },
+        "rust_runtime_or_mixed": {
+          "files": 3,
+          "added": 180,
+          "deleted": 5
+        },
+        "rust_test_example": {
+          "files": 8,
+          "added": 0,
+          "deleted": 1123
+        }
+      },
+      "changes": [
+        {
+          "path": "Cargo.lock",
+          "status": "removed",
+          "category": "build_manifest_lock",
+          "added": 0,
+          "deleted": 2839,
+          "baseline_sha256": "ac8a8915577b602d5447327e5986a9a6e055d441ba870ce7bda00dba83ea7ec2",
+          "current_sha256": null,
+          "baseline_lines": 2839,
+          "current_lines": 0
+        },
+        {
+          "path": "UPSTREAM.md",
+          "status": "added",
+          "category": "documentation_other",
+          "added": 31,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "c6b9ad303fea4e803c64d257db80d491592fe5944244efa4b896cbff81248ab4",
+          "baseline_lines": 0,
+          "current_lines": 31
+        },
+        {
+          "path": "benches/bench.rs",
+          "status": "removed",
+          "category": "rust_build",
+          "added": 0,
+          "deleted": 169,
+          "baseline_sha256": "28f7cd5ab88fa44ca08d035cb9c8ea9776ef9ee97891778df230e23df5067998",
+          "current_sha256": null,
+          "baseline_lines": 169,
+          "current_lines": 0
+        },
+        {
+          "path": "examples/README.md",
+          "status": "removed",
+          "category": "documentation_other",
+          "added": 0,
+          "deleted": 92,
+          "baseline_sha256": "8e83b342ead7bc7a1c2d6ca5712e098ed851c14314d37f13f3467b75ffd111cf",
+          "current_sha256": null,
+          "baseline_lines": 92,
+          "current_lines": 0
+        },
+        {
+          "path": "examples/client.rs",
+          "status": "removed",
+          "category": "rust_test_example",
+          "added": 0,
+          "deleted": 182,
+          "baseline_sha256": "1f8f92d9da7641aeca8338af55730550a677da5d56807f41429608574dd5535b",
+          "current_sha256": null,
+          "baseline_lines": 182,
+          "current_lines": 0
+        },
+        {
+          "path": "examples/common/mod.rs",
+          "status": "removed",
+          "category": "rust_test_example",
+          "added": 0,
+          "deleted": 73,
+          "baseline_sha256": "6ddcf2e5a3f626fd8dc465a961039b54232ab539df68b56380657f2f735da4cf",
+          "current_sha256": null,
+          "baseline_lines": 73,
+          "current_lines": 0
+        },
+        {
+          "path": "examples/connection.rs",
+          "status": "removed",
+          "category": "rust_test_example",
+          "added": 0,
+          "deleted": 55,
+          "baseline_sha256": "f8a8683e40beea8ed4978a8184ded7ea594d49d2f0b8cd17095af2798d5cf807",
+          "current_sha256": null,
+          "baseline_lines": 55,
+          "current_lines": 0
+        },
+        {
+          "path": "examples/insecure_connection.rs",
+          "status": "removed",
+          "category": "rust_test_example",
+          "added": 0,
+          "deleted": 128,
+          "baseline_sha256": "b1f55b3595291aad3e70e82ba2ab83b43cc0c2f0e6ec7caf46ab71220f0296c1",
+          "current_sha256": null,
+          "baseline_lines": 128,
+          "current_lines": 0
+        },
+        {
+          "path": "examples/server.rs",
+          "status": "removed",
+          "category": "rust_test_example",
+          "added": 0,
+          "deleted": 288,
+          "baseline_sha256": "af69cb7d531e926bc89cebc4e30ca8caa1a4e20d0f13b0e312832da123586e04",
+          "current_sha256": null,
+          "baseline_lines": 288,
+          "current_lines": 0
+        },
+        {
+          "path": "examples/single_socket.rs",
+          "status": "removed",
+          "category": "rust_test_example",
+          "added": 0,
+          "deleted": 76,
+          "baseline_sha256": "906cd5a152743a98d560fc27c782834e373b1dab628386fe20a06c158e0c36d0",
+          "current_sha256": null,
+          "baseline_lines": 76,
+          "current_lines": 0
+        },
+        {
+          "path": "release.toml",
+          "status": "removed",
+          "category": "documentation_other",
+          "added": 0,
+          "deleted": 3,
+          "baseline_sha256": "83956008d93f7b1754b44158c87e404aa6da27be12d6ed6657a7a0e759c118e4",
+          "current_sha256": null,
+          "baseline_lines": 3,
+          "current_lines": 0
+        },
+        {
+          "path": "src/connection.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 143,
+          "deleted": 2,
+          "baseline_sha256": "f01887a1e36c2db4329e94994a19c8642cc58caf17e743b6d80e66dde81082d0",
+          "current_sha256": "b1805666cc3cf6fc02eff35fb05e632882df20783ac7132772ea428eb2851607",
+          "baseline_lines": 2037,
+          "current_lines": 2178
+        },
+        {
+          "path": "src/lib.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 4,
+          "deleted": 3,
+          "baseline_sha256": "fc8b1f9ae8e1903545bd81b1bb30facf8410cfa088041bad94fc6141be3fd054",
+          "current_sha256": "d73190c6a61b096391d85766a9163ab38b99aa6bc892353aadbb2bb269384acb",
+          "baseline_lines": 146,
+          "current_lines": 147
+        },
+        {
+          "path": "src/path.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 33,
+          "deleted": 0,
+          "baseline_sha256": "609ebdeb94befd9b36e0242f70e759d5a1f66531894b8c36e58dcce2335dbe00",
+          "current_sha256": "b8da127fed75cf4e112f336a43e9f05a1dd077355e863c712a8e8c29a2902c01",
+          "baseline_lines": 479,
+          "current_lines": 512
+        },
+        {
+          "path": "tests/many_connections.rs",
+          "status": "removed",
+          "category": "rust_test_example",
+          "added": 0,
+          "deleted": 187,
+          "baseline_sha256": "c179de636e97ac9a15231ee2c292135ebc41fe8f054e803f1b1ece186c2b2882",
+          "current_sha256": null,
+          "baseline_lines": 187,
+          "current_lines": 0
+        },
+        {
+          "path": "tests/post_quantum.rs",
+          "status": "removed",
+          "category": "rust_test_example",
+          "added": 0,
+          "deleted": 134,
+          "baseline_sha256": "ad196394fa229690798bde895829b5dcae921e19047ec5a63a04f10c9637ed88",
+          "current_sha256": null,
+          "baseline_lines": 134,
+          "current_lines": 0
+        }
+      ]
+    },
+    {
+      "name": "noq-proto",
+      "version": "1.3.0",
+      "origin": {
+        "kind": "crates.io package",
+        "version": "1.3.0",
+        "artifact_sha256": "7c1e5b6fe668491eca022f745a0a9402585626c73a7b839b3424ace15d6a9c8f",
+        "vcs": {
+          "git": {
+            "sha1": "c1f411562e6078852749b8bcf1190523096a107f"
+          },
+          "path_in_vcs": "noq-proto"
+        }
+      },
+      "baseline": "/tmp/miopunch-fork-audit-20261012/baselines/noq-proto/noq-proto-1.3.0",
+      "current": "/home/js/Git/miopunch/vendor/noq-proto",
+      "baseline_rust_files": 60,
+      "current_rust_files": 60,
+      "unchanged_rust_files": 50,
+      "baseline_rust_lines": 56433,
+      "current_rust_lines": 57175,
+      "category_totals": {
+        "build_manifest_lock": {
+          "files": 1,
+          "added": 0,
+          "deleted": 2176
+        },
+        "documentation_other": {
+          "files": 2,
+          "added": 39,
+          "deleted": 2
+        },
+        "rust_build": {
+          "files": 1,
+          "added": 0,
+          "deleted": 8
+        },
+        "rust_runtime_or_mixed": {
+          "files": 9,
+          "added": 594,
+          "deleted": 18
+        },
+        "rust_test_example": {
+          "files": 1,
+          "added": 185,
+          "deleted": 11
+        }
+      },
+      "changes": [
+        {
+          "path": "Cargo.lock",
+          "status": "removed",
+          "category": "build_manifest_lock",
+          "added": 0,
+          "deleted": 2176,
+          "baseline_sha256": "6c021334e4f09cad0fccbb835bb4da83b73534a71e8ffa5fa4e0c6e09c38aa6a",
+          "current_sha256": null,
+          "baseline_lines": 2176,
+          "current_lines": 0
+        },
+        {
+          "path": "UPSTREAM.md",
+          "status": "added",
+          "category": "documentation_other",
+          "added": 39,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "6076753ade2547fd8bb6ea654323d66329dd4cfe65c9f4b6e117715a17f9d3ad",
+          "baseline_lines": 0,
+          "current_lines": 39
+        },
+        {
+          "path": "benches/send_buffer.rs",
+          "status": "removed",
+          "category": "rust_build",
+          "added": 0,
+          "deleted": 8,
+          "baseline_sha256": "5e3f38256b9c0c70e7a60dd00b12e12bd35e170a50022338857c29502ebef561",
+          "current_sha256": null,
+          "baseline_lines": 8,
+          "current_lines": 0
+        },
+        {
+          "path": "release.toml",
+          "status": "removed",
+          "category": "documentation_other",
+          "added": 0,
+          "deleted": 2,
+          "baseline_sha256": "6ff24ef095fab6d2fe42b85ba7b27949de0141f31d5b63630b8718b5fee5721c",
+          "current_sha256": null,
+          "baseline_lines": 2,
+          "current_lines": 0
+        },
+        {
+          "path": "src/cid_queue.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 36,
+          "deleted": 3,
+          "baseline_sha256": "da3fb20d9db0451e5d7343ded889b1591c06b2b8ef6ac7ac4cbfc2ccab79898d",
+          "current_sha256": "152a39c7f602ba57b71ddd575709576786a2dd8a0fea0bfa48c1b028534f9f90",
+          "baseline_lines": 519,
+          "current_lines": 552
+        },
+        {
+          "path": "src/config/transport.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 16,
+          "deleted": 1,
+          "baseline_sha256": "5311d5855eb6b977c0fae43adb2ab2220c073c42229c7ede3b63e6d734434026",
+          "current_sha256": "95d13f4ac1dd890d13fc79eb26bcd9e23c8789b18c8260f9afe3aee847fdc355",
+          "baseline_lines": 935,
+          "current_lines": 950
+        },
+        {
+          "path": "src/connection/mod.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 199,
+          "deleted": 12,
+          "baseline_sha256": "7cf15a718c0cd31b9ca0cfb0a57019a764fd0c7916adab9bc6b4a238579af879",
+          "current_sha256": "753d1a4c3791e2bd260d5aa215c700dedfbb84993748fc90f3b7e4ea4e0ee9ba",
+          "baseline_lines": 7811,
+          "current_lines": 7998
+        },
+        {
+          "path": "src/connection/packet_builder.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 96,
+          "deleted": 0,
+          "baseline_sha256": "7d9cc00d496bc3c5f33ad03ec67690804f9175868f56fd47670c63aa987152d8",
+          "current_sha256": "ffb499405ebc7f3f28678efe90e8f3a39676791fcef5b09ccb9715b440404249",
+          "baseline_lines": 436,
+          "current_lines": 532
+        },
+        {
+          "path": "src/connection/streams/state.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 18,
+          "deleted": 0,
+          "baseline_sha256": "bf87db641800b9fb37be14f03ca3efbcb12655ccef5da1cf06912747d17f4442",
+          "current_sha256": "b07af59be1e1878614c09c0568bfc50de025835714950f89a2b2f9a958de456f",
+          "baseline_lines": 2262,
+          "current_lines": 2280
+        },
+        {
+          "path": "src/lib.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 2,
+          "deleted": 0,
+          "baseline_sha256": "65914e620aacb8a13ba12bbc2f4d44996f6d20ede190c3b8de6d20e48a06cda3",
+          "current_sha256": "9f1ee89f8e96e1b9384b0a7bc5cf7fe175be542118cf5c6d5de41d0b33dbb095",
+          "baseline_lines": 466,
+          "current_lines": 468
+        },
+        {
+          "path": "src/packet_witness.rs",
+          "status": "added",
+          "category": "rust_runtime_or_mixed",
+          "added": 209,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "c2018176ca3a1dfd3e3c036fde9e4ae007a1da764e9505bc0e92b7aa0e6a3e32",
+          "baseline_lines": 0,
+          "current_lines": 209
+        },
+        {
+          "path": "src/shared.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 17,
+          "deleted": 0,
+          "baseline_sha256": "42d2933270fb44e5c222eec268c37fc907f83c21811b1e72a0317fb4b451196b",
+          "current_sha256": "ea103e2bf67fe11b92bc2737a71224e4f7db3ea3fc47501892c267a5215206da",
+          "baseline_lines": 215,
+          "current_lines": 232
+        },
+        {
+          "path": "src/tests/multipath.rs",
+          "status": "modified",
+          "category": "rust_test_example",
+          "added": 185,
+          "deleted": 11,
+          "baseline_sha256": "d07edffd87b1f17cc2d45d1e7827cd977304bf9a7c4558681651a306ee3c6e20",
+          "current_sha256": "b928d8aff23dfcc1cd4cf5f0eaabeff8236830a9eb5d0c5a9631415cc9b39e1d",
+          "baseline_lines": 2295,
+          "current_lines": 2469
+        },
+        {
+          "path": "src/transport_parameters.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 1,
+          "deleted": 2,
+          "baseline_sha256": "79b09c5e2fdca31b38727f384dcf750d236f789a11680798d67c34341a71af54",
+          "current_sha256": "4be60c1ac6342353dd764584805e3c85d44e231f3f286ba78c41d1df0c00affe",
+          "baseline_lines": 981,
+          "current_lines": 980
+        }
+      ]
+    },
+    {
+      "name": "netwatch",
+      "version": "0.19.3",
+      "origin": {
+        "kind": "crates.io package",
+        "version": "0.19.3",
+        "artifact_sha256": "39da9cad5f23aa43401f09497d3b280e51b5feba115d9ffbf38ca35d6ff95e96",
+        "vcs": {
+          "git": {
+            "sha1": "0030e57fc70981895bb86212ff0f059cc41c8a4e"
+          },
+          "path_in_vcs": "netwatch"
+        }
+      },
+      "baseline": "/tmp/miopunch-fork-audit-20261012/baselines/netwatch/netwatch-0.19.3",
+      "current": "/home/js/Git/miopunch/vendor/netwatch",
+      "baseline_rust_files": 26,
+      "current_rust_files": 26,
+      "unchanged_rust_files": 25,
+      "baseline_rust_lines": 5695,
+      "current_rust_lines": 5846,
+      "category_totals": {
+        "build_manifest_lock": {
+          "files": 1,
+          "added": 3,
+          "deleted": 0
+        },
+        "documentation_other": {
+          "files": 1,
+          "added": 19,
+          "deleted": 0
+        },
+        "license": {
+          "files": 2,
+          "added": 226,
+          "deleted": 0
+        },
+        "packaging_metadata": {
+          "files": 1,
+          "added": 0,
+          "deleted": 6
+        },
+        "rust_runtime_or_mixed": {
+          "files": 1,
+          "added": 152,
+          "deleted": 1
+        }
+      },
+      "changes": [
+        {
+          "path": ".cargo_vcs_info.json",
+          "status": "removed",
+          "category": "packaging_metadata",
+          "added": 0,
+          "deleted": 6,
+          "baseline_sha256": "ce14165959064c77b353e053540620375dd853e1d06307beb3931213063be1c3",
+          "current_sha256": null,
+          "baseline_lines": 6,
+          "current_lines": 0
+        },
+        {
+          "path": "Cargo.toml",
+          "status": "modified",
+          "category": "build_manifest_lock",
+          "added": 3,
+          "deleted": 0,
+          "baseline_sha256": "d4deae52892e167541155699588b7189ede6ea9269039f824ace0a92cc9b1032",
+          "current_sha256": "16bbb581e4b347bb31cedb6b26178e09f409e15b017ec55d85dba44a570fb2b7",
+          "baseline_lines": 249,
+          "current_lines": 252
+        },
+        {
+          "path": "LICENSE-APACHE",
+          "status": "added",
+          "category": "license",
+          "added": 201,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "7986218ec4ea89de3511a843ae27fea2584a525036c220ff7b26589179f07888",
+          "baseline_lines": 0,
+          "current_lines": 201
+        },
+        {
+          "path": "LICENSE-MIT",
+          "status": "added",
+          "category": "license",
+          "added": 25,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "33616ec4c88b6e00de66e6c06f1a55d80bb32a9d7939f3aa83d28e673a1adcae",
+          "baseline_lines": 0,
+          "current_lines": 25
+        },
+        {
+          "path": "MIOPUNCH-PATCHES.md",
+          "status": "added",
+          "category": "documentation_other",
+          "added": 19,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "e0e1e6431138f1c4d3c565c90b6f61b7cd4ceaeeec879f41f50ce38ed6c4c983",
+          "baseline_lines": 0,
+          "current_lines": 19
+        },
+        {
+          "path": "src/udp.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 152,
+          "deleted": 1,
+          "baseline_sha256": "ff12dc90560629552885ab8d3ca0215c6c2a4047d9cdb532ebb46452ef6a6f63",
+          "current_sha256": "5f8266da3d9f09abeca30a20326197b6e14a51dbd2496aaed83bbb0da6a867e6",
+          "baseline_lines": 1218,
+          "current_lines": 1369
+        }
+      ]
+    },
+    {
+      "name": "portmapper",
+      "version": "0.19.3",
+      "origin": {
+        "kind": "crates.io package",
+        "version": "0.19.3",
+        "artifact_sha256": "ca97242f016e090a25330613bc2382aab65eb22f9149dbe84d8f8e711d49a530",
+        "vcs": {
+          "git": {
+            "sha1": "0030e57fc70981895bb86212ff0f059cc41c8a4e"
+          },
+          "path_in_vcs": "portmapper"
+        }
+      },
+      "baseline": "/tmp/miopunch-fork-audit-20261012/baselines/portmapper/portmapper-0.19.3",
+      "current": "/home/js/Git/miopunch/vendor/portmapper",
+      "baseline_rust_files": 15,
+      "current_rust_files": 15,
+      "unchanged_rust_files": 13,
+      "baseline_rust_lines": 3054,
+      "current_rust_lines": 3145,
+      "category_totals": {
+        "build_manifest_lock": {
+          "files": 1,
+          "added": 0,
+          "deleted": 2382
+        },
+        "documentation_other": {
+          "files": 1,
+          "added": 23,
+          "deleted": 0
+        },
+        "license": {
+          "files": 2,
+          "added": 221,
+          "deleted": 0
+        },
+        "rust_runtime_or_mixed": {
+          "files": 2,
+          "added": 97,
+          "deleted": 6
+        }
+      },
+      "changes": [
+        {
+          "path": "Cargo.lock",
+          "status": "removed",
+          "category": "build_manifest_lock",
+          "added": 0,
+          "deleted": 2382,
+          "baseline_sha256": "9863938fa101b1ad620140ae594f913e9aafe6cb74ace16da308012a9f3c6f66",
+          "current_sha256": null,
+          "baseline_lines": 2382,
+          "current_lines": 0
+        },
+        {
+          "path": "LICENSE-APACHE",
+          "status": "added",
+          "category": "license",
+          "added": 202,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "baseline_lines": 0,
+          "current_lines": 202
+        },
+        {
+          "path": "LICENSE-MIT",
+          "status": "added",
+          "category": "license",
+          "added": 19,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1",
+          "baseline_lines": 0,
+          "current_lines": 19
+        },
+        {
+          "path": "UPSTREAM.md",
+          "status": "added",
+          "category": "documentation_other",
+          "added": 23,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "c9e1e6cb94ace21cecee36d1e9eef48551d818afba3bc8941fc1875eeb0a80b8",
+          "baseline_lines": 0,
+          "current_lines": 23
+        },
+        {
+          "path": "src/lib.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 45,
+          "deleted": 5,
+          "baseline_sha256": "d69acc361371e59cfc4d51fea5482db323ca6fab04db37b0f5874539e8269d4d",
+          "current_sha256": "62500098e1e07ecb43da105bd001e974f597033964c1ebc3c42f5242b8e8aa9b",
+          "baseline_lines": 794,
+          "current_lines": 834
+        },
+        {
+          "path": "src/nat_pmp.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 52,
+          "deleted": 1,
+          "baseline_sha256": "6a9565883e8b35f6a2725257e877604fa68ea55f032151cb7721bbcee0ed55ff",
+          "current_sha256": "104a0fdd74f0cbff1b67fc9a6b7c1a1e3d9db0311cf36da0f9e0ec8738ff0cd4",
+          "baseline_lines": 217,
+          "current_lines": 268
+        }
+      ]
+    },
+    {
+      "name": "p2panda-auth",
+      "version": "0.7.1",
+      "origin": {
+        "kind": "git",
+        "commit": "083b48215964e92a564f3c83a1c607b00e94aa64",
+        "artifact_sha256": "bf5cbf9d6bc03b420b0ffe060a75eff164fb5e11241e33bb91347889292803c5"
+      },
+      "baseline": "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-git/p2panda-083b48215964e92a564f3c83a1c607b00e94aa64/p2panda-auth",
+      "current": "/home/js/Git/miopunch/vendor/p2panda-auth",
+      "baseline_rust_files": 18,
+      "current_rust_files": 18,
+      "unchanged_rust_files": 17,
+      "baseline_rust_lines": 5601,
+      "current_rust_lines": 5620,
+      "category_totals": {
+        "documentation_other": {
+          "files": 1,
+          "added": 20,
+          "deleted": 0
+        },
+        "license": {
+          "files": 2,
+          "added": 222,
+          "deleted": 0
+        },
+        "rust_runtime_or_mixed": {
+          "files": 1,
+          "added": 25,
+          "deleted": 6
+        }
+      },
+      "changes": [
+        {
+          "path": "LICENSES/Apache-2.0.txt",
+          "status": "added",
+          "category": "license",
+          "added": 201,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "49d293a231c8951dcc973e6fc3ce3e4365ea4e1d9b0b9ad0e6730b66c26be6bd",
+          "baseline_lines": 0,
+          "current_lines": 201
+        },
+        {
+          "path": "LICENSES/MIT.txt",
+          "status": "added",
+          "category": "license",
+          "added": 21,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "517c475e603ff7e67852c1f5b4c01721c546f3d3f96386b6f5e048233543cc5a",
+          "baseline_lines": 0,
+          "current_lines": 21
+        },
+        {
+          "path": "UPSTREAM.md",
+          "status": "added",
+          "category": "documentation_other",
+          "added": 20,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "3a192b96fadba42515a7489d6aded20f0f03dc7322b995f19ac40e3dd4846036",
+          "baseline_lines": 0,
+          "current_lines": 20
+        },
+        {
+          "path": "src/group/crdt/mod.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 25,
+          "deleted": 6,
+          "baseline_sha256": "3322ec481f68fea431509d38c93738b9b4700cb6a89a5fe4d80bb7d4a5d949bd",
+          "current_sha256": "b2c528cb6c5438bb3f8c96f76758a26ae2c59f5ca32a2982f55fb8a1b004d99b",
+          "baseline_lines": 1814,
+          "current_lines": 1833
+        }
+      ]
+    },
+    {
+      "name": "p2panda-net",
+      "version": "0.7.1",
+      "origin": {
+        "kind": "git",
+        "commit": "083b48215964e92a564f3c83a1c607b00e94aa64",
+        "artifact_sha256": "bf5cbf9d6bc03b420b0ffe060a75eff164fb5e11241e33bb91347889292803c5"
+      },
+      "baseline": "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-git/p2panda-083b48215964e92a564f3c83a1c607b00e94aa64/p2panda-net",
+      "current": "/home/js/Git/miopunch/vendor/p2panda-net",
+      "baseline_rust_files": 80,
+      "current_rust_files": 80,
+      "unchanged_rust_files": 73,
+      "baseline_rust_lines": 13202,
+      "current_rust_lines": 13285,
+      "category_totals": {
+        "documentation_other": {
+          "files": 1,
+          "added": 9,
+          "deleted": 0
+        },
+        "rust_runtime_or_mixed": {
+          "files": 5,
+          "added": 109,
+          "deleted": 31
+        },
+        "rust_test_example": {
+          "files": 2,
+          "added": 9,
+          "deleted": 4
+        }
+      },
+      "changes": [
+        {
+          "path": "UPSTREAM.md",
+          "status": "added",
+          "category": "documentation_other",
+          "added": 9,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "3837da576de2e45618536049e4363445efb24c77f835a51c92f4068eca0a9129",
+          "baseline_lines": 0,
+          "current_lines": 9
+        },
+        {
+          "path": "src/discovery/backoff.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 31,
+          "deleted": 1,
+          "baseline_sha256": "34bf2cf36deb399b58329b2ba3ec5ddd7a2b348616de162c5d31c31a72bf0448",
+          "current_sha256": "d0774dae93e6160fadc8535c08fe8a1687a1d7c4edf9e314bacd7a67f80eddf1",
+          "baseline_lines": 208,
+          "current_lines": 238
+        },
+        {
+          "path": "src/discovery/mod.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 3,
+          "deleted": 0,
+          "baseline_sha256": "312fdc859759e503ea898e83a574c68432d225f88ca241e5fbeeaaacfb3e8cc5",
+          "current_sha256": "890fbf325e920e9af706ee4c7c2c73df049131355119c54a1bfa7bb252fd2146",
+          "baseline_lines": 19,
+          "current_lines": 22
+        },
+        {
+          "path": "src/iroh_endpoint/actors/connection.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 26,
+          "deleted": 16,
+          "baseline_sha256": "c06b22d189b036cc4386f2de167ce78f9bb6d60257c33ed56387b752e0a50f4f",
+          "current_sha256": "7a81f95b0c05be204e869bb1b8334ebb4fb0ff3958999981fa55d7df7eb850c4",
+          "baseline_lines": 244,
+          "current_lines": 254
+        },
+        {
+          "path": "src/iroh_endpoint/actors/endpoint.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 18,
+          "deleted": 14,
+          "baseline_sha256": "c85620bc400c6336ded9a2e41fb0a88c8cbece377867c6f6cddc7ff455d44730",
+          "current_sha256": "4e45d42278600aa1ef28e95f8659c3fd12f2dc873b849d1a5e25201fb1554f60",
+          "baseline_lines": 380,
+          "current_lines": 384
+        },
+        {
+          "path": "src/iroh_endpoint/builder.rs",
+          "status": "modified",
+          "category": "rust_runtime_or_mixed",
+          "added": 31,
+          "deleted": 0,
+          "baseline_sha256": "8bb2c6d068b90e1219fd74f08fb22db1df55cd2f7ad1297ad82610267bc99855",
+          "current_sha256": "091072ced56e976d7d23b5a70b746d2e9f3f6d5c7be5eaabc3165790c86b2ba8",
+          "baseline_lines": 107,
+          "current_lines": 138
+        },
+        {
+          "path": "src/iroh_endpoint/tests.rs",
+          "status": "modified",
+          "category": "rust_test_example",
+          "added": 2,
+          "deleted": 2,
+          "baseline_sha256": "2df63f6f5d07e10e2ee3a8c9f9bcd35692c8b04700faf62d541679a4e91122bc",
+          "current_sha256": "691639db48d691d37bdebd8c47ddbfa1145636eebcc2d48491b6cf653f862b52",
+          "baseline_lines": 130,
+          "current_lines": 130
+        },
+        {
+          "path": "src/test_utils.rs",
+          "status": "modified",
+          "category": "rust_test_example",
+          "added": 7,
+          "deleted": 2,
+          "baseline_sha256": "34a0ea0d96ea2db56be222caf0d7df03ace3e7d04f7177d37626a7c9d4eaf16e",
+          "current_sha256": "ec3b9d42474bd9ff9690de005db5fbcb875b5a1804402c09163928c00ef86352",
+          "baseline_lines": 345,
+          "current_lines": 350
+        }
+      ]
+    },
+    {
+      "name": "p2panda-sync",
+      "version": "0.7.1",
+      "origin": {
+        "kind": "crates.io package",
+        "version": "0.7.1",
+        "artifact_sha256": "ab2dfec4540ec2021949ae1e90788948528f51d76e50827895d821ffda76272e",
+        "vcs": {
+          "git": {
+            "sha1": "083b48215964e92a564f3c83a1c607b00e94aa64"
+          },
+          "path_in_vcs": "p2panda-sync"
+        }
+      },
+      "baseline": "/tmp/miopunch-fork-audit-20261012/baselines/p2panda-sync/p2panda-sync-0.7.1",
+      "current": "/home/js/Git/miopunch/vendor/p2panda-sync",
+      "baseline_rust_files": 11,
+      "current_rust_files": 11,
+      "unchanged_rust_files": 11,
+      "baseline_rust_lines": 3991,
+      "current_rust_lines": 3991,
+      "category_totals": {
+        "build_manifest_lock": {
+          "files": 1,
+          "added": 1,
+          "deleted": 1
+        },
+        "documentation_other": {
+          "files": 1,
+          "added": 11,
+          "deleted": 0
+        },
+        "packaging_metadata": {
+          "files": 1,
+          "added": 0,
+          "deleted": 6
+        }
+      },
+      "changes": [
+        {
+          "path": ".cargo_vcs_info.json",
+          "status": "removed",
+          "category": "packaging_metadata",
+          "added": 0,
+          "deleted": 6,
+          "baseline_sha256": "640e35c88ec8a7a25463de0d810ace5cd2e62aec1d4aaab9f95117cf27e77c28",
+          "current_sha256": null,
+          "baseline_lines": 6,
+          "current_lines": 0
+        },
+        {
+          "path": "Cargo.toml",
+          "status": "modified",
+          "category": "build_manifest_lock",
+          "added": 1,
+          "deleted": 1,
+          "baseline_sha256": "932c2bc575fab17f90d9f94564f5b7b4330a07fb1a71b8c456a3d7be0dc6c040",
+          "current_sha256": "1029653f83b71f8442a177d9531a6ce2f90c15572c02249f8a5030071730f977",
+          "baseline_lines": 141,
+          "current_lines": 141
+        },
+        {
+          "path": "MIOPUNCH.md",
+          "status": "added",
+          "category": "documentation_other",
+          "added": 11,
+          "deleted": 0,
+          "baseline_sha256": null,
+          "current_sha256": "82df0573cf5d4feee59da09bf7364e19d914ef808199908abe0b651fc041edec",
+          "baseline_lines": 0,
+          "current_lines": 11
+        }
+      ]
+    }
+  ]
+}

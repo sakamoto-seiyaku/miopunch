@@ -28,10 +28,15 @@ namespace Miopunch {
         Task<string> input, evaluation;
         Stopwatch evaluationClock;
         object evaluationId;
-        bool failed, ready, engineCreated, initializationFinished;
+        bool failed, ready, engineCreated, initializationFinished, closingStarted, closingFinished;
+        string initializationPhase = "not_started";
         readonly string origin;
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         static extern IntPtr LoadLibraryEx(string file, IntPtr reserved, uint flags);
+        [DllImport("user32.dll")] static extern bool IsWindow(IntPtr window);
+        [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
+        [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
+        [DllImport("kernel32.dll")] static extern uint GetCurrentProcessId();
 
         WebContentHost(WebHostOptions options) {
             this.options = options;
@@ -40,6 +45,7 @@ namespace Miopunch {
             view.Dock = DockStyle.Fill; Controls.Add(view);
             timer.Interval = 20; timer.Tick += Tick; timer.Start();
             Shown += Initialize;
+            FormClosing += Finish;
         }
         void Emit(object value) { Console.Out.WriteLine(json.Serialize(value)); Console.Out.Flush(); }
         bool SameOrigin(string value) {
@@ -48,24 +54,54 @@ namespace Miopunch {
         }
         void Fail(string phase, Exception error) {
             failed = true;
-            Emit(new { @event = "host_failed", phase, error_class = error.GetType().Name });
+            Emit(new { @event = "host_failed", phase, error_class = error.GetType().Name,
+                hresult = error.HResult.ToString("x8"),
+                inner_error_class = error.InnerException == null ? null : error.InnerException.GetType().Name,
+                inner_hresult = error.InnerException == null ? null : error.InnerException.HResult.ToString("x8") });
             Close();
         }
         async void Initialize(object sender, EventArgs args) {
             try {
                 // Normal dependency loading into THIS fresh host process;
                 // never an external process, injection or a global DLL path.
+                initializationPhase = "loader";
                 if (LoadLibraryEx(options.loader.path, IntPtr.Zero, 0x100 | 0x1000) == IntPtr.Zero)
                     throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                initializationPhase = "validate_owned_window";
+                // This fresh control owns its HWND. Validate that concrete
+                // parent-window premise, never enumerate another window.
+                view.CreateControl();
+                IntPtr contentWindow = view.Handle;
+                uint contentProcess;
+                uint contentThread = GetWindowThreadProcessId(contentWindow, out contentProcess);
+                bool ownedWindow = IsWindow(contentWindow) && IsWindow(Handle) &&
+                    contentProcess == GetCurrentProcessId() && contentThread == GetCurrentThreadId();
+                Emit(new { @event = "own_window_precondition", phase = "before_environment", valid = ownedWindow,
+                    process = contentProcess, window_thread = contentThread, caller_thread = GetCurrentThreadId(),
+                    user_interactive = Environment.UserInteractive });
+                if (!ownedWindow) throw new InvalidOperationException("Fresh content HWND is not owned by this UI thread");
+                initializationPhase = "create_environment";
                 var environmentOptions = new CoreWebView2EnvironmentOptions { AllowSingleSignOnUsingOSPrimaryAccount = false };
                 var environment = await CoreWebView2Environment.CreateAsync(options.runtimeDirectory, options.profile, environmentOptions);
                 environment.BrowserProcessExited += delegate { engineExited.TrySetResult(true); };
                 engineCreated = true;
+                initializationPhase = "ensure_core";
+                uint afterProcess;
+                uint afterThread = GetWindowThreadProcessId(contentWindow, out afterProcess);
+                bool afterOwned = view.Handle == contentWindow && IsWindow(contentWindow) && !view.InvokeRequired &&
+                    GetCurrentThreadId() == contentThread && afterThread == contentThread && afterProcess == contentProcess;
+                Emit(new { @event = "own_window_precondition", phase = "after_environment", valid = afterOwned,
+                    process = afterProcess, window_thread = afterThread, caller_thread = GetCurrentThreadId(),
+                    user_interactive = Environment.UserInteractive });
+                if (!afterOwned)
+                    throw new InvalidOperationException("Fresh content HWND or UI thread changed across environment creation");
                 await view.EnsureCoreWebView2Async(environment);
+                initializationPhase = "verify_runtime_profile";
                 if (environment.BrowserVersionString != options.runtimeVersion ||
                     !String.Equals(Path.GetFullPath(environment.UserDataFolder), Path.GetFullPath(options.profile), StringComparison.OrdinalIgnoreCase))
                     throw new InvalidOperationException("Unexpected private runtime or profile");
                 var core = view.CoreWebView2;
+                initializationPhase = "content_settings";
                 core.Settings.AreHostObjectsAllowed = false;
                 core.Settings.IsWebMessageEnabled = false;
                 core.Settings.AreDevToolsEnabled = false;
@@ -80,11 +116,13 @@ namespace Miopunch {
                 core.PermissionRequested += delegate(object source, CoreWebView2PermissionRequestedEventArgs value) { value.State = CoreWebView2PermissionState.Deny; };
                 core.DownloadStarting += delegate(object source, CoreWebView2DownloadStartingEventArgs value) { value.Cancel = true; };
                 core.ServerCertificateErrorDetected += CertificateError;
+                initializationPhase = "navigate";
                 core.Navigate(options.gateway);
                 input = Task.Run(() => Console.In.ReadLine());
                 ready = true;
-                Emit(new { @event = "ready", engine = "WebView2", native_management_handlers = false, profile_fresh = true });
-            } catch (Exception error) { Fail("initialization", error); }
+                Emit(new { @event = "ready", engine = "WebView2", native_management_handlers = false, profile_fresh = true,
+                    runtime_version = environment.BrowserVersionString, profile = environment.UserDataFolder });
+            } catch (Exception error) { Fail("initialization:" + initializationPhase, error); }
             finally { initializationFinished = true; }
         }
         void CertificateError(object sender, CoreWebView2ServerCertificateErrorDetectedEventArgs value) {
@@ -118,7 +156,13 @@ namespace Miopunch {
                 }
             } catch (Exception error) { Fail("private_control", error); }
         }
-        void Finish() {
+        async void Finish(object sender, FormClosingEventArgs args) {
+            if (closingFinished) return;
+            // Keep the original UI message loop and synchronization context
+            // alive until the events being awaited have actually settled.
+            args.Cancel = true;
+            if (closingStarted) return;
+            closingStarted = true;
             timer.Stop(); timer.Dispose();
             view.Dispose();
             // The owner closes its original stdin on this event. No OS signal
@@ -127,18 +171,22 @@ namespace Miopunch {
             var deadline = Stopwatch.StartNew();
             while (deadline.Elapsed.TotalSeconds < 5 &&
                    ((input != null && !input.IsCompleted) || !initializationFinished || (engineCreated && !engineExited.Task.IsCompleted))) {
-                Application.DoEvents(); Thread.Sleep(10);
+                await Task.Delay(10);
             }
             bool inputJoined = input == null || input.IsCompleted;
             bool engineJoined = initializationFinished && (!engineCreated || engineExited.Task.IsCompleted);
             failed |= !inputJoined || !engineJoined;
-            Emit(new { @event = "closed", host_failed = failed, input_joined = inputJoined, engine_exit_observed = engineJoined });
+            Emit(new { @event = "closed", host_failed = failed, input_joined = inputJoined, engine_exit_observed = engineJoined,
+                engine_environment_created = engineCreated, engine_exit_event_observed = engineExited.Task.IsCompleted,
+                initialization_finished = initializationFinished });
+            closingFinished = true;
+            Close();
         }
         public static int Run(string optionsJson) {
             var options = new JavaScriptSerializer().Deserialize<WebHostOptions>(optionsJson);
             using (var host = new WebContentHost(options)) {
                 try { Application.Run(host); }
-                finally { host.Finish(); }
+                finally { host.failed |= !host.closingFinished; }
                 return host.failed ? 1 : 0;
             }
         }

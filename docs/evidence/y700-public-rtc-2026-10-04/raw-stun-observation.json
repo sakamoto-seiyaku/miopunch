@@ -1,0 +1,50 @@
+[
+  {
+    "bind": [
+      "0.0.0.0",
+      45064
+    ],
+    "server": [
+      "74.125.250.129",
+      19302
+    ],
+    "responsePeer": [
+      "74.125.250.129",
+      19302
+    ],
+    "responseBytes": 32,
+    "responseType": 257,
+    "transactionMatched": true,
+    "attributes": [
+      {
+        "type": "0x20",
+        "length": 8
+      }
+    ],
+    "seconds": 0.18862237397115678
+  },
+  {
+    "bind": [
+      "192.168.4.5",
+      46873
+    ],
+    "server": [
+      "74.125.250.129",
+      19302
+    ],
+    "responsePeer": [
+      "74.125.250.129",
+      19302
+    ],
+    "responseBytes": 32,
+    "responseType": 257,
+    "transactionMatched": true,
+    "attributes": [
+      {
+        "type": "0x20",
+        "length": 8
+      }
+    ],
+    "seconds": 0.1854483769275248
+  }
+]

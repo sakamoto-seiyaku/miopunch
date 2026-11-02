@@ -1,0 +1,54 @@
+{
+  "status": "PREPARED_UNEXECUTED_REQUIRES_NEW_EXACT_REVERSE_AUTHORIZATION",
+  "destination": "stati@100.64.10.8 / C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+  "packet": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v3-reverse-preparation-20261028/packet.json",
+  "packet_sha256": "542c91a49923b64f82d7c6bd9263d3ae7a177278a7bea48c0c924d850da4d03c",
+  "plan_sha256": "6c6dff6ca001efd12e73cecca82026a88757574939c13160bcee804ee66c96ad",
+  "source_tree_sha256": "a0a5ce26b529c5400f69ef79fed5a0c1cf2097483f26706ea32558d0b58d2312",
+  "source_bytes": 148635,
+  "payload_bytes": 85777,
+  "mode": "REVERSE_ONLY_FULL_WEB_WINDOWS_TO_LINUX",
+  "role": "Windows provider to Linux consumer",
+  "previous_approved_batch_manifest_sha256": "6c9ee13f5d99393bbd67d8c741f7924279da3407fd117b69cdf78d6c09a7c472",
+  "first_role_qualification_sha256": "4ae8d7cd71d1d178e53e9e9230c92896190068cc517402d03bacd1c95d48594b",
+  "v2_reverse_local_failure_sha256": "093e34ff90dc7fa9fe509d2f010cdceac6ac8544ec95b41307fe1a3edf52d160",
+  "accounting_fix": {
+    "historical_raw_bytes": 863300,
+    "accepted_first_role_raw_bytes": 149353,
+    "new_raw_base_bytes": 1012653,
+    "metadata_cap_bytes": 4800000,
+    "source_cap_bytes": 151552,
+    "root_admin_cap_bytes": 504712,
+    "global_cap_bytes": 29680280,
+    "global_reservation_bytes": 29679330
+  },
+  "remote_precheck": {
+    "path": "/tmp/m119-route-feedback-20261028/window180-v3-reverse-after-first-precheck.json",
+    "sha256": "148af6ccbe6362cac0c30cc82bd617ffa36b580ae1b3fdb3b0ca09e85b218c1c",
+    "owned_root_bytes": 991873007,
+    "reserve_bytes": 67194641,
+    "conservative_bytes": 1059067648,
+    "cap_bytes": 1073741824,
+    "margin_bytes": 14674176,
+    "collisions": [],
+    "remote_mutations": 0
+  },
+  "verification": {
+    "check_local": "PASS",
+    "configure_dry": "PASS",
+    "source_tree_hashes": "PASS",
+    "new_cargo_builds": 0,
+    "new_artifact_pins": 0,
+    "reverse_runtime_started": false
+  },
+  "unchanged_business": [
+    "Original exact request/applicant, approval, sync and Web assertions",
+    "Mail commit-marker same-seam fix",
+    "One 180-second nonrenewable rendezvous, 190/200-second Task observations",
+    "24 MiB case profile cap, 64 MiB case reserve, 1 GiB remote root cap"
+  ],
+  "limits": [
+    "Reverse role has not run.",
+    "Windows create error 5 from a prior run remains unlocalized; this packet does not claim a product fix."
+  ]
+}

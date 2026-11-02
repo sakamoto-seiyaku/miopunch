@@ -1,0 +1,112 @@
+{
+  "schema": 1,
+  "scope": "read-only WAN prerequisites, not physical NAT or SDK pass",
+  "physicalWanQualified": false,
+  "startedUtc": "2026-10-05T02:03:28Z",
+  "scriptSha256": "ddd0655656374b8de1c68b42a1037fbeac8211dad082aa162a33686c8bc83132",
+  "proxyEnvironmentNames": [],
+  "normalTlsVerification": true,
+  "commands": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": "9c95dcb4e78dba041d6d1b2fe151f7607c6c6fd0\n",
+      "elapsedMs": 5.597
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "ip",
+        "-j",
+        "address",
+        "show"
+      ],
+      "exit": null,
+      "stderr": "Cannot open netlink socket: Operation not permitted\n",
+      "failure": "Expecting value: line 1 column 1 (char 0)",
+      "elapsedMs": 4.862
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "ip",
+        "-j",
+        "route",
+        "show",
+        "table",
+        "all"
+      ],
+      "exit": null,
+      "stderr": "Cannot open netlink socket: Operation not permitted\n",
+      "failure": "Expecting value: line 1 column 1 (char 0)",
+      "elapsedMs": 4.365
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "ip",
+        "-j",
+        "rule",
+        "show"
+      ],
+      "exit": null,
+      "stderr": "Cannot open netlink socket: Operation not permitted\n",
+      "failure": "Expecting value: line 1 column 1 (char 0)",
+      "elapsedMs": 4.306
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/.local/bin/adb",
+        "version"
+      ],
+      "exit": 126,
+      "stderr": "/home/js/.local/bin/adb: line 4: /mnt/c/Android/SDK/platform-tools/adb.exe: cannot execute binary file: Exec format error\n/home/js/.local/bin/adb: line 4: /mnt/c/Android/SDK/platform-tools/adb.exe: Success\n",
+      "stdout": "",
+      "elapsedMs": 21.851
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/.local/bin/adb",
+        "devices",
+        "-l"
+      ],
+      "exit": 126,
+      "matchingDeviceCount": 0
+    }
+  ],
+  "androidFailure": "expected exactly one connected device with the requested model",
+  "firstCommandFailure": {
+    "command": [
+      "rtk",
+      "proxy",
+      "ip",
+      "-j",
+      "address",
+      "show"
+    ],
+    "exit": null,
+    "stderr": "Cannot open netlink socket: Operation not permitted\n",
+    "failure": "Expecting value: line 1 column 1 (char 0)",
+    "elapsedMs": 4.862
+  },
+  "cleanup": {
+    "createdPersistentProcessesOrForwardings": false,
+    "createdPeerConnections": false,
+    "localCommandChildrenReaped": true,
+    "hostUdpSocket": null
+  }
+}

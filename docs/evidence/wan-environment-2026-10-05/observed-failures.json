@@ -1,0 +1,100 @@
+{
+  "scope": "read-only preflight failures; not product failures",
+  "observations": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/usr/local/bin/adb",
+        "version"
+      ],
+      "exit": 126,
+      "failure": "Windows adb.exe wrapper: Exec format error",
+      "cleanup": "no owned persistent process/forwarding created"
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=7",
+        "-o",
+        "ConnectionAttempts=1",
+        "-o",
+        "StrictHostKeyChecking=yes",
+        "vps_nl",
+        "uname -s -m; ip -j route show; command -v python3; command -v cargo"
+      ],
+      "exit": 255,
+      "failure": "Connection timed out during banner exchange",
+      "cleanup": "local SSH process exited"
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=7",
+        "-o",
+        "ConnectionAttempts=1",
+        "-o",
+        "StrictHostKeyChecking=yes",
+        "server",
+        "uname -s -m; ip -j route show; command -v python3; command -v cargo"
+      ],
+      "exit": 255,
+      "failure": "No route to host",
+      "cleanup": "local SSH process exited"
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=7",
+        "-o",
+        "ConnectionAttempts=1",
+        "-o",
+        "StrictHostKeyChecking=yes",
+        "vps_hk",
+        "uname -s -m; ip -j route show; command -v python3; command -v cargo"
+      ],
+      "exit": 255,
+      "failure": "Connection timed out during banner exchange",
+      "cleanup": "local SSH process exited"
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "python3",
+        "wan_environment_preflight.py",
+        "--output",
+        "<existing-receipt>"
+      ],
+      "exit": 2,
+      "failure": "refused to overwrite existing evidence",
+      "cleanup": "argument rejection before any probe"
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "python3",
+        "initial-inline-Y700-curl-unquoted-argv"
+      ],
+      "exit": 1,
+      "failure": "local ADB subprocess wait exceeded10s; remote argument quoting corrected in final entry",
+      "cleanup": "local child killed/reaped; no graceful remote cleanup claimed; curl had max-time8s and later bounded probe completed"
+    }
+  ]
+}

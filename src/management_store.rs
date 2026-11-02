@@ -819,7 +819,7 @@ impl ManagementStore {
     }
 
     pub async fn close(self) {
-        self.pool.close().await;
+        crate::sqlite_shutdown::close(&self.pool).await;
     }
 }
 

@@ -1,0 +1,257 @@
+{
+  "origin": "http://172.16.3.11:18843",
+  "checks": [
+    "missing RTC API is reported and actual member RPC uses fallback",
+    "owner Window loss fails closed; surviving view cannot start another runtime"
+  ],
+  "missingApi": {
+    "runtime": "window-rtc-v2",
+    "saved": {
+      "authorization_saved": true,
+      "id": "4091880dc9838d13776cb43172ad9dde9041b2fc6341a1b2881fefabafe5dd5d",
+      "running": true,
+      "secret_saved": true,
+      "stage": "Complete"
+    },
+    "network": {
+      "carriers": [],
+      "gate": {
+        "agreement_elapsed_ms": 0,
+        "agreement_mode": "unified-session/1",
+        "alpn": "miopunch/session/precode/1",
+        "business_handle": false,
+        "confirmation_elapsed_ms": 220,
+        "coordinator": {
+          "bindingUnchanged": true,
+          "dataReleased": false,
+          "event": "unified-control-ready",
+          "freshAck": null,
+          "ordinaryHandle": false,
+          "peerPermitted": 0,
+          "peerRuntime": "Native",
+          "peerSupported": 13,
+          "permitted": 0,
+          "purpose": "admission-request",
+          "purposeCode": 2,
+          "restricted": true,
+          "role": "initiator",
+          "runtime": "Browser",
+          "sourceRevision": 2,
+          "stableId": 2437576,
+          "stableUnchanged": true,
+          "supported": 4,
+          "version": 1
+        },
+        "expected_contact_verified": true,
+        "legacy_agreement_executed": false,
+        "local_id": "4091880dc9838d13776cb43172ad9dde9041b2fc6341a1b2881fefabafe5dd5d",
+        "remote_id": "b472ec880ce7d49b2664318adbe077125af40551d283ccd88f6bfeaf3ecdf759",
+        "stable_id": 2437576,
+        "stage": "restricted-A",
+        "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 17, bytes: 9573, ios: 0 }, udp_rx: UdpStats { datagrams: 11, bytes: 5658, ios: 0 }, frame_tx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 2, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 6, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 0, STREAM: 2, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 2, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 4, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 2, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 0, STREAM: 1, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }",
+        "tls_authenticated": true
+      },
+      "incoming": {
+        "activeInFlight": 0,
+        "dispatcherStopped": false,
+        "pendingTls": 0,
+        "pendingWaiters": 0,
+        "rejectedIncoming": 0
+      },
+      "memberBootstraps": {
+        "2606288": {
+          "coordinator": {
+            "authorizationRevision": 4,
+            "bindingUnchanged": true,
+            "event": "unified-path-ready",
+            "freshAck": true,
+            "pathId": "0",
+            "peerPermitted": 13,
+            "peerRuntime": "Native",
+            "peerSupported": 13,
+            "permitted": 4,
+            "probeWatermark": 25,
+            "purpose": "member-business",
+            "purposeCode": 1,
+            "role": "initiator",
+            "route": "relay:http://172.16.3.11:18843/",
+            "rtcRole": "None",
+            "runtime": "Browser",
+            "selected": true,
+            "selectedRoute": "relay:http://172.16.3.11:18843/",
+            "stableId": 2606288,
+            "stableUnchanged": true,
+            "supported": 4,
+            "version": 1
+          }
+        }
+      },
+      "relayChecks": [],
+      "relayHome": {
+        "connectedCount": 1,
+        "errorCount": 0,
+        "publishedCount": 1
+      },
+      "request": {
+        "alpn": "miopunch/session/precode/1",
+        "business_handle": false,
+        "completion_remaining_ms": 58778,
+        "exchange_ms": 1186,
+        "handshake_ms": 581,
+        "local_id": "4091880dc9838d13776cb43172ad9dde9041b2fc6341a1b2881fefabafe5dd5d",
+        "material_events": [
+          {
+            "elapsed_ms": 1284,
+            "sequence": 0,
+            "stage": "AUTH-sent"
+          },
+          {
+            "elapsed_ms": 1322,
+            "sequence": 1,
+            "stage": "secret-received-generation-verified"
+          },
+          {
+            "elapsed_ms": 1404,
+            "sequence": 2,
+            "stage": "secret-committed"
+          },
+          {
+            "elapsed_ms": 1404,
+            "sequence": 3,
+            "stage": "SAVE-sent"
+          },
+          {
+            "elapsed_ms": 1528,
+            "sequence": 4,
+            "stage": "DONE-received"
+          }
+        ],
+        "paths": [
+          "Relay(http://172.16.3.11:18843/)"
+        ],
+        "remaining_caller_ms": 58781,
+        "remote_id": "b472ec880ce7d49b2664318adbe077125af40551d283ccd88f6bfeaf3ecdf759",
+        "restricted": true,
+        "stable_id": 2437576,
+        "stage": "PendingMaterials",
+        "stats": "ConnectionStats { udp_tx: UdpStats { datagrams: 26, bytes: 10047, ios: 0 }, udp_rx: UdpStats { datagrams: 24, bytes: 18458, ios: 0 }, frame_tx: FrameStats { ACK: 2, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 2, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 0, IMMEDIATE_ACK: 4, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 0, NEW_TOKEN: 0, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 14, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 40, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 0, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 0, STREAM: 3, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, frame_rx: FrameStats { ACK: 1, ACK_FREQUENCY: 0, CONNECTION_CLOSE: 0, CRYPTO: 3, DATA_BLOCKED: 0, DATAGRAM: 0, HANDSHAKE_DONE: 1, IMMEDIATE_ACK: 6, MAX_DATA: 0, MAX_PATH_ID: 0, MAX_STREAM_DATA: 0, MAX_STREAMS_BIDI: 0, MAX_STREAMS_UNI: 0, NEW_CONNECTION_ID: 4, NEW_TOKEN: 2, PATHS_BLOCKED: 0, PATH_ABANDON: 0, PATH_ACK: 6, PATH_STATUS_AVAILABLE: 1, PATH_STATUS_BACKUP: 0, PATH_CHALLENGE: 0, PATH_CIDS_BLOCKED: 0, PATH_NEW_CONNECTION_ID: 35, PATH_RESPONSE: 0, PATH_RETIRE_CONNECTION_ID: 1, PING: 4, RESET_STREAM: 0, RETIRE_CONNECTION_ID: 0, STREAM_DATA_BLOCKED: 0, STREAMS_BLOCKED_BIDI: 0, STREAMS_BLOCKED_UNI: 0, STOP_SENDING: 0, STREAM: 8, OBSERVED_ADDRESS: 0, ADD_ADDRESS: 0, REACH_OUT: 0, REMOVE_ADDRESS: 0 }, lost_packets: 0, lost_bytes: 0 }"
+      },
+      "rtcCapability": {
+        "effective": false,
+        "permitted": true,
+        "probe": {
+          "channelCloseRequested": false,
+          "channelCreated": false,
+          "pcClosed": true,
+          "pcCreated": false
+        },
+        "reason": "api-missing",
+        "supported": false
+      }
+    },
+    "session": {
+      "alpn": "miopunch/session/member/1",
+      "bootstrap": {
+        "coordinator": {
+          "authorizationRevision": 4,
+          "bindingUnchanged": true,
+          "event": "unified-path-ready",
+          "freshAck": true,
+          "pathId": "0",
+          "peerPermitted": 13,
+          "peerRuntime": "Native",
+          "peerSupported": 13,
+          "permitted": 4,
+          "probeWatermark": 25,
+          "purpose": "member-business",
+          "purposeCode": 1,
+          "role": "initiator",
+          "route": "relay:http://172.16.3.11:18843/",
+          "rtcRole": "None",
+          "runtime": "Browser",
+          "selected": true,
+          "selectedRoute": "relay:http://172.16.3.11:18843/",
+          "stableId": 2606288,
+          "stableUnchanged": true,
+          "supported": 4,
+          "version": 1
+        }
+      },
+      "coordinator": {
+        "authorizationRevision": 4,
+        "bindingUnchanged": true,
+        "event": "unified-path-ready",
+        "freshAck": true,
+        "pathId": "0",
+        "peerPermitted": 13,
+        "peerRuntime": "Native",
+        "peerSupported": 13,
+        "permitted": 4,
+        "probeWatermark": 25,
+        "purpose": "member-business",
+        "purposeCode": 1,
+        "role": "initiator",
+        "route": "relay:http://172.16.3.11:18843/",
+        "rtcRole": "None",
+        "runtime": "Browser",
+        "selected": true,
+        "selectedRoute": "relay:http://172.16.3.11:18843/",
+        "stableId": 2606288,
+        "stableUnchanged": true,
+        "supported": 4,
+        "version": 1
+      },
+      "expectedPeerMatched": true,
+      "memberAuthorized": true,
+      "newProtocol": true,
+      "ordinaryHandle": true,
+      "paths": [
+        {
+          "datagramReceived": 0,
+          "datagramSent": 0,
+          "isIp": false,
+          "isMemberData": false,
+          "isRelay": true,
+          "isRtc": false,
+          "isSignal": false,
+          "pathId": "0",
+          "receivedBytes": 9811,
+          "route": "relay:http://172.16.3.11:18843/",
+          "rttMicros": 158037,
+          "selected": true,
+          "sentBytes": 11074,
+          "streamReceived": 10,
+          "streamSent": 11
+        }
+      ],
+      "remoteId": "b472ec880ce7d49b2664318adbe077125af40551d283ccd88f6bfeaf3ecdf759"
+    },
+    "native": {
+      "hostId": "b472ec880ce7d49b2664318adbe077125af40551d283ccd88f6bfeaf3ecdf759",
+      "paths": [
+        {
+          "isIp": false,
+          "isRelay": true,
+          "isRtc": false,
+          "receivedBytes": 9960,
+          "route": "relay:http://192.168.4.14:18843/",
+          "rttMicros": 319879,
+          "selected": true,
+          "sentBytes": 10294,
+          "streamReceived": 12,
+          "streamSent": 11
+        }
+      ],
+      "remoteId": "4091880dc9838d13776cb43172ad9dde9041b2fc6341a1b2881fefabafe5dd5d",
+      "rtcAssociations": 0,
+      "rtcPumps": 0,
+      "stableId": 139896883001808
+    }
+  },
+  "ownerLoss": {
+    "originalId": "8e7b47962d7c4445844d6706e963407bfbc310bdda223c6d919064301ce476e9",
+    "failure": "Error: Error: 浏览器节点宿主页面已关闭，请关闭所有演示页面后重新打开",
+    "reconnect": "Error: 请关闭所有旧版演示页面，再打开链接启用 WebRTC"
+  },
+  "passed": true
+}

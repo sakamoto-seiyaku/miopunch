@@ -1,0 +1,70 @@
+{
+  "status": "REVERSE_INCOMPLETE_TEST_FIXTURE_SOURCE_PATH",
+  "packet_sha256": "542c91a49923b64f82d7c6bd9263d3ae7a177278a7bea48c0c924d850da4d03c",
+  "STOP_sha256": "7106412c2f397394f507f1d8acb04303fcb39cf2de214f85a2beb81bdeb26011",
+  "qualification_sha256": "2ec369f684284ecc580e407df24922cbccc00c7e1d6377c666f2ffb8c9db6765",
+  "raw_file_count": 26,
+  "raw_bytes": 59751,
+  "raw_hashes_verified": true,
+  "first_failure": {
+    "type": "AssertionError",
+    "phase": "exercise",
+    "oracle": null,
+    "frames": [
+      {
+        "source": "worker.py",
+        "line": 620,
+        "function": "run"
+      },
+      {
+        "source": "worker.py",
+        "line": 581,
+        "function": "command"
+      },
+      {
+        "source": "worker.py",
+        "line": 407,
+        "function": "exercise"
+      },
+      {
+        "source": "worker.py",
+        "line": 336,
+        "function": "host"
+      },
+      {
+        "source": "worker.py",
+        "line": 355,
+        "function": "prepare_linux_desktop"
+      },
+      {
+        "source": "worker.py",
+        "line": 120,
+        "function": "freeze_source"
+      }
+    ],
+    "SDK_operation": "service_sync",
+    "SDK_metadata": {
+      "id": 3,
+      "ok": true,
+      "result": {
+        "saved_locally": true
+      }
+    }
+  },
+  "classification": "test fixture packaging: Linux consumer worker looked for sandbox_bwrap.py beside newly copied worker.py, while deployment source_pins retained the verified original helper path",
+  "missing_adjacent_path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v3-reverse-preparation-20261028/sandbox_bwrap.py",
+  "pinned_wrapper_path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-Web-role-exchange-preparation-20261027/sandbox_bwrap.py",
+  "pinned_wrapper_sha256": "50e759458e1150354927b553d987adeea1f68867b42322ce11b871cff6e563e8",
+  "windows_provider_created_and_admission_approved": true,
+  "linux_service_sync_saved": true,
+  "full_Web_business_accepted": false,
+  "Task_original_terminal": true,
+  "Task_registration_removed": true,
+  "Task_GUID": "{A59C6F41-BE3B-43EF-B223-31391C08675B}",
+  "all_owners_terminal": true,
+  "original_pending": [],
+  "remote_unknown": {},
+  "runtime_retry": false,
+  "whole_M119": false,
+  "next_fix": "Select the exactly pinned wrapper path from deployment source_pins; preserve freeze_source hash assertion and all business assertions."
+}

@@ -54,6 +54,7 @@ impl SavedNode {
             crate::forwarding::TCP_ALPN => Service::TcpForward,
             crate::forwarding::UDP_ALPN => Service::UdpForward,
             crate::web::WEB_ALPN => Service::Web,
+            crate::terminal::TERMINAL_ALPN => Service::Terminal,
             _ => return false,
         };
         self.service_access().ok().is_some_and(|access| {
@@ -464,15 +465,17 @@ impl BrowserNetwork {
             .transpose()
             .map_err(error)?
             .is_some_and(|scope| scope.service == Service::Clipboard);
+        let terminal_guest = saved.guest.as_ref().map(GuestInvitation::details).transpose().map_err(error)?
+            .is_some_and(|scope| scope.service == Service::Terminal);
         let mut status = access
             .status(
                 saved.guest.as_ref(),
-                if clipboard_guest {
+                if terminal_guest { false } else if clipboard_guest {
                     capability.read && capability.write
                 } else {
                     files::capable()
                 },
-                if clipboard_guest {
+                if terminal_guest { false } else if clipboard_guest {
                     clipboard.enabled
                 } else {
                     self.files.enabled.get()
@@ -488,7 +491,7 @@ impl BrowserNetwork {
                     capability.read && capability.write,
                     clipboard.enabled,
                 ));
-            for service in [Service::TcpForward, Service::UdpForward, Service::Web] {
+            for service in [Service::TcpForward, Service::UdpForward, Service::Web, Service::Terminal] {
                 status["services"].as_array_mut().ok_or_else(rejected)?.push(access.local_service_status(service, false, false));
             }
         }

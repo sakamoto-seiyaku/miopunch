@@ -1,0 +1,311 @@
+{
+  "success": true,
+  "errors": [],
+  "base": "/tmp/m119-v6/v",
+  "quota": {
+    "identity": {
+      "scope": "local-full-host",
+      "pid": 325806
+    },
+    "used": 7132,
+    "limit": 65536,
+    "hard": 90112,
+    "status_bytes": 0,
+    "first_failure": null,
+    "control_error": null,
+    "pending": []
+  },
+  "events": [
+    [
+      "desktop",
+      "authenticated_private_display",
+      {
+        "display": ":36885",
+        "private_auth": true,
+        "private_named_socket": true,
+        "global_selected_path_absent": true,
+        "global_context_removed": true
+      }
+    ],
+    [
+      "controller",
+      "opaque_namespace_budget",
+      {
+        "outer_active_max": 4,
+        "outer_each": 1048576,
+        "nested_cumulative_max": 12582912,
+        "total_reserved": 16777216,
+        "wrapper_source": "81948027b1046c7af0c1a0d5f65e8ae882b68d5c6ec7869f702b77f8d41718d6",
+        "wrapper_mapping": "/usr/bin/bwrap private readonly bind",
+        "real_mapping": "/tmp/m119-v6/v/admission-wp-6fe6fb94/sandbox/bwrap-real"
+      }
+    ],
+    [
+      "content/host",
+      "actual_webkit_ready",
+      {
+        "event": "ready",
+        "ephemeral_context": true,
+        "sandbox_enabled": true,
+        "native_management_handlers": false
+      }
+    ],
+    [
+      "content/host",
+      "actual_content_event",
+      {
+        "event": "load_state",
+        "state": "started"
+      }
+    ],
+    [
+      "content/host",
+      "actual_content_event",
+      {
+        "event": "load_state",
+        "state": "redirected"
+      }
+    ],
+    [
+      "content/host",
+      "actual_content_event",
+      {
+        "event": "load_state",
+        "state": "committed"
+      }
+    ],
+    [
+      "content/host",
+      "actual_content_event",
+      {
+        "event": "load_state",
+        "state": "finished"
+      }
+    ],
+    [
+      "management-control/host",
+      "actual_webkit_ready",
+      {
+        "event": "ready",
+        "ephemeral_context": true,
+        "sandbox_enabled": true,
+        "native_management_handlers": false
+      }
+    ],
+    [
+      "management-control/host",
+      "actual_content_event",
+      {
+        "event": "load_state",
+        "state": "started"
+      }
+    ],
+    [
+      "management-control/host",
+      "actual_content_event",
+      {
+        "event": "load_state",
+        "state": "redirected"
+      }
+    ],
+    [
+      "management-control/host",
+      "actual_content_event",
+      {
+        "event": "load_state",
+        "state": "committed"
+      }
+    ],
+    [
+      "management-control/host",
+      "actual_content_event",
+      {
+        "event": "load_state",
+        "state": "finished"
+      }
+    ],
+    [
+      "management-control/webkit-host",
+      "known_descendant_termination",
+      {
+        "observed_descendants": [
+          {
+            "pid": 325926,
+            "start_ticks": "32450234",
+            "cmdline_sha256": "423f00af187ae3d0d40e8ff97096b0cd36d1490e171ef82ae4fe4f336f37c1c8",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325927,
+            "start_ticks": "32450234",
+            "cmdline_sha256": "62410e122e06ce45fc0c6dac290dc361b4b11d84fbe924a38b5267602b77b57f",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325933,
+            "start_ticks": "32450248",
+            "cmdline_sha256": "60e88bd2948d9c7c571716e54ffdb60392ea7321a6e41f94c538802a90fa3b31",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325991,
+            "start_ticks": "32450259",
+            "cmdline_sha256": "30237c9a1e5c8db125981c549ea6f84e2a2289fa8fec2e8bbdca2a168ee66141",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325995,
+            "start_ticks": "32450262",
+            "cmdline_sha256": "7a27d6684e585453a0c3d8cc1049c15fd24e9c9068fc7599b5fa4149c3245596",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325992,
+            "start_ticks": "32450261",
+            "cmdline_sha256": "44b8c4d2b44fba7aef8c3c6fb2507b4f0de8bcf75bdf63fb1d7f32b8a9fb0552",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325993,
+            "start_ticks": "32450262",
+            "cmdline_sha256": "c7170e4dcac8eaa11b366a6f0baf374ab02a470eb79f12d1221725f4a1758bfb",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 326000,
+            "start_ticks": "32450265",
+            "cmdline_sha256": "af04e1ebfb6682d4c631d99122f3fd92872b6fef6e67399832ff28a6298d8d43",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 326001,
+            "start_ticks": "32450266",
+            "cmdline_sha256": "514688025769ab774d068de824757a287c1010ac5d130c85dc03460aceab33ff",
+            "original_identity_absent": true
+          }
+        ],
+        "observer_joined": true,
+        "errors": [],
+        "all_known_absent": true,
+        "signals_to_descendants": false,
+        "scope": "only this fresh Popen subtree observed during its lifetime"
+      }
+    ],
+    [
+      "content/webkit-host",
+      "known_descendant_termination",
+      {
+        "observed_descendants": [
+          {
+            "pid": 325829,
+            "start_ticks": "32450125",
+            "cmdline_sha256": "3463cf487f87ed1110ae57deef74d5c94d088f2682ce2c252a1c0b3225b9da4f",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325830,
+            "start_ticks": "32450125",
+            "cmdline_sha256": "0ff811da06eafd88c0cf7169f5f318cc77f13b7b6503c52e52344c7eb6820acc",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325836,
+            "start_ticks": "32450143",
+            "cmdline_sha256": "2e6cf6b33300588002a30454b3eac69dff692ceef3da4db5f325c9e49eeef536",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325893,
+            "start_ticks": "32450150",
+            "cmdline_sha256": "30237c9a1e5c8db125981c549ea6f84e2a2289fa8fec2e8bbdca2a168ee66141",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325898,
+            "start_ticks": "32450153",
+            "cmdline_sha256": "188b258af70130cd4c2cf2c9ec703289d808d08e08410acb5c6cd4d44d1c58d9",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325895,
+            "start_ticks": "32450152",
+            "cmdline_sha256": "f53fcbbeb6f207863f6e682349993fe9517d1ba26e31ca448266904c8f644da3",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325896,
+            "start_ticks": "32450153",
+            "cmdline_sha256": "c7170e4dcac8eaa11b366a6f0baf374ab02a470eb79f12d1221725f4a1758bfb",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325903,
+            "start_ticks": "32450156",
+            "cmdline_sha256": "5564b92410b1c4cebdbca86fbc5e2bff46f87557a9fb3adc2897c3236e482138",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325904,
+            "start_ticks": "32450157",
+            "cmdline_sha256": "5730a7c61d3c19c3e407e5fe8b1b2bcd31dd39c337788167e8c321ae3e22a80d",
+            "original_identity_absent": true
+          }
+        ],
+        "observer_joined": true,
+        "errors": [],
+        "all_known_absent": true,
+        "signals_to_descendants": false,
+        "scope": "only this fresh Popen subtree observed during its lifetime"
+      }
+    ],
+    [
+      "private-bus",
+      "known_descendant_termination",
+      {
+        "observed_descendants": [],
+        "observer_joined": true,
+        "errors": [],
+        "all_known_absent": true,
+        "signals_to_descendants": false,
+        "scope": "only this fresh Popen subtree observed during its lifetime"
+      }
+    ],
+    [
+      "private-desktop",
+      "known_descendant_termination",
+      {
+        "observed_descendants": [
+          {
+            "pid": 325812,
+            "start_ticks": "32450115",
+            "cmdline_sha256": "225dcfb4e6919ac8fde81683730d133d121a7efa5e42caaad0e0e5c71940b49a",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325813,
+            "start_ticks": "32450115",
+            "cmdline_sha256": "c19966f133fb9b17636d7dc482548ea79012d183a876a1e9d5e7ec3be59d3761",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325822,
+            "start_ticks": "32450120",
+            "cmdline_sha256": "99c1b51f3237e9ef2a8b247015319ee169e6f59f33db0b52ed3705f113255e06",
+            "original_identity_absent": true
+          },
+          {
+            "pid": 325823,
+            "start_ticks": "32450120",
+            "cmdline_sha256": "f3039b12ffe74badbac94c009b48955927f46f91e13f3681320d3f1c09c7f41e",
+            "original_identity_absent": true
+          }
+        ],
+        "observer_joined": true,
+        "errors": [],
+        "all_known_absent": true,
+        "signals_to_descendants": false,
+        "scope": "only this fresh Popen subtree observed during its lifetime"
+      }
+    ]
+  ]
+}

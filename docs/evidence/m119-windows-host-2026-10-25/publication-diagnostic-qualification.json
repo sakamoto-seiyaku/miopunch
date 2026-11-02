@@ -1,0 +1,285 @@
+{
+  "task": "MIOPUNCH-119",
+  "status": "ONE_PUBLICATION_DIAGNOSTIC_RECONCILED; UNLOCALIZED_SUCCESS; ORIGINAL_OS5_NOT_REPAIRED",
+  "updated_UTC": "2026-10-26T08:59:03.254895+00:00",
+  "Root_independent_qualification": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-publication-diagnostic-root-qualification-20261026.json",
+    "bytes": 9102,
+    "sha256": "9847eaab3ab70dd0852f8e403f3b74b09e51d12f0836637d1566544523cd19d4"
+  },
+  "Root_readonly_verifier": {
+    "path": ".artifacts/runs/root-scheduling-20261023/qualify-m119-Windows-publication-diagnostic-20261026.py",
+    "bytes": 11678,
+    "sha256": "19c8cac9932a2685be32282ffdcbadb81fb4b5783ffb1a39ab0b62c5d121f94f"
+  },
+  "operator_first_frozen_qualification": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/qualification.json",
+    "bytes": 5968,
+    "sha256": "6dc35846b54459f52455c4eb9fc563043eb70d9f3f7702867304dc735567e9f2"
+  },
+  "operator_final_runtime_record": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/final.json",
+    "bytes": 530,
+    "sha256": "5479d53c1259c64d1575321d7cd84c0c0468e4fb1aa17e058dd89053546e9178"
+  },
+  "actual_user_approval": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-publication-diagnostic-actual-user-approval-20261026.json",
+    "bytes": 1779,
+    "sha256": "f7d006cb83178a397c19325dc2b716bbfee2fa6c9b983b708d2ec1c810141f97"
+  },
+  "executed_Root_release": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-publication-diagnostic-runtime-release-20261026.json",
+    "bytes": 2898,
+    "sha256": "98995b758731c19a1cc35603e3f1efe106546559081bffa94ef184629f487437"
+  },
+  "source_plan": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/plan.json",
+    "bytes": 7212,
+    "sha256": "d7af214ea6556761e708176eb1bc6b827971ae56b173b133b369b9100749828d"
+  },
+  "driver": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/operate.py",
+    "bytes": 16568,
+    "sha256": "7d3ae4f4822b3e244d8fc8b2736246950cd01c00cbca823cbb4d7d78bd179572"
+  },
+  "normal_review": "Accepted; original tool session86532 completed exit0, all10 original transport processes exit0/stderr0/no observer timeout",
+  "actual_case": {
+    "case": "publish-api-9d0247b3",
+    "nonce": "9d0247b3-f39c-4f1c-9df3-b0a2202165ae",
+    "Task_GUID": "{59F87350-8948-4118-AAC2-47D536C4B162}",
+    "ordinary_interactive_same_SID": true,
+    "Task_runs": 1,
+    "SDK_create_runs": 1,
+    "SDK_sha256": "70aba7ef847b4ca4409c28d643ba6ac1a5bf32ecbc28b6ed48c70529cd1c1f40",
+    "original_SDK_PID": 17080,
+    "original_SDK_handle": 468,
+    "SDK_wait_exit": 0,
+    "SDK_readers_alive": 0,
+    "original_outer_Python_PID": 11308,
+    "original_outer_handle": 2616,
+    "original_outer_wait_exit": 0,
+    "original_Task_terminal_and_exact_registration_removed_and_absent": true,
+    "SDK_ready_stage": "AwaitingRecoverySave",
+    "recovery_saved": false,
+    "SDK_stdout_only_one_ready_no_RPC": true,
+    "SDK_stderr_strict_begin_success_diagnostics": 140,
+    "same_API_controls": [
+      {
+        "phase": "before",
+        "kind": "bare",
+        "closed_file_before_call": false,
+        "returned": 1,
+        "raw_os_error": 0,
+        "flags": 8,
+        "same_parent": true,
+        "destination_absent_before": true,
+        "source_utf16_units": 136,
+        "target_utf16_units": 136
+      },
+      {
+        "phase": "before",
+        "kind": "closed-file",
+        "closed_file_before_call": true,
+        "returned": 1,
+        "raw_os_error": 0,
+        "flags": 8,
+        "same_parent": true,
+        "destination_absent_before": true,
+        "source_utf16_units": 143,
+        "target_utf16_units": 143
+      },
+      {
+        "phase": "after",
+        "kind": "bare",
+        "closed_file_before_call": false,
+        "returned": 1,
+        "raw_os_error": 0,
+        "flags": 8,
+        "same_parent": true,
+        "destination_absent_before": true,
+        "source_utf16_units": 135,
+        "target_utf16_units": 135
+      },
+      {
+        "phase": "after",
+        "kind": "closed-file",
+        "closed_file_before_call": true,
+        "returned": 1,
+        "raw_os_error": 0,
+        "flags": 8,
+        "same_parent": true,
+        "destination_absent_before": true,
+        "source_utf16_units": 142,
+        "target_utf16_units": 142
+      }
+    ],
+    "before_after_controls_success": 4,
+    "source_end_drift": [],
+    "profiles_created": 0,
+    "no_policy_guest_or_GUI_entry": true
+  },
+  "sampler": {
+    "rounds": 14,
+    "metadata_calls": 14,
+    "SDK_window_rounds": 4,
+    "phase_snapshots": 11,
+    "all_actual_phase_values_order_and_original_process_times_crossbound": true,
+    "joined": true,
+    "errors": [],
+    "new_parent_metadata": [
+      {
+        "relative": ".",
+        "attributes": 16,
+        "owner_sid": "S-1-5-21-3134535485-232963460-4157575699-1001",
+        "dacl_sddl": "D:AI(A;OICIID;0x1301bf;;;S-1-5-21-3527626106-2528708108-3606536554-1512354540)(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)(A;OICIID;FA;;;S-1-5-21-3134535485-232963460-4157575699-1001)"
+      }
+    ],
+    "SDK_staging_names_seen": [],
+    "SDK_staging_presence_removal_and_ACL": "UNKNOWN; no actual staging sample",
+    "instantaneous_external_handles": "UNKNOWN",
+    "instrumentation_may_perturb_timing": true
+  },
+  "interpretation": {
+    "current_new_parent_and_same_user_context_allows_four_same_API_moves": true,
+    "current_frozen_SDK_create_succeeded": true,
+    "permanent_global_wrong_API_or_flag_in_this_current_case_observed": false,
+    "historical_original_policy_parent_or_staging_ACL_proved": false,
+    "original_PermissionDenied_environmental_cause": "UNKNOWN",
+    "original_policy_or_old_Os5_failures_repaired_or_retried": false,
+    "universal_initialization_reliability_proved": false,
+    "SDK_or_atomic_publication_code_patched": false,
+    "permitted_conclusion": "UNLOCALIZED_WITHIN_THIS_DIAGNOSTIC_ONLY"
+  },
+  "fixed_evidence": {
+    "selected": 13,
+    "collected": 13,
+    "missing": [],
+    "bytes": 35652,
+    "files": {
+      "publish-api-9d0247b3-context-entry.json": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-entry.json",
+        "bytes": 294,
+        "sha256": "bc8e723d8ac195642f00bc85267db974e480db47a6db503c198ecad0685e523f"
+      },
+      "publish-api-9d0247b3-context-child-owner.json": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-child-owner.json",
+        "bytes": 997,
+        "sha256": "5019b19a7dcb3a118f7de4679b5aec91d81b79e5a1a635ad60661458dd129a27"
+      },
+      "publish-api-9d0247b3-context-child-exit.json": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-child-exit.json",
+        "bytes": 106,
+        "sha256": "3cb3189ef73e924804fc2743e4f57faa9c24d28e2d05452c05ff9e491d4400ff"
+      },
+      "publish-api-9d0247b3-context-1.completed.json": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-1.completed.json",
+        "bytes": 157,
+        "sha256": "23def0ed9eac9dd9f9da3f69880d5e7ba6b90c626e0f29397e30a8a51dec3aed"
+      },
+      "publish-api-9d0247b3-context-1.stdout": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-1.stdout",
+        "bytes": 111,
+        "sha256": "d39cc7d519ebdc12b673195a460ff27cb2fede6cc62b843a22cf3039117ed28c"
+      },
+      "publish-api-9d0247b3-context-1.stderr": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-1.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "publish-api-9d0247b3-context-task-run.json": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-task-run.json",
+        "bytes": 489,
+        "sha256": "79c318008561d29377b8f4aaa3ede81b70669a7f3a6d1bb7ed3f2628abf835df"
+      },
+      "publish-api-9d0247b3-context-task-run.jsonl": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/raw/publish-api-9d0247b3-context-task-run.jsonl",
+        "bytes": 4714,
+        "sha256": "51cb1b85311132decff43bc8478403ac6469ba1521e41c5812978e07d8717c0e"
+      },
+      "result.json": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/raw/result.json",
+        "bytes": 4466,
+        "sha256": "11546faa67d97c765d8756610e60686698b375a513fb9e36ec4a780e9869c6b6"
+      },
+      "observations.jsonl": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/raw/observations.jsonl",
+        "bytes": 3670,
+        "sha256": "a7b2fdab2a8650d396cef21342f857e13394fee4a16f306b7a65c5ec9fec0fc0"
+      },
+      "creator.stdout": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/raw/creator.stdout",
+        "bytes": 848,
+        "sha256": "04e8ee67a84d1ccbd1fc4b37768d0ae4846e1352b24becd25b4b418e6bdadb69"
+      },
+      "creator.stderr": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/raw/creator.stderr",
+        "bytes": 18912,
+        "sha256": "8df508c0bf6a36450a6848736b864e121857f8a3df140b2391e5b70ad3372c19"
+      },
+      "creator.owner.jsonl": {
+        "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/raw/creator.owner.jsonl",
+        "bytes": 888,
+        "sha256": "83cac2ee66966b23e0db18c7070d7141202e1d23d54c09e19fcfa48be955e7c8"
+      }
+    },
+    "actual6stdin_wire_hashes_match_plan": true,
+    "all10_transport_processes_terminal": true
+  },
+  "actual_final_owned_metadata": {
+    "phase": "final",
+    "ownedRootBytes": 519429437,
+    "profileBytes": 87310319,
+    "privateNonProfileBytes": 1617091,
+    "failedPolicyStateBytes": 1788,
+    "diagnosticStateBytes": 112035,
+    "diagnosticProfileBytes": 0,
+    "diagnosticRawUsed": 35652,
+    "reserve": 77516078,
+    "conservative": 596945515
+  },
+  "limits": {
+    "source_whole": 65530,
+    "source_cap": 65536,
+    "runtime_metadata_bytes": 22155,
+    "runtime_metadata_cap": 32768,
+    "raw131072_max": 131072,
+    "shared_raw_received_cumulative": 78546,
+    "shared_raw_cap": 2097152,
+    "same_global_raw_cap": 25165824,
+    "original_initial": 22801754,
+    "original_metadata_total": 182932,
+    "private_state_bytes": 112035,
+    "private_state_max": 8388608,
+    "new_profiles": 0,
+    "no_new_build_pin_PE_runtime_copy_permissions_or_system_change": true,
+    "no_cap_counting_root_exclusion_baseline_or_cleanup_change": true,
+    "full_M119_accepted": false
+  },
+  "old_original_failed_policy_record": {
+    "path": "acl-guest-runtime-qualification.json",
+    "sha256": "734803f6986ac5f08a1ea3e5f85d43b2eac2a51c81407a67380b8f9fb0ef299b"
+  },
+  "all_other_held_methods_and_platforms_unchanged": true,
+  "Plane_state_unchanged": true,
+  "known_live_within_observed_owned_scope": [],
+  "full_operator_handoff": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/handoff-Windows-publication-diagnostic-unlocalized-incomplete.md",
+    "bytes": 7731,
+    "sha256": "047ee2e738688b47d5bcaffb2f886c41f1be08b0b7446111e3a8f5b3db0eab32"
+  },
+  "original_execution": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/publication-diagnostic-original-execution.json",
+    "bytes": 1306,
+    "sha256": "d6dce0ce9649ce2b45f182653c4cea57ba5bd32eb494836b5072ab7ea6b94425"
+  },
+  "current_handles_delta": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/publication-diagnostic-current-handles-delta.json",
+    "bytes": 1380,
+    "sha256": "d2b088903bdd9dc1c325772909630937275cda1caf8067c84c45802d641aad03"
+  },
+  "final_transition_budget": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/publication-diagnostic-final-transition-budget.json",
+    "bytes": 1063,
+    "sha256": "9dfdbb04f592d81865e45bf407be263203910fd260d2c908f13877ba191e1795"
+  }
+}

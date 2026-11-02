@@ -1,0 +1,71 @@
+{
+  "scope": "concentrated helper review fixes plus final owned-store cleanup and actual RTC counter observation; local mocks/VM only; no phone/public/STUN rerun",
+  "sourceHashes": {
+    "scripts/wan_environment_preflight.py": "bbefa9512d29a35aa483178ecaa67d40dbe5213caa1e270f679d1aa2b75c2509",
+    "scripts/android_pair_runtime.py": "5c6385947b2bf575c26c3587890a7b75bf496663580928db360d7723f85bc967",
+    "scripts/build_android_pair.py": "06fc024b5afd8392790e6579495d5c65b2347f1c44657fe6a184cef412f33d8e",
+    "scripts/test_android_pair_tools.py": "ff0a96b0cfd851d4dbe0b32fdea81b2ea77053a45851c8e2586ba5e89336cab0",
+    "browser-probe/harness/android-pair-page.js": "18d524f4b01ce52566697fe5a8c7d9f2efe09e9a3a6e5c7e244b1857ef196492",
+    "browser-probe/harness/test-android-pair-page.mjs": "801a026493e36f9820cea689622cd2079b2e5bbfc7a342322527037546b367b2"
+  },
+  "commands": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-B",
+        "scripts/test_android_pair_tools.py"
+      ],
+      "exit": 0,
+      "stdout": "........\n----------------------------------------------------------------------\nRan 8 tests in 0.030s\n\nOK\n"
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "--experimental-vm-modules",
+        "browser-probe/harness/test-android-pair-page.mjs"
+      ],
+      "exit": 0,
+      "observed": {
+        "localOnly": true,
+        "sessionProofPreferred": true,
+        "missingRtcCountsOmitted": true,
+        "sensitiveDiagnosticFieldsRemoved": true,
+        "failuresDoNotStopRemainingCleanup": true,
+        "actualCloseFreeCountsPreserved": true,
+        "concurrentShutdownAndPagehideShareOneCleanup": true,
+        "preexistingStoreUntouched": true,
+        "stopPreservesOwnedStore": true,
+        "shutdownDeletesOnlyClaimedStoreWithExclusiveLock": true,
+        "blockedErrorAndContendedLockFailCleanup": true,
+        "actualImmediateAndLateRtcDiagnostics": true
+      }
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "--check",
+        "browser-probe/harness/android-pair-page.js"
+      ],
+      "exit": 0
+    },
+    {
+      "command": [
+        "rtk",
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit": 0
+    }
+  ],
+  "historicalDeviceReceiptsPreserved": true,
+  "newDeviceExecution": false,
+  "newPublicMemberExecution": false,
+  "sourceSnapshot": "tooling-final-review"
+}

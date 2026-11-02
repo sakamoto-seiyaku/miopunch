@@ -1,0 +1,37 @@
+{
+  "status": "FIRST_DIRECTION_FAILED_AT_WINDOWS_CONSUMER_SERVICE_SYNC",
+  "packet_sha256": "756a3231a3f460ca60fa74d3bbf81caf3bbc8d3dc61b119c8391349182b80052",
+  "raw_file_count": 26,
+  "raw_bytes": 42638,
+  "original_controller_failure": "AssertionError",
+  "original_windows_sync": {
+    "id": 3,
+    "ok": false,
+    "error_message_omitted": true
+  },
+  "original_linux_sync": {
+    "id": 7,
+    "ok": true,
+    "saved_locally": true
+  },
+  "original_admission": {
+    "provider_approve": "Approved",
+    "consumer": "Complete"
+  },
+  "both_sdk_terminal": true,
+  "web_exercise_reached": false,
+  "reverse_role_started": false,
+  "local_feedback": {
+    "pin_sha256": "b63a7f6280417399df02731ce0c2980edb20f24099244107e8c1b38be47a8c46",
+    "fresh_manual_admission": true,
+    "both_sync_directions": true,
+    "both_owned_nodes_terminal": true,
+    "loopback_only": true,
+    "cross_host_cause_proved": false
+  },
+  "qualification_limits": [
+    "Windows generic error omits failing SDK phase",
+    "Linux loopback pass does not prove Windows-to-Linux path or Windows bundle merge",
+    "No full Web or M119 acceptance"
+  ]
+}

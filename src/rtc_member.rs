@@ -469,6 +469,8 @@ async fn upgrade(
         live: attempt_live.clone(),
         pc: Some(pc.clone()),
         pump: None,
+        events: events.clone(),
+        peer: connection.remote_id().to_string(),
     };
     let drop_quic = Arc::new(AtomicBool::new(false));
     let pump_stats = Arc::new(PumpStats::default());
@@ -920,6 +922,12 @@ async fn upgrade(
             .before_pc_close_fixture(stable_before, budget)
             .await;
     }
+    // Capture finite native ICE/DTLS state before close overwrites it. The
+    // route is already retired; diagnostics never retain or reactivate it.
+    let failure_events = events.lock().unwrap().clone();
+    let failure_stats = tokio::time::timeout(Duration::from_millis(250), stats(&pc))
+        .await
+        .unwrap_or(Value::Null);
     let closed = pc.close().await.is_ok();
     drop(fixture_channel);
     cancellation_cleanup.pc = None;
@@ -929,7 +937,9 @@ async fn upgrade(
     let cleanup = json!({"pcClosed":closed,"txBytes":lease.report().tx_bytes,"rxBytes":lease.report().rx_bytes,"ownedPumpTasks":lease.report().owned_pump_tasks,"activePumpTasks":transport.active_pumps(),"socketBefore":socket_before,"socketAfter":rtc_probe::sockets(),"activeAssociations":transport.active_associations(),"dataChannel":pump_stats.report()});
     println!(
         "{}",
-        json!({"event":"rtc-path-cleanup","stableId":stable_before,"cleanup":cleanup,"failure":outcome.as_ref().err().map(ToString::to_string),"switched":outcome.is_ok()})
+        json!({"event":"rtc-path-cleanup","stableId":stable_before,"peer":connection.remote_id(),
+            "cleanup":cleanup,"failure":outcome.as_ref().err().map(ToString::to_string),
+            "events":failure_events,"stats":failure_stats,"switched":outcome.is_ok()})
     );
     if let Err(error) = outcome {
         let _ = crate::rtc_wire::write_control(exchange, &json!({"kind":"failed","switched":false,"freshAck":false,"failure":error.to_string(),"cleanup":cleanup})).await;
@@ -944,6 +954,8 @@ struct CancelRtc {
     live: Arc<AtomicBool>,
     pc: Option<Arc<dyn PeerConnection>>,
     pump: Option<tokio::task::AbortHandle>,
+    events: Arc<Mutex<Vec<Value>>>,
+    peer: String,
 }
 impl Drop for CancelRtc {
     fn drop(&mut self) {
@@ -955,6 +967,14 @@ impl Drop for CancelRtc {
             if let Some(pump) = self.pump.take() {
                 pump.abort();
             }
+            // The enclosing deadline/control cancellation may drop `upgrade`
+            // before its normal error tail. Preserve the last real ICE states
+            // synchronously without delaying route retirement or PC closure.
+            let events = self.events.lock().map(|events| events.clone()).unwrap_or_default();
+            println!("{}", json!({"event":"rtc-candidate-cancelled",
+                "stableId":self.io.report().original_stable_id,"peer":self.peer,
+                "events":events,"route":self.io.report(),
+                "monotonicMs":crate::rtc_transport::diagnostic_monotonic_ms()}));
             tokio::spawn(async move {
                 let _ = pc.close().await;
             });

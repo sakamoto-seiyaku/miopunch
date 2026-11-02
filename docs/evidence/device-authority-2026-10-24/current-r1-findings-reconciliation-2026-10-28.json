@@ -1,0 +1,36 @@
+{
+  "status": "SOURCE_FINDINGS_RECONCILED_ACCEPTANCE_STILL_OPEN",
+  "prior_review": "m116-high-20261024/review-r1/spec.md",
+  "prior_review_sha256": "f09343701c9a8523fd57818387391965c573044e6cc0b0df47edf2301964054f",
+  "finding_P1": {
+    "current_source": "Native backup writes replacement.restore and open preserves quarantine",
+    "source_hashes": {
+      "src/native_network.rs": "3fa4b4639de09d43c56d394be53987501c41eb460e0403aeda235192e909cffe",
+      "src/native_node_replacement.rs": "ec7f945df4e80ede31db713d85b8b0bb1fe90d0ce1fcd6b404b4e74e411873f8"
+    },
+    "current_source_matches_Native7_inputs": true,
+    "evidence": "m116-backup-counter-green-7/tests.json",
+    "evidence_sha256": "916cbe39a9a5530ed3b5124168885083a5bad6465898f6d1aad29eef811c707e",
+    "scope_limit": "ordinary backup/open/count and current-peer qualification; no privileged-effect probe"
+  },
+  "finding_P2": {
+    "current_source": "CustodyJournal.stop_received persists stopped state; pending delivery rejects; completed delivery returns historical receipt before any root write in both adapters",
+    "source_hashes": {
+      "src/credential_custody.rs": "4d1d37172a94b09e1829b63c4de967cc489eef3db7f4595ad082646b3b849d97",
+      "src/native_custody.rs": "e29be90adf5a07b06dbfc109cd1311a12c6a3756f2dab03a3994c19539ae8674",
+      "browser-probe/src/device_custody.rs": "6e1c9f020883bf6c72b3da40d5ab564f2b2b4fff378bf4c672bb09208451ecbd"
+    },
+    "current_source_matches_Native6_and_WASM6_inputs": true,
+    "domain_state_evidence": "m116-state-consumer-green-6b/tests.json",
+    "domain_state_evidence_sha256": "98869b45420f993c36c2c5e3612895e9b28ecbe67e15e2d009e4aa68f3423f0a",
+    "ordinary_lifecycle_evidence": "m116-custody-lifecycle-6/result.json",
+    "ordinary_lifecycle_evidence_sha256": "7727fbaa7651322864fa7fbacc6f048ea78426cb1900ffc3a04450fba1eb69a9",
+    "scope_limit": "No raw old Deliver request after local stop was executed; endpoint replay remains unproven"
+  },
+  "next_action": "Do not repeat the stale R1 source fixes. Keep M116 In Progress until restricted effect/replay and actual Windows/Linux ledger qualification are validly completed.",
+  "new_runtime_actions": 0,
+  "new_builds": 0,
+  "remote_actions": 0,
+  "whole_M116_accepted": false,
+  "whole_M107_accepted": false
+}

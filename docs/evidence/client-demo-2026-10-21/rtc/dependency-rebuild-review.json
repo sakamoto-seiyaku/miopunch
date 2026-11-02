@@ -1,0 +1,57 @@
+{
+  "rootCause": "Cargo integration-test graph unifies dev-dependency features and materializes package binary targets for CARGO_BIN_EXE support. Profiles, source, lock and Rust flags did not change.",
+  "nativeAndTestProfilesEqual": true,
+  "featureDelta": {
+    "iroh_relay": {
+      "added": [
+        "test-utils"
+      ],
+      "removed": []
+    },
+    "iroh": {
+      "added": [
+        "metrics",
+        "miopunch-test-hooks"
+      ],
+      "removed": []
+    },
+    "p2panda_net": {
+      "added": [
+        "iroh_mdns"
+      ],
+      "removed": []
+    },
+    "iroh_mdns_address_lookup": {
+      "added": [],
+      "removed": []
+    }
+  },
+  "transitiveRebuildWithoutOwnFeatureChange": [
+    "iroh_mdns_address_lookup depends on the altered iroh graph"
+  ],
+  "unexpectedAuxiliaryBinaries": [
+    "unified_native_member",
+    "unified_admission_story",
+    "browser_wss_member_native",
+    "unified_maintained_story",
+    "miopunch_demo",
+    "browser-probe-native",
+    "udp_observation_probe",
+    "browser_network_native",
+    "browser_irc_datagram",
+    "browser_restricted_native",
+    "browser_mqtt_datagram",
+    "browser_irc_restricted_native",
+    "mio80_offline_removal_signer",
+    "udp_nat_probe",
+    "prototype_inner_web",
+    "miopunch-native-probe"
+  ],
+  "plannedAdditionalBytes": 536870912,
+  "actualCacheGrowthBytes": 2239946752,
+  "budgetExceededAndReviewed": true,
+  "globalCacheBelow96GiB": true,
+  "diskFreeBytes": 205560127488,
+  "decision": "Do not compile again. Run the verified immutable maintained_contact_startup pin. Preserve all logs, dependencies, published pins and cache outputs; no cleanup. Future narrow test builds require a locked selector that suppresses automatic bins, prepared before Cargo.",
+  "normalDeploymentPinsRemainIndependent": true
+}

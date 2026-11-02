@@ -1,0 +1,1206 @@
+{
+  "task": "MIOPUNCH-119",
+  "status": "LOCAL_CONSTRUCTOR_FULL_PENDING_CANCEL_AND_ORDINARY_BROWSER_QUALIFIED; FULL_TICKET_INCOMPLETE",
+  "updated_UTC": "2026-10-25T15:36:16.581781+00:00",
+  "constructor": {
+    "UTC": "2026-10-25T15:19:41.093190+00:00",
+    "status": "F1_F2_REAL_CONSTRUCTOR_SUCCESS_AND_EXCLUSIVE_FAILURE_CASE_PASS",
+    "original_session": 31266,
+    "original_pid": 503691,
+    "owner_confirmed_terminal_exit": 0,
+    "case_seconds": 0.565755720002926,
+    "result_sha256": "2d1380dd23bb5e6ccd23ecc89e9f64186a65cededd916f8301847820389b0030",
+    "events_sha256": "ff339f814800d29d254a240e29261ba061507a1aa35598873dc5106a48a32e5b",
+    "events": 31,
+    "positive": {
+      "node": "controller",
+      "operation": "two_TLS_targets_same_runner",
+      "result": {
+        "distinct_exclusive_certificate_files": true,
+        "both_direct_HTTPS_exact": true
+      },
+      "monotonic": 33763.959489795
+    },
+    "negative": {
+      "node": "controller",
+      "operation": "exclusive_certificate_failure_before_loop",
+      "result": {
+        "actual_O_EXCL_FileExistsError": true,
+        "failed_target_created_no_loop": true,
+        "registered_targets_unchanged": true,
+        "prior_targets_still_live_exact": true,
+        "no_SDK_or_credentials_or_monkeypatch": true
+      },
+      "monotonic": 33763.965857117
+    },
+    "created_loop_ids": [
+      126903224223792,
+      126903229376912
+    ],
+    "all_created_loops_have_final_closed_summaries": true,
+    "closed_loop_summaries": [
+      {
+        "owner": "target:2",
+        "failures": 0,
+        "overflow": 0,
+        "loop_id": 126903229376912,
+        "loop_class": "_UnixSelectorEventLoop",
+        "loop_running": false,
+        "loop_closed": true,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 126903224186384,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      },
+      {
+        "owner": "target:1",
+        "failures": 0,
+        "overflow": 0,
+        "loop_id": 126903224223792,
+        "loop_class": "_UnixSelectorEventLoop",
+        "loop_running": false,
+        "loop_closed": true,
+        "servers": [
+          {
+            "name": "https",
+            "server_id": 126903224233536,
+            "serving": false,
+            "listeners": 0,
+            "attached_clients": 0,
+            "client_set_available": true
+          }
+        ]
+      }
+    ],
+    "namespace": {
+      "network_namespace": "net:[4026532416]",
+      "parent_network_namespace": "net:[4026531840]",
+      "pid_namespace": "pid:[4026532415]",
+      "interfaces": [
+        "lo"
+      ],
+      "only_loopback_routes": true,
+      "effective_capabilities": "0",
+      "own_loopback_socket_exact": true,
+      "external_probe_performed": false
+    },
+    "registered_SDK_or_browser_or_relay_actors": 0,
+    "reader_private_and_drift_predicates": {
+      "cleanup_errors": [],
+      "all_owned_terminal": true,
+      "private_state_removed": true,
+      "controller_drift": []
+    },
+    "raw_files": {
+      "constructor/controller-end.json": {
+        "bytes": 1364,
+        "sha256": "5b30925954f4299c458cacbcf18daa88b19fb81615a5c6247a30fb00c50c237d"
+      },
+      "constructor/controller-sources/scripts/check_forwarding.py": {
+        "bytes": 14011,
+        "sha256": "e6970b129f505e3cdcebdc0153f3308f18ef8a03ebafec1698cc714fd88e726c"
+      },
+      "constructor/controller-sources/scripts/check_web_service.py": {
+        "bytes": 10747,
+        "sha256": "a1a26ae10b456b3f7e6b2cb211f79c3dacc870de0878d6c2a52a522ce192b170"
+      },
+      "constructor/controller-sources/scripts/check_web_target_construction.py": {
+        "bytes": 3008,
+        "sha256": "8d86c20e39b65951e9fa26470bba306bcbca622427fe8688e382d4630361765e"
+      },
+      "constructor/controller-sources/scripts/web_process_owner.py": {
+        "bytes": 8089,
+        "sha256": "0b4f9d4b27fa610590d3cf0d237eb89ebdc9eeb352faca58c0e1d1107968331c"
+      },
+      "constructor/controller-sources/scripts/web_protocol_target.py": {
+        "bytes": 13202,
+        "sha256": "4ca30e499066424b88d728e48552da95abee61a501a297ac7605acce73b62e77"
+      },
+      "constructor/controller-sources/scripts/web_tls_fixture.py": {
+        "bytes": 3933,
+        "sha256": "a7ccc92f2c505a0d976326f54999825b53e8aeda959aa87fc45c80f8db85b13f"
+      },
+      "constructor/controller-start.json": {
+        "bytes": 1364,
+        "sha256": "5b30925954f4299c458cacbcf18daa88b19fb81615a5c6247a30fb00c50c237d"
+      },
+      "constructor/events.jsonl": {
+        "bytes": 12979,
+        "sha256": "ff339f814800d29d254a240e29261ba061507a1aa35598873dc5106a48a32e5b"
+      },
+      "constructor/result.json": {
+        "bytes": 17554,
+        "sha256": "2d1380dd23bb5e6ccd23ecc89e9f64186a65cededd916f8301847820389b0030"
+      },
+      "constructor-namespace.json": {
+        "bytes": 374,
+        "sha256": "b58b41622ddf2f4ca9b5afcdf91ad143967b7fd42380f1ea0a2828287f021a34"
+      },
+      "constructor-namespace.namespace.json": {
+        "bytes": 306,
+        "sha256": "4a5f33554f0e60af6d3620bd45cf128431446607729a501d0ef46d3292836f0f"
+      },
+      "constructor-namespace.owner.jsonl": {
+        "bytes": 1456,
+        "sha256": "4e2c66e8fda56494776d784841977bd3b11da1e0b4afcd3b2c32f3b3e7d69ac4"
+      },
+      "constructor-namespace.owner.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "constructor-namespace.owner.stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "constructor-namespace.stderr.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "constructor-namespace.stdout.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "raw_bytes": 88387,
+    "Root_review": "Source/assertions FULL read before release; all events parsed/actual two-loop identity vs closed summaries/counters/positive+negative checked; all raw hashes; both outer stderr streams empty.",
+    "no_Cargo_or_new_pin": true,
+    "whole_M119_accepted": false
+  },
+  "pending_and_ordinary": {
+    "UTC": "2026-10-25T15:29:45.017447+00:00",
+    "status": "F1_F2_CONSTRUCTOR_PLUS_FULL_PENDING_CANCEL_PLUS_ORDINARY_BROWSER_PASS_ON_SAME_CURRENT_WASM_GRAPH",
+    "Root_release_sha256": "d2eefd9a779c13d04092d84c9944f1d54edb8139cb65f69d4feebd52fba5435d",
+    "custody_sha256": "0c9cb1f5f51bc988c3f1a593244b0c2bcd21ceafb14086c896f4e40572f72c13",
+    "WASM_package_sha256": "0425f8a00d8e012e49b31b25f34ae767b205bd2155b7806e4ed1ba339f2cff75",
+    "constructor_root_qualification_sha256": "8ae98f937e807256d234acd43cfd0398a0f9be1b1112b2a5f5700dd22ea6a6e3",
+    "sessions": {
+      "constructor": {
+        "session": 31266,
+        "pid": 503691,
+        "terminal_exit": 0
+      },
+      "pending": {
+        "session": 56363,
+        "pid": 506602,
+        "terminal_exit": 0
+      },
+      "ordinary": {
+        "session": 50195,
+        "pid": 507731,
+        "terminal_exit": 0
+      }
+    },
+    "cases": {
+      "pending": {
+        "result_sha256": "4af66717163b3d10edff6ee6416ea6c158fbd3668df24007a9c0c2358c10dd84",
+        "events_sha256": "f1486d93531a1c800c1d8e7f099cd1e285bc5026b4eb23041f2d9aeddeb03dd6",
+        "seconds": 53.00608316600119,
+        "source_and_raw_files": {
+          "events.jsonl": {
+            "bytes": 152788,
+            "sha256": "f1486d93531a1c800c1d8e7f099cd1e285bc5026b4eb23041f2d9aeddeb03dd6"
+          },
+          "browser-host-owner.jsonl": {
+            "bytes": 960,
+            "sha256": "bad26f75aab5ffa7b4ac7227fe299782cc0123e2b85169b1cb621d188f99aefa"
+          },
+          "controller-end.json": {
+            "bytes": 3740,
+            "sha256": "df11d3f25f413b4562459a8c07e6bce12f2301af4f0976077124e2eaf5dbacab"
+          },
+          "provider-owner.jsonl": {
+            "bytes": 962,
+            "sha256": "cc2bdd61a3f64c18a49dd6e0d25b169d2bc4a1468402f22dde378b2e746a62e1"
+          },
+          "result.json": {
+            "bytes": 19963,
+            "sha256": "4af66717163b3d10edff6ee6416ea6c158fbd3668df24007a9c0c2358c10dd84"
+          },
+          "browser-actor-wasm-owner.jsonl": {
+            "bytes": 1445,
+            "sha256": "89a80a54422ee5bad847cc191891bd16ae27c505001eeb8f8840328402d19386"
+          },
+          "controller-start.json": {
+            "bytes": 3740,
+            "sha256": "df11d3f25f413b4562459a8c07e6bce12f2301af4f0976077124e2eaf5dbacab"
+          },
+          "source-references.json": {
+            "bytes": 489,
+            "sha256": "5a43b3cdf2be25e4a98fb5142a8700fb721ddb1d231e6a73aebd65f15031df3b"
+          },
+          "local-relay.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "provider.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "browser-host.stderr": {
+            "bytes": 5223,
+            "sha256": "277151815b0392cd119cc5b41346131b37e5d8e9fe1d12433bb30ccfb8cd0f5b"
+          },
+          "local-relay-owner.jsonl": {
+            "bytes": 1247,
+            "sha256": "90f2936c256c2a86abae2644530bf34f213094115da65e0c1cb168d5e3dc010b"
+          },
+          "controller-sources/scripts/web_content_gateway.py": {
+            "bytes": 20989,
+            "sha256": "13cd01c6650209b7af045d9b2a09ed095c9db131db81270ccd0f386cc92ef618"
+          },
+          "controller-sources/scripts/check_web_browser.py": {
+            "bytes": 6159,
+            "sha256": "99df6b02848f37dbcfc1b9766d27c438948cfee19ceccbe18702da9e79a93ec0"
+          },
+          "controller-sources/scripts/check_web_container.py": {
+            "bytes": 18066,
+            "sha256": "69c68fa22debb97628c05808acc2999ad242e9e3a616b905039bc31983be4e73"
+          },
+          "controller-sources/scripts/web_tls_fixture.py": {
+            "bytes": 3933,
+            "sha256": "a7ccc92f2c505a0d976326f54999825b53e8aeda959aa87fc45c80f8db85b13f"
+          },
+          "controller-sources/scripts/forwarding_local_resources.py": {
+            "bytes": 6852,
+            "sha256": "baec2ff7aba006cdc23cbb60a80ffb62b5342cdda6f198295cfcca0722eeec11"
+          },
+          "controller-sources/scripts/check_forwarding.py": {
+            "bytes": 14011,
+            "sha256": "e6970b129f505e3cdcebdc0153f3308f18ef8a03ebafec1698cc714fd88e726c"
+          },
+          "controller-sources/scripts/web_content_runtime.py": {
+            "bytes": 19364,
+            "sha256": "6760d48bb7b9f9389f3709d42db348864299ebb5d73d380811220164dab99051"
+          },
+          "controller-sources/scripts/web_browser_runtime.py": {
+            "bytes": 9712,
+            "sha256": "a6be6aac2fc4c67fd2288e0191b052af0ab7d9593bff770f53b6cf44379d20af"
+          },
+          "controller-sources/scripts/web_process_owner.py": {
+            "bytes": 8089,
+            "sha256": "0b4f9d4b27fa610590d3cf0d237eb89ebdc9eeb352faca58c0e1d1107968331c"
+          },
+          "controller-sources/scripts/web_protocol_target.py": {
+            "bytes": 13202,
+            "sha256": "4ca30e499066424b88d728e48552da95abee61a501a297ac7605acce73b62e77"
+          },
+          "controller-sources/scripts/web_asyncio_observer.py": {
+            "bytes": 6970,
+            "sha256": "10a135e6baf008cf3b461bb23975374e9eff87bee9d20b61f2ef9a4ad6c2a2d8"
+          },
+          "controller-sources/scripts/check_web_service.py": {
+            "bytes": 10747,
+            "sha256": "a1a26ae10b456b3f7e6b2cb211f79c3dacc870de0878d6c2a52a522ce192b170"
+          },
+          "controller-sources/scripts/web_network_namespace.py": {
+            "bytes": 4947,
+            "sha256": "cf31b1ccf6b94593303affd7b0c8ed870be11714e2e47f3a8eac6a34aaecc125"
+          },
+          "controller-sources/scripts/check_web_browser_pending.py": {
+            "bytes": 18869,
+            "sha256": "7093798f70961b5ca202c4c7ec25e1ff8e7bedc50655d1063c178856850b6d9e"
+          },
+          "controller-sources/external/9ddf89e96023b894df354c24dda0dc59217ae6bc7f97e664be2ac83063e37847/package.json": {
+            "bytes": 876,
+            "sha256": "f061c58427e47e843e26d201f0a57076c734e57c734ecbbd87d4a23b7a20db9b"
+          },
+          "controller-sources/browser-probe/harness/forwarding.mjs": {
+            "bytes": 21449,
+            "sha256": "b970ded563e549f6d53acf39b797ce8b96bc03ec30a6cdec8a879eed0e207309"
+          }
+        },
+        "raw_bytes": 374792,
+        "closed_observers": [
+          {
+            "owner": "target:2",
+            "failures": 0,
+            "overflow": 0,
+            "loop_id": 140405310399168,
+            "loop_closed": true,
+            "loop_running": false,
+            "servers": [
+              {
+                "name": "http",
+                "server_id": 140405309819344,
+                "serving": false,
+                "listeners": 0,
+                "attached_clients": 0,
+                "client_set_available": true
+              }
+            ]
+          },
+          {
+            "owner": "target:1",
+            "failures": 0,
+            "overflow": 0,
+            "loop_id": 140405310730464,
+            "loop_closed": true,
+            "loop_running": false,
+            "servers": [
+              {
+                "name": "https",
+                "server_id": 140405309276240,
+                "serving": false,
+                "listeners": 0,
+                "attached_clients": 0,
+                "client_set_available": true
+              }
+            ]
+          },
+          {
+            "owner": "target:1:socket-prerequisite",
+            "failures": 0,
+            "overflow": 0,
+            "loop_id": 140405309098896,
+            "loop_closed": true,
+            "loop_running": false,
+            "servers": []
+          },
+          {
+            "owner": "gateway:m119-web-y7qwt3sk",
+            "failures": 0,
+            "overflow": 0,
+            "loop_id": 140405309103376,
+            "loop_closed": true,
+            "loop_running": false,
+            "servers": [
+              {
+                "name": "https",
+                "server_id": 140405309104016,
+                "serving": false,
+                "listeners": 0,
+                "attached_clients": 0,
+                "client_set_available": true
+              },
+              {
+                "name": "http-proxy",
+                "server_id": 140405309104336,
+                "serving": false,
+                "listeners": 0,
+                "attached_clients": 0,
+                "client_set_available": true
+              }
+            ]
+          }
+        ],
+        "functional_or_control_markers": {
+          "independent_wasm_admission_precondition": {
+            "distinct_identity": true,
+            "real_admission_complete": true,
+            "real_signed_service_sync": true
+          },
+          "actual_browser_pending_before_gateway_close": {
+            "one_target_pending_request": true,
+            "pending_target_not_released": true,
+            "liveness": {
+              "nodePresent": true,
+              "browserConnected": true,
+              "pageOpen": true,
+              "contentFramePresent": true
+            },
+            "browser_host_original_pid": 38,
+            "no_node_or_renderer_close_requested": true,
+            "binding": "real BrowserWebRequests begin/result/cancel Interface; no node cancellation substitute"
+          },
+          "actual_content_pending_close": {
+            "platform": "Browser/WASM/Chromium",
+            "target_observed_pending": true,
+            "close_seconds": 0.27228887799719814,
+            "all_module_owners_joined": true,
+            "liveness_after_gateway_close": {
+              "nodePresent": true,
+              "browserConnected": true,
+              "pageOpen": true,
+              "contentFramePresent": true
+            },
+            "pending_target_not_released": true
+          },
+          "same_node_request_after_gateway_cancel": {
+            "identity_unchanged": true,
+            "independent_target_observed": true,
+            "response_exact": true
+          },
+          "exact_request_owner_cancel_and_stale_handles": {
+            "one_cancel_did_not_cancel_other": true,
+            "unknown_and_consumed_handles_rejected": true,
+            "cross_kind_handle_did_not_cancel_socket": true,
+            "response_consumed_once": true,
+            "node_identity_unchanged": true
+          },
+          "failed_request_result_consumed_once": {
+            "current_provider_origin_rule_rejected": true,
+            "denied_target_no_effect": true,
+            "denied_target_independently_live_exact": true,
+            "error_releases_only_its_handle": true,
+            "same_node_remains_usable": true
+          },
+          "stop_web_joins_pending_and_clears_retained_requests": {
+            "pending_owner_joined": true,
+            "completed_handle_discarded": true,
+            "old_handles_stale": true,
+            "node_still_open": true
+          },
+          "retained_request_limit_and_same_node_followup": {
+            "completed_handles_bounded": 8,
+            "overflow_no_target_effect": true,
+            "all_results_consumed_once": true,
+            "same_node_followup_exact": true
+          },
+          "last_public_WASM_counts": {
+            "active_operations": 0,
+            "available": true,
+            "max_operations": 8,
+            "max_request_bytes": 1048576,
+            "max_request_handles": 8,
+            "max_response_bytes": 8388608,
+            "max_socket_message_bytes": 32768,
+            "native_listener": false,
+            "provider": false,
+            "request_handles": 0,
+            "socket_handles": 0,
+            "socket_queue_capacity": 16
+          },
+          "last_public_provider_counts": {
+            "active_flows": 0,
+            "completed": 19,
+            "enabled": true,
+            "failed": 5,
+            "last_failure_phase": "requesting_target",
+            "max_flows": 16,
+            "max_request_handles": 16,
+            "max_response_bytes": 8388608,
+            "max_socket_message_bytes": 32768,
+            "origins": [
+              "https://127.0.0.1:46369"
+            ],
+            "provider": true,
+            "request_handles": 0,
+            "socket_handles": 0,
+            "socket_queue_capacity": 16
+          }
+        },
+        "namespace": {
+          "network_namespace": "net:[4026532416]",
+          "parent_network_namespace": "net:[4026531840]",
+          "pid_namespace": "pid:[4026532415]",
+          "interfaces": [
+            "lo"
+          ],
+          "only_loopback_routes": true,
+          "effective_capabilities": "0",
+          "own_loopback_socket_exact": true,
+          "external_probe_performed": false
+        },
+        "all_registered_owners_readers_terminal_private_removed_drift_empty": true
+      },
+      "ordinary": {
+        "result_sha256": "3b959257cdb02d24584895b80facc05b0d7b8c93e80af0de32be7ab4698ff242",
+        "events_sha256": "6057fe7973a60725d7c1085fcdc4b7e7fb109e3b1843f0adc6a765fa8b3946b3",
+        "seconds": 25.07089807900047,
+        "source_and_raw_files": {
+          "events.jsonl": {
+            "bytes": 87737,
+            "sha256": "6057fe7973a60725d7c1085fcdc4b7e7fb109e3b1843f0adc6a765fa8b3946b3"
+          },
+          "browser-host-owner.jsonl": {
+            "bytes": 961,
+            "sha256": "67e34c4ee553f97145e268c3193f5f90201c3cdf44bd074fee0c25fe8a656d60"
+          },
+          "controller-end.json": {
+            "bytes": 3983,
+            "sha256": "4b2bf6c274b08cb3823b2af18c02af9d2a6eec22b1b57b05472e93b840097dbb"
+          },
+          "provider-owner.jsonl": {
+            "bytes": 962,
+            "sha256": "cbbb6919f71277aab092782a864ddd7585c81c537c2a71909f9a16633988dd79"
+          },
+          "result.json": {
+            "bytes": 33541,
+            "sha256": "3b959257cdb02d24584895b80facc05b0d7b8c93e80af0de32be7ab4698ff242"
+          },
+          "browser-actor-wasm-owner.jsonl": {
+            "bytes": 1444,
+            "sha256": "195ad9f7978484b7cc5d55932b994594d46856a99d47d6ee8e7c7616b000f110"
+          },
+          "controller-start.json": {
+            "bytes": 3983,
+            "sha256": "4b2bf6c274b08cb3823b2af18c02af9d2a6eec22b1b57b05472e93b840097dbb"
+          },
+          "source-references.json": {
+            "bytes": 489,
+            "sha256": "5a43b3cdf2be25e4a98fb5142a8700fb721ddb1d231e6a73aebd65f15031df3b"
+          },
+          "local-relay.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "provider.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "browser-host.stderr": {
+            "bytes": 5289,
+            "sha256": "f8533b8c44550f8eaabea05da645528e69b1c83b8408ba98304d9429b7d55f17"
+          },
+          "local-relay-owner.jsonl": {
+            "bytes": 1248,
+            "sha256": "c1f8055c1a2544fd7edc15b385ce80e12da6b2af407565d21774d18576f4cfe9"
+          },
+          "controller-sources/scripts/web_content_gateway.py": {
+            "bytes": 20989,
+            "sha256": "13cd01c6650209b7af045d9b2a09ed095c9db131db81270ccd0f386cc92ef618"
+          },
+          "controller-sources/scripts/check_web_browser.py": {
+            "bytes": 6159,
+            "sha256": "99df6b02848f37dbcfc1b9766d27c438948cfee19ceccbe18702da9e79a93ec0"
+          },
+          "controller-sources/scripts/check_web_container.py": {
+            "bytes": 18066,
+            "sha256": "69c68fa22debb97628c05808acc2999ad242e9e3a616b905039bc31983be4e73"
+          },
+          "controller-sources/scripts/web_tls_fixture.py": {
+            "bytes": 3933,
+            "sha256": "a7ccc92f2c505a0d976326f54999825b53e8aeda959aa87fc45c80f8db85b13f"
+          },
+          "controller-sources/scripts/forwarding_local_resources.py": {
+            "bytes": 6852,
+            "sha256": "baec2ff7aba006cdc23cbb60a80ffb62b5342cdda6f198295cfcca0722eeec11"
+          },
+          "controller-sources/scripts/check_forwarding.py": {
+            "bytes": 14011,
+            "sha256": "e6970b129f505e3cdcebdc0153f3308f18ef8a03ebafec1698cc714fd88e726c"
+          },
+          "controller-sources/scripts/check_web_browser_ordinary_retained.py": {
+            "bytes": 928,
+            "sha256": "f74c4710ce11af0e2cc766e0d5b9d4df17c0c1209e52e60971d93628dcbd887e"
+          },
+          "controller-sources/scripts/web_content_runtime.py": {
+            "bytes": 19364,
+            "sha256": "6760d48bb7b9f9389f3709d42db348864299ebb5d73d380811220164dab99051"
+          },
+          "controller-sources/scripts/web_browser_runtime.py": {
+            "bytes": 9712,
+            "sha256": "a6be6aac2fc4c67fd2288e0191b052af0ab7d9593bff770f53b6cf44379d20af"
+          },
+          "controller-sources/scripts/web_process_owner.py": {
+            "bytes": 8089,
+            "sha256": "0b4f9d4b27fa610590d3cf0d237eb89ebdc9eeb352faca58c0e1d1107968331c"
+          },
+          "controller-sources/scripts/web_protocol_target.py": {
+            "bytes": 13202,
+            "sha256": "4ca30e499066424b88d728e48552da95abee61a501a297ac7605acce73b62e77"
+          },
+          "controller-sources/scripts/web_asyncio_observer.py": {
+            "bytes": 6970,
+            "sha256": "10a135e6baf008cf3b461bb23975374e9eff87bee9d20b61f2ef9a4ad6c2a2d8"
+          },
+          "controller-sources/scripts/check_web_service.py": {
+            "bytes": 10747,
+            "sha256": "a1a26ae10b456b3f7e6b2cb211f79c3dacc870de0878d6c2a52a522ce192b170"
+          },
+          "controller-sources/scripts/web_network_namespace.py": {
+            "bytes": 4947,
+            "sha256": "cf31b1ccf6b94593303affd7b0c8ed870be11714e2e47f3a8eac6a34aaecc125"
+          },
+          "controller-sources/scripts/check_web_browser_pending.py": {
+            "bytes": 18869,
+            "sha256": "7093798f70961b5ca202c4c7ec25e1ff8e7bedc50655d1063c178856850b6d9e"
+          },
+          "controller-sources/external/9ddf89e96023b894df354c24dda0dc59217ae6bc7f97e664be2ac83063e37847/package.json": {
+            "bytes": 876,
+            "sha256": "f061c58427e47e843e26d201f0a57076c734e57c734ecbbd87d4a23b7a20db9b"
+          },
+          "controller-sources/browser-probe/harness/forwarding.mjs": {
+            "bytes": 21449,
+            "sha256": "b970ded563e549f6d53acf39b797ce8b96bc03ec30a6cdec8a879eed0e207309"
+          }
+        },
+        "raw_bytes": 324800,
+        "closed_observers": [
+          {
+            "owner": "gateway:m119-web-it82voze",
+            "failures": 0,
+            "overflow": 0,
+            "loop_id": 129814899514000,
+            "loop_closed": true,
+            "loop_running": false,
+            "servers": [
+              {
+                "name": "https",
+                "server_id": 129814899514640,
+                "serving": false,
+                "listeners": 0,
+                "attached_clients": 0,
+                "client_set_available": true
+              },
+              {
+                "name": "http-proxy",
+                "server_id": 129814899514960,
+                "serving": false,
+                "listeners": 0,
+                "attached_clients": 0,
+                "client_set_available": true
+              }
+            ]
+          },
+          {
+            "owner": "target:2",
+            "failures": 0,
+            "overflow": 0,
+            "loop_id": 129814911967024,
+            "loop_closed": true,
+            "loop_running": false,
+            "servers": [
+              {
+                "name": "http",
+                "server_id": 129814899804016,
+                "serving": false,
+                "listeners": 0,
+                "attached_clients": 0,
+                "client_set_available": true
+              }
+            ]
+          },
+          {
+            "owner": "target:1",
+            "failures": 0,
+            "overflow": 0,
+            "loop_id": 129814912168496,
+            "loop_closed": true,
+            "loop_running": false,
+            "servers": [
+              {
+                "name": "https",
+                "server_id": 129814899671456,
+                "serving": false,
+                "listeners": 0,
+                "attached_clients": 0,
+                "client_set_available": true
+              }
+            ]
+          },
+          {
+            "owner": "target:1:socket-prerequisite",
+            "failures": 0,
+            "overflow": 0,
+            "loop_id": 129814899509520,
+            "loop_closed": true,
+            "loop_running": false,
+            "servers": []
+          }
+        ],
+        "functional_or_control_markers": {
+          "independent_wasm_admission_precondition": {
+            "distinct_identity": true,
+            "real_admission_complete": true,
+            "real_signed_service_sync": true
+          },
+          "public_browser_web_delivery": {
+            "target_observed": true,
+            "response_exact": true
+          },
+          "actual_content_resources": {
+            "actual_container": "Browser/WASM/Chromium",
+            "script_fetch_exact": true,
+            "stylesheet_applied": true,
+            "image_decoded": true,
+            "provider_target_observed_all": true
+          },
+          "actual_content_login_navigation": {
+            "form_post": true,
+            "cookie_received_by_target": true,
+            "redirect_303": true,
+            "navigation": true
+          },
+          "actual_content_websocket": {
+            "native_websocket_api": true,
+            "unsolicited_greeting": true,
+            "text_and_binary_exact": true,
+            "login_cookie_reached_socket_target": true,
+            "target_independently_observed": true,
+            "normal_close": true,
+            "content_close_code": 1000,
+            "content_wasClean": true,
+            "SDK_failed": false,
+            "module_and_target_owners_settled": true,
+            "target_tls": true
+          },
+          "actual_content_isolation": {
+            "platform": "Browser/WASM/Chromium",
+            "attempts": {
+              "done": true,
+              "noNode": true,
+              "noNativeIPC": true,
+              "nativeCallDenied": true,
+              "parentNodeDenied": true,
+              "parentStorageDenied": true,
+              "managementStorageAbsent": true,
+              "managementCookieAbsent": true,
+              "managementIndexedDBAbsent": true,
+              "fileDenied": true,
+              "externalFetchDenied": true,
+              "externalSocketDenied": true,
+              "contentIDBWorked": true,
+              "managementRPCDenied": true
+            },
+            "fresh_management_file_unchanged": true,
+            "direct_http_ws_frame_image_no_target_effect": true,
+            "provider_configuration_unchanged": true
+          },
+          "actual_management_storage_unchanged": {
+            "storageUnchanged": true,
+            "cookieUnchanged": true,
+            "indexedDBUnchanged": true,
+            "nodePresent": true
+          }
+        },
+        "namespace": {
+          "network_namespace": "net:[4026532416]",
+          "parent_network_namespace": "net:[4026531840]",
+          "pid_namespace": "pid:[4026532415]",
+          "interfaces": [
+            "lo"
+          ],
+          "only_loopback_routes": true,
+          "effective_capabilities": "0",
+          "own_loopback_socket_exact": true,
+          "external_probe_performed": false
+        },
+        "all_registered_owners_readers_terminal_private_removed_drift_empty": true
+      }
+    },
+    "original_same_core_red_close_seconds": 14.824958630000765,
+    "corrected_same_core_close_seconds": 0.26289165299385786,
+    "corrected_pending_entire_control_seconds": 0.27228887799719814,
+    "core_close_bound_seconds_unchanged": 5,
+    "same_node_independent_followup_exact_owner_negatives_completed8_stop_and_final_zero_counts_qualified": true,
+    "provider_failed_counter": {
+      "observed": 5,
+      "meaning": "expected negative/cancelled operations; active_flows/request_handles/socket_handles zero, not a claim of zero cumulative failed counter"
+    },
+    "all_evidence_manifest": {
+      "constructor/controller-end.json": {
+        "bytes": 1364,
+        "sha256": "5b30925954f4299c458cacbcf18daa88b19fb81615a5c6247a30fb00c50c237d"
+      },
+      "constructor/controller-sources/scripts/check_forwarding.py": {
+        "bytes": 14011,
+        "sha256": "e6970b129f505e3cdcebdc0153f3308f18ef8a03ebafec1698cc714fd88e726c"
+      },
+      "constructor/controller-sources/scripts/check_web_service.py": {
+        "bytes": 10747,
+        "sha256": "a1a26ae10b456b3f7e6b2cb211f79c3dacc870de0878d6c2a52a522ce192b170"
+      },
+      "constructor/controller-sources/scripts/check_web_target_construction.py": {
+        "bytes": 3008,
+        "sha256": "8d86c20e39b65951e9fa26470bba306bcbca622427fe8688e382d4630361765e"
+      },
+      "constructor/controller-sources/scripts/web_process_owner.py": {
+        "bytes": 8089,
+        "sha256": "0b4f9d4b27fa610590d3cf0d237eb89ebdc9eeb352faca58c0e1d1107968331c"
+      },
+      "constructor/controller-sources/scripts/web_protocol_target.py": {
+        "bytes": 13202,
+        "sha256": "4ca30e499066424b88d728e48552da95abee61a501a297ac7605acce73b62e77"
+      },
+      "constructor/controller-sources/scripts/web_tls_fixture.py": {
+        "bytes": 3933,
+        "sha256": "a7ccc92f2c505a0d976326f54999825b53e8aeda959aa87fc45c80f8db85b13f"
+      },
+      "constructor/controller-start.json": {
+        "bytes": 1364,
+        "sha256": "5b30925954f4299c458cacbcf18daa88b19fb81615a5c6247a30fb00c50c237d"
+      },
+      "constructor/events.jsonl": {
+        "bytes": 12979,
+        "sha256": "ff339f814800d29d254a240e29261ba061507a1aa35598873dc5106a48a32e5b"
+      },
+      "constructor/result.json": {
+        "bytes": 17554,
+        "sha256": "2d1380dd23bb5e6ccd23ecc89e9f64186a65cededd916f8301847820389b0030"
+      },
+      "constructor-namespace.json": {
+        "bytes": 374,
+        "sha256": "b58b41622ddf2f4ca9b5afcdf91ad143967b7fd42380f1ea0a2828287f021a34"
+      },
+      "constructor-namespace.namespace.json": {
+        "bytes": 306,
+        "sha256": "4a5f33554f0e60af6d3620bd45cf128431446607729a501d0ef46d3292836f0f"
+      },
+      "constructor-namespace.owner.jsonl": {
+        "bytes": 1456,
+        "sha256": "4e2c66e8fda56494776d784841977bd3b11da1e0b4afcd3b2c32f3b3e7d69ac4"
+      },
+      "constructor-namespace.owner.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "constructor-namespace.owner.stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "constructor-namespace.stderr.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "constructor-namespace.stdout.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "ordinary/browser-actor-wasm-owner.jsonl": {
+        "bytes": 1444,
+        "sha256": "195ad9f7978484b7cc5d55932b994594d46856a99d47d6ee8e7c7616b000f110"
+      },
+      "ordinary/browser-host-owner.jsonl": {
+        "bytes": 961,
+        "sha256": "67e34c4ee553f97145e268c3193f5f90201c3cdf44bd074fee0c25fe8a656d60"
+      },
+      "ordinary/browser-host.stderr": {
+        "bytes": 5289,
+        "sha256": "f8533b8c44550f8eaabea05da645528e69b1c83b8408ba98304d9429b7d55f17"
+      },
+      "ordinary/controller-end.json": {
+        "bytes": 3983,
+        "sha256": "4b2bf6c274b08cb3823b2af18c02af9d2a6eec22b1b57b05472e93b840097dbb"
+      },
+      "ordinary/controller-sources/browser-probe/harness/forwarding.mjs": {
+        "bytes": 21449,
+        "sha256": "b970ded563e549f6d53acf39b797ce8b96bc03ec30a6cdec8a879eed0e207309"
+      },
+      "ordinary/controller-sources/external/9ddf89e96023b894df354c24dda0dc59217ae6bc7f97e664be2ac83063e37847/package.json": {
+        "bytes": 876,
+        "sha256": "f061c58427e47e843e26d201f0a57076c734e57c734ecbbd87d4a23b7a20db9b"
+      },
+      "ordinary/controller-sources/scripts/check_forwarding.py": {
+        "bytes": 14011,
+        "sha256": "e6970b129f505e3cdcebdc0153f3308f18ef8a03ebafec1698cc714fd88e726c"
+      },
+      "ordinary/controller-sources/scripts/check_web_browser.py": {
+        "bytes": 6159,
+        "sha256": "99df6b02848f37dbcfc1b9766d27c438948cfee19ceccbe18702da9e79a93ec0"
+      },
+      "ordinary/controller-sources/scripts/check_web_browser_ordinary_retained.py": {
+        "bytes": 928,
+        "sha256": "f74c4710ce11af0e2cc766e0d5b9d4df17c0c1209e52e60971d93628dcbd887e"
+      },
+      "ordinary/controller-sources/scripts/check_web_browser_pending.py": {
+        "bytes": 18869,
+        "sha256": "7093798f70961b5ca202c4c7ec25e1ff8e7bedc50655d1063c178856850b6d9e"
+      },
+      "ordinary/controller-sources/scripts/check_web_container.py": {
+        "bytes": 18066,
+        "sha256": "69c68fa22debb97628c05808acc2999ad242e9e3a616b905039bc31983be4e73"
+      },
+      "ordinary/controller-sources/scripts/check_web_service.py": {
+        "bytes": 10747,
+        "sha256": "a1a26ae10b456b3f7e6b2cb211f79c3dacc870de0878d6c2a52a522ce192b170"
+      },
+      "ordinary/controller-sources/scripts/forwarding_local_resources.py": {
+        "bytes": 6852,
+        "sha256": "baec2ff7aba006cdc23cbb60a80ffb62b5342cdda6f198295cfcca0722eeec11"
+      },
+      "ordinary/controller-sources/scripts/web_asyncio_observer.py": {
+        "bytes": 6970,
+        "sha256": "10a135e6baf008cf3b461bb23975374e9eff87bee9d20b61f2ef9a4ad6c2a2d8"
+      },
+      "ordinary/controller-sources/scripts/web_browser_runtime.py": {
+        "bytes": 9712,
+        "sha256": "a6be6aac2fc4c67fd2288e0191b052af0ab7d9593bff770f53b6cf44379d20af"
+      },
+      "ordinary/controller-sources/scripts/web_content_gateway.py": {
+        "bytes": 20989,
+        "sha256": "13cd01c6650209b7af045d9b2a09ed095c9db131db81270ccd0f386cc92ef618"
+      },
+      "ordinary/controller-sources/scripts/web_content_runtime.py": {
+        "bytes": 19364,
+        "sha256": "6760d48bb7b9f9389f3709d42db348864299ebb5d73d380811220164dab99051"
+      },
+      "ordinary/controller-sources/scripts/web_network_namespace.py": {
+        "bytes": 4947,
+        "sha256": "cf31b1ccf6b94593303affd7b0c8ed870be11714e2e47f3a8eac6a34aaecc125"
+      },
+      "ordinary/controller-sources/scripts/web_process_owner.py": {
+        "bytes": 8089,
+        "sha256": "0b4f9d4b27fa610590d3cf0d237eb89ebdc9eeb352faca58c0e1d1107968331c"
+      },
+      "ordinary/controller-sources/scripts/web_protocol_target.py": {
+        "bytes": 13202,
+        "sha256": "4ca30e499066424b88d728e48552da95abee61a501a297ac7605acce73b62e77"
+      },
+      "ordinary/controller-sources/scripts/web_tls_fixture.py": {
+        "bytes": 3933,
+        "sha256": "a7ccc92f2c505a0d976326f54999825b53e8aeda959aa87fc45c80f8db85b13f"
+      },
+      "ordinary/controller-start.json": {
+        "bytes": 3983,
+        "sha256": "4b2bf6c274b08cb3823b2af18c02af9d2a6eec22b1b57b05472e93b840097dbb"
+      },
+      "ordinary/events.jsonl": {
+        "bytes": 87737,
+        "sha256": "6057fe7973a60725d7c1085fcdc4b7e7fb109e3b1843f0adc6a765fa8b3946b3"
+      },
+      "ordinary/local-relay-owner.jsonl": {
+        "bytes": 1248,
+        "sha256": "c1f8055c1a2544fd7edc15b385ce80e12da6b2af407565d21774d18576f4cfe9"
+      },
+      "ordinary/local-relay.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "ordinary/provider-owner.jsonl": {
+        "bytes": 962,
+        "sha256": "cbbb6919f71277aab092782a864ddd7585c81c537c2a71909f9a16633988dd79"
+      },
+      "ordinary/provider.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "ordinary/result.json": {
+        "bytes": 33541,
+        "sha256": "3b959257cdb02d24584895b80facc05b0d7b8c93e80af0de32be7ab4698ff242"
+      },
+      "ordinary/source-references.json": {
+        "bytes": 489,
+        "sha256": "5a43b3cdf2be25e4a98fb5142a8700fb721ddb1d231e6a73aebd65f15031df3b"
+      },
+      "ordinary-namespace.json": {
+        "bytes": 371,
+        "sha256": "9680c80eeda28dcea7b01f9cf75242c5dd037659c57475f2b1cd73df4b63ba0d"
+      },
+      "ordinary-namespace.namespace.json": {
+        "bytes": 306,
+        "sha256": "4a5f33554f0e60af6d3620bd45cf128431446607729a501d0ef46d3292836f0f"
+      },
+      "ordinary-namespace.owner.jsonl": {
+        "bytes": 1450,
+        "sha256": "bde5233ffc827ba41ffc57950854851e105057d2d2b2e3c27a204e22e59b1b4f"
+      },
+      "ordinary-namespace.owner.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "ordinary-namespace.owner.stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "ordinary-namespace.stderr.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "ordinary-namespace.stdout.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "pending/browser-actor-wasm-owner.jsonl": {
+        "bytes": 1445,
+        "sha256": "89a80a54422ee5bad847cc191891bd16ae27c505001eeb8f8840328402d19386"
+      },
+      "pending/browser-host-owner.jsonl": {
+        "bytes": 960,
+        "sha256": "bad26f75aab5ffa7b4ac7227fe299782cc0123e2b85169b1cb621d188f99aefa"
+      },
+      "pending/browser-host.stderr": {
+        "bytes": 5223,
+        "sha256": "277151815b0392cd119cc5b41346131b37e5d8e9fe1d12433bb30ccfb8cd0f5b"
+      },
+      "pending/controller-end.json": {
+        "bytes": 3740,
+        "sha256": "df11d3f25f413b4562459a8c07e6bce12f2301af4f0976077124e2eaf5dbacab"
+      },
+      "pending/controller-sources/browser-probe/harness/forwarding.mjs": {
+        "bytes": 21449,
+        "sha256": "b970ded563e549f6d53acf39b797ce8b96bc03ec30a6cdec8a879eed0e207309"
+      },
+      "pending/controller-sources/external/9ddf89e96023b894df354c24dda0dc59217ae6bc7f97e664be2ac83063e37847/package.json": {
+        "bytes": 876,
+        "sha256": "f061c58427e47e843e26d201f0a57076c734e57c734ecbbd87d4a23b7a20db9b"
+      },
+      "pending/controller-sources/scripts/check_forwarding.py": {
+        "bytes": 14011,
+        "sha256": "e6970b129f505e3cdcebdc0153f3308f18ef8a03ebafec1698cc714fd88e726c"
+      },
+      "pending/controller-sources/scripts/check_web_browser.py": {
+        "bytes": 6159,
+        "sha256": "99df6b02848f37dbcfc1b9766d27c438948cfee19ceccbe18702da9e79a93ec0"
+      },
+      "pending/controller-sources/scripts/check_web_browser_pending.py": {
+        "bytes": 18869,
+        "sha256": "7093798f70961b5ca202c4c7ec25e1ff8e7bedc50655d1063c178856850b6d9e"
+      },
+      "pending/controller-sources/scripts/check_web_container.py": {
+        "bytes": 18066,
+        "sha256": "69c68fa22debb97628c05808acc2999ad242e9e3a616b905039bc31983be4e73"
+      },
+      "pending/controller-sources/scripts/check_web_service.py": {
+        "bytes": 10747,
+        "sha256": "a1a26ae10b456b3f7e6b2cb211f79c3dacc870de0878d6c2a52a522ce192b170"
+      },
+      "pending/controller-sources/scripts/forwarding_local_resources.py": {
+        "bytes": 6852,
+        "sha256": "baec2ff7aba006cdc23cbb60a80ffb62b5342cdda6f198295cfcca0722eeec11"
+      },
+      "pending/controller-sources/scripts/web_asyncio_observer.py": {
+        "bytes": 6970,
+        "sha256": "10a135e6baf008cf3b461bb23975374e9eff87bee9d20b61f2ef9a4ad6c2a2d8"
+      },
+      "pending/controller-sources/scripts/web_browser_runtime.py": {
+        "bytes": 9712,
+        "sha256": "a6be6aac2fc4c67fd2288e0191b052af0ab7d9593bff770f53b6cf44379d20af"
+      },
+      "pending/controller-sources/scripts/web_content_gateway.py": {
+        "bytes": 20989,
+        "sha256": "13cd01c6650209b7af045d9b2a09ed095c9db131db81270ccd0f386cc92ef618"
+      },
+      "pending/controller-sources/scripts/web_content_runtime.py": {
+        "bytes": 19364,
+        "sha256": "6760d48bb7b9f9389f3709d42db348864299ebb5d73d380811220164dab99051"
+      },
+      "pending/controller-sources/scripts/web_network_namespace.py": {
+        "bytes": 4947,
+        "sha256": "cf31b1ccf6b94593303affd7b0c8ed870be11714e2e47f3a8eac6a34aaecc125"
+      },
+      "pending/controller-sources/scripts/web_process_owner.py": {
+        "bytes": 8089,
+        "sha256": "0b4f9d4b27fa610590d3cf0d237eb89ebdc9eeb352faca58c0e1d1107968331c"
+      },
+      "pending/controller-sources/scripts/web_protocol_target.py": {
+        "bytes": 13202,
+        "sha256": "4ca30e499066424b88d728e48552da95abee61a501a297ac7605acce73b62e77"
+      },
+      "pending/controller-sources/scripts/web_tls_fixture.py": {
+        "bytes": 3933,
+        "sha256": "a7ccc92f2c505a0d976326f54999825b53e8aeda959aa87fc45c80f8db85b13f"
+      },
+      "pending/controller-start.json": {
+        "bytes": 3740,
+        "sha256": "df11d3f25f413b4562459a8c07e6bce12f2301af4f0976077124e2eaf5dbacab"
+      },
+      "pending/events.jsonl": {
+        "bytes": 152788,
+        "sha256": "f1486d93531a1c800c1d8e7f099cd1e285bc5026b4eb23041f2d9aeddeb03dd6"
+      },
+      "pending/local-relay-owner.jsonl": {
+        "bytes": 1247,
+        "sha256": "90f2936c256c2a86abae2644530bf34f213094115da65e0c1cb168d5e3dc010b"
+      },
+      "pending/local-relay.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "pending/provider-owner.jsonl": {
+        "bytes": 962,
+        "sha256": "cc2bdd61a3f64c18a49dd6e0d25b169d2bc4a1468402f22dde378b2e746a62e1"
+      },
+      "pending/provider.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "pending/result.json": {
+        "bytes": 19963,
+        "sha256": "4af66717163b3d10edff6ee6416ea6c158fbd3668df24007a9c0c2358c10dd84"
+      },
+      "pending/source-references.json": {
+        "bytes": 489,
+        "sha256": "5a43b3cdf2be25e4a98fb5142a8700fb721ddb1d231e6a73aebd65f15031df3b"
+      },
+      "pending-namespace.json": {
+        "bytes": 370,
+        "sha256": "830a430e658256ceaf538f36439fbe31f3b52bb1e84689dad68a8755672c6370"
+      },
+      "pending-namespace.namespace.json": {
+        "bytes": 306,
+        "sha256": "4a5f33554f0e60af6d3620bd45cf128431446607729a501d0ef46d3292836f0f"
+      },
+      "pending-namespace.owner.jsonl": {
+        "bytes": 1448,
+        "sha256": "2c63556a59b26e52ff792692325050b9b003ccc9c85e991b9808a0d0d5b6666a"
+      },
+      "pending-namespace.owner.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "pending-namespace.owner.stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "pending-namespace.stderr.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "pending-namespace.stdout.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "all_evidence_files": 88,
+    "all_evidence_bytes": 792230,
+    "Root_review_scope": "Full source+assertion deltas previously reviewed, all546pending+435ordinary events parsed and important markers/strong final counts/earlyclose/actual observer IDs checked; all runtime evidence/source hashes checked; repeated pending/status bodies not individually full-read. Browser stderr needs separate FULL read before final closure qualification.",
+    "Root_verifier_shape_failure_retained": {
+      "tool_chunk": "9c1ba3",
+      "completed_prior_checks": [
+        "all pending raw hashes",
+        "546events and requiredmarkers",
+        "fourloop observer scope/counters"
+      ],
+      "failure": "Root final Native status extraction compared outer id/ok/result wrapper with inner status dictionary",
+      "correction": "Use same result.result unwrapping as actual Native call; completed final public counters with original unchanged events, no runtime retry",
+      "raw_shape_confirmation_chunk": "2a91f1"
+    },
+    "all_original_RED_and_first_fixed_fixture_failures_retained": true,
+    "new_Cargo_or_pin_per_runtime_case": 0,
+    "Windows787_grant": "still pending; no new deployment",
+    "qualification_limits": [
+      "No original Windows SDKOs5/Win10054/attached3 diagnosis or fix by these Linux/Browser cases.",
+      "No full Native management seeded-control proof.",
+      "Current Web ACL/guest platform matrix and formal ticket review remain obligations.",
+      "No held M120 terminal/credential/networking operation reviewed or run."
+    ],
+    "full_M119_accepted": false,
+    "known_live": []
+  },
+  "stderr_qualification": {
+    "UTC": "2026-10-25T15:30:44.046225+00:00",
+    "status": "FULL_PENDING_AND_ORDINARY_BROWSER_STDERR_READ_AND_SCOPED; LOCAL_BATCH_FINAL_QUALIFIED",
+    "base_qualification_sha256": "8d2fa9177d6a69b2dd59bd67d859b909ce294a4fe8ef4d7c82b85f9dba91854e",
+    "read_chunk": "ef5334",
+    "streams": {
+      "pending": {
+        "bytes": 5223,
+        "sha256": "277151815b0392cd119cc5b41346131b37e5d8e9fe1d12433bb30ccfb8cd0f5b",
+        "FULL_Root_read": true
+      },
+      "ordinary": {
+        "bytes": 5289,
+        "sha256": "f8533b8c44550f8eaabea05da645528e69b1c83b8408ba98304d9429b7d55f17",
+        "FULL_Root_read": true
+      }
+    },
+    "classification": "Deliberately isolated system/session DBus unavailable, own namespace loopback DevTools endpoint; ordinary also Fontconfig unavailable. No Python asyncio callback exception or unhandled TLS/proactor exception in these streams. Original bytes retained.",
+    "no_behavior_rerun": true,
+    "full_M119_accepted": false
+  },
+  "provenance": [
+    {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-F1-F2-real-constructor-root-qualification-20261025.json",
+      "bytes": 5790,
+      "sha256": "8ae98f937e807256d234acd43cfd0398a0f9be1b1112b2a5f5700dd22ea6a6e3"
+    },
+    {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-current-WASM-fixed-runtime-batch-root-qualification-20261025.json",
+      "bytes": 38978,
+      "sha256": "8d2fa9177d6a69b2dd59bd67d859b909ce294a4fe8ef4d7c82b85f9dba91854e"
+    },
+    {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-current-WASM-fixed-runtime-stderr-root-addendum-20261025.json",
+      "bytes": 944,
+      "sha256": "bf29e643f925d8d58a25c61299249001793ecc1b469754957a6ad914e9d75b5a"
+    }
+  ],
+  "full_M119_accepted": false
+}

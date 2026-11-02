@@ -1,0 +1,115 @@
+{
+  "scope": "exactly one second-observer IPv4 comparison; not SDK/NAT pass",
+  "approvedResource": "stun://stun.cloudflare.com:3478/",
+  "numericObserver": [
+    "162.159.207.0",
+    3478
+  ],
+  "resourceConfiguredIn": "src/resources.rs default resource table",
+  "commands": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "ip route get 162.159.207.0 from 192.168.1.104"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "162.159.207.0 from 192.168.1.104 via 192.168.1.1 dev wlan0 table 1047 uid 2000 \n    cache \n",
+      "elapsedMs": 114.372
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "push",
+        "/tmp/miopunch-mio82-pixel-tls-20261005/cloudflare-dex/classes.dex",
+        "/data/local/tmp/mio82-pixel-cloudflare-stun-20261005.dex"
+      ],
+      "exit": 0,
+      "stderr": "/tmp/miopunch-mio82-pixel-tls-20261005/cloudflare-dex/classes.dex: 1 file pushed, 0 skipped. 64.7 MB/s (5044 bytes in 0.000s)\n",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "",
+      "elapsedMs": 64.448
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "env CLASSPATH=/data/local/tmp/mio82-pixel-cloudflare-stun-20261005.dex app_process /system/bin Mio82CloudflareUdpStun 192.168.1.104"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "source=192.168.1.104:58509\ntransactionAndSourceMatched=true\nresponsePeer=162.159.207.0:3478\nmapped=111.197.237.227:36581\ncallerElapsedMs=304.236817\ncleanupElapsedMs=0.377767\nownedSocketClosed=true\n",
+      "elapsedMs": 660.07
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "rm -f /data/local/tmp/mio82-pixel-cloudflare-stun-20261005.dex"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "",
+      "elapsedMs": 109.713
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "test '!' -e /data/local/tmp/mio82-pixel-cloudflare-stun-20261005.dex"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "",
+      "elapsedMs": 100.782
+    }
+  ],
+  "dexSha256": "2647cd0246e6d5ac6d5b8564acbab97b677abfa8defb1bdd457e1120ab8d6b33",
+  "sourceSha256": "7fc96a497883570b14975743c5ddd6505d37f94f266d8f4f2c34cf86583d3b98",
+  "ownedDexAbsent": true
+}

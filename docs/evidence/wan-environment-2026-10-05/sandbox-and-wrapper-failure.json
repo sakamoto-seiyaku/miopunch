@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "scope": "read-only WAN prerequisites, not physical NAT or SDK pass",
+  "physicalWanQualified": false,
+  "startedUtc": "2026-10-05T02:06:35Z",
+  "scriptSha256": "bbefa9512d29a35aa483178ecaa67d40dbe5213caa1e270f679d1aa2b75c2509",
+  "proxyEnvironmentNames": [],
+  "normalTlsVerification": true,
+  "commands": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "9c95dcb4e78dba041d6d1b2fe151f7607c6c6fd0\n",
+      "elapsedMs": 5.315
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "ip",
+        "-j",
+        "address",
+        "show"
+      ],
+      "exit": 1,
+      "stderr": "Cannot open netlink socket: Operation not permitted\n",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "filteredOutputOmittedOnFailure": true,
+      "elapsedMs": 4.633
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "ip",
+        "-j",
+        "route",
+        "show",
+        "table",
+        "all"
+      ],
+      "exit": 1,
+      "stderr": "Cannot open netlink socket: Operation not permitted\n",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "filteredOutputOmittedOnFailure": true,
+      "elapsedMs": 4.429
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "ip",
+        "-j",
+        "rule",
+        "show"
+      ],
+      "exit": 1,
+      "stderr": "Cannot open netlink socket: Operation not permitted\n",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "filteredOutputOmittedOnFailure": true,
+      "elapsedMs": 4.098
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/.local/bin/adb",
+        "version"
+      ],
+      "exit": 126,
+      "stderr": "/home/js/.local/bin/adb: line 4: /mnt/c/Android/SDK/platform-tools/adb.exe: cannot execute binary file: Exec format error\n/home/js/.local/bin/adb: line 4: /mnt/c/Android/SDK/platform-tools/adb.exe: Success\n",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "",
+      "elapsedMs": 17.396
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/.local/bin/adb",
+        "devices",
+        "-l"
+      ],
+      "exit": 126,
+      "stderr": "/home/js/.local/bin/adb: line 4: /mnt/c/Android/SDK/platform-tools/adb.exe: cannot execute binary file: Exec format error\n/home/js/.local/bin/adb: line 4: /mnt/c/Android/SDK/platform-tools/adb.exe: Success\n",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "filteredOutputOmittedOnFailure": true,
+      "elapsedMs": 16.811
+    }
+  ],
+  "androidFailure": "expected exactly one connected device with the requested model",
+  "firstCommandFailure": {
+    "command": [
+      "rtk",
+      "proxy",
+      "ip",
+      "-j",
+      "address",
+      "show"
+    ],
+    "exit": 1,
+    "stderr": "Cannot open netlink socket: Operation not permitted\n",
+    "cleanup": {
+      "forced": false,
+      "leaderWaitedFor": true,
+      "processGroupAbsentImmediately": true
+    },
+    "filteredOutputOmittedOnFailure": true,
+    "elapsedMs": 4.633
+  },
+  "cleanup": {
+    "requestedPersistentProcessesOrForwardings": false,
+    "createdPeerConnections": false,
+    "localCommandLeadersWaitedFor": true,
+    "hostUdpSocket": null
+  }
+}

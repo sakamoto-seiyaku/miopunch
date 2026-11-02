@@ -1,0 +1,256 @@
+{
+  "status": "PASS_REVERSE_WEB_BUSINESS_ISOLATION_AND_OWNERS",
+  "packet_sha256": "753c2e8fe65c0b621d5519b71db7faeaeba9687f5afae06ea5f1dfaf8e79db0a",
+  "final_sha256": "662913c213a50ffde84662a552fd58822e9376293e02e60a89a5ce9f46f382b3",
+  "qualification_sha256": "50951086d9147d3735b6b6428818990e30a33504f5cf4ba449456909193e9776",
+  "raw_directory": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v8-reverse-preparation-20261029/runtime/raw/admission-wp-9384ce28",
+  "raw_files": {
+    "admission-wp-9384ce28-context-1.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "admission-wp-9384ce28-context-child-owner.json": {
+      "bytes": 1107,
+      "sha256": "c33f504563900e13e7fbcf237b4711bdb6f20264d56e3746694c73f883395898"
+    },
+    "admission-wp-9384ce28-context-child-exit.json": {
+      "bytes": 105,
+      "sha256": "b2967bea011cc7cd90aab8c9b69a96dd19675223acd4a4ffdc5df5cb7b5793cc"
+    },
+    "admission-wp-9384ce28-context-task-run.json": {
+      "bytes": 403,
+      "sha256": "aa3b2ed110e94fc8a7daf321b203ef059a85caa03a8cfec1052b6cfc4ff208e3"
+    },
+    "admission-wp-9384ce28-context-task-run.jsonl": {
+      "bytes": 1516,
+      "sha256": "97b7ead78fd69536a9b6a1902432adce9f12ee6e3f6c006b3e8028e2a845d057"
+    },
+    "admission-wp-9384ce28-context-1.completed.json": {
+      "bytes": 309,
+      "sha256": "fdaace8844a69aab877e746e6957f811ce4be9917437ec128561565846acecc9"
+    },
+    "admission-wp-9384ce28-context-1.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "admission-wp-9384ce28-context-entry.json": {
+      "bytes": 273,
+      "sha256": "5fa8d32fd60333f7d2a80fa4fff121642027d4dd254cc115dc3aa0d6b9c78ea6"
+    },
+    "linux/private-bus-owner.jsonl": {
+      "bytes": 1282,
+      "sha256": "ca8a8958efc81e08c8ff9b643e8b693ebc7b5bf40a7a06eb89b95f119f0baaa9"
+    },
+    "linux/private-desktop-probe-1-owner.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "linux/node.stdout": {
+      "bytes": 40339,
+      "sha256": "b4e3ffd6b31957b4ed1bbd787ecd684535fc66f21520e174f9fc0e45b5838bba"
+    },
+    "linux/events.jsonl": {
+      "bytes": 25395,
+      "sha256": "d7a64f26a1674a4d7e7e831cf7492727fe16b34ff05f067e5786e87531134333"
+    },
+    "linux/private-desktop-xauth-owner.jsonl": {
+      "bytes": 1305,
+      "sha256": "0a7ef1c2ef03d2637ee6a3b0feb747071973d80009db8c64e6604df0b64d928e"
+    },
+    "linux/private-desktop-owner.jsonl": {
+      "bytes": 1286,
+      "sha256": "26d66452235bbf9372b2a55f13a53a60d41bd82ec635a793affc068efd7e16bc"
+    },
+    "linux/private-desktop-xauth-owner.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "linux/quota-final.json": {
+      "bytes": 214,
+      "sha256": "f057e4ef0cfe6c418d8ffe9d666413da85cf1764891bc9cb75c3c2a84f4e6abc"
+    },
+    "linux/node.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "linux/private-desktop-probe-1-owner.stdout": {
+      "bytes": 100,
+      "sha256": "6c7785f604fbc64586cff5144eeae1cdc6f508f0fcea75cc3039dcda4e6662cb"
+    },
+    "linux/result.json": {
+      "bytes": 23272,
+      "sha256": "6f3108a2b62f8bed5f72b1730dbd814fd7a559dd1c57143018efcf153ec29880"
+    },
+    "linux/private-desktop-xauth-owner.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "linux/private-bus.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "linux/private-desktop-probe-1-owner.jsonl": {
+      "bytes": 1308,
+      "sha256": "a6baff011b3c0428ff0326e36081d9f2aa22b31dd01abfb5eabab98fa16c816c"
+    },
+    "linux/private-desktop.stderr": {
+      "bytes": 64,
+      "sha256": "87e9572cf030493a1f7ba83d385129046b224374ca1414911674b30fc44276d7"
+    },
+    "linux/node.owner.jsonl": {
+      "bytes": 614,
+      "sha256": "e0a74288830b59526a5ff6cd68cfc8f6ecce3b8175f246c799f547371f4117fa"
+    },
+    "linux-control/worker.owner.jsonl": {
+      "bytes": 1486,
+      "sha256": "20690ac21660007e666517cf12acee221ea710ffe2ec7bb464cc17810bb0d712"
+    },
+    "linux-control/quota-final.json": {
+      "bytes": 208,
+      "sha256": "0adbb460d3ac25ada08e2884305bf3cc918e736b74b72f008e6e730fbdce79f1"
+    },
+    "linux-control/worker.stdout": {
+      "bytes": 1860,
+      "sha256": "0962c591e4b04e6db1e8fd93cbba9d75f44c42fe2d9fb18dc1fdddfdcd1920c3"
+    },
+    "linux-control/worker.stderr": {
+      "bytes": 307,
+      "sha256": "e70ec759d5f7f3960fffe4da29e8c47a205e1dcbeba77283046395054444b4ab"
+    },
+    "windows/observations.jsonl": {
+      "bytes": 8312,
+      "sha256": "38e4babab817d648ca705c6359282727b2a953ecf9199b0297eb8899b92a24c6"
+    },
+    "windows/node.stdout": {
+      "bytes": 23571,
+      "sha256": "86e996932246f592e0d9d11cd09992601400174f3692158d834f6f63e9e4f268"
+    },
+    "windows/events.jsonl": {
+      "bytes": 8659,
+      "sha256": "2befc5a79be2dbdff9a88f5458acb81701cdf6b05c4abe330d65f9692bab689b"
+    },
+    "windows/watch-result.json": {
+      "bytes": 1356,
+      "sha256": "0c30b7b965189ba319328d23b290887c312add85bdb305ca4d70a0c1fea65b05"
+    },
+    "windows/node.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "windows/directory.bin": {
+      "bytes": 914,
+      "sha256": "1699df3396da811c1dc8389da1e370da32c1a7a268fd458da3f0db8e25333a68"
+    },
+    "windows/result.json": {
+      "bytes": 7880,
+      "sha256": "269e82c120524c8f7051c79f3ffebcf7f6c36486eae600639b00293ff36aae7a"
+    },
+    "windows/node.owner.jsonl": {
+      "bytes": 751,
+      "sha256": "5e976cc24a35e46e77b88f2c98409af594426b9d567801d61f0355036228cbbb"
+    },
+    "linux/content/webkit-host-owner.jsonl": {
+      "bytes": 985,
+      "sha256": "a40b2c38525859fabd5c81ac91307e2ce6e5ed2732a572a2841621b1002359ed"
+    },
+    "linux/content/webkit-host.stderr": {
+      "bytes": 1045,
+      "sha256": "e6443ec603b8e631532bef6da43e8158ba1fb8d57d869a6e1723930c5879e9bc"
+    },
+    "linux/management-control/webkit-host-owner.jsonl": {
+      "bytes": 986,
+      "sha256": "f0e569e9df7ddb74d600d043ece60006fbd10ee084e0dff5b3f40103f7b5073e"
+    },
+    "linux/management-control/webkit-host.stderr": {
+      "bytes": 1045,
+      "sha256": "83955b0c8c66910eacad9108019c79e2ba5d55163d4914b8a82ae9252647af55"
+    }
+  },
+  "raw_bytes": 158257,
+  "raw_hashes_independently_verified": true,
+  "fixes": [
+    "short per-host private profile identifiers",
+    "validate generated WebKit Unix socket path length",
+    "expand bounded inherited bwrap argument files before tmpfs accounting",
+    "clean terminal private bus and desktop owners",
+    "128KiB Linux report reservation within unchanged aggregate cap"
+  ],
+  "assertions": [
+    "real SDK admission and signed service sync",
+    "HTTPS resources and script/fetch",
+    "form/Cookie/303/navigation",
+    "WebSocket text/binary/clean close",
+    "gateway negative boundaries",
+    "management storage and native IPC isolation",
+    "post-backoff no-effect checks",
+    "owned process and reader cleanup"
+  ],
+  "linux_quota": {
+    "identity": {
+      "scope": "linux-endpoint",
+      "nonce": "9384ce28-760e-483d-a773-22d1851b9b57",
+      "pid": 362657
+    },
+    "used": 96872,
+    "limit": 131072,
+    "hard": 131072,
+    "status_bytes": 0,
+    "first_failure": null,
+    "control_error": null,
+    "pending": []
+  },
+  "endpoint_status": {
+    "linux": {
+      "status": "PASS",
+      "primary": null,
+      "cleanup_errors": [],
+      "known_live": [],
+      "business": true
+    },
+    "windows": {
+      "status": "PASS",
+      "primary": null,
+      "cleanup_errors": [],
+      "known_live": [],
+      "business": true
+    }
+  },
+  "budget": {
+    "actual": 29160817,
+    "metadata_growth": 4743247,
+    "cumulative_received": 1615816,
+    "remaining_fixed_raw": 153656,
+    "metadata_remaining": 260145,
+    "root_admin_actual": 508202,
+    "root_admin_cap": 512904,
+    "raw_cap": 1769472,
+    "metadata_cap": 5003392,
+    "global_cap": 30088472,
+    "global_reservation": 30087522
+  },
+  "remote": {
+    "ownedRootBytes": 993384265,
+    "privateNonProfileBytes": 4465996,
+    "availableBytes": 253196025856,
+    "conservative": 993384265,
+    "phase": "final",
+    "profileBytes": 178031280,
+    "reserve": 0
+  },
+  "regression": {
+    "checker": "scripts/check_m119_packet_fixture.py",
+    "sha256": "b6b85c08caf29f12643b13360e207aca7aaf732bab0f878e8aa7ef00862a5e8b",
+    "v6_original_same_path_length": "FAIL at management-control socket bound",
+    "v8_fixed": "PASS including missing and incorrect source pin negatives",
+    "sandbox_argument_tests": "inherited FD positive; empty/count/size/unterminated negatives passed"
+  },
+  "rust_cleanup": {
+    "files": [
+      "src/native_web.rs",
+      "src/native_web_socket.rs"
+    ],
+    "cargo_check": "PASS",
+    "runtime_in_this_run": "pre-cleanup immutable SDK; Rust cleanup has compile validation only"
+  },
+  "whole_M119": false
+}

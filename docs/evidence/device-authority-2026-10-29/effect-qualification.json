@@ -1,0 +1,96 @@
+{
+  "status": "PASS_CURRENT_NATIVE_EFFECT_QUALIFICATION",
+  "cases": {
+    "m116-effect-backup": {
+      "result": {
+        "path": ".artifacts/runs/m116-effects-20261029/raw/m116-effect-backup/result.json",
+        "bytes": 618,
+        "sha256": "b975eb3af5ea4e6b91f9fccdc6a3db784d7466985a392c60641b4b9662d527c7"
+      },
+      "stdout": {
+        "path": ".artifacts/runs/m116-effects-20261029/raw/m116-effect-backup/consumer.stdout",
+        "bytes": 10039,
+        "sha256": "6107382133c3197935659922f90a3e078f64b01ed67799b1c9ba6d783bb10e0d"
+      },
+      "proofs": [
+        "M116_BACKUP_EFFECT {\"composition\":\"legacy\",\"current_demotion_applied\":true,\"demoted_write_denied\":true,\"independent_peer_policy_unchanged\":true,\"ordinary_ping\":true,\"unqualified_write_denied\":true}",
+        "M116_BACKUP_EFFECT {\"composition\":\"rebacked\",\"current_demotion_applied\":true,\"demoted_write_denied\":true,\"independent_peer_policy_unchanged\":true,\"ordinary_ping\":true,\"unqualified_write_denied\":true}",
+        "M116_BACKUP_EFFECT {\"composition\":\"portable-rebacked\",\"current_demotion_applied\":true,\"demoted_write_denied\":true,\"independent_peer_policy_unchanged\":true,\"ordinary_ping\":true,\"unqualified_write_denied\":true}"
+      ],
+      "seconds": 28.390849203045946
+    },
+    "m116-effect-custody-registered": {
+      "result": {
+        "path": ".artifacts/runs/m116-effects-20261029/raw/m116-effect-custody-registered/result.json",
+        "bytes": 641,
+        "sha256": "4f5da9534e41a4d43e709a4e7d2f0c09aeed7066204b6ebe434702dc9bded938"
+      },
+      "stdout": {
+        "path": ".artifacts/runs/m116-effects-20261029/raw/m116-effect-custody-registered/consumer.stdout",
+        "bytes": 16830,
+        "sha256": "43d6bb508434899d4d1c113982c9e523675c5939eb16197af3e394dc02bd915d"
+      },
+      "proofs": [
+        "M116_CUSTODY_EFFECT {\"historical_receipt_only\":true,\"journal_unchanged\":true,\"offer_case\":0,\"phase\":\"stopped\",\"saved_root_absent\":true}",
+        "M116_CUSTODY_EFFECT {\"historical_receipt_only\":false,\"journal_unchanged\":true,\"offer_case\":1,\"phase\":\"stopped\",\"saved_root_absent\":true}",
+        "M116_CUSTODY_EFFECT {\"historical_receipt_only\":false,\"journal_unchanged\":true,\"offer_case\":2,\"phase\":\"stopped\",\"saved_root_absent\":true}",
+        "M116_CUSTODY_EFFECT {\"historical_receipt_only\":true,\"journal_unchanged\":true,\"offer_case\":0,\"phase\":\"reopened\",\"saved_root_absent\":true}",
+        "M116_CUSTODY_EFFECT {\"historical_receipt_only\":false,\"journal_unchanged\":true,\"offer_case\":1,\"phase\":\"reopened\",\"saved_root_absent\":true}",
+        "M116_CUSTODY_EFFECT {\"historical_receipt_only\":false,\"journal_unchanged\":true,\"offer_case\":2,\"phase\":\"reopened\",\"saved_root_absent\":true}",
+        "M116_CUSTODY_FRESH_CONSENT saved=true"
+      ],
+      "seconds": 31.50900159700541
+    }
+  },
+  "source_snapshots_verified": 20,
+  "manifest": {
+    "path": ".artifacts/runs/m116-effects-20261029/manifest.json",
+    "bytes": 34932,
+    "sha256": "7553039e66d57e4667756e9e2358be4949c03bcf814b4e682b30cf7ecd3e8a7a"
+  },
+  "original_failure": {
+    "path": ".artifacts/runs/m116-effects-20261029/raw/m116-effect-custody/result.json",
+    "bytes": 732,
+    "sha256": "30e99538ddd5a9f339ef081fac4626b5bf6a4a34a6f5f6dc121777cfb3b5a566"
+  },
+  "failure_classification": {
+    "path": ".artifacts/runs/m116-effects-20261029/raw/m116-effect-custody/precondition-failure.json",
+    "bytes": 715,
+    "sha256": "f6888e59c28e49cd3adbf5f76ef3f95ea89cd9491bd4dd5ee695f9234c2c5995"
+  },
+  "current_native_build": {
+    "path": "/tmp/m107-main-20261029/m107-linux-sqlite-fixed-20261029/build.json",
+    "bytes": 1228,
+    "sha256": "32b762a533fc31a001f7005e7b0be4904b8007c0e8874b94433bcf988cfe903a"
+  },
+  "raw_bytes": 631342,
+  "store_allocated_bytes": 37339541504,
+  "store_reviewed_cap_bytes": 37580963840,
+  "unchanged_backup_case_reused": true,
+  "product_changes_in_this_batch": false,
+  "main_review": "Code and assertions reviewed together; raw request must finish writing and observe exact server ApplicationClosed, timeouts/dial failures cannot pass. Actual disk/journal checks and positive fresh-consent control. All three backup compositions attempt real policy writes and independently read peer policies. Prior R3 source findings unchanged and repaired; no new peer-review claim.",
+  "limits": [
+    "Crafted custody-wire execution is Native/Linux; existing Browser normal custody lifecycle and unchanged shared guard retain their own evidence, no crafted Browser replay claim.",
+    "No arbitrary filesystem rollback prevention or physical single-active-node guarantee.",
+    "Private runtime peak storage not sampled; raw recorded bytes and immutable store measured."
+  ],
+  "whole_M116_accepted": true,
+  "whole_M107_accepted": false,
+  "platform_qualification": {
+    "path": "docs/evidence/device-authority-2026-10-29/current-platform-qualification.json",
+    "bytes": 10388,
+    "sha256": "8012d0df094d5ea7c1368f8b971893ff26c0a97c1d859f84be3efb6d024165d7"
+  },
+  "prior_reviews": {
+    "standards": {
+      "path": ".artifacts/runs/m116-defensive-20261024/review-r3/standards.md",
+      "bytes": 2949,
+      "sha256": "22ea307bf543ae274571276b96d14817266bf3f677667daa46a7b62412d63dc6"
+    },
+    "spec": {
+      "path": ".artifacts/runs/m116-defensive-20261024/review-r3/spec.md",
+      "bytes": 2679,
+      "sha256": "3be3c1a98f24f57848047098eb1be6016c26d1d21be6eccc1e036ebefcc5bc26"
+    }
+  }
+}

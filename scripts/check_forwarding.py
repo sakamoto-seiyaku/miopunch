@@ -130,10 +130,10 @@ class Node:
                 continue
             return value
 
-    def call(self, operation, ok=True, **arguments):
+    def call(self, operation, /, ok=True, **arguments):
         self.runner.sequence += 1
         identifier = self.runner.sequence
-        self.process.stdin.write(json.dumps(dict(id=identifier, op=operation, **arguments)) + "\n")
+        self.process.stdin.write(json.dumps(dict(id=identifier, op=operation, **arguments), separators=(",", ":")) + "\n")
         self.process.stdin.flush()
         value = self.receive()
         self.runner.record(self.label, operation, value)
@@ -263,16 +263,19 @@ class Runner:
                 errors.append(type(failure).__name__)
                 cleanup.append(getattr(owner, "cleanup", {"owner": type(owner).__name__, "failed": True}))
         terminal = all(node.terminal() for node in self.nodes) and all(not target.reader.is_alive() for target in self.targets)
+        retained = bool(getattr(self, "retain_private_state", False)) and report["status"] == "pass" and terminal and not errors
         if terminal and not errors:
             try:
                 assert (self.private / ".owner").read_text() == str(self.output)
-                shutil.rmtree(self.private)
+                if not retained:
+                    shutil.rmtree(self.private)
             except BaseException as failure:
                 errors.append(type(failure).__name__)
-        if errors or not terminal or self.private.exists():
+        if errors or not terminal or (self.private.exists() and not retained):
             report["status"] = "failed"
         report.update(seconds=time.monotonic() - started, cleanup=cleanup, cleanup_errors=errors,
-                      all_owned_terminal=terminal, private_state_removed=not self.private.exists())
+                      all_owned_terminal=terminal, private_state_removed=not self.private.exists(),
+                      private_state_retained_for_explicit_handoff=retained)
         end = {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in self.controller_sources}
         report["controller_drift"] = [path for path, digest in end.items() if digest != self.controller_sources[path]]
         if report["controller_drift"]:

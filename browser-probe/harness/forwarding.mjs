@@ -3,13 +3,14 @@ import { chromium } from 'playwright-core';
 import http from 'node:http';
 import https from 'node:https';
 import readline from 'node:readline';
-import { readFile, readdir, mkdir, open, readlink } from 'node:fs/promises';
+import { readFile, readdir, mkdir, open, readlink, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { createHash } from 'node:crypto';
 
-const [packagePath, executablePath, privateDirectory, webOptionsPath] = process.argv.slice(2);
+const [packagePath, executablePath, privateDirectory, webOptionsPath, platformEntryPath] = process.argv.slice(2);
+const platformRoot = platformEntryPath ? path.resolve(platformEntryPath) : null;
 const webOptions = webOptionsPath ? JSON.parse(await readFile(webOptionsPath, 'utf8')) : null;
 if (webOptions && (!/^content-[0-9a-f]+\.m119\.test$/.test(new URL(webOptions.contentOrigin).hostname)
   || !/^management-[0-9a-f]+\.m119\.test$/.test(webOptions.managementHost))) throw new Error('content origins must be owned test names');
@@ -33,18 +34,26 @@ async function qualifyActor(actor) {
   await journalActor(actor, 'spawn_created', { expectedCommandSHA256: actor.expectedCommandSHA256, startTicks: null });
   const original = await processIdentity(actor.process.pid);
   await journalActor(actor, 'launch_observed', original);
+  const qualify = async current => {
+    actor.identity = current;
+    await journalActor(actor, 'qualified', { ...current, networkNamespace: await readlink(`/proc/${current.pid}/ns/net`) });
+  };
+  // One exact observation ties this original ChildProcess/start time to the
+  // requested executable arguments. Chromium may subsequently rewrite argv;
+  // never replace that recorded identity or authorize an OS signal from it.
+  if (original.commandSHA256 === actor.expectedCommandSHA256) {
+    await qualify(original);
+    return;
+  }
   const deadline = performance.now() + 2000;
-  let previous;
   while (performance.now() < deadline) {
     if (actor.process.exitCode !== null || actor.process.signalCode !== null) throw new Error('owned browser exited during qualification');
     const current = await processIdentity(actor.process.pid);
     if (current.startTicks !== original.startTicks) throw new Error('owned browser launch identity changed');
-    if (current.commandSHA256 === actor.expectedCommandSHA256 && previous?.commandSHA256 === current.commandSHA256) {
-      actor.identity = current;
-      await journalActor(actor, 'qualified', { ...current, networkNamespace: await readlink(`/proc/${current.pid}/ns/net`) });
+    if (current.commandSHA256 === actor.expectedCommandSHA256) {
+      await qualify(current);
       return;
     }
-    previous = current;
     await new Promise(resolve => setTimeout(resolve, 10));
   }
   throw new Error('owned browser launch never qualified');
@@ -96,6 +105,18 @@ async function normalBrowserClose(actor) {
 const output = value => process.stdout.write(JSON.stringify(value, (_, item) => typeof item === 'bigint' ? Number(item) : item) + '\n');
 const serve = async (request, response) => {
   try {
+    if (platformRoot) {
+      const pathname = new URL(request.url, 'http://localhost').pathname;
+      const file = path.resolve(platformRoot, '.' + (pathname === '/' ? '/index.html' : pathname));
+      if (!file.startsWith(platformRoot + path.sep)) throw new Error('outside platform entry');
+      const bytes = await readFile(file);
+      const types = { '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm',
+        '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
+      response.writeHead(200, { 'Content-Type': types[path.extname(file)] ?? 'application/octet-stream',
+        'Cache-Control': 'no-store', 'Content-Security-Policy': "frame-ancestors 'none'" });
+      response.end(bytes);
+      return;
+    }
     if (request.url === '/') {
       response.writeHead(200, { 'Content-Type': 'text/html', ...(webOptions ? {
         'Content-Security-Policy': `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' ws://127.0.0.1:*; frame-src ${webOptions.contentOrigin}; object-src 'none'`,
@@ -116,10 +137,11 @@ const address = `${webOptions ? 'https' : 'http'}://${webOptions ? webOptions.ma
 await mkdir(privateDirectory, { recursive: true, mode: 0o700 });
 async function load(actor) {
   await actor.page.goto(address, { waitUntil: 'domcontentloaded' });
-  await actor.page.evaluate(async entry => {
-    window.api = await import('/' + entry);
-    await window.api.default();
-  }, entry);
+  if (platformRoot) await actor.page.evaluate(async () => { await window.miopunch.ready; });
+  else await actor.page.evaluate(async entry => {
+      window.api = await import('/' + entry);
+      await window.api.default();
+    }, entry);
   await actor.page.bringToFront();
 }
 async function bounded(promise, milliseconds) {
@@ -140,8 +162,9 @@ function closeAll() {
       try {
         if (actor.page) {
           const ended = await bounded(actor.page.evaluate(async () => {
+            if (window.miopunch) { await window.miopunch.close(); return true; }
             let clean = true;
-            for (const operation of [() => window.node?.stop_web?.(), () => window.node?.stop_forwarding(), () => window.node?.close()]) {
+            for (const operation of [() => window.node?.stop_terminals?.(), () => window.node?.stop_web?.(), () => window.node?.stop_forwarding(), () => window.node?.close()]) {
               try { await operation(); } catch { clean = false; }
             }
             return clean;
@@ -186,7 +209,7 @@ async function dispatch({ actor: name, op, args = [] }) {
     await mkdir(profile, { recursive: true, mode: 0o700 });
     // Launch a normal owned browser first. The documented noDefaults attachment
     // avoids creating Playwright's original focus override in any CDP session.
-    const child = spawn(executablePath, [...(webOptions ? [`--ignore-certificate-errors-spki-list=${webOptions.contentSPKI}`, '--host-resolver-rules=MAP *.m119.test 127.0.0.1'] : ['--no-sandbox']), '--no-first-run', '--no-default-browser-check',
+    const child = spawn(executablePath, [...(webOptions ? [`--ignore-certificate-errors-spki-list=${webOptions.contentSPKI}`, '--host-resolver-rules=MAP *.m119.test 127.0.0.1'] : platformRoot ? [] : ['--no-sandbox']), '--no-first-run', '--no-default-browser-check',
       '--headless=new',
       '--disable-background-networking', '--disable-component-update', '--disable-sync', '--no-pings', '--metrics-recording-only',
       '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'],
@@ -217,7 +240,7 @@ async function dispatch({ actor: name, op, args = [] }) {
     if (!actor.privateEndpoint) throw new Error('owned browser did not publish its local debug port');
     actor.phase = 'private_endpoint_ready';
     if (args[0]?.attach === false) return { ownedBrowserPID: child.pid, cdpAttached: false,
-      processQualified: true, browserSandboxDisabledByHarness: !webOptions };
+      processQualified: true, browserSandboxDisabledByHarness: !webOptions && !platformRoot };
     actor.phase = 'attaching_cdp';
     actor.browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { noDefaults: true, isLocal: true });
     actor.context = actor.browser.contexts()[0];
@@ -227,16 +250,62 @@ async function dispatch({ actor: name, op, args = [] }) {
     await load(actor);
     actor.phase = 'ready';
     return { browserVersion: actor.browser.version(), headless: true, normalPublicTrust: !webOptions,
-      contentCertificatePinned: !!webOptions, browserSandboxDisabledByHarness: !webOptions,
+      contentCertificatePinned: !!webOptions, browserSandboxDisabledByHarness: !webOptions && !platformRoot,
       automationDefaultsApplied: false, focusEmulation: false, ownedBrowserPID: child.pid };
   }
   const actor = actors.get(name);
   if (!actor) throw new Error('unknown actor');
+  if (platformRoot && op === 'entry_start') return actor.page.evaluate(async ([mode, configuration, invitation]) => {
+    const config = typeof configuration === 'string' ? JSON.parse(configuration) : configuration;
+    const result = mode === 'join' ? await window.miopunch.join(config, invitation)
+      : mode === 'guest' ? await window.miopunch.joinGuest(config, invitation)
+      : mode === 'create' ? await window.miopunch.create(config) : await window.miopunch.open(config);
+    window.node = window.miopunch.node;
+    return result;
+  }, args);
+  if (platformRoot && op === 'entry_snapshot') return actor.page.evaluate(() => window.miopunch.status());
+  if (platformRoot && op === 'entry_release') return actor.page.evaluate(async () => await (await fetch('./release.json')).json());
+  if (platformRoot && op === 'entry_duplicate') {
+    const duplicate = await actor.context.newPage();
+    try {
+      await duplicate.goto(address, { waitUntil: 'domcontentloaded' });
+      const outcome = await duplicate.evaluate(async () => {
+        await window.miopunch.ready;
+        try { await window.miopunch.open(); return { denied: false }; }
+        catch (error) { return { denied: true, reason: String(error), active: window.miopunch.status().active }; }
+      });
+      if (!outcome.denied) await duplicate.evaluate(() => window.miopunch.close());
+      return outcome;
+    } finally { await duplicate.close(); }
+  }
+  if (platformRoot && op === 'entry_restart_browser') {
+    await actor.page.evaluate(() => window.miopunch.close());
+    await normalBrowserClose(actor);
+    if (actor.process.exitCode === null && actor.process.signalCode === null) await bounded(once(actor.process, 'exit'), 5000);
+    if (actor.process.exitCode !== 0 || actor.process.signalCode !== null) throw new Error('old browser did not close normally');
+    await journalActor(actor, 'entry_process_closed', { exit: actor.process.exitCode });
+    const marker = path.join(actor.profile, 'DevToolsActivePort');
+    try {
+      const [port, route] = (await readFile(marker, 'utf8')).split('\n');
+      if (port !== actor.privateEndpoint.port || route !== actor.privateEndpoint.route) throw new Error('old endpoint marker changed');
+      await unlink(marker);
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    actors.delete(name);
+    const reopened = await dispatch({ actor: name, op: 'open' });
+    return { oldPID: actor.process.pid, oldExit: actor.process.exitCode, profileRetained: true, reopened };
+  }
   if (webOptions && op === 'content_open') {
     if (new URL(args[0]).origin !== webOptions.contentOrigin) throw new Error('different content origin');
     await actor.page.locator('#content').evaluate((frame, url) => { frame.src = url; }, args[0]);
     return { opened: true };
   }
+  if (webOptions && op === 'owned_web_liveness') return {
+    nodePresent: await actor.page.evaluate(() => !!window.node),
+    browserConnected: actor.browser.isConnected(),
+    pageOpen: !actor.page.isClosed(),
+    contentFramePresent: actor.page.frames().some(frame => frame.parentFrame() === actor.page.mainFrame()
+      && frame.url().startsWith(webOptions.contentOrigin + '/')),
+  };
   if (webOptions && op === 'content_evaluate') {
     const frame = actor.page.frames().find(frame => frame.parentFrame() === actor.page.mainFrame() && frame.url().startsWith(webOptions.contentOrigin + '/'));
     if (!frame) return null;
@@ -279,6 +348,17 @@ async function dispatch({ actor: name, op, args = [] }) {
     await load(actor);
     return true;
   }
+  if (op === 'close_tab') {
+    // This is an actual page destruction, without relying on an awaited SDK
+    // close/unload message. The same fresh profile retains its saved identity.
+    await actor.page.close({ runBeforeUnload: false });
+    actor.page = undefined;
+    actor.cdp = undefined;
+    actor.page = await actor.context.newPage();
+    actor.cdp = await actor.context.newCDPSession(actor.page);
+    await load(actor);
+    return { closedWithoutSdkClose: true, newPage: true };
+  }
   if (op === 'start') return actor.page.evaluate(async ([action, config, invitation]) => {
     window.node = await window.api.BrowserNetwork[action](config, invitation);
     return JSON.parse(window.node.status());
@@ -300,6 +380,33 @@ async function dispatch({ actor: name, op, args = [] }) {
     window.pendingForwards.delete(index);
     return result;
   }, args[0]);
+  if (op === 'terminal_input_pressure') return actor.page.evaluate(async ([id, mode]) => {
+    const state = {accepted: 0, rejected: 0};
+    const input = JSON.stringify({type: 'bytes', data: Array(16384).fill(81)});
+    const calls = Array.from({length: 1024}, () => window.node.send_terminal(id, input)
+      .then(() => { state.accepted++; }, () => { state.rejected++; }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (mode === 'queued') {
+      const waiting = performance.now();
+      while (state.accepted < 16 && state.rejected === 0 && performance.now() - waiting < 10000)
+        await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    const before = {...state, pending: 1024 - state.accepted - state.rejected,
+      terminal: JSON.parse(window.node.terminal_status())};
+    const started = performance.now();
+    let result;
+    try { result = {ok: true, value: JSON.parse(await window.node.detach_terminal(id))}; }
+    catch { result = {ok: false}; }
+    const seconds = (performance.now() - started) / 1000;
+    let timer;
+    try {
+      await Promise.race([Promise.all(calls), new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('terminal input callers did not settle')), 1000);
+      })]);
+    } finally { clearTimeout(timer); }
+    return {mode, before, after: {...state}, result, seconds,
+      terminal: JSON.parse(window.node.terminal_status()), total: 1024, bytesPerCall: 16384};
+  }, args);
   if (op === 'file_make') return actor.page.evaluate(([name, size]) => {
     const chunk = Uint8Array.from({length: 65536}, (_, index) => index % 251);
     const parts = [];
@@ -333,7 +440,7 @@ async function dispatch({ actor: name, op, args = [] }) {
   return actor.page.evaluate(async ([method, values]) => {
     if (method === 'issue_service_guest') values[2] = BigInt(values[2]);
     const result = await window.node[method](...values);
-    if (['status', 'service_status', 'forwarding_status', 'sync_services', 'redeem_guest', 'guest_status', 'end_guest', 'file_status', 'admission_requests', 'request_web', 'web_status', 'open_web_socket', 'read_web_socket', 'close_web_socket'].includes(method)) return JSON.parse(result);
+    if (['status', 'service_status', 'forwarding_status', 'sync_services', 'redeem_guest', 'guest_status', 'end_guest', 'file_status', 'admission_requests', 'request_web', 'begin_web_request', 'web_request_result', 'cancel_web_request', 'web_status', 'open_web_socket', 'read_web_socket', 'close_web_socket', 'request_terminal', 'terminal_status', 'attach_terminal', 'read_terminal', 'detach_terminal', 'cancel_terminal'].includes(method)) return JSON.parse(result);
     return result ?? null;
   }, [op, args]);
 }

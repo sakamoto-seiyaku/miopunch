@@ -1,0 +1,19 @@
+{
+  "status": "LOCAL_PREFLIGHT_FAILED_NO_REVERSE_RUNTIME_OR_REMOTE_ACTION",
+  "packet_sha256": "b7be9e3a86c839fec9a3c3806b143d5b6d7a33191167e9f16ae21d8232d35586",
+  "plan_sha256": "963a424311ac0cceafa0067cd53aeffc5fa5fe0b72ff5998510418f1bfbf94fb",
+  "approved_manifest_sha256": "6c9ee13f5d99393bbd67d8c741f7924279da3407fd117b69cdf78d6c09a7c472",
+  "first_role_raw_bytes": 149353,
+  "prior_raw_base": 863300,
+  "correct_raw_base": 1012653,
+  "cause": "The reverse preflight called budget(raw=None), leaving the accepted first-role raw files in metadata growth instead of raw_received.",
+  "observed_metadata_growth_before_raw_reclassification": 4524272,
+  "metadata_cap": 4522080,
+  "runtime_reserve": 131072,
+  "admin_actual": 498122,
+  "admin_cap": 500616,
+  "remote_after_first_capacity_pass": true,
+  "reverse_runtime_started": false,
+  "remote_mutations_from_reverse": 0,
+  "no_retry": true
+}

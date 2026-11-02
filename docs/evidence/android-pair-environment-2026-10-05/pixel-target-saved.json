@@ -1,0 +1,16 @@
+{
+  "scope": "post-authorized Wi-Fi save verification only",
+  "command": [
+    "rtk",
+    "proxy",
+    "/home/js/Android/Sdk/platform-tools/adb",
+    "-s",
+    "<USB-Pixel6a>",
+    "shell",
+    "cmd wifi list-networks"
+  ],
+  "exit": 0,
+  "targetSsid": "CU_7WFb_5G",
+  "targetSaved": true,
+  "passwordReadOrLogged": false
+}

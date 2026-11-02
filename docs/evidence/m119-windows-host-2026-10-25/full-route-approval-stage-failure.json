@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-28",
+  "status": "FULL_WEB_FIRST_RUN_STOPPED_AT_APPROVAL_STAGE_ASSERTION",
+  "packet_sha256": "74ea4df3cb6969d9f1911b55f03440dec8930233e56b68d314292526c7ad389b",
+  "original_coordinator_sha256": "d00d58ad4adbd5161e862039e8adea8e8ef74d4199eff99c921fb9fa577622d5",
+  "original_STOP_sha256": "2e9a6012c942c56ba391076af6f306e19d96f4889bd65114da1d5472e94328dd",
+  "original_full_qualification_sha256": "2e9a82abdf138063f660fc8462de1246a3f601da150dfab723ec233c4ad7f17a",
+  "independent_read_only_diagnosis_sha256": "ced921e50228bf8af68ab8a51ef567f5a1de07970e3c268b2fbe740cb017cae7",
+  "actual_consumer_stage": "AwaitingApproval",
+  "actual_provider_approval_stage": "Approved",
+  "wrong_asserted_stage": "Complete",
+  "source_phase_mapping": "approval delivery phase 1 -> Approved; Complete is phase 3 after material delivery",
+  "raw_files_verified": 26,
+  "raw_bytes": 40526,
+  "SDKs_terminal": true,
+  "no_pending_or_unknown": true,
+  "sync_or_Web_exercise_reached": false,
+  "Web_business_accepted": false,
+  "reverse_started": false,
+  "whole_M119": false
+}

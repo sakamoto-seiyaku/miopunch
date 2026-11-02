@@ -1,0 +1,27 @@
+{
+  "scope": "Controlled three-member Node SDK supplement; no public traffic",
+  "sameFrozenArtifact": {
+    "builtPath": "/home/js/Git/miopunch/target/debug/deps/contact_listener-24e6e9ccb917bee0",
+    "frozenPath": "/tmp/mio78-member-node-first/contact_listener.test-bin",
+    "sha256": "bd79357f5af3605732e7dc1cb8888b2f40d00e133ebfbc335e06d3faea182e95",
+    "bytes": 200882304
+  },
+  "firstReceipt": "/tmp/mio78-member-node-first/receipt.json",
+  "passed": false,
+  "member": {
+    "argv": [
+      "rtk",
+      "proxy",
+      "/tmp/mio78-member-node-first/contact_listener.test-bin",
+      "a_maintained_node_with_healthy_relay_accepts_member_only_restricted_contact",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit": 101,
+    "seconds": 2.0689707528799772,
+    "guardSeconds": 30,
+    "terminatedByGuard": false,
+    "forcedKill": false
+  },
+  "artifactAfterSha256": "bd79357f5af3605732e7dc1cb8888b2f40d00e133ebfbc335e06d3faea182e95"
+}

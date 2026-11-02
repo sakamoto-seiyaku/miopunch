@@ -1,0 +1,14 @@
+{
+  "README.md": "b50df426f84cc3b141c0b8bed5334d8f1a27a7cd5492ebd6c577bf2cb8fb388c",
+  "before-healthy.json": "78093b685c179806ce24b17ce03362d0c0193690ce3788cdcf796b8bf06eb906",
+  "before-unavailable.json": "fc18f9b5729134238e348e4ffcec76877ef5f60a6a5b663dbca2928f2795d92a",
+  "browser-log-export.json": "c6f3f1fd11f86427ae784c4170e8765d8da99e246dc643382d5c019675330565",
+  "candidate-healthy.json": "0084909adeb8004729c554f50171377a43abdd73a07a455e316bbe2fc3adc1dd",
+  "candidate-unavailable.json": "3fe7971b178bf78af6e6cc92f84fbe208c4a8473b15856ec93f63875c40bc1a0",
+  "health.json": "99f7c7ba5d01690b97153eb4ccbe46ba10973a155d4b7c5292dc532bfb5adfc3",
+  "inputs.json": "24e316841d339955aaa267328ae708167ccddcd377f11d829fd4d57b96ea36f8",
+  "live-healthy.json": "504d98e588c37073d910124dc58156f46a90a3cd439d4de0e6f81938d3270f89",
+  "native-failure-sample.json": "4eaaace52419d1823204161d70c962c8d2e20c84a6085418da86aeae7d086e19",
+  "user-confirmed-ice-stage.json": "67745311072b3164e6869c3429e906dc6f593764ff9cc30a8f4b975df4a13ec9",
+  "user-stun-header-summary.json": "929a9c4593ad108c611642c65dd8e5544dcb43cd48f4d2a279e0609e233e98fb"
+}

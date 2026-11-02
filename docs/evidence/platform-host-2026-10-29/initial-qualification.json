@@ -1,0 +1,194 @@
+{
+  "status": "LINUX_HOST_PASSED_ANDROID_BUSINESS_PHASES_QUALIFIED_FOREGROUND_DEFERRED",
+  "whole_M121_accepted": false,
+  "whole_M107_accepted": false,
+  "linux": {
+    "result": {
+      "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-host-first/result.json",
+      "bytes": 611,
+      "sha256": "95821fd20076f9b7d50e8a32fa67786040e5a9991c51ff428025103652b5aea9"
+    },
+    "proofs": {
+      "M121_HOST_CANCEL": {
+        "actual_http_pending": true,
+        "caller_failed_truthfully": true,
+        "stop_seconds": 0.727561672
+      },
+      "M121_HOST_CHAIN": {
+        "duplicate_host_denied": true,
+        "explicit_stop_completed": true,
+        "independent_saved_bytes": 28,
+        "membership_retained": true,
+        "same_identity_reopened": true
+      }
+    }
+  },
+  "android": {
+    "original_full_run": {
+      "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-android-worker-entry/result.json",
+      "bytes": 1225,
+      "sha256": "489d987bc705ee47874d3e6683de97c61282d27095034c6c300dd0f33a976d80"
+    },
+    "events": {
+      "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-android-worker-entry/events.jsonl",
+      "bytes": 146791,
+      "sha256": "34839ef141961b45de33b3ffe53accc81f8dd8e4d6682812ed7cdc5237a1113f"
+    },
+    "qualified_business": {
+      "android_to_linux_independent_file": [
+        {
+          "bytes": 8193,
+          "sha256": "7e3691790cd64b19d4edb1a80e988214515abeb53aa0f34ffbfe4b4bf405d120"
+        }
+      ],
+      "linux_to_android_background_file": [
+        {
+          "bytes": 65539,
+          "sha256": "23f5b17431ae47a02c0e1dd9f6299af963ab82dc8980212389aaa285973b7ab1",
+          "same_service_generation": true,
+          "Activity_destroyed": true
+        }
+      ],
+      "android_forward_socket": [
+        {
+          "protocol": "tcp",
+          "bytes": 257,
+          "target_received_exact": true,
+          "reply_exact": true
+        },
+        {
+          "protocol": "udp",
+          "bytes": 257,
+          "target_received_exact": true,
+          "reply_exact": true
+        }
+      ],
+      "android_terminal_independent_effect": [
+        {
+          "actual_pty": true,
+          "independent_file_exact": true,
+          "same_workspace_reattached": true,
+          "explicitly_ended": true
+        }
+      ]
+    },
+    "default_reboot_enabled": true,
+    "off_on_setting_readback": true,
+    "Activity_destroy_recreate_same_Service_observed": true,
+    "normal_foreground_window_qualified": false,
+    "actual_reboot_qualified": false,
+    "explicit_native_stop_and_wakelock_release": true,
+    "subsequent_window_timeout_user_deferred": true,
+    "settlement": {
+      "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-android-worker-entry/deferred-window-settlement.json",
+      "bytes": 3199,
+      "sha256": "d7dc101a6cf9a897d1515f8a8c5063e6e6b1f510178d2f26fb50d044735eb73e"
+    }
+  },
+  "JNI_fix": {
+    "original_build": {
+      "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-android-host-20261029/build.json",
+      "bytes": 3760,
+      "sha256": "00fde6f562842d8729c87db27f4bf346dec4be4bffd773e89e58e2f9caad2170"
+    },
+    "current_build": {
+      "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-android-worker-20261029/build.json",
+      "bytes": 1937,
+      "sha256": "6c2f72a531bd630a981d54e7bc61b9d1be445d38285f0799bfedc6a72535245b"
+    },
+    "original_build_id": "0c90629a7deccd7a2672e48fa3320954380e33e0",
+    "cause": {
+      "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-android-owned-entry/jni-stack-causal-review.json",
+      "bytes": 1572,
+      "sha256": "f02c04086ceecf6b26993d54dd444927c72ead723eb8b4a651be905477508feb"
+    },
+    "tombstone": {
+      "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-android-owned-entry/owned-native-crash-block.log",
+      "bytes": 41758,
+      "sha256": "3079fcd00386082518d42d0d3ff84fc831e023ffe05b8d2ace6b4948d4f622ab"
+    },
+    "same_Java_DEX_and_manifest": true,
+    "same_controller_and_assertions": true,
+    "current_source": {
+      "path": "src/android_client_host.rs",
+      "bytes": 7440,
+      "sha256": "4e392f793413b3437af4b36d55395b4de4972168134ff440aead38d92d64259a"
+    }
+  },
+  "original_failures": {
+    "m121-android-first": {
+      "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-android-first/result.json",
+      "bytes": 578,
+      "sha256": "a2491662ac9dac9d91f6b49ef1a9890943f70a0b89ca4e3d070979cde6d89be0"
+    },
+    "m121-android-default-on-entry": {
+      "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-android-default-on-entry/result.json",
+      "bytes": 585,
+      "sha256": "9a7c3e830d2f0f1c5e64b1633ac5694ba7dca06ea958d6df03921380b6302ebe"
+    },
+    "m121-android-owned-entry": {
+      "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-android-owned-entry/result.json",
+      "bytes": 633,
+      "sha256": "5244543da7c4ff70864659cb5a475eb0a5833ad32e7fe83d4acf6d7571dba103"
+    },
+    "m121-android-worker-entry": {
+      "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-android-worker-entry/result.json",
+      "bytes": 1225,
+      "sha256": "489d987bc705ee47874d3e6683de97c61282d27095034c6c300dd0f33a976d80"
+    }
+  },
+  "manifest": {
+    "path": ".artifacts/runs/m121-platform-initial-20261029/manifest.json",
+    "bytes": 676701,
+    "sha256": "49c88f504ee347bc3f2563726f4b7242b33d4aea4a62acd8ae1ffe2932d088dd"
+  },
+  "resource_accounting": {
+    "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-initial-resource-accounting.json",
+    "bytes": 668,
+    "sha256": "6fcfc840a176ab9299112d4a75a589a983a646f5d9df2c1dff4192fd5c9ed81a"
+  },
+  "command_extraction": {
+    "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-command-extraction-equivalence.json",
+    "bytes": 575,
+    "sha256": "5ffde8fbd1c6036cc12f95a4172e994a3ec0f15ea21395343f2cc5fcd93ef4d4"
+  },
+  "user_decisions": [
+    {
+      "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-android-reboot-default-decision.json",
+      "bytes": 528,
+      "sha256": "2c96e7f1b50177301e166de2ad3b6221559321fb755c713d60c9ba308d8f6430"
+    },
+    {
+      "path": ".artifacts/runs/m121-platform-initial-20261029/raw/m121-android-window-deferral.json",
+      "bytes": 370,
+      "sha256": "b6bb8e7f99cc88c2b48818b4ba3e6eb622a7ef89c7d29f52a16901e7185ab453"
+    }
+  ],
+  "limits": [
+    "Minimal APK is debug Service verification, not final Tauri/shared UI delivery.",
+    "Normal foreground/window reopening after explicit quit deferred by user; late observed screen-off state does not retroactively qualify lock coverage.",
+    "No actual phone reboot or default BOOT receiver acceptance yet.",
+    "Original full APK run remains failed; blocked instrumentation removed only after Native SDK stop, Service absence, and exact APK ownership were independently verified.",
+    "No Android clipboard action; clipboard and WSL remain explicitly deferred.",
+    "Desktop lifecycle/autostart/headless deployment and packaged Browser entry remain separate M121 work.",
+    "Private/device peak RAM and actual Android freed blocks were not measured."
+  ],
+  "implementation_decisions": {
+    "shared_control": "CLI command schema and business dispatch moved mechanically to client_commands; ClientHost owns one node independently of windows. Explicit stop cancels requests and waits for SDK shutdown.",
+    "android_owner": "Application Context and Rust runtime survive Activity recreation; Service owns the Native node and foreground notification. All installed JNI start/request/stop work runs on bounded Rust-owned stacks, not ART caller stack.",
+    "android_runtime_bounds": {
+      "active_normal_commands": 16,
+      "separate_stop_slot": 1,
+      "Rust_stack_bytes": 8388608,
+      "Tokio_workers": 2,
+      "Tokio_blocking_threads_max": 4
+    },
+    "android_background": "connectedDevice foreground service for networking with user devices; ordinary application UID, no network settings changed. Wake lock retained only while the node is running.",
+    "reboot_default": "Enabled by default; user may disable. Explicit user decision recorded in ADR0018 and Plane M107/M121. Actual boot acceptance not yet performed.",
+    "native_open_boundary": "Current ClientHost excludes a second host of the same configured directory; headless/desktop integration is not yet complete and no physical/global clone-exclusion claim is made."
+  },
+  "primary_sources": [
+    "https://developer.android.com/develop/background-work/services/fgs/service-types",
+    "https://doc.rust-lang.org/std/fs/struct.File.html#method.try_lock"
+  ]
+}

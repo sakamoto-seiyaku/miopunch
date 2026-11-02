@@ -1,0 +1,66 @@
+{
+  "status": "EXACT_TWO_PACKET_BATCH_PREPARED_AWAITING_CURRENT_TRUSTED_USER_APPROVAL",
+  "destination": "stati@100.64.10.8 C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+  "packets": [
+    {
+      "case": "linux_provider_windows_consumer",
+      "packet_path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-shared-config-fixed-budget-v2-preparation-20261028/packet.json",
+      "packet_sha256": "37ba3985a3a67153f6760310e39a5330277b04605c0f72dafac1b37cbee265bd",
+      "plan_sha256": "afdfd262bdb5300a1673187990bd043715e0360075dac489c04ed2daeba0347a",
+      "payload_bytes": 85049,
+      "mode": "FIRST_ONLY_FULL_WEB_LINUX_TO_WINDOWS",
+      "worker_sha256": "1f3c9d5e2c9195730fa6490f15ebe80b6f59b535935f1d6a05c5882db007945d",
+      "SDK_windows_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+      "SDK_linux_sha256": "b63a7f6280417399df02731ce0c2980edb20f24099244107e8c1b38be47a8c46",
+      "local_global_cap": 28861688,
+      "local_admin_cap": 488328,
+      "remote_readonly_precheck_sha256": "369155a2f813b5e566355b033a7666d4bec39d1464bf104efb11c7fc726f4b06",
+      "remote_margin_now": 18581917,
+      "runtime_started": false
+    },
+    {
+      "case": "windows_provider_linux_consumer",
+      "packet_path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-reverse-shared-config-fixed-budget-v2-preparation-20261028/packet.json",
+      "packet_sha256": "78ac432c9d85326f9238f94aca36497d88aee28e7c27f7ee13c3fc72ba5d6f54",
+      "plan_sha256": "f8507a9f4db1ecec5a91677196204d8c4feed38c8b15c8f11ea992c7a018ebe9",
+      "payload_bytes": 85065,
+      "mode": "REVERSE_ONLY_FULL_WEB_WINDOWS_TO_LINUX",
+      "worker_sha256": "1f3c9d5e2c9195730fa6490f15ebe80b6f59b535935f1d6a05c5882db007945d",
+      "SDK_windows_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+      "SDK_linux_sha256": "b63a7f6280417399df02731ce0c2980edb20f24099244107e8c1b38be47a8c46",
+      "local_global_cap": 28865784,
+      "local_admin_cap": 492424,
+      "remote_readonly_precheck_sha256": "d5058787d1d78f075152aded0b6dffe94861e4593c7b37d948bb4056f9f70bf7",
+      "remote_margin_now": 18581901,
+      "runtime_started": false
+    }
+  ],
+  "payload_total_bytes": 170114,
+  "operations": [
+    "manual admission",
+    "signed service_sync",
+    "real provider HTTPS resources and form login/redirect",
+    "bidirectional WebSocket",
+    "native/content management and storage isolation",
+    "owned Task/SDK cleanup"
+  ],
+  "execution_order": [
+    "first-role exact packet",
+    "fresh second-role remote capacity and collision precheck",
+    "reverse-role exact packet only if guards pass"
+  ],
+  "unchanged_remote_root_cap_bytes": 1073741824,
+  "new_build_graphs": 0,
+  "SDK_transfer": false,
+  "source_fix": "web_status.completed must increase; every other status field and signed service state remain equal",
+  "local_budget_review_sha256": "a83183d6f3e29c8da995a3d7a7013539bee3d3c199be47c82f9b3b5dbfb8af20",
+  "prior_denial_sha256": "77d15b6f90cc6f00455789572009d4b815bee036034cc4104785eaee45d8e6a7",
+  "prior_denial_scope": "new 85049-byte first packet; no process or remote action",
+  "limitations": [
+    "No product acceptance before actual real runs",
+    "Reverse capacity must be checked again after first run",
+    "Original five-address Windows service_sync failure still not fully diagnosed",
+    "No unknown future payloads covered by this exact batch"
+  ],
+  "remote_actions_for_this_batch": 0
+}

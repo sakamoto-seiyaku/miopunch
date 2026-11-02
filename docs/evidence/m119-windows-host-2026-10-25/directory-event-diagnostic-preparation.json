@@ -1,0 +1,377 @@
+{
+  "kind": "M119_WINDOWS_DIRECTORY_EVENT_DIAGNOSTIC_FROZEN_SOURCE_PREPARATION",
+  "date": "2026-10-26",
+  "task": "MIOPUNCH-119",
+  "task_url": "http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/26c5a8ef-787f-4983-8ddf-f9ba53c102c1",
+  "status": "EXPLICITLY_AUTHORIZED_AND_EXECUTED_ONCE; UNLOCALIZED_SUCCESS_WITH_NATIVE_STAGING_EVENTS_AND_METADATA; ORIGINAL_OS5_NOT_REPAIRED",
+  "whole_M119_accepted": false,
+  "original_policy_OS5_fixed": false,
+  "new_Windows_runtime_performed": true,
+  "case": "publish-events-a93e37ce",
+  "nonce": "a93e37ce-3ad3-46a3-9014-a8463c5a1332",
+  "frozen_plan": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/plan.json",
+    "bytes": 5129,
+    "sha256": "846afe31424674c225fddb552bae15383b63b0e304751c1a8dc968f14a4f625c"
+  },
+  "local_driver": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/adapter.py",
+    "bytes": 6472,
+    "sha256": "cc5d2a72f2f22567c7f0f1e32e3fe5ffaa862ae2a54842edb4a852255a704f11"
+  },
+  "local_qualifier": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/qualify.py",
+    "bytes": 11010,
+    "sha256": "924738b5acd83e2bfe845ef86cbf4a617a24595f0b749c2ad061a081c0abe9af"
+  },
+  "effective_plan": {
+    "bytes": 12919,
+    "sha256": "40719cdaef189b4e47c6a0b656e272b0a8e4ddf369a4f634b9d93bbc5e77366e"
+  },
+  "root_review": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-event-frozen-preparation-root-review-20261026.json",
+    "bytes": 5116,
+    "sha256": "dbf2f6f38516591af1e6608ab8b9fabef1403e55871cd7d466299692a9002ce8"
+  },
+  "root_original_review_execution": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-event-root-review-original-execution-20261026.json",
+    "bytes": 469,
+    "sha256": "4a35d574a15464432e0e8ee0a9d76194d7ad0adb1e62b885f3c24a7b19a77917"
+  },
+  "root_review_verifier": {
+    "path": ".artifacts/runs/root-scheduling-20261023/qualify-m119-Windows-event-frozen-preparation-20261026.py",
+    "bytes": 7596,
+    "sha256": "d79ffff5c0e0a32acf1340f2d60591c64c345f6761f871d4e101eb69c679f3e6"
+  },
+  "operator_handoff": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/HANDOFF.md",
+    "bytes": 303,
+    "sha256": "e41b558bea6e708aade2fb4fa73d6faf4295abff55919fe9ad52a80bda3f9018"
+  },
+  "scope": {
+    "source_host": "laptop / stati@100.64.10.8:22",
+    "remote_root": "C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+    "Task_name": "miopunch-M119-publish-events-a93e37ce-20261026-a93e37ce-3ad3-46a3-9014-a8463c5a1332",
+    "ordinary_same_user_interactive_SID": "S-1-5-21-3134535485-232963460-4157575699-1001",
+    "Task_max": 1,
+    "SDK_CREATE_max": 1,
+    "SDK_SHA256": "70aba7ef847b4ca4409c28d643ba6ac1a5bf32ecbc28b6ed48c70529cd1c1f40",
+    "MoveFileExW_controls_max": 4,
+    "MoveFileExW_flags": 8,
+    "before_and_after_kinds": [
+      "bare directory",
+      "directory with a flushed and closed owned file"
+    ],
+    "SDK_actions": "CREATE -> one ready record -> stdin EOF -> same original handle join; no RPC/card export/recovery acknowledgement",
+    "TLS": "Original retained PolicyTarget; actual verified HTTPS body and WebSocket duplex prerequisite; same owned server alive before and after SDK; normal target cleanup",
+    "observer": "ReadDirectoryChangesW only fresh own stable private parent; DIR_NAME/filter2, no subtree, FILE_LIST_DIRECTORY1, SHARE7, BACKUP_SEMANTICS+OVERLAPPED; native event frame bytes retained",
+    "observer_cancellation": "CancelIoEx only this process original parent handle+same OVERLAPPED request; actual GetOverlappedResult completion before reuse/free/close",
+    "metadata": "Only fresh owned parent/staging directory attributes, owner and DACL; no permission or system changes",
+    "new_private_state_max": 8388608,
+    "new_profiles": 0,
+    "capacity_metadata_queries": [
+      "stage before new files",
+      "pre-run",
+      "final after complete diagnostic qualification"
+    ],
+    "not_created": [
+      "consumer",
+      "joiner",
+      "reopen",
+      "gateway",
+      "GUI",
+      "guest"
+    ]
+  },
+  "new_deployment_files": {
+    "app/controllers-publish-events-a93e37ce/check_windows_publish_api.py": {
+      "local_path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/payload/check_windows_publish_api.py",
+      "bytes": 24208,
+      "sha256": "84ef76f525a9db104b725bc7f61a910f2a2b53a66d8b10d59875b41b96364194"
+    },
+    "app/deployment-publish-events-a93e37ce-extra.json": {
+      "local_path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/payload/deployment-publish-events-a93e37ce-extra.json",
+      "bytes": 877,
+      "sha256": "24f3661ed20aaa7f4fc36e36ff3ddff60450a9477614668576e91906ad74e795"
+    },
+    "Task-M119-publish-events-a93e37ce-Entry.ps1": {
+      "local_path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/payload/Task-M119-publish-events-a93e37ce-Entry.ps1",
+      "bytes": 1739,
+      "sha256": "a42e4fc90cc2bb578358504bb069d45a5b24a69b4ed6d21d293c12b36c8f38e2"
+    },
+    "publish-events-a93e37ce-task.xml": {
+      "local_path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/payload/publish-events-a93e37ce-task.xml",
+      "bytes": 1569,
+      "sha256": "458adcc7a4a70e76aa92c74e5b52844225aef7b57203a54e582548902266ccde"
+    }
+  },
+  "new_payload_total_bytes": 28393,
+  "retained_Entry_by_reference": {
+    "template": {
+      "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/payload/Task-M119-publish-api-9d0247b3-Entry.ps1",
+      "bytes": 6505,
+      "sha256": "94c428954154d4f75d10765fee025a9d1c94d9733e2be5e94ef6dd4d53dfbbbf"
+    },
+    "remote_relative": "Task-M119-publish-api-9d0247b3-Entry.ps1",
+    "literal_replacements_with_exact_counts": [
+      [
+        "9d0247b3-f39c-4f1c-9df3-b0a2202165ae",
+        "a93e37ce-3ad3-46a3-9014-a8463c5a1332",
+        1
+      ],
+      [
+        "publish-api-9d0247b3",
+        "publish-events-a93e37ce",
+        20
+      ],
+      [
+        "f8cdb5edfce768d685b842cbda3f89d07b67f79d09ed2c805dcfc18f98c37cc7",
+        "24f3661ed20aaa7f4fc36e36ff3ddff60450a9477614668576e91906ad74e795",
+        1
+      ]
+    ],
+    "actual_rendered_body": {
+      "bytes": 6565,
+      "sha256": "265dacb27fd176da97fa5fcce4289c6115d6d33e92476064cb76f4d00eb7767a"
+    },
+    "review": "Root full read actual rendered body; ordinary Task -File wrapper verifies retained file and rendered body hashes before executing"
+  },
+  "sources": {
+    "base_manifest_files": 476,
+    "verified_app_union_including_two_manifests": 481,
+    "module_origins": {
+      "controller": "controllers-publish-events-a93e37ce/check_windows_publish_api.py",
+      "WindowsChild": "controllers-content-tls/web_windows_process.py",
+      "PolicyTarget": "controllers-web-policy-guest/web_windows_policy_checks.py",
+      "retained_API": "controllers-publish-api-9d0247b3/check_windows_publish_api.py"
+    },
+    "SDK": "retained 70aba diagnostic SDK11; current held Native WIP untouched",
+    "build_graphs": "NONE; verified retained pins/source reused by reference"
+  },
+  "fixed_collection": {
+    "source_host": "laptop / stati@100.64.10.8:22",
+    "source_root": "C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+    "local_destination": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/runtime/raw",
+    "path_rule": {
+      "source": "remote_root + / + remote_relative",
+      "destination": "local_directory + / + name"
+    },
+    "files": [
+      {
+        "name": "publish-events-a93e37ce-context-entry.json",
+        "remote_relative": "publish-events-a93e37ce-context-entry.json",
+        "max_bytes": 1024
+      },
+      {
+        "name": "publish-events-a93e37ce-context-child-owner.json",
+        "remote_relative": "publish-events-a93e37ce-context-child-owner.json",
+        "max_bytes": 2048
+      },
+      {
+        "name": "publish-events-a93e37ce-context-child-exit.json",
+        "remote_relative": "publish-events-a93e37ce-context-child-exit.json",
+        "max_bytes": 512
+      },
+      {
+        "name": "publish-events-a93e37ce-context-1.completed.json",
+        "remote_relative": "publish-events-a93e37ce-context-1.completed.json",
+        "max_bytes": 512
+      },
+      {
+        "name": "publish-events-a93e37ce-context-1.stdout",
+        "remote_relative": "publish-events-a93e37ce-context-1.stdout",
+        "max_bytes": 2048
+      },
+      {
+        "name": "publish-events-a93e37ce-context-1.stderr",
+        "remote_relative": "publish-events-a93e37ce-context-1.stderr",
+        "max_bytes": 8192
+      },
+      {
+        "name": "publish-events-a93e37ce-context-task-run.json",
+        "remote_relative": "publish-events-a93e37ce-context-task-run.json",
+        "max_bytes": 4096
+      },
+      {
+        "name": "publish-events-a93e37ce-context-task-run.jsonl",
+        "remote_relative": "publish-events-a93e37ce-context-task-run.jsonl",
+        "max_bytes": 8192
+      },
+      {
+        "name": "result.json",
+        "remote_relative": "app/evidence/publish-events-a93e37ce/result.json",
+        "max_bytes": 16384
+      },
+      {
+        "name": "observations.jsonl",
+        "remote_relative": "app/evidence/publish-events-a93e37ce/observations.jsonl",
+        "max_bytes": 24576
+      },
+      {
+        "name": "creator.stdout",
+        "remote_relative": "app/evidence/publish-events-a93e37ce/creator.stdout",
+        "max_bytes": 8192
+      },
+      {
+        "name": "creator.stderr",
+        "remote_relative": "app/evidence/publish-events-a93e37ce/creator.stderr",
+        "max_bytes": 32768
+      },
+      {
+        "name": "creator.owner.jsonl",
+        "remote_relative": "app/evidence/publish-events-a93e37ce/creator.owner.jsonl",
+        "max_bytes": 4096
+      },
+      {
+        "name": "directory.bin",
+        "remote_relative": "app/evidence/publish-events-a93e37ce/directory.bin",
+        "max_bytes": 8192
+      }
+    ],
+    "fixed_file_count": 14,
+    "individual_producer_sum": 120832,
+    "total_max": 131072,
+    "only_existing_fixed_files": true,
+    "no_private_database_key_card_or_profile_collection": true
+  },
+  "actual_effective_counts": {
+    "Task": 1,
+    "SDK_create_max": 1,
+    "ctypes_MoveFileExW_max": 4,
+    "flags": 8,
+    "observation_row_max": 2048,
+    "observation_total_max": 24576,
+    "SDK_ready_seconds": 80,
+    "SDK_join_seconds": 20,
+    "Task_original_observation_seconds": 110,
+    "Task_XML_seconds": 120,
+    "watch_requests_max": 64,
+    "watch_events_max": 64,
+    "watch_read_bytes": 4096,
+    "watch_binary_max": 8192,
+    "watch_observation_seconds": 115
+  },
+  "exact_generated_stdin_wires": {
+    "verify": {
+      "bytes": 1687,
+      "sha256": "594fe0dbd799bc2e149d8959e4b4f5462c73afb1b050d6a0acbfc29839e53278"
+    },
+    "register": {
+      "bytes": 12624,
+      "sha256": "d48560d841fc9c26121d1156e49cba17fed9f1b252490baf74715ca99ed31b1b"
+    },
+    "collect": {
+      "bytes": 2391,
+      "sha256": "d5eb3a94841e4b7d1dff5742795834843e5b1ae6f1f5af674e679b1644983d95"
+    },
+    "guard-stage": {
+      "bytes": 3951,
+      "sha256": "be3544828531ea192a152b960389f8e9fdc3e88081a607cf8ad9cae674593808"
+    },
+    "guard-pre-run": {
+      "bytes": 3542,
+      "sha256": "763be76b351a7efb6d7b00d13cc5ed905117253c9e7db5530c97330222d195a6"
+    },
+    "guard-final": {
+      "bytes": 4164,
+      "sha256": "d72cc70571847c70a3c9d7a0b7b1a525562ed01594d2d4cf08d6068f39142b08"
+    }
+  },
+  "source_validation": {
+    "local_checker": {
+      "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-events-preparation-20261026/check_source.py",
+      "bytes": 5383,
+      "sha256": "afd62aecd40fa63456bb80eb0621d83ef7c620eee02b783d1504ff36827a430b"
+    },
+    "operator_original_results": [
+      "be4e3f exit0 initialparser+realtraces+7lifecyclemodels",
+      "a06deb exit0 parser-only multirecord+surrogate",
+      "5b45d0 preconditions/render/AST/countsPASS"
+    ],
+    "lifecycle_input_reuse": {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-event-passed-lifecycle-input-reuse-20261026.json",
+      "bytes": 1476,
+      "sha256": "d16c3c87d59457197fd485f7c9cc34271e7857c887d5c8fe48412cf8538dcbbe"
+    },
+    "original_full_command_stdout_stderr_not_recovered": true,
+    "known_limitation": "Actual original source-test summaries are retained; full original three execution outputs could not be recovered after actor context reset. They are not relabelled as raw logs or Windows acceptance. Unchanged passed lifecycle checks were not rerun.",
+    "Root_independent": "Read-only complete code/assertion/provenance/scope review passed once; original PID6 exit0, stdout5116B/stderr0, full captured output retained outside frozen source",
+    "Root_stdout": {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-event-root-review-original.stdout",
+      "bytes": 5116,
+      "sha256": "dbf2f6f38516591af1e6608ab8b9fabef1403e55871cd7d466299692a9002ce8"
+    },
+    "Root_stderr": {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-event-root-review-original.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "budget": {
+    "allocation_review": {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-directory-event-source56KiB-allocation-review-20261026.json",
+      "bytes": 1609,
+      "sha256": "853c33976485dc127befe9d916dd6b7b27dc0570ef7708cfc18afda238452216"
+    },
+    "source_actual": 57304,
+    "source_cap": 57344,
+    "runtime_metadata_cap": 20480,
+    "admin_cap": 4096,
+    "reviewed_metadata_total": 257311,
+    "actual_global_raw": 23112995,
+    "original_initial": 22801754,
+    "cumulative_fixed_raw_received": 78546,
+    "same_shared_fixed_raw_reserve": 2097152,
+    "all_remaining_reserves_included_total": 25156217,
+    "same_global_raw_cap": 25165824,
+    "headroom": 9607,
+    "same_raw_roots_and_nlink1_rule": true,
+    "no_baseline_received_root_exclusion_reset": true,
+    "artifact_store_objects": 375,
+    "artifact_store_logical": 34523428417,
+    "artifact_store_allocated": 34525192192,
+    "default_store32GiB_and_existing_explicit_this_graph33GiB_unchanged": true,
+    "M120_full_reserve": 723517440,
+    "no_build_new_pin_cleanup": true
+  },
+  "diagnostic_outcomes": [
+    "UNLOCALIZED_SUCCESS with complete actual native events: success in new context, not original cause or repair",
+    "REPRODUCED_ORIGINAL_OS5 only strict original43-line prefix plus exactly three Some(5) errors and localized Io5 tail",
+    "OBSERVER_OR_ENVIRONMENT_FAILED for missing native controls/staging, overflow/loss/zero bytes/malformed records, failed cleanup or evidence mismatch"
+  ],
+  "limits": [
+    "This new case captured current staging attributes, owner and DACL plus native ADD/rename events. Historical failed-parent ACL and instantaneous external handles remain unknown; after-rename old-name query error2 is preserved. Instrumentation can affect timing.",
+    "Original policy OS5 evidence and prior SDK/Win10054/attached-client failures remain preserved. No original policy replay is authorized by this preparation.",
+    "The explicitly authorized one operation has completed and its14fixed files were collected. Grant consumed; no further policy/guest replay, Task or SDK operation is authorized by this result.",
+    "Full M107 non-UI112-121 objective unchanged; only112-115 accepted. Windows/Linux role exchange, ACL/guest and remaining installed-platform/current-Native/formal qualification remain open."
+  ],
+  "actual_execution": {
+    "actual_approval": {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-event-diagnostic-actual-user-approval-20261026.json",
+      "bytes": 7746,
+      "sha256": "d5cfd7c907534d2579f122ed3b40b7f937786e20ca25ca370672dd0aa0427566"
+    },
+    "release": {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-event-diagnostic-runtime-release-20261026.json",
+      "bytes": 5955,
+      "sha256": "481d7c29a4045d2c4892cdff00a16412e2411312e04fbe7e5d7791495dda64e8"
+    },
+    "curated_result": {
+      "path": "docs/evidence/m119-windows-host-2026-10-25/directory-event-diagnostic-qualification.json",
+      "bytes": 29172,
+      "sha256": "b4ddb958e8fda189ac7fca1215bf3c44b8f03bf5aad17b3b527edc54c8680bdf"
+    },
+    "Root_independent_qualification": {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-event-runtime-root-qualification-20261026.json",
+      "bytes": 13213,
+      "sha256": "20c3c0d6de1d51b6a770e0aa9dfa9836303de765744471a43e6fcd7c89149e5a"
+    },
+    "grant_consumed": true,
+    "known_live": [],
+    "original_preparation_at_grant": {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-curated-records-before-event-diagnostic-result-20261026/directory-event-diagnostic-preparation.json",
+      "bytes": 16070,
+      "sha256": "8bfd918ed58b15c44879d3f8db39fc19e561833d5f4681de9489b0c6b6852f51"
+    }
+  }
+}

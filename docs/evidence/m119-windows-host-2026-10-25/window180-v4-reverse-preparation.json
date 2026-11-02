@@ -1,0 +1,57 @@
+{
+  "status": "PREPARED_UNEXECUTED_REQUIRES_NEW_EXACT_REVERSE_AUTHORIZATION",
+  "destination": "stati@100.64.10.8 / C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+  "packet": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v4-reverse-preparation-20261028/packet.json",
+  "packet_sha256": "cffb0c9c7bf71b2383bfcbc2d2e8d512e563c966e7ac0e6c13ebd0447a86a836",
+  "plan_sha256": "e4dd9dd77c5275f7354f60b55be694fee1cb9bda5904ee0ec50a64b712a0ffb4",
+  "source_tree_sha256": "ea712f3d704c67c8c3f48b0c9068b13369fb717f957874c269ab435afde2c56a",
+  "source_bytes": 149961,
+  "payload_bytes": 85950,
+  "mode": "REVERSE_ONLY_FULL_WEB_WINDOWS_TO_LINUX",
+  "role": "Windows provider to Linux consumer",
+  "prior_exact_v3_manifest_sha256": "7d7176bfbd25dd761a535de1e90e7558575413c679fd2e048bbe7b1c43fc9894",
+  "prior_v3_failure_sha256": "e89d2cbe5527801e865dd90a9226d15a3588e21c6a5824ccf3cc38beb3cec241",
+  "same_seam_red_green_sha256": "5c20fe261ce172a40f9cf575026b4fe10cfc34fede4048a2db7f43dca8de40e5",
+  "test_fixture_fix": "Linux consumer selects the single sandbox_bwrap.py path from deployment source_pins, then verifies its pinned SHA with unchanged freeze_source assertion. Missing or wrong pin remains rejected.",
+  "budget": {
+    "historical_raw_bytes": 863300,
+    "accepted_first_role_raw_bytes": 149353,
+    "failed_v3_reverse_raw_bytes": 59751,
+    "raw_base_bytes": 1072404,
+    "raw_cap_bytes": 1572864,
+    "metadata_cap_bytes": 5200000,
+    "source_cap_bytes": 159744,
+    "root_admin_cap_bytes": 512904,
+    "global_cap_bytes": 30088472,
+    "global_reservation_bytes": 30087522
+  },
+  "remote_precheck": {
+    "path": "/tmp/m119-route-feedback-20261028/window180-v4-reverse-preparation-precheck.json",
+    "sha256": "d2c9dc9f83c13d8870be1b49b3d788e142af41aeffc0314df70b3ccef92055d5",
+    "owned_root_bytes": 992117466,
+    "reserve_bytes": 67194814,
+    "conservative_bytes": 1059312280,
+    "cap_bytes": 1073741824,
+    "margin_bytes": 14429544,
+    "collisions": [],
+    "remote_mutations": 0
+  },
+  "verification": {
+    "check_local": "PASS",
+    "configure_dry": "PASS",
+    "source_tree_hashes": "PASS",
+    "new_cargo_builds": 0,
+    "new_artifact_pins": 0,
+    "reverse_runtime_started": false
+  },
+  "unchanged": [
+    "Original exact request/applicant, approval, sync and full Web/isolation assertions",
+    "One 180-second nonrenewable rendezvous; 190/200-second Task observation",
+    "24 MiB case profile cap, 64 MiB reserve, 1 GiB remote root cap",
+    "Same pinned Windows/Linux SDK binaries"
+  ],
+  "limits": [
+    "Reverse role has not passed.",
+    "Prior Windows create error 5 remains unlocalized although v3 create succeeded; no product fix is claimed."
+  ]
+}

@@ -12,7 +12,7 @@ from urllib.request import HTTPSHandler, ProxyHandler, build_opener
 from check_web_container import ContainerRunner
 from check_web_service import OwnedNode
 from forwarding_local_resources import configure_local_resources
-from web_browser_runtime import WebBrowser
+from web_browser_runtime import BrowserWebRequests, WebBrowser
 from web_content_gateway import ContentGateway
 from web_process_owner import register_process
 from web_protocol_target import WebTarget
@@ -40,9 +40,8 @@ class BrowserRunner(ContainerRunner):
         provider = OwnedNode(self, "provider")
         provider.call("web_enable", targets=[target.url], trust_roots_pem=[target.trust_root_pem])
         holder = {}
-
-        def request(arguments):
-            return holder["browser"].call("request_web", provider.identity, json.dumps(arguments))
+        requests = BrowserWebRequests(provider.identity)
+        request = requests.request
 
         callbacks = {
             "open": lambda url, headers: holder["browser"].call("open_web_socket", provider.identity, url, json.dumps(headers)),
@@ -50,10 +49,12 @@ class BrowserRunner(ContainerRunner):
             "read": lambda identifier: holder["browser"].call("read_web_socket", identifier, 100),
             "close": lambda identifier: holder["browser"].call("close_web_socket", identifier),
         }
-        gateway = ContentGateway(target.url + "page", request, self.private, self.nodes, socket_callbacks=callbacks, browser_origins=True)
+        gateway = ContentGateway(target.url + "page", request, self.private, self.nodes, socket_callbacks=callbacks,
+                                 browser_origins=True, http_callbacks=requests.callbacks)
         gateway.record = lambda operation, result: self.record("controller", operation, result)
         browser = WebBrowser(self, self.args, gateway)
         holder["browser"] = browser
+        requests.bind(browser)
         opened = browser.call("open")
         assert not opened["browserSandboxDisabledByHarness"]
         invitation = self.private / "browser-invitation"

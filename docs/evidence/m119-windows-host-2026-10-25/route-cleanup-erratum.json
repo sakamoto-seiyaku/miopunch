@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-28",
+  "status": "RESTORATION_PENDING_EXACT_USER_APPROVAL",
+  "error": "Remote old SDK deployment copy was classified as disposable before checking the 476-file base manifest. The base manifest requires the exact path and hash.",
+  "remote_file": {
+    "relative": "app/sdk/miopunch-client-sdk11.exe",
+    "bytes": 187160555,
+    "sha256": "6de63b7756d7e9d627d6437bdc5c5c6fea22dc0b326ba44d4f2d58b1a7159690",
+    "currently_absent": true
+  },
+  "base_manifest": {
+    "sha256": "d3303f22f927d00361fc81e6f2036078d8f1d2f5de5e40c50b48b6d9c47800ce",
+    "fileCount": 476,
+    "required_old_sdk_entries": [
+      {
+        "sha256": "6de63b7756d7e9d627d6437bdc5c5c6fea22dc0b326ba44d4f2d58b1a7159690",
+        "name": "sdk/miopunch-client-sdk11.exe"
+      }
+    ]
+  },
+  "cleanup": {
+    "receipt_sha256": "f19030a81ca6cd3efefb9a21bc3279a68b8a8b4edcf0f22b044b8037ef088e10",
+    "actualFreedBlocksBytes": 187162624,
+    "other_remote_SDK_hashes_preserved": true
+  },
+  "local_immutable_pin": {
+    "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-web-11/miopunch-client.exe",
+    "sha256": "6de63b7756d7e9d627d6437bdc5c5c6fea22dc0b326ba44d4f2d58b1a7159690",
+    "preserved": true
+  },
+  "restore": {
+    "prepared_script_sha256": "e1eda363b905225b167e3921d6445e8bad875403769cb617b291c90afda86494",
+    "automatic_review_rejected_sha256": "52a74149e47da0d187224bb3830f12241b6b65a2fc5b4631ce7cfbfa7716ef82",
+    "remote_restore_started": false,
+    "reason": "Specific authorization for exact 187160555-byte SDK and destination required."
+  },
+  "M119_business_accepted": false
+}

@@ -5,12 +5,12 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import shutil
 import signal
 import subprocess
 import time
 
 from check_build_cache import compiled_artifacts
+from pin_artifact import pin_artifact
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -36,7 +36,7 @@ def main():
             | set(ROOT.glob('vendor/**/Cargo.toml')) | set(ROOT.glob('tests/**/*.rs'))
             | {p for p in ROOT.glob('tests/fixtures/**/*') if p.is_file()} | {ROOT / 'Cargo.toml', ROOT / 'Cargo.lock',
             ROOT / '.cargo/config.toml', ROOT / 'browser-probe/Cargo.toml',
-            ROOT / 'scripts/cargo_cache.py', ROOT / 'scripts/check_build_cache.py',
+            ROOT / 'scripts/cargo_cache.py', ROOT / 'scripts/check_build_cache.py', ROOT / 'scripts/pin_artifact.py',
             ROOT / 'scripts/check_contact_listener.py', ROOT / 'tests/contact_listener.rs',
             ROOT / 'tests/support/contact_broker.rs'})
         return {str(path.relative_to(ROOT)): digest(path) for path in sources}
@@ -83,7 +83,7 @@ def main():
                     target = value['target']['name']
                     if target in ['miopunch_native_probe', 'contact_listener']:
                         frozen = output / f'{target}.test-bin'
-                        shutil.copy2(value['executable'], frozen)
+                        pin_artifact(value['executable'], frozen)
                         artifacts[target] = frozen
                         receipt['artifacts'].append({'target': target, 'built_path': value['executable'],
                             'frozen_path': str(frozen), 'sha256': digest(frozen), 'bytes': frozen.stat().st_size})

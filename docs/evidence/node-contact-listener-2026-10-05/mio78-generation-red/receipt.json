@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-j",
+    "2",
+    "--test",
+    "contact_listener",
+    "dropped_generation_cannot_rebind_until_its_driver_really_exits",
+    "--",
+    "--nocapture"
+  ],
+  "exit": 101,
+  "seconds": 2.226729268906638,
+  "public_traffic": false,
+  "scope": "Owned loopback generation-overlap supplement"
+}

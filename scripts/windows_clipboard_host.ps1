@@ -5,7 +5,8 @@ param(
     [Parameter(Mandatory=$true)][string]$HelperSha256,
     [Parameter(Mandatory=$true)][string]$RunDirectory,
     [ValidateSet('create','join','join-guest')][string]$Action = 'create',
-    [string]$Invitation
+    [string]$Invitation,
+    [string]$Resources
 )
 # Local preparation only until applicable authorization. Run in the user's
 # current unlocked interactive Windows desktop, never as an SSH/Session0 host.
@@ -124,6 +125,11 @@ try {
         if ([IO.Path]::GetDirectoryName($Invitation) -ne [IO.Path]::GetDirectoryName($RunDirectory)) { throw 'invitation_outside_owned_deployment' }
         $start.Arguments += ' "' + $Invitation + '"'
     }
+    if ($Resources) {
+        $Resources = [IO.Path]::GetFullPath($Resources)
+        if ([IO.Path]::GetDirectoryName($Resources) -ne [IO.Path]::GetDirectoryName($RunDirectory)) { throw 'resources_outside_owned_deployment' }
+        $start.Arguments += ' "' + $Resources + '"'
+    }
     $start.UseShellExecute = $false
     $start.RedirectStandardInput = $true
     $start.RedirectStandardOutput = $true
@@ -174,6 +180,13 @@ try {
     # Fixed classification only; exception messages/clipboard objects are private.
     $report.failure = 'interactive_controller_failed'
     $report.failure_stage = $phase
+    $cause = $_.Exception
+    while ($null -ne $cause.InnerException) { $cause = $cause.InnerException }
+    # Fixed native-helper codes only; never serialize an arbitrary exception
+    # message because it can include private clipboard or invitation values.
+    if ($cause.Message -match '^(clipboard_[a-z_]+|prior_clipboard_format_unsupported|interactive_desktop_required)$') {
+        $report.failure_code = $cause.Message
+    }
 } finally {
     $processJoined, $stderrJoined, $stdoutJoined = $false, $false, $false
     if ($clientStarted) {

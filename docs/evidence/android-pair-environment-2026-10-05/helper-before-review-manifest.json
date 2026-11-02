@@ -1,0 +1,28 @@
+{
+  "scope": "frozen MIO82 environment/tooling sources for concentrated review; no member/NAT acceptance",
+  "sources": {
+    "scripts/wan_environment_preflight.py": "bbefa9512d29a35aa483178ecaa67d40dbe5213caa1e270f679d1aa2b75c2509",
+    "scripts/android_pair_runtime.py": "424601a146208119fe501f7cca6eb1a76940472754790ba9f3393733a7236f1d",
+    "scripts/build_android_pair.py": "94e4edf78a6af0258745bdd08f60983a4607f0b5a02df2d6b943ee5bfa3c2d9f",
+    "browser-probe/harness/android-pair-page.js": "243b83f596b6f54c0a33481e61fc64988d6d18d9458f646e629f6c6b2f9b22f2"
+  },
+  "currentReceipts": [
+    "/tmp/miopunch-android-pair-build-first-20261005/build.json",
+    "/tmp/miopunch-android-pair-build-first-20261005/deployment.json",
+    "/tmp/miopunch-android-pair-native-startup-20261005.json",
+    "/tmp/miopunch-android-pair-native-y700-deployed-startup-20261005.json",
+    "/tmp/miopunch-android-pair-browser-current-pixel-20261005.json",
+    "/tmp/miopunch-android-pair-browser-current-y700-20261005.json",
+    "/tmp/miopunch-pixel-y700-physical-prerequisites-20261005.json",
+    "/tmp/miopunch-pixel6a-cloudflare-udp-comparison-20261005.json"
+  ],
+  "sourceDeltaAfterLastDeviceRuns": "Final ownership guard only: reverse --no-rebind and skip tab close if runner never opened it; no repeated device probe performed.",
+  "activeBuildOrDeviceHandles": [],
+  "qualification": {
+    "formalAndroidMainAndJniStartup": true,
+    "sameOwnedStoreIdentityReopen": true,
+    "formalWasmLoadAndRtcApiPrerequisites": true,
+    "physicalSelectedSdkDataRoute": false,
+    "newWireMemberPublicStory": false
+  }
+}

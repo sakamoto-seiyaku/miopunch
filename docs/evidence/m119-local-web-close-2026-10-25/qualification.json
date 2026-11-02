@@ -1,0 +1,1241 @@
+{
+  "task": "MIOPUNCH-119",
+  "status": "TWO_LOCAL_ORDINARY_ENTRIES_PASS; BROWSER_PENDING_CLOSE_FAILS; FULL_TICKET_INCOMPLETE",
+  "qualification_time_UTC": "2026-10-25T14:16:07.418290+00:00",
+  "provenance": {
+    "root_qualification": ".artifacts/runs/root-scheduling-20261023/m119-independent-local-entries-and-pending-failure-qualification-20261025.json",
+    "bytes": 47752,
+    "sha256": "7e8a141cc42f58831cccc5705fcf7f8937c0315b0cf208a5993b9aa428e9b8d9",
+    "ordinary_receipt_root": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/nonwindows-ordinary-closure-20261025",
+    "pending_receipt_root": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/nonwindows-browser-pending-close-20261025",
+    "source_custody_sha256": "97b889a8708632808b2820c884aab91254f9857ffc43ce1da2c6e2a678292710",
+    "operator_strict_qualification_sha256": "2ba7f6f917f42f3e1620f5d7ca53badfc52a50a85bf79c8a9fe6cbfcabe5a724"
+  },
+  "source_graphs": {
+    "NativeSDK11": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-linux-web-11/miopunch-client",
+      "bytes": 179234744,
+      "sha256": "ddeb79bbd9649b488d100e2aacad0ec0f5f4b0906397e6165f7e6b1820c9d9fb",
+      "receipt": "/home/js/Git/miopunch/.artifacts/runs/m119-linux-web-11/build.json",
+      "receipt_sha256": "1bf5679c83d740fd3fda479725f6da68d5860df5136023eb1c615eedce217d62",
+      "source_archive_sha256": "2aa6ac7c392e3bd02305eb972f3f8f639648a789a27bddfbcc65308079ff735f",
+      "profile": "dev",
+      "features": [],
+      "toolchain": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: x86_64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8\n"
+    },
+    "relay_only": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m118-local-relay-5/browser-probe-native",
+      "bytes": 114779944,
+      "sha256": "fd3c246b918fe47b9b8569766b6604b7e644ea122a296001130c3650de02d951",
+      "receipt": "/home/js/Git/miopunch/.artifacts/runs/m118-local-relay-5/build.json",
+      "receipt_sha256": "2c0409efb1d2c138800b360bf65c47dd9227bd4e3d02d02839b81aa702bf8d06",
+      "source_archive_sha256": "825424639d31d32b9df033b319a469f333cf71d1875093d2c5613e1b1c032680",
+      "profile": "dev",
+      "features": [],
+      "toolchain": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: x86_64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8\n"
+    },
+    "WASM5": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-wasm-web-5/pkg",
+      "files": {
+        "compiled_bg.wasm.d.ts": "022b84c604043d798ef1e34358c3a58c929d8955cbe262de2aa93d0202d08434",
+        "compiled.d.ts": "e5832a20f1b6869cbd0175f42b23dbd1bf70bda3611c5d058e05f70507cce11a",
+        "compiled_bg.wasm": "57d6db67b5b227816418cd2a70d7b2d8db2bb2c5d895b7de39dd21ba2f3704d8",
+        "compiled.js": "0efaed04b35c9a6f2176eef2aaaa006812eaa1bf4c6609f974345ed78e69954c",
+        "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "e0b1251063fc30f76e163d8a293ffbe9f40948d2a7242c7758e2ee4837cdfaa0",
+        "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96",
+        "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/file_storage.js": "9c2d1dde74ee07a723516afae625df85b0e38ef7fc08083ee9355ccf450f69f8",
+        "snippets/miopunch-browser-probe-7a43fd8bb4838752/src/clipboard.js": "380c791faacef0359c49c62a999f65829d3cbd3a8fc7b0436f6cf1260ea438a7"
+      },
+      "package_sha256": "19cc57192371e4f801546fda81647048616f4121cbf0106874818abba3cf7688",
+      "receipt": "/home/js/Git/miopunch/.artifacts/runs/m119-wasm-web-5/build.json",
+      "receipt_sha256": "fa11a1ca764eb57ba7e5087ba3b5c9528ca9e17bd4e7f7d41dc6d1c042dc367c",
+      "source_archive_sha256": "00eebc57c3a53f79fab93b85e8377ba069432ddb71ed8208e65c5e610a5f6040",
+      "profile": "dev",
+      "features": [
+        "rtc-probe"
+      ],
+      "toolchain": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: x86_64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8\n"
+    },
+    "locks": {
+      "m119-linux-web-11": "7f77e9317f1c17dd78b45ab54ce980b783bd191735fe2652f6cfb7aaf40c44f7",
+      "m118-local-relay-5": "ae9542de2fe8f1d77527ceb0e9e0b7322897a6c51d6b7fe553d6affd14ea23d6",
+      "m119-wasm-web-5": "7f77e9317f1c17dd78b45ab54ce980b783bd191735fe2652f6cfb7aaf40c44f7"
+    },
+    "runtime_pins": {
+      "/usr/bin/bwrap": {
+        "path": "/usr/bin/bwrap",
+        "bytes": 72080,
+        "sha256": "85580dd52ed366ece8844e90fa75ac7c4de8802963071344e123221fb9f6f11e"
+      },
+      "/usr/bin/Xvfb": {
+        "path": "/usr/bin/Xvfb",
+        "bytes": 2057824,
+        "sha256": "c50687113cd5232844b8fa3a49276a48a022fa7fc4275b983ae8f88158efed72"
+      },
+      "/usr/bin/xauth": {
+        "path": "/usr/bin/xauth",
+        "bytes": 52736,
+        "sha256": "d5d3c556e7acc1a224a2847095bd5551a81b2418e2de827193119a028b0d0058"
+      },
+      "/usr/bin/dbus-daemon": {
+        "path": "/usr/bin/dbus-daemon",
+        "bytes": 244288,
+        "sha256": "1f729ba5672fa1b3d6dfb9d4415db98e023537d7e3a7c20737a29438dfcca412"
+      },
+      "/usr/bin/python3": {
+        "path": "/usr/bin/python3.11",
+        "bytes": 6834488,
+        "sha256": "6d972cf21be56fe3c947ab6ba257ff8d08c342dd2714442986791bd9a6dfabfe"
+      },
+      "/home/js/.nvm/versions/node/v24.14.0/bin/node": {
+        "path": "/home/js/.nvm/versions/node/v24.14.0/bin/node",
+        "bytes": 122466960,
+        "sha256": "e237a2839d0cbdc9a9a2adda1a184afc0f5b20306ffbe923af5686550472d8a8"
+      },
+      "/home/js/.local/share/uv/python/cpython-3.13.11-linux-x86_64-gnu/bin/python3.13": {
+        "path": "/home/js/.local/share/uv/python/cpython-3.13.11-linux-x86_64-gnu/bin/python3.13",
+        "bytes": 29259784,
+        "sha256": "a7f47431133a1456d74e54f30f727c473b226f114fd02e241aca2d0565463f74"
+      }
+    },
+    "Chromium": {
+      "path": "/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome",
+      "sha256": "8c599d43aec53f2460a31ae2f4af6bd863f8258b34ff519564bc5d4726bfaa1e"
+    }
+  },
+  "ordinary_cases": {
+    "browser-container": {
+      "result": {
+        "status": "pass",
+        "seconds": 26.325425293998705,
+        "cleanup_errors": [],
+        "all_owned_terminal": true,
+        "private_state_removed": true,
+        "controller_drift": []
+      },
+      "result_sha256": "216339c2121493a19a87d595d350fd1e8df225eb7b338778613ad796be7136b9",
+      "events_sha256": "62a6d191c227349723dcbc3dccdee6170f27705452f50262181ddddc9266878b",
+      "event_rows": 241,
+      "original_pid": 380904,
+      "outer_exit": 0,
+      "outer_stderr_bytes": 0,
+      "namespace": {
+        "network_namespace": "net:[4026532416]",
+        "parent_network_namespace": "net:[4026531840]",
+        "pid_namespace": "pid:[4026532415]",
+        "interfaces": [
+          "lo"
+        ],
+        "only_loopback_routes": true,
+        "effective_capabilities": "0",
+        "own_loopback_socket_exact": true,
+        "external_probe_performed": false
+      },
+      "observers": [
+        {
+          "owner": "gateway:m119-web-avlo7hg3",
+          "failures": 0,
+          "overflow": 0,
+          "loop_id": 128119411508880,
+          "loop_closed": true,
+          "loop_running": false,
+          "servers": [
+            {
+              "name": "https",
+              "server_id": 128119411513360,
+              "serving": false,
+              "listeners": 0,
+              "attached_clients": 0,
+              "client_set_available": true
+            },
+            {
+              "name": "http-proxy",
+              "server_id": 128119411513680,
+              "serving": false,
+              "listeners": 0,
+              "attached_clients": 0,
+              "client_set_available": true
+            }
+          ]
+        },
+        {
+          "owner": "target:2",
+          "failures": 0,
+          "overflow": 0,
+          "loop_id": 128119413128416,
+          "loop_closed": true,
+          "loop_running": false,
+          "servers": [
+            {
+              "name": "http",
+              "server_id": 128119412294016,
+              "serving": false,
+              "listeners": 0,
+              "attached_clients": 0,
+              "client_set_available": true
+            }
+          ]
+        },
+        {
+          "owner": "target:1",
+          "failures": 0,
+          "overflow": 0,
+          "loop_id": 128119413027040,
+          "loop_closed": true,
+          "loop_running": false,
+          "servers": [
+            {
+              "name": "https",
+              "server_id": 128119413029728,
+              "serving": false,
+              "listeners": 0,
+              "attached_clients": 0,
+              "client_set_available": true
+            }
+          ]
+        },
+        {
+          "owner": "target:1:socket-prerequisite",
+          "failures": 0,
+          "overflow": 0,
+          "loop_id": 128119411508240,
+          "loop_closed": true,
+          "loop_running": false,
+          "servers": []
+        }
+      ],
+      "functional": {
+        "actual_content_resources": {
+          "actual_container": "Browser/WASM/Chromium",
+          "script_fetch_exact": true,
+          "stylesheet_applied": true,
+          "image_decoded": true,
+          "provider_target_observed_all": true
+        },
+        "actual_content_login_navigation": {
+          "form_post": true,
+          "cookie_received_by_target": true,
+          "redirect_303": true,
+          "navigation": true
+        },
+        "actual_content_websocket": {
+          "native_websocket_api": true,
+          "unsolicited_greeting": true,
+          "text_and_binary_exact": true,
+          "login_cookie_reached_socket_target": true,
+          "target_independently_observed": true,
+          "normal_close": true,
+          "content_close_code": 1000,
+          "content_wasClean": true,
+          "SDK_failed": false,
+          "module_and_target_owners_settled": true,
+          "target_tls": true
+        },
+        "actual_content_isolation": {
+          "platform": "Browser/WASM/Chromium",
+          "attempts": {
+            "done": true,
+            "noNode": true,
+            "noNativeIPC": true,
+            "nativeCallDenied": true,
+            "parentNodeDenied": true,
+            "parentStorageDenied": true,
+            "managementStorageAbsent": true,
+            "managementCookieAbsent": true,
+            "managementIndexedDBAbsent": true,
+            "fileDenied": true,
+            "externalFetchDenied": true,
+            "externalSocketDenied": true,
+            "contentIDBWorked": true,
+            "managementRPCDenied": true
+          },
+          "fresh_management_file_unchanged": true,
+          "direct_http_ws_frame_image_no_target_effect": true,
+          "provider_configuration_unchanged": true
+        }
+      },
+      "special": {
+        "independent_WASM_admission": {
+          "distinct_identity": true,
+          "real_admission_complete": true,
+          "real_signed_service_sync": true
+        },
+        "management_storage": {
+          "storageUnchanged": true,
+          "cookieUnchanged": true,
+          "indexedDBUnchanged": true,
+          "nodePresent": true
+        },
+        "pending_case": "NOT_PRESENT_IN_ARCHIVED_BROWSER_ENTRY; no client-alive pending-close claim"
+      },
+      "raw_bytes": 3721713,
+      "raw_files": {
+        "events.jsonl": {
+          "bytes": 56698,
+          "sha256": "62a6d191c227349723dcbc3dccdee6170f27705452f50262181ddddc9266878b"
+        },
+        "browser-host-owner.jsonl": {
+          "bytes": 962,
+          "sha256": "aca8f7d9dcd7c24e3bc85dbc8f5a19a103fbfa8dfbde7af6f02e60ffb6689603"
+        },
+        "controller-end.json": {
+          "bytes": 3136,
+          "sha256": "4756b095c1952dc0c27cbee245fbe57516d52c76ade5404641ee4a9522f1390e"
+        },
+        "provider-owner.jsonl": {
+          "bytes": 961,
+          "sha256": "07926f446f30e1a24ecd9f32fae897a62b90a53f4bda945327aea74aa7316e98"
+        },
+        "result.json": {
+          "bytes": 33538,
+          "sha256": "216339c2121493a19a87d595d350fd1e8df225eb7b338778613ad796be7136b9"
+        },
+        "browser-actor-wasm-owner.jsonl": {
+          "bytes": 1443,
+          "sha256": "c3559e8281b50a4ba016f9622ab5d059711069b76abe13d3e75c9294bf816c1c"
+        },
+        "controller-start.json": {
+          "bytes": 3136,
+          "sha256": "4756b095c1952dc0c27cbee245fbe57516d52c76ade5404641ee4a9522f1390e"
+        },
+        "local-relay.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "provider.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "browser-host.stderr": {
+          "bytes": 5289,
+          "sha256": "98b31ba0e3838dcd17c3a9ea2cf0cf44b9a460882ae4ef213429fe255e40a27a"
+        },
+        "local-relay-owner.jsonl": {
+          "bytes": 1248,
+          "sha256": "84d8fe99461b1620476bd04a5c82fbbe20ca9f491e11b89a77c48e6c53c7790e"
+        },
+        "controller-sources/scripts/web_content_gateway.py": {
+          "bytes": 20989,
+          "sha256": "13cd01c6650209b7af045d9b2a09ed095c9db131db81270ccd0f386cc92ef618"
+        },
+        "controller-sources/scripts/check_web_browser.py": {
+          "bytes": 6080,
+          "sha256": "b41382156ee13bcd0ef52fda59ef4df14fd8804957434efe27e5ec0af9a8879c"
+        },
+        "controller-sources/scripts/web_tls_fixture.py": {
+          "bytes": 3933,
+          "sha256": "a7ccc92f2c505a0d976326f54999825b53e8aeda959aa87fc45c80f8db85b13f"
+        },
+        "controller-sources/scripts/forwarding_local_resources.py": {
+          "bytes": 6852,
+          "sha256": "baec2ff7aba006cdc23cbb60a80ffb62b5342cdda6f198295cfcca0722eeec11"
+        },
+        "controller-sources/scripts/check_forwarding.py": {
+          "bytes": 14011,
+          "sha256": "e6970b129f505e3cdcebdc0153f3308f18ef8a03ebafec1698cc714fd88e726c"
+        },
+        "controller-sources/scripts/web_content_runtime.py": {
+          "bytes": 19364,
+          "sha256": "6760d48bb7b9f9389f3709d42db348864299ebb5d73d380811220164dab99051"
+        },
+        "controller-sources/scripts/web_browser_runtime.py": {
+          "bytes": 8865,
+          "sha256": "618ba5558d956e373131dfaf770d002892b9e86c7c432789f9b56cc4bf6f1e65"
+        },
+        "controller-sources/scripts/web_process_owner.py": {
+          "bytes": 8089,
+          "sha256": "0b4f9d4b27fa610590d3cf0d237eb89ebdc9eeb352faca58c0e1d1107968331c"
+        },
+        "controller-sources/scripts/web_protocol_target.py": {
+          "bytes": 13016,
+          "sha256": "f0e055ace19603870e5509a75f6f24ff7364fd53dc48fb99ace8242ee15f6d54"
+        },
+        "controller-sources/scripts/check_web_service.py": {
+          "bytes": 10747,
+          "sha256": "a1a26ae10b456b3f7e6b2cb211f79c3dacc870de0878d6c2a52a522ce192b170"
+        },
+        "controller-sources/scripts/web_network_namespace.py": {
+          "bytes": 4947,
+          "sha256": "cf31b1ccf6b94593303affd7b0c8ed870be11714e2e47f3a8eac6a34aaecc125"
+        },
+        "controller-sources/external/9ddf89e96023b894df354c24dda0dc59217ae6bc7f97e664be2ac83063e37847/package.json": {
+          "bytes": 876,
+          "sha256": "f061c58427e47e843e26d201f0a57076c734e57c734ecbbd87d4a23b7a20db9b"
+        },
+        "controller-sources/external/83432e796a58d83d788799439d2008772f614b5304bef8831a3d4d45055f00fa/coreBundle.js": {
+          "bytes": 3477183,
+          "sha256": "549070af3acabb3efcc4f55bfe6210f9f7c2fcf633cf7eaa59bfe60719969171"
+        },
+        "controller-sources/browser-probe/harness/forwarding.mjs": {
+          "bytes": 20350,
+          "sha256": "6627d4a977a64ccdc4a5cbbdfe97194001482b0dfc882733880405a7195f0a33"
+        }
+      },
+      "stderr_qualification": "Browser5289B: unavailable deliberately isolated DBus, DevTools own loopback endpoint, Fontconfig. Native941B: WebKit deprecation/a11y unavailable; Xvfb64B directoryowner warning; expected negative-auth probe65B. Original bytes preserved; no asyncio callback error."
+    },
+    "native-webkit": {
+      "result": {
+        "status": "pass",
+        "seconds": 14.172493150999799,
+        "cleanup_errors": [],
+        "all_owned_terminal": true,
+        "private_state_removed": true,
+        "controller_drift": []
+      },
+      "result_sha256": "7cbc01c075e3327ee249e46ab20ba96a1844932abe917202563103ff47c6449e",
+      "events_sha256": "82d0e211f321f4707415b439ad64e098bf41345464c6c75cf9d4babcca5f23a3",
+      "event_rows": 359,
+      "original_pid": 387559,
+      "outer_exit": 0,
+      "outer_stderr_bytes": 0,
+      "namespace": {
+        "network_namespace": "net:[4026532416]",
+        "parent_network_namespace": "net:[4026531840]",
+        "pid_namespace": "pid:[4026532415]",
+        "interfaces": [
+          "lo"
+        ],
+        "only_loopback_routes": true,
+        "effective_capabilities": "0",
+        "own_loopback_socket_exact": true,
+        "external_probe_performed": false
+      },
+      "observers": [
+        {
+          "owner": "target:2",
+          "failures": 0,
+          "overflow": 0,
+          "loop_id": 132215747696048,
+          "loop_closed": true,
+          "loop_running": false,
+          "servers": [
+            {
+              "name": "http",
+              "server_id": 132215747697264,
+              "serving": false,
+              "listeners": 0,
+              "attached_clients": 0,
+              "client_set_available": true
+            }
+          ]
+        },
+        {
+          "owner": "target:1",
+          "failures": 0,
+          "overflow": 0,
+          "loop_id": 132215748588416,
+          "loop_closed": true,
+          "loop_running": false,
+          "servers": [
+            {
+              "name": "https",
+              "server_id": 132215748590768,
+              "serving": false,
+              "listeners": 0,
+              "attached_clients": 0,
+              "client_set_available": true
+            }
+          ]
+        },
+        {
+          "owner": "target:1:socket-prerequisite",
+          "failures": 0,
+          "overflow": 0,
+          "loop_id": 132215747199376,
+          "loop_closed": true,
+          "loop_running": false,
+          "servers": []
+        },
+        {
+          "owner": "gateway:m119-web-ofds3bz3",
+          "failures": 0,
+          "overflow": 0,
+          "loop_id": 132215747204816,
+          "loop_closed": true,
+          "loop_running": false,
+          "servers": [
+            {
+              "name": "https",
+              "server_id": 132215747205136,
+              "serving": false,
+              "listeners": 0,
+              "attached_clients": 0,
+              "client_set_available": true
+            },
+            {
+              "name": "http-proxy",
+              "server_id": 132215747205456,
+              "serving": false,
+              "listeners": 0,
+              "attached_clients": 0,
+              "client_set_available": true
+            }
+          ]
+        }
+      ],
+      "functional": {
+        "actual_content_resources": {
+          "actual_container": "Linux/WebKit",
+          "script_fetch_exact": true,
+          "stylesheet_applied": true,
+          "image_decoded": true,
+          "provider_target_observed_all": true
+        },
+        "actual_content_login_navigation": {
+          "form_post": true,
+          "cookie_received_by_target": true,
+          "redirect_303": true,
+          "navigation": true
+        },
+        "actual_content_websocket": {
+          "native_websocket_api": true,
+          "unsolicited_greeting": true,
+          "text_and_binary_exact": true,
+          "login_cookie_reached_socket_target": true,
+          "target_independently_observed": true,
+          "normal_close": true,
+          "content_close_code": 1000,
+          "content_wasClean": true,
+          "SDK_failed": false,
+          "module_and_target_owners_settled": true,
+          "target_tls": true
+        },
+        "actual_content_isolation": {
+          "platform": "Linux/WebKit",
+          "attempts": {
+            "noNativeIPC": true,
+            "externalFetchDenied": true,
+            "done": true,
+            "parentStorageDenied": true,
+            "parentNodeDenied": true,
+            "managementStorageAbsent": true,
+            "managementCookieAbsent": true,
+            "managementRPCDenied": true,
+            "nativeCallDenied": true,
+            "externalSocketDenied": true,
+            "noNode": true,
+            "fileDenied": true,
+            "contentIDBWorked": true,
+            "managementIndexedDBAbsent": true
+          },
+          "fresh_management_file_unchanged": true,
+          "direct_http_ws_frame_image_no_target_effect": true,
+          "provider_configuration_unchanged": true
+        }
+      },
+      "special": {
+        "pending_gateway_close": {
+          "platform": "Linux/WebKit",
+          "target_observed_pending": true,
+          "close_seconds": 0.284648205000849,
+          "all_module_owners_joined": true
+        },
+        "initial_gateway_https_attached_clients": 4,
+        "gateway_servers_zero_before_loop_close": true,
+        "gateway_early_receipt_before_host_termination_observation": true,
+        "negative_gateway_outcomes": {
+          "outcomes": [
+            {
+              "case": "missing_cookie",
+              "actual": 403,
+              "expected": 403
+            },
+            {
+              "case": "wrong_host",
+              "actual": 403,
+              "expected": 403
+            },
+            {
+              "case": "other_absolute_origin",
+              "actual": 403,
+              "expected": 403
+            },
+            {
+              "case": "wrong_origin",
+              "actual": 403,
+              "expected": 403
+            },
+            {
+              "case": "opaque_origin",
+              "actual": 403,
+              "expected": 403
+            },
+            {
+              "case": "management_rpc",
+              "actual": 404,
+              "expected": 404
+            },
+            {
+              "case": "connect",
+              "actual": 403,
+              "expected": 403
+            }
+          ],
+          "target_requests_before": 2,
+          "target_requests_after": 2
+        },
+        "normal_init_public_admission": "real distinct SDK11 provider/consumer; no new Rust diagnostic claim"
+      },
+      "raw_bytes": 253546,
+      "raw_files": {
+        "webkit-host-owner.jsonl": {
+          "bytes": 966,
+          "sha256": "1f72c7429681dd5682cbb7279c8980472d30bce6703bef63f1d194ef984ba1d8"
+        },
+        "content-desktop-probe-1-owner.stdout": {
+          "bytes": 100,
+          "sha256": "5405529a2af862ec0ed8d4cbb80f86e0b9733b7f49d4c3a2df7858ca5e095ad6"
+        },
+        "preflight-retired-probe-3-owner.jsonl": {
+          "bytes": 1486,
+          "sha256": "113fef8d44fbb42364545cb3025853ce6bdc05892d2577c85e0bc630f8c6ee0d"
+        },
+        "private-bus-owner.jsonl": {
+          "bytes": 1254,
+          "sha256": "a68ddefb77a9e1dcfef9bdd079c8eeeacfc3502c88ecee669dad61a50b49c41f"
+        },
+        "content-desktop-xauth-owner.stdout": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "content-desktop-xauth-owner.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "preflight-retired-probe-2-owner.stdout": {
+          "bytes": 101,
+          "sha256": "bdaae94f85d2d68b97a31a28a7e4c79cde826116682d24f48820e61b9f470b3c"
+        },
+        "preflight-retired-probe-2-owner.stderr": {
+          "bytes": 65,
+          "sha256": "3c649a53cd037292977d3a8e8bc3d981384d2f09bca4ac792ad22418b8954b63"
+        },
+        "events.jsonl": {
+          "bytes": 85148,
+          "sha256": "82d0e211f321f4707415b439ad64e098bf41345464c6c75cf9d4babcca5f23a3"
+        },
+        "content-desktop-probe-1-owner.jsonl": {
+          "bytes": 1481,
+          "sha256": "02f5403e3ad94ef549fd317671293c980793d12308d0f2eff424290b14a31788"
+        },
+        "content-desktop-probe-1-owner.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "content-desktop-probe-2-owner.stdout": {
+          "bytes": 100,
+          "sha256": "d7c048a202faa01e23fed4685bea622111c35c00506d39a471a6f33648b70d41"
+        },
+        "consumer.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "consumer-owner.jsonl": {
+          "bytes": 962,
+          "sha256": "5a908d3d197d4c35d771fd6bc63fa8d5d918b75b4439ac834f10232e0490c934"
+        },
+        "controller-end.json": {
+          "bytes": 2336,
+          "sha256": "6daaeb6464abe1d0dee1a625c23f69af1acb4a1133a2da3e9a3392c695d17ca0"
+        },
+        "preflight-retired-probe-1-owner.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "preflight-retired-owner.jsonl": {
+          "bytes": 1314,
+          "sha256": "d499141c63427ab45f86db5fef2906cfbaae5ef15bf704ed2c50f8de07dbadb2"
+        },
+        "provider-owner.jsonl": {
+          "bytes": 961,
+          "sha256": "f03133481008be8c71baf11b25a6c2489074d1a9b26505fb74f5206eaeae9eaf"
+        },
+        "preflight-retired-xauth-owner.jsonl": {
+          "bytes": 1477,
+          "sha256": "a47a48582b4f366cdae80b217570b63bd7f0caa58c5b882b350cf47b0d629795"
+        },
+        "result.json": {
+          "bytes": 23934,
+          "sha256": "7cbc01c075e3327ee249e46ab20ba96a1844932abe917202563103ff47c6449e"
+        },
+        "content-desktop.stderr": {
+          "bytes": 64,
+          "sha256": "87e9572cf030493a1f7ba83d385129046b224374ca1414911674b30fc44276d7"
+        },
+        "controller-start.json": {
+          "bytes": 2336,
+          "sha256": "6daaeb6464abe1d0dee1a625c23f69af1acb4a1133a2da3e9a3392c695d17ca0"
+        },
+        "preflight-retired-xauth-owner.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "local-relay.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "content-desktop-owner.jsonl": {
+          "bytes": 1257,
+          "sha256": "65ccf364d67eddfd715e4d02f36273d4ce7e4ad038c631eaf56517ebc4c8bceb"
+        },
+        "provider.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "preflight-retired-probe-3-owner.stdout": {
+          "bytes": 101,
+          "sha256": "fd04d94d837e507717626f64c4a0fbe98f2b20b594464c10119e9c19d8c15e3d"
+        },
+        "preflight-retired-probe-1-owner.jsonl": {
+          "bytes": 1480,
+          "sha256": "d50e44d443a812c39a3d37c573f350f7fe4c8656a65bca6fd8c71be4732396ed"
+        },
+        "content-desktop-probe-2-owner.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "private-bus.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "preflight-retired-probe-1-owner.stdout": {
+          "bytes": 100,
+          "sha256": "c7c5637c7c2cd877a101a2d04c265185b68510b6be5bcc608babaf8f4be230e5"
+        },
+        "content-desktop-probe-2-owner.jsonl": {
+          "bytes": 1482,
+          "sha256": "285e4fc718c7ca8837586278951ad9938c13bfdec2c27caf9707bf7f41fcac6e"
+        },
+        "preflight-retired-xauth-owner.stdout": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "webkit-host.stderr": {
+          "bytes": 941,
+          "sha256": "3ed86ce13c217840cd967898deb96cfcb5c42b14aae2c1a6daedf796054a2023"
+        },
+        "preflight-retired-probe-3-owner.stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "preflight-retired.stderr": {
+          "bytes": 64,
+          "sha256": "87e9572cf030493a1f7ba83d385129046b224374ca1414911674b30fc44276d7"
+        },
+        "preflight-retired-probe-2-owner.jsonl": {
+          "bytes": 1485,
+          "sha256": "75613553349bd11cb30dd586b20ae3be8590b8e1c40f3c8cf65d917c3f3d5ea1"
+        },
+        "local-relay-owner.jsonl": {
+          "bytes": 1251,
+          "sha256": "6d308ce093076c9489625700956003b0fbc4bbfc15c1f4da3e18968ab18affe7"
+        },
+        "content-desktop-xauth-owner.jsonl": {
+          "bytes": 1478,
+          "sha256": "7158c36d2d63cb4b9c7d7aef3e8b8a9034942a3811aa103636fee5d78c0c77c5"
+        },
+        "controller-sources/scripts/web_content_gateway.py": {
+          "bytes": 20989,
+          "sha256": "13cd01c6650209b7af045d9b2a09ed095c9db131db81270ccd0f386cc92ef618"
+        },
+        "controller-sources/scripts/check_web_container.py": {
+          "bytes": 18066,
+          "sha256": "69c68fa22debb97628c05808acc2999ad242e9e3a616b905039bc31983be4e73"
+        },
+        "controller-sources/scripts/web_tls_fixture.py": {
+          "bytes": 3933,
+          "sha256": "a7ccc92f2c505a0d976326f54999825b53e8aeda959aa87fc45c80f8db85b13f"
+        },
+        "controller-sources/scripts/forwarding_local_resources.py": {
+          "bytes": 6852,
+          "sha256": "baec2ff7aba006cdc23cbb60a80ffb62b5342cdda6f198295cfcca0722eeec11"
+        },
+        "controller-sources/scripts/check_forwarding.py": {
+          "bytes": 14011,
+          "sha256": "e6970b129f505e3cdcebdc0153f3308f18ef8a03ebafec1698cc714fd88e726c"
+        },
+        "controller-sources/scripts/web_content_runtime.py": {
+          "bytes": 19364,
+          "sha256": "6760d48bb7b9f9389f3709d42db348864299ebb5d73d380811220164dab99051"
+        },
+        "controller-sources/scripts/web_process_owner.py": {
+          "bytes": 8089,
+          "sha256": "0b4f9d4b27fa610590d3cf0d237eb89ebdc9eeb352faca58c0e1d1107968331c"
+        },
+        "controller-sources/scripts/web_content_host.py": {
+          "bytes": 4755,
+          "sha256": "1e1b0287502d2a654b5e3484846c6d0e49ca2c68e5f04be62774f2b52fa2ea21"
+        },
+        "controller-sources/scripts/web_protocol_target.py": {
+          "bytes": 13016,
+          "sha256": "f0e055ace19603870e5509a75f6f24ff7364fd53dc48fb99ace8242ee15f6d54"
+        },
+        "controller-sources/scripts/check_web_service.py": {
+          "bytes": 10747,
+          "sha256": "a1a26ae10b456b3f7e6b2cb211f79c3dacc870de0878d6c2a52a522ce192b170"
+        }
+      },
+      "stderr_qualification": "Browser5289B: unavailable deliberately isolated DBus, DevTools own loopback endpoint, Fontconfig. Native941B: WebKit deprecation/a11y unavailable; Xvfb64B directoryowner warning; expected negative-auth probe65B. Original bytes preserved; no asyncio callback error."
+    }
+  },
+  "pending_first_failure": {
+    "monotonic": 28640.070242972,
+    "status": "ORIGINAL_SINGLE_CASE_GENUINE_CORE_CLOSE_BOUND_FAILURE_ALL_EVENTUAL_OWNERS_SETTLED",
+    "original_session": 76122,
+    "original_pid": 442931,
+    "original_exit": 1,
+    "result_summary": {
+      "status": "failed",
+      "failure_type": "AssertionError",
+      "failure": "pending content close exceeded owner bound",
+      "seconds": 33.74033692699959,
+      "cleanup_errors": [],
+      "all_owned_terminal": true,
+      "private_state_removed": true,
+      "controller_drift": []
+    },
+    "result_sha256": "c50614c86ef8bbc4559f44ce5b1cbd65b4e5b5c0d49ba97a59b7c729f54c7cdc",
+    "events_sha256": "99f1f13e05585e271609b4473494028fccf16697d67bf233b040ef57228057f7",
+    "events": 147,
+    "assertion_matches_original_native_core": true,
+    "actual_failure_layer": "Browser original request_web Promise callback owner remains active after gateway loop closes; gateway.close residual executor join exceeds5s; inference from exactsource+eventtimeline, no livestackprobe",
+    "unified_issue_list": [
+      {
+        "id": "B1",
+        "issue": "FrozenWASM5 public per-request begin/result/cancel API unimplemented",
+        "evidence": "pinnedcompiled.d.ts exposesrequest_webPromise andcancellation_handle documentedwholeendpointdisconnect; originalBrowserhttp_callbacksNone; no substitution",
+        "classification": "interface/productgap"
+      },
+      {
+        "id": "B2",
+        "issue": "Originalcallback/executor settlement exceeds unchanged coreclose5s",
+        "measured_close_seconds": 14.824958630000765,
+        "shutdown_future_seconds": 2.2538880620013515,
+        "callback_error_arrival_after_future_seconds": 12.570681209999748,
+        "classification": "actualfixtureintegrationfailure; exactpublicrequestErrorcauseUNKNOWN"
+      },
+      {
+        "id": "B3",
+        "issue": "Postclose public SDK-operation/providerflow-zero and renderer-failure predicates not reached duefirstcoreassertion",
+        "classification": "qualificationincomplete; finalprocessactorcleanupdoesnotproveimmediateSDKcancellation"
+      }
+    ],
+    "facts": {
+      "before": {
+        "node": "controller",
+        "operation": "actual_browser_pending_before_gateway_close",
+        "result": {
+          "one_target_pending_request": true,
+          "pending_target_not_released": true,
+          "liveness": {
+            "nodePresent": true,
+            "browserConnected": true,
+            "pageOpen": true,
+            "contentFramePresent": true
+          },
+          "browser_host_original_pid": 38,
+          "no_node_or_renderer_close_requested": true,
+          "binding": "original request_web Promise callback; http_callbacks=None; no cancellation substitute"
+        },
+        "monotonic": 28482.24127231
+      },
+      "future": {
+        "node": "controller",
+        "operation": "gateway_shutdown_future",
+        "result": {
+          "phase": "shutdown_complete",
+          "wait_elapsed": 2.2538880620013515,
+          "wall_elapsed": 2.2538881301879883,
+          "wait_timeout": 10,
+          "future_done": true,
+          "future_cancelled": false,
+          "errors": [],
+          "loop_running": true,
+          "loop_closed": false
+        },
+        "monotonic": 28484.495258956
+      },
+      "public_request_failure": {
+        "node": "wasm",
+        "operation": "request_web",
+        "result": {
+          "id": 99,
+          "ok": false,
+          "failureClass": "Error",
+          "failurePhase": "ready"
+        },
+        "monotonic": 28497.065940166
+      },
+      "returned": {
+        "node": "controller",
+        "operation": "browser_gateway_close_returned",
+        "result": {
+          "close_seconds": 14.824958630000765,
+          "original_close_limit": 5,
+          "pending_target_not_released": true,
+          "browser_host_still_alive": true
+        },
+        "monotonic": 28497.066320377
+      },
+      "ordinary_browser_close": {
+        "node": "runner",
+        "operation": "close",
+        "result": {
+          "id": 102,
+          "ok": true,
+          "result": {
+            "cleanup": [
+              {
+                "actor": "wasm",
+                "pid": 52,
+                "terminal": true,
+                "exit": 0,
+                "closed": true,
+                "failures": []
+              }
+            ],
+            "server_closed": true
+          }
+        },
+        "monotonic": 28497.217196955
+      },
+      "gateway_client_counts": [
+        3,
+        1,
+        0
+      ],
+      "observers": [
+        {
+          "owner": "target:1",
+          "loop_id": 131072630829280,
+          "failures": 0,
+          "overflow": 0,
+          "loop_closed": true,
+          "loop_running": false,
+          "servers": [
+            {
+              "name": "https",
+              "server_id": 131072630831968,
+              "serving": false,
+              "listeners": 0,
+              "attached_clients": 0,
+              "client_set_available": true
+            }
+          ]
+        },
+        {
+          "owner": "target:1:socket-prerequisite",
+          "loop_id": 131072617679120,
+          "failures": 0,
+          "overflow": 0,
+          "loop_closed": true,
+          "loop_running": false,
+          "servers": []
+        },
+        {
+          "owner": "gateway:m119-web-n29pp2zr",
+          "loop_id": 131072617683600,
+          "failures": 0,
+          "overflow": 0,
+          "loop_closed": true,
+          "loop_running": false,
+          "servers": [
+            {
+              "name": "https",
+              "server_id": 131072617684240,
+              "serving": false,
+              "listeners": 0,
+              "attached_clients": 0,
+              "client_set_available": true
+            },
+            {
+              "name": "http-proxy",
+              "server_id": 131072617684560,
+              "serving": false,
+              "listeners": 0,
+              "attached_clients": 0,
+              "client_set_available": true
+            }
+          ]
+        }
+      ],
+      "namespace": {
+        "network_namespace": "net:[4026532416]",
+        "parent_network_namespace": "net:[4026531840]",
+        "pid_namespace": "pid:[4026532415]",
+        "interfaces": [
+          "lo"
+        ],
+        "only_loopback_routes": true,
+        "effective_capabilities": "0",
+        "own_loopback_socket_exact": true,
+        "external_probe_performed": false
+      },
+      "eventual_allowners_terminal": true,
+      "private_removed": true,
+      "no_controller_drift": true,
+      "no_early_targetrelease_or_nodeclose": true
+    },
+    "not_claimed": [
+      "naturalpublicErrorcauseorSDKtimeoutwasnotlocalized",
+      "active_operationszeroaftergatewaycloseNOT_REACHED",
+      "providerflowszeroaftergatewaycloseNOT_REACHED",
+      "rendererfailuretrueaftergatewaycloseNOT_REACHED",
+      "noWindowscauseorfixedclaim"
+    ],
+    "source_and_pins_posthash": true,
+    "source_manifest_sha256": "720bbd1f43245f4f08c037ede59841f89524556cf4f1dd12c1256c1e1a66ebb5",
+    "core_retained_source_reference": {
+      "path": "/home/js/Git/miopunch/.artifacts/runs/m119-browser-current-5/controller-sources/browser-probe/harness/node_modules/playwright-core/lib/coreBundle.js",
+      "bytes": 3477183,
+      "sha256": "549070af3acabb3efcc4f55bfe6210f9f7c2fcf633cf7eaa59bfe60719969171",
+      "installed_current_hash_verified": true,
+      "no_existing_path_mutation": true,
+      "no_duplicate_copy_or_new_hardlink": true
+    },
+    "core_new_copy_bytes": 0,
+    "originals_787_b9e_unchanged": true,
+    "raw_files": {
+      "selector/evidence/pending-namespace.owner.stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "selector/evidence/pending-namespace.stdout.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "selector/evidence/pending-namespace.owner.stderr": {
+        "bytes": 1148,
+        "sha256": "23fd19c433ecda6c4dc855cba2db365dcf4be86f1d3a51c79a51dc7e2cf665b4"
+      },
+      "selector/evidence/pending-namespace.owner.jsonl": {
+        "bytes": 1472,
+        "sha256": "4109590f9fc8d2663b6053d9c827fc0abb0854d5163bbe1d79210a791a7637f9"
+      },
+      "selector/evidence/pending-namespace.namespace.json": {
+        "bytes": 306,
+        "sha256": "4a5f33554f0e60af6d3620bd45cf128431446607729a501d0ef46d3292836f0f"
+      },
+      "selector/evidence/pending-namespace.stderr.log": {
+        "bytes": 1148,
+        "sha256": "23fd19c433ecda6c4dc855cba2db365dcf4be86f1d3a51c79a51dc7e2cf665b4"
+      },
+      "selector/evidence/pending-namespace.json": {
+        "bytes": 382,
+        "sha256": "80b183ae4a86844413d9696eccb0648307bbd43039c692caac772d5fd3de0cc5"
+      },
+      "selector/evidence/browser-pending-close/events.jsonl": {
+        "bytes": 45714,
+        "sha256": "99f1f13e05585e271609b4473494028fccf16697d67bf233b040ef57228057f7"
+      },
+      "selector/evidence/browser-pending-close/browser-host-owner.jsonl": {
+        "bytes": 962,
+        "sha256": "332012e3f6a45347da7a90133584b75b1c327b2abea1a13d979e65df0ffc4464"
+      },
+      "selector/evidence/browser-pending-close/controller-end.json": {
+        "bytes": 3920,
+        "sha256": "6ee0d3db86a078a00ca81a34d3e69823647a4a84be86103e5e0a20de65675cff"
+      },
+      "selector/evidence/browser-pending-close/provider-owner.jsonl": {
+        "bytes": 962,
+        "sha256": "34e4e640822e7f4358d2435a7f20d0c698ac7c74173f258b9e4cae44f80de411"
+      },
+      "selector/evidence/browser-pending-close/result.json": {
+        "bytes": 11386,
+        "sha256": "c50614c86ef8bbc4559f44ce5b1cbd65b4e5b5c0d49ba97a59b7c729f54c7cdc"
+      },
+      "selector/evidence/browser-pending-close/browser-actor-wasm-owner.jsonl": {
+        "bytes": 1445,
+        "sha256": "b2955466c07b75069fcd859424a7d008dfc66cee056241de9314109b5c6d7a71"
+      },
+      "selector/evidence/browser-pending-close/controller-start.json": {
+        "bytes": 3920,
+        "sha256": "6ee0d3db86a078a00ca81a34d3e69823647a4a84be86103e5e0a20de65675cff"
+      },
+      "selector/evidence/browser-pending-close/source-references.json": {
+        "bytes": 489,
+        "sha256": "5a43b3cdf2be25e4a98fb5142a8700fb721ddb1d231e6a73aebd65f15031df3b"
+      },
+      "selector/evidence/browser-pending-close/local-relay.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "selector/evidence/browser-pending-close/provider.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "selector/evidence/browser-pending-close/browser-host.stderr": {
+        "bytes": 5223,
+        "sha256": "6d0cc7ab6289a10193a901fa091be853cd816346939e4c22353f7a3b5f2def06"
+      },
+      "selector/evidence/browser-pending-close/local-relay-owner.jsonl": {
+        "bytes": 1247,
+        "sha256": "aa7e75f485ca4b3fb188af325b882834493ad30f141694e85ff87a83bcdeddce"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/scripts/web_content_gateway.py": {
+        "bytes": 20989,
+        "sha256": "13cd01c6650209b7af045d9b2a09ed095c9db131db81270ccd0f386cc92ef618"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/scripts/check_web_browser.py": {
+        "bytes": 6080,
+        "sha256": "b41382156ee13bcd0ef52fda59ef4df14fd8804957434efe27e5ec0af9a8879c"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/scripts/check_web_container.py": {
+        "bytes": 18066,
+        "sha256": "69c68fa22debb97628c05808acc2999ad242e9e3a616b905039bc31983be4e73"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/scripts/web_tls_fixture.py": {
+        "bytes": 3933,
+        "sha256": "a7ccc92f2c505a0d976326f54999825b53e8aeda959aa87fc45c80f8db85b13f"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/scripts/forwarding_local_resources.py": {
+        "bytes": 6852,
+        "sha256": "baec2ff7aba006cdc23cbb60a80ffb62b5342cdda6f198295cfcca0722eeec11"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/scripts/check_forwarding.py": {
+        "bytes": 14011,
+        "sha256": "e6970b129f505e3cdcebdc0153f3308f18ef8a03ebafec1698cc714fd88e726c"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/scripts/web_content_runtime.py": {
+        "bytes": 19364,
+        "sha256": "6760d48bb7b9f9389f3709d42db348864299ebb5d73d380811220164dab99051"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/scripts/web_browser_runtime.py": {
+        "bytes": 8865,
+        "sha256": "618ba5558d956e373131dfaf770d002892b9e86c7c432789f9b56cc4bf6f1e65"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/scripts/web_process_owner.py": {
+        "bytes": 8089,
+        "sha256": "0b4f9d4b27fa610590d3cf0d237eb89ebdc9eeb352faca58c0e1d1107968331c"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/scripts/web_protocol_target.py": {
+        "bytes": 13016,
+        "sha256": "f0e055ace19603870e5509a75f6f24ff7364fd53dc48fb99ace8242ee15f6d54"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/scripts/web_asyncio_observer.py": {
+        "bytes": 6970,
+        "sha256": "10a135e6baf008cf3b461bb23975374e9eff87bee9d20b61f2ef9a4ad6c2a2d8"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/scripts/check_web_service.py": {
+        "bytes": 10747,
+        "sha256": "a1a26ae10b456b3f7e6b2cb211f79c3dacc870de0878d6c2a52a522ce192b170"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/scripts/web_network_namespace.py": {
+        "bytes": 4947,
+        "sha256": "cf31b1ccf6b94593303affd7b0c8ed870be11714e2e47f3a8eac6a34aaecc125"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/scripts/check_web_browser_pending.py": {
+        "bytes": 9308,
+        "sha256": "66ff880822c3f8cc8454b9e1325b5faf655d3c1134a676701617a7d2904adce7"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/external/9ddf89e96023b894df354c24dda0dc59217ae6bc7f97e664be2ac83063e37847/package.json": {
+        "bytes": 876,
+        "sha256": "f061c58427e47e843e26d201f0a57076c734e57c734ecbbd87d4a23b7a20db9b"
+      },
+      "selector/evidence/browser-pending-close/controller-sources/browser-probe/harness/forwarding.mjs": {
+        "bytes": 20739,
+        "sha256": "0e3b2128caa2aae2f9458531671001f951bc0a3d8a893dcd8bab39ebb1685628"
+      }
+    },
+    "raw_evidence_and_source_bytes": 252576,
+    "newprobe_retry_orfix": false,
+    "known_live": []
+  },
+  "qualification_limits": [
+    "Browser ordinary pass covers normal close; its separate client-alive pending close FAILS14.824959>5",
+    "Immediate postclose SDK operation/providerflow0 and renderer failure predicates not reached in failed pending case",
+    "Residual executor wait attribution is source/timeline inference, no live stack probe; exact public Error cause unknown",
+    "Native management JS storage absence checks lacked separate seeded control; file/provider no-effect and actual attempts are qualified, not full combined-management-bridge acceptance",
+    "Linux/Browser results do not explain original Windows Win10054/attached3/SDKOs5 failures",
+    "No current held M120 input/parser/pressure behavior qualified or executed"
+  ],
+  "review_scope": "full namespace source, Browser scenario and Native content/isolation/pending assertions; all normal recorded raw/source hashes and structured events/results checked in47918c; all pending35 hashes and structured events checked with correct receipt root; key stderr FULL read and classified; repeated pending-only bodies not individually full-read",
+  "verifier_lookup_failure_retained": {
+    "tool_chunk": "47918c",
+    "classification": "Root read-only verifier used case-root for a pending manifest whose keys are relative to its whole receipt root; no product/test failure",
+    "normal_assertions_completed_before_lookup_error": true,
+    "corrected_only_pending_manifest_base_path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/nonwindows-browser-pending-close-20261025",
+    "normal_passed_inputs_not_retested": true
+  },
+  "evidence_retention": {
+    "local_raw_cap_bytes": 25165824,
+    "previous_local_raw_cap_bytes": 16777216,
+    "explicit_budget_review": ".artifacts/runs/root-scheduling-20261023/m119-expanded-local-evidence-retention-budget-review-20261025.json",
+    "explicit_budget_review_sha256": "1d368f73eae7cca9a18452fa75336517d1ca0398066ec46777bd20ffabc44301",
+    "post_pending_case_local_raw_bytes": 17543435,
+    "same_future_Windows_reserve_bytes": 2280084,
+    "conservative_total_bytes": 19823519,
+    "counting": "Same two parents; sum stat().st_size of is_file paths with st_nlink == 1, including conservative symlink target counts; no exclusions or baseline reset.",
+    "deduplication": "Stopped after host-visible process-check report failed with PermissionError on /proc/1/ns/pid. Original failure and both source copies retained; zero bytes freed; no retry, alternate access, deletion, chmod or linking.",
+    "store_default_bytes": 34359738368,
+    "existing_separate_store_exception_bytes": 35433480192,
+    "store_exception_not_raised_here": true,
+    "local_raw_cap_at_runtime_qualification_bytes": 20971520,
+    "headroom_at_runtime_qualification_bytes": 1148001,
+    "subsequent_current_WASM_source_and_build_phase": {
+      "status": "ONE_GRAPH_BUILD_AND_LOCAL_CONSTRUCTOR_PENDING_ORDINARY_RUNTIME_PASS; ORIGINAL_FAILURES_RETAINED",
+      "decision": ".artifacts/runs/root-scheduling-20261023/m119-current-Web-WASM-one-graph-retention-and-release-20261025.json",
+      "decision_sha256": "4e1d7e5593308b6adecaccd6b11ef2dd2928f558637b0427e0bb5d8fbd493969",
+      "local_raw_previous_bytes": 20971520,
+      "local_raw_explicit_bytes": 25165824,
+      "same_parents_counting_and_full_evidence_retained": true,
+      "new_source_archive_logs_and_two_real_entries_reserve_bytes": 3932160,
+      "all370_store_objects_preserved": true,
+      "this_one_graph_store_pin_growth_max_bytes": 108003328,
+      "existing_store33GiB_ceiling_extended_only_to_this_graph": 35433480192,
+      "store_default32GiB_unchanged": 34359738368,
+      "M119_cohort_cap_explicit_previous_bytes": 268435456,
+      "M119_cohort_cap_explicit_new_bytes": 335544320,
+      "full_M120_reserve_bytes": 723517440,
+      "same_cumulative_cap_bytes": 11542724608,
+      "same_cumulative_baseline_bytes": 23715852278,
+      "max_graph_and_M120_reserve_cumulative_headroom_bytes": 5387796,
+      "new_pin_or_runtime_result_established_here": true,
+      "current_store_objects": 375,
+      "actual_new_store_logical_bytes": 101760095,
+      "actual_new_store_allocated_bytes": 101769216
+    },
+    "new_builds_pins_or_native_copies_at_original_local_entries": 0
+  },
+  "Windows_next_packet": {
+    "status": "EXPLICIT_AUTHORIZATION_RECEIVED; EXACT_PACKET_DEPLOYED_AND_ONE_CASE_QUALIFIED; GRANT_CONSUMED",
+    "plan_sha256": "787395ce0af2fc8480076b19a9906db9eec16faa68da1584364296893dedb615",
+    "files": 15,
+    "bytes": 182932,
+    "case": "integration-content-tls-closed-1",
+    "nonce": "902b4a63-d54a-4edc-a097-95fdb45a5d38",
+    "private_packet_task_and_destination_unchanged": true,
+    "local_preflight_addendum_sha256": "9a90131a73f794b67ef6043f88c01d33e0fb4f5e6110b107d37bd87ceaa89fcc",
+    "local_stage_driver_executed": true,
+    "prior_single_case_grants_consumed": true,
+    "local20MiB_driver_preserved_requires_new_local24MiB_version_before_future_release": false,
+    "private_payload_task_remote_suffix_and_question_unchanged": true,
+    "local24_contract_addendum_sha256": "5c72a28775451bd6d2bd978ba2be882abcaea467df9fff64bacb4e3a26ba2dcb",
+    "old_20MiB_driver_executed": false,
+    "executed_local24_stage_driver_sha256": "4e968de3e961aa8e411678ca5868b3028565b66844c556af9986d130da700dd3",
+    "current_local24_version_used_for_exact_approved_operation": true,
+    "qualified_followup": {
+      "path": "../m119-windows-host-2026-10-25/tls-closure-qualification.json",
+      "sha256": "3496478f6ce968798e51c50d4416306689190f183f1c4f0c5b69f79008dc3a14",
+      "status": "EXPLICITLY_AUTHORIZED_ONE_CASE_PASS; GRANT_CONSUMED"
+    },
+    "preserved_20MiB_stage_driver_sha256": "b9e21e41be74659443a59920b905217d09ba189b90febefddf5ff058b669070c"
+  },
+  "current_followup": "Current local WASM/Native constructor/pending-cancel/ordinary/ACL-guest/natural-expiry cases and separately explicitly authorized Windows ONE902 TLSclosure case qualified. All first failures retained. Windows/Linux role exchange, Windows ACL/guest lifecycle, remaining platform coverage and formal review remain open.",
+  "full_M119_accepted": false,
+  "Plane_state_unchanged": true,
+  "current_WASM_progress_record": {
+    "path": "current-wasm-qualification.json",
+    "sha256": "01e802787a354eec52d4c9375fbd879bbd5c1b219316d58262be4de9f737a979",
+    "status": "BUILD_AND_CONSTRUCTOR_FULL_PENDING_CANCEL_ORDINARY_REGRESSIONS_PASS; ORIGINAL_FAILURES_RETAINED"
+  },
+  "current_Web_ACL_guest_record": {
+    "path": "guest-qualification.json",
+    "sha256": "24923ab49b68818081c1f35c2e0118e826a84bd566cd106f8fde47fe86fd4aca"
+  },
+  "current_Web_Browser_guest_natural_expiry_record": {
+    "path": "natural-expiry-qualification.json",
+    "sha256": "7f16dc7ff733e4faa202cdf76087e002024c1ea5d68e85ff311a605f7ddd0046",
+    "status": "CURRENT_BROWSER_GUEST_NATURAL_EXPIRY_PASS"
+  }
+}

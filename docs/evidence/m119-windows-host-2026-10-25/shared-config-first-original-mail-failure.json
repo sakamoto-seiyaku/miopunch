@@ -1,0 +1,31 @@
+{
+  "status": "FIRST_ROLE_FAILED_AT_CONTROL_MAIL_AFTER_REAL_WEB_NAVIGATION",
+  "packet_sha256": "37ba3985a3a67153f6760310e39a5330277b04605c0f72dafac1b37cbee265bd",
+  "raw_file_count": 29,
+  "raw_bytes": 102863,
+  "first_failure": {
+    "windows_worker_phase": "exercise",
+    "source": "worker.py:428 remote(navigation)",
+    "controller_mail_send": "023-linux-provider-mail-send exit1",
+    "mail_error": "JSONDecodeError on existing empty out message file"
+  },
+  "positive_narrow_facts": [
+    "manual admission completed",
+    "Linux provider and Windows consumer service_sync saved locally",
+    "real HTTPS resources and form/login passed",
+    "content DOM navigation reached true before provider proof request"
+  ],
+  "source_linked_hypothesis": "Mailbox and one-off mail reader wait only for path existence; exclusive writer creates final pathname before writing/fsync, allowing a reader to parse an empty file. This is a harness publication race, not proof of product Web failure.",
+  "terminal": {
+    "linux": true,
+    "windows": true,
+    "pending": [],
+    "unknown": {}
+  },
+  "limits": [
+    "No provider navigation proof reply",
+    "WebSocket/isolation/final not reached",
+    "No full M119 or first-role acceptance",
+    "Need same operation fresh rerun after atomic mailbox publication fix; preserve this raw failure"
+  ]
+}

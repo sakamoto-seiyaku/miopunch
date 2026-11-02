@@ -1,0 +1,66 @@
+{
+  "scope": "Owned Native fixture startup stages and explicit startup-failure cleanup; observation-only stages, unchanged10s readiness ceilings/nativeRelay6s/originalcaller12s; cleanupfix retainsoriginalfailure/exit1. No public/device/STUN serial window implied.",
+  "fixturePath": "src/bin/browser_wss_member_native.rs",
+  "fixtureSha256": "2a82fca39c11db91ca4c220bd73574174a7719190dbb97b744453d533da72b13",
+  "tagPrefix": "[DEBUG-mio76-startup] ",
+  "tag": "DEBUG-mio76-startup",
+  "stages": [
+    "mqtt-ready",
+    "relay-online",
+    "cleanup"
+  ],
+  "phases": [
+    "begin",
+    "progress",
+    "end"
+  ],
+  "boundedProgressSeconds": [
+    1,
+    4,
+    8
+  ],
+  "maximumPerReadinessStage": 5,
+  "optionalNumericFields": [
+    "startedUtcMs",
+    "elapsedMs",
+    "budgetRemainingMs",
+    "budgetMs",
+    "mqttDriverActive",
+    "mqttQueuedPackets",
+    "mqttSentPackets",
+    "mqttReceivedPackets",
+    "localPublishedCount",
+    "localConnectedCount",
+    "localRelayErrorCount",
+    "socketCount"
+  ],
+  "optionalBooleanFields": [
+    "mqttRouteReady",
+    "waitOk",
+    "outerTimedOut",
+    "cleanupSucceeded"
+  ],
+  "optionalErrorKind": "stdIO categoryonly; outerElapsed\u2192TimedOut, noerroraddresses/credentials innewtaggedobservations",
+  "unknownPolicy": "Unknownoptionalfieldsomitted, actual0/false retained. /proc socket enumerationunavailable\u2192None/null inclosedreceipt (never fabricated0). NumericExit1 preserved. MissingSDKclosednotqualifiedgraceful.",
+  "closedEventExtension": [
+    "endpointClosed",
+    "nodeClosed",
+    "mqttStatusClosed",
+    "mqttDriverJoined",
+    "cleanupSucceeded"
+  ],
+  "closedSemantics": "actualawait endpointclose/handlerdrain, dropassembly+endpoint, existing1scombinedtransportstatus+drivercompletionwait, awaitownedNode.close, actualRTCcounts/immediate+100mslateSocketcounts. Iftransport/node/RTCcleanupfails, emitsactualpartialreceipt; originalstartupError stillreturned. NormalstopreturnscleanupResult.",
+  "nativeBuild": "/tmp/mio76-native-startup-cleanup-fixed-build-20261005/receipt.json",
+  "selectedDependencies": "/tmp/mio76-native-startup-cleanup-fixed-build-20261005/selected-dependencies.json",
+  "actualSelectedProjectVendorInputs": 276,
+  "nativeFixtureElfSha256": "f475efd49372433a460c176b91c20c7fdfe21d3d264bdd9076521c956f5f1dea",
+  "controlledCases": {
+    "beforeFixRelay": "/tmp/mio76-controlled-browser-native-ack-startup-relay-red-20261005/receipt.json",
+    "afterFixRelay": "/tmp/mio76-controlled-browser-native-ack-startup-relay-cleanup-green-20261005/receipt.json",
+    "afterFixMqtt": "/tmp/mio76-controlled-browser-native-ack-startup-mqtt-cleanup-green-20261005/receipt.json",
+    "afterFixNormal": "/tmp/mio76-controlled-browser-native-ack-startup-normal-stop-green-20261005/receipt.json"
+  },
+  "qualifiedScope": "actualcontrolledfixturestartup/cleanup only, notphysicalfailurestagecause, ordinaryMember/RTCrole or maintainedNode qualification",
+  "noLiveOwnedJobs": true,
+  "budgetUserDecisionStillPending": true
+}

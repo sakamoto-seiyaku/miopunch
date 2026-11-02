@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-28",
+  "status": "FIRST_DIRECTION_ADMISSION_CONTROL_QUALIFIED_FULL_M119_OPEN",
+  "scope": "one Linux provider to Windows consumer admission request; no Web business or reverse direction",
+  "packet_sha256": "618ed39d5ed928de2e5a887833078932112c7fb6ad2b9ec2a9478ec1b2775d11",
+  "source_sdk_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+  "original_coordinator_sha256": "6c6795cc9083a73a31cfac21c11c20a1ba8a6209fd2dfbf77284de78e5943d0d",
+  "original_STOP_sha256": "36f805e21c74614b6b9691bd4844f0672ac76fbf4a8645384ba3f3fe6b10b937",
+  "original_full_Web_qualification_sha256": "bd5f6eece3615a81f56565f3036032363637ed31e7bcdda634774b47c5109919",
+  "independent_read_only_qualification_sha256": "16d62ed215c8d8c4abf74dd88f8d44dcbc27c173b129897a87af93d3680369be",
+  "core_assertions": {
+    "AwaitingApproval": true,
+    "exactly_one_request": true,
+    "applicant_identity": true
+  },
+  "first_admission_failure": null,
+  "fixed_raw_files": 26,
+  "fixed_raw_bytes": 40322,
+  "Task_GUID_observed": true,
+  "Task_registration_removed": true,
+  "SDK_owners": {
+    "linux": {
+      "sdk_original_exit": 0,
+      "readers_alive": 0,
+      "result_sha256": "e4b28ed3dc2e2cc064ca1b3a00d95360dc9333f504ecf624cd651ccb6d358597",
+      "node_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "windows": {
+      "sdk_original_exit": 0,
+      "readers_alive": 0,
+      "result_sha256": "5c12ab440172e9a2f1ead6248385d82024ca6e14ccc8374a50d059274d840209",
+      "node_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "Windows_node_stderr_empty": true,
+  "owned_loops_created": 2,
+  "owned_loops_closed": 2,
+  "publication_native_events": 15,
+  "original_qualifier_failure": "expected legacy SDK11 initialization marker on Windows stderr; current compiled source has no such marker and successful request emitted no admission error marker",
+  "original_cleanup_assertions": "close_endpoint requires terminal ok=true; worker deliberately reports business=false and terminal ok=false for admission-only case",
+  "original_runtime_replayed": false,
+  "Web_business_accepted": false,
+  "reverse_started": false,
+  "whole_M119": false
+}

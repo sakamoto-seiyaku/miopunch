@@ -161,7 +161,7 @@ pub enum Service {
 impl Service {
     /// One supported invitation boundary shared by encoders and platform APIs.
     pub fn guest_supported(self) -> bool {
-        matches!(self, Self::Files | Self::Clipboard | Self::TcpForward | Self::UdpForward | Self::Web)
+        matches!(self, Self::Files | Self::Clipboard | Self::TcpForward | Self::UdpForward | Self::Web | Self::Terminal)
     }
 }
 

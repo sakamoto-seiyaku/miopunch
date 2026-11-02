@@ -516,3 +516,104 @@ async fn original_close_after_peer_committed_still_rolls_back_candidate() {
 async fn current_proof_invalid_after_peer_committed_still_rolls_back_candidate() {
     scenario(Fault::CurrentProofInvalid).await;
 }
+
+async fn cold_admission_with_blackhole(include_bad_candidate: bool) -> &'static str {
+    let directory = tempfile::tempdir().unwrap();
+    let admin = NativeNetwork::create(directory.path().join("admin"))
+        .await
+        .unwrap();
+    let member = NativeNetwork::join(
+        directory.path().join("member"),
+        admin.manual_invitation().unwrap(),
+    )
+    .await
+    .unwrap();
+    for node in [&admin, &member] {
+        let mut config = node.resource_configuration().unwrap();
+        config.replacement = Some(vec![]);
+        node.save_resource_configuration(&config).unwrap();
+    }
+    let server = admin
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let client = member
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    // Keep an owned UDP socket open so the first route silently drops QUIC
+    // packets instead of returning an immediate closed-port error.
+    let blackhole = tokio::net::UdpSocket::bind((Ipv4Addr::new(127, 0, 0, 0), 0))
+        .await
+        .unwrap();
+    let bad = blackhole.local_addr().unwrap();
+    let advertised = server.addr();
+    let good = *advertised
+        .ip_addrs()
+        .find(|address| address.ip() == std::net::IpAddr::V4(Ipv4Addr::LOCALHOST))
+        .expect("real server loopback route");
+    let target = if include_bad_candidate {
+        iroh::EndpointAddr::new(advertised.id)
+            .with_addrs([iroh::TransportAddr::Ip(bad), iroh::TransportAddr::Ip(good)])
+    } else {
+        iroh::EndpointAddr::new(advertised.id).with_addrs([iroh::TransportAddr::Ip(good)])
+    };
+    if include_bad_candidate {
+        assert_eq!(
+            target.addrs.iter().next(),
+            Some(&iroh::TransportAddr::Ip(bad))
+        );
+    }
+
+    let deadline = n0_future::time::Instant::now() + Duration::from_secs(5);
+    let cancellation = tokio_util::sync::CancellationToken::new();
+    let caller = client.coordinator();
+    let responder = server.coordinator();
+    let result = tokio::time::timeout(Duration::from_secs(7), async {
+        tokio::join!(
+            caller.connect_control(
+                target,
+                SessionPurpose::AdmissionRequest,
+                AttemptContext::new(deadline, cancellation.clone()),
+            ),
+            async {
+                let incoming = server.endpoint().accept().await.unwrap();
+                responder
+                    .accept_control(
+                        incoming,
+                        SessionPurpose::AdmissionRequest,
+                        AttemptContext::new(deadline, cancellation),
+                    )
+                    .await
+            }
+        )
+    })
+    .await;
+    let outcome = match result {
+        Ok((Ok(outgoing), Ok(incoming))) => {
+            outgoing.close(0u32.into(), b"owned route test ended");
+            incoming.close(0u32.into(), b"owned route test ended");
+            "connected"
+        }
+        Ok((Err(_), _)) => "caller_failed",
+        Ok((_, Err(_))) => "responder_failed",
+        Err(_) => "scenario_timeout",
+    };
+    tokio::join!(client.close(), server.close());
+    drop(blackhole);
+    outcome
+}
+
+#[tokio::test]
+async fn cold_admission_reaches_the_only_advertised_local_ip() {
+    assert_eq!(cold_admission_with_blackhole(false).await, "connected");
+}
+
+#[tokio::test]
+async fn cold_admission_uses_reachable_ip_after_a_blackholed_first_candidate() {
+    assert_eq!(
+        cold_admission_with_blackhole(true).await,
+        "connected",
+        "the working route must share the original deadline"
+    );
+}

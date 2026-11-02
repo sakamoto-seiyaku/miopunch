@@ -1,0 +1,32 @@
+{
+  "status": "PASS",
+  "errors": [],
+  "terminal": true,
+  "quota": {
+    "identity": {
+      "scope": "v5-local-desktop",
+      "pid": 115673
+    },
+    "used": 5221,
+    "limit": 65536,
+    "hard": 90112,
+    "status_bytes": 0,
+    "first_failure": null,
+    "control_error": null,
+    "pending": []
+  },
+  "source_sha256": "13adc59fbb095ca62b6cb5ff6e9252ff8016eb479f48fff6db530621b8d5b1a1",
+  "output_files": {
+    "private-bus-owner.jsonl": 1284,
+    "private-desktop-probe-1-owner.stderr": 0,
+    "private-desktop-xauth-owner.jsonl": 1274,
+    "private-desktop-owner.jsonl": 1287,
+    "private-desktop-xauth-owner.stdout": 0,
+    "private-desktop-probe-1-owner.stdout": 100,
+    "private-desktop-xauth-owner.stderr": 0,
+    "private-bus.stderr": 0,
+    "private-desktop-probe-1-owner.jsonl": 1276,
+    "private-desktop.stderr": 64
+  },
+  "private_path": "/tmp/m119-v5-desktop-kroa0r_6/private"
+}

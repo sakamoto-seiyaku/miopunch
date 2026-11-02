@@ -1,0 +1,10 @@
+crate	version	src_files_modified_or_added_including_inline_tests	added_lines	deleted_lines	unchanged_rust_files	current_rust_files
+iroh	1.2.0	22	4719	189	53	75
+iroh-relay	1.2.0	0	0	0	32	32
+noq	1.3.0	3	180	5	12	15
+noq-proto	1.3.0	9	594	18	50	60
+netwatch	0.19.3	1	152	1	25	26
+portmapper	0.19.3	2	97	6	13	15
+p2panda-auth	0.7.1	1	25	6	17	18
+p2panda-net	0.7.1	5	109	31	73	80
+p2panda-sync	0.7.1	0	0	0	11	11

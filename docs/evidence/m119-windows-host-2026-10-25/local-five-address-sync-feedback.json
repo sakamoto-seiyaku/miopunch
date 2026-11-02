@@ -1,0 +1,22 @@
+{
+  "status": "LOCAL_FIVE_ORDERED_ADDRESS_SERVICE_SYNC_PASS_SLOW",
+  "current_linux_sdk_sha256": "b63a7f6280417399df02731ce0c2980edb20f24099244107e8c1b38be47a8c46",
+  "fresh_owned_nodes": 2,
+  "manual_admission": true,
+  "same_public_operation": "service_sync",
+  "route_order": "three owned nonresponding 127.0.0.1 UDP sockets, reachable 127.0.0.2 fourth, final owned nonresponding socket",
+  "loopback_127_0_0_2_precondition_passed": true,
+  "five_address_reverse_seconds": 48.96996876504272,
+  "one_address_approx_seconds": 0.9684,
+  "both_direction_sync_saved": true,
+  "owned_nodes_exit_zero": true,
+  "blackhole_sockets_closed": true,
+  "source_sha256": "e426e35941134566c23b10e9c450872198240aea35e88e4c95a26327d5e38ec8",
+  "limits": [
+    "Loopback result does not prove Windows-to-Linux route reachability",
+    "One case does not prove deterministic timing across hosts",
+    "All five announced addresses in original remote case are different from this owned local fixture",
+    "No product fix or M119 acceptance follows"
+  ],
+  "inference": "Late reachable route consumes much of 60-second contact budget; cross-host failure may be route reachability or insufficient remaining handshake budget."
+}

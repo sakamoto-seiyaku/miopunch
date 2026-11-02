@@ -4,6 +4,16 @@ MIOPUNCH-118 implements the non-UI port-forwarding operations of MIOPUNCH-107.
 These are engineering choices within its existing node → service authorization
 model. Platform qualification remains separate from source delivery.
 
+The non-UI Windows/Linux and browser acceptance completed on 2026-10-29.
+The [current qualification](../evidence/port-forwarding-2026-10-29/current-platform-qualification.json)
+maps all ticket criteria to preserved runtime evidence. It includes both native
+provider roles for TCP/UDP, independent socket reads, effective target/ACL
+revocation, stop/disable/reopen, Windows-issued guest exit/revoke/expiry,
+TCP final replies after half-close, empty and maximum-size UDP, and one-packet
+drop isolation at both receive entries on both platforms. Current WASM tests
+also verify its limited capability, real denied effects, four pending exchanges
+and cancellation. This does not complete M107 or M121.
+
 The provider explicitly enables TCP and UDP separately, supplying up to 32
 literal socket addresses for each protocol. Only these exact protocol/address
 pairs are accessible. There is no implicit arbitrary-host proxy, DNS resolution,
@@ -86,12 +96,23 @@ directories. The local environment's `127.0.0.1` large UDP observations failed
 even without the SDK; alternate owned IPv4/IPv6 loopback observations preserve
 that boundary. Qualified IPv6 tests retain the same exact datagram assertions,
 including empty and maximum-size packets. This is local functional evidence,
-not WAN/NAT, every IPv4 route or actual Windows qualification. Real Windows
-execution and provider-role exchange remain M118 requirements pending an
-applicable grant; cross-compilation does not satisfy them.
+not WAN/NAT or every IPv4 route. Actual Windows execution and provider-role
+exchange are now qualified by the current evidence above; cross-compilation
+alone was never counted as that qualification.
 
 The later defensive receive and reopened-test-reporting changes were made under
 an explicitly offline scope. Their compilation, pure value checks and static
-review are separate from functional qualification. No new UDP boundary/reply or
-SDK networking scenario was run for those changes; those runtime obligations
-and actual Windows qualification remain open.
+review were separate from functional qualification. The later 2026-10-29 runs
+exercise legal 65,509-byte local IPv6 datagrams and prove exactly one drop,
+no unauthorized target effect and continued use of the same association at
+both native consumer and provider receive entries. The original offline-only
+receipts and unsuccessful runs retain their historical status.
+
+The current Windows technical host receives bounded, atomically published
+command files through `-Mailbox`. The direct SSH/PowerShell Console input path
+lost sequential commands; changing line endings was insufficient. Original
+failures and guarded settlement are retained. Successful mailbox runs use
+normal SDK stop and socket/reader joins. Independent client observation allows
+the existing 60-second SDK contact plus bounded target setup; it does not alter
+the product's timeout or byte assertions. No new Rust build was needed for this
+qualification batch.

@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-28",
+  "status": "PREPARED_NO_RUNTIME_EXACT_TEST_AUTHORIZATION_PENDING",
+  "scope": "one Linux provider to Windows consumer full Web business role test; HTTPS redirect/login/Cookie/WebSocket and management isolation",
+  "packet_sha256": "74ea4df3cb6969d9f1911b55f03440dec8930233e56b68d314292526c7ad389b",
+  "payload_bytes": 84357,
+  "remote_destination": "stati@100.64.10.8 C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+  "windows_sdk_reused_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+  "linux_sdk_current_sha256": "b63a7f6280417399df02731ce0c2980edb20f24099244107e8c1b38be47a8c46",
+  "linux_library_current_sha256": "38b9d1755c11404b6a5f5c85f8db0cda3cdbdc690aed4f9020488b51cb971816",
+  "linux_build_finalization_sha256": "e21af4537952139ac8a2ba7d015d268aa67e240e6aaa92437af1d64b881d22c9",
+  "dependency_rebuild_review_sha256": "cab3467eaf424a5cf210ccea9dd11aeeb4f4e73a122d0b2ba2424a96fdb6f5d7",
+  "remote_precheck_sha256": "4defd3a1ca4e1f3484245c9439ff9c3fe8060c745617cc77f1ff2f07c377a798",
+  "remote_root_margin_bytes": 37266249,
+  "local_qualifier_patch_review_sha256": "8b9c19a720b5864762da06704065ee9a3b694d4f5caf262d65a8ad5f48a4732d",
+  "evidence_cap_bytes": 27473144,
+  "reverse_started": false,
+  "Task_started": false,
+  "runtime_created": false,
+  "whole_M119": false
+}

@@ -36,6 +36,11 @@ def build_environment(target, environment=None):
         raise CacheError("profile overrides split the cache: " + ", ".join(sorted(overrides)))
     if result.get("CARGO_INCREMENTAL") not in (None, "0"):
         raise CacheError("incremental compilation must stay disabled for this shared cache")
+    flags = [key for key, value in result.items() if value and
+             (key in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER")
+              or key.startswith("CARGO_TARGET_") and key.endswith("_RUSTFLAGS"))]
+    if flags:
+        raise CacheError("compiler flag/wrapper overrides split the cache: " + ", ".join(sorted(flags)))
     result.update(CARGO_TARGET_DIR=str(target), CARGO_INCREMENTAL="0")
     return result
 

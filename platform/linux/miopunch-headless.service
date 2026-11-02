@@ -1,0 +1,17 @@
+[Unit]
+Description=miopunch native node
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/miopunch-client serve %h/.local/share/miopunch/node %t/miopunch/control.sock
+RuntimeDirectory=miopunch
+RuntimeDirectoryMode=0700
+UMask=0077
+# SIGTERM is handled by the host and closes the SDK before process exit.
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

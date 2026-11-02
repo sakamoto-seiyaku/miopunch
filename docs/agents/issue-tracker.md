@@ -26,7 +26,14 @@ historical context, not current tasks.
 
 Current map: [miopunch 新基线：从已确认场景到可编写实施规格的决策地图](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/683de608-6db0-439e-b1ad-f6a83c28be59).
 
-Current specification: [miopunch 新基线实施规格：身份、入网、连接、状态与迁移](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/4700bf29-2a4e-40bc-93fe-7f5148207189).
+Current client/product PRD: [MIOPUNCH-107：共享界面、五个业务模块与平台体验](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/6159ec62-a03e-4eb7-9b95-4ddc19ce7a02).
+It consolidates the October 20 accepted product decisions, platform behavior
+and user-confirmed validation boundaries, and is labelled `ready-for-agent`.
+Publishing it did not create implementation children or change the existing
+foundation tickets. Its current text is authoritative in Plane; repository
+discussion notes and ADRs retain the decision history.
+
+Foundation specification: [miopunch 新基线实施规格：身份、入网、连接、状态与迁移](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/4700bf29-2a4e-40bc-93fe-7f5148207189).
 It is a separate work item related to the map, labelled `ready-for-agent`,
 and is the entry point for subsequent technical validation and implementation
 planning. Its stated validation prerequisites are not completed capabilities.

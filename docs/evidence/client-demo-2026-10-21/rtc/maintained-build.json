@@ -1,0 +1,123 @@
+{
+  "graphId": "41022856974461ee5a2c71e6ffb83d7ac78d230eac53465782912b6729c0a12f",
+  "command": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "--features",
+    "rtc-probe",
+    "--test",
+    "maintained_contact_startup",
+    "--no-run",
+    "--jobs",
+    "2",
+    "--message-format=json"
+  ],
+  "exit": 0,
+  "freshArtifacts": 523,
+  "rebuiltArtifacts": 22,
+  "rebuiltTargets": [
+    {
+      "package": "path+file:///home/js/Git/miopunch/vendor/iroh-relay#1.2.0",
+      "name": "iroh_relay"
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#iroh-mdns-address-lookup@0.5.0",
+      "name": "iroh_mdns_address_lookup"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch/vendor/p2panda-net#0.7.1",
+      "name": "p2panda_net"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch/vendor/iroh#1.2.0",
+      "name": "iroh"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "miopunch_native_probe"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "unified_native_member"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "unified_admission_story"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "browser_wss_member_native"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "unified_maintained_story"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "miopunch_demo"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "browser-probe-native"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "udp_observation_probe"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "browser_network_native"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "browser_irc_datagram"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "browser_restricted_native"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "maintained_contact_startup"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "browser_mqtt_datagram"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "browser_irc_restricted_native"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "mio80_offline_removal_signer"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "udp_nat_probe"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "prototype_inner_web"
+    },
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "name": "miopunch-native-probe"
+    }
+  ],
+  "diskBefore": {
+    "freeBytes": 207801311232,
+    "cacheBytes": 71537131520
+  },
+  "diskAfter": {
+    "freeBytes": 205560127488,
+    "cacheBytes": 73777078272
+  },
+  "program": "/home/js/Git/miopunch/.artifacts/runs/client-demo-rtc/410228569744/maintained_contact_startup",
+  "sha256": "6095e417a5c888ea8fe57e43b2fc761a4248494175e78c2041546232e51728eb",
+  "sourceFrozenDuringBuild": true
+}

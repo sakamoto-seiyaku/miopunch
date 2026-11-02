@@ -10,12 +10,20 @@ import threading
 
 from aiohttp import ClientSession, WSMsgType, web
 
+from web_asyncio_observer import OwnedLoopObserver
 from web_tls_fixture import server_certificate
 from web_process_owner import wait_future
 
 
 class WebTarget:
     def __init__(self, runner, tls=False):
+        self.label = "target:" + str(len(runner.targets) + 1)
+        self.tls, self.certificate, self.trust_root_pem = None, None, None
+        if tls:
+            # Certificate creation can fail before there is a loop to own.
+            # Each target has its own exclusive files within this runner.
+            self.tls, self.certificate, self.trust_root_pem, self.spki = server_certificate(
+                runner.private, self.label.replace(":", "-"))
         self.loop = asyncio.new_event_loop()
         self.record = runner.record
         self.started = threading.Event()
@@ -23,13 +31,14 @@ class WebTarget:
         self.connections, self.closed, self.authenticated_reads = 0, 0, 0
         self.authenticated_sockets = 0
         self.active, self.errors = set(), []
+        self.observer = OwnedLoopObserver(self.loop, self.label, self.errors,
+                                          lambda row: self.record("controller", "owned_asyncio", row))
+        self.client_observers = []
+        self.cleanup, self.close_error, self.close_started = None, None, False
         self.pending_started, self.pending_release = threading.Event(), threading.Event()
         self.pressure_paused = threading.Event()
         self.pressure_release = runner.private / "socket-pressure-release"
         self.pressure_lengths = []
-        self.tls, self.certificate, self.trust_root_pem = None, None, None
-        if tls:
-            self.tls, self.certificate, self.trust_root_pem, self.spki = server_certificate(runner.private, "target")
         self.reader = threading.Thread(target=self.run, daemon=True)
         runner.targets.append(self)
         self.reader.start()
@@ -38,15 +47,20 @@ class WebTarget:
     def run(self):
         asyncio.set_event_loop(self.loop)
         try:
+            self.observer.phase("starting")
             self.loop.run_until_complete(self.start())
             self.started.set()
+            self.observer.phase("running")
             self.loop.run_forever()
         except BaseException as failure:
             self.errors.append(type(failure).__name__)
             self.started.set()
         finally:
+            self.observer.phase("shutdown_asyncgens")
             self.loop.run_until_complete(self.loop.shutdown_asyncgens())
+            self.observer.phase("loop_close")
             self.loop.close()
+            self.observer.phase("loop_closed")
 
     async def socket(self, request):
         if request.query.get("authenticated") == "1":
@@ -159,30 +173,80 @@ class WebTarget:
         await self.runner.setup()
         self.site = web.TCPSite(self.runner, "127.0.0.1", 0, ssl_context=self.tls)
         await self.site.start()
+        self.observer.server("https" if self.tls else "http", self.site._server)
         port = self.site._server.sockets[0].getsockname()[1]
         self.url = ("https" if self.tls else "http") + "://127.0.0.1:%d/" % port
         self.socket_url = ("wss" if self.tls else "ws") + "://127.0.0.1:%d/socket" % port
 
     async def socket_prerequisite(self):
         import ssl
+        observer = OwnedLoopObserver(asyncio.get_running_loop(), self.label + ":socket-prerequisite",
+                                     self.errors, lambda row: self.record("controller", "owned_asyncio", row))
+        self.client_observers.append(observer)
+        observer.phase("client_session")
         verification = ssl.create_default_context(cafile=self.certificate) if self.certificate else None
-        async with ClientSession(trust_env=False) as session:
-            async with session.ws_connect(self.socket_url, max_msg_size=32768, ssl=verification or True) as socket:
-                assert (await socket.receive_str(timeout=2)) == "owned M119 ready"
-                await socket.send_str("M119 direct target prerequisite")
-                assert (await socket.receive_str(timeout=2)) == "owned-target:M119 direct target prerequisite"
+        try:
+            async with ClientSession(trust_env=False) as session:
+                async with session.ws_connect(self.socket_url, max_msg_size=32768, ssl=verification or True) as socket:
+                    assert (await socket.receive_str(timeout=2)) == "owned M119 ready"
+                    await socket.send_str("M119 direct target prerequisite")
+                    assert (await socket.receive_str(timeout=2)) == "owned-target:M119 direct target prerequisite"
+        finally:
+            # The observer remains on this exact private asyncio.run loop
+            # through its standard shutdown; later errors reach self.errors.
+            observer.phase("client_coroutine_return")
 
     def close(self):
-        self.pending_release.set()
-        self.pressure_release.touch()
+        if self.close_started:
+            if self.close_error is not None:
+                raise self.close_error
+            if self.cleanup is not None:
+                return self.cleanup
+            raise RuntimeError("original target close outcome is unsettled; no rescheduling")
+        self.close_started = True
         async def shutdown():
+            self.observer.phase("target_cleanup")
             self.record("controller", "target_cleanup_begin", {"active_websockets": len(self.active)})
             await self.runner.cleanup()
+            await self.observer.finish_servers()
+            self.observer.phase("ssl_callback_drain")
             await asyncio.sleep(0.25)
+            self.observer.phase("shutdown_complete")
             self.record("controller", "target_cleanup_complete", {"active_websockets": len(self.active)})
-        future = asyncio.run_coroutine_threadsafe(shutdown(), self.loop)
-        wait_future(future, 5)
-        self.loop.call_soon_threadsafe(self.loop.stop)
-        self.reader.join(timeout=5)
-        assert not self.reader.is_alive() and not self.errors and not self.active
-        return {"owner": "web-protocol-target", "reader_joined": True, "active_websockets": 0, "errors": []}
+        primary = None
+        try:
+            self.pending_release.set()
+            self.pressure_release.touch()
+            if self.loop.is_closed():
+                raise RuntimeError("original target loop already closed before shutdown")
+            coroutine = shutdown()
+            try:
+                future = asyncio.run_coroutine_threadsafe(coroutine, self.loop)
+            except BaseException:
+                coroutine.close()
+                raise
+            wait_future(future, 5)
+        except BaseException as failure:
+            primary = failure
+        finally:
+            try:
+                if not self.loop.is_closed():
+                    self.loop.call_soon_threadsafe(self.loop.stop)
+            except BaseException as failure:
+                self.errors.append("LoopStop:" + type(failure).__name__)
+            self.reader.join(timeout=5)
+        self.cleanup = {"owner": "web-protocol-target", "reader_joined": not self.reader.is_alive(),
+                        "active_websockets": len(self.active), "errors": list(self.errors),
+                        "owned_asyncio": self.observer.summary(),
+                        "client_loops": [observer.summary() for observer in self.client_observers]}
+        try:
+            assert not self.reader.is_alive() and not self.errors and not self.active
+        except BaseException as failure:
+            if primary is None:
+                primary = failure
+            else:
+                primary.add_note("Independent target cleanup assertion failed")
+        self.close_error = primary
+        if primary is not None:
+            raise primary
+        return self.cleanup

@@ -1,0 +1,21 @@
+<!doctype html><meta charset="utf-8"><title>Prototype HTTP bridge</title>
+<script type="module">
+// No node, credential, management command, or unrestricted native bridge lives
+// on this origin. The only transferred capability is the selected HTTP origin.
+const parentOrigin = new URLSearchParams(location.search).get('parent');
+let port;
+const registration = await navigator.serviceWorker.register('/__sw.js', { scope: '/' });
+await navigator.serviceWorker.ready;
+if (!navigator.serviceWorker.controller) await new Promise(resolve => navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true }));
+window.addEventListener('message', event => {
+  if (event.source !== parent || event.origin !== parentOrigin || event.data !== 'prototype-connect' || !event.ports[0] || port) return;
+  port = event.ports[0];
+  port.onmessage = reply => navigator.serviceWorker.controller.postMessage({ type: 'http-response', ...reply.data });
+  navigator.serviceWorker.controller.postMessage({ type: 'register-bridge' });
+});
+navigator.serviceWorker.addEventListener('message', event => {
+  if (event.data.type === 'bridge-registered' && port) port.postMessage(event.data);
+  if (event.data.type === 'http-request' && port) port.postMessage(event.data);
+});
+parent.postMessage('prototype-bridge-ready', parentOrigin);
+</script>

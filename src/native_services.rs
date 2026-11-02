@@ -21,9 +21,13 @@ pub(crate) struct NativeServices {
     pub clipboard: Option<std::sync::Weak<crate::native_clipboard::NativeClipboard>>,
     pub forwarding: Option<std::sync::Weak<crate::native_forwarding::NativeForwarding>>,
     pub web: Option<std::sync::Weak<crate::native_web::NativeWeb>>,
+    pub terminal: Option<std::sync::Weak<crate::native_terminal::NativeTerminal>>,
 }
 impl NativeServices {
-    fn publish_access(&self, files: &Arc<NativeFiles>, access: ServiceAccess) {
+    pub(crate) fn publish_access(&self, files: &Arc<NativeFiles>, access: ServiceAccess) {
+        if let Some(terminal) = self.terminal.as_ref().and_then(std::sync::Weak::upgrade) {
+            terminal.enforce_access(&access);
+        }
         if let Some(web) = self.web.as_ref().and_then(std::sync::Weak::upgrade) {
             web.enforce_access(&access);
         }
@@ -88,6 +92,7 @@ impl NativeServices {
             clipboard: None,
             forwarding: None,
             web: None,
+            terminal: None,
         };
         state.snapshot(node).await?.verify(node.anchor)?;
         Ok(state)
@@ -505,14 +510,16 @@ impl crate::native_client::NativeClient {
             .map(GuestInvitation::details)
             .transpose()?
             .is_some_and(|scope| scope.service == Service::Clipboard);
+        let terminal_guest = state.guest.as_ref().map(GuestInvitation::details).transpose()?
+            .is_some_and(|scope| scope.service == Service::Terminal);
         let mut status = access.status(
             state.guest.as_ref(),
-            if clipboard_guest {
+            if terminal_guest { false } else if clipboard_guest {
                 clipboard_capability.read && clipboard_capability.write
             } else {
                 true
             },
-            if clipboard_guest {
+            if terminal_guest { false } else if clipboard_guest {
                 clipboard.enabled
             } else {
                 self.files_enabled()
@@ -533,6 +540,9 @@ impl crate::native_client::NativeClient {
             }
             status["services"].as_array_mut().ok_or("invalid service status")?.push(
                 access.local_service_status(Service::Web, true, self.web.status()["enabled"] == true));
+            let terminal = self.terminal.status();
+            status["services"].as_array_mut().ok_or("invalid service status")?.push(
+                access.local_service_status(Service::Terminal, terminal["capable"] == true, terminal["enabled"] == true));
         }
         Ok(status)
     }

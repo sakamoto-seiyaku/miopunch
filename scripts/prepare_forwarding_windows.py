@@ -41,9 +41,11 @@ def main():
                 "source_receipts": {"Windows_build": str(args.windows_receipt), "local_static": str(args.static_receipt)},
                 "external_resources": False, "no_system_install_route_firewall_time_clipboard_changes": True,
                 "max_control_requests": 4096, "max_control_bytes": 65536, "max_fixture_clients": 16,
-                "native_actual_windows_role_swap_required": True}
+                "native_actual_windows_role_swap_required": True,
+                "control_input": "Mailbox: atomically publish complete UTF-8 JSON requests as runtime/requests/000001.json, increasing one file per command; responses remain JSON stdout",
+                "control_idle_seconds": 120}
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    command = 'powershell.exe -NoLogo -NoProfile -NonInteractive -File "$env:LOCALAPPDATA\\Temp\\m118-forward-native5\\windows_forwarding_host.ps1" -Manifest "$env:LOCALAPPDATA\\Temp\\m118-forward-native5\\manifest.json" -RunRoot "$env:TEMP\\m118-forward-native5-runtime" -Mode create'
+    command = 'powershell.exe -NoLogo -NoProfile -NonInteractive -File "$env:LOCALAPPDATA\\Temp\\m118-forward-native5\\windows_forwarding_host.ps1" -Manifest "$env:LOCALAPPDATA\\Temp\\m118-forward-native5\\manifest.json" -RunRoot "$env:TEMP\\m118-forward-native5-runtime" -Mode create -Mailbox'
     command = command.replace("native5", args.label)
     (output / "invocation.txt").write_text(command + "\n")
     (output / "preparation.json").write_text(json.dumps({"ssh_executed": False, "Windows_executed": False,

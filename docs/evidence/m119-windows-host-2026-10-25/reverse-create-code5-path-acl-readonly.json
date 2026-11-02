@@ -1,0 +1,19 @@
+{
+  "status": "REVERSE_CREATE_CODE5_PATH_METADATA_READ_ONLY",
+  "raw_record_sha256": "087708965bb2c1c735f3cc29d29b04757b4541df7a868a892c12d82be049b019",
+  "SSH_exit": 0,
+  "private_parent_exists": true,
+  "private_parent_directory": true,
+  "private_parent_owner": "BUILTIN Administrators",
+  "task_user_full_access_ACE_on_parent": true,
+  "node_destination_exists": false,
+  "resources_json_exists": true,
+  "resources_json_task_user_full_access_ACE": true,
+  "remote_mutations": 0,
+  "inference": "ordinary destination parent ACL does not directly explain code5; the failing SDK stage remains unlocalized in this run",
+  "limits": [
+    "No SDK phase trace in current PE",
+    "Get-Acl after failure does not prove transient access or open-handle state during MoveFileExW",
+    "No cause claim or Windows create acceptance"
+  ]
+}

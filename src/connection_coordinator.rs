@@ -120,6 +120,7 @@ impl SessionPurpose {
             | crate::forwarding::TCP_ALPN
             | crate::forwarding::UDP_ALPN
             | crate::web::WEB_ALPN
+            | crate::terminal::TERMINAL_ALPN
             | crate::service_policy::POLICY_ALPN
             | crate::device_operation::DEVICE_ALPN
             | crate::credential_custody::CUSTODY_ALPN => Some(Self::MemberBusiness),
@@ -819,6 +820,55 @@ impl ConnectionCoordinator {
             }
         })
     }
+
+    /// Keep each cold direct address inside this caller's original deadline.
+    /// A blackholed first IP must leave time for the other announced IPs;
+    /// each dial still scopes its bootstrap packets to exactly one route.
+    async fn dial_ordered_direct_ips(
+        &self,
+        id: iroh::EndpointId,
+        routes: &[TransportAddr],
+        purpose: SessionPurpose,
+        attempt: &AttemptContext,
+        wire_alpn: &[u8],
+        control_only: bool,
+    ) -> Result<ConnectionDelivery, ContactDialFailure> {
+        let mut last_unavailable = None;
+        for (index, route) in routes.iter().enumerate() {
+            let remaining = attempt
+                .deadline
+                .saturating_duration_since(n0_future::time::Instant::now());
+            if remaining.is_zero() {
+                return Err(ContactDialFailure::Terminal(ConnectError::DeadlineExceeded));
+            }
+            let share = remaining / u32::try_from(routes.len() - index).unwrap_or(u32::MAX);
+            if share.is_zero() {
+                return Err(ContactDialFailure::Terminal(ConnectError::DeadlineExceeded));
+            }
+            let route_attempt =
+                AttemptContext::new(attempt.deadline, attempt.cancellation.child_token());
+            let data = iroh::EndpointAddr::new(id).with_addrs([route.clone()]);
+            let mut work =
+                Box::pin(self.dial(data, purpose, &route_attempt, wire_alpn, control_only));
+            match n0_future::time::timeout(share, &mut work).await {
+                Ok(Ok(connection)) => return Ok(connection),
+                Ok(Err(ContactDialFailure::Terminal(error))) => {
+                    return Err(ContactDialFailure::Terminal(error));
+                }
+                Ok(Err(ContactDialFailure::Unavailable(error))) => {
+                    last_unavailable = Some(error);
+                }
+                Err(_) => {
+                    route_attempt.cancellation.cancel();
+                    drop(work);
+                    last_unavailable = Some(ConnectError::DeadlineExceeded);
+                }
+            }
+        }
+        Err(ContactDialFailure::Unavailable(
+            last_unavailable.unwrap_or(ConnectError::DataPathUnavailable),
+        ))
+    }
     pub async fn connect(
         &self,
         target: iroh::EndpointAddr,
@@ -962,14 +1012,25 @@ impl ConnectionCoordinator {
                 // Cold direct-only targets still need their announced IP
                 // fallback. When a contact alternative exists, this comes
                 // after member signaling and configured public contact.
-                let mut inactive_ips = target.addrs.iter().filter(|address| {
-                    matches!(address, TransportAddr::Ip(_)) && !is_active_ip(address)
-                });
+                let inactive_ips: Vec<_> = target
+                    .addrs
+                    .iter()
+                    .filter(|address| {
+                        matches!(address, TransportAddr::Ip(_)) && !is_active_ip(address)
+                    })
+                    .cloned()
+                    .collect();
                 if public_contact.addrs.is_empty() {
-                    for route in inactive_ips.by_ref() {
-                        let data = iroh::EndpointAddr::new(target.id).with_addrs([route.clone()]);
+                    if !inactive_ips.is_empty() {
                         match self
-                            .dial(data, purpose, &attempt, wire_alpn, control_only)
+                            .dial_ordered_direct_ips(
+                                target.id,
+                                &inactive_ips,
+                                purpose,
+                                &attempt,
+                                wire_alpn,
+                                control_only,
+                            )
                             .await
                         {
                             Ok(connection) => return Ok(connection),
@@ -989,10 +1050,16 @@ impl ConnectionCoordinator {
                     Err(ContactDialFailure::Terminal(error)) => return Err(error),
                     Err(ContactDialFailure::Unavailable(error)) => last_unavailable = Some(error),
                 }
-                for route in inactive_ips {
-                    let data = iroh::EndpointAddr::new(target.id).with_addrs([route.clone()]);
+                if !inactive_ips.is_empty() {
                     match self
-                        .dial(data, purpose, &attempt, wire_alpn, control_only)
+                        .dial_ordered_direct_ips(
+                            target.id,
+                            &inactive_ips,
+                            purpose,
+                            &attempt,
+                            wire_alpn,
+                            control_only,
+                        )
                         .await
                     {
                         Ok(connection) => return Ok(connection),

@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-28",
+  "scope": "M119 first-direction admission control feedback",
+  "status": "LOCAL_FIX_VERIFIED_WINDOWS_RECHECK_PREPARED_REJECTED_BEFORE_RUNTIME",
+  "original_windows_observation": "one CONTROL_CONNECT marker; request failed; no AwaitingApproval or Web assertion",
+  "local_regression": {
+    "original_bad_first_exit": 101,
+    "original_assertion": "scenario_timeout",
+    "original_bad_first_seconds": 8.290711800014833,
+    "original_positive_exit": 0,
+    "fixed_bad_first_exit": 0,
+    "fixed_bad_first_seconds": 5.80120965099195,
+    "fixed_positive_exit": 0,
+    "existing_active_commit_rollback_exit": 0,
+    "sources_and_raw_receipts": "/tmp/m119-route-feedback-20261028/"
+  },
+  "cross_host_udp_precondition": {
+    "echo_verified": true,
+    "payload_bytes": 24,
+    "remote_listener_terminal": true,
+    "record_sha256": "fdc36a882437b0a9776f5acd0d5a4e1693e6bc64ea3b779d0ca86720879f23c2",
+    "scope": "Linux 192.168.4.5 to Windows 100.64.10.8 UDP echo only"
+  },
+  "current_windows_sdk": {
+    "sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+    "bytes": 189760518,
+    "fresh": 526,
+    "own_rebuilt": 2,
+    "dependency_rebuilt": 0,
+    "build_result_sha256": "39f635538428e5482b5c7b91dc2dbe7d0aca673d08839ac55fe425d4c6d509c0",
+    "source_manifest_sha256": "136ac01f59654c47f6e0f97bed903cf474a7f2f847b2b3241e46a60033be875c",
+    "shared_target": true,
+    "immutable_pin": "/home/js/Git/miopunch/.artifacts/runs/m119-route-feedback-20261028/windows-sdk-current.exe"
+  },
+  "prepared_single_case": {
+    "packet_sha256": "57dda4dde5ea6d00a14bf4fab1a01c45bdbc9cd82d293826c32e51fb8f34d6a2",
+    "payload_bytes": 189844855,
+    "remote_sdk_relative": "app/sdk/miopunch-client-route-a5633e1d.exe",
+    "remote_precheck_sha256": "6449e6f426f92622c176080a2262e36b4a95b1359d9aa7d9cbed02ffd93663c1",
+    "destination_absent_at_precheck": true,
+    "remote_actions": 0
+  },
+  "automatic_review": {
+    "denial_sha256": "c3491340a921af4561e0a451fff279b72ed7a9061d7e8ec4bf843190b5b3571a",
+    "reason": "Exact new payload and destination lack specific user authorization; prior approvals covered different payloads.",
+    "runtime_created": false,
+    "remote_transfer_started": false
+  },
+  "limitations": [
+    "Local loopback repair does not prove Windows QUIC or admission.",
+    "UDP echo does not identify which invitation route was dialed.",
+    "M119 and the M107 non-UI goal remain incomplete."
+  ]
+}

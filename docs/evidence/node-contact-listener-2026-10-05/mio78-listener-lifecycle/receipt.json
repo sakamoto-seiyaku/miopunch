@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-j",
+    "2",
+    "--lib",
+    "contact_listener::tests::",
+    "--",
+    "--nocapture"
+  ],
+  "exit": 0,
+  "seconds": 11.297630665125325,
+  "public_traffic": false,
+  "source_sha256": {
+    "src/contact_listener.rs": "a0db32c74a3b3f4e5ab075410344c0fd1dfae086a491115d7b44c86666360d28",
+    "src/mqtt_transport.rs": "22361d20a833eb9d8dd1e242b2e8516f323d60d4107fd8576ce038bd856e0924"
+  }
+}

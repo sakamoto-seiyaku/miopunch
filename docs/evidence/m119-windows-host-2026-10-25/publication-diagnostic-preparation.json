@@ -1,0 +1,126 @@
+{
+  "task": "MIOPUNCH-119",
+  "status": "EXPLICITLY_AUTHORIZED_AND_EXECUTED_ONCE; DIAGNOSTIC_UNLOCALIZED; ORIGINAL_POLICY_STILL_FAILED",
+  "updated_UTC": "2026-10-26T08:59:03.254895+00:00",
+  "previous_original_policy_result": "FAILED at provider CREATE/MoveFileExW rawOS5 beforeconsumer/GUI/policy; not repaired or rerun",
+  "previous_runtime_qualification": {
+    "path": "acl-guest-runtime-qualification.json",
+    "sha256": "734803f6986ac5f08a1ea3e5f85d43b2eac2a51c81407a67380b8f9fb0ef299b"
+  },
+  "source_plan": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/plan.json",
+    "bytes": 7212,
+    "sha256": "d7af214ea6556761e708176eb1bc6b827971ae56b173b133b369b9100749828d"
+  },
+  "local_driver": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/operate.py",
+    "bytes": 16568,
+    "sha256": "7d3ae4f4822b3e244d8fc8b2736246950cd01c00cbca823cbb4d7d78bd179572"
+  },
+  "local_qualifier": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/qualify.py",
+    "bytes": 12171,
+    "sha256": "3fbbb0be8f831f01c2c7b2eaf765a023aabb72bd326877e8947357f331e4ac72"
+  },
+  "Root_whole_source_and_assertion_review": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-publication-diagnostic-frozen-packet-root-review-20261026.json",
+    "bytes": 7916,
+    "sha256": "cd3bb16de7b5851df645d23d2c95869cba12177bf3a8094dedd5f0ea0be47ca7"
+  },
+  "upstream_SQLx_close_path_and_provenance": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-publication-SQLx-close-source-review-20261026.json",
+    "bytes": 3006,
+    "sha256": "6713c699ffa69390969c1145caaf5fedd06951af140d546c6b8f40f5ecce047c"
+  },
+  "pending_exact_user_question": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-publication-diagnostic-new-exact-approval-pending-20261026.json",
+    "bytes": 2595,
+    "sha256": "eea3d05f52412c3d7c50ffbf3f799f7248cdfb0b115366f3130ca3183fed2009"
+  },
+  "proposed": {
+    "host": "laptop / stati@100.64.10.8:22",
+    "remote_root": "C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+    "direct_payload_files": 4,
+    "direct_payload_bytes": 27933,
+    "ordinary_Task_max": 1,
+    "SDK_create_max": 1,
+    "same_API_controls_max": 4,
+    "new_directory_metadata": "bounded attributes/owner/DACL; no permission or system-setting changes",
+    "new_private_state_cap": 8388608,
+    "owned_capacity_metadata_phases": [
+      "stage",
+      "pre-run",
+      "final"
+    ],
+    "fixed_existing_raw_files": 13,
+    "fixed_raw_bytes_max": 131072,
+    "exact_local_directory": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-publish-diagnostic-preparation-20261026/runtime/raw",
+    "remove_exact_task_registration_after_terminal": true,
+    "timeout_stop_scope": "only this original owned Task instance"
+  },
+  "payload": {
+    "app/controllers-publish-api-9d0247b3/check_windows_publish_api.py": {
+      "bytes": 19448,
+      "sha256": "e0053ea4a742ffbd1e5e16560e23ca4d97706a3342609596219817da85232047"
+    },
+    "app/deployment-publish-api-9d0247b3-extra.json": {
+      "bytes": 414,
+      "sha256": "f8cdb5edfce768d685b842cbda3f89d07b67f79d09ed2c805dcfc18f98c37cc7"
+    },
+    "Task-M119-publish-api-9d0247b3-Entry.ps1": {
+      "bytes": 6505,
+      "sha256": "94c428954154d4f75d10765fee025a9d1c94d9733e2be5e94ef6dd4d53dfbbbf"
+    },
+    "publish-api-9d0247b3-task.xml": {
+      "bytes": 1566,
+      "sha256": "62d7b16daef0591efdc64397814c259b101fca2ac6bc79fcd93732fe44b8b037"
+    }
+  },
+  "diagnostic_outcome_boundaries": {
+    "SDK_success": "UNLOCALIZED_WITHIN_THIS_CASE, not a repair or original policy PASS",
+    "SDK_failure": "only exact originalOs5 chain with all ownership and control/observer premises reconciled; unexpected errors remain failed",
+    "precontrol_failure": "SDK not launched; retain original failure and missing-not-created streams",
+    "external_handle_environment_or_original_denial_cause_proof": false,
+    "sampling_can_perturb_timing": true,
+    "staging_miss_or_removal_outcome": "UNKNOWN unless actual observation proves it",
+    "data_scope": "new own directories metadata and fixed diagnostic streams only; no browserprofiles or privatekey/card contents copied"
+  },
+  "guards_and_limits": {
+    "source_preparation_whole_bytes": 65530,
+    "source_preparation_cap": 65536,
+    "runtime_metadata_reserve": 32768,
+    "raw_individual_caps_sum": 120832,
+    "raw_collection_max": 131072,
+    "already_received_prior_raw": 42894,
+    "original_initial_raw": 22801754,
+    "same_shared_fixed_raw_cap": 2097152,
+    "same_original_metadata_total": 182932,
+    "same_global_raw_cap": 25165824,
+    "new_profiles": 0,
+    "private_state_max": 8388608,
+    "store_objects": 375,
+    "store_logical": 34523428417,
+    "store_allocated": 34525192192,
+    "all_other_graph_cohort_build_source_and_retention_holds_unchanged": true,
+    "no_new_root_exclusions_baseline_or_cap_reset": true
+  },
+  "local_only_validation": "Root fullcode/entry/XML/all6actualgeneratedwire review; final targeted delta/P1failure preservation/P2strictowner-sampler-SDKoracle/P3artifactguards. Source checks do not proveWindowsruntimeacceptance.",
+  "actual_new_Windows_operations": 10,
+  "no_new_build_or_pin_or_PE_runtime_copy": true,
+  "old_raw_failures_and_prior_accepted_evidence_preserved": true,
+  "full_M119_accepted": false,
+  "Plane_state_unchanged": true,
+  "known_live_remote": [],
+  "actual_user_approval": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-publication-diagnostic-actual-user-approval-20261026.json",
+    "bytes": 1779,
+    "sha256": "f7d006cb83178a397c19325dc2b716bbfee2fa6c9b983b708d2ec1c810141f97"
+  },
+  "pending_request_resolved_by_actual_user_answer": true,
+  "operation_count_scope": "top-level transport calls only: six SSH scripts and four SCP commands; one Task/one SDK create within",
+  "runtime_result": {
+    "path": "docs/evidence/m119-windows-host-2026-10-25/publication-diagnostic-qualification.json",
+    "bytes": 13105,
+    "sha256": "b7375f1b6214aee4620adfc37f79e6584f4f55afda3ec023ace1b9f2ff12bf36"
+  }
+}

@@ -1,0 +1,266 @@
+{
+  "task": "MIOPUNCH-119",
+  "status": "ONE_EXPLICITLY_AUTHORIZED_WINDOWS_TLS_CLOSURE_CASE_PASS; FULL_M119_INCOMPLETE",
+  "updated_UTC": "2026-10-26T00:02:36.865741+00:00",
+  "Root_independent_qualification": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-TLS902-root-qualification-20261026.json",
+    "bytes": 19591,
+    "sha256": "79ba126686f43425307ea21b458093810ba19e13407b6e0e0c5bcc970ad11c2c"
+  },
+  "operator_qualification": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/content-tls-original-qualification.json",
+    "bytes": 24515,
+    "sha256": "4b6ac1dc09e026c415cf5dd2449488c53f90df99714081a533f4bd73282b45d9"
+  },
+  "explicit_user_approval": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-content-tls-explicit-user-approval-20261026.json",
+    "bytes": 1265,
+    "sha256": "c459f5c38c4341c286110c31287e030b6508d3caf38bbefaca1de78116fff67e"
+  },
+  "execution_release": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-content-tls-explicit-one-case-runtime-release-20261026.json",
+    "bytes": 3017,
+    "sha256": "c76d8bd831784bf5711458a20751a71bdd862a21b650f7f4a64246e24050b68a"
+  },
+  "scope": {
+    "packet_plan_sha256": "787395ce0af2fc8480076b19a9906db9eec16faa68da1584364296893dedb615",
+    "files_deployed": 15,
+    "bytes_deployed": 182932,
+    "case": "integration-content-tls-closed-1",
+    "nonce": "902b4a63-d54a-4edc-a097-95fdb45a5d38",
+    "one_run_only": true,
+    "grant_consumed": true,
+    "ordinary_interactive_session_gt0": true,
+    "enabled_Administrator_role": false,
+    "SDK_graph": "frozen SDK11 init diagnostic70aba",
+    "WebView2_runtime": "155.0.4283.62 existing pinned runtime",
+    "full_manifest_files_verified_before_and_unchanged_after": 476,
+    "new_builds_pins_PE_or_runtime_copies": 0
+  },
+  "business": {
+    "resources": true,
+    "login_cookie_303_navigation": true,
+    "WebSocket_exact_text_and_37bytes_1000_clean": true,
+    "gateway_negative_cases": {
+      "outcomes": [
+        {
+          "case": "missing_cookie",
+          "actual": 403,
+          "expected": 403
+        },
+        {
+          "case": "wrong_host",
+          "actual": 403,
+          "expected": 403
+        },
+        {
+          "case": "other_absolute_origin",
+          "actual": 403,
+          "expected": 403
+        },
+        {
+          "case": "wrong_origin",
+          "actual": 403,
+          "expected": 403
+        },
+        {
+          "case": "opaque_origin",
+          "actual": 403,
+          "expected": 403
+        },
+        {
+          "case": "management_rpc",
+          "actual": 404,
+          "expected": 404
+        },
+        {
+          "case": "connect",
+          "actual": 403,
+          "expected": 403
+        }
+      ],
+      "target_requests_before": 7,
+      "target_requests_after": 7
+    },
+    "isolation": {
+      "attempts": {
+        "contentIDBWorked": true,
+        "done": true,
+        "externalFetchDenied": true,
+        "externalSocketDenied": true,
+        "fileDenied": true,
+        "genericWebViewObject": true,
+        "managementCookieAbsent": true,
+        "managementHostObjectDenied": true,
+        "managementIndexedDBAbsent": true,
+        "managementOriginDenied": true,
+        "managementRPCDenied": true,
+        "managementStorageAbsent": true,
+        "nativeIPCAttemptCompleted": true,
+        "nativeIPCError": false,
+        "noNode": true,
+        "noTauriIPC": true,
+        "parentNodeDenied": true
+      },
+      "positive_management_controls_still_intact": true,
+      "synthetic_file_unchanged": true,
+      "direct_owned_http_ws_frame_image_no_effect": true,
+      "management_origin_no_effect": true,
+      "provider_configuration_unchanged": true,
+      "actual_native_handlers_declared": false
+    },
+    "pending_close": {
+      "platform": "Windows WebView2",
+      "target_observed_pending": true,
+      "close_seconds": 0.6456275000236928,
+      "all_module_owners_joined": true
+    }
+  },
+  "ownership": {
+    "created_and_closed_loops": 5,
+    "all_observed_loop_ids_accounted": true,
+    "registered_servers": 6,
+    "zero_attached_and_listeners_at_owned_servers_closed_and_final": true,
+    "early_content_gateway_included": true,
+    "early_content_HTTPS_attached2_to_zero": true,
+    "callback_failures": 0,
+    "overflow": 0,
+    "outer_callback_stderr_bytes": 0,
+    "original_process_owner_histories": 4,
+    "original_handles_and_readers_joined": true,
+    "both_host_engine_exit_events_observed": true,
+    "both_host_input_threads_joined": true,
+    "original_task_instance_terminal": true,
+    "exact_task_registration_removed_and_absent": true,
+    "unsettled": [],
+    "source_drift": []
+  },
+  "stderr": {
+    "provider": {
+      "lines": 188,
+      "bytes": 25636,
+      "all_initialization_diagnostics_success_or_begin": true,
+      "raw_OS_error": null
+    },
+    "consumer": {
+      "lines": 124,
+      "bytes": 16784,
+      "all_initialization_diagnostics_success_or_begin": true,
+      "raw_OS_error": null
+    }
+  },
+  "raw": {
+    "files": 22,
+    "bytes": 192400,
+    "events": 60,
+    "missing": [],
+    "hashes": {
+      "consumer.owner.jsonl": {
+        "bytes": 1056,
+        "sha256": "a01761637c3c46d9418084191a7859a89c400d9163cc2af2dd0ec958b9b84f14"
+      },
+      "consumer.stderr": {
+        "bytes": 16784,
+        "sha256": "17cb8fac0be18879c99022b8314f297ee8a2e7cce806fc23e90e6d0298e375c9"
+      },
+      "consumer.stdout": {
+        "bytes": 28501,
+        "sha256": "b1d28598dd60f8442cd0e516d34f298cbc6c4b9c79102840a719ae16b64596b5"
+      },
+      "content-tls-context-1.completed.json": {
+        "bytes": 161,
+        "sha256": "f0d576b8a87553d8cce39faa920420f6f982842d255fe77b5edb9ea0bc258b7e"
+      },
+      "content-tls-context-1.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "content-tls-context-1.stdout": {
+        "bytes": 20146,
+        "sha256": "4b27f50f271bcf41cb9a91926194ef77fc9892eeb388cd711fe1f5d695ecc7d9"
+      },
+      "content-tls-context-child-exit.json": {
+        "bytes": 110,
+        "sha256": "6d69f110a463f7602f594cc8afd2e483366e0ad6cb74d6e636b8e86e4b5ff59e"
+      },
+      "content-tls-context-child-owner.json": {
+        "bytes": 944,
+        "sha256": "5d60e3d16d930ac05fde10555d5ee9d6a2049783ab5144d203d58e8d3ba352b8"
+      },
+      "content-tls-context-entry.json": {
+        "bytes": 298,
+        "sha256": "02c1b16e33b1a16dc8aab22b94f254e6c865526738cb7bc17542e207b97daca3"
+      },
+      "content-tls-context-task-run.json": {
+        "bytes": 584,
+        "sha256": "a4ba6c9dcd7797f959d0160c2a97982712985813e4ab8956cd77b9d17e696e9f"
+      },
+      "content-tls-context-task-run.jsonl": {
+        "bytes": 4546,
+        "sha256": "a03f04f9f03c702c411a9578d40c0f95e413b34d7fb064538903ed327a1c0d71"
+      },
+      "content.owner.jsonl": {
+        "bytes": 875,
+        "sha256": "e40b4bb5d66de1e9c27547779d315677ce042ca774c8adb8aa85b01f5e23c208"
+      },
+      "content.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "content.stdout": {
+        "bytes": 4395,
+        "sha256": "f304953e10aa544621b2af57b0373bf1ce38cb3c29769d58afe5647d5a14804d"
+      },
+      "events.jsonl": {
+        "bytes": 33965,
+        "sha256": "5ede6a6fa097eef66a8e8c5aeb88fde2f60a6c5ca86e6d7714f82d5e68aa38a4"
+      },
+      "management-control.owner.jsonl": {
+        "bytes": 899,
+        "sha256": "cfc2a4414160980ea07b7e9786fe32d11c9156ad44d7a0e2276c81713ae00ea7"
+      },
+      "management-control.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "management-control.stdout": {
+        "bytes": 1423,
+        "sha256": "d00178302e3b15a53e63346cc4e17a3207a98c17ee5e3b6205d90bf7d4d1e236"
+      },
+      "provider.owner.jsonl": {
+        "bytes": 903,
+        "sha256": "d01122cc1a65422214ad6e2f16d949c85e2417962e6212d0c62bd9a7ab3ccbe0"
+      },
+      "provider.stderr": {
+        "bytes": 25636,
+        "sha256": "7066369da4b811fb9ff31e11ad3d9507749b086a0c0d1ae4792df98727509ca5"
+      },
+      "provider.stdout": {
+        "bytes": 16305,
+        "sha256": "a6f305cecc7c3192527107675b8580c2afe316bb03dd68d5aedabacae8cbbd76"
+      },
+      "result.json": {
+        "bytes": 34869,
+        "sha256": "cc980024b3b1a629e5209cab78090f0fb933e99bdc6a45e165a9f47bfe5e7cc5"
+      }
+    }
+  },
+  "budgets": {
+    "local_raw_at_Root_qualification": 22544582,
+    "same_raw_cap": 25165824,
+    "store_objects": 375,
+    "same_M119_cohort_cap": 335544320,
+    "M120_full_reserve_unchanged": 723517440,
+    "all_original_failed_source_raw_and_pins_retained": true,
+    "freed_bytes": 0
+  },
+  "limits": [
+    "Original OS error5, Win10054 callback and three attached-client physical states remain historical unresolved evidence; this run does not localize or repair their original causes.",
+    "Whole-host zero egress and engine background destinations remain UNKNOWN; this is the existing WebView2 technical host, not final Vue/Tauri lifecycle delivery.",
+    "Frozen Windows SDK11 diagnostic70aba graph differs from current Linuxddeb/currentWASM0425; no platform role-exchange or Windows ACL/guest lifecycle claim.",
+    "This one-case user grant is consumed. No additional runtime, build, deployment or probe is authorized by this pass."
+  ],
+  "personal_profile_paths_and_SID": "omitted from curated summary; original owned-fixture receipts retained separately",
+  "full_M119_accepted": false,
+  "Plane_state_unchanged": true
+}

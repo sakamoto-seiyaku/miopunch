@@ -8,6 +8,8 @@ pub mod admission_rotation;
 mod android_desktop_cli;
 #[cfg(target_os = "android")]
 mod android_shell;
+#[cfg(target_os = "android")]
+mod android_client_host;
 mod connection_budget;
 pub mod connection_coordinator;
 pub mod connection_recovery;
@@ -24,6 +26,9 @@ pub mod device_protocol;
 pub mod file_transfer;
 pub mod forwarding;
 pub mod web;
+pub mod terminal;
+mod terminal_tmux;
+mod native_terminal;
 pub mod genesis_recovery;
 pub mod irc_datagram;
 pub mod irc_transport;
@@ -31,6 +36,7 @@ pub mod management_auth;
 pub mod management_recovery;
 pub mod management_recovery_wire;
 pub mod management_store;
+mod sqlite_shutdown;
 pub mod manual_admission;
 pub mod member_bootstrap;
 pub mod member_message;
@@ -46,6 +52,10 @@ pub mod nat_punch;
 pub mod nat_scheduler;
 pub mod nat_selector;
 pub mod native_client;
+pub mod client_commands;
+pub mod client_host;
+#[cfg(target_os = "linux")]
+pub mod headless_host;
 mod native_control_backup;
 mod native_custody;
 mod native_device_management;

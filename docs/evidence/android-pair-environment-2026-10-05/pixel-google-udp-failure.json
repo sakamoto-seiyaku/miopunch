@@ -1,0 +1,87 @@
+{
+  "scope": "narrow repeat of failed Pixel single IPv4-STUN; controlled primitive output only",
+  "commands": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "push",
+        "/tmp/miopunch-mio82-pixel-tls-20261005/dex/classes.dex",
+        "/data/local/tmp/mio82-pixel-udp-diagnosis-20261005.dex"
+      ],
+      "exit": 0,
+      "stderr": "/tmp/miopunch-mio82-pixel-tls-20261005/dex/classes.dex: 1 file pushed, 0 skipped. 71.7 MB/s (7248 bytes in 0.000s)\n",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "",
+      "elapsedMs": 84.808
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "env CLASSPATH=/data/local/tmp/mio82-pixel-udp-diagnosis-20261005.dex app_process /system/bin Mio82UdpStun 192.168.1.104"
+      ],
+      "exit": 1,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "source=192.168.1.104:35746\nfailureClass=SocketTimeoutException\ncallerElapsedMs=3010.833824\ncleanupElapsedMs=0.34904\nownedSocketClosed=true\n",
+      "elapsedMs": 3286.435
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "rm -f /data/local/tmp/mio82-pixel-udp-diagnosis-20261005.dex"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "",
+      "elapsedMs": 120.7
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "test '!' -e /data/local/tmp/mio82-pixel-udp-diagnosis-20261005.dex"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "",
+      "elapsedMs": 86.066
+    }
+  ],
+  "ownedDexAbsent": true
+}

@@ -196,6 +196,7 @@ impl AdmissionGate {
             alpn,
             crate::file_transfer::FILE_ALPN | crate::clipboard::CLIPBOARD_ALPN
                 | crate::forwarding::TCP_ALPN | crate::forwarding::UDP_ALPN | crate::web::WEB_ALPN
+                | crate::terminal::TERMINAL_ALPN
         ));
         let mut state = self.state.lock().expect("admission policy lock");
         let service = ScopedService {

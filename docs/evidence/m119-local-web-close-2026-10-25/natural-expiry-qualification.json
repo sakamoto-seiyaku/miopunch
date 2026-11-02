@@ -1,0 +1,151 @@
+{
+  "task": "MIOPUNCH-119",
+  "status": "CURRENT_BROWSER_GUEST_NATURAL_EXPIRY_PASS; FULL_M119_INCOMPLETE",
+  "updated_UTC": "2026-10-26T00:02:36.865741+00:00",
+  "Root_independent_qualification": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-current-Web-Browser-natural-expiry-root-qualification-20261026.json",
+    "bytes": 37340,
+    "sha256": "592e06f8005beef182873a7cab5c1903b4fd4ea1a22afff58af04a8d11b59432"
+  },
+  "operator_qualification": {
+    "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/current-Web-guest-expiry-1/strict-qualification.json",
+    "bytes": 19927,
+    "sha256": "976930ba3ef60f1c8989a9c669626eadee0eee8af3ad414c034b2dbf691dfa62"
+  },
+  "handoff": {
+    "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/handoff-current-Web-guest-natural-expiry-incomplete.md",
+    "bytes": 5175,
+    "sha256": "90d6932aafd182eb1db2d631c89b13ceba26a7d709371197ae1acde9f78c6c36"
+  },
+  "seconds": 66.62963418599975,
+  "scope": "One Native issuer/provider, independent Browser guest, original 45s deadline, live WebSocket plus one real pending HTTP; same current WASM0425 and NativeSDK11ddeb pins.",
+  "actual_causal_evidence": {
+    "preexpiry_both_owners": {
+      "expires": 1792947611,
+      "wall": 1792947610.9934304,
+      "pending_request_handle": "4",
+      "one_pending_target_request": true,
+      "pending_target_unreleased": true,
+      "browser_active_operations": 2,
+      "browser_request_handles": 1,
+      "browser_socket_handles": 1,
+      "provider_active_flows": 2,
+      "target_active_sockets": 1,
+      "browser_liveness": {
+        "nodePresent": true,
+        "browserConnected": true,
+        "pageOpen": true,
+        "contentFramePresent": false
+      },
+      "browser_original_pid": 36,
+      "provider_original_pid": 18
+    },
+    "last_public_owners": {
+      "expires": 1792947611,
+      "wall": 1792947610.9973533,
+      "browser_active_operations": 2,
+      "browser_request_handles": 1,
+      "browser_socket_handles": 1
+    },
+    "last_pending": {
+      "expires": 1792947611,
+      "wall": 1792947610.9975584,
+      "monotonic": 39926.161414125,
+      "pending_age_seconds": 2.9539125739975134,
+      "pending": true,
+      "target_unreleased": true
+    },
+    "close_window": {
+      "expires": 1792947611,
+      "continuous_current_expiry_seconds": 0.42979910500434926,
+      "close_bound_seconds": 10,
+      "invalid_observation_windows": 0,
+      "first_true_expiry": {
+        "wall": 1792947611.0477886,
+        "monotonic": 39926.211644585
+      },
+      "current_window_started_monotonic": 39926.211644585,
+      "owners_zero_monotonic": 39926.64144369
+    },
+    "HTTP_causal_timeout_guard": {
+      "begin_rpc_monotonic": 39923.207501611,
+      "first_true_expiry": {
+        "wall": 1792947611.0477886,
+        "monotonic": 39926.211644585
+      },
+      "current_window_started_monotonic": 39926.211644585,
+      "HTTP_error_observed_monotonic": 39926.645527357,
+      "error_observed_seconds_since_begin_rpc": 3.4380257459997665,
+      "pinned_provider_read_timeout_seconds": 15,
+      "required_margin_before_read_timeout_seconds": 1,
+      "valid": true,
+      "wall": 1792947611.4816735,
+      "expires": 1792947611,
+      "invalid_windows": 0,
+      "no_second_request_or_retry": true
+    },
+    "whole_marker": {
+      "original_deadline": 1792947611,
+      "wall_after": 1792947631.2377417,
+      "both_real_owners_live_before_original_deadline": true,
+      "continuous_current_expiry_close_bound_seconds": 10,
+      "invalid_observation_windows": 0,
+      "total_observation_budget_seconds": 100,
+      "actual_total_observation_seconds": 56.115542660001665,
+      "HTTP_error_observed_before_independent_15s_timeout_with_1s_margin": true,
+      "one_pending_HTTP_error_consumed_once_and_stale": true,
+      "live_WebSocket_closed_failed": true,
+      "new_HTTP_and_socket_no_target_effect": true,
+      "same_node_identity_provider_and_browser_alive": true,
+      "target_request_connection_and_message_observation_counters_unchanged": true,
+      "public_module_owners_and_handles_zero": true,
+      "pending_target_unreleased": true,
+      "no_end_revoke_acl_disable_node_tab_browserclose_reload_before_assertions": true
+    }
+  },
+  "limits": {
+    "numeric_negative_counter_snapshots": "Source assertions run after each negative and at final marker. Numeric request/connection/message counter snapshots were not separately persisted.",
+    "actual_predeadline_margin_seconds": 0.0024416446685791016,
+    "margin_note": "The source threshold expires-.75 is not an actual .75 second margin guarantee.",
+    "Windows_and_other_platforms_not_qualified_by_this_case": true
+  },
+  "cleanup": {
+    "raw_files": 36,
+    "raw_bytes": 265755,
+    "events": 108,
+    "loops_created_and_closed": 2,
+    "servers_listeners_and_clients_zero_early_and_final": 3,
+    "original_process_owner_histories": 5,
+    "observed_original_browser_descendants_absent": 14,
+    "descendant_signals": false,
+    "callback_failures": 0,
+    "overflow": 0,
+    "gateway_executor_threads_alive": 0,
+    "readers_and_threads_joined": true,
+    "private_state_removed": true,
+    "controller_drift": [],
+    "source_and_runtime_posthash": true
+  },
+  "retention": {
+    "raw_actual": 22318579,
+    "family_actual": 2475353,
+    "expiry_whole": 460684,
+    "Windows_reserve": 2280084,
+    "raw_cap": 25165824,
+    "family_cap": 3145728,
+    "combined_increment_cap": 1572864,
+    "same_combined_baseline": 1543243,
+    "counting_contract": "Released driver: regular files with st_nlink == 1; immutable pins accounted in existing store graph"
+  },
+  "Root_verifier_schema_error_preserved": "/home/js/Git/miopunch/.artifacts/runs/root-scheduling-20261023/m119-current-Web-Browser-natural-expiry-root-verifier-budget-schema-failure.json",
+  "no_runtime_retry_or_new_case": true,
+  "new_builds_pins_native_or_Core_source_copies": 0,
+  "Windows787_packet_unchanged_pending_approval": false,
+  "full_M119_accepted": false,
+  "Plane_state_unchanged": true,
+  "Windows787_authorized_followup": {
+    "path": "../m119-windows-host-2026-10-25/tls-closure-qualification.json",
+    "sha256": "3496478f6ce968798e51c50d4416306689190f183f1c4f0c5b69f79008dc3a14",
+    "status": "EXPLICITLY_AUTHORIZED_ONE_CASE_PASS; GRANT_CONSUMED"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "status": "FIRST_DIRECTION_SYNC_AND_WEB_POSITIVES_PASS_SHARED_CONFIG_ASSERTION_FAILS",
+  "original_packet_sha256": "ac110cd7c5a0cca9751710db76dca7c693cc6240592a49634f76f812e2d05ade",
+  "raw_file_count": 32,
+  "raw_bytes": 145741,
+  "stage": {
+    "provider_approve": "Approved",
+    "consumer": "Complete"
+  },
+  "sync": {
+    "linux_provider_saved_locally": true,
+    "windows_consumer_saved_locally": true
+  },
+  "web": {
+    "HTTPS_resources_login_redirect_WebSocket_positive_observed": true,
+    "content_isolation_all_true_after_async_settle": true,
+    "full_business_accepted": false
+  },
+  "original_failure": {
+    "linux_provider_probe": "unchanged",
+    "source": "worker.py:254",
+    "cause": "whole web_status equality included completed operational counter",
+    "web_status_delta": {
+      "completed": [
+        0,
+        12
+      ]
+    },
+    "service_status_delta": {},
+    "windows_stale_oracle": "actual content isolation attempts did not settle",
+    "stale_oracle_is_not_actual_failing_assertion": true
+  },
+  "terminal": {
+    "linux": true,
+    "windows": true,
+    "windows_Task": true,
+    "known_pending": []
+  },
+  "limits": [
+    "No post-backoff isolation check or final success proof ran",
+    "No reverse role run",
+    "Single-route success does not isolate which original address or path scheduling caused prior failure"
+  ],
+  "next_fix": "shared worker provider_probe compare persistent configuration only; assert operational counter monotonic separately; rerun same real role business assertions with a fresh case"
+}

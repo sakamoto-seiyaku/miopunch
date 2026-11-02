@@ -1,0 +1,33 @@
+{
+  "argv": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-j",
+    "2",
+    "--test",
+    "contact_listener",
+    "--",
+    "--nocapture"
+  ],
+  "exit": 101,
+  "seconds": 6.254503563977778,
+  "public_traffic": false,
+  "source_before": {
+    "src/contact_listener.rs": "14629fb4d0eadb74d81bdcd6be25e24ba1054fe1cca9d4dcb8b26dd720ced73c",
+    "src/network_maintenance.rs": "0eb92f130d24157afa5dacc7ae88c71b11919bfcfaf5f53e5bf0e9d7e9f2ed57",
+    "src/mqtt_transport.rs": "22361d20a833eb9d8dd1e242b2e8516f323d60d4107fd8576ce038bd856e0924",
+    "tests/contact_listener.rs": "fe2d8682a44739b2f37859fd30075079b4514fbacbe5f29c5e7c5d14ebad9754",
+    "tests/support/contact_broker.rs": "b994dfeff5e13e932ff17a560511e3fdce01399b8e94eedee53177fc9162a874"
+  },
+  "source_after": {
+    "src/contact_listener.rs": "14629fb4d0eadb74d81bdcd6be25e24ba1054fe1cca9d4dcb8b26dd720ced73c",
+    "src/network_maintenance.rs": "0eb92f130d24157afa5dacc7ae88c71b11919bfcfaf5f53e5bf0e9d7e9f2ed57",
+    "src/mqtt_transport.rs": "22361d20a833eb9d8dd1e242b2e8516f323d60d4107fd8576ce038bd856e0924",
+    "tests/contact_listener.rs": "fe2d8682a44739b2f37859fd30075079b4514fbacbe5f29c5e7c5d14ebad9754",
+    "tests/support/contact_broker.rs": "b994dfeff5e13e932ff17a560511e3fdce01399b8e94eedee53177fc9162a874"
+  }
+}

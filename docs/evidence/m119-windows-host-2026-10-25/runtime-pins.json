@@ -1,0 +1,183 @@
+{
+  "kind": "test-fixture dependency pins, not product dependency decisions",
+  "runtime_graph_sha256": "9287d26245ecf91f4afb6419983a6a83183f7cd1b47bb5adf8f1097a8da64300",
+  "compressed_bytes": 15905203,
+  "platform": "win_amd64",
+  "abi": "cp313",
+  "items": [
+    {
+      "name": "cpython",
+      "version": "3.13.17",
+      "filename": "python-3.13.17-embed-amd64.zip",
+      "url": "https://www.python.org/ftp/python/3.13.17/python-3.13.17-embed-amd64.zip",
+      "size": 11441267,
+      "sha256": "9e35319bffedab8b36ad44d8f377cb4f1733bcec257a0b6d04d94f01486ddb38",
+      "kind": "runtime",
+      "primary_hash_source": "https://www.python.org/downloads/release/python-31317/"
+    },
+    {
+      "name": "aiohttp",
+      "version": "3.13.3",
+      "filename": "aiohttp-3.13.3-cp313-cp313-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/4e/f1/ab0395f8a79933577cdd996dd2f9aa6014af9535f65dddcf88204682fe62/aiohttp-3.13.3-cp313-cp313-win_amd64.whl",
+      "size": 453899,
+      "sha256": "693781c45a4033d31d4187d2436f5ac701e7bbfe5df40d917736108c1cc7436e",
+      "metadata_url": "https://pypi.org/pypi/aiohttp/3.13.3/json",
+      "metadata_sha256": "36645a283ae4d078ba2ba07c42c53d9206941c475dd63f2705157b7af095488f",
+      "kind": "wheel"
+    },
+    {
+      "name": "cryptography",
+      "version": "46.0.5",
+      "filename": "cryptography-46.0.5-cp38-abi3-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/48/ef/0c2f4a8e31018a986949d34a01115dd057bf536905dca38897bacd21fac3/cryptography-46.0.5-cp38-abi3-win_amd64.whl",
+      "size": 3467050,
+      "sha256": "556e106ee01aa13484ce9b0239bca667be5004efb0aabbed28d353df86445595",
+      "metadata_url": "https://pypi.org/pypi/cryptography/46.0.5/json",
+      "metadata_sha256": "515b76aaf0d43236e6c3c7eac05a90ef7bd881be9eb2c786c93eadd4a4e5a2f6",
+      "kind": "wheel"
+    },
+    {
+      "name": "aiohappyeyeballs",
+      "version": "2.7.1",
+      "filename": "aiohappyeyeballs-2.7.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/71/43/1947f06babed6b3f1d7f38b0c767f52df66bfb2bc10b468c4a7de9eceff2/aiohappyeyeballs-2.7.1-py3-none-any.whl",
+      "size": 15038,
+      "sha256": "9243213661e29250eb41368e5daa826fc017156c3b8a11440826b2e3ed376472",
+      "metadata_url": "https://pypi.org/pypi/aiohappyeyeballs/2.7.1/json",
+      "metadata_sha256": "90a6fe95d5083b27fa3cb21b46a78cdf84befd72a03001ea3182747e6794b983",
+      "kind": "wheel"
+    },
+    {
+      "name": "aiosignal",
+      "version": "1.4.0",
+      "filename": "aiosignal-1.4.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/fb/76/641ae371508676492379f16e2fa48f4e2c11741bd63c48be4b12a6b09cba/aiosignal-1.4.0-py3-none-any.whl",
+      "size": 7490,
+      "sha256": "053243f8b92b990551949e63930a839ff0cf0b0ebbe0597b0f3fb19e1a0fe82e",
+      "metadata_url": "https://pypi.org/pypi/aiosignal/1.4.0/json",
+      "metadata_sha256": "443bdf542505c93e62117e868b9984b0c5784d50ab5b40ad0ae36d600b2d75ae",
+      "kind": "wheel"
+    },
+    {
+      "name": "attrs",
+      "version": "25.4.0",
+      "filename": "attrs-25.4.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/3a/2a/7cc015f5b9f5db42b7d48157e23356022889fc354a2813c15934b7cb5c0e/attrs-25.4.0-py3-none-any.whl",
+      "size": 67615,
+      "sha256": "adcf7e2a1fb3b36ac48d97835bb6d8ade15b8dcce26aba8bf1d14847b57a3373",
+      "metadata_url": "https://pypi.org/pypi/attrs/25.4.0/json",
+      "metadata_sha256": "60411e19064f867302593b51264c13c199ef138cffa7d778d627b010d8afdbc4",
+      "kind": "wheel"
+    },
+    {
+      "name": "frozenlist",
+      "version": "1.8.0",
+      "filename": "frozenlist-1.8.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/9a/9a/e35b4a917281c0b8419d4207f4334c8e8c5dbf4f3f5f9ada73958d937dcc/frozenlist-1.8.0-py3-none-any.whl",
+      "size": 13409,
+      "sha256": "0c18a16eab41e82c295618a77502e17b195883241c563b00f0aa5106fc4eaa0d",
+      "metadata_url": "https://pypi.org/pypi/frozenlist/1.8.0/json",
+      "metadata_sha256": "b12a7f8b816bfb2a70f2eb97140890efb08a234ab3b75841b0e89e197effa5ad",
+      "kind": "wheel"
+    },
+    {
+      "name": "multidict",
+      "version": "6.7.1",
+      "filename": "multidict-6.7.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/81/08/7036c080d7117f28a4af526d794aab6a84463126db031b007717c1a6676e/multidict-6.7.1-py3-none-any.whl",
+      "size": 12319,
+      "sha256": "55d97cc6dae627efa6a6e548885712d4864b81110ac76fa4e534c03819fa4a56",
+      "metadata_url": "https://pypi.org/pypi/multidict/6.7.1/json",
+      "metadata_sha256": "4b9b9f571831f2d6886444383b8f53d01007eda0ed7350e07dd9cfab6ba60784",
+      "kind": "wheel"
+    },
+    {
+      "name": "propcache",
+      "version": "0.4.1",
+      "filename": "propcache-0.4.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/5b/5a/bc7b4a4ef808fa59a816c17b20c4bef6884daebbdf627ff2a161da67da19/propcache-0.4.1-py3-none-any.whl",
+      "size": 13305,
+      "sha256": "af2a6052aeb6cf17d3e46ee169099044fd8224cbaf75c76a2ef596e8163e2237",
+      "metadata_url": "https://pypi.org/pypi/propcache/0.4.1/json",
+      "metadata_sha256": "486dcc4c9f50500dee4a5c1e4543a89c7c79e1c206734c5f52106d65ea212312",
+      "kind": "wheel"
+    },
+    {
+      "name": "yarl",
+      "version": "1.22.0",
+      "filename": "yarl-1.22.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/73/ae/b48f95715333080afb75a4504487cbe142cae1268afc482d06692d605ae6/yarl-1.22.0-py3-none-any.whl",
+      "size": 46814,
+      "sha256": "1380560bdba02b6b6c90de54133c81c9f2a453dee9912fe58c1dcced1edb7cff",
+      "metadata_url": "https://pypi.org/pypi/yarl/1.22.0/json",
+      "metadata_sha256": "70c909ba6a45d90cb311b1f3892240bd2111f06752750b612e9554009a677443",
+      "kind": "wheel"
+    },
+    {
+      "name": "idna",
+      "version": "3.18",
+      "filename": "idna-3.18-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/1e/5e/d4e9f1a599fb8e573b7b87160658329fbf28d19eac2718f51fc3def3aa5a/idna-3.18-py3-none-any.whl",
+      "size": 65455,
+      "sha256": "7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2",
+      "metadata_url": "https://pypi.org/pypi/idna/3.18/json",
+      "metadata_sha256": "419b11e68bbc25e19d37eba0d65acdf93f6278f8768c542fa4e261f063e9e1b0",
+      "kind": "wheel"
+    },
+    {
+      "name": "cffi",
+      "version": "2.0.0",
+      "filename": "cffi-2.0.0-cp313-cp313-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/37/18/6519e1ee6f5a1e579e04b9ddb6f1676c17368a7aba48299c3759bbc3c8b3/cffi-2.0.0-cp313-cp313-win_amd64.whl",
+      "size": 183402,
+      "sha256": "19f705ada2530c1167abacb171925dd886168931e0a7b78f5bffcae5c6b5be75",
+      "metadata_url": "https://pypi.org/pypi/cffi/2.0.0/json",
+      "metadata_sha256": "176060f17977cb6a9df47b3ee7f97ee40d688832f30593649b465e8d064f4530",
+      "kind": "wheel"
+    },
+    {
+      "name": "pycparser",
+      "version": "2.23",
+      "filename": "pycparser-2.23-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/a0/e3/59cd50310fc9b59512193629e1984c1f95e5c8ae6e5d8c69532ccc65a7fe/pycparser-2.23-py3-none-any.whl",
+      "size": 118140,
+      "sha256": "e5c6e8d3fbad53479cab09ac03729e0a9faf2bee3db8208a550daf5af81a5934",
+      "metadata_url": "https://pypi.org/pypi/pycparser/2.23/json",
+      "metadata_sha256": "2f8b35ee20ccc932a73315a4fea04b3b88a17a66b23c5305af534a9a6d1f20a2",
+      "kind": "wheel"
+    }
+  ],
+  "active_requirements": {
+    "aiohttp": [
+      "aiohappyeyeballs>=2.5.0",
+      "aiosignal>=1.4.0",
+      "attrs>=17.3.0",
+      "frozenlist>=1.1.1",
+      "multidict<7.0,>=4.5",
+      "propcache>=0.2.0",
+      "yarl<2.0,>=1.17.0"
+    ],
+    "cryptography": [
+      "cffi>=2.0.0; python_full_version >= \"3.9\" and platform_python_implementation != \"PyPy\""
+    ],
+    "aiohappyeyeballs": [],
+    "aiosignal": [
+      "frozenlist>=1.1.0"
+    ],
+    "attrs": [],
+    "frozenlist": [],
+    "multidict": [],
+    "propcache": [],
+    "yarl": [
+      "idna>=2.0",
+      "multidict>=4.0",
+      "propcache>=0.2.1"
+    ],
+    "idna": [],
+    "cffi": [
+      "pycparser; implementation_name != \"PyPy\""
+    ],
+    "pycparser": []
+  }
+}

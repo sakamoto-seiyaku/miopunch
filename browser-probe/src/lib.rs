@@ -21,6 +21,8 @@ pub mod file_transfer;
 pub mod forwarding;
 #[path = "../../src/web.rs"]
 pub mod web;
+#[path = "../../src/terminal.rs"]
+pub mod terminal;
 #[path = "../../src/node_backup.rs"]
 pub mod node_backup;
 #[path = "../../src/node_control_backup.rs"]

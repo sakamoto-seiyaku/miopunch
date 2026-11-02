@@ -1,0 +1,94 @@
+{
+  "task": "MIOPUNCH-119",
+  "status": "SOURCE_REVIEW_PASSED; AUTHORIZED_FIRST_CASE_FAILED; GUEST_NOT_STARTED",
+  "updated_UTC": "2026-10-26T02:50:13.547151+00:00",
+  "Root_review": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-ACL-Web-guest-frozen-packet-root-review-20261026.json",
+    "bytes": 6062,
+    "sha256": "41d3a50088d23d6f05304b7f656b4ebb437e87bd06e2113f305d287f8ccbf81a"
+  },
+  "packet_plan": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/payload-plan.json",
+    "bytes": 7599,
+    "sha256": "16d0ff23bfa70b6e1fb5e916e2ddd89d5bb0ae937a5f263008f893c2028ea078"
+  },
+  "source_custody": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/preparation-custody.json",
+    "bytes": 6509,
+    "sha256": "26a76c75c2352d6e1818bea0b215b38a5184972554fde20c39e951e21c20b16a"
+  },
+  "driver": {
+    "path": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-Web-policy-guest-preparation-20261026/control.py",
+    "bytes": 17013,
+    "sha256": "0dbb7e9a160d0ae6f275a7fbcfd8b50a4d0a72d04de4caca35622e6d1faba4c6"
+  },
+  "pending_authorization": {
+    "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-ACL-Web-guest-new-exact-approval-pending-20261026.json",
+    "bytes": 1860,
+    "sha256": "f849bf87cd4c978f107502a07b7a7fd1b170bb9c6c650597e58ae5bfba715bc7",
+    "historical_pending_request_resolved": true,
+    "actual_approval": {
+      "path": ".artifacts/runs/root-scheduling-20261023/m119-Windows-ACL-Web-guest-actual-user-approval-20261026.json",
+      "bytes": 1450,
+      "sha256": "533ed1caea60355dad260d2b2f85664b6e029517f8a88857431ce44f50427b85"
+    }
+  },
+  "packet": {
+    "files": 8,
+    "bytes": 59423,
+    "same_owned_laptop_root_as_TLS902": true,
+    "new_Python_sources": 3,
+    "retained476_files_referenced_not_copied": true,
+    "no_new_build_pin_PE_or_runtime_copy": true
+  },
+  "prospective_sequence": [
+    "One Windows Web policy case: real redirect, target replacement, service disable, member default denial, explicit allow and deny, with actual renderer/target effects.",
+    "Only after complete business/loop/server/process/task qualification and fresh owned-root/profile/private-state metadata: one Web guest identity/provider/Web/deadline and explicit-end case."
+  ],
+  "assertion_boundaries": {
+    "invitation": "identity/provider/ServiceWeb/original deadline; no generic target-resource ACL",
+    "wrong_URL": "provider Web origin configuration, with independently live target",
+    "same_network_pending": "original and duplicate public GuestPending/same-network premises",
+    "wrong_provider": "same-network Web-enabled provider with actual positive HTTP control before guest refusal",
+    "close_bound": "one ten-second observation window after public control acknowledgement; no end-to-end RPC SLA",
+    "negative_effects": "safe owned-target counters recorded before assertions and checked after unchanged2.05s backoff",
+    "first_case_gate": "all observed loops and registered server IDs accounted at early and final close; original process/engine/task records crossbound"
+  },
+  "declared_limits": {
+    "fixed_raw_files": [
+      19,
+      25
+    ],
+    "both_cases_combined_raw_bytes": 2097152,
+    "maximum_new_profiles": 2,
+    "per_case_profile_bytes": 67108864,
+    "per_case_private_nonprofile_bytes": 8388608,
+    "same_global_raw_cap": 25165824,
+    "same_preparation_cap": 196608,
+    "same_Windows_reserve": 2280084,
+    "no_counting_exclusions_root_reset_or_cleanup": true
+  },
+  "not_qualified": [
+    "other-service denial",
+    "issuer revoke",
+    "natural expiry",
+    "Windows/Linux role exchange",
+    "current held Native graph parity",
+    "formal whole-ticket acceptance"
+  ],
+  "actual_new_remote_or_runtime_operations": 9,
+  "old_TLS902_grant_consumed": true,
+  "tool_accepted_or_preselection_is_not_approval": true,
+  "full_M119_accepted": false,
+  "Plane_state_unchanged": true,
+  "known_live": [],
+  "operation_count_scope": "top-level transport commands: five staging/guard/verify, one policyTask coordinator, one empty metadata, one corrected metadata, one fixed-existing SCP; rejected recovery created no command",
+  "runtime_result": {
+    "path": "docs/evidence/m119-windows-host-2026-10-25/acl-guest-runtime-qualification.json",
+    "bytes": 14744,
+    "sha256": "734803f6986ac5f08a1ea3e5f85d43b2eac2a51c81407a67380b8f9fb0ef299b"
+  },
+  "actual_case_count": 1,
+  "dependent_guest_not_started": true,
+  "known_live_scope": "all observed original owned processes terminal; no consumer/content host created; no host-global absence claim"
+}

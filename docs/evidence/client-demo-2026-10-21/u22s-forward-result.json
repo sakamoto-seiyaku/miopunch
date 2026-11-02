@@ -1,0 +1,96 @@
+{
+  "started": "2026-10-21T06:52:13.762Z",
+  "origin": "http://172.16.3.11:18443",
+  "checks": [
+    {
+      "name": "remote HTTP browser node starts without secure-context overrides",
+      "passed": true
+    },
+    {
+      "name": "independent browser identity, real admission and member RPC",
+      "passed": true
+    },
+    {
+      "name": "invitation endpoint refuses missing access capability",
+      "passed": true
+    },
+    {
+      "name": "UI upload, durable native save and download hash",
+      "passed": true,
+      "bytes": 100123,
+      "sha256": "b68cdd44cf7c642dbd0932320f40b72ff211a9f686edc59332135b141444c336"
+    },
+    {
+      "name": "exact file chunk retry accepted; changed retry refused",
+      "passed": true
+    },
+    {
+      "name": "headless buffer and actual browser system clipboard write",
+      "passed": true
+    },
+    {
+      "name": "native TCP listener forwards an actual socket roundtrip",
+      "passed": true,
+      "listen": "127.0.0.1:30821",
+      "target": "127.0.0.1:52535"
+    },
+    {
+      "name": "native UDP listener forwards an actual socket roundtrip",
+      "passed": true,
+      "listen": "127.0.0.1:4261",
+      "target": "127.0.0.1:43497"
+    },
+    {
+      "name": "public network destinations refused by demo target scope",
+      "passed": true
+    },
+    {
+      "name": "content RPC-shaped POST stays an HTTP target request; mailbox refuses missing access capability",
+      "passed": true
+    },
+    {
+      "name": "isolated in-app Web: Fetch, navigation, login/Cookie, 100 KB response and no direct browser target request",
+      "passed": true
+    },
+    {
+      "name": "two real PTY/tmux workspaces; detach/reattach retains shell state; UID 1000 cannot read node credentials",
+      "passed": true
+    },
+    {
+      "name": "xterm keyboard input executes in real PTY and output returns to the UI",
+      "passed": true
+    },
+    {
+      "name": "two HTTP views reuse one browser identity; detaching one keeps the other connected",
+      "passed": true
+    },
+    {
+      "name": "browser reopen keeps identity, membership and saved application state",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "browserDirectTargetRequests": [],
+  "ids": {
+    "browser": "6fa4a61093dbbcd164f81a0f7c1df576d828776bbb95ec6f6de32c306e3ecf14",
+    "host": "08bdd29b43e8fb0b1409faadaf5247ae7f63f9896bf0f3fd76ef82e47f7f991f",
+    "saved": {
+      "authorization_saved": true,
+      "id": "6fa4a61093dbbcd164f81a0f7c1df576d828776bbb95ec6f6de32c306e3ecf14",
+      "running": true,
+      "secret_saved": true,
+      "stage": "Complete"
+    }
+  },
+  "cleanup": {
+    "checkBrowserClosed": true,
+    "checkForwardsRemoved": true,
+    "checkTerminalsEnded": true,
+    "deployedDemoLeftRunning": true
+  },
+  "tls": {
+    "mode": "normal remote HTTP; no secure-context or TLS exceptions"
+  },
+  "passed": true,
+  "finished": "2026-10-21T06:53:51.453Z"
+}

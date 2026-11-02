@@ -1,0 +1,7 @@
+{
+  "name": "miopunch browser host",
+  "short_name": "miopunch",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone"
+}

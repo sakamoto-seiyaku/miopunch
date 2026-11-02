@@ -1,0 +1,68 @@
+{
+  "status": "TWO_EXACT_MAIL_COMMIT_PACKETS_PREPARED_UNEXECUTED_REQUIRES_NEW_CURRENT_USER_APPROVAL",
+  "destination": "stati@100.64.10.8 C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+  "packets": [
+    {
+      "role": "Linux_provider_Windows_consumer",
+      "packet_path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-first-preparation-20261028/packet.json",
+      "packet_sha256": "1030b0ed33f7ba4425738ac6871e2f703b3091e062a05d46ce8f7ac5a4266bbc",
+      "plan_sha256": "37caab5badcbaf90e03dda165e429acbdf62015f3926e3e026d7303f82eeb431",
+      "payload_bytes": 85768,
+      "source_bytes": 141466,
+      "source_tree_files": 14,
+      "mode": "FIRST_ONLY_FULL_WEB_LINUX_TO_WINDOWS",
+      "worker_sha256": "73c2bd4943f23d7796a11d14556fd5867c755e0f6ee9f0fc68693b3f0b533e08",
+      "common_sha256": "095a4f9bce3e6103e02a4b194fecb461f5d312e17322db30cbb24b39def588b7",
+      "launcher_sha256": "9fe53b65fceef959a8fba844a484d313cba7801a7edde3c1e4ba3ccbfe1b9317",
+      "local_source_cap": 147456,
+      "local_metadata_cap": 4522080,
+      "local_admin_cap": 496520,
+      "local_global_cap": 29394168,
+      "SDK_windows_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+      "SDK_linux_sha256": "b63a7f6280417399df02731ce0c2980edb20f24099244107e8c1b38be47a8c46",
+      "runtime_started": false
+    },
+    {
+      "role": "Windows_provider_Linux_consumer",
+      "packet_path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-reverse-preparation-20261028/packet.json",
+      "packet_sha256": "de774557e72ac9f377ec9d1be243398787f46e1cdc43542b1d74c1a647f83b77",
+      "plan_sha256": "9a2e736a6c9cd56056f733536a8b1c65a03f6a92fd2f84ac21d7983411892f90",
+      "payload_bytes": 85774,
+      "source_bytes": 142172,
+      "source_tree_files": 14,
+      "mode": "REVERSE_ONLY_FULL_WEB_WINDOWS_TO_LINUX",
+      "worker_sha256": "73c2bd4943f23d7796a11d14556fd5867c755e0f6ee9f0fc68693b3f0b533e08",
+      "common_sha256": "095a4f9bce3e6103e02a4b194fecb461f5d312e17322db30cbb24b39def588b7",
+      "launcher_sha256": "9fe53b65fceef959a8fba844a484d313cba7801a7edde3c1e4ba3ccbfe1b9317",
+      "local_source_cap": 147456,
+      "local_metadata_cap": 4522080,
+      "local_admin_cap": 500616,
+      "local_global_cap": 29398264,
+      "SDK_windows_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+      "SDK_linux_sha256": "b63a7f6280417399df02731ce0c2980edb20f24099244107e8c1b38be47a8c46",
+      "runtime_started": false
+    }
+  ],
+  "payload_total_bytes": 171542,
+  "approved_previous_batch_sha256": "0ef0b1ba1870bfd6a9df0bc8e444757a2330856a0e1ff704b2af56ba51e58444",
+  "previous_batch_consumed": "both prior exact packets executed once; both failed with original raw retained",
+  "new_change": "shared mail payload committed before zero-byte ready marker; reader waits marker; same business and isolation assertions retained",
+  "same_seam_regression_sha256": "097f31eadc5a9e2b2889a310926adf9e83331ce34d699e43704ff67c29d775f5",
+  "budget_review_sha256": "c53f6dba119a37f0ab0d77123e630966c44b711fd1edb4c97bcbf522f3b58b47",
+  "first_remote_readonly_precheck_sha256": "180a28fb840b61793f254ea435799de7c7cd8d04d3ec796c049a06adb59ab072",
+  "first_remote_margin_bytes_now": 9233117,
+  "execution_order": [
+    "first role after exact new approval",
+    "independent raw/owner qualification",
+    "fresh reverse capacity/collision check",
+    "reverse role only if unchanged 1GiB guard passes"
+  ],
+  "remote_root_cap_unchanged": 1073741824,
+  "new_SDK_builds_or_transfers": 0,
+  "known_unresolved": [
+    "intermittent Windows provider create code5 before ready",
+    "natural five-address Windows consumer sync failure"
+  ],
+  "no_runtime_yet": true,
+  "whole_M119_accepted": false
+}

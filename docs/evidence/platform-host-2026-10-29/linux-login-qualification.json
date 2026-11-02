@@ -1,0 +1,197 @@
+{
+  "status": "qualified_bounded_phase",
+  "scope": "MIOPUNCH-121 isolated Linux login acceptance and current fixed platform deliverables",
+  "whole_M121_accepted": false,
+  "whole_M107_accepted": false,
+  "evidence": ".artifacts/runs/m121-linux-login-qualified-20261029",
+  "root_acceptance_sha256": "eaf3b9ee5ace299f8567f389de391fd0c88e4e23bbbac252114dd243d9d6395b",
+  "previous_bounded_phase": "docs/evidence/platform-host-2026-10-29/desktop-browser-qualification.json",
+  "artifacts": [
+    {
+      "kind": "linux-desktop",
+      "path": ".artifacts/runs/m121-linux-login-packages-20261029/miopunch-linux-x86_64-desktop.tar.gz",
+      "sha256": "d8304859b83bbbc150470031132de23c5a6d45e2ec565e0c894f2bc875caa60e",
+      "bytes": 50353087,
+      "runtime_qualified": true,
+      "actual_login_trigger_qualified": true,
+      "source_sha256": "87449ecf99e569656495aad2fdba7a59c5b77fc81d0be1441a492979d87c22da",
+      "login_scope": "Actual LightDM/PAM -> LXSession XDG in isolated Ubuntu24.04; four positive/next-login-off cases and Hidden=true negative. No logind/utmp or host/other desktop claim."
+    },
+    {
+      "kind": "windows-desktop",
+      "path": ".artifacts/runs/m121-linux-login-packages-20261029/miopunch-windows-x86_64-desktop.zip",
+      "sha256": "aa1f4fc6dc05d669f530442a8e3162e3aab611b031aa2048f8cc4496a65b04ee",
+      "bytes": 26175356,
+      "runtime_qualified": true,
+      "actual_login_trigger_qualified": false,
+      "source_sha256": "54b8452b3caf2d184fe4b9782d527eaf0519c07a2c517767b5f5d80df31a542c",
+      "current_artifact_smoke_qualified": true,
+      "prior_business_matrix_source_equivalent": true
+    },
+    {
+      "kind": "linux-headless",
+      "path": ".artifacts/runs/m121-linux-login-packages-20261029/miopunch-linux-x86_64-headless.tar.gz",
+      "sha256": "36ff9c1c21d30b6dc37781bbade5f43f8e267f0504a19018016c1d10c7d3e371",
+      "bytes": 38369430,
+      "runtime_qualified": true,
+      "actual_login_trigger_qualified": false,
+      "source_sha256": "e6e18169589ca723894f8789da79bd95dac52b813c054f71b7e7198698d9c371",
+      "reused_from": ".artifacts/runs/m121-platform-packages-20261029/miopunch-linux-x86_64-headless.tar.gz"
+    },
+    {
+      "kind": "browser",
+      "path": ".artifacts/runs/m121-linux-login-packages-20261029/miopunch-browser.tar.gz",
+      "sha256": "d7dc078901950e5d92c80cf958a548ae7f333dc1838c63d4008034a347da88a7",
+      "bytes": 6811247,
+      "runtime_qualified": true,
+      "published": false,
+      "PWA_install_qualified": false,
+      "reused_from": ".artifacts/runs/m121-platform-packages-20261029/miopunch-browser.tar.gz"
+    },
+    {
+      "kind": "android-verification",
+      "path": ".artifacts/runs/m121-linux-login-packages-20261029/miopunch-android-arm64-host-verification.apk",
+      "sha256": "c7866e2deb01951f7a7597fb1930d390e5632e5a4fb6fc32f81fdccbbf94c22f",
+      "bytes": 21930474,
+      "runtime_qualified": false,
+      "current_source_built": true,
+      "JNI_sha256": "66d16d4e29b76caff639678e11e15cfe53d635f2bf2aca4c9326a0a14e7d6ee5",
+      "historical_other_source_business_phases_qualified": true,
+      "foreground_and_reboot_deferred": true,
+      "final_Tauri_mobile_delivery": false,
+      "reused_from": ".artifacts/runs/m121-platform-packages-20261029/miopunch-android-arm64-host-verification.apk"
+    }
+  ],
+  "facts": {
+    "Linux_login": {
+      "environment": "Actual LightDM1.30/PAM autologin -> ordinary UID1000 LXSession XDG in isolated Ubuntu24.04/Xvfb; no host login, other desktop, logind or utmp claim",
+      "cases": [
+        "quoting",
+        "spaces",
+        "xdg",
+        "hidden",
+        "plain"
+      ],
+      "default_on": true,
+      "real_PAM_authentication": true,
+      "ordinary_session_UID": 1000,
+      "silent_same_identity_authenticated_SDK": true,
+      "same_PID_window_reopen": true,
+      "actual_UI_off_and_quit": true,
+      "original_adopted_SDK_exit": 0,
+      "next_login_off_negative_seconds": 5,
+      "OS_Hidden_negative_seconds": 5,
+      "absolute_XDG_CONFIG_HOME": true,
+      "literal_space_quote_apostrophe_dollar_backtick_percent_backslash_paths": true,
+      "other_desktops_or_host_login_qualified": false
+    },
+    "Windows_current": {
+      "current_artifact_smoke_passed": true,
+      "exact_registered_space_path_command_exit": 0,
+      "current_user_only_registration": true,
+      "startup_settings_restored": true,
+      "Windows_effective_imports_and_all_command_lifecycle_startup_functions_identical_to_prior_business_source": true,
+      "prior_real_business_matrix_reused": true,
+      "current_full_SDK_matrix_rerun": false,
+      "actual_login_trigger_qualified": false
+    },
+    "launcher_diagnostics": {
+      "actual_GIO_and_GLib_launchers": true,
+      "all_argument_bytes_preserved": true,
+      "Unicode_and_trailing_newlines_preserved": true,
+      "shell_substitution_payload_inert": true,
+      "SDK_executed": false
+    },
+    "unchanged_deliverables": {
+      "headless_source_current": true,
+      "browser_source_current": true,
+      "Android_source_current": true,
+      "unchanged_three_exports_reused": true,
+      "Android_current_runtime_qualified": false
+    }
+  },
+  "implementation_decisions": [
+    "Linux autostart uses the normal XDG configuration directory and reflects OS Hidden=true as disabled. Entries are bounded, written atomically with0600 files and0700 new directories.",
+    "Actual GIO and LXSession launchers disagree on percent expansion. A fixed /bin/sh launcher reconstructs the percent in a private positional parameter; each executable/argument remains a separately quoted literal. Exact arguments, Unicode, trailing newlines and inert substitution payload were independently observed before final actual PAM acceptance.",
+    "The Linux-specific module requires current-source desktop rebuilds on Linux and Windows. Each rebuilt only its own desktop target:812/704 Fresh artifacts, one own target and zero dependencies rebuilt. SDK, locks, compiler/profile/cache identities remain fixed.",
+    "Two current desktop archives replace the earlier delivery versions through a new index. Headless, Browser and Android exports reuse verified immutable objects; old packages and accepted intermediate source pins remain preserved."
+  ],
+  "preserved_failures": [
+    "Original real Linux login failed for a space-containing executable path; absolute XDG_CONFIG_HOME registration and external Hidden=true state also failed before the common manager fix.",
+    "Two intermediate accepted pins passed common cases but failed literal percent/metacharacter login. Their full failed results, exact launcher observations and unique pins remain retained.",
+    "Initial container/mount/display/controller-premise failures remain retained. No runtime retry rebuilt an identical SDK graph.",
+    "Evidence archival permission, mount and hardlink-ownership failures and qualification-fixture failures remain recorded separately; they did not replace product results or trigger SDK/runtime reruns."
+  ],
+  "escalation": {
+    "stable_problem_clock": 368921.853139926,
+    "expanded_round": 3,
+    "expanded_elapsed_seconds": 1769.7382192640216,
+    "threshold_seconds": 1800,
+    "shared_manager_all_entries_positive_negative_and_actual_runtime_observed": true,
+    "clock_or_round_not_reset": true
+  },
+  "resources": {
+    "raw_bytes": 36419435,
+    "raw_budget_bytes": 50331648,
+    "initial_raw_estimate_bytes": 33554432,
+    "maximum_Linux_cgroup_peak_bytes": 303783936,
+    "Linux_memory_limit_bytes": 2147483648,
+    "current_Windows_process_peak_not_measured": true,
+    "private_peak_not_measured": true,
+    "Linux_allocated_removed_bytes": 45776896,
+    "Linux_available_byte_delta": 45768704,
+    "Linux_shared_alias_allocation_preserved_bytes": 985231360,
+    "Windows_last_link_file_allocation_removed_bytes": 97377616,
+    "Windows_available_byte_delta": 97456128,
+    "Windows_directory_allocation_not_counted": true,
+    "store_allocated_bytes": 40833261568,
+    "reviewed_store_cap_bytes": 41875931136,
+    "default_store_policy_bytes": 34359738368,
+    "SDK_runtime_retries_reuse_pins": true,
+    "all_current_graph_rebuilds_own_target_only": true,
+    "completion_accounting": ".artifacts/runs/m121-linux-login-qualified-20261029/qualification/completion-resource-accounting.json"
+  },
+  "cleanup": {
+    "local": {
+      "path": ".artifacts/runs/m121-linux-login-qualified-20261029/qualification/local-cleanup-result.json",
+      "sha256": "31018f6dc8e55fe15eecea334f53b2079318e8105f9feefe00f3a80ce2b6348d",
+      "bytes": 440862
+    },
+    "Windows": {
+      "path": ".artifacts/runs/m121-linux-login-qualified-20261029/qualification/windows-cleanup-result.json",
+      "sha256": "4ac02137acb4a7edcbbd9317523b69f7f21046d0863a3ebcb01eb23618986d50",
+      "bytes": 17720
+    },
+    "local_private_roots_removed": 23,
+    "Windows_private_roots_and_new_profiles_removed": 3,
+    "host_visible_references": [],
+    "Windows_startup_restored": true,
+    "Windows_task_registrations_removed": true,
+    "old_Windows_runtime_preserved": true
+  },
+  "user_deferrals": [
+    "Windows actual logout/login startup trigger",
+    "Android foreground/window and physical reboot",
+    "Clipboard validation",
+    "Windows WSL terminal provider"
+  ],
+  "limits": [
+    "Actual Linux login qualification is scoped to isolated LightDM/PAM/LXSession, without systemd-logind/utmp and without other desktop environments or a host logout.",
+    "Actual Windows logout/login startup remains explicitly deferred; current artifact smoke and independently recomputed source equivalence support reuse of the prior full business matrix.",
+    "Android current APK is signed and source-matched; current foreground/window and physical reboot qualification remain deferred. Historical other-source Android business phases remain separate.",
+    "Clipboard and Windows WSL terminal provider remain deferred.",
+    "Browser self-hosted bundle prepared; no public destination selected/published and no PWA install qualification.",
+    "Technical hosts do not establish shared Vue product UI delivery."
+  ],
+  "evidence_links": [
+    ".artifacts/runs/m121-linux-login-qualified-20261029/manifest.json",
+    ".artifacts/runs/m121-linux-login-qualified-20261029/qualification/root-acceptance.json",
+    ".artifacts/runs/m121-linux-login-qualified-20261029/qualification/local-cleanup-result.json",
+    ".artifacts/runs/m121-linux-login-qualified-20261029/qualification/windows-cleanup-result.json",
+    ".artifacts/runs/m121-linux-login-qualified-20261029/qualification/archive-environment-failures-and-unified-recovery.json",
+    ".artifacts/runs/m121-linux-login-qualified-20261029/qualification/completion-resource-accounting.json",
+    ".artifacts/runs/m121-linux-login-packages-20261029/delivery-index.json",
+    ".artifacts/runs/m121-linux-login-qualified-20261029/raw/m121-linux-launcher-argv-positional/result.json",
+    ".artifacts/runs/m121-linux-login-qualified-20261029/raw/m121-windows-linux-autostart-current/source-equivalence.json"
+  ]
+}

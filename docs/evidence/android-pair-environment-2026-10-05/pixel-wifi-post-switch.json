@@ -1,0 +1,153 @@
+{
+  "scope": "post-authorized Pixel Wi-Fi switch verification; no NAT/SDK pass",
+  "targetSsid": "CU_7WFb_5G",
+  "status": {
+    "wifiEnabled": true,
+    "connectedTarget": true,
+    "connectedCurrentOpenwrt": false
+  },
+  "commands": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "cmd wifi status"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "result": {
+        "wifiEnabled": true,
+        "connectedTarget": true,
+        "connectedCurrentOpenwrt": false
+      },
+      "elapsedMs": 230.454
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "ip -o addr show"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "result": [
+        {
+          "interface": "lo",
+          "family": "inet",
+          "address": "127.0.0.1/8"
+        },
+        {
+          "interface": "lo",
+          "family": "inet6",
+          "address": "::1/128"
+        },
+        {
+          "interface": "dummy0",
+          "family": "inet6",
+          "address": "fe80::34a2:3eff:fe3b:e9e4/64"
+        },
+        {
+          "interface": "wlan0",
+          "family": "inet",
+          "address": "192.168.1.104/24"
+        },
+        {
+          "interface": "wlan0",
+          "family": "inet6",
+          "address": "2408:8207:1855:7360:86f3:9ae8:8ebc:3814/64"
+        },
+        {
+          "interface": "wlan0",
+          "family": "inet6",
+          "address": "2408:8207:1855:7360:40bd:dff:fe47:f666/64"
+        },
+        {
+          "interface": "wlan0",
+          "family": "inet6",
+          "address": "fe80::40bd:dff:fe47:f666/64"
+        }
+      ],
+      "elapsedMs": 295.028
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "ip route show table all"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "default via 192.168.1.1 dev wlan0 table 1047 proto static \n192.168.1.0/24 dev wlan0 table 1047 proto static scope link \n192.168.1.0/24 dev wlan0 table 1000000047 proto static scope link \n224.0.0.0/24 dev wlan0 table 1000000047 proto static scope link \ndefault dev dummy0 table 1002 proto static scope link \n192.168.1.0/24 dev wlan0 proto kernel scope link src 192.168.1.104 \nlocal 127.0.0.0/8 dev lo table local proto kernel scope host src 127.0.0.1 \nlocal 127.0.0.1 dev lo table local proto kernel scope host src 127.0.0.1 \nbroadcast 127.255.255.255 dev lo table local proto kernel scope link src 127.0.0.1 \nlocal 192.168.1.104 dev wlan0 table local proto kernel scope host src 192.168.1.104 \nbroadcast 192.168.1.255 dev wlan0 table local proto kernel scope link src 192.168.1.104 \n2408:8207:1855:7360::/64 dev wlan0 table 1047 proto kernel metric 256 expires 259171sec pref medium\n2408:8207:1855:7360::/64 via fe80::1 dev wlan0 table 1047 proto ra metric 1024 expires 259171sec pref high\nfe80::/64 dev wlan0 table 1047 proto kernel metric 256 pref medium\nfe80::/64 dev wlan0 table 1047 proto static metric 1024 pref medium\ndefault via fe80::1 dev wlan0 table 1047 proto ra metric 1024 expires 1771sec hoplimit 64 pref low\n2408:8207:1855:7360::/64 dev wlan0 table 1000000047 proto static metric 1024 pref medium\nfe80::/64 dev wlan0 table 1000000047 proto static metric 1024 pref medium\nfe80::/64 dev dummy0 table 1002 proto kernel metric 256 pref medium\ndefault dev dummy0 table 1002 proto static metric 1024 pref medium\nlocal ::1 dev lo table local proto kernel metric 0 pref medium\nlocal 2408:8207:1855:7360:40bd:dff:fe47:f666 dev wlan0 table local proto kernel metric 0 pref medium\nlocal 2408:8207:1855:7360:86f3:9ae8:8ebc:3814 dev wlan0 table local proto kernel metric 0 pref medium\nlocal fe80::34a2:3eff:fe3b:e9e4 dev dummy0 table local proto kernel metric 0 pref medium\nlocal fe80::40bd:dff:fe47:f666 dev wlan0 table local proto kernel metric 0 pref medium\nmulticast ff00::/8 dev dummy0 table local proto kernel metric 256 pref medium\nmulticast ff00::/8 dev wlan0 table local proto kernel metric 256 pref medium\n",
+      "elapsedMs": 195.907
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "ip rule show"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "0:\tfrom all lookup local \n10000:\tfrom all fwmark 0xc0000/0xd0000 lookup 99 \n11000:\tfrom all iif lo oif dummy0 uidrange 0-0 lookup 1002 \n11000:\tfrom all iif lo oif wlan0 uidrange 0-0 lookup 1047 \n15040:\tfrom all fwmark 0x1027e/0x1ffff iif lo uidrange 10119-10119 lookup 1047 \n15040:\tfrom all fwmark 0x1027e/0x1ffff iif lo uidrange 10120-10120 lookup 1047 \n15040:\tfrom all fwmark 0x1027e/0x1ffff iif lo uidrange 10163-10163 lookup 1047 \n15040:\tfrom all fwmark 0x1027e/0x1ffff iif lo uidrange 10176-10176 lookup 1047 \n15040:\tfrom all fwmark 0x1027e/0x1ffff iif lo uidrange 10199-10199 lookup 1047 \n15040:\tfrom all fwmark 0x1027e/0x1ffff iif lo uidrange 10167-10167 lookup 1047 \n16000:\tfrom all fwmark 0x10063/0x1ffff iif lo lookup 97 \n16000:\tfrom all fwmark 0x1027e/0x1ffff iif lo lookup 1047 \n17000:\tfrom all iif lo oif dummy0 lookup 1002 \n17000:\tfrom all iif lo oif wlan0 lookup 1047 \n18000:\tfrom all fwmark 0x0/0x10000 lookup 99 \n19000:\tfrom all fwmark 0x0/0x10000 lookup 98 \n20000:\tfrom all fwmark 0x0/0x10000 lookup 97 \n22040:\tfrom all fwmark 0x27e/0x1ffff iif lo uidrange 10119-10119 lookup 1047 \n22040:\tfrom all fwmark 0x27e/0x1ffff iif lo uidrange 10120-10120 lookup 1047 \n22040:\tfrom all fwmark 0x27e/0x1ffff iif lo uidrange 10163-10163 lookup 1047 \n22040:\tfrom all fwmark 0x27e/0x1ffff iif lo uidrange 10176-10176 lookup 1047 \n22040:\tfrom all fwmark 0x27e/0x1ffff iif lo uidrange 10199-10199 lookup 1047 \n22040:\tfrom all fwmark 0x27e/0x1ffff iif lo uidrange 10167-10167 lookup 1047 \n23000:\tfrom all fwmark 0x27e/0x1ffff iif lo lookup 1047 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10119-10119 lookup 1000000047 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10120-10120 lookup 1000000047 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10163-10163 lookup 1000000047 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10176-10176 lookup 1000000047 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10199-10199 lookup 1000000047 \n25000:\tfrom all fwmark 0x0/0x10000 iif lo uidrange 10167-10167 lookup 1000000047 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10119-10119 lookup 1047 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10120-10120 lookup 1047 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10163-10163 lookup 1047 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10176-10176 lookup 1047 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10199-10199 lookup 1047 \n29040:\tfrom all fwmark 0x0/0xffff iif lo uidrange 10167-10167 lookup 1047 \n31000:\tfrom all fwmark 0x0/0xffff iif lo lookup 1047 \n32000:\tfrom all unreachable\n",
+      "elapsedMs": 342.115
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "/home/js/Android/Sdk/platform-tools/adb",
+        "-s",
+        "<USB-Pixel6a>",
+        "shell",
+        "ip route get 74.125.250.129"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "cleanup": {
+        "forced": false,
+        "leaderWaitedFor": true,
+        "processGroupAbsentImmediately": true
+      },
+      "stdout": "74.125.250.129 via 192.168.1.1 dev wlan0 table 1047 src 192.168.1.104 uid 2000 \n    cache \n",
+      "elapsedMs": 106.597
+    }
+  ],
+  "USBControlRetained": true,
+  "physicalWanQualified": false
+}

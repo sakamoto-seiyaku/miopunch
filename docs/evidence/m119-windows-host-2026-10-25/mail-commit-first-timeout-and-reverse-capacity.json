@@ -1,0 +1,168 @@
+{
+  "status": "FIRST_ROLE_FAILED_REVERSE_NOT_STARTED_CAPACITY",
+  "first_packet": {
+    "path": "/home/js/Git/miopunch/.artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-mail-commit-first-preparation-20261028/packet.json",
+    "sha256": "1030b0ed33f7ba4425738ac6871e2f703b3091e062a05d46ce8f7ac5a4266bbc",
+    "mode": "FIRST_ONLY_FULL_WEB_LINUX_TO_WINDOWS",
+    "raw_file_count": 32,
+    "raw_bytes": 133089,
+    "raw_hashes_verified": true,
+    "qualification_status": "FAILED_OR_NOT_REACHED",
+    "stop_sha256": "e28e3219360eceaba55fd1e8f7ffee892472dba8b1a562f4f57fa41523f33dc1"
+  },
+  "observed_positive_subset": {
+    "provider_sdk_completed": 12,
+    "provider_sdk_failed": 0,
+    "consumer_sdk_completed": 12,
+    "consumer_sdk_failed": 0,
+    "directory_watcher": "PASS",
+    "web_login_navigation_websocket": true
+  },
+  "first_failure": {
+    "coordinator": {
+      "type": "TimeoutError",
+      "frames": [
+        {
+          "source": "operate.py",
+          "line": 38,
+          "function": "run_case"
+        },
+        {
+          "source": "operate.py",
+          "line": 447,
+          "function": "command"
+        },
+        {
+          "source": "operate.py",
+          "line": 444,
+          "function": "command"
+        },
+        {
+          "source": "operate.py",
+          "line": 324,
+          "function": "receive"
+        },
+        {
+          "source": "common.py",
+          "line": 122,
+          "function": "remaining"
+        }
+      ]
+    },
+    "linux": {
+      "type": "Empty",
+      "phase": "probe:snapshot",
+      "oracle": null,
+      "frames": [
+        {
+          "source": "worker.py",
+          "line": 618,
+          "function": "run"
+        },
+        {
+          "source": "common.py",
+          "line": 241,
+          "function": "receive"
+        }
+      ],
+      "SDK_operation": "web_status",
+      "SDK_metadata": {
+        "id": 10,
+        "ok": true,
+        "result": {
+          "active_flows": 0,
+          "completed": 12,
+          "enabled": true,
+          "failed": 0,
+          "last_failure_phase": null,
+          "max_flows": 16,
+          "max_request_handles": 16,
+          "max_response_bytes": 8388608,
+          "max_socket_message_bytes": 32768,
+          "origins": [
+            "https://127.0.0.1:44028"
+          ],
+          "provider": true,
+          "request_handles": 0,
+          "socket_handles": 0,
+          "socket_queue_capacity": 16
+        }
+      }
+    },
+    "windows": {
+      "type": "AssertionError",
+      "phase": "exercise",
+      "oracle": "actual content isolation attempts did not settle",
+      "frames": [
+        {
+          "source": "worker.py",
+          "line": 620,
+          "function": "run"
+        },
+        {
+          "source": "worker.py",
+          "line": 581,
+          "function": "command"
+        },
+        {
+          "source": "worker.py",
+          "line": 447,
+          "function": "exercise"
+        },
+        {
+          "source": "worker.py",
+          "line": 507,
+          "function": "isolation"
+        },
+        {
+          "source": "worker.py",
+          "line": 291,
+          "function": "remote"
+        }
+      ],
+      "SDK_operation": "web_status",
+      "SDK_metadata": {
+        "id": 291,
+        "ok": true,
+        "result": {
+          "active_flows": 0,
+          "completed": 12,
+          "enabled": false,
+          "failed": 0,
+          "last_failure_phase": null,
+          "max_flows": 16,
+          "max_request_handles": 16,
+          "max_response_bytes": 8388608,
+          "max_socket_message_bytes": 32768,
+          "origins": [],
+          "provider": true,
+          "request_handles": 0,
+          "socket_handles": 0,
+          "socket_queue_capacity": 16
+        }
+      }
+    },
+    "all_original_owners_terminal": true,
+    "pending": [],
+    "remote_unknown": {},
+    "runtime_retry": false,
+    "full_business_accepted": false
+  },
+  "reverse_precheck": {
+    "path": "/tmp/m119-route-feedback-20261028/mail-commit-reverse-after-first-precheck-escalated.json",
+    "sha256": "24e4762002c8b7f8dc57a78ecd6a03d8cd162fb41e9da47f27516e5a44c68c73",
+    "owned_root_bytes": 973619581,
+    "reserve_bytes": 109137678,
+    "conservative_bytes": 1082757259,
+    "root_cap_bytes": 1073741824,
+    "excess_bytes": 9015435,
+    "collisions": [],
+    "remote_mutations": 0,
+    "reverse_started": false
+  },
+  "limits": [
+    "Positive Web subset was observed before the snapshot/isolation deadline; the full role assertion failed.",
+    "The reverse packet is unchanged and authorized but cannot pass its current 104 MiB conservative reserve.",
+    "No remote cleanup, new build or reverse runtime was performed."
+  ]
+}

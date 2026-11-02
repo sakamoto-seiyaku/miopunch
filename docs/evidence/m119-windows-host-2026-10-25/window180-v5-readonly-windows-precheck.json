@@ -1,0 +1,24 @@
+{
+  "ssh_exit": 0,
+  "stdout": "{\"profileBytes\":178031280,\"baseSdkSha256\":\"6de63b7756d7e9d627d6437bdc5c5c6fea22dc0b326ba44d4f2d58b1a7159690\",\"rootCap\":1073741824,\"collisions\":[],\"files\":5303,\"conservative\":1059557134,\"privateNonProfileBytes\":3974955,\"ownedRootBytes\":992362133,\"sdkSha256\":\"a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac\",\"privateCap\":67108864,\"phase\":\"window180-v5-reverse-preparation-readonly-precheck\",\"reserve\":67195001,\"availableBytes\":254673100800,\"baseManifestSha256\":\"d3303f22f927d00361fc81e6f2036078d8f1d2f5de5e40c50b48b6d9c47800ce\",\"profileCap\":402653184}\n",
+  "stderr": "#< CLIXML\n<Objs Version=\"1.1.0.1\" xmlns=\"http://schemas.microsoft.com/powershell/2004/04\"><Obj S=\"progress\" RefId=\"0\"><TN RefId=\"0\"><T>System.Management.Automation.PSCustomObject</T><T>System.Object</T></TN><MS><I64 N=\"SourceId\">1</I64><PR N=\"Record\"><AV>Preparing modules for first use.</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj><Obj S=\"progress\" RefId=\"1\"><TNRef RefId=\"0\" /><MS><I64 N=\"SourceId\">1</I64><PR N=\"Record\"><AV>Preparing modules for first use.</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj></Objs>",
+  "script_sha256": "9ec557841fc05e03f9f85f64bd17374e155988e3d43240c6bd438b88e72e8ec7",
+  "remote_mutations": 0,
+  "precheck": {
+    "profileBytes": 178031280,
+    "baseSdkSha256": "6de63b7756d7e9d627d6437bdc5c5c6fea22dc0b326ba44d4f2d58b1a7159690",
+    "rootCap": 1073741824,
+    "collisions": [],
+    "files": 5303,
+    "conservative": 1059557134,
+    "privateNonProfileBytes": 3974955,
+    "ownedRootBytes": 992362133,
+    "sdkSha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+    "privateCap": 67108864,
+    "phase": "window180-v5-reverse-preparation-readonly-precheck",
+    "reserve": 67195001,
+    "availableBytes": 254673100800,
+    "baseManifestSha256": "d3303f22f927d00361fc81e6f2036078d8f1d2f5de5e40c50b48b6d9c47800ce",
+    "profileCap": 402653184
+  }
+}

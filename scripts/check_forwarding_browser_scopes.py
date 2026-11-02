@@ -60,6 +60,9 @@ class ScopeRunner(BrowserRunner, MatrixRunner):
         provider.call("issue_precode", path=str(invitation), seconds=600, max_uses=1)
         status = browser.call("start", "join", self.configuration, invitation.read_text())
         assert browser.call("request_join", False) == "Complete"
+        capability = browser.call("forwarding_status")
+        assert capability["native_listener"] is False and capability["provider"] is False
+        assert capability["bounded_exchange"] is True
         return browser, status["id"]
 
     def scopes(self):

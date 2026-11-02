@@ -1,0 +1,210 @@
+{
+  "task": "MIOPUNCH-116",
+  "date": "2026-10-29",
+  "scope": "actual Native Windows laptop and Linux host; public CLI, SSH only controls and confidential fresh test capsules/cards",
+  "whole_ticket_accepted": true,
+  "actual_platform_cases": {
+    "management": {
+      "result": {
+        "path": ".artifacts/runs/m116-platform-current-20261029/m116-device-management-current/result.json",
+        "bytes": 2728,
+        "sha256": "df39cf297e7f0abecab8a8045e7bb6b06d07c8ddd498f69188a975a31c6f31ec"
+      },
+      "events": {
+        "path": ".artifacts/runs/m116-platform-current-20261029/m116-device-management-current/events.jsonl",
+        "bytes": 200043,
+        "sha256": "e3079887525623dfea07dda7df198a079ae348d753ed0959c11a4ba50bca8895"
+      },
+      "controller_sources": {
+        "path": ".artifacts/runs/m116-platform-current-20261029/m116-device-management-current/controller-sources.json",
+        "bytes": 777,
+        "sha256": "04ee69e7ea3bdec2fcdc1ad4e28df116f2c0ccda47ef11b4d74632ad27795181"
+      },
+      "two_real_OS_roles": true,
+      "independent_saved_files": 2,
+      "terminal_hosts": 4,
+      "source_graph": "current-20261029-before-sqlite-fix"
+    },
+    "replacement": {
+      "result": {
+        "path": ".artifacts/runs/m116-platform-current-20261029/m116-node-replacement-current/result.json",
+        "bytes": 3481,
+        "sha256": "5de80212c0977eb6de433896b670a3ca889e3c395e5c0ffefae0810696ce980d"
+      },
+      "events": {
+        "path": ".artifacts/runs/m116-platform-current-20261029/m116-node-replacement-current/events.jsonl",
+        "bytes": 105112,
+        "sha256": "900ec1c34ad5bf27221a67cc48cee1a07583d10931158557ab918e7e8b148880"
+      },
+      "controller_sources": {
+        "path": ".artifacts/runs/m116-platform-current-20261029/m116-node-replacement-current/controller-sources.json",
+        "bytes": 777,
+        "sha256": "fff3b1c7d6e31552c749e817aadccbfd037114473b6f569fbe9bfaf8fc3a1e37"
+      },
+      "two_real_OS_roles": true,
+      "independent_saved_files": 2,
+      "terminal_hosts": 10,
+      "source_graph": "current-20261029-before-sqlite-fix"
+    },
+    "custody_recovery": {
+      "result": {
+        "path": ".artifacts/runs/m116-platform-current-20261029/m116-custody-recovery-current/result.json",
+        "bytes": 4282,
+        "sha256": "e26705390417b153b67310b6120ae7d3c69c56bf9f92994539b96b7cbee19559"
+      },
+      "events": {
+        "path": ".artifacts/runs/m116-platform-current-20261029/m116-custody-recovery-current/events.jsonl",
+        "bytes": 191510,
+        "sha256": "ba0cf4137bb0e493abb579d4c291e217d316b910d3198638b626aee2d2d022c9"
+      },
+      "controller_sources": {
+        "path": ".artifacts/runs/m116-platform-current-20261029/m116-custody-recovery-current/controller-sources.json",
+        "bytes": 904,
+        "sha256": "e879fb7f201082f516edcd00c7f4f4e511d8d9cd5c145781b98c1133be26c7d8"
+      },
+      "two_real_OS_roles": true,
+      "independent_saved_files": 2,
+      "terminal_hosts": 16,
+      "source_graph": "current-20261029-before-sqlite-fix"
+    },
+    "ledgers": {
+      "result": {
+        "path": ".artifacts/runs/m116-platform-current-20261029/m116-backup-ledgers-sqlite-fixed/result.json",
+        "bytes": 4370,
+        "sha256": "928a6abeb8a007f882b83628dcc4fb30da2fa35174b3133d1019d962c08f4094"
+      },
+      "events": {
+        "path": ".artifacts/runs/m116-platform-current-20261029/m116-backup-ledgers-sqlite-fixed/events.jsonl",
+        "bytes": 100361,
+        "sha256": "1c4f50aae5850a49cae8bb916947f0680a1eff8410321897930b3e8e6af590af"
+      },
+      "controller_sources": {
+        "path": ".artifacts/runs/m116-platform-current-20261029/m116-backup-ledgers-sqlite-fixed/controller-sources.json",
+        "bytes": 777,
+        "sha256": "e67ec11296036ad6593ba95093497c1ef2fb9da90a702665aa8eeea6fc7cae3b"
+      },
+      "two_real_OS_roles": true,
+      "independent_saved_files": 2,
+      "terminal_hosts": 18,
+      "source_graph": "sqlite-fixed"
+    }
+  },
+  "criteria_coverage": {
+    "specific_confirmation": "two role directions: no root copied, original result idempotent, different action needs fresh confirmation, offline demotion retains ordinary business",
+    "custody_and_recovery": "two directions: confirmed actual save/reopen, other-member proof, explicit force for last online copy, old admins offline, new recovery identity, remote admin departure result still retrievable",
+    "complete_node_replacement": "two directions: same identity and effective ACL, source retired without Leave, current-peer gate, demoted snapshot follows current member role, removed snapshot denied, retained root remains physically valid",
+    "ledger_continuity": "pending/approved/rejected and consumed attempt retained, original grant without extra record, inherited old code stopped, fresh code admitted, actual applicant material generation retained, 11-byte independent receiver hash"
+  },
+  "original_failures": [
+    {
+      "path": ".artifacts/runs/m116-platform-current-20261029/m116-backup-ledgers-current/result.json",
+      "bytes": 1241,
+      "sha256": "e5f62be16a75750bba30724486dcebc0cce07eea1a761eca697f140f00ce5714"
+    },
+    {
+      "path": ".artifacts/runs/m116-platform-current-20261029/m116-backup-ledgers-located-current/result.json",
+      "bytes": 1241,
+      "sha256": "e5f62be16a75750bba30724486dcebc0cce07eea1a761eca697f140f00ce5714"
+    },
+    {
+      "path": ".artifacts/runs/m116-platform-current-20261029/m116-backup-ledgers-cli-current/result.json",
+      "bytes": 841,
+      "sha256": "28e8727ff7741165d49a63318c38657335036c75e09eacaabe9c0d6e72be4bd9"
+    }
+  ],
+  "failure_classification": [
+    "disabled discovery plus obsolete direct-IP address hints after node relocation",
+    "root-introduced assertion error: CLI normalizes rejected internal SDK request to Rejected; corrected to exact public response",
+    "original Windows application startup OS5, actual stderr retained; shared SQLite shutdown race separately proven"
+  ],
+  "shared_fix": {
+    "source": {
+      "path": "src/sqlite_shutdown.rs",
+      "bytes": 553,
+      "sha256": "4a3c492bbd2d82b5d5bc2092fc1a435a345de6bb31376a831454d15b39397dbc"
+    },
+    "consumer": {
+      "path": "src/management_store.rs",
+      "bytes": 34783,
+      "sha256": "094ee83a85ccceb015b1b83d0cb258aa976be91228bdc567bd8bd1ff571133f9"
+    },
+    "regression_test": {
+      "path": "tests/sqlite_pool_shutdown.rs",
+      "bytes": 2826,
+      "sha256": "41c08692d7d18de4632956936eeee9af0c0b0b5b8f20d78e321f726dc40c537e"
+    },
+    "causal_evidence": {
+      "path": ".artifacts/runs/m116-platform-current-20261029/m116-sqlite-causal-evidence.json",
+      "bytes": 4497,
+      "sha256": "3e0d4323990a073329f85aea163d57573421b6f34b15e275830ed1283906e63c"
+    },
+    "red": {
+      "path": ".artifacts/runs/m116-platform-current-20261029/m116-sqlite-close-red/run.json",
+      "bytes": 135,
+      "sha256": "6ed9ec1357fc37e6e1af24c5c2d37e5c78f7a1c484fd03c15aa9c654436dd1fe"
+    },
+    "green": {
+      "path": ".artifacts/runs/m116-platform-current-20261029/m116-sqlite-close-green/run.json",
+      "bytes": 134,
+      "sha256": "59622764267395ade50bfe36d9c43af233d09728ecad4d7ac63859ec35daf903"
+    },
+    "new_windows_initializations": 16,
+    "current_init_result": {
+      "path": ".artifacts/runs/m116-platform-current-20261029/m116-init-sqlite-fixed/result.json",
+      "bytes": 2241,
+      "sha256": "f38c3fcca029e9e5ef141ff4962ebd3a41ede450d9d14600472a71cacdf7b3e7"
+    },
+    "historical_windows_error_handle_identity_proved": false
+  },
+  "builds": {
+    "linux": {
+      "path": "/tmp/m107-main-20261029/m107-linux-sqlite-fixed-20261029/build.json",
+      "bytes": 1228,
+      "sha256": "32b762a533fc31a001f7005e7b0be4904b8007c0e8874b94433bcf988cfe903a"
+    },
+    "windows": {
+      "path": "/tmp/m107-main-20261029/m107-windows-sqlite-fixed-20261029/build.json",
+      "bytes": 2033,
+      "sha256": "af880ae02d95ec246c6036302ce33535ff425ba7f4f33da56a2509365b0b8222"
+    },
+    "windows_deployment": {
+      "path": "/tmp/m107-main-20261029/windows-sqlite-deployment/provenance.json",
+      "bytes": 962,
+      "sha256": "219ded1ec6e613730d46326e901b9bc3c265a08c66d6052e8c755b12aadea0cf"
+    },
+    "windows_deployment_result": {
+      "path": "/tmp/m107-main-20261029/windows-sqlite-deployment/windows-deployment-result.json",
+      "bytes": 921,
+      "sha256": "346ee05bf64e4933e157058a70726841e444a84c9ec44a08b407dd4d05d2486d"
+    },
+    "budget_review": {
+      "path": ".artifacts/runs/m116-platform-current-20261029/sqlite-fixed-build-plan.json",
+      "bytes": 1193,
+      "sha256": "4dded0a6f0bef3635b1040440d7c319226ac0208b6b5c60137d2a0a512fd9aba"
+    },
+    "WASM_reused": {
+      "path": ".artifacts/runs/m116-platform-current-20261029/sqlite-fix-wasm-reuse.json",
+      "bytes": 162,
+      "sha256": "c4cb41eaa2b2aa8ee4e221370e478026739ae0a2253244d9f00a88c1b8217547"
+    }
+  },
+  "all_raw_manifest": {
+    "path": ".artifacts/runs/m116-platform-current-20261029/manifest.json",
+    "bytes": 60906,
+    "sha256": "d65c69cd91f68209924dc5d8c56cc8c602d78d929017a77a08a40725482114d8"
+  },
+  "existing_browser_and_domain_evidence": "docs/evidence/device-authority-2026-10-24/README.md",
+  "limits": [
+    "Crafted old custody Deliver tests ran on current Native/Linux; Browser ordinary stop/reopen/fresh-consent and unchanged shared guard retain prior qualified provenance, not a crafted Browser replay claim.",
+    "historical OS5 errors are not all retrospectively attributed to this proven SQLx race",
+    "earlier management/custody/replacement proofs retain their pre-fix graph labels; the new full ledger and initialization proofs use the repaired graph",
+    "no Android, formal UI, unrestricted WAN or physical single-instance claim"
+  ],
+  "next_acceptance_rule": "M116 accepted by main-thread review; reuse these fixed-source proofs in M121 finite integration, preserving platform distinctions.",
+  "effect_qualification": {
+    "path": ".artifacts/runs/m116-effects-20261029/qualification/root-acceptance.json",
+    "bytes": 4792,
+    "sha256": "7a56f8a2e1f72e5ea664e002f3877cf60623599a71253b0dc2c2a611fdd12c16"
+  },
+  "acceptance_scope": "M116 non-UI workflows: existing Browser/Native evidence plus actual Windows/Linux platform cases and current Native crafted-wire/backup-effect qualification; desktop and Android integration remain M121."
+}

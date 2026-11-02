@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-28",
+  "status": "NEW_PACKET_READY_REVIEW_REJECTED_BEFORE_REMOTE",
+  "first_exact_user_approval": {
+    "answer": "明确批准这次精确载荷与测试",
+    "questionItemId": "[\"request_user_input_async\",\"call_bdd6972efee94ace8832226d5f80b5fb\",0]"
+  },
+  "first_approved_packet": {
+    "packet_sha256": "57dda4dde5ea6d00a14bf4fab1a01c45bdbc9cd82d293826c32e51fb8f34d6a2",
+    "result": "local PowerShell framing assertion before SSH or SCP process creation",
+    "STOP_sha256": "b6fd99ad29ce3a7d57b67766c9189d61169b94beea2a70c8b9d9849ce96d4a5d",
+    "original_pending": [],
+    "remote_unknown": {},
+    "business_accepted": false
+  },
+  "first_environment_failure": {
+    "cause": "regenerable pycache added 64620 bytes to old frozen source size",
+    "cleanup_receipt_sha256": "d46b3cbfeb460b6cbcf31bf45cb68742d9c89586ed6191717001ef1116ab106d",
+    "first_run_runtime_created": false
+  },
+  "new_packet": {
+    "packet_sha256": "e992bc28317c9f4446d64b109d929ca892b05ac9b9e504272bc730443c73a436",
+    "plan_sha256": "1dc71b8167b26fb830aee354b7d98bf2438458c59711edaf0a983b83b5de3e3f",
+    "sdk_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+    "payload_bytes": 189844855,
+    "fresh_case": "admission-lp-6d68487a",
+    "destination": "stati@100.64.10.8 C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+    "evidence_cap_bytes": 26619904,
+    "local_review_sha256": "2cf69a1c6eb706dbe76db71ed2b6c2e0e6f430daf6f584fdced555c0b3e4eebc",
+    "runtime_created": false
+  },
+  "automatic_review": {
+    "denial_sha256": "1ad93df08e4a2ea0eb122945c973a4ea29c85222b0d3ac5163ac2f58e09de858",
+    "reason": "Fresh nonce changes the test-file bytes; the exact prior approval does not authorize the distinct packet.",
+    "remote_transfer_started": false,
+    "Task_started": false
+  },
+  "whole_M119": false,
+  "reverse_started": false
+}

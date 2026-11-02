@@ -1,0 +1,14 @@
+{
+  "status": "AUTO_REVIEW_REJECTED_BEFORE_EXECUTION",
+  "action": "transfer and run frozen changed v4 reverse M119 test payload on stati@100.64.10.8",
+  "manifest_sha256": "698d7a0912c846e0d3911d7955a23bd90cd125a68e46c179e825b7ba8f934c06",
+  "packet_sha256": "cffb0c9c7bf71b2383bfcbc2d2e8d512e563c966e7ac0e6c13ebd0447a86a836",
+  "payload_bytes": 85950,
+  "reason": "User asked why verification stopped; that is not explicit authorization for the changed private v4 payload. Prior exact v3 approval does not cover v4. Contextual continuation is insufficient for exact sensitive-egress approval.",
+  "reviewer_instruction": "Do not bypass by workaround or indirect execution; complete safer unaffected work and request exact user approval if needed.",
+  "remote_mutations": 0,
+  "v4_runtime_started": false,
+  "same_command_retry": false,
+  "prior_v3_failure_retained": true,
+  "local_contextual_basis_sha256": "94c0069dd2dd9cc9422e9b08a7a35eb3d4300e2cad33faaa4bd3abac3178aeba"
+}

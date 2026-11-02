@@ -1,0 +1,56 @@
+{
+  "status": "READ_ONLY_WINDOWS_ROUTE_TABLE_OBSERVATION",
+  "query_sha256": "ad65945e774bd59611092e416a2390f09a731ba0a0949f800f47ae116dd77858",
+  "raw_record_sha256": "153074ee7a7e53f2adbcca1f3f5a9c5c962ef4b872984a86882e5a814f9338ed",
+  "ssh_exit": 0,
+  "routes": [
+    {
+      "target": "172.17.0.1",
+      "selected_source": "192.168.1.64",
+      "destination_prefix": "0.0.0.0/0",
+      "next_hop": "192.168.1.1",
+      "interface_index": 5,
+      "interface_metric": 35
+    },
+    {
+      "target": "172.18.0.1",
+      "selected_source": "172.18.0.1",
+      "destination_prefix": "172.18.0.1/32",
+      "next_hop": "0.0.0.0",
+      "interface_index": 12,
+      "interface_metric": 15
+    },
+    {
+      "target": "172.19.0.1",
+      "selected_source": "192.168.1.64",
+      "destination_prefix": "0.0.0.0/0",
+      "next_hop": "192.168.1.1",
+      "interface_index": 5,
+      "interface_metric": 35
+    },
+    {
+      "target": "192.168.4.5",
+      "selected_source": "100.64.10.8",
+      "destination_prefix": "192.168.4.0/24",
+      "next_hop": "100.100.100.100",
+      "interface_index": 10,
+      "interface_metric": 5
+    },
+    {
+      "target": "192.168.254.1",
+      "selected_source": "192.168.1.64",
+      "destination_prefix": "0.0.0.0/0",
+      "next_hop": "192.168.1.1",
+      "interface_index": 5,
+      "interface_metric": 35
+    }
+  ],
+  "remote_mutations": 0,
+  "inference": "first, third and fifth announced Linux IPs select default gateway; second selects Windows own virtual address; fourth has a specific overlay route and succeeded in the separate single-route service_sync",
+  "limits": [
+    "route selection does not prove actual UDP/QUIC reachability or failure",
+    "current route table may differ from the failed run",
+    "no product route priority decision made",
+    "stderr was not classified as empty; original read-only record says unexpected"
+  ]
+}

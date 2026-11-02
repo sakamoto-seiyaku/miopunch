@@ -1,0 +1,32 @@
+{
+  "browser": {
+    "originatingReceipt": "/tmp/miopunch-m103-20261019/browser-final/receipt.json",
+    "receiptSha256": "3cdf5485059196cd425edc82b89e07cae2d5032778183496261786b9f5846098",
+    "selectedInputManifestSha256": "5fb935a8e42ac4f6f3c8eaadd6274028b6551438862543e974fa7f00d1db5063",
+    "verifiedInputCount": 3162,
+    "artifacts": {
+      "/tmp/miopunch-m103-20261019/browser-final/miopunch_browser_probe.wasm": "6e00dc9dee09d3fd78201d11d79fed5114dd7221ba6425ed344b688f18be314c",
+      "/tmp/miopunch-m103-20261019/browser-final/pkg/miopunch_browser_probe_bg.wasm": "64e5139aee65181815a0c2c82aaf5da4f41b660c0724429dcea07e0ee3513c2c",
+      "/tmp/miopunch-m103-20261019/browser-final/pkg/miopunch_browser_probe_bg.wasm.d.ts": "8ff8262526f5b757036085ee949efd7a9446d40a7b190529a81fe34342347ff6",
+      "/tmp/miopunch-m103-20261019/browser-final/pkg/miopunch_browser_probe.js": "e1a76f1dd469531906e7f41ecce25606994fb4677e11dd24c72f343136500a10",
+      "/tmp/miopunch-m103-20261019/browser-final/pkg/miopunch_browser_probe.d.ts": "5e32a31236b89872b32934454164ff64dd45cabe21cd4565ecbc5ca7b9c53c1e",
+      "/tmp/miopunch-m103-20261019/browser-final/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/storage.js": "4a1e67a16593665a214c4fed2f5b6e8138b77688ee2c79106a1e9c767787f57e",
+      "/tmp/miopunch-m103-20261019/browser-final/pkg/snippets/miopunch-browser-probe-7a43fd8bb4838752/src/rtc_capability.js": "666a8580ca1d05fc327771aa12bf638c38887d404fc60ca0a3f4c75d99859d96"
+    },
+    "pkg": "/tmp/miopunch-m103-20261019/browser-final/pkg"
+  },
+  "native": {
+    "originatingReceipt": "/tmp/miopunch-inner-web-prototype-20261021/builds/1792554324203992859-79d385b97db3/receipt.json",
+    "graphId": "79d385b97db3c34a84473f99763a53cdcffabf8656494ba390225f393cbe44b7",
+    "reused": true,
+    "programs": {
+      "prototype_inner_web": "/home/js/Git/miopunch/.artifacts/runs/inner-web-prototype/1792554324203992859-79d385b97db3/prototype_inner_web",
+      "browser-probe-native": "/home/js/Git/miopunch/.artifacts/runs/inner-web-prototype/1792554324203992859-79d385b97db3/browser-probe-native"
+    },
+    "artifacts": {
+      "/home/js/Git/miopunch/.artifacts/runs/inner-web-prototype/1792554324203992859-79d385b97db3/prototype_inner_web": "88132bc54d19227dc826a6b493745d3ed5560303bed510756fa2b686d1c285a8",
+      "/home/js/Git/miopunch/.artifacts/runs/inner-web-prototype/1792554324203992859-79d385b97db3/browser-probe-native": "49c68da2dade5f0da04cda6e1fe133deb10dd62a4edc2b6562e9faf9da1959be"
+    }
+  },
+  "output": "/tmp/miopunch-inner-web-prototype-20261021/runs/1792554428956520682"
+}

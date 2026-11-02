@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-28",
+  "status": "PREPARED_NO_RUNTIME_EXACT_NEW_PAYLOAD_APPROVAL_PENDING",
+  "scope": "one Linux provider to Windows consumer full Web business case, reverse excluded",
+  "packet_sha256": "756a3231a3f460ca60fa74d3bbf81caf3bbc8d3dc61b119c8391349182b80052",
+  "payload_bytes": 84363,
+  "remote_destination": "stati@100.64.10.8 C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+  "Windows_SDK_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+  "Linux_SDK_sha256": "b63a7f6280417399df02731ce0c2980edb20f24099244107e8c1b38be47a8c46",
+  "Linux_library_sha256": "38b9d1755c11404b6a5f5c85f8db0cda3cdbdc690aed4f9020488b51cb971816",
+  "shared_harness_assertion_fix": "shared run_case expects provider Approved then consumer Complete",
+  "prior_original_failure_diagnosis_sha256": "ced921e50228bf8af68ab8a51ef567f5a1de07970e3c268b2fbe740cb017cae7",
+  "local_configure_review_sha256": "81557fc4bf0bc3b8d6d8aea72d1e2dcbeeb6fbde6d12b7519744f6434154a76f",
+  "remote_precheck_sha256": "3e4110ae864ba20b903405099fd5abf4c59e78da2cf3e811f91e2b4316d123ab",
+  "remote_root_margin_bytes": 37057409,
+  "evidence_cap_bytes": 27538680,
+  "runtime_created": false,
+  "Task_started": false,
+  "Web_business_accepted": false,
+  "whole_M119": false
+}

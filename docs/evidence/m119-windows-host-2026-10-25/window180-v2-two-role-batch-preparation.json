@@ -1,0 +1,92 @@
+{
+  "status": "PREPARED_UNEXECUTED_REQUIRES_NEW_EXACT_PAYLOAD_AUTHORIZATION",
+  "destination": "stati@100.64.10.8 / C:\\Users\\stati\\AppData\\Local\\Temp\\miopunch-m119-20261025-real-01",
+  "total_payload_bytes": 171548,
+  "packets": [
+    {
+      "role": "first",
+      "packet": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-first-preparation-20261028/packet.json",
+      "packet_sha256": "4c207afc0dd0c192b008249abd328970bfe5d4c9b57234d755e2ec378005bba1",
+      "plan_sha256": "3793420205a08a0ea1629c12e61e5953b6cbe66a3ab5afc54c551cba55ee7344",
+      "payload_bytes": 85771,
+      "source_bytes": 146631,
+      "source_tree_sha256": "7211faf4dfe925ba4b3d89321afc76d7de35badace3123ba2981304cfde0256c",
+      "mode": "FIRST_ONLY_FULL_WEB_LINUX_TO_WINDOWS",
+      "runtime_absent": true,
+      "worker_sha256": "4641d2ba81c419a28e63fff4b8a7cd3c8ba3fb4198dfcf1b383fb0667b9c23b1",
+      "common_sha256": "095a4f9bce3e6103e02a4b194fecb461f5d312e17322db30cbb24b39def588b7",
+      "wrapper_sha256": "84a594e815114281d6ad7ad7a8adf6474815184e498ed6a1fa996b26ecb1f1a5",
+      "sdk_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac"
+    },
+    {
+      "role": "reverse",
+      "packet": ".artifacts/runs/m119-windows-high-20261025/windows-real-chain/windows-linux-full-Web-window180-v2-reverse-preparation-20261028/packet.json",
+      "packet_sha256": "b7be9e3a86c839fec9a3c3806b143d5b6d7a33191167e9f16ae21d8232d35586",
+      "plan_sha256": "963a424311ac0cceafa0067cd53aeffc5fa5fe0b72ff5998510418f1bfbf94fb",
+      "payload_bytes": 85777,
+      "source_bytes": 147349,
+      "source_tree_sha256": "36db66d9eca872921b5f69de32ff35a617a3596c5305b0b6ae941ff95204d00b",
+      "mode": "REVERSE_ONLY_FULL_WEB_WINDOWS_TO_LINUX",
+      "runtime_absent": true,
+      "worker_sha256": "4641d2ba81c419a28e63fff4b8a7cd3c8ba3fb4198dfcf1b383fb0667b9c23b1",
+      "common_sha256": "095a4f9bce3e6103e02a4b194fecb461f5d312e17322db30cbb24b39def588b7",
+      "wrapper_sha256": "4d119df6ae44ba4aaf24e50b943efef3fdf906a60f5f8677c2b21567b5d84f7d",
+      "sdk_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac"
+    }
+  ],
+  "remote_readonly_prechecks": [
+    {
+      "role": "first",
+      "path": "/tmp/m119-route-feedback-20261028/window180-v2-first-remote-precheck.json",
+      "sha256": "742b4178ee97544f9c6fc84c107eb3dd854c7c55c3aa0a5242334f9edfef36fa",
+      "owned_root_bytes": 973619581,
+      "reserve_bytes": 67194635,
+      "conservative_bytes": 1040814216,
+      "cap_bytes": 1073741824,
+      "cap_margin_bytes": 32927608,
+      "collisions": [],
+      "remote_mutations": 0
+    },
+    {
+      "role": "reverse",
+      "path": "/tmp/m119-route-feedback-20261028/window180-v2-reverse-baseline-precheck.json",
+      "sha256": "08dfe95fa0ce0f6219b9b4536424e46b72b3f1f5caf79f554bf3220b66c7356b",
+      "owned_root_bytes": 973619581,
+      "reserve_bytes": 67194641,
+      "conservative_bytes": 1040814222,
+      "cap_bytes": 1073741824,
+      "cap_margin_bytes": 32927602,
+      "collisions": [],
+      "remote_mutations": 0
+    }
+  ],
+  "order": "First Linux provider/Windows consumer once; after terminal ownership and raw qualification, fresh reverse capacity/collision check before reverse Windows provider/Linux consumer once.",
+  "test_only_changes": [
+    "One shared 180-second rendezvous window across worker and local/remote controllers; no deadline renewal by phase or retry.",
+    "Windows Task observation thresholds 190 and 200 seconds; matching qualifier field only.",
+    "Per-case profile cap tightened to 24 MiB, with 8 MiB private and 32 MiB other reserve (64 MiB total); global remote root cap remains 1 GiB.",
+    "Shared mail commit marker fix and all business/isolation assertions retained."
+  ],
+  "profile_budget_evidence": {
+    "current_first_windows_profiles_bytes": 17931865,
+    "case_cap_bytes": 25165824,
+    "max_new_profile_margin_bytes": 7233959
+  },
+  "unchanged": {
+    "windows_sdk_sha256": "a5633e1d8c4843c0768181950ca350f6e846a0c7d3d2dc389134c9d0d5fd64ac",
+    "linux_sdk_sha256": "b63a7f6280417399df02731ce0c2980edb20f24099244107e8c1b38be47a8c46",
+    "cargo_builds": 0,
+    "new_artifact_pins": 0,
+    "remote_cleanup": 0,
+    "previous_failure_record": "docs/evidence/m119-windows-host-2026-10-25/mail-commit-first-timeout-and-reverse-capacity.json"
+  },
+  "local_checks": {
+    "both_check_local": "PASS",
+    "both_configure_dry": "PASS",
+    "runtime_started": false
+  },
+  "limits": [
+    "The first read-only precheck is current; the reverse baseline precheck must be refreshed after the first role settles.",
+    "Successful preparation does not establish Web business acceptance, reverse role execution, or whole M119 completion."
+  ]
+}

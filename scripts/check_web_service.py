@@ -163,7 +163,7 @@ class WebRunner(Runner):
         self.freeze_source(Path(__file__))
         self.freeze_source(Path(sys.argv[0]))
         self.freeze_source(Path(__file__).with_name("check_forwarding.py"))
-        for name in ["web_process_owner.py", "web_protocol_target.py", "web_tls_fixture.py"]:
+        for name in ["web_process_owner.py", "web_protocol_target.py", "web_tls_fixture.py", "web_asyncio_observer.py"]:
             self.freeze_source(Path(__file__).with_name(name))
         self.case = args.case
         self.args = args

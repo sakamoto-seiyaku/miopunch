@@ -1,0 +1,66 @@
+{
+  "scope": "concentrated review fixes; local mocks/VM only; no phone/public/STUN rerun",
+  "sourceHashes": {
+    "scripts/wan_environment_preflight.py": "bbefa9512d29a35aa483178ecaa67d40dbe5213caa1e270f679d1aa2b75c2509",
+    "scripts/android_pair_runtime.py": "47df224e67044f3dd8f51af9d747f803d011be4bf6733eb99ad2dbc1a0c70b76",
+    "scripts/build_android_pair.py": "06fc024b5afd8392790e6579495d5c65b2347f1c44657fe6a184cef412f33d8e",
+    "scripts/test_android_pair_tools.py": "9f9c66457a869e0d920165d07acf8e4c9a393f0f8fd75ef2e75fc6d0abec22d0",
+    "browser-probe/harness/android-pair-page.js": "a7a4bf3e30b4e7d74819e855bf70ff50af89329a9fa2010d92aaa62ee25ad6d4",
+    "browser-probe/harness/test-android-pair-page.mjs": "c64dedcdb6350692f133c1dd8a452ade1831bf5c40c347baff48d39a47697f51"
+  },
+  "commands": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "python3",
+        "-B",
+        "scripts/test_android_pair_tools.py"
+      ],
+      "exit": 0,
+      "stdout": "........\n----------------------------------------------------------------------\nRan 8 tests in 0.028s\n\nOK\n",
+      "validated": [
+        "unrelated body/port/short URL/different actor/package cannot Ctrl-W",
+        "exact Chrome owned URL alone permits UI close",
+        "missing or shortened post-close bar is not absence",
+        "SDK shutdown timeout still cleans tab/rules/listener independently",
+        "all applicable missing/false cleanup facts fail",
+        "Java change during JNI compilation invalidates frozen qualification",
+        "strip rawexit37/stdout/stderr and partial compiled/deployed hashes preserved in build.json",
+        "deployment filesystem failure preserves compiled artifact receipt"
+      ]
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "--experimental-vm-modules",
+        "browser-probe/harness/test-android-pair-page.mjs"
+      ],
+      "exit": 0,
+      "stdout": "sessionProofPreferred=true, missingRtcCountsOmitted=true, sensitiveDiagnosticFieldsRemoved=true, failuresDoNotStopRemainingCleanup=true, actualCloseFreeCountsPreserved=true, concurrentShutdownAndPagehideShareOneCleanup=true",
+      "validated": [
+        "session proof and paths preferred; old diagnostics cannot override actual peer match",
+        "unobserved counts omitted",
+        "raw SDP/binding/exporter removed",
+        "continue all member and network cleanup after errors",
+        "actual close/free errors and counts retained",
+        "concurrent shutdown/pagehide coalesce to one cleanup"
+      ]
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "node",
+        "--check",
+        "browser-probe/harness/android-pair-page.js"
+      ],
+      "exit": 0
+    }
+  ],
+  "historicalDeviceReceiptsPreserved": true,
+  "newDeviceExecution": false,
+  "newPublicMemberExecution": false
+}

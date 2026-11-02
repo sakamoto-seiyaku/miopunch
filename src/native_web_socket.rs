@@ -29,16 +29,23 @@ fn http_origin(url: &str) -> Result<String, ClientError> {
         .map_err(|_| "invalid WebSocket URL")?;
     super::origin(url.as_str())
 }
-fn target_message(message: WebSocketMessage) -> Result<tokio_websockets::Message, ClientError> {
+fn validate_target_message(message: &WebSocketMessage) -> Result<(), ClientError> {
     message.validate()?;
+    if let WebSocketMessage::Close { code, .. } = message {
+        if tokio_websockets::CloseCode::try_from(*code)?.is_reserved() {
+            return Err("reserved WebSocket close code".into());
+        }
+    }
+    Ok(())
+}
+
+fn target_message(message: WebSocketMessage) -> Result<tokio_websockets::Message, ClientError> {
+    validate_target_message(&message)?;
     Ok(match message {
         WebSocketMessage::Text { text } => tokio_websockets::Message::text(text),
         WebSocketMessage::Binary { data } => tokio_websockets::Message::binary(data),
         WebSocketMessage::Close { code, reason } => {
             let code = tokio_websockets::CloseCode::try_from(code)?;
-            if code.is_reserved() {
-                return Err("reserved WebSocket close code".into());
-            }
             tokio_websockets::Message::close(Some(code), &reason)
         }
     })
@@ -292,10 +299,9 @@ impl NativeClient {
         id: &str,
         message: WebSocketMessage,
     ) -> Result<(), ClientError> {
-        message.validate()?;
         // Validate close codes before enqueueing, so an invalid caller value
         // cannot panic the upstream WebSocket library or end another flow.
-        let _ = target_message(message.clone())?;
+        validate_target_message(&message)?;
         let slot = self.web.socket(id)?;
         tokio::select! {
             biased;

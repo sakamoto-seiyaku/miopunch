@@ -1,0 +1,84 @@
+{
+  "scope": "formal SDK Android build only; no device/NAT/SDK story pass",
+  "head": "34e366a9346da3d84049c47e28dde65c2b5c5835",
+  "command": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "build",
+    "--locked",
+    "--target",
+    "aarch64-linux-android",
+    "--target-dir",
+    "/tmp/miopunch-android-pair-target-20261005",
+    "--offline",
+    "--features",
+    "rtc-probe",
+    "--bin",
+    "miopunch-native-probe",
+    "--bin",
+    "browser_wss_member_native",
+    "--lib"
+  ],
+  "targetDirectory": "/tmp/miopunch-android-pair-target-20261005",
+  "rust": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: x86_64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8",
+  "compiler": "Debian clang version 14.0.6\nTarget: aarch64-unknown-linux-android24\nThread model: posix\nInstalledDir: /usr/bin",
+  "ndk": "Pkg.Desc = Android NDK\nPkg.Revision = 29.0.14206865\nPkg.BaseRevision = 29.0.14206865\nPkg.ReleaseName = r29\n",
+  "sourceDigestBefore": "1bd97af3d451ff8898f9a32cd3e86962a463e0e6905e8fa0e11c9186203e93d1",
+  "builderSha256": "3baae83d6c583b0e9a85f3ab9e02fb35a54fc9f8653e461ffb2240cfaac30513",
+  "exit": 0,
+  "callerElapsedMs": 200810.239,
+  "sourceDigestAfter": "46e228150e431da974f9a988cf1259801888fef76c19b6a4648f0f7d0940fe2a",
+  "sourceFrozenDuringBuild": false,
+  "jniCommands": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "javac",
+        "--release",
+        "8",
+        "-d",
+        "/tmp/miopunch-android-pair-build-first-20261005/classes",
+        "/home/js/Git/miopunch/scripts/android/MioPublicShell.java"
+      ],
+      "exit": 0
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "java",
+        "-cp",
+        "/mnt/c/Android/SDK/build-tools/36.1.0/lib/d8.jar",
+        "com.android.tools.r8.D8",
+        "--min-api",
+        "24",
+        "--output",
+        "/tmp/miopunch-android-pair-build-first-20261005/dex",
+        "/tmp/miopunch-android-pair-build-first-20261005/classes/MioPublicShell.class"
+      ],
+      "exit": 0
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "jar",
+        "cf",
+        "/tmp/miopunch-android-pair-build-first-20261005/android-shell.jar",
+        "-C",
+        "/tmp/miopunch-android-pair-build-first-20261005/dex",
+        "classes.dex"
+      ],
+      "exit": 0
+    }
+  ],
+  "artifacts": {
+    "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/miopunch-native-probe": "9c4a0b71a068fa1aa7663d6ec839bbc66ee555351e7434e14e43320a7c8e1f82",
+    "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/browser_wss_member_native": "10101d671aeb2fa05a94db47ef5daa55beba3a7cf0562de7d73aa484e97e82cc",
+    "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/libmiopunch_native_probe.so": "063562b646f33f98f0d0d5e131a07ebd4dd7ef0f017c2623fe5d737f29bcaf0e",
+    "/tmp/miopunch-android-pair-build-first-20261005/android-shell.jar": "b8b8a0897c4663af494f918a9ac10daf5fdb7951f1f21157923b3e56ca2ea0a2"
+  },
+  "qualifiedForFrozenRun": false
+}

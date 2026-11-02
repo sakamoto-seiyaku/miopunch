@@ -94,3 +94,19 @@ The controller aggregates cleanup errors and still attempts its final receipt.
 Local Linux PowerShell parsing and C#5 managed compilation validate source
 syntax only; Windows API execution, Windows PowerShell 5.1 and the desktop
 qualification are still pending.
+
+## 2026-10-29 Windows entry and explicit deferral
+
+The current Windows and Linux SDKs passed the real interactive Win32↔private
+X11 core chain: Unicode duplex transfer, independent system reads, write
+acknowledgments, no echo and no writes after stop. All test owners terminated.
+The first snapshot entry failed before Windows SDK startup; subsequent read-only
+inspection observed OpenClipboard error 5. The user then confirmed an ordinary
+copy, after which the same business chain passed. The original access-denied
+cause remains unknown. Cleanup preserved a later or unproven clipboard revision;
+it did not restore the snapshot or force an overwrite.
+
+The user explicitly deferred further clipboard qualification because it depends
+on the test machine remaining unlocked. Third-node and effective-policy Windows
+cases remain unverified; M117 is not complete. See the
+[current evidence](../evidence/system-clipboard-2026-10-29/windows-entry-qualification.json).

@@ -8,11 +8,35 @@ owned runtime directory; evidence contains counts and original public grants.
 import argparse
 import json
 from pathlib import Path
+import subprocess
 
 from check_node_replacement import ReplacementRunner
 
 
 class ConsistencyRunner(ReplacementRunner):
+    def refresh_contact_hints(self, target, names, source_remote, applicant_remote):
+        """Keep original attempts/codes while explicitly locating the moved node.
+
+        Direct-IP runs disable discovery. Addresses are contact hints, whereas
+        the original invitation material and bearer code must remain unchanged.
+        """
+        for name in names:
+            local = Path(self.path(name, False))
+            if source_remote:
+                subprocess.run(["scp", "-q", "laptop:" + self.path(name, True), str(local)], check=True)
+            old = json.loads(local.read_text())
+            assert old["address"]["id"] == target.node
+            updated = dict(old, address=target.address)
+            assert {k: v for k, v in updated.items() if k != "address"} == {
+                k: v for k, v in old.items() if k != "address"}
+            local.write_text(json.dumps(updated))
+            local.chmod(0o600)
+            if source_remote or applicant_remote:
+                subprocess.run(["scp", "-q", str(local), "laptop:" + self.path(name, True)], check=True)
+        self.record(target.label, "replacement_contact_hints_refreshed", dict(
+            sameIdentity=True, originalAuthorizationAndCodesUnchanged=True,
+            automaticDiscoveryClaimed=False))
+
     def applicant(self, source, prefix, invitation_name):
         invitation = self.transfer(invitation_name, source.remote, not source.remote if not self.local_only else False)
         host = self.start(prefix, not source.remote if not self.local_only else False, "join", invitation)
@@ -62,6 +86,7 @@ class ConsistencyRunner(ReplacementRunner):
         target.call("replacement_complete", address=peer.address, receipt_path=self.path(receipt_name, target.remote))
         assert target.call("requests")["requests"] == [pending_request]
         target.call("approve", ok=False, **rejected_request)
+        self.refresh_contact_hints(target, [manual_name, code_name], source.remote, approved.remote)
         records = target.call("status")["records"]
         assert approved.call("request", path=approved_invite)["stage"] == "Complete"
         assert target.call("status")["records"] == records
@@ -70,7 +95,9 @@ class ConsistencyRunner(ReplacementRunner):
         assert pending.call("request", path=pending_invite)["stage"] == "AwaitingApproval"
         target.call("approve", **pending_request)
         assert pending.call("request", path=pending_invite)["stage"] == "Complete"
-        assert rejected.call("request", path=rejected_invite)["stage"] == "Rejected"
+        assert rejected.call("status")["stage"] == "Rejected"
+        rejected_again = rejected.call("request", path=rejected_invite)
+        assert rejected_again == {"stage": "Rejected", "automatic_retry": False}
         # An unconsumed allowance in an old backup is never resurrected.
         old_new, old_invite = self.applicant(source, prefix + "-new-old-code", code_name)
         old_new.call("request", path=old_invite, ok=False)

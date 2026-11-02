@@ -1,0 +1,616 @@
+{
+  "status": "PASS_FULL_M118_NON_UI_QUALIFICATION",
+  "full_m118_accepted": true,
+  "full_m107_accepted": false,
+  "raw_manifest": {
+    "path": ".artifacts/runs/m118-platform-current-20261029/manifest.json",
+    "bytes": 36051,
+    "sha256": "bca4ae71120150632ff116d77048690998669edccba08a14d9218d1e139de171"
+  },
+  "verified_raw_files": 227,
+  "raw_bytes": 1306536,
+  "raw_budget": 8388608,
+  "graphs": {
+    "linux": {
+      "path": "/tmp/m107-main-20261029/m107-linux-sqlite-fixed-20261029/build.json",
+      "bytes": 1228,
+      "sha256": "32b762a533fc31a001f7005e7b0be4904b8007c0e8874b94433bcf988cfe903a"
+    },
+    "windows_unmodified_build": {
+      "path": "/tmp/m107-main-20261029/m107-windows-sqlite-fixed-20261029/build.json",
+      "bytes": 2033,
+      "sha256": "af880ae02d95ec246c6036302ce33535ff425ba7f4f33da56a2509365b0b8222"
+    },
+    "windows_deployment": {
+      "path": "/tmp/m107-main-20261029/windows-sqlite-deployment/provenance.json",
+      "bytes": 962,
+      "sha256": "219ded1ec6e613730d46326e901b9bc3c265a08c66d6052e8c755b12aadea0cf"
+    },
+    "windows_executed_sha256": "8a8c8338f8422cdfa112108f5bcc99b9b08fc9a95abe4c1be7e6e93282c7594c",
+    "wasm": {
+      "path": ".artifacts/runs/m107-browser-current-20261029/build.json",
+      "bytes": 2617,
+      "sha256": "754b0a4d31ccebc75299909a495c261b5da953cd9a189fc3891c9b06c8df5ad9"
+    },
+    "cargo_invocations_this_qualification": 0,
+    "new_sdk_pins": 0
+  },
+  "criteria": {
+    "real_tcp_udp_both_provider_roles": [
+      "m118-platform-clock",
+      "windows_provider_tcp_partial_proof",
+      "m118-platform-boundaries",
+      "m118-platform-udp-limits"
+    ],
+    "effective_target_scope_acl_stop_revoke": [
+      "m118-platform-guards",
+      "m118-platform-guests-backoff"
+    ],
+    "honest_browser_bounded_operations_cleanup": [
+      "m118-browser-current-scopes"
+    ]
+  },
+  "runs": {
+    "m118-platform-clock": {
+      "result": {
+        "path": ".artifacts/runs/m118-platform-current-20261029/m118-platform-clock/result.json",
+        "bytes": 1415,
+        "sha256": "ba583c7b79232ec205138778e6546ccdee8bf99fecaeb0dade89474da03ed1db"
+      },
+      "events": {
+        "path": ".artifacts/runs/m118-platform-current-20261029/m118-platform-clock/events.jsonl",
+        "bytes": 10127,
+        "sha256": "264ea54c31536a8415879dbb115048f4559250fcdddd9211ab11279f5712e434"
+      },
+      "seconds": 128.74351628503064,
+      "proofs": [
+        {
+          "node": "pair",
+          "operation": "linux_provider_tcp",
+          "result": {
+            "independent_target_exact": true,
+            "reply_exact": true,
+            "length": 257
+          },
+          "monotonic": 334588.987167025
+        },
+        {
+          "node": "pair",
+          "operation": "windows_provider_udp",
+          "result": {
+            "independent_target_exact": true,
+            "reply_exact": true,
+            "length": 257
+          },
+          "monotonic": 334591.674877894
+        },
+        {
+          "node": "pair",
+          "operation": "linux_provider_udp",
+          "result": {
+            "independent_target_exact": true,
+            "reply_exact": true,
+            "length": 257
+          },
+          "monotonic": 334630.667343836
+        }
+      ]
+    },
+    "m118-platform-guards": {
+      "result": {
+        "path": ".artifacts/runs/m118-platform-current-20261029/m118-platform-guards/result.json",
+        "bytes": 1793,
+        "sha256": "eac57f73b43f7ac9f0dcff015f436c6c625020e76232321afe40797f006212d6"
+      },
+      "events": {
+        "path": ".artifacts/runs/m118-platform-current-20261029/m118-platform-guards/events.jsonl",
+        "bytes": 76081,
+        "sha256": "89d069abb9a5b13d096f85d754c9bb3db7c42d11f50bc479b2233e470e762a89"
+      },
+      "seconds": 106.67809445597231,
+      "proofs": [
+        {
+          "node": "guards",
+          "operation": "exact_target_scope_tcp",
+          "result": {
+            "both_targets_independently_live": true,
+            "forbidden_target_unchanged": true,
+            "actual_failed_flow": true
+          },
+          "monotonic": 335230.327936175
+        },
+        {
+          "node": "guards",
+          "operation": "effective_acl_stops_tcp",
+          "result": {
+            "actual_flow_precondition": true,
+            "provider_joined": true,
+            "no_later_target_effect": true
+          },
+          "monotonic": 335235.183268896
+        },
+        {
+          "node": "guards",
+          "operation": "scope_replacement_stops_tcp",
+          "result": {
+            "restored_same_operation": true,
+            "provider_joined": true,
+            "old_target_unchanged": true
+          },
+          "monotonic": 335241.999255797
+        },
+        {
+          "node": "guards",
+          "operation": "explicit_stop_tcp",
+          "result": {
+            "listener_and_flows_joined": true,
+            "independent_target_unchanged_after_stop": true
+          },
+          "monotonic": 335244.202341928
+        },
+        {
+          "node": "guards",
+          "operation": "disable_tcp",
+          "result": {
+            "provider_joined": true,
+            "independent_target_unchanged_after_disable": true
+          },
+          "monotonic": 335247.119268801
+        },
+        {
+          "node": "guards",
+          "operation": "exact_target_scope_udp",
+          "result": {
+            "both_targets_independently_live": true,
+            "forbidden_target_unchanged": true,
+            "actual_failed_flow": true
+          },
+          "monotonic": 335252.177288502
+        },
+        {
+          "node": "guards",
+          "operation": "effective_acl_stops_udp",
+          "result": {
+            "actual_flow_precondition": true,
+            "provider_joined": true,
+            "no_later_target_effect": true
+          },
+          "monotonic": 335258.816149349
+        },
+        {
+          "node": "guards",
+          "operation": "scope_replacement_stops_udp",
+          "result": {
+            "restored_same_operation": true,
+            "provider_joined": true,
+            "old_target_unchanged": true
+          },
+          "monotonic": 335269.621054678
+        },
+        {
+          "node": "guards",
+          "operation": "explicit_stop_udp",
+          "result": {
+            "listener_and_flows_joined": true,
+            "independent_target_unchanged_after_stop": true
+          },
+          "monotonic": 335272.114906573
+        },
+        {
+          "node": "guards",
+          "operation": "disable_udp",
+          "result": {
+            "provider_joined": true,
+            "independent_target_unchanged_after_disable": true
+          },
+          "monotonic": 335276.680204115
+        },
+        {
+          "node": "guards",
+          "operation": "windows_reopen",
+          "result": {
+            "identity_retained": true,
+            "both_acls_retained": true,
+            "no_automatic_provider_or_listener": true,
+            "zero_owned_flows": true
+          },
+          "monotonic": 335284.82137569
+        }
+      ]
+    },
+    "m118-browser-current-scopes": {
+      "result": {
+        "path": ".artifacts/runs/m118-platform-current-20261029/m118-browser-current-scopes/result.json",
+        "bytes": 1337,
+        "sha256": "170c95f07db3e85c5671e4779312551e2f28dd047db481bda9acfca806c0f543"
+      },
+      "events": {
+        "path": ".artifacts/runs/m118-platform-current-20261029/m118-browser-current-scopes/events.jsonl",
+        "bytes": 15016,
+        "sha256": "538561fde99b6b5e661bba19ec457b2ed1070ff15503287fe0a5ce3dd653e240"
+      },
+      "seconds": 19.353937202016823,
+      "proofs": [
+        {
+          "node": "controller",
+          "operation": "browser_current_acl_and_scope",
+          "result": {
+            "protocol": "tcp",
+            "denied_identity_no_effect": true,
+            "explicit_repair_same_operation": true,
+            "old_scope_no_effect": true,
+            "current_scope_works": true
+          },
+          "monotonic": 335326.096282267
+        },
+        {
+          "node": "controller",
+          "operation": "browser_actual_pending_stop_bound",
+          "result": {
+            "protocol": "tcp",
+            "actual_target_received": 1,
+            "concurrent": 1,
+            "fifth_rejected": false,
+            "stop_seconds": 0.003730299009475857,
+            "all_owners_joined": true,
+            "explicit_new_operation_works": true
+          },
+          "monotonic": 335327.710055588
+        },
+        {
+          "node": "controller",
+          "operation": "browser_current_acl_and_scope",
+          "result": {
+            "protocol": "udp",
+            "denied_identity_no_effect": true,
+            "explicit_repair_same_operation": true,
+            "old_scope_no_effect": true,
+            "current_scope_works": true
+          },
+          "monotonic": 335332.43659879
+        },
+        {
+          "node": "controller",
+          "operation": "browser_actual_pending_stop_bound",
+          "result": {
+            "protocol": "udp",
+            "actual_target_received": 4,
+            "concurrent": 4,
+            "fifth_rejected": true,
+            "stop_seconds": 0.004352174990344793,
+            "all_owners_joined": true,
+            "explicit_new_operation_works": true
+          },
+          "monotonic": 335336.367921953
+        }
+      ]
+    },
+    "m118-platform-boundaries": {
+      "result": {
+        "path": ".artifacts/runs/m118-platform-current-20261029/m118-platform-boundaries/result.json",
+        "bytes": 1469,
+        "sha256": "f33088a460baebe035e406bf1df73fd083f6b3dbab7f6615c51f94242e4ef807"
+      },
+      "events": {
+        "path": ".artifacts/runs/m118-platform-current-20261029/m118-platform-boundaries/events.jsonl",
+        "bytes": 16118,
+        "sha256": "b664721a2e7ece05a0a5f465d5559b839fa6724efb830f9cd65ed38d31b6e802"
+      },
+      "seconds": 61.60786500800168,
+      "proofs": [
+        {
+          "node": "boundary",
+          "operation": "windows_provider_tcp_final_reply",
+          "result": {
+            "request_bytes": 131089,
+            "response_bytes": 524305,
+            "request_exact": true,
+            "response_exact": true,
+            "clean_eof": true
+          },
+          "monotonic": 335738.379353001
+        },
+        {
+          "node": "boundary",
+          "operation": "linux_provider_tcp_final_reply",
+          "result": {
+            "request_bytes": 131089,
+            "response_bytes": 524305,
+            "request_exact": true,
+            "response_exact": true,
+            "clean_eof": true
+          },
+          "monotonic": 335740.870604667
+        },
+        {
+          "node": "boundary",
+          "operation": "windows_provider_udp",
+          "result": {
+            "length": 0,
+            "direct_premise": true,
+            "one_exact_target_datagram": true,
+            "reply_exact": true
+          },
+          "monotonic": 335743.903849107
+        },
+        {
+          "node": "boundary",
+          "operation": "windows_provider_udp",
+          "result": {
+            "length": 65507,
+            "direct_premise": true,
+            "one_exact_target_datagram": true,
+            "reply_exact": true
+          },
+          "monotonic": 335745.104213093
+        },
+        {
+          "node": "boundary",
+          "operation": "linux_provider_udp",
+          "result": {
+            "length": 0,
+            "direct_premise": true,
+            "one_exact_target_datagram": true,
+            "reply_exact": true
+          },
+          "monotonic": 335747.156675934
+        },
+        {
+          "node": "boundary",
+          "operation": "linux_provider_udp",
+          "result": {
+            "length": 65507,
+            "direct_premise": true,
+            "one_exact_target_datagram": true,
+            "reply_exact": true
+          },
+          "monotonic": 335747.579353052
+        }
+      ]
+    },
+    "m118-platform-udp-limits": {
+      "result": {
+        "path": ".artifacts/runs/m118-platform-current-20261029/m118-platform-udp-limits/result.json",
+        "bytes": 1376,
+        "sha256": "9449f84e414ec67f8d16bf7ef3bece5e9611f4916dbd47c71fa14ef51c173e6d"
+      },
+      "events": {
+        "path": ".artifacts/runs/m118-platform-current-20261029/m118-platform-udp-limits/events.jsonl",
+        "bytes": 23092,
+        "sha256": "68912ea3ed3fcb748d361d62858c31694f51ea917397464bc9f4f3e2020d646b"
+      },
+      "seconds": 95.38074096600758,
+      "proofs": [
+        {
+          "node": "boundary",
+          "operation": "actual_ipv6_65509_premises",
+          "result": {
+            "windows_direct_exact": true,
+            "linux_direct_exact": true,
+            "bytes": 65509
+          },
+          "monotonic": 335978.00890414
+        },
+        {
+          "node": "boundary",
+          "operation": "linux_consumer_drop",
+          "result": {
+            "dropped": 1,
+            "listener_live": true,
+            "same_socket_normal_after": true,
+            "no_oversized_target_effect": true
+          },
+          "monotonic": 335980.952773407
+        },
+        {
+          "node": "boundary",
+          "operation": "windows_provider_reply_drop",
+          "result": {
+            "target_sent_once": true,
+            "dropped": 1,
+            "same_association_valid_reply_exact": true
+          },
+          "monotonic": 335983.731995367
+        },
+        {
+          "node": "boundary",
+          "operation": "windows_consumer_drop",
+          "result": {
+            "dropped": 1,
+            "listener_live": true,
+            "same_socket_normal_after": true,
+            "no_oversized_target_effect": true
+          },
+          "monotonic": 336024.229014746
+        },
+        {
+          "node": "boundary",
+          "operation": "linux_provider_reply_drop",
+          "result": {
+            "target_sent_once": true,
+            "dropped": 1,
+            "same_association_valid_reply_exact": true
+          },
+          "monotonic": 336024.601675624
+        }
+      ]
+    },
+    "m118-platform-guests-backoff": {
+      "result": {
+        "path": ".artifacts/runs/m118-platform-current-20261029/m118-platform-guests-backoff/result.json",
+        "bytes": 2363,
+        "sha256": "4a11857ff7c4b20d010bfbfa9bfc72cc14a7940ae2e9cff74335c5254d2b1d65"
+      },
+      "events": {
+        "path": ".artifacts/runs/m118-platform-current-20261029/m118-platform-guests-backoff/events.jsonl",
+        "bytes": 44083,
+        "sha256": "73a6ccd2788ea481b3d112d96ec1b90de6317f4dfcbf7b2e9f78d6d58bc5c8cc"
+      },
+      "seconds": 169.39681210002163,
+      "proofs": [
+        {
+          "node": "guest",
+          "operation": "windows_issuer_exit_tcp",
+          "result": {
+            "identity_bound": true,
+            "not_ordinary_member": true,
+            "other_service_denied": true,
+            "not_provider": true,
+            "member_protocol_denied": true,
+            "actual_allowed_flow": true,
+            "exit_no_later_effect": true
+          },
+          "monotonic": 337148.334902027
+        },
+        {
+          "node": "guest",
+          "operation": "windows_issuer_revoke_tcp",
+          "result": {
+            "actual_allowed_flow": true,
+            "provider_joined": true,
+            "no_later_target_effect": true
+          },
+          "monotonic": 337154.012539858
+        },
+        {
+          "node": "guest",
+          "operation": "windows_issuer_expiry_tcp",
+          "result": {
+            "expires": 1793244858,
+            "wall_before": 1793244878.2035613,
+            "wall_after": 1793244878.5903692,
+            "actual_success_before": true,
+            "provider_joined_at_first_expiry": true,
+            "no_later_target_effect": true,
+            "new_access_denied": true
+          },
+          "monotonic": 337193.755383752
+        },
+        {
+          "node": "guest",
+          "operation": "windows_issuer_exit_udp",
+          "result": {
+            "identity_bound": true,
+            "not_ordinary_member": true,
+            "other_service_denied": true,
+            "not_provider": true,
+            "member_protocol_denied": true,
+            "actual_allowed_flow": true,
+            "exit_no_later_effect": true
+          },
+          "monotonic": 337206.427798495
+        },
+        {
+          "node": "guest",
+          "operation": "windows_issuer_revoke_udp",
+          "result": {
+            "actual_allowed_flow": true,
+            "provider_joined": true,
+            "no_later_target_effect": true
+          },
+          "monotonic": 337215.052600452
+        },
+        {
+          "node": "guest",
+          "operation": "windows_issuer_expiry_udp",
+          "result": {
+            "expires": 1793244919,
+            "wall_before": 1793244939.3153634,
+            "wall_after": 1793244939.7665393,
+            "actual_success_before": true,
+            "provider_joined_at_first_expiry": true,
+            "no_later_target_effect": true,
+            "new_access_denied": true
+          },
+          "monotonic": 337254.931493724
+        }
+      ]
+    }
+  },
+  "windows_provider_tcp_partial_proof": {
+    "events": {
+      "path": ".artifacts/runs/m118-platform-current-20261029/m118-platform-mailbox/events.jsonl",
+      "bytes": 6231,
+      "sha256": "89c367ddd15d768ea2dba0f1928a87b33dbb7c38ea2760a63a5c2ba7837b7f5c"
+    },
+    "result": {
+      "path": ".artifacts/runs/m118-platform-current-20261029/m118-platform-mailbox/result.json",
+      "bytes": 1446,
+      "sha256": "8d41de58a92cfcbc9f6f21f30adc3ff7496ea954f497370a6c80ef0c06d23da4"
+    },
+    "qualified_proof": {
+      "node": "pair",
+      "operation": "windows_provider_tcp",
+      "result": {
+        "independent_target_exact": true,
+        "reply_exact": true,
+        "length": 257
+      },
+      "monotonic": 334111.210851188
+    },
+    "whole_original_run_remains_failed": true
+  },
+  "source_review": {
+    "unchanged_forwarding_modules_from_r3_commit": [
+      {
+        "path": "src/forwarding.rs",
+        "bytes": 3335,
+        "sha256": "9ae70805513fac26101d60489f68ade2ba9b7a7177bf4e2a8adfa52e3d5eefac"
+      },
+      {
+        "path": "src/native_forwarding.rs",
+        "bytes": 32379,
+        "sha256": "06c42ca57cbfbd1f87ead5d726aa194c71ef88bc6325e3ee41139be3e874e363"
+      },
+      {
+        "path": "src/data_stream.rs",
+        "bytes": 4941,
+        "sha256": "78d8869cf10b7b6316a70797f94e5cc817dd677ddb544d0960e485f405c58296"
+      },
+      {
+        "path": "browser-probe/src/forwarding.rs",
+        "bytes": 4695,
+        "sha256": "0e61edbec53fdff0c6193c8145e6760876ba5db0f557230ad54ef37b69ebb398"
+      }
+    ],
+    "prior_standards": {
+      "path": ".artifacts/runs/m118-high-20261024/review-r3-offline/standards-report.md",
+      "bytes": 2360,
+      "sha256": "0cec37448c669bdfe6391520e96928670c2195002351fe77e1830ff34f758817"
+    },
+    "prior_spec": {
+      "path": ".artifacts/runs/m118-high-20261024/review-r3-offline/spec-report.md",
+      "bytes": 2406,
+      "sha256": "3029b355c3b60c6ea18ff6ebdd87661c6ec62ef0adde5ff7e11b04be2ddb6b3c"
+    },
+    "current_review": "Main thread reviewed host/control/assertion changes and shared later service-entry additions. No subagents. Prior R3 is not claimed to equal the entire current tree."
+  },
+  "preserved_failures": {
+    "stdin_control": [
+      "m118-platform-core",
+      "m118-control-ssh-minimal",
+      "m118-platform-crlf"
+    ],
+    "observer_shorter_than_native_setup": "m118-platform-mailbox",
+    "missing_denied_contact_cooldown": "m118-platform-guests",
+    "root_verifier_framing": {
+      "path": ".artifacts/runs/m118-platform-current-20261029/qualification/m118-root-qa-format-failure.json",
+      "bytes": 679,
+      "sha256": "ea6f82cc3452af2777a8e91a84fba1b6066e5793344e7d8ed0353a5bcda4d68b"
+    },
+    "historical": "All earlier M118 handoffs and raw failures remain unchanged."
+  },
+  "cleanup_limits": {
+    "failed_stdin_hosts": "Three exact owned hosts required guarded termination after normal close/EOF failed; each SDK then exited normally on EOF. Original failures remain failures.",
+    "accepted_runs": "All normal SDK, socket, browser/relay, reader and private-runtime cleanup succeeded.",
+    "failed_private_roots_removed_after_owner_verification": true
+  },
+  "limits": [
+    "Application and target boundary sockets used IPv6 loopback; this does not qualify every IPv4 large-UDP route or WAN/NAT condition.",
+    "Actual legal 65509-byte local IPv6 payloads exercised length-based drops at both receive entries on both platforms; WSAEMSGSIZE was not synthetically injected.",
+    "SSH carried only owned deployment, command metadata and generated admission files; application bytes traversed the SDK and real OS sockets.",
+    "Direct SSH/PowerShell Console stdin remains unqualified for sequential control; maintained Windows test input uses bounded atomic mailbox publication.",
+    "M117 clipboard and Windows WSL verification remain explicitly deferred. M121 is not accepted here."
+  ],
+  "current_all_receipt_bytes": 1351265
+}

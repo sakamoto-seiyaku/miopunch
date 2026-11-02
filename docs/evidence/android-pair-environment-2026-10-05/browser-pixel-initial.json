@@ -1,0 +1,270 @@
+{
+  "scope": "physical Android browser formal-WASM load/control prerequisites only",
+  "hostRole": "build/ADB/code delivery/control/evidence; not a business peer",
+  "physicalWanQualified": false,
+  "endpoints": [
+    {
+      "model": "Pixel_6a",
+      "ready": {
+        "event": "ready",
+        "wasmLoaded": true,
+        "rtc": {
+          "secureContext": true,
+          "peerConnectionApi": true,
+          "indexedDb": true,
+          "webLocks": true,
+          "peerCreated": true,
+          "channelCreated": true,
+          "channelParametersMatched": true,
+          "peerClosed": true
+        },
+        "sdk": {
+          "start": true,
+          "memberConnection": true
+        }
+      },
+      "cdpAvailableAfterOwnedPageStart": false,
+      "browserVersion": null,
+      "cdpFailure": "RemoteDisconnected",
+      "unsupportedOperationRejected": true,
+      "cleanup": {
+        "sdk": {
+          "id": 2,
+          "ok": true,
+          "result": {
+            "ownedMemberHandles": 0,
+            "networkClosed": true,
+            "cleanupElapsedMs": 0.07499980926513672
+          },
+          "callerElapsedMs": 0.33499979972839355
+        },
+        "tab": {
+          "method": "owned-visible URL then Ctrl-W",
+          "ownedTargetAbsent": true
+        },
+        "forwardRemoveExit": 0,
+        "reverseRemoveExit": 0,
+        "localListenerClosed": true,
+        "elapsedMs": 6018.816
+      },
+      "commands": [
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "reverse",
+            "tcp:44262",
+            "tcp:44262"
+          ],
+          "exit": 0,
+          "elapsedMs": 77.231,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "am start --user 0 -a android.intent.action.VIEW -d 'http://127.0.0.1:44262/android-pair?actor=e87a11f52bbf4b8487020400fe099109' --ez create_new_tab true com.android.chrome"
+          ],
+          "exit": 0,
+          "elapsedMs": 141.618,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "forward",
+            "tcp:0",
+            "localabstract:chrome_devtools_remote"
+          ],
+          "exit": 0,
+          "elapsedMs": 54.213,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "uiautomator dump /data/local/tmp/mio82-ui-e87a11f52bbf4b8487020400fe099109.xml"
+          ],
+          "exit": 0,
+          "elapsedMs": 3209.181,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "cat /data/local/tmp/mio82-ui-e87a11f52bbf4b8487020400fe099109.xml"
+          ],
+          "exit": 0,
+          "elapsedMs": 112.689,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "input keycombination KEYCODE_CTRL_LEFT KEYCODE_W"
+          ],
+          "exit": 0,
+          "elapsedMs": 108.438,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "uiautomator dump /data/local/tmp/mio82-ui-e87a11f52bbf4b8487020400fe099109.xml"
+          ],
+          "exit": 0,
+          "elapsedMs": 2218.421,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "cat /data/local/tmp/mio82-ui-e87a11f52bbf4b8487020400fe099109.xml"
+          ],
+          "exit": 0,
+          "elapsedMs": 115.241,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "rm -f /data/local/tmp/mio82-ui-e87a11f52bbf4b8487020400fe099109.xml"
+          ],
+          "exit": 0,
+          "elapsedMs": 87.859,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "forward",
+            "--remove",
+            "tcp:53360"
+          ],
+          "exit": 0,
+          "elapsedMs": 32.355,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "reverse",
+            "--remove",
+            "tcp:44262"
+          ],
+          "exit": 0,
+          "elapsedMs": 45.674,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        }
+      ]
+    }
+  ],
+  "sourceSha256": "d23745a2756870bb5c6ebe837e8ff79ad2aedb5425e40bd2b656b8073273d0ee",
+  "pageSha256": "bd19285aeee662856300d0ea87a3d33b1640e51491d1887dcc13191f35670023",
+  "wasmSha256": "e80743d7ccc7e539d5d2860ffae78282ddc0bbac977794a472f63ab12fdcf66e"
+}

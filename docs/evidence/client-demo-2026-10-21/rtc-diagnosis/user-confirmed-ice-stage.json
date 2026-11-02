@@ -1,0 +1,75 @@
+{
+  "browser": "Edge",
+  "vpn": true,
+  "apiEffective": true,
+  "browserAttempts": [
+    {
+      "gatherCompleteMs": 303,
+      "iceCheckingMs": 753,
+      "failureMs": 16248,
+      "hasHostCandidate": true,
+      "hasUdpServerReflexiveCandidate": true,
+      "terminalIceState": "disconnected",
+      "terminalConnectionState": "failed"
+    },
+    {
+      "gatherCompleteMs": 218,
+      "iceCheckingMs": 832,
+      "failureMs": 16329,
+      "hasHostCandidate": true,
+      "hasUdpServerReflexiveCandidate": true,
+      "terminalIceState": "disconnected",
+      "terminalConnectionState": "failed"
+    }
+  ],
+  "linuxAttempts": [
+    {
+      "failure": "deadline has elapsed",
+      "events": [
+        {
+          "elapsedMs": 37,
+          "kind": "connection",
+          "state": "connecting"
+        },
+        {
+          "elapsedMs": 37,
+          "kind": "ice",
+          "state": "checking"
+        },
+        {
+          "elapsedMs": 285,
+          "kind": "gathering",
+          "state": "complete"
+        }
+      ],
+      "iceState": "checking",
+      "dtlsState": "Unspecified",
+      "hasSelectedPair": false,
+      "hasUdpServerReflexiveCandidate": true
+    },
+    {
+      "failure": "deadline has elapsed",
+      "events": [
+        {
+          "elapsedMs": 7,
+          "kind": "connection",
+          "state": "connecting"
+        },
+        {
+          "elapsedMs": 7,
+          "kind": "ice",
+          "state": "checking"
+        },
+        {
+          "elapsedMs": 214,
+          "kind": "gathering",
+          "state": "complete"
+        }
+      ],
+      "iceState": "checking",
+      "dtlsState": "Unspecified",
+      "hasSelectedPair": false,
+      "hasUdpServerReflexiveCandidate": true
+    }
+  ]
+}

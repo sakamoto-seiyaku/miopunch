@@ -1,0 +1,14 @@
+{
+  "scope": "current environment entry and native ADB; earlier receipts remain under initial-*",
+  "files": {
+    "scripts/wan_environment_preflight.py": "bbefa9512d29a35aa483178ecaa67d40dbe5213caa1e270f679d1aa2b75c2509",
+    "/home/js/Android/Sdk/platform-tools/adb": "00108217733707a40debfc92c86d4232fd6e68870be5966515d74c071193ea90",
+    "docs/evidence/wan-environment-2026-10-05/focused-validation.json": "0a91fca47d9a775910eb4729beee5c785c9fdfb189a0146d056eb37e3b615f61",
+    "docs/evidence/wan-environment-2026-10-05/initial-identities.json": "e14d747b83bdc85702936241a16854a2b7b900806a3331a31b3cd6e50661988c",
+    "docs/evidence/wan-environment-2026-10-05/initial-preflight.json": "8beed99215a68c97637a691edb01c2e7bcd92b17f778a74c07575eab0e5ed226",
+    "docs/evidence/wan-environment-2026-10-05/initial-sandbox-and-wrapper-failure.json": "80ec3324f00c13f2cf59fbb4576fae9a5c486f36cc578bbc2be7a0f08573834e",
+    "docs/evidence/wan-environment-2026-10-05/observed-failures.json": "e02d1159ca0ed7314fc0148c6beb49dff788c792a4f4af0c2099f8aaa3e5a796",
+    "docs/evidence/wan-environment-2026-10-05/preflight.json": "f2ea249b791deaa021a8769d968a8163f222bf0c659d7b391ae1ea111269c403",
+    "docs/evidence/wan-environment-2026-10-05/sandbox-and-wrapper-failure.json": "67d1c019f8210f0d4eaecabc934f30a7f80f9331572baf5cf9595cb63501374e"
+  }
+}

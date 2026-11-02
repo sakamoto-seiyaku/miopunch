@@ -15,6 +15,7 @@ import time
 from urllib.parse import urlsplit, urlunsplit
 
 from aiohttp import WSMsgType, web
+from web_asyncio_observer import OwnedLoopObserver
 from web_tls_fixture import server_certificate
 from web_process_owner import wait_future
 
@@ -52,11 +53,14 @@ class ContentGateway:
         self.phases = {}
         self.last_denial = None
         self.loop = asyncio.new_event_loop()
+        self.observer = OwnedLoopObserver(self.loop, "gateway:" + self.private.name, self.errors,
+                                          lambda row: self.record("owned_asyncio", row))
         self.executor = ThreadPoolExecutor(max_workers=MAX_OPERATIONS, thread_name_prefix="m119-web-callback")
         self.loop.set_default_executor(self.executor)
         self.started = threading.Event()
         self.thread = threading.Thread(target=self.run, daemon=True)
         self.closed = False
+        self.cleanup, self.close_error, self.close_started = None, None, False
         owners.append(self)
         self.thread.start()
         assert self.started.wait(10) and not self.errors, "content gateway failed to start"
@@ -64,15 +68,20 @@ class ContentGateway:
     def run(self):
         asyncio.set_event_loop(self.loop)
         try:
+            self.observer.phase("starting")
             self.loop.run_until_complete(self.start())
             self.started.set()
+            self.observer.phase("running")
             self.loop.run_forever()
         except BaseException as failure:
             self.errors.append(type(failure).__name__)
             self.started.set()
         finally:
+            self.observer.phase("shutdown_asyncgens")
             self.loop.run_until_complete(self.loop.shutdown_asyncgens())
+            self.observer.phase("loop_close")
             self.loop.close()
+            self.observer.phase("loop_closed")
 
     async def start(self):
         self.capacity = asyncio.Semaphore(MAX_OPERATIONS)
@@ -90,9 +99,11 @@ class ContentGateway:
         await self.runner.setup()
         self.site = web.TCPSite(self.runner, "127.0.0.1", 0, ssl_context=self.tls)
         await self.site.start()
+        self.observer.server("https", self.site._server)
         self.address = "https://%s:%d" % (self.content_host, self.site._server.sockets[0].getsockname()[1])
         self.proxy_site = web.TCPSite(self.runner, "127.0.0.1", 0)
         await self.proxy_site.start()
+        self.observer.server("http-proxy", self.proxy_site._server)
         self.proxy_address = "http://127.0.0.1:%d" % self.proxy_site._server.sockets[0].getsockname()[1]
         self.bootstrap = self.address + "/__miopunch_open/" + self.token
 
@@ -240,6 +251,7 @@ class ContentGateway:
 
     async def shutdown(self):
         self.cleanup_phase = "cancelling_requests"
+        self.observer.phase(self.cleanup_phase)
         self.stopping = True
         failures = []
         # Cancel module owners before joining HTTP handlers/executor threads.
@@ -251,12 +263,16 @@ class ContentGateway:
             except Exception as failure:
                 failures.append(type(failure).__name__)
         self.cleanup_phase = "app_runner_cleanup"
+        self.observer.phase(self.cleanup_phase)
         await self.runner.cleanup()
+        await self.observer.finish_servers()
         self.cleanup_phase = "ssl_callback_drain"
+        self.observer.phase(self.cleanup_phase)
         # Let SSL protocol connection_lost callbacks retire their transports
         # while this private loop is still alive, before loop.close().
         await asyncio.sleep(0.25)
         self.cleanup_phase = "shutdown_complete"
+        self.observer.phase(self.cleanup_phase)
         if failures:
             raise RuntimeError("content request cancellation failed")
 
@@ -335,26 +351,49 @@ class ContentGateway:
         return front
 
     def close(self):
+        if self.close_started:
+            if self.close_error is not None:
+                raise self.close_error
+            if self.cleanup is not None:
+                return self.cleanup
+            raise RuntimeError("original content gateway close outcome is unsettled; no rescheduling")
+        self.close_started = True
         failures = []
         future = None
         started, wall_started = time.monotonic(), time.time()
         try:
-            future = asyncio.run_coroutine_threadsafe(self.shutdown(), self.loop)
+            if self.loop.is_closed():
+                raise RuntimeError("original content gateway loop already closed before shutdown")
+            coroutine = self.shutdown()
+            try:
+                future = asyncio.run_coroutine_threadsafe(coroutine, self.loop)
+            except BaseException:
+                coroutine.close()
+                raise
             wait_future(future, 10)
         except BaseException as failure:
             failures.append(type(failure).__name__)
-        self.record("gateway_shutdown_future", {"phase": self.cleanup_phase,
-                    "wait_elapsed":time.monotonic()-started, "wall_elapsed":time.time()-wall_started, "wait_timeout":10,
-                    "future_done": future.done() if future else None, "future_cancelled": future.cancelled() if future else None,
-                    "errors": list(failures), "loop_running": self.loop.is_running(), "loop_closed": self.loop.is_closed()})
-        self.loop.call_soon_threadsafe(self.loop.stop)
+        try:
+            self.record("gateway_shutdown_future", {"phase": self.cleanup_phase,
+                        "wait_elapsed":time.monotonic()-started, "wall_elapsed":time.time()-wall_started, "wait_timeout":10,
+                        "future_done": future.done() if future else None, "future_cancelled": future.cancelled() if future else None,
+                        "errors": list(failures), "loop_running": self.loop.is_running(), "loop_closed": self.loop.is_closed()})
+        except BaseException as failure:
+            failures.append("CloseRecord:" + type(failure).__name__)
+        try:
+            if not self.loop.is_closed():
+                self.loop.call_soon_threadsafe(self.loop.stop)
+        except BaseException as failure:
+            failures.append("LoopStop:" + type(failure).__name__)
         self.thread.join(timeout=5)
         self.executor.shutdown(wait=True, cancel_futures=True)
         self.cleanup = {"owner": "content-gateway", "phase": self.cleanup_phase, "thread_joined": not self.thread.is_alive(),
                         "errors": failures + self.errors, "loop_closed": self.loop.is_closed(),
-                        "executor_threads_alive": sum(thread.is_alive() for thread in self.executor._threads)}
+                        "executor_threads_alive": sum(thread.is_alive() for thread in self.executor._threads),
+                        "owned_asyncio": self.observer.summary()}
         if self.thread.is_alive() or failures or self.errors:
-            raise RuntimeError("content gateway cleanup failed")
+            self.close_error = RuntimeError("content gateway cleanup failed")
+            raise self.close_error
         self.closed = True
         return self.cleanup
 

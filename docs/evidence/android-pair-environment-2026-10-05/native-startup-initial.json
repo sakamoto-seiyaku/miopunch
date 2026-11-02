@@ -1,0 +1,748 @@
+{
+  "scope": "provisional formal Android SDK local startup/store/JNI/cleanup only",
+  "newWireOrPublicMemberStoryQualified": false,
+  "STUNProbesPerformed": false,
+  "sourceFrozenBuild": false,
+  "endpoints": [
+    {
+      "model": "Pixel_6a",
+      "controlTransport": "usb",
+      "formalMainStartup": {
+        "ready": true,
+        "statusOk": true,
+        "stage": "Complete"
+      },
+      "invalidLocalCommandRejected": true,
+      "firstCleanup": {
+        "forced": false,
+        "commandExit": 0,
+        "leaderWaitedFor": true,
+        "ownedRemoteProcessAbsent": true,
+        "ownedRemoteProcessAbsentLate": true,
+        "localReadersEnded": true,
+        "elapsedMs": 906.859
+      },
+      "formalJniReopen": {
+        "ready": true,
+        "identityMatchedSavedStore": true,
+        "statusOk": true,
+        "stage": "Complete"
+      },
+      "artifacts": {
+        "native": "9c4a0b71a068fa1aa7663d6ec839bbc66ee555351e7434e14e43320a7c8e1f82",
+        "libnode.so": "063562b646f33f98f0d0d5e131a07ebd4dd7ef0f017c2623fe5d737f29bcaf0e",
+        "shell.jar": "b8b8a0897c4663af494f918a9ac10daf5fdb7951f1f21157923b3e56ca2ea0a2"
+      },
+      "finalCleanup": {
+        "forced": false,
+        "commandExit": 0,
+        "leaderWaitedFor": true,
+        "ownedRemoteProcessAbsent": true,
+        "ownedRemoteProcessAbsentLate": true,
+        "localReadersEnded": true,
+        "ownedDirectoryRemoved": true,
+        "elapsedMs": 1099.735
+      },
+      "runs": [
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "umask 077; echo $$ > /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/actor.pid; exec /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/native network session /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/node 192.168.1.104"
+          ],
+          "generation": "88e1d4d5da4d4e1897d183f28ea2ff48",
+          "startedMonotonic": 1081591.197794517,
+          "cleanup": {
+            "forced": false,
+            "commandExit": 0,
+            "leaderWaitedFor": true,
+            "ownedRemoteProcessAbsent": true,
+            "ownedRemoteProcessAbsentLate": true,
+            "localReadersEnded": true,
+            "elapsedMs": 906.859
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "umask 077; echo $$ > /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/actor.pid; exec env CLASSPATH=/data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/shell.jar app_process /system/bin MioPublicShell /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/libnode.so /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/node 192.168.1.104"
+          ],
+          "generation": "a9add7c2e3eb437fb17a456f4e9f9687",
+          "startedMonotonic": 1081592.278065728,
+          "cleanup": {
+            "forced": false,
+            "commandExit": 0,
+            "leaderWaitedFor": true,
+            "ownedRemoteProcessAbsent": true,
+            "ownedRemoteProcessAbsentLate": true,
+            "localReadersEnded": true,
+            "ownedDirectoryRemoved": true,
+            "elapsedMs": 1099.735
+          }
+        }
+      ],
+      "commands": [
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "mkdir -m 700 /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f"
+          ],
+          "exit": 0,
+          "elapsedMs": 96.006,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "push",
+            "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/miopunch-native-probe",
+            "/data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/native"
+          ],
+          "exit": 0,
+          "elapsedMs": 1554.975,
+          "stderr": "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/miopunch-native-probe: 1 file pushed, 0 skipped. 143.3 MB/s (195795296 bytes in 1.303s)\n",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "chmod 700 /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/native"
+          ],
+          "exit": 0,
+          "elapsedMs": 101.858,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "sha256sum /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/native"
+          ],
+          "exit": 0,
+          "elapsedMs": 312.673,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "push",
+            "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/libmiopunch_native_probe.so",
+            "/data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/libnode.so"
+          ],
+          "exit": 0,
+          "elapsedMs": 1482.967,
+          "stderr": "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/libmiopunch_native_probe.so: 1 file pushed, 0 skipped. 140.1 MB/s (183575040 bytes in 1.250s)\n",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "chmod 600 /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/libnode.so"
+          ],
+          "exit": 0,
+          "elapsedMs": 99.739,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "sha256sum /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/libnode.so"
+          ],
+          "exit": 0,
+          "elapsedMs": 229.802,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "push",
+            "/tmp/miopunch-android-pair-build-first-20261005/android-shell.jar",
+            "/data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/shell.jar"
+          ],
+          "exit": 0,
+          "elapsedMs": 76.631,
+          "stderr": "/tmp/miopunch-android-pair-build-first-20261005/android-shell.jar: 1 file pushed, 0 skipped. 20.2 MB/s (1470 bytes in 0.000s)\n",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "chmod 600 /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/shell.jar"
+          ],
+          "exit": 0,
+          "elapsedMs": 122.68,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "sha256sum /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/shell.jar"
+          ],
+          "exit": 0,
+          "elapsedMs": 125.316,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "push",
+            "/tmp/miopunch-pair-empty-resources-uka876uo.json",
+            "/data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/empty-auxiliary-resources.json"
+          ],
+          "exit": 0,
+          "elapsedMs": 78.386,
+          "stderr": "/tmp/miopunch-pair-empty-resources-uka876uo.json: 1 file pushed, 0 skipped. 0.0 MB/s (3 bytes in 0.000s)\n",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "chmod 600 /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/empty-auxiliary-resources.json"
+          ],
+          "exit": 0,
+          "elapsedMs": 109.158,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "sha256sum /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/empty-auxiliary-resources.json"
+          ],
+          "exit": 0,
+          "elapsedMs": 115.305,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "/data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/native network create /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/node"
+          ],
+          "exit": 0,
+          "elapsedMs": 252.761,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "/data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/native network resources-import /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/node /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/empty-auxiliary-resources.json"
+          ],
+          "exit": 0,
+          "elapsedMs": 165.647,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "cat /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/actor.pid"
+          ],
+          "exit": 0,
+          "elapsedMs": 117.533,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "cat /proc/14826/cmdline"
+          ],
+          "exit": 1,
+          "elapsedMs": 117.721,
+          "stderr": "cat: /proc/14826/cmdline: No such file or directory\n",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "test '!' -e /proc/14826"
+          ],
+          "exit": 0,
+          "elapsedMs": 110.364,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "cat /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/actor.pid"
+          ],
+          "exit": 0,
+          "elapsedMs": 132.0,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "cat /proc/14826/cmdline"
+          ],
+          "exit": 1,
+          "elapsedMs": 114.43,
+          "stderr": "cat: /proc/14826/cmdline: No such file or directory\n",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "test '!' -e /proc/14826"
+          ],
+          "exit": 0,
+          "elapsedMs": 182.981,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "cat /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/actor.pid"
+          ],
+          "exit": 0,
+          "elapsedMs": 117.124,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "cat /proc/14851/cmdline"
+          ],
+          "exit": 1,
+          "elapsedMs": 129.436,
+          "stderr": "cat: /proc/14851/cmdline: No such file or directory\n",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "test '!' -e /proc/14851"
+          ],
+          "exit": 0,
+          "elapsedMs": 107.95,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "cat /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f/actor.pid"
+          ],
+          "exit": 0,
+          "elapsedMs": 116.122,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "cat /proc/14851/cmdline"
+          ],
+          "exit": 1,
+          "elapsedMs": 87.668,
+          "stderr": "cat: /proc/14851/cmdline: No such file or directory\n",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "test '!' -e /proc/14851"
+          ],
+          "exit": 0,
+          "elapsedMs": 85.014,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "rm -rf -- /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f"
+          ],
+          "exit": 0,
+          "elapsedMs": 197.884,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "test '!' -e /data/local/tmp/miopunch-pair-70b9c34e42934a4cacb2f50dbbd45f7f"
+          ],
+          "exit": 0,
+          "elapsedMs": 94.386,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        }
+      ]
+    },
+    {
+      "model": "TB322FC",
+      "controlTransport": "network",
+      "failureClass": "RuntimeError",
+      "finalCleanup": {
+        "forced": false,
+        "ownedRemoteProcessAbsent": true,
+        "localReadersEnded": true,
+        "ownedDirectoryRemoved": true,
+        "elapsedMs": 272.456
+      },
+      "runs": [],
+      "commands": [
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "mkdir -m 700 /data/local/tmp/miopunch-pair-3520fd60b40247e6a7f777317d245a0d"
+          ],
+          "exit": 0,
+          "elapsedMs": 210.295,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "push",
+            "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/miopunch-native-probe",
+            "/data/local/tmp/miopunch-pair-3520fd60b40247e6a7f777317d245a0d/native"
+          ],
+          "exit": -15,
+          "elapsedMs": 12002.867,
+          "stderr": "/tmp/miopunch-android-pair-target-20261005/aarch64-linux-android/debug/miopunch-native-probe: 1 file pushed, 0 skipped. 16.5 MB/s (195795296 bytes in 11.326s)\n",
+          "cleanup": {
+            "forced": true,
+            "leaderWaitedFor": true,
+            "reason": "local command wait exceeded 12 seconds",
+            "termSent": true,
+            "elapsedMs": 1.03,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "rm -rf -- /data/local/tmp/miopunch-pair-3520fd60b40247e6a7f777317d245a0d"
+          ],
+          "exit": 0,
+          "elapsedMs": 141.913,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        },
+        {
+          "command": [
+            "rtk",
+            "proxy",
+            "/home/js/Android/Sdk/platform-tools/adb",
+            "-s",
+            "<model-selected-device>",
+            "shell",
+            "test '!' -e /data/local/tmp/miopunch-pair-3520fd60b40247e6a7f777317d245a0d"
+          ],
+          "exit": 0,
+          "elapsedMs": 130.479,
+          "stderr": "",
+          "cleanup": {
+            "forced": false,
+            "leaderWaitedFor": true,
+            "processGroupAbsentImmediately": true
+          }
+        }
+      ]
+    }
+  ],
+  "ownedLocalConfigurationRemoved": true
+}
