@@ -384,19 +384,22 @@ impl NatConnector {
     }
 
     /// Retain a prepared path inside typed admission, without returning business.
-    pub(crate) async fn retain_prepared_control(
+    pub(crate) async fn retain_prepared_path(
         &self,
         control: &ControlSession,
         gate: &AdmissionGate,
         mut prepared: PreparedUdpPath,
+        pending_admission: bool,
     ) -> io::Result<()> {
-        let mut cancellation = control.cancellation_guard();
+        let mut cancellation = pending_admission.then(|| control.cancellation_guard());
         self.guard(control, gate, async {
             match &prepared {
                 PreparedUdpPath::Direct(path) => path.check(control, gate)?,
                 PreparedUdpPath::Punching(attempt) => attempt.verify_winner_path(control, gate)?,
             }
-            control.commit_control_path().await?;
+            if pending_admission {
+                control.commit_control_path().await?;
+            }
             match &mut prepared {
                 PreparedUdpPath::Direct(path) => path.check(control, gate)?,
                 PreparedUdpPath::Punching(attempt) => attempt.retain_control_path(control, gate)?,
@@ -404,7 +407,9 @@ impl NatConnector {
             Ok(())
         })
         .await?;
-        cancellation.disarm();
+        if let Some(cancellation) = &mut cancellation {
+            cancellation.disarm();
+        }
         Ok(())
     }
 

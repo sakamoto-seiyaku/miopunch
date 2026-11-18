@@ -633,6 +633,7 @@ pub struct ResourceEndpoint {
     pub(crate) contacts: iroh::address_lookup::memory::MemoryLookup,
     responders: std::sync::Mutex<Vec<(String, crate::mqtt_discovery::LiveResponder)>>,
     tcp: Option<crate::tcp_transport::TcpTransport>,
+    native: Option<crate::native_path_adapter::NativePathAdapter>,
     mqtt: Vec<std::sync::Arc<crate::mqtt_transport::MqttTransport>>,
     contact_listener: Option<crate::contact_listener::ContactListenerControl>,
     #[cfg(feature = "rtc-probe")]
@@ -748,6 +749,7 @@ impl ResourceEndpoint {
             contacts: iroh::address_lookup::memory::MemoryLookup::new(),
             responders: Default::default(),
             tcp: None,
+            native: None,
             mqtt: Vec::new(),
             contact_listener: None,
             #[cfg(feature = "rtc-probe")]
@@ -853,6 +855,14 @@ impl ResourceEndpoint {
         self
     }
 
+    pub(crate) fn with_native(
+        mut self,
+        native: crate::native_path_adapter::NativePathAdapter,
+    ) -> Self {
+        self.native = Some(native);
+        self
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn active_coordinator(
         &self,
@@ -862,9 +872,19 @@ impl ResourceEndpoint {
             .config
             .relay_map(ResourceUse::DataRelay)
             .is_ok_and(|relays| !relays.is_empty());
-        let coordinator = crate::connection_coordinator::CoordinatorHook::new(gate, false)
-            .with_resources(self.config.clone())
-            .with_relay(relay_allowed);
+        let coordinator = crate::connection_coordinator::CoordinatorHook::new(
+            gate,
+            self.native
+                .as_ref()
+                .is_some_and(|native| native.udp_available()),
+        )
+        .with_resources(self.config.clone())
+        .with_relay(relay_allowed);
+        let coordinator = if let Some(native) = &self.native {
+            coordinator.with_native(native.clone())
+        } else {
+            coordinator
+        };
         #[cfg(feature = "rtc-probe")]
         let coordinator = coordinator.with_rtc(self.rtc.clone());
         coordinator
@@ -1147,13 +1167,22 @@ impl ResourceEndpoint {
             iroh::TransportAddr::Custom(addr) => self.config.allows_custom(addr),
             _ => true,
         });
-        target.addrs.extend(
-            self.config
-                .relay_map(ResourceUse::DataRelay)?
-                .urls::<Vec<_>>()
-                .into_iter()
-                .map(iroh::TransportAddr::Relay),
-        );
+        // An advertised relay identifies where this peer is registered. Local
+        // facilities are fallback hints when no allowed peer relay is known,
+        // not additional registrations that may preempt its actual address.
+        if !target
+            .addrs
+            .iter()
+            .any(|addr| matches!(addr, iroh::TransportAddr::Relay(_)))
+        {
+            target.addrs.extend(
+                self.config
+                    .relay_map(ResourceUse::DataRelay)?
+                    .urls::<Vec<_>>()
+                    .into_iter()
+                    .map(iroh::TransportAddr::Relay),
+            );
+        }
         let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
         let cause = match tokio::time::timeout(
             deadline.saturating_duration_since(n0_future::time::Instant::now()),

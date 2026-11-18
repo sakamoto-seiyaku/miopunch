@@ -131,7 +131,12 @@ async fn startup_automatically_recovers_and_saves_history_without_business() {
     let serving_resources = resources.clone();
     let serving = tokio::spawn(async move {
         while let Some(incoming) = serving_resources.endpoint().accept().await {
+            // Bootstrap history is control-only; ordinary acceptance rejects it.
+            let Ok(incoming) = incoming.accept_control() else {
+                continue;
+            };
             if let Ok(connection) = incoming.await {
+                let connection = Arc::new(connection);
                 let _ = c
                     .serve_network_recovery(&serving_resources, &connection)
                     .await;
@@ -195,7 +200,12 @@ async fn continuous_failure_backs_off_then_an_online_member_recovers_without_dia
     let serving_resources = resources.clone();
     let serving = tokio::spawn(async move {
         while let Some(incoming) = serving_resources.endpoint().accept().await {
+            // Bootstrap history is control-only; ordinary acceptance rejects it.
+            let Ok(incoming) = incoming.accept_control() else {
+                continue;
+            };
             if let Ok(connection) = incoming.await {
+                let connection = Arc::new(connection);
                 let _ = c
                     .serve_network_recovery(&serving_resources, &connection)
                     .await;

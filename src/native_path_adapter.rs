@@ -80,7 +80,13 @@ impl NativePathAdapter {
         kind: NativeMechanism,
         original: &ControlHandle,
         gate: &AdmissionGate,
+        active_control: Option<&ControlHandle>,
     ) -> io::Result<NativeCandidate> {
+        let existing_paths: Vec<_> = original
+            .paths()
+            .iter()
+            .map(|path| path.id().to_string())
+            .collect();
         let qualification = gate.path_qualification(original).ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::PermissionDenied,
@@ -89,7 +95,11 @@ impl NativePathAdapter {
         })?;
         let prepared = match kind {
             NativeMechanism::Udp if self.udp_available() => {
-                let control = ControlSession::from_control(original.clone());
+                let control = if let Some(control) = active_control {
+                    ControlSession::from_active_control(original.clone(), control.clone())
+                } else {
+                    ControlSession::from_control(original.clone())
+                };
                 PreparedNative::Udp(self.udp.prepare_upgrade(&control, gate).await?)
             }
             NativeMechanism::Tcp if self.tcp_available() => {
@@ -98,7 +108,11 @@ impl NativePathAdapter {
                 // are independent. Preparation must still exchange the same
                 // protected unavailable status when local enhancement is
                 // absent, so the peer does not consume UDP frames as TCP.
-                PreparedNative::Tcp(tcp.prepare_control(original, gate).await?)
+                PreparedNative::Tcp(if let Some(control) = active_control {
+                    tcp.prepare_active(original, control, gate).await?
+                } else {
+                    tcp.prepare_control(original, gate).await?
+                })
             }
             _ => {
                 return Err(io::Error::new(
@@ -122,7 +136,7 @@ impl NativePathAdapter {
             }
             PreparedNative::Tcp(path) => (TransportAddr::Custom(path.route().clone()), None),
         };
-        let candidate = NativeCandidate {
+        let mut candidate = NativeCandidate {
             adapter: self.clone(),
             kind,
             prepared,
@@ -131,8 +145,10 @@ impl NativePathAdapter {
             qualification,
             original: original.weak_handle(),
             stable_id: original.stable_id(),
+            owns_path: false,
         };
         candidate.check(original, gate)?;
+        candidate.owns_path = !existing_paths.contains(&candidate.path_id(original)?);
         Ok(candidate)
     }
 
@@ -146,9 +162,36 @@ impl NativePathAdapter {
         tcp: bool,
         udp: bool,
     ) -> io::Result<PreparedPath> {
+        self.prepare_paths(original, gate, tcp, udp, None).await
+    }
+
+    pub(crate) async fn prepare_active_paths(
+        &self,
+        original: &ControlHandle,
+        control: &ControlHandle,
+        gate: &AdmissionGate,
+        tcp: bool,
+        udp: bool,
+    ) -> io::Result<PreparedPath> {
+        self.prepare_paths(original, gate, tcp, udp, Some(control))
+            .await
+    }
+
+    async fn prepare_paths(
+        &self,
+        original: &ControlHandle,
+        gate: &AdmissionGate,
+        tcp: bool,
+        udp: bool,
+        active_control: Option<&ControlHandle>,
+    ) -> io::Result<PreparedPath> {
+        let pending_admission = active_control.is_none();
         if tcp {
-            match self.prepare(NativeMechanism::Tcp, original, gate).await {
-                Ok(candidate) => return candidate.into_shared(original, gate),
+            match self
+                .prepare(NativeMechanism::Tcp, original, gate, active_control)
+                .await
+            {
+                Ok(candidate) => return candidate.into_shared(original, gate, pending_admission),
                 Err(error) if error.kind() == io::ErrorKind::InvalidData => return Err(error),
                 Err(error) => {
                     if !gate.allows_member_path_upgrade(original)
@@ -162,9 +205,9 @@ impl NativePathAdapter {
         }
         if udp {
             return self
-                .prepare(NativeMechanism::Udp, original, gate)
+                .prepare(NativeMechanism::Udp, original, gate, active_control)
                 .await?
-                .into_shared(original, gate);
+                .into_shared(original, gate, pending_admission);
         }
         Err(io::Error::new(
             io::ErrorKind::NotConnected,
@@ -187,6 +230,7 @@ pub(crate) struct NativeCandidate {
     qualification: PathQualification,
     original: iroh::endpoint::WeakControlConnection,
     stable_id: usize,
+    owns_path: bool,
 }
 impl NativeCandidate {
     fn check(&self, original: &ControlHandle, gate: &AdmissionGate) -> io::Result<()> {
@@ -244,6 +288,7 @@ impl NativeCandidate {
         self,
         original: &ControlHandle,
         gate: &AdmissionGate,
+        pending_admission: bool,
     ) -> io::Result<()> {
         self.check(original, gate)?;
         match self.prepared {
@@ -251,7 +296,7 @@ impl NativeCandidate {
                 let control = ControlSession::from_control(original.clone());
                 self.adapter
                     .udp
-                    .retain_prepared_control(&control, gate, prepared)
+                    .retain_prepared_path(&control, gate, prepared, pending_admission)
                     .await?;
             }
             PreparedNative::Tcp(path) => path.retain_control(original, gate)?,
@@ -263,10 +308,12 @@ impl NativeCandidate {
         self,
         original: &ControlHandle,
         gate: &AdmissionGate,
+        pending_admission: bool,
     ) -> io::Result<PreparedPath> {
         let path_id = self.path_id(original)?;
         let route = self.route.clone();
         let kind = self.kind;
+        let owns_path = self.owns_path;
         let local_socket = self.local_socket;
         let qualification = self.qualification.clone();
         let generation = original.udp_network_generation();
@@ -319,13 +366,15 @@ impl NativeCandidate {
                 let candidate = { retain_state.lock().unwrap().take() }
                     .ok_or_else(|| io::Error::other("native candidate already consumed"))?;
                 let original = &retain_original;
-                candidate.retain_on_original(original, &retain_gate).await
+                candidate
+                    .retain_on_original(original, &retain_gate, pending_admission)
+                    .await
             })
         })
         .with_rollback(move || {
             let candidate = { state.lock().unwrap().take() };
             // A retained candidate already moved its physical owners to M.
-            if candidate.is_some() {
+            if candidate.is_some() && owns_path {
                 {
                     let original = rollback_original;
                     for path in original.paths().iter().filter(|path| {
@@ -341,8 +390,8 @@ impl NativeCandidate {
                         });
                     }
                 }
-                drop(candidate);
             }
+            drop(candidate);
         }))
     }
 }

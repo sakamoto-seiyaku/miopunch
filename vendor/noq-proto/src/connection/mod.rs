@@ -583,10 +583,28 @@ impl Connection {
             .saturating_add(1u8);
 
         if path_id > max_path_id {
+            eprintln!(
+                "[DEBUG-udp-handoff] proto-path-resource-blocked reason=MaxPathIdReached connection={:p} requested={path_id:?} local_max={:?} remote_max={:?} active={:?} abandoned={:?} remote_cids={:?} network_path={network_path:?}",
+                self,
+                self.local_max_path_id,
+                self.remote_max_path_id,
+                self.paths.keys().collect::<Vec<_>>(),
+                self.abandoned_paths,
+                self.remote_cids.keys().collect::<Vec<_>>()
+            );
             self.spaces[SpaceId::Data].pending.paths_blocked = Some(self.remote_max_path_id);
             return Err(PathError::MaxPathIdReached);
         }
         if !self.remote_cids.contains_key(&path_id) {
+            eprintln!(
+                "[DEBUG-udp-handoff] proto-path-resource-blocked reason=RemoteCidsExhausted connection={:p} requested={path_id:?} local_max={:?} remote_max={:?} active={:?} abandoned={:?} remote_cids={:?} network_path={network_path:?}",
+                self,
+                self.local_max_path_id,
+                self.remote_max_path_id,
+                self.paths.keys().collect::<Vec<_>>(),
+                self.abandoned_paths,
+                self.remote_cids.keys().collect::<Vec<_>>()
+            );
             self.spaces[SpaceId::Data]
                 .pending
                 .path_cids_blocked
@@ -635,17 +653,24 @@ impl Connection {
         if !self.is_multipath_negotiated() {
             return Err(ClosePathError::MultipathNotNegotiated);
         }
+        let has_path = self.paths.contains_key(&path_id);
+        let maximum = if reason.is_remote() {
+            self.local_max_path_id
+        } else {
+            self.max_path_id().expect("multipath is negotiated")
+        };
         if self.abandoned_paths.contains(&path_id)
-            || Some(path_id) > self.max_path_id()
-            || !self.paths.contains_key(&path_id)
+            || path_id > maximum
+            || (!has_path && !reason.is_remote())
         {
             return Err(ClosePathError::ClosedPath);
         }
 
-        let is_last_path = !self
-            .paths
-            .keys()
-            .any(|id| *id != path_id && !self.abandoned_paths.contains(id));
+        let is_last_path = has_path
+            && !self
+                .paths
+                .keys()
+                .any(|id| *id != path_id && !self.abandoned_paths.contains(id));
 
         if is_last_path && !reason.is_remote() {
             return Err(ClosePathError::LastOpenPath);
@@ -705,7 +730,9 @@ impl Connection {
         // tail-loss probes to zero.
         // This likely doesn't do much, as the path won't even be tried for sending
         // in poll_transmit after the path is abandoned.
-        self.spaces[SpaceId::Data].for_path(path_id).loss_probes = 0;
+        if let Some(space) = self.spaces[SpaceId::Data].path_space_mut(path_id) {
+            space.loss_probes = 0;
+        }
 
         // Note: remote CIDs are NOT removed here. They are removed when the PATH_ABANDON
         // frame is actually written to a packet (in populate_packet). This allows sending
@@ -751,13 +778,15 @@ impl Connection {
         // for time-based loss detection, not tail-loss probes, but currently it
         // could still be set to a tail-loss probe.
         // This will reset it to the next time-based loss time, if applicable.
-        self.set_loss_detection_timer(now, path_id);
+        if self.paths.contains_key(&path_id) {
+            self.set_loss_detection_timer(now, path_id);
 
-        // Emit event to the application.
-        self.events.push_back(Event::Path(PathEvent::Abandoned {
-            id: path_id,
-            reason,
-        }));
+            // An unused path ID has protocol state/CIDs, but no application path.
+            self.events.push_back(Event::Path(PathEvent::Abandoned {
+                id: path_id,
+                reason,
+            }));
+        }
     }
 
     /// Gets the [`PathData`] for a known [`PathId`].
@@ -2748,7 +2777,16 @@ impl Connection {
                                     );
                                 }
                             }
-                            self.discard_path(path_id, now);
+                            if self.paths.contains_key(&path_id) {
+                                self.discard_path(path_id, now);
+                            } else {
+                                // An unused ID can be abandoned before any packet
+                                // creates its path or packet-number space.
+                                if let Some(stats) = self.path_stats.get(path_id) {
+                                    self.partial_stats += stats;
+                                    self.path_stats.discard(&path_id);
+                                }
+                            }
                         }
                     }
                 }
@@ -5592,6 +5630,26 @@ impl Connection {
                     error_code,
                 }) => {
                     span.record("path", tracing::field::display(&path_id));
+                    if !self.is_multipath_negotiated() {
+                        return Err(TransportError::PROTOCOL_VIOLATION(
+                            "received PATH_ABANDON frame when multipath was not negotiated",
+                        ));
+                    }
+                    if path_id > self.local_max_path_id {
+                        return Err(TransportError::PROTOCOL_VIOLATION(
+                            "PATH_ABANDON contains path_id exceeding current max",
+                        ));
+                    }
+                    // A locally abandoned path remains until the peer confirms
+                    // closure. An unused or discarded ID has no PathState, so
+                    // its permanent abandoned marker identifies duplicate frames.
+                    let first_remote_close = self.paths.get(&path_id).map_or_else(
+                        || !self.abandoned_paths.contains(&path_id),
+                        |path| !path.data.draining,
+                    );
+                    if !first_remote_close {
+                        continue;
+                    }
                     match self.close_path_inner(
                         now,
                         path_id,
@@ -5619,20 +5677,20 @@ impl Connection {
                         }
                     };
 
-                    // Start draining the path if it still exists and hasn't started draining yet.
-                    if let Some(path) = self.paths.get_mut(&path_id)
-                        && !mem::replace(&mut path.data.draining, true)
-                    {
-                        let ack_delay = self.ack_frequency.max_ack_delay_for_pto();
-                        let pto = path.data.rtt.pto_base() + ack_delay;
-                        self.timers.set(
-                            Timer::PerPath(path_id, PathTimer::PathDrained),
-                            now + 3 * pto,
-                            self.qlog.with_time(now),
-                        );
+                    let rtt = if let Some(path) = self.paths.get_mut(&path_id) {
+                        path.data.draining = true;
+                        path.data.rtt.pto_base()
+                    } else {
+                        RttEstimator::new(self.config.initial_rtt).pto_base()
+                    };
+                    let pto = rtt + self.ack_frequency.max_ack_delay_for_pto();
+                    self.timers.set(
+                        Timer::PerPath(path_id, PathTimer::PathDrained),
+                        now + 3 * pto,
+                        self.qlog.with_time(now),
+                    );
 
-                        self.set_max_path_id(now, self.local_max_path_id.saturating_add(1u8));
-                    }
+                    self.set_max_path_id(now, self.local_max_path_id.saturating_add(1u8));
                 }
                 Frame::PathStatusAvailable(info) => {
                     span.record("path", tracing::field::display(&info.path_id));
@@ -7087,6 +7145,15 @@ impl Connection {
             .ok()?;
 
         Some(packet.payload.to_vec())
+    }
+
+    /// Queue a raw close frame to exercise duplicate and invalid peer input.
+    #[cfg(test)]
+    pub(crate) fn queue_path_abandon(&mut self, path_id: PathId) {
+        self.spaces[SpaceId::Data]
+            .pending
+            .path_abandon
+            .insert(path_id, TransportErrorCode::NO_ERROR);
     }
 
     /// The number of bytes of packets containing retransmittable frames that have not been

@@ -681,6 +681,168 @@ fn open_path_validation_fails_server_side() -> TestResult {
     Ok(())
 }
 
+/// Failed candidates that never reach the peer must not exhaust this connection's
+/// lifetime path IDs. Their close handshake still runs on the surviving path.
+#[test]
+fn unreachable_candidates_do_not_exhaust_path_identifiers() -> TestResult {
+    let _guard = subscribe();
+    let client_direct = "[::1:2]:1".parse()?;
+    let server_direct = "[::2:2]:1".parse()?;
+    let mut builder = ConnPair::builder()
+        .enable_multipath()
+        .disable_mtud_discovery()
+        .with_routes(ManyToManyRouting::simple_symmetric(
+            [Pair::CLIENT_ADDR, client_direct],
+            [Pair::SERVER_ADDR, server_direct],
+        ));
+    for transport in [
+        &mut builder.client_transport_cfg,
+        &mut builder.server_transport_cfg,
+    ] {
+        transport.default_path_max_idle_timeout(Some(Duration::from_secs(8)));
+    }
+    let mut pair = builder.connect();
+
+    // Neither candidate address is in the routing table, so the server will
+    // never create a PathState for either ID.
+    let failed: Vec<_> = ["[::2:3]:1", "[::2:4]:1"]
+        .into_iter()
+        .map(|address| {
+            pair.open_path(
+                Client,
+                FourTuple::from_remote(address.parse().unwrap()),
+                PathStatus::Available,
+            )
+        })
+        .collect::<Result<_, _>>()?;
+    pair.drive();
+    pair.ping_path(Client, PathId::ZERO)?;
+    pair.drive();
+    pair.advance_time();
+    pair.drive();
+
+    let mut abandoned = Vec::new();
+    let mut discarded = Vec::new();
+    while let Some(event) = pair.poll(Client) {
+        match event {
+            Event::Path(PathEvent::Abandoned { id, .. }) => abandoned.push(id),
+            Event::Path(PathEvent::Discarded { id, .. }) => discarded.push(id),
+            event => panic!("unexpected client event: {event:?}"),
+        }
+    }
+    assert_eq!(abandoned, failed);
+    assert_matches!(pair.poll(Server), None);
+
+    // This is the same connection: the original path remains usable while the
+    // now-reachable candidate gets a fresh ID, rather than reusing failed IDs.
+    let direct = pair.open_path(
+        Client,
+        FourTuple {
+            local_socket: None,
+            local_ip: Some(client_direct.ip()),
+            remote: server_direct,
+        },
+        PathStatus::Available,
+    )?;
+    assert!(failed.iter().all(|id| direct > *id));
+    pair.drive();
+    assert_matches!(pair.poll(Client), Some(Event::Path(PathEvent::Established { id })) if id == direct);
+    assert_matches!(pair.poll(Server), Some(Event::Path(PathEvent::Established { id })) if id == direct);
+    assert_eq!(discarded, failed);
+    assert!(pair.paths(Client).contains(&PathId::ZERO));
+    assert!(pair.paths(Server).contains(&PathId::ZERO));
+
+    for side in [Client, Server] {
+        pair.set_path_status(side, PathId::ZERO, PathStatus::Backup)?;
+    }
+    pair.drive();
+    let stream = pair.streams(Client).open(Dir::Uni).unwrap();
+    const MESSAGE: &[u8] = b"business after unreachable candidates";
+    pair.send_stream(Client, stream).write(MESSAGE)?;
+    pair.send_stream(Client, stream).finish()?;
+    pair.drive();
+    assert_matches!(pair.streams(Server).accept(Dir::Uni), Some(id) if id == stream);
+    let mut received = pair.recv_stream(Server, stream);
+    let mut chunks = received.read(false)?;
+    assert_matches!(chunks.next(usize::MAX), Ok(Some(chunk)) if chunk.bytes == MESSAGE);
+    let _ = chunks.finalize();
+    assert!(pair.path_stats(Client, direct).unwrap().frame_tx.stream > 0);
+    assert!(!pair.is_closed(Client));
+    assert!(!pair.is_closed(Server));
+    Ok(())
+}
+
+#[test]
+fn duplicate_abandon_of_unopened_path_replenishes_credit_once() -> TestResult {
+    let _guard = subscribe();
+    let mut pair = ConnPair::builder().enable_multipath().connect();
+    let server = pair.routes.public_server_addr();
+    let abandoned = pair.open_path(
+        Client,
+        FourTuple::from_remote(server),
+        PathStatus::Available,
+    )?;
+    // Close before sending its first probe: only the close frame on path 0
+    // reaches the peer, which has never created this path.
+    pair.close_path(Client, abandoned, 0u8.into())?;
+    pair.drive();
+    assert_matches!(pair.poll(Server), None);
+    let before = pair.stats(Server);
+
+    // New packets carrying the same close frame exercise protocol duplicate
+    // handling, rather than the packet-number duplicate filter.
+    for _ in 0..2 {
+        pair.conn_mut(Client).queue_path_abandon(abandoned);
+        pair.drive();
+    }
+    let after = pair.stats(Server);
+    assert_eq!(
+        after.frame_rx.path_abandon,
+        before.frame_rx.path_abandon + 2
+    );
+    assert_eq!(after.frame_tx.path_abandon, before.frame_tx.path_abandon);
+    assert_eq!(after.frame_tx.max_path_id, before.frame_tx.max_path_id);
+    assert_matches!(pair.poll(Server), None);
+
+    // One abandoned path permits one replacement, not another replacement
+    // for every repeated close frame.
+    for _ in 0..MAX_PATHS - 1 {
+        pair.open_path(
+            Client,
+            FourTuple::from_remote(server),
+            PathStatus::Available,
+        )?;
+    }
+    assert_matches!(
+        pair.open_path(
+            Client,
+            FourTuple::from_remote(server),
+            PathStatus::Available
+        ),
+        Err(crate::PathError::MaxPathIdReached)
+    );
+    Ok(())
+}
+
+#[test]
+fn path_abandon_above_advertised_limit_is_rejected() -> TestResult {
+    let _guard = subscribe();
+    let mut pair = ConnPair::builder().enable_multipath().connect();
+    // Initial IDs are 0..MAX_PATHS; no MAX_PATH_ID has raised that limit.
+    pair.conn_mut(Client)
+        .queue_path_abandon(PathId::from(MAX_PATHS));
+    pair.drive();
+    assert_matches!(
+        pair.poll(Server),
+        Some(Event::ConnectionLost {
+            reason: crate::ConnectionError::TransportError(error)
+        }) if error.code == TransportErrorCode::PROTOCOL_VIOLATION
+    );
+    assert_eq!(pair.stats(Server).frame_tx.max_path_id, 0);
+    assert_eq!(pair.stats(Server).frame_tx.path_abandon, 0);
+    Ok(())
+}
+
 /// client starts opening a path but the client fails to validate the path
 ///
 /// The server should receive an event close the path

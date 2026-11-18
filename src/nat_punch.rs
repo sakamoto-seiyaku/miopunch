@@ -636,6 +636,20 @@ pub enum ExecutionStatus {
 }
 
 impl Attempt {
+    fn log_handoff(&self, control: &ControlSession, stage: &str, error: Option<&io::Error>) {
+        println!(
+            "[DEBUG-udp-handoff] {}",
+            serde_json::json!({
+                "stage":stage,"round":self.round.encoded(),
+                "remainingMs":self.phase_deadline.map(|d|d.saturating_duration_since(tokio::time::Instant::now()).as_millis()),
+                "localSocket":self.local_winner.map(|b|b.id.get()),
+                "local":self.local_winner.map(|b|b.local_addr.to_string()),
+                "remote":self.remote_target.map(|a|a.to_string()),
+                "error":error.map(|e|format!("{e:?}")),"connection":control.handoff_diagnostic()
+            })
+        );
+    }
+
     pub fn round(&self) -> Round {
         self.round
     }
@@ -684,6 +698,7 @@ impl Attempt {
         control: &ControlSession,
         gate: &AdmissionGate,
     ) -> io::Result<()> {
+        self.log_handoff(control, "winner-ready-begin", None);
         let exchange = async {
             let outgoing = open(control).await?;
             send(&outgoing, Frame::WinnerReady { round: self.round }).await?;
@@ -707,7 +722,9 @@ impl Attempt {
             );
             Ok(())
         };
-        self.guard_handoff(control, gate, exchange).await
+        let result = self.guard_handoff(control, gate, exchange).await;
+        self.log_handoff(control, "winner-ready-result", result.as_ref().err());
+        result
     }
 
     /// Validated open path on the actual winner, under the captured scope.
@@ -761,27 +778,40 @@ impl Attempt {
         let deadline = self
             .phase_deadline
             .ok_or_else(|| invalid("NAT phase not started"))?;
-        self.guard_handoff(control, gate, async {
-            let report = if control.is_dialing_side() {
-                control
-                    .open_data_path_from_until(local, remote, deadline, &|| {
-                        self.path_wait_remaining(control, gate).map(|_| ())
-                    })
-                    .await?
-            } else {
-                DataPathOpen { path_id_retries: 0 }
-            };
-            loop {
-                match self.verify_winner_path(control, gate) {
-                    Ok(()) => return Ok(report),
-                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                        tokio::time::sleep(Duration::from_millis(10)).await
+        self.log_handoff(control, "quic-path-begin", None);
+        let result = self
+            .guard_handoff(control, gate, async {
+                let report = if control.is_dialing_side() {
+                    self.log_handoff(control, "quic-open-request", None);
+                    let opened = control
+                        .open_data_path_from_until(local, remote, deadline, &|| {
+                            self.path_wait_remaining(control, gate).map(|_| ())
+                        })
+                        .await;
+                    self.log_handoff(control, "quic-open-result", opened.as_ref().err());
+                    opened?
+                } else {
+                    self.log_handoff(control, "quic-wait-for-dialer", None);
+                    DataPathOpen { path_id_retries: 0 }
+                };
+                let mut next_log = Instant::now();
+                loop {
+                    match self.verify_winner_path(control, gate) {
+                        Ok(()) => return Ok(report),
+                        Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                            if Instant::now() >= next_log {
+                                self.log_handoff(control, "quic-path-pending", Some(&error));
+                                next_log = Instant::now() + Duration::from_secs(1);
+                            }
+                            tokio::time::sleep(Duration::from_millis(10)).await
+                        }
+                        Err(error) => return Err(error),
                     }
-                    Err(error) => return Err(error),
                 }
-            }
-        })
-        .await
+            })
+            .await;
+        self.log_handoff(control, "quic-path-result", result.as_ref().err());
+        result
     }
 
     /// Commit only the current captured winner; queued business remains local
@@ -1097,9 +1127,20 @@ impl Attempt {
         self.execution_trace = Some(trace.lock().expect("NAT execution trace").clone());
         let winner = result?;
         check_scope(control, gate, &self.scope, &self.snapshot)?;
+        println!(
+            "[DEBUG-udp-handoff] {}",
+            serde_json::json!({"stage":"retain-winner-begin",
+            "round":self.round.encoded(),"stableId":self.connection_id,
+            "localSocket":winner.local_socket_id.get(),"local":winner.local_addr.to_string(),
+            "remote":winner.remote.to_string(),"connection":control.handoff_diagnostic()})
+        );
         let winner_lease = lease
             .retain_winner(winner.local_socket_id, winner.local_addr)
-            .await?;
+            .await
+            .inspect_err(|error| {
+                self.log_handoff(control, "retain-winner-failed", Some(error));
+            })?;
+        self.log_handoff(control, "retain-winner-returned", None);
         check_scope(control, gate, &self.scope, &self.snapshot)?;
         // The original Connection now owns the physical winner. Raw registration
         // and every loser are closed when the round ends.

@@ -100,6 +100,7 @@ struct ProbeAdapter {
     real_ack: AtomicBool,
     report: Mutex<Option<serde_json::Value>>,
     stages: Mutex<Vec<&'static str>>,
+    production_native: bool,
 }
 impl ProbeAdapter {
     fn new(
@@ -120,6 +121,7 @@ impl ProbeAdapter {
             real_ack: AtomicBool::new(false),
             report: Mutex::new(None),
             stages: Mutex::new(Vec::new()),
+            production_native: false,
         }
     }
 }
@@ -213,6 +215,26 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for ProbeAdapter {
         async move {
             assert!(matches!(plan, PathPlan::Native { udp: true, .. }));
             *self.control.lock().unwrap() = Some(control.weak_handle());
+            if self.production_native {
+                let mut candidate = self
+                    .inner
+                    .prepare_active(_endpoint, original, control, _attempt, plan)
+                    .await?;
+                candidate.check(original, true)?;
+                self.real_ack.store(true, Ordering::Release);
+                let rollback = self.rollback.clone();
+                let native_rollback = candidate.rollback.take();
+                candidate.rollback = Some(Box::new(move || {
+                    if let Some(native_rollback) = native_rollback {
+                        native_rollback();
+                    }
+                    rollback.store(true, Ordering::Release);
+                }));
+                if self.fault == Some(Fault::PreCommitControlClose) {
+                    control.close(0u32.into(), b"pre-commit control close fault");
+                }
+                return Ok(candidate);
+            }
             let paths = original.paths();
             let path = paths
                 .iter()
@@ -281,7 +303,247 @@ async fn ordinary_pair(
     (client.unwrap(), server.unwrap())
 }
 
+async fn production_native_active_scenario(udp_enabled: bool, reverse: bool) {
+    let (_directory, a, b) = admitted_pair().await;
+    let ae = Arc::new(
+        a.bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+            .await
+            .unwrap(),
+    );
+    let be = Arc::new(
+        b.bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+            .await
+            .unwrap(),
+    );
+    let (original, remote) = ordinary_pair(&ae, &be).await;
+    let (a, b, ae, be, original, remote) = if reverse {
+        (b, a, be, ae, remote, original)
+    } else {
+        (a, b, ae, be, original, remote)
+    };
+    let stable = original.stable_id();
+    let binding = crate::connection_recovery_core::binding(&original).unwrap();
+    let (mut send, mut recv) = original.open_bi().await.unwrap();
+    send.write_all(b"before").await.unwrap();
+    let (mut peer_send, mut peer_recv) = remote.accept_bi().await.unwrap();
+    let mut before = [0; 6];
+    peer_recv.read_exact(&mut before).await.unwrap();
+    assert_eq!(&before, b"before");
+
+    // Match a real application: it keeps accepting new business streams while
+    // maintenance negotiates. Native control bytes must never reach this loop.
+    let application_connection = remote.clone();
+    let application = tokio::spawn(async move {
+        while let Ok((mut send, mut recv)) = application_connection.accept_bi().await {
+            let Ok(bytes) = recv.read_to_end(8).await else {
+                application_connection.close(0u32.into(), b"control reached business handler");
+                break;
+            };
+            if bytes.len() != 8 {
+                break;
+            }
+            if send.write_all(&bytes).await.is_err() {
+                break;
+            }
+            let _ = send.finish();
+        }
+    });
+
+    let handler = b.active_improvement_handler(be.clone());
+    let router = iroh::protocol::RestrictedRouter::builder(be.endpoint().clone())
+        .accept_control(ACTIVE_IMPROVEMENT_ALPN, handler)
+        .spawn();
+    a.udp_connector().set_udp_enabled(udp_enabled);
+    b.udp_connector().set_udp_enabled(udp_enabled);
+    let coordinator = ae.active_coordinator(a.admission_gate());
+    let (deadline, quota) = ae.begin_contact_attempt(original.remote_id()).unwrap();
+    let attempt = AttemptContext::new(
+        deadline.min(n0_future::time::Instant::now() + Duration::from_secs(5)),
+        tokio_util::sync::CancellationToken::new(),
+    );
+    let lease = a
+        .admission_gate()
+        .maintenance()
+        .acquire(&original, &attempt, quota)
+        .unwrap();
+    let improving = tokio::time::timeout(
+        Duration::from_secs(7),
+        lease.run(coordinator.improve(ae.endpoint(), &original, be.addr(), attempt)),
+    );
+    let business = tokio::time::timeout(Duration::from_secs(3), async {
+        for _ in 0..8 {
+            let (mut send, mut recv) = original.open_bi().await?;
+            send.write_all(b"business").await?;
+            send.finish()?;
+            let bytes = recv.read_to_end(8).await.map_err(io::Error::other)?;
+            if bytes != b"business" {
+                return Err(io::Error::other("unexpected business reply"));
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        Ok::<_, io::Error>(())
+    });
+    let (result, business) = tokio::join!(improving, business);
+    let same_original = original.stable_id() == stable
+        && crate::connection_recovery_core::binding(&original)
+            .is_ok_and(|actual| actual == binding);
+    let continued = tokio::time::timeout(Duration::from_secs(2), async {
+        send.write_all(b"after").await?;
+        let mut after = [0; 5];
+        peer_recv
+            .read_exact(&mut after)
+            .await
+            .map_err(io::Error::other)?;
+        peer_send.write_all(&after).await?;
+        recv.read_exact(&mut after)
+            .await
+            .map_err(io::Error::other)?;
+        Ok::<_, io::Error>(after == *b"after")
+    })
+    .await;
+    original.close(0u32.into(), b"native active regression complete");
+    remote.close(0u32.into(), b"native active regression complete");
+    application.await.unwrap();
+    drop((
+        send,
+        recv,
+        peer_send,
+        peer_recv,
+        original,
+        remote,
+        coordinator,
+    ));
+    router.shutdown().await.unwrap();
+    drop(router);
+    let ae = Arc::try_unwrap(ae)
+        .ok()
+        .expect("initiator resource owner released");
+    let be = Arc::try_unwrap(be)
+        .ok()
+        .expect("responder handler released");
+    tokio::join!(ae.close(), be.close());
+    tokio::join!(a.close(), b.close());
+    if udp_enabled {
+        assert!(
+            matches!(result, Ok(Ok(Ok(())))),
+            "production native active: {result:?}"
+        );
+    } else {
+        assert!(
+            matches!(result, Ok(Ok(Err(_)))),
+            "disabled UDP active: {result:?}"
+        );
+    }
+    assert!(same_original);
+    assert!(
+        matches!(business, Ok(Ok(()))),
+        "concurrent business: {business:?}"
+    );
+    assert!(
+        matches!(continued, Ok(Ok(true))),
+        "original stream: {continued:?}"
+    );
+}
+
+#[tokio::test]
+async fn production_native_active_prepares_udp_on_the_original_member() {
+    production_native_active_scenario(true, false).await;
+}
+
+#[tokio::test]
+async fn production_native_active_respects_udp_disable_and_keeps_business() {
+    production_native_active_scenario(false, false).await;
+}
+
+#[tokio::test]
+async fn production_native_active_from_accepting_side_keeps_concurrent_business() {
+    production_native_active_scenario(true, true).await;
+}
+
+#[tokio::test]
+async fn qualified_original_can_own_traversal_but_ordinary_connection_cannot() {
+    let (_directory, a, b) = admitted_pair().await;
+    let ae = a
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let be = b
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let (original, remote) = ordinary_pair(&ae, &be).await;
+    let mut traversal = ae
+        .endpoint()
+        .control_handle(&original)
+        .register_udp_traversal([61; 16])
+        .await;
+    let mut retained = None;
+    if let Ok(lease) = &mut traversal {
+        lease.listen_random_ports(1).await.unwrap();
+        let local = lease
+            .local_sockets()
+            .into_iter()
+            .find(|socket| !socket.id.is_primary())
+            .unwrap();
+        retained = Some(
+            lease
+                .retain_winner(
+                    local.id,
+                    std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, local.local_addr.port())),
+                )
+                .await,
+        );
+    }
+    let retained_ok = matches!(&retained, Some(Ok(Some(_))));
+    if let Some(Ok(Some(winner))) = &mut retained {
+        assert!(
+            winner.commit(&remote).is_err(),
+            "winner belongs only to its original M"
+        );
+    }
+
+    let builder = || {
+        iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .clear_relay_transports()
+            .bind_addr(std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+            .unwrap()
+            .alpns(vec![b"ordinary-traversal-boundary".to_vec()])
+    };
+    let plain_a = builder().bind().await.unwrap();
+    let plain_b = builder().bind().await.unwrap();
+    let (plain, peer) = tokio::join!(
+        plain_a.connect(plain_b.addr(), b"ordinary-traversal-boundary"),
+        async { plain_b.accept().await.unwrap().await },
+    );
+    let (plain, peer) = (plain.unwrap(), peer.unwrap());
+    let denied = plain_a
+        .register_udp_traversal(&plain, [62; 16])
+        .await
+        .is_err();
+    plain.close(0u32.into(), b"boundary regression done");
+    peer.close(0u32.into(), b"boundary regression done");
+    original.close(0u32.into(), b"boundary regression done");
+    remote.close(0u32.into(), b"boundary regression done");
+    drop((retained, plain, peer, original, remote));
+    let allowed = traversal.is_ok();
+    drop(traversal);
+    tokio::join!(plain_a.close(), plain_b.close(), ae.close(), be.close());
+    tokio::join!(a.close(), b.close());
+    assert!(
+        denied,
+        "ordinary unqualified endpoints cannot gain traversal authority"
+    );
+    assert!(
+        allowed && retained_ok,
+        "qualified M needs connection-owned traversal and winner retention"
+    );
+}
+
 async fn scenario(fault: Fault) {
+    scenario_with_native(fault, false).await;
+}
+
+async fn scenario_with_native(fault: Fault, production_native: bool) {
     let (_directory, a, b) = admitted_pair().await;
     let ae = a
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
@@ -318,8 +580,14 @@ async fn scenario(fault: Fault) {
 
     let b_gate = b.admission_gate();
     let b = Arc::new(tokio::sync::Mutex::new(Some(b)));
-    let initiator = ProbeAdapter::new(a.admission_gate(), None, None);
-    let responder = ProbeAdapter::new(b_gate, Some(fault), Some(b.clone()));
+    let mut initiator = ProbeAdapter::new(a.admission_gate(), None, None);
+    let mut responder = ProbeAdapter::new(b_gate, Some(fault), Some(b.clone()));
+    if production_native {
+        initiator.inner = NativeControlAdapter(ae.active_coordinator(initiator.gate.clone()));
+        responder.inner = NativeControlAdapter(be.active_coordinator(responder.gate.clone()));
+        initiator.production_native = true;
+        responder.production_native = true;
+    }
     let deadline = n0_future::time::Instant::now() + Duration::from_secs(5);
     let cancellation = tokio_util::sync::CancellationToken::new();
     let options = iroh::endpoint::ConnectOptions::new()
@@ -497,6 +765,16 @@ async fn scenario(fault: Fault) {
         assert!(rolled_back);
         assert!(!responder_reported);
     }
+}
+
+#[tokio::test]
+async fn production_native_active_rollback_preserves_existing_udp_and_other_streams() {
+    tokio::time::timeout(
+        Duration::from_secs(12),
+        scenario_with_native(Fault::PreCommitControlClose, true),
+    )
+    .await
+    .expect("native rollback must preserve existing business paths");
 }
 
 #[tokio::test]

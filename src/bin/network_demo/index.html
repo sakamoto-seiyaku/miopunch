@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>miopunch 组网观测</title>
+<style>
+body{font:14px system-ui,sans-serif;margin:24px;background:#f5f6f8;color:#182434}h1{font-size:24px;margin-bottom:8px}h2{font-size:18px}p{line-height:1.6}.muted{color:#586575}button{padding:8px 14px;margin:4px 8px 4px 0;cursor:pointer}section{background:white;padding:16px;margin-top:16px;border:1px solid #d8dfe8;border-radius:6px}table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;padding:8px;border-bottom:1px solid #e1e5eb;vertical-align:top}th{white-space:nowrap}.good{color:#087742}.warn{color:#9a5a00}.bad{color:#b82323}pre{font:12px ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto;background:#f3f5f8;padding:12px}code{overflow-wrap:anywhere}.route{max-width:360px;overflow-wrap:anywhere}.scroll{overflow-x:auto}#notice{font-weight:600}summary{cursor:pointer;padding:8px 0}#events{max-height:300px;overflow:auto}#events div{padding:6px 0;border-bottom:1px solid #edf0f4}#identity{overflow-wrap:anywhere}.counts{font-variant-numeric:tabular-nums}
+</style>
+<h1>miopunch · 真实组网观测</h1>
+<div id="identity">正在读取本机节点…</div>
+<p class="muted">直接在系统里切换 Wi-Fi、移动网络或 VPN。此页自动更新，节点无需重新配对。UDP/IP 直连可能经过现有 VPN，不能据此判断已完成公网 NAT 打洞。</p>
+<button id="start">开始组网</button><button id="stop">停止组网</button><button id="mark">标记一次手动切网</button><button id="export">导出当前诊断</button>
+<span id="notice"></span>
+<section><h2>节点之间的持续业务连接</h2><div class="muted">每秒一次双向认证连接上的真实请求／响应。Stable ID 不变表示原连接仍在；次数增加表示建立了新连接。远端视图经这些连接传回，过期视图会标明。</div><div class="scroll"><table><thead><tr><th>观察端 → 目标端</th><th>业务状态</th><th>最近成功</th><th>应用 RTT</th><th>当前选中路径</th><th>QUIC 连接</th><th>成功 / 失败</th><th>恢复耗时</th></tr></thead><tbody id="links"></tbody></table></div></section>
+<section><h2>节点与联络设施</h2><div id="nodes"></div></section>
+<section><h2>本机路径和恢复时间线</h2><div id="events"></div></section>
+<section><details><summary>本机打洞、地址观察、候选路径与 SDK 原始日志</summary><p class="muted">原始输出保留真实阶段和错误；存在候选地址不等于路径已经可用。这里只读本次 demo 的日志末尾。</p><h3>SDK 输出</h3><pre id="stdout"></pre><h3>SDK 错误与候选失败</h3><pre id="stderr"></pre></details></section>
+<section><details><summary>完整节点快照（包括路径 ID、本地 socket、地址、RTT、流量与丢包）</summary><pre id="raw"></pre></details></section>
+<script>
+let current, logs={}, busy=false, ticks=0;
+const $=id=>document.getElementById(id);
+const text=(tag,value,cls)=>{const element=document.createElement(tag);element.textContent=value;if(cls)element.className=cls;return element;};
+const number=v=>typeof v==='number'?v.toFixed(1):'—';
+const age=(at,clock)=>at?`${Math.max(0,(clock-at)/1000).toFixed(1)} s 前`:'尚无';
+const time=at=>new Date(at).toLocaleTimeString();
+const kind={udp:'UDP/IP 直连',tcp:'TCP 直连',relay:'Relay 中继',custom:'自定义路径'};
+const phase={starting:'启动中',connecting:'建连中',checking:'验证业务',online:'业务可用',recovering:'修复原连接',unreachable:'暂不可达'};
+const eventNames={'connect-start':'开始建连','connect-failed':'建连失败','connection-open':'连接已建立','business-restored':'业务首次可用／恢复','connection-ended':'原连接结束','heartbeat-failed':'业务心跳失败','path-repair':'原连接路径修复','selected-path-changed':'业务路径切换','local-address-changed':'本机地址变化','operator-network-switch-marker':'手动切网标记','node-starting':'正在启动节点','node-started':'节点已启动','node-stopping':'正在停止节点','node-stopped':'节点已停止'};
+function render(snapshot){
+  current=snapshot;
+  const local=snapshot.local, clock=local.observedAt||local.at, views=[{snapshot:local,receivedAt:clock,self:true},...Object.values(snapshot.remote)];
+  const hostState=local.hostState||'running',running=hostState==='running';
+  const states={starting:'启动中',running:'运行中',stopping:'停止中',stopped:'已停止',failed:'启动或运行失败'};
+  $('identity').textContent=`本机 ${local.name} · ${states[hostState]||hostState} · PID ${local.pid} · 节点 ${local.id||'尚未打开'} · 更新 ${time(clock||Date.now())}${local.hostError?' · '+local.hostError:''}`;
+  $('start').disabled=busy||!['stopped','failed'].includes(hostState);
+  $('stop').disabled=busy||!running;
+  $('mark').disabled=!running;
+  const rows=[];
+  for(const view of views){
+    const node=view.snapshot,stale=!running||clock-view.receivedAt>4000,nodeClock=node.observedAt||node.at;
+    for(const [name,peer] of Object.entries(node.peers||{})){
+      const row=document.createElement('tr');
+      const old=peer.lastOkAt&&nodeClock-peer.lastOkAt>3500;
+      row.append(text('td',`${node.name} → ${name}${stale?'（远端视图已过期）':''}`));
+      row.append(text('td',!running?'本机节点未运行':stale?'未知（等待远端更新）':old&&peer.phase==='online'?'等待新心跳':phase[peer.phase]||peer.phase,stale||old?'warn':peer.phase==='online'?'good':'warn'));
+      row.append(text('td',age(peer.lastOkAt,nodeClock)));
+      row.append(text('td',`${number(peer.roundTripMs)} ms`));
+      const selected=(peer.transport?.paths||[]).filter(p=>p.selected);
+      row.append(text('td',selected.map(p=>`${kind[p.kind]||p.kind} · ${p.remote} · 路径 RTT ${number(p.rttMs)} ms`).join('\n')||'尚无已选中数据路径','route'));
+      row.append(text('td',`ID ${peer.transport?.stableId??'—'} · 已建 ${peer.connections||0} 次`));
+      row.append(text('td',`${peer.successes||0} / ${peer.failures||0}`,'counts'));
+      row.append(text('td',peer.lastRecoveryMs!=null?`${peer.lastRecoveryMs} ms（从首次观测不可用算起）`:'—'));
+      rows.push(row);
+    }
+  }
+  $('links').replaceChildren(...rows);
+  const nodes=[];
+  for(const view of views){
+    const node=view.snapshot,block=document.createElement('details');
+    block.open=view.self;
+  const stale=!running||clock-view.receivedAt>4000;
+    block.append(text('summary',`${node.name}${view.self?'（本机）':''}${stale?' · 视图已过期':''} · 成员 ${(node.members||[]).length} · ${node.maintenance?.state||'启动中'}`));
+    block.append(text('p',`节点 ${node.id}`,'muted'));
+    const relayLines=(node.relays||[]).map(r=>`${r.connected?'已连接':'未连接'} ${r.url}${r.error?' · '+r.error:''}`);
+    block.append(text('pre',JSON.stringify({address:node.address,boundSockets:node.boundSockets,relays:relayLines,maintenance:node.maintenance,peers:node.peers},null,2)));
+    nodes.push(block);
+  }
+  $('nodes').replaceChildren(...nodes);
+  $('events').replaceChildren(...[...snapshot.events].reverse().map(event=>text('div',`${time(event.at)} · ${eventNames[event.kind]||event.kind} · ${JSON.stringify(event.detail)}`)));
+  $('raw').textContent=JSON.stringify(snapshot,null,2);
+}
+async function get(path){const response=await fetch(path,{cache:'no-store'});if(!response.ok)throw Error(`HTTP ${response.status}`);return response.json();}
+async function action(path){const response=await fetch(path,{method:'POST'});if(!response.ok)throw Error(`HTTP ${response.status}`);return response.json();}
+$('mark').onclick=async()=>{try{await action('/api/mark');$('notice').textContent='已记录时间；此按钮不改变网络或触发重连。';}catch(e){$('notice').textContent=String(e);}};
+$('export').onclick=async()=>{try{logs=await get('/api/logs');const blob=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),...current,logs},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`miopunch-network-${Date.now()}.json`;a.click();URL.revokeObjectURL(url);}catch(e){$('notice').textContent=String(e);}};
+async function lifecycle(operation){
+  busy=true;$('start').disabled=true;$('stop').disabled=true;
+  $('notice').textContent=operation==='start'?'正在启动节点…':'正在关闭节点连接与存储…';
+  try{await action(`/api/${operation}`);$('notice').textContent=operation==='start'?'节点已启动，正在恢复组网。':'节点已停止；点击“开始组网”可用原身份重新启动。';}
+  catch(e){$('notice').textContent=String(e);}
+  finally{busy=false;try{render(await get('/api/status'));}catch(e){$('notice').textContent=String(e);}}
+}
+$('start').onclick=()=>lifecycle('start');
+$('stop').onclick=()=>lifecycle('stop');
+async function update(){
+  try{
+    render(await get('/api/status'));
+    if(ticks++%5===0){logs=await get('/api/logs');$('stdout').textContent=logs.stdout;$('stderr').textContent=logs.stderr;}
+  }catch(e){$('identity').textContent=`诊断宿主不可用 · ${e} · 请运行本机启动器重新打开；下方保留最后快照`;}
+  setTimeout(update,1000);
+}
+update();
+</script>
+</html>

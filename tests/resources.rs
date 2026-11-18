@@ -1074,6 +1074,97 @@ async fn all_allowed_entries_fail_with_bounded_backoff_and_import_restart_recove
 }
 
 #[tokio::test]
+async fn explicit_peer_relay_is_not_preempted_by_local_facilities() {
+    let service = relay().await;
+    let allowed: iroh::RelayUrl =
+        format!("http://localhost:{}/", service.http_addr().unwrap().port())
+            .parse()
+            .unwrap();
+    let unrelated: iroh::RelayUrl = "http://127.0.0.1:1/".parse().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mut admin = NativeNetwork::create(dir.path().join("admin"))
+        .await
+        .unwrap();
+    let mut joining = NativeNetwork::join(
+        dir.path().join("joining"),
+        admin.manual_invitation().unwrap(),
+    )
+    .await
+    .unwrap();
+    admin
+        .save_resource_configuration(&ResourceConfig::with_defaults(ResourceTable {
+            revision: 1,
+            resources: vec![resource(&allowed)],
+        }))
+        .unwrap();
+    joining
+        .save_resource_configuration(&ResourceConfig::with_defaults(ResourceTable {
+            revision: 1,
+            resources: vec![resource(&unrelated), resource(&allowed)],
+        }))
+        .unwrap();
+    let builder = || {
+        Endpoint::builder(presets::Minimal)
+            .clear_ip_transports()
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+    };
+    let server = admin
+        .bind_configured_endpoint_with(builder())
+        .await
+        .unwrap();
+    let client = joining
+        .bind_configured_endpoint_with(builder())
+        .await
+        .unwrap()
+        .with_contact_timeout(Duration::from_secs(3))
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), server.endpoint().online())
+        .await
+        .unwrap();
+    let exchange = tokio::time::timeout(Duration::from_secs(4), async {
+        let (outgoing, incoming) = tokio::join!(
+            client.connect_control(
+                EndpointAddr::new(server.endpoint().id()).with_relay_url(allowed),
+                ADMISSION_REQUEST_ALPN,
+            ),
+            async {
+                server
+                    .endpoint()
+                    .accept()
+                    .await
+                    .unwrap()
+                    .accept_control()
+                    .unwrap()
+                    .await
+            },
+        );
+        let outgoing = outgoing.map_err(|e| e.to_string())?;
+        let incoming = std::sync::Arc::new(incoming.map_err(|e| e.to_string())?);
+        let (requested, served) = tokio::join!(
+            joining.request_manual_admission(&outgoing),
+            admin.serve_manual_admission(&incoming),
+        );
+        outgoing.close(0u32.into(), b"done");
+        incoming.close(0u32.into(), b"done");
+        Ok::<_, String>((
+            requested.map_err(|e| e.to_string())?,
+            served.map_err(|e| e.to_string())?,
+        ))
+    })
+    .await;
+    client.close().await;
+    server.close().await;
+    joining.close().await;
+    admin.close().await;
+    service.shutdown().await.unwrap();
+    let (requested, served) = exchange
+        .expect("explicit peer relay must fit the contact deadline")
+        .expect("real admission through the advertised relay");
+    assert!(matches!(requested, ManualExchange::AwaitingApproval));
+    assert_eq!(served, AdmissionStage::AwaitingApproval);
+}
+
+#[tokio::test]
 async fn failed_initial_data_only_relay_falls_back_to_another_allowed_entry() {
     use std::sync::atomic::Ordering;
     let failed = FailedFacility::new().await;

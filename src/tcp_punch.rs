@@ -248,8 +248,30 @@ impl TcpPunch {
         connection: &ControlHandle,
         gate: &AdmissionGate,
     ) -> io::Result<PreparedTcpPath> {
+        self.prepare_with_exchange(connection, connection, gate)
+            .await
+    }
+
+    pub(crate) async fn prepare_active(
+        &self,
+        original: &ControlHandle,
+        control: &ControlHandle,
+        gate: &AdmissionGate,
+    ) -> io::Result<PreparedTcpPath> {
+        self.prepare_with_exchange(original, control, gate).await
+    }
+
+    async fn prepare_with_exchange(
+        &self,
+        connection: &ControlHandle,
+        exchange_control: &ControlHandle,
+        gate: &AdmissionGate,
+    ) -> io::Result<PreparedTcpPath> {
         let check = || {
-            if connection.close_reason().is_some() || !gate.allows_member_path_upgrade(connection) {
+            if connection.close_reason().is_some()
+                || exchange_control.close_reason().is_some()
+                || !gate.allows_member_path_upgrade(connection)
+            {
                 Err(io::Error::new(
                     io::ErrorKind::PermissionDenied,
                     "TCP member scope invalidated",
@@ -292,9 +314,9 @@ impl TcpPunch {
         }
         check()?;
         let exchange = if connection.side().is_client() {
-            connection.open_control_exchange().await?
+            exchange_control.open_control_exchange().await?
         } else {
-            connection.accept_control_exchange().await?
+            exchange_control.accept_control_exchange().await?
         };
         // Keep both peers in the TCP phase even when only one observer fails.
         // The retained observation socket lives through the path decision.

@@ -541,6 +541,10 @@ impl RemoteStateActor {
                 local,
                 tx,
             } => {
+                println!(
+                    "[DEBUG-udp-handoff] actor-open-request stable_id={} local={local:?} remote={remote}",
+                    conn_id
+                );
                 let result = if let Some(state) = self.connections.get(&ConnId(conn_id)) {
                     if let Some(conn) = state.handle.upgrade() {
                         if conn.side().is_client() {
@@ -593,6 +597,10 @@ impl RemoteStateActor {
                 } else {
                     Err("connection not registered")
                 };
+                println!(
+                    "[DEBUG-udp-handoff] actor-open-result stable_id={} result={result:?}",
+                    conn_id
+                );
                 let _ = tx.send(result);
             }
             #[cfg(not(wasm_browser))]
@@ -606,8 +614,7 @@ impl RemoteStateActor {
                 let result = match self.connections.get_mut(&ConnId(conn_id)) {
                     Some(state)
                         if *valid_round
-                            && state.purpose == ConnectionPurpose::Control
-                            && state.handle.upgrade().is_some()
+                            && state.permits_udp_traversal()
                             && socket.connection_id == conn_id
                             && socket.remote == self.state.endpoint_id
                             && socket.is_live() =>
@@ -616,19 +623,16 @@ impl RemoteStateActor {
                         state.udp_sockets.push(ConnectionSocket(socket));
                         Ok(())
                     }
-                    _ => Err("winner binding requires its live original control connection"),
+                    _ => Err("winner binding requires its live authorized original connection"),
                 };
                 let _ = tx.send(result);
             }
             RemoteStateMessage::AuthorizeUdpProbe { conn_id, tx } => {
                 let result = match self.connections.get(&ConnId(conn_id)) {
-                    Some(state)
-                        if state.purpose == ConnectionPurpose::Control
-                            && state.handle.upgrade().is_some() =>
-                    {
-                        Ok(())
+                    Some(state) if state.permits_udp_traversal() => Ok(()),
+                    _ => {
+                        Err("UDP probe requires a live restricted or qualified original connection")
                     }
-                    _ => Err("UDP probe requires a live restricted control connection"),
                 };
                 let _ = tx.send(result);
             }
@@ -1160,6 +1164,17 @@ impl RemoteStateActor {
             return;
         };
         trace!("path event");
+        if matches!(
+            &event,
+            NoqPathEvent::Established { .. }
+                | NoqPathEvent::Abandoned { .. }
+                | NoqPathEvent::Discarded { .. }
+        ) {
+            println!(
+                "[DEBUG-udp-handoff] actor-path-event stable_id={} event={event:?}",
+                conn_id.0
+            );
+        }
         match event {
             NoqPathEvent::Established { id: path_id, .. } => {
                 let Some(path) = conn.path(path_id) else {
@@ -1852,6 +1867,12 @@ impl State {
         };
         match fut.path_id() {
             Some(path_id) => {
+                if explicit_request {
+                    println!(
+                        "[DEBUG-udp-handoff] actor-path-created stable_id={} path_id={} binding={open_4tuple:?} status={path_status:?}",
+                        conn_id.0, path_id
+                    );
+                }
                 #[cfg(not(wasm_browser))]
                 if let Some(id) = open_4tuple
                     .local_socket
@@ -1867,9 +1888,13 @@ impl State {
             None => {
                 let ret = now_or_never(fut);
                 match ret {
-                    Some(Err(PathError::RemoteCidsExhausted))
-                    | Some(Err(PathError::MaxPathIdReached)) => {
+                    Some(Err(error @ PathError::RemoteCidsExhausted))
+                    | Some(Err(error @ PathError::MaxPathIdReached)) => {
                         if explicit_request {
+                            println!(
+                                "[DEBUG-udp-handoff] actor-path-resource-blocked stable_id={} binding={open_4tuple:?} reason={error:?}",
+                                conn_id.0
+                            );
                             // A peer-wide retry queue has no connection/attempt binding.
                             // The caller must retry this explicit request instead.
                             return Err(PATH_IDENTIFIERS_UNAVAILABLE);
@@ -2177,6 +2202,18 @@ enum ConnectionPurpose {
 }
 
 impl ConnectionState {
+    /// Initial preparation uses restricted control. Active maintenance may use
+    /// the exact original after its admission data policy has been installed;
+    /// an unrestricted ordinary connection has no such authority.
+    fn permits_udp_traversal(&self) -> bool {
+        (self.purpose == ConnectionPurpose::Control
+            || (self.purpose == ConnectionPurpose::Ordinary && self.custom_data_policy))
+            && self
+                .handle
+                .upgrade()
+                .is_some_and(|connection| connection.close_reason().is_none())
+    }
+
     fn retained_control_data_is_current(&self, address: &iroh_base::CustomAddr) -> bool {
         self.retained_control_custom.as_ref() == Some(address)
             && !self.retired_custom.contains(address)

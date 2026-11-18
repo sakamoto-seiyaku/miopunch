@@ -25,6 +25,7 @@ pub struct DataPathOpen {
 #[derive(Debug)]
 pub struct ControlSession {
     connection: ControlHandle,
+    exchange: Option<ControlHandle>,
     _control_owner: Option<ControlConnection>,
     handoff: Option<DataHandoff>,
     close_on_drop: bool,
@@ -54,6 +55,7 @@ impl ControlSession {
     pub fn from_control_connection(control: ControlConnection) -> Self {
         Self {
             connection: control.control_handle(),
+            exchange: None,
             _control_owner: Some(control),
             handoff: None,
             close_on_drop: false,
@@ -75,6 +77,7 @@ impl ControlSession {
     {
         Self {
             connection: control,
+            exchange: None,
             _control_owner: None,
             handoff: Some(DataHandoff(std::sync::Mutex::new(Box::new(
                 move |control| Box::pin(handoff(control)),
@@ -87,6 +90,7 @@ impl ControlSession {
     pub(crate) fn from_control(connection: ControlHandle) -> Self {
         Self {
             connection,
+            exchange: None,
             _control_owner: None,
             handoff: None,
             close_on_drop: false,
@@ -96,6 +100,13 @@ impl ControlSession {
     }
     pub(crate) fn endpoint(&self) -> &ControlHandle {
         &self.connection
+    }
+    /// Active negotiation uses C, while identity, probes and retained paths
+    /// remain attached to the already admitted original M.
+    pub(crate) fn from_active_control(original: ControlHandle, control: ControlHandle) -> Self {
+        let mut session = Self::from_control(original);
+        session.exchange = Some(control);
+        session
     }
     /// Retain a restricted helper for metadata and original-session path work.
     pub fn control_handle(&self) -> ControlHandle {
@@ -108,6 +119,21 @@ impl ControlSession {
     /// Stable local ID for tracing this exact QUIC connection across paths.
     pub fn stable_id(&self) -> usize {
         self.connection.stable_id()
+    }
+
+    pub(crate) fn handoff_diagnostic(&self) -> serde_json::Value {
+        serde_json::json!({
+            "stableId":self.stable_id(),
+            "controlStableId":self.exchange.as_ref().map(ControlHandle::stable_id),
+            "dialing":self.is_dialing_side(),
+            "originalClosed":format!("{:?}",self.connection.close_reason()),
+            "controlClosed":self.exchange.as_ref().map(|c|format!("{:?}",c.close_reason())),
+            "paths":self.connection.paths().iter().map(|p|serde_json::json!({
+                "id":p.id().to_string(),"socket":format!("{:?}",p.local_socket_id()),
+                "local":format!("{:?}",p.local_addr()),"remote":p.remote_addr().to_string(),
+                "selected":p.is_selected()
+            })).collect::<Vec<_>>()
+        })
     }
 
     /// Authenticated peer identity for the restricted bootstrap exchange.
@@ -141,11 +167,19 @@ impl ControlSession {
 
     /// Open a complete, bounded control exchange on this original session.
     pub async fn open_control_exchange(&self) -> io::Result<ControlExchange> {
-        self.connection.open_control_exchange().await
+        self.exchange
+            .as_ref()
+            .unwrap_or(&self.connection)
+            .open_control_exchange()
+            .await
     }
     /// Accept a complete, bounded control exchange on this original session.
     pub async fn accept_control_exchange(&self) -> io::Result<ControlExchange> {
-        self.connection.accept_control_exchange().await
+        self.exchange
+            .as_ref()
+            .unwrap_or(&self.connection)
+            .accept_control_exchange()
+            .await
     }
     /// Install the original connection packet guard without releasing business.
     pub async fn commit_control_path(&self) -> io::Result<()> {
@@ -280,6 +314,10 @@ impl ControlSession {
 
     pub(crate) fn is_closed(&self) -> bool {
         self.connection.close_reason().is_some()
+            || self
+                .exchange
+                .as_ref()
+                .is_some_and(|control| control.close_reason().is_some())
     }
 
     pub async fn register_udp_traversal(

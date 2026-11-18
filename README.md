@@ -39,6 +39,7 @@ some historical implementation-stage descriptions.
 
 ## Current engineering map
 
+- [Network observation demo](demo/network/README.md): continuous member traffic, direct/relay paths and manual network-switch observation, with local start/stop controls. The current diagnostic pair is u22sz Windows → Main WSL.
 - [Dependency fork changes and compatibility](docs/notes/2026-10-12-iroh-p2panda-fork-change-audit.md): original upstream baselines, exact change counts, concentrated modifications and interface/behavior risks.
 - [Architecture, operation flows and measured performance](docs/notes/2026-10-12-current-architecture-flow-and-performance-map.md): current native/browser responsibilities, admission and connection lifecycles, synchronization, measurements and open validation boundaries.
 - [Machine-readable fork inventory](docs/evidence/fork-change-audit-2026-10-12/README.md): per-file changes and counting method.

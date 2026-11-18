@@ -105,6 +105,12 @@ test = false
 bench = false
 
 [[bin]]
+name = "miopunch-network-demo"
+path = "../../src/bin/miopunch-network-demo.rs"
+test = false
+bench = false
+
+[[bin]]
 name = "miopunch_demo"
 path = "../../src/bin/miopunch_demo.rs"
 test = false

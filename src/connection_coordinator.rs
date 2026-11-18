@@ -1922,11 +1922,17 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
                 {
                     return Err(error);
                 }
+                eprintln!(
+                    "UNIFIED_ACTIVE_CANDIDATE_FAILED stable_id={} control_id={} plan={plan:?} error={error}",
+                    original.stable_id(),
+                    control.stable_id()
+                );
             }
         }
     }
     let mut prepared = prepared.ok_or_else(|| control_error("DataPathUnavailable"))?;
     prepared.check(&original, false)?;
+    adapter.active_diagnostic(&original, control, "common-ready-begin");
 
     // The first C stream is owned by the adapter's bounded candidate protocol.
     // A second strictly framed stream carries the bilateral commit barrier.
@@ -1947,6 +1953,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
         control.stable_id(),
     )
     .await?;
+    adapter.active_diagnostic(&original, control, "common-ready-sent");
     let _peer_watermark = n0_future::time::timeout(
         attempt
             .deadline
@@ -1963,6 +1970,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
     )
     .await
     .map_err(|_| control_error("DeadlineExceeded"))??;
+    adapter.active_diagnostic(&original, control, "common-peer-ready");
     adapter
         .check(&original, SessionPurpose::MemberBusiness)
         .await?;
@@ -1974,7 +1982,9 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
     }
     prepared.check(&original, true)?;
     if let Some(retain) = prepared.retain.take() {
+        adapter.active_diagnostic(&original, control, "common-retain-begin");
         retain().await?;
+        adapter.active_diagnostic(&original, control, "common-retain-returned");
     }
     prepared.check(&original, true)?;
     write_active_frame(
@@ -2024,6 +2034,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
         &original,
         serde_json::json!({"event":"active-improvement-committed","version":1,
             "stableId":original.stable_id(),"controlStableId":control.stable_id(),
+            "pathId":prepared.path_id,"route":prepared.route.to_string(),
             "freshAck":true,"bothReady":true,
             "authorizationRevision":revision}),
     );

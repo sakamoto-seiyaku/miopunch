@@ -391,7 +391,11 @@ impl CoordinatorHook {
             );
         }
         #[cfg(not(feature = "rtc-probe"))]
-        let _ = (connection, report);
+        if report["event"] == "active-improvement-committed" {
+            let mut report = report;
+            report["originalOpen"] = serde_json::json!(connection.close_reason().is_none());
+            println!("{report}");
+        }
     }
 }
 /// Typed Native admission while retaining the existing application wire.
@@ -476,6 +480,20 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
     }
     fn committed(&self, connection: &iroh::endpoint::ControlHandle, report: serde_json::Value) {
         self.0.committed(connection, report)
+    }
+    fn active_diagnostic(
+        &self,
+        original: &iroh::endpoint::ControlHandle,
+        control: &iroh::endpoint::ControlHandle,
+        stage: &'static str,
+    ) {
+        println!(
+            "[DEBUG-udp-handoff] {}",
+            serde_json::json!({"stage":stage,
+            "stableId":original.stable_id(),"controlStableId":control.stable_id(),
+            "originalClosed":format!("{:?}",original.close_reason()),
+            "controlClosed":format!("{:?}",control.close_reason())})
+        );
     }
     #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
     async fn after_actual_ready_input_fixture(
@@ -580,6 +598,49 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
         plan: PathPlan,
     ) -> io::Result<PreparedPath> {
         match plan {
+            PathPlan::Native { tcp, udp } => {
+                println!(
+                    "{}",
+                    serde_json::json!({"event":"unified-native-active-start",
+                    "stableId":original.stable_id(),"controlStableId":control.stable_id(),
+                    "udp":udp,"tcp":tcp})
+                );
+                let mut prepared = self
+                    .0
+                    .native
+                    .as_ref()
+                    .ok_or_else(|| control_error("DataPathUnavailable"))?
+                    .prepare_active_paths(original, control, &self.0.gate, tcp, udp)
+                    .await?;
+                let paths = original.paths();
+                self.active_diagnostic(original, control, "native-candidate-prepared");
+                let path = paths
+                    .iter()
+                    .find(|path| {
+                        path.remote_addr() == &prepared.route
+                            && prepared
+                                .path_id
+                                .as_ref()
+                                .is_none_or(|id| path.id().to_string() == *id)
+                    })
+                    .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                let probe = path.start_probe()?;
+                self.active_diagnostic(original, control, "native-fresh-probe-started");
+                prepared =
+                    prepared.with_proof(path.id().to_string(), probe.watermark(), move || {
+                        probe.is_acknowledged().map_err(io::Error::other)
+                    });
+                // The surrounding active attempt owns the deadline/cancellation.
+                // READY may describe only a freshly acknowledged path on M.
+                while !prepared.acknowledged.as_ref().unwrap()()? {
+                    prepared.check(original, false)?;
+                    self.check(control, SessionPurpose::ActiveImprovement)
+                        .await?;
+                    n0_future::time::sleep(std::time::Duration::from_millis(1)).await;
+                }
+                self.active_diagnostic(original, control, "native-fresh-probe-acknowledged");
+                Ok(prepared)
+            }
             #[cfg(feature = "rtc-probe")]
             PathPlan::Rtc => {
                 crate::rtc_member::bootstrap_control_active_handles(

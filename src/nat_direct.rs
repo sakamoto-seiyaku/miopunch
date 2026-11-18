@@ -133,7 +133,13 @@ pub(crate) async fn attempt(
         std::net::IpAddr::V6(_) => 1,
         _ => 2,
     });
+    let available_addresses = addresses.len();
     addresses.truncate(64);
+    println!(
+        "NAT_DIRECT_LOCAL stable_id={} available={} advertised={addresses:?}",
+        control.stable_id(),
+        available_addresses
+    );
     let operation = async {
         check()?;
         let (nonce, remote) = if control.is_dialing_side() {
@@ -187,6 +193,10 @@ pub(crate) async fn attempt(
             send(&exchange, Frame::Ready { nonce }).await?;
             (nonce, remote)
         };
+        println!(
+            "NAT_DIRECT_PEER stable_id={} received={remote:?}",
+            control.stable_id()
+        );
         if control.is_dialing_side() {
             let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
             for address in &remote {

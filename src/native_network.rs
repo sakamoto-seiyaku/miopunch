@@ -604,7 +604,7 @@ impl NativeNetwork {
             None,
         )
         .await
-        .map(|(endpoint, _, _, _)| endpoint)
+        .map(|(endpoint, _, _, _, _)| endpoint)
     }
 
     /// Bind an explicitly assembled native builder with the owned RTC carrier.
@@ -618,7 +618,7 @@ impl NativeNetwork {
         let resources = self.resource_configuration()?;
         self.bind_endpoint_with_resources(builder, &resources, false, Some(rtc), None)
             .await
-            .map(|(endpoint, _, _, _)| endpoint)
+            .map(|(endpoint, _, _, _, _)| endpoint)
     }
 
     async fn bind_endpoint_with_resources(
@@ -634,6 +634,7 @@ impl NativeNetwork {
             Option<crate::tcp_transport::TcpTransport>,
             Vec<Arc<crate::mqtt_transport::MqttTransport>>,
             Option<crate::contact_listener::ContactListenerControl>,
+            crate::native_path_adapter::NativePathAdapter,
         ),
         NodeError,
     > {
@@ -810,6 +811,10 @@ impl NativeNetwork {
                 resources.clone(),
             )
         });
+        let native = crate::native_path_adapter::NativePathAdapter::new(
+            native_udp.clone(),
+            native_tcp.clone(),
+        );
         let coordinator = crate::connection_coordinator::CoordinatorHook::new(
             self.gate.clone(),
             !resources.udp_direct_disabled,
@@ -820,10 +825,7 @@ impl NativeNetwork {
                 .relay_map(crate::resources::ResourceUse::DataRelay)?
                 .is_empty(),
         )
-        .with_native(crate::native_path_adapter::NativePathAdapter::new(
-            native_udp.clone(),
-            native_tcp.clone(),
-        ));
+        .with_native(native.clone());
         #[cfg(feature = "rtc-probe")]
         let coordinator = coordinator.with_rtc(rtc.clone());
         let gate = self.gate.with_request_coordinator();
@@ -847,7 +849,7 @@ impl NativeNetwork {
                 eprintln!("IRC_RESOURCE_UNAVAILABLE error={error}");
             }
         }
-        Ok((endpoint, tcp, mqtt, contact_listener))
+        Ok((endpoint, tcp, mqtt, contact_listener, native))
     }
 
     pub fn resource_configuration(&self) -> Result<crate::resources::ResourceConfig, NodeError> {
@@ -982,7 +984,7 @@ impl NativeNetwork {
         contact_override: Option<Arc<crate::mqtt_transport::MqttTransport>>,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
         let config = self.resource_configuration()?;
-        let (endpoint, tcp, mqtt, contact_listener) = self
+        let (endpoint, tcp, mqtt, contact_listener, native) = self
             .bind_endpoint_with_resources(
                 builder
                     .alpns(network_protocols())
@@ -1000,6 +1002,7 @@ impl NativeNetwork {
             )
             .await?;
         let resources = crate::resources::ResourceEndpoint::new(endpoint, config)
+            .with_native(native)
             .with_tcp(tcp)
             .with_mqtt(mqtt)
             .with_contact_listener(contact_listener);
