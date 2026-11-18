@@ -1519,19 +1519,46 @@ impl EndpointInner {
                     .relay_resource_policy
                     .allows(&config.url, crate::endpoint::RelayResourceUse::Observation)
             }));
-        let samples = net_report::observe_mapping_sequence(
+        let observe = net_report::observe_mapping_sequence(
             &observers,
             self.endpoint.clone(),
             self.sock.tls_config.clone(),
             self.sock.dns_resolver.clone(),
             self.sock.shutdown.at_close_start.child_token(),
-        )
-        .await?;
-        if *self.sock.network_generation.lock().expect("poisoned") != network_generation {
-            return Err(io::Error::other(
-                "network changed during mapping observation",
-            ));
-        }
+        );
+        let check = || {
+            if *self.sock.network_generation.lock().expect("poisoned") != network_generation {
+                return Err(io::Error::other(
+                    "network changed during mapping observation",
+                ));
+            }
+            if observers.relays::<Vec<_>>().iter().any(|config| {
+                !self
+                    .static_config
+                    .relay_resource_policy
+                    .allows(&config.url, crate::endpoint::RelayResourceUse::Observation)
+            }) {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "QAD observation permission changed",
+                ));
+            }
+            Ok(())
+        };
+        let invalidated = async {
+            loop {
+                check()?;
+                time::sleep(Duration::from_millis(10)).await;
+            }
+            #[allow(unreachable_code)]
+            Err::<Vec<net_report::MappingProbeSample>, io::Error>(io::Error::other(
+                "observation guard stopped",
+            ))
+        };
+        let samples = tokio::select! {
+            result = observe => { let samples = result?; check()?; samples },
+            result = invalidated => result?,
+        };
         let last = samples
             .last()
             .ok_or_else(|| io::Error::other("empty mapping observation"))?

@@ -393,11 +393,25 @@ async fn formal_entry_observes_selects_executes_and_confirms_original_business()
     let pair = Pair::new().await;
     let (c, v) = pair.connect().await;
     let ids = (c.stable_id(), v.stable_id());
+    let blackhole = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let map = RelayMap::from_iter(
+        pair.observers
+            .relays::<Vec<_>>()
+            .into_iter()
+            .chain([Arc::new(RelayConfig::new(
+                "https://127.0.0.1:1/".parse().unwrap(),
+                Some(RelayQuicConfig::new(blackhole.local_addr().unwrap().port())),
+            ))]),
+    );
     let policy = UdpPolicy::default();
-    let cn = NatConnector::new(Some(pair.observers.clone()), policy.clone());
-    let vn = NatConnector::new(Some(pair.observers.clone()), policy);
+    let cn = NatConnector::new(Some(map.clone()), policy.clone());
+    let vn = NatConnector::new(Some(map.clone()), policy);
     let (ca, va) = tokio::join!(cn.prepare(&c, &pair.c_gate), vn.prepare(&v, &pair.v_gate));
     let (mut ca, mut va) = (ca.unwrap(), va.unwrap());
+    assert_eq!(ca.mapped_candidates(), &[pair.v.bound_sockets()[0]; 2]);
+    assert_eq!(va.mapped_candidates(), &[pair.c.bound_sockets()[0]; 2]);
     assert_eq!(ca.plan().id, BehaviorId { mode: 0, index: 2 });
     assert_eq!(ca.assisted_candidates(), pair.v.bound_sockets());
     assert_eq!(va.assisted_candidates(), pair.c.bound_sockets());
@@ -664,13 +678,9 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
                 .is_some()
         );
         let mut drain = [0; 1500];
-        assert_eq!(
-            blackholes[untouched.unwrap()]
-                .try_recv(&mut drain)
-                .unwrap_err()
-                .kind(),
-            ErrorKind::WouldBlock,
-            "the first timed-out QAD origin ended the QAD sequence"
+        assert!(
+            blackholes[untouched.unwrap()].try_recv(&mut drain).is_ok(),
+            "after the first timeout the next permitted QAD origin must get its opportunity"
         );
         for blackhole in &blackholes {
             while blackhole.try_recv(&mut drain).is_ok() {}

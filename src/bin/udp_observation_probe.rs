@@ -15,7 +15,7 @@ use iroh::{
 use iroh_relay::{RelayQuicConfig, server, tls::CaTlsConfig};
 
 fn usage() -> &'static str {
-    "usage: udp-observation-probe serve CERT_DER_PATH [BIND_ADDR] | observe CERT_DER_PATH OBSERVER_HOST OBSERVER_QUIC_PORT [BIND_IP]"
+    "usage: udp-observation-probe serve CERT_DER_PATH [BIND_ADDR] | observe CERT_DER_PATH OBSERVER_HOST OBSERVER_QUIC_PORT [BIND_IP] | sequence"
 }
 
 async fn serve(cert_path: &Path, bind_addr: SocketAddr) -> Result<(), Box<dyn Error>> {
@@ -95,10 +95,62 @@ async fn observe(
     }
 }
 
+/// Exercise the production ordered API from an independent endpoint, without
+/// changing the running demo or its relay selection.
+async fn sequence() -> Result<(), Box<dyn Error>> {
+    let observers = iroh::defaults::prod::default_relay_map();
+    let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+        .clear_ip_transports()
+        .bind_addr((Ipv4Addr::UNSPECIFIED, 0))?
+        .bind()
+        .await?;
+    println!("SEQUENCE_BOUND {:?}", endpoint.bound_sockets());
+    for config in observers.relays::<Vec<_>>() {
+        println!("SEQUENCE_OBSERVER {} quic={:?}", config.url, config.quic);
+    }
+    let started = std::time::Instant::now();
+    let result = tokio::time::timeout(
+        Duration::from_secs(30),
+        endpoint.observe_udp_mapping_sequence(&observers),
+    )
+    .await;
+    match &result {
+        Ok(Ok(sequence)) => {
+            for (index, sample) in sequence.samples.iter().enumerate() {
+                println!(
+                    "SEQUENCE_SAMPLE order={index} observer={} destination={} mapped={} elapsedMs={}",
+                    sample.observer,
+                    sample.destination,
+                    sample.mapped,
+                    sample
+                        .observed_at
+                        .saturating_duration_since(started.into())
+                        .as_millis()
+                );
+            }
+            println!(
+                "SEQUENCE_RESULT samples={} current={} elapsedMs={}",
+                sequence.samples.len(),
+                sequence.is_current_generation(),
+                started.elapsed().as_millis()
+            );
+        }
+        _ => println!(
+            "SEQUENCE_RESULT error={result:?} elapsedMs={}",
+            started.elapsed().as_millis()
+        ),
+    }
+    endpoint.close().await;
+    result??;
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     match args.as_slice() {
+        [mode] if mode == "sequence" => sequence().await,
         [mode, cert] if mode == "serve" => {
             serve(Path::new(cert), (Ipv4Addr::UNSPECIFIED, 0).into()).await
         }

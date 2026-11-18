@@ -302,3 +302,163 @@ async fn changed_nat_mapping_replaces_the_old_candidate_after_network_change() {
     assert!(!endpoint.addr().ip_addrs().any(|addr| *addr == old_mapped));
     endpoint.close().await;
 }
+
+#[tokio::test]
+async fn ordered_qad_skips_first_timeout_and_keeps_four_independent_samples() {
+    let (observer, roots) = observer().await;
+    let mut proxies = Vec::new();
+    for _ in 0..4 {
+        proxies.push(NatProxy::start(observer.quic_addr().unwrap()).await);
+    }
+    // Keep the blackhole first in RelayMap's URL order, regardless of the
+    // kernel-assigned ports of the successful independent destinations.
+    let blackhole = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let mut configs = vec![RelayConfig::new(
+        "https://127.0.0.1:1/".parse().unwrap(),
+        Some(RelayQuicConfig::new(blackhole.local_addr().unwrap().port())),
+    )];
+    for (index, proxy) in proxies.iter().enumerate() {
+        configs.push(RelayConfig::new(
+            format!("https://127.0.0.1:{}/", 20000 + index)
+                .parse()
+                .unwrap(),
+            Some(RelayQuicConfig::new(proxy.ingress_addr.port())),
+        ));
+    }
+    let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+        .clear_ip_transports()
+        .bind_addr((Ipv4Addr::LOCALHOST, 0))
+        .unwrap()
+        .ca_tls_config(roots)
+        .bind()
+        .await
+        .unwrap();
+    let map = RelayMap::from_iter(configs);
+    let sequence = endpoint
+        .observe_udp_mapping_sequence(&map)
+        .await
+        .expect("one unavailable QAD observer must not discard later samples");
+    assert_eq!(sequence.samples.len(), 4);
+    assert!(sequence.is_current_generation());
+    for (sample, proxy) in sequence.samples.iter().zip(&proxies) {
+        assert_eq!(sample.destination, proxy.ingress_addr);
+        assert_eq!(sample.mapped, proxy.mapped_addr);
+        assert_eq!(
+            *proxy.endpoint_source.lock().unwrap(),
+            endpoint.bound_sockets().first().copied()
+        );
+    }
+    assert!(
+        sequence
+            .samples
+            .windows(2)
+            .all(|pair| pair[0].observed_at <= pair[1].observed_at)
+    );
+    let recovered_addr = blackhole.local_addr().unwrap();
+    drop(blackhole);
+    let recovered = NatProxy::start_on(observer.quic_addr().unwrap(), recovered_addr).await;
+    let retried = endpoint.observe_udp_mapping_sequence(&map).await.unwrap();
+    assert_eq!(
+        retried.samples.len(),
+        5,
+        "a failed observer is retried on the next round"
+    );
+    assert_eq!(retried.samples[0].mapped, recovered.mapped_addr);
+    endpoint.close().await;
+    recovered.task.abort();
+    for proxy in proxies {
+        proxy.task.abort();
+    }
+}
+
+#[tokio::test]
+async fn ordered_qad_stops_when_observation_permission_is_revoked() {
+    use iroh::endpoint::{RelayResourcePolicy, RelayResourceUse};
+    use std::sync::atomic::AtomicBool;
+    let allowed = Arc::new(AtomicBool::new(true));
+    let policy_allowed = allowed.clone();
+    let blackhole = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let port = blackhole.local_addr().unwrap().port();
+    let map = RelayMap::from_iter([1, 2].map(|tag| {
+        RelayConfig::new(
+            format!("https://127.0.0.1:{tag}/").parse().unwrap(),
+            Some(RelayQuicConfig::new(port)),
+        )
+    }));
+    let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+        .clear_ip_transports()
+        .bind_addr((Ipv4Addr::LOCALHOST, 0))
+        .unwrap()
+        .relay_resource_policy(RelayResourcePolicy::new(move |_, usage| {
+            !matches!(usage, RelayResourceUse::Observation) || policy_allowed.load(Ordering::SeqCst)
+        }))
+        .bind()
+        .await
+        .unwrap();
+    let revoke = async {
+        blackhole.recv_from(&mut [0; 2048]).await.unwrap();
+        allowed.store(false, Ordering::SeqCst);
+    };
+    let (result, ()) = tokio::time::timeout(Duration::from_secs(1), async {
+        tokio::join!(endpoint.observe_udp_mapping_sequence(&map), revoke)
+    })
+    .await
+    .expect("revocation must cancel pending observation, not wait for per-observer timeout");
+    assert_eq!(
+        result.unwrap_err().kind(),
+        std::io::ErrorKind::PermissionDenied
+    );
+    endpoint.close().await;
+}
+
+#[tokio::test]
+async fn ordered_qad_discards_partial_samples_on_network_change_or_close() {
+    for change_network in [true, false] {
+        let (observer, roots) = observer().await;
+        let blackhole = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let map = RelayMap::from_iter([
+            RelayConfig::new(
+                "https://127.0.0.1:1/".parse().unwrap(),
+                Some(RelayQuicConfig::new(observer.quic_addr().unwrap().port())),
+            ),
+            RelayConfig::new(
+                "https://127.0.0.1:2/".parse().unwrap(),
+                Some(RelayQuicConfig::new(blackhole.local_addr().unwrap().port())),
+            ),
+        ]);
+        let endpoint = Endpoint::builder(presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+            .clear_ip_transports()
+            .bind_addr((Ipv4Addr::LOCALHOST, 0))
+            .unwrap()
+            .ca_tls_config(roots)
+            .bind()
+            .await
+            .unwrap();
+        let changing = endpoint.clone();
+        let invalidate = tokio::spawn(async move {
+            // Arrival at the second observer proves the first sample was acquired.
+            blackhole.recv_from(&mut [0; 2048]).await.unwrap();
+            if change_network {
+                changing.network_change().await;
+            } else {
+                changing.close().await;
+            }
+        });
+        let result = tokio::time::timeout(
+            Duration::from_secs(1),
+            endpoint.observe_udp_mapping_sequence(&map),
+        )
+        .await
+        .expect("invalidation must promptly end the old observation");
+        // QUIC draining after close is independent of cancelling this operation.
+        invalidate.await.unwrap();
+        assert!(
+            result.is_err(),
+            "partial samples from old work cannot escape"
+        );
+        endpoint.close().await;
+    }
+}

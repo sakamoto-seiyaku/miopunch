@@ -435,8 +435,14 @@ async fn send(exchange: &iroh::endpoint::ControlExchange, frame: Frame) -> io::R
     .map_err(io::Error::other)?
 }
 async fn receive(exchange: &iroh::endpoint::ControlExchange) -> io::Result<Frame> {
-    let bytes = tokio::time::timeout(
-        EXCHANGE_WAIT,
+    receive_until(exchange, tokio::time::Instant::now() + EXCHANGE_WAIT).await
+}
+async fn receive_until(
+    exchange: &iroh::endpoint::ControlExchange,
+    deadline: tokio::time::Instant,
+) -> io::Result<Frame> {
+    let bytes = tokio::time::timeout_at(
+        deadline,
         exchange.recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated {
             maximum: FRAME_LIMIT,
         }),
@@ -641,6 +647,23 @@ pub(crate) async fn coordinate_round(
     }
 }
 
+// The other side may still be observing its QAD/STUN sources. This wait consumes
+// the original round/caller clock, instead of cutting that work off after five
+// seconds. Unmanaged snapshots already carry their own bounded lifetime.
+fn mapping_exchange_deadline(
+    control: &ControlSession,
+    snapshot: &MappingSnapshot,
+    permit: Option<&RoundPermit>,
+) -> tokio::time::Instant {
+    let deadline = permit.map_or(snapshot.expires_at(), |permit| {
+        permit.deadline.min(snapshot.expires_at())
+    });
+    control
+        .exchange_control()
+        .caller_deadline()
+        .map_or(deadline, |caller| deadline.min(caller))
+}
+
 async fn coordinate_server_round(
     control: &ControlSession,
     gate: &AdmissionGate,
@@ -651,14 +674,15 @@ async fn coordinate_server_round(
 ) -> io::Result<Attempt> {
     let RoundAgreement { scope, round } = agreement;
     check_scope(control, gate, &scope, snapshot)?;
-    let exchange = tokio::time::timeout(EXCHANGE_WAIT, control.accept_control_exchange())
+    let deadline = mapping_exchange_deadline(control, snapshot, permit.as_ref());
+    let exchange = tokio::time::timeout_at(deadline, control.accept_control_exchange())
         .await
         .map_err(io::Error::other)?
         .map_err(io::Error::other)?;
     let Frame::Offer {
         round: offered,
         snapshot: remote,
-    } = receive(&exchange).await?
+    } = receive_until(&exchange, deadline).await?
     else {
         return Err(invalid("mapping offer required"));
     };
@@ -764,6 +788,7 @@ async fn coordinate_client_round(
     agreement: RoundAgreement,
     permit: Option<RoundPermit>,
 ) -> io::Result<Attempt> {
+    let deadline = mapping_exchange_deadline(control, snapshot, permit.as_ref());
     let RoundAgreement { scope, round } = agreement;
     check_scope(control, gate, &scope, snapshot)?;
     let exchange = open(control).await?;
@@ -776,7 +801,7 @@ async fn coordinate_client_round(
         },
     )
     .await?;
-    let (remote, plan) = match receive(&exchange).await? {
+    let (remote, plan) = match receive_until(&exchange, deadline).await? {
         Frame::Plan {
             round: planned,
             snapshot,

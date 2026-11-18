@@ -37,7 +37,7 @@ use n0_future::{
 use n0_watcher::{Watchable, Watcher};
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, trace, warn};
+use tracing::{Level, debug, event, trace, warn};
 
 use self::reportgen::{ProbeFinished, ProbeReport};
 #[cfg(not(wasm_browser))]
@@ -851,15 +851,11 @@ pub(crate) async fn observe_mapping_sequence(
         ));
     }
     let client = QuicClient::new(endpoint, tls_config);
-    let mut results = Vec::with_capacity(relays.len());
+    let mut results: Vec<MappingProbeSample> = Vec::with_capacity(relays.len());
+    let mut last_error = None;
     for relay in relays {
-        if cancel.is_cancelled() {
-            return Err(io::Error::new(
-                io::ErrorKind::Interrupted,
-                "mapping observation cancelled",
-            ));
-        }
-        let (report, conn) = time::timeout(
+        let started = Instant::now();
+        let probe = time::timeout(
             PROBES_TIMEOUT,
             run_probe_v4(
                 relay.clone(),
@@ -867,18 +863,58 @@ pub(crate) async fn observe_mapping_sequence(
                 dns_resolver.clone(),
                 cancel.child_token(),
             ),
-        )
-        .await
-        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "mapping observation timed out"))?
-        .map_err(|error| io::Error::other(format!("QAD mapping observation: {error:#}")))?;
-        results.push(MappingProbeSample {
-            observer: relay.url.to_string(),
-            destination: report.destination,
-            mapped: report.addr,
-            observed_at: Instant::now(),
-        });
-        conn.conn
-            .close(QUIC_ADDR_DISC_CLOSE_CODE, QUIC_ADDR_DISC_CLOSE_REASON);
+        );
+        let result = tokio::select! {
+            biased;
+            _ = cancel.cancelled() => return Err(io::Error::new(
+                io::ErrorKind::Interrupted, "mapping observation cancelled",
+            )),
+            result = probe => result
+                .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "mapping observation timed out"))
+                .and_then(|result| result.map_err(|error| io::Error::other(format!("QAD mapping observation: {error:#}")))),
+        };
+        match result {
+            Ok((report, conn)) => {
+                event!(
+                    target: "iroh::_events::qad::ordered_observation",
+                    Level::DEBUG,
+                    observer = %relay.url,
+                    destination = %report.destination,
+                    outcome = "succeeded",
+                    elapsed_ms = started.elapsed().as_millis(),
+                );
+                // Aliases for one destination are not independent mapping evidence.
+                if !results
+                    .iter()
+                    .any(|sample| sample.destination == report.destination)
+                {
+                    results.push(MappingProbeSample {
+                        observer: relay.url.to_string(),
+                        destination: report.destination,
+                        mapped: report.addr,
+                        observed_at: Instant::now(),
+                    });
+                }
+                conn.conn
+                    .close(QUIC_ADDR_DISC_CLOSE_CODE, QUIC_ADDR_DISC_CLOSE_REASON);
+            }
+            Err(error) => {
+                event!(
+                    target: "iroh::_events::qad::ordered_observation",
+                    Level::DEBUG,
+                    observer = %relay.url,
+                    outcome = "skipped",
+                    error_kind = ?error.kind(),
+                    elapsed_ms = started.elapsed().as_millis(),
+                );
+                last_error = Some(error);
+            }
+        }
+    }
+    if results.len() < 2 {
+        return Err(last_error.unwrap_or_else(|| {
+            io::Error::other("at least two independent QAD destinations required")
+        }));
     }
     Ok(results)
 }
