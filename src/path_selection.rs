@@ -154,10 +154,22 @@ impl ConnectionPathSelector for QualityPathSelector {
     fn reevaluation_interval(&self) -> Option<Duration> {
         Some(Duration::from_millis(self.policy.reevaluation_interval_ms))
     }
+
+    fn uses_path_health(&self) -> bool {
+        true
+    }
+
     fn select(&self, context: &PathSelectionContext<'_>) -> PathSelection {
         let mut best = None;
+        let mut best_confirmed = None;
         let mut current = None;
+        let mut current_suspect = false;
         for path in context.paths() {
+            let is_current = context.is_current(&path);
+            if path.is_suspect() {
+                current_suspect |= is_current;
+                continue;
+            }
             let Some(stats) = path.stats() else { continue };
             let key = PathScore::new(
                 path.network_path(),
@@ -165,14 +177,27 @@ impl ConnectionPathSelector for QualityPathSelector {
                 self.policy.preference,
                 &self.carriers,
             );
-            if context.is_current(&path) {
+            if is_current {
                 current = Some(key);
+            }
+            if context.has_fresh_ack(&stats)
+                && best_confirmed
+                    .as_ref()
+                    .is_none_or(|(_, previous)| key < *previous)
+            {
+                best_confirmed = Some((path.clone(), key));
             }
             if best.as_ref().is_none_or(|(_, previous)| key < *previous) {
                 best = Some((path, key));
             }
         }
         let mut selection = PathSelection::none();
+        if current_suspect {
+            if let Some((path, _)) = best_confirmed {
+                selection.set(&path);
+            }
+            return selection;
+        }
         if let Some((path, key)) = best {
             // Keep iroh's five-millisecond hysteresis against jitter. Relay is
             // equal to direct by default; an explicit preference changes tiers.

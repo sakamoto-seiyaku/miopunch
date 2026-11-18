@@ -91,7 +91,7 @@ pub(crate) use spaces::SpaceKind;
 use spaces::{OpenStatus, PacketSpace, SendableFrames, SentPacket, ThinRetransmits};
 
 mod stats;
-pub use stats::{ConnectionStats, FrameStats, PathStats, UdpStats};
+pub use stats::{ConnectionStats, FrameStats, PathAcknowledgment, PathStats, UdpStats};
 
 mod streams;
 #[cfg(fuzzing)]
@@ -2900,9 +2900,28 @@ impl Connection {
         let path = self.paths.get(&path_id)?;
         let mut stats = self.path_stats.get(path_id).unwrap_or_default();
         stats.rtt = path.data.rtt.get();
+        stats.probe_timeout = self.pto(SpaceKind::Data, path_id);
+        stats.pto_count = path.data.pto_count;
+        stats.acknowledgment = path.data.acknowledgment;
+        if path.data.in_flight.ack_eliciting > 0 {
+            stats.ack_pending_since = path.data.ack_pending_since;
+        }
         stats.cwnd = path.data.congestion.window();
         stats.current_mtu = path.data.mtud.current_mtu();
         Some(stats)
+    }
+
+    /// Return outstanding stream frames to the scheduler after moving application traffic
+    /// off a suspect path. Packets still count as in flight until ACK or loss. Move the
+    /// stream metadata so a late ACK cannot account for the same bytes a second time.
+    pub fn requeue_unacknowledged_stream_frames(&mut self, path: PathId) {
+        if let Some(space) = self.spaces[SpaceId::Data].path_space_mut(path) {
+            for packet in space.sent_packets.values_mut() {
+                for frame in mem::take(&mut packet.stream_frames) {
+                    self.streams.retransmit(frame);
+                }
+            }
+        }
     }
 
     /// Ping the remote endpoint
@@ -3322,6 +3341,21 @@ impl Connection {
 
                 // Notify MTU discovery that a packet was acked, because it might be an MTU probe
                 let path_data = self.path_data_mut(path);
+                if space == SpaceId::Data
+                    && info.ack_eliciting
+                    && info.path_generation == path_data.generation()
+                {
+                    path_data.ack_pending_since = Some(now);
+                    if path_data
+                        .acknowledgment
+                        .is_none_or(|ack| ack.sent_at <= info.time_sent)
+                    {
+                        path_data.acknowledgment = Some(PathAcknowledgment {
+                            sent_at: info.time_sent,
+                            received_at: now,
+                        });
+                    }
+                }
                 let mtu_updated = path_data.mtud.on_acked(space.kind(), packet, info.size);
                 if mtu_updated {
                     path_data

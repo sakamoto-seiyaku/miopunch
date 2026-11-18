@@ -865,10 +865,18 @@ async fn priority_closed_connection_fails_old_stream_and_reports_new_identity() 
 // QUIC/TLS packets are unchanged. Delay/loss are real socket fault injection.
 struct TcpProxy {
     address: std::net::SocketAddr,
-    delay_ms: std::sync::Arc<std::sync::atomic::AtomicU64>,
+    frames: Arc<TcpFrameControl>,
     stop: tokio_util::sync::CancellationToken,
     task: tokio::task::JoinHandle<()>,
 }
+struct TcpFrameControl {
+    delay_ms: std::sync::atomic::AtomicU64,
+    blackhole: std::sync::atomic::AtomicBool,
+    loss: std::sync::atomic::AtomicBool,
+    dropped: std::sync::atomic::AtomicU64,
+}
+const PATH_LOSS_SEED: u64 = 132;
+
 impl TcpProxy {
     async fn new(upstream: std::net::SocketAddr, delay_ms: u64) -> Self {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -876,8 +884,13 @@ impl TcpProxy {
             .await
             .unwrap();
         let address = listener.local_addr().unwrap();
-        let delay_ms = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(delay_ms));
-        let delay = delay_ms.clone();
+        let frames = Arc::new(TcpFrameControl {
+            delay_ms: delay_ms.into(),
+            blackhole: false.into(),
+            loss: false.into(),
+            dropped: 0.into(),
+        });
+        let frame_control = frames.clone();
         let stop = tokio_util::sync::CancellationToken::new();
         let cancel = stop.clone();
         let task = tokio::spawn(async move {
@@ -887,9 +900,11 @@ impl TcpProxy {
                     _ = cancel.cancelled() => break,
                     accepted = listener.accept() => {
                         let (mut downstream, _) = accepted.unwrap();
-                        let delay = delay.clone();
+                        let frame_control = frame_control.clone();
                         circuits.spawn(async move {
                             let mut upstream = tokio::net::TcpStream::connect(upstream).await?;
+                            downstream.set_nodelay(true)?;
+                            upstream.set_nodelay(true)?;
                             let mut preface = [0; 6];
                             downstream.read_exact(&mut preface).await?;
                             let route = miopunch_native_probe::tcp_transport::TcpTransport::address(address);
@@ -897,7 +912,10 @@ impl TcpProxy {
                             upstream.read_exact(&mut preface).await?;
                             downstream.write_all(route.data()).await?;
                             let (dr, dw) = downstream.into_split(); let (ur, uw) = upstream.into_split();
-                            let _ = tokio::join!(forward_frames(dr, uw, delay.clone()), forward_frames(ur, dw, delay));
+                            let _ = tokio::join!(
+                                forward_frames(dr, uw, &frame_control, PATH_LOSS_SEED),
+                                forward_frames(ur, dw, &frame_control, PATH_LOSS_SEED + 1),
+                            );
                             Ok::<(), std::io::Error>(())
                         });
                     }
@@ -914,7 +932,7 @@ impl TcpProxy {
         });
         Self {
             address,
-            delay_ms,
+            frames,
             stop,
             task,
         }
@@ -923,8 +941,19 @@ impl TcpProxy {
         miopunch_native_probe::tcp_transport::TcpTransport::address(self.address)
     }
     fn delay(&self, ms: u64) {
-        self.delay_ms
+        self.frames
+            .delay_ms
             .store(ms, std::sync::atomic::Ordering::Relaxed);
+    }
+    fn blackhole(&self, enabled: bool) {
+        self.frames
+            .blackhole
+            .store(enabled, std::sync::atomic::Ordering::Relaxed);
+    }
+    fn loss(&self, enabled: bool) {
+        self.frames
+            .loss
+            .store(enabled, std::sync::atomic::Ordering::Relaxed);
     }
     async fn close(self) {
         self.stop.cancel();
@@ -934,18 +963,29 @@ impl TcpProxy {
 async fn forward_frames(
     mut read: tokio::net::tcp::OwnedReadHalf,
     mut write: tokio::net::tcp::OwnedWriteHalf,
-    delay: std::sync::Arc<std::sync::atomic::AtomicU64>,
+    frames: &TcpFrameControl,
+    seed: u64,
 ) -> std::io::Result<()> {
+    use rand::{RngExt, SeedableRng};
+    use std::sync::atomic::Ordering::Relaxed;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut random = rand::rngs::StdRng::seed_from_u64(seed);
     loop {
         let len = read.read_u16().await?;
         assert!((1..=2048).contains(&len));
         let mut bytes = vec![0; len as usize];
         read.read_exact(&mut bytes).await?;
-        tokio::time::sleep(Duration::from_millis(
-            delay.load(std::sync::atomic::Ordering::Relaxed),
-        ))
-        .await;
+        if frames.blackhole.load(Relaxed)
+            || (frames.loss.load(Relaxed) && random.random_ratio(1, 10))
+        {
+            frames.dropped.fetch_add(1, Relaxed);
+            continue;
+        }
+        tokio::time::sleep(Duration::from_millis(frames.delay_ms.load(Relaxed))).await;
+        if frames.blackhole.load(Relaxed) {
+            frames.dropped.fetch_add(1, Relaxed);
+            continue;
+        }
         write.write_u16(len).await?;
         write.write_all(&bytes).await?;
     }
@@ -1208,6 +1248,646 @@ async fn open_carrier(endpoint: &ResourceEndpoint, connection: &Connection, remo
         c.paths().iter().any(|p| p.remote_addr() == &remote)
     })
     .await;
+}
+
+// Delay each relay TCP leg independently, leaving the relay protocol and
+// encrypted QUIC packets intact. The reader keeps collecting bytes during delay.
+async fn delay_relay(
+    target: std::net::SocketAddr,
+    delay: Duration,
+) -> (iroh::RelayUrl, tokio_util::sync::CancellationToken) {
+    let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let address = listener.local_addr().unwrap();
+    let stop = tokio_util::sync::CancellationToken::new();
+    let cancelled = stop.clone();
+    tokio::spawn(async move {
+        let mut circuits = tokio::task::JoinSet::new();
+        loop {
+            tokio::select! {
+                _ = cancelled.cancelled() => break,
+                accepted = listener.accept() => {
+                    let (peer, _) = accepted.unwrap();
+                    circuits.spawn(async move {
+                        let relay = tokio::net::TcpStream::connect(target).await?;
+                        peer.set_nodelay(true)?;
+                        relay.set_nodelay(true)?;
+                        let (peer_read, peer_write) = peer.into_split();
+                        let (relay_read, relay_write) = relay.into_split();
+                        tokio::select! {
+                            result = delay_relay_leg(peer_read, relay_write, delay) => result,
+                            result = delay_relay_leg(relay_read, peer_write, delay) => result,
+                        }
+                    });
+                }
+                _ = circuits.join_next(), if !circuits.is_empty() => {}
+            }
+        }
+    });
+    (format!("http://{address}").parse().unwrap(), stop)
+}
+
+async fn delay_relay_leg(
+    mut read: tokio::net::tcp::OwnedReadHalf,
+    mut write: tokio::net::tcp::OwnedWriteHalf,
+    delay: Duration,
+) -> std::io::Result<()> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let (send, mut receive) = tokio::sync::mpsc::channel::<(tokio::time::Instant, Vec<u8>)>(128);
+    let reader = async {
+        let mut buffer = [0; 4096];
+        loop {
+            let len = read.read(&mut buffer).await?;
+            if len == 0
+                || send
+                    .send((tokio::time::Instant::now() + delay, buffer[..len].to_vec()))
+                    .await
+                    .is_err()
+            {
+                return Ok(());
+            }
+        }
+    };
+    let writer = async {
+        while let Some((ready, bytes)) = receive.recv().await {
+            tokio::time::sleep_until(ready).await;
+            write.write_all(&bytes).await?;
+        }
+        Ok(())
+    };
+    tokio::select! {
+        result = reader => result,
+        result = writer => result,
+    }
+}
+
+#[tokio::test]
+async fn tcp_blackhole_recovers_original_stream_under_continuous_writes() {
+    direct_blackhole_with_relay(LOW_RELAY_DELAY, true, true, false).await;
+}
+
+#[tokio::test]
+async fn tcp_blackhole_recovers_original_stream_after_one_write() {
+    direct_blackhole_with_relay(LOW_RELAY_DELAY, false, false, false).await;
+}
+
+#[tokio::test]
+async fn tcp_blackhole_recovers_original_stream_with_high_rtt_relay() {
+    direct_blackhole_with_relay(HIGH_RELAY_DELAY, true, false, false).await;
+    direct_blackhole_with_relay(HIGH_RELAY_DELAY, false, false, false).await;
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+#[ignore = "uses iptables inside the UDP NAT lab's disposable network namespace"]
+async fn udp_blackhole_recovers_original_stream_in_netns() {
+    direct_blackhole_with_relay(LOW_RELAY_DELAY, true, false, true).await;
+}
+
+const SEND_INTERVAL: Duration = Duration::from_millis(25);
+const REEVALUATION: Duration = Duration::from_secs(1);
+const SCHEDULING_TOLERANCE: Duration = Duration::from_millis(150);
+const LOW_RELAY_DELAY: Duration = Duration::from_millis(25);
+const HIGH_RELAY_DELAY: Duration = Duration::from_millis(350);
+// One selection cycle, about 3 s for recovery/backup confirmation, up to 1.8 s
+// relay application RTT, plus send cadence and scheduling. This same deadline
+// is used for both fault and relay-only control tests at both RTTs.
+const BUSINESS_LIMIT: Duration = Duration::from_secs(6);
+
+#[tokio::test]
+async fn tcp_blackhole_healthy_relay_controls_use_same_business_deadline() {
+    for (delay, min_rtt) in [
+        (LOW_RELAY_DELAY, Duration::ZERO),
+        (HIGH_RELAY_DELAY, Duration::from_secs(1)),
+    ] {
+        let service = native_relay().await;
+        let (url, stop) = delay_relay(service.http_addr().unwrap(), delay).await;
+        let mut pair = Pair::new(false).await;
+        pair.reconfigure(vec![relay_resource(&url)]).await;
+        let target =
+            EndpointAddr::new(pair.server.endpoint().id()).with_addrs([TransportAddr::Relay(url)]);
+        let (client, server) = connect(&mut pair.client, &pair.server, target, BUSINESS).await;
+        let (mut send, mut answer) = client.open_bi().await.unwrap();
+        let started = std::time::Instant::now();
+        tokio::time::timeout(BUSINESS_LIMIT, async {
+            let ((), ()) = tokio::join!(
+                async {
+                    send.write_all(b"healthy relay").await.unwrap();
+                    let mut data = [0; 13];
+                    answer.read_exact(&mut data).await.unwrap();
+                    assert_eq!(&data, b"healthy relay");
+                },
+                async {
+                    let (mut reply, mut request) = server.accept_bi().await.unwrap();
+                    let mut data = [0; 13];
+                    request.read_exact(&mut data).await.unwrap();
+                    assert_eq!(&data, b"healthy relay");
+                    reply.write_all(&data).await.unwrap();
+                }
+            );
+        })
+        .await
+        .expect("relay-only comparator shares the fault test business deadline");
+        let rtt = started.elapsed();
+        assert!(
+            rtt >= min_rtt,
+            "configured high RTT must reach the business stream: {rtt:?}"
+        );
+        for conn in [&client, &server] {
+            assert!(conn.paths().iter().all(|path| path.is_relay()));
+        }
+        eprintln!(
+            "MIO132 healthy_relay relay_leg_delay={delay:?} app_rtt={rtt:?} deadline={BUSINESS_LIMIT:?}"
+        );
+        pair.close().await;
+        stop.cancel();
+        service.shutdown().await.unwrap();
+    }
+}
+
+async fn direct_blackhole_with_relay(
+    relay_delay: Duration,
+    continuous: bool,
+    seeded_loss: bool,
+    udp: bool,
+) {
+    use std::time::Instant;
+    let service = native_relay().await;
+    let (relay, delay_stop) = delay_relay(service.http_addr().unwrap(), relay_delay).await;
+    let mut pair = Pair::new(udp).await;
+    pair.reconfigure(vec![relay_resource(&relay)]).await;
+    let (direct, tcp) = if udp {
+        (
+            TransportAddr::Ip(pair.server.endpoint().bound_sockets()[0]),
+            None,
+        )
+    } else {
+        let TransportAddr::Custom(address) =
+            tcp_target(&pair.server).addrs.into_iter().next().unwrap()
+        else {
+            unreachable!();
+        };
+        let upstream =
+            miopunch_native_probe::tcp_transport::TcpTransport::socket_addr(&address).unwrap();
+        let tcp = TcpProxy::new(upstream, 1).await;
+        (TransportAddr::Custom(tcp.custom()), Some(tcp))
+    };
+    let target = EndpointAddr::new(pair.server.endpoint().id()).with_addrs([direct]);
+    let (client, server) = connect(&mut pair.client, &pair.server, target, BUSINESS).await;
+    let ids = (client.stable_id(), server.stable_id());
+    assert!(
+        pair.joining
+            .admission_gate()
+            .allows(&client, ProtocolScope::Member)
+    );
+    let (mut send, mut answers) = client.open_bi().await.unwrap();
+    send.write_all(&0u64.to_be_bytes()).await.unwrap();
+    let (mut echo, mut requests) = server.accept_bi().await.unwrap();
+    let echo_task = tokio::spawn(async move {
+        let mut expected = 0u64;
+        let mut bytes = [0; 8];
+        while requests.read_exact(&mut bytes).await.is_ok() {
+            assert_eq!(u64::from_be_bytes(bytes), expected);
+            if expected == 1 {
+                eprintln!("MIO132 first_original_request at={:?}", Instant::now());
+            }
+            echo.write_all(&bytes).await.unwrap();
+            expected += 1;
+        }
+    });
+    answers.read_exact(&mut [0; 8]).await.unwrap();
+    open_carrier(&pair.client, &client, TransportAddr::Relay(relay)).await;
+    for connection in [&client, &server] {
+        wait_paths(connection, |connection| {
+            let paths = connection.paths();
+            paths
+                .iter()
+                .any(|path| path.is_relay() && path.stats().acknowledgment.is_some())
+                && paths
+                    .iter()
+                    .any(|path| !path.is_relay() && path.is_selected())
+        })
+        .await;
+        for path in connection.paths().iter() {
+            eprintln!(
+                "MIO132 ready side={:?} path={} relay={} rtt={:?} selected={}",
+                connection.side(),
+                path.id(),
+                path.is_relay(),
+                path.rtt(),
+                path.is_selected()
+            );
+        }
+    }
+
+    let cut = tokio::time::Instant::now();
+    let deadline = cut + BUSINESS_LIMIT;
+    let released = tokio_util::sync::CancellationToken::new();
+    let connections = [&client, &server];
+    let original_paths = connections.map(|connection| {
+        connection
+            .paths()
+            .iter()
+            .find(|path| !path.is_relay() && path.is_selected())
+            .unwrap()
+            .id()
+    });
+    let observed = std::array::from_fn::<_, 2, _>(|side| {
+        tokio::spawn(observe_failover(
+            connections[side].clone(),
+            original_paths[side],
+            released.clone(),
+        ))
+    });
+    eprintln!(
+        "MIO132 cut at={:?} stable_ids={ids:?} direction=both continuous={continuous} relay_leg_delay={relay_delay:?} send_interval={SEND_INTERVAL:?} deadline={BUSINESS_LIMIT:?}",
+        cut.into_std()
+    );
+    let mut udp_filter = None;
+    if let Some(tcp) = &tcp {
+        tcp.blackhole(true);
+    } else {
+        let endpoints = [&client, &server].map(|connection| {
+            let paths = connection.paths();
+            let path = paths
+                .iter()
+                .find(|path| path.is_ip() && path.is_selected())
+                .unwrap();
+            let TransportAddr::Ip(remote) = path.remote_addr() else {
+                unreachable!()
+            };
+            *remote
+        });
+        udp_filter = Some(UdpBlackhole::new(endpoints));
+    }
+    eprintln!("MIO132 first_unacknowledged_write at={:?}", Instant::now());
+    send.write_all(&1u64.to_be_bytes()).await.unwrap();
+    let last_sequence = if continuous {
+        (BUSINESS_LIMIT.as_millis() / SEND_INTERVAL.as_millis()) as u64
+    } else {
+        1
+    };
+    let writer = async {
+        let mut cadence = tokio::time::interval_at(cut + SEND_INTERVAL, SEND_INTERVAL);
+        cadence.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        for sequence in 2u64..=last_sequence {
+            cadence.tick().await;
+            send.write_all(&sequence.to_be_bytes()).await.unwrap();
+        }
+    };
+    let reader = async {
+        let mut answer = [0; 8];
+        let result = tokio::time::timeout_at(deadline, answers.read_exact(&mut answer)).await;
+        let first_ack = Instant::now();
+        eprintln!(
+            "MIO132 first_application_ack result={result:?} at={first_ack:?} elapsed={:?}",
+            cut.elapsed()
+        );
+        result.expect("healthy relay must recover original bytes while the direct path remains blackholed by the fixed business deadline").unwrap();
+        assert_eq!(answer, 1u64.to_be_bytes());
+        for sequence in 2..=last_sequence {
+            tokio::time::timeout_at(deadline + BUSINESS_LIMIT, answers.read_exact(&mut answer))
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(answer, sequence.to_be_bytes());
+        }
+        first_ack
+    };
+    let ((), first_ack) = tokio::join!(writer, reader);
+    tokio::time::sleep_until(tokio::time::Instant::from_std(first_ack) + 3 * REEVALUATION).await;
+    let release_at = Instant::now();
+    released.cancel();
+    for task in observed {
+        // Each sampler has independently checked that direct stayed registered
+        // and unselected after the switch, including throughout these cycles.
+        let (eligible, selected) = task.await.unwrap();
+        if let Some(eligible) = eligible {
+            assert!(
+                selected <= eligible + REEVALUATION + SCHEDULING_TOLERANCE,
+                "relay activation must occur within one reevaluation after confirmed failure and backup ACK"
+            );
+        }
+    }
+    if let Some(tcp) = &tcp {
+        tcp.blackhole(false);
+    }
+    drop(udp_filter);
+    eprintln!("MIO132 release at={release_at:?}");
+    for (connection, original) in connections.into_iter().zip(original_paths) {
+        wait_paths(connection, |connection| {
+            connection.paths().iter().any(|path| {
+                path.id() == original
+                    && (udp || path.is_selected())
+                    && path
+                        .stats()
+                        .acknowledgment
+                        .is_some_and(|ack| ack.sent_at > release_at)
+            })
+        })
+        .await;
+    }
+    if udp {
+        tokio::join!(
+            observe_restored_quality(&client, original_paths[0]),
+            observe_restored_quality(&server, original_paths[1])
+        );
+    }
+    let next = last_sequence + 1;
+    send.write_all(&next.to_be_bytes()).await.unwrap();
+    let mut answer = [0; 8];
+    tokio::time::timeout(BUSINESS_LIMIT, answers.read_exact(&mut answer))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(answer, next.to_be_bytes());
+
+    if seeded_loss {
+        check_seeded_loss(
+            tcp.as_ref().unwrap(),
+            [&client, &server],
+            &mut send,
+            &mut answers,
+            next + 1,
+        )
+        .await;
+    }
+    assert_eq!((client.stable_id(), server.stable_id()), ids);
+    echo_task.abort();
+    pair.close().await;
+    if let Some(tcp) = tcp {
+        tcp.close().await;
+    }
+    delay_stop.cancel();
+    service.shutdown().await.unwrap();
+}
+
+async fn observe_restored_quality(connection: &Connection, original: noq_proto::PathId) {
+    // An authenticated late ACK can leave the recovered path's smoothed RTT
+    // above relay for several cycles. A fresh ACK makes it eligible for normal
+    // Quality again. It takes over once it earns the five millisecond margin.
+    let started = std::time::Instant::now();
+    let mut direct_lead = None;
+    loop {
+        let paths = connection.paths();
+        let direct = paths.iter().find(|path| path.id() == original).unwrap();
+        let relay = paths.iter().find(|path| path.is_relay()).unwrap();
+        let (direct_rtt, relay_rtt) = (direct.rtt(), relay.rtt());
+        if direct.is_selected()
+            || (started.elapsed() >= Duration::from_secs(15) && direct_lead.is_none())
+        {
+            eprintln!(
+                "MIO132 restored_quality side={:?} direct_rtt={direct_rtt:?} relay_rtt={relay_rtt:?} direct_selected={} direct_ack={:?}",
+                connection.side(),
+                direct.is_selected(),
+                direct.stats().acknowledgment
+            );
+            break;
+        }
+        assert!(relay.is_selected());
+        if direct_rtt + Duration::from_millis(5) <= relay_rtt {
+            let lead = direct_lead.get_or_insert_with(std::time::Instant::now);
+            assert!(
+                lead.elapsed() <= REEVALUATION + SCHEDULING_TOLERANCE,
+                "the recovered direct path won normal Quality but remained demoted"
+            );
+        } else {
+            direct_lead = None;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+struct UdpBlackhole(Vec<(u16, u16)>);
+
+impl UdpBlackhole {
+    fn new([left, right]: [std::net::SocketAddr; 2]) -> Self {
+        let mut filter = Self(Vec::new());
+        for (from, to) in [(left.port(), right.port()), (right.port(), left.port())] {
+            assert!(
+                Self::rule("-I", from, to),
+                "install UDP fault inside the lab namespace"
+            );
+            filter.0.push((from, to));
+        }
+        filter
+    }
+
+    fn rule(action: &str, from: u16, to: u16) -> bool {
+        std::process::Command::new("iptables")
+            .args([
+                "-w",
+                action,
+                "OUTPUT",
+                "-o",
+                "lo",
+                "-p",
+                "udp",
+                "--sport",
+                &from.to_string(),
+                "--dport",
+                &to.to_string(),
+                "-j",
+                "DROP",
+            ])
+            .status()
+            .unwrap()
+            .success()
+    }
+}
+
+impl Drop for UdpBlackhole {
+    fn drop(&mut self) {
+        for (from, to) in self.0.drain(..) {
+            assert!(
+                Self::rule("-D", from, to),
+                "remove UDP fault from the lab namespace"
+            );
+        }
+    }
+}
+
+async fn observe_failover(
+    connection: Connection,
+    original: noq_proto::PathId,
+    released: tokio_util::sync::CancellationToken,
+) -> (Option<std::time::Instant>, std::time::Instant) {
+    use std::time::Instant;
+    let (mut second_pto, mut backup_ack, mut eligible, mut selected) = (None, None, None, None);
+    let mut last = std::collections::BTreeMap::new();
+    while !released.is_cancelled() {
+        let now = Instant::now();
+        let paths = connection.paths();
+        let direct = paths
+            .iter()
+            .find(|path| path.id() == original)
+            .expect("fault retains the original direct path");
+        let relay = paths
+            .iter()
+            .find(|path| path.is_relay())
+            .expect("validated backup stays present");
+        second_pto = second_pto.or_else(|| (direct.stats().pto_count >= 2).then_some(now));
+        let relay_stats = relay.stats();
+        if let Some(ack) = relay_stats.acknowledgment.filter(|ack| {
+            relay_stats.pto_count < 2
+                && now.saturating_duration_since(ack.received_at)
+                    <= 2 * REEVALUATION.max(relay_stats.probe_timeout)
+        }) {
+            backup_ack.get_or_insert(ack);
+            if let Some(at) = second_pto {
+                // A recent ACK for a pre-fault send may already qualify the
+                // backup. Anchor to that ACK, even if later probes are pending.
+                eligible.get_or_insert(at.max(ack.received_at));
+            }
+        }
+        if relay.is_selected() {
+            selected.get_or_insert(now);
+        }
+        if selected.is_some() {
+            assert!(
+                relay.is_selected() && !direct.is_selected(),
+                "blackholed path was reselected without recovery"
+            );
+        }
+        for path in paths.iter() {
+            let stats = path.stats();
+            let snapshot = (
+                stats.pto_count,
+                stats.acknowledgment,
+                path.is_selected(),
+                stats.frame_tx.ping,
+                stats.frame_tx.stream,
+            );
+            if last.insert(path.id(), snapshot) != Some(snapshot) {
+                eprintln!(
+                    "MIO132 path sampled_at={now:?} side={:?} id={} relay={} pto_count={} ack={:?} ping_tx={} stream_tx={} selected={}",
+                    connection.side(),
+                    path.id(),
+                    path.is_relay(),
+                    stats.pto_count,
+                    stats.acknowledgment,
+                    stats.frame_tx.ping,
+                    stats.frame_tx.stream,
+                    path.is_selected()
+                );
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    let backup_ack = backup_ack.expect("fresh backup ACK during the fault");
+    let selected = selected.expect("relay selected during the fault");
+    eprintln!(
+        "MIO132 switch_summary side={:?} second_pto_observed={second_pto:?} first_recent_backup_ack={backup_ack:?} eligible={eligible:?} selected_observed={selected:?}",
+        connection.side()
+    );
+    (eligible, selected)
+}
+
+async fn check_seeded_loss(
+    tcp: &TcpProxy,
+    connections: [&Connection; 2],
+    send: &mut iroh::endpoint::SendStream,
+    answers: &mut iroh::endpoint::RecvStream,
+    first_sequence: u64,
+) {
+    use std::{sync::atomic::Ordering::Relaxed, time::Instant};
+    let idle = || {
+        connections.iter().all(|connection| {
+            connection.paths().iter().all(|path| {
+                let stats = path.stats();
+                stats.ack_pending_since.is_none() && stats.pto_count == 0
+            })
+        })
+    };
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if idle() {
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                if idle() {
+                    break;
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("no outstanding sends and no PTO growth while idle");
+    eprintln!(
+        "MIO132 idle in_flight=false pto_count=0 at={:?}",
+        Instant::now()
+    );
+
+    const LOSS_DURATION: Duration = Duration::from_secs(3);
+    let loss_started = tokio::time::Instant::now();
+    let end = loss_started + LOSS_DURATION;
+    let frames = LOSS_DURATION.as_millis() as u64 / SEND_INTERVAL.as_millis() as u64;
+    let dropped_before = tcp.frames.dropped.load(Relaxed);
+    tcp.loss(true);
+    let writer = async {
+        let mut cadence = tokio::time::interval_at(loss_started, SEND_INTERVAL);
+        cadence.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        for sequence in first_sequence..first_sequence + frames {
+            cadence.tick().await;
+            send.write_all(&sequence.to_be_bytes()).await.unwrap();
+        }
+    };
+    let reader = async {
+        let mut answer = [0; 8];
+        for sequence in first_sequence..first_sequence + frames {
+            answers.read_exact(&mut answer).await.unwrap();
+            assert_eq!(answer, sequence.to_be_bytes());
+        }
+    };
+    let observe = async {
+        let mut last: [Option<(bool, u32, Option<Instant>)>; 2] = [None; 2];
+        while tokio::time::Instant::now() < end {
+            for (connection, previous) in connections.iter().zip(&mut last) {
+                let paths = connection.paths();
+                let direct = paths.iter().find(|path| !path.is_relay()).unwrap();
+                let stats = direct.stats();
+                if let Some((was_direct, _, ack)) = *previous
+                    && !was_direct
+                    && direct.is_selected()
+                {
+                    assert!(
+                        stats.acknowledgment.map(|ack| ack.sent_at) > ack,
+                        "direct must demonstrate new ACK progress before it is reselected"
+                    );
+                }
+                let now = (
+                    direct.is_selected(),
+                    stats.pto_count,
+                    stats.acknowledgment.map(|ack| ack.sent_at),
+                );
+                if *previous != Some(now) {
+                    eprintln!(
+                        "MIO132 seeded_loss at={:?} side={:?} path={} selected={} pto_count={} ack={:?}",
+                        Instant::now(),
+                        connection.side(),
+                        direct.id(),
+                        now.0,
+                        now.1,
+                        stats.acknowledgment
+                    );
+                    *previous = Some(now);
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        tcp.loss(false);
+    };
+    tokio::time::timeout_at(end + BUSINESS_LIMIT, async {
+        tokio::join!(writer, reader, observe)
+    })
+    .await
+    .expect("ordered application bytes through seeded 10 percent loss");
+    let dropped = tcp.frames.dropped.load(Relaxed) - dropped_before;
+    assert!(dropped > 0);
+    eprintln!(
+        "MIO132 seeded_loss_complete seeds={PATH_LOSS_SEED}/{} probability=10% duration={LOSS_DURATION:?} dropped={dropped}",
+        PATH_LOSS_SEED + 1
+    );
 }
 
 #[tokio::test]

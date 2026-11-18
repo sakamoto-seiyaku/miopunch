@@ -305,6 +305,15 @@ impl Path {
         let mut state = self.conn.lock_and_wake("ping");
         state.inner.ping_path(self.id())
     }
+
+    /// Make outstanding stream data eligible for retransmission on the newly
+    /// selected path without abandoning this path or resetting recovery state.
+    pub fn requeue_unacknowledged_stream_frames(&self) {
+        let mut state = self
+            .conn
+            .lock_and_wake("requeue stream frames after path failover");
+        state.inner.requeue_unacknowledged_stream_frames(self.id());
+    }
 }
 
 /// Fresh authenticated traffic confirmation bound to one connection and path.

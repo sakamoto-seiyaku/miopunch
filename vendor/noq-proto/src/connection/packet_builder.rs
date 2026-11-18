@@ -368,7 +368,11 @@ impl<'a, 'b> PacketBuilder<'a, 'b> {
             stream_frames: sent.stream_frames,
         };
 
-        conn.paths.get_mut(&path_id).unwrap().data.sent(
+        let path = &mut conn.paths.get_mut(&path_id).unwrap().data;
+        if ack_eliciting && path.in_flight.ack_eliciting == 0 {
+            path.ack_pending_since = Some(now);
+        }
+        path.sent(
             packet_number,
             packet,
             conn.spaces[space_id].for_path(path_id),

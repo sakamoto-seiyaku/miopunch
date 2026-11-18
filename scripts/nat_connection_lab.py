@@ -94,7 +94,10 @@ def main():
     parser.add_argument("--strategy", choices=["formal", "baseline"], default="formal")
     parser.add_argument("--rounds", type=int, default=1)
     parser.add_argument("--no-observers", action="store_true", help="functional resource-absence fixture only")
+    parser.add_argument("--failover-test", type=pathlib.Path, help="path_maintenance test binary for the admitted UDP failover case")
     args = parser.parse_args()
+    if args.failover_test is not None and (args.case != "positive" or args.strategy != "formal"):
+        parser.error("--failover-test requires the positive formal case")
     if os.geteuid() != 0 or args.output.exists():
         parser.error("require disposable privileged fixture and new output path")
     if not all(c.isalnum() or c in "-_" for c in args.seed):
@@ -113,6 +116,14 @@ def main():
                                 f'strategy_env=(MIOPUNCH_NAT_LAB_FAILURE_LIVENESS=1 MIOPUNCH_NAT_LAB_ROUNDS={args.rounds})')
         source = source.replace('"$evidence/server-cpu.json"', f'--limit {args.rounds * 60 + 15} "$evidence/server-cpu.json"')
         source = source.replace('"$evidence/client-cpu.json"', f'--limit {args.rounds * 60 + 15} "$evidence/client-cpu.json"')
+    environment = os.environ.copy()
+    if args.failover_test is not None:
+        environment["MIOPUNCH_UDP_FAILOVER_TEST"] = str(args.failover_test.resolve(strict=True))
+        source += r'''
+ip netns exec "$node_a" timeout 45 "$MIOPUNCH_UDP_FAILOVER_TEST" --ignored --exact \
+  udp_blackhole_recovers_original_stream_in_netns --nocapture > "$evidence/failover.log" 2>&1
+grep -q '^test result: ok\. 1 passed; 0 failed;' "$evidence/failover.log"
+'''
     args.output.mkdir(parents=True)
     (args.output / "fixture.sh").write_text(source)
     with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", prefix="mio60-") as script:
@@ -120,7 +131,8 @@ def main():
         script.flush()
         result = subprocess.run(["bash", script.name, args.case,
                                  str(args.runtime / "udp_nat_probe"),
-                                 str(args.runtime / "udp_observation_probe"), str(args.output)])
+                                 str(args.runtime / "udp_observation_probe"), str(args.output)],
+                                env=environment)
     raise SystemExit(result.returncode)
 
 

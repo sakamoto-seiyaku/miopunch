@@ -247,6 +247,8 @@ pub(super) struct PathData {
     ///
     /// [`LossDetection`]: super::timer::PathTimer::LossDetection
     pub(super) pto_count: u32,
+    pub(super) acknowledgment: Option<super::PathAcknowledgment>,
+    pub(super) ack_pending_since: Option<Instant>,
 
     //
     // Per-path idle & keep alive
@@ -347,6 +349,8 @@ impl PathData {
             status: Default::default(),
             first_packet: None,
             pto_count: 0,
+            acknowledgment: None,
+            ack_pending_since: None,
             idle_timeout: config.default_path_max_idle_timeout,
             keep_alive: config.default_path_keep_alive_interval,
             permit_idle_reset: true,
@@ -396,6 +400,8 @@ impl PathData {
             status: prev.status.clone(),
             first_packet: None,
             pto_count: 0,
+            acknowledgment: None,
+            ack_pending_since: None,
             idle_timeout: prev.idle_timeout,
             keep_alive: prev.keep_alive,
             permit_idle_reset: true,

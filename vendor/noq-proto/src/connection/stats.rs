@@ -2,8 +2,8 @@
 
 use rustc_hash::FxHashMap;
 
-use crate::Duration;
 use crate::FrameType;
+use crate::{Duration, Instant};
 
 use super::PathId;
 
@@ -218,6 +218,14 @@ impl std::fmt::Debug for FrameStats {
 pub struct PathStats {
     /// Current best estimate of this connection's latency (round-trip-time).
     pub rtt: Duration,
+    /// Probe timeout for application data before backoff.
+    pub probe_timeout: Duration,
+    /// Current count of actual PTO expirations. Network changes may reset it.
+    pub pto_count: u32,
+    /// Most recent data-space ACK of a tracked ack-eliciting packet on this binding.
+    pub acknowledgment: Option<PathAcknowledgment>,
+    /// Start of the current interval with ack-eliciting work in flight and no ACK progress.
+    pub ack_pending_since: Option<Instant>,
     /// Statistics about datagrams and bytes sent on this path.
     pub udp_tx: UdpStats,
     /// Statistics about datagrams and bytes received on this path.
@@ -248,6 +256,16 @@ pub struct PathStats {
     pub black_holes_detected: u64,
     /// Largest UDP payload size the path currently supports.
     pub current_mtu: u16,
+}
+
+/// Authenticated acknowledgment of an ack-eliciting packet on one path binding.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct PathAcknowledgment {
+    /// Time the acknowledged packet was sent on this path.
+    pub sent_at: Instant,
+    /// Time the peer's ACK was processed.
+    pub received_at: Instant,
 }
 
 /// Connection statistics.
@@ -282,7 +300,6 @@ impl std::ops::Add<PathStats> for ConnectionStats {
         // Be aware that Connection::stats() relies on the fact this function ignores the
         // rtt, cwnd and current_mtu fields.
         let PathStats {
-            rtt: _,
             udp_tx,
             udp_rx,
             frame_tx,
@@ -295,7 +312,7 @@ impl std::ops::Add<PathStats> for ConnectionStats {
             sent_plpmtud_probes: _,
             lost_plpmtud_probes: _,
             black_holes_detected: _,
-            current_mtu: _,
+            ..
         } = rhs;
         Self {
             udp_tx: self.udp_tx + udp_tx,
@@ -315,7 +332,6 @@ impl std::ops::AddAssign<PathStats> for ConnectionStats {
         // Be aware that Connection::stats() relies on the fact this function ignores the
         // rtt, cwnd and current_mtu fields.
         let PathStats {
-            rtt: _,
             udp_tx: path_udp_tx,
             udp_rx: path_udp_rx,
             frame_tx: path_frame_tx,
@@ -328,7 +344,7 @@ impl std::ops::AddAssign<PathStats> for ConnectionStats {
             sent_plpmtud_probes: _,
             lost_plpmtud_probes: _,
             black_holes_detected: _,
-            current_mtu: _,
+            ..
         } = rhs;
         let Self {
             udp_tx,

@@ -174,6 +174,8 @@ struct State {
     /// The path selector used to pick the preferred path among the candidates.
     path_selector: Arc<dyn PathSelector>,
     connection_path_selector: Option<Arc<dyn ConnectionPathSelector>>,
+    reevaluation_interval: Option<Duration>,
+    uses_path_health: bool,
 }
 
 impl RemoteStateActor {
@@ -187,6 +189,16 @@ impl RemoteStateActor {
         path_selector: Arc<dyn PathSelector>,
         connection_path_selector: Option<Arc<dyn ConnectionPathSelector>>,
     ) -> Self {
+        let reevaluation_interval = connection_path_selector
+            .as_ref()
+            .map_or_else(
+                || path_selector.reevaluation_interval(),
+                |selector| selector.reevaluation_interval(),
+            )
+            .map(|interval| interval.clamp(Duration::from_millis(250), Duration::from_secs(30)));
+        let uses_path_health = connection_path_selector
+            .as_ref()
+            .is_some_and(|selector| selector.uses_path_health());
         Self {
             connections: FxHashMap::default(),
             #[cfg(feature = "miopunch-test-hooks")]
@@ -209,6 +221,8 @@ impl RemoteStateActor {
                 address_lookup_stream: None,
                 path_selector,
                 connection_path_selector,
+                reevaluation_interval,
+                uses_path_health,
             },
         }
     }
@@ -260,15 +274,7 @@ impl RemoteStateActor {
         let check_connections = time::interval(UPGRADE_INTERVAL);
         n0_future::pin!(check_connections);
 
-        let reevaluation_interval = self
-            .state
-            .connection_path_selector
-            .as_ref()
-            .map_or_else(
-                || self.state.path_selector.reevaluation_interval(),
-                |selector| selector.reevaluation_interval(),
-            )
-            .map(|interval| interval.clamp(Duration::from_millis(250), Duration::from_secs(30)));
+        let reevaluation_interval = self.state.reevaluation_interval;
         let mut next_reevaluation = reevaluation_interval.map(|interval| Instant::now() + interval);
         loop {
             let reevaluation = match next_reevaluation {
@@ -872,6 +878,7 @@ impl RemoteStateActor {
                 handle: conn.weak_handle(),
                 path_state: path_state_sender,
                 paths: Default::default(),
+                suspect_paths: Default::default(),
                 has_been_direct: false,
                 purpose: if restricted {
                     ConnectionPurpose::Control
@@ -1275,6 +1282,7 @@ impl RemoteStateActor {
     /// Refresh only live, qualified paths in existing connections. QUIC retains
     /// its own path/connection timeouts and reports final failure to callers.
     fn reevaluate_paths(&mut self) {
+        let health_checks = self.state.uses_path_health;
         for state in self
             .connections
             .values()
@@ -1289,7 +1297,13 @@ impl RemoteStateActor {
                     if state.may_select(address)
                         && let Some(path) = conn.path(*id)
                     {
-                        let _ = path.ping();
+                        if health_checks {
+                            // Backups must get their own authentic ACKs even if
+                            // an Available carrier can no longer return them.
+                            let _ = path.start_probe();
+                        } else {
+                            let _ = path.ping();
+                        }
                     }
                 }
             }
@@ -1393,7 +1407,12 @@ impl RemoteStateActor {
     /// - Opens the selected path if it does not exist on the connection
     /// - Sets the selected path to [`PathStatus::Available`]
     fn apply_selected_path(&mut self) {
-        for (conn_id, conn_state) in self.connections.iter() {
+        let now = Instant::now();
+        let health_interval = self
+            .state
+            .reevaluation_interval
+            .filter(|_| self.state.uses_path_health);
+        for (conn_id, conn_state) in self.connections.iter_mut() {
             let Some(conn) = conn_state
                 .handle
                 .upgrade()
@@ -1418,12 +1437,20 @@ impl RemoteStateActor {
                 // The legacy empty result does not create a selection.
                 continue;
             }
-            let current = conn_state
-                .path_state
-                .selected_id()
+            let current_id = conn_state.path_state.selected_id();
+            if let Some(interval) = health_interval
+                && conn_state.purpose != ConnectionPurpose::Control
+            {
+                conn_state.update_path_health(&conn, now, interval);
+            }
+            let current = current_id
                 .and_then(|id| conn_state.paths.get(&id))
                 .filter(|path| conn_state.has_qualified_path(path, &conn));
-            let context = PathSelectionContext::for_connection(current, conn_state);
+            let context = PathSelectionContext::for_connection(
+                current,
+                conn_state,
+                health_interval.map(|interval| (now, interval)),
+            );
             let selected_for_conn = if conn_state.purpose == ConnectionPurpose::Control
                 && let Some(exact) = conn_state.retained_control_custom.as_ref()
             {
@@ -1459,6 +1486,12 @@ impl RemoteStateActor {
                     .or_else(|| current.cloned())
             };
 
+            let failed_current = current_id.filter(|id| {
+                current.is_some()
+                    && current != selected_for_conn.as_ref()
+                    && conn_state.suspect_paths.contains_key(id)
+            });
+            let mut activated = false;
             for (path_id, path_fourtuple) in conn_state.paths.iter() {
                 let Some(path) = conn.path(*path_id) else {
                     continue;
@@ -1470,13 +1503,19 @@ impl RemoteStateActor {
                     continue;
                 }
 
-                // Closes redundant IP paths so that at most one remains per connection.
+                // Keep a health-demoted original binding until it proves recovery
+                // or QUIC retires it. Other redundant IP paths are closed as usual.
                 //
                 // Relay and custom paths are kept open. Only the client closes paths,
                 // to avoid the client and server independently closing different paths
                 // and racing to abandon the last one.
                 if conn.side().is_client()
                     && path_fourtuple.is_ip()
+                    && failed_current != Some(*path_id)
+                    && !conn_state
+                        .suspect_paths
+                        .get(path_id)
+                        .is_some_and(|suspect| suspect.retained_for_recovery)
                     && selected_for_conn
                         .as_ref()
                         .is_some_and(|selected| path_fourtuple != selected)
@@ -1505,7 +1544,23 @@ impl RemoteStateActor {
                 } else {
                     PathStatus::Backup
                 };
-                let _ = path.set_status(status);
+                if path.set_status(status).is_ok() && status == PathStatus::Available {
+                    activated = true;
+                }
+            }
+
+            if activated
+                && let Some(id) = failed_current
+                && let Some(path) = conn.path(id)
+            {
+                // A PTO probes the old carrier. Hand outstanding stream data
+                // to ordinary scheduling only after the new path is Available.
+                path.requeue_unacknowledged_stream_frames();
+                conn_state
+                    .suspect_paths
+                    .get_mut(&id)
+                    .expect("failed current path is suspect")
+                    .retained_for_recovery = true;
             }
 
             // Record the new selected path in the path watcher.
@@ -2221,6 +2276,7 @@ struct ConnectionState {
     /// event. The noq established event is only emitted once at least one datagram is
     /// received from the peer on the path.
     paths: FxHashMap<PathId, transports::PathBinding>,
+    suspect_paths: FxHashMap<PathId, SuspectPath>,
     /// Whether this connection has ever had a direct path.
     ///
     /// Used for recording metrics.
@@ -2233,6 +2289,22 @@ struct ConnectionState {
     retired_custom: HashSet<iroh_base::CustomAddr>,
     #[cfg(not(wasm_browser))]
     udp_sockets: Vec<ConnectionSocket>,
+}
+
+#[derive(Debug)]
+struct SuspectPath {
+    /// The episode ends once a packet sent later on this path is acknowledged.
+    detected_at: Instant,
+    retained_for_recovery: bool,
+}
+
+impl SuspectPath {
+    fn new(detected_at: Instant) -> Self {
+        Self {
+            detected_at,
+            retained_for_recovery: false,
+        }
+    }
 }
 
 #[cfg(not(wasm_browser))]
@@ -2262,6 +2334,57 @@ enum ConnectionPurpose {
 }
 
 impl ConnectionState {
+    fn update_path_health(&mut self, conn: &noq::Connection, now: Instant, interval: Duration) {
+        let paths: Vec<_> = self
+            .paths
+            .iter()
+            .filter_map(|(id, path)| {
+                if self.may_select(path)
+                    && let Some(path) = conn.path(*id)
+                {
+                    Some((*id, path.stats()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        for (id, stats) in &paths {
+            if self.suspect_paths.get(id).is_some_and(|suspect| {
+                stats
+                    .acknowledgment
+                    .is_some_and(|ack| Instant::from(ack.sent_at) > suspect.detected_at)
+            }) {
+                self.suspect_paths.remove(id);
+            }
+            if stats.pto_count >= 2 {
+                self.suspect_paths
+                    .entry(*id)
+                    .or_insert_with(|| SuspectPath::new(now));
+            }
+        }
+
+        // Continuous sends can keep moving the actual PTO's deadline. Age the
+        // absence of ACK progress independently while packets are in flight.
+        let stalled = |stats: &PathStats| {
+            stats.ack_pending_since.is_some_and(|since| {
+                now.saturating_duration_since(since.into()) >= interval.max(2 * stats.probe_timeout)
+            })
+        };
+        if paths.iter().any(|(id, stats)| {
+            !self.suspect_paths.contains_key(id)
+                && !stalled(stats)
+                && has_fresh_ack(stats, now, interval)
+        }) {
+            for (id, stats) in paths {
+                if stalled(&stats) {
+                    self.suspect_paths
+                        .entry(id)
+                        .or_insert_with(|| SuspectPath::new(now));
+                }
+            }
+        }
+    }
+
     /// Initial preparation uses restricted control. Active maintenance may use
     /// the exact original after its admission data policy has been installed;
     /// an unrestricted ordinary connection has no such authority.
@@ -2368,6 +2491,7 @@ impl ConnectionState {
         conn: &noq::Connection,
     ) -> Option<transports::PathBinding> {
         let addr = self.paths.remove(path_id)?;
+        self.suspect_paths.remove(path_id);
         self.path_state.record_abandoned(*path_id, conn);
         Some(addr)
     }
@@ -2382,6 +2506,7 @@ impl ConnectionState {
 pub struct PathSelectionContext<'a> {
     current: Option<&'a transports::PathBinding>,
     source: PathsSource<'a>,
+    health_window: Option<(Instant, Duration)>,
 }
 
 /// Either a reference to live connection state, or a synthesized list of paths
@@ -2406,16 +2531,19 @@ impl<'a> PathSelectionContext<'a> {
         Self {
             current,
             source: PathsSource::Live(connections),
+            health_window: None,
         }
     }
 
     fn for_connection(
         current: Option<&'a transports::PathBinding>,
         state: &'a ConnectionState,
+        health_window: Option<(Instant, Duration)>,
     ) -> Self {
         Self {
             current,
             source: PathsSource::Connection(state),
+            health_window,
         }
     }
 
@@ -2428,6 +2556,7 @@ impl<'a> PathSelectionContext<'a> {
         Self {
             current: None,
             source: PathsSource::Test { current, paths },
+            health_window: None,
         }
     }
 
@@ -2490,7 +2619,7 @@ impl<'a> PathSelectionContext<'a> {
                             .iter()
                             .filter(move |(_, addr)| state.may_select(addr))
                             .map(move |(path_id, addr)| {
-                                PathSelectionData::live(addr, *path_id, conn.clone())
+                                PathSelectionData::live(addr, *path_id, conn.clone(), false)
                             })
                     }),
             ),
@@ -2502,8 +2631,14 @@ impl<'a> PathSelectionContext<'a> {
                     .into_iter()
                     .flat_map(move |conn| {
                         state.paths.iter().filter_map(move |(id, addr)| {
-                            (state.may_select(addr) && conn.path(*id).is_some())
-                                .then(|| PathSelectionData::live(addr, *id, conn.clone()))
+                            (state.may_select(addr) && conn.path(*id).is_some()).then(|| {
+                                PathSelectionData::live(
+                                    addr,
+                                    *id,
+                                    conn.clone(),
+                                    state.suspect_paths.contains_key(id),
+                                )
+                            })
                         })
                     }),
             ),
@@ -2511,6 +2646,19 @@ impl<'a> PathSelectionContext<'a> {
             PathsSource::Test { paths, .. } => Box::new(paths.iter().cloned()),
         }
     }
+
+    /// Whether this connection recently received an ACK for this binding.
+    pub fn has_fresh_ack(&self, stats: &PathStats) -> bool {
+        self.health_window
+            .is_some_and(|(now, interval)| has_fresh_ack(stats, now, interval))
+    }
+}
+
+fn has_fresh_ack(stats: &PathStats, now: Instant, interval: Duration) -> bool {
+    stats.acknowledgment.is_some_and(|ack| {
+        now.saturating_duration_since(ack.received_at.into())
+            <= 2 * interval.max(stats.probe_timeout)
+    })
 }
 
 /// Data the selector sees about one candidate path.
@@ -2525,6 +2673,7 @@ pub struct PathSelectionData<'a> {
     local_socket: Option<noq::LocalSocketId>,
     #[debug(skip)]
     source: StatsSource,
+    suspect: bool,
 }
 
 #[derive(Clone)]
@@ -2533,8 +2682,8 @@ enum StatsSource {
         path_id: PathId,
         conn: noq::Connection,
     },
-    /// Boxed so `PathStats` (100+ bytes, 14 fields) doesn't inflate the enum's
-    /// size in production where only the `Live` variant is ever constructed.
+    /// Boxed so `PathStats` doesn't inflate the enum in production, where
+    /// only the `Live` variant is ever constructed.
     #[cfg(test)]
     Test(Option<Box<PathStats>>),
 }
@@ -2545,11 +2694,13 @@ impl<'a> PathSelectionData<'a> {
         network_path: &'a transports::PathBinding,
         path_id: PathId,
         conn: noq::Connection,
+        suspect: bool,
     ) -> Self {
         Self {
             network_path: &network_path.address,
             local_socket: network_path.local_socket,
             source: StatsSource::Live { path_id, conn },
+            suspect,
         }
     }
 
@@ -2566,6 +2717,7 @@ impl<'a> PathSelectionData<'a> {
             network_path,
             local_socket: None,
             source: StatsSource::Test(stats.map(Box::new)),
+            suspect: false,
         }
     }
 
@@ -2588,6 +2740,11 @@ impl<'a> PathSelectionData<'a> {
             #[cfg(test)]
             StatsSource::Test(stats) => stats.as_deref().copied(),
         }
+    }
+
+    /// The binding has unacknowledged traffic and has not proved recovery.
+    pub fn is_suspect(&self) -> bool {
+        self.suspect
     }
 }
 
@@ -2624,6 +2781,11 @@ pub trait ConnectionPathSelector: Send + Sync + std::fmt::Debug + 'static {
     /// Optional reevaluation, bounded by the actor to 250ms through 30s.
     fn reevaluation_interval(&self) -> Option<Duration> {
         None
+    }
+
+    /// Enable connection-local ACK freshness, suspect detection and stream failover.
+    fn uses_path_health(&self) -> bool {
+        false
     }
 
     /// Pick a path using [`PathSelection::none`] and [`PathSelection::set`].

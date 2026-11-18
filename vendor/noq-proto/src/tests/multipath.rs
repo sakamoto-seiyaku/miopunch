@@ -2570,8 +2570,11 @@ fn tentative_path_waits_for_peer_cids_and_leaves_a_spare() -> TestResult {
     pair.client.inbound.push(now, delayed_cids);
     pair.drive_client();
     for (expected, port) in (1u8..MAX_PATHS as u8 - 1).zip(12000..) {
-        let (id, existed) = pair.conn_mut(Client)
-            .open_path_ensure_with_spare(address(port), PathStatus::Backup, now)?;
+        let (id, existed) = pair.conn_mut(Client).open_path_ensure_with_spare(
+            address(port),
+            PathStatus::Backup,
+            now,
+        )?;
         assert_eq!(id, PathId::ZERO.saturating_add(expected));
         assert!(!existed);
     }
@@ -2843,6 +2846,148 @@ fn assert_ordinary_backup_ack_on_available(pair: &mut ConnPair, backup: PathId) 
         "ordinary PING keeps upstream cross-path ACK routing"
     );
     assert_eq!(backup, 0);
+}
+
+#[test]
+fn pto_reports_path_ack_progress_across_network_reset() -> TestResult {
+    #[derive(Debug)]
+    struct KeepBindings;
+    impl NetworkChangeHint for KeepBindings {
+        fn is_path_recoverable(&self, _: PathId, _: FourTuple) -> bool {
+            true
+        }
+        fn local_ip_for_recovery(&self, network: FourTuple) -> Option<std::net::IpAddr> {
+            network.local_ip()
+        }
+    }
+
+    let _guard = subscribe();
+    let (mut pair, backup) = backup_ack_pair();
+    let original = PathId::ZERO;
+    let idle = pair.path_stats(Client, original).unwrap();
+    assert_eq!(idle.pto_count, 0);
+    assert_eq!(idle.ack_pending_since, None);
+    pair.time += 2 * idle.probe_timeout;
+    pair.drive();
+    let after_idle = pair.path_stats(Client, original).unwrap();
+    assert_eq!(after_idle.pto_count, 0);
+    assert_eq!(after_idle.ack_pending_since, None);
+
+    let client_backup = pair.network_path(Server, backup)?.remote();
+    let server_backup = pair.network_path(Client, backup)?.remote();
+    pair.routes = ManyToManyRouting::simple_symmetric([client_backup], [server_backup]).into();
+    pair.ping_path(Client, original)?;
+    let mut first_pto = false;
+    for _ in 0..50 {
+        pair.step();
+        let stats = pair.path_stats(Client, original).unwrap();
+        first_pto |= stats.pto_count == 1;
+        if stats.pto_count >= 2 {
+            break;
+        }
+    }
+    let suspect = pair.path_stats(Client, original).unwrap();
+    assert!(first_pto && suspect.pto_count >= 2);
+    assert!(suspect.ack_pending_since.is_some());
+    assert_eq!(suspect.acknowledgment, after_idle.acknowledgment);
+
+    pair.conn_mut(Server).start_path_probe(backup)?;
+    let after_cut = pair.time;
+    pair.conn_mut(Client).start_path_probe(backup)?;
+    for _ in 0..30 {
+        pair.step();
+        if pair
+            .path_stats(Client, backup)
+            .unwrap()
+            .acknowledgment
+            .is_some_and(|ack| ack.sent_at >= after_cut)
+        {
+            break;
+        }
+    }
+    let relay = pair.path_stats(Client, backup).unwrap();
+    assert!(
+        relay
+            .acknowledgment
+            .is_some_and(|ack| ack.sent_at >= after_cut)
+    );
+    assert_eq!(relay.pto_count, 0);
+    assert!(pair.path_stats(Client, original).unwrap().pto_count >= 2);
+
+    pair.handle_network_change(Client, Some(&KeepBindings));
+    let reset = pair.path_stats(Client, original).unwrap();
+    assert_eq!(reset.pto_count, 0);
+    assert_eq!(reset.acknowledgment, suspect.acknowledgment);
+
+    pair.routes = ManyToManyRouting::simple_symmetric(
+        [Pair::CLIENT_ADDR, client_backup],
+        [Pair::SERVER_ADDR, server_backup],
+    )
+    .into();
+    let released = pair.time;
+    pair.ping_path(Client, original)?;
+    pair.drive();
+    let recovered = pair.path_stats(Client, original).unwrap();
+    assert_eq!(recovered.pto_count, 0);
+    assert!(
+        recovered
+            .acknowledgment
+            .is_some_and(|ack| ack.sent_at >= released)
+    );
+    Ok(())
+}
+
+#[test]
+fn rescheduled_stream_accepts_late_original_ack_and_keeps_fin() -> TestResult {
+    let _guard = subscribe();
+    let (mut pair, backup) = backup_ack_pair();
+    let original = PathId::ZERO;
+    let stream = pair.streams(Client).open(Dir::Uni).unwrap();
+    let original_ack = pair.path_stats(Client, original).unwrap().acknowledgment;
+    pair.send_stream(Client, stream).write(b"original bytes")?;
+    pair.drive_client();
+    let mut delayed = super::util::InboundQueue::new();
+    std::mem::swap(&mut delayed, &mut pair.server.inbound);
+    assert!(
+        delayed.len() > 0,
+        "the original packet stays in flight on its own path"
+    );
+
+    for side in [Client, Server] {
+        pair.set_path_status(side, backup, PathStatus::Available)?;
+        pair.set_path_status(side, original, PathStatus::Backup)?;
+    }
+    pair.conn_mut(Client)
+        .requeue_unacknowledged_stream_frames(original);
+    pair.drive();
+    assert_eq!(pair.streams(Server).accept(Dir::Uni), Some(stream));
+    {
+        let mut stream = pair.recv_stream(Server, stream);
+        let mut reader = stream.read(true)?;
+        assert_matches!(reader.next(usize::MAX), Ok(Some(chunk)) if chunk.bytes == b"original bytes"[..]);
+        let _ = reader.finalize();
+    }
+    assert!(pair.path_stats(Client, backup).unwrap().frame_tx.stream > 0);
+
+    let arrival = pair.time;
+    while let Some((_, packet)) = delayed.pop_first() {
+        pair.server.inbound.push(arrival, packet);
+    }
+    pair.drive();
+    assert_ne!(
+        pair.path_stats(Client, original).unwrap().acknowledgment,
+        original_ack
+    );
+
+    pair.send_stream(Client, stream).write(b" and FIN")?;
+    pair.send_stream(Client, stream).finish()?;
+    pair.drive();
+    let mut stream = pair.recv_stream(Server, stream);
+    let mut reader = stream.read(true)?;
+    assert_matches!(reader.next(usize::MAX), Ok(Some(chunk)) if chunk.bytes == b" and FIN"[..]);
+    assert_matches!(reader.next(usize::MAX), Ok(None));
+    let _ = reader.finalize();
+    Ok(())
 }
 
 fn backup_ping_ack_counts(pair: &mut ConnPair, backup: PathId) -> (u64, u64) {
