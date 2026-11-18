@@ -15,3 +15,8 @@ pub(crate) fn remaining(deadline: Option<n0_future::time::Instant>) -> Duration 
         MAX.min(deadline.saturating_duration_since(n0_future::time::Instant::now()))
     })
 }
+
+pub(crate) fn deadline(caller: Option<n0_future::time::Instant>) -> n0_future::time::Instant {
+    let local = n0_future::time::Instant::now() + remaining(None);
+    caller.map_or(local, |deadline| deadline.min(local))
+}

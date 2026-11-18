@@ -104,7 +104,7 @@ pub use restricted::{
     AdmissionOutcome, ControlAccepting, ControlConfirmation, ControlConnecting, ControlConnection,
     ControlExchange, ControlHandle, ControlMessageFormat, DataPathPermit, EndpointAdmission,
     RestrictedAccepting, RestrictedBuilder, RestrictedConnecting, RestrictedEndpoint,
-    RestrictedIncoming, WeakControlConnection,
+    RestrictedIncoming, UdpCandidatePath, WeakControlConnection,
 };
 
 #[cfg(feature = "qlog")]

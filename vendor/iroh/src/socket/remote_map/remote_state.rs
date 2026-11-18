@@ -539,8 +539,12 @@ impl RemoteStateActor {
                 remote,
                 #[cfg(not(wasm_browser))]
                 local,
+                keep_spare,
                 tx,
             } => {
+                if tx.is_closed() {
+                    return;
+                }
                 #[cfg(not(wasm_browser))]
                 println!(
                     "[DEBUG-udp-handoff] actor-open-request stable_id={} local={local:?} remote={remote}",
@@ -587,8 +591,14 @@ impl RemoteStateActor {
                                     }
                                 },
                             );
-                            self.state
-                                .open_path_on_conn(ConnId(conn_id), state, &conn, &path, true)
+                            self.state.open_path_inner(
+                                ConnId(conn_id),
+                                state,
+                                &conn,
+                                &path,
+                                true,
+                                keep_spare,
+                            )
                         } else {
                             Err("only the dialing side can open a data path")
                         }
@@ -599,8 +609,11 @@ impl RemoteStateActor {
                     Err("connection not registered")
                 };
                 println!(
-                    "[DEBUG-udp-handoff] actor-open-result stable_id={} result={result:?}",
-                    conn_id
+                    "[DEBUG-udp-handoff] actor-open-result stable_id={} result={:?}",
+                    conn_id,
+                    result
+                        .as_ref()
+                        .map(|path| path.as_ref().map(|path| path.id()))
                 );
                 let _ = tx.send(result);
             }
@@ -1825,6 +1838,26 @@ impl State {
         open_4tuple: &transports::PathBinding,
         explicit_request: bool,
     ) -> Result<(), &'static str> {
+        self.open_path_inner(
+            conn_id,
+            conn_state,
+            conn,
+            open_4tuple,
+            explicit_request,
+            false,
+        )
+        .map(|_| ())
+    }
+
+    fn open_path_inner(
+        &mut self,
+        conn_id: ConnId,
+        conn_state: &ConnectionState,
+        conn: &noq::Connection,
+        open_4tuple: &transports::PathBinding,
+        explicit_request: bool,
+        keep_spare: bool,
+    ) -> Result<Option<crate::endpoint::UdpCandidatePath>, &'static str> {
         if conn.close_reason().is_some() {
             return Err("connection closed");
         }
@@ -1835,7 +1868,7 @@ impl State {
             && !open_4tuple.is_custom()
             && !explicit_request
         {
-            return Ok(());
+            return Ok(None);
         }
         if conn_state.purpose == ConnectionPurpose::Data && open_4tuple.is_custom() {
             return Err("control path forbidden on data connection");
@@ -1849,22 +1882,31 @@ impl State {
             return if explicit_request {
                 Err("only the dialing side can open a path")
             } else {
-                Ok(())
+                Ok(None)
             };
         }
         // Already open on this connection; nothing to do.
-        if conn_state.paths.values().any(|a| a == open_4tuple) {
-            return Ok(());
+        if conn_state
+            .paths
+            .iter()
+            .any(|(id, addr)| addr == open_4tuple && conn.path(*id).is_some())
+        {
+            return Ok(None);
         }
 
         let mapped_4tuple = self.mapped_addrs.to_mapped_tuple(open_4tuple);
         let path_status = self.path_status_for_addr(open_4tuple);
 
-        let fut = match open_4tuple.local_socket {
-            Some(socket) => conn
-                .open_path_ensure_on_socket(socket, mapped_4tuple, path_status)
-                .map_err(|_| "local UDP socket unavailable")?,
-            None => conn.open_path_ensure(mapped_4tuple, path_status),
+        let (fut, owned) = if keep_spare {
+            conn.open_path_ensure_with_spare(mapped_4tuple, path_status)
+        } else {
+            let fut = match open_4tuple.local_socket {
+                Some(socket) => conn
+                    .open_path_ensure_on_socket(socket, mapped_4tuple, path_status)
+                    .map_err(|_| "local UDP socket unavailable")?,
+                None => conn.open_path_ensure(mapped_4tuple, path_status),
+            };
+            (fut, false)
         };
         match fut.path_id() {
             Some(path_id) => {
@@ -1884,7 +1926,12 @@ impl State {
                     socket.mark_path_used();
                 }
                 trace!(%conn_id, %path_id, ?path_status, "opening new path");
-                Ok(())
+                Ok(if owned {
+                    conn.path(path_id)
+                        .map(|path| crate::endpoint::UdpCandidatePath(Some(path)))
+                } else {
+                    None
+                })
             }
             None => {
                 let ret = now_or_never(fut);
@@ -1904,9 +1951,9 @@ impl State {
                             Some(Instant::now() + Duration::from_millis(333));
                         self.pending_open_paths.push_back(open_4tuple.clone());
                         trace!(?open_4tuple, ?ret, "scheduling open_path");
-                        Ok(())
+                        Ok(None)
                     }
-                    Some(Ok(_)) => Ok(()),
+                    Some(Ok(_)) => Ok(None),
                     _ => {
                         warn!(?ret, "Opening path failed");
                         Err("opening path failed")
@@ -2045,7 +2092,8 @@ pub(crate) enum RemoteStateMessage {
         remote: SocketAddr,
         #[cfg(not(wasm_browser))]
         local: Option<transports::LocalSocketBinding>,
-        tx: oneshot::Sender<Result<(), &'static str>>,
+        keep_spare: bool,
+        tx: oneshot::Sender<Result<Option<crate::endpoint::UdpCandidatePath>, &'static str>>,
     },
     #[cfg(not(wasm_browser))]
     RetainUdpSocket {

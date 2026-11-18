@@ -1006,6 +1006,123 @@ async fn production_native_active_respects_udp_disable_and_keeps_business() {
 }
 
 #[tokio::test]
+async fn native_active_wrong_udp_result_is_invalid_control_and_keeps_original() {
+    let (_directory, a, b) = admitted_pair().await;
+    let ae = a
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let be = b
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let (original, peer) = ordinary_pair(&ae, &be).await;
+    let ids = (original.stable_id(), peer.stable_id());
+    let (mut send, mut receive) = original.open_bi().await.unwrap();
+    send.write_all(b"before").await.unwrap();
+    let (mut reply, mut incoming) = peer.accept_bi().await.unwrap();
+    let mut before = [0; 6];
+    incoming.read_exact(&mut before).await.unwrap();
+    assert_eq!(&before, b"before");
+
+    let deadline = n0_future::time::Instant::now() + Duration::from_secs(5);
+    let (control, remote_control) = tokio::join!(
+        async {
+            ae.endpoint()
+                .connect_control_with_opts(
+                    be.addr(),
+                    ACTIVE_IMPROVEMENT_ALPN,
+                    iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline),
+                )
+                .await
+                .unwrap()
+                .await
+                .unwrap()
+        },
+        async {
+            be.endpoint()
+                .accept()
+                .await
+                .unwrap()
+                .with_caller_deadline(deadline)
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap()
+        },
+    );
+    let adapter = NativeControlAdapter(ae.active_coordinator(a.admission_gate()));
+    let attempt = AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new());
+    let lease = a
+        .admission_gate()
+        .maintenance()
+        .acquire(&original, &attempt, ())
+        .unwrap();
+    let scripted_peer = async {
+        let stream = remote_control.accept_control_exchange().await.unwrap();
+        let request = read_active_hello(&stream).await.unwrap();
+        let mut caps = adapter.capabilities(AttemptRole::Responder);
+        caps.permitted = UDP;
+        let local = active_hello(caps, AttemptRole::Responder, request.binding);
+        write_active_hello(&stream, local).await.unwrap();
+
+        let nonce = [0u8; 16];
+        let wrong_nonce = [1u8; 16];
+        let format = ControlMessageFormat::EndTerminated { maximum: 16 * 1024 };
+        for (expected, answer) in [
+            ("Hello", json!({"Offer":{"nonce":nonce,"addresses":[]}})),
+            ("Offer", json!({"Ready":{"nonce":nonce}})),
+            (
+                "Result",
+                json!({"Result":{"nonce":wrong_nonce,"available":false}}),
+            ),
+        ] {
+            let stream = remote_control.accept_control_exchange().await.unwrap();
+            let input = stream.recv_message(format).await.unwrap();
+            let frame = serde_json::from_slice::<Value>(&input).unwrap();
+            assert!(frame.get(expected).is_some(), "{frame}");
+            stream
+                .send_message(format, &serde_json::to_vec(&answer).unwrap())
+                .await
+                .unwrap();
+        }
+    };
+    let control_handle = control.control_handle();
+    let (result, ()) = tokio::time::timeout_at(deadline, async {
+        tokio::join!(
+            lease.run(improve_existing(
+                ae.endpoint(),
+                &original,
+                &control_handle,
+                &adapter,
+                attempt,
+                AttemptLog::new(AttemptRole::Initiator, "test_active_udp_result"),
+            )),
+            scripted_peer
+        )
+    })
+    .await
+    .unwrap();
+    let error = result.unwrap().unwrap_err();
+    assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    assert!(error.to_string().starts_with("unified/InvalidControl"));
+    assert_eq!((original.stable_id(), peer.stable_id()), ids);
+    assert!(original.close_reason().is_none() && peer.close_reason().is_none());
+    send.write_all(b"later!").await.unwrap();
+    incoming.read_exact(&mut before).await.unwrap();
+    assert_eq!(&before, b"later!");
+    reply.write_all(&before).await.unwrap();
+    receive.read_exact(&mut before).await.unwrap();
+    assert_eq!(&before, b"later!");
+    original.close(0u32.into(), b"active UDP result fixture finished");
+    peer.close(0u32.into(), b"active UDP result fixture finished");
+    control.close(0u32.into(), b"active UDP result fixture finished");
+    remote_control.close(0u32.into(), b"active UDP result fixture finished");
+    tokio::join!(ae.close(), be.close());
+    tokio::join!(a.close(), b.close());
+}
+
+#[tokio::test]
 async fn unmarked_active_control_close_is_not_deferred() {
     let (_directory, a, b) = admitted_pair().await;
     let ae = a

@@ -1206,6 +1206,19 @@ impl ControlHandle {
         self.endpoint.open_data_path(&self.connection, remote).await
     }
 
+    /// Start a tentative IP path while leaving a usable ID and CID for
+    /// another opening. The returned owner abandons only a newly opened path
+    /// if dropped. An already existing binding yields no owner.
+    pub async fn open_udp_candidate(
+        &self,
+        remote: std::net::SocketAddr,
+    ) -> io::Result<Option<UdpCandidatePath>> {
+        self.endpoint
+            .inner
+            .open_udp_candidate(self.remote_id(), self.stable_id(), remote)
+            .await
+    }
+
     /// Send one control message, limited to 64 KiB.
     ///
     /// This never opens an application stream. Cancelling a partially completed
@@ -1350,6 +1363,30 @@ impl WeakControlConnection {
     /// Wait for closure without extending the original connection's lifetime.
     pub fn closed(&self) -> impl Future<Output = Option<super::Closed>> + Send + 'static {
         self.inner.closed()
+    }
+}
+
+/// Owns one tentative UDP path on its exact original connection.
+#[derive(Debug)]
+pub struct UdpCandidatePath(pub(crate) Option<noq::Path>);
+
+impl UdpCandidatePath {
+    /// The allocated path ID, including while it is still being validated.
+    pub fn id(&self) -> PathId {
+        self.0.as_ref().expect("live candidate path").id()
+    }
+
+    /// Keep the path on the original connection after commitment.
+    pub fn retain(mut self) {
+        self.0.take();
+    }
+}
+
+impl Drop for UdpCandidatePath {
+    fn drop(&mut self) {
+        if let Some(path) = self.0.take() {
+            let _ = path.close();
+        }
     }
 }
 

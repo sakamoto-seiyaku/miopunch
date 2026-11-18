@@ -547,13 +547,37 @@ impl Connection {
         initial_status: PathStatus,
         now: Instant,
     ) -> Result<(PathId, bool), PathError> {
+        self.open_path_ensure_inner(network_path, initial_status, now, false)
+    }
+
+    /// Open a tentative path only if one more consecutive path ID and its
+    /// remote CID are available for a later, higher-priority path.
+    pub fn open_path_ensure_with_spare(
+        &mut self,
+        network_path: FourTuple,
+        initial_status: PathStatus,
+        now: Instant,
+    ) -> Result<(PathId, bool), PathError> {
+        self.open_path_ensure_inner(network_path, initial_status, now, true)
+    }
+
+    fn open_path_ensure_inner(
+        &mut self,
+        network_path: FourTuple,
+        initial_status: PathStatus,
+        now: Instant,
+        keep_spare: bool,
+    ) -> Result<(PathId, bool), PathError> {
         let existing_open_path = self.paths.iter().find(|(id, path)| {
             network_path.is_probably_same_path(&path.data.network_path)
                 && !self.abandoned_paths.contains(id)
         });
         match existing_open_path {
             Some((path_id, _state)) => Ok((*path_id, true)),
-            None => Ok((self.open_path(network_path, initial_status, now)?, false)),
+            None => Ok((
+                self.open_path_inner(network_path, initial_status, now, keep_spare)?,
+                false,
+            )),
         }
     }
 
@@ -567,6 +591,16 @@ impl Connection {
         network_path: FourTuple,
         initial_status: PathStatus,
         now: Instant,
+    ) -> Result<PathId, PathError> {
+        self.open_path_inner(network_path, initial_status, now, false)
+    }
+
+    fn open_path_inner(
+        &mut self,
+        network_path: FourTuple,
+        initial_status: PathStatus,
+        now: Instant,
+        keep_spare: bool,
     ) -> Result<PathId, PathError> {
         let Some(max_path_id) = self.max_path_id() else {
             return Err(PathError::MultipathNotNegotiated);
@@ -582,9 +616,10 @@ impl Connection {
             .unwrap_or(PathId::ZERO)
             .saturating_add(1u8);
 
-        if path_id > max_path_id {
+        let last_required = if keep_spare { path_id.next() } else { path_id };
+        if last_required > max_path_id || (keep_spare && last_required == path_id) {
             eprintln!(
-                "[DEBUG-udp-handoff] proto-path-resource-blocked reason=MaxPathIdReached connection={:p} requested={path_id:?} local_max={:?} remote_max={:?} active={:?} abandoned={:?} remote_cids={:?} network_path={network_path:?}",
+                "[DEBUG-udp-handoff] proto-path-resource-blocked reason=MaxPathIdReached connection={:p} requested={last_required:?} local_max={:?} remote_max={:?} active={:?} abandoned={:?} remote_cids={:?} network_path={network_path:?}",
                 self,
                 self.local_max_path_id,
                 self.remote_max_path_id,
@@ -595,9 +630,12 @@ impl Connection {
             self.spaces[SpaceId::Data].pending.paths_blocked = Some(self.remote_max_path_id);
             return Err(PathError::MaxPathIdReached);
         }
-        if !self.remote_cids.contains_key(&path_id) {
+        if let Some(missing) = [path_id, last_required]
+            .into_iter()
+            .find(|id| !self.remote_cids.contains_key(id))
+        {
             eprintln!(
-                "[DEBUG-udp-handoff] proto-path-resource-blocked reason=RemoteCidsExhausted connection={:p} requested={path_id:?} local_max={:?} remote_max={:?} active={:?} abandoned={:?} remote_cids={:?} network_path={network_path:?}",
+                "[DEBUG-udp-handoff] proto-path-resource-blocked reason=RemoteCidsExhausted connection={:p} requested={missing:?} local_max={:?} remote_max={:?} active={:?} abandoned={:?} remote_cids={:?} network_path={network_path:?}",
                 self,
                 self.local_max_path_id,
                 self.remote_max_path_id,
@@ -608,7 +646,7 @@ impl Connection {
             self.spaces[SpaceId::Data]
                 .pending
                 .path_cids_blocked
-                .insert(path_id, VarInt(0));
+                .insert(missing, VarInt(0));
             return Err(PathError::RemoteCidsExhausted);
         }
 

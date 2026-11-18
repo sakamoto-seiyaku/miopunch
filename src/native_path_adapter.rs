@@ -10,8 +10,7 @@ use iroh::{TransportAddr, endpoint::ControlHandle};
 
 use crate::{
     admission_gate::{AdmissionGate, PathQualification},
-    connection_coordinator::PreparedPath,
-    connection_coordinator::connection_diagnostic::AttemptLog,
+    connection_coordinator::{PreparedPath, ProtectedAttempt},
     control_session::ControlSession,
     nat_connection::{NatConnector, PreparedUdpPath},
     tcp_punch::{PreparedTcpPath, TcpPunch},
@@ -76,14 +75,15 @@ impl NativePathAdapter {
         Ok(())
     }
 
-    pub(crate) async fn prepare(
+    async fn prepare(
         &self,
         kind: NativeMechanism,
         original: &ControlHandle,
         gate: &AdmissionGate,
         active_control: Option<&ControlHandle>,
-        log: AttemptLog,
+        attempt: ProtectedAttempt,
     ) -> io::Result<NativeCandidate> {
+        let log = attempt.log;
         let existing_paths: Vec<_> = original
             .paths()
             .iter()
@@ -104,7 +104,7 @@ impl NativePathAdapter {
                 };
                 PreparedNative::Udp(
                     self.udp
-                        .prepare_upgrade(&control.with_diagnostic(log), gate)
+                        .prepare_upgrade(&control.with_diagnostic(log), gate, attempt.deadline)
                         .await?,
                 )
             }
@@ -160,7 +160,10 @@ impl NativePathAdapter {
             owns_path: false,
         };
         candidate.check(original, gate)?;
-        candidate.owns_path = !existing_paths.contains(&candidate.path_id(original)?);
+        candidate.owns_path = !matches!(
+            candidate.prepared,
+            PreparedNative::Udp(PreparedUdpPath::Direct(_))
+        ) && !existing_paths.contains(&candidate.path_id(original)?);
         Ok(candidate)
     }
 
@@ -173,9 +176,9 @@ impl NativePathAdapter {
         gate: &AdmissionGate,
         tcp: bool,
         udp: bool,
-        log: AttemptLog,
+        attempt: ProtectedAttempt,
     ) -> io::Result<PreparedPath> {
-        self.prepare_paths(original, gate, tcp, udp, None, log)
+        self.prepare_paths(original, gate, tcp, udp, None, attempt)
             .await
     }
 
@@ -186,9 +189,9 @@ impl NativePathAdapter {
         gate: &AdmissionGate,
         tcp: bool,
         udp: bool,
-        log: AttemptLog,
+        attempt: ProtectedAttempt,
     ) -> io::Result<PreparedPath> {
-        self.prepare_paths(original, gate, tcp, udp, Some(control), log)
+        self.prepare_paths(original, gate, tcp, udp, Some(control), attempt)
             .await
     }
 
@@ -199,12 +202,18 @@ impl NativePathAdapter {
         tcp: bool,
         udp: bool,
         active_control: Option<&ControlHandle>,
-        log: AttemptLog,
+        attempt: ProtectedAttempt,
     ) -> io::Result<PreparedPath> {
         let pending_admission = active_control.is_none();
         if tcp {
             match self
-                .prepare(NativeMechanism::Tcp, original, gate, active_control, log)
+                .prepare(
+                    NativeMechanism::Tcp,
+                    original,
+                    gate,
+                    active_control,
+                    attempt,
+                )
                 .await
             {
                 Ok(candidate) => return candidate.into_shared(original, gate, pending_admission),
@@ -220,7 +229,13 @@ impl NativePathAdapter {
         }
         if udp {
             return self
-                .prepare(NativeMechanism::Udp, original, gate, active_control, log)
+                .prepare(
+                    NativeMechanism::Udp,
+                    original,
+                    gate,
+                    active_control,
+                    attempt,
+                )
                 .await?
                 .into_shared(original, gate, pending_admission);
         }
@@ -281,11 +296,16 @@ impl NativeCandidate {
     }
 
     fn path_id(&self, original: &ControlHandle) -> io::Result<String> {
+        let exact = match &self.prepared {
+            PreparedNative::Udp(PreparedUdpPath::Direct(path)) => Some(path.id),
+            _ => None,
+        };
         original
             .paths()
             .iter()
             .find(|path| {
                 path.remote_addr() == &self.route
+                    && exact.is_none_or(|id| path.id() == id)
                     && self
                         .local_socket
                         .is_none_or(|local| path.local_socket_id() == Some(local))
@@ -320,12 +340,16 @@ impl NativeCandidate {
     }
 
     fn into_shared(
-        self,
+        mut self,
         original: &ControlHandle,
         gate: &AdmissionGate,
         pending_admission: bool,
     ) -> io::Result<PreparedPath> {
         let path_id = self.path_id(original)?;
+        let tentative = match &mut self.prepared {
+            PreparedNative::Udp(PreparedUdpPath::Direct(path)) => path.candidate.take(),
+            _ => None,
+        };
         let route = self.route.clone();
         let kind = self.kind;
         let owns_path = self.owns_path;
@@ -347,7 +371,7 @@ impl NativeCandidate {
         let rollback_original = original.clone();
         let rollback_route = route.clone();
         let rollback_path_id = path_id.clone();
-        Ok(PreparedPath::candidate(original, route, move || {
+        let mut prepared = PreparedPath::candidate(original, route, move || {
             let original = &current_original;
             if !qualification.is_current()
                 || !generation.is_current()
@@ -407,6 +431,12 @@ impl NativeCandidate {
                 }
             }
             drop(candidate);
-        }))
+        });
+        if let Some(path) = tentative {
+            // A local retain precedes the peer's COMMITTED on C. Keep the
+            // exact path owner until the coordinator finishes that exchange.
+            prepared = prepared.with_commit(move || path.retain());
+        }
+        Ok(prepared)
     }
 }

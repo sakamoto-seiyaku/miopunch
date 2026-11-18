@@ -4,13 +4,13 @@
 Run inside the existing isolated privileged NAT container. This reuses the
 already qualified topology, not the historical worker or product wire.
 """
+import argparse
 import pathlib
 import subprocess
-import sys
 import tempfile
 
 
-def fixture_source(repo):
+def fixture_source(repo, control_delay_ms=0):
     source = (repo / "scripts/udp_nat_lab.sh").read_text()
     source = source[:source.index("# Endpoint-independent mapping")]
     source = source.replace("positive|no_prime|path_id_retry|blocked|wrong|stale|control_cut", "udp|tcp|fallback|blocked|asymmetric")
@@ -37,12 +37,23 @@ cleanup() {
   exit "$original_exit"
 }
 ''' + source[end:]
+    source += f"\ncontrol_delay_ms={control_delay_ms}\n"
     source += r'''
 # Existing supported TCP NAT condition: silently discard unsolicited SYNs.
 for nat in "$nat_a" "$nat_b"; do
   ip netns exec "$nat" iptables -A INPUT -i wan0 -p tcp --syn -j DROP
 done
 ip netns exec "$wan" sysctl -qw net.ipv4.ip_forward=1
+if (( control_delay_ms > 0 )); then
+  # One delayed broker egress per QUIC direction. Leave observation and
+  # peer UDP unshaped so a stalled exchange is visible independently.
+  for interface in wan-a wan-b; do
+    ip netns exec "$wan" tc qdisc add dev "$interface" root handle 1: prio
+    ip netns exec "$wan" tc qdisc add dev "$interface" parent 1:3 handle 30: netem delay "${control_delay_ms}ms"
+    ip netns exec "$wan" tc filter add dev "$interface" parent 1: protocol ip pref 1 flower ip_proto tcp src_port 1883 flowid 1:3
+    ip netns exec "$wan" tc qdisc show dev "$interface" >> "$evidence/control-delay.txt"
+  done
+fi
 if [[ $case_name == fallback || $case_name == blocked ]]; then
   for protocol in tcp udp; do
     if [[ $protocol == udp && $case_name == fallback ]]; then continue; fi
@@ -116,12 +127,15 @@ echo "PASS common SDK native NAT case=$case_name"
 
 
 def main():
-    worker, output = map(pathlib.Path, sys.argv[1:3])
-    case = sys.argv[3]
-    if case not in {"udp", "tcp", "fallback", "blocked", "asymmetric"}:
-        raise SystemExit("use udp, tcp, fallback, blocked or asymmetric")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("worker", type=pathlib.Path)
+    parser.add_argument("output", type=pathlib.Path)
+    parser.add_argument("case", choices=["udp", "tcp", "fallback", "blocked", "asymmetric"])
+    parser.add_argument("--control-delay-ms", type=int, default=0)
+    args = parser.parse_args()
+    worker, output, case = args.worker, args.output, args.case
     output.mkdir(parents=True, exist_ok=True)
-    source = fixture_source(pathlib.Path(__file__).resolve().parents[1])
+    source = fixture_source(pathlib.Path(__file__).resolve().parents[1], args.control_delay_ms)
     (output / "fixture.sh").write_text(source)
     with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", prefix="mio79-") as script:
         script.write(source)

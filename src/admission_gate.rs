@@ -52,6 +52,7 @@ struct Session {
     alpn: Vec<u8>,
     proof: Option<Arc<BootstrapProof>>,
     client: bool,
+    direct_candidates: crate::nat_direct::CandidateProgress,
 }
 
 impl Drop for Session {
@@ -596,6 +597,16 @@ impl AdmissionGate {
         })
     }
 
+    pub(crate) fn with_direct_candidates<T>(
+        &self,
+        connection: &impl AuthenticatedControl,
+        update: impl FnOnce(&mut crate::nat_direct::CandidateProgress) -> T,
+    ) -> Option<T> {
+        let mut state = self.state.lock().expect("admission policy lock");
+        let session = state.sessions.get_mut(&connection.stable_id())?;
+        Some(update(&mut session.direct_candidates))
+    }
+
     /// Borrow the exact connection's completed SCRAM fact for a restricted
     /// history handler. It cannot be transferred to another connection, and a
     /// policy change removes the fact and closes its session.
@@ -805,6 +816,7 @@ impl AdmissionGate {
                 alpn: connection.alpn().to_vec(),
                 proof,
                 client: connection.side().is_client(),
+                direct_candidates: Default::default(),
             };
             if !session.valid(&state.policy) {
                 return Err(());

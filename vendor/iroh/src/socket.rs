@@ -1774,6 +1774,39 @@ impl EndpointInner {
         #[cfg(not(wasm_browser))] local: Option<transports::LocalSocketBinding>,
         #[cfg(wasm_browser)] _local: Option<()>,
     ) -> std::io::Result<()> {
+        self.request_udp_path(
+            remote,
+            conn_id,
+            addr,
+            #[cfg(not(wasm_browser))]
+            local,
+            #[cfg(wasm_browser)]
+            None,
+            false,
+        )
+        .await
+        .map(|_| ())
+    }
+
+    pub(crate) async fn open_udp_candidate(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        addr: SocketAddr,
+    ) -> io::Result<Option<crate::endpoint::UdpCandidatePath>> {
+        self.request_udp_path(remote, conn_id, addr, None, true)
+            .await
+    }
+
+    async fn request_udp_path(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        addr: SocketAddr,
+        #[cfg(not(wasm_browser))] local: Option<transports::LocalSocketBinding>,
+        #[cfg(wasm_browser)] _local: Option<()>,
+        keep_spare: bool,
+    ) -> io::Result<Option<crate::endpoint::UdpCandidatePath>> {
         #[cfg(not(wasm_browser))]
         if local.is_some_and(|binding| {
             !binding.local_addr.is_ipv4()
@@ -1795,6 +1828,7 @@ impl EndpointInner {
                     remote: addr,
                     #[cfg(not(wasm_browser))]
                     local,
+                    keep_spare,
                     tx,
                 },
             )

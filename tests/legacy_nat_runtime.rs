@@ -2,7 +2,7 @@
 #[path = "support/control_handoff.rs"]
 mod handoff;
 use std::{
-    net::Ipv4Addr,
+    net::{Ipv4Addr, SocketAddr},
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -20,7 +20,371 @@ use miopunch_native_probe::{
     nat_mapping::NodeProbeBudget,
     nat_punch::{self, ExecutionStatus, MappingSnapshot},
     nat_selector::{Analyzer, BehaviorId, NatType, Role},
+    native_network::NativeNetwork,
 };
+
+#[tokio::test]
+async fn direct_upgrade_rejects_invalid_final_result_without_punching() {
+    use miopunch_native_probe::control_session::CommitError;
+    let (_directories, visitor, pair) = native_upgrade_pair(&[], false).await;
+    let wrong_nonce = [1u8; 16];
+    let nonce = [0u8; 16];
+    for reply in [
+        serde_json::json!({"Result":{"nonce":wrong_nonce,"available":false}}),
+        serde_json::json!({"Ready":{"nonce":nonce}}),
+    ] {
+        let (peer, mut client) = pair.connect().await;
+        let stable_id = client.stable_id();
+        client.queue_business(b"pending business".to_vec()).unwrap();
+        let (result, ()) = tokio::join!(
+            visitor.upgrade_udp(client),
+            scripted_direct_reply(&peer, reply)
+        );
+        let Err(CommitError::Retryable { error, session }) = result else {
+            panic!("expected a rejected final Result on the original session");
+        };
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData, "{error}");
+        assert!(error.to_string().starts_with("unified/InvalidControl"));
+        assert_eq!(session.stable_id(), stable_id);
+    }
+    pair.close().await;
+}
+
+async fn native_upgrade_pair(
+    advertised: &[SocketAddr],
+    relay: bool,
+) -> (tempfile::TempDir, NativeNetwork, Pair) {
+    let directories = tempfile::tempdir().unwrap();
+    let path = directories.path().join("visitor");
+    let visitor = NativeNetwork::create(&path).await.unwrap();
+    let key = std::fs::read(path.join("node.key")).unwrap();
+    let key = SecretKey::from_bytes(&key.try_into().unwrap());
+    let pair = Pair::build(
+        Ipv4Addr::LOCALHOST.into(),
+        false,
+        Some((key, visitor.admission_gate())),
+        advertised,
+        relay,
+    )
+    .await;
+    (directories, visitor, pair)
+}
+
+async fn scripted_direct_reply(peer: &ControlSession, reply: serde_json::Value) {
+    let nonce = [0u8; 16];
+    let exchanges = [
+        (
+            "Hello",
+            serde_json::json!({"Offer":{"nonce":nonce,"addresses":[]}}),
+        ),
+        ("Offer", serde_json::json!({"Ready":{"nonce":nonce}})),
+        ("Result", reply),
+    ];
+    for (expected, reply) in exchanges {
+        let (exchange, _) = direct_frame(peer, expected).await;
+        send_direct_frame(&exchange, reply).await;
+    }
+}
+
+async fn direct_frame(
+    peer: &ControlSession,
+    kind: &str,
+) -> (iroh::endpoint::ControlExchange, serde_json::Value) {
+    let exchange = peer.accept_control_exchange().await.unwrap();
+    let input = exchange.recv_message(DIRECT_FORMAT).await.unwrap();
+    let frame: serde_json::Value = serde_json::from_slice(&input).unwrap();
+    assert!(frame.get(kind).is_some(), "{frame}");
+    (exchange, frame[kind].clone())
+}
+
+const DIRECT_FORMAT: iroh::endpoint::ControlMessageFormat =
+    iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 16 * 1024 };
+
+async fn send_direct_frame(exchange: &iroh::endpoint::ControlExchange, frame: serde_json::Value) {
+    exchange
+        .send_message(DIRECT_FORMAT, &serde_json::to_vec(&frame).unwrap())
+        .await
+        .unwrap();
+}
+
+async fn receive_direct_candidate_result(
+    peer: &ControlSession,
+    nonce: [u8; 16],
+    addresses: &[SocketAddr],
+) -> iroh::endpoint::ControlExchange {
+    let (hello, _) = direct_frame(peer, "Hello").await;
+    send_direct_frame(
+        &hello,
+        serde_json::json!({"Offer":{"nonce":nonce,"addresses":addresses}}),
+    )
+    .await;
+    let (offer, _) = direct_frame(peer, "Offer").await;
+    send_direct_frame(&offer, serde_json::json!({"Ready":{"nonce":nonce}})).await;
+    let (result, received) = direct_frame(peer, "Result").await;
+    assert_eq!(received["available"], false);
+    result
+}
+
+#[tokio::test]
+async fn public_udp_upgrade_deadline_bounds_stalled_hello_and_result() {
+    use miopunch_native_probe::control_session::CommitError;
+    let (_directories, visitor, pair) = native_upgrade_pair(&[], false).await;
+    let nonce = [0u8; 16];
+    for stalled in ["Hello", "Result"] {
+        let deadline = n0_future::time::Instant::now() + Duration::from_millis(700);
+        let (peer, mut client) = pair.connect_until(Some(deadline)).await;
+        let original = client.stable_id();
+        client.queue_business(b"pending business".to_vec()).unwrap();
+        let peer_work = async {
+            let (hello, _) = direct_frame(&peer, "Hello").await;
+            if stalled == "Result" {
+                send_direct_frame(
+                    &hello,
+                    serde_json::json!({"Offer":{"nonce":nonce,"addresses":[]}}),
+                )
+                .await;
+                let (offer, _) = direct_frame(&peer, "Offer").await;
+                send_direct_frame(&offer, serde_json::json!({"Ready":{"nonce":nonce}})).await;
+                let (_result, _) = direct_frame(&peer, "Result").await;
+                return tokio::time::sleep_until((deadline + Duration::from_millis(200)).into())
+                    .await;
+            }
+            tokio::time::sleep_until((deadline + Duration::from_millis(200)).into()).await;
+        };
+        let bound = deadline + Duration::from_millis(100);
+        let (result, ()) = tokio::join!(
+            tokio::time::timeout_at(bound.into(), visitor.upgrade_udp(client)),
+            peer_work
+        );
+        let error = match result.expect("upgrade_udp exceeded its absolute deadline") {
+            Err(CommitError::Retryable { error, session }) => {
+                assert_eq!(session.stable_id(), original);
+                error
+            }
+            Err(CommitError::Terminal { error }) => error,
+            Ok(_) => panic!("a stalled peer did not finish the direct exchange"),
+        };
+        assert_eq!(
+            error.kind(),
+            std::io::ErrorKind::TimedOut,
+            "{stalled}: {error}"
+        );
+    }
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn public_udp_upgrade_advertises_all_address_classes_within_the_wire_limit() {
+    let mut advertised = (1..=90)
+        .map(|host| SocketAddr::from(([10, 2, 0, host], 2200)))
+        .collect::<Vec<_>>();
+    let v6: SocketAddr = "[2001:db8::2]:2200".parse().unwrap();
+    let public: SocketAddr = "198.51.100.4:2200".parse().unwrap();
+    let invalid: SocketAddr = "224.0.0.50:2200".parse().unwrap();
+    advertised.extend([v6, public, public, invalid]);
+    let (_directories, visitor, pair) = native_upgrade_pair(&advertised, false).await;
+    let deadline = n0_future::time::Instant::now() + Duration::from_secs(3);
+    let (peer, mut client) = pair.connect_until(Some(deadline)).await;
+    let nonce = [0u8; 16];
+    let mut advertised_across_rounds = std::collections::BTreeSet::new();
+    for _ in 0..2 {
+        let inspect_offer = async {
+            let (hello, _) = direct_frame(&peer, "Hello").await;
+            send_direct_frame(
+                &hello,
+                serde_json::json!({"Offer":{"nonce":nonce,"addresses":[]}}),
+            )
+            .await;
+            let (offer, frame) = direct_frame(&peer, "Offer").await;
+            let addresses: Vec<SocketAddr> =
+                serde_json::from_value(frame["addresses"].clone()).unwrap();
+            send_direct_frame(
+                &offer,
+                serde_json::json!({"Result":{"nonce":nonce,"available":false}}),
+            )
+            .await;
+            addresses
+        };
+        let (result, addresses) = tokio::join!(visitor.upgrade_udp(client), inspect_offer);
+        assert_eq!(addresses.len(), 64);
+        assert!(
+            addresses.contains(&v6) && addresses.contains(&public),
+            "{addresses:?}"
+        );
+        assert!(!addresses.contains(&invalid));
+        assert_eq!(
+            addresses
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            64
+        );
+        advertised_across_rounds.extend(addresses);
+        let Err(miopunch_native_probe::control_session::CommitError::Retryable { session, .. }) =
+            result
+        else {
+            panic!("scripted peer rejection must retain the original");
+        };
+        client = session;
+    }
+    assert!(
+        advertised
+            .iter()
+            .filter(|address| **address != invalid)
+            .all(|address| advertised_across_rounds.contains(address))
+    );
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn ordinary_candidate_probes_leave_a_real_slot_for_the_udp_winner() {
+    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    let (_directories, visitor, pair) = native_upgrade_pair(&[], true).await;
+    let (peer, mut client) = pair.connect().await;
+    assert!(
+        client
+            .control_handle()
+            .paths()
+            .iter()
+            .any(|path| path.is_relay())
+    );
+    assert!(!client.has_data_path());
+    let original = client.control_handle();
+    let real_path = pair.c.bound_sockets()[0];
+    let nonce = [0u8; 16];
+    let mut dead_sockets = Vec::new();
+    for subnet in [2, 3] {
+        for host in 2..8 {
+            let address = SocketAddr::from(([127, subnet, 0, host], 0));
+            dead_sockets.push(tokio::net::UdpSocket::bind(address).await.unwrap());
+        }
+    }
+    let addresses = dead_sockets
+        .iter()
+        .map(|socket| socket.local_addr().unwrap())
+        .collect::<Vec<_>>();
+    for round in 1..=2 {
+        let scripted = async {
+            let result = receive_direct_candidate_result(&peer, nonce, &addresses).await;
+            let winner_opened = if round == 2 {
+                original.open_data_path(real_path).await
+            } else {
+                Ok(())
+            };
+            send_direct_frame(&result, serde_json::json!({"Ready":{"nonce":nonce}})).await;
+            winner_opened
+        };
+        let (result, winner_opened) = tokio::join!(visitor.upgrade_udp(client), scripted);
+        assert!(
+            winner_opened.is_ok(),
+            "opening the actual winner was blocked: {winner_opened:?}"
+        );
+        let Err(miopunch_native_probe::control_session::CommitError::Retryable { session, .. }) =
+            result
+        else {
+            panic!("scripted peer rejection must retain the original");
+        };
+        assert_eq!(session.stable_id(), original.stable_id());
+        client = session;
+    }
+    let probed = dead_sockets
+        .iter()
+        .filter(|socket| socket.try_recv(&mut [0; 1500]).is_ok())
+        .count();
+    assert!(
+        probed > 8,
+        "only reached {probed} candidates across two rounds"
+    );
+    assert!(original.paths().iter().any(|path| path.is_relay()));
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while !client.has_data_path() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("the winner must establish on the original");
+    // Retire the slot witness. A legitimate negative Result on the next
+    // pressured round must use the real protected punching and commit APIs.
+    original
+        .paths()
+        .iter()
+        .find(|path| path.is_ip())
+        .unwrap()
+        .close()
+        .unwrap();
+    let ids = (original.stable_id(), peer.stable_id());
+    let peer_connector = NatConnector::new(None, UdpPolicy::default());
+    let mut client = client;
+    let mut peer = peer;
+    client.queue_business(b"queued client".to_vec()).unwrap();
+    peer.queue_business(b"queued peer".to_vec()).unwrap();
+    let peer_upgrade = async {
+        let result = receive_direct_candidate_result(&peer, nonce, &addresses).await;
+        send_direct_frame(
+            &result,
+            serde_json::json!({"Result":{"nonce":nonce,"available":false}}),
+        )
+        .await;
+        let mut attempt = peer_connector.prepare(&peer, &pair.c_gate).await.unwrap();
+        peer_connector
+            .execute(&mut attempt, &peer, &pair.c_gate)
+            .await
+            .unwrap();
+        let data = attempt
+            .commit_winner_path(peer, &pair.c_gate)
+            .await
+            .unwrap();
+        (attempt, data)
+    };
+    let (visitor_upgrade, (mut peer_attempt, mut peer_data)) =
+        tokio::join!(visitor.upgrade_udp(client), peer_upgrade);
+    let mut visitor_upgrade = visitor_upgrade.unwrap();
+    assert!(visitor_upgrade.attempt.is_some());
+    assert_eq!(
+        visitor_upgrade
+            .data
+            .take_pending_business()
+            .pop_front()
+            .unwrap(),
+        b"queued client"
+    );
+    assert_eq!(
+        peer_data.take_pending_business().pop_front().unwrap(),
+        b"queued peer"
+    );
+    assert_eq!(
+        (
+            visitor_upgrade.data.connection().stable_id(),
+            peer_data.connection().stable_id()
+        ),
+        ids
+    );
+    for connection in [visitor_upgrade.data.connection(), peer_data.connection()] {
+        assert!(connection.paths().iter().any(|path| path.is_relay()));
+        assert!(
+            connection
+                .paths()
+                .iter()
+                .any(|path| path.is_ip() && path.is_selected())
+        );
+    }
+    let (client_bytes, peer_bytes) = tokio::join!(
+        visitor.udp_connector().exchange_upgrade_business(
+            &mut visitor_upgrade,
+            &pair.v_gate,
+            b"visitor payload"
+        ),
+        peer_connector.exchange_business(
+            &mut peer_attempt,
+            &peer_data,
+            &pair.c_gate,
+            b"peer payload"
+        )
+    );
+    assert_eq!(client_bytes.unwrap(), b"peer payload");
+    assert_eq!(peer_bytes.unwrap(), b"visitor payload");
+    pair.close().await;
+}
 
 #[tokio::test]
 async fn formal_entry_observes_selects_executes_and_confirms_original_business() {
@@ -268,6 +632,7 @@ struct Pair {
     c_gate: AdmissionGate,
     v_gate: AdmissionGate,
     observers: RelayMap,
+    relay: Option<iroh::RelayUrl>,
     _servers: Vec<server::Server>,
 }
 
@@ -285,6 +650,16 @@ impl Pair {
     }
 
     async fn with_observers(bind: std::net::IpAddr, observe: bool) -> Self {
+        Self::build(bind, observe, None, &[], false).await
+    }
+
+    async fn build(
+        bind: std::net::IpAddr,
+        observe: bool,
+        visitor: Option<(SecretKey, AdmissionGate)>,
+        advertised: &[SocketAddr],
+        use_relay: bool,
+    ) -> Self {
         let (certs, tls) = server::testing::self_signed_tls_certs_and_config();
         let mut servers = Vec::new();
         let mut configs = Vec::new();
@@ -303,28 +678,35 @@ impl Pair {
         }
         let observers = RelayMap::from_iter(configs);
         let c_key = SecretKey::generate();
-        let v_key = SecretKey::generate();
         let scope = AdmissionScope::new([62; 32], 1);
-        let c_gate = AdmissionGate::new(
-            c_key.public(),
-            scope.clone(),
-            Some(AdmissionSecret::from_saved([42; 32])),
-        );
-        let v_gate = AdmissionGate::new(
-            v_key.public(),
-            scope,
-            Some(AdmissionSecret::from_saved([42; 32])),
-        );
+        let secret = AdmissionSecret::from_saved([42; 32]);
+        let c_gate = AdmissionGate::new(c_key.public(), scope.clone(), Some(secret.clone()));
+        let (v_key, v_gate) = visitor.unwrap_or_else(|| {
+            let key = SecretKey::generate();
+            let gate = AdmissionGate::new(key.public(), scope.clone(), Some(secret.clone()));
+            (key, gate)
+        });
+        v_gate.rotate_secret(scope, secret);
         let members = [*c_key.public().as_bytes(), *v_key.public().as_bytes()];
         for gate in [&c_gate, &v_gate] {
             gate.update_authorization(members, []);
         }
         let mut endpoints = Vec::new();
         let mut receivers = Vec::new();
-        for (key, gate) in [(c_key, &c_gate), (v_key, &v_gate)] {
+        let relay = if use_relay {
+            let mut config = server::ServerConfig::default();
+            config.relay = Some(server::RelayConfig::new((Ipv4Addr::LOCALHOST, 0)));
+            let relay = server::Server::spawn(config).await.unwrap();
+            let url = relay.http_url().unwrap();
+            servers.push(relay);
+            Some(url)
+        } else {
+            None
+        };
+        for (key, gate, extra) in [(c_key, &c_gate, &[][..]), (v_key, &v_gate, advertised)] {
             let (pending, receive) = tokio::sync::mpsc::unbounded_channel();
             receivers.push(receive);
-            let endpoint = Endpoint::builder(presets::Minimal)
+            let mut builder = Endpoint::builder(presets::Minimal)
                 .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .secret_key(key)
                 .alpns(vec![CONTROL_ALPN.to_vec()])
@@ -333,7 +715,22 @@ impl Pair {
                 .unwrap()
                 .clear_relay_transports()
                 .observation_servers(observers.clone())
-                .ca_tls_config(CaTlsConfig::custom_roots(certs.clone()))
+                .ca_tls_config(CaTlsConfig::custom_roots(certs.clone()));
+            if let Some(url) = &relay {
+                use iroh::endpoint::{RelayResourcePolicy, RelayResourceUse};
+                let permitted = url.clone();
+                builder = builder
+                    .relay_mode(iroh::RelayMode::Custom(RelayMap::from_iter([
+                        RelayConfig::new(url.clone(), None),
+                    ])))
+                    .relay_resource_policy(RelayResourcePolicy::new(move |url, usage| {
+                        *url == permitted && matches!(usage, RelayResourceUse::DataRelay)
+                    }));
+            }
+            for addr in extra {
+                builder = builder.external_addr(*addr);
+            }
+            let endpoint = builder
                 .restricted_application(handoff::PendingDataPolicy {
                     gate: gate.clone(),
                     pending,
@@ -349,6 +746,11 @@ impl Pair {
             })
             .await
             .unwrap();
+            if relay.is_some() {
+                tokio::time::timeout(Duration::from_secs(5), endpoint.online())
+                    .await
+                    .unwrap();
+            }
             endpoints.push(endpoint);
         }
         let v = endpoints.pop().unwrap();
@@ -359,25 +761,48 @@ impl Pair {
             c_gate,
             v_gate,
             observers,
+            relay,
             _servers: servers,
             pending: Mutex::new(receivers),
         }
     }
 
     async fn connect(&self) -> (ControlSession, ControlSession) {
-        let target = EndpointAddr::new(self.c.id())
-            .with_addrs(self.c.bound_sockets().into_iter().map(TransportAddr::Ip));
+        self.connect_until(None).await
+    }
+
+    async fn connect_until(
+        &self,
+        deadline: Option<n0_future::time::Instant>,
+    ) -> (ControlSession, ControlSession) {
+        let target = EndpointAddr::new(self.c.id()).with_addrs(match &self.relay {
+            Some(url) => vec![TransportAddr::Relay(url.clone())],
+            None => self
+                .c
+                .bound_sockets()
+                .into_iter()
+                .map(TransportAddr::Ip)
+                .collect(),
+        });
         let c = self.c.clone();
         let v = self.v.clone();
         let accept = tokio::spawn(async move {
-            c.accept()
-                .await
-                .unwrap()
-                .await
-                .map_err(std::io::Error::other)
+            let incoming = c.accept().await.unwrap();
+            let incoming = if let Some(deadline) = deadline {
+                incoming.with_caller_deadline(deadline)
+            } else {
+                incoming
+            };
+            incoming.await.map_err(std::io::Error::other)
         });
         let dial = tokio::spawn(async move {
-            v.connect(target, CONTROL_ALPN)
+            let mut options = iroh::endpoint::ConnectOptions::new();
+            if let Some(deadline) = deadline {
+                options = options.with_caller_deadline(deadline);
+            }
+            v.connect_with_opts(target, CONTROL_ALPN, options)
+                .await
+                .map_err(std::io::Error::other)?
                 .await
                 .map_err(std::io::Error::other)
         });

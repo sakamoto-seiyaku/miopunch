@@ -371,14 +371,6 @@ impl ControlSession {
             .any(|path| matches!(path.remote_addr(), iroh_base::TransportAddr::Ip(_)))
     }
 
-    pub(crate) fn connection_paths(&self) -> Vec<iroh_base::TransportAddr> {
-        self.connection
-            .paths()
-            .iter()
-            .map(|path| path.remote_addr().clone())
-            .collect()
-    }
-
     pub(crate) fn has_data_path_from(
         &self,
         local: iroh::endpoint::LocalSocketBinding,

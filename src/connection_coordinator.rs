@@ -253,6 +253,7 @@ pub(crate) struct ProtectedAttempt {
     pub peer_runtime: Platform,
     pub mutual: u8,
     pub(crate) log: AttemptLog,
+    pub(crate) deadline: n0_future::time::Instant,
 }
 impl ProtectedAttempt {
     pub(crate) fn id_hex(self) -> String {
@@ -411,6 +412,7 @@ pub(crate) struct PreparedPath {
     current: Box<dyn Fn() -> io::Result<()> + Send + Sync>,
     retain: Option<Retain>,
     rollback: Option<Box<dyn FnOnce() + Send>>,
+    commit: Option<Box<dyn FnOnce() + Send>>,
     log: Option<AttemptLog>,
 }
 impl PreparedPath {
@@ -428,6 +430,7 @@ impl PreparedPath {
             current: Box::new(current),
             retain: None,
             rollback: None,
+            commit: None,
             log: None,
         }
     }
@@ -456,6 +459,16 @@ impl PreparedPath {
     pub(crate) fn with_rollback(mut self, rollback: impl FnOnce() + Send + 'static) -> Self {
         self.rollback = Some(Box::new(rollback));
         self
+    }
+    pub(crate) fn with_commit(mut self, commit: impl FnOnce() + Send + 'static) -> Self {
+        self.commit = Some(Box::new(commit));
+        self
+    }
+    fn committed(&mut self) {
+        if let Some(commit) = self.commit.take() {
+            commit();
+        }
+        self.rollback = None;
     }
     fn check(
         &self,
@@ -1501,6 +1514,7 @@ pub(crate) async fn prepare_control_offer(
     connection: &(impl AuthenticatedControl + ?Sized),
     purpose: SessionPurpose,
     local: RuntimeCapabilities,
+    deadline: n0_future::time::Instant,
 ) -> io::Result<ControlOffer> {
     let role = AttemptRole::initial(connection);
     let mut log = AttemptLog::for_dial(role, connection.diagnostic_dial());
@@ -1521,7 +1535,9 @@ pub(crate) async fn prepare_control_offer(
         })
         .await?;
     log.phase("hello", json!({"purpose":purpose.label()}))
-        .run(prepare_control_hello(purpose, local, role, log, exchange))
+        .run(prepare_control_hello(
+            purpose, local, role, log, exchange, deadline,
+        ))
         .await
 }
 
@@ -1531,6 +1547,7 @@ async fn prepare_control_hello(
     role: AttemptRole,
     log: AttemptLog,
     exchange: ControlExchange,
+    deadline: n0_future::time::Instant,
 ) -> io::Result<ControlOffer> {
     let nonce: [u8; 16] = rand::random();
     let mut frame = [0; FRAME_LEN];
@@ -1614,6 +1631,7 @@ async fn prepare_control_hello(
             peer_runtime,
             mutual: local.permitted & peer[9],
             log,
+            deadline,
         },
     })
 }
@@ -1740,7 +1758,7 @@ impl PreparedAdmission {
             "probeWatermark":prepared.watermark,"authorizationRevision":revision});
         adapter.committed(connection, report.clone());
         println!("{report}");
-        prepared.rollback = None;
+        prepared.committed();
         self.cancellation.0 = None;
         Ok(())
         }).await
@@ -1770,7 +1788,10 @@ pub(crate) async fn prepare_control_session<
         // Actual support remains visible, but A permits no data carrier.
         local.permitted = 0;
     }
-    let offer = prepare_control_offer(connection, purpose, local).await?;
+    let deadline = connection
+        .caller_deadline()
+        .unwrap_or_else(|| crate::connection_budget::deadline(None));
+    let offer = prepare_control_offer(connection, purpose, local, deadline).await?;
     let peer = offer.peer;
     let attempt = offer.attempt;
     if purpose == SessionPurpose::AdmissionRequest {
@@ -1829,6 +1850,12 @@ pub(crate) async fn prepare_control_session<
                         .starts_with("unified/IdentityOrAdmissionRejected")
                 {
                     return Err(error);
+                }
+                if n0_future::time::Instant::now() >= attempt.deadline {
+                    return Err(io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        "unified caller deadline exceeded",
+                    ));
                 }
                 // The original absolute context remains in force for the next
                 // permitted candidate; failed RTC does not mark its node offline.
@@ -2254,6 +2281,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
         peer_runtime: peer_hello.runtime,
         mutual: local.permitted & peer_hello.permitted,
         log,
+        deadline: attempt.deadline,
     };
     adapter
         .check(&original, SessionPurpose::MemberBusiness)
@@ -2294,6 +2322,9 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
                     || error.to_string().starts_with("unified/InvalidControl")
                 {
                     return Err(error);
+                }
+                if n0_future::time::Instant::now() >= attempt.deadline {
+                    return Err(control_error("DeadlineExceeded"));
                 }
             }
         }
@@ -2412,7 +2443,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
                 return Err(control_error("IdentityOrAdmissionRejected"));
             }
             prepared.check(&original, true)?;
-            prepared.rollback = None;
+            prepared.committed();
             adapter.active_diagnostic(&original, control, "rollback-disarmed");
             Ok::<_, io::Error>(())
         })

@@ -20,6 +20,15 @@ use std::{
     },
     time::Instant,
 };
+use tokio::time::Instant as TokioInstant;
+
+fn upgrade_deadline_error() -> io::Error {
+    io::Error::new(io::ErrorKind::TimedOut, "unified caller deadline exceeded")
+}
+
+fn upgrade_cancelled_error() -> io::Error {
+    io::Error::new(io::ErrorKind::Interrupted, "UDP upgrade canceled")
+}
 
 /// Local permission and maintenance ceilings. They never shrink a legacy plan.
 #[derive(Clone, Debug)]
@@ -405,8 +414,22 @@ impl NatConnector {
         control: ControlSession,
         gate: &AdmissionGate,
     ) -> Result<UdpUpgrade, CommitError> {
-        let prepared = match self.prepare_upgrade(&control, gate).await {
+        let deadline = crate::connection_budget::deadline(control.endpoint().caller_deadline());
+        let cancellation = control.endpoint().attempt_cancellation();
+        let cancelled = || async {
+            match &cancellation {
+                Some(token) => token.cancelled().await,
+                None => std::future::pending().await,
+            }
+        };
+        let prepared = tokio::select! {
+            biased;
+            _ = cancelled() => Err(upgrade_cancelled_error()),
+            result = self.prepare_upgrade(&control, gate, deadline) => result,
+        };
+        let prepared = match prepared {
             Ok(prepared) => prepared,
+            Err(error) if control.is_closed() => return Err(CommitError::Terminal { error }),
             Err(error) => {
                 return Err(CommitError::Retryable {
                     error,
@@ -414,12 +437,29 @@ impl NatConnector {
                 });
             }
         };
-        self.commit_prepared(control, gate, prepared).await
+        if TokioInstant::now() >= TokioInstant::from(deadline) {
+            return Err(CommitError::Retryable {
+                error: upgrade_deadline_error(),
+                session: control,
+            });
+        }
+        // Once commitment starts, the handoff owns the restricted session and
+        // its queue. Dropping that work closes the original through its guard.
+        tokio::select! {
+            biased;
+            _ = cancelled() => Err(CommitError::Terminal {
+                error: upgrade_cancelled_error(),
+            }),
+            _ = tokio::time::sleep_until(deadline.into()) => Err(CommitError::Terminal {
+                error: upgrade_deadline_error(),
+            }),
+            result = self.commit_prepared(control, gate, prepared) => result,
+        }
     }
 
     /// Preserve the existing commit boundary while a common coordinator owns
     /// capability negotiation, fresh path proof and bilateral readiness.
-    pub(crate) async fn commit_prepared(
+    async fn commit_prepared(
         &self,
         control: ControlSession,
         gate: &AdmissionGate,
@@ -435,7 +475,7 @@ impl NatConnector {
                     direct_scope: None,
                 })
             }
-            PreparedUdpPath::Direct(direct) => {
+            PreparedUdpPath::Direct(mut direct) => {
                 let data = self.commit_checked(control, gate, None).await?;
                 if !self.udp_enabled()
                     || !direct.generation.is_current()
@@ -453,6 +493,7 @@ impl NatConnector {
                         ),
                     });
                 }
+                direct.retain();
                 Ok(UdpUpgrade {
                     data,
                     attempt: None,
@@ -553,7 +594,12 @@ impl NatConnector {
         &self,
         control: &ControlSession,
         gate: &AdmissionGate,
+        deadline: n0_future::time::Instant,
     ) -> io::Result<PreparedUdpPath> {
+        let deadline = TokioInstant::from(deadline);
+        if TokioInstant::now() >= deadline {
+            return Err(upgrade_deadline_error());
+        }
         self.check(control, gate)?;
         let log = control.diagnostic();
         log.event(
@@ -582,7 +628,11 @@ impl NatConnector {
         let _direct_allowance =
             direct_allowance.ok_or_else(|| io::Error::other("NAT direct budget insufficient"))?;
         if let Some(direct) = self
-            .guard(control, gate, crate::nat_direct::attempt(control, gate))
+            .guard(
+                control,
+                gate,
+                crate::nat_direct::attempt(control, gate, deadline),
+            )
             .await?
         {
             direct.check(control, gate)?;
@@ -593,6 +643,18 @@ impl NatConnector {
             );
             return Ok(PreparedUdpPath::Direct(direct));
         }
+        tokio::select! {
+            biased;
+            _ = tokio::time::sleep_until(deadline) => Err(upgrade_deadline_error()),
+            result = self.prepare_enhanced_path(control, gate) => result,
+        }
+    }
+
+    async fn prepare_enhanced_path(
+        &self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+    ) -> io::Result<PreparedUdpPath> {
         for round in 0..self.max_rounds {
             println!(
                 "NAT_CONNECTION_ROUND number={} stable_id={}",

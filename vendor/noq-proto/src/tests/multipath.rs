@@ -2543,6 +2543,50 @@ fn paths_blocked_retransmission() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn tentative_path_waits_for_peer_cids_and_leaves_a_spare() -> TestResult {
+    let (mut pair, client_cfg) = ConnPair::builder().enable_multipath().build_pair();
+    let client_ch = pair.begin_connect(client_cfg);
+    pair.drive_client();
+    pair.drive_server();
+    pair.drive_client();
+    pair.drive_server();
+    // Hold the authenticated PATH_NEW_CONNECTION_ID packet while the rest of
+    // the handshake completes, then deliver that original packet.
+    let (_, delayed_cids) = pair.client.inbound.pop_last().unwrap();
+    pair.drive_client();
+    let server_ch = pair.server.assert_accept();
+    pair.finish_connect(client_ch, server_ch);
+    let mut pair = ConnPair::new(pair, client_ch, server_ch);
+    let server = pair.routes.public_server_addr();
+    let address = |i| FourTuple::from_remote(std::net::SocketAddr::new(server.ip(), i));
+    let now = pair.time;
+    assert_matches!(
+        pair.conn_mut(Client)
+            .open_path_ensure_with_spare(address(12000), PathStatus::Backup, now),
+        Err(crate::PathError::RemoteCidsExhausted)
+    );
+
+    pair.client.inbound.push(now, delayed_cids);
+    pair.drive_client();
+    for (expected, port) in (1u8..MAX_PATHS as u8 - 1).zip(12000..) {
+        let (id, existed) = pair.conn_mut(Client)
+            .open_path_ensure_with_spare(address(port), PathStatus::Backup, now)?;
+        assert_eq!(id, PathId::ZERO.saturating_add(expected));
+        assert!(!existed);
+    }
+    assert_matches!(
+        pair.conn_mut(Client)
+            .open_path_ensure_with_spare(address(13000), PathStatus::Backup, now),
+        Err(crate::PathError::MaxPathIdReached)
+    );
+    assert_eq!(
+        pair.open_path(Client, address(13000), PathStatus::Backup)?,
+        PathId::ZERO.saturating_add(MAX_PATHS as u8 - 1)
+    );
+    Ok(())
+}
+
 /// This test used to generate a PROTOCOL_VIOLATION error from just packet loss and delayed packets.
 ///
 /// The problem was receiving a PATH_CIDS_BLOCKED frame with path_id=1 and next_seq=1 when the

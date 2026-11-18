@@ -485,34 +485,60 @@ impl Connection {
         network_path: impl Into<FourTuple>,
         initial_status: PathStatus,
     ) -> OpenPath {
-        let network_path = network_path.into();
+        self.open_path_ensure_inner(network_path.into(), initial_status, false)
+            .0
+    }
+
+    /// Open a tentative path while leaving one more usable path ID and remote
+    /// CID. The boolean is true only if this invocation allocated the path.
+    pub fn open_path_ensure_with_spare(
+        &self,
+        network_path: impl Into<FourTuple>,
+        initial_status: PathStatus,
+    ) -> (OpenPath, bool) {
+        self.open_path_ensure_inner(network_path.into(), initial_status, true)
+    }
+
+    fn open_path_ensure_inner(
+        &self,
+        network_path: FourTuple,
+        initial_status: PathStatus,
+        keep_spare: bool,
+    ) -> (OpenPath, bool) {
         let mut state = self.0.lock_and_wake("open_path");
 
         let network_path = match normalize_network_path(network_path, &state.inner) {
             Ok(network_path) => network_path,
-            Err(err) => return OpenPath::rejected(err),
+            Err(err) => return (OpenPath::rejected(err), false),
         };
 
         let now = state.runtime.now();
-        let open_res = state
-            .inner
-            .open_path_ensure(network_path, initial_status, now);
+        let open_res = if keep_spare {
+            state
+                .inner
+                .open_path_ensure_with_spare(network_path, initial_status, now)
+        } else {
+            state
+                .inner
+                .open_path_ensure(network_path, initial_status, now)
+        };
         match open_res {
             Ok((path_id, existed)) if existed => {
                 let recv = state.open_path.get(&path_id).map(|tx| tx.subscribe());
                 drop(state);
-                match recv {
+                let open = match recv {
                     Some(recv) => OpenPath::new(path_id, recv, self.0.clone()),
                     None => OpenPath::ready(path_id, self.0.clone()),
-                }
+                };
+                (open, false)
             }
             Ok((path_id, _)) => {
                 let (tx, rx) = watch::channel(Ok(()));
                 state.open_path.insert(path_id, tx);
                 drop(state);
-                OpenPath::new(path_id, rx, self.0.clone())
+                (OpenPath::new(path_id, rx, self.0.clone()), true)
             }
-            Err(err) => OpenPath::rejected(err),
+            Err(err) => (OpenPath::rejected(err), false),
         }
     }
 

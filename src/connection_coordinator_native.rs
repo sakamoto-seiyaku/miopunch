@@ -652,7 +652,7 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                     .native
                     .as_ref()
                     .ok_or_else(|| control_error("DataPathUnavailable"))?
-                    .prepare_control_paths(connection, &self.0.gate, tcp, udp, attempt.log)
+                    .prepare_control_paths(connection, &self.0.gate, tcp, udp, attempt)
                     .await
             }
             _ => Err(control_error("DataPathUnavailable")),
@@ -679,7 +679,7 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                     .native
                     .as_ref()
                     .ok_or_else(|| control_error("DataPathUnavailable"))?
-                    .prepare_active_paths(original, control, &self.0.gate, tcp, udp, attempt.log)
+                    .prepare_active_paths(original, control, &self.0.gate, tcp, udp, attempt)
                     .await?;
                 prepared.log = Some(attempt.log);
                 attempt
