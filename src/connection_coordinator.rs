@@ -1,12 +1,20 @@
 //! Shared strict member connection coordination. Platform adapters own their
 //! gates and candidate resources; this module owns negotiation and release.
 use crate::control_protocol::AuthenticatedControl;
-use futures_util::FutureExt;
+use futures_util::{
+    FutureExt,
+    future::{Either, FusedFuture},
+};
 use iroh::{
     Endpoint, TransportAddr,
     endpoint::{Connection, ControlExchange, ControlMessageFormat},
 };
-use std::{future::Future, io, pin::Pin};
+use std::{
+    future::{Future, poll_fn},
+    io,
+    pin::Pin,
+    task::Poll,
+};
 
 #[doc(hidden)]
 #[path = "connection_diagnostic.rs"]
@@ -484,6 +492,10 @@ impl AttemptContext {
             cancellation,
         }
     }
+    fn child(&self) -> Self {
+        Self::new(self.deadline, self.cancellation.child_token())
+    }
+
     async fn run<T>(
         &self,
         work: impl Future<Output = Result<T, ConnectError>>,
@@ -635,6 +647,98 @@ impl ConnectionDelivery {
     }
 }
 
+struct QualifiedRoute {
+    delivery: ConnectionDelivery,
+    log: AttemptLog,
+}
+
+impl QualifiedRoute {
+    fn deliver(self, purpose: SessionPurpose) -> ConnectionDelivery {
+        self.log.event(
+            "dial-delivered",
+            "succeeded",
+            json!({"purpose":purpose.label()}),
+        );
+        self.delivery
+    }
+
+    fn discard(self) {
+        self.delivery.close(b"qualified route not selected");
+        self.log.event("dial-discarded", "cancelled", Value::Null);
+    }
+}
+
+/// Poll both groups before choosing so a terminal rejection takes precedence
+/// over a ready success, and two ready successes favor the active IP.
+async fn race_active_and_relay(
+    (active_attempt, active): (
+        &AttemptContext,
+        impl Future<Output = Result<QualifiedRoute, ContactDialFailure>>,
+    ),
+    (relay_attempt, relay): (
+        &AttemptContext,
+        impl Future<Output = Result<QualifiedRoute, ContactDialFailure>>,
+    ),
+) -> Result<QualifiedRoute, ContactDialFailure> {
+    use ContactDialFailure::{Terminal, Unavailable};
+    use Poll::{Pending, Ready};
+
+    let active_cancel = active_attempt.cancellation.drop_guard_ref();
+    let relay_cancel = relay_attempt.cancellation.drop_guard_ref();
+    let active = active.fuse();
+    let relay = relay.fuse();
+    futures_util::pin_mut!(active, relay);
+    let mut last_unavailable = None;
+    let selected = poll_fn(|cx| {
+        let active_result = active.as_mut().poll(cx);
+        if let Ready(Err(Terminal(error))) = active_result {
+            return Ready(Err(Terminal(error)));
+        }
+        match (active_result, relay.as_mut().poll(cx)) {
+            (active_result, Ready(Err(Terminal(error)))) => {
+                if let Ready(Ok(route)) = active_result {
+                    route.discard();
+                }
+                Ready(Err(Terminal(error)))
+            }
+            (Ready(Ok(active)), relay_result) => {
+                if let Ready(Ok(relay)) = relay_result {
+                    relay.discard();
+                }
+                Ready(Ok(Either::Left(active)))
+            }
+            (_, Ready(Ok(relay))) => Ready(Ok(Either::Right(relay))),
+            (active_result, relay_result) => {
+                for result in [active_result, relay_result] {
+                    if let Ready(Err(Unavailable(error))) = result {
+                        last_unavailable = Some(error);
+                    }
+                }
+                if active.is_terminated() && relay.is_terminated() {
+                    Ready(Err(Unavailable(
+                        last_unavailable
+                            .take()
+                            .unwrap_or(ConnectError::DataPathUnavailable),
+                    )))
+                } else {
+                    Pending
+                }
+            }
+        }
+    })
+    .await?;
+    Ok(match selected {
+        Either::Left(route) => {
+            active_cancel.disarm();
+            route
+        }
+        Either::Right(route) => {
+            relay_cancel.disarm();
+            route
+        }
+    })
+}
+
 /// An incoming attempt from either platform owner, preserving its capability.
 /// Neither variant exposes an early connection or converts between endpoints.
 pub enum CoordinatedIncoming {
@@ -777,7 +881,7 @@ impl ConnectionCoordinator {
         wire_alpn: &[u8],
         control_only: bool,
         mut log: AttemptLog,
-    ) -> Result<ConnectionDelivery, ContactDialFailure> {
+    ) -> Result<QualifiedRoute, ContactDialFailure> {
         if SessionPurpose::from_alpn(wire_alpn) != Some(purpose) {
             return Err(ContactDialFailure::Terminal(
                 ConnectError::ProtocolUnsupported,
@@ -889,7 +993,7 @@ impl ConnectionCoordinator {
                 }
             }
         };
-        match &result {
+        match result {
             Ok(delivery) => {
                 let id = delivery.stable_id();
                 log.route_phase_id = Some(phase.id());
@@ -898,12 +1002,8 @@ impl ConnectionCoordinator {
                 } else {
                     log.original = Some(id);
                 }
-                phase.finish_with("succeeded", json!({"deliveredStableId":id}));
-                log.event(
-                    "dial-delivered",
-                    "succeeded",
-                    json!({"purpose":purpose.label()}),
-                );
+                phase.finish_with("succeeded", json!({"qualifiedStableId":id}));
+                Ok(QualifiedRoute { delivery, log })
             }
             Err(error) => {
                 let (result, reason) = match error.error() {
@@ -916,9 +1016,9 @@ impl ConnectionCoordinator {
                     ConnectError::Transport(_) => ("failed", "transport"),
                 };
                 phase.finish_with(result, json!({"reason":reason}));
+                Err(error)
             }
         }
-        result
     }
 
     /// Keep each cold direct address inside this caller's original deadline.
@@ -933,7 +1033,7 @@ impl ConnectionCoordinator {
         wire_alpn: &[u8],
         control_only: bool,
         log: AttemptLog,
-    ) -> Result<ConnectionDelivery, ContactDialFailure> {
+    ) -> Result<QualifiedRoute, ContactDialFailure> {
         let mut last_unavailable = None;
         for (index, route) in routes.iter().enumerate() {
             let remaining = attempt
@@ -946,8 +1046,7 @@ impl ConnectionCoordinator {
             if share.is_zero() {
                 return Err(ContactDialFailure::Terminal(ConnectError::DeadlineExceeded));
             }
-            let route_attempt =
-                AttemptContext::new(attempt.deadline, attempt.cancellation.child_token());
+            let route_attempt = attempt.child();
             let data = iroh::EndpointAddr::new(id).with_addrs([route.clone()]);
             let mut work =
                 Box::pin(self.dial(data, purpose, &route_attempt, wire_alpn, control_only, log));
@@ -1045,7 +1144,7 @@ impl ConnectionCoordinator {
     ) -> Result<ConnectionDelivery, ConnectError> {
         let purpose =
             SessionPurpose::from_alpn(wire_alpn).ok_or(ConnectError::ProtocolUnsupported)?;
-        attempt
+        let qualified = attempt
             .run(async {
                 if purpose.requires_data() && self.permitted == 0 {
                     return Err(ConnectError::DataPathUnavailable);
@@ -1073,30 +1172,74 @@ impl ConnectionCoordinator {
                     matches!(address, TransportAddr::Ip(_))
                         && active_ips.iter().any(|active| active == address)
                 };
-                let mut last_unavailable = None;
                 // A currently open IP path is the strongest direct hint. Relay
                 // routes remain eligible on first contact, even without a
                 // cached peer path. Unverified or inactive IP announcements
                 // are held until member/public contact has had its turn.
-                let active_routes = target.addrs.iter().filter(|address| is_active_ip(address));
-                let relay_routes = target.addrs.iter().filter(|address| {
-                    matches!(address, TransportAddr::Relay(_))
-                        || matches!(address, TransportAddr::Custom(route)
+                let active_routes: Vec<_> = target
+                    .addrs
+                    .iter()
+                    .filter(|address| is_active_ip(address))
+                    .collect();
+                let relay_routes: Vec<_> = target
+                    .addrs
+                    .iter()
+                    .filter(|address| {
+                        matches!(address, TransportAddr::Relay(_))
+                            || matches!(address, TransportAddr::Custom(route)
                             if Some(route.id()) == self.member_data_id)
-                });
-                for route in active_routes.chain(relay_routes) {
-                    let data = iroh::EndpointAddr::new(target.id).with_addrs([route.clone()]);
-                    match self
-                        .dial(data, purpose, &attempt, wire_alpn, control_only, log)
-                        .await
-                    {
-                        Ok(connection) => return Ok(connection),
-                        Err(ContactDialFailure::Terminal(error)) => return Err(error),
-                        Err(ContactDialFailure::Unavailable(error)) => {
-                            last_unavailable = Some(error)
+                    })
+                    .collect();
+                let dial_group =
+                    async |routes: Vec<&TransportAddr>, route_attempt: &AttemptContext| {
+                        let mut last_error = ConnectError::DataPathUnavailable;
+                        for route in routes {
+                            let address =
+                                iroh::EndpointAddr::new(target.id).with_addrs([route.clone()]);
+                            match self
+                                .dial(
+                                    address,
+                                    purpose,
+                                    route_attempt,
+                                    wire_alpn,
+                                    control_only,
+                                    log,
+                                )
+                                .await
+                            {
+                                Err(ContactDialFailure::Unavailable(error)) => last_error = error,
+                                result => return result,
+                            }
                         }
-                    }
-                }
+                        Err(ContactDialFailure::Unavailable(last_error))
+                    };
+                let preferred = if active_routes.is_empty() || relay_routes.is_empty() {
+                    let routes = if active_routes.is_empty() {
+                        relay_routes
+                    } else {
+                        active_routes
+                    };
+                    dial_group(routes, &attempt).await
+                } else {
+                    let active_attempt = attempt.child();
+                    let relay_attempt = attempt.child();
+                    race_active_and_relay(
+                        (
+                            &active_attempt,
+                            Box::pin(dial_group(active_routes, &active_attempt)),
+                        ),
+                        (
+                            &relay_attempt,
+                            Box::pin(dial_group(relay_routes, &relay_attempt)),
+                        ),
+                    )
+                    .await
+                };
+                let mut last_unavailable = match preferred {
+                    Ok(route) => return Ok(route),
+                    Err(ContactDialFailure::Terminal(error)) => return Err(error),
+                    Err(ContactDialFailure::Unavailable(error)) => error,
+                };
                 let mut public_contact = target.clone();
                 public_contact.addrs.retain(|address| {
                     !matches!(address, TransportAddr::Ip(_) | TransportAddr::Relay(_))
@@ -1131,9 +1274,7 @@ impl ConnectionCoordinator {
                         {
                             Ok(connection) => return Ok(connection),
                             Err(ContactDialFailure::Terminal(error)) => return Err(error),
-                            Err(ContactDialFailure::Unavailable(error)) => {
-                                last_unavailable = Some(error)
-                            }
+                            Err(ContactDialFailure::Unavailable(error)) => last_unavailable = error,
                         }
                     }
                 }
@@ -1164,12 +1305,10 @@ impl ConnectionCoordinator {
                         {
                             Ok(connection) => return Ok(connection),
                             Err(ContactDialFailure::Terminal(error)) => return Err(error),
-                            Err(ContactDialFailure::Unavailable(error)) => {
-                                last_unavailable = Some(error)
-                            }
+                            Err(ContactDialFailure::Unavailable(error)) => last_unavailable = error,
                         }
                     }
-                    return Err(last_unavailable.unwrap_or(ConnectError::DataPathUnavailable));
+                    return Err(last_unavailable);
                 }
                 match self
                     .dial(
@@ -1184,7 +1323,7 @@ impl ConnectionCoordinator {
                 {
                     Ok(connection) => return Ok(connection),
                     Err(ContactDialFailure::Terminal(error)) => return Err(error),
-                    Err(ContactDialFailure::Unavailable(error)) => last_unavailable = Some(error),
+                    Err(ContactDialFailure::Unavailable(error)) => last_unavailable = error,
                 }
                 if !inactive_ips.is_empty() {
                     match self
@@ -1201,14 +1340,21 @@ impl ConnectionCoordinator {
                     {
                         Ok(connection) => return Ok(connection),
                         Err(ContactDialFailure::Terminal(error)) => return Err(error),
-                        Err(ContactDialFailure::Unavailable(error)) => {
-                            last_unavailable = Some(error)
-                        }
+                        Err(ContactDialFailure::Unavailable(error)) => last_unavailable = error,
                     }
                 }
-                Err(last_unavailable.unwrap_or(ConnectError::DataPathUnavailable))
+                Err(last_unavailable)
             })
-            .await
+            .await?;
+        if attempt.cancellation.is_cancelled() {
+            qualified.discard();
+            return Err(ConnectError::Cancelled);
+        }
+        if n0_future::time::Instant::now() >= attempt.deadline {
+            qualified.discard();
+            return Err(ConnectError::DeadlineExceeded);
+        }
+        Ok(qualified.deliver(purpose))
     }
     pub async fn accept(
         &self,

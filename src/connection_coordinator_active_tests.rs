@@ -899,3 +899,649 @@ async fn cold_admission_uses_reachable_ip_after_a_blackholed_first_candidate() {
         "the working route must share the original deadline"
     );
 }
+
+#[derive(Clone, Debug)]
+struct EchoMember(tokio::sync::mpsc::UnboundedSender<Connection>);
+
+impl iroh::protocol::ProtocolHandler for EchoMember {
+    async fn accept(&self, connection: Connection) -> Result<(), iroh::protocol::AcceptError> {
+        self.0
+            .send(connection.clone())
+            .map_err(iroh::protocol::AcceptError::from_err)?;
+        while let Ok((mut send, mut receive)) = connection.accept_bi().await {
+            let bytes = receive
+                .read_to_end(32)
+                .await
+                .map_err(iroh::protocol::AcceptError::from_err)?;
+            send.write_all(&bytes)
+                .await
+                .map_err(iroh::protocol::AcceptError::from_err)?;
+            send.finish()
+                .map_err(iroh::protocol::AcceptError::from_err)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
+struct ObserveControl(tokio::sync::mpsc::UnboundedSender<iroh::endpoint::ControlConnection>);
+
+impl iroh::protocol::ControlProtocolHandler for ObserveControl {
+    async fn accept(
+        &self,
+        connection: iroh::endpoint::ControlConnection,
+    ) -> Result<(), iroh::protocol::AcceptError> {
+        self.0
+            .send(connection)
+            .map_err(iroh::protocol::AcceptError::from_err)
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct PauseProtectedFile {
+    entered: Arc<tokio::sync::Notify>,
+    release: Arc<tokio::sync::Notify>,
+}
+
+impl iroh::endpoint::EndpointHooks for PauseProtectedFile {
+    async fn after_handshake(
+        &self,
+        connection: &Connection,
+    ) -> iroh::endpoint::AfterHandshakeOutcome {
+        if connection.alpn() == crate::file_transfer::FILE_ALPN {
+            self.entered.notify_one();
+            self.release.notified().await;
+        }
+        iroh::endpoint::AfterHandshakeOutcome::Accept
+    }
+}
+
+async fn echo_member(connection: &Connection) {
+    let (mut send, mut receive) = connection.open_bi().await.unwrap();
+    send.write_all(b"member request").await.unwrap();
+    send.finish().unwrap();
+    assert_eq!(receive.read_to_end(32).await.unwrap(), b"member request");
+}
+
+#[test]
+fn first_contact_relay_survives_a_blackholed_active_ip() {
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "connection_coordinator::active_commit_tests::first_contact_relay_fixture",
+            "--ignored",
+            "--nocapture",
+        ])
+        .output()
+        .unwrap();
+    println!("{}", String::from_utf8_lossy(&output.stdout));
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    eprint!("{stderr}");
+    assert!(output.status.success());
+
+    let records: Vec<Value> = stderr
+        .lines()
+        .filter_map(|line| serde_json::from_str(line).ok())
+        .collect();
+    for (stage, winner) in [
+        ("mixed-business", Some("relay")),
+        ("mixed-control", Some("relay")),
+        ("revoked-in-flight", None),
+        ("mixed-cancelled", None),
+        ("mixed-expired", None),
+        ("foreground-dropped", None),
+        ("direct-with-offline-relay", Some("ip")),
+    ] {
+        let start = records
+            .iter()
+            .position(|record| record["stage"] == stage)
+            .unwrap();
+        let attempt = &records[start + 1..];
+        let end = attempt
+            .iter()
+            .position(|record| record["event"] == "first-contact-fixture")
+            .unwrap();
+        let events: Vec<_> = attempt[..end]
+            .iter()
+            .filter(|record| record["role"] == "initiator")
+            .collect();
+        let route_events: Vec<_> = events
+            .iter()
+            .copied()
+            .filter(|event| event["phase"] == "route-dial")
+            .collect();
+
+        // Both routes start under the one attempt before either ends, and each
+        // settles exactly once. A one-route retry cannot satisfy this assertion.
+        assert_eq!(route_events.len(), 4, "{stage}");
+        let [ip, relay, ..] = route_events.as_slice() else {
+            unreachable!()
+        };
+        assert_eq!(
+            ip["detail"]["input"]["routeHints"][0]["kind"], "ip",
+            "{stage}"
+        );
+        assert_eq!(
+            relay["detail"]["input"]["routeHints"][0]["kind"], "relay",
+            "{stage}"
+        );
+        assert_eq!(ip["localAttemptId"], relay["localAttemptId"], "{stage}");
+        for started in [*ip, *relay] {
+            assert_eq!(started["result"], "started", "{stage}");
+            assert_eq!(
+                started["detail"]["input"]["routeMode"], "explicit",
+                "{stage}"
+            );
+            let phase_id = &started["detail"]["phaseId"];
+            let attempt_id = &started["localAttemptId"];
+            let route_kind = started["detail"]["input"]["routeHints"][0]["kind"].as_str();
+            let ended: Vec<_> = route_events[2..]
+                .iter()
+                .filter(|event| {
+                    &event["localAttemptId"] == attempt_id
+                        && &event["detail"]["phaseId"] == phase_id
+                })
+                .collect();
+            assert_eq!(ended.len(), 1, "{stage}");
+            let outcome = &ended[0]["result"];
+            if winner == route_kind {
+                assert_eq!(outcome, "succeeded", "{stage}");
+            } else if stage == "revoked-in-flight" && route_kind == Some("relay") {
+                assert_eq!(outcome, "failed", "{stage}");
+                assert_ne!(
+                    ended[0]["detail"]["output"]["reason"], "deadline",
+                    "{stage}"
+                );
+            } else if stage == "mixed-expired" {
+                assert!(outcome == "failed" || outcome == "cancelled", "{stage}");
+            } else {
+                assert_eq!(outcome, "cancelled", "{stage}");
+            }
+        }
+        let delivered: Vec<_> = events
+            .iter()
+            .filter(|event| event["phase"] == "dial-delivered")
+            .collect();
+        if let Some(winner) = winner {
+            assert_eq!(delivered.len(), 1, "{stage}");
+            let started = if winner == "ip" { ip } else { relay };
+            let delivery = delivered[0];
+            assert_eq!(
+                delivery["localAttemptId"], started["localAttemptId"],
+                "{stage}"
+            );
+            assert_eq!(
+                delivery["routePhaseId"], started["detail"]["phaseId"],
+                "{stage}"
+            );
+            assert!(
+                events.iter().any(|event| event["phase"] == "hello"
+                    && event["result"] == "succeeded"
+                    && event["localAttemptId"] == delivery["localAttemptId"]
+                    && event["routePhaseId"] == delivery["routePhaseId"]),
+                "{stage}"
+            );
+        } else {
+            assert!(delivered.is_empty(), "{stage}");
+        }
+    }
+}
+
+#[tokio::test]
+#[ignore = "run through first_contact_relay_survives_a_blackholed_active_ip to assert the timeline"]
+async fn first_contact_relay_fixture() {
+    let netem_ready = std::env::var_os("MIOPUNCH_134_NETEM_READY").map(std::path::PathBuf::from);
+    let window = if netem_ready.is_some() {
+        Duration::from_secs(20)
+    } else {
+        Duration::from_secs(2)
+    };
+
+    let (_directory, caller, responder) = admitted_pair().await;
+    let mut config = iroh_relay::server::ServerConfig::default();
+    config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let relay = iroh_relay::server::Server::spawn(config).await.unwrap();
+    let relay_route = TransportAddr::Relay(relay.http_url().unwrap());
+    for node in [&caller, &responder] {
+        node.admission_gate()
+            .register_protocol(crate::file_transfer::FILE_ALPN, ProtocolScope::Member);
+        let mut config = node.resource_configuration().unwrap();
+        config.maintenance.contact_timeout_ms = window.as_millis() as u64;
+        config.tcp_direct_disabled = true;
+        config.member_data_relay_disabled = true;
+        config.replacement = Some(vec![crate::resources::Resource {
+            url: relay.http_url().unwrap().to_string(),
+            uses: [crate::resources::ResourceUse::DataRelay].into(),
+            limitation: "owned first contact relay".into(),
+        }]);
+        node.save_resource_configuration(&config).unwrap();
+    }
+
+    let gate = caller.admission_gate();
+    let pause = PauseProtectedFile::default();
+    let (control_tx, mut controls) = tokio::sync::mpsc::unbounded_channel();
+    let (member_tx, mut members) = tokio::sync::mpsc::unbounded_channel();
+    let responder = responder
+        .maintain_network_with(Ipv4Addr::LOCALHOST, |router| {
+            router
+                .accept(MEMBER_ALPN, EchoMember(member_tx.clone()))
+                .accept(crate::file_transfer::FILE_ALPN, EchoMember(member_tx))
+                .accept_control(ADMISSION_REQUEST_ALPN, ObserveControl(control_tx))
+        })
+        .await
+        .unwrap();
+    let caller = caller
+        .maintain_network_with_endpoint(
+            Ipv4Addr::LOCALHOST,
+            |builder| builder.hooks(pause.clone()),
+            |router| router,
+        )
+        .await
+        .unwrap();
+    let _responder_activity = responder.business_activity();
+    let _caller_activity = caller.business_activity();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::join!(caller.endpoint().online(), responder.endpoint().online());
+    })
+    .await
+    .expect("the owned relay must be online for both members");
+
+    // An owned UDP router allows the same previously working address to drop
+    // packets silently while the original connection still has an active path.
+    let udp = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let direct = TransportAddr::Ip(udp.local_addr().unwrap());
+    let responder_addr = responder
+        .addr()
+        .ip_addrs()
+        .copied()
+        .find(|a| a.ip() == Ipv4Addr::LOCALHOST)
+        .unwrap();
+    let blackhole = Arc::new(AtomicBool::new(false));
+    let dropped = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let router = tokio::spawn({
+        let blackhole = blackhole.clone();
+        let dropped = dropped.clone();
+        async move {
+            let mut caller_addr = None;
+            let mut packet = vec![0; 65536];
+            loop {
+                let (length, from) = udp.recv_from(&mut packet).await.unwrap();
+                if blackhole.load(Ordering::Acquire) {
+                    dropped.fetch_add(1, Ordering::Relaxed);
+                    continue;
+                }
+                if from == responder_addr {
+                    if let Some(caller_addr) = caller_addr {
+                        udp.send_to(&packet[..length], caller_addr).await.unwrap();
+                    }
+                } else {
+                    caller_addr = Some(from);
+                    udp.send_to(&packet[..length], responder_addr)
+                        .await
+                        .unwrap();
+                }
+            }
+        }
+    });
+    let peer = iroh::EndpointAddr::new(responder.endpoint().id());
+    let direct_only = peer.clone().with_addrs([direct.clone()]);
+    let relay_only = peer.clone().with_addrs([relay_route.clone()]);
+    let mixed = peer.clone().with_addrs([direct.clone(), relay_route]);
+    let attempt = || {
+        AttemptContext::new(
+            n0_future::time::Instant::now() + window,
+            tokio_util::sync::CancellationToken::new(),
+        )
+    };
+    let require_active = || async {
+        let remotes = caller.endpoint().remote_info(peer.id).await.unwrap();
+        assert!(
+            remotes.addrs().any(|route| route.addr() == &direct
+                && matches!(route.usage(), iroh::endpoint::TransportAddrUsage::Active)),
+            "the blackholed IP must still be an active hint: {remotes:?}",
+        );
+    };
+    let mark = |stage| {
+        eprintln!(
+            "{}",
+            serde_json::json!({
+                "event":"first-contact-fixture", "stage":stage,
+                "monotonicMs":connection_diagnostic::monotonic_ms(),
+                "droppedPackets":dropped.load(Ordering::Relaxed),
+            })
+        );
+    };
+
+    let original = caller
+        .coordinator()
+        .connect(
+            direct_only.clone(),
+            SessionPurpose::MemberBusiness,
+            attempt(),
+        )
+        .await
+        .unwrap();
+    let original_remote = tokio::time::timeout(window, members.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    // Keep the warmup connection on the proxy rather than letting iroh
+    // advertise and migrate to the responders' unproxied loopback sockets.
+    let caller_handle = caller.endpoint().control_handle(&original);
+    let responder_handle = responder.endpoint().control_handle(&original_remote);
+    let (caller_mask, responder_mask) = tokio::join!(
+        caller_handle.test_limit_transport_paths(vec![direct.clone()]),
+        responder_handle.test_limit_transport_paths(vec![direct.clone()]),
+    );
+    caller_mask.unwrap();
+    responder_mask.unwrap();
+    tokio::time::timeout(window, echo_member(&original))
+        .await
+        .unwrap();
+    require_active().await;
+    if let Some(ready) = &netem_ready {
+        // A disposable namespace adds latency after endpoint registration and
+        // warming the original path. Relay-only and mixed retain one window.
+        mark("netem-ready");
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while !ready.exists() {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("namespace latency was applied");
+    } else {
+        blackhole.store(true, Ordering::Release);
+
+        mark("active-only");
+        let result = caller
+            .coordinator()
+            .connect(
+                direct_only.clone(),
+                SessionPurpose::MemberBusiness,
+                attempt(),
+            )
+            .await;
+        assert!(
+            matches!(result, Err(ConnectError::DeadlineExceeded)),
+            "{result:?}"
+        );
+        assert!(dropped.load(Ordering::Relaxed) > 0);
+        require_active().await;
+    }
+
+    let report_relay_rtt = |connection: &Connection| {
+        if netem_ready.is_none() {
+            return;
+        }
+        let rtt = connection
+            .paths()
+            .iter()
+            .find_map(|path| {
+                if matches!(path.remote_addr(), TransportAddr::Relay(_)) {
+                    connection.rtt(path.id())
+                } else {
+                    None
+                }
+            })
+            .expect("a measured data relay path");
+        assert!(
+            (Duration::from_secs(1)..=Duration::from_secs(2)).contains(&rtt),
+            "{rtt:?}"
+        );
+        eprintln!(
+            "{}",
+            json!({"event":"first-contact-relay-rtt","rttMs":rtt.as_millis()})
+        );
+    };
+
+    mark("relay-only-business");
+    tokio::time::timeout(window, async {
+        let (connection, _activity) = caller
+            .connect(relay_only.clone(), MEMBER_ALPN)
+            .await
+            .unwrap();
+        echo_member(&connection).await;
+        report_relay_rtt(&connection);
+        connection.close(0u32.into(), b"relay-only fixture complete");
+    })
+    .await
+    .unwrap();
+    if netem_ready.is_some() {
+        tokio::time::timeout(window, echo_member(&original))
+            .await
+            .unwrap();
+        blackhole.store(true, Ordering::Release);
+    } else {
+        mark("relay-only-control");
+        let control = caller
+            .coordinator()
+            .connect_control_alpn(relay_only.clone(), ADMISSION_REQUEST_ALPN, attempt())
+            .await
+            .unwrap();
+        assert_eq!(control.remote_id(), peer.id);
+        let remote = tokio::time::timeout(window, controls.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(remote.remote_id(), caller.endpoint().id());
+        control.close(0u32.into(), b"relay-only fixture complete");
+    }
+
+    require_active().await;
+    mark("mixed-business");
+    let business = tokio::time::timeout(window, async {
+        let (connection, _activity) = caller.connect(mixed.clone(), MEMBER_ALPN).await?;
+        assert_ne!(connection.stable_id(), original.stable_id());
+        echo_member(&connection).await;
+        report_relay_rtt(&connection);
+        connection.close(0u32.into(), b"mixed fixture complete");
+        Ok::<_, crate::resources::ResourceContactError>(())
+    })
+    .await;
+    if netem_ready.is_some() {
+        mark("finished");
+        assert!(
+            matches!(business, Ok(Ok(()))),
+            "delayed mixed member business: {business:?}"
+        );
+        assert!(dropped.load(Ordering::Relaxed) > 0);
+        assert!(original.close_reason().is_none());
+        original.close(0u32.into(), b"delayed fixture complete");
+        router.abort();
+        tokio::join!(caller.close(), responder.close());
+        relay.shutdown().await.unwrap();
+        return;
+    }
+    require_active().await;
+    mark("mixed-control");
+    let control = caller
+        .coordinator()
+        .connect_control_alpn(mixed.clone(), ADMISSION_REQUEST_ALPN, attempt())
+        .await;
+    if let Ok(control) = &control {
+        assert_eq!(control.remote_id(), peer.id);
+        let remote = tokio::time::timeout(window, controls.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(remote.remote_id(), caller.endpoint().id());
+        control.close(0u32.into(), b"mixed fixture complete");
+    }
+    mark("mixed-finished");
+    assert!(
+        matches!(business, Ok(Ok(()))),
+        "mixed member business: {business:?}; mixed restricted control: {control:?}"
+    );
+    assert!(control.is_ok(), "mixed restricted control: {control:?}");
+    assert!(original.close_reason().is_none());
+
+    mark("ready-tie");
+    blackhole.store(false, Ordering::Release);
+    let coordinator = caller.coordinator();
+    let active_attempt = attempt();
+    let relay_attempt = attempt();
+    let log = AttemptLog::new(AttemptRole::Initiator, "first-contact-tie");
+    let (active, relayed) = tokio::join!(
+        Box::pin(coordinator.dial(
+            direct_only,
+            SessionPurpose::MemberBusiness,
+            &active_attempt,
+            MEMBER_ALPN,
+            false,
+            log
+        )),
+        Box::pin(coordinator.dial(
+            relay_only,
+            SessionPurpose::MemberBusiness,
+            &relay_attempt,
+            MEMBER_ALPN,
+            false,
+            log
+        )),
+    );
+    let active = active.ok().expect("real active route qualified");
+    let relayed = relayed.ok().expect("real relay route qualified");
+    let ConnectionDelivery::Business(loser) = &relayed.delivery else {
+        unreachable!()
+    };
+    let loser = loser.clone();
+    let active_id = active.delivery.stable_id();
+    // Supply both already qualified connections to exercise the same-poll tie
+    // deterministically. The actual dials and data admission ran above.
+    let winner = race_active_and_relay(
+        (&active_attempt, std::future::ready(Ok(active))),
+        (&relay_attempt, std::future::ready(Ok(relayed))),
+    )
+    .await
+    .ok()
+    .expect("one route won");
+    assert_eq!(winner.delivery.stable_id(), active_id);
+    assert!(loser.close_reason().is_some());
+    assert!(relay_attempt.cancellation.is_cancelled());
+    assert!(!active_attempt.cancellation.is_cancelled());
+    let ConnectionDelivery::Business(qualified) = &winner.delivery else {
+        unreachable!()
+    };
+    let qualified = qualified.clone();
+    tokio::time::timeout(window, echo_member(&qualified))
+        .await
+        .unwrap();
+
+    // A ready success cannot hide a terminal authorization failure from the
+    // other branch. The already qualified connection must also be retired.
+    let rejected = race_active_and_relay(
+        (&active_attempt, std::future::ready(Ok(winner))),
+        (
+            &attempt(),
+            std::future::ready(Err(ContactDialFailure::Terminal(
+                ConnectError::IdentityOrAdmissionRejected,
+            ))),
+        ),
+    )
+    .await;
+    assert!(matches!(
+        rejected,
+        Err(ContactDialFailure::Terminal(
+            ConnectError::IdentityOrAdmissionRejected
+        ))
+    ));
+    assert!(qualified.close_reason().is_some());
+
+    // Revoke this application ALPN after the real relay has authenticated
+    // and qualified its path, with the active-IP dial still pending.
+    blackhole.store(true, Ordering::Release);
+    require_active().await;
+    mark("revoked-in-flight");
+    let coordinator_result = tokio::time::timeout(window, async {
+        tokio::join!(
+            coordinator.connect_alpn(mixed.clone(), crate::file_transfer::FILE_ALPN, attempt()),
+            async {
+                pause.entered.notified().await;
+                gate.restrict_lifecycle(Some(
+                    [MEMBER_ALPN.to_vec(), ADMISSION_REQUEST_ALPN.to_vec()].into(),
+                ));
+                pause.release.notify_one();
+            },
+        )
+    })
+    .await
+    .expect("the live relay reached the protected admission hook")
+    .0;
+    assert!(coordinator_result.is_err(), "{coordinator_result:?}");
+    assert!(original.close_reason().is_none());
+
+    relay.shutdown().await.unwrap();
+    blackhole.store(true, Ordering::Release);
+    require_active().await;
+    mark("mixed-cancelled");
+    let ctx = attempt();
+    let token = ctx.cancellation.clone();
+    let (result, ()) = tokio::join!(
+        coordinator.connect_control_alpn(mixed.clone(), ADMISSION_REQUEST_ALPN, ctx),
+        async {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            token.cancel();
+        },
+    );
+    assert!(matches!(result, Err(ConnectError::Cancelled)), "{result:?}");
+
+    require_active().await;
+    mark("mixed-expired");
+    let result = coordinator
+        .connect_control_alpn(mixed.clone(), ADMISSION_REQUEST_ALPN, attempt())
+        .await;
+    assert!(
+        matches!(result, Err(ConnectError::DeadlineExceeded)),
+        "{result:?}"
+    );
+    assert!(controls.try_recv().is_err());
+
+    require_active().await;
+    mark("foreground-dropped");
+    let dropped_call = tokio::time::timeout(
+        Duration::from_millis(100),
+        caller.connect(mixed.clone(), MEMBER_ALPN),
+    )
+    .await;
+    assert!(dropped_call.is_err());
+
+    blackhole.store(false, Ordering::Release);
+    require_active().await;
+    mark("direct-with-offline-relay");
+    tokio::time::timeout(window, async {
+        let (connection, _activity) = caller.connect(mixed.clone(), MEMBER_ALPN).await.unwrap();
+        echo_member(&connection).await;
+        connection.close(0u32.into(), b"direct fixture complete");
+    })
+    .await
+    .unwrap();
+    tokio::time::timeout(window, echo_member(&original))
+        .await
+        .unwrap();
+    while let Ok(remote) = members.try_recv() {
+        tokio::time::timeout(window, remote.closed()).await.unwrap();
+    }
+
+    mark("revoked");
+    gate.update_authorization([*caller.endpoint().id().as_bytes()], [*peer.id.as_bytes()]);
+    let result = coordinator
+        .connect(mixed, SessionPurpose::MemberBusiness, attempt())
+        .await;
+    assert!(
+        matches!(result, Err(ConnectError::IdentityOrAdmissionRejected)),
+        "{result:?}"
+    );
+    tokio::time::timeout(window, original.closed())
+        .await
+        .unwrap();
+
+    mark("finished");
+    router.abort();
+    tokio::join!(caller.close(), responder.close());
+}
