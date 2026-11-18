@@ -71,6 +71,62 @@ impl CoordinatorHook {
         self
     }
 
+    pub(crate) fn improvement_capabilities(&self) -> u8 {
+        let caps = self.capabilities(AttemptRole::Initiator);
+        (caps.permitted & RTC)
+            | if self
+                .native
+                .as_ref()
+                .is_some_and(|native| native.udp_available())
+            {
+                UDP
+            } else {
+                0
+            }
+            | if self
+                .native
+                .as_ref()
+                .is_some_and(|native| native.tcp_improvement_available())
+            {
+                TCP
+            } else {
+                0
+            }
+    }
+
+    pub(crate) fn udp_round_wait_until(
+        &self,
+        now: n0_future::time::Instant,
+    ) -> Option<n0_future::time::Instant> {
+        self.native.as_ref()?.udp_round_wait_until(now)
+    }
+
+    pub(crate) fn has_qualified_direct(
+        &self,
+        resources: &crate::resources::ResourceEndpoint,
+        original: &Connection,
+    ) -> bool {
+        original.paths().iter().any(|path| {
+            let direct = match path.remote_addr() {
+                TransportAddr::Ip(_) => true,
+                #[cfg(feature = "rtc-probe")]
+                TransportAddr::Custom(address)
+                    if address.id() == crate::rtc_transport::TRANSPORT_ID =>
+                {
+                    true
+                }
+                TransportAddr::Custom(address) => {
+                    address.id() == crate::tcp_transport::DATA_TRANSPORT_ID
+                        && self.native.as_ref().is_some_and(|native| {
+                            native.tcp_path_qualified(address, original.stable_id())
+                        })
+                }
+                _ => false,
+            };
+            direct && self.permits_repair_survival(resources, original, path.remote_addr())
+        })
+    }
+
     /// Open one restricted active C through an existing permitted contact and
     /// improve the exact original M. C never becomes an ordinary handle.
     pub(crate) fn improve<'a>(
@@ -291,6 +347,7 @@ impl CoordinatorHook {
         }
     }
 }
+
 impl CoordinatorHook {
     fn capabilities(&self, role: AttemptRole) -> RuntimeCapabilities {
         let (rtc_supported, rtc_allowed) = {
@@ -320,17 +377,23 @@ impl CoordinatorHook {
                     0
                 }
                 | if rtc_supported { RTC } else { 0 },
-            permitted: if self.udp_allowed { UDP } else { 0 }
-                | if self
-                    .native
-                    .as_ref()
-                    .is_some_and(|native| native.tcp_available())
-                {
-                    TCP
-                } else {
-                    0
-                }
-                | if self.relay_allowed { RELAY } else { 0 }
+            permitted: if self
+                .native
+                .as_ref()
+                .map_or(self.udp_allowed, |native| native.udp_available())
+            {
+                UDP
+            } else {
+                0
+            } | if self
+                .native
+                .as_ref()
+                .is_some_and(|native| native.tcp_available())
+            {
+                TCP
+            } else {
+                0
+            } | if self.relay_allowed { RELAY } else { 0 }
                 | if rtc_allowed { RTC } else { 0 },
             rtc_role: RtcRole::for_attempt(role, rtc_supported),
         }
@@ -666,6 +729,9 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
         attempt: ProtectedAttempt,
         plan: PathPlan,
     ) -> io::Result<PreparedPath> {
+        self.0.gate.with_direct_candidates(original, |progress| {
+            progress.active_enhanced_only = Some(false);
+        });
         match plan {
             PathPlan::Native { tcp, udp } => {
                 println!(

@@ -683,7 +683,7 @@ impl ConnectionDelivery {
             Self::Control(c) => c.alpn(),
         }
     }
-    fn close(&self, reason: &[u8]) {
+    pub(crate) fn close(&self, reason: &[u8]) {
         match self {
             Self::Business(c) => c.close(0u32.into(), reason),
             Self::Control(c) => c.close(0u32.into(), reason),
@@ -2315,8 +2315,15 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
     if adapter.authorization_revision(&original, SessionPurpose::MemberBusiness)? != revision {
         return Err(control_error("IdentityOrAdmissionRejected"));
     }
+    let plans = protected.improvement_plans();
+    if plans.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "no permitted direct mechanism",
+        ));
+    }
     let mut prepared = None;
-    for plan in protected.improvement_plans() {
+    for plan in plans {
         match log
             .phase("candidate", json!({"plan":format!("{plan:?}")}))
             .run(adapter.prepare_active(endpoint, &original, control, protected, plan))

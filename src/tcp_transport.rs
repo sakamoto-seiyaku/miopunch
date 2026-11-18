@@ -3,7 +3,7 @@
 //! eighteen for unscoped IPv6. Each packet is a two-byte big-endian length
 //! followed by one complete QUIC datagram. Inner TLS authenticates identity.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::pin::Pin;
@@ -222,6 +222,58 @@ impl TcpTransport {
         })
     }
 
+    /// Validate this TCP path without selecting it for application data before
+    /// the active protocol commits it on the original.
+    pub(crate) fn qualify_after_commit(
+        &self,
+        original: &iroh::endpoint::ControlHandle,
+        peer: SocketAddr,
+    ) -> io::Result<PendingTcpPath> {
+        let shared = self
+            .shared
+            .lock()
+            .unwrap()
+            .upgrade()
+            .ok_or_else(|| io::Error::other("TCP endpoint unavailable"))?;
+        let connection_id = original.stable_id();
+        let open_routes: BTreeSet<_> = original
+            .paths()
+            .iter()
+            .filter_map(|path| {
+                if let iroh::TransportAddr::Custom(address) = path.remote_addr() {
+                    decode_custom(address).ok()
+                } else {
+                    None
+                }
+            })
+            .collect();
+        {
+            let mut paths = shared.pending_paths.lock().unwrap();
+            paths.retain(|_, state| state.original.is_open());
+            paths
+                .entry(connection_id)
+                .and_modify(|state| state.qualified.retain(|route| open_routes.contains(route)))
+                .or_insert_with(|| ActiveTcpRoutes {
+                    original: original.weak_handle(),
+                    qualified: open_routes,
+                });
+        }
+        Ok(PendingTcpPath {
+            shared,
+            connection_id,
+            peer,
+            local_opens: original.side().is_client(),
+        })
+    }
+
+    pub(crate) fn data_path_qualified(&self, address: &CustomAddr, connection_id: usize) -> bool {
+        self.shared
+            .lock()
+            .unwrap()
+            .upgrade()
+            .is_some_and(|shared| shared.data_path_qualified(address, connection_id))
+    }
+
     /// Retain the circuit already carrying an authenticated connection. This
     /// does not require simultaneous-open support or start a new TCP dial.
     pub(crate) fn retain_existing(&self, peer: SocketAddr) -> io::Result<TcpCircuitLease> {
@@ -364,6 +416,7 @@ struct Channel {
     dial_cancel: tokio::sync::watch::Sender<bool>,
     cancel: tokio::sync::watch::Sender<bool>,
     owners: usize,
+    established_data: bool,
 }
 
 /// A connection attempt owns its share of the real peer circuit. Cancelling
@@ -374,12 +427,57 @@ pub(crate) struct TcpCircuitLease {
     channel: Arc<Mutex<Channel>>,
 }
 
+pub(crate) struct PendingTcpPath {
+    shared: Arc<Shared>,
+    connection_id: usize,
+    peer: SocketAddr,
+    local_opens: bool,
+}
+
+impl PendingTcpPath {
+    pub(crate) fn commit(self) {
+        if let Some(state) = self
+            .shared
+            .pending_paths
+            .lock()
+            .unwrap()
+            .get_mut(&self.connection_id)
+        {
+            state.qualified.insert(self.peer);
+        }
+    }
+}
+
+impl Drop for PendingTcpPath {
+    fn drop(&mut self) {
+        // The opener can retire its exact allocation. The receiver may still
+        // see a late peer probe, so keep its per-M allowlist. A failed address
+        // adds no state and remains validation-only.
+        if self.local_opens {
+            self.shared
+                .pending_paths
+                .lock()
+                .unwrap()
+                .remove(&self.connection_id);
+        }
+    }
+}
+
+impl TcpCircuitLease {
+    /// A committed circuit is now a normal transport channel. Its existing
+    /// reader owns idle and shutdown cleanup, including when several Ms
+    /// share the same physical circuit.
+    pub(crate) fn retain_in_transport(self) {
+        self.channel.lock().unwrap().established_data = true;
+    }
+}
+
 impl Drop for TcpCircuitLease {
     fn drop(&mut self) {
         let last = {
             let mut channel = self.channel.lock().unwrap();
             channel.owners -= 1;
-            if channel.owners == 0 {
+            if channel.owners == 0 && !channel.established_data {
                 channel.cancel.send_replace(true);
                 true
             } else {
@@ -388,9 +486,12 @@ impl Drop for TcpCircuitLease {
         };
         if last {
             let mut channels = self.shared.channels.lock().unwrap();
-            if let Some(current) = channels.get(&self.peer) {
+            if let Some(current) = channels
+                .get(&self.peer)
+                .filter(|channel| Arc::ptr_eq(channel, &self.channel))
+            {
                 let current = current.lock().unwrap();
-                if current.owners == 0 {
+                if current.owners == 0 && !current.established_data {
                     current.cancel.send_replace(true);
                     drop(current);
                     channels.remove(&self.peer);
@@ -413,6 +514,7 @@ fn channel(
         dial_cancel,
         cancel,
         owners: 0,
+        established_data: false,
     }))
 }
 
@@ -448,6 +550,7 @@ impl Drop for QueuedPacket {
 struct Shared {
     local: SocketAddr,
     channels: Mutex<HashMap<SocketAddr, Arc<Mutex<Channel>>>>,
+    pending_paths: Mutex<HashMap<usize, ActiveTcpRoutes>>,
     incoming: tokio::sync::mpsc::Sender<Packet>,
     inbound_limit: Arc<tokio::sync::Semaphore>,
     shutdown: tokio::sync::watch::Sender<bool>,
@@ -455,6 +558,24 @@ struct Shared {
     punching: bool,
     reuse_local_port: bool,
     observations: Arc<TcpObservations>,
+}
+
+#[derive(Debug)]
+struct ActiveTcpRoutes {
+    original: iroh::endpoint::WeakControlConnection,
+    qualified: BTreeSet<SocketAddr>,
+}
+
+impl Shared {
+    fn data_path_qualified(&self, addr: &CustomAddr, connection_id: usize) -> bool {
+        decode_custom(addr).is_ok_and(|peer| {
+            self.pending_paths
+                .lock()
+                .unwrap()
+                .get(&connection_id)
+                .is_none_or(|state| state.qualified.contains(&peer))
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -567,6 +688,7 @@ impl CustomTransport for TcpTransport {
         let shared = Arc::new(Shared {
             local,
             channels: Mutex::new(HashMap::new()),
+            pending_paths: Mutex::new(HashMap::new()),
             incoming,
             inbound_limit: Arc::new(tokio::sync::Semaphore::new(MAX_CIRCUITS)),
             shutdown,
@@ -712,6 +834,16 @@ impl CustomSender for TcpSender {
         decode_custom(addr).is_ok_and(|addr| addr.is_ipv4() == self.0.local.is_ipv4())
     }
 
+    fn guards_application_data(&self, addr: &CustomAddr) -> bool {
+        self.0.punching
+            && addr.id() == DATA_TRANSPORT_ID
+            && !self.0.pending_paths.lock().unwrap().is_empty()
+    }
+
+    fn is_data_path_qualified(&self, addr: &CustomAddr, connection_id: usize) -> bool {
+        self.0.data_path_qualified(addr, connection_id)
+    }
+
     fn poll_send(
         &self,
         cx: &mut Context,
@@ -853,6 +985,11 @@ fn remove_channel(shared: &Shared, peer: SocketAddr, channel: &Arc<Mutex<Channel
     {
         channels.remove(&peer);
     }
+    shared
+        .pending_paths
+        .lock()
+        .unwrap()
+        .retain(|_, state| state.original.is_open());
 }
 
 async fn run_stream(shared: Arc<Shared>, mut stream: TcpStream, outbound: Option<OutboundCircuit>) {

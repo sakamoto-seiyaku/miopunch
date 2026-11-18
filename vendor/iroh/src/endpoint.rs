@@ -102,9 +102,9 @@ pub use bind::{BindOpts, InvalidSocketAddr, ToSocketAddr};
 pub use hooks::{AfterHandshakeOutcome, BeforeConnectOutcome, EndpointHooks};
 pub use restricted::{
     AdmissionOutcome, ControlAccepting, ControlConfirmation, ControlConnecting, ControlConnection,
-    ControlExchange, ControlHandle, ControlMessageFormat, DataPathPermit, EndpointAdmission,
-    RestrictedAccepting, RestrictedBuilder, RestrictedConnecting, RestrictedEndpoint,
-    RestrictedIncoming, UdpCandidatePath, WeakControlConnection,
+    ControlExchange, ControlHandle, ControlMessageFormat, DataCandidatePath, DataPathPermit,
+    EndpointAdmission, RestrictedAccepting, RestrictedBuilder, RestrictedConnecting,
+    RestrictedEndpoint, RestrictedIncoming, UdpCandidatePath, WeakControlConnection,
 };
 
 #[cfg(feature = "qlog")]

@@ -9,11 +9,12 @@ use crate::{
     network_recovery::{RECOVERY_REPLICA_ALPN, commit_ip},
     offline_replica::{REPLICA_ALPN, ReplicaOutcome, ReplicaProvider},
     resources::{ContactAttempt, ContactClass, ResourceContactError, ResourceEndpoint},
+    session_maintenance::{Completion, LocalNatBudgetError, MaintenanceDeferral, MaintenanceError},
 };
 use futures_util::{StreamExt, stream::FuturesUnordered};
 use iroh::{
     Endpoint, EndpointAddr, EndpointId, TransportAddr,
-    endpoint::Connection,
+    endpoint::{Connection, ObservationValidity, WeakConnectionHandle},
     protocol::{
         ControlProtocolHandler, ProtocolHandler, RestrictedRouter as Router,
         RestrictedRouterBuilder as RouterBuilder,
@@ -136,6 +137,17 @@ struct Activity {
     count: AtomicUsize,
     changed: Notify,
 }
+impl Activity {
+    fn is_active(&self) -> bool {
+        self.count.load(Ordering::Acquire) > 0
+    }
+
+    async fn started(&self) {
+        while !self.is_active() {
+            self.changed.notified().await;
+        }
+    }
+}
 /// Hold while the application uses a business session. Dropping releases priority.
 /// Existing QUIC paths remain maintained by iroh throughout this lease.
 pub struct BusinessActivity(Arc<Activity>);
@@ -202,7 +214,7 @@ impl MaintainedNetwork {
             .resources
             .contact_listener()
             .map(|listener| listener.status());
-        if self.activity.count.load(Ordering::Acquire) > 0 {
+        if self.activity.is_active() {
             status.state = MaintenanceState::BusinessPriority;
         }
         status
@@ -298,6 +310,44 @@ struct Candidate {
 struct Neighbor {
     connection: Connection,
     sync_at: Instant,
+}
+struct Improvement {
+    original: WeakConnectionHandle,
+    failures: u32,
+    next_due: Option<Instant>,
+    budget_not_before: Option<Instant>,
+    wait_clues: Option<ImprovementClues>,
+}
+#[derive(Clone, PartialEq)]
+struct ImprovementClues {
+    target: EndpointAddr,
+    local: EndpointAddr,
+    direct_capabilities: u8,
+    revision: u64,
+    udp_hint: Option<SocketAddr>,
+}
+
+impl Improvement {
+    fn defer(&mut self, next_due: Instant) {
+        self.next_due = Some(next_due);
+    }
+
+    fn clear_wait(&mut self) {
+        self.budget_not_before = None;
+        self.wait_clues = None;
+    }
+
+    fn ready_at(&self, node_budget_wait: Option<Instant>) -> Option<Instant> {
+        let due = self.next_due?;
+        Some(self.budget_not_before.map_or(due, |budget| {
+            budget.max(due).max(node_budget_wait.unwrap_or(due))
+        }))
+    }
+
+    fn failed(&mut self, now: Instant, floor: Duration) {
+        self.failures = (self.failures + 1).min(5);
+        self.defer(now + floor * (1 << self.failures));
+    }
 }
 struct CloseExchange(Option<ControlOwner>);
 impl Drop for CloseExchange {
@@ -520,6 +570,10 @@ struct Coordinator {
     listener_last_attempt: Option<Instant>,
     discover_at: Instant,
     explore_at: Instant,
+    improve_at: Instant,
+    improve_generation: ObservationValidity,
+    improvements: BTreeMap<usize, Improvement>,
+    last_improved: Option<usize>,
     last_attempt_at: Option<Instant>,
     status: MaintenanceStatus,
     published: watch::Sender<MaintenanceStatus>,
@@ -570,6 +624,19 @@ impl Coordinator {
     }
     fn floor(&self) -> Duration {
         Duration::from_millis(self.policy.exploration_interval_ms)
+    }
+    fn enhanced_budget_wait(&self, now: Instant) -> Option<Instant> {
+        if !self
+            .improvements
+            .values()
+            .any(|state| state.budget_not_before.is_some())
+        {
+            return None;
+        }
+        let due = Instant::from(self.active.udp_round_wait_until(now.into())?);
+        // The previous cooldown may already have elapsed while a holder
+        // remains active. Recheck on the normal floor without changing it.
+        Some(if due <= now { now + self.floor() } else { due })
     }
     fn member(&self, id: EndpointId) -> bool {
         self.node
@@ -693,7 +760,7 @@ impl Coordinator {
             .contact_listener
             .as_ref()
             .map(|listener| listener.status());
-        if self.activity.count.load(Ordering::Acquire) > 0 {
+        if self.activity.is_active() {
             self.status.state = MaintenanceState::BusinessPriority;
         } else if !self.neighbors.is_empty() {
             self.status.state = MaintenanceState::Connected;
@@ -749,14 +816,19 @@ impl Coordinator {
                     .await
                     .map_err(std::io::Error::other)?;
             }
+            if self.activity.is_active() {
+                return Ok(None);
+            }
             self.node
                 .sync_replica(connection)
                 .await
+                .map(Some)
                 .map_err(std::io::Error::other)
         }
         .await;
         match result {
-            Ok(outcome) => {
+            Ok(None) => {}
+            Ok(Some(outcome)) => {
                 let complete =
                     outcome.complete() && self.node.gate.allows_member_path_upgrade(connection);
                 self.status.last_sync = Some(outcome);
@@ -809,85 +881,189 @@ impl Coordinator {
         }
         Ok(())
     }
-    async fn improve_live_member(&mut self) -> Result<bool, NodeError> {
-        if self.activity.count.load(Ordering::Acquire) > 0 {
-            return Ok(false);
+    fn improvement_clues(
+        &self,
+        original: &Connection,
+        local: &EndpointAddr,
+        direct_capabilities: u8,
+    ) -> Option<ImprovementClues> {
+        if !self.node.gate.allows_member_path_upgrade(original)
+            || self.active.has_qualified_direct(&self.resources, original)
+        {
+            return None;
+        }
+        let qualification = self.node.gate.path_qualification(original)?;
+        let peer = original.remote_id();
+        let paths = original.paths();
+        let current = paths
+            .iter()
+            .filter(|path| self.resources.allows_data_path(path.remote_addr()))
+            .map(|path| path.remote_addr().clone());
+        let hint = self.candidates.get(&peer);
+        let hints = hint
+            .into_iter()
+            .flat_map(|candidate| &candidate.address.addrs);
+        let target = EndpointAddr::new(peer).with_addrs(current.chain(hints.cloned()).take(8));
+        (!target.addrs.is_empty()).then(|| ImprovementClues {
+            target,
+            local: local.clone(),
+            direct_capabilities,
+            revision: qualification.revision(),
+            udp_hint: hint.and_then(|candidate| candidate.udp_hint),
+        })
+    }
+
+    async fn improve_live_member(&mut self, cancel: &CancellationToken) -> bool {
+        use crate::connection_coordinator::AttemptContext;
+
+        let generation = self.resources.endpoint().udp_network_generation();
+        if generation != self.improve_generation {
+            self.improve_generation = generation;
+            self.improvements.clear();
         }
         let registry = self.node.gate.maintenance();
-        let Some(original) = registry.live().into_iter().next() else {
-            return Ok(false);
-        };
-        let id = original.remote_id();
-        if !self.node.gate.allows_member_path_upgrade(&original)
-            || !self.resources.contact_ready(id, ContactClass::Background)
-        {
-            return Ok(false);
+        let live = registry.live();
+        self.improvements
+            .retain(|_, state| state.original.is_open());
+        let direct_capabilities = self.active.improvement_capabilities();
+        if direct_capabilities == 0 || live.is_empty() {
+            return false;
         }
-        let mut target = EndpointAddr::new(id);
-        for path in original
-            .paths()
-            .iter()
-            .map(|path| path.remote_addr().clone())
-            .take(8)
-        {
-            target.addrs.insert(path);
-        }
-        if target.addrs.is_empty() {
-            if let Some(candidate) = self.candidates.get(&id) {
-                target = candidate.address.clone();
-            } else {
-                return Ok(false);
+        let floor = self.floor();
+        let now = Instant::now();
+        let node_budget_wait = self.enhanced_budget_wait(now);
+        let local = self.resources.addr();
+        let mut due = Vec::new();
+        for original in live {
+            let stable = original.stable_id();
+            let Some(clues) = self.improvement_clues(&original, &local, direct_capabilities) else {
+                continue;
+            };
+            let state = self.improvements.entry(stable).or_insert(Improvement {
+                original: original.weak_handle(),
+                failures: 0,
+                next_due: Some(now),
+                budget_not_before: None,
+                wait_clues: None,
+            });
+            if state.wait_clues.as_ref().is_some_and(|old| old != &clues) {
+                state.next_due.get_or_insert(now);
+                state.clear_wait();
+            }
+            if state.ready_at(node_budget_wait).is_some_and(|at| at <= now) {
+                due.push((state.next_due.unwrap(), stable, original, clues));
             }
         }
-        let (deadline, contact) = match self
-            .resources
-            .begin_contact_attempt(id, ContactClass::Background)
-        {
-            Ok(value) => value,
-            Err(_) => return Ok(false),
-        };
-        self.status.contact_attempts += 1;
-        self.last_attempt_at = Some(Instant::now());
-        let cancellation = CancellationToken::new();
-        let attempt = crate::connection_coordinator::AttemptContext::new(deadline, cancellation);
-        let mut lease = match registry.acquire(&original, &attempt, ()) {
-            Ok(lease) => lease,
-            Err(error) => {
-                self.status.cause = Some(format!("active improvement reservation: {error:?}"));
-                return Ok(false);
-            }
-        };
-        let result = lease
-            .run_ref(
-                self.active
-                    .improve(self.resources.endpoint(), &original, target, attempt),
-            )
-            .await;
-        match result {
-            Ok(Ok(path)) => {
-                contact.succeeded();
-                lease.completed(crate::session_maintenance::Completion::Active(path));
-                self.status.cause = None;
-                Ok(true)
-            }
-            Ok(Err(error)) => {
-                self.status.cause = Some(format!("active improvement: {error:?}"));
-                if crate::session_maintenance::MaintenanceDeferral::from_error(&error).is_some()
-                    || crate::session_maintenance::LocalNatBudgetError::is_local_limit(&error)
-                {
-                    return Ok(true);
+        due.sort_unstable_by_key(|(at, id, _, _)| {
+            (*at, self.last_improved.is_some_and(|last| *id <= last), *id)
+        });
+        for (_, stable, original, clues) in due {
+            let state = self.improvements.get_mut(&stable).unwrap();
+            let Ok((deadline, contact)) = self
+                .resources
+                .begin_contact_attempt(original.remote_id(), ContactClass::Background)
+            else {
+                state.defer(Instant::now() + floor);
+                continue;
+            };
+            let attempt = AttemptContext::new(deadline, cancel.child_token());
+            let mut lease = match registry.acquire(&original, &attempt, contact) {
+                Ok(lease) => lease,
+                Err(MaintenanceError::SessionClosed) => {
+                    self.improvements.remove(&stable);
+                    continue;
                 }
-                self.status.state = MaintenanceState::TemporarilyUnreachable;
-                Ok(true)
+                Err(MaintenanceError::Cancelled) => return false,
+                Err(_) => {
+                    state.defer(Instant::now() + floor);
+                    continue;
+                }
+            };
+            self.last_improved = Some(stable);
+            self.status.contact_attempts += 1;
+            let original_handle = self.resources.endpoint().control_handle(&original);
+            self.node
+                .gate
+                .with_direct_candidates(&original_handle, |progress| {
+                    progress.active_enhanced_only = None;
+                });
+            let result = lease
+                .run_ref(self.active.improve(
+                    self.resources.endpoint(),
+                    &original,
+                    clues.target.clone(),
+                    attempt,
+                ))
+                .await;
+            let now = Instant::now();
+            match self
+                .node
+                .gate
+                .with_direct_candidates(&original_handle, |progress| {
+                    progress.active_enhanced_only.take()
+                })
+                .flatten()
+            {
+                Some(true) => {
+                    state.budget_not_before.get_or_insert(now);
+                    state.wait_clues = Some(clues.clone());
+                }
+                Some(false) => state.clear_wait(),
+                None => {}
             }
-            Err(error) => {
-                self.status.cause = Some(format!("active improvement: {error:?}"));
-                self.status.state = MaintenanceState::TemporarilyUnreachable;
-                Ok(true)
+            match result {
+                Ok(Ok(path)) => {
+                    lease.completed(Completion::Active(path));
+                    self.improvements.remove(&stable);
+                    self.status.cause = None;
+                }
+                Ok(Err(error)) => {
+                    self.status.cause = Some(format!("active improvement: {error:?}"));
+                    match MaintenanceDeferral::from_error(&error) {
+                        Some(MaintenanceDeferral::LocalBudget { next_due }) => {
+                            // The ledger controls when this M can retry, but
+                            // a cooldown must not erase its age in the queue.
+                            state.budget_not_before =
+                                Some((now + floor).max(Instant::from(*next_due)));
+                            state.wait_clues = Some(clues);
+                        }
+                        Some(MaintenanceDeferral::LocalAlternatives) => {
+                            state.clear_wait();
+                            state.defer(now + floor);
+                        }
+                        Some(MaintenanceDeferral::Remote) => {
+                            state.defer(now + floor);
+                        }
+                        None if error.kind() == std::io::ErrorKind::Unsupported => {
+                            // The protected capability exchange found no
+                            // mutually permitted improvement mechanism.
+                            state.next_due = None;
+                            state.budget_not_before = None;
+                            state.wait_clues = Some(clues);
+                        }
+                        None if LocalNatBudgetError::is_local_limit(&error)
+                            || !self.node.gate.allows_member_path_upgrade(&original)
+                            || error.kind() == std::io::ErrorKind::Interrupted =>
+                        {
+                            state.defer(now + floor);
+                        }
+                        None => state.failed(now, floor),
+                    }
+                }
+                Err(MaintenanceError::SessionClosed) => {
+                    self.improvements.remove(&stable);
+                }
+                Err(MaintenanceError::Cancelled) => return true,
+                Err(error) => {
+                    self.status.cause = Some(format!("active improvement: {error:?}"));
+                    state.failed(now, floor);
+                }
             }
+            return true;
         }
+        false
     }
-    async fn step(&mut self) -> Result<(), NodeError> {
+    async fn step(&mut self, cancel: &CancellationToken) -> Result<(), NodeError> {
         self.neighbors.retain(|_, peer| {
             peer.connection.close_reason().is_none()
                 && self
@@ -895,6 +1071,27 @@ impl Coordinator {
                     .gate
                     .allows(&peer.connection, ProtocolScope::Member)
         });
+        if Instant::now() >= self.improve_at {
+            let started = self.improve_live_member(cancel).await;
+            let now = Instant::now();
+            self.improve_at = now + self.floor();
+            if !started {
+                // Continue observing path loss and generation changes on the
+                // same node timer, but wake at an earlier pending retry.
+                let node_budget_wait = self.enhanced_budget_wait(now);
+                for next in self
+                    .improvements
+                    .values()
+                    .filter_map(|state| state.ready_at(node_budget_wait))
+                    .filter(|at| *at > now)
+                {
+                    self.improve_at = self.improve_at.min(next);
+                }
+            }
+        }
+        if self.activity.is_active() || self.explore_at > Instant::now() {
+            return Ok(());
+        }
         // Existing neighbor synchronization and new contacts share this coordinator.
         let due = self
             .neighbors
@@ -903,6 +1100,9 @@ impl Coordinator {
             .map(|(id, peer)| (*id, peer.connection.clone()))
             .collect::<Vec<_>>();
         for (id, connection) in due {
+            if self.activity.is_active() {
+                return Ok(());
+            }
             let Ok((_, contact)) = self
                 .resources
                 .begin_contact_attempt(id, ContactClass::Background)
@@ -913,6 +1113,9 @@ impl Coordinator {
                 }
                 continue;
             };
+            if self.activity.is_active() {
+                return Ok(());
+            }
             match self.node.sync_replica(&connection).await {
                 Ok(outcome) => {
                     if outcome.complete() {
@@ -932,18 +1135,12 @@ impl Coordinator {
                     self.status.state = MaintenanceState::TemporarilyUnreachable;
                 }
             }
-            if self.activity.count.load(Ordering::Acquire) > 0 {
+            if self.activity.is_active() {
                 self.explore_at = Instant::now() + self.floor();
                 return Ok(());
             }
         }
-        if self.activity.count.load(Ordering::Acquire) > 0 {
-            self.explore_at = Instant::now() + self.floor();
-            return Ok(());
-        }
-        // Improvement belongs to this same due batch and consumes the same
-        // contact guard/epoch reservation as ordinary maintenance contacts.
-        if self.improve_live_member().await? {
+        if self.activity.is_active() {
             self.explore_at = Instant::now() + self.floor();
             return Ok(());
         }
@@ -984,6 +1181,9 @@ impl Coordinator {
             }
         }
         let mut dials = FuturesUnordered::new();
+        if self.activity.is_active() {
+            return Ok(());
+        }
         for candidate in chosen.into_values() {
             self.status.contact_attempts += 1;
             let resources = self.resources.clone();
@@ -1003,7 +1203,18 @@ impl Coordinator {
         if !dials.is_empty() {
             self.last_attempt_at = Some(Instant::now());
         }
-        while let Some((candidate, result)) = dials.next().await {
+        let activity = self.activity.clone();
+        while let Some((candidate, result)) = tokio::select! {
+            biased;
+            _ = activity.started() => None,
+            delivered = dials.next() => delivered,
+        } {
+            if activity.is_active() {
+                if let Ok((delivery, _)) = result {
+                    delivery.close(b"business activity paused ordinary maintenance");
+                }
+                break;
+            }
             match result {
                 Ok((connection, attempt)) => {
                     self.synchronize(candidate, connection, attempt).await?
@@ -1022,23 +1233,27 @@ impl Coordinator {
                     }
                 }
             }
-            if self.activity.count.load(Ordering::Acquire) > 0 {
+            if activity.is_active() {
                 self.explore_at = Instant::now() + self.floor();
                 return Ok(());
             }
         }
         // Expand only after the known-contact batch, without waiting for every
         // stale address or running an independent per-peer recovery engine.
-        if self.discover_at <= Instant::now()
+        if !activity.is_active()
+            && self.discover_at <= Instant::now()
             && !self.resources.recovery_origins().is_empty()
             && self.resources.recovery_udp_allowed()
         {
-            self.last_attempt_at = Some(Instant::now());
-            self.status.discovery_rounds += 1;
-            let hints = self
-                .node
-                .discover_recovery_candidates(&self.resources)
-                .await;
+            let hints = tokio::select! {
+                biased;
+                _ = activity.started() => return Ok(()),
+                hints = async {
+                    self.last_attempt_at = Some(Instant::now());
+                    self.status.discovery_rounds += 1;
+                    self.node.discover_recovery_candidates(&self.resources).await
+                } => hints,
+            };
             let mut changed = false;
             for hint in hints {
                 let candidate = if self
@@ -1102,7 +1317,11 @@ impl Coordinator {
         self.listener_changed();
         loop {
             let activity = self.activity.clone();
-            let active = activity.count.load(Ordering::Acquire) > 0;
+            let step_at = if activity.is_active() {
+                self.improve_at
+            } else {
+                self.improve_at.min(self.explore_at)
+            };
             let listener_retry = self.listener_retry_at.unwrap_or(self.explore_at);
             tokio::select! {
                 biased;
@@ -1124,8 +1343,8 @@ impl Coordinator {
                     // use. It shares this Node's single selector and budget.
                     self.restart_listener();
                 }
-                _ = activity.changed.notified() => { self.explore_at = self.explore_at.max(Instant::now()); }
-                _ = tokio::time::sleep_until(self.explore_at), if !active => {
+                _ = activity.changed.notified() => {}
+                _ = tokio::time::sleep_until(step_at) => {
                     tokio::select! {
                         biased;
                         _ = cancel.cancelled() => break,
@@ -1137,7 +1356,7 @@ impl Coordinator {
                                 self.status.cause = Some(error.to_string());
                             }
                         }
-                        result = self.step() => {
+                        result = self.step(&cancel) => {
                             if let Err(error) = result { self.status.cause = Some(error.to_string()); self.status.state = MaintenanceState::TemporarilyUnreachable; self.explore_at = Instant::now() + self.floor(); }
                         }
                     }
@@ -1397,6 +1616,10 @@ impl NativeNetwork {
             listener_last_attempt: None,
             discover_at: Instant::now(),
             explore_at: Instant::now(),
+            improve_at: Instant::now(),
+            improve_generation: resources.endpoint().udp_network_generation(),
+            improvements: BTreeMap::new(),
+            last_improved: None,
             last_attempt_at: None,
             status,
             published,

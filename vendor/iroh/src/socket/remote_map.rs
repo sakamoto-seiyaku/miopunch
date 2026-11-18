@@ -141,6 +141,7 @@ impl MappedAddrs {
         self.custom_route_senders.as_ref().is_some_and(|senders| {
             senders.iter().any(|sender| {
                 sender.guards_application_data(address)
+                    && !sender.can_bootstrap_connection(address)
                     && sender.is_valid_connection_addr(address, connection_id)
                     && sender.is_data_path_qualified(address, connection_id)
             })

@@ -1587,6 +1587,18 @@ impl EndpointInner {
         conn_id: usize,
         addr: iroh_base::TransportAddr,
     ) -> io::Result<()> {
+        self.request_admitted_data_path(remote, conn_id, addr, false)
+            .await
+            .map(|_| ())
+    }
+
+    pub(crate) async fn request_admitted_data_path(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        addr: iroh_base::TransportAddr,
+        own_candidate: bool,
+    ) -> io::Result<Option<crate::endpoint::DataCandidatePath>> {
         let (tx, rx) = oneshot::channel();
         self.sock
             .try_send_remote_state_msg(
@@ -1594,6 +1606,7 @@ impl EndpointInner {
                 RemoteStateMessage::OpenAdmittedDataPath {
                     conn_id,
                     remote: addr,
+                    own_candidate,
                     tx,
                 },
             )

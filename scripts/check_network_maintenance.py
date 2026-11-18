@@ -72,6 +72,8 @@ def main():
             'a_new_contact_wakes_waiting_maintenance_and_verified_contact_survives_restart',
             'conservative_and_active_nodes_observe_distinct_frequency_and_concurrency_budgets',
             'real_business_has_priority_and_shared_identity_guard_prevents_duplicate_dials',
+            'relay_member_improves_during_the_original_business_lease',
+            'only_a_real_network_generation_restarts_failed_member_pacing',
             'partial_links_propagate_new_signed_history_on_the_same_neighbor_session',
             'node_quality_budget_changes_actual_quic_probe_frequency',
             'active_budget_never_enables_disabled_lookup_or_forbidden_data_carriers',

@@ -26,6 +26,9 @@ pub(crate) enum MaintenanceDeferral {
     #[cfg(not(target_arch = "wasm32"))]
     #[error("{LOCAL_DEFERRAL}")]
     LocalBudget { next_due: n0_future::time::Instant },
+    #[cfg(not(target_arch = "wasm32"))]
+    #[error("{LOCAL_DEFERRAL}")]
+    LocalAlternatives,
 }
 
 impl MaintenanceDeferral {
@@ -54,6 +57,8 @@ pub(crate) enum LocalNatBudgetError {
     Observations,
     #[error("NAT peer datagram allowance is zero")]
     PeerDatagrams,
+    #[error("NAT direct budget insufficient")]
+    Direct,
     #[error("NAT round allowance is zero")]
     Rounds,
     #[error("NAT complete-plan budget insufficient")]
@@ -69,6 +74,7 @@ impl LocalNatBudgetError {
         [
             Self::Observations,
             Self::PeerDatagrams,
+            Self::Direct,
             Self::Rounds,
             Self::Plan,
         ]

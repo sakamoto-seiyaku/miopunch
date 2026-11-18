@@ -13,6 +13,7 @@ use crate::{
     connection_coordinator::{PreparedPath, ProtectedAttempt},
     control_session::ControlSession,
     nat_connection::{NatConnector, PreparedUdpPath},
+    session_maintenance::MaintenanceDeferral,
     tcp_punch::{PreparedTcpPath, TcpPunch},
 };
 
@@ -44,10 +45,35 @@ impl NativePathAdapter {
     pub(crate) fn udp_available(&self) -> bool {
         self.udp.udp_enabled()
     }
+
+    pub(crate) fn udp_round_wait_until(
+        &self,
+        now: n0_future::time::Instant,
+    ) -> Option<n0_future::time::Instant> {
+        self.udp.round_wait_until(now)
+    }
     pub(crate) fn tcp_available(&self) -> bool {
         self.tcp
             .as_ref()
             .is_some_and(|tcp| !tcp.resources.tcp_direct_disabled)
+    }
+
+    pub(crate) fn tcp_improvement_available(&self) -> bool {
+        self.tcp.as_ref().is_some_and(|tcp| {
+            !tcp.resources.tcp_direct_disabled
+                && !tcp.observers.is_empty()
+                && tcp.transport.supports_punching()
+        })
+    }
+
+    pub(crate) fn tcp_path_qualified(
+        &self,
+        address: &iroh_base::CustomAddr,
+        stable: usize,
+    ) -> bool {
+        self.tcp
+            .as_ref()
+            .is_some_and(|tcp| tcp.transport.data_path_qualified(address, stable))
     }
 
     pub(crate) async fn retain_existing_control(
@@ -163,7 +189,8 @@ impl NativePathAdapter {
         candidate.owns_path = !matches!(
             candidate.prepared,
             PreparedNative::Udp(PreparedUdpPath::Direct(_))
-        ) && !existing_paths.contains(&candidate.path_id(original)?);
+        ) && !matches!(&candidate.prepared, PreparedNative::Tcp(tcp) if tcp.active.is_some())
+            && !existing_paths.contains(&candidate.path_id(original)?);
         Ok(candidate)
     }
 
@@ -191,8 +218,28 @@ impl NativePathAdapter {
         udp: bool,
         attempt: ProtectedAttempt,
     ) -> io::Result<PreparedPath> {
-        self.prepare_paths(original, gate, tcp, udp, Some(control), attempt)
-            .await
+        let result = self
+            .prepare_paths(original, gate, tcp, udp, Some(control), attempt)
+            .await;
+        if tcp && self.tcp_improvement_available() {
+            // TCP is still a permitted opportunity on this M. A transient
+            // TCP failure and exhausted UDP offers cannot make the whole
+            // session wait for the enhanced UDP ledger.
+            gate.with_direct_candidates(original, |progress| {
+                progress.active_enhanced_only = Some(false);
+            });
+            return result.map_err(|error| {
+                if matches!(
+                    MaintenanceDeferral::from_error(&error),
+                    Some(MaintenanceDeferral::LocalBudget { .. })
+                ) {
+                    MaintenanceDeferral::LocalAlternatives.into()
+                } else {
+                    error
+                }
+            });
+        }
+        result
     }
 
     async fn prepare_paths(
@@ -350,6 +397,10 @@ impl NativeCandidate {
             PreparedNative::Udp(PreparedUdpPath::Direct(path)) => path.candidate.take(),
             _ => None,
         };
+        let active_tcp = match &mut self.prepared {
+            PreparedNative::Tcp(path) => path.active.take(),
+            _ => None,
+        };
         let route = self.route.clone();
         let kind = self.kind;
         let owns_path = self.owns_path;
@@ -435,6 +486,9 @@ impl NativeCandidate {
         if let Some(path) = tentative {
             // A local retain precedes the peer's COMMITTED on C. Keep the
             // exact path owner until the coordinator finishes that exchange.
+            prepared = prepared.with_commit(move || path.retain());
+        }
+        if let Some(path) = active_tcp {
             prepared = prepared.with_commit(move || path.retain());
         }
         Ok(prepared)

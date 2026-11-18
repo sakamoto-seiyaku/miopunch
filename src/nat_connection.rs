@@ -160,6 +160,13 @@ impl NatConnector {
         self.resource_enabled && self.enabled.load(Ordering::Acquire)
     }
 
+    pub(crate) fn round_wait_until(
+        &self,
+        now: n0_future::time::Instant,
+    ) -> Option<n0_future::time::Instant> {
+        self.budget.waiting_until(now)
+    }
+
     fn check(&self, control: &ControlSession, gate: &AdmissionGate) -> io::Result<()> {
         if !self.udp_enabled() {
             return Err(io::Error::new(
@@ -861,7 +868,7 @@ impl NatConnector {
             serde_json::json!({"resource":"punch_rounds","limit":self.max_rounds}),
         );
         if self.max_rounds == 0 {
-            return Err(io::Error::other("NAT round allowance exhausted"));
+            return Err(LocalNatBudgetError::Rounds.into());
         }
         // Direct QUIC validation has a separate bounded maintenance envelope.
         let direct_allowed = self.budget.peer_limit() >= 64;
@@ -871,25 +878,44 @@ impl NatConnector {
             serde_json::json!({"resource":"direct_datagrams","requested":64}),
         );
         if !direct_allowed {
-            return Err(io::Error::other("NAT direct budget insufficient"));
+            return Err(LocalNatBudgetError::Direct.into());
         }
-        if let Some(direct) = self
+        let direct = self
             .guard(
                 control,
                 gate,
                 crate::nat_direct::attempt(control, gate, deadline),
             )
-            .await?
-        {
-            direct.check(control, gate)?;
-            println!(
-                "NAT_DIRECT_SUCCESS stable_id={} target={} punching_recommendations=0",
-                control.stable_id(),
-                direct.remote
-            );
-            return Ok(PreparedUdpPath::Direct(direct));
-        }
-        self.prepare_enhanced_path(control, gate, deadline).await
+            .await?;
+        let more_candidates = match direct {
+            crate::nat_direct::DirectAttempt::Ready(direct) => {
+                direct.check(control, gate)?;
+                println!(
+                    "NAT_DIRECT_SUCCESS stable_id={} target={} punching_recommendations=0",
+                    control.stable_id(),
+                    direct.remote
+                );
+                return Ok(PreparedUdpPath::Direct(direct));
+            }
+            crate::nat_direct::DirectAttempt::Unavailable { more_candidates } => more_candidates,
+        };
+        gate.with_direct_candidates(control.endpoint(), |progress| {
+            progress.active_enhanced_only = Some(!more_candidates);
+        });
+        self.prepare_enhanced_path(control, gate, deadline)
+            .await
+            .map_err(|error| {
+                if more_candidates
+                    && matches!(
+                        MaintenanceDeferral::from_error(&error),
+                        Some(MaintenanceDeferral::LocalBudget { .. })
+                    )
+                {
+                    MaintenanceDeferral::LocalAlternatives.into()
+                } else {
+                    error
+                }
+            })
     }
 
     async fn prepare_enhanced_path(

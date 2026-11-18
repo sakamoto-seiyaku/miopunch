@@ -19,14 +19,25 @@ async fn admitted_pair() -> (tempfile::TempDir, NativeNetwork, NativeNetwork) {
     let a_path = directory.path().join("a");
     let b_path = directory.path().join("b");
     let mut a = NativeNetwork::create(&a_path).await.unwrap();
-    let mut b = NativeNetwork::join(&b_path, a.manual_invitation().unwrap())
+    let mut resources = a.resource_configuration().unwrap();
+    resources.replacement = Some(vec![]);
+    a.save_resource_configuration(&resources).unwrap();
+    let b = add_member(&mut a, &b_path).await;
+    tokio::join!(a.close(), b.close());
+    (
+        directory,
+        NativeNetwork::open(&a_path).await.unwrap(),
+        NativeNetwork::open(&b_path).await.unwrap(),
+    )
+}
+
+async fn add_member(a: &mut NativeNetwork, path: &std::path::Path) -> NativeNetwork {
+    let mut b = NativeNetwork::join(path, a.manual_invitation().unwrap())
         .await
         .unwrap();
-    for node in [&a, &b] {
-        let mut resources = node.resource_configuration().unwrap();
-        resources.replacement = Some(vec![]);
-        node.save_resource_configuration(&resources).unwrap();
-    }
+    let mut resources = b.resource_configuration().unwrap();
+    resources.replacement = Some(vec![]);
+    b.save_resource_configuration(&resources).unwrap();
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let be = b.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let deadline = n0_future::time::Instant::now() + Duration::from_secs(5);
@@ -72,12 +83,220 @@ async fn admitted_pair() -> (tempfile::TempDir, NativeNetwork, NativeNetwork) {
     client.close(0u32.into(), b"admission complete");
     server.close(0u32.into(), b"admission complete");
     tokio::join!(ae.close(), be.close());
-    tokio::join!(a.close(), b.close());
-    (
-        directory,
-        NativeNetwork::open(&a_path).await.unwrap(),
-        NativeNetwork::open(&b_path).await.unwrap(),
-    )
+    b
+}
+
+#[ignore = "requires the owned MQTT broker and structured maintenance timeline"]
+#[test]
+fn busy_member_and_round_occupancy_leave_other_maintenance_eligible() {
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "connection_coordinator::active_commit_tests::maintenance_fairness_fixture",
+            "--ignored",
+            "--nocapture",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    println!("{stdout}");
+    eprintln!("{stderr}");
+    assert!(output.status.success());
+    let (busy, eligible) = stdout
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .find(|record| record["event"] == "maintenance-fairness-fixture")
+        .map(|record| {
+            (
+                record["busy"].as_u64().unwrap(),
+                record["eligible"].as_u64().unwrap(),
+            )
+        })
+        .unwrap();
+    let actual = stderr
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter(|record| record["source"] == "maintenance_improvement")
+        .collect::<Vec<_>>();
+    let first = actual
+        .iter()
+        .find(|record| record["phase"] == "route-dial" && record["result"] == "started")
+        .unwrap();
+    assert_eq!(
+        first["stableId"], eligible,
+        "the ranked but reserved original cannot block the later M"
+    );
+    let permits = actual
+        .iter()
+        .filter(|record| {
+            record["phase"] == "probe-budget"
+                && record["result"] == "reserved"
+                && record["detail"]["resource"] == "enhanced_round"
+        })
+        .map(|record| record["stableId"].as_u64().unwrap())
+        .collect::<Vec<_>>();
+    assert!(
+        permits.len() >= 2,
+        "expected two real enhanced refills, got {permits:?}"
+    );
+    assert_ne!(
+        permits[0], permits[1],
+        "two consecutive enhanced permits must reach different due Ms"
+    );
+    assert!(permits[..2].contains(&busy) && permits[..2].contains(&eligible));
+}
+
+#[tokio::test]
+#[ignore = "run through busy_member_and_round_occupancy_leave_other_maintenance_eligible"]
+async fn maintenance_fairness_fixture() {
+    use crate::{
+        control_session::ControlSession,
+        resources::{Resource, ResourceUse},
+    };
+    use iroh::protocol::{AcceptError, ProtocolHandler, RestrictedRouter};
+
+    #[derive(Debug, Clone)]
+    struct ObserveOriginal(tokio::sync::mpsc::Sender<Connection>);
+    impl ProtocolHandler for ObserveOriginal {
+        async fn accept(&self, original: Connection) -> Result<(), AcceptError> {
+            self.0.send(original.clone()).await.unwrap();
+            original.closed().await;
+            Ok(())
+        }
+    }
+
+    let broker = std::env::var("MIOPUNCH_MQTT_BROKER").expect("owned MQTT broker required");
+    let (directory, mut caller, peer) = admitted_pair().await;
+    let neighbor = add_member(&mut caller, &directory.path().join("neighbor")).await;
+    let mut relay_config = iroh_relay::server::ServerConfig::default();
+    relay_config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let relay = iroh_relay::server::Server::spawn(relay_config)
+        .await
+        .unwrap();
+    let relay_url = relay.http_url().unwrap();
+    for node in [&caller, &peer, &neighbor] {
+        let mut config = node.resource_configuration().unwrap();
+        let mut resources = vec![Resource {
+            url: relay_url.to_string(),
+            uses: [ResourceUse::DataRelay].into(),
+            limitation: "owned native relay".into(),
+        }];
+        if std::ptr::eq(node, &caller) {
+            resources.push(Resource {
+                url: format!("mqtt://{broker}/"),
+                uses: [ResourceUse::Signaling, ResourceUse::Lookup].into(),
+                limitation: "owned MQTT broker".into(),
+            });
+        }
+        config.replacement = Some(resources);
+        config.maintenance.exploration_interval_ms = 250;
+        config.maintenance.discovery_interval_ms = 1_000;
+        config.maintenance.contact_timeout_ms = 5_000;
+        node.save_resource_configuration(&config).unwrap();
+    }
+    let gate = caller.admission_gate();
+    let udp = caller
+        .udp_connector()
+        .clone()
+        .with_maintenance_policy(&caller.resource_configuration().unwrap().maintenance)
+        .unwrap();
+    let caller = caller.maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
+    udp.set_udp_enabled(false);
+    let peer_endpoint = Arc::new(
+        peer.bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+            .await
+            .unwrap(),
+    );
+    let (incoming, mut accepted) = tokio::sync::mpsc::channel(2);
+    let router = RestrictedRouter::builder(peer_endpoint.endpoint().clone())
+        .accept(MEMBER_ALPN, ObserveOriginal(incoming))
+        .accept_control(
+            ACTIVE_IMPROVEMENT_ALPN,
+            peer.active_improvement_handler(peer_endpoint.clone()),
+        )
+        .spawn();
+    let neighbor = neighbor
+        .maintain_network(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(45), async {
+        tokio::join!(caller.endpoint().online(), peer_endpoint.endpoint().online(), neighbor.endpoint().online());
+        let relay_path = TransportAddr::Relay(relay_url);
+        let target = EndpointAddr::new(peer_endpoint.endpoint().id()).with_addrs([relay_path.clone()]);
+        let (first, activity) = caller.connect(target.clone(), MEMBER_ALPN).await.unwrap();
+        let first_remote = accepted.recv().await.unwrap();
+        let (second, second_activity) = caller.connect(target, MEMBER_ALPN).await.unwrap();
+        let second_remote = accepted.recv().await.unwrap();
+        drop(second_activity);
+        for (left, right) in [(&first, &first_remote), (&second, &second_remote)] {
+            let left_control = caller.endpoint().control_handle(left);
+            let right_control = peer_endpoint.endpoint().control_handle(right);
+            tokio::try_join!(
+                left_control.test_limit_transport_paths(vec![relay_path.clone()]),
+                right_control.test_limit_transport_paths(vec![relay_path.clone()]),
+            ).unwrap();
+            for original in [left, right] {
+                for path in original.paths().iter().filter(|path| path.is_ip()) {
+                    path.close().unwrap();
+                }
+                assert!(original.paths().iter().any(|path| path.is_relay()));
+                assert!(original.paths().iter().all(|path| path.is_relay()));
+            }
+        }
+        let (mut send, mut recv) = first.open_bi().await.unwrap();
+        send.write_all(b"start").await.unwrap();
+        let (mut reply, mut inbound) = first_remote.accept_bi().await.unwrap();
+        let mut bytes = [0; 5];
+        inbound.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"start");
+        let (head, other) = if first.stable_id() < second.stable_id() {
+            (&first, &second)
+        } else {
+            (&second, &first)
+        };
+        let attempt = AttemptContext::new(
+            n0_future::time::Instant::now() + Duration::from_secs(15),
+            tokio_util::sync::CancellationToken::new(),
+        );
+        let busy = gate.maintenance().acquire(head, &attempt, ()).unwrap();
+        let observing = ControlSession::from_control(caller.endpoint().control_handle(head));
+        let before = caller.maintenance_status();
+        assert_eq!(before.contact_attempts, 0);
+        println!("{}", json!({"event":"maintenance-fairness-fixture","busy":head.stable_id(),"eligible":other.stable_id()}));
+        udp.set_udp_enabled(true);
+        let held = udp.observe(&observing, &gate).await.unwrap();
+        let mut status = caller.watch_maintenance();
+        tokio::time::timeout(Duration::from_secs(8), status.wait_for(|s| s.contact_attempts > 0))
+            .await.expect("later M must start while the head's reservation is held").unwrap();
+        assert!(held.is_current());
+        assert_eq!(gate.maintenance().active_attempts(), 1);
+        println!("{}", json!({"event":"maintenance-fairness-release","contactAttempts":status.borrow().contact_attempts}));
+        drop((held, busy, activity));
+        caller.offer_contact(neighbor.addr()).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(12), status.wait_for(|s| {
+            s.last_sync.as_ref().is_some_and(|sync| sync.source == neighbor.endpoint().id() && sync.complete())
+                && s.discovery_rounds > before.discovery_rounds
+        })).await.expect("sync and discovery while both relay Ms repeatedly become due").unwrap();
+        // Observe two naturally refilled node allowances (F = 250ms, 32F = 8s).
+        tokio::time::sleep(Duration::from_secs(23)).await;
+        assert!(first.close_reason().is_none() && second.close_reason().is_none());
+        assert!(caller.maintenance_status().discovery_rounds > before.discovery_rounds + 1);
+        send.write_all(b"after").await.unwrap();
+        inbound.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"after");
+        reply.write_all(b"still").await.unwrap();
+        recv.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"still");
+    }).await.unwrap();
+    tokio::join!(caller.close(), neighbor.close());
+    router.shutdown().await.unwrap();
+    peer_endpoint.endpoint().close().await;
+    peer.close().await;
+    relay.shutdown().await.unwrap();
 }
 
 #[tokio::test]
@@ -430,6 +649,7 @@ struct ProbeAdapter {
     report: Mutex<Option<serde_json::Value>>,
     stages: Mutex<Vec<&'static str>>,
     production_native: bool,
+    expect_tcp: bool,
 }
 impl ProbeAdapter {
     fn new(
@@ -451,6 +671,7 @@ impl ProbeAdapter {
             report: Mutex::new(None),
             stages: Mutex::new(Vec::new()),
             production_native: false,
+            expect_tcp: false,
         }
     }
 }
@@ -550,6 +771,17 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for ProbeAdapter {
                     .prepare_active(_endpoint, original, control, _attempt, plan)
                     .await?;
                 candidate.check(original, true)?;
+                if self.expect_tcp {
+                    assert!(matches!(&candidate.route, TransportAddr::Custom(addr)
+                        if addr.id() == crate::tcp_transport::DATA_TRANSPORT_ID));
+                    assert!(
+                        original
+                            .paths()
+                            .iter()
+                            .any(|path| path.remote_addr() == &candidate.route
+                                && !path.is_selected())
+                    );
+                }
                 self.real_ack.store(true, Ordering::Release);
                 let rollback = self.rollback.clone();
                 let native_rollback = candidate.rollback.take();
@@ -786,6 +1018,22 @@ async fn production_native_active_scenario(udp_enabled: bool, reverse: bool) {
         .spawn();
     a.udp_connector().set_udp_enabled(udp_enabled);
     b.udp_connector().set_udp_enabled(udp_enabled);
+    // The live node's real enhanced-round ledger is already occupied. The
+    // ordinary UDP route on this M must still reach both commit barriers.
+    let held_udp = if udp_enabled {
+        let observation = crate::control_session::ControlSession::from_control(
+            ae.endpoint().control_handle(&original),
+        );
+        let snapshot = a
+            .udp_connector()
+            .observe(&observation, &a.admission_gate())
+            .await
+            .unwrap();
+        assert!(snapshot.is_current());
+        Some(snapshot)
+    } else {
+        None
+    };
     let coordinator = ae.active_coordinator(a.admission_gate());
     let local_registry = a.admission_gate().maintenance();
     let peer_registry = b.admission_gate().maintenance();
@@ -987,6 +1235,7 @@ async fn production_native_active_scenario(udp_enabled: bool, reverse: bool) {
             matches!(result, Ok(Ok(Ok(_)))),
             "production native active: {result:?}"
         );
+        assert!(held_udp.unwrap().is_current());
     } else {
         assert!(
             matches!(result, Ok(Ok(Err(_)))),
@@ -1161,7 +1410,44 @@ async fn active_native_budget_deferral_preserves_another_members_original_stream
 
 #[tokio::test]
 async fn native_active_wrong_udp_result_is_invalid_control_and_keeps_original() {
+    scripted_native_udp_result(None, false).await;
+}
+
+#[tokio::test]
+async fn native_active_local_budget_distinguishes_remaining_ordinary_udp_candidates() {
+    for reverse in [false, true] {
+        scripted_native_udp_result(Some(1), reverse).await;
+        scripted_native_udp_result(Some(64), reverse).await;
+    }
+}
+
+async fn scripted_native_udp_result(offer_count: Option<u16>, reverse: bool) {
+    use crate::{
+        control_session::ControlSession,
+        resources::{Resource, ResourceUse},
+        session_maintenance::MaintenanceDeferral,
+    };
     let (_directory, a, b) = admitted_pair().await;
+    let relay = if offer_count.is_some() {
+        let mut config = iroh_relay::server::ServerConfig::default();
+        config.relay = Some(iroh_relay::server::RelayConfig::new((
+            Ipv4Addr::LOCALHOST,
+            0,
+        )));
+        let relay = iroh_relay::server::Server::spawn(config).await.unwrap();
+        for node in [&a, &b] {
+            let mut config = node.resource_configuration().unwrap();
+            config.replacement = Some(vec![Resource {
+                url: relay.http_url().unwrap().to_string(),
+                uses: [ResourceUse::DataRelay].into(),
+                limitation: "owned relay for the direct candidate window".into(),
+            }]);
+            node.save_resource_configuration(&config).unwrap();
+        }
+        Some(relay)
+    } else {
+        None
+    };
     let ae = a
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
@@ -1170,7 +1456,42 @@ async fn native_active_wrong_udp_result_is_invalid_control_and_keeps_original() 
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
         .unwrap();
-    let (original, peer) = ordinary_pair(&ae, &be).await;
+    let (original, peer) = if let Some(relay) = &relay {
+        let path = TransportAddr::Relay(relay.http_url().unwrap());
+        tokio::time::timeout(Duration::from_secs(5), async {
+            tokio::join!(ae.endpoint().online(), be.endpoint().online());
+        })
+        .await
+        .unwrap();
+        let (original, peer) = member_pair(
+            &ae,
+            &be,
+            EndpointAddr::new(be.endpoint().id()).with_addrs([path.clone()]),
+        )
+        .await;
+        let original_path = ae.endpoint().control_handle(&original);
+        let peer_path = be.endpoint().control_handle(&peer);
+        tokio::try_join!(
+            original_path.test_limit_transport_paths(vec![path.clone()]),
+            peer_path.test_limit_transport_paths(vec![path]),
+        )
+        .unwrap();
+        for connection in [&original, &peer] {
+            for path in connection.paths().iter().filter(|path| path.is_ip()) {
+                path.close().unwrap();
+            }
+            assert!(connection.paths().iter().any(|path| path.is_relay()));
+            assert!(connection.paths().iter().all(|path| path.is_relay()));
+        }
+        (original, peer)
+    } else {
+        ordinary_pair(&ae, &be).await
+    };
+    let (a, b, ae, be, original, peer) = if reverse {
+        (b, a, be, ae, peer, original)
+    } else {
+        (a, b, ae, be, original, peer)
+    };
     let ids = (original.stable_id(), peer.stable_id());
     let (mut send, mut receive) = original.open_bi().await.unwrap();
     send.write_all(b"before").await.unwrap();
@@ -1178,88 +1499,209 @@ async fn native_active_wrong_udp_result_is_invalid_control_and_keeps_original() 
     let mut before = [0; 6];
     incoming.read_exact(&mut before).await.unwrap();
     assert_eq!(&before, b"before");
-
-    let deadline = n0_future::time::Instant::now() + Duration::from_secs(5);
-    let (control, remote_control) = tokio::join!(
-        async {
-            ae.endpoint()
-                .connect_control_with_opts(
-                    be.addr(),
-                    ACTIVE_IMPROVEMENT_ALPN,
-                    iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline),
-                )
+    let _held = if offer_count.is_some() {
+        let observing = ControlSession::from_control(ae.endpoint().control_handle(&original));
+        Some(
+            a.udp_connector()
+                .observe(&observing, &a.admission_gate())
                 .await
-                .unwrap()
-                .await
-                .unwrap()
-        },
-        async {
-            be.endpoint()
-                .accept()
-                .await
-                .unwrap()
-                .with_caller_deadline(deadline)
-                .accept_control()
-                .unwrap()
-                .await
-                .unwrap()
-        },
-    );
-    let adapter = NativeControlAdapter(ae.active_coordinator(a.admission_gate()));
-    let attempt = AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new());
-    let lease = a
-        .admission_gate()
-        .maintenance()
-        .acquire(&original, &attempt, ())
-        .unwrap();
-    let scripted_peer = async {
-        let stream = remote_control.accept_control_exchange().await.unwrap();
-        let request = read_active_hello(&stream).await.unwrap();
-        let mut caps = adapter.capabilities(AttemptRole::Responder);
-        caps.permitted = UDP;
-        let local = active_hello(caps, AttemptRole::Responder, request.binding);
-        write_active_hello(&stream, local).await.unwrap();
-
-        let nonce = [0u8; 16];
-        let wrong_nonce = [1u8; 16];
-        let format = ControlMessageFormat::EndTerminated { maximum: 16 * 1024 };
-        for (expected, answer) in [
-            ("Hello", json!({"Offer":{"nonce":nonce,"addresses":[]}})),
-            ("Offer", json!({"Ready":{"nonce":nonce}})),
-            (
-                "Result",
-                json!({"Result":{"nonce":wrong_nonce,"available":false}}),
-            ),
-        ] {
-            let stream = remote_control.accept_control_exchange().await.unwrap();
-            let input = stream.recv_message(format).await.unwrap();
-            let frame = serde_json::from_slice::<Value>(&input).unwrap();
-            assert!(frame.get(expected).is_some(), "{frame}");
-            stream
-                .send_message(format, &serde_json::to_vec(&answer).unwrap())
-                .await
-                .unwrap();
-        }
-    };
-    let control_handle = control.control_handle();
-    let (result, ()) = tokio::time::timeout_at(deadline, async {
-        tokio::join!(
-            lease.run(improve_existing(
-                ae.endpoint(),
-                &original,
-                &control_handle,
-                &adapter,
-                attempt,
-                AttemptLog::new(AttemptRole::Initiator, "test_active_udp_result"),
-            )),
-            scripted_peer
+                .unwrap(),
         )
-    })
-    .await
-    .unwrap();
-    let error = result.unwrap().unwrap_err();
-    assert_eq!(error.kind(), io::ErrorKind::InvalidData);
-    assert!(error.to_string().starts_with("unified/InvalidControl"));
+    } else {
+        None
+    };
+
+    let checks = if offer_count.is_some() { 2 } else { 1 };
+    let mut previously_tried = 0;
+    for round in 0..checks {
+        let deadline = n0_future::time::Instant::now() + Duration::from_secs(5);
+        let (control, remote_control) = tokio::join!(
+            async {
+                ae.endpoint()
+                    .connect_control_with_opts(
+                        be.addr(),
+                        ACTIVE_IMPROVEMENT_ALPN,
+                        iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline),
+                    )
+                    .await
+                    .unwrap()
+                    .await
+                    .unwrap()
+            },
+            async {
+                be.endpoint()
+                    .accept()
+                    .await
+                    .unwrap()
+                    .with_caller_deadline(deadline)
+                    .accept_control()
+                    .unwrap()
+                    .await
+                    .unwrap()
+            },
+        );
+        let adapter = NativeControlAdapter(ae.active_coordinator(a.admission_gate()));
+        let attempt = AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new());
+        let lease = a
+            .admission_gate()
+            .maintenance()
+            .acquire(&original, &attempt, ())
+            .unwrap();
+        let scripted_peer = async {
+            let stream = remote_control.accept_control_exchange().await.unwrap();
+            let request = read_active_hello(&stream).await.unwrap();
+            let mut caps = adapter.capabilities(AttemptRole::Responder);
+            caps.permitted = UDP;
+            let local = active_hello(caps, AttemptRole::Responder, request.binding);
+            write_active_hello(&stream, local).await.unwrap();
+
+            let control = ControlSession::from_active_control(
+                be.endpoint().control_handle(&peer),
+                remote_control.control_handle(),
+            );
+            let format = ControlMessageFormat::EndTerminated { maximum: 16 * 1024 };
+            if reverse {
+                let scope = control.nat_learning_scope(&b.admission_gate()).unwrap();
+                let stream = control.open_control_exchange().await.unwrap();
+                stream
+                    .send_message(
+                        format,
+                        &serde_json::to_vec(&json!({"Hello":{
+                            "network":scope.network,"generation":scope.secret_generation
+                        }}))
+                        .unwrap(),
+                    )
+                    .await
+                    .unwrap();
+                let offer: Value =
+                    serde_json::from_slice(&stream.recv_message(format).await.unwrap()).unwrap();
+                let nonce = offer["Offer"]["nonce"].clone();
+                assert!(
+                    offer["Offer"]["addresses"]
+                        .as_array()
+                        .is_some_and(|addresses| !addresses.is_empty())
+                );
+                let stream = control.open_control_exchange().await.unwrap();
+                stream
+                    .send_message(
+                        format,
+                        &serde_json::to_vec(&json!({"Offer":{"nonce":nonce,"addresses":[]}}))
+                            .unwrap(),
+                    )
+                    .await
+                    .unwrap();
+                let ready: Value =
+                    serde_json::from_slice(&stream.recv_message(format).await.unwrap()).unwrap();
+                assert_eq!(ready["Ready"]["nonce"], nonce);
+                let stream = control.open_control_exchange().await.unwrap();
+                let mut result = json!({"Result":{"nonce":nonce,"available":false}});
+                if offer_count == Some(64) {
+                    result["Result"]["more_candidates"] = json!(true);
+                }
+                stream
+                    .send_message(format, &serde_json::to_vec(&result).unwrap())
+                    .await
+                    .unwrap();
+                let reply: Value =
+                    serde_json::from_slice(&stream.recv_message(format).await.unwrap()).unwrap();
+                assert_eq!(reply["Result"]["nonce"], nonce);
+            } else {
+                let nonce = [0u8; 16];
+                let result_nonce = if offer_count.is_some() {
+                    nonce
+                } else {
+                    [1u8; 16]
+                };
+                let addresses = (0..offer_count.unwrap_or(0))
+                    .map(|offset| std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, 47000 + offset)))
+                    .collect::<Vec<_>>();
+                for (expected, answer) in [
+                    (
+                        "Hello",
+                        json!({"Offer":{"nonce":nonce,"addresses":addresses}}),
+                    ),
+                    ("Offer", json!({"Ready":{"nonce":nonce}})),
+                    (
+                        "Result",
+                        json!({"Result":{"nonce":result_nonce,"available":false}}),
+                    ),
+                ] {
+                    let stream = remote_control.accept_control_exchange().await.unwrap();
+                    let input = stream.recv_message(format).await.unwrap();
+                    let frame = serde_json::from_slice::<Value>(&input).unwrap();
+                    assert!(frame.get(expected).is_some(), "{frame}");
+                    stream
+                        .send_message(format, &serde_json::to_vec(&answer).unwrap())
+                        .await
+                        .unwrap();
+                }
+            }
+            if offer_count.is_some() {
+                let error = crate::nat_punch::begin_round(&control, &b.admission_gate(), true)
+                    .await
+                    .err()
+                    .expect("the unoccupied peer receives the occupied node's deferral");
+                assert_eq!(
+                    MaintenanceDeferral::from_error(&error),
+                    Some(&MaintenanceDeferral::Remote)
+                );
+            }
+        };
+        let control_handle = control.control_handle();
+        let (result, ()) = tokio::time::timeout_at(deadline, async {
+            tokio::join!(
+                lease.run(improve_existing(
+                    ae.endpoint(),
+                    &original,
+                    &control_handle,
+                    &adapter,
+                    attempt,
+                    AttemptLog::new(AttemptRole::Initiator, "test_active_udp_result"),
+                )),
+                scripted_peer
+            )
+        })
+        .await
+        .unwrap();
+        let error = result.unwrap().unwrap_err();
+        match offer_count {
+            None => {
+                assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+                assert!(error.to_string().starts_with("unified/InvalidControl"));
+            }
+            Some(64) => assert_eq!(
+                MaintenanceDeferral::from_error(&error),
+                Some(&MaintenanceDeferral::LocalAlternatives)
+            ),
+            Some(_) => assert!(
+                matches!(
+                    MaintenanceDeferral::from_error(&error),
+                    Some(MaintenanceDeferral::LocalBudget { next_due }) if *next_due > n0_future::time::Instant::now()
+                ),
+                "{error:?}, reverse={reverse}, offer_count={offer_count:?}, round={round}"
+            ),
+        }
+        if !reverse && let Some(offered) = offer_count {
+            let original = ae.endpoint().control_handle(&original);
+            let tried = a
+                .admission_gate()
+                .with_direct_candidates(&original, |progress| progress.tried_addresses())
+                .unwrap();
+            if offered == 1 {
+                assert_eq!(tried, 1);
+            } else {
+                // The real PathID limit caps each window. It never constitutes
+                // evidence that the remaining addresses were actually tried.
+                assert!(previously_tried < tried && tried < usize::from(offered));
+            }
+            println!(
+                "OBSERVED direct_offer_total={offered} cumulative_direct_launches={tried} window={round}"
+            );
+            previously_tried = tried;
+        }
+        control.close(0u32.into(), b"active UDP result fixture finished");
+        remote_control.close(0u32.into(), b"active UDP result fixture finished");
+    }
     assert_eq!((original.stable_id(), peer.stable_id()), ids);
     assert!(original.close_reason().is_none() && peer.close_reason().is_none());
     send.write_all(b"later!").await.unwrap();
@@ -1270,10 +1712,11 @@ async fn native_active_wrong_udp_result_is_invalid_control_and_keeps_original() 
     assert_eq!(&before, b"later!");
     original.close(0u32.into(), b"active UDP result fixture finished");
     peer.close(0u32.into(), b"active UDP result fixture finished");
-    control.close(0u32.into(), b"active UDP result fixture finished");
-    remote_control.close(0u32.into(), b"active UDP result fixture finished");
     tokio::join!(ae.close(), be.close());
     tokio::join!(a.close(), b.close());
+    if let Some(relay) = relay {
+        relay.shutdown().await.unwrap();
+    }
 }
 
 #[tokio::test]
@@ -1422,11 +1865,28 @@ async fn qualified_original_can_own_traversal_but_ordinary_connection_cannot() {
 }
 
 async fn scenario(fault: Fault) {
-    scenario_with_native(fault, false).await;
+    scenario_with_native(fault, false, None).await;
 }
 
-async fn scenario_with_native(fault: Fault, production_native: bool) {
+async fn scenario_with_native(
+    fault: Fault,
+    production_native: bool,
+    tcp_observer: Option<std::net::SocketAddr>,
+) {
     let (_directory, a, b) = admitted_pair().await;
+    if let Some(observer) = tcp_observer {
+        for node in [&a, &b] {
+            let mut config = node.resource_configuration().unwrap();
+            config.replacement = Some(vec![crate::resources::Resource {
+                url: format!("stun+tcp://{observer}/"),
+                uses: [crate::resources::ResourceUse::Observation].into(),
+                limitation: "owned TCP Binding observer".into(),
+            }]);
+            config.tcp_listen = Some((Ipv4Addr::LOCALHOST, 0).into());
+            config.path_selection.preference = crate::path_selection::PathPreference::PreferDirect;
+            node.save_resource_configuration(&config).unwrap();
+        }
+    }
     let ae = a
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
@@ -1435,8 +1895,13 @@ async fn scenario_with_native(fault: Fault, production_native: bool) {
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
         .unwrap();
-    let (original, remote) = ordinary_pair(&ae, &be).await;
-    let (other, other_remote) = ordinary_pair(&ae, &be).await;
+    let contact = if tcp_observer.is_some() {
+        EndpointAddr::new(be.endpoint().id()).with_ip_addr(be.endpoint().bound_sockets()[0])
+    } else {
+        be.addr()
+    };
+    let (original, remote) = member_pair(&ae, &be, contact.clone()).await;
+    let (other, other_remote) = member_pair(&ae, &be, contact).await;
     assert!(a.admission_gate().allows(&original, ProtocolScope::Member));
     assert!(b.admission_gate().allows(&remote, ProtocolScope::Member));
     let original_stable = original.stable_id();
@@ -1469,6 +1934,8 @@ async fn scenario_with_native(fault: Fault, production_native: bool) {
         responder.inner = NativeControlAdapter(be.active_coordinator(responder.gate.clone()));
         initiator.production_native = true;
         responder.production_native = true;
+        initiator.expect_tcp = tcp_observer.is_some();
+        responder.expect_tcp = tcp_observer.is_some();
     }
     let deadline = n0_future::time::Instant::now() + Duration::from_secs(5);
     let cancellation = tokio_util::sync::CancellationToken::new();
@@ -1559,6 +2026,20 @@ async fn scenario_with_native(fault: Fault, production_native: bool) {
     let real_ack = responder.real_ack.load(Ordering::Acquire);
     let rolled_back = responder.rollback.load(Ordering::Acquire);
     let responder_reported = responder.report.lock().unwrap().is_some();
+    if tcp_observer.is_some() {
+        for connection in [&original, &remote] {
+            assert!(
+                connection
+                    .paths()
+                    .iter()
+                    .any(|path| path.is_ip() && path.is_selected())
+            );
+            assert!(connection.paths().iter().all(|path| {
+                !matches!(path.remote_addr(), TransportAddr::Custom(addr)
+                    if addr.id() == crate::tcp_transport::DATA_TRANSPORT_ID && path.is_selected())
+            }));
+        }
+    }
     let both_reports_valid = [&initiator, &responder].iter().all(|adapter| {
         adapter
             .report
@@ -1657,10 +2138,27 @@ async fn scenario_with_native(fault: Fault, production_native: bool) {
 async fn production_native_active_rollback_preserves_existing_udp_and_other_streams() {
     tokio::time::timeout(
         Duration::from_secs(12),
-        scenario_with_native(Fault::PreCommitControlClose, true),
+        scenario_with_native(Fault::PreCommitControlClose, true, None),
     )
     .await
     .expect("native rollback must preserve existing business paths");
+}
+
+#[cfg(target_os = "linux")]
+#[path = "../tests/support/tcp_binding_observer.rs"]
+mod tcp_binding_observer;
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn active_tcp_rollback_preserves_original_paths_and_streams() {
+    let (observer, server) = tcp_binding_observer::tcp_binding_observer(None, 0).await;
+    tokio::time::timeout(
+        Duration::from_secs(12),
+        scenario_with_native(Fault::PreCommitControlClose, true, Some(observer)),
+    )
+    .await
+    .expect("native TCP rollback must preserve both original streams");
+    server.abort();
 }
 
 #[tokio::test]

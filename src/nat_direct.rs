@@ -38,6 +38,8 @@ enum Frame {
     Result {
         nonce: [u8; 16],
         available: bool,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        more_candidates: bool,
     },
 }
 
@@ -69,12 +71,13 @@ async fn receive(exchange: &ControlExchange) -> io::Result<Frame> {
     serde_json::from_slice(&bytes).map_err(|_| control_error("InvalidControl"))
 }
 
-async fn receive_result(exchange: &ControlExchange, nonce: [u8; 16]) -> io::Result<bool> {
+async fn receive_result(exchange: &ControlExchange, nonce: [u8; 16]) -> io::Result<(bool, bool)> {
     match receive(exchange).await? {
         Frame::Result {
             nonce: result,
             available,
-        } if result == nonce => Ok(available),
+            more_candidates,
+        } if result == nonce => Ok((available, more_candidates)),
         _ => Err(control_error("InvalidControl")),
     }
 }
@@ -94,6 +97,39 @@ fn valid(address: SocketAddr) -> bool {
 pub(crate) struct CandidateProgress {
     advertised: CandidateCursor,
     received: CandidateCursor,
+    last_offer: Option<ReceivedCandidates>,
+    /// Set by the current negotiated active attempt on this original.
+    pub(crate) active_enhanced_only: Option<bool>,
+}
+
+#[derive(Debug)]
+struct ReceivedCandidates {
+    generation: ObservationValidity,
+    offered: BTreeSet<SocketAddr>,
+    tried: BTreeSet<SocketAddr>,
+}
+
+impl CandidateProgress {
+    fn observe_offer(&mut self, generation: ObservationValidity, offered: BTreeSet<SocketAddr>) {
+        if self
+            .last_offer
+            .as_ref()
+            .is_none_or(|current| current.generation != generation || current.offered != offered)
+        {
+            self.last_offer = Some(ReceivedCandidates {
+                generation,
+                offered,
+                tried: BTreeSet::new(),
+            });
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn tried_addresses(&self) -> usize {
+        self.last_offer
+            .as_ref()
+            .map_or(0, |offer| offer.tried.len())
+    }
 }
 
 #[derive(Debug, Default)]
@@ -171,6 +207,11 @@ impl DirectPath {
     }
 }
 
+pub(crate) enum DirectAttempt {
+    Ready(DirectPath),
+    Unavailable { more_candidates: bool },
+}
+
 fn ip_path(control: &ControlSession) -> Option<(PathId, SocketAddr)> {
     control
         .endpoint()
@@ -192,14 +233,16 @@ async fn probe_candidates(
     remote: Vec<SocketAddr>,
     deadline: Instant,
     check: impl Fn() -> io::Result<()>,
-) -> io::Result<Option<UdpCandidatePath>> {
-    if remote.is_empty() || ip_path(control).is_some() {
-        return Ok(None);
+) -> io::Result<(Option<UdpCandidatePath>, bool)> {
+    let offered = remote.into_iter().collect::<BTreeSet<_>>();
+    if offered.is_empty() || ip_path(control).is_some() {
+        return Ok((None, !offered.is_empty()));
     }
     let deadline = deadline.min(Instant::now() + CANDIDATE_WINDOW);
     let candidate_order = gate
         .with_direct_candidates(control.endpoint(), |progress| {
-            progress.received.next_round(remote)
+            progress.observe_offer(control.endpoint().udp_network_generation(), offered.clone());
+            progress.received.next_round(offered.into_iter().collect())
         })
         .ok_or_else(session_ended)?;
     let mut owned = Vec::new();
@@ -225,6 +268,7 @@ async fn probe_candidates(
                 }
                 gate.with_direct_candidates(control.endpoint(), |progress| {
                     progress.received.offsets[group] += 1;
+                    progress.last_offer.as_mut().unwrap().tried.insert(address);
                 })
                 .ok_or_else(session_ended)?;
                 break;
@@ -242,15 +286,24 @@ async fn probe_candidates(
     }
     check()?;
     let winner = ip_path(control).map(|(id, _)| id);
+    let more_candidates = gate
+        .with_direct_candidates(control.endpoint(), |progress| {
+            let offer = progress.last_offer.as_ref().unwrap();
+            offer.tried.len() < offer.offered.len()
+        })
+        .ok_or_else(session_ended)?;
     // Drop the round's other allocations before entering enhanced punching.
-    Ok(owned.into_iter().find(|path| Some(path.id()) == winner))
+    Ok((
+        owned.into_iter().find(|path| Some(path.id()) == winner),
+        more_candidates,
+    ))
 }
 
 pub(crate) async fn attempt(
     control: &ControlSession,
     gate: &AdmissionGate,
     deadline: Instant,
-) -> io::Result<Option<DirectPath>> {
+) -> io::Result<DirectAttempt> {
     let scope = control.nat_learning_scope(gate).ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::PermissionDenied,
@@ -292,6 +345,7 @@ pub(crate) async fn attempt(
                 .collect::<Vec<_>>()
         })
         .ok_or_else(session_ended)?;
+    let unadvertised = available_addresses > addresses.len();
     println!(
         "NAT_DIRECT_LOCAL stable_id={} available={} advertised={addresses:?}",
         control.stable_id(),
@@ -355,7 +409,8 @@ pub(crate) async fn attempt(
             control.stable_id()
         );
         let candidate = if control.is_dialing_side() {
-            let candidate = probe_candidates(control, gate, remote, deadline, check).await?;
+            let (candidate, more_candidates) =
+                probe_candidates(control, gate, remote, deadline, check).await?;
             check()?;
             let exchange = control.open_control_exchange().await?;
             send(
@@ -363,21 +418,34 @@ pub(crate) async fn attempt(
                 Frame::Result {
                     nonce,
                     available: ip_path(control).is_some(),
+                    more_candidates,
                 },
             )
             .await?;
-            if !receive_result(&exchange, nonce).await? {
-                return Ok(None);
+            let (available, peer_more) = receive_result(&exchange, nonce).await?;
+            if !available {
+                return Ok(DirectAttempt::Unavailable {
+                    more_candidates: more_candidates || peer_more,
+                });
             }
             candidate
         } else {
             let exchange = control.accept_control_exchange().await?;
-            let available = receive_result(&exchange, nonce).await?;
+            let (available, peer_more) = receive_result(&exchange, nonce).await?;
             check()?;
             let available = available && ip_path(control).is_some();
-            send(&exchange, Frame::Result { nonce, available }).await?;
+            let more_candidates = peer_more || unadvertised;
+            send(
+                &exchange,
+                Frame::Result {
+                    nonce,
+                    available,
+                    more_candidates,
+                },
+            )
+            .await?;
             if !available {
-                return Ok(None);
+                return Ok(DirectAttempt::Unavailable { more_candidates });
             }
             None
         };
@@ -388,7 +456,7 @@ pub(crate) async fn attempt(
                 "negotiated direct UDP path disappeared",
             )
         })?;
-        Ok(Some(DirectPath {
+        Ok(DirectAttempt::Ready(DirectPath {
             remote,
             scope: scope.clone(),
             generation: generation.clone(),
@@ -413,8 +481,8 @@ pub(crate) async fn attempt(
         result = operation => result,
     };
     phase.finish(match &result {
-        Ok(Some(_)) => "succeeded",
-        Ok(None) => "unavailable",
+        Ok(DirectAttempt::Ready(_)) => "succeeded",
+        Ok(DirectAttempt::Unavailable { .. }) => "unavailable",
         Err(_) => "failed",
     });
     result

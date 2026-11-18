@@ -402,8 +402,12 @@ impl RemoteStateActor {
             RemoteStateMessage::OpenAdmittedDataPath {
                 conn_id,
                 remote,
+                own_candidate,
                 tx,
             } => {
+                if own_candidate && tx.is_closed() {
+                    return;
+                }
                 let result = if let Some(state) = self.connections.get(&ConnId(conn_id)) {
                     if state.purpose != ConnectionPurpose::Ordinary {
                         Err("data carrier opening requires an admitted connection")
@@ -420,8 +424,14 @@ impl RemoteStateActor {
                             }
                         };
                         let path = transports::PathBinding::from_remote(address);
-                        self.state
-                            .open_path_on_conn(ConnId(conn_id), state, &conn, &path, true)
+                        self.state.open_path_inner(
+                            ConnId(conn_id),
+                            state,
+                            &conn,
+                            &path,
+                            true,
+                            own_candidate,
+                        )
                     } else {
                         Err("connection closed")
                     }
@@ -1928,7 +1938,7 @@ impl State {
                 trace!(%conn_id, %path_id, ?path_status, "opening new path");
                 Ok(if owned {
                     conn.path(path_id)
-                        .map(|path| crate::endpoint::UdpCandidatePath(Some(path)))
+                        .map(|path| crate::endpoint::DataCandidatePath(Some(path)))
                 } else {
                     None
                 })
@@ -2060,7 +2070,8 @@ pub(crate) enum RemoteStateMessage {
     OpenAdmittedDataPath {
         conn_id: usize,
         remote: TransportAddr,
-        tx: oneshot::Sender<Result<(), &'static str>>,
+        own_candidate: bool,
+        tx: oneshot::Sender<Result<Option<crate::endpoint::DataCandidatePath>, &'static str>>,
     },
     /// Retain an already established, freshly qualified connection-owned carrier.
     RetainAdmittedDataPath {

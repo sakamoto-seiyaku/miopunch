@@ -126,6 +126,17 @@ struct RoundState {
     holder: Option<RoundHolder>,
 }
 
+impl RoundState {
+    fn waiting_until(&self, now: RoundInstant) -> Option<RoundInstant> {
+        let (previous, due) = self.cooldown.as_ref()?;
+        let occupied = self
+            .holder
+            .as_ref()
+            .is_some_and(|holder| !holder.parked || now < holder.deadline);
+        (occupied || (previous.is_current() && now < *due)).then_some(*due)
+    }
+}
+
 #[derive(Debug)]
 struct RoundHolder {
     id: u64,
@@ -166,6 +177,15 @@ impl NodeRoundBudget {
             .is_some()
     }
 
+    /// Inspect the existing round gate without expiring or reserving a permit.
+    pub(crate) fn waiting_until(&self, now: RoundInstant) -> Option<RoundInstant> {
+        self.0
+            .state
+            .lock()
+            .expect("NAT round ledger")
+            .waiting_until(now)
+    }
+
     pub(crate) fn acquire(
         &self,
         generation: ObservationValidity,
@@ -192,13 +212,8 @@ impl NodeRoundBudget {
         {
             state.holder = None;
         }
-        if let Some((previous_generation, next_due)) = &state.cooldown
-            && (state.holder.is_some() || (now < *next_due && previous_generation.is_current()))
-        {
-            return Err(MaintenanceDeferral::LocalBudget {
-                next_due: *next_due,
-            }
-            .into());
+        if let Some(next_due) = state.waiting_until(now) {
+            return Err(MaintenanceDeferral::LocalBudget { next_due }.into());
         }
         if !generation.is_current() {
             return Err(round_invalidated());

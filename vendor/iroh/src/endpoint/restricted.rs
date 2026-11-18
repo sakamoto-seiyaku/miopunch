@@ -995,6 +995,17 @@ impl ControlHandle {
             .open_data_transport_path(&self.connection, remote)
             .await
     }
+    /// Open a permitted candidate on this admitted connection and return its
+    /// exact rollback owner. An existing binding yields no owner.
+    pub async fn open_data_transport_candidate(
+        &self,
+        remote: TransportAddr,
+    ) -> io::Result<Option<DataCandidatePath>> {
+        self.endpoint
+            .inner
+            .request_admitted_data_path(self.remote_id(), self.stable_id(), remote, true)
+            .await
+    }
     /// Retain an already validated custom control path under its existing seal.
     pub async fn retain_control_data_transport_path(
         &self,
@@ -1375,11 +1386,14 @@ impl WeakControlConnection {
     }
 }
 
-/// Owns one tentative UDP path on its exact original connection.
+/// Owns one tentative path on its exact original connection.
 #[derive(Debug)]
-pub struct UdpCandidatePath(pub(crate) Option<noq::Path>);
+pub struct DataCandidatePath(pub(crate) Option<noq::Path>);
 
-impl UdpCandidatePath {
+/// The owner returned by the UDP candidate entry point.
+pub type UdpCandidatePath = DataCandidatePath;
+
+impl DataCandidatePath {
     /// The allocated path ID, including while it is still being validated.
     pub fn id(&self) -> PathId {
         self.0.as_ref().expect("live candidate path").id()
@@ -1391,7 +1405,7 @@ impl UdpCandidatePath {
     }
 }
 
-impl Drop for UdpCandidatePath {
+impl Drop for DataCandidatePath {
     fn drop(&mut self) {
         if let Some(path) = self.0.take() {
             let _ = path.close();

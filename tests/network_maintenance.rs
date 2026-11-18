@@ -1,6 +1,9 @@
 //! Public node lifecycle, real admission and durable LogSync; no mocked peers.
 #[path = "support/native_connections.rs"]
 mod native_connections;
+#[cfg(target_os = "linux")]
+#[path = "support/tcp_binding_observer.rs"]
+mod tcp_binding_observer;
 use iroh::endpoint::RestrictedEndpoint;
 
 use iroh::endpoint::Connection;
@@ -537,6 +540,509 @@ async fn conservative_and_active_nodes_observe_distinct_frequency_and_concurrenc
 }
 
 const BUSINESS: &[u8] = b"miopunch/maintenance-business/1";
+
+#[derive(Debug, Clone)]
+struct ObserveBusiness(tokio::sync::mpsc::Sender<Connection>);
+impl iroh::protocol::ProtocolHandler for ObserveBusiness {
+    async fn accept(&self, connection: Connection) -> Result<(), iroh::protocol::AcceptError> {
+        self.0.send(connection.clone()).await.unwrap();
+        connection.closed().await;
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "linux")]
+struct ObserveReplica {
+    node: Arc<NativeNetwork>,
+    syncs: Arc<std::sync::atomic::AtomicUsize>,
+}
+#[cfg(target_os = "linux")]
+impl std::fmt::Debug for ObserveReplica {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ObserveReplica")
+    }
+}
+#[cfg(target_os = "linux")]
+impl iroh::protocol::ProtocolHandler for ObserveReplica {
+    async fn accept(&self, connection: Connection) -> Result<(), iroh::protocol::AcceptError> {
+        while self.node.serve_replica(&connection).await.is_ok() {
+            self.syncs.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn relay_member_improves_during_the_original_business_lease() {
+    use iroh::{EndpointAddr, TransportAddr};
+    use miopunch_native_probe::{
+        connection_coordinator::{ACTIVE_IMPROVEMENT_ALPN, MEMBER_ALPN},
+        control_session::ControlSession,
+        network_maintenance::MaintenanceState,
+        offline_replica::REPLICA_ALPN,
+    };
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[derive(Debug)]
+    struct ObserveOrdinaryDial(Arc<AtomicUsize>);
+    impl iroh::endpoint::EndpointHooks for ObserveOrdinaryDial {
+        async fn before_connect(
+            &self,
+            _remote: &EndpointAddr,
+            alpn: &[u8],
+        ) -> iroh::endpoint::BeforeConnectOutcome {
+            if alpn == REPLICA_ALPN {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+            iroh::endpoint::BeforeConnectOutcome::Accept
+        }
+    }
+
+    let broker = std::env::var("MIOPUNCH_MQTT_BROKER").expect("owned real broker required");
+    let dir = tempfile::tempdir().unwrap();
+    let mut client = NativeNetwork::create(dir.path().join("client"))
+        .await
+        .unwrap();
+    let server = join(&mut client, &dir.path().join("server")).await;
+    let neighbor = join(&mut client, &dir.path().join("neighbor")).await;
+    let mut relay_config = iroh_relay::server::ServerConfig::default();
+    relay_config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let relay = iroh_relay::server::Server::spawn(relay_config)
+        .await
+        .unwrap();
+    let relay_url = relay.http_url().unwrap();
+    let observer_ready = Arc::new(tokio::sync::Notify::new());
+    let (observer_addr, observations) =
+        tcp_binding_observer::tcp_binding_observer(Some(observer_ready.clone()), 2).await;
+    let observer = Resource {
+        url: format!("stun+tcp://{observer_addr}/"),
+        uses: BTreeSet::from([ResourceUse::Observation]),
+        limitation: "owned TCP Binding observer".into(),
+    };
+    for (node, floor) in [(&client, 250), (&server, 60_000)] {
+        let mut config = node.resource_configuration().unwrap();
+        config.replacement = Some(vec![
+            Resource {
+                url: relay_url.to_string(),
+                uses: BTreeSet::from([ResourceUse::DataRelay]),
+                limitation: "owned native relay".into(),
+            },
+            observer.clone(),
+        ]);
+        config.tcp_listen = Some((Ipv4Addr::LOCALHOST, 0).into());
+        config.maintenance.exploration_interval_ms = floor;
+        config.maintenance.quality_interval_ms = 250;
+        config.path_selection.preference =
+            miopunch_native_probe::path_selection::PathPreference::PreferDirect;
+        if floor == 250 {
+            config.maintenance.discovery_interval_ms = 1_000;
+            config.maintenance.max_neighbors = 2;
+            config.replacement.as_mut().unwrap().push(Resource {
+                url: format!("mqtt://{broker}/"),
+                uses: BTreeSet::from([ResourceUse::Signaling, ResourceUse::Lookup]),
+                limitation: "owned MQTT broker".into(),
+            });
+        }
+        node.save_resource_configuration(&config).unwrap();
+    }
+    let mut config = neighbor.resource_configuration().unwrap();
+    config.replacement = Some(Vec::new());
+    neighbor.save_resource_configuration(&config).unwrap();
+    let neighbor_resources = neighbor
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let (directs, mut accepted_direct) = tokio::sync::mpsc::channel(1);
+    let syncs = Arc::new(AtomicUsize::new(0));
+    let neighbor_router =
+        iroh::protocol::RestrictedRouter::builder(neighbor_resources.endpoint().clone())
+            .accept(
+                REPLICA_ALPN,
+                ObserveReplica {
+                    node: Arc::new(neighbor),
+                    syncs: syncs.clone(),
+                },
+            )
+            .accept(MEMBER_ALPN, ObserveBusiness(directs))
+            .spawn();
+    let (incoming, mut accepted) = tokio::sync::mpsc::channel(2);
+    let server = server
+        .maintain_network_with(Ipv4Addr::LOCALHOST, |router| {
+            router.accept(MEMBER_ALPN, ObserveBusiness(incoming))
+        })
+        .await
+        .unwrap();
+    let (queries, query_task) = observe_queries(&broker).await;
+    let udp = client
+        .udp_connector()
+        .clone()
+        .with_maintenance_policy(&client.resource_configuration().unwrap().maintenance)
+        .unwrap();
+    let gate = client.admission_gate();
+    let ordinary_dials = Arc::new(AtomicUsize::new(0));
+    let client = client
+        .maintain_network_with_endpoint(
+            Ipv4Addr::LOCALHOST,
+            |builder| builder.hooks(ObserveOrdinaryDial(ordinary_dials.clone())),
+            |router| router,
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(25), async {
+        tokio::join!(client.endpoint().online(), server.endpoint().online());
+        // Learn the neighbor's actual active IP before its ordinary contact
+        // considers configured relay fallback for a cold address.
+        let direct_target = EndpointAddr::new(neighbor_resources.endpoint().id())
+            .with_ip_addr(neighbor_resources.endpoint().bound_sockets()[0]);
+        let healthy = client
+            .endpoint()
+            .connect(direct_target.clone(), MEMBER_ALPN)
+            .await
+            .unwrap();
+        let healthy_remote = accepted_direct.recv().await.unwrap();
+        assert!(healthy.paths().iter().any(|path| path.is_ip()));
+        client.offer_contact(direct_target).await.unwrap();
+        wait_neighbors(&client, 1).await;
+        let neighbor_id = client.maintenance_status().neighbors[0].stable_id;
+        let setup_lease = client.business_activity();
+        let before = client.maintenance_status();
+        let before_queries = queries.lock().unwrap().len();
+        let before_syncs = syncs.load(Ordering::SeqCst);
+        let before_ordinary = ordinary_dials.load(Ordering::SeqCst);
+        let relay_path = TransportAddr::Relay(relay_url);
+        let target = EndpointAddr::new(server.endpoint().id()).with_addrs([relay_path.clone()]);
+        let observation = ControlSession::from_control_connection(
+            client
+                .endpoint()
+                .connect_control(target.clone(), ACTIVE_IMPROVEMENT_ALPN)
+                .await
+                .unwrap(),
+        );
+        let held = udp.observe(&observation, &gate).await.unwrap();
+        assert!(held.is_current());
+        let (original, activity) = client.connect(target.clone(), MEMBER_ALPN).await.unwrap();
+        let remote = accepted.recv().await.unwrap();
+        drop(setup_lease);
+        let ids = (original.stable_id(), remote.stable_id());
+        // Both mechanisms stay negotiated. Force the already admitted original
+        // onto its relay by masking its UDP paths, while leaving TCP permitted.
+        for (owner, connection, peer_addr) in [
+            (client.endpoint(), &original, server.addr()),
+            (server.endpoint(), &remote, client.addr()),
+        ] {
+            let tcp = peer_addr
+                .addrs
+                .into_iter()
+                .find(|address| {
+                    matches!(address, TransportAddr::Custom(addr)
+                    if addr.id() == miopunch_native_probe::tcp_transport::DATA_TRANSPORT_ID)
+                })
+                .unwrap();
+            owner
+                .control_handle(connection)
+                .test_limit_transport_paths(vec![relay_path.clone(), tcp])
+                .await
+                .unwrap();
+            for path in connection.paths().iter().filter(|path| path.is_ip()) {
+                path.close().unwrap();
+            }
+            assert!(connection.paths().iter().any(|path| path.is_relay()));
+            assert!(connection.paths().iter().all(|path| path.is_relay()));
+        }
+
+        let (mut send, mut reply) = original.open_bi().await.unwrap();
+        send.write_all(b"first").await.unwrap();
+        let (mut echo, mut receive) = remote.accept_bi().await.unwrap();
+        let mut bytes = [0; 5];
+        receive.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"first");
+        echo.write_all(b"ready").await.unwrap();
+        reply.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"ready");
+
+        client
+            .offer_contact(
+                EndpointAddr::new(server.endpoint().id()).with_addrs(
+                    server
+                        .addr()
+                        .addrs
+                        .into_iter()
+                        .filter(|addr| matches!(addr, TransportAddr::Relay(_))),
+                ),
+            )
+            .await
+            .unwrap();
+        observer_ready.notify_one();
+        let direct_tcp = |connection: &Connection| {
+            connection
+                .paths()
+                .iter()
+                .find(|path| {
+                    matches!(path.remote_addr(), TransportAddr::Custom(addr)
+                    if addr.id() == miopunch_native_probe::tcp_transport::DATA_TRANSPORT_ID)
+                })
+                .map(|path| path.id())
+        };
+        let mut status = client.watch_maintenance();
+        let first = tokio::time::timeout(
+            Duration::from_secs(5),
+            status.wait_for(|s| {
+                s.contact_attempts == before.contact_attempts + 1
+                    && s.cause
+                        .as_deref()
+                        .is_some_and(|cause| cause.contains("active improvement"))
+            }),
+        )
+        .await
+        .expect("the first TCP observation fails and UDP reaches the occupied round")
+        .unwrap();
+        assert!(first.cause.as_deref().unwrap().contains("WouldBlock"));
+        drop(first);
+        tokio::time::timeout(Duration::from_secs(4), async {
+            while client.maintenance_status().contact_attempts < before.contact_attempts + 2
+                || [&original, &remote]
+                    .into_iter()
+                    .any(|m| direct_tcp(m).is_none())
+            {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("the same relay original must retry TCP despite its occupied enhanced UDP round");
+        assert!(
+            held.is_current(),
+            "TCP succeeds while the same node's enhanced UDP round is occupied"
+        );
+        assert_eq!(
+            udp.observe(&observation, &gate).await.unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+        drop((held, observation));
+        let originals = [&original, &remote];
+        let previous_paths = originals.map(|connection| direct_tcp(connection).unwrap());
+        for (connection, previous) in originals.into_iter().zip(previous_paths) {
+            let paths = connection.paths();
+            assert!(paths.iter().any(|path| path.is_relay()));
+            paths.get(previous).unwrap().close().unwrap();
+            assert!(
+                direct_tcp(connection).is_none(),
+                "actual direct path absent after abandonment"
+            );
+        }
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while originals
+                .into_iter()
+                .zip(previous_paths)
+                .any(|(connection, previous)| {
+                    direct_tcp(connection).is_none_or(|id| id == previous)
+                })
+            {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("each original acquires a new direct path after abandonment");
+        tokio::time::sleep(Duration::from_millis(1100)).await;
+        let active = client.maintenance_status();
+        assert_eq!(active.state, MaintenanceState::BusinessPriority);
+        assert!((2..=3).contains(&(active.contact_attempts - before.contact_attempts)));
+        assert_eq!(ordinary_dials.load(Ordering::SeqCst), before_ordinary);
+        assert_eq!(active.discovery_rounds, before.discovery_rounds);
+        assert_eq!(queries.lock().unwrap().len(), before_queries);
+        assert_eq!(syncs.load(Ordering::SeqCst), before_syncs);
+        assert_eq!(active.neighbors.len(), 1);
+        assert_eq!((original.stable_id(), remote.stable_id()), ids);
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while [&original, &remote].into_iter().any(|connection| {
+                let paths = connection.paths();
+                direct_tcp(connection)
+                    .and_then(|id| paths.get(id))
+                    .is_none_or(|path| !path.is_selected())
+            }) {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("the new qualified path is selected on both original handles");
+        send.write_all(b"after").await.unwrap();
+        receive.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"after");
+        echo.write_all(b"there").await.unwrap();
+        reply.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"there");
+        drop(activity);
+        tokio::time::timeout(Duration::from_secs(8), async {
+            loop {
+                let status = client.maintenance_status();
+                if status.discovery_rounds > before.discovery_rounds
+                    && queries.lock().unwrap().len() > before_queries
+                    && syncs.load(Ordering::SeqCst) > before_syncs
+                    && ordinary_dials.load(Ordering::SeqCst) > before_ordinary
+                    && status.neighbors.len() == 2
+                {
+                    assert!(status.neighbors.iter().any(|n| n.stable_id == neighbor_id));
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        })
+        .await
+        .expect("lease release resumes due sync, discovery and ordinary contacts");
+        send.write_all(b"final").await.unwrap();
+        receive.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"final");
+        echo.write_all(b"again").await.unwrap();
+        reply.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"again");
+        assert!(healthy_remote.close_reason().is_none());
+    })
+    .await
+    .unwrap();
+    tokio::join!(client.close(), server.close());
+    neighbor_router.shutdown().await.unwrap();
+    neighbor_resources.close().await;
+    relay.shutdown().await.unwrap();
+    observations.abort();
+    query_task.abort();
+}
+
+#[tokio::test]
+async fn only_a_real_network_generation_restarts_failed_member_pacing() {
+    use iroh::{
+        EndpointAddr, TransportAddr,
+        endpoint::ControlConnection,
+        protocol::{AcceptError, ControlProtocolHandler},
+    };
+    use miopunch_native_probe::connection_coordinator::{ACTIVE_IMPROVEMENT_ALPN, MEMBER_ALPN};
+    use tokio::{sync::mpsc, time::Instant};
+
+    #[derive(Debug)]
+    struct UnavailablePath(mpsc::UnboundedSender<Instant>);
+    impl ControlProtocolHandler for UnavailablePath {
+        async fn accept(&self, control: ControlConnection) -> Result<(), AcceptError> {
+            self.0.send(Instant::now()).unwrap();
+            control.close(0u32.into(), b"fixture path unavailable");
+            Ok(())
+        }
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut client = NativeNetwork::create(dir.path().join("client"))
+        .await
+        .unwrap();
+    let server = join(&mut client, &dir.path().join("server")).await;
+    let mut relay_config = iroh_relay::server::ServerConfig::default();
+    relay_config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let relay = iroh_relay::server::Server::spawn(relay_config)
+        .await
+        .unwrap();
+    let relay_url = relay.http_url().unwrap();
+    for (node, floor) in [(&client, 250), (&server, 60_000)] {
+        let mut config = node.resource_configuration().unwrap();
+        config.replacement = Some(vec![Resource {
+            url: relay_url.to_string(),
+            uses: BTreeSet::from([ResourceUse::DataRelay]),
+            limitation: "owned native relay".into(),
+        }]);
+        config.udp_direct_disabled = floor == 60_000;
+        config.maintenance.exploration_interval_ms = floor;
+        config.maintenance.contact_timeout_ms = 5_000;
+        node.save_resource_configuration(&config).unwrap();
+    }
+    let (incoming, mut accepted) = mpsc::channel(1);
+    let (failures, mut failed) = mpsc::unbounded_channel();
+    let server = server
+        .maintain_network_with(Ipv4Addr::LOCALHOST, |router| {
+            router
+                .accept(MEMBER_ALPN, ObserveBusiness(incoming))
+                .accept_control(ACTIVE_IMPROVEMENT_ALPN, UnavailablePath(failures))
+        })
+        .await
+        .unwrap();
+    let client = client.maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(20), async {
+        tokio::join!(server.endpoint().online(), client.endpoint().online());
+        let target =
+            EndpointAddr::new(server.endpoint().id()).with_addrs([TransportAddr::Relay(relay_url)]);
+        let (original, _lease) = client.connect(target.clone(), MEMBER_ALPN).await.unwrap();
+        let remote = accepted.recv().await.unwrap();
+        assert!(remote.paths().iter().all(|path| path.is_relay()));
+        let first = failed.recv().await.unwrap();
+        let generation = client.endpoint().udp_network_generation();
+        for _ in 0..8 {
+            client.network_changed().await.unwrap();
+            client.offer_contact(target.clone()).await.unwrap();
+        }
+        let second = failed.recv().await.unwrap();
+        assert!(second.duration_since(first) >= Duration::from_millis(500));
+        for _ in 0..8 {
+            client.network_changed().await.unwrap();
+        }
+        let third = failed.recv().await.unwrap();
+        assert!(third.duration_since(second) >= Duration::from_secs(1));
+        assert!(
+            generation.is_current(),
+            "selector notifications are not endpoint changes"
+        );
+
+        // Let the third actual failure settle with F × 8 due. Then produce
+        // a real endpoint generation change through its normal entry point.
+        let mut status = client.watch_maintenance();
+        status.wait_for(|s| s.contact_attempts == 3).await.unwrap();
+        client.endpoint().network_change().await;
+        while generation.is_current() {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        let reset = tokio::time::timeout(Duration::from_millis(1750), failed.recv())
+            .await
+            .expect("generation invalidates the current session delay")
+            .unwrap();
+        assert!(reset.duration_since(third) < Duration::from_secs(2));
+        for _ in 0..12 {
+            client.network_changed().await.unwrap();
+        }
+        let after_reset = failed.recv().await.unwrap();
+        assert!(after_reset.duration_since(reset) >= Duration::from_millis(500));
+        assert!(original.close_reason().is_none());
+        original.close(0u32.into(), b"original completed");
+        remote.closed().await;
+        assert!(
+            tokio::time::timeout(Duration::from_millis(1250), failed.recv())
+                .await
+                .is_err()
+        );
+
+        let (replacement, _replacement_lease) = client.connect(target, MEMBER_ALPN).await.unwrap();
+        let replacement_remote = accepted.recv().await.unwrap();
+        assert_ne!(replacement.stable_id(), original.stable_id());
+        assert_ne!(replacement_remote.stable_id(), remote.stable_id());
+        tokio::time::timeout(Duration::from_millis(1750), failed.recv())
+            .await
+            .expect("replacement gets its own first maintenance opportunity")
+            .unwrap();
+        eprintln!(
+            "OBSERVED real_failure_gaps_ms={:?} first_after_generation_ms={} original={}",
+            [
+                second.duration_since(first).as_millis(),
+                third.duration_since(second).as_millis()
+            ],
+            after_reset.duration_since(reset).as_millis(),
+            original.stable_id()
+        );
+    })
+    .await
+    .unwrap();
+    tokio::join!(client.close(), server.close());
+    relay.shutdown().await.unwrap();
+}
+
 #[derive(Debug)]
 struct Echo;
 impl iroh::protocol::ProtocolHandler for Echo {
