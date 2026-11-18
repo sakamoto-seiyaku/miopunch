@@ -1,0 +1,32 @@
+{
+  "purpose": "Validate documented rerun after clearing owned stale remote target/stop files; separate from original eight-case comparison",
+  "caseStartedAtMs": 1795013398831,
+  "lifecycle": {
+    "activeOwnedActors": 0,
+    "stopWrittenAtMs": 1795013443590,
+    "targetWrittenAtMs": 1795013404382
+  },
+  "caseResult": {
+    "case": "final-linux-to-windows-relay-fixed-early",
+    "condition": "relay-fixed-early",
+    "direction": "linux-to-windows",
+    "connectBudgetMs": 30000,
+    "requestBudgetsMs": [
+      3000,
+      10000
+    ],
+    "permissions": [
+      "https://aps1-1.relay.n0.iroh.link./",
+      "https://euc1-1.relay.n0.iroh.link./",
+      "https://use1-1.relay.n0.iroh.link./",
+      "https://usw1-1.relay.n0.iroh.link./"
+    ],
+    "home": "https://aps1-1.relay.n0.iroh.link./",
+    "earlyMs": 250,
+    "clientOutcome": {
+      "connected": false,
+      "elapsedMs": 30004,
+      "error": "connection deadline exceeded"
+    }
+  }
+}

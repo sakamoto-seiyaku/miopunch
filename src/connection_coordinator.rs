@@ -874,6 +874,17 @@ pub struct ConnectionCoordinator {
     member_contacts: Option<std::sync::Arc<crate::member_contacts::MemberContacts>>,
 }
 impl ConnectionCoordinator {
+    /// Explicit laboratory owner for an independently admitted Native endpoint.
+    /// Endpoint admission hooks and resource checks still qualify every route.
+    /// This does not install a scheduler or change normal SDK startup defaults.
+    #[cfg(feature = "nat-lab-test-hooks")]
+    pub fn relay_comparison_fixture(
+        endpoint: iroh::endpoint::RestrictedEndpoint,
+        udp_enabled: bool,
+    ) -> Self {
+        Self::new_restricted(endpoint, RELAY | if udp_enabled { UDP } else { 0 }, vec![])
+    }
+
     pub(crate) fn new(endpoint: Endpoint, permitted: u8, contact_ids: Vec<u64>) -> Self {
         Self {
             endpoint: EndpointAccess::Ordinary(endpoint),

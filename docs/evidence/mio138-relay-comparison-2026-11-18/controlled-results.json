@@ -1,0 +1,1074 @@
+[
+  {
+    "after": [
+      {
+        "forwardedBytes": 25623,
+        "tcpConnections": 1,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 26428,
+        "tcpConnections": 2,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 0,
+        "tcpConnections": 0,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 786,
+        "tcpConnections": 1,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "healthy-normal",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": true,
+      "handshakeMs": 685,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795004303861,
+          "budgetMs": 3000,
+          "elapsedMs": 44,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 124198913063344
+        },
+        {
+          "at": 1795004303881,
+          "budgetMs": 10000,
+          "elapsedMs": 20,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 124198913063344
+        }
+      ]
+    },
+    "repetition": 0
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 49065,
+        "tcpConnections": 2,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 50695,
+        "tcpConnections": 4,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 25623,
+        "tcpConnections": 1,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 27214,
+        "tcpConnections": 3,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "healthy-relay-only",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": true,
+      "handshakeMs": 768,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795004304953,
+          "budgetMs": 3000,
+          "elapsedMs": 73,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 124198912495808
+        },
+        {
+          "at": 1795004304960,
+          "budgetMs": 10000,
+          "elapsedMs": 7,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 124198912495808
+        }
+      ]
+    },
+    "repetition": 0
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 49065,
+        "tcpConnections": 7,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 52301,
+        "tcpConnections": 6,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 49065,
+        "tcpConnections": 4,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 51481,
+        "tcpConnections": 5,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "cut-auto",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": false,
+      "elapsedMs": 4001,
+      "error": "connection deadline exceeded"
+    },
+    "repetition": 0
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 49065,
+        "tcpConnections": 8,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 53889,
+        "tcpConnections": 8,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 49065,
+        "tcpConnections": 7,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 53095,
+        "tcpConnections": 7,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "cut-fixed",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": false,
+      "elapsedMs": 4001,
+      "error": "connection deadline exceeded"
+    },
+    "repetition": 0
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 49065,
+        "tcpConnections": 9,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 101376,
+        "tcpConnections": 10,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 49065,
+        "tcpConnections": 8,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 54683,
+        "tcpConnections": 9,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "cut-fixed-early",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": true,
+      "handshakeMs": 907,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795004340537,
+          "budgetMs": 3000,
+          "elapsedMs": 72,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:46431/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 124198777363744
+        },
+        {
+          "at": 1795004340544,
+          "budgetMs": 10000,
+          "elapsedMs": 7,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:46431/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 124198777363744
+        }
+      ]
+    },
+    "repetition": 0
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 72511,
+        "tcpConnections": 10,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 125647,
+        "tcpConnections": 12,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 49065,
+        "tcpConnections": 9,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 102162,
+        "tcpConnections": 11,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "restored-fixed",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": true,
+      "handshakeMs": 740,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795004344564,
+          "budgetMs": 3000,
+          "elapsedMs": 87,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 124198911552096
+        },
+        {
+          "at": 1795004344572,
+          "budgetMs": 10000,
+          "elapsedMs": 7,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 124198911552096
+        }
+      ]
+    },
+    "repetition": 0
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 97931,
+        "tcpConnections": 11,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 151877,
+        "tcpConnections": 14,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 72511,
+        "tcpConnections": 10,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 126433,
+        "tcpConnections": 13,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "slow-fixed",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": false,
+      "elapsedMs": 4002,
+      "error": "connection deadline exceeded"
+    },
+    "repetition": 0
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 120024,
+        "tcpConnections": 12,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 217557,
+        "tcpConnections": 16,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 97931,
+        "tcpConnections": 11,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 152663,
+        "tcpConnections": 15,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "slow-fixed-early",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": true,
+      "handshakeMs": 2302,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795004352134,
+          "budgetMs": 3000,
+          "elapsedMs": 294,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:46431/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 124198849873024
+        },
+        {
+          "at": 1795004352440,
+          "budgetMs": 10000,
+          "elapsedMs": 305,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:46431/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 124198849873024
+        }
+      ]
+    },
+    "repetition": 0
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 147630,
+        "tcpConnections": 13,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 246569,
+        "tcpConnections": 19,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 120024,
+        "tcpConnections": 12,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 218343,
+        "tcpConnections": 17,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "business-slow-fixed",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": true,
+      "handshakeMs": 677,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795004356509,
+          "budgetMs": 3000,
+          "elapsedMs": 3002,
+          "error": "deadline has elapsed",
+          "event": "mio138-request",
+          "matched": false,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 124198848875088
+        },
+        {
+          "at": 1795004366510,
+          "budgetMs": 10000,
+          "elapsedMs": 10001,
+          "error": "deadline has elapsed",
+          "event": "mio138-request",
+          "matched": false,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 124198848875088
+        }
+      ]
+    },
+    "repetition": 0
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 175386,
+        "tcpConnections": 14,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 275154,
+        "tcpConnections": 21,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 147630,
+        "tcpConnections": 13,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 247390,
+        "tcpConnections": 20,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "healthy-normal",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": true,
+      "handshakeMs": 705,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795004379834,
+          "budgetMs": 3000,
+          "elapsedMs": 62,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            },
+            {
+              "address": "ip:192.168.64.1:46281",
+              "relay": false,
+              "selected": false
+            }
+          ],
+          "sequence": 1,
+          "stableId": 124198913062080
+        },
+        {
+          "at": 1795004379849,
+          "budgetMs": 10000,
+          "elapsedMs": 15,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": false
+            },
+            {
+              "address": "ip:192.168.64.1:46281",
+              "relay": false,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 124198913062080
+        }
+      ]
+    },
+    "repetition": 1
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 199246,
+        "tcpConnections": 15,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 299831,
+        "tcpConnections": 23,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 175386,
+        "tcpConnections": 14,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 275940,
+        "tcpConnections": 22,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "healthy-relay-only",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": true,
+      "handshakeMs": 666,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795004380898,
+          "budgetMs": 3000,
+          "elapsedMs": 89,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 124198911855312
+        },
+        {
+          "at": 1795004380906,
+          "budgetMs": 10000,
+          "elapsedMs": 7,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 124198911855312
+        }
+      ]
+    },
+    "repetition": 1
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 199246,
+        "tcpConnections": 20,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 301437,
+        "tcpConnections": 25,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 199246,
+        "tcpConnections": 17,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 300617,
+        "tcpConnections": 24,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "cut-auto",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": false,
+      "elapsedMs": 4001,
+      "error": "connection deadline exceeded"
+    },
+    "repetition": 1
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 199246,
+        "tcpConnections": 21,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 303033,
+        "tcpConnections": 27,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 199246,
+        "tcpConnections": 20,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 302231,
+        "tcpConnections": 26,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "cut-fixed",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": false,
+      "elapsedMs": 4001,
+      "error": "connection deadline exceeded"
+    },
+    "repetition": 1
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 199246,
+        "tcpConnections": 22,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 351218,
+        "tcpConnections": 29,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 199246,
+        "tcpConnections": 21,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 303819,
+        "tcpConnections": 28,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "cut-fixed-early",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": true,
+      "handshakeMs": 958,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795004416600,
+          "budgetMs": 3000,
+          "elapsedMs": 46,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:46431/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 124198777800016
+        },
+        {
+          "at": 1795004416681,
+          "budgetMs": 10000,
+          "elapsedMs": 80,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:46431/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 124198777800016
+        }
+      ]
+    },
+    "repetition": 1
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 223108,
+        "tcpConnections": 23,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 375897,
+        "tcpConnections": 31,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 199246,
+        "tcpConnections": 22,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 352012,
+        "tcpConnections": 30,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "restored-fixed",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": true,
+      "handshakeMs": 719,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795004420577,
+          "budgetMs": 3000,
+          "elapsedMs": 70,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 124198912346320
+        },
+        {
+          "at": 1795004420584,
+          "budgetMs": 10000,
+          "elapsedMs": 7,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 124198912346320
+        }
+      ]
+    },
+    "repetition": 1
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 248590,
+        "tcpConnections": 24,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 402201,
+        "tcpConnections": 33,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 223108,
+        "tcpConnections": 23,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 376691,
+        "tcpConnections": 32,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "slow-fixed",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": false,
+      "elapsedMs": 4001,
+      "error": "connection deadline exceeded"
+    },
+    "repetition": 1
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 271272,
+        "tcpConnections": 25,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 467936,
+        "tcpConnections": 35,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 248698,
+        "tcpConnections": 24,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 402987,
+        "tcpConnections": 34,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "slow-fixed-early",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": true,
+      "handshakeMs": 2444,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795004428450,
+          "budgetMs": 3000,
+          "elapsedMs": 301,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:46431/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 124198780015504
+        },
+        {
+          "at": 1795004428752,
+          "budgetMs": 10000,
+          "elapsedMs": 302,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:46431/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 124198780015504
+        }
+      ]
+    },
+    "repetition": 1
+  },
+  {
+    "after": [
+      {
+        "forwardedBytes": 298287,
+        "tcpConnections": 26,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 496336,
+        "tcpConnections": 38,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "before": [
+      {
+        "forwardedBytes": 271307,
+        "tcpConnections": 25,
+        "url": "http://127.0.0.1:44771/"
+      },
+      {
+        "forwardedBytes": 468730,
+        "tcpConnections": 36,
+        "url": "http://127.0.0.1:46431/"
+      }
+    ],
+    "condition": "business-slow-fixed",
+    "event": "mio138-controlled-case",
+    "fault": "transparent TCP chunk delay/drop; real Iroh relay and admitted SDK members",
+    "outcome": {
+      "connected": true,
+      "handshakeMs": 732,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795004433032,
+          "budgetMs": 3000,
+          "elapsedMs": 3001,
+          "error": "deadline has elapsed",
+          "event": "mio138-request",
+          "matched": false,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 124198849869808
+        },
+        {
+          "at": 1795004442670,
+          "budgetMs": 10000,
+          "elapsedMs": 9637,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:http://127.0.0.1:44771/",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 124198849869808
+        }
+      ]
+    },
+    "repetition": 1
+  }
+]

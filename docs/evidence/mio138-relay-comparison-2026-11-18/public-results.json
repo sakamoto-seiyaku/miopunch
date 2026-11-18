@@ -1,0 +1,3097 @@
+[
+  {
+    "case": "final-windows-to-linux-normal-auto",
+    "condition": "normal-auto",
+    "direction": "windows-to-linux",
+    "connectBudgetMs": 30000,
+    "requestBudgetsMs": [
+      3000,
+      10000
+    ],
+    "permissions": [
+      "https://aps1-1.relay.n0.iroh.link./",
+      "https://euc1-1.relay.n0.iroh.link./",
+      "https://use1-1.relay.n0.iroh.link./",
+      "https://usw1-1.relay.n0.iroh.link./"
+    ],
+    "home": null,
+    "earlyMs": null,
+    "clientOutcome": {
+      "connected": true,
+      "handshakeMs": 11368,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795012689094,
+          "budgetMs": 3000,
+          "elapsedMs": 1016,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 2546671126208
+        },
+        {
+          "at": 1795012690079,
+          "budgetMs": 10000,
+          "elapsedMs": 981,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 2546671126208
+        }
+      ]
+    },
+    "sides": {
+      "client": {
+        "endpoint": {
+          "at": 1795012674079,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": null,
+          "identity": "6e1625803502e06efca734a20b511e4acfcf6bcd129e84a2440408705e63af7d",
+          "mode": "connect",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": [
+            "0.0.0.0:47138",
+            "[::]:62280"
+          ]
+        },
+        "homeEvents": [
+          {
+            "at": 1795012674080,
+            "elapsedMs": 1,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012676705,
+            "completed": true,
+            "elapsedMs": 2626,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012676798,
+            "elapsedMs": 2718,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": {
+          "at": 1795012676708,
+          "budgetMs": 30000,
+          "earlyMs": null,
+          "event": "mio138-dial",
+          "target": {
+            "addrs": [
+              {
+                "Relay": "https://aps1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://euc1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://use1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://usw1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Ip": "172.17.0.1:47138"
+              },
+              {
+                "Ip": "172.18.0.1:47138"
+              },
+              {
+                "Ip": "172.19.0.1:47138"
+              },
+              {
+                "Ip": "192.168.4.14:47138"
+              }
+            ],
+            "id": "1d186feb8e21ddb8194c5fd53964e50c4a0033842052a685ad5bb7c349bb622b"
+          }
+        },
+        "applicationReady": [
+          {
+            "at": 1795012688077,
+            "elapsedMs": 11368,
+            "event": "mio138-application-ready",
+            "identityMatched": true,
+            "stableId": 2546671126208
+          }
+        ],
+        "firstValidReply": {
+          "at": 1795012689094,
+          "budgetMs": 3000,
+          "elapsedMs": 1016,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 2546671126208
+        },
+        "firstValidReplyFromDialMs": 12386,
+        "routeAttemptCount": 1,
+        "routeAttemptStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "budgetMs": 29999,
+                "purpose": "member-business",
+                "routeHints": [
+                  {
+                    "host": "aps1-1.relay.n0.iroh.link.",
+                    "kind": "relay",
+                    "port": 443
+                  }
+                ],
+                "routeMode": "explicit"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "route-dial",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "routeAttemptEnds": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "output": {
+                "qualifiedStableId": 2546671126208
+              },
+              "phaseId": 2
+            },
+            "durationMs": 11366,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 11366,
+            "phase": "route-dial",
+            "result": "succeeded",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "controlEstablishmentStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "purpose": "member-business"
+              },
+              "phaseId": 4
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 6971,
+            "phase": "control-establishment",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": 2,
+            "source": "connect",
+            "stableId": 2546671126208
+          }
+        ],
+        "candidateSchedule": [],
+        "errors": []
+      },
+      "server": {
+        "endpoint": {
+          "at": 1795012670342,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": null,
+          "identity": "1d186feb8e21ddb8194c5fd53964e50c4a0033842052a685ad5bb7c349bb622b",
+          "mode": "serve",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": [
+            "0.0.0.0:47138",
+            "[::]:27759"
+          ]
+        },
+        "homeEvents": [
+          {
+            "at": 1795012670345,
+            "elapsedMs": 2,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012671798,
+            "completed": true,
+            "elapsedMs": 1456,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012671867,
+            "elapsedMs": 1524,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": null,
+        "applicationReady": [
+          {
+            "at": 1795012688686,
+            "elapsedMs": 18343,
+            "event": "mio138-application-ready",
+            "identityMatched": true,
+            "stableId": 139667169530096
+          }
+        ],
+        "firstValidReply": null,
+        "firstValidReplyFromDialMs": null,
+        "routeAttemptCount": 0,
+        "routeAttemptStarts": [],
+        "routeAttemptEnds": [],
+        "controlEstablishmentStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "purpose": "member-business"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "control-establishment",
+            "result": "started",
+            "role": "responder",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": 139667169530096
+          }
+        ],
+        "candidateSchedule": [],
+        "errors": []
+      }
+    }
+  },
+  {
+    "case": "final-windows-to-linux-relay-auto",
+    "condition": "relay-auto",
+    "direction": "windows-to-linux",
+    "connectBudgetMs": 30000,
+    "requestBudgetsMs": [
+      3000,
+      10000
+    ],
+    "permissions": [
+      "https://aps1-1.relay.n0.iroh.link./",
+      "https://euc1-1.relay.n0.iroh.link./",
+      "https://use1-1.relay.n0.iroh.link./",
+      "https://usw1-1.relay.n0.iroh.link./"
+    ],
+    "home": null,
+    "earlyMs": null,
+    "clientOutcome": {
+      "connected": true,
+      "handshakeMs": 9481,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795012727341,
+          "budgetMs": 3000,
+          "elapsedMs": 734,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 2705765804768
+        },
+        {
+          "at": 1795012728387,
+          "budgetMs": 10000,
+          "elapsedMs": 1043,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 2705765804768
+        }
+      ]
+    },
+    "sides": {
+      "client": {
+        "endpoint": {
+          "at": 1795012714873,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": null,
+          "identity": "6e1625803502e06efca734a20b511e4acfcf6bcd129e84a2440408705e63af7d",
+          "mode": "connect",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": []
+        },
+        "homeEvents": [
+          {
+            "at": 1795012714874,
+            "elapsedMs": 1,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012717122,
+            "completed": true,
+            "elapsedMs": 2249,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012717168,
+            "elapsedMs": 2294,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": {
+          "at": 1795012717125,
+          "budgetMs": 30000,
+          "earlyMs": null,
+          "event": "mio138-dial",
+          "target": {
+            "addrs": [
+              {
+                "Relay": "https://aps1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://euc1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://use1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://usw1-1.relay.n0.iroh.link./"
+              }
+            ],
+            "id": "1d186feb8e21ddb8194c5fd53964e50c4a0033842052a685ad5bb7c349bb622b"
+          }
+        },
+        "applicationReady": [
+          {
+            "at": 1795012726606,
+            "elapsedMs": 9481,
+            "event": "mio138-application-ready",
+            "identityMatched": true,
+            "stableId": 2705765804768
+          }
+        ],
+        "firstValidReply": {
+          "at": 1795012727341,
+          "budgetMs": 3000,
+          "elapsedMs": 734,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 2705765804768
+        },
+        "firstValidReplyFromDialMs": 10216,
+        "routeAttemptCount": 1,
+        "routeAttemptStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "budgetMs": 29999,
+                "purpose": "member-business",
+                "routeHints": [
+                  {
+                    "host": "aps1-1.relay.n0.iroh.link.",
+                    "kind": "relay",
+                    "port": 443
+                  }
+                ],
+                "routeMode": "explicit"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "route-dial",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "routeAttemptEnds": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "output": {
+                "qualifiedStableId": 2705765804768
+              },
+              "phaseId": 2
+            },
+            "durationMs": 9480,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 9480,
+            "phase": "route-dial",
+            "result": "succeeded",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "controlEstablishmentStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "purpose": "member-business"
+              },
+              "phaseId": 4
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 5718,
+            "phase": "control-establishment",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": 2,
+            "source": "connect",
+            "stableId": 2705765804768
+          }
+        ],
+        "candidateSchedule": [],
+        "errors": []
+      },
+      "server": {
+        "endpoint": {
+          "at": 1795012710467,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": null,
+          "identity": "1d186feb8e21ddb8194c5fd53964e50c4a0033842052a685ad5bb7c349bb622b",
+          "mode": "serve",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": []
+        },
+        "homeEvents": [
+          {
+            "at": 1795012710470,
+            "elapsedMs": 2,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012711995,
+            "completed": true,
+            "elapsedMs": 1527,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012712088,
+            "elapsedMs": 1620,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": null,
+        "applicationReady": [
+          {
+            "at": 1795012726266,
+            "elapsedMs": 15799,
+            "event": "mio138-application-ready",
+            "identityMatched": true,
+            "stableId": 140616357290032
+          }
+        ],
+        "firstValidReply": null,
+        "firstValidReplyFromDialMs": null,
+        "routeAttemptCount": 0,
+        "routeAttemptStarts": [],
+        "routeAttemptEnds": [],
+        "controlEstablishmentStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "purpose": "member-business"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "control-establishment",
+            "result": "started",
+            "role": "responder",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": 140616357290032
+          }
+        ],
+        "candidateSchedule": [],
+        "errors": []
+      }
+    }
+  },
+  {
+    "case": "final-windows-to-linux-relay-fixed",
+    "condition": "relay-fixed",
+    "direction": "windows-to-linux",
+    "connectBudgetMs": 30000,
+    "requestBudgetsMs": [
+      3000,
+      10000
+    ],
+    "permissions": [
+      "https://aps1-1.relay.n0.iroh.link./",
+      "https://euc1-1.relay.n0.iroh.link./",
+      "https://use1-1.relay.n0.iroh.link./",
+      "https://usw1-1.relay.n0.iroh.link./"
+    ],
+    "home": "https://aps1-1.relay.n0.iroh.link./",
+    "earlyMs": null,
+    "clientOutcome": {
+      "connected": true,
+      "handshakeMs": 29915,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795012810049,
+          "budgetMs": 3000,
+          "elapsedMs": 2063,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 2224580872880
+        },
+        {
+          "at": 1795012813649,
+          "budgetMs": 10000,
+          "elapsedMs": 3597,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 2224580872880
+        }
+      ]
+    },
+    "sides": {
+      "client": {
+        "endpoint": {
+          "at": 1795012772153,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": "https://aps1-1.relay.n0.iroh.link./",
+          "identity": "6e1625803502e06efca734a20b511e4acfcf6bcd129e84a2440408705e63af7d",
+          "mode": "connect",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": []
+        },
+        "homeEvents": [
+          {
+            "at": 1795012772154,
+            "elapsedMs": 1,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012778066,
+            "completed": true,
+            "elapsedMs": 5913,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012778156,
+            "elapsedMs": 6003,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": {
+          "at": 1795012778069,
+          "budgetMs": 30000,
+          "earlyMs": null,
+          "event": "mio138-dial",
+          "target": {
+            "addrs": [
+              {
+                "Relay": "https://aps1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://euc1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://use1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://usw1-1.relay.n0.iroh.link./"
+              }
+            ],
+            "id": "1d186feb8e21ddb8194c5fd53964e50c4a0033842052a685ad5bb7c349bb622b"
+          }
+        },
+        "applicationReady": [
+          {
+            "at": 1795012807985,
+            "elapsedMs": 29915,
+            "event": "mio138-application-ready",
+            "identityMatched": true,
+            "stableId": 2224580872880
+          }
+        ],
+        "firstValidReply": {
+          "at": 1795012810049,
+          "budgetMs": 3000,
+          "elapsedMs": 2063,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 2224580872880
+        },
+        "firstValidReplyFromDialMs": 31980,
+        "routeAttemptCount": 1,
+        "routeAttemptStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "budgetMs": 29999,
+                "purpose": "member-business",
+                "routeHints": [
+                  {
+                    "host": "aps1-1.relay.n0.iroh.link.",
+                    "kind": "relay",
+                    "port": 443
+                  }
+                ],
+                "routeMode": "explicit"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "route-dial",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "routeAttemptEnds": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "output": {
+                "qualifiedStableId": 2224580872880
+              },
+              "phaseId": 2
+            },
+            "durationMs": 29913,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 29913,
+            "phase": "route-dial",
+            "result": "succeeded",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "controlEstablishmentStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "purpose": "member-business"
+              },
+              "phaseId": 4
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 20667,
+            "phase": "control-establishment",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": 2,
+            "source": "connect",
+            "stableId": 2224580872880
+          }
+        ],
+        "candidateSchedule": [],
+        "errors": []
+      },
+      "server": {
+        "endpoint": {
+          "at": 1795012768704,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": "https://aps1-1.relay.n0.iroh.link./",
+          "identity": "1d186feb8e21ddb8194c5fd53964e50c4a0033842052a685ad5bb7c349bb622b",
+          "mode": "serve",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": []
+        },
+        "homeEvents": [
+          {
+            "at": 1795012768708,
+            "elapsedMs": 3,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012769826,
+            "completed": true,
+            "elapsedMs": 1121,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012769858,
+            "elapsedMs": 1154,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": null,
+        "applicationReady": [
+          {
+            "at": 1795012808596,
+            "elapsedMs": 39892,
+            "event": "mio138-application-ready",
+            "identityMatched": true,
+            "stableId": 140290476336384
+          }
+        ],
+        "firstValidReply": null,
+        "firstValidReplyFromDialMs": null,
+        "routeAttemptCount": 0,
+        "routeAttemptStarts": [],
+        "routeAttemptEnds": [],
+        "controlEstablishmentStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "purpose": "member-business"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "control-establishment",
+            "result": "started",
+            "role": "responder",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": 140290476336384
+          }
+        ],
+        "candidateSchedule": [],
+        "errors": []
+      }
+    }
+  },
+  {
+    "case": "final-windows-to-linux-relay-fixed-early",
+    "condition": "relay-fixed-early",
+    "direction": "windows-to-linux",
+    "connectBudgetMs": 30000,
+    "requestBudgetsMs": [
+      3000,
+      10000
+    ],
+    "permissions": [
+      "https://aps1-1.relay.n0.iroh.link./",
+      "https://euc1-1.relay.n0.iroh.link./",
+      "https://use1-1.relay.n0.iroh.link./",
+      "https://usw1-1.relay.n0.iroh.link./"
+    ],
+    "home": "https://aps1-1.relay.n0.iroh.link./",
+    "earlyMs": 250,
+    "clientOutcome": {
+      "connected": true,
+      "handshakeMs": 14815,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795012860028,
+          "budgetMs": 3000,
+          "elapsedMs": 2090,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 2350319485632
+        },
+        {
+          "at": 1795012861164,
+          "budgetMs": 10000,
+          "elapsedMs": 1134,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 2350319485632
+        }
+      ]
+    },
+    "sides": {
+      "client": {
+        "endpoint": {
+          "at": 1795012836529,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": "https://aps1-1.relay.n0.iroh.link./",
+          "identity": "6e1625803502e06efca734a20b511e4acfcf6bcd129e84a2440408705e63af7d",
+          "mode": "connect",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": []
+        },
+        "homeEvents": [
+          {
+            "at": 1795012836530,
+            "elapsedMs": 1,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012843119,
+            "completed": true,
+            "elapsedMs": 6590,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012843193,
+            "elapsedMs": 6663,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": {
+          "at": 1795012843122,
+          "budgetMs": 30000,
+          "earlyMs": 250,
+          "event": "mio138-dial",
+          "target": {
+            "addrs": [
+              {
+                "Relay": "https://aps1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://euc1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://use1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://usw1-1.relay.n0.iroh.link./"
+              }
+            ],
+            "id": "1d186feb8e21ddb8194c5fd53964e50c4a0033842052a685ad5bb7c349bb622b"
+          }
+        },
+        "applicationReady": [
+          {
+            "at": 1795012857938,
+            "elapsedMs": 14815,
+            "event": "mio138-application-ready",
+            "identityMatched": true,
+            "stableId": 2350319485632
+          }
+        ],
+        "firstValidReply": {
+          "at": 1795012860028,
+          "budgetMs": 3000,
+          "elapsedMs": 2090,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 2350319485632
+        },
+        "firstValidReplyFromDialMs": 16906,
+        "routeAttemptCount": 4,
+        "routeAttemptStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "budgetMs": 29998,
+                "purpose": "member-business",
+                "routeHints": [
+                  {
+                    "host": "aps1-1.relay.n0.iroh.link.",
+                    "kind": "relay",
+                    "port": 443
+                  }
+                ],
+                "routeMode": "explicit"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "route-dial",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          },
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "budgetMs": 29741,
+                "purpose": "member-business",
+                "routeHints": [
+                  {
+                    "host": "euc1-1.relay.n0.iroh.link.",
+                    "kind": "relay",
+                    "port": 443
+                  }
+                ],
+                "routeMode": "explicit"
+              },
+              "phaseId": 4
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 3,
+            "monotonicMs": 256,
+            "phase": "route-dial",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          },
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "budgetMs": 29489,
+                "purpose": "member-business",
+                "routeHints": [
+                  {
+                    "host": "use1-1.relay.n0.iroh.link.",
+                    "kind": "relay",
+                    "port": 443
+                  }
+                ],
+                "routeMode": "explicit"
+              },
+              "phaseId": 6
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 5,
+            "monotonicMs": 508,
+            "phase": "route-dial",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          },
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "budgetMs": 29242,
+                "purpose": "member-business",
+                "routeHints": [
+                  {
+                    "host": "usw1-1.relay.n0.iroh.link.",
+                    "kind": "relay",
+                    "port": 443
+                  }
+                ],
+                "routeMode": "explicit"
+              },
+              "phaseId": 8
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 7,
+            "monotonicMs": 756,
+            "phase": "route-dial",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "routeAttemptEnds": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "output": {
+                "qualifiedStableId": 2350319485632
+              },
+              "phaseId": 2
+            },
+            "durationMs": 14811,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 14811,
+            "phase": "route-dial",
+            "result": "succeeded",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          },
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "output": null,
+              "phaseId": 4
+            },
+            "durationMs": 14556,
+            "event": "connection-timeline",
+            "localAttemptId": 3,
+            "monotonicMs": 14812,
+            "phase": "route-dial",
+            "result": "cancelled",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          },
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "output": null,
+              "phaseId": 6
+            },
+            "durationMs": 14304,
+            "event": "connection-timeline",
+            "localAttemptId": 5,
+            "monotonicMs": 14812,
+            "phase": "route-dial",
+            "result": "cancelled",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          },
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "output": null,
+              "phaseId": 8
+            },
+            "durationMs": 14056,
+            "event": "connection-timeline",
+            "localAttemptId": 7,
+            "monotonicMs": 14812,
+            "phase": "route-dial",
+            "result": "cancelled",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "controlEstablishmentStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "purpose": "member-business"
+              },
+              "phaseId": 10
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 8988,
+            "phase": "control-establishment",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": 2,
+            "source": "connect",
+            "stableId": 2350319485632
+          }
+        ],
+        "candidateSchedule": [
+          {
+            "elapsedMs": 1,
+            "event": "mio138-candidate-start",
+            "route": "relay:https://aps1-1.relay.n0.iroh.link./"
+          },
+          {
+            "elapsedMs": 256,
+            "event": "mio138-candidate-start",
+            "route": "relay:https://euc1-1.relay.n0.iroh.link./"
+          },
+          {
+            "elapsedMs": 507,
+            "event": "mio138-candidate-start",
+            "route": "relay:https://use1-1.relay.n0.iroh.link./"
+          },
+          {
+            "elapsedMs": 755,
+            "event": "mio138-candidate-start",
+            "route": "relay:https://usw1-1.relay.n0.iroh.link./"
+          }
+        ],
+        "errors": []
+      },
+      "server": {
+        "endpoint": {
+          "at": 1795012832236,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": "https://aps1-1.relay.n0.iroh.link./",
+          "identity": "1d186feb8e21ddb8194c5fd53964e50c4a0033842052a685ad5bb7c349bb622b",
+          "mode": "serve",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": []
+        },
+        "homeEvents": [
+          {
+            "at": 1795012832240,
+            "elapsedMs": 4,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012834088,
+            "completed": true,
+            "elapsedMs": 1852,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012834168,
+            "elapsedMs": 1932,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": null,
+        "applicationReady": [
+          {
+            "at": 1795012858529,
+            "elapsedMs": 26293,
+            "event": "mio138-application-ready",
+            "identityMatched": true,
+            "stableId": 140236856542464
+          }
+        ],
+        "firstValidReply": null,
+        "firstValidReplyFromDialMs": null,
+        "routeAttemptCount": 0,
+        "routeAttemptStarts": [],
+        "routeAttemptEnds": [],
+        "controlEstablishmentStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "purpose": "member-business"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "control-establishment",
+            "result": "started",
+            "role": "responder",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": 140236856542464
+          }
+        ],
+        "candidateSchedule": [],
+        "errors": []
+      }
+    }
+  },
+  {
+    "case": "final-linux-to-windows-normal-auto",
+    "condition": "normal-auto",
+    "direction": "linux-to-windows",
+    "connectBudgetMs": 30000,
+    "requestBudgetsMs": [
+      3000,
+      10000
+    ],
+    "permissions": [
+      "https://aps1-1.relay.n0.iroh.link./",
+      "https://euc1-1.relay.n0.iroh.link./",
+      "https://use1-1.relay.n0.iroh.link./",
+      "https://usw1-1.relay.n0.iroh.link./"
+    ],
+    "home": null,
+    "earlyMs": null,
+    "clientOutcome": {
+      "connected": false,
+      "elapsedMs": 30002,
+      "error": "connection deadline exceeded"
+    },
+    "sides": {
+      "client": {
+        "endpoint": {
+          "at": 1795012908643,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": null,
+          "identity": "1d186feb8e21ddb8194c5fd53964e50c4a0033842052a685ad5bb7c349bb622b",
+          "mode": "connect",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": [
+            "0.0.0.0:47138",
+            "[::]:22713"
+          ]
+        },
+        "homeEvents": [
+          {
+            "at": 1795012908647,
+            "elapsedMs": 3,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012911300,
+            "completed": true,
+            "elapsedMs": 2657,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012911382,
+            "elapsedMs": 2738,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": {
+          "at": 1795012911301,
+          "budgetMs": 30000,
+          "earlyMs": null,
+          "event": "mio138-dial",
+          "target": {
+            "addrs": [
+              {
+                "Relay": "https://aps1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://euc1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://use1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://usw1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Ip": "172.18.0.1:47138"
+              },
+              {
+                "Ip": "172.28.16.1:47138"
+              },
+              {
+                "Ip": "172.31.0.36:47138"
+              },
+              {
+                "Ip": "192.168.250.1:47138"
+              }
+            ],
+            "id": "6e1625803502e06efca734a20b511e4acfcf6bcd129e84a2440408705e63af7d"
+          }
+        },
+        "applicationReady": [],
+        "firstValidReply": null,
+        "firstValidReplyFromDialMs": null,
+        "routeAttemptCount": 1,
+        "routeAttemptStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "budgetMs": 29998,
+                "purpose": "member-business",
+                "routeHints": [
+                  {
+                    "host": "aps1-1.relay.n0.iroh.link.",
+                    "kind": "relay",
+                    "port": 443
+                  }
+                ],
+                "routeMode": "explicit"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "route-dial",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "routeAttemptEnds": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "output": {
+                "reason": "deadline"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 30001,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 30001,
+            "phase": "route-dial",
+            "result": "failed",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "controlEstablishmentStarts": [],
+        "candidateSchedule": [],
+        "errors": []
+      },
+      "server": {
+        "endpoint": {
+          "at": 1795012895559,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": null,
+          "identity": "6e1625803502e06efca734a20b511e4acfcf6bcd129e84a2440408705e63af7d",
+          "mode": "serve",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": [
+            "0.0.0.0:47138",
+            "[::]:53868"
+          ]
+        },
+        "homeEvents": [
+          {
+            "at": 1795012895561,
+            "elapsedMs": 1,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012905520,
+            "elapsedMs": 9960,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": "Failed to connect to relay server\nCaused by:\n    timeout (>10s) trying to establish a connection",
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012905566,
+            "completed": false,
+            "elapsedMs": 10006,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://euc1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012905628,
+            "elapsedMs": 10069,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://euc1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012906286,
+            "elapsedMs": 10726,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://euc1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": null,
+        "applicationReady": [],
+        "firstValidReply": null,
+        "firstValidReplyFromDialMs": null,
+        "routeAttemptCount": 0,
+        "routeAttemptStarts": [],
+        "routeAttemptEnds": [],
+        "controlEstablishmentStarts": [],
+        "candidateSchedule": [],
+        "errors": [
+          {
+            "error": "connection deadline exceeded",
+            "event": "mio138-accept-error"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "case": "final-linux-to-windows-relay-auto",
+    "condition": "relay-auto",
+    "direction": "linux-to-windows",
+    "connectBudgetMs": 30000,
+    "requestBudgetsMs": [
+      3000,
+      10000
+    ],
+    "permissions": [
+      "https://aps1-1.relay.n0.iroh.link./",
+      "https://euc1-1.relay.n0.iroh.link./",
+      "https://use1-1.relay.n0.iroh.link./",
+      "https://usw1-1.relay.n0.iroh.link./"
+    ],
+    "home": null,
+    "earlyMs": null,
+    "clientOutcome": {
+      "connected": true,
+      "handshakeMs": 12933,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795012983065,
+          "budgetMs": 3000,
+          "elapsedMs": 1256,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 140168070135184
+        },
+        {
+          "at": 1795012984067,
+          "budgetMs": 10000,
+          "elapsedMs": 1001,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 140168070135184
+        }
+      ]
+    },
+    "sides": {
+      "client": {
+        "endpoint": {
+          "at": 1795012967822,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": null,
+          "identity": "1d186feb8e21ddb8194c5fd53964e50c4a0033842052a685ad5bb7c349bb622b",
+          "mode": "connect",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": []
+        },
+        "homeEvents": [
+          {
+            "at": 1795012967825,
+            "elapsedMs": 3,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012968874,
+            "completed": true,
+            "elapsedMs": 1052,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012968946,
+            "elapsedMs": 1124,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": {
+          "at": 1795012968875,
+          "budgetMs": 30000,
+          "earlyMs": null,
+          "event": "mio138-dial",
+          "target": {
+            "addrs": [
+              {
+                "Relay": "https://aps1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://euc1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://use1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://usw1-1.relay.n0.iroh.link./"
+              }
+            ],
+            "id": "6e1625803502e06efca734a20b511e4acfcf6bcd129e84a2440408705e63af7d"
+          }
+        },
+        "applicationReady": [
+          {
+            "at": 1795012981809,
+            "elapsedMs": 12933,
+            "event": "mio138-application-ready",
+            "identityMatched": true,
+            "stableId": 140168070135184
+          }
+        ],
+        "firstValidReply": {
+          "at": 1795012983065,
+          "budgetMs": 3000,
+          "elapsedMs": 1256,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 140168070135184
+        },
+        "firstValidReplyFromDialMs": 14190,
+        "routeAttemptCount": 1,
+        "routeAttemptStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "budgetMs": 29999,
+                "purpose": "member-business",
+                "routeHints": [
+                  {
+                    "host": "aps1-1.relay.n0.iroh.link.",
+                    "kind": "relay",
+                    "port": 443
+                  }
+                ],
+                "routeMode": "explicit"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "route-dial",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "routeAttemptEnds": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "output": {
+                "qualifiedStableId": 140168070135184
+              },
+              "phaseId": 2
+            },
+            "durationMs": 12932,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 12932,
+            "phase": "route-dial",
+            "result": "succeeded",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "controlEstablishmentStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "purpose": "member-business"
+              },
+              "phaseId": 4
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 10386,
+            "phase": "control-establishment",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": 2,
+            "source": "connect",
+            "stableId": 140168070135184
+          }
+        ],
+        "candidateSchedule": [],
+        "errors": []
+      },
+      "server": {
+        "endpoint": {
+          "at": 1795012961134,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": null,
+          "identity": "6e1625803502e06efca734a20b511e4acfcf6bcd129e84a2440408705e63af7d",
+          "mode": "serve",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": []
+        },
+        "homeEvents": [
+          {
+            "at": 1795012961135,
+            "elapsedMs": 1,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012965047,
+            "completed": true,
+            "elapsedMs": 3912,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795012965069,
+            "elapsedMs": 3935,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": null,
+        "applicationReady": [
+          {
+            "at": 1795012981513,
+            "elapsedMs": 20379,
+            "event": "mio138-application-ready",
+            "identityMatched": true,
+            "stableId": 3001247814512
+          }
+        ],
+        "firstValidReply": null,
+        "firstValidReplyFromDialMs": null,
+        "routeAttemptCount": 0,
+        "routeAttemptStarts": [],
+        "routeAttemptEnds": [],
+        "controlEstablishmentStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "purpose": "member-business"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "control-establishment",
+            "result": "started",
+            "role": "responder",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": 3001247814512
+          }
+        ],
+        "candidateSchedule": [],
+        "errors": []
+      }
+    }
+  },
+  {
+    "case": "final-linux-to-windows-relay-fixed",
+    "condition": "relay-fixed",
+    "direction": "linux-to-windows",
+    "connectBudgetMs": 30000,
+    "requestBudgetsMs": [
+      3000,
+      10000
+    ],
+    "permissions": [
+      "https://aps1-1.relay.n0.iroh.link./",
+      "https://euc1-1.relay.n0.iroh.link./",
+      "https://use1-1.relay.n0.iroh.link./",
+      "https://usw1-1.relay.n0.iroh.link./"
+    ],
+    "home": "https://aps1-1.relay.n0.iroh.link./",
+    "earlyMs": null,
+    "clientOutcome": {
+      "connected": true,
+      "handshakeMs": 12547,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795013020936,
+          "budgetMs": 3000,
+          "elapsedMs": 1073,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 140094921473280
+        },
+        {
+          "at": 1795013022024,
+          "budgetMs": 10000,
+          "elapsedMs": 1087,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 140094921473280
+        }
+      ]
+    },
+    "sides": {
+      "client": {
+        "endpoint": {
+          "at": 1795013006144,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": "https://aps1-1.relay.n0.iroh.link./",
+          "identity": "1d186feb8e21ddb8194c5fd53964e50c4a0033842052a685ad5bb7c349bb622b",
+          "mode": "connect",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": []
+        },
+        "homeEvents": [
+          {
+            "at": 1795013006147,
+            "elapsedMs": 3,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795013007313,
+            "completed": true,
+            "elapsedMs": 1170,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795013007364,
+            "elapsedMs": 1220,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": {
+          "at": 1795013007314,
+          "budgetMs": 30000,
+          "earlyMs": null,
+          "event": "mio138-dial",
+          "target": {
+            "addrs": [
+              {
+                "Relay": "https://aps1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://euc1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://use1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://usw1-1.relay.n0.iroh.link./"
+              }
+            ],
+            "id": "6e1625803502e06efca734a20b511e4acfcf6bcd129e84a2440408705e63af7d"
+          }
+        },
+        "applicationReady": [
+          {
+            "at": 1795013019862,
+            "elapsedMs": 12547,
+            "event": "mio138-application-ready",
+            "identityMatched": true,
+            "stableId": 140094921473280
+          }
+        ],
+        "firstValidReply": {
+          "at": 1795013020936,
+          "budgetMs": 3000,
+          "elapsedMs": 1073,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 140094921473280
+        },
+        "firstValidReplyFromDialMs": 13622,
+        "routeAttemptCount": 1,
+        "routeAttemptStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "budgetMs": 29998,
+                "purpose": "member-business",
+                "routeHints": [
+                  {
+                    "host": "aps1-1.relay.n0.iroh.link.",
+                    "kind": "relay",
+                    "port": 443
+                  }
+                ],
+                "routeMode": "explicit"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "route-dial",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "routeAttemptEnds": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "output": {
+                "qualifiedStableId": 140094921473280
+              },
+              "phaseId": 2
+            },
+            "durationMs": 12546,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 12546,
+            "phase": "route-dial",
+            "result": "succeeded",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "controlEstablishmentStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "purpose": "member-business"
+              },
+              "phaseId": 4
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 8466,
+            "phase": "control-establishment",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": 2,
+            "source": "connect",
+            "stableId": 140094921473280
+          }
+        ],
+        "candidateSchedule": [],
+        "errors": []
+      },
+      "server": {
+        "endpoint": {
+          "at": 1795012999612,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": "https://aps1-1.relay.n0.iroh.link./",
+          "identity": "6e1625803502e06efca734a20b511e4acfcf6bcd129e84a2440408705e63af7d",
+          "mode": "serve",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": []
+        },
+        "homeEvents": [
+          {
+            "at": 1795012999613,
+            "elapsedMs": 1,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795013003406,
+            "completed": true,
+            "elapsedMs": 3794,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795013003431,
+            "elapsedMs": 3818,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": null,
+        "applicationReady": [
+          {
+            "at": 1795013020265,
+            "elapsedMs": 20652,
+            "event": "mio138-application-ready",
+            "identityMatched": true,
+            "stableId": 1488267052784
+          }
+        ],
+        "firstValidReply": null,
+        "firstValidReplyFromDialMs": null,
+        "routeAttemptCount": 0,
+        "routeAttemptStarts": [],
+        "routeAttemptEnds": [],
+        "controlEstablishmentStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "purpose": "member-business"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "control-establishment",
+            "result": "started",
+            "role": "responder",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": 1488267052784
+          }
+        ],
+        "candidateSchedule": [],
+        "errors": []
+      }
+    }
+  },
+  {
+    "case": "final-linux-to-windows-relay-fixed-early",
+    "condition": "relay-fixed-early",
+    "direction": "linux-to-windows",
+    "connectBudgetMs": 30000,
+    "requestBudgetsMs": [
+      3000,
+      10000
+    ],
+    "permissions": [
+      "https://aps1-1.relay.n0.iroh.link./",
+      "https://euc1-1.relay.n0.iroh.link./",
+      "https://use1-1.relay.n0.iroh.link./",
+      "https://usw1-1.relay.n0.iroh.link./"
+    ],
+    "home": "https://aps1-1.relay.n0.iroh.link./",
+    "earlyMs": 250,
+    "clientOutcome": {
+      "connected": true,
+      "handshakeMs": 10548,
+      "identityMatched": true,
+      "requests": [
+        {
+          "at": 1795013052661,
+          "budgetMs": 3000,
+          "elapsedMs": 779,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 139972649164880
+        },
+        {
+          "at": 1795013053912,
+          "budgetMs": 10000,
+          "elapsedMs": 1251,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 2,
+          "stableId": 139972649164880
+        }
+      ]
+    },
+    "sides": {
+      "client": {
+        "endpoint": {
+          "at": 1795013040285,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": "https://aps1-1.relay.n0.iroh.link./",
+          "identity": "1d186feb8e21ddb8194c5fd53964e50c4a0033842052a685ad5bb7c349bb622b",
+          "mode": "connect",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": []
+        },
+        "homeEvents": [
+          {
+            "at": 1795013040288,
+            "elapsedMs": 2,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795013041332,
+            "completed": true,
+            "elapsedMs": 1046,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795013041404,
+            "elapsedMs": 1119,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": {
+          "at": 1795013041333,
+          "budgetMs": 30000,
+          "earlyMs": 250,
+          "event": "mio138-dial",
+          "target": {
+            "addrs": [
+              {
+                "Relay": "https://aps1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://euc1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://use1-1.relay.n0.iroh.link./"
+              },
+              {
+                "Relay": "https://usw1-1.relay.n0.iroh.link./"
+              }
+            ],
+            "id": "6e1625803502e06efca734a20b511e4acfcf6bcd129e84a2440408705e63af7d"
+          }
+        },
+        "applicationReady": [
+          {
+            "at": 1795013051881,
+            "elapsedMs": 10548,
+            "event": "mio138-application-ready",
+            "identityMatched": true,
+            "stableId": 139972649164880
+          }
+        ],
+        "firstValidReply": {
+          "at": 1795013052661,
+          "budgetMs": 3000,
+          "elapsedMs": 779,
+          "error": null,
+          "event": "mio138-request",
+          "matched": true,
+          "paths": [
+            {
+              "address": "relay:https://aps1-1.relay.n0.iroh.link./",
+              "relay": true,
+              "selected": true
+            }
+          ],
+          "sequence": 1,
+          "stableId": 139972649164880
+        },
+        "firstValidReplyFromDialMs": 11328,
+        "routeAttemptCount": 4,
+        "routeAttemptStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "budgetMs": 29996,
+                "purpose": "member-business",
+                "routeHints": [
+                  {
+                    "host": "aps1-1.relay.n0.iroh.link.",
+                    "kind": "relay",
+                    "port": 443
+                  }
+                ],
+                "routeMode": "explicit"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "route-dial",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          },
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "budgetMs": 29747,
+                "purpose": "member-business",
+                "routeHints": [
+                  {
+                    "host": "euc1-1.relay.n0.iroh.link.",
+                    "kind": "relay",
+                    "port": 443
+                  }
+                ],
+                "routeMode": "explicit"
+              },
+              "phaseId": 4
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 3,
+            "monotonicMs": 249,
+            "phase": "route-dial",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          },
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "budgetMs": 29498,
+                "purpose": "member-business",
+                "routeHints": [
+                  {
+                    "host": "use1-1.relay.n0.iroh.link.",
+                    "kind": "relay",
+                    "port": 443
+                  }
+                ],
+                "routeMode": "explicit"
+              },
+              "phaseId": 6
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 5,
+            "monotonicMs": 498,
+            "phase": "route-dial",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          },
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "budgetMs": 29248,
+                "purpose": "member-business",
+                "routeHints": [
+                  {
+                    "host": "usw1-1.relay.n0.iroh.link.",
+                    "kind": "relay",
+                    "port": 443
+                  }
+                ],
+                "routeMode": "explicit"
+              },
+              "phaseId": 8
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 7,
+            "monotonicMs": 748,
+            "phase": "route-dial",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "routeAttemptEnds": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "output": {
+                "qualifiedStableId": 139972649164880
+              },
+              "phaseId": 2
+            },
+            "durationMs": 10543,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 10543,
+            "phase": "route-dial",
+            "result": "succeeded",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          },
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "output": null,
+              "phaseId": 4
+            },
+            "durationMs": 10294,
+            "event": "connection-timeline",
+            "localAttemptId": 3,
+            "monotonicMs": 10543,
+            "phase": "route-dial",
+            "result": "cancelled",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          },
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "output": null,
+              "phaseId": 6
+            },
+            "durationMs": 10044,
+            "event": "connection-timeline",
+            "localAttemptId": 5,
+            "monotonicMs": 10543,
+            "phase": "route-dial",
+            "result": "cancelled",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          },
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "output": null,
+              "phaseId": 8
+            },
+            "durationMs": 9794,
+            "event": "connection-timeline",
+            "localAttemptId": 7,
+            "monotonicMs": 10543,
+            "phase": "route-dial",
+            "result": "cancelled",
+            "role": "initiator",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": null
+          }
+        ],
+        "controlEstablishmentStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "purpose": "member-business"
+              },
+              "phaseId": 10
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 7773,
+            "phase": "control-establishment",
+            "result": "started",
+            "role": "initiator",
+            "routePhaseId": 2,
+            "source": "connect",
+            "stableId": 139972649164880
+          }
+        ],
+        "candidateSchedule": [
+          {
+            "elapsedMs": 2,
+            "event": "mio138-candidate-start",
+            "route": "relay:https://aps1-1.relay.n0.iroh.link./"
+          },
+          {
+            "elapsedMs": 251,
+            "event": "mio138-candidate-start",
+            "route": "relay:https://euc1-1.relay.n0.iroh.link./"
+          },
+          {
+            "elapsedMs": 501,
+            "event": "mio138-candidate-start",
+            "route": "relay:https://use1-1.relay.n0.iroh.link./"
+          },
+          {
+            "elapsedMs": 751,
+            "event": "mio138-candidate-start",
+            "route": "relay:https://usw1-1.relay.n0.iroh.link./"
+          }
+        ],
+        "errors": []
+      },
+      "server": {
+        "endpoint": {
+          "at": 1795013036313,
+          "event": "mio138-endpoint-ready",
+          "home": [
+            {
+              "connected": false,
+              "error": null,
+              "url": "https://aps1-1.relay.n0.iroh.link./"
+            }
+          ],
+          "homePolicy": "https://aps1-1.relay.n0.iroh.link./",
+          "identity": "6e1625803502e06efca734a20b511e4acfcf6bcd129e84a2440408705e63af7d",
+          "mode": "serve",
+          "permissions": [
+            "https://aps1-1.relay.n0.iroh.link./",
+            "https://euc1-1.relay.n0.iroh.link./",
+            "https://use1-1.relay.n0.iroh.link./",
+            "https://usw1-1.relay.n0.iroh.link./"
+          ],
+          "sockets": []
+        },
+        "homeEvents": [
+          {
+            "at": 1795013036314,
+            "elapsedMs": 1,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": false,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795013038136,
+            "completed": true,
+            "elapsedMs": 1822,
+            "event": "mio138-registration-wait",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          },
+          {
+            "at": 1795013038171,
+            "elapsedMs": 1857,
+            "event": "mio138-home",
+            "home": [
+              {
+                "connected": true,
+                "error": null,
+                "url": "https://aps1-1.relay.n0.iroh.link./"
+              }
+            ]
+          }
+        ],
+        "dial": null,
+        "applicationReady": [
+          {
+            "at": 1795013051597,
+            "elapsedMs": 15283,
+            "event": "mio138-application-ready",
+            "identityMatched": true,
+            "stableId": 2115061389152
+          }
+        ],
+        "firstValidReply": null,
+        "firstValidReplyFromDialMs": null,
+        "routeAttemptCount": 0,
+        "routeAttemptStarts": [],
+        "routeAttemptEnds": [],
+        "controlEstablishmentStarts": [
+          {
+            "attemptId": null,
+            "controlStableId": null,
+            "detail": {
+              "input": {
+                "purpose": "member-business"
+              },
+              "phaseId": 2
+            },
+            "durationMs": 0,
+            "event": "connection-timeline",
+            "localAttemptId": 1,
+            "monotonicMs": 0,
+            "phase": "control-establishment",
+            "result": "started",
+            "role": "responder",
+            "routePhaseId": null,
+            "source": "connect",
+            "stableId": 2115061389152
+          }
+        ],
+        "candidateSchedule": [],
+        "errors": []
+      }
+    }
+  }
+]
