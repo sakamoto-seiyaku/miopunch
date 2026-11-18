@@ -780,6 +780,18 @@ impl MemberDataTransport {
     pub fn address(&self) -> io::Result<CustomAddr> {
         self.0.address()
     }
+
+    pub(crate) fn shares_forwarder(local: &CustomAddr, remote: &CustomAddr) -> bool {
+        let Some(via) = local
+            .data()
+            .first_chunk::<32>()
+            .and_then(|bytes| EndpointId::from_bytes(bytes).ok())
+        else {
+            return false;
+        };
+        route(Carrier::Data, local, via).is_ok() && route(Carrier::Data, remote, via).is_ok()
+    }
+
     pub async fn attach(
         &self,
         connection: &Connection,

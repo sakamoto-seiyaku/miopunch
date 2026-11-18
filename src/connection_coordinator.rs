@@ -37,76 +37,94 @@ pub(crate) const RELAY: u8 = 4;
 pub(crate) const RTC: u8 = 8;
 const CAPABILITIES: u8 = UDP | TCP | RELAY | RTC;
 
-/// Start real fresh QUIC probes on this operation's existing permitted DATA
-/// paths. The returned check requires the same still-open path, current
-/// permission and its post-entry ACK; a listed path or old ACK is insufficient.
-/// Probe progress belongs to the existing connection driver, with no task/timer.
-pub(crate) fn probe_existing_data_survival(
+fn has_permitted_data_path(
     original: &Connection,
     permits: impl Fn(&TransportAddr) -> bool,
-) -> impl Fn(&Connection, &dyn Fn(&TransportAddr) -> bool) -> bool {
-    let original_id = original.stable_id();
-    let original_peer = original.remote_id();
-    let probes: Vec<_> = original
+) -> bool {
+    original
         .paths()
         .iter()
-        .filter(|path| permits(path.remote_addr()))
-        .filter_map(|path| {
-            path.start_probe()
-                .ok()
-                .map(|probe| (path.id().to_string(), path.remote_addr().clone(), probe))
-        })
-        .collect();
-    move |original, permits| {
-        original.stable_id() == original_id
-            && original.remote_id() == original_peer
-            && original.close_reason().is_none()
-            && probes.iter().any(|(id, address, probe)| {
-                permits(address)
-                    && matches!(probe.is_acknowledged(), Ok(true))
-                    && original
-                        .paths()
-                        .iter()
-                        .any(|path| path.id().to_string() == *id && path.remote_addr() == address)
-            })
+        .any(|path| permits(path.remote_addr()))
+}
+
+fn close_without_data_path(
+    original: &Connection,
+    log: AttemptLog,
+    owner: &'static str,
+    cause: &'static str,
+) {
+    let prior = original
+        .close_with_previous_reason(0u32.into(), b"member connection has no permitted data path");
+    log.event(
+        "close",
+        "invoked",
+        json!({
+            "owner":owner,"reason":cause,
+            "priorCloseReason":connection_diagnostic::close_reason(prior.as_ref()),
+        }),
+    );
+    if let Some(prior) = prior {
+        log.connection_ended(&prior, None);
+    } else {
+        let reason = original
+            .close_reason()
+            .expect("connection was closed synchronously");
+        log.connection_ended(&reason, Some(owner));
     }
 }
 
-/// A fast control rejection can precede an existing path's new ACK. Reuse the
-/// established bounded path validator for the remainder of this same operation;
-/// contact addresses are never added to its DATA offer.
-pub(crate) async fn validate_existing_data_survival(
-    endpoint: &(impl crate::connection_recovery_core::RecoveryEndpoint + ?Sized),
+#[cfg(any(feature = "rtc-probe", target_arch = "wasm32"))]
+pub(crate) fn settle_path_withdrawal(
     original: &Connection,
-    deadline: n0_future::time::Instant,
-    permits: &impl Fn(&TransportAddr) -> bool,
-    check: &impl Fn(&Connection) -> io::Result<()>,
-) -> bool {
-    if deadline <= n0_future::time::Instant::now() || original.close_reason().is_some() {
-        return false;
+    permits: impl Fn(&TransportAddr) -> bool,
+    owner: &'static str,
+    cause: &'static str,
+) {
+    if original.close_reason().is_none() && !has_permitted_data_path(original, permits) {
+        let mut log = AttemptLog::new(AttemptRole::initial(original), cause);
+        log.original = Some(original.stable_id());
+        close_without_data_path(original, log, owner, cause);
     }
-    let mut candidate = iroh::EndpointAddr::new(original.remote_id());
-    candidate.addrs.extend(
-        original
-            .paths()
-            .iter()
-            .map(|path| path.remote_addr().clone())
-            .filter(permits)
-            .take(crate::connection_recovery_core::MAX_CANDIDATES),
-    );
-    n0_future::time::timeout(
-        deadline.saturating_duration_since(n0_future::time::Instant::now()),
-        crate::connection_recovery_core::validate_candidates(
-            endpoint,
-            original,
-            original,
-            candidate,
-            permits,
-            &|original, _| check(original),
-        ),
-    )
-    .await
-    .is_ok_and(|result| result.is_ok())
+}
+
+pub(crate) enum RepairFailure {
+    Deferred,
+    Retryable,
+    Terminal,
+}
+
+/// Settle while the caller still owns the original M's repair reservation.
+/// An open, permitted carrier can survive an outage longer than this attempt.
+/// Fresh ACKs still belong to the separate path commit protocol.
+pub(crate) fn settle_failed_repair(
+    original: &Connection,
+    attempt: &AttemptContext,
+    failure: &io::Error,
+    permits: impl Fn(&TransportAddr) -> bool,
+    log: AttemptLog,
+    owner: &'static str,
+) -> RepairFailure {
+    if let Some(reason) = original.close_reason() {
+        log.connection_ended(&reason, None);
+        return RepairFailure::Terminal;
+    }
+    if attempt.cancellation.is_cancelled()
+        || crate::session_maintenance::MaintenanceDeferral::from_error(failure).is_some()
+    {
+        return RepairFailure::Deferred;
+    }
+    let has_data = has_permitted_data_path(original, permits);
+    if let Some(reason) = original.close_reason() {
+        log.connection_ended(&reason, None);
+        RepairFailure::Terminal
+    } else if has_data {
+        RepairFailure::Retryable
+    } else if attempt.cancellation.is_cancelled() {
+        RepairFailure::Deferred
+    } else {
+        close_without_data_path(original, log, owner, "repair_no_surviving_data_path");
+        RepairFailure::Terminal
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

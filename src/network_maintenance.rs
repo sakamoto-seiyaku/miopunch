@@ -176,7 +176,7 @@ impl MaintainedNetwork {
     /// Repair the exact member Connection kept by this caller. Existing Node
     /// contact quota, original-M lease, Router and active protocol are shared;
     /// the caller remainder and historical three-second cap bound the operation.
-    /// A failed repair with no fresh surviving DATA path terminates this M.
+    /// A failed repair terminates this M if no permitted data path is still open.
     pub async fn repair_member_connection_until(
         &self,
         original: &Connection,
@@ -1312,6 +1312,8 @@ impl NativeNetwork {
                 .add(resources.contacts.clone());
         }
         let resources = Arc::new(resources);
+        #[cfg(feature = "rtc-probe")]
+        resources.install_rtc_withdrawal_handler(self.gate.clone());
         let active_adapter = resources.active_coordinator(self.gate.clone());
         let provider = ReplicaProvider::new(&self, self.management_history().await?);
         let (provider_tx, provider_rx) = watch::channel(provider);

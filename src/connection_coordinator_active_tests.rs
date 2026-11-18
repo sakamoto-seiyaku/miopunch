@@ -79,6 +79,334 @@ async fn admitted_pair() -> (tempfile::TempDir, NativeNetwork, NativeNetwork) {
     )
 }
 
+#[tokio::test]
+async fn repair_window_expiry_preserves_the_original_relay_stream() {
+    use crate::connection_recovery::ConnectionPathRecoveryError;
+    use tokio::{
+        net::{TcpListener, TcpStream},
+        sync::watch,
+        time::{Instant, timeout},
+    };
+
+    let (_directory, caller, responder) = admitted_pair().await;
+    let mut config = iroh_relay::server::ServerConfig::default();
+    config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let relay = iroh_relay::server::Server::spawn(config).await.unwrap();
+    let upstream = (
+        Ipv4Addr::LOCALHOST,
+        relay.http_url().unwrap().port().unwrap(),
+    );
+    let proxy = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let relay_url: iroh::RelayUrl = format!("http://{}/", proxy.local_addr().unwrap())
+        .parse()
+        .unwrap();
+    let (paused, traffic) = watch::channel(false);
+    let forward = tokio::spawn(async move {
+        let mut circuits = tokio::task::JoinSet::new();
+        while let Ok((mut incoming, _)) = proxy.accept().await {
+            let mut traffic = traffic.clone();
+            circuits.spawn(async move {
+                let mut outgoing = TcpStream::connect(upstream).await.unwrap();
+                let work = tokio::io::copy_bidirectional(&mut incoming, &mut outgoing);
+                tokio::pin!(work);
+                loop {
+                    let running = !*traffic.borrow_and_update();
+                    tokio::select! {
+                        biased;
+                        update = traffic.changed() => if update.is_err() { break; },
+                        _ = &mut work, if running => break,
+                    }
+                }
+            });
+        }
+    });
+    for node in [&caller, &responder] {
+        let mut config = node.resource_configuration().unwrap();
+        config.udp_direct_disabled = true;
+        config.tcp_direct_disabled = true;
+        config.replacement = Some(vec![crate::resources::Resource {
+            url: relay_url.to_string(),
+            uses: [crate::resources::ResourceUse::DataRelay].into(),
+            limitation: "owned, pausable relay".into(),
+        }]);
+        node.save_resource_configuration(&config).unwrap();
+    }
+    let responder_endpoint = responder
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    responder_endpoint
+        .endpoint()
+        .set_alpns(vec![MEMBER_ALPN.to_vec(), ACTIVE_IMPROVEMENT_ALPN.to_vec()]);
+    let caller = caller
+        .maintain_network_with(Ipv4Addr::LOCALHOST, |router| router)
+        .await
+        .unwrap();
+    timeout(Duration::from_secs(8), async {
+        tokio::join!(
+            caller.endpoint().online(),
+            responder_endpoint.endpoint().online()
+        );
+    })
+    .await
+    .unwrap();
+    let target = iroh::EndpointAddr::new(responder_endpoint.endpoint().id())
+        .with_addrs([TransportAddr::Relay(relay_url)]);
+    let connect = || async {
+        let (local, peer) = timeout(Duration::from_secs(8), async {
+            tokio::join!(caller.connect(target.clone(), MEMBER_ALPN), async {
+                responder_endpoint.endpoint().accept().await.unwrap().await
+            })
+        })
+        .await
+        .unwrap();
+        (local.unwrap(), peer.unwrap())
+    };
+    let ((original, _activity), peer) = connect().await;
+    let ids = (original.stable_id(), peer.stable_id());
+    for connection in [&original, &peer] {
+        assert_eq!(connection.paths().iter().count(), 1);
+        assert!(connection.paths().iter().all(|path| path.is_relay()));
+    }
+    let (mut send, mut receive) = original.open_bi().await.unwrap();
+    send.write_all(b"before").await.unwrap();
+    let (mut reply, mut incoming) = peer.accept_bi().await.unwrap();
+    async fn expect_chunk(stream: &mut iroh::endpoint::RecvStream, bytes: &[u8]) {
+        let mut data = vec![0; bytes.len()];
+        timeout(Duration::from_secs(5), stream.read_exact(&mut data))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(data, bytes);
+    }
+    expect_chunk(&mut incoming, b"before").await;
+    reply.write_all(b"before").await.unwrap();
+    expect_chunk(&mut receive, b"before").await;
+
+    let relay_rtt = || original.paths().iter().next().unwrap().rtt();
+    if let Some(ready) = std::env::var_os("MIOPUNCH_REPAIR_NETEM_READY") {
+        let ready = std::path::PathBuf::from(ready);
+        eprintln!("MIO131_NETEM_READY");
+        timeout(Duration::from_secs(5), async {
+            while !ready.exists() {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap();
+        // Measure the live relay RTT before starting the repair clock.
+        timeout(Duration::from_secs(20), async {
+            while relay_rtt() < Duration::from_secs(1) {
+                send.write_all(b"latency").await.unwrap();
+                reply.write_all(b"latency").await.unwrap();
+                tokio::join!(
+                    expect_chunk(&mut incoming, b"latency"),
+                    expect_chunk(&mut receive, b"latency")
+                );
+            }
+        })
+        .await
+        .expect("original relay should reach the representative RTT");
+        assert!(
+            relay_rtt() < Duration::from_secs(2),
+            "relay RTT {:?}",
+            relay_rtt()
+        );
+    }
+    let before_pause_rtt = relay_rtt();
+    paused.send(true).unwrap();
+    let started = Instant::now();
+    let result = caller
+        .repair_member_connection_until(&original, target.clone(), started + Duration::from_secs(6))
+        .await;
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed >= Duration::from_secs(3) && elapsed < Duration::from_secs(4),
+        "repair {result:?} took {elapsed:?}"
+    );
+    assert!(
+        matches!(result, Err(ConnectionPathRecoveryError::Retryable { stable_id, .. }) if stable_id == ids.0),
+        "repair {result:?}; original close {:?}",
+        original.close_reason()
+    );
+    assert!(original.close_reason().is_none() && peer.close_reason().is_none());
+    paused.send(false).unwrap();
+    send.write_all(b"after").await.unwrap();
+    expect_chunk(&mut incoming, b"after").await;
+    reply.write_all(b"after").await.unwrap();
+    expect_chunk(&mut receive, b"after").await;
+    assert_eq!((original.stable_id(), peer.stable_id()), ids);
+    eprintln!(
+        "MIO131_RELAY paused={elapsed:?} relay_rtt={before_pause_rtt:?} original={ids:?} same_stream_bytes=before,after"
+    );
+
+    tokio::join!(caller.close(), responder_endpoint.close());
+    responder.close().await;
+    forward.abort();
+    let _ = forward.await;
+}
+
+#[cfg(feature = "rtc-probe")]
+#[tokio::test]
+async fn withdrawing_rtc_permission_closes_only_members_without_an_allowed_backup() {
+    use crate::rtc_transport::{RtcDatagramIo, RtcTransport};
+    use std::future::poll_fn;
+    use tokio::time::timeout;
+
+    let (_directory, caller, responder) = admitted_pair().await;
+    let local_rtc = RtcTransport::new();
+    let remote_rtc = RtcTransport::new();
+    let peer_endpoint = responder
+        .bind_configured_endpoint_with_rtc(
+            Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .bind_addr((Ipv4Addr::LOCALHOST, 0))
+                .unwrap(),
+            remote_rtc.clone(),
+        )
+        .await
+        .unwrap();
+    peer_endpoint
+        .endpoint()
+        .set_alpns(vec![MEMBER_ALPN.to_vec()]);
+    let caller = caller
+        .maintain_network_with_rtc(Ipv4Addr::LOCALHOST, local_rtc.clone(), |router| router)
+        .await
+        .unwrap();
+    let target = iroh::EndpointAddr::new(peer_endpoint.endpoint().id()).with_addrs(
+        peer_endpoint
+            .addr()
+            .ip_addrs()
+            .copied()
+            .map(TransportAddr::Ip),
+    );
+    let packet_pump = |from: RtcDatagramIo, to: RtcDatagramIo| {
+        tokio::spawn(async move {
+            while let Ok(packet) = poll_fn(|cx| from.poll_outbound(cx)).await {
+                if to.receive(packet).is_err() {
+                    break;
+                }
+            }
+        })
+    };
+
+    let mut live = Vec::new();
+    for keep_ip in [false, true] {
+        let ((original, activity), peer) = timeout(Duration::from_secs(5), async {
+            let (original, peer) =
+                tokio::join!(caller.connect(target.clone(), MEMBER_ALPN), async {
+                    peer_endpoint.endpoint().accept().await.unwrap().await
+                });
+            (original.unwrap(), peer.unwrap())
+        })
+        .await
+        .unwrap();
+        let local = local_rtc.reserve(&original, || true).unwrap();
+        let remote = remote_rtc.reserve(&peer, || true).unwrap();
+        local.set_remote(remote.local_addr()).unwrap();
+        remote.set_remote(local.local_addr()).unwrap();
+        local.activate().unwrap();
+        remote.activate().unwrap();
+        let pumps = (
+            packet_pump(local.io(), remote.io()),
+            packet_pump(remote.io(), local.io()),
+        );
+        let outgoing = caller.endpoint().control_handle(&original);
+        let incoming = peer_endpoint.endpoint().control_handle(&peer);
+        outgoing
+            .open_data_transport_path(TransportAddr::Custom(remote.local_addr()))
+            .await
+            .unwrap();
+        let (local_ack, remote_ack) = timeout(Duration::from_secs(4), async {
+            loop {
+                if let (Ok(local_ack), Ok(remote_ack)) =
+                    (local.start_probe(&original), remote.start_probe(&peer))
+                {
+                    break (local_ack, remote_ack);
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap();
+        timeout(Duration::from_secs(4), async {
+            while !local_ack.is_acknowledged().unwrap() || !remote_ack.is_acknowledged().unwrap() {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap();
+        local.retain(&original, &local_ack).unwrap();
+        remote.retain(&peer, &remote_ack).unwrap();
+        outgoing
+            .retain_data_transport_path(remote.local_addr())
+            .await
+            .unwrap();
+        incoming
+            .retain_data_transport_path(local.local_addr())
+            .await
+            .unwrap();
+        if !keep_ip {
+            for (control, connection, address) in [
+                (&outgoing, &original, remote.local_addr()),
+                (&incoming, &peer, local.local_addr()),
+            ] {
+                control
+                    .test_limit_transport_paths(vec![TransportAddr::Custom(address)])
+                    .await
+                    .unwrap();
+                for path in connection.paths().iter().filter(|path| path.is_ip()) {
+                    let _ = path.close();
+                }
+                assert!(connection.paths().iter().all(|path| !path.is_ip()));
+            }
+        }
+        let (mut send, _) = original.open_bi().await.unwrap();
+        send.write_all(b"one").await.unwrap();
+        let (_, mut recv) = timeout(Duration::from_secs(4), peer.accept_bi())
+            .await
+            .unwrap()
+            .unwrap();
+        let mut bytes = [0; 3];
+        timeout(Duration::from_secs(4), recv.read_exact(&mut bytes))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(&bytes, b"one");
+        live.push((original, peer, send, recv, local, remote, activity, pumps));
+    }
+    local_rtc.set_resource_allowed(false);
+    let (sole_rtc, _, old_stream, ..) = &mut live[0];
+    let closed = timeout(Duration::from_secs(1), sole_rtc.closed())
+        .await
+        .expect("revoked sole RTC should promptly close M");
+    assert!(matches!(
+        closed,
+        iroh::endpoint::ConnectionError::LocallyClosed
+    ));
+    assert!(old_stream.write_all(b"old").await.is_err());
+    let (with_backup, peer, send, recv, ..) = &mut live[1];
+    assert!(with_backup.close_reason().is_none() && peer.close_reason().is_none());
+    send.write_all(b"two").await.unwrap();
+    let mut bytes = [0; 3];
+    timeout(Duration::from_secs(4), recv.read_exact(&mut bytes))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(&bytes, b"two");
+    assert!(
+        with_backup
+            .paths()
+            .iter()
+            .any(|path| path.is_ip() && path.is_selected())
+    );
+    eprintln!("MIO131_RTC withdrawn_sole=terminal allowed_backup=continued");
+    tokio::join!(caller.close(), peer_endpoint.close());
+    responder.close().await;
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Fault {
     CompletedControlClose,

@@ -54,6 +54,16 @@ impl BrowserGate {
             source.retire();
         }
     }
+    fn on_member_data_retired(&self) {
+        for original in self.maintenance().live() {
+            crate::connection_coordinator::settle_path_withdrawal(
+                &original,
+                |address| self.permits_repair_survival(&original, address),
+                "browser_sdk_path_policy",
+                "member_data_retired",
+            );
+        }
+    }
     async fn member_data_permission(
         &self,
         original: &Connection,
@@ -137,12 +147,14 @@ impl BrowserNetwork {
         )
         .await
         .map_err(|_| error("MID1 attach caller deadline during qualification"))??;
+        let gate = self.gate.clone();
         let lease = transport
             .attach(
                 &outer.connection,
                 permission,
                 Duration::from_millis(lifetime_ms.into()),
                 &attempt,
+                move || gate.on_member_data_retired(),
             )
             .await
             .map_err(error)?;

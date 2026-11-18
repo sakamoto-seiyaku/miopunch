@@ -646,21 +646,26 @@ impl BrowserGate {
         if let Some(protocol) = crate::forwarding::Protocol::from_alpn(alpn) {
             return matches!(saved.stage(), "Complete" | "GuestActive")
                 && saved.service_access().ok().is_some_and(|access| {
-                    VerifyingKey::from_bytes(target.as_bytes()).ok()
-                        .is_some_and(|peer| crate::forwarding::peer_permitted(&access, peer, protocol))
+                    VerifyingKey::from_bytes(target.as_bytes())
+                        .ok()
+                        .is_some_and(|peer| {
+                            crate::forwarding::peer_permitted(&access, peer, protocol)
+                        })
                 });
         }
         if alpn == crate::web::WEB_ALPN {
             return matches!(saved.stage(), "Complete" | "GuestActive")
                 && saved.service_access().ok().is_some_and(|access| {
-                    VerifyingKey::from_bytes(target.as_bytes()).ok()
+                    VerifyingKey::from_bytes(target.as_bytes())
+                        .ok()
                         .is_some_and(|peer| crate::web::peer_permitted(&access, peer))
                 });
         }
         if alpn == crate::terminal::TERMINAL_ALPN {
             return matches!(saved.stage(), "Complete" | "GuestActive")
                 && saved.service_access().ok().is_some_and(|access| {
-                    VerifyingKey::from_bytes(target.as_bytes()).ok()
+                    VerifyingKey::from_bytes(target.as_bytes())
+                        .ok()
                         .is_some_and(|peer| crate::terminal::peer_permitted(&access, peer))
                 });
         }
@@ -1023,6 +1028,46 @@ impl BrowserGate {
         work
     }
 
+    fn permits_relay_path(
+        gate: &GateState,
+        saved: &SavedNode,
+        address: &iroh::TransportAddr,
+    ) -> bool {
+        match address {
+            iroh::TransportAddr::Relay(url) => origin(url.as_str())
+                .is_ok_and(|value| Self::permitted_relay_origins(saved).contains(&value)),
+            iroh::TransportAddr::Custom(address) => gate
+                .member_data
+                .as_ref()
+                .is_some_and(|transport| transport.permits_address(address)),
+            _ => false,
+        }
+    }
+
+    fn permits_repair_survival(
+        &self,
+        original: &Connection,
+        address: &iroh::TransportAddr,
+    ) -> bool {
+        let gate = self.0.lock().unwrap();
+        let Some(saved) = gate.saved.as_ref() else {
+            return false;
+        };
+        if !Self::proved_member_current(&gate, saved, original) {
+            return false;
+        }
+        #[cfg(feature = "rtc-probe")]
+        if let iroh::TransportAddr::Custom(address) = address
+            && address.id() == crate::rtc_transport::TRANSPORT_ID
+        {
+            use iroh::endpoint::transports::CustomSender;
+            return gate.rtc.as_ref().is_some_and(|transport| {
+                transport.is_data_path_qualified(address, original.stable_id())
+            });
+        }
+        Self::permits_relay_path(&gate, saved, address)
+    }
+
     fn proved_member_current(
         gate: &GateState,
         saved: &SavedNode,
@@ -1154,15 +1199,7 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
         connection
             .paths()
             .iter()
-            .filter(|path| match path.remote_addr() {
-                iroh::TransportAddr::Relay(url) => origin(url.as_str())
-                    .is_ok_and(|value| Self::permitted_relay_origins(saved).contains(&value)),
-                iroh::TransportAddr::Custom(address) => gate
-                    .member_data
-                    .as_ref()
-                    .is_some_and(|transport| transport.permits_address(address)),
-                _ => false,
-            })
+            .filter(|path| Self::permits_relay_path(&gate, saved, path.remote_addr()))
             .max_by_key(|path| path.is_selected())
             .map(|path| path.remote_addr().clone())
     }
@@ -1312,19 +1349,7 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
                             .saved
                             .as_ref()
                             .ok_or_else(|| control_error("IdentityOrAdmissionRejected"))?;
-                        let allowed = match &current_route {
-                            iroh::TransportAddr::Relay(url) => {
-                                origin(url.as_str()).is_ok_and(|value| {
-                                    BrowserGate::permitted_relay_origins(saved).contains(&value)
-                                })
-                            }
-                            iroh::TransportAddr::Custom(address) => state
-                                .member_data
-                                .as_ref()
-                                .is_some_and(|transport| transport.permits_address(address)),
-                            _ => false,
-                        };
-                        if allowed {
+                        if BrowserGate::permits_relay_path(&state, saved, &current_route) {
                             Ok(())
                         } else {
                             Err(control_error("DataPathUnavailable"))
@@ -3242,12 +3267,6 @@ mod incoming;
 
 #[path = "clipboard.rs"]
 mod clipboard_host;
-#[path = "forwarding.rs"]
-mod forwarding_host;
-#[path = "web.rs"]
-mod web_host;
-#[path = "terminal.rs"]
-mod terminal_host;
 #[path = "device_custody.rs"]
 mod device_custody;
 #[path = "device_management.rs"]
@@ -3256,10 +3275,16 @@ mod device_management;
 mod device_recovery;
 #[path = "files.rs"]
 mod files;
+#[path = "forwarding.rs"]
+mod forwarding_host;
 #[path = "node_replacement.rs"]
 mod node_replacement;
 #[path = "services.rs"]
 mod services;
+#[path = "terminal.rs"]
+mod terminal_host;
+#[path = "web.rs"]
+mod web_host;
 
 #[path = "data_stream.rs"]
 mod data_stream;

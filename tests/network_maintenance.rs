@@ -54,7 +54,7 @@ async fn observe_queries(
 }
 
 #[test]
-fn explicit_repair_failed_relay_close_baseline() {
+fn explicit_repair_waits_for_transport_to_close_a_removed_relay() {
     // Assert the public operation and the actual SDK records from the same run.
     let output = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
@@ -85,31 +85,20 @@ fn explicit_repair_failed_relay_close_baseline() {
             record["stableId"] == stable_id && record["source"] == "foreground_repair"
         })
         .collect();
-    let close = events
-        .iter()
-        .position(|record| record["phase"] == "close")
-        .unwrap();
+    assert!(!events.iter().any(|record| record["phase"] == "close"));
+    assert!(events.iter().any(|record| record["phase"] == "repair"
+        && record["result"] == "failed"
+        && record["detail"]["output"]["originalOpen"] == true));
     let ended = events
         .iter()
-        .position(|record| record["phase"] == "connection-ended")
+        .find(|record| record["phase"] == "connection-ended")
         .unwrap();
-    let invocation = &events[close];
-    let result = &events[ended];
-    assert!(close < ended);
-    assert_eq!(invocation["result"], "invoked");
-    assert_eq!(invocation["detail"]["owner"], "native_sdk_repair");
-    assert_eq!(
-        invocation["detail"]["reason"],
-        "repair_no_surviving_data_path"
-    );
-    assert_eq!(invocation["detail"]["priorCloseReason"], "open");
-    assert_eq!(result["localAttemptId"], invocation["localAttemptId"]);
-    assert_eq!(result["detail"]["owner"], "native_sdk_repair");
-    assert_eq!(result["detail"]["reason"], "locally_closed");
+    assert_eq!(ended["detail"]["owner"], "transport");
+    assert_eq!(ended["detail"]["reason"], "transport_timeout");
 }
 
 #[tokio::test]
-#[ignore = "run through explicit_repair_failed_relay_close_baseline to assert the emitted records"]
+#[ignore = "run through explicit_repair_waits_for_transport_to_close_a_removed_relay to assert the emitted records"]
 async fn explicit_repair_failed_relay_close_fixture() {
     use iroh::protocol::{AcceptError, ProtocolHandler};
     use miopunch_native_probe::{
@@ -126,14 +115,17 @@ async fn explicit_repair_failed_relay_close_fixture() {
         }
     }
 
-    tokio::time::timeout(Duration::from_secs(15), async {
+    tokio::time::timeout(Duration::from_secs(60), async {
         let dir = tempfile::tempdir().unwrap();
-        let mut server = NativeNetwork::create(dir.path().join("server")).await.unwrap();
-        let client = join(&mut server, &dir.path().join("client")).await;
+        let server_store = dir.path().join("server");
+        let client_store = dir.path().join("client");
+        let mut server = NativeNetwork::create(&server_store).await.unwrap();
+        let client = join(&mut server, &client_store).await;
         let mut config = iroh_relay::server::ServerConfig::default();
         config.relay = Some(iroh_relay::server::RelayConfig::new((Ipv4Addr::LOCALHOST, 0)));
         let relay = iroh_relay::server::Server::spawn(config).await.unwrap();
         let relay_url = relay.http_url().unwrap();
+        let relay_addr = relay.http_addr().unwrap();
         for node in [&client, &server] {
             let mut config = node.resource_configuration().unwrap();
             config.replacement = Some(vec![Resource {
@@ -147,9 +139,10 @@ async fn explicit_repair_failed_relay_close_fixture() {
             node.save_resource_configuration(&config).unwrap();
         }
         let (incoming, mut originals) = tokio::sync::mpsc::channel(1);
-        let server = server.maintain_network_with(Ipv4Addr::LOCALHOST, |router| {
-            router.accept(MEMBER_ALPN, ObserveMember(incoming))
-        }).await.unwrap();
+        let routes = |router: iroh::protocol::RestrictedRouterBuilder| {
+            router.accept(MEMBER_ALPN, ObserveMember(incoming.clone()))
+        };
+        let server = server.maintain_network_with(Ipv4Addr::LOCALHOST, &routes).await.unwrap();
         let client = client.maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
         let _server_business = server.business_activity();
         tokio::join!(client.endpoint().online(), server.endpoint().online());
@@ -167,15 +160,40 @@ async fn explicit_repair_failed_relay_close_fixture() {
         recv.read_exact(&mut bytes).await.unwrap();
 
         let stable_id = original.stable_id();
+        let peer_stable_id = remote.stable_id();
         relay.shutdown().await.unwrap();
         assert!(original.close_reason().is_none(), "fault begins inside the original lifetime");
         let repaired = client.repair_member_connection_until(
-            &original, target, n0_future::time::Instant::now() + Duration::from_millis(500),
+            &original, target.clone(), n0_future::time::Instant::now() + Duration::from_millis(500),
         ).await;
-        assert!(matches!(repaired, Err(ConnectionPathRecoveryError::Terminal { .. })), "{repaired:?}");
-        assert!(matches!(original.close_reason(), Some(iroh::endpoint::ConnectionError::LocallyClosed)));
-        assert_eq!(original.stable_id(), stable_id);
-        println!("{}", serde_json::json!({"event":"repair-baseline-trigger","stableId":stable_id,"trigger":"relay_shutdown"}));
+        assert!(matches!(repaired, Err(ConnectionPathRecoveryError::Retryable { stable_id: actual, .. }) if actual == stable_id), "{repaired:?}");
+        assert!(original.close_reason().is_none());
+        // Noq can restart the idle timer on the first ack-eliciting send since
+        // receiving a packet, including the existing five-second keepalive.
+        let closed = tokio::time::timeout(Duration::from_secs(40), original.closed()).await.unwrap();
+        assert!(matches!(closed, iroh::endpoint::ConnectionError::TimedOut));
+        assert!(send.write_all(b"old stream").await.is_err());
+        assert!(recv.read_exact(&mut [0]).await.is_err());
+        let terminal = client.repair_member_connection_until(
+            &original, target.clone(), n0_future::time::Instant::now() + Duration::from_millis(500),
+        ).await;
+        assert!(matches!(terminal, Err(ConnectionPathRecoveryError::Terminal { stable_id: actual }) if actual == stable_id));
+        tokio::join!(client.close(), server.close());
+
+        // Reestablish live relay registrations using the same saved identities.
+        // The old M and its failed stream are still held by this caller.
+        let mut relay_config = iroh_relay::server::ServerConfig::default();
+        relay_config.relay = Some(iroh_relay::server::RelayConfig::new(relay_addr));
+        let relay = iroh_relay::server::Server::spawn(relay_config).await.unwrap();
+        let client = NativeNetwork::open(&client_store).await.unwrap().maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
+        let server = NativeNetwork::open(&server_store).await.unwrap().maintain_network_with(Ipv4Addr::LOCALHOST, routes).await.unwrap();
+        tokio::join!(client.endpoint().online(), server.endpoint().online());
+        let (replacement, _business) = client.connect(target, MEMBER_ALPN).await.unwrap();
+        let replacement_remote = originals.recv().await.unwrap();
+        assert_ne!(replacement.stable_id(), stable_id);
+        assert_ne!(replacement_remote.stable_id(), peer_stable_id);
+        println!("{}", serde_json::json!({"event":"repair-baseline-trigger","stableId":stable_id,"trigger":"relay_shutdown","replacementStableId":replacement.stable_id()}));
+        relay.shutdown().await.unwrap();
         client.close().await;
         server.close().await;
     }).await.unwrap();

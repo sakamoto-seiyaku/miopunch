@@ -28,6 +28,9 @@ pub const MAX_DATAGRAM: usize = 2048;
 const MAX_ASSOCIATIONS: usize = 32;
 
 #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+type ResourceWithdrawal = dyn Fn(&[usize]) + Send + Sync;
+
+#[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
 pub(crate) fn diagnostic_monotonic_ms() -> u64 {
     crate::connection_coordinator::connection_diagnostic::monotonic_ms()
 }
@@ -54,6 +57,8 @@ struct Registry {
     receiver: AtomicWaker,
     resource_allowed: AtomicBool,
     resource_revision: AtomicU64,
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    resource_withdrawal: Mutex<Option<Arc<ResourceWithdrawal>>>,
     active_pumps: AtomicUsize,
     #[cfg(feature = "rtc-probe")]
     control_fixture: Mutex<Option<Arc<crate::rtc_invalidation_fixture::ControlFixture>>>,
@@ -260,6 +265,8 @@ impl RtcTransport {
             receiver: AtomicWaker::new(),
             resource_allowed: AtomicBool::new(true),
             resource_revision: AtomicU64::new(0),
+            #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+            resource_withdrawal: Mutex::new(None),
             active_pumps: AtomicUsize::new(0),
             #[cfg(feature = "rtc-probe")]
             control_fixture: Mutex::new(None),
@@ -447,18 +454,35 @@ impl RtcTransport {
     /// Runtime permission for this experimental direct carrier. A change
     /// retires existing leases; re-enabling permits only new attempts.
     pub fn set_resource_allowed(&self, allowed: bool) {
-        if self.0.resource_allowed.swap(allowed, Ordering::AcqRel) != allowed {
+        let routes: Vec<_> = {
+            let routes = self.0.routes.lock().unwrap();
+            if self.0.resource_allowed.swap(allowed, Ordering::AcqRel) == allowed {
+                return;
+            }
             self.0
                 .resource_revision
                 .fetch_update(Ordering::AcqRel, Ordering::Acquire, |revision| {
                     revision.checked_add(1)
                 })
                 .expect("RTC resource revision exhausted");
-            let routes: Vec<_> = self.0.routes.lock().unwrap().values().cloned().collect();
-            for route in routes {
-                route.close_with_reason("resource-permission-changed");
+            routes.values().cloned().collect()
+        };
+        for route in &routes {
+            route.close_with_reason("resource-permission-changed");
+        }
+        #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+        if !allowed && !routes.is_empty() {
+            let settle = self.0.resource_withdrawal.lock().unwrap().clone();
+            if let Some(settle) = settle {
+                let originals: Vec<_> = routes.iter().map(|route| route.connection_id).collect();
+                settle(&originals);
             }
         }
+    }
+
+    #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
+    pub(crate) fn on_resource_withdrawal(&self, settle: impl Fn(&[usize]) + Send + Sync + 'static) {
+        *self.0.resource_withdrawal.lock().unwrap() = Some(Arc::new(settle));
     }
     pub fn resource_revision(&self) -> u64 {
         self.0.resource_revision.load(Ordering::Acquire)

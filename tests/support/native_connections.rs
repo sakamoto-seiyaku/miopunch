@@ -5,8 +5,20 @@ use iroh::{
 };
 use std::{sync::Arc, time::Duration};
 fn address(endpoint: &RestrictedEndpoint) -> EndpointAddr {
-    EndpointAddr::new(endpoint.id())
-        .with_addrs(endpoint.addr().ip_addrs().copied().map(TransportAddr::Ip))
+    let mut target = EndpointAddr::new(endpoint.id())
+        .with_addrs(endpoint.addr().ip_addrs().copied().map(TransportAddr::Ip));
+    if target.addrs.is_empty() {
+        target.addrs.extend(
+            endpoint
+                .custom_addrs()
+                .into_iter()
+                .filter(|route| {
+                    route.id() == miopunch_native_probe::tcp_transport::DATA_TRANSPORT_ID
+                })
+                .map(TransportAddr::Custom),
+        );
+    }
+    target
 }
 pub async fn control_pair(
     client: &RestrictedEndpoint,

@@ -1,14 +1,15 @@
 //! Native gate/candidate adapter for the common member coordinator.
 use super::{
     AttemptContext, AttemptRole, MemberPathAdapter, PathPlan, Platform, PreparedPath,
-    ProtectedAttempt, RELAY, RTC, RtcRole, RuntimeCapabilities, SessionPurpose, TCP, UDP,
+    ProtectedAttempt, RELAY, RTC, RepairFailure, RtcRole, RuntimeCapabilities, SessionPurpose, TCP,
+    UDP,
     connection_diagnostic::{self, AttemptLog},
     control_error,
 };
 use crate::admission_gate::AdmissionGate;
 use crate::control_protocol::AuthenticatedControl;
 use crate::resources::ContactClass;
-use crate::session_maintenance::{CommittedPath, Completion, MaintenanceDeferral, Reservation};
+use crate::session_maintenance::{CommittedPath, Completion, Reservation};
 use iroh::{Endpoint, TransportAddr, endpoint::Connection};
 use serde_json::json;
 use std::io;
@@ -198,7 +199,6 @@ impl CoordinatorHook {
         if let Some(known) = resources.contacts.get_endpoint_info(original.remote_id()) {
             contact.addrs.extend(known.into_endpoint_addr().addrs);
         }
-        let surviving = super::probe_existing_data_survival(original, &permits);
         let result = lease
             .run_ref(self.improve_logged(
                 resources.endpoint(),
@@ -217,61 +217,25 @@ impl CoordinatorHook {
                 phase.finish("succeeded");
                 return Ok(());
             }
-            Ok(_) => return Err(recovery::failed(original, "original connection closed")),
+            Ok(_) => io::Error::other("original connection closed"),
             Err(cause) => cause,
         };
-        if attempt.cancellation.is_cancelled()
-            || MaintenanceDeferral::from_error(&failure).is_some()
-        {
-            phase.finish("deferred");
-            return Err(recovery::failed(original, failure));
-        }
-        let check = |original: &Connection| {
-            if self.gate.allows_member_path_upgrade(original) && original.close_reason().is_none() {
-                Ok(())
-            } else {
-                Err(control_error("IdentityOrAdmissionRejected"))
-            }
-        };
-        let maintained = surviving(original, &permits)
-            || lease
-                .run_ref(super::validate_existing_data_survival(
-                    resources.endpoint(),
-                    original,
-                    deadline,
-                    &permits,
-                    &check,
-                ))
-                .await
-                .unwrap_or(false)
-            || surviving(original, &permits);
-        let prior = original.close_reason();
-        if !maintained && prior.is_none() && !attempt.cancellation.is_cancelled() {
-            let previous = original.close_with_previous_reason(
-                0u32.into(),
-                b"same-session repair has no surviving data path",
-            );
-            log.event(
-                "close",
-                "invoked",
-                json!({
-                    "owner":"native_sdk_repair","reason":"repair_no_surviving_data_path",
-                    "priorCloseReason":connection_diagnostic::close_reason(previous.as_ref()),
-                }),
-            );
-            let reason = original.closed().await;
-            if let Some(previous) = previous {
-                log.connection_ended(&previous, None);
-            } else {
-                log.connection_ended(&reason, Some("native_sdk_repair"));
-            }
-        } else if let Some(reason) = prior {
-            log.connection_ended(&reason, None);
-        }
-        phase.finish_with(
-            "failed",
-            json!({"originalOpen":original.close_reason().is_none()}),
+        let outcome = super::settle_failed_repair(
+            original,
+            &attempt,
+            &failure,
+            permits,
+            log,
+            "native_sdk_repair",
         );
+        if matches!(outcome, RepairFailure::Deferred) {
+            phase.finish("deferred");
+        } else {
+            phase.finish_with(
+                "failed",
+                json!({"originalOpen":original.close_reason().is_none()}),
+            );
+        }
         Err(recovery::failed(original, failure))
     }
 
@@ -294,7 +258,37 @@ impl CoordinatorHook {
                 .as_ref()
                 .is_some_and(|rtc| rtc.is_data_path_qualified(address, original.stable_id()));
         }
-        resources.allows_data_path(address)
+        if !resources.allows_data_path(address) {
+            return false;
+        }
+        if let TransportAddr::Custom(remote) = address
+            && remote.id() == crate::member_transport::DATA_TRANSPORT_ID
+        {
+            // MID1's published local address exists only during an attached
+            // forwarding lease and names the same forwarder as the peer route.
+            return resources.endpoint().custom_addrs().iter().any(|local| {
+                crate::member_transport::MemberDataTransport::shares_forwarder(local, remote)
+            });
+        }
+        true
+    }
+
+    #[cfg(feature = "rtc-probe")]
+    pub(crate) fn settle_rtc_resource_withdrawal(
+        &self,
+        resources: &crate::resources::ResourceEndpoint,
+        originals: &[usize],
+    ) {
+        for original in self.gate.maintenance().live() {
+            if originals.contains(&original.stable_id()) {
+                super::settle_path_withdrawal(
+                    &original,
+                    |address| self.permits_repair_survival(resources, &original, address),
+                    "native_sdk_path_policy",
+                    "rtc_resource_withdrawn",
+                );
+            }
+        }
     }
 }
 impl CoordinatorHook {

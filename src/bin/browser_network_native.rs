@@ -89,6 +89,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             "invitation":hex::encode(node.manual_invitation()?.encode())})
     );
     let node = Arc::new(tokio::sync::Mutex::new(node));
+    let member_data = miopunch_native_probe::member_transport::MemberDataRelay::new(
+        node.lock().await.admission_gate(),
+    );
+    let mut forward_member_data = false;
     let mut lines = BufReader::new(tokio::io::stdin()).lines();
     let mut handlers = tokio::task::JoinSet::new();
     let mut issued = None;
@@ -110,6 +114,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             node.approve_manual_admission(&request).await?;
                         }
                         println!("{}", json!({"event":"approved", "count":node.status().applied_count}));
+                    }
+                    "member-data-enable" | "member-data-disable" => {
+                        forward_member_data = line == "member-data-enable";
+                        member_data.set_enabled(forward_member_data);
+                        println!("{}", json!({"event":line,"activeLinks":member_data.active_links()}));
                     }
                     #[cfg(feature="replica-test-hooks")]
                     "prepare-faults" => {
@@ -193,6 +202,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             incoming = endpoint.accept() => {
                 let Some(incoming) = incoming else { break };
                 let node = node.clone();
+                let member_data = forward_member_data.then(|| member_data.clone());
                 #[cfg(feature = "rtc-probe")]
                 let rtc_endpoint = endpoint.clone();
                 #[cfg(feature = "rtc-probe")]
@@ -226,6 +236,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             #[cfg(not(feature="replica-test-hooks"))]
                             node.lock().await.serve_replica(&connection).await?;
                             println!("{}", json!({"event":"replica", "paths":paths(&connection)}));
+                            connection.closed().await;
+                        } else if let Some(member_data) = member_data {
+                            let _link = member_data.accept_link(&connection, std::time::Duration::from_secs(60)).await?;
                             connection.closed().await;
                         } else {
                             #[cfg(feature = "rtc-probe")]

@@ -869,6 +869,22 @@ impl ResourceEndpoint {
         self.rtc = rtc;
         self
     }
+    #[cfg(feature = "rtc-probe")]
+    pub(crate) fn install_rtc_withdrawal_handler(
+        self: &std::sync::Arc<Self>,
+        gate: crate::admission_gate::AdmissionGate,
+    ) {
+        if let Some(rtc) = &self.rtc {
+            let resources = std::sync::Arc::downgrade(self);
+            rtc.on_resource_withdrawal(move |originals| {
+                if let Some(resources) = resources.upgrade() {
+                    resources
+                        .active_coordinator(gate.clone())
+                        .settle_rtc_resource_withdrawal(&resources, originals);
+                }
+            });
+        }
+    }
     pub(crate) fn retire_replaced_rtc(&self, original: &iroh::endpoint::Connection) {
         #[cfg(feature = "rtc-probe")]
         if self

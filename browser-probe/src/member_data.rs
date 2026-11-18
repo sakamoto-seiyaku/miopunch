@@ -237,6 +237,7 @@ impl BrowserMemberDataTransport {
         permission: MemberDataPermission,
         lifetime: Duration,
         attempt: &AttemptContext,
+        on_retired: impl FnOnce() + Send + 'static,
     ) -> io::Result<MemberDataLease> {
         if attempt.cancellation.is_cancelled() {
             return Err(io::Error::new(
@@ -312,7 +313,7 @@ impl BrowserMemberDataTransport {
         let _ = self.0.addresses.set(vec![self.0.address(self.0.own)]);
         self.0.tasks.fetch_add(1, Ordering::AcqRel);
         let shared = self.0.clone();
-        let finished = TaskFinished(shared.clone());
+        let finished = TaskFinished(shared.clone(), Some(on_retired));
         let task_permission = permission.clone();
         let task = n0_future::task::spawn(async move {
             let _finished = finished;
@@ -348,11 +349,14 @@ impl Drop for CloseOnDrop {
         }
     }
 }
-struct TaskFinished(Arc<Shared>);
-impl Drop for TaskFinished {
+struct TaskFinished<F: FnOnce()>(Arc<Shared>, Option<F>);
+impl<F: FnOnce()> Drop for TaskFinished<F> {
     fn drop(&mut self) {
         self.0.close();
         self.0.tasks.fetch_sub(1, Ordering::AcqRel);
+        if let Some(on_retired) = self.1.take() {
+            on_retired();
+        }
     }
 }
 

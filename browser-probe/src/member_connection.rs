@@ -1,10 +1,10 @@
 //! Qualified controlled member connection exposed by the browser SDK.
 use super::*;
 use crate::connection_coordinator::{
-    AttemptRole, MemberPathAdapter, SessionPurpose,
+    AttemptRole, MemberPathAdapter, RepairFailure, SessionPurpose,
     connection_diagnostic::{self, AttemptLog},
 };
-use crate::session_maintenance::{Completion, MaintenanceDeferral, MaintenanceLease, Reservation};
+use crate::session_maintenance::{Completion, MaintenanceLease, Reservation};
 use std::io;
 #[wasm_bindgen]
 pub struct BrowserMemberConnection {
@@ -26,30 +26,6 @@ pub struct BrowserMemberConnection {
         std::rc::Rc<std::cell::RefCell<Option<super::rtc_member::Continuity>>>,
 }
 impl BrowserMemberConnection {
-    fn recovery_qualified(&self, connection: &Connection) -> std::io::Result<()> {
-        let gate = self.gate.0.lock().unwrap();
-        let allowed = gate.saved.as_ref().is_some_and(|saved| {
-            let Ok(invitation) = saved.invitation() else {
-                return false;
-            };
-            let scope = AdmissionScope::new(*invitation.anchor.root.as_bytes(), saved.generation);
-            connection.close_reason().is_none()
-                && BrowserGate::permits(saved, connection.remote_id(), connection.alpn())
-                && gate
-                    .proofs
-                    .iter()
-                    .any(|proof| proof.applies_to(connection, &scope))
-        });
-        if allowed {
-            Ok(())
-        } else {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::PermissionDenied,
-                "repair qualification changed",
-            ))
-        }
-    }
-
     pub(super) async fn qualified_snapshot(&self) -> Result<SavedNode, JsValue> {
         if self.is_closed() {
             return Err(rejected());
@@ -181,30 +157,6 @@ impl BrowserMemberConnection {
         lease.completed(Completion::Active(result));
         Ok(())
     }
-
-    fn permits_repair_survival(&self, address: &iroh::TransportAddr) -> bool {
-        if self.recovery_qualified(&self.connection).is_err() {
-            return false;
-        }
-        match address {
-            iroh::TransportAddr::Relay(url) => {
-                let gate = self.gate.0.lock().unwrap();
-                gate.saved.as_ref().is_some_and(|saved| {
-                    origin(url.as_str())
-                        .is_ok_and(|url| BrowserGate::permitted_relay_origins(saved).contains(&url))
-                })
-            }
-            #[cfg(feature = "rtc-probe")]
-            iroh::TransportAddr::Custom(address)
-                if address.id() == crate::rtc_transport::TRANSPORT_ID =>
-            {
-                use iroh::endpoint::transports::CustomSender;
-                self.rtc_transport
-                    .is_data_path_qualified(address, self.connection.stable_id())
-            }
-            _ => false,
-        }
-    }
 }
 #[wasm_bindgen]
 impl BrowserMemberConnection {
@@ -247,8 +199,8 @@ impl BrowserMemberConnection {
     }
 
     /// Repair this exact living M through the same restricted coordinator used
-    /// for path improvement. A failed repair without a fresh surviving DATA
-    /// path terminates this M; a later normal connect owns a new connection.
+    /// for path improvement. A failed repair terminates this M if no permitted
+    /// data path is still open; a later normal connect owns a new connection.
     pub async fn recover_path(&self, caller_ms: u32) -> Result<String, JsValue> {
         let started = n0_future::time::Instant::now();
         let mut log = AttemptLog::new(AttemptRole::Initiator, "foreground_repair");
@@ -296,7 +248,9 @@ impl BrowserMemberConnection {
                             && !attempt.cancellation.is_cancelled()
                             && deadline > n0_future::time::Instant::now()
                             && path.is_open(&self.connection)
-                            && self.permits_repair_survival(&path.address)
+                            && self
+                                .gate
+                                .permits_repair_survival(&self.connection, &path.address)
                             && self
                                 .gate
                                 .authorization_revision(&bound, SessionPurpose::MemberBusiness)
@@ -326,66 +280,56 @@ impl BrowserMemberConnection {
                 return response(outcome, Some(format!("repair reservation: {cause:?}")));
             }
         };
-        let surviving = crate::connection_coordinator::probe_existing_data_survival(
-            &self.connection,
-            |address| self.permits_repair_survival(address),
-        );
         let result = self.improve_path_until(&mut lease, true, log).await;
-        let outcome = if result.is_ok() && !self.is_closed() {
-            "recovered"
-        } else if let Some(reason) = self.connection.close_reason() {
-            log.connection_ended(&reason, None);
-            "terminal"
-        } else if attempt.cancellation.is_cancelled()
-            || result
-                .as_ref()
-                .err()
-                .is_some_and(|cause| MaintenanceDeferral::from_error(cause).is_some())
-            || surviving(&self.connection, &|address| {
-                self.permits_repair_survival(address)
-            })
-            || lease
-                .run_ref(
-                    crate::connection_coordinator::validate_existing_data_survival(
-                        &self.endpoint,
-                        &self.connection,
-                        deadline,
-                        &|address| self.permits_repair_survival(address),
-                        &|original| self.recovery_qualified(original),
-                    ),
-                )
-                .await
-                .unwrap_or(false)
-            || surviving(&self.connection, &|address| {
-                self.permits_repair_survival(address)
-            })
-            || attempt.cancellation.is_cancelled()
-        {
-            "unreachable"
-        } else {
-            let prior = self.connection.close_with_previous_reason(
-                0u32.into(),
-                b"same-session repair has no surviving data path",
-            );
-            log.event(
-                "close",
-                "invoked",
-                serde_json::json!({
-                    "owner":"browser_sdk_repair","reason":"repair_no_surviving_data_path",
-                    "priorCloseReason":connection_diagnostic::close_reason(prior.as_ref()),
-                }),
-            );
-            let reason = self.connection.closed().await;
-            if let Some(prior) = prior {
-                log.connection_ended(&prior, None);
-            } else {
-                log.connection_ended(&reason, Some("browser_sdk_repair"));
+        let outcome = match &result {
+            Ok(()) if !self.is_closed() => "recovered",
+            Ok(()) => {
+                let reason = self.connection.close_reason().expect("original is closed");
+                log.connection_ended(&reason, None);
+                "terminal"
             }
-            "terminal"
+            Err(cause) => match crate::connection_coordinator::settle_failed_repair(
+                &self.connection,
+                &attempt,
+                cause,
+                |address| self.gate.permits_repair_survival(&self.connection, address),
+                log,
+                "browser_sdk_repair",
+            ) {
+                RepairFailure::Terminal => "terminal",
+                RepairFailure::Deferred | RepairFailure::Retryable => "unreachable",
+            },
         };
         phase.finish(outcome);
         response(outcome, result.err().map(|cause| cause.to_string()))
     }
+
+    /// Open an actual configured relay on the exact original MID1 member for
+    /// the owned transport-withdrawal fixture. QUIC validates the new path.
+    #[cfg(feature = "member-data-test-hooks")]
+    pub async fn mid1_relay_backup_fixture(&self, relay: String) -> Result<(), JsValue> {
+        self.qualified_snapshot().await?;
+        let address = iroh::TransportAddr::Relay(relay.parse().map_err(error)?);
+        if !self
+            .gate
+            .permits_repair_survival(&self.connection, &address)
+            || !self.connection.paths().iter().any(|path| {
+                matches!(path.remote_addr(), iroh::TransportAddr::Custom(addr)
+                    if addr.id() == crate::member_data::DATA_TRANSPORT_ID)
+                    && self
+                        .gate
+                        .permits_repair_survival(&self.connection, path.remote_addr())
+            })
+        {
+            return Err(error("permitted relay and live MID1 original required"));
+        }
+        self.endpoint
+            .control_handle(&self.connection)
+            .open_data_transport_path(address)
+            .await
+            .map_err(error)
+    }
+
     /// Bounded real-control refusal fixture. It changes no candidate permission
     /// and exposes no exporter. Terminal mode requires an already closed M and
     /// observes its retained stream's actual write failure while C remains live.
@@ -679,7 +623,7 @@ impl BrowserMemberAcceptAttempt {
                 return Err(error("browser materials changed during member attempt"));
             }
             use crate::connection_coordinator::{
-                AttemptContext, AttemptRole, MemberPathAdapter, SessionPurpose,
+                AttemptContext, AttemptRole, MemberPathAdapter, RepairFailure, SessionPurpose,
             };
             let caps = self.gate.capabilities(AttemptRole::Responder);
             let coordinator = crate::connection_coordinator::ConnectionCoordinator::new_restricted(

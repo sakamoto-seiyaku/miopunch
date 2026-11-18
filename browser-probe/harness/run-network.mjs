@@ -17,7 +17,9 @@ const events = [];
 const caseArgument = process.argv.indexOf('--case');
 const selected = process.argv.includes('--suite') ? 'suite' : caseArgument < 0 ? 'first' : process.argv[caseArgument + 1];
 const includes = name => selected === 'suite' || selected === name;
-assert(['first', 'lifecycle', 'persistent-restart', 'multi-page', 'delivery-interruption', 'storage-clear', 'commit-loss', 'no-relay', 'disabled-relay', 'unavailable-relay', 'tls', 'replica', 'precode', 'management', 'new-code', 'browser-admission', 'replica-faults', 'revocation', 'storage-corrupt', 'browser-precode', 'maintenance-concurrency', 'suite'].includes(selected), 'unknown browser case');
+const mid1Cases = ['mid1-repair', 'mid1-repair-backup', 'mid1-repair-drop'];
+const mid1Repair = mid1Cases.includes(selected);
+assert(['first', 'lifecycle', 'persistent-restart', 'multi-page', 'delivery-interruption', 'storage-clear', 'commit-loss', 'no-relay', 'disabled-relay', 'unavailable-relay', 'tls', 'replica', 'precode', 'management', 'new-code', 'browser-admission', 'replica-faults', 'revocation', 'storage-corrupt', 'browser-precode', 'maintenance-concurrency', ...mid1Cases, 'suite'].includes(selected), 'unknown browser case');
 const controlCases=['replica','precode','management','new-code','browser-admission','replica-faults','revocation','storage-corrupt','browser-precode'];
 const requests = [];
 let browser;
@@ -104,6 +106,10 @@ try {
   if (selected === 'maintenance-concurrency') {
     config.rtc_enabled = true;
     config.rtc_ice = { stun_servers: [], local_bind_addresses: [], candidate_addresses: [] };
+  }
+  if (mid1Repair) {
+    config.rtc_enabled = false;
+    config.member_data = { via: ready.id, forward_data: true };
   }
   const url = `http://127.0.0.1:${web.address().port}/network.html?config=${encodeURIComponent(JSON.stringify(config))}&invitation=${ready.invitation}`;
   await page.goto(url);
@@ -225,6 +231,99 @@ try {
     })));
     await peerContext.close();
     events.push({ case: 'maintenance-concurrency', waiterResults: [expired.failure, cancelled.failure, reused.outcome], outcomes, originalStreamContinued: true });
+  }
+
+  if (mid1Repair) {
+    const peerContext = await browserContext();
+    const peer = await peerContext.newPage();
+    peer.on('console', message => console.log(`peer: ${message.text()}`));
+    await peer.goto(url);
+    const peerId = await bounded(peer.evaluate(() => window.ready), 'second MID1 member startup');
+    assert.notEqual(peerId, first);
+    assert.notEqual(peerId, ready.id);
+    assert.equal(await peer.evaluate(inv => window.network.request_admission(inv), ready.invitation), 'AwaitingApproval');
+    await native.command('approve', 'approved');
+    assert.equal(await peer.evaluate(inv => window.network.request_admission(inv), ready.invitation), 'PendingMaterials');
+    assert.equal(await peer.evaluate(() => window.network.complete_admission()), 'Complete');
+    assert.equal(JSON.parse(await page.evaluate(id => window.network.sync_replica(id), ready.id)).complete, true);
+    const tabs = [page, peer];
+    await native.command('member-data-enable', 'member-data-enable');
+    const routes = await bounded(Promise.all(tabs.map(tab => tab.evaluate(async id => {
+      window.outer = await window.network.open_member_connection(id);
+      return JSON.parse(await window.network.attach_member_data(window.outer, 45000, 8000)).dynamicRoute;
+    }, ready.id))), 'two authorized MID1 outer links');
+    assert(routes.every(route => /^[a-f0-9]{96}$/.test(route)));
+    await bounded(Promise.all([
+      peer.evaluate(async () => { window.member = await window.network.member_accept_attempt(8000).accept(); }),
+      page.evaluate(async ([id, route]) => {
+        window.member = await window.network.member_data_connection_attempt(id, route, 8000).connect();
+      }, [peerId, routes[1]]),
+    ]), 'inner MID1 session');
+    const sessions = () => Promise.all(tabs.map(tab => tab.evaluate(() => JSON.parse(window.member.session_diagnostics()))));
+    const original = await sessions();
+    const ids = original.map(session => session.coordinator.stableId);
+    assert(ids.every(Number.isSafeInteger));
+    for (const session of original) {
+      assert(session.ordinaryHandle && session.memberAuthorized && session.coordinator.freshAck);
+      assert.equal(session.paths.length, 1);
+      assert(session.paths[0].isMemberData && session.paths[0].selected);
+    }
+    await page.evaluate(async () => { window.stream = await window.member.open_data_stream(); });
+    const readPeer = peer.evaluate(async () => { window.stream = await window.member.accept_data_stream(); return [...await window.stream.read_chunk()]; });
+    await page.evaluate(() => window.stream.write_chunk(Uint8Array.of(7)));
+    assert.deepEqual(await bounded(readPeer, 'first original stream bytes'), [7]);
+    const exchange = (from, to, byte) => bounded(Promise.all([
+      from.evaluate(value => window.stream.write_chunk(Uint8Array.of(value)), byte),
+      to.evaluate(async () => [...await window.stream.read_chunk()]),
+    ]).then(([, data]) => assert.deepEqual(data, [byte])), 'same MID1 stream sample');
+    await exchange(peer, page, 8);
+    const repair = JSON.parse(await bounded(page.evaluate(() => window.member.recover_path(2000)), 'public MID1 repair'));
+    assert.equal(repair.outcome, 'unreachable', JSON.stringify(repair));
+    assert.equal(repair.stableId, ids[0]);
+    assert(repair.elapsedMs < 2250);
+    assert(repair.failure.includes('DataPathUnavailable'), JSON.stringify(repair));
+    await exchange(page, peer, 11);
+    await exchange(peer, page, 12);
+
+    const alternate = selected === 'mid1-repair-backup';
+    const dropNetwork = selected === 'mid1-repair-drop';
+    if (alternate) {
+      await bounded(page.evaluate(relay => window.member.mid1_relay_backup_fixture(relay), relayUrl), 'open relay on the original member');
+      await Promise.all(tabs.map(tab => tab.waitForFunction(() => {
+        const paths = JSON.parse(window.member.session_diagnostics()).paths;
+        return paths.some(path => path.isMemberData) && paths.some(path => path.isRelay);
+      }, null, { timeout: 5000 })));
+    }
+    if (dropNetwork) {
+      // Keep the original member and stream handles after releasing the owner.
+      await page.evaluate(() => window.network.free());
+      await page.waitForFunction(() => window.member.is_closed(), null, { timeout: 2000 });
+    }
+    assert.equal((await native.command('member-data-disable', 'member-data-disable')).activeLinks, 0);
+    const liveNetworks = dropNetwork ? [peer] : tabs;
+    await Promise.all(liveNetworks.map(tab => tab.waitForFunction(() => JSON.parse(window.network.member_data_diagnostics()).stopped, null, { timeout: 2000 })));
+    assert.deepEqual((await sessions()).map(session => session.coordinator.stableId), ids);
+    for (const tab of liveNetworks) assert(await tab.evaluate(() => !window.outer.is_closed()));
+    if (alternate) {
+      await exchange(page, peer, 21);
+      await exchange(peer, page, 22);
+      assert((await sessions()).every(session => session.ordinaryHandle && session.paths.some(path => path.isRelay && path.selected && path.streamSent > 0 && path.streamReceived > 0)));
+    } else {
+      await Promise.all(tabs.map(tab => tab.waitForFunction(() => window.member.is_closed(), null, { timeout: 2000 })));
+      assert((await sessions()).every(session => !session.ordinaryHandle));
+      for (const tab of tabs) {
+        await assert.rejects(tab.evaluate(() => window.stream.write_chunk(Uint8Array.of(31))));
+      }
+      const terminal = JSON.parse(await page.evaluate(() => window.member.recover_path(2000)));
+      assert.equal(terminal.outcome, 'terminal');
+      assert.equal(terminal.stableId, ids[0]);
+    }
+    await Promise.all(tabs.map(tab => tab.evaluate(async closeNetwork => {
+      window.stream.free(); window.member.free(); window.outer.free();
+      if (closeNetwork) await window.network.close();
+    }, liveNetworks.includes(tab))));
+    await peerContext.close();
+    events.push({ case: selected, repair, ids, originalBytesAfterRepair: true, originalClosedAfterRevocation: !alternate, allowedRelayContinued: alternate });
   }
 
   if (selected === 'replica') {
