@@ -269,7 +269,7 @@
     "earlyValidation": "Only the original QUIC dialer with a local retained winner opens immediately. The non-dialer waits for that original connection path; no responder-initiated open capability was added.",
     "defaults": "All experiment selection flags require nat-lab-test-hooks and are absent from ordinary demo defaults.",
     "highRtt": "Verified in rttHandoff: setup is complete before delay injection. Protected control RTTs were measured independently (1916ms and 2401ms), rather than inferred from the configured link delay.",
-    "office": "Initial fire-and-forget SSH child ended before SDK readiness (empty logs and zero packets): not a NAT trial. Proper original-process SSH ownership is prepared; user authorized serial execution through the original allowed demo path after the shared Simplewall diagnosis."
+    "office": "Both serial office rounds completed real SDK raw receipt, original-connection UDP commit and DATA_OK. Host capture is incomplete: zero scheduled raw probes in wait is established, but zero all/native peer UDP before first receipt is unknown. Strict all-UDP silence remains the controlled-NAT result."
   },
   "reproduction": {
     "controlled": "scripts/check_udp_first_packet.py --probe <qualified pin> --qad <qualified pin> --output <new directory> [--wait] [--receiver-filter cone] [--early]",
@@ -357,5 +357,107 @@
     "sampleValidity": "Both peers reported snapshot_current=true after their delayed control exchange. No network-generation change was injected.",
     "result": "Fixed phase reached the valid raw return path but timed out during handoff; adjusted phase delivered valid business on both ends (6897ms/7367ms).",
     "scope": "Restricted first-connection handoff timing only; original active-M lease and business-stream continuity are separately verified under the unchanged three-second public repair limit."
+  },
+  "officeOrdering": {
+    "ticket": "MIOPUNCH-139",
+    "inputs": {
+      "strategy": "legacy",
+      "qad": "aps1-1.relay.n0.iroh.link.:7842 (NoObservedAddress, then STUN)",
+      "stunOrdered": [
+        "13.115.244.19:3478",
+        "162.159.207.0:3478"
+      ],
+      "broker": "44.232.241.40:1883",
+      "phaseMs": 5000,
+      "roles": {
+        "windows": "client / raw receiver",
+        "linux": "server / raw sender"
+      },
+      "earlyValidation": false,
+      "rttGate": false,
+      "mappingIsolation": "Different previously unused explicit local ports per group; actual STUN mappings reported. This does not prove upstream NAT state was fully reset."
+    },
+    "captureLimit": "Windows PktMon NIC captures omit every inbound raw request. Active capture has only one of the three logged raw replies and no scheduled probes; wait capture has none of its three logged replies. Therefore absence of peer UDP in these captures cannot establish zero peer/native UDP before first receipt. Strict silence is verified only by the separate controlled NAT captures summarized in results.json.",
+    "conclusion": "Both fixed-office rounds accepted the raw return and completed original-connection UDP business. The wait scheduler sent zero raw probes; total peer/native UDP before receipt remains unknown. These two successes neither classify the office NAT nor explain the older failed rounds.",
+    "discardedRuns": [
+      {
+        "kind": "SSH child owner ended before SDK readiness",
+        "classification": "infrastructure precondition; empty SDK logs and zero packets; not a NAT trial"
+      },
+      {
+        "kind": "MQTT carrier reset before Windows SDK startup in first wait launch",
+        "classification": "infrastructure precondition; not a waiting-first-packet timeout; exactly one same-input retry then completed"
+      }
+    ],
+    "lifecycle": {
+      "windowsOriginalPids": [
+        14504,
+        16924
+      ],
+      "windowsOriginalPidsTerminal": true,
+      "linuxProbeAbsent": true,
+      "pktmonRunning": false,
+      "pktmonFilters": [],
+      "allowedExe": "C:\\Users\\zy\\miopunch-network-demo\\miopunch-network-demo.exe",
+      "oldDemoRestored": false,
+      "exitScope": "Controller and SSH owner returned zero. PowerShell original Process ExitCode was blank; native exit code is not asserted. SDK completion is established by both-end DATA_OK."
+    },
+    "source": "office-excerpt.json",
+    "cells": [
+      {
+        "case": "active",
+        "rawRoundId": "fc1921689aeaffc99643824785c72637",
+        "controlRouteId": "dd112307dfef8d3d96d94c95cef856a8",
+        "windowsBindPort": 47143,
+        "linuxBindPort": 47144,
+        "windowsStun": "182.48.107.243:6072",
+        "linuxStun": "111.197.236.230:9926",
+        "receiverWait": false,
+        "windowsScheduledProbes": 3,
+        "windowsRawResponses": 3,
+        "windowsFirstAcceptedRequestMs": 392,
+        "windowsFirstResponseMs": 394,
+        "linuxAcceptedReplySource": "182.48.107.243:6072",
+        "bothWinnerReady": true,
+        "bothCommitAck": true,
+        "bothBusiness": true,
+        "handoffMs": {
+          "windows": 1367,
+          "linux": 921
+        },
+        "firstRequestCaptured": false,
+        "allPeerUdpBeforeFirstAcceptedRequest": null,
+        "nativeUdpBeforeFirstAcceptedRequest": null,
+        "capture": "office-active.pcapng",
+        "captureUdpPackets": 12
+      },
+      {
+        "case": "receiver_wait",
+        "rawRoundId": "76148404a4f94a5cabc5474fea121d79",
+        "controlRouteId": "015291b23a2260e04888bca4fd0c6041",
+        "windowsBindPort": 47145,
+        "linuxBindPort": 47146,
+        "windowsStun": "182.48.107.243:6073",
+        "linuxStun": "111.197.236.230:10277",
+        "receiverWait": true,
+        "windowsScheduledProbes": 0,
+        "windowsRawResponses": 3,
+        "windowsFirstAcceptedRequestMs": 389,
+        "windowsFirstResponseMs": 392,
+        "linuxAcceptedReplySource": "182.48.107.243:6073",
+        "bothWinnerReady": true,
+        "bothCommitAck": true,
+        "bothBusiness": true,
+        "handoffMs": {
+          "windows": 1299,
+          "linux": 865
+        },
+        "firstRequestCaptured": false,
+        "allPeerUdpBeforeFirstAcceptedRequest": null,
+        "nativeUdpBeforeFirstAcceptedRequest": null,
+        "capture": "office-wait.pcapng",
+        "captureUdpPackets": 11
+      }
+    ]
   }
 }

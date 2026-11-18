@@ -1,0 +1,183 @@
+{
+  "ticket": "MIOPUNCH-139",
+  "cells": [
+    {
+      "case": "active",
+      "rawRoundId": "fc1921689aeaffc99643824785c72637",
+      "controlRouteId": "dd112307dfef8d3d96d94c95cef856a8",
+      "windowsBindPort": 47143,
+      "linuxBindPort": 47144,
+      "windowsStun": "182.48.107.243:6072",
+      "linuxStun": "111.197.236.230:9926",
+      "receiverWait": false,
+      "windowsScheduledProbes": 3,
+      "windowsRawResponses": 3,
+      "windowsFirstAcceptedRequestMs": 392,
+      "windowsFirstResponseMs": 394,
+      "linuxAcceptedReplySource": "182.48.107.243:6072",
+      "bothWinnerReady": true,
+      "bothCommitAck": true,
+      "bothBusiness": true,
+      "handoffMs": {
+        "windows": 1367,
+        "linux": 921
+      },
+      "firstRequestCaptured": false,
+      "allPeerUdpBeforeFirstAcceptedRequest": null,
+      "nativeUdpBeforeFirstAcceptedRequest": null,
+      "capture": "office-active.pcapng",
+      "captureUdpPackets": 12,
+      "rawExcerpts": {
+        "windows": [
+          "LEGACY_OBSERVATION_FALLBACK reason=Failed(NoObservedAddress)",
+          "CANDIDATE id=1598d4a2ef45d85a93b6c9193e9034a7033298799ff6c43f9e405bc6fabb4c2c sockets=[0.0.0.0:47143, [::]:53490] observed=182.48.107.243:6072 source=stun",
+          "LEGACY_SAMPLE order=0 destination=13.115.244.19:3478 mapped=182.48.107.243:6072 observer=stun://13.115.244.19:3478/",
+          "LEGACY_SAMPLE order=1 destination=162.159.207.0:3478 mapped=182.48.107.243:6072 observer=stun://162.159.207.0:3478/",
+          "LEGACY_RECV_START round=fc1921689aeaffc99643824785c72637 stable_id=1711802303680 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [111.197.236.230:9926], candidates: [111.197.236.230:9926], range: None, total_budget_ms: 5200, read_budget_ms: 5200 }",
+          "LEGACY_LISTENER round=fc1921689aeaffc99643824785c72637 stable_id=1711802303680 local_socket_id=0 local_addr=0.0.0.0:47143 primary=true",
+          "LEGACY_DATAGRAM target=111.197.236.230:9926 ttl=7 response=false degraded=true local_socket_id=0 elapsed_ms=1",
+          "LEGACY_DATAGRAM target=111.197.236.230:9926 ttl=7 response=false degraded=true local_socket_id=0 elapsed_ms=216",
+          "LEGACY_RECEIPT remote=111.197.236.230:9926 response=false local_socket_id=0 elapsed_ms=392",
+          "LEGACY_DATAGRAM target=111.197.236.230:9926 ttl=0 response=true degraded=false local_socket_id=0 elapsed_ms=394",
+          "LEGACY_DATAGRAM target=111.197.236.230:9926 ttl=7 response=false degraded=true local_socket_id=0 elapsed_ms=417",
+          "LEGACY_DATAGRAM target=111.197.236.230:9926 ttl=0 response=true degraded=false local_socket_id=0 elapsed_ms=450",
+          "LEGACY_DATAGRAM target=111.197.236.230:9926 ttl=0 response=true degraded=false local_socket_id=0 elapsed_ms=511",
+          "LEGACY_WINNER round=fc1921689aeaffc99643824785c72637 stable_id=1711802303680 remote=111.197.236.230:9926 response=false before_probe=false probes=3 responses=3 ttl_degraded=3 local_socket_id=0 local_addr=172.31.0.36:47143",
+          "LEGACY_TRACE round=fc1921689aeaffc99643824785c72637 stable_id=1711802303680 probes=3 responses=3 ttl_degraded=3 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=6 send_errors=0 send_aborted=0 rejected_receipts=0",
+          "LEGACY_WINNER_READY round=fc1921689aeaffc99643824785c72637 stable_id=1711802303680 remaining_ms=4155",
+          "UDP_COMMIT_ACK round=fc1921689aeaffc99643824785c72637 stable_id=1711802303680",
+          "DATA_OK stable_id=1711802303680 peer=231094cada39f14c7a95c1b1b47fa7aef32f51260fab92481a6b15dbc717c72f path_ms=1367 paths=PathList { snapshot: State { list: [PathData(1, ip:111.197.236.230:9926)], selected: Some(PathId(1)), closed: true }, .. } mqtt_after_commit=36",
+          "LEGACY_BUSINESS_BINDING stable_id=1711802303680 peer=231094cada39f14c7a95c1b1b47fa7aef32f51260fab92481a6b15dbc717c72f path_id=1 local_socket_id=0 local_addr=172.31.0.36:47143 remote=ip:111.197.236.230:9926",
+          "LEGACY_RESULT outcome=business_sent feedback_owner=coordinator stable_id=1711802303680"
+        ],
+        "linux": [
+          "LEGACY_OBSERVATION_FALLBACK reason=Failed(NoObservedAddress)",
+          "CANDIDATE id=231094cada39f14c7a95c1b1b47fa7aef32f51260fab92481a6b15dbc717c72f sockets=[0.0.0.0:47144, [::]:46664] observed=111.197.236.230:9926 source=stun",
+          "READY id=231094cada39f14c7a95c1b1b47fa7aef32f51260fab92481a6b15dbc717c72f route=dd112307dfef8d3d96d94c95cef856a8",
+          "LEGACY_SAMPLE order=0 destination=13.115.244.19:3478 mapped=111.197.236.230:9926 observer=stun://13.115.244.19:3478/",
+          "LEGACY_SAMPLE order=1 destination=162.159.207.0:3478 mapped=111.197.236.230:9926 observer=stun://162.159.207.0:3478/",
+          "LEGACY_RECV_START round=fc1921689aeaffc99643824785c72637 stable_id=139645358973104 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [182.48.107.243:6072], candidates: [182.48.107.243:6072], range: None, total_budget_ms: 5200, read_budget_ms: 5000 }",
+          "LEGACY_LISTENER round=fc1921689aeaffc99643824785c72637 stable_id=139645358973104 local_socket_id=0 local_addr=0.0.0.0:47144 primary=true",
+          "LEGACY_DATAGRAM target=182.48.107.243:6072 ttl=0 response=false degraded=false local_socket_id=0 elapsed_ms=201",
+          "LEGACY_RECEIPT remote=182.48.107.243:6072 response=true local_socket_id=0 elapsed_ms=213",
+          "LEGACY_WINNER round=fc1921689aeaffc99643824785c72637 stable_id=139645358973104 remote=182.48.107.243:6072 response=true before_probe=false probes=1 responses=0 ttl_degraded=0 local_socket_id=0 local_addr=192.168.4.14:47144",
+          "LEGACY_TRACE round=fc1921689aeaffc99643824785c72637 stable_id=139645358973104 probes=1 responses=0 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=1 send_errors=0 send_aborted=0 rejected_receipts=0",
+          "LEGACY_WINNER_READY round=fc1921689aeaffc99643824785c72637 stable_id=139645358973104 remaining_ms=4366",
+          "UDP_COMMIT_ACK round=fc1921689aeaffc99643824785c72637 stable_id=139645358973104",
+          "LEGACY_RESULT outcome=confirmed_business learned=true score_delta=2 stable_id=139645358973104",
+          "DATA_OK stable_id=139645358973104 peer=1598d4a2ef45d85a93b6c9193e9034a7033298799ff6c43f9e405bc6fabb4c2c path_ms=921 paths=PathList { snapshot: State { list: [PathData(1, ip:182.48.107.243:6072)], selected: Some(PathId(1)), closed: false }, .. } mqtt_after_commit=36",
+          "LEGACY_BUSINESS_BINDING stable_id=139645358973104 peer=1598d4a2ef45d85a93b6c9193e9034a7033298799ff6c43f9e405bc6fabb4c2c path_id=1 local_socket_id=0 local_addr=192.168.4.14:47144 remote=ip:182.48.107.243:6072"
+        ]
+      }
+    },
+    {
+      "case": "receiver_wait",
+      "rawRoundId": "76148404a4f94a5cabc5474fea121d79",
+      "controlRouteId": "015291b23a2260e04888bca4fd0c6041",
+      "windowsBindPort": 47145,
+      "linuxBindPort": 47146,
+      "windowsStun": "182.48.107.243:6073",
+      "linuxStun": "111.197.236.230:10277",
+      "receiverWait": true,
+      "windowsScheduledProbes": 0,
+      "windowsRawResponses": 3,
+      "windowsFirstAcceptedRequestMs": 389,
+      "windowsFirstResponseMs": 392,
+      "linuxAcceptedReplySource": "182.48.107.243:6073",
+      "bothWinnerReady": true,
+      "bothCommitAck": true,
+      "bothBusiness": true,
+      "handoffMs": {
+        "windows": 1299,
+        "linux": 865
+      },
+      "firstRequestCaptured": false,
+      "allPeerUdpBeforeFirstAcceptedRequest": null,
+      "nativeUdpBeforeFirstAcceptedRequest": null,
+      "capture": "office-wait.pcapng",
+      "captureUdpPackets": 11,
+      "rawExcerpts": {
+        "windows": [
+          "LEGACY_OBSERVATION_FALLBACK reason=Failed(NoObservedAddress)",
+          "CANDIDATE id=1598d4a2ef45d85a93b6c9193e9034a7033298799ff6c43f9e405bc6fabb4c2c sockets=[0.0.0.0:47145, [::]:52544] observed=182.48.107.243:6073 source=stun",
+          "LEGACY_SAMPLE order=0 destination=13.115.244.19:3478 mapped=182.48.107.243:6073 observer=stun://13.115.244.19:3478/",
+          "LEGACY_SAMPLE order=1 destination=162.159.207.0:3478 mapped=182.48.107.243:6073 observer=stun://162.159.207.0:3478/",
+          "LEGACY_RECV_START round=76148404a4f94a5cabc5474fea121d79 stable_id=2211840080384 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Receiver, ttl: 7, send_delay_ms: 0, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [111.197.236.230:10277], candidates: [111.197.236.230:10277], range: None, total_budget_ms: 5200, read_budget_ms: 5200 }",
+          "LEGACY_LISTENER round=76148404a4f94a5cabc5474fea121d79 stable_id=2211840080384 local_socket_id=0 local_addr=0.0.0.0:47145 primary=true",
+          "LEGACY_EXPERIMENT receiver_wait=true",
+          "LEGACY_RECEIPT remote=111.197.236.230:10277 response=false local_socket_id=0 elapsed_ms=389",
+          "LEGACY_DATAGRAM target=111.197.236.230:10277 ttl=0 response=true degraded=false local_socket_id=0 elapsed_ms=392",
+          "LEGACY_DATAGRAM target=111.197.236.230:10277 ttl=0 response=true degraded=false local_socket_id=0 elapsed_ms=461",
+          "LEGACY_DATAGRAM target=111.197.236.230:10277 ttl=0 response=true degraded=false local_socket_id=0 elapsed_ms=521",
+          "LEGACY_WINNER round=76148404a4f94a5cabc5474fea121d79 stable_id=2211840080384 remote=111.197.236.230:10277 response=false before_probe=false probes=0 responses=3 ttl_degraded=0 local_socket_id=0 local_addr=172.31.0.36:47145",
+          "LEGACY_TRACE round=76148404a4f94a5cabc5474fea121d79 stable_id=2211840080384 probes=0 responses=3 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=3 send_errors=0 send_aborted=0 rejected_receipts=0",
+          "LEGACY_WINNER_READY round=76148404a4f94a5cabc5474fea121d79 stable_id=2211840080384 remaining_ms=4231",
+          "UDP_COMMIT_ACK round=76148404a4f94a5cabc5474fea121d79 stable_id=2211840080384",
+          "DATA_OK stable_id=2211840080384 peer=231094cada39f14c7a95c1b1b47fa7aef32f51260fab92481a6b15dbc717c72f path_ms=1299 paths=PathList { snapshot: State { list: [PathData(1, ip:111.197.236.230:10277)], selected: Some(PathId(1)), closed: true }, .. } mqtt_after_commit=36",
+          "LEGACY_BUSINESS_BINDING stable_id=2211840080384 peer=231094cada39f14c7a95c1b1b47fa7aef32f51260fab92481a6b15dbc717c72f path_id=1 local_socket_id=0 local_addr=172.31.0.36:47145 remote=ip:111.197.236.230:10277",
+          "LEGACY_RESULT outcome=business_sent feedback_owner=coordinator stable_id=2211840080384"
+        ],
+        "linux": [
+          "LEGACY_OBSERVATION_FALLBACK reason=Failed(NoObservedAddress)",
+          "CANDIDATE id=231094cada39f14c7a95c1b1b47fa7aef32f51260fab92481a6b15dbc717c72f sockets=[0.0.0.0:47146, [::]:8452] observed=111.197.236.230:10277 source=stun",
+          "READY id=231094cada39f14c7a95c1b1b47fa7aef32f51260fab92481a6b15dbc717c72f route=015291b23a2260e04888bca4fd0c6041",
+          "LEGACY_SAMPLE order=0 destination=13.115.244.19:3478 mapped=111.197.236.230:10277 observer=stun://13.115.244.19:3478/",
+          "LEGACY_SAMPLE order=1 destination=162.159.207.0:3478 mapped=111.197.236.230:10277 observer=stun://162.159.207.0:3478/",
+          "LEGACY_RECV_START round=76148404a4f94a5cabc5474fea121d79 stable_id=139745820846128 bind_elapsed_ms=0 phase=PhasePlan { behavior: Behavior { role: Sender, ttl: 0, send_delay_ms: 200, ports_range: 0, ports_random: 0, listen_random: 0 }, explicit: [182.48.107.243:6073], candidates: [182.48.107.243:6073], range: None, total_budget_ms: 5200, read_budget_ms: 5000 }",
+          "LEGACY_LISTENER round=76148404a4f94a5cabc5474fea121d79 stable_id=139745820846128 local_socket_id=0 local_addr=0.0.0.0:47146 primary=true",
+          "LEGACY_DATAGRAM target=182.48.107.243:6073 ttl=0 response=false degraded=false local_socket_id=0 elapsed_ms=201",
+          "LEGACY_RECEIPT remote=182.48.107.243:6073 response=true local_socket_id=0 elapsed_ms=212",
+          "LEGACY_WINNER round=76148404a4f94a5cabc5474fea121d79 stable_id=139745820846128 remote=182.48.107.243:6073 response=true before_probe=false probes=1 responses=0 ttl_degraded=0 local_socket_id=0 local_addr=192.168.4.14:47146",
+          "LEGACY_TRACE round=76148404a4f94a5cabc5474fea121d79 stable_id=139745820846128 probes=1 responses=0 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=1 send_errors=0 send_aborted=0 rejected_receipts=0",
+          "LEGACY_WINNER_READY round=76148404a4f94a5cabc5474fea121d79 stable_id=139745820846128 remaining_ms=4373",
+          "UDP_COMMIT_ACK round=76148404a4f94a5cabc5474fea121d79 stable_id=139745820846128",
+          "LEGACY_RESULT outcome=confirmed_business learned=true score_delta=2 stable_id=139745820846128",
+          "DATA_OK stable_id=139745820846128 peer=1598d4a2ef45d85a93b6c9193e9034a7033298799ff6c43f9e405bc6fabb4c2c path_ms=865 paths=PathList { snapshot: State { list: [PathData(1, ip:182.48.107.243:6073)], selected: Some(PathId(1)), closed: false }, .. } mqtt_after_commit=33",
+          "LEGACY_BUSINESS_BINDING stable_id=139745820846128 peer=1598d4a2ef45d85a93b6c9193e9034a7033298799ff6c43f9e405bc6fabb4c2c path_id=1 local_socket_id=0 local_addr=192.168.4.14:47146 remote=ip:182.48.107.243:6073"
+        ]
+      }
+    }
+  ],
+  "inputs": {
+    "strategy": "legacy",
+    "qad": "aps1-1.relay.n0.iroh.link.:7842 (NoObservedAddress, then STUN)",
+    "stunOrdered": [
+      "13.115.244.19:3478",
+      "162.159.207.0:3478"
+    ],
+    "broker": "44.232.241.40:1883",
+    "phaseMs": 5000,
+    "roles": {
+      "windows": "client / raw receiver",
+      "linux": "server / raw sender"
+    },
+    "earlyValidation": false,
+    "rttGate": false,
+    "mappingIsolation": "Different previously unused explicit local ports per group; actual STUN mappings reported. This does not prove upstream NAT state was fully reset."
+  },
+  "captureLimit": "Windows PktMon NIC captures omit every inbound raw request. Active capture has only one of the three logged raw replies and no scheduled probes; wait capture has none of its three logged replies. Therefore absence of peer UDP in these captures cannot establish zero peer/native UDP before first receipt. Strict silence is verified only by the separate controlled NAT captures summarized in results.json.",
+  "conclusion": "Both fixed-office rounds accepted the raw return and completed original-connection UDP business. The wait scheduler sent zero raw probes; total peer/native UDP before receipt remains unknown. These two successes neither classify the office NAT nor explain the older failed rounds.",
+  "discardedRuns": [
+    {
+      "kind": "SSH child owner ended before SDK readiness",
+      "classification": "infrastructure precondition; empty SDK logs and zero packets; not a NAT trial"
+    },
+    {
+      "kind": "MQTT carrier reset before Windows SDK startup in first wait launch",
+      "classification": "infrastructure precondition; not a waiting-first-packet timeout; exactly one same-input retry then completed"
+    }
+  ],
+  "lifecycle": {
+    "windowsOriginalPids": [
+      14504,
+      16924
+    ],
+    "windowsOriginalPidsTerminal": true,
+    "linuxProbeAbsent": true,
+    "pktmonRunning": false,
+    "pktmonFilters": [],
+    "allowedExe": "C:\\Users\\zy\\miopunch-network-demo\\miopunch-network-demo.exe",
+    "oldDemoRestored": false,
+    "exitScope": "Controller and SSH owner returned zero. PowerShell original Process ExitCode was blank; native exit code is not asserted. SDK completion is established by both-end DATA_OK."
+  }
+}
