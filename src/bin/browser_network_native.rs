@@ -5,6 +5,7 @@ use iroh::{RelayMode, endpoint::presets};
 use iroh_base::TransportAddr;
 use miopunch_native_probe::{
     admission_gate::{ADMISSION_REQUEST_ALPN, PRECODE_REQUEST_ALPN, ProtocolScope},
+    control_protocol::AuthenticatedControl,
     native_network::NativeNetwork,
     offline_replica::REPLICA_ALPN,
     resources::{Resource, ResourceUse},
@@ -15,7 +16,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 const BUSINESS: &[u8] = miopunch_native_probe::connection_coordinator::MEMBER_ALPN;
 
 // Public transport observations only; never emit admission or node secrets.
-fn paths(connection: &iroh::endpoint::Connection) -> Vec<serde_json::Value> {
+fn paths(connection: &impl AuthenticatedControl) -> Vec<serde_json::Value> {
     connection
         .paths()
         .iter()
@@ -199,15 +200,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 #[cfg(feature="replica-test-hooks")]
                 let replica_fixture=replica_fixture.clone();
                 handlers.spawn(async move {
-                    let connection = incoming.with_caller_deadline(n0_future::time::Instant::now() + std::time::Duration::from_secs(60)).await?;
+                    let mut accepting = incoming.with_caller_deadline(n0_future::time::Instant::now() + std::time::Duration::from_secs(60)).accept()?;
+                    let alpn = accepting.alpn().await?;
+                    if matches!(alpn.as_slice(), ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN) {
+                        let control = Arc::new(accepting.into_control().await?);
+                        let stage = if alpn == PRECODE_REQUEST_ALPN {
+                            node.lock().await.serve_precode_admission(&control).await?
+                        } else {
+                            node.lock().await.serve_manual_admission(&control).await?
+                        };
+                        println!("{}", json!({"event":"admission", "stage":format!("{stage:?}"), "paths":paths(&control)}));
+                        control.closed().await;
+                        return Ok(());
+                    }
+                    let connection = accepting.await?;
                     let result: Result<(), Box<dyn Error + Send + Sync>> = async {
-                        if matches!(connection.alpn(), ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN) {
-                            let stage = if connection.alpn() == PRECODE_REQUEST_ALPN {
-                                node.lock().await.serve_precode_admission(&connection).await?
-                            } else { node.lock().await.serve_manual_admission(&connection).await? };
-                            println!("{}", json!({"event":"admission", "stage":format!("{stage:?}"), "paths":paths(&connection)}));
-                            connection.closed().await;
-                        } else if connection.alpn() == REPLICA_ALPN {
+                        if connection.alpn() == REPLICA_ALPN {
                             #[cfg(feature="replica-test-hooks")]
                             {
                                 let fixture=replica_fixture.lock().await.clone();

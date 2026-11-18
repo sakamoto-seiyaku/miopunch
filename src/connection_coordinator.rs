@@ -2188,7 +2188,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
     local: ActiveHello,
     peer_hello: ActiveHello,
     log: AttemptLog,
-) -> io::Result<()> {
+) -> io::Result<crate::session_maintenance::CommittedPath> {
     // The active control initiator/responder owns RTC offer/answer roles;
     // `ProtectedAttempt::quic_dialer` still derives the original M's QUIC
     // dialing side independently.
@@ -2260,6 +2260,10 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
                 break;
             }
             Err(error) => {
+                let error = active_control_error(control, error);
+                if crate::session_maintenance::MaintenanceDeferral::from_error(&error).is_some() {
+                    return Err(error);
+                }
                 adapter
                     .check(&original, SessionPurpose::MemberBusiness)
                     .await?;
@@ -2278,6 +2282,10 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
     }
     let mut prepared = prepared.ok_or_else(|| control_error("DataPathUnavailable"))?;
     prepared.check(&original, false)?;
+    let path_id = prepared
+        .path_id
+        .clone()
+        .ok_or_else(|| control_error("DataPathUnavailable"))?;
     adapter.active_diagnostic(&original, control, "common-ready-begin");
 
     // The first C stream is owned by the adapter's bounded candidate protocol.
@@ -2369,6 +2377,11 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
             .await
             .map_err(|_| control_error("DeadlineExceeded"))??;
             adapter.active_diagnostic(&original, control, "peer-committed-observed");
+            // Give the queued COMMITTED bytes a transport acknowledgement
+            // before returning to the C owner, which closes C on drop.
+            if ready.finish_send_confirmed().await.is_err() {
+                adapter.active_diagnostic(&original, control, "post-committed-send-finish-failed");
+            }
             adapter
                 .check(&original, SessionPurpose::MemberBusiness)
                 .await?;
@@ -2386,11 +2399,6 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
             Ok::<_, io::Error>(())
         })
         .await?;
-    // Terminal stream cleanup is best effort after bilateral qualified commit.
-    // A completed peer C cannot retire the retained original-M candidate.
-    if ready.finish_send().await.is_err() {
-        adapter.active_diagnostic(&original, control, "post-committed-send-finish-failed");
-    }
     adapter.committed(
         &original,
         serde_json::json!({"event":"active-improvement-committed","version":1,
@@ -2399,7 +2407,40 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
             "freshAck":true,"bothReady":true,
             "authorizationRevision":revision}),
     );
-    Ok(())
+    Ok(crate::session_maintenance::CommittedPath {
+        stable_id: original.stable_id(),
+        address: prepared.route.clone(),
+        path_id,
+        revision,
+    })
+}
+
+const ACTIVE_DEFERRED_CODE: u32 = 0x4d49_4f01;
+
+pub(crate) fn close_active_failure(
+    control: &(impl AuthenticatedControl + ?Sized),
+    error: &io::Error,
+) {
+    if crate::session_maintenance::MaintenanceDeferral::from_error(error).is_some() {
+        control.close(ACTIVE_DEFERRED_CODE.into(), b"active improvement deferred");
+    } else {
+        control.close(0u32.into(), b"active improvement failed");
+    }
+}
+
+fn active_control_error(
+    control: &(impl AuthenticatedControl + ?Sized),
+    error: io::Error,
+) -> io::Error {
+    if error.kind() != io::ErrorKind::InvalidData
+        && crate::session_maintenance::MaintenanceDeferral::from_error(&error).is_none()
+        && matches!(control.close_reason(), Some(iroh::endpoint::ConnectionError::ApplicationClosed(close))
+            if close.error_code == ACTIVE_DEFERRED_CODE.into())
+    {
+        crate::session_maintenance::MaintenanceDeferral::Remote.into()
+    } else {
+        error
+    }
 }
 
 /// Run the active improvement protocol on an already connected restricted C.
@@ -2411,8 +2452,11 @@ pub(crate) async fn improve_existing<E: ActiveEndpoint, A: MemberPathAdapter<E::
     adapter: &A,
     attempt: AttemptContext,
     mut log: AttemptLog,
-) -> io::Result<()> {
-    if original.remote_id() != control.remote_id() || original.close_reason().is_some() {
+) -> io::Result<crate::session_maintenance::CommittedPath> {
+    if control.alpn() != ACTIVE_IMPROVEMENT_ALPN
+        || original.remote_id() != control.remote_id()
+        || original.close_reason().is_some()
+    {
         return Err(control_error("DataPathUnavailable"));
     }
     let binding = crate::connection_recovery_core::binding(original)?;
@@ -2431,7 +2475,8 @@ pub(crate) async fn improve_existing<E: ActiveEndpoint, A: MemberPathAdapter<E::
             open_active_stream(control),
         ))
         .await
-        .map_err(|_| control_error("DeadlineExceeded"))??;
+        .map_err(|_| control_error("DeadlineExceeded"))?
+        .map_err(|error| active_control_error(control, error))?;
     let peer = log
         .phase("hello", Value::Null)
         .run(async {
@@ -2446,7 +2491,8 @@ pub(crate) async fn improve_existing<E: ActiveEndpoint, A: MemberPathAdapter<E::
             .map_err(|_| control_error("DeadlineExceeded"))??;
             Ok::<_, io::Error>(peer)
         })
-        .await?;
+        .await
+        .map_err(|error| active_control_error(control, error))?;
     log.phase("active-session", Value::Null)
         .run(active_session(
             endpoint.ordinary_endpoint(),
@@ -2536,22 +2582,46 @@ where
             .map_err(|_| control_error("DeadlineExceeded"))??;
             let original = lookup(control.remote_id(), &peer.binding)
                 .ok_or_else(|| control_error("DataPathUnavailable"))?;
-            let local = active_hello(
-                adapter.capabilities_for(&endpoint.active_session(&original), role),
-                role,
-                peer.binding,
-            );
-            write_active_hello(&exchange, local).await?;
+            let bound = endpoint.active_session(&original);
+            if control.alpn() != ACTIVE_IMPROVEMENT_ALPN
+                || role != AttemptRole::Responder
+                || peer.role != role.opposite()
+                || control.remote_id() != original.remote_id()
+                || crate::connection_recovery_core::binding(&original)? != peer.binding
+            {
+                return Err(control_error("IdentityOrAdmissionRejected"));
+            }
+            RuntimeCapabilities {
+                runtime: peer.runtime,
+                supported: peer.supported,
+                permitted: peer.permitted,
+                rtc_role: peer.rtc_role,
+            }
+            .validate(peer.role)?;
+            adapter
+                .check(&bound, SessionPurpose::MemberBusiness)
+                .await?;
+            adapter
+                .check(control, SessionPurpose::ActiveImprovement)
+                .await?;
+            let local = active_hello(adapter.capabilities_for(&bound, role), role, peer.binding);
             Ok::<_, io::Error>((peer, original, local))
         })
         .await?;
     log.original = Some(original.stable_id());
     let attempt = AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new());
-    let lease = registry
-        .acquire(&original, &attempt, ())
-        .map_err(|error| control_error(&format!("active/{error:?}")))?;
-    lease
-        .run(log.phase("active-session", Value::Null).run(active_session(
+    let mut lease = match registry.acquire(&original, &attempt, ()) {
+        Ok(lease) => lease,
+        Err(crate::session_maintenance::MaintenanceError::Busy) => {
+            let error = crate::session_maintenance::MaintenanceDeferral::Remote.into();
+            close_active_failure(control, &error);
+            return Err(error);
+        }
+        Err(error) => return Err(control_error(&format!("active/{error:?}"))),
+    };
+    let work = async {
+        write_active_hello(&exchange, local).await?;
+        active_session(
             endpoint.ordinary_endpoint(),
             endpoint.active_session(&original),
             control,
@@ -2560,9 +2630,23 @@ where
             local,
             peer,
             log,
-        )))
+        )
         .await
-        .map_err(|error| control_error(&format!("active/{error:?}")))?
+    };
+    let result = lease
+        .run_ref(log.phase("active-session", Value::Null).run(work))
+        .await
+        .map_err(|error| control_error(&format!("active/{error:?}")))?;
+    match result {
+        Ok(path) => {
+            lease.completed(crate::session_maintenance::Completion::Active(path));
+            Ok(())
+        }
+        Err(error) => {
+            close_active_failure(control, &error);
+            Err(error)
+        }
+    }
 }
 
 #[cfg(test)]

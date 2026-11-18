@@ -7,6 +7,8 @@ use super::{
 };
 use crate::admission_gate::AdmissionGate;
 use crate::control_protocol::AuthenticatedControl;
+use crate::resources::ContactClass;
+use crate::session_maintenance::{CommittedPath, Completion, MaintenanceDeferral, Reservation};
 use iroh::{Endpoint, TransportAddr, endpoint::Connection};
 use serde_json::json;
 use std::io;
@@ -76,7 +78,7 @@ impl CoordinatorHook {
         original: &'a Connection,
         target: iroh::EndpointAddr,
         attempt: AttemptContext,
-    ) -> impl Future<Output = io::Result<()>> + 'a {
+    ) -> impl Future<Output = io::Result<CommittedPath>> + 'a {
         let mut log = AttemptLog::new(AttemptRole::Initiator, "maintenance_improvement");
         log.original = Some(original.stable_id());
         self.improve_logged(endpoint, original, target, attempt, log)
@@ -89,7 +91,7 @@ impl CoordinatorHook {
         target: iroh::EndpointAddr,
         attempt: AttemptContext,
         log: AttemptLog,
-    ) -> io::Result<()> {
+    ) -> io::Result<CommittedPath> {
         let role = AttemptRole::initial(original);
         let caps = self.capabilities_for(original, role);
         let contact_ids = target
@@ -150,22 +152,42 @@ impl CoordinatorHook {
             ));
         }
         let deadline = caller_deadline.min(started + recovery::REPAIR_TIMEOUT);
-        let quota = resources
-            .begin_contact_attempt_until(original.remote_id(), deadline)
-            .map_err(|cause| recovery::failed(original, cause))?;
         let _cancel = CancelRepair(cancel.clone());
         let attempt = AttemptContext::new(deadline, cancel);
-        let lease = self
-            .gate
-            .maintenance()
-            .acquire(original, &attempt, quota)
-            .map_err(|cause| {
-                recovery::failed(original, format!("repair reservation: {cause:?}"))
-            })?;
         let phase = log.phase(
             "repair",
             json!({"budgetMs":deadline.duration_since(started).as_millis() as u64}),
         );
+        let registry = self.gate.maintenance();
+        let permits =
+            |address: &TransportAddr| self.permits_repair_survival(resources, original, address);
+        let reservation_error =
+            |cause| recovery::failed(original, format!("repair reservation: {cause:?}"));
+        let mut lease = match registry
+            .acquire_or_wait(original, &attempt, ())
+            .map_err(reservation_error)?
+        {
+            Reservation::Owned(lease) => lease,
+            Reservation::Pending(wait) => {
+                if let Some(Completion::Active(path)) =
+                    wait.wait().await.map_err(reservation_error)?
+                    && path.is_open(original)
+                    && permits(&path.address)
+                    && self
+                        .authorization_revision(original, SessionPurpose::MemberBusiness)
+                        .is_ok_and(|revision| revision == path.revision)
+                {
+                    phase.finish("reused");
+                    return Ok(());
+                }
+                registry
+                    .acquire(original, &attempt, ())
+                    .map_err(reservation_error)?
+            }
+        };
+        let quota = resources
+            .begin_contact_attempt_until(original.remote_id(), ContactClass::Foreground, deadline)
+            .map_err(|cause| recovery::failed(original, cause))?;
         contact.addrs.extend(
             original
                 .paths()
@@ -176,20 +198,34 @@ impl CoordinatorHook {
         if let Some(known) = resources.contacts.get_endpoint_info(original.remote_id()) {
             contact.addrs.extend(known.into_endpoint_addr().addrs);
         }
-        let permits =
-            |address: &TransportAddr| self.permits_repair_survival(resources, original, address);
         let surviving = super::probe_existing_data_survival(original, &permits);
         let result = lease
-            .run_ref(self.improve_logged(resources.endpoint(), original, contact, attempt, log))
+            .run_ref(self.improve_logged(
+                resources.endpoint(),
+                original,
+                contact,
+                attempt.clone(),
+                log,
+            ))
             .await
             .map_err(|cause| io::Error::other(format!("repair attempt: {cause:?}")))
             .and_then(|result| result);
-        if result.is_ok() && original.close_reason().is_none() {
-            resources.reset_contact(original.remote_id());
-            phase.finish("succeeded");
-            return Ok(());
+        let failure = match result {
+            Ok(path) if original.close_reason().is_none() => {
+                quota.succeeded();
+                lease.completed(Completion::Active(path));
+                phase.finish("succeeded");
+                return Ok(());
+            }
+            Ok(_) => return Err(recovery::failed(original, "original connection closed")),
+            Err(cause) => cause,
+        };
+        if attempt.cancellation.is_cancelled()
+            || MaintenanceDeferral::from_error(&failure).is_some()
+        {
+            phase.finish("deferred");
+            return Err(recovery::failed(original, failure));
         }
-        resources.contact_failed(original.remote_id());
         let check = |original: &Connection| {
             if self.gate.allows_member_path_upgrade(original) && original.close_reason().is_none() {
                 Ok(())
@@ -210,7 +246,7 @@ impl CoordinatorHook {
                 .unwrap_or(false)
             || surviving(original, &permits);
         let prior = original.close_reason();
-        if !maintained && prior.is_none() {
+        if !maintained && prior.is_none() && !attempt.cancellation.is_cancelled() {
             let previous = original.close_with_previous_reason(
                 0u32.into(),
                 b"same-session repair has no surviving data path",
@@ -236,13 +272,7 @@ impl CoordinatorHook {
             "failed",
             json!({"originalOpen":original.close_reason().is_none()}),
         );
-        Err(recovery::failed(
-            original,
-            result
-                .err()
-                .map(|cause| cause.to_string())
-                .unwrap_or_else(|| "original connection closed".into()),
-        ))
+        Err(recovery::failed(original, failure))
     }
 
     fn permits_repair_survival(

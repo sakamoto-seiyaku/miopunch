@@ -1,9 +1,11 @@
 //! Qualified controlled member connection exposed by the browser SDK.
 use super::*;
 use crate::connection_coordinator::{
-    AttemptRole,
+    AttemptRole, MemberPathAdapter, SessionPurpose,
     connection_diagnostic::{self, AttemptLog},
 };
+use crate::session_maintenance::{Completion, MaintenanceDeferral, MaintenanceLease, Reservation};
+use std::io;
 #[wasm_bindgen]
 pub struct BrowserMemberConnection {
     pub(super) connection: Connection,
@@ -15,7 +17,7 @@ pub struct BrowserMemberConnection {
     pub(super) rtc_transport: crate::rtc_transport::RtcTransport,
     pub(super) endpoint: RestrictedEndpoint,
     repair_contact: EndpointAddr,
-    repair_active: std::sync::atomic::AtomicBool,
+    improvement_cancel: Mutex<Option<tokio_util::sync::CancellationToken>>,
     repair_cancel: Mutex<Option<tokio_util::sync::CancellationToken>>,
     #[cfg(feature = "rtc-probe")]
     pub(super) rtc_live: std::rc::Rc<std::cell::RefCell<Option<super::rtc_member::OwnedRtc>>>,
@@ -95,29 +97,28 @@ impl BrowserMemberConnection {
         self.gate.rtc_qualification(&self.connection)
     }
     fn begin_path_attempt(
-        &self,
+        cancel_slot: &Mutex<Option<tokio_util::sync::CancellationToken>>,
     ) -> Result<(tokio_util::sync::CancellationToken, RepairGuard<'_>), JsValue> {
-        if self
-            .repair_active
-            .swap(true, std::sync::atomic::Ordering::AcqRel)
-        {
-            return Err(error("member path improvement already active"));
+        let mut slot = cancel_slot.lock().unwrap();
+        if slot.is_some() {
+            return Err(error("member path operation already active"));
         }
         let cancel = tokio_util::sync::CancellationToken::new();
-        *self.repair_cancel.lock().unwrap() = Some(cancel.clone());
-        let guard = RepairGuard {
-            active: &self.repair_active,
-            cancel: &self.repair_cancel,
-        };
-        Ok((cancel, guard))
+        *slot = Some(cancel.clone());
+        Ok((
+            cancel,
+            RepairGuard {
+                cancel: cancel_slot,
+            },
+        ))
     }
 
     async fn improve_path_until(
         &self,
-        lease: &crate::session_maintenance::MaintenanceLease<()>,
+        lease: &mut MaintenanceLease<()>,
         repair_contacts: bool,
         log: AttemptLog,
-    ) -> Result<(), JsValue> {
+    ) -> io::Result<()> {
         let mut target = EndpointAddr::new(self.connection.remote_id());
         for path in self
             .connection
@@ -136,9 +137,10 @@ impl BrowserMemberConnection {
             // ordering decides its carrier. They are never a DATA offer.
         }
         if target.addrs.is_empty() {
-            return Err(error("active improvement has no current contact route"));
+            return Err(io::Error::other(
+                "active improvement has no current contact route",
+            ));
         }
-        use crate::connection_coordinator::MemberPathAdapter;
         let caps = self
             .gate
             .capabilities(AttemptRole::initial(&self.connection));
@@ -161,7 +163,7 @@ impl BrowserMemberConnection {
                 .with_member_data(crate::member_data::DATA_TRANSPORT_ID)
                 .connect_active_control(target, attempt.clone(), log)
                 .await
-                .map_err(error)?;
+                .map_err(|cause| io::Error::other(cause.to_string()))?;
                 // Own exact C before any further await, including losing guard races.
                 let _control = RequestConnection(Some(control.clone()));
                 crate::connection_coordinator::improve_existing(
@@ -173,10 +175,11 @@ impl BrowserMemberConnection {
                     log,
                 )
                 .await
-                .map_err(|cause| error(format!("active improvement failed: {cause:?}")))
             })
-            .await;
-        result.map_err(|cause| error(format!("active improvement failed: {cause:?}")))?
+            .await
+            .map_err(|cause| io::Error::other(format!("active improvement failed: {cause:?}")))??;
+        lease.completed(Completion::Active(result));
+        Ok(())
     }
 
     fn permits_repair_survival(&self, address: &iroh::TransportAddr) -> bool {
@@ -216,16 +219,18 @@ impl BrowserMemberConnection {
             return Err(error("active improvement caller budget is invalid"));
         }
         let deadline = n0_future::time::Instant::now() + Duration::from_millis(caller_ms.into());
-        let (cancel, _guard) = self.begin_path_attempt()?;
+        let (cancel, _guard) = Self::begin_path_attempt(&self.improvement_cancel)?;
         let attempt = crate::connection_coordinator::AttemptContext::new(deadline, cancel);
-        let lease = self
+        let mut lease = self
             .gate
             .maintenance()
             .acquire(&self.connection, &attempt, ())
             .map_err(|cause| error(format!("active improvement reservation: {cause:?}")))?;
         let mut log = AttemptLog::new(AttemptRole::Initiator, "explicit_improvement");
         log.original = Some(self.connection.stable_id());
-        self.improve_path_until(&lease, false, log).await?;
+        self.improve_path_until(&mut lease, false, log)
+            .await
+            .map_err(error)?;
         Ok(
             serde_json::json!({"outcome":"committed","stableId":self.connection.stable_id()})
                 .to_string(),
@@ -236,6 +241,8 @@ impl BrowserMemberConnection {
     pub fn cancel_path_recovery(&self) {
         if let Some(cancel) = self.repair_cancel.lock().unwrap().as_ref() {
             cancel.cancel();
+        } else if let Some(cancel) = self.improvement_cancel.lock().unwrap().as_ref() {
+            cancel.cancel();
         }
     }
 
@@ -243,6 +250,7 @@ impl BrowserMemberConnection {
     /// for path improvement. A failed repair without a fresh surviving DATA
     /// path terminates this M; a later normal connect owns a new connection.
     pub async fn recover_path(&self, caller_ms: u32) -> Result<String, JsValue> {
+        let started = n0_future::time::Instant::now();
         let mut log = AttemptLog::new(AttemptRole::Initiator, "foreground_repair");
         log.original = Some(self.connection.stable_id());
         if let Some(reason) = self.connection.close_reason() {
@@ -255,54 +263,103 @@ impl BrowserMemberConnection {
         if caller_ms == 0 || u64::from(caller_ms) > crate::connection_budget::MAX_MS {
             return Err(error("repair caller budget must fit the browser budget"));
         }
-        let started = n0_future::time::Instant::now();
         let deadline = (started + Duration::from_millis(caller_ms.into()))
             .min(started + crate::connection_recovery_core::REPAIR_TIMEOUT);
-        // A concurrent operation refuses before taking outage ownership.
-        let (cancel, _guard) = self.begin_path_attempt()?;
+        let (cancel, _guard) = Self::begin_path_attempt(&self.repair_cancel)?;
         let attempt = crate::connection_coordinator::AttemptContext::new(deadline, cancel);
-        let lease = self
-            .gate
-            .maintenance()
-            .acquire(&self.connection, &attempt, ())
-            .map_err(|cause| error(format!("repair reservation: {cause:?}")))?;
         let phase = log.phase(
             "repair",
             serde_json::json!({"budgetMs":deadline.duration_since(started).as_millis() as u64}),
         );
+        let response = |outcome, failure: Option<String>| {
+            Ok(serde_json::json!({"outcome":outcome,"stableId":self.connection.stable_id(),
+                "controlAlpn":String::from_utf8_lossy(crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN),
+                "elapsedMs":started.elapsed().as_millis(),"callerBudgetMs":caller_ms,
+                "failure":failure}).to_string())
+        };
+        let registry = self.gate.maintenance();
+        let reservation = async {
+            let lease = match registry.acquire_or_wait(&self.connection, &attempt, ())? {
+                Reservation::Owned(lease) => lease,
+                Reservation::Pending(wait) => {
+                    if let Some(Completion::Active(path)) = wait.wait().await? {
+                        let bound = self.endpoint.control_handle(&self.connection);
+                        let current = tokio::select! {
+                            biased;
+                            _ = attempt.cancellation.cancelled() => false,
+                            result = n0_future::time::timeout(
+                                deadline.saturating_duration_since(n0_future::time::Instant::now()),
+                                self.gate.check(&bound, SessionPurpose::MemberBusiness),
+                            ) => result.is_ok_and(|result| result.is_ok()),
+                        };
+                        if current
+                            && !attempt.cancellation.is_cancelled()
+                            && deadline > n0_future::time::Instant::now()
+                            && path.is_open(&self.connection)
+                            && self.permits_repair_survival(&path.address)
+                            && self
+                                .gate
+                                .authorization_revision(&bound, SessionPurpose::MemberBusiness)
+                                .is_ok_and(|revision| revision == path.revision)
+                        {
+                            return Ok(None);
+                        }
+                    }
+                    registry.acquire(&self.connection, &attempt, ())?
+                }
+            };
+            Ok::<_, crate::session_maintenance::MaintenanceError>(Some(lease))
+        };
+        let mut lease = match reservation.await {
+            Ok(Some(lease)) => lease,
+            Ok(None) => {
+                phase.finish("reused");
+                return response("recovered", None);
+            }
+            Err(cause) => {
+                let outcome = if self.is_closed() {
+                    "terminal"
+                } else {
+                    "unreachable"
+                };
+                phase.finish(outcome);
+                return response(outcome, Some(format!("repair reservation: {cause:?}")));
+            }
+        };
         let surviving = crate::connection_coordinator::probe_existing_data_survival(
             &self.connection,
             |address| self.permits_repair_survival(address),
         );
-        let result = n0_future::time::timeout(
-            deadline.saturating_duration_since(n0_future::time::Instant::now()),
-            self.improve_path_until(&lease, true, log),
-        )
-        .await
-        .map_err(|_| error("repair caller deadline exceeded"))
-        .and_then(|result| result);
+        let result = self.improve_path_until(&mut lease, true, log).await;
         let outcome = if result.is_ok() && !self.is_closed() {
             "recovered"
         } else if let Some(reason) = self.connection.close_reason() {
             log.connection_ended(&reason, None);
             "terminal"
-        } else if surviving(&self.connection, &|address| {
-            self.permits_repair_survival(address)
-        }) || lease
-            .run_ref(
-                crate::connection_coordinator::validate_existing_data_survival(
-                    &self.endpoint,
-                    &self.connection,
-                    deadline,
-                    &|address| self.permits_repair_survival(address),
-                    &|original| self.recovery_qualified(original),
-                ),
-            )
-            .await
-            .unwrap_or(false)
+        } else if attempt.cancellation.is_cancelled()
+            || result
+                .as_ref()
+                .err()
+                .is_some_and(|cause| MaintenanceDeferral::from_error(cause).is_some())
             || surviving(&self.connection, &|address| {
                 self.permits_repair_survival(address)
             })
+            || lease
+                .run_ref(
+                    crate::connection_coordinator::validate_existing_data_survival(
+                        &self.endpoint,
+                        &self.connection,
+                        deadline,
+                        &|address| self.permits_repair_survival(address),
+                        &|original| self.recovery_qualified(original),
+                    ),
+                )
+                .await
+                .unwrap_or(false)
+            || surviving(&self.connection, &|address| {
+                self.permits_repair_survival(address)
+            })
+            || attempt.cancellation.is_cancelled()
         {
             "unreachable"
         } else {
@@ -327,11 +384,7 @@ impl BrowserMemberConnection {
             "terminal"
         };
         phase.finish(outcome);
-        Ok(serde_json::json!({"outcome":outcome,"stableId":self.connection.stable_id(),
-            "controlAlpn":String::from_utf8_lossy(crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN),
-            "elapsedMs":started.elapsed().as_millis(),"callerBudgetMs":caller_ms,
-            "failure":result.err().and_then(|cause|cause.as_string().or_else(||
-                js_sys::Reflect::get(&cause,&JsValue::from_str("message")).ok()?.as_string()))}).to_string())
+        response(outcome, result.err().map(|cause| cause.to_string()))
     }
     /// Bounded real-control refusal fixture. It changes no candidate permission
     /// and exposes no exporter. Terminal mode requires an already closed M and
@@ -511,7 +564,6 @@ impl BrowserMemberConnection {
 }
 
 struct RepairGuard<'a> {
-    active: &'a std::sync::atomic::AtomicBool,
     cancel: &'a Mutex<Option<tokio_util::sync::CancellationToken>>,
 }
 impl Drop for RepairGuard<'_> {
@@ -519,8 +571,6 @@ impl Drop for RepairGuard<'_> {
         if let Some(cancel) = self.cancel.lock().unwrap().take() {
             cancel.cancel();
         }
-        self.active
-            .store(false, std::sync::atomic::Ordering::Release);
     }
 }
 #[wasm_bindgen]
@@ -650,7 +700,7 @@ impl BrowserMemberAcceptAttempt {
                 gate: self.gate.clone(),
                 lease: self.lease,
                 endpoint: self.endpoint.clone(),
-                repair_active: std::sync::atomic::AtomicBool::new(false),
+                improvement_cancel: Mutex::new(None),
                 repair_cancel: Mutex::new(None),
                 #[cfg(feature = "rtc-probe")]
                 rtc_active: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -775,7 +825,7 @@ impl BrowserMemberAttempt {
             rtc_transport: self.rtc_transport.clone(),
             endpoint: self.endpoint.clone(),
             repair_contact: self.address.clone(),
-            repair_active: std::sync::atomic::AtomicBool::new(false),
+            improvement_cancel: Mutex::new(None),
             repair_cancel: Mutex::new(None),
             #[cfg(feature = "rtc-probe")]
             rtc_live: std::rc::Rc::new(std::cell::RefCell::new(None)),

@@ -303,7 +303,101 @@ async fn ordinary_pair(
     (client.unwrap(), server.unwrap())
 }
 
+#[tokio::test]
+async fn foreground_dials_while_background_contact_is_busy_or_backed_off() {
+    use crate::resources::ContactClass::{Background, Foreground};
+
+    let (_directory, a, b) = admitted_pair().await;
+    let ae = a
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let be = b
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let id = be.addr().id;
+    let (_, previous) = ae.begin_contact_attempt(id, Foreground).unwrap();
+    previous.failed("foreground failed".into());
+    drop(previous);
+    assert!(ae.connect(be.addr(), MEMBER_ALPN).await.is_err());
+
+    let attempt = AttemptContext::new(
+        n0_future::time::Instant::now() + Duration::from_secs(5),
+        tokio_util::sync::CancellationToken::new(),
+    );
+    let responder = be.coordinator();
+    let accept_member = || async {
+        responder
+            .accept(
+                be.endpoint().accept().await.unwrap(),
+                SessionPurpose::MemberBusiness,
+                attempt.clone(),
+            )
+            .await
+            .unwrap()
+    };
+    let (background, incoming) = tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::join!(
+            ae.connect_for_recovery(be.addr(), MEMBER_ALPN, Background),
+            accept_member()
+        )
+    })
+    .await
+    .unwrap();
+    let (background_member, background) = background.unwrap();
+    background.succeeded(); // Clear the earlier foreground failure, preserving this guard.
+    let (first, duplicate, inbound) = tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::join!(
+            ae.connect(be.addr(), MEMBER_ALPN),
+            ae.connect(be.addr(), MEMBER_ALPN),
+            accept_member()
+        )
+    })
+    .await
+    .unwrap();
+    assert!(first.is_ok() && duplicate.is_err());
+    assert!(ae.begin_contact_attempt(id, Background).is_err());
+    background.failed("later background failure".into());
+    drop(background);
+    assert!(!ae.contact_ready(id, Background));
+
+    let (foreground_control, inbound_control) =
+        tokio::time::timeout(Duration::from_secs(5), async {
+            tokio::join!(
+                ae.connect_control(be.addr(), ADMISSION_REQUEST_ALPN),
+                async {
+                    let control = be.endpoint().accept().await.unwrap();
+                    responder
+                        .accept_control(control, SessionPurpose::AdmissionRequest, attempt)
+                        .await
+                }
+            )
+        })
+        .await
+        .unwrap();
+    foreground_control
+        .unwrap()
+        .close(0u32.into(), b"foreground control complete");
+    inbound_control
+        .unwrap()
+        .close(0u32.into(), b"foreground control complete");
+    for connection in [
+        first.unwrap(),
+        inbound,
+        background_member.business().unwrap(),
+        incoming,
+    ] {
+        connection.close(0u32.into(), b"contact class fixture complete");
+    }
+    tokio::join!(ae.close(), be.close());
+    tokio::join!(a.close(), b.close());
+}
+
 async fn production_native_active_scenario(udp_enabled: bool, reverse: bool) {
+    use crate::connection_recovery::ConnectionPathRecoveryError;
+    use crate::resources::ContactClass;
+    use crate::session_maintenance::{Completion, MaintenanceDeferral, Reservation};
     let (_directory, a, b) = admitted_pair().await;
     let ae = Arc::new(
         a.bind_configured_endpoint(Ipv4Addr::LOCALHOST)
@@ -356,20 +450,148 @@ async fn production_native_active_scenario(udp_enabled: bool, reverse: bool) {
     a.udp_connector().set_udp_enabled(udp_enabled);
     b.udp_connector().set_udp_enabled(udp_enabled);
     let coordinator = ae.active_coordinator(a.admission_gate());
-    let (deadline, quota) = ae.begin_contact_attempt(original.remote_id()).unwrap();
+    let local_registry = a.admission_gate().maintenance();
+    let peer_registry = b.admission_gate().maintenance();
+    let (deadline, quota) = ae
+        .begin_contact_attempt(original.remote_id(), ContactClass::Background)
+        .unwrap();
     let attempt = AttemptContext::new(
         deadline.min(n0_future::time::Instant::now() + Duration::from_secs(5)),
         tokio_util::sync::CancellationToken::new(),
     );
-    let lease = a
-        .admission_gate()
-        .maintenance()
-        .acquire(&original, &attempt, quota)
+    let mut lease = local_registry.acquire(&original, &attempt, ()).unwrap();
+    if udp_enabled {
+        let peer_lease = peer_registry.acquire(&remote, &attempt, ()).unwrap();
+        let paths: Vec<_> = remote.paths().iter().map(|path| path.id()).collect();
+        let error = lease
+            .run_ref(coordinator.improve(ae.endpoint(), &original, be.addr(), attempt.clone()))
+            .await
+            .unwrap()
+            .unwrap_err();
+        assert_eq!(
+            MaintenanceDeferral::from_error(&error),
+            Some(&MaintenanceDeferral::Remote)
+        );
+        assert_eq!(
+            remote
+                .paths()
+                .iter()
+                .map(|path| path.id())
+                .collect::<Vec<_>>(),
+            paths
+        );
+        assert!(original.close_reason().is_none() && remote.close_reason().is_none());
+        #[cfg(feature = "rtc-probe")]
+        {
+            let control = ae
+                .endpoint()
+                .connect_control_with_opts(
+                    be.addr(),
+                    ACTIVE_IMPROVEMENT_ALPN,
+                    iroh::endpoint::ConnectOptions::new().with_caller_deadline(attempt.deadline),
+                )
+                .await
+                .unwrap()
+                .await
+                .unwrap();
+            let valid_caps =
+                NativeControlAdapter(coordinator.clone()).capabilities(AttemptRole::Initiator);
+            let refused =
+                wrong_active_binding_fixture(&original, &control, valid_caps, attempt.deadline)
+                    .await
+                    .unwrap()
+                    .unwrap_err();
+            assert!(
+                MaintenanceDeferral::from_error(&active_control_error(&control, refused)).is_none()
+            );
+            assert!(
+                matches!(control.closed().await, iroh::endpoint::ConnectionError::ApplicationClosed(close) if close.error_code == 0u32.into())
+            );
+        }
+        drop(peer_lease);
+    }
+    let (start, started) = tokio::sync::oneshot::channel();
+    let improving = async {
+        let result = tokio::time::timeout(Duration::from_secs(5), async {
+            started.await.unwrap();
+            lease
+                .run_ref(coordinator.improve(ae.endpoint(), &original, be.addr(), attempt.clone()))
+                .await
+        })
+        .await;
+        if let Ok(Ok(Ok(path))) = &result {
+            quota.succeeded();
+            lease.completed(Completion::Active(path.clone()));
+        }
+        drop(lease);
+        result
+    };
+    let repairs = async {
+        if !udp_enabled {
+            start.send(()).unwrap();
+            return;
+        }
+        let expired = coordinator
+            .repair(
+                &ae,
+                &original,
+                be.addr(),
+                n0_future::time::Instant::now() + Duration::from_millis(30),
+                tokio_util::sync::CancellationToken::new(),
+            )
+            .await;
+        assert!(
+            matches!(expired, Err(ConnectionPathRecoveryError::Retryable { cause, .. }) if cause.contains("DeadlineExceeded"))
+        );
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let cancelled =
+            coordinator.repair(&ae, &original, be.addr(), attempt.deadline, cancel.clone());
+        futures_util::pin_mut!(cancelled);
+        assert!(futures_util::poll!(cancelled.as_mut()).is_pending());
+        cancel.cancel();
+        assert!(
+            matches!(cancelled.await, Err(ConnectionPathRecoveryError::Retryable { cause, .. }) if cause.contains("Cancelled"))
+        );
+        assert!(original.close_reason().is_none());
+        assert_eq!(local_registry.active_attempts(), 1);
+        // A second C could not start while the foreground guard is occupied.
+        let _foreground = ae
+            .begin_contact_attempt(original.remote_id(), ContactClass::Foreground)
+            .unwrap();
+        let repaired = coordinator.repair(
+            &ae,
+            &original,
+            be.addr(),
+            attempt.deadline,
+            tokio_util::sync::CancellationToken::new(),
+        );
+        futures_util::pin_mut!(repaired);
+        assert!(futures_util::poll!(repaired.as_mut()).is_pending());
+        start.send(()).unwrap();
+        repaired.await.unwrap();
+    };
+    let peer_completion = async {
+        if !udp_enabled {
+            return;
+        }
+        let wait = n0_future::time::timeout(Duration::from_secs(3), async {
+            loop {
+                if peer_registry.active_attempts() != 0
+                    && let Reservation::Pending(wait) = peer_registry
+                        .acquire_or_wait(&remote, &attempt, ())
+                        .unwrap()
+                {
+                    break wait;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
         .unwrap();
-    let improving = tokio::time::timeout(
-        Duration::from_secs(7),
-        lease.run(coordinator.improve(ae.endpoint(), &original, be.addr(), attempt)),
-    );
+        assert!(
+            matches!(wait.wait().await, Ok(Some(Completion::Active(path))) if path.is_open(&remote))
+        );
+    };
     let business = tokio::time::timeout(Duration::from_secs(3), async {
         for _ in 0..8 {
             let (mut send, mut recv) = original.open_bi().await?;
@@ -383,7 +605,7 @@ async fn production_native_active_scenario(udp_enabled: bool, reverse: bool) {
         }
         Ok::<_, io::Error>(())
     });
-    let (result, business) = tokio::join!(improving, business);
+    let (result, business, (), ()) = tokio::join!(improving, business, repairs, peer_completion);
     let same_original = original.stable_id() == stable
         && crate::connection_recovery_core::binding(&original)
             .is_ok_and(|actual| actual == binding);
@@ -425,7 +647,7 @@ async fn production_native_active_scenario(udp_enabled: bool, reverse: bool) {
     tokio::join!(a.close(), b.close());
     if udp_enabled {
         assert!(
-            matches!(result, Ok(Ok(Ok(())))),
+            matches!(result, Ok(Ok(Ok(_)))),
             "production native active: {result:?}"
         );
     } else {
@@ -453,6 +675,67 @@ async fn production_native_active_prepares_udp_on_the_original_member() {
 #[tokio::test]
 async fn production_native_active_respects_udp_disable_and_keeps_business() {
     production_native_active_scenario(false, false).await;
+}
+
+#[tokio::test]
+async fn unmarked_active_control_close_is_not_deferred() {
+    let (_directory, a, b) = admitted_pair().await;
+    let ae = a
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let be = b
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let (original, remote) = ordinary_pair(&ae, &be).await;
+    be.endpoint()
+        .set_alpns(vec![ACTIVE_IMPROVEMENT_ALPN.to_vec()]);
+    let attempt = AttemptContext::new(
+        n0_future::time::Instant::now() + Duration::from_secs(2),
+        tokio_util::sync::CancellationToken::new(),
+    );
+    let coordinator = ae.active_coordinator(a.admission_gate());
+    let refuse = async {
+        let control = be
+            .endpoint()
+            .accept()
+            .await
+            .unwrap()
+            .accept_control()
+            .unwrap()
+            .await
+            .unwrap();
+        let stream = control.accept_control_exchange().await.unwrap();
+        read_active_hello(&stream).await.unwrap();
+        control.close(0u32.into(), b"end without active result");
+    };
+    let (result, ()) = tokio::time::timeout_at(attempt.deadline, async {
+        tokio::join!(
+            coordinator.repair(
+                &ae,
+                &original,
+                be.addr(),
+                attempt.deadline,
+                attempt.cancellation
+            ),
+            refuse
+        )
+    })
+    .await
+    .unwrap();
+    assert!(
+        matches!(result, Err(crate::connection_recovery::ConnectionPathRecoveryError::Retryable { cause, .. }) if !cause.contains("deferred"))
+    );
+    assert!(ae.contact_ready(
+        original.remote_id(),
+        crate::resources::ContactClass::Foreground
+    ));
+    assert!(original.close_reason().is_none() && remote.close_reason().is_none());
+    original.close(0u32.into(), b"fixture ended");
+    remote.close(0u32.into(), b"fixture ended");
+    tokio::join!(ae.close(), be.close());
+    tokio::join!(a.close(), b.close());
 }
 
 #[tokio::test]
@@ -643,7 +926,7 @@ async fn scenario_with_native(fault: Fault, production_native: bool) {
                             ),
                         ))
                         .await;
-                    if matches!(&result, Ok(Ok(()))) {
+                    if matches!(&result, Ok(Ok(_))) {
                         // A scheduler-only gate guarantees peer COMMITTED was
                         // read before the successful peer's real C cleanup.
                         responder.reached.notified().await;
@@ -757,7 +1040,7 @@ async fn scenario_with_native(fault: Fault, production_native: bool) {
     // The targeted pre-fix failure is asserted only after normal SDK cleanup.
     assert!(real_ack);
     if fault == Fault::CompletedControlClose {
-        assert!(matches!(&client_result, Ok(Ok(()))), "{client_result:?}");
+        assert!(matches!(&client_result, Ok(Ok(_))), "{client_result:?}");
         assert!(
             server_result.is_ok(),
             "completed peer C cleanup cannot undo qualified commit: {server_result:?}"

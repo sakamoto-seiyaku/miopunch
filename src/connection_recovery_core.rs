@@ -90,7 +90,7 @@ pub enum ConnectionPathRecoveryError {
     #[error("path repair on connection {stable_id} failed while it remains alive: {cause}")]
     Retryable { stable_id: usize, cause: String },
 }
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ConnectionPathRecovery {
     pub stable_id: usize,
     pub path: TransportAddr,

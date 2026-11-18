@@ -8,11 +8,11 @@ use serde_json::{Value, json};
 use crate::{
     control_protocol::AuthenticatedControl,
     genesis_recovery::GenesisCredential,
-    management_recovery::MANAGEMENT_RECOVERY_ALPN,
+    management_recovery::{MANAGEMENT_RECOVERY_ALPN, RecoveryStage},
     native_client::{ClientError, NativeClient},
     native_network::NativeNetwork,
     recovery_card::RecoveryCard,
-    resources::ResourceConfig,
+    resources::{ContactClass, ResourceConfig},
 };
 
 impl NativeClient {
@@ -41,13 +41,20 @@ impl NativeClient {
         contact: EndpointAddr,
     ) -> Result<Value, ClientError> {
         self.require_ready()?;
-        let connection = self
+        let (connection, attempt) = self
             .resources
-            .connect_recovery_control(contact, MANAGEMENT_RECOVERY_ALPN)
+            .connect_recovery_control(contact, MANAGEMENT_RECOVERY_ALPN, ContactClass::Foreground)
             .await?;
         let result = {
             let mut node = self.node.lock().await;
             let result = node.restore_management(&connection).await;
+            match &result {
+                Ok(progress) if progress.stage == RecoveryStage::Complete => attempt.succeeded(),
+                Ok(_) => (),
+                Err(error) => {
+                    attempt.failed(error.to_string());
+                }
+            }
             self.files
                 .update_access(self.services.lock().await.access(&node).await?);
             result.map(|progress| {

@@ -17,7 +17,7 @@ const events = [];
 const caseArgument = process.argv.indexOf('--case');
 const selected = process.argv.includes('--suite') ? 'suite' : caseArgument < 0 ? 'first' : process.argv[caseArgument + 1];
 const includes = name => selected === 'suite' || selected === name;
-assert(['first', 'lifecycle', 'persistent-restart', 'multi-page', 'delivery-interruption', 'storage-clear', 'commit-loss', 'no-relay', 'disabled-relay', 'unavailable-relay', 'tls', 'replica', 'precode', 'management', 'new-code', 'browser-admission', 'replica-faults', 'revocation', 'storage-corrupt', 'browser-precode', 'suite'].includes(selected), 'unknown browser case');
+assert(['first', 'lifecycle', 'persistent-restart', 'multi-page', 'delivery-interruption', 'storage-clear', 'commit-loss', 'no-relay', 'disabled-relay', 'unavailable-relay', 'tls', 'replica', 'precode', 'management', 'new-code', 'browser-admission', 'replica-faults', 'revocation', 'storage-corrupt', 'browser-precode', 'maintenance-concurrency', 'suite'].includes(selected), 'unknown browser case');
 const controlCases=['replica','precode','management','new-code','browser-admission','replica-faults','revocation','storage-corrupt','browser-precode'];
 const requests = [];
 let browser;
@@ -80,7 +80,7 @@ const web = createServer((request, response) => {
   const file = resolve(browserRoot, `.${pathname}`);
   if (!allowed || (pathname.startsWith('/pkg/') && !file.startsWith(`${browserRoot}/pkg/`))) return response.writeHead(404).end();
   response.setHeader('Content-Type', pathname.endsWith('.wasm') ? 'application/wasm' : pathname.endsWith('.html') ? 'text/html' : 'text/javascript');
-  createReadStream(file).on('error', () => response.writeHead(404).end()).pipe(response);
+  createReadStream(artifactPath(file)).on('error', () => response.writeHead(404).end()).pipe(response);
 });
 
 try {
@@ -101,6 +101,10 @@ try {
   page.on('console', message => console.log(`browser: ${message.text()}`));
   page.on('pageerror', error => console.error(`browser: ${error}`));
   const config = { relays: [relayUrl], disabled: [] };
+  if (selected === 'maintenance-concurrency') {
+    config.rtc_enabled = true;
+    config.rtc_ice = { stun_servers: [], local_bind_addresses: [], candidate_addresses: [] };
+  }
   const url = `http://127.0.0.1:${web.address().port}/network.html?config=${encodeURIComponent(JSON.stringify(config))}&invitation=${ready.invitation}`;
   await page.goto(url);
   await page.waitForFunction(() => window.ready !== undefined, null, { timeout: 5000 });
@@ -116,6 +120,112 @@ try {
   assert.equal(JSON.parse(await page.evaluate(() => window.network.status())).stage, 'Complete');
   assert.equal(await page.evaluate(() => window.network.exchange('after-refresh')), 'after-refresh');
   events.push({ case: 'first-real-check', browser: first, native: ready.id, stage: 'Complete', count: 2, reload: true, controlledBytes: 26 });
+
+  if (selected === 'maintenance-concurrency') {
+    const repairPhases = [];
+    page.on('console', message => {
+      try {
+        const event = JSON.parse(message.text());
+        if (event.event === 'connection-timeline' && event.source === 'foreground_repair') repairPhases.push(event);
+      } catch { /* non-event console message */ }
+    });
+    const peerContext = await browserContext();
+    const peer = await peerContext.newPage();
+    await peer.goto(url);
+    const peerId = await peer.evaluate(() => window.ready);
+    assert.equal(await peer.evaluate(invitation => window.network.request_admission(invitation), ready.invitation), 'AwaitingApproval');
+    await native.command('approve', 'approved');
+    assert.equal(await peer.evaluate(invitation => window.network.request_admission(invitation), ready.invitation), 'PendingMaterials');
+    assert.equal(await peer.evaluate(() => window.network.complete_admission()), 'Complete');
+    assert.equal(JSON.parse(await page.evaluate(id => window.network.sync_replica(id), ready.id)).complete, true);
+    await Promise.all([
+      peer.evaluate(async () => { window.member = await window.network.member_accept_attempt(5000).accept(); }),
+      page.evaluate(async id => { window.member = await window.network.open_member_connection(id); }, peerId),
+    ]);
+    const sessions = () => Promise.all([page, peer].map(tab => tab.evaluate(() => JSON.parse(window.member.session_diagnostics()).coordinator.stableId)));
+    const ids = await sessions();
+    assert(ids.every(Number.isSafeInteger));
+    await page.evaluate(async () => { window.stream = await window.member.open_data_stream(); });
+    const readPeer = peer.evaluate(async () => { window.stream = await window.member.accept_data_stream(); return [...await window.stream.read_chunk()]; });
+    await page.evaluate(() => window.stream.write_chunk(Uint8Array.of(7)));
+    assert.deepEqual(await readPeer, [7]);
+
+    // Hold only the owned relay until the actual dial has started under its M reservation.
+    const holdRelay = tab => tab.evaluate(relay => {
+      const send = WebSocket.prototype.send;
+      const pending = [];
+      WebSocket.prototype.send = function(data) {
+        if (this.url.startsWith(relay)) pending.push([this, structuredClone(data)]);
+        else send.call(this, data);
+      };
+      window.releaseMaintenanceRelay = () => {
+        WebSocket.prototype.send = send;
+        for (const [socket, data] of pending) send.call(socket, data);
+      };
+    }, relayUrl.replace(/^http/, 'ws'));
+    const releaseRelay = tab => tab.evaluate(() => window.releaseMaintenanceRelay());
+    const phaseStarted = (tab, source, phase) => bounded(new Promise(resolve => {
+      function observe(message) {
+        let event;
+        try { event = JSON.parse(message.text()); } catch { return; }
+        if (event.event === 'connection-timeline' && event.source === source && event.phase === phase && event.result === 'started') {
+          tab.off('console', observe);
+          resolve();
+        }
+      }
+      tab.on('console', observe);
+    }), `${source} ${phase}`);
+    async function startImprovement(tab) {
+      const started = phaseStarted(tab, 'explicit_improvement', 'route-dial');
+      await tab.evaluate(() => { window.improvement = window.member.improve_path(2500).then(JSON.parse, String); });
+      await started;
+    }
+    async function startRepair(budget) {
+      const started = phaseStarted(page, 'foreground_repair', 'repair');
+      await page.evaluate(ms => { window.repair = window.member.recover_path(ms).then(JSON.parse, String); }, budget);
+      await started;
+    }
+
+    let expired, cancelled;
+    await holdRelay(page);
+    try {
+      await startImprovement(page);
+      expired = JSON.parse(await page.evaluate(() => window.member.recover_path(1)));
+      await startRepair(1000);
+      await page.evaluate(() => window.member.cancel_path_recovery());
+      cancelled = await page.evaluate(() => window.repair);
+      await startRepair(2500);
+    } finally {
+      await releaseRelay(page);
+    }
+    assert.equal(expired.outcome, 'unreachable');
+    assert.match(expired.failure, /repair reservation: DeadlineExceeded/);
+    assert.equal(cancelled.outcome, 'unreachable');
+    assert.match(cancelled.failure, /repair reservation: Cancelled/);
+    const [owner, reused] = await page.evaluate(() => Promise.all([window.improvement, window.repair]));
+    assert.equal(owner.outcome, 'committed');
+    assert.equal(reused.outcome, 'recovered');
+    assert(repairPhases.some(event => event.phase === 'repair' && event.result === 'reused' && event.stableId === ids[0]));
+
+    const tabs = [page, peer];
+    await Promise.all(tabs.map(holdRelay));
+    try {
+      await Promise.all(tabs.map(startImprovement));
+    } finally {
+      await Promise.all(tabs.map(releaseRelay));
+    }
+    const outcomes = await Promise.all(tabs.map(tab => tab.evaluate(() => window.improvement)));
+    assert(outcomes.some(outcome => outcome === 'peer deferred the active path attempt'), JSON.stringify(outcomes));
+    assert.deepEqual(await sessions(), ids);
+    await peer.evaluate(() => window.stream.write_chunk(Uint8Array.of(11)));
+    assert.deepEqual(await page.evaluate(async () => [...await window.stream.read_chunk()]), [11]);
+    await Promise.all([page, peer].map(tab => tab.evaluate(() => {
+      window.stream.free();
+      window.member.close(); window.member.free();
+    })));
+    await peerContext.close();
+    events.push({ case: 'maintenance-concurrency', waiterResults: [expired.failure, cancelled.failure, reused.outcome], outcomes, originalStreamContinued: true });
+  }
 
   if (selected === 'replica') {
     const thirdContext = await browserContext();

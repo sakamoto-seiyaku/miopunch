@@ -2,7 +2,11 @@
 //! A separate restricted exchange coordinates candidates; it never carries business.
 use crate::control_protocol::AuthenticatedControl;
 use crate::{
-    admission_gate::ProtocolScope, native_network::NativeNetwork, resources::ResourceEndpoint,
+    admission_gate::ProtocolScope,
+    connection_coordinator::AttemptContext,
+    native_network::NativeNetwork,
+    resources::{ContactClass, ResourceEndpoint},
+    session_maintenance::{Completion, Reservation, matches_path},
 };
 use iroh::endpoint::ControlMessageFormat;
 use iroh::{EndpointAddr, TransportAddr, endpoint::Connection};
@@ -77,29 +81,70 @@ impl NativeNetwork {
         deadline: n0_future::time::Instant,
         confirm: bool,
     ) -> Result<ConnectionPathRecovery, ConnectionPathRecoveryError> {
-        let result = core::recover(
-            endpoint.endpoint(),
-            original,
-            contact,
-            data_offer(endpoint),
-            deadline,
-            tokio_util::sync::CancellationToken::new(),
-            confirm,
-            |path| endpoint.allows_data_path(path),
-            |original| {
-                if self.gate.allows(original, ProtocolScope::Member) {
-                    Ok(())
-                } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::PermissionDenied,
-                        "original is not a current member session",
-                    ))
+        let deadline = deadline.min(n0_future::time::Instant::now() + REPAIR_TIMEOUT);
+        if contact.id != original.remote_id() || !self.gate.allows(original, ProtocolScope::Member)
+        {
+            return Err(core::failed(
+                original,
+                "invalid peer or original member session",
+            ));
+        }
+        let attempt = AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new());
+        let registry = self.gate.maintenance();
+        let reservation_error =
+            |cause| core::failed(original, format!("repair reservation: {cause:?}"));
+        let mut lease = match registry
+            .acquire_or_wait(original, &attempt, ())
+            .map_err(reservation_error)?
+        {
+            Reservation::Owned(lease) => lease,
+            Reservation::Pending(wait) => {
+                if let Some(Completion::Legacy(result)) =
+                    wait.wait().await.map_err(reservation_error)?
+                    && self.gate.allows(original, ProtocolScope::Member)
+                    && endpoint.allows_data_path(&result.path)
+                    && matches_path(original, result.stable_id, &result.path_id, &result.path)
+                {
+                    return Ok(result);
                 }
-            },
-            |original, control| self.check_repair_membership(original, control),
-        )
-        .await?;
+                registry
+                    .acquire(original, &attempt, ())
+                    .map_err(reservation_error)?
+            }
+        };
+        let quota = endpoint
+            .begin_contact_attempt_until(original.remote_id(), ContactClass::Foreground, deadline)
+            .map_err(|error| core::failed(original, error))?;
+        let result = lease
+            .run_ref(core::recover(
+                endpoint.endpoint(),
+                original,
+                contact,
+                data_offer(endpoint),
+                deadline,
+                attempt.cancellation.clone(),
+                confirm,
+                |path| endpoint.allows_data_path(path),
+                |original| {
+                    if self.gate.allows(original, ProtocolScope::Member) {
+                        Ok(())
+                    } else {
+                        Err(io::Error::new(
+                            io::ErrorKind::PermissionDenied,
+                            "original is not a current member session",
+                        ))
+                    }
+                },
+                |original, control| self.check_repair_membership(original, control),
+            ))
+            .await
+            .map_err(reservation_error)??;
         endpoint.retire_replaced_rtc(original);
+        quota.succeeded();
+        // Only the confirmed requester owns the actual legacy response fields.
+        if result.peer_confirmed {
+            lease.completed(Completion::Legacy(result.clone()));
+        }
         Ok(result)
     }
 
@@ -162,7 +207,9 @@ impl NativeNetwork {
         endpoint: &ResourceEndpoint,
         control: &(impl AuthenticatedControl + ?Sized),
     ) -> io::Result<()> {
-        tokio::time::timeout(REPAIR_TIMEOUT, async {
+        let deadline = n0_future::time::Instant::now() + REPAIR_TIMEOUT;
+        let attempt = AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new());
+        tokio::time::timeout_at(deadline, async {
             if control.alpn() != CONNECTION_RECOVERY_ALPN
                 || !self.gate.allows_member_path_upgrade(control)
             {
@@ -197,66 +244,78 @@ impl NativeNetwork {
                     )
                 })?;
             self.check_repair_membership(&original, control)?;
-            if original.side().is_client() {
-                self.validate_connection_candidates(
-                    endpoint,
-                    &original,
-                    control,
-                    request.offer.clone(),
-                )
-                .await?;
-            }
-            let bytes = encode_message(&data_offer(endpoint))?;
-            exchange
-                .send_message(
-                    ControlMessageFormat::EndTerminated {
-                        maximum: MAX_MESSAGE,
-                    },
-                    &bytes,
-                )
-                .await?;
-            if request.require_confirmation {
-                let path = core::validate_candidates(
-                    endpoint.endpoint(),
-                    &original,
-                    control,
-                    request.offer,
-                    &|path| endpoint.allows_data_path(path),
-                    &|original, control| self.check_repair_membership(original, control),
-                )
-                .await?;
-                self.check_repair_membership(&original, control)?;
-                // A real authenticated replacement-path ACK precedes retirement
-                // of the old carrier; closing a sole path cannot kill repair.
-                endpoint.retire_replaced_rtc(&original);
-                let confirmation = control.open_control_exchange().await?;
-                confirmation
-                    .send_message(
-                        ControlMessageFormat::EndTerminated {
-                            maximum: MAX_MESSAGE,
-                        },
-                        &encode_message(&core::RepairConfirmation {
-                            path: path.address,
-                            fresh_ack: true,
-                            probe_watermark: path.watermark,
-                        })?,
-                    )
-                    .await?;
-                let confirmed = confirmation
-                    .recv_message(ControlMessageFormat::Fixed { length: 1 })
-                    .await?;
-                if confirmed != [1] {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "repair confirmation refused",
-                    ));
-                }
-            }
-            // The requester retains its authenticated control scope while it
-            // validates the new carrier. Its owned guard closes this exchange
-            // on completion, cancellation or failure; the serving wait is bound.
-            let _ = control.revocation_handle().closed().await;
-            Ok(())
+            let lease = self
+                .gate
+                .maintenance()
+                .acquire(&original, &attempt, ())
+                .map_err(|cause| {
+                    io::Error::other(format!("incoming repair reservation: {cause:?}"))
+                })?;
+            lease
+                .run(async {
+                    if original.side().is_client() {
+                        self.validate_connection_candidates(
+                            endpoint,
+                            &original,
+                            control,
+                            request.offer.clone(),
+                        )
+                        .await?;
+                    }
+                    let bytes = encode_message(&data_offer(endpoint))?;
+                    exchange
+                        .send_message(
+                            ControlMessageFormat::EndTerminated {
+                                maximum: MAX_MESSAGE,
+                            },
+                            &bytes,
+                        )
+                        .await?;
+                    if request.require_confirmation {
+                        let path = core::validate_candidates(
+                            endpoint.endpoint(),
+                            &original,
+                            control,
+                            request.offer,
+                            &|path| endpoint.allows_data_path(path),
+                            &|original, control| self.check_repair_membership(original, control),
+                        )
+                        .await?;
+                        self.check_repair_membership(&original, control)?;
+                        // A real authenticated replacement-path ACK precedes retirement
+                        // of the old carrier; closing a sole path cannot kill repair.
+                        endpoint.retire_replaced_rtc(&original);
+                        let confirmation = control.open_control_exchange().await?;
+                        confirmation
+                            .send_message(
+                                ControlMessageFormat::EndTerminated {
+                                    maximum: MAX_MESSAGE,
+                                },
+                                &encode_message(&core::RepairConfirmation {
+                                    path: path.address,
+                                    fresh_ack: true,
+                                    probe_watermark: path.watermark,
+                                })?,
+                            )
+                            .await?;
+                        let confirmed = confirmation
+                            .recv_message(ControlMessageFormat::Fixed { length: 1 })
+                            .await?;
+                        if confirmed != [1] {
+                            return Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                "repair confirmation refused",
+                            ));
+                        }
+                    }
+                    // The requester retains its authenticated control scope while it
+                    // validates the new carrier. Its owned guard closes this exchange
+                    // on completion, cancellation or failure; the serving wait is bound.
+                    let _ = control.revocation_handle().closed().await;
+                    Ok(())
+                })
+                .await
+                .map_err(|cause| io::Error::other(format!("incoming repair: {cause:?}")))?
         })
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "path recovery control timed out"))?

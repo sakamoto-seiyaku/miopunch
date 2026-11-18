@@ -7,7 +7,7 @@ use crate::{
     mqtt_transport::{self, TRANSPORT_ID},
     native_network::{NativeNetwork, NodeError},
     offline_replica::{ReplicaError, ReplicaOutcome},
-    resources::ResourceEndpoint,
+    resources::{ContactClass, ResourceEndpoint},
 };
 use futures_util::StreamExt;
 use iroh::{EndpointAddr, TransportAddr};
@@ -168,9 +168,9 @@ impl NativeNetwork {
             let target = EndpointAddr::new(candidate.id).with_addrs([TransportAddr::Custom(
                 iroh_base::CustomAddr::from_parts(TRANSPORT_ID, &candidate.route),
             )]);
-            resources.remember(target.clone());
-            let Ok(connection) = resources
-                .connect_recovery_control(target, RECOVERY_REPLICA_ALPN)
+            resources.remember(target.clone(), ContactClass::Background);
+            let Ok((connection, attempt)) = resources
+                .connect_recovery_control(target, RECOVERY_REPLICA_ALPN, ContactClass::Background)
                 .await
             else {
                 continue;
@@ -202,10 +202,12 @@ impl NativeNetwork {
                 // routing in the same endpoint address book for ordinary dials.
                 resources.remember(
                     EndpointAddr::new(candidate.id).with_ip_addr(candidate.udp_addr.into()),
+                    ContactClass::Background,
                 );
+                attempt.succeeded();
                 return RecoveryStatus::Ready(outcome);
             }
-            resources.contact_failed(candidate.id);
+            attempt.failed("candidate recovery did not complete".into());
         }
         pending
             .map(RecoveryStatus::WaitingForDependencies)

@@ -2550,8 +2550,10 @@ impl BrowserNetwork {
                         .await
                         .map_err(|_| std::io::Error::other("active improvement deadline exceeded"))
                         .and_then(|result| result);
-                        if result.is_err() {
-                            control.close(0u32.into(), b"active improvement failed");
+                        if let Err(error) = result
+                            && control.close_reason().is_none()
+                        {
+                            crate::connection_coordinator::close_active_failure(&control, &error);
                         }
                     }
                 },

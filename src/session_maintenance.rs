@@ -7,11 +7,36 @@ use iroh::endpoint::{Connection, WeakConnectionHandle};
 use std::{
     collections::HashMap,
     future::Future,
+    io,
     sync::{
         Arc, Mutex,
         atomic::{AtomicU64, Ordering},
     },
 };
+use tokio::sync::watch;
+
+/// A protected peer deferral or a local enhanced-round budget deadline.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+pub(crate) enum MaintenanceDeferral {
+    #[error("peer deferred the active path attempt")]
+    Remote,
+    #[cfg(not(target_arch = "wasm32"))]
+    #[allow(dead_code)] // MIOPUNCH-130 supplies the local enhanced-round budget.
+    #[error("local enhanced-round budget deferred the path attempt")]
+    LocalBudget { next_due: n0_future::time::Instant },
+}
+
+impl MaintenanceDeferral {
+    pub(crate) fn from_error(error: &io::Error) -> Option<&Self> {
+        error.get_ref()?.downcast_ref()
+    }
+}
+
+impl From<MaintenanceDeferral> for io::Error {
+    fn from(cause: MaintenanceDeferral) -> Self {
+        Self::new(io::ErrorKind::WouldBlock, cause)
+    }
+}
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct SessionMaintenance(Arc<Registry>);
@@ -25,6 +50,70 @@ struct Registry {
 struct Slot {
     epoch: u64,
     original: WeakConnectionHandle,
+    completion: watch::Sender<Option<Completion>>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) enum Completion {
+    Active(CommittedPath),
+    #[cfg(not(target_arch = "wasm32"))]
+    Legacy(crate::connection_recovery_core::ConnectionPathRecovery),
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct CommittedPath {
+    pub(crate) stable_id: usize,
+    pub(crate) address: iroh::TransportAddr,
+    pub(crate) path_id: String,
+    pub(crate) revision: u64,
+}
+
+impl CommittedPath {
+    pub(crate) fn is_open(&self, original: &Connection) -> bool {
+        matches_path(original, self.stable_id, &self.path_id, &self.address)
+    }
+}
+
+pub(crate) fn matches_path(
+    original: &Connection,
+    stable_id: usize,
+    path_id: &str,
+    address: &iroh::TransportAddr,
+) -> bool {
+    original.stable_id() == stable_id
+        && original.close_reason().is_none()
+        && original
+            .paths()
+            .iter()
+            .any(|path| path.id().to_string() == path_id && path.remote_addr() == address)
+}
+
+pub(crate) enum Reservation<B> {
+    Owned(MaintenanceLease<B>),
+    Pending(MaintenanceWait),
+}
+
+pub(crate) struct MaintenanceWait {
+    original: WeakConnectionHandle,
+    attempt: AttemptContext,
+    completion: watch::Receiver<Option<Completion>>,
+}
+
+impl MaintenanceWait {
+    pub(crate) async fn wait(mut self) -> Result<Option<Completion>, MaintenanceError> {
+        let deadline = self.attempt.deadline;
+        let completion = run_reserved_work(self.original, self.attempt, async move {
+            // A dropped owner closes the channel even when it publishes no result.
+            let _ = self.completion.changed().await;
+            self.completion.borrow().clone()
+        })
+        .await?;
+        // Tokio may poll the notification before a timer that is also ready.
+        if n0_future::time::Instant::now() >= deadline {
+            return Err(MaintenanceError::DeadlineExceeded);
+        }
+        Ok(completion)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -103,6 +192,20 @@ impl SessionMaintenance {
         attempt: &AttemptContext,
         node_budget_guard: B,
     ) -> Result<MaintenanceLease<B>, MaintenanceError> {
+        match self.acquire_or_wait(original, attempt, node_budget_guard)? {
+            Reservation::Owned(lease) => Ok(lease),
+            Reservation::Pending(_) => Err(MaintenanceError::Busy),
+        }
+    }
+
+    /// Decide under the same lock whether this caller owns the next epoch or
+    /// observes the operation already modifying this exact local session.
+    pub(crate) fn acquire_or_wait<B>(
+        &self,
+        original: &Connection,
+        attempt: &AttemptContext,
+        node_budget_guard: B,
+    ) -> Result<Reservation<B>, MaintenanceError> {
         if attempt.cancellation.is_cancelled() {
             return Err(MaintenanceError::Cancelled);
         }
@@ -114,11 +217,12 @@ impl SessionMaintenance {
         }
         let stable = original.stable_id();
         let mut slots = self.0.slots.lock().unwrap();
-        if slots
-            .get(&stable)
-            .is_some_and(|slot| slot.original.is_open())
-        {
-            return Err(MaintenanceError::Busy);
+        if let Some(slot) = slots.get(&stable).filter(|slot| slot.original.is_open()) {
+            return Ok(Reservation::Pending(MaintenanceWait {
+                original: slot.original.clone(),
+                attempt: attempt.clone(),
+                completion: slot.completion.subscribe(),
+            }));
         }
         let epoch = self
             .0
@@ -133,16 +237,18 @@ impl SessionMaintenance {
             Slot {
                 epoch,
                 original: original.clone(),
+                completion: watch::channel(None).0,
             },
         );
-        Ok(MaintenanceLease {
+        Ok(Reservation::Owned(MaintenanceLease {
             registry: self.0.clone(),
             stable,
             epoch,
             original,
             attempt: attempt.clone(),
-            _node_budget_guard: node_budget_guard,
-        })
+            node_budget_guard: Some(node_budget_guard),
+            completion: None,
+        }))
     }
 
     pub(crate) fn active_attempts(&self) -> usize {
@@ -164,9 +270,14 @@ pub(crate) struct MaintenanceLease<B> {
     epoch: u64,
     original: WeakConnectionHandle,
     attempt: AttemptContext,
-    _node_budget_guard: B,
+    node_budget_guard: Option<B>,
+    completion: Option<Completion>,
 }
 impl<B> MaintenanceLease<B> {
+    pub(crate) fn completed(&mut self, result: Completion) {
+        self.completion = Some(result);
+    }
+
     pub(crate) fn stable_id(&self) -> usize {
         self.stable
     }
@@ -242,6 +353,7 @@ fn run_reserved_work<T>(
 
 impl<B> Drop for MaintenanceLease<B> {
     fn drop(&mut self) {
+        drop(self.node_budget_guard.take());
         let mut slots = self.registry.slots.lock().unwrap();
         // A late old guard cannot remove a replacement reservation even if a
         // closed connection's local numeric stable ID has been reused.
@@ -249,7 +361,11 @@ impl<B> Drop for MaintenanceLease<B> {
             .get(&self.stable)
             .is_some_and(|slot| slot.epoch == self.epoch)
         {
-            slots.remove(&self.stable);
+            if let Some(slot) = slots.remove(&self.stable) {
+                if let Some(result) = self.completion.take() {
+                    slot.completion.send_replace(Some(result));
+                }
+            }
         }
     }
 }
@@ -364,12 +480,27 @@ mod tests {
     async fn elapsed_context_does_not_poll_late_work_or_end_healthy_original() {
         let (client_ep, server_ep, client, server) = pair().await;
         let registry = SessionMaintenance::default();
-        let attempt = context(10);
+        let attempt = context(40);
         let budgets = Arc::new(AtomicUsize::new(0));
-        let lease = registry
+        let mut lease = registry
             .acquire(&client, &attempt, Dropped(budgets.clone()))
             .unwrap();
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        let Reservation::Pending(wait) = registry.acquire_or_wait(&client, &attempt, ()).unwrap()
+        else {
+            panic!("owner should be holding the original");
+        };
+        let wait = wait.wait();
+        futures_util::pin_mut!(wait);
+        assert!(futures_util::poll!(wait.as_mut()).is_pending());
+        tokio::time::sleep(Duration::from_millis(60)).await;
+        let paths = client.paths();
+        let path = paths.iter().next().unwrap();
+        lease.completed(Completion::Active(CommittedPath {
+            stable_id: client.stable_id(),
+            address: path.remote_addr().clone(),
+            path_id: path.id().to_string(),
+            revision: 0,
+        }));
         let polled = Arc::new(AtomicUsize::new(0));
         let work_polled = polled.clone();
         assert_eq!(
@@ -381,6 +512,10 @@ mod tests {
             Err(MaintenanceError::DeadlineExceeded)
         );
         assert_eq!(polled.load(Ordering::Acquire), 0);
+        assert!(matches!(
+            wait.await,
+            Err(MaintenanceError::DeadlineExceeded)
+        ));
         assert_eq!(budgets.load(Ordering::Acquire), 1);
         assert_eq!(registry.active_attempts(), 0);
         assert!(client.close_reason().is_none());

@@ -590,7 +590,7 @@ async fn real_business_has_priority_and_shared_identity_guard_prevents_duplicate
     );
     assert!(
         first.is_ok() && duplicate.is_err(),
-        "the SDK and background share one in-flight guard for each identity"
+        "foreground business dials share one in-flight guard for each identity"
     );
     let (connection, lease) = first.unwrap();
     tokio::time::timeout(Duration::from_secs(2), async {

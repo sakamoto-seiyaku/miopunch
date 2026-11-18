@@ -184,15 +184,38 @@ async fn old_literal_repair_request_is_accepted_on_protected_original_member() {
 
 #[tokio::test]
 async fn default_repair_api_omits_confirmation_field_on_actual_protected_wire() {
-    use miopunch_native_probe::connection_recovery::CONNECTION_RECOVERY_ALPN;
+    use miopunch_native_probe::{
+        connection_coordinator::ACTIVE_IMPROVEMENT_ALPN,
+        connection_recovery::CONNECTION_RECOVERY_ALPN,
+    };
     let mut pair = Pair::new(true).await;
     let (client, server) = pair.business().await;
-    pair.server
+    let Pair {
+        _dir,
+        admin,
+        joining,
+        client: client_endpoint,
+        server: server_endpoint,
+    } = pair;
+    let client_endpoint = Arc::new(client_endpoint);
+    client_endpoint
+        .endpoint()
+        .set_alpns(vec![ACTIVE_IMPROVEMENT_ALPN.to_vec()]);
+    server_endpoint
         .endpoint()
         .set_alpns(vec![BUSINESS.to_vec(), CONNECTION_RECOVERY_ALPN.to_vec()]);
+    let target = tcp_target(&server_endpoint);
+    let port = server_endpoint.endpoint().bound_sockets()[0].port();
+    let mut full_contact = target.clone();
+    for address in 2..10 {
+        full_contact
+            .addrs
+            .insert(TransportAddr::Ip(([127, 0, 0, address], port).into()));
+    }
+    assert!(full_contact.addrs.len() > 8);
+    let deadline = n0_future::time::Instant::now() + Duration::from_secs(3);
     let inspect = async {
-        let control = pair
-            .server
+        let control = server_endpoint
             .endpoint()
             .accept()
             .await
@@ -201,37 +224,239 @@ async fn default_repair_api_omits_confirmation_field_on_actual_protected_wire() 
             .unwrap()
             .await
             .unwrap();
-        assert!(
-            pair.admin
-                .admission_gate()
-                .allows_member_path_upgrade(&control)
-        );
+        assert!(admin.admission_gate().allows_member_path_upgrade(&control));
         let exchange = control.accept_control_exchange().await.unwrap();
         let wire: serde_json::Value =
             serde_json::from_slice(&exchange.recv_message(REPAIR_MESSAGE).await.unwrap()).unwrap();
         assert_eq!(wire.as_object().unwrap().len(), 2);
         assert!(wire.get("binding").is_some() && wire.get("offer").is_some());
         assert!(wire.get("require_confirmation").is_none());
+        let binding: [u8; 32] = serde_json::from_value(wire["binding"].clone()).unwrap();
+        let paths: Vec<_> = client.paths().iter().map(|path| path.id()).collect();
+        // The public legacy requester has sent on C and holds the original
+        // lease while it waits for this offer. The reverse active C is refused.
+        assert_active_control_deferred(
+            &joining,
+            &server_endpoint,
+            &client_endpoint,
+            &binding,
+            deadline,
+        )
+        .await;
+        assert_eq!(
+            client
+                .paths()
+                .iter()
+                .map(|path| path.id())
+                .collect::<Vec<_>>(),
+            paths
+        );
         exchange
             .send_message(
                 REPAIR_MESSAGE,
-                &serde_json::to_vec(&pair.server.addr()).unwrap(),
+                &serde_json::to_vec(&server_endpoint.addr()).unwrap(),
             )
             .await
             .unwrap();
         control.closed().await;
+        let next = server_endpoint
+            .endpoint()
+            .accept()
+            .await
+            .unwrap()
+            .accept_control()
+            .unwrap()
+            .await
+            .unwrap();
+        admin
+            .serve_connection_path_recovery(&server_endpoint, &next)
+            .await
+            .unwrap();
     };
-    let (result, _) = tokio::join!(
-        pair.joining
-            .recover_connection_path(&pair.client, &client, tcp_target(&pair.server)),
-        inspect
-    );
+    let (result, confirmed, ()) = tokio::time::timeout_at(deadline, async {
+        tokio::join!(
+            joining.recover_connection_path(&client_endpoint, &client, full_contact),
+            joining.recover_connection_path_confirmed_until(
+                &client_endpoint,
+                &client,
+                target.clone(),
+                deadline
+            ),
+            inspect
+        )
+    })
+    .await
+    .unwrap();
     let result = result.unwrap();
+    let confirmed = confirmed.unwrap();
     assert!(!result.peer_confirmed);
     assert_eq!(result.stable_id, client.stable_id());
+    assert!(confirmed.peer_confirmed);
+    assert_eq!(confirmed.stable_id, result.stable_id);
+    assert_ne!(confirmed.control_stable_id, result.control_stable_id);
+    assert!(
+        client
+            .paths()
+            .iter()
+            .any(|p| p.id().to_string() == confirmed.path_id && p.remote_addr() == &confirmed.path)
+    );
     client.close(0u32.into(), b"test ended");
     server.close(0u32.into(), b"test ended");
-    pair.close().await;
+    Arc::into_inner(client_endpoint).unwrap().close().await;
+    server_endpoint.close().await;
+    tokio::join!(admin.close(), joining.close());
+}
+
+async fn assert_active_control_deferred(
+    node: &NativeNetwork,
+    requester: &ResourceEndpoint,
+    responder: &Arc<ResourceEndpoint>,
+    binding: &[u8; 32],
+    deadline: n0_future::time::Instant,
+) {
+    use iroh::protocol::ControlProtocolHandler;
+    use miopunch_native_probe::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN;
+
+    let handler = node.active_improvement_handler(responder.clone());
+    let initiate = async {
+        let control = requester
+            .endpoint()
+            .connect_control(tcp_target(responder), ACTIVE_IMPROVEMENT_ALPN)
+            .await
+            .unwrap();
+        let active = control.open_control_exchange().await.unwrap();
+        let mut hello = [0u8; 59];
+        hello[..11].copy_from_slice(b"MIA1\x01\x01\x01\x01\x01\x01\x00");
+        hello[11..27].copy_from_slice(&rand::random::<[u8; 16]>());
+        hello[27..].copy_from_slice(binding);
+        active
+            .send_message(
+                ControlMessageFormat::LengthPrefixed16 { maximum: 59 },
+                &hello,
+            )
+            .await
+            .unwrap();
+        active.finish_send().await.unwrap();
+        control.closed().await
+    };
+    let accept = async {
+        let active = responder
+            .endpoint()
+            .accept()
+            .await
+            .unwrap()
+            .with_caller_deadline(deadline)
+            .accept_control()
+            .unwrap()
+            .await
+            .unwrap();
+        handler.accept(active).await.unwrap();
+    };
+    let (reason, ()) = tokio::join!(initiate, accept);
+    assert!(
+        matches!(reason, iroh::endpoint::ConnectionError::ApplicationClosed(close) if close.error_code == 0x4d49_4f01u32.into())
+    );
+}
+
+#[tokio::test]
+async fn legacy_responder_defers_active_control_on_either_original_side() {
+    use miopunch_native_probe::{
+        connection_coordinator::ACTIVE_IMPROVEMENT_ALPN,
+        connection_recovery::CONNECTION_RECOVERY_ALPN,
+    };
+    let mut pair = Pair::new(true).await;
+    let (client, server) = pair.business().await;
+    let Pair {
+        _dir,
+        admin,
+        joining,
+        client: client_endpoint,
+        server: server_endpoint,
+    } = pair;
+    let (client_endpoint, server_endpoint) = (Arc::new(client_endpoint), Arc::new(server_endpoint));
+    for peer in [&client_endpoint, &server_endpoint] {
+        peer.endpoint().set_alpns(vec![
+            CONNECTION_RECOVERY_ALPN.to_vec(),
+            ACTIVE_IMPROVEMENT_ALPN.to_vec(),
+        ]);
+    }
+    for (requester, responder, original, remote) in [
+        (&client_endpoint, &server_endpoint, &client, &server),
+        (&server_endpoint, &client_endpoint, &server, &client),
+    ] {
+        let node = if remote.side().is_client() {
+            &joining
+        } else {
+            &admin
+        };
+        let (mut send, mut recv) = original.open_bi().await.unwrap();
+        send.write_all(b"before").await.unwrap();
+        let (mut reply, mut request) = remote.accept_bi().await.unwrap();
+        request.read_exact(&mut [0; 6]).await.unwrap();
+        let ids = (original.stable_id(), remote.stable_id());
+        let deadline = n0_future::time::Instant::now() + Duration::from_secs(2);
+        let (out, incoming) = connect_control(
+            requester,
+            responder,
+            tcp_target(responder),
+            CONNECTION_RECOVERY_ALPN,
+        )
+        .await;
+        let mutate = async {
+            let mut binding = [0; 32];
+            original
+                .export_keying_material(
+                    &mut binding,
+                    b"miopunch-existing-connection-path-recovery/1",
+                    &[],
+                )
+                .unwrap();
+            let exchange = out.open_control_exchange().await.unwrap();
+            let request = serde_json::json!({"binding":binding,"offer":requester.addr()});
+            exchange
+                .send_message(REPAIR_MESSAGE, &serde_json::to_vec(&request).unwrap())
+                .await
+                .unwrap();
+            let _: EndpointAddr =
+                serde_json::from_slice(&exchange.recv_message(REPAIR_MESSAGE).await.unwrap())
+                    .unwrap();
+            // A complete legacy offer leaves the sole owner waiting for its
+            // requester's C to finish. An active C must use its deferral code.
+            let paths: Vec<_> = remote.paths().iter().map(|path| path.id()).collect();
+            assert_active_control_deferred(node, requester, responder, &binding, deadline).await;
+            assert_eq!(
+                remote
+                    .paths()
+                    .iter()
+                    .map(|path| path.id())
+                    .collect::<Vec<_>>(),
+                paths
+            );
+            out.close(0u32.into(), b"legacy offer received");
+        };
+        let ((), served) = tokio::time::timeout_at(deadline, async {
+            tokio::join!(
+                mutate,
+                node.serve_connection_path_recovery(responder, &incoming)
+            )
+        })
+        .await
+        .unwrap();
+        served.unwrap();
+        send.write_all(b"after").await.unwrap();
+        let mut bytes = [0; 5];
+        request.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"after");
+        reply.write_all(&bytes).await.unwrap();
+        recv.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"after");
+        assert_eq!((original.stable_id(), remote.stable_id()), ids);
+    }
+    client.close(0u32.into(), b"legacy contention fixture ended");
+    server.close(0u32.into(), b"legacy contention fixture ended");
+    Arc::into_inner(client_endpoint).unwrap().close().await;
+    Arc::into_inner(server_endpoint).unwrap().close().await;
+    tokio::join!(admin.close(), joining.close());
 }
 
 #[tokio::test]

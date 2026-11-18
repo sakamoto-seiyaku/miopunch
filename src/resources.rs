@@ -581,9 +581,38 @@ struct ContactBackoff {
     in_flight: bool,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub(crate) enum ContactClass {
+    Foreground,
+    Background,
+}
+
+type ContactStates =
+    std::sync::Arc<std::sync::Mutex<BTreeMap<(iroh::EndpointId, ContactClass), ContactBackoff>>>;
+
 pub(crate) struct ContactAttempt {
-    states: std::sync::Arc<std::sync::Mutex<BTreeMap<iroh::EndpointId, ContactBackoff>>>,
+    states: ContactStates,
     id: iroh::EndpointId,
+    class: ContactClass,
+}
+impl ContactAttempt {
+    pub(crate) fn succeeded(&self) {
+        let mut states = self.states.lock().expect("contact budget");
+        for class in [ContactClass::Foreground, ContactClass::Background] {
+            if let Some(state) = states.get_mut(&(self.id, class)) {
+                state.reset();
+            }
+        }
+    }
+
+    pub(crate) fn failed(&self, cause: String) -> ResourceContactError {
+        self.states
+            .lock()
+            .expect("contact budget")
+            .entry((self.id, self.class))
+            .or_default()
+            .failed(cause)
+    }
 }
 impl Drop for ContactAttempt {
     fn drop(&mut self) {
@@ -591,7 +620,7 @@ impl Drop for ContactAttempt {
             .states
             .lock()
             .expect("contact budget")
-            .get_mut(&self.id)
+            .get_mut(&(self.id, self.class))
         {
             state.in_flight = false;
         }
@@ -599,6 +628,12 @@ impl Drop for ContactAttempt {
 }
 
 impl ContactBackoff {
+    fn reset(&mut self) {
+        self.failures = 0;
+        self.retry_at = None;
+        self.cause = None;
+    }
+
     fn failed(&mut self, cause: String) -> ResourceContactError {
         let seconds = 1u64 << self.failures.min(5);
         self.failures = self.failures.saturating_add(1);
@@ -629,7 +664,7 @@ pub struct ResourceEndpoint {
     endpoint: iroh::endpoint::RestrictedEndpoint,
     config: ResourceConfig,
     timeout: Duration,
-    backoff: std::sync::Arc<std::sync::Mutex<BTreeMap<iroh::EndpointId, ContactBackoff>>>,
+    backoff: ContactStates,
     pub(crate) contacts: iroh::address_lookup::memory::MemoryLookup,
     responders: std::sync::Mutex<Vec<(String, crate::mqtt_discovery::LiveResponder)>>,
     tcp: Option<crate::tcp_transport::TcpTransport>,
@@ -1073,13 +1108,14 @@ impl ResourceEndpoint {
         target: iroh::EndpointAddr,
         alpn: &[u8],
     ) -> Result<iroh::endpoint::Connection, ResourceContactError> {
-        self.connect_attempt(target, alpn, true, false)
-            .await?
+        let (delivery, attempt) = self
+            .connect_attempt(target, alpn, ContactClass::Foreground, false)
+            .await?;
+        let connection = delivery
             .business()
-            .map_err(|e| ResourceContactError::TemporarilyUnreachable {
-                retry_after: self.timeout,
-                cause: Some(e.to_string()),
-            })
+            .map_err(|error| attempt.failed(error.to_string()))?;
+        attempt.succeeded();
+        Ok(connection)
     }
 
     /// Establish a control-only protocol while preserving the shared contact budget.
@@ -1088,13 +1124,14 @@ impl ResourceEndpoint {
         target: iroh::EndpointAddr,
         alpn: &[u8],
     ) -> Result<crate::control_protocol::ControlOwner, ResourceContactError> {
-        self.connect_attempt(target, alpn, true, true)
-            .await?
+        let (delivery, attempt) = self
+            .connect_attempt(target, alpn, ContactClass::Foreground, true)
+            .await?;
+        let connection = delivery
             .control()
-            .map_err(|e| ResourceContactError::TemporarilyUnreachable {
-                retry_after: self.timeout,
-                cause: Some(e.to_string()),
-            })
+            .map_err(|error| attempt.failed(error.to_string()))?;
+        attempt.succeeded();
+        Ok(connection)
     }
 
     /// Recovery is not complete merely because QUIC admitted the peer. Keep
@@ -1103,11 +1140,18 @@ impl ResourceEndpoint {
         &self,
         target: iroh::EndpointAddr,
         alpn: &[u8],
-    ) -> Result<crate::connection_coordinator::ConnectionDelivery, ResourceContactError> {
+        class: ContactClass,
+    ) -> Result<
+        (
+            crate::connection_coordinator::ConnectionDelivery,
+            ContactAttempt,
+        ),
+        ResourceContactError,
+    > {
         self.connect_attempt(
             target,
             alpn,
-            false,
+            class,
             alpn == crate::network_recovery::RECOVERY_REPLICA_ALPN,
         )
         .await
@@ -1117,49 +1161,29 @@ impl ResourceEndpoint {
         &self,
         target: iroh::EndpointAddr,
         alpn: &[u8],
-    ) -> Result<crate::control_protocol::ControlOwner, ResourceContactError> {
-        self.connect_attempt(target, alpn, false, true)
-            .await?
+        class: ContactClass,
+    ) -> Result<(crate::control_protocol::ControlOwner, ContactAttempt), ResourceContactError> {
+        let (delivery, attempt) = self.connect_attempt(target, alpn, class, true).await?;
+        let control = delivery
             .control()
-            .map_err(|error| ResourceContactError::TemporarilyUnreachable {
-                retry_after: self.timeout,
-                cause: Some(error.to_string()),
-            })
+            .map_err(|error| attempt.failed(error.to_string()))?;
+        Ok((control, attempt))
     }
 
     async fn connect_attempt(
         &self,
         mut target: iroh::EndpointAddr,
         alpn: &[u8],
-        complete_on_handshake: bool,
+        class: ContactClass,
         control_only: bool,
-    ) -> Result<crate::connection_coordinator::ConnectionDelivery, ResourceContactError> {
-        let deadline = n0_future::time::Instant::now() + self.timeout;
-        let id = target.id;
-        {
-            let mut states = self.backoff.lock().expect("contact budget");
-            let state = states.entry(id).or_default();
-            if state.in_flight {
-                return Err(ResourceContactError::TemporarilyUnreachable {
-                    retry_after: self.timeout,
-                    cause: Some("contact attempt already in flight for this identity".into()),
-                });
-            }
-            if let Some(retry_after) = state
-                .retry_at
-                .and_then(|at| at.checked_duration_since(Instant::now()))
-            {
-                return Err(ResourceContactError::TemporarilyUnreachable {
-                    retry_after,
-                    cause: state.cause.clone(),
-                });
-            }
-            state.in_flight = true;
-        }
-        let _attempt = ContactAttempt {
-            states: self.backoff.clone(),
-            id,
-        };
+    ) -> Result<
+        (
+            crate::connection_coordinator::ConnectionDelivery,
+            ContactAttempt,
+        ),
+        ResourceContactError,
+    > {
+        let (deadline, attempt) = self.begin_contact_attempt(target.id, class)?;
         target.addrs.retain(|addr| match addr {
             iroh::TransportAddr::Relay(url) => {
                 self.config.allows(url.as_str(), ResourceUse::DataRelay)
@@ -1227,22 +1251,11 @@ impl ResourceEndpoint {
         )
         .await
         {
-            Ok(Ok(connection)) => {
-                if complete_on_handshake {
-                    self.reset_contact(id);
-                }
-                return Ok(connection);
-            }
-            Ok(Err(error)) => error.to_string(),
+            Ok(Ok(connection)) => return Ok((connection, attempt)),
+            Ok(Err(error)) => error,
             Err(_) => "bounded contact attempt timed out".to_owned(),
         };
-        Err(self
-            .backoff
-            .lock()
-            .expect("contact budget")
-            .entry(id)
-            .or_default()
-            .failed(cause))
+        Err(attempt.failed(cause))
     }
 
     pub(crate) fn add_recovery_responders(
@@ -1307,24 +1320,19 @@ impl ResourceEndpoint {
         !self.config.udp_direct_disabled
     }
 
-    pub(crate) fn contact_failed(&self, id: iroh::EndpointId) {
-        self.backoff
-            .lock()
-            .expect("contact budget")
-            .entry(id)
-            .or_default()
-            .failed("candidate recovery did not complete".into());
-    }
-
     /// Reserve the existing per-peer contact budget for one whole operation.
     /// The guard is intentionally separate from `connect`: active improvement
     /// must not re-enter `ResourceEndpoint::connect` and contend with itself.
     pub(crate) fn begin_contact_attempt(
         &self,
         id: iroh::EndpointId,
+        class: ContactClass,
     ) -> Result<(n0_future::time::Instant, ContactAttempt), ResourceContactError> {
-        let deadline = n0_future::time::Instant::now() + self.timeout;
-        Ok((deadline, self.begin_contact_attempt_until(id, deadline)?))
+        let deadline = self.contact_deadline();
+        Ok((
+            deadline,
+            self.begin_contact_attempt_until(id, class, deadline)?,
+        ))
     }
 
     /// Share this quota while an explicit operation supplies its own clock.
@@ -1332,6 +1340,7 @@ impl ResourceEndpoint {
     pub(crate) fn begin_contact_attempt_until(
         &self,
         id: iroh::EndpointId,
+        class: ContactClass,
         deadline: n0_future::time::Instant,
     ) -> Result<ContactAttempt, ResourceContactError> {
         let timeout = deadline.saturating_duration_since(n0_future::time::Instant::now());
@@ -1342,7 +1351,7 @@ impl ResourceEndpoint {
             });
         }
         let mut states = self.backoff.lock().expect("contact budget");
-        let state = states.entry(id).or_default();
+        let state = states.entry((id, class)).or_default();
         if state.in_flight {
             return Err(ResourceContactError::TemporarilyUnreachable {
                 retry_after: timeout,
@@ -1362,6 +1371,7 @@ impl ResourceEndpoint {
         Ok(ContactAttempt {
             states: self.backoff.clone(),
             id,
+            class,
         })
     }
 
@@ -1377,7 +1387,7 @@ impl ResourceEndpoint {
         started + self.timeout
     }
 
-    pub(crate) fn remember(&self, target: iroh::EndpointAddr) {
+    pub(crate) fn remember(&self, target: iroh::EndpointAddr, class: ContactClass) {
         if self
             .contacts
             .get_endpoint_info(target.id)
@@ -1385,24 +1395,27 @@ impl ResourceEndpoint {
             .as_ref()
             != Some(&target)
         {
-            self.reset_contact(target.id);
+            self.reset_contact(target.id, class);
         }
         self.contacts.set_endpoint_info(target);
     }
 
-    pub(crate) fn reset_contact(&self, id: iroh::EndpointId) {
-        if let Some(state) = self.backoff.lock().expect("contact budget").get_mut(&id) {
-            state.failures = 0;
-            state.retry_at = None;
-            state.cause = None;
+    pub(crate) fn reset_contact(&self, id: iroh::EndpointId, class: ContactClass) {
+        if let Some(state) = self
+            .backoff
+            .lock()
+            .expect("contact budget")
+            .get_mut(&(id, class))
+        {
+            state.reset();
         }
     }
 
-    pub(crate) fn contact_ready(&self, id: iroh::EndpointId) -> bool {
+    pub(crate) fn contact_ready(&self, id: iroh::EndpointId, class: ContactClass) -> bool {
         self.backoff
             .lock()
             .expect("contact budget")
-            .get(&id)
+            .get(&(id, class))
             .is_none_or(|state| {
                 !state.in_flight && state.retry_at.is_none_or(|at| at <= Instant::now())
             })

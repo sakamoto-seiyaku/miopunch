@@ -8,7 +8,7 @@ use crate::{
     native_network::{NativeNetwork, NodeError, NodeStatus},
     network_recovery::{RECOVERY_REPLICA_ALPN, commit_ip},
     offline_replica::{REPLICA_ALPN, ReplicaOutcome, ReplicaProvider},
-    resources::{ResourceContactError, ResourceEndpoint},
+    resources::{ContactAttempt, ContactClass, ResourceContactError, ResourceEndpoint},
 };
 use futures_util::{StreamExt, stream::FuturesUnordered};
 use iroh::{
@@ -498,8 +498,10 @@ impl ControlProtocolHandler for ActiveImprovementHandler {
                 _ => "other",
             })})
         );
-        if result.is_err() {
-            control.close(0u32.into(), b"active improvement failed");
+        if let Err(error) = result
+            && control.close_reason().is_none()
+        {
+            crate::connection_coordinator::close_active_failure(&control, &error);
         }
         Ok(())
     }
@@ -593,7 +595,8 @@ impl Coordinator {
         }) {
             return Ok(false);
         }
-        self.resources.remember(candidate.address.clone());
+        self.resources
+            .remember(candidate.address.clone(), ContactClass::Background);
         self.sampler.insert(&candidate).await?;
         self.candidates.insert(id, candidate);
         Ok(true)
@@ -658,7 +661,7 @@ impl Coordinator {
             }
             Command::NetworkChanged => {
                 for id in self.candidates.keys() {
-                    self.resources.reset_contact(*id);
+                    self.resources.reset_contact(*id, ContactClass::Background);
                 }
                 self.wake();
                 if let Some(listener) = &self.contact_listener {
@@ -721,6 +724,7 @@ impl Coordinator {
         &mut self,
         candidate: Candidate,
         delivery: ConnectionDelivery,
+        attempt: ContactAttempt,
     ) -> Result<(), NodeError> {
         let (mut business, control) = match delivery {
             ConnectionDelivery::Business(connection) => {
@@ -758,7 +762,7 @@ impl Coordinator {
                 self.status.last_sync = Some(outcome);
                 if !complete {
                     self.status.state = MaintenanceState::WaitingForDependencies;
-                    self.resources.contact_failed(id);
+                    attempt.failed("candidate recovery did not complete".into());
                     return Ok(());
                 }
                 let mut address = EndpointAddr::new(id);
@@ -775,11 +779,12 @@ impl Coordinator {
                     udp_hint: None,
                     verified: true,
                 };
-                self.resources.remember(candidate.address.clone());
+                self.resources
+                    .remember(candidate.address.clone(), ContactClass::Background);
                 self.sampler.insert(&candidate).await?;
                 self.candidates.insert(id, candidate);
                 self.persist_contacts().await?;
-                self.resources.reset_contact(id);
+                attempt.succeeded();
                 self.status.cause = None;
                 self.status.state = MaintenanceState::Connected;
                 if connection.alpn() == REPLICA_ALPN
@@ -797,7 +802,7 @@ impl Coordinator {
                 }
             }
             Err(error) => {
-                self.resources.contact_failed(id);
+                attempt.failed(error.to_string());
                 self.status.cause = Some(error.to_string());
                 self.status.state = MaintenanceState::TemporarilyUnreachable;
             }
@@ -814,7 +819,7 @@ impl Coordinator {
         };
         let id = original.remote_id();
         if !self.node.gate.allows_member_path_upgrade(&original)
-            || !self.resources.contact_ready(id)
+            || !self.resources.contact_ready(id, ContactClass::Background)
         {
             return Ok(false);
         }
@@ -834,7 +839,10 @@ impl Coordinator {
                 return Ok(false);
             }
         }
-        let (deadline, contact) = match self.resources.begin_contact_attempt(id) {
+        let (deadline, contact) = match self
+            .resources
+            .begin_contact_attempt(id, ContactClass::Background)
+        {
             Ok(value) => value,
             Err(_) => return Ok(false),
         };
@@ -842,7 +850,7 @@ impl Coordinator {
         self.last_attempt_at = Some(Instant::now());
         let cancellation = CancellationToken::new();
         let attempt = crate::connection_coordinator::AttemptContext::new(deadline, cancellation);
-        let lease = match registry.acquire(&original, &attempt, contact) {
+        let mut lease = match registry.acquire(&original, &attempt, ()) {
             Ok(lease) => lease,
             Err(error) => {
                 self.status.cause = Some(format!("active improvement reservation: {error:?}"));
@@ -850,25 +858,27 @@ impl Coordinator {
             }
         };
         let result = lease
-            .run(
+            .run_ref(
                 self.active
                     .improve(self.resources.endpoint(), &original, target, attempt),
             )
             .await;
         match result {
-            Ok(Ok(())) => {
-                self.resources.reset_contact(id);
+            Ok(Ok(path)) => {
+                contact.succeeded();
+                lease.completed(crate::session_maintenance::Completion::Active(path));
                 self.status.cause = None;
                 Ok(true)
             }
             Ok(Err(error)) => {
-                self.resources.contact_failed(id);
                 self.status.cause = Some(format!("active improvement: {error:?}"));
+                if crate::session_maintenance::MaintenanceDeferral::from_error(&error).is_some() {
+                    return Ok(true);
+                }
                 self.status.state = MaintenanceState::TemporarilyUnreachable;
                 Ok(true)
             }
             Err(error) => {
-                self.resources.contact_failed(id);
                 self.status.cause = Some(format!("active improvement: {error:?}"));
                 self.status.state = MaintenanceState::TemporarilyUnreachable;
                 Ok(true)
@@ -891,10 +901,20 @@ impl Coordinator {
             .map(|(id, peer)| (*id, peer.connection.clone()))
             .collect::<Vec<_>>();
         for (id, connection) in due {
+            let Ok((_, contact)) = self
+                .resources
+                .begin_contact_attempt(id, ContactClass::Background)
+            else {
+                if let Some(peer) = self.neighbors.get_mut(&id) {
+                    peer.sync_at =
+                        Instant::now() + Duration::from_millis(self.policy.exploration_interval_ms);
+                }
+                continue;
+            };
             match self.node.sync_replica(&connection).await {
                 Ok(outcome) => {
                     if outcome.complete() {
-                        self.resources.reset_contact(id);
+                        contact.succeeded();
                     }
                     self.status.last_sync = Some(outcome);
                     if let Some(peer) = self.neighbors.get_mut(&id) {
@@ -905,7 +925,7 @@ impl Coordinator {
                 Err(error) => {
                     connection.close(0u32.into(), b"maintenance sync failed");
                     self.neighbors.remove(&id);
-                    self.resources.contact_failed(id);
+                    contact.failed(error.to_string());
                     self.status.cause = Some(error.to_string());
                     self.status.state = MaintenanceState::TemporarilyUnreachable;
                 }
@@ -946,7 +966,7 @@ impl Coordinator {
                 };
                 if self.neighbors.contains_key(&id)
                     || chosen.contains_key(&id)
-                    || !self.resources.contact_ready(id)
+                    || !self.resources.contact_ready(id, ContactClass::Background)
                 {
                     continue;
                 }
@@ -972,7 +992,7 @@ impl Coordinator {
             };
             dials.push(async move {
                 let result = resources
-                    .connect_for_recovery(candidate.address.clone(), alpn)
+                    .connect_for_recovery(candidate.address.clone(), alpn, ContactClass::Background)
                     .await;
                 (candidate, result)
             });
@@ -983,7 +1003,9 @@ impl Coordinator {
         }
         while let Some((candidate, result)) = dials.next().await {
             match result {
-                Ok(connection) => self.synchronize(candidate, connection).await?,
+                Ok((connection, attempt)) => {
+                    self.synchronize(candidate, connection, attempt).await?
+                }
                 Err(error) => {
                     // Display reports retry pacing; retain the concrete dial failure too.
                     self.status.cause = Some(match &error {
