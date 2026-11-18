@@ -343,6 +343,17 @@ async fn observe_peer(
                     drop(activity);
                     match result {
                         Ok(Ok(remote)) => {
+                            let round_trip_ms = start.elapsed().as_secs_f64() * 1000.;
+                            if let Some(address) = remote.get("address")
+                                && let Ok(address) = serde_json::from_value(address.clone())
+                                && let Err(error) =
+                                    network.remember_member_contact(&connection, address)
+                            {
+                                state.lock().unwrap().event(
+                                    "contact-learning-failed",
+                                    json!({"peer":peer.name,"error":error.to_string()}),
+                                );
+                            }
                             successes += 1;
                             let mut state = state.lock().unwrap();
                             if let Some(since) = unavailable_since.take() {
@@ -358,7 +369,7 @@ async fn observe_peer(
                             let entry = state.peers.get_mut(&peer.name).unwrap();
                             entry["phase"] = json!("online");
                             entry["lastOkAt"] = json!(now_ms());
-                            entry["roundTripMs"] = json!(start.elapsed().as_secs_f64() * 1000.);
+                            entry["roundTripMs"] = json!(round_trip_ms);
                             entry["successes"] = json!(successes);
                             entry["error"] = Value::Null;
                             state.remote.insert(

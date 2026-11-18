@@ -288,6 +288,13 @@ impl MaintainedNetwork {
         let connection = self.resources.connect(target, alpn).await?;
         Ok((connection, activity))
     }
+    pub fn remember_member_contact(
+        &self,
+        connection: &Connection,
+        address: EndpointAddr,
+    ) -> std::io::Result<()> {
+        self.resources.remember_member_contact(connection, address)
+    }
     pub async fn close(mut self) {
         self.cancel.cancel();
         if let Some(task) = self.task.take() {
@@ -1064,6 +1071,9 @@ impl Coordinator {
         false
     }
     async fn step(&mut self, cancel: &CancellationToken) -> Result<(), NodeError> {
+        if let Some(contacts) = &self.resources.member_contacts {
+            contacts.refresh_async().await?;
+        }
         self.neighbors.retain(|_, peer| {
             peer.connection.close_reason().is_none()
                 && self

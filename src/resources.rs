@@ -668,6 +668,7 @@ pub struct ResourceEndpoint {
     timeout: Duration,
     backoff: ContactStates,
     pub(crate) contacts: iroh::address_lookup::memory::MemoryLookup,
+    pub(crate) member_contacts: Option<std::sync::Arc<crate::member_contacts::MemberContacts>>,
     responders: std::sync::Mutex<Vec<(String, crate::mqtt_discovery::LiveResponder)>>,
     tcp: Option<crate::tcp_transport::TcpTransport>,
     native: Option<crate::native_path_adapter::NativePathAdapter>,
@@ -784,6 +785,7 @@ impl ResourceEndpoint {
             timeout: crate::connection_budget::DEFAULT,
             backoff: Default::default(),
             contacts: iroh::address_lookup::memory::MemoryLookup::new(),
+            member_contacts: None,
             responders: Default::default(),
             tcp: None,
             native: None,
@@ -796,6 +798,19 @@ impl ResourceEndpoint {
 
     pub fn endpoint(&self) -> &iroh::endpoint::RestrictedEndpoint {
         &self.endpoint
+    }
+    /// Retain address announcements received through this member's authenticated
+    /// connection. Hints remain subject to admission and resource permission on
+    /// every dial; an announcement alone does not prove direct reachability.
+    pub fn remember_member_contact(
+        &self,
+        connection: &iroh::endpoint::Connection,
+        address: iroh::EndpointAddr,
+    ) -> std::io::Result<()> {
+        self.member_contacts
+            .as_ref()
+            .ok_or_else(|| std::io::Error::other("member contact store absent"))?
+            .advertised(connection, address)
     }
     /// Common SDK entry with purpose and caller budget, without carrier flags.
     pub fn coordinator(&self) -> crate::connection_coordinator::ConnectionCoordinator {
@@ -865,6 +880,7 @@ impl ResourceEndpoint {
         )
         .with_member_contact(crate::member_transport::TRANSPORT_ID)
         .with_member_data(crate::member_transport::DATA_TRANSPORT_ID)
+        .with_member_contacts(self.member_contacts.clone())
     }
     #[cfg(feature = "rtc-probe")]
     pub(crate) fn with_rtc(mut self, rtc: Option<crate::rtc_transport::RtcTransport>) -> Self {
@@ -1202,6 +1218,18 @@ impl ResourceEndpoint {
         ResourceContactError,
     > {
         let (deadline, attempt) = self.begin_contact_attempt(target.id, class)?;
+        if let Some(known) = self.contacts.get_endpoint_info(target.id) {
+            target.addrs.extend(known.into_endpoint_addr().addrs);
+        }
+        if let Some(contacts) = &self.member_contacts {
+            tokio::time::timeout(
+                deadline.saturating_duration_since(n0_future::time::Instant::now()),
+                contacts.merge_async(&mut target),
+            )
+            .await
+            .map_err(|_| attempt.failed("bounded contact attempt timed out".into()))?
+            .map_err(|error| attempt.failed(error.to_string()))?;
+        }
         target.addrs.retain(|addr| match addr {
             iroh::TransportAddr::Relay(url) => {
                 self.config.allows(url.as_str(), ResourceUse::DataRelay)

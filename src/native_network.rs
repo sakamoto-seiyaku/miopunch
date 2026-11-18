@@ -1014,6 +1014,11 @@ impl NativeNetwork {
                 contact_override,
             )
             .await?;
+        let member_contacts = Arc::new(crate::member_contacts::MemberContacts::open(
+            self.directory.clone(),
+            self.gate.clone(),
+            config.clone(),
+        )?);
         let resources = crate::resources::ResourceEndpoint::new(endpoint, config)
             .with_native(native)
             .with_tcp(tcp)
@@ -1022,6 +1027,7 @@ impl NativeNetwork {
         #[cfg(feature = "rtc-probe")]
         let resources = resources.with_rtc(rtc);
         let mut resources = resources;
+        resources.member_contacts = Some(member_contacts);
         if !resources.recovery_origins().is_empty() {
             resources
                 .endpoint()

@@ -870,6 +870,8 @@ pub struct ConnectionCoordinator {
     contact_ids: Vec<u64>,
     member_contact_id: Option<u64>,
     member_data_id: Option<u64>,
+    #[cfg(not(target_arch = "wasm32"))]
+    member_contacts: Option<std::sync::Arc<crate::member_contacts::MemberContacts>>,
 }
 impl ConnectionCoordinator {
     pub(crate) fn new(endpoint: Endpoint, permitted: u8, contact_ids: Vec<u64>) -> Self {
@@ -879,6 +881,8 @@ impl ConnectionCoordinator {
             contact_ids,
             member_contact_id: None,
             member_data_id: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            member_contacts: None,
         }
     }
     pub(crate) fn new_restricted(
@@ -892,8 +896,19 @@ impl ConnectionCoordinator {
             contact_ids,
             member_contact_id: None,
             member_data_id: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            member_contacts: None,
         }
     }
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn with_member_contacts(
+        mut self,
+        contacts: Option<std::sync::Arc<crate::member_contacts::MemberContacts>>,
+    ) -> Self {
+        self.member_contacts = contacts;
+        self
+    }
+
     /// The native resource owner supplies the installed member contact carrier.
     /// Browser callers have no member adapter and retain None.
     pub(crate) fn with_member_contact(mut self, id: u64) -> Self {
@@ -1192,6 +1207,15 @@ impl ConnectionCoordinator {
             SessionPurpose::from_alpn(wire_alpn).ok_or(ConnectError::ProtocolUnsupported)?;
         let qualified = attempt
             .run(async {
+                #[allow(unused_mut)]
+                let mut recent_routes: Vec<TransportAddr> = Vec::new();
+                #[cfg(not(target_arch = "wasm32"))]
+                if let Some(contacts) = &self.member_contacts {
+                    recent_routes = contacts
+                        .merge_async(&mut target)
+                        .await
+                        .map_err(|e| ConnectError::Transport(e.to_string()))?;
+                }
                 if purpose.requires_data() && self.permitted == 0 {
                     return Err(ConnectError::DataPathUnavailable);
                 }
@@ -1201,18 +1225,20 @@ impl ConnectionCoordinator {
                     TransportAddr::Custom(address) => self.contact_ids.contains(&address.id()),
                     _ => false,
                 });
-                if target.addrs.is_empty() {
-                    return Err(ConnectError::DataPathUnavailable);
-                }
                 let mut active_ips = Vec::new();
                 if let Some(info) = self.endpoint.remote_info(target.id).await {
                     for entry in info.addrs() {
-                        if matches!(entry.usage(), iroh::endpoint::TransportAddrUsage::Active)
+                        if self.permitted & UDP != 0
+                            && matches!(entry.usage(), iroh::endpoint::TransportAddrUsage::Active)
                             && let TransportAddr::Ip(address) = entry.addr()
                         {
                             active_ips.push(TransportAddr::Ip(*address));
                         }
                     }
+                }
+                target.addrs.extend(active_ips.iter().cloned());
+                if target.addrs.is_empty() {
+                    return Err(ConnectError::DataPathUnavailable);
                 }
                 let is_active_ip = |address: &TransportAddr| {
                     matches!(address, TransportAddr::Ip(_))
@@ -1227,7 +1253,7 @@ impl ConnectionCoordinator {
                     .iter()
                     .filter(|address| is_active_ip(address))
                     .collect();
-                let relay_routes: Vec<_> = target
+                let mut relay_routes: Vec<_> = target
                     .addrs
                     .iter()
                     .filter(|address| {
@@ -1236,6 +1262,7 @@ impl ConnectionCoordinator {
                             if Some(route.id()) == self.member_data_id)
                     })
                     .collect();
+                relay_routes.sort_by_key(|route| !recent_routes.contains(route));
                 let dial_group =
                     async |routes: Vec<&TransportAddr>, route_attempt: &AttemptContext| {
                         let mut last_error = ConnectError::DataPathUnavailable;
@@ -1327,7 +1354,7 @@ impl ConnectionCoordinator {
                 // Cold direct-only targets still need their announced IP
                 // fallback. When a contact alternative exists, this comes
                 // after member signaling and configured public contact.
-                let inactive_ips: Vec<_> = target
+                let mut inactive_ips: Vec<_> = target
                     .addrs
                     .iter()
                     .filter(|address| {
@@ -1335,6 +1362,10 @@ impl ConnectionCoordinator {
                     })
                     .cloned()
                     .collect();
+                // A recently working address is still a hint. Give it the
+                // first bounded share, preserving time for current caller
+                // candidates if that old address has become unreachable.
+                inactive_ips.sort_by_key(|route| !recent_routes.contains(route));
                 if public_contact.addrs.is_empty() {
                     if !inactive_ips.is_empty() {
                         match self
@@ -1392,6 +1423,24 @@ impl ConnectionCoordinator {
                 Err(last_unavailable)
             })
             .await?;
+        let learning = attempt
+            .run(async {
+                #[cfg(not(target_arch = "wasm32"))]
+                if let (Some(contacts), ConnectionDelivery::Business(connection)) =
+                    (&self.member_contacts, &qualified.delivery)
+                {
+                    contacts
+                        .observe_async(connection)
+                        .await
+                        .map_err(|e| ConnectError::Transport(e.to_string()))?;
+                }
+                Ok(())
+            })
+            .await;
+        if let Err(error) = learning {
+            qualified.discard();
+            return Err(error);
+        }
         if attempt.cancellation.is_cancelled() {
             qualified.discard();
             return Err(ConnectError::Cancelled);

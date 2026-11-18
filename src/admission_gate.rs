@@ -520,6 +520,15 @@ impl AdmissionGate {
         })
     }
 
+    pub(crate) fn member_contact_allowed(&self, peer: EndpointId) -> bool {
+        let state = self.state.lock().expect("admission policy lock");
+        state.policy.secret.is_some()
+            && state.policy.members.contains(&state.policy.local_id)
+            && state.policy.members.contains(peer.as_bytes())
+            && !state.policy.removed.contains(&state.policy.local_id)
+            && !state.policy.removed.contains(peer.as_bytes())
+    }
+
     pub(crate) fn member_connection_for_binding(
         &self,
         peer: iroh::EndpointId,

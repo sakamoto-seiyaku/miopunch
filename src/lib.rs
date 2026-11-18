@@ -42,6 +42,7 @@ pub mod member_bootstrap;
 pub mod member_message;
 pub mod member_path_protocol;
 pub mod member_transport;
+mod member_contacts;
 mod message_bootstrap;
 pub mod mqtt_discovery;
 pub mod mqtt_transport;
