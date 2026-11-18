@@ -6,7 +6,7 @@ use std::{
     collections::{BTreeMap, VecDeque},
     error::Error,
     fmt,
-    io::{Read, Seek, SeekFrom},
+    io::{Read, Seek, SeekFrom, Write},
     net::{Ipv4Addr, SocketAddr},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
@@ -161,7 +161,14 @@ impl ProtocolHandler for ProbeServer {
                 _ = self.cancellation.cancelled() => break "stopped",
                 stream = connection.accept_bi(), if probes.len() < probes.capacity() => {
                     match stream {
-                        Ok((send, recv)) => probes.push(self.serve_probe(send, recv)),
+                        Ok((send, recv)) => {
+                            self.observations.lock().unwrap().event(
+                                "probe-stream-accepted",
+                                json!({"peer":peer,"stableId":connection.stable_id(),
+                                "streamId":u64::from(send.id()),"pending":probes.len()}),
+                            );
+                            probes.push(self.serve_probe(send, recv, &connection));
+                        }
                         Err(_) => break "accept_stream",
                     }
                 }
@@ -201,12 +208,20 @@ impl ProbeServer {
         &self,
         mut send: iroh::endpoint::SendStream,
         mut recv: iroh::endpoint::RecvStream,
+        connection: &Connection,
     ) -> Result<(), &'static str> {
+        let start = Instant::now();
+        let stream_id = u64::from(send.id());
         let request = timeout(Duration::from_secs(5), recv.read_to_end(8))
             .await
             .map_err(|_| "stream_read")?
             .map_err(|_| "stream_read")?;
         let sequence = u64::from_be_bytes(request.try_into().map_err(|_| "stream_decode")?);
+        self.observations.lock().unwrap().event(
+            "probe-request-read",
+            json!({"peer":connection.remote_id().to_string(),"stableId":connection.stable_id(),
+            "streamId":stream_id,"sequence":sequence,"elapsedMs":start.elapsed().as_secs_f64()*1000.}),
+        );
         let local = self.observations.lock().unwrap().local_view();
         let response = serde_json::to_vec(&json!({"sequence":sequence,"snapshot":local}))
             .map_err(|_| "stream_response")?;
@@ -217,7 +232,16 @@ impl ProbeServer {
             .await
             .map_err(|_| "stream_write")?
             .map_err(|_| "stream_write")?;
-        send.finish().map_err(|_| "stream_finish")
+        send.finish().map_err(|_| "stream_finish")?;
+        self.observations.lock().unwrap().event(
+            "probe-reply-queued",
+            json!({"peer":connection.remote_id().to_string(),"stableId":connection.stable_id(),
+            "streamId":stream_id,"sequence":sequence,"responseBytes":response.len(),
+            "elapsedMs":start.elapsed().as_secs_f64()*1000.,
+            "selectedRttMs":connection.paths().iter().find(|p|p.is_selected())
+                .map(|p|p.stats().rtt.as_secs_f64()*1000.)}),
+        );
+        Ok(())
     }
 }
 
@@ -335,6 +359,10 @@ async fn observe_peer(
                 let stopped = loop {
                     sequence += 1;
                     let start = Instant::now();
+                    state.lock().unwrap().event(
+                        "business-request-start",
+                        json!({"peer":peer.name,"stableId":connection.stable_id(),"sequence":sequence}),
+                    );
                     let activity = network.business_activity();
                     let result = tokio::select! {
                         _ = cancellation.cancelled() => break true,
@@ -363,12 +391,15 @@ async fn observe_peer(
                                 state.event(
                                     "business-restored",
                                     json!({"peer":peer.name,"elapsedMs":elapsed,
+                                    "peerId":connection.remote_id().to_string(),"sequence":sequence,
+                                    "roundTripMs":round_trip_ms,
                                     "stableId":connection.stable_id(),"connections":connections}),
                                 );
                             }
                             let entry = state.peers.get_mut(&peer.name).unwrap();
                             entry["phase"] = json!("online");
                             entry["lastOkAt"] = json!(now_ms());
+                            entry["lastSequence"] = json!(sequence);
                             entry["roundTripMs"] = json!(round_trip_ms);
                             entry["successes"] = json!(successes);
                             entry["error"] = Value::Null;
@@ -394,7 +425,8 @@ async fn observe_peer(
                                 state.event(
                                     "heartbeat-failed",
                                     json!({"peer":peer.name,"error":error,
-                                    "stableId":connection.stable_id()}),
+                                    "stableId":connection.stable_id(),"sequence":sequence,
+                                    "elapsedMs":start.elapsed().as_secs_f64()*1000.}),
                                 );
                             }
                             if connection.close_reason().is_some() {
@@ -450,6 +482,12 @@ async fn sample(
 ) -> Result<(), Failure> {
     let mut last_address = network.addr();
     let mut last_generation = network.endpoint().udp_network_generation();
+    // Keep the same local samples while the office link is unavailable. The
+    // latest snapshot and bounded event ring alone lose the switch history.
+    let mut history = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(directory.join("status.jsonl"))?;
     let mut interval = tokio::time::interval(Duration::from_secs(1));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
@@ -498,6 +536,7 @@ async fn sample(
         let view = {
             let mut state = state.lock().unwrap();
             state.local["at"] = json!(now_ms());
+            state.local["sampleMonotonicMs"] = json!(connection_diagnostic::monotonic_ms());
             state.local["address"] = json!(address);
             state.local["boundSockets"] = json!(network.endpoint().bound_sockets());
             state.local["relays"] = json!(relays);
@@ -552,6 +591,8 @@ async fn sample(
         let temporary = directory.join("status.new");
         std::fs::write(&temporary, serde_json::to_vec(&view)?)?;
         std::fs::rename(temporary, directory.join("status.json"))?;
+        serde_json::to_writer(&mut history, &view)?;
+        history.write_all(b"\n")?;
     }
 }
 
@@ -1197,7 +1238,16 @@ mod tests {
                 iroh::endpoint::ConnectionError::ApplicationClosed(_)
             ));
             let state = handler.observations.lock().unwrap();
-            let events = state.events.iter().collect::<Vec<_>>();
+            let events = state
+                .events
+                .iter()
+                .filter(|event| {
+                    !matches!(
+                        event["kind"].as_str(),
+                        Some("probe-stream-accepted" | "probe-request-read" | "probe-reply-queued")
+                    )
+                })
+                .collect::<Vec<_>>();
             assert_eq!(events.len(), 5);
             for (event, reason) in
                 events[..3]
