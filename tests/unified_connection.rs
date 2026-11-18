@@ -1824,6 +1824,131 @@ async fn contact_override_cannot_borrow_another_facility_permission_at_same_nati
 mod relay_contact_broker;
 
 #[tokio::test]
+async fn first_member_admission_preserves_nat_budget_deferral_across_a_rebind() {
+    use miopunch_native_probe::{
+        control_session::ControlSession,
+        mqtt_transport::{MqttTransport, Traffic},
+        resources::{Resource, ResourceContactError, ResourceUse},
+    };
+    let (_directory, a, b) = admitted_pair().await;
+    let old_a = a
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let old_b = b
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let (client, server) = tokio::join!(old_a.connect(old_b.addr(), MEMBER_ALPN), async {
+        old_b
+            .coordinator()
+            .accept(
+                old_b.endpoint().accept().await.unwrap(),
+                SessionPurpose::MemberBusiness,
+                attempt(),
+            )
+            .await
+    },);
+    let (client, server) = (client.unwrap(), server.unwrap());
+    let control =
+        ControlSession::with_data_handoff(old_b.endpoint().control_handle(&server), |_| async {
+            panic!("holding observation evidence never releases business");
+        });
+    let held = b
+        .udp_connector()
+        .observe(&control, &b.admission_gate())
+        .await
+        .unwrap();
+
+    let broker = relay_contact_broker::Broker::new().await;
+    for node in [&a, &b] {
+        let mut config = node.resource_configuration().unwrap();
+        config.replacement = Some(vec![Resource {
+            url: format!("mqtt://{}/", broker.address),
+            uses: [ResourceUse::Signaling].into(),
+            limitation: "owned control-only broker".into(),
+        }]);
+        config.tcp_direct_disabled = true;
+        config.member_data_relay_disabled = true;
+        node.save_resource_configuration(&config).unwrap();
+    }
+    let builder = || {
+        Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .clear_ip_transports()
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+    };
+    let contact = || {
+        Arc::new(MqttTransport::new(
+            broker.address,
+            Arc::new(Traffic::default()),
+        ))
+    };
+    let (at, bt) = (contact(), contact());
+    let a_endpoint = a
+        .bind_configured_endpoint_with_contact(builder(), at.clone())
+        .await
+        .unwrap();
+    let b_endpoint = b
+        .bind_configured_endpoint_with_contact(builder(), bt.clone())
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        tokio::try_join!(at.wait_ready(), bt.wait_ready()).unwrap();
+    })
+    .await
+    .unwrap();
+    let target = iroh::EndpointAddr::new(b_endpoint.endpoint().id()).with_addrs([
+        iroh::TransportAddr::Custom(MqttTransport::address(&bt.route().unwrap()).unwrap()),
+    ]);
+    for peer_deferred in [true, false] {
+        let (result, accepted) =
+            tokio::join!(a_endpoint.connect(target.clone(), MEMBER_ALPN), async {
+                b_endpoint
+                    .coordinator()
+                    .accept(
+                        tokio::time::timeout(
+                            Duration::from_secs(4),
+                            b_endpoint.endpoint().accept(),
+                        )
+                        .await
+                        .unwrap()
+                        .unwrap(),
+                        SessionPurpose::MemberBusiness,
+                        attempt(),
+                    )
+                    .await
+            },);
+        assert!(
+            matches!(result, Err(ResourceContactError::PathBudget(ConnectError::PathDeferred { remote })) if remote == peer_deferred),
+            "{result:?}"
+        );
+        // The first outward Remote is only emitted after reading the peer's
+        // scoped deferral. Its failed restricted connection can close before
+        // the listener's pending admission future finishes settling.
+        assert!(
+            matches!(
+                accepted,
+                Err(ConnectError::PathDeferred { remote: false }
+                    | ConnectError::DataPathUnavailable)
+            ),
+            "{accepted:?}"
+        );
+    }
+    assert!(held.is_current());
+    streams(&client, &server).await;
+    drop(held);
+    drop(control);
+    tokio::join!(
+        old_a.close(),
+        old_b.close(),
+        a_endpoint.close(),
+        b_endpoint.close()
+    );
+    tokio::join!(a.close(), b.close());
+    broker.close().await;
+}
+
+#[tokio::test]
 async fn late_home_relay_connection_after_mqtt_ready_preserves_the_same_sdk_member() {
     use miopunch_native_probe::{
         mqtt_transport::{MqttTransport, Traffic},

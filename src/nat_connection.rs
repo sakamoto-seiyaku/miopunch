@@ -7,18 +7,20 @@
 use crate::{
     admission_gate::AdmissionGate,
     control_session::{CommitError, ControlSession, DataSession},
-    nat_mapping::NodeProbeBudget,
+    nat_mapping::{NodeRoundBudget, RoundPermit},
     nat_punch::{self, Attempt, ExecutionStatus, MappingSnapshot},
     nat_selector::Analyzer,
+    network_maintenance::MaintenancePolicy,
+    session_maintenance::{LocalNatBudgetError, MaintenanceDeferral},
 };
-use iroh::{RelayMap, Watcher as _};
+use iroh::{RelayMap, Watcher as _, endpoint::ObservationValidity};
 use std::{
     io,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
 use tokio::time::Instant as TokioInstant;
 
@@ -28,6 +30,10 @@ fn upgrade_deadline_error() -> io::Error {
 
 fn upgrade_cancelled_error() -> io::Error {
     io::Error::new(io::ErrorKind::Interrupted, "UDP upgrade canceled")
+}
+
+fn round_interval(policy: &MaintenancePolicy) -> Duration {
+    Duration::from_millis(policy.exploration_interval_ms) * 32
 }
 
 /// Local permission and maintenance ceilings. They never shrink a legacy plan.
@@ -50,15 +56,17 @@ impl Default for UdpPolicy {
     }
 }
 
-/// Reuse one connector per node so learning and allowances cannot refill on retry.
+/// Reuse one connector per node to share learning and enhanced round admission.
+#[derive(Clone)]
 pub struct NatConnector {
     observers: Option<RelayMap>,
     stun_observers: Vec<iroh::RelayUrl>,
     analyzer: Arc<Mutex<Analyzer>>,
-    budget: Arc<NodeProbeBudget>,
+    budget: NodeRoundBudget,
     enabled: Arc<AtomicBool>,
     resource_enabled: bool,
     max_rounds: u8,
+    round_interval: Duration,
 }
 
 /// Direct success has no punching recommendation and cannot train its score.
@@ -76,20 +84,54 @@ pub(crate) enum PreparedUdpPath {
     Punching(Attempt),
 }
 
+struct ExecutingAttempt<'a> {
+    attempt: &'a mut Attempt,
+    completed: bool,
+}
+
+struct RoundObservers {
+    qad: Option<RelayMap>,
+    stun: Vec<iroh::RelayUrl>,
+}
+
+impl RoundObservers {
+    fn cost(&self) -> usize {
+        self.qad.as_ref().map_or(0, RelayMap::len) + self.stun.len()
+    }
+}
+
+impl Drop for ExecutingAttempt<'_> {
+    fn drop(&mut self) {
+        if !self.completed {
+            self.attempt.finish_failure();
+        }
+    }
+}
+
 impl NatConnector {
     pub fn new(observers: Option<RelayMap>, policy: UdpPolicy) -> Self {
         Self {
             observers,
             stun_observers: Vec::new(),
             analyzer: Arc::new(Mutex::new(Analyzer::new(Instant::now()))),
-            budget: Arc::new(NodeProbeBudget::new(
-                policy.additional_observations,
+            budget: NodeRoundBudget::new(
+                policy
+                    .additional_observations
+                    .min(nat_punch::MAX_OBSERVATIONS),
                 policy.peer_datagrams,
-            )),
+            ),
             enabled: Arc::new(AtomicBool::new(policy.enabled)),
             resource_enabled: true,
             max_rounds: policy.max_rounds.min(32),
+            round_interval: round_interval(&MaintenancePolicy::default()),
         }
+    }
+
+    /// Use the node's validated exploration interval for this connector.
+    pub fn with_maintenance_policy(mut self, policy: &MaintenancePolicy) -> io::Result<Self> {
+        policy.validate()?;
+        self.round_interval = round_interval(policy);
+        Ok(self)
     }
 
     pub fn set_udp_enabled(&self, enabled: bool) {
@@ -97,22 +139,21 @@ impl NatConnector {
     }
 
     /// An endpoint keeps its resource startup snapshot, while node learning,
-    /// runtime maintenance permission and spent allowances survive new binds.
+    /// runtime maintenance permission and round admission survive new binds.
     pub(crate) fn for_endpoint(
         &self,
         observers: Option<RelayMap>,
         stun_observers: Vec<iroh::RelayUrl>,
         enabled: bool,
-    ) -> Self {
+        maintenance: &MaintenancePolicy,
+    ) -> io::Result<Self> {
         Self {
             observers,
             stun_observers,
-            analyzer: self.analyzer.clone(),
-            budget: self.budget.clone(),
-            enabled: self.enabled.clone(),
             resource_enabled: enabled,
-            max_rounds: self.max_rounds,
+            ..self.clone()
         }
+        .with_maintenance_policy(maintenance)
     }
 
     pub(crate) fn udp_enabled(&self) -> bool {
@@ -148,6 +189,7 @@ impl NatConnector {
             if !generation.is_current()
                 || control.nat_learning_scope(gate) != scope
                 || control.is_closed()
+                || control.exchange_control().close_reason().is_some()
             {
                 return Err(io::Error::new(
                     io::ErrorKind::PermissionDenied,
@@ -171,6 +213,102 @@ impl NatConnector {
         }
     }
 
+    async fn within_round<T>(
+        &self,
+        control: &ControlSession,
+        deadline: TokioInstant,
+        operation: impl std::future::Future<Output = io::Result<T>>,
+    ) -> io::Result<T> {
+        let cancellation = control.exchange_control().attempt_cancellation();
+        let cancelled = async {
+            match cancellation {
+                Some(token) => token.cancelled().await,
+                None => std::future::pending().await,
+            }
+        };
+        tokio::select! {
+            biased;
+            _ = cancelled => Err(upgrade_cancelled_error()),
+            _ = tokio::time::sleep_until(deadline) => Err(upgrade_deadline_error()),
+            result = operation => result,
+        }
+    }
+
+    fn round_observers(&self, control: &ControlSession) -> RoundObservers {
+        let allowed = |url: &iroh::RelayUrl| control.endpoint().allows_udp_observation(url);
+        let qad = self
+            .observers
+            .as_ref()
+            .map(|map| {
+                RelayMap::from_iter(
+                    map.relays::<Vec<_>>()
+                        .into_iter()
+                        .filter(|relay| allowed(&relay.url)),
+                )
+            })
+            .filter(|map| map.len() >= 2);
+        let stun = self
+            .stun_observers
+            .iter()
+            .filter(|url| allowed(url))
+            .cloned()
+            .collect();
+        RoundObservers { qad, stun }
+    }
+
+    fn check_round(
+        &self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+        permit: &RoundPermit,
+    ) -> io::Result<()> {
+        self.check(control, gate)?;
+        permit.check_generation(&control.endpoint().udp_network_generation())
+    }
+
+    fn acquire_round(
+        &self,
+        control: &ControlSession,
+        generation: ObservationValidity,
+        deadline: TokioInstant,
+        observation_cost: usize,
+    ) -> io::Result<RoundPermit> {
+        let now = TokioInstant::now();
+        let result = if self.max_rounds == 0 {
+            Err(LocalNatBudgetError::Rounds.into())
+        } else {
+            self.budget.acquire(
+                generation,
+                TokioInstant::now,
+                deadline,
+                self.round_interval,
+                observation_cost,
+            )
+        };
+        let (status, next_due) = match &result {
+            Ok(permit) => ("reserved", Some(permit.next_due)),
+            Err(error) => match MaintenanceDeferral::from_error(error) {
+                Some(MaintenanceDeferral::LocalBudget { next_due }) => {
+                    ("deferred", Some(*next_due))
+                }
+                _ => ("denied", None),
+            },
+        };
+        control.diagnostic().event(
+            "probe-budget",
+            status,
+            serde_json::json!({
+                "resource":"enhanced_round",
+                "observationRequested":observation_cost,
+                "observationReserved":result.as_ref().ok().map(|permit|permit.observations),
+                "peerLimit":self.budget.peer_limit(),
+                "occupied":self.budget.is_occupied(),
+                "nextDueInMs":next_due.map(|due|due.saturating_duration_since(now).as_millis())
+            }),
+        );
+        result
+    }
+
     /// Acquire a fresh ordered mapping sequence only after current admission.
     pub async fn observe(
         &self,
@@ -178,6 +316,32 @@ impl NatConnector {
         gate: &AdmissionGate,
     ) -> io::Result<MappingSnapshot> {
         self.check(control, gate)?;
+        let generation = control.endpoint().udp_network_generation();
+        let deadline =
+            crate::connection_budget::deadline(control.exchange_control().caller_deadline());
+        let observers = self.round_observers(control);
+        let permit = self.acquire_round(control, generation, deadline, observers.cost())?;
+        let snapshot = self
+            .within_round(
+                control,
+                deadline,
+                self.guard(
+                    control,
+                    gate,
+                    self.observe_round(control, gate, &permit, observers),
+                ),
+            )
+            .await?;
+        Ok(snapshot.with_round(permit))
+    }
+
+    async fn observe_round(
+        &self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+        permit: &RoundPermit,
+        observers: RoundObservers,
+    ) -> io::Result<MappingSnapshot> {
         let log = control.diagnostic();
         let endpoint = control.endpoint();
         let existing_mapping = || {
@@ -196,27 +360,17 @@ impl NatConnector {
             });
             result
         };
-        let qad = if let Some(observers) = &self.observers {
-            let reserved = self.budget.reserve_observations(observers.len());
+        self.check_round(control, gate, permit)?;
+        let qad = if let Some(observers) = &observers.qad {
             log.event(
                 "probe-budget",
-                if reserved { "reserved" } else { "denied" },
+                "consumed",
                 serde_json::json!({
                     "resource":"qad_observation","requested":observers.len(),
                 }),
             );
-            if !reserved {
-                return Err(io::Error::other("NAT observation budget exhausted"));
-            }
             let phase = log.phase("observation", serde_json::json!({"method":"qad"}));
-            match self
-                .guard(
-                    control,
-                    gate,
-                    endpoint.observe_udp_mapping_sequence(observers),
-                )
-                .await
-            {
+            match endpoint.observe_udp_mapping_sequence(observers).await {
                 Ok(sequence) => {
                     let samples = sequence.samples.len();
                     let snapshot = Self::mapping_snapshot(sequence);
@@ -243,27 +397,20 @@ impl NatConnector {
         } else {
             None
         };
+        self.check_round(control, gate, permit)?;
         let snapshot = if let Some(snapshot) = qad {
             snapshot
-        } else if !self.stun_observers.is_empty() {
-            let reserved = self.budget.reserve_observations(self.stun_observers.len());
+        } else if !observers.stun.is_empty() {
             log.event(
                 "probe-budget",
-                if reserved { "reserved" } else { "denied" },
+                "consumed",
                 serde_json::json!({
-                    "resource":"stun_observation","requested":self.stun_observers.len(),
+                    "resource":"stun_observation","requested":observers.stun.len(),
                 }),
             );
-            if !reserved {
-                return Err(io::Error::other("NAT STUN observation budget exhausted"));
-            }
             let phase = log.phase("observation", serde_json::json!({"method":"stun"}));
-            match self
-                .guard(
-                    control,
-                    gate,
-                    endpoint.observe_udp_stun_mapping_sequence(&self.stun_observers),
-                )
+            match endpoint
+                .observe_udp_stun_mapping_sequence(&observers.stun)
                 .await
             {
                 Ok(sequence) => {
@@ -321,8 +468,69 @@ impl NatConnector {
         control: &ControlSession,
         gate: &AdmissionGate,
     ) -> io::Result<Attempt> {
-        let snapshot = self.observe(control, gate).await?;
-        self.coordinate(control, gate, &snapshot).await
+        self.prepare_round(
+            control,
+            gate,
+            crate::connection_budget::deadline(control.exchange_control().caller_deadline()),
+        )
+        .await
+    }
+
+    async fn prepare_round(
+        &self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+        deadline: TokioInstant,
+    ) -> io::Result<Attempt> {
+        self.check(control, gate)?;
+        let generation = control.endpoint().udp_network_generation();
+        let observers = self.round_observers(control);
+        let permit = self.acquire_round(control, generation, deadline, observers.cost());
+        let permit = self
+            .settle_round_admission(control, gate, deadline, permit)
+            .await?;
+        let operation = async {
+            self.check_round(control, gate, &permit)?;
+            let agreement = nat_punch::begin_round(control, gate, true).await?;
+            let snapshot = self
+                .observe_round(control, gate, &permit, observers)
+                .await?;
+            self.coordinate_round(control, gate, &snapshot, agreement, permit)
+                .await
+        };
+        self.within_round(control, deadline, self.guard(control, gate, operation))
+            .await
+    }
+
+    async fn settle_round_admission(
+        &self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+        deadline: TokioInstant,
+        result: io::Result<RoundPermit>,
+    ) -> io::Result<RoundPermit> {
+        let error = match result {
+            Ok(permit) => return Ok(permit),
+            Err(error) => error,
+        };
+        if MaintenanceDeferral::from_error(&error).is_some()
+            || LocalNatBudgetError::is_local_limit(&error)
+        {
+            let notice = nat_punch::begin_round(control, gate, false);
+            if let Err(protocol) = self
+                .within_round(control, deadline, self.guard(control, gate, notice))
+                .await
+                && matches!(
+                    protocol.kind(),
+                    io::ErrorKind::InvalidData
+                        | io::ErrorKind::PermissionDenied
+                        | io::ErrorKind::Interrupted
+                )
+            {
+                return Err(protocol);
+            }
+        }
+        Err(error)
     }
 
     pub async fn coordinate(
@@ -332,17 +540,42 @@ impl NatConnector {
         snapshot: &MappingSnapshot,
     ) -> io::Result<Attempt> {
         self.check(control, gate)?;
+        let generation = control.endpoint().udp_network_generation();
+        let caller =
+            crate::connection_budget::deadline(control.exchange_control().caller_deadline());
+        let permit = snapshot.claim_round(&self.budget, &generation, || {
+            self.acquire_round(control, generation.clone(), caller, 0)
+        });
+        let mut permit = self
+            .settle_round_admission(control, gate, caller, permit)
+            .await?;
+        permit.limit_deadline(caller.min(snapshot.expires_at()));
+        let deadline = permit.deadline;
         let operation = async {
-            if control.is_dialing_side() {
-                nat_punch::coordinate_client(control, gate, snapshot).await
-            } else {
-                nat_punch::coordinate_server(control, gate, snapshot, &self.analyzer).await
-            }
+            self.check_round(control, gate, &permit)?;
+            let agreement = nat_punch::begin_round(control, gate, true).await?;
+            self.coordinate_round(control, gate, snapshot, agreement, permit)
+                .await
         };
+        self.within_round(control, deadline, self.guard(control, gate, operation))
+            .await
+    }
+
+    async fn coordinate_round(
+        &self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+        snapshot: &MappingSnapshot,
+        agreement: nat_punch::RoundAgreement,
+        permit: RoundPermit,
+    ) -> io::Result<Attempt> {
+        self.check_round(control, gate, &permit)?;
+        let operation =
+            nat_punch::coordinate_round(control, gate, snapshot, &self.analyzer, agreement, permit);
         let attempt = control
             .diagnostic()
             .phase("punch-plan", serde_json::Value::Null)
-            .run(self.guard(control, gate, operation))
+            .run(operation)
             .await?;
         println!(
             "LEGACY_SELECTED mode={} index={} c={:?} v={:?} scores_before={:?} round={} stable_id={} execution={:?} fallback={}",
@@ -373,22 +606,38 @@ impl NatConnector {
         control: &ControlSession,
         gate: &AdmissionGate,
     ) -> io::Result<()> {
-        self.check(control, gate)?;
         attempt.check_execution(control)?;
+        let mut permit = attempt.take_round(&self.budget)?;
+        let mut execution = ExecutingAttempt {
+            attempt,
+            completed: false,
+        };
+        let deadline = permit.deadline.min(crate::connection_budget::deadline(
+            control.exchange_control().caller_deadline(),
+        ));
+        let operation = self.execute_round(execution.attempt, control, gate, &mut permit);
+        let result = self.within_round(control, deadline, operation).await;
+        execution.completed = result.is_ok();
+        result
+    }
+
+    async fn execute_round(
+        &self,
+        attempt: &mut Attempt,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+        permit: &mut RoundPermit,
+    ) -> io::Result<()> {
+        self.check_round(control, gate, permit)?;
+        permit.resume()?;
         let log = control.diagnostic();
         let bound = attempt.peer_datagram_bound();
-        let allowance = self.budget.reserve_peer_allowance(bound);
+        let allowance = permit.reserve_peer_plan(bound)?;
         log.event(
             "probe-budget",
-            if allowance.is_some() {
-                "reserved"
-            } else {
-                "denied"
-            },
-            serde_json::json!({"resource":"punch_datagrams","requested":bound}),
+            "reserved",
+            serde_json::json!({"resource":"punch_datagrams","requested":bound,"remaining":permit.peer_remaining()}),
         );
-        let allowance =
-            allowance.ok_or_else(|| io::Error::other("NAT complete-plan budget insufficient"))?;
         let enabled = || self.check(control, gate);
         log.phase("punch", serde_json::json!({"datagramLimit":bound}))
             .run(async {
@@ -615,18 +864,15 @@ impl NatConnector {
             return Err(io::Error::other("NAT round allowance exhausted"));
         }
         // Direct QUIC validation has a separate bounded maintenance envelope.
-        let direct_allowance = self.budget.reserve_peer_allowance(64);
+        let direct_allowed = self.budget.peer_limit() >= 64;
         log.event(
             "probe-budget",
-            if direct_allowance.is_some() {
-                "reserved"
-            } else {
-                "denied"
-            },
+            if direct_allowed { "reserved" } else { "denied" },
             serde_json::json!({"resource":"direct_datagrams","requested":64}),
         );
-        let _direct_allowance =
-            direct_allowance.ok_or_else(|| io::Error::other("NAT direct budget insufficient"))?;
+        if !direct_allowed {
+            return Err(io::Error::other("NAT direct budget insufficient"));
+        }
         if let Some(direct) = self
             .guard(
                 control,
@@ -643,17 +889,14 @@ impl NatConnector {
             );
             return Ok(PreparedUdpPath::Direct(direct));
         }
-        tokio::select! {
-            biased;
-            _ = tokio::time::sleep_until(deadline) => Err(upgrade_deadline_error()),
-            result = self.prepare_enhanced_path(control, gate) => result,
-        }
+        self.prepare_enhanced_path(control, gate, deadline).await
     }
 
     async fn prepare_enhanced_path(
         &self,
         control: &ControlSession,
         gate: &AdmissionGate,
+        deadline: TokioInstant,
     ) -> io::Result<PreparedUdpPath> {
         for round in 0..self.max_rounds {
             println!(
@@ -661,11 +904,10 @@ impl NatConnector {
                 round + 1,
                 control.stable_id()
             );
-            let mut attempt = self.prepare(control, gate).await?;
+            let mut attempt = self.prepare_round(control, gate, deadline).await?;
             match self.execute(&mut attempt, control, gate).await {
                 Ok(()) => return Ok(PreparedUdpPath::Punching(attempt)),
                 Err(error) => {
-                    attempt.finish_failure();
                     if error.kind() != io::ErrorKind::TimedOut || round + 1 == self.max_rounds {
                         return Err(error);
                     }

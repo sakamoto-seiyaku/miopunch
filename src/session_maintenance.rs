@@ -16,13 +16,15 @@ use std::{
 use tokio::sync::watch;
 
 /// A protected peer deferral or a local enhanced-round budget deadline.
+const REMOTE_DEFERRAL: &str = "peer deferred the active path attempt";
+const LOCAL_DEFERRAL: &str = "local enhanced-round budget deferred the path attempt";
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
 pub(crate) enum MaintenanceDeferral {
-    #[error("peer deferred the active path attempt")]
+    #[error("{REMOTE_DEFERRAL}")]
     Remote,
     #[cfg(not(target_arch = "wasm32"))]
-    #[allow(dead_code)] // MIOPUNCH-130 supplies the local enhanced-round budget.
-    #[error("local enhanced-round budget deferred the path attempt")]
+    #[error("{LOCAL_DEFERRAL}")]
     LocalBudget { next_due: n0_future::time::Instant },
 }
 
@@ -30,11 +32,54 @@ impl MaintenanceDeferral {
     pub(crate) fn from_error(error: &io::Error) -> Option<&Self> {
         error.get_ref()?.downcast_ref()
     }
+
+    pub(crate) fn message_is_remote(message: &str) -> Option<bool> {
+        match message {
+            REMOTE_DEFERRAL => Some(true),
+            LOCAL_DEFERRAL => Some(false),
+            _ => None,
+        }
+    }
 }
 
 impl From<MaintenanceDeferral> for io::Error {
     fn from(cause: MaintenanceDeferral) -> Self {
         Self::new(io::ErrorKind::WouldBlock, cause)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+pub(crate) enum LocalNatBudgetError {
+    #[error("NAT observation chain exceeds the local observation allowance")]
+    Observations,
+    #[error("NAT peer datagram allowance is zero")]
+    PeerDatagrams,
+    #[error("NAT round allowance is zero")]
+    Rounds,
+    #[error("NAT complete-plan budget insufficient")]
+    Plan,
+}
+
+impl LocalNatBudgetError {
+    pub(crate) fn is_local_limit(error: &io::Error) -> bool {
+        error.get_ref().is_some_and(|cause| cause.is::<Self>())
+    }
+
+    pub(crate) fn matches_message(message: &str) -> bool {
+        [
+            Self::Observations,
+            Self::PeerDatagrams,
+            Self::Rounds,
+            Self::Plan,
+        ]
+        .iter()
+        .any(|cause| cause.to_string() == message)
+    }
+}
+
+impl From<LocalNatBudgetError> for io::Error {
+    fn from(cause: LocalNatBudgetError) -> Self {
+        Self::new(io::ErrorKind::InvalidInput, cause)
     }
 }
 

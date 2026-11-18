@@ -270,7 +270,7 @@ async fn clipboard_guest_acl_recovery_observes_existing_public_contact_backoff()
         .and_then(|failure| failure.downcast_ref::<ResourceContactError>())
         .and_then(|failure| match failure {
             ResourceContactError::TemporarilyUnreachable { retry_after, .. } => Some(*retry_after),
-            ResourceContactError::Configuration(_) => None,
+            ResourceContactError::Configuration(_) | ResourceContactError::PathBudget(_) => None,
         });
     let bounded_backoff = remaining
         .is_some_and(|remaining| !remaining.is_zero() && remaining <= Duration::from_secs(1));
@@ -322,7 +322,9 @@ async fn current_member_acl_contacts_respect_public_shared_backoff() {
                 ResourceContactError::TemporarilyUnreachable { retry_after, .. } => {
                     Some(*retry_after)
                 }
-                ResourceContactError::Configuration(_) => None,
+                ResourceContactError::Configuration(_) | ResourceContactError::PathBudget(_) => {
+                    None
+                }
             });
         let observed = denied
             && remaining.is_some_and(|delay| {

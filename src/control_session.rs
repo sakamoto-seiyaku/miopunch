@@ -110,6 +110,9 @@ impl ControlSession {
     pub(crate) fn endpoint(&self) -> &ControlHandle {
         &self.connection
     }
+    pub(crate) fn exchange_control(&self) -> &ControlHandle {
+        self.exchange.as_ref().unwrap_or(&self.connection)
+    }
     /// Active negotiation uses C, while identity, probes and retained paths
     /// remain attached to the already admitted original M.
     pub(crate) fn from_active_control(original: ControlHandle, control: ControlHandle) -> Self {

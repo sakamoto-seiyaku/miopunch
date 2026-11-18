@@ -3387,6 +3387,14 @@ pub struct UdpMappingSequence {
 
 #[cfg(not(wasm_browser))]
 impl UdpMappingSequence {
+    /// Deadline of the STUN traversal evidence. QAD's predictor refresh
+    /// deadline is independent of the physical traversal lifetime.
+    pub fn traversal_deadline(&self) -> Option<Instant> {
+        self.supersession_validity
+            .as_ref()
+            .map(|_| self.valid_until)
+    }
+
     /// Network changes invalidate all copies of the observation.
     pub fn is_fresh(&self) -> bool {
         Instant::now() < self.valid_until

@@ -549,6 +549,10 @@ pub enum ConnectError {
     InvalidControl,
     #[error("no currently permitted data path")]
     DataPathUnavailable,
+    #[error("enhanced path preparation deferred (peer={remote})")]
+    PathDeferred { remote: bool },
+    #[error("local NAT budget rejected path preparation: {0}")]
+    LocalNatBudget(String),
     #[error("connection deadline exceeded")]
     DeadlineExceeded,
     #[error("connection attempt cancelled")]
@@ -568,7 +572,16 @@ impl ConnectError {
             } => Self::DataPathUnavailable,
             ConnectingError::LocallyRejected { .. } => Self::IdentityOrAdmissionRejected,
             ConnectingError::AdmissionFailed { reason, kind, .. } => {
-                if kind == io::ErrorKind::TimedOut {
+                if kind == io::ErrorKind::WouldBlock
+                    && let Some(remote) =
+                        crate::session_maintenance::MaintenanceDeferral::message_is_remote(&reason)
+                {
+                    Self::PathDeferred { remote }
+                } else if kind == io::ErrorKind::InvalidInput
+                    && crate::session_maintenance::LocalNatBudgetError::matches_message(&reason)
+                {
+                    Self::LocalNatBudget(reason)
+                } else if kind == io::ErrorKind::TimedOut {
                     Self::DeadlineExceeded
                 } else if kind == io::ErrorKind::Interrupted {
                     Self::Cancelled
@@ -1044,6 +1057,8 @@ impl ConnectionCoordinator {
                     ConnectError::ProtocolUnsupported => ("failed", "protocol_unsupported"),
                     ConnectError::InvalidControl => ("failed", "invalid_control"),
                     ConnectError::DataPathUnavailable => ("failed", "data_path_unavailable"),
+                    ConnectError::PathDeferred { .. } => ("deferred", "enhanced_path_budget"),
+                    ConnectError::LocalNatBudget(_) => ("denied", "local_nat_budget"),
                     ConnectError::Transport(_) => ("failed", "transport"),
                 };
                 phase.finish_with(result, json!({"reason":reason}));
@@ -1813,6 +1828,7 @@ pub(crate) async fn prepare_control_session<
     let relay = adapter.existing_relay(connection);
     let plans = attempt.plans(connection, direct.as_ref(), relay.as_ref())?;
     let mut prepared = None;
+    let mut budget_failure = None;
     for plan in plans {
         let candidate = attempt
             .log
@@ -1857,12 +1873,18 @@ pub(crate) async fn prepare_control_session<
                         "unified caller deadline exceeded",
                     ));
                 }
+                if crate::session_maintenance::MaintenanceDeferral::from_error(&error).is_some()
+                    || crate::session_maintenance::LocalNatBudgetError::is_local_limit(&error)
+                {
+                    budget_failure = Some(error);
+                }
                 // The original absolute context remains in force for the next
                 // permitted candidate; failed RTC does not mark its node offline.
             }
         }
     }
-    let mut prepared = prepared.ok_or_else(|| control_error("DataPathUnavailable"))?;
+    let mut prepared = prepared
+        .ok_or_else(|| budget_failure.unwrap_or_else(|| control_error("DataPathUnavailable")))?;
     let phase = attempt.log.phase("fresh-ack", Value::Null);
     let qualification: io::Result<()> = async {
         prepared.check(connection, false)?;
@@ -2316,9 +2338,10 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
                 adapter
                     .check(control, SessionPurpose::ActiveImprovement)
                     .await?;
-                if error
-                    .to_string()
-                    .starts_with("unified/IdentityOrAdmissionRejected")
+                if crate::session_maintenance::LocalNatBudgetError::is_local_limit(&error)
+                    || error
+                        .to_string()
+                        .starts_with("unified/IdentityOrAdmissionRejected")
                     || error.to_string().starts_with("unified/InvalidControl")
                 {
                     return Err(error);

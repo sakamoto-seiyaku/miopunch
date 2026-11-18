@@ -4,6 +4,7 @@ use super::*;
 use crate::{
     admission_gate::ProtocolScope, manual_admission::ManualExchange, native_network::NativeNetwork,
 };
+use iroh::EndpointAddr;
 use std::{
     net::Ipv4Addr,
     sync::{
@@ -614,11 +615,19 @@ async fn ordinary_pair(
     a: &crate::resources::ResourceEndpoint,
     b: &crate::resources::ResourceEndpoint,
 ) -> (Connection, Connection) {
+    member_pair(a, b, b.addr()).await
+}
+
+async fn member_pair(
+    a: &crate::resources::ResourceEndpoint,
+    b: &crate::resources::ResourceEndpoint,
+    address: EndpointAddr,
+) -> (Connection, Connection) {
     let deadline = n0_future::time::Instant::now() + Duration::from_secs(5);
     let attempt = AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new());
     let (ac, bc) = (a.coordinator(), b.coordinator());
     let (client, server) = tokio::join!(
-        ac.connect(b.addr(), SessionPurpose::MemberBusiness, attempt.clone()),
+        ac.connect(address, SessionPurpose::MemberBusiness, attempt.clone()),
         async {
             bc.accept(
                 b.endpoint().accept().await.unwrap(),
@@ -1003,6 +1012,151 @@ async fn production_native_active_prepares_udp_on_the_original_member() {
 #[tokio::test]
 async fn production_native_active_respects_udp_disable_and_keeps_business() {
     production_native_active_scenario(false, false).await;
+}
+
+#[tokio::test]
+async fn active_native_budget_deferral_preserves_another_members_original_stream() {
+    use crate::{
+        control_session::ControlSession,
+        resources::{Resource, ResourceUse},
+        session_maintenance::MaintenanceDeferral,
+    };
+    let (_directory, a, b) = admitted_pair().await;
+    let mut config = iroh_relay::server::ServerConfig::default();
+    config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let relay = iroh_relay::server::Server::spawn(config).await.unwrap();
+    let url = relay.http_url().unwrap();
+    let relay_route = TransportAddr::Relay(url.clone());
+    for node in [&a, &b] {
+        let mut config = node.resource_configuration().unwrap();
+        config.tcp_direct_disabled = true;
+        config.replacement = Some(vec![Resource {
+            url: url.to_string(),
+            uses: [ResourceUse::DataRelay].into(),
+            limitation: "owned relay".into(),
+        }]);
+        node.save_resource_configuration(&config).unwrap();
+    }
+    let ae = a
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let be = Arc::new(
+        b.bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+            .await
+            .unwrap(),
+    );
+    tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::join!(ae.endpoint().online(), be.endpoint().online());
+    })
+    .await
+    .unwrap();
+    let address = EndpointAddr::new(be.endpoint().id()).with_addrs([relay_route.clone()]);
+    let (_other, held_remote) = member_pair(&ae, &be, address.clone()).await;
+    let (original, remote) = member_pair(&ae, &be, address.clone()).await;
+    let ids = (original.stable_id(), remote.stable_id());
+    let a_original = ae.endpoint().control_handle(&original);
+    let b_original = be.endpoint().control_handle(&remote);
+    tokio::try_join!(
+        a_original.test_limit_transport_paths(vec![relay_route.clone()]),
+        b_original.test_limit_transport_paths(vec![relay_route]),
+    )
+    .unwrap();
+    assert!(original.paths().iter().all(|path| path.is_relay()));
+    let hold = ControlSession::from_control(be.endpoint().control_handle(&held_remote));
+    let held = b
+        .udp_connector()
+        .observe(&hold, &b.admission_gate())
+        .await
+        .unwrap();
+    let previous_generation = be.endpoint().udp_network_generation();
+    be.endpoint().network_change().await;
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while previous_generation.is_current() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(
+        !held.is_current(),
+        "only the outstanding owner can still block this round"
+    );
+    let (mut send, mut receive) = original.open_bi().await.unwrap();
+    send.write_all(b"before").await.unwrap();
+    let (mut reply, mut incoming) = remote.accept_bi().await.unwrap();
+    let mut bytes = [0u8; 6];
+    incoming.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"before");
+    let router = iroh::protocol::RestrictedRouter::builder(be.endpoint().clone())
+        .accept_control(
+            ACTIVE_IMPROVEMENT_ALPN,
+            b.active_improvement_handler(be.clone()),
+        )
+        .spawn();
+    let deadline = n0_future::time::Instant::now() + Duration::from_secs(10);
+    let control = ae
+        .endpoint()
+        .connect_control_with_opts(
+            address,
+            ACTIVE_IMPROVEMENT_ALPN,
+            iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline),
+        )
+        .await
+        .unwrap()
+        .await
+        .unwrap();
+    let attempt = AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new());
+    let lease = a
+        .admission_gate()
+        .maintenance()
+        .acquire(&original, &attempt, ())
+        .unwrap();
+    let error = lease
+        .run(improve_existing(
+            ae.endpoint(),
+            &original,
+            &control.control_handle(),
+            &NativeControlAdapter(ae.active_coordinator(a.admission_gate())),
+            attempt,
+            AttemptLog::new(AttemptRole::Initiator, "active_native_budget_fixture"),
+        ))
+        .await
+        .unwrap()
+        .unwrap_err();
+    assert_eq!(
+        MaintenanceDeferral::from_error(&error),
+        Some(&MaintenanceDeferral::Remote)
+    );
+    let reason = tokio::time::timeout(Duration::from_secs(2), control.control_handle().closed())
+        .await
+        .unwrap();
+    assert!(
+        matches!(reason, iroh::endpoint::ConnectionError::ApplicationClosed(close)
+        if close.error_code == ACTIVE_DEFERRED_CODE.into())
+    );
+    assert!(!held.is_current());
+    assert_eq!((original.stable_id(), remote.stable_id()), ids);
+    send.write_all(b"after!").await.unwrap();
+    incoming.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"after!");
+    reply.write_all(&bytes).await.unwrap();
+    receive.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"after!");
+    drop(held);
+    assert!(
+        b.udp_connector()
+            .observe(&hold, &b.admission_gate())
+            .await
+            .unwrap()
+            .is_current()
+    );
+    router.shutdown().await.unwrap();
+    tokio::join!(ae.close(), be.endpoint().close());
+    tokio::join!(a.close(), b.close());
 }
 
 #[tokio::test]

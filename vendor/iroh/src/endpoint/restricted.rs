@@ -1050,6 +1050,15 @@ impl ControlHandle {
     pub fn udp_local_ipv4_candidates(&self) -> Vec<std::net::SocketAddr> {
         self.endpoint.udp_local_ipv4_candidates()
     }
+    /// Check the endpoint's permission for an observation origin before budgeting it.
+    #[cfg(not(wasm_browser))]
+    pub fn allows_udp_observation(&self, observer: &crate::RelayUrl) -> bool {
+        self.endpoint
+            .inner
+            .static_config
+            .relay_resource_policy
+            .allows(observer, super::RelayResourceUse::Observation)
+    }
     /// Use the same actual UDP socket and resource policy for a QAD sequence.
     #[cfg(not(wasm_browser))]
     pub async fn observe_udp_mapping_sequence(

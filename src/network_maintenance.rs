@@ -872,7 +872,9 @@ impl Coordinator {
             }
             Ok(Err(error)) => {
                 self.status.cause = Some(format!("active improvement: {error:?}"));
-                if crate::session_maintenance::MaintenanceDeferral::from_error(&error).is_some() {
+                if crate::session_maintenance::MaintenanceDeferral::from_error(&error).is_some()
+                    || crate::session_maintenance::LocalNatBudgetError::is_local_limit(&error)
+                {
                     return Ok(true);
                 }
                 self.status.state = MaintenanceState::TemporarilyUnreachable;
@@ -1015,7 +1017,9 @@ impl Coordinator {
                         } => format!("{error}: {cause}"),
                         _ => error.to_string(),
                     });
-                    self.status.state = MaintenanceState::TemporarilyUnreachable;
+                    if !matches!(error, crate::resources::ResourceContactError::PathBudget(_)) {
+                        self.status.state = MaintenanceState::TemporarilyUnreachable;
+                    }
                 }
             }
             if self.activity.count.load(Ordering::Acquire) > 0 {

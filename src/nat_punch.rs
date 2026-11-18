@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     admission_gate::AdmissionGate,
     control_session::{CommitError, ControlSession, DataPathOpen, DataSession},
-    nat_mapping::NodeProbeBudget,
+    nat_mapping::{NodeProbeBudget, NodeRoundBudget, RoundPermit},
     nat_selector::{
         Analyzer, Behavior, BehaviorId, BehaviorScore, FeatureView, LearningScope, Recommendation,
         behaviors, initial_scores,
@@ -31,7 +31,7 @@ const FRAME_LIMIT: usize = 16 * 1024;
 const EXCHANGE_WAIT: Duration = Duration::from_secs(5);
 /// Supports the longest old 38-second plan, while bounding retained evidence.
 pub const SNAPSHOT_LIFETIME: Duration = Duration::from_secs(60);
-const MAX_OBSERVATIONS: usize = 64;
+pub(crate) const MAX_OBSERVATIONS: usize = 64;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -80,6 +80,15 @@ pub struct MappingSnapshot {
     wire: SnapshotWire,
     validity: Validity,
     observed_at: Instant,
+    round: Arc<Mutex<SnapshotRound>>,
+}
+
+#[derive(Debug, Default)]
+enum SnapshotRound {
+    #[default]
+    External,
+    Observed(RoundPermit),
+    Used,
 }
 
 impl MappingSnapshot {
@@ -110,6 +119,7 @@ impl MappingSnapshot {
             wire,
             validity: Validity::Sequence(sequence),
             observed_at,
+            round: Default::default(),
         })
     }
 
@@ -148,6 +158,7 @@ impl MappingSnapshot {
             wire,
             validity: Validity::Fallback { generation },
             observed_at: Instant::now(),
+            round: Default::default(),
         })
     }
 
@@ -169,6 +180,64 @@ impl MappingSnapshot {
             Validity::Sequence(sequence) => sequence.is_current_generation(),
             Validity::Fallback { generation } => generation.is_current(),
         }
+    }
+
+    pub(crate) fn with_round(self, mut permit: RoundPermit) -> Self {
+        permit.limit_deadline(self.expires_at());
+        permit.park();
+        *self.round.lock().expect("NAT snapshot round") = SnapshotRound::Observed(permit);
+        self
+    }
+
+    pub(crate) fn expires_at(&self) -> tokio::time::Instant {
+        let deadline = self.observed_at + SNAPSHOT_LIFETIME;
+        let deadline = match &self.validity {
+            Validity::Sequence(sequence) => sequence
+                .traversal_deadline()
+                .map_or(deadline, |end| deadline.min(end.into())),
+            Validity::Fallback { .. } => deadline,
+        };
+        deadline.into()
+    }
+
+    pub(crate) fn claim_round(
+        &self,
+        budget: &NodeRoundBudget,
+        generation: &ObservationValidity,
+        acquire: impl FnOnce() -> io::Result<RoundPermit>,
+    ) -> io::Result<RoundPermit> {
+        let mut round = self.round.lock().expect("NAT snapshot round");
+        match &*round {
+            SnapshotRound::Used => return Err(invalid("NAT snapshot round already consumed")),
+            SnapshotRound::External => {
+                if !self.is_current() {
+                    return Err(invalid("NAT snapshot is stale"));
+                }
+                let permit = acquire()?;
+                *round = SnapshotRound::Used;
+                return Ok(permit);
+            }
+            SnapshotRound::Observed(permit) => {
+                permit.check_owner(budget)?;
+            }
+        }
+        let SnapshotRound::Observed(permit) = std::mem::replace(&mut *round, SnapshotRound::Used)
+        else {
+            unreachable!()
+        };
+        permit.check_generation(generation)?;
+        permit.resume()?;
+        Ok(permit)
+    }
+
+    fn check_unmanaged(&self) -> io::Result<()> {
+        if !matches!(
+            *self.round.lock().expect("NAT snapshot round"),
+            SnapshotRound::External
+        ) {
+            return Err(invalid("snapshot requires its node NAT connector"));
+        }
+        Ok(())
     }
 }
 
@@ -263,6 +332,11 @@ enum Frame {
         generation: u64,
         round: Round,
     },
+    Unavailable {
+        network: [u8; 32],
+        generation: u64,
+        receipt: Round,
+    },
     Offer {
         round: Round,
         snapshot: SnapshotWire,
@@ -274,6 +348,12 @@ enum Frame {
     },
     Start {
         round: Round,
+    },
+    PlanUnavailable {
+        round: Round,
+    },
+    UnavailableAck {
+        receipt: Round,
     },
     Ack {
         round: Round,
@@ -363,7 +443,8 @@ async fn receive(exchange: &iroh::endpoint::ControlExchange) -> io::Result<Frame
     )
     .await
     .map_err(io::Error::other)??;
-    serde_json::from_slice(&bytes).map_err(io::Error::other)
+    serde_json::from_slice(&bytes)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
 }
 async fn open(control: &ControlSession) -> io::Result<iroh::endpoint::ControlExchange> {
     tokio::time::timeout(EXCHANGE_WAIT, control.open_control_exchange())
@@ -391,6 +472,145 @@ pub struct Attempt {
     winner_lease: Option<iroh::endpoint::UdpSocketPathLease>,
     feedback_ready: bool,
     phase_deadline: Option<tokio::time::Instant>,
+    allowance: AttemptAllowance,
+}
+
+#[derive(Debug)]
+enum AttemptAllowance {
+    Caller,
+    Node(Option<RoundPermit>),
+}
+
+/// Settle admission before starting observation or disclosing any candidates.
+/// The normal Hello/Challenge exchange also carries bounded deferral on the
+/// original restricted session, which must remain available to its caller.
+pub(crate) struct RoundAgreement {
+    scope: LearningScope,
+    round: Round,
+}
+
+fn unavailable(scope: &LearningScope, receipt: Round) -> Frame {
+    Frame::Unavailable {
+        network: scope.network,
+        generation: scope.secret_generation,
+        receipt,
+    }
+}
+
+fn peer_unavailable() -> io::Error {
+    crate::session_maintenance::MaintenanceDeferral::Remote.into()
+}
+
+async fn confirm_unavailable(
+    control: &ControlSession,
+    exchange: &iroh::endpoint::ControlExchange,
+    notice: Frame,
+    receipt: Round,
+) -> io::Result<()> {
+    send(exchange, notice).await?;
+    let exchange = tokio::time::timeout(EXCHANGE_WAIT, control.accept_control_exchange())
+        .await
+        .map_err(io::Error::other)??;
+    if !matches!(receive(&exchange).await?, Frame::UnavailableAck { receipt: ack } if ack == receipt)
+    {
+        return Err(invalid("wrong NAT allowance receipt"));
+    }
+    Ok(())
+}
+
+async fn acknowledge_unavailable(control: &ControlSession, receipt: Round) -> io::Result<()> {
+    send(&open(control).await?, Frame::UnavailableAck { receipt }).await
+}
+
+pub(crate) async fn begin_round(
+    control: &ControlSession,
+    gate: &AdmissionGate,
+    local_ready: bool,
+) -> io::Result<RoundAgreement> {
+    let scope = current_scope(control, gate)?;
+    let in_scope =
+        |network, generation| network == scope.network && generation == scope.secret_generation;
+    let check_scope = || {
+        if current_scope(control, gate)? != scope {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "NAT round scope changed",
+            ));
+        }
+        Ok(())
+    };
+    let round = if control.is_dialing_side() {
+        let exchange = open(control).await?;
+        let hello = if local_ready {
+            Frame::Hello {
+                network: scope.network,
+                generation: scope.secret_generation,
+            }
+        } else {
+            unavailable(&scope, Round::fresh())
+        };
+        send(&exchange, hello).await?;
+        let frame = receive(&exchange).await?;
+        check_scope()?;
+        match frame {
+            Frame::Challenge {
+                network,
+                generation,
+                round,
+            } if in_scope(network, generation) && local_ready => round,
+            Frame::Unavailable {
+                network,
+                generation,
+                receipt,
+            } if in_scope(network, generation) => {
+                acknowledge_unavailable(control, receipt).await?;
+                return Err(peer_unavailable());
+            }
+            _ => return Err(invalid("wrong NAT challenge scope or frame")),
+        }
+    } else {
+        let exchange = tokio::time::timeout(EXCHANGE_WAIT, control.accept_control_exchange())
+            .await
+            .map_err(io::Error::other)??;
+        let frame = receive(&exchange).await?;
+        check_scope()?;
+        match frame {
+            Frame::Unavailable {
+                network,
+                generation,
+                ..
+            } if in_scope(network, generation) => {
+                let receipt = Round::fresh();
+                confirm_unavailable(control, &exchange, unavailable(&scope, receipt), receipt)
+                    .await?;
+                return Err(peer_unavailable());
+            }
+            Frame::Hello {
+                network,
+                generation,
+            } if in_scope(network, generation) => {
+                if !local_ready {
+                    let receipt = Round::fresh();
+                    confirm_unavailable(control, &exchange, unavailable(&scope, receipt), receipt)
+                        .await?;
+                    return Err(peer_unavailable());
+                }
+                let round = Round::fresh();
+                send(
+                    &exchange,
+                    Frame::Challenge {
+                        network: scope.network,
+                        generation: scope.secret_generation,
+                        round,
+                    },
+                )
+                .await?;
+                round
+            }
+            _ => return Err(invalid("wrong NAT network or hello")),
+        }
+    };
+    Ok(RoundAgreement { scope, round })
 }
 
 pub async fn coordinate_server(
@@ -401,28 +621,36 @@ pub async fn coordinate_server(
 ) -> io::Result<Attempt> {
     let scope = current_scope(control, gate)?;
     check_scope(control, gate, &scope, snapshot)?;
-    let exchange = tokio::time::timeout(EXCHANGE_WAIT, control.accept_control_exchange())
-        .await
-        .map_err(io::Error::other)?
-        .map_err(io::Error::other)?;
-    match receive(&exchange).await? {
-        Frame::Hello {
-            network,
-            generation,
-        } if network == scope.network && generation == scope.secret_generation => {}
-        _ => return Err(invalid("wrong NAT network or hello")),
+    snapshot.check_unmanaged()?;
+    let agreement = begin_round(control, gate, true).await?;
+    coordinate_server_round(control, gate, snapshot, analyzer, agreement, None).await
+}
+
+pub(crate) async fn coordinate_round(
+    control: &ControlSession,
+    gate: &AdmissionGate,
+    snapshot: &MappingSnapshot,
+    analyzer: &Arc<Mutex<Analyzer>>,
+    agreement: RoundAgreement,
+    permit: RoundPermit,
+) -> io::Result<Attempt> {
+    if control.is_dialing_side() {
+        coordinate_client_round(control, gate, snapshot, agreement, Some(permit)).await
+    } else {
+        coordinate_server_round(control, gate, snapshot, analyzer, agreement, Some(permit)).await
     }
-    let round = Round::fresh();
+}
+
+async fn coordinate_server_round(
+    control: &ControlSession,
+    gate: &AdmissionGate,
+    snapshot: &MappingSnapshot,
+    analyzer: &Arc<Mutex<Analyzer>>,
+    agreement: RoundAgreement,
+    permit: Option<RoundPermit>,
+) -> io::Result<Attempt> {
+    let RoundAgreement { scope, round } = agreement;
     check_scope(control, gate, &scope, snapshot)?;
-    send(
-        &exchange,
-        Frame::Challenge {
-            network: scope.network,
-            generation: scope.secret_generation,
-            round,
-        },
-    )
-    .await?;
     let exchange = tokio::time::timeout(EXCHANGE_WAIT, control.accept_control_exchange())
         .await
         .map_err(io::Error::other)?
@@ -465,12 +693,28 @@ pub async fn coordinate_server(
         &snapshot.wire,
         &remote,
     );
+    let attempt = Attempt::new(
+        control,
+        snapshot,
+        RoundAgreement { scope, round },
+        plan,
+        remote,
+        recommendation,
+        permit,
+    );
+    if let Err(error) = attempt.check_plan_allowance(control) {
+        // The initial restricted admission may close this connection after
+        // returning the local limit. Let the peer receive the protected result.
+        let _ =
+            confirm_unavailable(control, &exchange, Frame::PlanUnavailable { round }, round).await;
+        return Err(error);
+    }
     send(
         &exchange,
         Frame::Plan {
             round,
             snapshot: snapshot.wire.clone(),
-            plan: plan.clone(),
+            plan: attempt.plan.clone(),
         },
     )
     .await?;
@@ -478,10 +722,15 @@ pub async fn coordinate_server(
         .await
         .map_err(io::Error::other)?
         .map_err(io::Error::other)?;
-    if !matches!(receive(&exchange).await?,Frame::Start {round:started} if started == round) {
-        return Err(invalid("old or cancelled NAT start"));
+    match receive(&exchange).await? {
+        Frame::Start { round: started } if started == round => {}
+        Frame::PlanUnavailable { round: declined } if declined == round => {
+            acknowledge_unavailable(control, round).await?;
+            return Err(peer_unavailable());
+        }
+        _ => return Err(invalid("old or cancelled NAT start")),
     }
-    check_scope(control, gate, &scope, snapshot)?;
+    check_scope(control, gate, &attempt.scope, snapshot)?;
     send(&exchange, Frame::Ack { round }).await?;
     // The visitor has checked the final scope and received the plan before an
     // unavailable executor can close the coordinator's connection.
@@ -492,25 +741,8 @@ pub async fn coordinate_server(
     if !matches!(receive(&exchange).await?,Frame::Established {round:received} if received==round) {
         return Err(invalid("NAT plan receipt mismatch"));
     }
-    check_scope(control, gate, &scope, snapshot)?;
-    Ok(Attempt {
-        round,
-        local: plan.c,
-        plan,
-        remote_target: remote.target(),
-        remote_snapshot: remote,
-        scope,
-        connection_id: control.stable_id(),
-        snapshot: snapshot.clone(),
-        recommendation,
-        submitted: false,
-        finished: false,
-        execution_trace: None,
-        local_winner: None,
-        winner_lease: None,
-        feedback_ready: false,
-        phase_deadline: None,
-    })
+    check_scope(control, gate, &attempt.scope, snapshot)?;
+    Ok(attempt.park())
 }
 
 pub async fn coordinate_client(
@@ -520,26 +752,19 @@ pub async fn coordinate_client(
 ) -> io::Result<Attempt> {
     let scope = current_scope(control, gate)?;
     check_scope(control, gate, &scope, snapshot)?;
-    let exchange = open(control).await?;
-    send(
-        &exchange,
-        Frame::Hello {
-            network: scope.network,
-            generation: scope.secret_generation,
-        },
-    )
-    .await?;
-    let Frame::Challenge {
-        network,
-        generation,
-        round,
-    } = receive(&exchange).await?
-    else {
-        return Err(invalid("NAT challenge required"));
-    };
-    if network != scope.network || generation != scope.secret_generation {
-        return Err(invalid("wrong NAT challenge scope"));
-    }
+    snapshot.check_unmanaged()?;
+    let agreement = begin_round(control, gate, true).await?;
+    coordinate_client_round(control, gate, snapshot, agreement, None).await
+}
+
+async fn coordinate_client_round(
+    control: &ControlSession,
+    gate: &AdmissionGate,
+    snapshot: &MappingSnapshot,
+    agreement: RoundAgreement,
+    permit: Option<RoundPermit>,
+) -> io::Result<Attempt> {
+    let RoundAgreement { scope, round } = agreement;
     check_scope(control, gate, &scope, snapshot)?;
     let exchange = open(control).await?;
     check_scope(control, gate, &scope, snapshot)?;
@@ -551,17 +776,18 @@ pub async fn coordinate_client(
         },
     )
     .await?;
-    let Frame::Plan {
-        round: planned,
-        snapshot: remote,
-        plan,
-    } = receive(&exchange).await?
-    else {
-        return Err(invalid("NAT plan required"));
+    let (remote, plan) = match receive(&exchange).await? {
+        Frame::Plan {
+            round: planned,
+            snapshot,
+            plan,
+        } if planned == round => (snapshot, plan),
+        Frame::PlanUnavailable { round: declined } if declined == round => {
+            acknowledge_unavailable(control, round).await?;
+            return Err(peer_unavailable());
+        }
+        _ => return Err(invalid("old or missing NAT plan")),
     };
-    if planned != round {
-        return Err(invalid("old NAT plan"));
-    }
     remote.validate()?;
     if let (Some(c), Some(v)) = (remote.view(), snapshot.wire.view()) {
         let expected = initial_scores(c.feature(), v.feature());
@@ -598,32 +824,29 @@ pub async fn coordinate_client(
         }
     }
     check_scope(control, gate, &scope, snapshot)?;
+    let attempt = Attempt::new(
+        control,
+        snapshot,
+        RoundAgreement { scope, round },
+        plan,
+        remote,
+        None,
+        permit,
+    );
     let exchange = open(control).await?;
+    if let Err(error) = attempt.check_plan_allowance(control) {
+        let _ =
+            confirm_unavailable(control, &exchange, Frame::PlanUnavailable { round }, round).await;
+        return Err(error);
+    }
     send(&exchange, Frame::Start { round }).await?;
     if !matches!(receive(&exchange).await?,Frame::Ack {round:acked} if acked == round) {
         return Err(invalid("NAT ack mismatch"));
     }
-    check_scope(control, gate, &scope, snapshot)?;
+    check_scope(control, gate, &attempt.scope, snapshot)?;
     let exchange = open(control).await?;
     send(&exchange, Frame::Established { round }).await?;
-    Ok(Attempt {
-        round,
-        local: plan.v,
-        plan,
-        remote_target: remote.target(),
-        remote_snapshot: remote,
-        scope,
-        connection_id: control.stable_id(),
-        snapshot: snapshot.clone(),
-        recommendation: None,
-        submitted: false,
-        finished: false,
-        execution_trace: None,
-        local_winner: None,
-        winner_lease: None,
-        feedback_ready: false,
-        phase_deadline: None,
-    })
+    Ok(attempt.park())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -636,6 +859,82 @@ pub enum ExecutionStatus {
 }
 
 impl Attempt {
+    fn new(
+        control: &ControlSession,
+        snapshot: &MappingSnapshot,
+        agreement: RoundAgreement,
+        plan: Plan,
+        remote: SnapshotWire,
+        recommendation: Option<Recommendation>,
+        permit: Option<RoundPermit>,
+    ) -> Self {
+        Self {
+            round: agreement.round,
+            local: if control.is_dialing_side() {
+                plan.v
+            } else {
+                plan.c
+            },
+            plan,
+            remote_target: remote.target(),
+            remote_snapshot: remote,
+            scope: agreement.scope,
+            connection_id: control.stable_id(),
+            snapshot: snapshot.clone(),
+            recommendation,
+            submitted: false,
+            finished: false,
+            execution_trace: None,
+            local_winner: None,
+            winner_lease: None,
+            feedback_ready: false,
+            phase_deadline: None,
+            allowance: permit.map_or(AttemptAllowance::Caller, |permit| {
+                AttemptAllowance::Node(Some(permit))
+            }),
+        }
+    }
+
+    fn park(mut self) -> Self {
+        if let AttemptAllowance::Node(Some(permit)) = &mut self.allowance {
+            permit.limit_deadline(self.snapshot.expires_at());
+            permit.park();
+        }
+        self
+    }
+
+    fn check_plan_allowance(&self, control: &ControlSession) -> io::Result<()> {
+        if let AttemptAllowance::Node(Some(permit)) = &self.allowance {
+            let requested = self.peer_datagram_bound();
+            if let Err(error) = permit.check_peer_plan(requested) {
+                control.diagnostic().event(
+                    "probe-budget", "denied",
+                    serde_json::json!({"resource":"punch_datagrams","requested":requested,"remaining":permit.peer_remaining()}),
+                );
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn take_round(&mut self, budget: &NodeRoundBudget) -> io::Result<RoundPermit> {
+        if let AttemptAllowance::Node(permit @ Some(_)) = &mut self.allowance {
+            permit
+                .as_ref()
+                .expect("available round")
+                .check_owner(budget)?;
+            return Ok(permit.take().expect("available round"));
+        }
+        Err(invalid("NAT attempt has no unconsumed node round"))
+    }
+
+    fn check_caller_allowance(&self) -> io::Result<()> {
+        if !matches!(self.allowance, AttemptAllowance::Caller) {
+            return Err(invalid("attempt requires its node NAT connector"));
+        }
+        Ok(())
+    }
+
     fn log_handoff(&self, control: &ControlSession, stage: &str, error: Option<&io::Error>) {
         println!(
             "[DEBUG-udp-handoff] {}",
@@ -949,6 +1248,7 @@ impl Attempt {
         gate: &AdmissionGate,
         budget: &NodeProbeBudget,
     ) -> io::Result<ExecutionStatus> {
+        self.check_caller_allowance()?;
         if self.submitted || self.finished || control.stable_id() != self.connection_id {
             return Err(invalid("old, submitted or finished NAT attempt"));
         }
@@ -992,6 +1292,7 @@ impl Attempt {
         gate: &AdmissionGate,
         budget: &NodeProbeBudget,
     ) -> io::Result<ExecutionStatus> {
+        self.check_caller_allowance()?;
         self.execute_checked(control, gate, budget, &|| Ok(()))
             .await
     }
@@ -1243,6 +1544,9 @@ impl Attempt {
     }
 
     pub fn finish_failure(&mut self) {
+        if let AttemptAllowance::Node(permit) = &mut self.allowance {
+            permit.take();
+        }
         self.winner_lease.take();
         self.finished = true;
         self.recommendation = None;

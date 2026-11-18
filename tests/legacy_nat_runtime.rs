@@ -65,6 +65,7 @@ async fn native_upgrade_pair(
         Some((key, visitor.admission_gate())),
         advertised,
         relay,
+        &[],
     )
     .await;
     (directories, visitor, pair)
@@ -422,6 +423,7 @@ async fn formal_entry_observes_selects_executes_and_confirms_original_business()
     );
     assert_eq!(cr.unwrap(), b"visiting-member");
     assert_eq!(vr.unwrap(), b"accepting-member");
+    pair.change_network_generation().await;
     let (c2, v2) = pair.connect().await;
     let (c_next, v_next) =
         tokio::join!(cn.prepare(&c2, &pair.c_gate), vn.prepare(&v2, &pair.v_gate));
@@ -434,6 +436,423 @@ async fn formal_entry_observes_selects_executes_and_confirms_original_business()
         "one recommendation-1 and actual business+2 retained across connections"
     );
     pair.close().await;
+}
+
+#[tokio::test]
+async fn formal_entry_replenishes_a_complete_round_in_a_new_network_generation() {
+    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+
+    let pair = Pair::new().await;
+    let policy = UdpPolicy {
+        additional_observations: 2,
+        ..Default::default()
+    };
+    let cn = NatConnector::new(Some(pair.observers.clone()), policy.clone());
+    let vn = NatConnector::new(Some(pair.observers.clone()), policy);
+    for round in 0..2 {
+        let (c, v) = pair.connect().await;
+        let (ca, va) = tokio::join!(cn.prepare(&c, &pair.c_gate), vn.prepare(&v, &pair.v_gate));
+        let (mut ca, mut va) = (ca.unwrap(), va.unwrap());
+        let (cr, vr) = tokio::join!(
+            cn.execute(&mut ca, &c, &pair.c_gate),
+            vn.execute(&mut va, &v, &pair.v_gate)
+        );
+        cr.unwrap();
+        vr.unwrap();
+        assert!(ca.execution_trace().unwrap().probes + va.execution_trace().unwrap().probes > 0);
+        if round == 0 {
+            pair.change_network_generation().await;
+        }
+    }
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_round() {
+    use miopunch_native_probe::{
+        control_session::CommitError,
+        nat_connection::{NatConnector, UdpPolicy},
+        network_maintenance::MaintenancePolicy,
+        resources::{Resource, ResourceUse},
+    };
+    use std::io::ErrorKind;
+    use tokio::net::UdpSocket;
+
+    let directories = tempfile::tempdir().unwrap();
+    let path = directories.path().join("visitor");
+    let initial = NativeNetwork::create(&path).await.unwrap();
+    let mut config = initial.resource_configuration().unwrap();
+    config.maintenance.exploration_interval_ms = 250;
+    let mut stun_urls = Vec::new();
+    let mut stun_servers = Vec::new();
+    let mut qad_origins = Vec::new();
+    let mut blackholes = Vec::new();
+    let stun_requests = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    for _ in 0..2 {
+        let qad = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let endpoint = qad.local_addr().unwrap();
+        qad_origins.push(RelayConfig::new(
+            format!("https://{endpoint}/").parse().unwrap(),
+            Some(RelayQuicConfig::new(endpoint.port())),
+        ));
+        blackholes.push(qad);
+        let stun = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        stun_urls.push(format!("stun://{}/", stun.local_addr().unwrap()));
+        let received = stun_requests.clone();
+        stun_servers.push(tokio::spawn(async move {
+            for _ in 0..2 {
+                reply_to_stun(&stun).await;
+                received.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+        }));
+    }
+    config.replacement = Some(
+        stun_urls
+            .iter()
+            .map(|url| Resource {
+                url: url.clone(),
+                uses: [ResourceUse::Observation].into(),
+                limitation: "owned test observer".into(),
+            })
+            .collect(),
+    );
+    initial.save_resource_configuration(&config).unwrap();
+    initial.close().await;
+    let allowed = qad_origins
+        .iter()
+        .map(|observer| observer.url.clone())
+        .chain(config.udp_stun_resources())
+        .collect::<Vec<_>>();
+    assert_eq!(allowed.len(), 4);
+    let denied_qad = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let address = denied_qad.local_addr().unwrap();
+    qad_origins.push(RelayConfig::new(
+        format!("https://{address}/").parse().unwrap(),
+        Some(RelayQuicConfig::new(address.port())),
+    ));
+    let visitor = NativeNetwork::open_with_udp_resources(
+        &path,
+        Some(RelayMap::from_iter(qad_origins)),
+        UdpPolicy {
+            additional_observations: 4,
+            max_rounds: 2,
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    let key = SecretKey::from_bytes(
+        &std::fs::read(path.join("node.key"))
+            .unwrap()
+            .try_into()
+            .unwrap(),
+    );
+    let pair = Pair::build(
+        Ipv4Addr::LOCALHOST.into(),
+        false,
+        Some((key, visitor.admission_gate())),
+        &[],
+        true,
+        &allowed,
+    )
+    .await;
+    let peer_connector = NatConnector::new(None, UdpPolicy::default())
+        .with_maintenance_policy(&MaintenancePolicy {
+            exploration_interval_ms: 250,
+            ..Default::default()
+        })
+        .unwrap();
+    let (revoke_peer, revoke_client) = pair.connect().await;
+    let revoke = async {
+        let (mut first, mut second) = ([0; 1500], [0; 1500]);
+        tokio::time::timeout(Duration::from_secs(2), async {
+            tokio::select! {
+                result = blackholes[0].recv_from(&mut first) => result.unwrap(),
+                result = blackholes[1].recv_from(&mut second) => result.unwrap(),
+            }
+        })
+        .await
+        .unwrap();
+        visitor.udp_connector().set_udp_enabled(false);
+    };
+    let (observed, ()) = tokio::join!(
+        visitor
+            .udp_connector()
+            .observe(&revoke_client, &pair.v_gate),
+        revoke
+    );
+    assert_eq!(observed.unwrap_err().kind(), ErrorKind::PermissionDenied);
+    assert_eq!(stun_requests.load(std::sync::atomic::Ordering::Relaxed), 0);
+    visitor.udp_connector().set_udp_enabled(true);
+    drop((revoke_peer, revoke_client));
+    pair.change_network_generation().await;
+    for socket in &blackholes {
+        while socket.try_recv(&mut [0; 1500]).is_ok() {}
+    }
+    let (held_peer, _held_client) = pair.connect().await;
+    let held = peer_connector
+        .observe(&held_peer, &pair.c_gate)
+        .await
+        .unwrap();
+    let (mut peer, mut client) = pair.connect().await;
+    let ids = (client.stable_id(), peer.stable_id());
+    let nonce = [0u8; 16];
+    client
+        .queue_business(b"client waiting across deferral".to_vec())
+        .unwrap();
+    peer.queue_business(b"peer waiting across deferral".to_vec())
+        .unwrap();
+    let (result, peer_result) = tokio::join!(visitor.upgrade_udp(client), async {
+        scripted_direct_reply(
+            &peer,
+            serde_json::json!({"Result":{"nonce":nonce,"available":false}}),
+        )
+        .await;
+        peer_connector.prepare(&peer, &pair.c_gate).await
+    });
+    assert_eq!(peer_result.unwrap_err().kind(), ErrorKind::WouldBlock);
+    let Err(CommitError::Retryable { error, session }) = result else {
+        panic!("peer budget must defer the original restricted upgrade");
+    };
+    assert_eq!(error.kind(), ErrorKind::WouldBlock);
+    assert!(error.to_string().contains("peer deferred"));
+    assert_eq!(session.stable_id(), ids.0);
+    assert!(!session.has_data_path());
+    drop(held);
+    pair.change_network_generation().await;
+
+    let mut next = (peer, session);
+    for round in 0..2 {
+        let (peer, client) = next;
+        let started = tokio::time::Instant::now();
+        let q = async {
+            let (mut first, mut second) = ([0; 1500], [0; 1500]);
+            tokio::select! {
+                got = blackholes[0].recv_from(&mut first) => { got.unwrap(); 1 }
+                got = blackholes[1].recv_from(&mut second) => { got.unwrap(); 0 }
+            }
+        };
+        let work = async {
+            tokio::join!(visitor.upgrade_udp(client), async {
+                scripted_direct_reply(
+                    &peer,
+                    serde_json::json!({"Result":{"nonce":nonce,"available":false}}),
+                )
+                .await;
+                let mut attempt = peer_connector.prepare(&peer, &pair.c_gate).await.unwrap();
+                assert_eq!(attempt.mapped_candidates(), &[pair.v.bound_sockets()[0]; 2]);
+                peer_connector
+                    .execute(&mut attempt, &peer, &pair.c_gate)
+                    .await
+                    .unwrap();
+                let data = attempt
+                    .commit_winner_path(peer, &pair.c_gate)
+                    .await
+                    .unwrap();
+                (attempt, data)
+            })
+        };
+        let (untouched, (upgrade, (mut peer_attempt, mut peer_data))) =
+            tokio::join!(tokio::time::timeout(Duration::from_secs(6), q), work);
+        let mut upgrade = upgrade.unwrap();
+        assert!(
+            upgrade
+                .attempt
+                .as_ref()
+                .unwrap()
+                .execution_trace()
+                .is_some()
+        );
+        let mut drain = [0; 1500];
+        assert_eq!(
+            blackholes[untouched.unwrap()]
+                .try_recv(&mut drain)
+                .unwrap_err()
+                .kind(),
+            ErrorKind::WouldBlock,
+            "the first timed-out QAD origin ended the QAD sequence"
+        );
+        for blackhole in &blackholes {
+            while blackhole.try_recv(&mut drain).is_ok() {}
+        }
+        if round == 0 {
+            assert_eq!(upgrade.data.connection().stable_id(), ids.0);
+            assert_eq!(peer_data.connection().stable_id(), ids.1);
+            assert_eq!(
+                upgrade.data.take_pending_business().pop_front().unwrap(),
+                b"client waiting across deferral"
+            );
+            assert_eq!(
+                peer_data.take_pending_business().pop_front().unwrap(),
+                b"peer waiting across deferral"
+            );
+        }
+        let (a, b) = tokio::join!(
+            visitor.udp_connector().exchange_upgrade_business(
+                &mut upgrade,
+                &pair.v_gate,
+                b"visitor byte"
+            ),
+            peer_connector.exchange_business(
+                &mut peer_attempt,
+                &peer_data,
+                &pair.c_gate,
+                b"acceptor byte"
+            ),
+        );
+        assert_eq!(a.unwrap(), b"acceptor byte");
+        assert_eq!(b.unwrap(), b"visitor byte");
+        if round == 1 {
+            break;
+        }
+        next = pair.connect().await;
+        assert_eq!(
+            visitor
+                .udp_connector()
+                .observe(&next.1, &pair.v_gate)
+                .await
+                .unwrap_err()
+                .kind(),
+            ErrorKind::WouldBlock
+        );
+        tokio::time::sleep_until(started + Duration::from_secs(9)).await;
+    }
+    for server in stun_servers {
+        tokio::time::timeout(Duration::from_secs(1), server)
+            .await
+            .unwrap()
+            .unwrap();
+    }
+    assert_eq!(stun_requests.load(std::sync::atomic::Ordering::Relaxed), 4);
+    assert_eq!(
+        denied_qad.try_recv(&mut [0; 1500]).unwrap_err().kind(),
+        ErrorKind::WouldBlock
+    );
+    pair.close().await;
+    visitor.close().await;
+}
+
+async fn reply_to_stun(socket: &tokio::net::UdpSocket) {
+    let mut request = [0; 1500];
+    let (len, source) = socket.recv_from(&mut request).await.unwrap();
+    assert_eq!(len, 20);
+    assert_eq!(&request[..8], &[0, 1, 0, 0, 0x21, 0x12, 0xa4, 0x42]);
+    let SocketAddr::V4(source) = source else {
+        panic!("IPv4 observation required")
+    };
+    let mut reply = [0u8; 32];
+    reply[..8].copy_from_slice(&[1, 1, 0, 12, 0x21, 0x12, 0xa4, 0x42]);
+    reply[8..20].copy_from_slice(&request[8..20]);
+    reply[20..26].copy_from_slice(&[0, 0x20, 0, 8, 0, 1]);
+    reply[26..28].copy_from_slice(&(source.port() ^ 0x2112).to_be_bytes());
+    reply[28..32].copy_from_slice(&(u32::from(*source.ip()) ^ 0x2112a442).to_be_bytes());
+    socket.send_to(&reply, source).await.unwrap();
+}
+
+#[tokio::test]
+async fn timed_out_enhanced_plan_does_not_reuse_its_allowance_for_round_two() {
+    use miopunch_native_probe::{control_session::CommitError, nat_connection::UdpPolicy};
+    let directories = tempfile::tempdir().unwrap();
+    let path = directories.path().join("visitor");
+    let initial = NativeNetwork::create(&path).await.unwrap();
+    let mut config = initial.resource_configuration().unwrap();
+    config.replacement = Some(Vec::new());
+    initial.save_resource_configuration(&config).unwrap();
+    initial.close().await;
+    let visitor = NativeNetwork::open_with_udp_resources(
+        &path,
+        None,
+        UdpPolicy {
+            max_rounds: 2,
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    let key = SecretKey::from_bytes(
+        &std::fs::read(path.join("node.key"))
+            .unwrap()
+            .try_into()
+            .unwrap(),
+    );
+    let pair = Pair::build(
+        Ipv4Addr::LOCALHOST.into(),
+        false,
+        Some((key, visitor.admission_gate())),
+        &[],
+        true,
+        &[],
+    )
+    .await;
+    let dead = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let generation = pair.c.udp_network_generation();
+    let now = Instant::now();
+    let fallback = MappingSnapshot::fallback_generation(
+        generation.clone(),
+        UdpObservation::Fresh {
+            addresses: vec![dead.local_addr().unwrap()],
+            observed_at: now,
+            valid_until: now + Duration::from_secs(20),
+            mapping_varies_by_dest: None,
+            validity: generation,
+        },
+    )
+    .unwrap();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(12);
+    let (peer, mut client) = pair.connect_until(Some(deadline)).await;
+    let id = client.stable_id();
+    let nonce = [0u8; 16];
+    client
+        .queue_business(b"held while waiting for another round".to_vec())
+        .unwrap();
+    let analyzer = Arc::new(Mutex::new(Analyzer::new(Instant::now())));
+    let script = async {
+        scripted_direct_reply(
+            &peer,
+            serde_json::json!({"Result":{"nonce":nonce,"available":false}}),
+        )
+        .await;
+        let first = nat_punch::coordinate_server(&peer, &pair.c_gate, &fallback, &analyzer)
+            .await
+            .unwrap();
+        assert!(!first.plan().disabled);
+        // Keep the original session alive while the first phase has no winner.
+        let exchange = peer.accept_control_exchange().await.unwrap();
+        let frame: serde_json::Value = serde_json::from_slice(
+            &exchange
+                .recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated {
+                    maximum: 16 * 1024,
+                })
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(frame.get("Unavailable").is_some(), "{frame}");
+        send_json(&exchange, frame).await;
+    };
+    let (result, ()) = tokio::time::timeout_at(deadline, async {
+        tokio::join!(visitor.upgrade_udp(client), script)
+    })
+    .await
+    .unwrap();
+    let Err(CommitError::Retryable { error, session }) = result else {
+        panic!("a second enhanced round must observe the original cooldown");
+    };
+    assert!(
+        error
+            .to_string()
+            .contains("local enhanced-round budget deferred")
+    );
+    assert_eq!(session.stable_id(), id);
+    assert!(!session.has_data_path());
+    assert!(
+        dead.try_recv(&mut [0; 1500]).is_ok(),
+        "the first plan sent a real peer probe"
+    );
+    pair.close().await;
+    visitor.close().await;
 }
 
 #[tokio::test]
@@ -510,13 +929,13 @@ async fn formal_entry_permission_and_complete_budget_stop_before_execution() {
         },
     );
     let error = low.execute(&mut ca, &c, &pair.c_gate).await.unwrap_err();
-    assert_eq!(error.to_string(), "NAT complete-plan budget insufficient");
+    assert_eq!(error.to_string(), "foreign NAT round allowance");
     assert!(ca.execution_trace().is_none());
     assert!(ca.local_winner().is_none());
-    let run = cn.execute(&mut va, &v, &pair.v_gate);
+    let run = vn.execute(&mut va, &v, &pair.v_gate);
     let disable = async {
         tokio::time::sleep(Duration::from_millis(30)).await;
-        cn.set_udp_enabled(false);
+        vn.set_udp_enabled(false);
     };
     let (result, _) = tokio::join!(run, disable);
     assert_eq!(
@@ -529,6 +948,167 @@ async fn formal_entry_permission_and_complete_budget_stop_before_execution() {
         "disabled during the200ms sender delay"
     );
     assert!(va.local_winner().is_none());
+
+    let (c, v) = pair.connect().await;
+    let spare = NatConnector::new(None, UdpPolicy::default());
+    let (cr, vr) = tokio::join!(
+        low.prepare(&c, &pair.c_gate),
+        spare.prepare(&v, &pair.v_gate)
+    );
+    assert_eq!(
+        cr.unwrap_err().to_string(),
+        "NAT complete-plan budget insufficient"
+    );
+    assert_eq!(
+        vr.unwrap_err().to_string(),
+        "peer deferred the active path attempt"
+    );
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn split_round_snapshot_and_attempt_have_one_owner_and_one_execution() {
+    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    use std::io::ErrorKind;
+
+    let pair = Pair::without_observers().await;
+    let (c, v) = pair.connect().await;
+    let (c2, _) = pair.connect().await;
+    let cn = NatConnector::new(None, UdpPolicy::default());
+    let vn = NatConnector::new(None, UdpPolicy::default());
+    let cs = cn.observe(&c, &pair.c_gate).await.unwrap();
+    let duplicate = cs.clone();
+    // Exercise caller-supplied evidence on the peer through the same seam.
+    let vs = MappingSnapshot::fallback_generation(
+        pair.v.udp_network_generation(),
+        UdpObservation::Disabled,
+    )
+    .unwrap()
+    .with_assisted(pair.v.bound_sockets())
+    .unwrap();
+    assert_eq!(
+        cn.clone()
+            .observe(&c2, &pair.c_gate)
+            .await
+            .unwrap_err()
+            .kind(),
+        ErrorKind::WouldBlock,
+    );
+    assert_eq!(
+        vn.coordinate(&c, &pair.c_gate, &duplicate)
+            .await
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidInput,
+    );
+    let (contending, waiting) = pair.connect().await;
+    let external = MappingSnapshot::fallback_generation(
+        pair.c.udp_network_generation(),
+        UdpObservation::Disabled,
+    )
+    .unwrap();
+    let idle_peer = NatConnector::new(None, UdpPolicy::default());
+    let (local, remote) = tokio::join!(
+        cn.coordinate(&contending, &pair.c_gate, &external),
+        idle_peer.prepare(&waiting, &pair.v_gate),
+    );
+    assert!(
+        local
+            .unwrap_err()
+            .to_string()
+            .contains("local enhanced-round budget deferred")
+    );
+    assert!(remote.unwrap_err().to_string().contains("peer deferred"));
+    let (ca, va) = tokio::join!(
+        cn.coordinate(&c, &pair.c_gate, &cs),
+        vn.coordinate(&v, &pair.v_gate, &vs),
+    );
+    let (mut ca, mut va) = (ca.unwrap(), va.unwrap());
+    assert_eq!(ca.plan(), va.plan());
+    for (connector, control, gate, copy) in [
+        (&cn, &c, &pair.c_gate, duplicate),
+        (&vn, &v, &pair.v_gate, vs.clone()),
+    ] {
+        assert_eq!(
+            connector
+                .coordinate(control, gate, &copy)
+                .await
+                .unwrap_err()
+                .kind(),
+            ErrorKind::InvalidData
+        );
+    }
+    assert_eq!(
+        ca.execute(&c, &pair.c_gate, &NodeProbeBudget::new(0, usize::MAX))
+            .await
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidData,
+    );
+    let cloned = cn.clone();
+    let (cr, vr) = tokio::join!(
+        cloned.execute(&mut ca, &c, &pair.c_gate),
+        vn.execute(&mut va, &v, &pair.v_gate),
+    );
+    cr.unwrap();
+    vr.unwrap();
+    assert_eq!(
+        cn.execute(&mut ca, &c, &pair.c_gate)
+            .await
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidData
+    );
+    pair.change_network_generation().await;
+    let (c3, _) = pair.connect().await;
+    let snapshot = cn.observe(&c3, &pair.c_gate).await.unwrap();
+    // The completed Attempt still owns its winner, with the round already released.
+    assert!(ca.local_winner().is_some() && snapshot.is_current());
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn discarded_and_expired_split_results_release_only_their_own_occupancy() {
+    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    use std::io::ErrorKind;
+
+    let pair = Pair::without_observers().await;
+    let cn = NatConnector::new(None, UdpPolicy::default());
+    let vn = NatConnector::new(None, UdpPolicy::default());
+    let (c, _) = pair.connect().await;
+    let snapshot = cn.observe(&c, &pair.c_gate).await.unwrap();
+    drop(snapshot);
+    assert_eq!(
+        cn.observe(&c, &pair.c_gate).await.unwrap_err().kind(),
+        ErrorKind::WouldBlock
+    );
+    pair.change_network_generation().await;
+    let (new_c, _new_v) = pair.connect().await;
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+    let (c, v) = pair.connect_until(Some(deadline)).await;
+    let (ca, va) = tokio::join!(cn.prepare(&c, &pair.c_gate), vn.prepare(&v, &pair.v_gate));
+    let mut ca = ca.unwrap();
+    drop(va.unwrap());
+    pair.change_network_generation().await;
+    assert_eq!(
+        cn.observe(&new_c, &pair.c_gate).await.unwrap_err().kind(),
+        ErrorKind::WouldBlock,
+        "a network change does not take an outstanding permit away before expiry",
+    );
+    let (_fresh_c, fresh_v) = pair.connect().await;
+    let old_snapshot = vn.observe(&fresh_v, &pair.v_gate).await.unwrap();
+    drop(old_snapshot);
+    tokio::time::sleep_until(deadline).await;
+    let next = cn.observe(&new_c, &pair.c_gate).await.unwrap();
+    let error = cn.execute(&mut ca, &c, &pair.c_gate).await.unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::TimedOut);
+    drop(ca);
+    let (third_c, _third_v) = pair.connect().await;
+    assert_eq!(
+        cn.observe(&third_c, &pair.c_gate).await.unwrap_err().kind(),
+        ErrorKind::WouldBlock
+    );
+    assert!(next.is_current());
     pair.close().await;
 }
 
@@ -650,7 +1230,7 @@ impl Pair {
     }
 
     async fn with_observers(bind: std::net::IpAddr, observe: bool) -> Self {
-        Self::build(bind, observe, None, &[], false).await
+        Self::build(bind, observe, None, &[], false, &[]).await
     }
 
     async fn build(
@@ -659,6 +1239,7 @@ impl Pair {
         visitor: Option<(SecretKey, AdmissionGate)>,
         advertised: &[SocketAddr],
         use_relay: bool,
+        allowed_observers: &[iroh::RelayUrl],
     ) -> Self {
         let (certs, tls) = server::testing::self_signed_tls_certs_and_config();
         let mut servers = Vec::new();
@@ -719,12 +1300,15 @@ impl Pair {
             if let Some(url) = &relay {
                 use iroh::endpoint::{RelayResourcePolicy, RelayResourceUse};
                 let permitted = url.clone();
+                let allowed_observers = allowed_observers.to_vec();
                 builder = builder
                     .relay_mode(iroh::RelayMode::Custom(RelayMap::from_iter([
                         RelayConfig::new(url.clone(), None),
                     ])))
                     .relay_resource_policy(RelayResourcePolicy::new(move |url, usage| {
-                        *url == permitted && matches!(usage, RelayResourceUse::DataRelay)
+                        (*url == permitted && matches!(usage, RelayResourceUse::DataRelay))
+                            || (matches!(usage, RelayResourceUse::Observation)
+                                && allowed_observers.contains(url))
                     }));
             }
             for addr in extra {
@@ -844,6 +1428,31 @@ impl Pair {
     async fn close(&self) {
         self.v.close().await;
         self.c.close().await;
+    }
+
+    async fn change_network_generation(&self) {
+        let (cg, vg) = (
+            self.c.udp_network_generation(),
+            self.v.udp_network_generation(),
+        );
+        tokio::join!(self.c.network_change(), self.v.network_change());
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while cg.is_current() || vg.is_current() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            for endpoint in [&self.c, &self.v] {
+                let mut observations = endpoint.udp_observation();
+                while matches!(
+                    observations.get(),
+                    UdpObservation::Pending
+                        | UdpObservation::Failed(UdpObservationFailure::NetworkChanged)
+                ) {
+                    observations.updated().await.unwrap();
+                }
+            }
+        })
+        .await
+        .unwrap();
     }
 }
 

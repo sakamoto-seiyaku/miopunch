@@ -4,12 +4,20 @@
 //! In particular, this module never infers APDF from a mapping sequence.
 //! The formal legacy classifier and complete mode selector live in `nat_selector`.
 
+use iroh::endpoint::ObservationValidity;
+use n0_future::time::Instant as RoundInstant;
 use std::{
     collections::HashSet,
+    io,
     net::SocketAddr,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
     time::{Duration, Instant},
 };
+
+use crate::session_maintenance::{LocalNatBudgetError, MaintenanceDeferral};
 
 /// One result from an observer reached through the endpoint's QUIC UDP socket.
 #[derive(Debug, Clone)]
@@ -67,8 +75,8 @@ pub const MAX_EVIDENCE_AGE: Duration = Duration::from_secs(2);
 /// spans have no measured local-window benefit in this slice.
 pub const MAX_IRREGULAR_SAMPLE_SPAN: u16 = 15;
 
-/// Share one instance across strategy attempts on a node. Failed operations
-/// still consume their reservation, so retrying cannot refill the allowance.
+/// Finite allowance for callers of the low-level probing API and for a
+/// complete plan paid for by a node round.
 #[derive(Debug)]
 pub struct NodeProbeBudget {
     additional_qad: AtomicUsize,
@@ -98,18 +106,211 @@ impl NodeProbeBudget {
             })
             .is_ok()
     }
+}
 
-    /// Admit a complete plan atomically. Its envelope stays spent even if a
-    /// winner or cancellation stops early, so simultaneous rounds cannot borrow
-    /// the same maintenance allowance or refill it on failure.
-    pub(crate) fn reserve_peer_allowance(&self, count: usize) -> Option<Self> {
-        self.peer_datagrams
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |left| {
-                left.checked_sub(count)
-            })
-            .ok()
-            .map(|_| Self::new(0, count))
+/// One enhanced round at a time, shared by a node's endpoint bindings.
+#[derive(Clone, Debug)]
+pub(crate) struct NodeRoundBudget(Arc<RoundLedger>);
+
+#[derive(Debug)]
+struct RoundLedger {
+    observation_limit: usize,
+    peer_limit: usize,
+    state: Mutex<RoundState>,
+}
+
+#[derive(Debug, Default)]
+struct RoundState {
+    next_id: u64,
+    cooldown: Option<(ObservationValidity, RoundInstant)>,
+    holder: Option<RoundHolder>,
+}
+
+#[derive(Debug)]
+struct RoundHolder {
+    id: u64,
+    deadline: RoundInstant,
+    parked: bool,
+}
+
+#[derive(Debug)]
+pub(crate) struct RoundPermit {
+    budget: NodeRoundBudget,
+    id: u64,
+    pub(crate) next_due: RoundInstant,
+    pub(crate) deadline: RoundInstant,
+    generation: ObservationValidity,
+    pub(crate) observations: usize,
+    peer_remaining: usize,
+}
+
+impl NodeRoundBudget {
+    pub(crate) fn new(observation_limit: usize, peer_limit: usize) -> Self {
+        Self(Arc::new(RoundLedger {
+            observation_limit,
+            peer_limit,
+            state: Mutex::new(RoundState::default()),
+        }))
     }
+
+    pub(crate) fn peer_limit(&self) -> usize {
+        self.0.peer_limit
+    }
+
+    pub(crate) fn is_occupied(&self) -> bool {
+        self.0
+            .state
+            .lock()
+            .expect("NAT round ledger")
+            .holder
+            .is_some()
+    }
+
+    pub(crate) fn acquire(
+        &self,
+        generation: ObservationValidity,
+        clock: impl FnOnce() -> RoundInstant,
+        deadline: RoundInstant,
+        cooldown: Duration,
+        observations: usize,
+    ) -> io::Result<RoundPermit> {
+        if observations > self.0.observation_limit {
+            return Err(LocalNatBudgetError::Observations.into());
+        }
+        if self.0.peer_limit == 0 {
+            return Err(LocalNatBudgetError::PeerDatagrams.into());
+        }
+        let mut state = self.0.state.lock().expect("NAT round ledger");
+        let now = clock();
+        if deadline <= now {
+            return Err(round_expired());
+        }
+        if state
+            .holder
+            .as_ref()
+            .is_some_and(|holder| holder.parked && now >= holder.deadline)
+        {
+            state.holder = None;
+        }
+        if let Some((previous_generation, next_due)) = &state.cooldown
+            && (state.holder.is_some() || (now < *next_due && previous_generation.is_current()))
+        {
+            return Err(MaintenanceDeferral::LocalBudget {
+                next_due: *next_due,
+            }
+            .into());
+        }
+        if !generation.is_current() {
+            return Err(round_invalidated());
+        }
+        state.next_id += 1;
+        let id = state.next_id;
+        let next_due = now + cooldown;
+        state.cooldown = Some((generation.clone(), next_due));
+        state.holder = Some(RoundHolder {
+            id,
+            deadline,
+            parked: false,
+        });
+        Ok(RoundPermit {
+            budget: self.clone(),
+            id,
+            next_due,
+            deadline,
+            generation,
+            observations,
+            peer_remaining: self.0.peer_limit,
+        })
+    }
+}
+
+impl RoundPermit {
+    pub(crate) fn park(&self) {
+        let mut state = self.budget.0.state.lock().expect("NAT round ledger");
+        let holder = state
+            .holder
+            .as_mut()
+            .expect("running NAT round owns the ledger");
+        holder.parked = true;
+        holder.deadline = self.deadline;
+    }
+
+    pub(crate) fn limit_deadline(&mut self, deadline: RoundInstant) {
+        self.deadline = self.deadline.min(deadline);
+    }
+
+    pub(crate) fn peer_remaining(&self) -> usize {
+        self.peer_remaining
+    }
+
+    pub(crate) fn check_peer_plan(&self, count: usize) -> io::Result<usize> {
+        self.peer_remaining
+            .checked_sub(count)
+            .ok_or_else(|| LocalNatBudgetError::Plan.into())
+    }
+
+    pub(crate) fn reserve_peer_plan(&mut self, count: usize) -> io::Result<NodeProbeBudget> {
+        self.peer_remaining = self.check_peer_plan(count)?;
+        Ok(NodeProbeBudget::new(0, count))
+    }
+
+    pub(crate) fn check_owner(&self, budget: &NodeRoundBudget) -> io::Result<()> {
+        if !Arc::ptr_eq(&self.budget.0, &budget.0) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "foreign NAT round allowance",
+            ));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn resume(&self) -> io::Result<()> {
+        let mut state = self.budget.0.state.lock().expect("NAT round ledger");
+        if RoundInstant::now() >= self.deadline {
+            return Err(round_expired());
+        }
+        let holder = state
+            .holder
+            .as_mut()
+            .filter(|holder| holder.id == self.id)
+            .ok_or_else(round_invalidated)?;
+        if !self.generation.is_current() {
+            return Err(round_invalidated());
+        }
+        holder.parked = false;
+        Ok(())
+    }
+
+    pub(crate) fn check_generation(&self, generation: &ObservationValidity) -> io::Result<()> {
+        if self.generation != *generation || !self.generation.is_current() {
+            return Err(round_invalidated());
+        }
+        Ok(())
+    }
+}
+
+impl Drop for RoundPermit {
+    fn drop(&mut self) {
+        let mut state = self.budget.0.state.lock().expect("NAT round ledger");
+        if state
+            .holder
+            .as_ref()
+            .is_some_and(|holder| holder.id == self.id)
+        {
+            state.holder = None;
+        }
+    }
+}
+
+fn round_invalidated() -> io::Error {
+    io::Error::new(
+        io::ErrorKind::PermissionDenied,
+        "NAT round generation invalidated",
+    )
+}
+
+fn round_expired() -> io::Error {
+    io::Error::new(io::ErrorKind::TimedOut, "NAT round deadline elapsed")
 }
 
 /// Require four ordered, independent destinations so three transitions agree.
@@ -476,5 +677,108 @@ mod tests {
         assert!(budget.spend_peer_datagram());
         assert!(!budget.spend_peer_datagram());
         assert!(!budget.reserve_observations(4));
+    }
+
+    #[tokio::test]
+    async fn round_clock_keeps_one_complete_reservation_across_time_and_bindings() {
+        let endpoint = || {
+            iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .clear_relay_transports()
+                .bind()
+        };
+        let a = endpoint().await.unwrap();
+        let b = endpoint().await.unwrap();
+        let budget = NodeRoundBudget::new(3, 64);
+        let start = RoundInstant::now();
+        let period = Duration::from_secs(32);
+        let deadline = start + Duration::from_secs(10);
+        let generation = a.udp_network_generation();
+        let rebound = b.udp_network_generation();
+        let mut first = budget
+            .acquire(generation.clone(), || start, deadline, period, 3)
+            .unwrap();
+        let due = start + period;
+        assert_eq!(first.next_due, due);
+        assert_eq!((first.observations, first.peer_remaining()), (3, 64));
+        let plan = first.reserve_peer_plan(64).unwrap();
+        for _ in 0..64 {
+            assert!(plan.spend_peer_datagram());
+        }
+        assert!(!plan.spend_peer_datagram());
+        assert_eq!(
+            first.reserve_peer_plan(1).unwrap_err().kind(),
+            io::ErrorKind::InvalidInput,
+        );
+        let defer = |error: io::Error, next_due| {
+            assert_eq!(
+                MaintenanceDeferral::from_error(&error),
+                Some(&MaintenanceDeferral::LocalBudget { next_due }),
+            );
+        };
+        let later_deadline = due + period;
+        // The executing owner still occupies the node even after its old deadline.
+        defer(
+            budget
+                .acquire(rebound.clone(), || due, later_deadline, period, 3)
+                .unwrap_err(),
+            due,
+        );
+        first.park();
+        // An already-expired parked result can be reclaimed by the next borrower.
+        let rebound_budget = budget.clone();
+        let second = rebound_budget
+            .acquire(rebound.clone(), || due, later_deadline, period, 3)
+            .unwrap();
+        drop(first);
+        let next = due + period;
+        let longer = period * 5;
+        defer(
+            budget
+                .acquire(generation.clone(), || due, next, longer, 3)
+                .unwrap_err(),
+            next,
+        );
+        drop(second);
+        defer(
+            budget
+                .acquire(
+                    generation.clone(),
+                    || next - Duration::from_millis(1),
+                    next,
+                    period,
+                    3,
+                )
+                .unwrap_err(),
+            next,
+        );
+        for offset in 2..5 {
+            let now = start + period * offset;
+            let round = budget
+                .acquire(generation.clone(), || now, now + period, period, 3)
+                .unwrap();
+            assert_eq!(round.next_due, now + period);
+            assert_eq!((round.observations, round.peer_remaining()), (3, 64));
+        }
+        assert_eq!(
+            budget
+                .acquire(
+                    generation.clone(),
+                    || start + longer,
+                    start + longer * 2,
+                    period,
+                    4
+                )
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::InvalidInput,
+        );
+        assert_eq!(
+            NodeRoundBudget::new(3, 0)
+                .acquire(generation, || start + longer, start + longer * 2, period, 3)
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::InvalidInput,
+        );
+        tokio::join!(a.close(), b.close());
     }
 }

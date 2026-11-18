@@ -526,6 +526,18 @@ impl NativeNetwork {
             store.nodes().into_iter().map(|(id, _)| *id.as_bytes()),
             store.removed_nodes().into_iter().map(|id| *id.as_bytes()),
         );
+        let mut udp = NatConnector::new(None, UdpPolicy::default());
+        if let Ok(config) =
+            crate::resources::ResourceConfig::load(&path.join(RESOURCE_CONFIGURATION))
+            && let Ok(configured) = udp.for_endpoint(
+                None,
+                Vec::new(),
+                !config.udp_direct_disabled,
+                &config.maintenance,
+            )
+        {
+            udp = configured;
+        }
         let mut node = Self {
             node_key,
             anchor,
@@ -537,7 +549,7 @@ impl NativeNetwork {
             recovery,
             management_instance: rand::random(),
             directory: path.to_path_buf(),
-            udp: Arc::new(NatConnector::new(None, UdpPolicy::default())),
+            udp: Arc::new(udp),
         };
         node.restore_rotation_gate().await?;
         // Completed recovery and the signed canonical creation history remain
@@ -803,7 +815,8 @@ impl NativeNetwork {
             (!observers.is_empty()).then_some(observers),
             resources.udp_stun_resources(),
             !resources.udp_direct_disabled,
-        ));
+            &resources.maintenance,
+        )?);
         let native_tcp = tcp.clone().map(|transport| {
             crate::tcp_punch::TcpPunch::new(
                 transport,
@@ -1035,7 +1048,13 @@ impl NativeNetwork {
         policy: UdpPolicy,
     ) -> Result<Self, NodeError> {
         let mut node = Self::open(path).await?;
-        node.udp = Arc::new(NatConnector::new(observers, policy));
+        let config = node.resource_configuration()?;
+        node.udp = Arc::new(NatConnector::new(None, policy).for_endpoint(
+            observers,
+            config.udp_stun_resources(),
+            !config.udp_direct_disabled,
+            &config.maintenance,
+        )?);
         Ok(node)
     }
 

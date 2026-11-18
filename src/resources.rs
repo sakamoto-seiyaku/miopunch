@@ -656,6 +656,8 @@ pub enum ResourceContactError {
     },
     #[error("resource configuration failed: {0}")]
     Configuration(#[from] std::io::Error),
+    #[error(transparent)]
+    PathBudget(crate::connection_coordinator::ConnectError),
 }
 
 /// One configured endpoint and its contact budget. Candidate selection and
@@ -1223,25 +1225,29 @@ impl ResourceEndpoint {
                     .map(iroh::TransportAddr::Relay),
             );
         }
+        use crate::connection_coordinator::{AttemptContext, ConnectError, SessionPurpose};
+        if SessionPurpose::from_alpn(alpn).is_some() {
+            let result = self
+                .coordinator()
+                .connect_delivery(
+                    target,
+                    alpn,
+                    AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new()),
+                    control_only,
+                )
+                .await;
+            return match result {
+                Ok(connection) => Ok((connection, attempt)),
+                Err(
+                    error @ (ConnectError::PathDeferred { .. } | ConnectError::LocalNatBudget(_)),
+                ) => Err(ResourceContactError::PathBudget(error)),
+                Err(error) => Err(attempt.failed(error.to_string())),
+            };
+        }
         let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
         let cause = match tokio::time::timeout(
             deadline.saturating_duration_since(n0_future::time::Instant::now()),
             async {
-                if crate::connection_coordinator::SessionPurpose::from_alpn(alpn).is_some() {
-                    return self
-                        .coordinator()
-                        .connect_delivery(
-                            target,
-                            alpn,
-                            crate::connection_coordinator::AttemptContext::new(
-                                deadline,
-                                tokio_util::sync::CancellationToken::new(),
-                            ),
-                            control_only,
-                        )
-                        .await
-                        .map_err(|error| error.to_string());
-                }
                 if control_only {
                     use crate::control_protocol::OwnedControl;
                     let c = self
