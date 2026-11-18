@@ -541,6 +541,117 @@ async fn conservative_and_active_nodes_observe_distinct_frequency_and_concurrenc
 
 const BUSINESS: &[u8] = b"miopunch/maintenance-business/1";
 
+/// Exercise the full active protocol through the public maintained-node entry.
+/// First-connection NAT probes deliberately do not stand in for these old flows.
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[tokio::test]
+#[ignore = "owned MIOPUNCH-139 enhanced-UDP experiment; run in its isolated process"]
+async fn enhanced_udp_experiment_preserves_original_member_business() {
+    use iroh::{EndpointAddr, TransportAddr};
+    use miopunch_native_probe::{
+        connection_coordinator::MEMBER_ALPN, connection_recovery::ConnectionPathRecoveryError,
+    };
+    assert_eq!(
+        std::env::var("MIOPUNCH_NAT_LAB_ENHANCED_ONLY").as_deref(),
+        Ok("1")
+    );
+    tokio::time::timeout(Duration::from_secs(30), async {
+        // These reflect the actual source tuple from the Endpoint UDP socket.
+        let mut observers = Vec::new();
+        let mut observer_tasks = Vec::new();
+        for _ in 0..2 {
+            let socket = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+            observers.push(Resource { url: format!("stun://{}/", socket.local_addr().unwrap()), uses: BTreeSet::from([ResourceUse::Observation]), limitation: "owned ordered UDP Binding observer".into() });
+            observer_tasks.push(tokio::spawn(async move {
+                loop {
+                    let mut request = [0u8; 1500];
+                    let (length, source) = socket.recv_from(&mut request).await.unwrap();
+                    assert_eq!(length, 20);
+                    assert_eq!(&request[..8], &[0, 1, 0, 0, 0x21, 0x12, 0xa4, 0x42]);
+                    let std::net::SocketAddr::V4(source) = source else { panic!("IPv4 fixture") };
+                    let mut reply = [0u8; 32];
+                    reply[..8].copy_from_slice(&[1, 1, 0, 12, 0x21, 0x12, 0xa4, 0x42]);
+                    reply[8..20].copy_from_slice(&request[8..20]);
+                    reply[20..26].copy_from_slice(&[0, 0x20, 0, 8, 0, 1]);
+                    reply[26..28].copy_from_slice(&(source.port() ^ 0x2112).to_be_bytes());
+                    reply[28..32].copy_from_slice(&(u32::from(*source.ip()) ^ 0x2112a442).to_be_bytes());
+                    socket.send_to(&reply, source).await.unwrap();
+                }
+            }));
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let mut creator = NativeNetwork::create(dir.path().join("creator")).await.unwrap();
+        let joining = join(&mut creator, &dir.path().join("joining")).await;
+        let mut relay_config = iroh_relay::server::ServerConfig::default();
+        relay_config.relay = Some(iroh_relay::server::RelayConfig::new((Ipv4Addr::LOCALHOST, 0)));
+        let relay = iroh_relay::server::Server::spawn(relay_config).await.unwrap();
+        let relay_url = relay.http_url().unwrap();
+        let relay_path = TransportAddr::Relay(relay_url.clone());
+        for node in [&creator, &joining] {
+            let mut config = node.resource_configuration().unwrap();
+            let mut resources = observers.clone();
+            resources.push(Resource { url: relay_url.to_string(), uses: BTreeSet::from([ResourceUse::DataRelay]), limitation: "owned original member business relay".into() });
+            config.replacement = Some(resources);
+            config.tcp_direct_disabled = true;
+            config.member_data_relay_disabled = true;
+            config.maintenance.exploration_interval_ms = 60_000;
+            config.maintenance.quality_interval_ms = 30_000;
+            config.path_selection.preference = miopunch_native_probe::path_selection::PathPreference::PreferDirect;
+            node.save_resource_configuration(&config).unwrap();
+        }
+        let (incoming, mut accepted) = tokio::sync::mpsc::channel(2);
+        let server = creator.maintain_network_with(Ipv4Addr::LOCALHOST, |router| router.accept(MEMBER_ALPN, ObserveBusiness(incoming))).await.unwrap();
+        let client = joining.maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
+        tokio::join!(client.endpoint().online(), server.endpoint().online());
+        let target = EndpointAddr::new(server.endpoint().id()).with_addrs([relay_path.clone()]);
+        let (original, original_business_lease) = client.connect(target.clone(), MEMBER_ALPN).await.unwrap();
+        let remote = accepted.recv().await.unwrap();
+        let ids = (original.stable_id(), remote.stable_id());
+        let reject = std::env::var("MIOPUNCH_NAT_LAB_REJECT_CANDIDATE").as_deref() == Ok("1");
+        for (owner, connection) in [(client.endpoint(), &original), (server.endpoint(), &remote)] {
+            // The existing mask is one-way. Only the rejection case installs
+            // it; the successful active attempt keeps ordinary UDP permission.
+            if reject {
+                owner.control_handle(connection).test_limit_transport_paths(vec![relay_path.clone()]).await.unwrap();
+            }
+            for path in connection.paths().iter().filter(|path| path.is_ip()) { path.close().unwrap(); }
+            assert!(connection.paths().iter().any(|p| p.is_selected() && p.is_relay()));
+        }
+        let (mut send, mut reply) = original.open_bi().await.unwrap();
+        send.write_all(b"first").await.unwrap();
+        let (mut echo, mut receive) = remote.accept_bi().await.unwrap();
+        let mut bytes = [0; 5];
+        receive.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"first");
+        echo.write_all(b"ready").await.unwrap();
+        reply.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"ready");
+        let outcome = client.repair_member_connection_until(&original, target, n0_future::time::Instant::now() + Duration::from_secs(3)).await;
+        if reject {
+            assert!(matches!(&outcome, Err(ConnectionPathRecoveryError::Retryable { stable_id, .. }) if *stable_id == ids.0), "candidate must really fail on original M: {outcome:?}");
+            assert!(original.paths().iter().any(|p| p.is_selected() && p.is_relay()));
+            assert!(remote.paths().iter().any(|p| p.is_selected() && p.is_relay()));
+        } else {
+            outcome.as_ref().unwrap(); // The public repair result is after the active ACK/commit barrier.
+            assert!(original.paths().iter().any(|p| p.is_selected() && p.is_ip()));
+            assert!(remote.paths().iter().any(|p| p.is_selected() && p.is_ip()));
+        }
+        send.write_all(b"after").await.unwrap();
+        receive.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"after");
+        echo.write_all(b"there").await.unwrap();
+        reply.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"there");
+        assert_eq!((original.stable_id(), remote.stable_id()), ids);
+        assert!(original.close_reason().is_none() && remote.close_reason().is_none());
+        println!("ORIGINAL_ACTIVE_BUSINESS_OK stable_ids={ids:?} rejected_candidate={reject} same_streams_both_directions=true repair={outcome:?}");
+        drop(original_business_lease);
+        tokio::join!(client.close(), server.close());
+        relay.shutdown().await.unwrap();
+        for task in observer_tasks { task.abort(); }
+    }).await.expect("original active protocol and old streams stay bounded");
+}
+
 #[derive(Debug, Clone)]
 struct ObserveBusiness(tokio::sync::mpsc::Sender<Connection>);
 impl iroh::protocol::ProtocolHandler for ObserveBusiness {

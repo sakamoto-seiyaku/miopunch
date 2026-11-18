@@ -1092,7 +1092,11 @@ impl Attempt {
         control: &ControlSession,
         gate: &AdmissionGate,
     ) -> io::Result<DataPathOpen> {
-        self.synchronize_winner(control, gate).await?;
+        let early_validation = cfg!(feature = "nat-lab-test-hooks")
+            && std::env::var("MIOPUNCH_NAT_LAB_EARLY_VALIDATE").as_deref() == Ok("1");
+        if !early_validation {
+            self.synchronize_winner(control, gate).await?;
+        }
         let local = self
             .local_winner
             .ok_or_else(|| invalid("NAT winner has no local binding"))?;
@@ -1360,8 +1364,15 @@ impl Attempt {
         // Old MakeHole starts the total deadline before creating random
         // listeners. Binding work therefore consumes the same phase budget.
         let started = Instant::now();
-        let deadline =
-            tokio::time::Instant::now() + Duration::from_millis(phase.total_budget_ms.into());
+        let phase_ms = u64::from(phase.total_budget_ms);
+        #[cfg(feature = "nat-lab-test-hooks")]
+        let phase_ms = match std::env::var("MIOPUNCH_NAT_LAB_PHASE_MS") {
+            Ok(value) => value
+                .parse::<u64>()
+                .map_err(|_| invalid("invalid experiment phase duration"))?,
+            Err(_) => phase_ms,
+        };
+        let deadline = tokio::time::Instant::now() + Duration::from_millis(phase_ms);
         self.phase_deadline = Some(deadline);
         let check = || {
             permission()?;
@@ -1466,7 +1477,6 @@ impl Attempt {
             .inspect_err(|error| {
                 self.log_handoff(control, "retain-winner-failed", Some(error));
             })?;
-        self.log_handoff(control, "retain-winner-returned", None);
         check_scope(control, gate, &self.scope, &self.snapshot)?;
         // The original Connection now owns the physical winner. Raw registration
         // and every loser are closed when the round ends.
@@ -1491,6 +1501,7 @@ impl Attempt {
             local_addr: winner.local_addr,
         });
         self.winner_lease = winner_lease;
+        self.log_handoff(control, "retain-winner-returned", None);
         self.feedback_ready = true;
         Ok(ExecutionStatus::CompleteExecution)
     }

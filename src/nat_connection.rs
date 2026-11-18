@@ -880,13 +880,21 @@ impl NatConnector {
         if !direct_allowed {
             return Err(LocalNatBudgetError::Direct.into());
         }
-        let direct = self
-            .guard(
+        let enhanced_only = cfg!(feature = "nat-lab-test-hooks")
+            && std::env::var("MIOPUNCH_NAT_LAB_ENHANCED_ONLY").as_deref() == Ok("1");
+        let direct = if enhanced_only {
+            println!("NAT_LAB_ENHANCED_ONLY stable_id={}", control.stable_id());
+            crate::nat_direct::DirectAttempt::Unavailable {
+                more_candidates: false,
+            }
+        } else {
+            self.guard(
                 control,
                 gate,
                 crate::nat_direct::attempt(control, gate, deadline),
             )
-            .await?;
+            .await?
+        };
         let more_candidates = match direct {
             crate::nat_direct::DirectAttempt::Ready(direct) => {
                 direct.check(control, gate)?;

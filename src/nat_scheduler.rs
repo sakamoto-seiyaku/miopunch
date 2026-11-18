@@ -254,6 +254,7 @@ struct PhaseSession<'a> {
     trace: &'a SharedTrace,
     check: &'a (dyn Fn() -> io::Result<()> + Sync),
     outstanding: Mutex<HashMap<[u8; 16], LocalSocketId>>,
+    started: std::time::Instant,
 }
 impl PhaseSession<'_> {
     async fn send(
@@ -315,9 +316,10 @@ impl PhaseSession<'_> {
             trace.local_sockets.push(sender.local_socket_id());
         }
         println!(
-            "LEGACY_DATAGRAM target={target} ttl={ttl} response={} degraded={degraded} local_socket_id={}",
+            "LEGACY_DATAGRAM target={target} ttl={ttl} response={} degraded={degraded} local_socket_id={} elapsed_ms={}",
             packet[0] == 1,
-            sender.local_socket_id().get()
+            sender.local_socket_id().get(),
+            self.started.elapsed().as_millis()
         );
         Ok(())
     }
@@ -427,6 +429,7 @@ async fn receive(
                 if !response && plan.behavior.role == Role::Sender { continue; }
                 if response && !session.accepts_response(&packet.payload, packet.local_socket_id) { session.reject("nonce_socket", packet.local_socket_id); continue; }
                 (session.check)()?;
+                println!("LEGACY_RECEIPT remote={} response={response} local_socket_id={} elapsed_ms={}", packet.remote, packet.local_socket_id.get(), session.started.elapsed().as_millis());
                 let winner = Winner { local_socket_id: packet.local_socket_id, local_addr: packet.local_addr, remote: packet.remote, response, before_probe: false };
                 if response { return Ok(winner); }
                 let Some(sender) = senders.iter().find(|s| s.local_socket_id() == packet.local_socket_id) else { continue; };
@@ -478,6 +481,7 @@ pub(crate) async fn run_with_trace(
         trace,
         check,
         outstanding: Mutex::new(HashMap::new()),
+        started: std::time::Instant::now(),
     };
     let senders = lease
         .local_sockets()
@@ -485,6 +489,15 @@ pub(crate) async fn run_with_trace(
         .map(|binding| lease.sender_for(binding.id))
         .collect::<io::Result<Vec<_>>>()?;
     let mut recv = Box::pin(receive(lease, &senders, plan, &session));
+    // Explicit experiment on an isolated endpoint. The driver also checks all
+    // UDP traffic in the capture, including the endpoint's native probes.
+    #[cfg(feature = "nat-lab-test-hooks")]
+    if plan.behavior.role == Role::Receiver
+        && std::env::var("MIOPUNCH_NAT_LAB_RECEIVER_WAIT").as_deref() == Ok("1")
+    {
+        println!("LEGACY_EXPERIMENT receiver_wait=true");
+        return recv.await;
+    }
     if plan.behavior.send_delay_ms > 0 {
         tokio::select! {
             result = &mut recv => { let mut winner=result?; winner.before_probe=true; return Ok(winner); }

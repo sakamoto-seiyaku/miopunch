@@ -1,0 +1,112 @@
+[
+  {
+    "side": "u22sz",
+    "file": "u22sz-stdout.log",
+    "line": 2547,
+    "text": "LEGACY_CANDIDATES round=6a45b590c6325c59521025643cd0d20b stable_id=1443487663312 assisted=[172.17.0.1:30005, 172.18.0.1:30005, 172.19.0.1:30005, 192.168.4.14:30005] mapped=[111.197.236.230:10457, 111.197.236.230:10457]"
+  },
+  {
+    "side": "u22sz",
+    "file": "u22sz-stdout.log",
+    "line": 2557,
+    "text": "LEGACY_PHASE_STOP round=6a45b590c6325c59521025643cd0d20b stable_id=1443487663312 elapsed_ms=744 outcome=winner"
+  },
+  {
+    "side": "u22sz",
+    "file": "u22sz-stdout.log",
+    "line": 2560,
+    "text": "LEGACY_WINNER round=6a45b590c6325c59521025643cd0d20b stable_id=1443487663312 remote=111.197.236.230:10457 response=false before_probe=false probes=4 responses=3 ttl_degraded=4 local_socket_id=0 local_addr=172.31.0.36:56915"
+  },
+  {
+    "side": "u22sz",
+    "file": "u22sz-stdout.log",
+    "line": 2561,
+    "text": "LEGACY_TRACE round=6a45b590c6325c59521025643cd0d20b stable_id=1443487663312 probes=4 responses=3 ttl_degraded=4 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=7 send_errors=0 send_aborted=0 rejected_receipts=0"
+  },
+  {
+    "side": "u22sz",
+    "file": "u22sz-stdout.log",
+    "line": 2563,
+    "text": "[DEBUG-udp-handoff] {\"connection\":{\"controlClosed\":\"open\",\"controlStableId\":1443491600848,\"dialing\":true,\"originalClosed\":\"open\",\"paths\":[{\"id\":\"0\",\"local\":\"Relay(RelayUrl(\\\"https://aps1-1.relay.n0.iroh.link./\\\"))\",\"remote\":\"relay:https://aps1-1.relay.n0.iroh.link./\",\"selected\":true,\"socket\":\"None\"}],\"stableId\":1443487663312},\"error\":\"Custom { kind: TimedOut, error: \\\"legacy winner handoff deadline elapsed\\\" }\",\"local\":\"172.31.0.36:56915\",\"localSocket\":0,\"remainingMs\":0,\"remote\":\"111.197.236.230:10457\",\"round\":\"6a45b590c6325c59521025643cd0d20b\",\"stage\":\"winner-ready-result\"}"
+  },
+  {
+    "side": "u22sz",
+    "file": "u22sz-stdout.log",
+    "line": 2564,
+    "text": "[DEBUG-udp-handoff] actor-path-event stable_id=1443487663312 event=Established { id: PathId(145) }"
+  },
+  {
+    "side": "u22sz",
+    "file": "u22sz-stdout.log",
+    "line": 2565,
+    "text": "[DEBUG-udp-handoff] actor-path-event stable_id=1443459275216 event=Established { id: PathId(126) }"
+  },
+  {
+    "side": "u22sz",
+    "file": "u22sz-status.json",
+    "event": {
+      "at": 1794992743561,
+      "detail": {
+        "after": [
+          "ip:111.197.236.230:10457"
+        ],
+        "before": [
+          "relay:https://aps1-1.relay.n0.iroh.link./"
+        ],
+        "peer": "r_proxy (192.168.4.14)",
+        "stableId": 1443487663312
+      },
+      "kind": "selected-path-changed",
+      "monotonicMs": 961192
+    }
+  },
+  {
+    "side": "r_proxy",
+    "file": "r_proxy-stdout.log",
+    "line": 4190,
+    "text": "LEGACY_CANDIDATES round=6a45b590c6325c59521025643cd0d20b stable_id=140434156746000 assisted=[172.18.0.1:56915, 172.28.16.1:56915, 172.31.0.36:56915, 192.168.250.1:56915] mapped=[182.48.107.243:4888, 182.48.107.243:4888]"
+  },
+  {
+    "side": "r_proxy",
+    "file": "r_proxy-stdout.log",
+    "line": 4324,
+    "text": "LEGACY_PHASE_STOP round=6a45b590c6325c59521025643cd0d20b stable_id=140434156746000 elapsed_ms=5001 outcome=failed"
+  },
+  {
+    "side": "r_proxy",
+    "file": "r_proxy-stdout.log",
+    "line": 4325,
+    "text": "LEGACY_TRACE round=6a45b590c6325c59521025643cd0d20b stable_id=140434156746000 probes=125 responses=0 ttl_degraded=0 random_iterations=0 random_draws=0 random_skipped=0 listener_attempted=0 listener_bound=0 listener_failed=0 send_attempts=125 send_errors=0 send_aborted=0 rejected_receipts=0"
+  },
+  {
+    "side": "r_proxy",
+    "file": "r_proxy-stdout.log",
+    "line": 4326,
+    "text": "[DEBUG-udp-handoff] actor-path-event stable_id=140434156746000 event=Established { id: PathId(145) }"
+  },
+  {
+    "side": "r_proxy",
+    "file": "r_proxy-stdout.log",
+    "line": 4327,
+    "text": "[DEBUG-udp-handoff] actor-path-event stable_id=140434156571200 event=Established { id: PathId(126) }"
+  },
+  {
+    "side": "r_proxy",
+    "file": "r_proxy-status.json",
+    "event": {
+      "at": 1794992743221,
+      "detail": {
+        "after": [
+          "ip:182.48.107.243:4888"
+        ],
+        "before": [
+          "relay:https://aps1-1.relay.n0.iroh.link./"
+        ],
+        "peer": "u22sz",
+        "stableId": 140434156571200
+      },
+      "kind": "selected-path-changed",
+      "monotonicMs": 4890156
+    }
+  }
+]

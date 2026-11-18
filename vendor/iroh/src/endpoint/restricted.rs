@@ -358,6 +358,15 @@ impl RestrictedEndpoint {
     ) -> io::Result<super::UdpMappingSequence> {
         self.inner.observe_udp_mapping_sequence(observers).await
     }
+
+    /// Observe ordered STUN mappings through the same sockets and resource policy.
+    #[cfg(not(wasm_browser))]
+    pub async fn observe_udp_stun_mapping_sequence(
+        &self,
+        observers: &[crate::RelayUrl],
+    ) -> io::Result<super::UdpMappingSequence> {
+        self.inner.observe_udp_stun_mapping_sequence(observers).await
+    }
     /// Observation publication epoch, distinct from the physical network epoch.
     #[cfg(not(wasm_browser))]
     pub fn udp_observation_generation(&self) -> super::ObservationValidity {

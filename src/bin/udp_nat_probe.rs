@@ -167,11 +167,47 @@ struct LegacyResources {
     budget: Arc<NodeProbeBudget>,
 }
 
+// Keep the ordering experiment on the historical QAD-failure -> ordered STUN
+// source, even while the QAD implementation is being improved independently.
+#[cfg(feature = "nat-lab-test-hooks")]
+fn lab_stun_observers() -> Result<Option<Vec<iroh::RelayUrl>>, Box<dyn Error>> {
+    std::env::var("MIOPUNCH_NAT_LAB_STUN")
+        .ok()
+        .map(|value| {
+            value
+                .split(',')
+                .map(str::parse)
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .transpose()
+        .map_err(Into::into)
+}
+
 async fn prepare_legacy(
     endpoint: &ProbeEndpoint,
     own_candidate: &ObservedCandidate,
     resources: LegacyResources,
 ) -> Result<LegacyContext, Box<dyn Error>> {
+    #[cfg(feature = "nat-lab-test-hooks")]
+    if let Some(observers) = lab_stun_observers()? {
+        if !resources.budget.reserve_observations(observers.len()) {
+            return Err("legacy STUN observation budget exhausted".into());
+        }
+        let sequence = endpoint
+            .observe_udp_stun_mapping_sequence(&observers)
+            .await?;
+        for (order, sample) in sequence.samples.iter().enumerate() {
+            println!(
+                "LEGACY_SAMPLE order={order} destination={} mapped={} observer={}",
+                sample.destination, sample.mapped, sample.observer
+            );
+        }
+        return Ok(LegacyContext {
+            snapshot: MappingSnapshot::from_sequence(sequence)?,
+            analyzer: resources.analyzer,
+            budget: resources.budget,
+        });
+    }
     let snapshot = if let Some(observers) = &resources.observers {
         if !resources.budget.reserve_observations(observers.len()) {
             return Err("legacy observation budget exhausted".into());
@@ -265,6 +301,67 @@ async fn legacy_probe(
             .collect::<std::collections::HashSet<_>>()
             .len())
     );
+    Ok(())
+}
+
+/// Isolate an experiment's already authenticated setup from its delayed
+/// handoff. The fixture releases both peers after installing its link delay.
+#[cfg(feature = "nat-lab-test-hooks")]
+async fn lab_phase_gate(
+    control: &ControlSession,
+    server: bool,
+    snapshot: Option<&MappingSnapshot>,
+) -> Result<(), Box<dyn Error>> {
+    let Ok(gate) = std::env::var("MIOPUNCH_NAT_LAB_PHASE_GATE") else {
+        return Ok(());
+    };
+    tokio::time::timeout(WAIT, async {
+        println!("NAT_LAB_PHASE_GATE_READY stable_id={}", control.stable_id());
+        while !Path::new(&gate).is_file() {
+            if control.control_handle().close_reason().is_some() {
+                return Err(io::Error::other("experiment control closed before phase"));
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        let exchange = if server {
+            control.accept_control_exchange().await?
+        } else {
+            control.open_control_exchange().await?
+        };
+        let fixed = ControlMessageFormat::Fixed { length: 8 };
+        let mut maximum = 0u64;
+        for _ in 0..2 {
+            if server {
+                if exchange.recv_message(fixed).await? != b"PING0139" {
+                    return Err(io::Error::other("invalid experiment RTT request"));
+                }
+                exchange.send_message(fixed, b"PONG0139").await?;
+            } else {
+                let started = Instant::now();
+                exchange.send_message(fixed, b"PING0139").await?;
+                if exchange.recv_message(fixed).await? != b"PONG0139" {
+                    return Err(io::Error::other("invalid experiment RTT reply"));
+                }
+                maximum = maximum.max(started.elapsed().as_millis() as u64);
+            }
+        }
+        if server {
+            let bytes = exchange.recv_message(fixed).await?;
+            maximum = u64::from_be_bytes(bytes.try_into().map_err(|_| io::Error::other("invalid experiment RTT report"))?);
+            exchange.send_message(fixed, b"RTTREADY").await?;
+        } else {
+            exchange.send_message(fixed, &maximum.to_be_bytes()).await?;
+            if exchange.recv_message(fixed).await? != b"RTTREADY" {
+                return Err(io::Error::other("invalid experiment RTT acknowledgment"));
+            }
+        }
+        exchange.finish_send_confirmed().await?;
+        if snapshot.is_some_and(|snapshot| !snapshot.is_current()) {
+            return Err(io::Error::other("experiment snapshot invalidated before phase"));
+        }
+        println!("NAT_LAB_CONTROL_RTT stable_id={} maximum_ms={maximum} source=authenticated_exchange snapshot_current=true", control.stable_id());
+        Ok::<_, io::Error>(())
+    }).await??;
     Ok(())
 }
 
@@ -453,7 +550,11 @@ async fn endpoint(
 > {
     let traffic = Arc::new(Traffic::default());
     let carrier = Arc::new(MqttTransport::new(broker, traffic.clone()));
-    let roots = CaTlsConfig::custom_roots(vec![std::fs::read(cert)?.into()]);
+    let roots = if cert == Path::new("-") {
+        CaTlsConfig::default()
+    } else {
+        CaTlsConfig::custom_roots(vec![std::fs::read(cert)?.into()])
+    };
     let url = format!("https://{observer}/").parse()?;
     let mapping_observers = if let Some(config) = std::env::var("MIOPUNCH_NAT_OBSERVERS")
         .ok()
@@ -550,6 +651,41 @@ async fn observed_addr(endpoint: &ProbeEndpoint) -> Result<ObservedCandidate, Bo
         }
     })
     .await?;
+    #[cfg(feature = "nat-lab-test-hooks")]
+    if let Some(observers) = lab_stun_observers()? {
+        if matches!(state, UdpObservation::Fresh { .. }) {
+            return Err("ordering experiment requires the historical QAD failure".into());
+        }
+        println!("LEGACY_OBSERVATION_FALLBACK reason={state:?}");
+        let sequence = endpoint
+            .observe_udp_stun_mapping_sequence(&observers)
+            .await?;
+        let addr = sequence
+            .samples
+            .first()
+            .ok_or("STUN produced no samples")?
+            .mapped;
+        println!(
+            "CANDIDATE id={} sockets={:?} observed={addr} source=stun",
+            endpoint.id(),
+            endpoint.bound_sockets()
+        );
+        let now = Instant::now();
+        return Ok(ObservedCandidate {
+            addr,
+            observation: UdpObservation::Fresh {
+                addresses: sequence
+                    .samples
+                    .iter()
+                    .map(|sample| sample.mapped)
+                    .collect(),
+                observed_at: now,
+                valid_until: now + Duration::from_secs(40),
+                mapping_varies_by_dest: None,
+                validity: endpoint.udp_network_generation(),
+            },
+        });
+    }
     let UdpObservation::Fresh { addresses, .. } = &state else {
         return Err(format!("no observed candidate: {state:?}").into());
     };
@@ -1423,6 +1559,13 @@ async fn run_server(
     } else {
         println!("EXCHANGED peer={peer} peer_candidate=none receive_only=1 stable_id={stable}");
     }
+    #[cfg(feature = "nat-lab-test-hooks")]
+    lab_phase_gate(
+        &control,
+        true,
+        legacy.as_ref().map(|context| &context.snapshot),
+    )
+    .await?;
     let path_started = Instant::now();
     if advanced {
         // The auto branch's next control stream is the authenticated
@@ -1823,6 +1966,13 @@ async fn run_client(
             _ => {}
         }
     }
+    #[cfg(feature = "nat-lab-test-hooks")]
+    lab_phase_gate(
+        &control,
+        false,
+        legacy.as_ref().map(|context| &context.snapshot),
+    )
+    .await?;
     let path_started = Instant::now();
     if !advanced {
         control
@@ -2249,8 +2399,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     let own_candidate = observed_addr(&endpoint).await?;
     let legacy = if legacy_selected {
+        let observations = mapping_observers.as_ref().map_or(0, RelayMap::len);
+        #[cfg(feature = "nat-lab-test-hooks")]
+        let observations = lab_stun_observers()?.map_or(observations, |observers| observers.len());
         let budget = Arc::new(NodeProbeBudget::new(
-            mapping_observers.as_ref().map_or(0, RelayMap::len),
+            observations,
             miopunch_native_probe::nat_scheduler::DEFAULT_LEGACY_PEER_ALLOWANCE,
         ));
         Some(LegacyResources {

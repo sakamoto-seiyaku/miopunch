@@ -1,0 +1,361 @@
+{
+  "ticket": "MIOPUNCH-139",
+  "historicalSuccess": {
+    "source": "success-excerpt.json",
+    "selectedAtUtcPlus8": "2026-11-18T17:05:43",
+    "windowsLocalPort": 56915,
+    "windowsStunPublicPort": 4888,
+    "adjacentRound": "6a45b590c6325c59521025643cd0d20b",
+    "rawOutcome": "Windows received a request and sent three replies; Linux accepted no raw response. WinnerReady timed out. Later original paths 145 and 126 established.",
+    "causation": "Unknown; this does not show successful enhanced-round commitment."
+  },
+  "controlledOrdering": {
+    "verified-apdf-active": {
+      "round": "8ad8813a5f9a4fbfcb1bea8d90f1abac",
+      "receiver": "a",
+      "receiverFilter": "apdf",
+      "receiverWait": false,
+      "earlyValidation": false,
+      "linkDelayMs": 0,
+      "phaseMs": 5000,
+      "firstRequestReceived": true,
+      "peerUdpBeforeFirstRequest": 2,
+      "nativeUdpBeforeFirstRequest": 0,
+      "rawRequestReceived": true,
+      "rawResponseReceived": true,
+      "replyPublicSources": [
+        "100.64.27.2:42027"
+      ],
+      "failureControlPreserved": {
+        "client": false,
+        "server": false
+      },
+      "business": {
+        "client": true,
+        "server": true
+      },
+      "handoffMs": {
+        "client": 650,
+        "server": 399
+      }
+    },
+    "verified-apdf-wait": {
+      "round": "843da6455c139eeaf2e8ea5c03d8d8be",
+      "receiver": "a",
+      "receiverFilter": "apdf",
+      "receiverWait": true,
+      "earlyValidation": false,
+      "linkDelayMs": 0,
+      "phaseMs": 5000,
+      "firstRequestReceived": false,
+      "peerUdpBeforeFirstRequest": 0,
+      "nativeUdpBeforeFirstRequest": 0,
+      "rawRequestReceived": false,
+      "rawResponseReceived": false,
+      "replyPublicSources": [],
+      "failureControlPreserved": {
+        "client": true,
+        "server": true
+      },
+      "business": {
+        "client": false,
+        "server": false
+      },
+      "handoffMs": {
+        "client": null,
+        "server": null
+      }
+    },
+    "verified-cone-active": {
+      "round": "192f2d18e5a1f3d9556d96cd9c4fd05b",
+      "receiver": "a",
+      "receiverFilter": "cone",
+      "receiverWait": false,
+      "earlyValidation": false,
+      "linkDelayMs": 0,
+      "phaseMs": 5000,
+      "firstRequestReceived": true,
+      "peerUdpBeforeFirstRequest": 2,
+      "nativeUdpBeforeFirstRequest": 0,
+      "rawRequestReceived": true,
+      "rawResponseReceived": true,
+      "replyPublicSources": [
+        "100.64.27.2:42027"
+      ],
+      "failureControlPreserved": {
+        "client": false,
+        "server": false
+      },
+      "business": {
+        "client": true,
+        "server": true
+      },
+      "handoffMs": {
+        "client": 676,
+        "server": 400
+      }
+    },
+    "verified-cone-wait": {
+      "round": "b2b633a223bbbf2ee9aeefc1728438ab",
+      "receiver": "a",
+      "receiverFilter": "cone",
+      "receiverWait": true,
+      "earlyValidation": false,
+      "linkDelayMs": 0,
+      "phaseMs": 5000,
+      "firstRequestReceived": true,
+      "peerUdpBeforeFirstRequest": 0,
+      "nativeUdpBeforeFirstRequest": 0,
+      "rawRequestReceived": true,
+      "rawResponseReceived": true,
+      "replyPublicSources": [
+        "100.64.27.2:42027"
+      ],
+      "failureControlPreserved": {
+        "client": false,
+        "server": false
+      },
+      "business": {
+        "client": true,
+        "server": true
+      },
+      "handoffMs": {
+        "client": 635,
+        "server": 357
+      }
+    },
+    "verified-cone-early-correct": {
+      "round": "6bde2805c1374e1f3147f8067d53b340",
+      "receiver": "a",
+      "receiverFilter": "cone",
+      "receiverWait": true,
+      "earlyValidation": true,
+      "linkDelayMs": 0,
+      "phaseMs": 5000,
+      "firstRequestReceived": true,
+      "peerUdpBeforeFirstRequest": 0,
+      "nativeUdpBeforeFirstRequest": 0,
+      "rawRequestReceived": true,
+      "rawResponseReceived": true,
+      "replyPublicSources": [
+        "100.64.27.2:42027"
+      ],
+      "failureControlPreserved": {
+        "client": false,
+        "server": false
+      },
+      "business": {
+        "client": true,
+        "server": true
+      },
+      "handoffMs": {
+        "client": 605,
+        "server": 355
+      }
+    }
+  },
+  "activeOriginalBusiness": {
+    "baseline": {
+      "rawLog": "/tmp/miopunch139/active-public-lo-baseline2.log",
+      "enhancedRawRoundSeen": true,
+      "enhancedOnlySeen": true,
+      "activeCommit": [
+        {
+          "authorizationRevision": 3,
+          "bothReady": true,
+          "controlStableId": 123329651937040,
+          "event": "active-improvement-committed",
+          "freshAck": true,
+          "originalOpen": true,
+          "pathId": "1",
+          "route": "ip:127.0.0.1:37769",
+          "stableId": 123329651568496,
+          "version": 1
+        },
+        {
+          "authorizationRevision": 3,
+          "bothReady": true,
+          "controlStableId": 123329651081328,
+          "event": "active-improvement-committed",
+          "freshAck": true,
+          "originalOpen": true,
+          "pathId": "1",
+          "route": "ip:127.0.0.1:39935",
+          "stableId": 123329651567472,
+          "version": 1
+        }
+      ],
+      "originalBusiness": "ORIGINAL_ACTIVE_BUSINESS_OK stable_ids=(123329651568496, 123329651567472) rejected_candidate=false same_streams_both_directions=true repair=Ok(())",
+      "result": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 2.28s"
+    },
+    "candidate_rejected": {
+      "rawLog": "/tmp/miopunch139/active-public-reject.log",
+      "enhancedRawRoundSeen": true,
+      "enhancedOnlySeen": true,
+      "activeCommit": [],
+      "originalBusiness": "ORIGINAL_ACTIVE_BUSINESS_OK stable_ids=(129172216382096, 129172215255664) rejected_candidate=true same_streams_both_directions=true repair=Err(Retryable { stable_id: 129172216382096, cause: \"unified/DeadlineExceeded\" })",
+      "result": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 4.42s"
+    },
+    "receiver_wait": {
+      "rawLog": "/tmp/miopunch139/active-public-receiver-wait.log",
+      "enhancedRawRoundSeen": true,
+      "enhancedOnlySeen": true,
+      "activeCommit": [
+        {
+          "authorizationRevision": 3,
+          "bothReady": true,
+          "controlStableId": 138029982708832,
+          "event": "active-improvement-committed",
+          "freshAck": true,
+          "originalOpen": true,
+          "pathId": "1",
+          "route": "ip:127.0.0.1:36513",
+          "stableId": 138029982445840,
+          "version": 1
+        },
+        {
+          "authorizationRevision": 3,
+          "bothReady": true,
+          "controlStableId": 138029982614896,
+          "event": "active-improvement-committed",
+          "freshAck": true,
+          "originalOpen": true,
+          "pathId": "1",
+          "route": "ip:127.0.0.1:36083",
+          "stableId": 138029982198944,
+          "version": 1
+        }
+      ],
+      "originalBusiness": "ORIGINAL_ACTIVE_BUSINESS_OK stable_ids=(138029982445840, 138029982198944) rejected_candidate=false same_streams_both_directions=true repair=Ok(())",
+      "result": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 2.28s"
+    },
+    "early_dialer": {
+      "rawLog": "/tmp/miopunch139/active-public-early-correct.log",
+      "enhancedRawRoundSeen": true,
+      "enhancedOnlySeen": true,
+      "activeCommit": [
+        {
+          "authorizationRevision": 3,
+          "bothReady": true,
+          "controlStableId": 136318370622016,
+          "event": "active-improvement-committed",
+          "freshAck": true,
+          "originalOpen": true,
+          "pathId": "1",
+          "route": "ip:127.0.0.1:48468",
+          "stableId": 136318370871424,
+          "version": 1
+        },
+        {
+          "authorizationRevision": 3,
+          "bothReady": true,
+          "controlStableId": 136318371091120,
+          "event": "active-improvement-committed",
+          "freshAck": true,
+          "originalOpen": true,
+          "pathId": "1",
+          "route": "ip:127.0.0.1:41089",
+          "stableId": 136318370869120,
+          "version": 1
+        }
+      ],
+      "originalBusiness": "ORIGINAL_ACTIVE_BUSINESS_OK stable_ids=(136318370869120, 136318370871424) rejected_candidate=false same_streams_both_directions=true repair=Ok(())",
+      "result": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 2.30s"
+    }
+  },
+  "scope": {
+    "ordering": "Actual Endpoint QAD failure then ordered STUN, custom-only initial control, kernel NAT and full LAN/WAN UDP capture. Initial connection business is separate from preexisting business flow continuity.",
+    "originalBusiness": "Public MaintainedNetwork connect original lease -> repair_member_connection_until -> real active M/C protocol; original 3s repair cap; same original two-direction business stream. Loopback-only isolated network.",
+    "earlyValidation": "Only the original QUIC dialer with a local retained winner opens immediately. The non-dialer waits for that original connection path; no responder-initiated open capability was added.",
+    "defaults": "All experiment selection flags require nat-lab-test-hooks and are absent from ordinary demo defaults.",
+    "highRtt": "Verified in rttHandoff: setup is complete before delay injection. Protected control RTTs were measured independently (1916ms and 2401ms), rather than inferred from the configured link delay.",
+    "office": "Initial fire-and-forget SSH child ended before SDK readiness (empty logs and zero packets): not a NAT trial. Proper original-process SSH ownership is prepared; user authorized serial execution through the original allowed demo path after the shared Simplewall diagnosis."
+  },
+  "reproduction": {
+    "controlled": "scripts/check_udp_first_packet.py --probe <qualified pin> --qad <qualified pin> --output <new directory> [--wait] [--receiver-filter cone] [--early]",
+    "active": "MIOPUNCH_NAT_LAB_ENHANCED_ONLY=1 <network_maintenance pin> enhanced_udp_experiment_preserves_original_member_business --exact --ignored --nocapture",
+    "negative": "Add MIOPUNCH_NAT_LAB_REJECT_CANDIDATE=1; expect Retryable, original relay and same two-direction stream.",
+    "rtt": "scripts/check_udp_first_packet.py --probe <qualified pin> --qad <qualified pin> --output <new directory> --receiver-filter cone --wait --delay-ms 600 --gate-delay --phase-ms <5000 or 5000+2*reference-control-RTT-ms>"
+  },
+  "rttHandoff": [
+    {
+      "round": "2843a059400ea19a1b8e692dd086deca",
+      "receiver": "a",
+      "receiverFilter": "cone",
+      "receiverWait": true,
+      "earlyValidation": false,
+      "linkDelayMs": 600,
+      "delayAfterSetup": true,
+      "protectedControlRttMs": {
+        "client": 1916,
+        "server": 1916
+      },
+      "phaseMs": 5000,
+      "firstRequestReceived": true,
+      "peerUdpBeforeFirstRequest": 0,
+      "nativeUdpBeforeFirstRequest": 0,
+      "rawRequestReceived": true,
+      "rawResponseReceived": true,
+      "replyPublicSources": [
+        "100.64.27.2:42027"
+      ],
+      "failureControlPreserved": {
+        "client": true,
+        "server": true
+      },
+      "business": {
+        "client": false,
+        "server": false
+      },
+      "handoffMs": {
+        "client": null,
+        "server": null
+      }
+    },
+    {
+      "round": "fe67036ad6abc716457974bb48359c0d",
+      "receiver": "a",
+      "receiverFilter": "cone",
+      "receiverWait": true,
+      "earlyValidation": false,
+      "linkDelayMs": 600,
+      "delayAfterSetup": true,
+      "protectedControlRttMs": {
+        "client": 2401,
+        "server": 2401
+      },
+      "phaseMs": 8832,
+      "firstRequestReceived": true,
+      "peerUdpBeforeFirstRequest": 0,
+      "nativeUdpBeforeFirstRequest": 0,
+      "rawRequestReceived": true,
+      "rawResponseReceived": true,
+      "replyPublicSources": [
+        "100.64.27.2:42027"
+      ],
+      "failureControlPreserved": {
+        "client": false,
+        "server": false
+      },
+      "business": {
+        "client": true,
+        "server": true
+      },
+      "handoffMs": {
+        "client": 6897,
+        "server": 7367
+      }
+    }
+  ],
+  "rttHandoffBudget": {
+    "fixedPhaseMs": 5000,
+    "referenceAuthenticatedControlRttMs": 1916,
+    "adjustedPhaseMs": 8832,
+    "formula": "5000 + 2 * first-cell maximum authenticated control round trip in milliseconds",
+    "secondCellMeasuredControlRttMs": 2401,
+    "injection": "600ms on each WAN egress, installed after both authenticated candidate/plan gates; warm echo precedes raw phase start",
+    "sampleValidity": "Both peers reported snapshot_current=true after their delayed control exchange. No network-generation change was injected.",
+    "result": "Fixed phase reached the valid raw return path but timed out during handoff; adjusted phase delivered valid business on both ends (6897ms/7367ms).",
+    "scope": "Restricted first-connection handoff timing only; original active-M lease and business-stream continuity are separately verified under the unchanged three-second public repair limit."
+  }
+}
