@@ -2,11 +2,13 @@
 use super::{
     AttemptContext, AttemptRole, MemberPathAdapter, PathPlan, Platform, PreparedPath,
     ProtectedAttempt, RELAY, RTC, RtcRole, RuntimeCapabilities, SessionPurpose, TCP, UDP,
+    connection_diagnostic::{self, AttemptLog},
     control_error,
 };
 use crate::admission_gate::AdmissionGate;
 use crate::control_protocol::AuthenticatedControl;
 use iroh::{Endpoint, TransportAddr, endpoint::Connection};
+use serde_json::json;
 use std::io;
 
 #[derive(Debug, Clone)]
@@ -68,12 +70,25 @@ impl CoordinatorHook {
 
     /// Open one restricted active C through an existing permitted contact and
     /// improve the exact original M. C never becomes an ordinary handle.
-    pub(crate) async fn improve(
+    pub(crate) fn improve<'a>(
+        &'a self,
+        endpoint: &'a iroh::endpoint::RestrictedEndpoint,
+        original: &'a Connection,
+        target: iroh::EndpointAddr,
+        attempt: AttemptContext,
+    ) -> impl Future<Output = io::Result<()>> + 'a {
+        let mut log = AttemptLog::new(AttemptRole::Initiator, "maintenance_improvement");
+        log.original = Some(original.stable_id());
+        self.improve_logged(endpoint, original, target, attempt, log)
+    }
+
+    async fn improve_logged(
         &self,
         endpoint: &iroh::endpoint::RestrictedEndpoint,
         original: &Connection,
         target: iroh::EndpointAddr,
         attempt: AttemptContext,
+        log: AttemptLog,
     ) -> io::Result<()> {
         let role = AttemptRole::initial(original);
         let caps = self.capabilities_for(original, role);
@@ -91,7 +106,7 @@ impl CoordinatorHook {
             contact_ids,
         )
         .with_member_data(crate::member_transport::DATA_TRANSPORT_ID)
-        .connect_control_alpn(target, super::ACTIVE_IMPROVEMENT_ALPN, attempt.clone())
+        .connect_active_control(target, attempt.clone(), log)
         .await
         .map_err(|error| io::Error::other(error.to_string()))?;
         let _control = CloseActiveControl(control.clone());
@@ -103,6 +118,7 @@ impl CoordinatorHook {
                 .ok_or_else(|| control_error("InvalidControl"))?,
             &NativeControlAdapter(self.clone()),
             attempt,
+            log,
         )
         .await
     }
@@ -117,7 +133,10 @@ impl CoordinatorHook {
     ) -> Result<(), crate::connection_recovery_core::ConnectionPathRecoveryError> {
         use crate::connection_recovery_core as recovery;
         let started = n0_future::time::Instant::now();
-        if original.close_reason().is_some() {
+        let mut log = AttemptLog::new(AttemptRole::Initiator, "foreground_repair");
+        log.original = Some(original.stable_id());
+        if let Some(reason) = original.close_reason() {
+            log.connection_ended(&reason, None);
             return Err(recovery::failed(original, "original connection closed"));
         }
         if caller_deadline <= started
@@ -143,6 +162,10 @@ impl CoordinatorHook {
             .map_err(|cause| {
                 recovery::failed(original, format!("repair reservation: {cause:?}"))
             })?;
+        let phase = log.phase(
+            "repair",
+            json!({"budgetMs":deadline.duration_since(started).as_millis() as u64}),
+        );
         contact.addrs.extend(
             original
                 .paths()
@@ -157,12 +180,13 @@ impl CoordinatorHook {
             |address: &TransportAddr| self.permits_repair_survival(resources, original, address);
         let surviving = super::probe_existing_data_survival(original, &permits);
         let result = lease
-            .run_ref(self.improve(resources.endpoint(), original, contact, attempt))
+            .run_ref(self.improve_logged(resources.endpoint(), original, contact, attempt, log))
             .await
             .map_err(|cause| io::Error::other(format!("repair attempt: {cause:?}")))
             .and_then(|result| result);
         if result.is_ok() && original.close_reason().is_none() {
             resources.reset_contact(original.remote_id());
+            phase.finish("succeeded");
             return Ok(());
         }
         resources.contact_failed(original.remote_id());
@@ -185,13 +209,33 @@ impl CoordinatorHook {
                 .await
                 .unwrap_or(false)
             || surviving(original, &permits);
-        if !maintained && original.close_reason().is_none() {
-            original.close(
+        let prior = original.close_reason();
+        if !maintained && prior.is_none() {
+            let previous = original.close_with_previous_reason(
                 0u32.into(),
                 b"same-session repair has no surviving data path",
             );
-            original.closed().await;
+            log.event(
+                "close",
+                "invoked",
+                json!({
+                    "owner":"native_sdk_repair","reason":"repair_no_surviving_data_path",
+                    "priorCloseReason":connection_diagnostic::close_reason(previous.as_ref()),
+                }),
+            );
+            let reason = original.closed().await;
+            if let Some(previous) = previous {
+                log.connection_ended(&previous, None);
+            } else {
+                log.connection_ended(&reason, Some("native_sdk_repair"));
+            }
+        } else if let Some(reason) = prior {
+            log.connection_ended(&reason, None);
         }
+        phase.finish_with(
+            "failed",
+            json!({"originalOpen":original.close_reason().is_none()}),
+        );
         Err(recovery::failed(
             original,
             result
@@ -491,8 +535,8 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
             "[DEBUG-udp-handoff] {}",
             serde_json::json!({"stage":stage,
             "stableId":original.stable_id(),"controlStableId":control.stable_id(),
-            "originalClosed":format!("{:?}",original.close_reason()),
-            "controlClosed":format!("{:?}",control.close_reason())})
+            "originalClosed":connection_diagnostic::close_reason(original.close_reason().as_ref()),
+            "controlClosed":connection_diagnostic::close_reason(control.close_reason().as_ref())})
         );
     }
     #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
@@ -558,6 +602,7 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                         .resources
                         .as_ref()
                         .ok_or_else(|| control_error("DataPathUnavailable"))?,
+                    attempt.log,
                 )
                 .await?;
                 let route = self
@@ -583,7 +628,7 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                     .native
                     .as_ref()
                     .ok_or_else(|| control_error("DataPathUnavailable"))?
-                    .prepare_control_paths(connection, &self.0.gate, tcp, udp)
+                    .prepare_control_paths(connection, &self.0.gate, tcp, udp, attempt.log)
                     .await
             }
             _ => Err(control_error("DataPathUnavailable")),
@@ -610,36 +655,48 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                     .native
                     .as_ref()
                     .ok_or_else(|| control_error("DataPathUnavailable"))?
-                    .prepare_active_paths(original, control, &self.0.gate, tcp, udp)
+                    .prepare_active_paths(original, control, &self.0.gate, tcp, udp, attempt.log)
                     .await?;
-                let paths = original.paths();
-                self.active_diagnostic(original, control, "native-candidate-prepared");
-                let path = paths
-                    .iter()
-                    .find(|path| {
-                        path.remote_addr() == &prepared.route
-                            && prepared
-                                .path_id
-                                .as_ref()
-                                .is_none_or(|id| path.id().to_string() == *id)
+                prepared.log = Some(attempt.log);
+                attempt
+                    .log
+                    .phase("fresh-ack", json!({"pathId":prepared.path_id}))
+                    .run(async {
+                        let paths = original.paths();
+                        self.active_diagnostic(original, control, "native-candidate-prepared");
+                        let path = paths
+                            .iter()
+                            .find(|path| {
+                                path.remote_addr() == &prepared.route
+                                    && prepared
+                                        .path_id
+                                        .as_ref()
+                                        .is_none_or(|id| path.id().to_string() == *id)
+                            })
+                            .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                        let probe = path.start_probe()?;
+                        self.active_diagnostic(original, control, "native-fresh-probe-started");
+                        prepared = prepared.with_proof(
+                            path.id().to_string(),
+                            probe.watermark(),
+                            move || probe.is_acknowledged().map_err(io::Error::other),
+                        );
+                        // The surrounding active attempt owns the deadline/cancellation.
+                        // READY may describe only a freshly acknowledged path on M.
+                        while !prepared.acknowledged.as_ref().unwrap()()? {
+                            prepared.check(original, false)?;
+                            self.check(control, SessionPurpose::ActiveImprovement)
+                                .await?;
+                            n0_future::time::sleep(std::time::Duration::from_millis(1)).await;
+                        }
+                        self.active_diagnostic(
+                            original,
+                            control,
+                            "native-fresh-probe-acknowledged",
+                        );
+                        Ok(prepared)
                     })
-                    .ok_or_else(|| control_error("DataPathUnavailable"))?;
-                let probe = path.start_probe()?;
-                self.active_diagnostic(original, control, "native-fresh-probe-started");
-                prepared =
-                    prepared.with_proof(path.id().to_string(), probe.watermark(), move || {
-                        probe.is_acknowledged().map_err(io::Error::other)
-                    });
-                // The surrounding active attempt owns the deadline/cancellation.
-                // READY may describe only a freshly acknowledged path on M.
-                while !prepared.acknowledged.as_ref().unwrap()()? {
-                    prepared.check(original, false)?;
-                    self.check(control, SessionPurpose::ActiveImprovement)
-                        .await?;
-                    n0_future::time::sleep(std::time::Duration::from_millis(1)).await;
-                }
-                self.active_diagnostic(original, control, "native-fresh-probe-acknowledged");
-                Ok(prepared)
+                    .await
             }
             #[cfg(feature = "rtc-probe")]
             PathPlan::Rtc => {

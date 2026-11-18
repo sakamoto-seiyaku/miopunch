@@ -24,7 +24,7 @@ use miopunch_native_probe::{
     client_commands::save_private,
     client_host::HostLease,
     client_invitation::BootstrapContact,
-    connection_coordinator::MEMBER_ALPN,
+    connection_coordinator::{MEMBER_ALPN, connection_diagnostic},
     control_protocol::{AuthenticatedControl, OwnedControl},
     native_client::{ClientInvitation, NativeClient},
     native_network::NativeNetwork,
@@ -73,7 +73,7 @@ struct Observations {
 impl Observations {
     fn event(&mut self, kind: &str, detail: Value) {
         self.events
-            .push_back(json!({"at":now_ms(),"kind":kind,"detail":detail}));
+            .push_back(json!({"at":now_ms(),"monotonicMs":connection_diagnostic::monotonic_ms(),"kind":kind,"detail":detail}));
         if self.events.len() > 128 {
             self.events.pop_front();
         }
@@ -150,31 +150,87 @@ impl ProtocolHandler for ProbeServer {
             json!({"event":"network-demo-incoming-ready","at":now_ms(),
             "peer":connection.remote_id().to_string(),"transport":path_view(&connection)})
         );
+        let mut ended_by = "accept_stream";
         let result: Result<(), Failure> = async {
             loop {
+                ended_by = "accept_stream";
                 let stream = tokio::select! {
-                    _ = self.cancellation.cancelled() => break,
+                    _ = self.cancellation.cancelled() => {
+                        ended_by = "stopped";
+                        break;
+                    },
                     stream = connection.accept_bi() => stream?,
                 };
                 let (mut send, mut recv) = stream;
+                ended_by = "stream_read";
                 let request = timeout(Duration::from_secs(5), recv.read_to_end(8)).await??;
+                ended_by = "stream_decode";
                 let sequence = u64::from_be_bytes(request.try_into().map_err(|_| "invalid probe")?);
                 let local = self.observations.lock().unwrap().local_view();
+                ended_by = "stream_response";
                 let response = serde_json::to_vec(&json!({"sequence":sequence,"snapshot":local}))?;
                 if response.len() > MAX_REPLY {
                     return Err("probe snapshot exceeds bound".into());
                 }
+                ended_by = "stream_write";
                 timeout(Duration::from_secs(5), send.write_all(&response)).await??;
+                ended_by = "stream_finish";
                 send.finish()?;
             }
             Ok(())
         }
         .await;
-        connection.close(0u32.into(), b"network demo probe ended");
-        // A closed peer is a normal end of this application handler.
-        let _ = result;
+        let peer = connection.remote_id().to_string();
+        if result.is_err() {
+            self.observations.lock().unwrap().event(
+                "probe-failed",
+                json!({
+                    "peer":peer,"stableId":connection.stable_id(),"reason":ended_by
+                }),
+            );
+        }
+        close_probe_connection(
+            &self.observations,
+            &connection,
+            &peer,
+            "demo_receive",
+            ended_by,
+            b"network demo probe ended",
+        );
         Ok(())
     }
+}
+
+fn close_probe_connection(
+    state: &Mutex<Observations>,
+    connection: &Connection,
+    peer: &str,
+    owner: &'static str,
+    cause: &'static str,
+    wire_reason: &[u8],
+) {
+    let prior = connection.close_with_previous_reason(0u32.into(), wire_reason);
+    state.lock().unwrap().event(
+        "connection-close-invoked",
+        json!({
+            "peer":peer,"stableId":connection.stable_id(),"owner":owner,"reason":cause,
+            "priorCloseReason":connection_diagnostic::close_reason(prior.as_ref()),
+        }),
+    );
+    let origin = prior.as_ref().map_or(owner, |reason| {
+        connection_diagnostic::close_origin(Some(reason))
+    });
+    let end_reason = prior
+        .as_ref()
+        .unwrap_or(&iroh::endpoint::ConnectionError::LocallyClosed);
+    state.lock().unwrap().event(
+        "connection-ended",
+        json!({
+            "peer":peer,"stableId":connection.stable_id(),"owner":origin,"reason":cause,
+            "closeReason":connection_diagnostic::close_reason(Some(end_reason)),
+            "priorCloseReason":connection_diagnostic::close_reason(prior.as_ref()),
+        }),
+    );
 }
 
 fn path_view(connection: &Connection) -> Value {
@@ -262,7 +318,8 @@ async fn observe_peer(
                     let activity = network.business_activity();
                     let result = tokio::select! {
                         _ = cancellation.cancelled() => {
-                            connection.close(0u32.into(),b"demo stopped");
+                            close_probe_connection(&state, &connection, &peer.name, "demo_stop",
+                                "stopped", b"demo stopped");
                             return;
                         },
                         result = timeout(Duration::from_secs(3),exchange(&connection,sequence)) => result,
@@ -319,7 +376,8 @@ async fn observe_peer(
                             // The existing SDK owns path repair and its absolute budget.
                             let repair = tokio::select! {
                                 _ = cancellation.cancelled() => {
-                                    connection.close(0u32.into(),b"demo stopped");
+                                    close_probe_connection(&state, &connection, &peer.name, "demo_stop",
+                                        "stopped", b"demo stopped");
                                     return;
                                 },
                                 result = network.repair_member_connection_until(&connection,peer.address.clone(),
@@ -337,17 +395,24 @@ async fn observe_peer(
                         }
                     }
                     tokio::select! {
-                        _ = cancellation.cancelled() => {connection.close(0u32.into(),b"demo stopped");return;},
+                        _ = cancellation.cancelled() => {
+                            close_probe_connection(&state, &connection, &peer.name, "demo_stop",
+                                "stopped", b"demo stopped");
+                            return;
+                        },
                         _ = tokio::time::sleep_until(start+Duration::from_secs(1)) => {},
                     }
                 }
-                connection.close(0u32.into(), b"demo reconnecting after terminal connection");
+                close_probe_connection(
+                    &state,
+                    &connection,
+                    &peer.name,
+                    "demo_reconnect",
+                    "reconnect_cleanup",
+                    b"demo reconnecting after terminal connection",
+                );
                 let mut state = state.lock().unwrap();
                 state.connections.remove(&peer.name);
-                state.event(
-                    "connection-ended",
-                    json!({"peer":peer.name,"stableId":connection.stable_id()}),
-                );
             }
             Err(error) => {
                 let error = format!("{error:?}");
@@ -958,4 +1023,104 @@ fn main() -> Result<(), Failure> {
             }
         })
     })?.join().map_err(|_|"network demo worker panicked")?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn probe_pair() -> (iroh::Endpoint, iroh::Endpoint, Connection, Connection) {
+        let bind = || {
+            iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+                .clear_relay_transports()
+                .bind_addr((Ipv4Addr::LOCALHOST, 0))
+                .unwrap()
+                .alpns(vec![ALPN.to_vec()])
+                .bind()
+        };
+        let client = bind().await.unwrap();
+        let server = bind().await.unwrap();
+        let (outgoing, incoming) = tokio::join!(client.connect(server.addr(), ALPN), async {
+            server.accept().await.unwrap().await
+        },);
+        (client, server, outgoing.unwrap(), incoming.unwrap())
+    }
+
+    fn probe_server() -> ProbeServer {
+        ProbeServer {
+            cancellation: CancellationToken::new(),
+            observations: Arc::new(Mutex::new(Observations {
+                local: json!({}),
+                peers: BTreeMap::new(),
+                connections: BTreeMap::new(),
+                events: VecDeque::new(),
+                remote: BTreeMap::new(),
+            })),
+        }
+    }
+
+    #[tokio::test]
+    async fn single_stream_failure_close_baseline() {
+        timeout(Duration::from_secs(8), async {
+            let (_client, _server, client, server) = probe_pair().await;
+            let delivery = server.stable_id();
+            let handler = probe_server();
+            let abort_one_stream = async {
+                let (mut send, _recv) = client.open_bi().await.unwrap();
+                send.write_all(b"x").await.unwrap();
+                send.reset(73u32.into()).unwrap();
+                client.closed().await
+            };
+            let (served, closure) = tokio::join!(handler.accept(server), abort_one_stream);
+            served.unwrap();
+            assert!(matches!(
+                closure,
+                iroh::endpoint::ConnectionError::ApplicationClosed(_)
+            ));
+            let state = handler.observations.lock().unwrap();
+            let events = state.events.iter().collect::<Vec<_>>();
+            assert_eq!(events.len(), 3);
+            assert_eq!(events[0]["kind"], "probe-failed");
+            assert_eq!(events[0]["detail"]["reason"], "stream_read");
+            assert_eq!(events[1]["kind"], "connection-close-invoked");
+            assert_eq!(events[1]["detail"]["priorCloseReason"], "open");
+            assert_eq!(events[2]["kind"], "connection-ended");
+            assert_eq!(events[2]["detail"]["owner"], "demo_receive");
+            assert_eq!(events[2]["detail"]["closeReason"], "locally_closed");
+            for event in events {
+                assert_eq!(event["detail"]["stableId"], delivery);
+                println!("{event}");
+            }
+        })
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn repeated_demo_close_does_not_reattribute_existing_closure() {
+        timeout(Duration::from_secs(8), async {
+            for (peer_close, expected_origin, expected_reason) in [
+                (true, "peer", "peer_application_close"),
+                (false, "unknown", "locally_closed"),
+            ] {
+                let (_client, _server, client, server) = probe_pair().await;
+                if peer_close {
+                    client.close(4u32.into(), b"arbitrary peer detail");
+                } else {
+                    server.close(4u32.into(), b"unobserved local caller");
+                }
+                server.closed().await;
+                let handler = probe_server();
+                handler.accept(server).await.unwrap();
+                let state = handler.observations.lock().unwrap();
+                let end = state.events.back().unwrap();
+                assert_eq!(end["kind"], "connection-ended");
+                assert_eq!(end["detail"]["owner"], expected_origin);
+                assert_eq!(end["detail"]["priorCloseReason"], expected_reason);
+                println!("{end}");
+            }
+        })
+        .await
+        .unwrap();
+    }
 }

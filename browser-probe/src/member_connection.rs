@@ -1,5 +1,9 @@
 //! Qualified controlled member connection exposed by the browser SDK.
 use super::*;
+use crate::connection_coordinator::{
+    AttemptRole,
+    connection_diagnostic::{self, AttemptLog},
+};
 #[wasm_bindgen]
 pub struct BrowserMemberConnection {
     pub(super) connection: Connection,
@@ -112,6 +116,7 @@ impl BrowserMemberConnection {
         &self,
         lease: &crate::session_maintenance::MaintenanceLease<()>,
         repair_contacts: bool,
+        log: AttemptLog,
     ) -> Result<(), JsValue> {
         let mut target = EndpointAddr::new(self.connection.remote_id());
         for path in self
@@ -133,7 +138,7 @@ impl BrowserMemberConnection {
         if target.addrs.is_empty() {
             return Err(error("active improvement has no current contact route"));
         }
-        use crate::connection_coordinator::{AttemptRole, MemberPathAdapter};
+        use crate::connection_coordinator::MemberPathAdapter;
         let caps = self
             .gate
             .capabilities(AttemptRole::initial(&self.connection));
@@ -154,11 +159,7 @@ impl BrowserMemberConnection {
                     contact_ids,
                 )
                 .with_member_data(crate::member_data::DATA_TRANSPORT_ID)
-                .connect_control_alpn(
-                    target,
-                    crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN,
-                    attempt.clone(),
-                )
+                .connect_active_control(target, attempt.clone(), log)
                 .await
                 .map_err(error)?;
                 // Own exact C before any further await, including losing guard races.
@@ -169,6 +170,7 @@ impl BrowserMemberConnection {
                     &control.path_handle(&self.endpoint),
                     &self.gate,
                     attempt,
+                    log,
                 )
                 .await
                 .map_err(|cause| error(format!("active improvement failed: {cause:?}")))
@@ -221,7 +223,9 @@ impl BrowserMemberConnection {
             .maintenance()
             .acquire(&self.connection, &attempt, ())
             .map_err(|cause| error(format!("active improvement reservation: {cause:?}")))?;
-        self.improve_path_until(&lease, false).await?;
+        let mut log = AttemptLog::new(AttemptRole::Initiator, "explicit_improvement");
+        log.original = Some(self.connection.stable_id());
+        self.improve_path_until(&lease, false, log).await?;
         Ok(
             serde_json::json!({"outcome":"committed","stableId":self.connection.stable_id()})
                 .to_string(),
@@ -239,7 +243,10 @@ impl BrowserMemberConnection {
     /// for path improvement. A failed repair without a fresh surviving DATA
     /// path terminates this M; a later normal connect owns a new connection.
     pub async fn recover_path(&self, caller_ms: u32) -> Result<String, JsValue> {
-        if self.is_closed() {
+        let mut log = AttemptLog::new(AttemptRole::Initiator, "foreground_repair");
+        log.original = Some(self.connection.stable_id());
+        if let Some(reason) = self.connection.close_reason() {
+            log.connection_ended(&reason, None);
             return Ok(
                 serde_json::json!({"outcome":"terminal","stableId":self.connection.stable_id()})
                     .to_string(),
@@ -259,20 +266,25 @@ impl BrowserMemberConnection {
             .maintenance()
             .acquire(&self.connection, &attempt, ())
             .map_err(|cause| error(format!("repair reservation: {cause:?}")))?;
+        let phase = log.phase(
+            "repair",
+            serde_json::json!({"budgetMs":deadline.duration_since(started).as_millis() as u64}),
+        );
         let surviving = crate::connection_coordinator::probe_existing_data_survival(
             &self.connection,
             |address| self.permits_repair_survival(address),
         );
         let result = n0_future::time::timeout(
             deadline.saturating_duration_since(n0_future::time::Instant::now()),
-            self.improve_path_until(&lease, true),
+            self.improve_path_until(&lease, true, log),
         )
         .await
         .map_err(|_| error("repair caller deadline exceeded"))
         .and_then(|result| result);
         let outcome = if result.is_ok() && !self.is_closed() {
             "recovered"
-        } else if self.is_closed() {
+        } else if let Some(reason) = self.connection.close_reason() {
+            log.connection_ended(&reason, None);
             "terminal"
         } else if surviving(&self.connection, &|address| {
             self.permits_repair_survival(address)
@@ -294,13 +306,27 @@ impl BrowserMemberConnection {
         {
             "unreachable"
         } else {
-            self.connection.close(
+            let prior = self.connection.close_with_previous_reason(
                 0u32.into(),
                 b"same-session repair has no surviving data path",
             );
-            self.connection.closed().await;
+            log.event(
+                "close",
+                "invoked",
+                serde_json::json!({
+                    "owner":"browser_sdk_repair","reason":"repair_no_surviving_data_path",
+                    "priorCloseReason":connection_diagnostic::close_reason(prior.as_ref()),
+                }),
+            );
+            let reason = self.connection.closed().await;
+            if let Some(prior) = prior {
+                log.connection_ended(&prior, None);
+            } else {
+                log.connection_ended(&reason, Some("browser_sdk_repair"));
+            }
             "terminal"
         };
+        phase.finish(outcome);
         Ok(serde_json::json!({"outcome":outcome,"stableId":self.connection.stable_id(),
             "controlAlpn":String::from_utf8_lossy(crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN),
             "elapsedMs":started.elapsed().as_millis(),"callerBudgetMs":caller_ms,

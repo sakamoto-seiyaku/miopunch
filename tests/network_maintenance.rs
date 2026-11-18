@@ -53,6 +53,134 @@ async fn observe_queries(
     (observed, task)
 }
 
+#[test]
+fn explicit_repair_failed_relay_close_baseline() {
+    // Assert the public operation and the actual SDK records from the same run.
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "explicit_repair_failed_relay_close_fixture",
+            "--ignored",
+            "--nocapture",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    println!("{stdout}");
+    eprintln!("{stderr}");
+    assert!(output.status.success());
+    let stable_id = stdout
+        .lines()
+        .find_map(|line| {
+            let record = serde_json::from_str::<serde_json::Value>(line).ok()?;
+            (record["event"] == "repair-baseline-trigger")
+                .then(|| record["stableId"].as_u64().unwrap())
+        })
+        .unwrap();
+    let events: Vec<serde_json::Value> = stderr
+        .lines()
+        .filter_map(|line| serde_json::from_str(line).ok())
+        .filter(|record: &serde_json::Value| {
+            record["stableId"] == stable_id && record["source"] == "foreground_repair"
+        })
+        .collect();
+    let close = events
+        .iter()
+        .position(|record| record["phase"] == "close")
+        .unwrap();
+    let ended = events
+        .iter()
+        .position(|record| record["phase"] == "connection-ended")
+        .unwrap();
+    let invocation = &events[close];
+    let result = &events[ended];
+    assert!(close < ended);
+    assert_eq!(invocation["result"], "invoked");
+    assert_eq!(invocation["detail"]["owner"], "native_sdk_repair");
+    assert_eq!(
+        invocation["detail"]["reason"],
+        "repair_no_surviving_data_path"
+    );
+    assert_eq!(invocation["detail"]["priorCloseReason"], "open");
+    assert_eq!(result["localAttemptId"], invocation["localAttemptId"]);
+    assert_eq!(result["detail"]["owner"], "native_sdk_repair");
+    assert_eq!(result["detail"]["reason"], "locally_closed");
+}
+
+#[tokio::test]
+#[ignore = "run through explicit_repair_failed_relay_close_baseline to assert the emitted records"]
+async fn explicit_repair_failed_relay_close_fixture() {
+    use iroh::protocol::{AcceptError, ProtocolHandler};
+    use miopunch_native_probe::{
+        connection_coordinator::MEMBER_ALPN, connection_recovery::ConnectionPathRecoveryError,
+    };
+
+    #[derive(Clone, Debug)]
+    struct ObserveMember(tokio::sync::mpsc::Sender<Connection>);
+    impl ProtocolHandler for ObserveMember {
+        async fn accept(&self, original: Connection) -> Result<(), AcceptError> {
+            self.0.send(original.clone()).await.unwrap();
+            original.closed().await;
+            Ok(())
+        }
+    }
+
+    tokio::time::timeout(Duration::from_secs(15), async {
+        let dir = tempfile::tempdir().unwrap();
+        let mut server = NativeNetwork::create(dir.path().join("server")).await.unwrap();
+        let client = join(&mut server, &dir.path().join("client")).await;
+        let mut config = iroh_relay::server::ServerConfig::default();
+        config.relay = Some(iroh_relay::server::RelayConfig::new((Ipv4Addr::LOCALHOST, 0)));
+        let relay = iroh_relay::server::Server::spawn(config).await.unwrap();
+        let relay_url = relay.http_url().unwrap();
+        for node in [&client, &server] {
+            let mut config = node.resource_configuration().unwrap();
+            config.replacement = Some(vec![Resource {
+                url: relay_url.to_string(),
+                uses: BTreeSet::from([ResourceUse::DataRelay]),
+                limitation: "local repair failure fixture".into(),
+            }]);
+            config.udp_direct_disabled = true;
+            config.tcp_direct_disabled = true;
+            config.member_data_relay_disabled = true;
+            node.save_resource_configuration(&config).unwrap();
+        }
+        let (incoming, mut originals) = tokio::sync::mpsc::channel(1);
+        let server = server.maintain_network_with(Ipv4Addr::LOCALHOST, |router| {
+            router.accept(MEMBER_ALPN, ObserveMember(incoming))
+        }).await.unwrap();
+        let client = client.maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
+        let _server_business = server.business_activity();
+        tokio::join!(client.endpoint().online(), server.endpoint().online());
+        let target = iroh::EndpointAddr::new(server.endpoint().id())
+            .with_addrs([iroh::TransportAddr::Relay(relay_url)]);
+        let (original, _business) = client.connect(target.clone(), MEMBER_ALPN).await.unwrap();
+        let remote = originals.recv().await.unwrap();
+        let (mut send, mut recv) = original.open_bi().await.unwrap();
+        send.write_all(b"live original").await.unwrap();
+        let (mut reply, mut request) = remote.accept_bi().await.unwrap();
+        let mut bytes = [0; 13];
+        request.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"live original");
+        reply.write_all(&bytes).await.unwrap();
+        recv.read_exact(&mut bytes).await.unwrap();
+
+        let stable_id = original.stable_id();
+        relay.shutdown().await.unwrap();
+        assert!(original.close_reason().is_none(), "fault begins inside the original lifetime");
+        let repaired = client.repair_member_connection_until(
+            &original, target, n0_future::time::Instant::now() + Duration::from_millis(500),
+        ).await;
+        assert!(matches!(repaired, Err(ConnectionPathRecoveryError::Terminal { .. })), "{repaired:?}");
+        assert!(matches!(original.close_reason(), Some(iroh::endpoint::ConnectionError::LocallyClosed)));
+        assert_eq!(original.stable_id(), stable_id);
+        println!("{}", serde_json::json!({"event":"repair-baseline-trigger","stableId":stable_id,"trigger":"relay_shutdown"}));
+        client.close().await;
+        server.close().await;
+    }).await.unwrap();
+}
+
 async fn connect(
     client: &RestrictedEndpoint,
     server: &RestrictedEndpoint,

@@ -29,14 +29,7 @@ const MAX_ASSOCIATIONS: usize = 32;
 
 #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
 pub(crate) fn diagnostic_monotonic_ms() -> u64 {
-    static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
-    u64::try_from(
-        START
-            .get_or_init(std::time::Instant::now)
-            .elapsed()
-            .as_millis(),
-    )
-    .unwrap_or(u64::MAX)
+    crate::connection_coordinator::connection_diagnostic::monotonic_ms()
 }
 
 fn invalid(message: &'static str) -> io::Error {

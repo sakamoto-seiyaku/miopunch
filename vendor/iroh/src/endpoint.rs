@@ -2371,6 +2371,13 @@ impl ConnectOptions {
         self
     }
 
+    /// Pass local diagnostic identifiers to the pending connection's hooks.
+    #[doc(hidden)]
+    pub fn with_diagnostic_dial(mut self, attempt: usize, route: usize) -> Self {
+        self.attempt.diagnostic_dial = Some((attempt, route));
+        self
+    }
+
     /// Pass the caller's existing absolute attempt deadline to the protected
     /// hooks. This does not create a new budget or change the default timeout;
     /// the caller still bounds TLS/setup and each hook uses remaining time.

@@ -267,7 +267,25 @@ pub(crate) async fn attempt(
             connection_id,
         }))
     };
-    tokio::time::timeout(WAIT + Duration::from_secs(2), operation)
+    let budget = WAIT + Duration::from_secs(2);
+    let phase = control.diagnostic().phase(
+        "direct-candidates",
+        serde_json::json!({
+            "budgetMs":budget.as_millis() as u64,"candidateBudgetMs":2000,
+        }),
+    );
+    let result = tokio::time::timeout(budget, operation)
         .await
-        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "direct exchange interrupted"))?
+        .unwrap_or_else(|_| {
+            Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "direct exchange interrupted",
+            ))
+        });
+    phase.finish(match &result {
+        Ok(Some(_)) => "succeeded",
+        Ok(None) => "unavailable",
+        Err(_) => "failed",
+    });
+    result
 }

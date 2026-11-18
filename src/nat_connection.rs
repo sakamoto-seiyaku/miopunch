@@ -169,11 +169,37 @@ impl NatConnector {
         gate: &AdmissionGate,
     ) -> io::Result<MappingSnapshot> {
         self.check(control, gate)?;
+        let log = control.diagnostic();
         let endpoint = control.endpoint();
+        let existing_mapping = || {
+            let phase = log.phase(
+                "observation",
+                serde_json::json!({"method":"existing_mapping"}),
+            );
+            let result = MappingSnapshot::fallback_generation(
+                endpoint.udp_network_generation(),
+                endpoint.udp_observation().get(),
+            );
+            phase.finish(if result.is_ok() {
+                "succeeded"
+            } else {
+                "failed"
+            });
+            result
+        };
         let qad = if let Some(observers) = &self.observers {
-            if !self.budget.reserve_observations(observers.len()) {
+            let reserved = self.budget.reserve_observations(observers.len());
+            log.event(
+                "probe-budget",
+                if reserved { "reserved" } else { "denied" },
+                serde_json::json!({
+                    "resource":"qad_observation","requested":observers.len(),
+                }),
+            );
+            if !reserved {
                 return Err(io::Error::other("NAT observation budget exhausted"));
             }
+            let phase = log.phase("observation", serde_json::json!({"method":"qad"}));
             match self
                 .guard(
                     control,
@@ -182,10 +208,26 @@ impl NatConnector {
                 )
                 .await
             {
-                Ok(sequence) => Self::mapping_snapshot(sequence).ok(),
-                Err(error) if error.kind() == io::ErrorKind::PermissionDenied => return Err(error),
+                Ok(sequence) => {
+                    let samples = sequence.samples.len();
+                    let snapshot = Self::mapping_snapshot(sequence);
+                    phase.finish_with(
+                        if snapshot.is_ok() {
+                            "succeeded"
+                        } else {
+                            "failed"
+                        },
+                        serde_json::json!({"samples":samples}),
+                    );
+                    snapshot.ok()
+                }
+                Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
+                    phase.finish("failed");
+                    return Err(error);
+                }
                 Err(error) => {
-                    eprintln!("QAD_SEQUENCE_UNAVAILABLE error={error}");
+                    phase.finish("failed");
+                    eprintln!("QAD_SEQUENCE_UNAVAILABLE error_kind={:?}", error.kind());
                     None
                 }
             }
@@ -195,9 +237,18 @@ impl NatConnector {
         let snapshot = if let Some(snapshot) = qad {
             snapshot
         } else if !self.stun_observers.is_empty() {
-            if !self.budget.reserve_observations(self.stun_observers.len()) {
+            let reserved = self.budget.reserve_observations(self.stun_observers.len());
+            log.event(
+                "probe-budget",
+                if reserved { "reserved" } else { "denied" },
+                serde_json::json!({
+                    "resource":"stun_observation","requested":self.stun_observers.len(),
+                }),
+            );
+            if !reserved {
                 return Err(io::Error::other("NAT STUN observation budget exhausted"));
             }
+            let phase = log.phase("observation", serde_json::json!({"method":"stun"}));
             match self
                 .guard(
                     control,
@@ -206,21 +257,31 @@ impl NatConnector {
                 )
                 .await
             {
-                Ok(sequence) => Self::mapping_snapshot(sequence)?,
-                Err(error) if error.kind() == io::ErrorKind::PermissionDenied => return Err(error),
+                Ok(sequence) => {
+                    let samples = sequence.samples.len();
+                    let snapshot = Self::mapping_snapshot(sequence);
+                    phase.finish_with(
+                        if snapshot.is_ok() {
+                            "succeeded"
+                        } else {
+                            "failed"
+                        },
+                        serde_json::json!({"samples":samples}),
+                    );
+                    snapshot?
+                }
+                Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
+                    phase.finish("failed");
+                    return Err(error);
+                }
                 Err(error) => {
-                    eprintln!("STUN_SEQUENCE_UNAVAILABLE error={error}");
-                    MappingSnapshot::fallback_generation(
-                        endpoint.udp_network_generation(),
-                        endpoint.udp_observation().get(),
-                    )?
+                    phase.finish("failed");
+                    eprintln!("STUN_SEQUENCE_UNAVAILABLE error_kind={:?}", error.kind());
+                    existing_mapping()?
                 }
             }
         } else {
-            MappingSnapshot::fallback_generation(
-                endpoint.udp_network_generation(),
-                endpoint.udp_observation().get(),
-            )?
+            existing_mapping()?
         };
         let snapshot = snapshot.with_assisted(endpoint.udp_local_ipv4_candidates())?;
         self.check(control, gate)?;
@@ -269,7 +330,11 @@ impl NatConnector {
                 nat_punch::coordinate_server(control, gate, snapshot, &self.analyzer).await
             }
         };
-        let attempt = self.guard(control, gate, operation).await?;
+        let attempt = control
+            .diagnostic()
+            .phase("punch-plan", serde_json::Value::Null)
+            .run(self.guard(control, gate, operation))
+            .await?;
         println!(
             "LEGACY_SELECTED mode={} index={} c={:?} v={:?} scores_before={:?} round={} stable_id={} execution={:?} fallback={}",
             attempt.plan().id.mode,
@@ -301,17 +366,32 @@ impl NatConnector {
     ) -> io::Result<()> {
         self.check(control, gate)?;
         attempt.check_execution(control)?;
-        let allowance = self
-            .budget
-            .reserve_peer_allowance(attempt.peer_datagram_bound())
-            .ok_or_else(|| io::Error::other("NAT complete-plan budget insufficient"))?;
+        let log = control.diagnostic();
+        let bound = attempt.peer_datagram_bound();
+        let allowance = self.budget.reserve_peer_allowance(bound);
+        log.event(
+            "probe-budget",
+            if allowance.is_some() {
+                "reserved"
+            } else {
+                "denied"
+            },
+            serde_json::json!({"resource":"punch_datagrams","requested":bound}),
+        );
+        let allowance =
+            allowance.ok_or_else(|| io::Error::other("NAT complete-plan budget insufficient"))?;
         let enabled = || self.check(control, gate);
-        let status = attempt
-            .execute_checked(control, gate, &allowance, &enabled)
+        log.phase("punch", serde_json::json!({"datagramLimit":bound}))
+            .run(async {
+                let status = attempt
+                    .execute_checked(control, gate, &allowance, &enabled)
+                    .await?;
+                if status != ExecutionStatus::CompleteExecution {
+                    return Err(io::Error::other(format!("NAT plan {status:?}")));
+                }
+                Ok(())
+            })
             .await?;
-        if status != ExecutionStatus::CompleteExecution {
-            return Err(io::Error::other(format!("NAT plan {status:?}")));
-        }
         self.check(control, gate)?;
         self.guard(control, gate, attempt.prepare_data_path(control, gate))
             .await?;
@@ -475,14 +555,32 @@ impl NatConnector {
         gate: &AdmissionGate,
     ) -> io::Result<PreparedUdpPath> {
         self.check(control, gate)?;
+        let log = control.diagnostic();
+        log.event(
+            "probe-budget",
+            if self.max_rounds > 0 {
+                "available"
+            } else {
+                "denied"
+            },
+            serde_json::json!({"resource":"punch_rounds","limit":self.max_rounds}),
+        );
         if self.max_rounds == 0 {
             return Err(io::Error::other("NAT round allowance exhausted"));
         }
         // Direct QUIC validation has a separate bounded maintenance envelope.
-        let _direct_allowance = self
-            .budget
-            .reserve_peer_allowance(64)
-            .ok_or_else(|| io::Error::other("NAT direct budget insufficient"))?;
+        let direct_allowance = self.budget.reserve_peer_allowance(64);
+        log.event(
+            "probe-budget",
+            if direct_allowance.is_some() {
+                "reserved"
+            } else {
+                "denied"
+            },
+            serde_json::json!({"resource":"direct_datagrams","requested":64}),
+        );
+        let _direct_allowance =
+            direct_allowance.ok_or_else(|| io::Error::other("NAT direct budget insufficient"))?;
         if let Some(direct) = self
             .guard(control, gate, crate::nat_direct::attempt(control, gate))
             .await?

@@ -755,6 +755,16 @@ impl Connection {
         conn.close(error_code, Bytes::copy_from_slice(reason), &self.0.shared);
     }
 
+    /// Close with the same semantics as `close`, returning any reason already
+    /// set before this call acquired the connection lock.
+    #[doc(hidden)]
+    pub fn close_with_previous_reason(&self, error_code: VarInt, reason: &[u8]) -> Option<ConnectionError> {
+        let conn = &mut *self.0.lock_without_waking("close");
+        let previous = conn.error.clone();
+        conn.close(error_code, Bytes::copy_from_slice(reason), &self.0.shared);
+        previous
+    }
+
     /// Wait for the handshake to be confirmed.
     ///
     /// As a server, who must be authenticated by clients,

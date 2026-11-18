@@ -639,55 +639,71 @@ async fn upgrade(
         // keeps the lease validation-only until the common Ready barrier;
         // initial Control M preserves its restricted control seal.
         if connection.side().is_client() {
-            loop {
-                budget.remaining()?;
-                let result = if active {
-                    connection
-                        .open_data_transport_path(iroh::TransportAddr::Custom(lease.remote_addr()?))
-                        .await
-                } else {
-                    connection.open_control_path(lease.remote_addr()?).await
-                };
+            unified
+                .log
+                .phase("path-open", json!({"routeKind":"rtc"}))
+                .run(async {
+                    loop {
+                        budget.remaining()?;
+                        let result = if active {
+                            connection
+                                .open_data_transport_path(iroh::TransportAddr::Custom(
+                                    lease.remote_addr()?,
+                                ))
+                                .await
+                        } else {
+                            connection.open_control_path(lease.remote_addr()?).await
+                        };
 
-                match result {
-                    Ok(()) => break,
-                    Err(cause) if cause.kind() == std::io::ErrorKind::WouldBlock => {
-                        tokio::time::sleep(Duration::from_millis(10)).await;
+                        match result {
+                            Ok(()) => break,
+                            Err(cause) if cause.kind() == std::io::ErrorKind::WouldBlock => {
+                                tokio::time::sleep(Duration::from_millis(10)).await;
+                            }
+                            Err(cause) => return Err(cause.into()),
+                        }
                     }
-                    Err(cause) => return Err(cause.into()),
-                }
-            }
+                    Ok::<_, Box<dyn std::error::Error + Send + Sync>>(())
+                })
+                .await?;
         }
 
-        let started = budget.elapsed_ms();
-        let probe = path_probe(&lease, connection, budget).await?;
-        if active {
-            let observed = connection.paths();
-            let frames = observed
-                .iter()
-                .find(|path| path.id().to_string() == probe.path_id())
-                .map(|path| {
-                    json!({"streamSent":path.stats().frame_tx.stream,
+        let (probe, started) = unified
+            .log
+            .phase("fresh-ack", json!({"routeKind":"rtc"}))
+            .run(async {
+                let started = budget.elapsed_ms();
+                let probe = path_probe(&lease, connection, budget).await?;
+                if active {
+                    let observed = connection.paths();
+                    let frames = observed
+                        .iter()
+                        .find(|path| path.id().to_string() == probe.path_id())
+                        .map(|path| {
+                            json!({"streamSent":path.stats().frame_tx.stream,
                         "streamReceived":path.stats().frame_rx.stream,
                         "datagramSent":path.stats().frame_tx.datagram,
                         "datagramReceived":path.stats().frame_rx.datagram})
-                });
-            println!(
-                "{}",
-                json!({"event":"rtc-active-progress","stage":"probe-created",
+                        });
+                    println!(
+                        "{}",
+                        json!({"event":"rtc-active-progress","stage":"probe-created",
                     "stableId":connection.stable_id(),"pathId":probe.path_id(),
                     "probeWatermark":probe.watermark(),"acknowledged":probe.is_acknowledged().ok(),
                     "frames":frames,"elapsedMs":budget.elapsed_ms(),
                     "rtcRole":if offerer {"offerer"} else {"answerer"}})
-            );
-        }
-        while !probe.is_acknowledged()? {
-            budget.remaining()?;
-            if !qualification.is_current() || !lease.io().is_active() {
-                return Err("RTC initial qualification retired during probe".into());
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
+                    );
+                }
+                while !probe.is_acknowledged()? {
+                    budget.remaining()?;
+                    if !qualification.is_current() || !lease.io().is_active() {
+                        return Err("RTC initial qualification retired during probe".into());
+                    }
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+                Ok::<_, Box<dyn std::error::Error + Send + Sync>>((probe, started))
+            })
+            .await?;
         if active {
             println!(
                 "{}",
@@ -970,11 +986,18 @@ impl Drop for CancelRtc {
             // The enclosing deadline/control cancellation may drop `upgrade`
             // before its normal error tail. Preserve the last real ICE states
             // synchronously without delaying route retirement or PC closure.
-            let events = self.events.lock().map(|events| events.clone()).unwrap_or_default();
-            println!("{}", json!({"event":"rtc-candidate-cancelled",
+            let events = self
+                .events
+                .lock()
+                .map(|events| events.clone())
+                .unwrap_or_default();
+            println!(
+                "{}",
+                json!({"event":"rtc-candidate-cancelled",
                 "stableId":self.io.report().original_stable_id,"peer":self.peer,
                 "events":events,"route":self.io.report(),
-                "monotonicMs":crate::rtc_transport::diagnostic_monotonic_ms()}));
+                "monotonicMs":crate::rtc_transport::diagnostic_monotonic_ms()})
+            );
             tokio::spawn(async move {
                 let _ = pc.close().await;
             });

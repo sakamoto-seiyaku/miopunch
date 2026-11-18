@@ -541,6 +541,7 @@ impl RemoteStateActor {
                 local,
                 tx,
             } => {
+                #[cfg(not(wasm_browser))]
                 println!(
                     "[DEBUG-udp-handoff] actor-open-request stable_id={} local={local:?} remote={remote}",
                     conn_id

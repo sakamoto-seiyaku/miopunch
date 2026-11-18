@@ -496,16 +496,23 @@ pub(super) async fn bootstrap_control_active(
     record_progress("remote-route", true);
     if original.side().is_client() {
         record_progress("data-path-open", false);
-        loop {
-            budget.remaining().map_err(error)?;
-            match original.open_data_transport_path(remote.clone()).await {
-                Ok(()) => break,
-                Err(cause) if cause.kind() == std::io::ErrorKind::WouldBlock => {
-                    n0_future::time::sleep(Duration::from_millis(10)).await
+        attempt
+            .log
+            .phase("path-open", json!({"routeKind":"rtc"}))
+            .run(async {
+                loop {
+                    budget.remaining().map_err(error)?;
+                    match original.open_data_transport_path(remote.clone()).await {
+                        Ok(()) => break,
+                        Err(cause) if cause.kind() == std::io::ErrorKind::WouldBlock => {
+                            n0_future::time::sleep(Duration::from_millis(10)).await
+                        }
+                        Err(cause) => return Err(error(cause)),
+                    }
                 }
-                Err(cause) => return Err(error(cause)),
-            }
-        }
+                Ok::<_, JsValue>(())
+            })
+            .await?;
         record_progress("data-path-open", true);
     }
     record_progress("data-path-present", false);
@@ -521,27 +528,34 @@ pub(super) async fn bootstrap_control_active(
         n0_future::time::sleep(Duration::from_millis(10)).await;
     }
     record_progress("data-path-present", true);
-    record_progress("probe-start", false);
-    let probe_started_ms = budget.elapsed_ms();
-    let probe = loop {
-        budget.remaining().map_err(error)?;
-        match owner.lease.start_probe(original) {
-            Ok(probe) => break probe,
-            Err(cause) if cause.kind() == std::io::ErrorKind::WouldBlock => {
-                n0_future::time::sleep(Duration::from_millis(10)).await
+    let (probe, probe_started_ms) = attempt
+        .log
+        .phase("fresh-ack", json!({"routeKind":"rtc"}))
+        .run(async {
+            record_progress("probe-start", false);
+            let probe_started_ms = budget.elapsed_ms();
+            let probe = loop {
+                budget.remaining().map_err(error)?;
+                match owner.lease.start_probe(original) {
+                    Ok(probe) => break probe,
+                    Err(cause) if cause.kind() == std::io::ErrorKind::WouldBlock => {
+                        n0_future::time::sleep(Duration::from_millis(10)).await
+                    }
+                    Err(cause) => return Err(error(cause)),
+                }
+            };
+            record_progress("probe-start", true);
+            record_progress("probe-ack", false);
+            while !probe.is_acknowledged().map_err(error)? {
+                budget.remaining().map_err(error)?;
+                if revision.load(Ordering::Acquire) != observed || !owner.lease.io().is_active() {
+                    return Err(error("unified/IdentityOrAdmissionRejected"));
+                }
+                n0_future::time::sleep(Duration::from_millis(10)).await;
             }
-            Err(cause) => return Err(error(cause)),
-        }
-    };
-    record_progress("probe-start", true);
-    record_progress("probe-ack", false);
-    while !probe.is_acknowledged().map_err(error)? {
-        budget.remaining().map_err(error)?;
-        if revision.load(Ordering::Acquire) != observed || !owner.lease.io().is_active() {
-            return Err(error("unified/IdentityOrAdmissionRejected"));
-        }
-        n0_future::time::sleep(Duration::from_millis(10)).await;
-    }
+            Ok::<_, JsValue>((probe, probe_started_ms))
+        })
+        .await?;
     let ack_ms = budget.elapsed_ms();
     record_progress("probe-ack", true);
     record_progress("qualification", false);
@@ -850,7 +864,7 @@ pub(super) async fn bootstrap_control_inner(
             Arc::new(move || actual.report())).await.map_err(error)?;
 
             if connection.side().is_client() {
-
+                unified.log.phase("path-open", json!({"routeKind":"rtc"})).run(async {
                 loop {
                     budget.remaining().map_err(error)?;
                     let result=connection.open_control_path(owner.lease.remote_addr().map_err(error)?).await;
@@ -861,7 +875,8 @@ pub(super) async fn bootstrap_control_inner(
                         Err(cause)=>return Err(error(cause)),
                     }
                 }
-
+                Ok::<_,JsValue>(())
+                }).await?;
             }
 
             let probe=loop {

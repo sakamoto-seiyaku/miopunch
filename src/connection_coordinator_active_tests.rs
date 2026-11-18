@@ -637,6 +637,10 @@ async fn scenario_with_native(fault: Fault, production_native: bool) {
                             &control,
                             &initiator,
                             attempt,
+                            connection_diagnostic::AttemptLog::new(
+                                AttemptRole::Initiator,
+                                "explicit_improvement",
+                            ),
                         ))
                         .await;
                     if matches!(&result, Ok(Ok(()))) {

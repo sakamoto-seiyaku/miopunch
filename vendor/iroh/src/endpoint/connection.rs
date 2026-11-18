@@ -140,6 +140,7 @@ pub(super) struct AttemptOptions {
     pub(super) caller_deadline: Option<Instant>,
     pub(super) incoming_received_at: Option<Instant>,
     pub(super) cancellation: Option<tokio_util::sync::CancellationToken>,
+    pub(super) diagnostic_dial: Option<(usize, usize)>,
 }
 
 /// An incoming connection for which the server has not yet begun its parts of the
@@ -1192,6 +1193,12 @@ impl<T: ConnectionState> Connection<T> {
         self.inner.close(error_code, reason)
     }
 
+    /// Close and atomically observe whether the transport was already closed.
+    #[doc(hidden)]
+    pub fn close_with_previous_reason(&self, error_code: VarInt, reason: &[u8]) -> Option<ConnectionError> {
+        self.inner.close_with_previous_reason(error_code, reason)
+    }
+
     /// Transmits `data` as an unreliable, unordered application datagram.
     ///
     /// Application datagrams are a low-level primitive. They may be lost or delivered out
@@ -1348,6 +1355,13 @@ impl<T: ConnectionState> Connection<T> {
 }
 
 impl Connection<HandshakeCompleted> {
+    /// Process-local attempt and route identifiers supplied by the caller for
+    /// diagnostics. Neither identifier is sent to the peer.
+    #[doc(hidden)]
+    pub fn diagnostic_dial(&self) -> Option<(usize, usize)> {
+        self.data.attempt.diagnostic_dial
+    }
+
     /// Cancellation for this individual original attempt, when supplied.
     /// A retained data actor watches this token and current qualification; it
     /// does not use the setup deadline as its lifetime.

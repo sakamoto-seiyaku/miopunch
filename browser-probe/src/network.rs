@@ -906,6 +906,7 @@ impl BrowserGate {
     async fn prepare_relay(
         &self,
         connection: &ControlHandle,
+        log: crate::connection_coordinator::connection_diagnostic::AttemptLog,
     ) -> std::io::Result<serde_json::Value> {
         use crate::member_path_protocol::RelayValidation;
         let mut local_candidate_count: Option<usize> = None;
@@ -942,6 +943,7 @@ impl BrowserGate {
         self.remember_relay_check(connection, "exchange", serde_json::json!({"localCandidateCount":local_candidate_count,"remoteCandidateCount":remote_candidate_count,"mutuallyAllowedCount":mutually_allowed_count,"storageGateCheckPassed":storage_gate_checked}));
         let stream_id = exchange.stream_id.clone();
         let remote = exchange.candidates.iter().find(|url| permits(url)).cloned();
+        let mut opening = None;
         let validation = async {
             let remote = remote.ok_or_else(|| std::io::Error::new(std::io::ErrorKind::PermissionDenied, "no mutually permitted relay"))?;
             let started = n0_future::time::Instant::now();
@@ -958,6 +960,9 @@ impl BrowserGate {
                     return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "browser relay permission changed"));
                 }
                 if connection.side().is_client() {
+                    if fresh.is_none() && opening.is_none() {
+                        opening = Some(log.phase("path-open", serde_json::json!({"routeKind":"relay"})));
+                    }
                     match connection.open_control_relay_path(remote.clone()).await {
                         Ok(()) => {},
                         Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {},
@@ -966,6 +971,9 @@ impl BrowserGate {
                 }
                 if let Some(path) = connection.paths().iter().find(|path| matches!(path.remote_addr(), iroh::TransportAddr::Relay(url) if url == &remote)) {
                     if fresh.is_none() {
+                        if let Some(phase) = opening.take() {
+                            phase.finish_with("succeeded", serde_json::json!({"pathId":path.id().to_string()}));
+                        }
                         let probe = path.start_probe()?;
                         let mut details=relay_probe_debug_details(connection,Some(&path.id().to_string()),started.elapsed().as_millis(),None,started_utc_ms);
                         details["freshProbeIssued"]=serde_json::json!(true);details["probeWatermark"]=serde_json::json!(probe.watermark());details["storageGateCheckPassed"]=serde_json::json!(storage_gate_checked);
@@ -990,6 +998,9 @@ impl BrowserGate {
                 n0_future::time::sleep(Duration::from_millis(40)).await;
             }
         }.await;
+        if let Some(phase) = opening {
+            phase.finish("failed");
+        }
         self.remember_relay_check(connection, "validation-end", serde_json::json!({"validationOk":validation.is_ok(),"errorKind":validation.as_ref().err().map(|error|format!("{:?}",error.kind())),"storageGateCheckPassed":storage_gate_checked}));
         let observation = validation.as_ref().ok().cloned();
         let continuity = exchange.finish(connection, validation.map(|_| ())).await?;
@@ -1321,7 +1332,7 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
                     }))
                 }
                 PathPlan::Relay => {
-                    let mut report = self.prepare_relay(connection).await?;
+                    let mut report = self.prepare_relay(connection, attempt.log).await?;
                     report["capabilitiesVersion"] = serde_json::json!(1);
                     #[cfg(feature = "rtc-probe")]
                     self.remember_bootstrap(connection, report);

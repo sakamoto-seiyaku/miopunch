@@ -10,6 +10,11 @@ use iroh::endpoint::{
 use iroh_base::PublicKey;
 
 use crate::admission_gate::AdmissionGate;
+use crate::connection_coordinator::{
+    AttemptRole,
+    connection_diagnostic::{self, AttemptLog},
+};
+use serde_json::json;
 
 const MAX_PENDING_BUSINESS_BYTES: usize = 1024 * 1024;
 const MAX_PENDING_BUSINESS_MESSAGES: usize = 64;
@@ -31,6 +36,7 @@ pub struct ControlSession {
     close_on_drop: bool,
     pending_business: VecDeque<Vec<u8>>,
     pending_bytes: usize,
+    diagnostic: std::sync::OnceLock<AttemptLog>,
 }
 
 type HandoffFuture = Pin<Box<dyn Future<Output = io::Result<Connection>> + Send>>;
@@ -61,6 +67,7 @@ impl ControlSession {
             close_on_drop: false,
             pending_business: VecDeque::new(),
             pending_bytes: 0,
+            diagnostic: Default::default(),
         }
     }
     /// Own preparation on a restricted original while waiting for Core admission.
@@ -85,6 +92,7 @@ impl ControlSession {
             close_on_drop: true,
             pending_business: VecDeque::new(),
             pending_bytes: 0,
+            diagnostic: Default::default(),
         }
     }
     pub(crate) fn from_control(connection: ControlHandle) -> Self {
@@ -96,6 +104,7 @@ impl ControlSession {
             close_on_drop: false,
             pending_business: VecDeque::new(),
             pending_bytes: 0,
+            diagnostic: Default::default(),
         }
     }
     pub(crate) fn endpoint(&self) -> &ControlHandle {
@@ -107,6 +116,23 @@ impl ControlSession {
         let mut session = Self::from_control(original);
         session.exchange = Some(control);
         session
+    }
+    pub(crate) fn with_diagnostic(mut self, log: AttemptLog) -> Self {
+        self.diagnostic = std::sync::OnceLock::from(log);
+        self
+    }
+    pub(crate) fn diagnostic(&self) -> AttemptLog {
+        *self.diagnostic.get_or_init(|| {
+            let role = if self.is_dialing_side() {
+                AttemptRole::Initiator
+            } else {
+                AttemptRole::Responder
+            };
+            let mut log = AttemptLog::new(role, "native_udp_upgrade");
+            log.original = Some(self.stable_id());
+            log.control = self.exchange.as_ref().map(ControlHandle::stable_id);
+            log
+        })
     }
     /// Retain a restricted helper for metadata and original-session path work.
     pub fn control_handle(&self) -> ControlHandle {
@@ -126,8 +152,8 @@ impl ControlSession {
             "stableId":self.stable_id(),
             "controlStableId":self.exchange.as_ref().map(ControlHandle::stable_id),
             "dialing":self.is_dialing_side(),
-            "originalClosed":format!("{:?}",self.connection.close_reason()),
-            "controlClosed":self.exchange.as_ref().map(|c|format!("{:?}",c.close_reason())),
+            "originalClosed":connection_diagnostic::close_reason(self.connection.close_reason().as_ref()),
+            "controlClosed":self.exchange.as_ref().map(|c|connection_diagnostic::close_reason(c.close_reason().as_ref())),
             "paths":self.connection.paths().iter().map(|p|serde_json::json!({
                 "id":p.id().to_string(),"socket":format!("{:?}",p.local_socket_id()),
                 "local":format!("{:?}",p.local_addr()),"remote":p.remote_addr().to_string(),
@@ -269,27 +295,37 @@ impl ControlSession {
         check: &(dyn Fn() -> io::Result<()> + Sync),
     ) -> io::Result<DataPathOpen> {
         let mut path_id_retries = 0;
-        tokio::time::timeout_at(deadline, async {
-            loop {
-                check()?;
-                let result = match local {
-                    Some(local) => self.connection.open_data_path_from(local, remote).await,
-                    None => self.connection.open_data_path(remote).await,
-                };
-                match result {
-                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                        path_id_retries += 1;
-                        tokio::time::sleep(Duration::from_millis(50)).await;
-                    }
-                    result => {
+        let phase = self.diagnostic().phase("path-open", json!({
+            "routeKind":"udp","address":remote,"winningSocket":local.is_some(),
+            "budgetMs":deadline.saturating_duration_since(tokio::time::Instant::now()).as_millis() as u64,
+        }));
+        phase
+            .run(async {
+                tokio::time::timeout_at(deadline, async {
+                    loop {
                         check()?;
-                        return result.map(|_| DataPathOpen { path_id_retries });
+                        let result = match local {
+                            Some(local) => self.connection.open_data_path_from(local, remote).await,
+                            None => self.connection.open_data_path(remote).await,
+                        };
+                        match result {
+                            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                                path_id_retries += 1;
+                                tokio::time::sleep(Duration::from_millis(50)).await;
+                            }
+                            result => {
+                                check()?;
+                                return result.map(|_| DataPathOpen { path_id_retries });
+                            }
+                        }
                     }
-                }
-            }
-        })
-        .await
-        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "UDP path identifiers unavailable"))?
+                })
+                .await
+                .map_err(|_| {
+                    io::Error::new(io::ErrorKind::TimedOut, "UDP path identifiers unavailable")
+                })?
+            })
+            .await
     }
 
     /// Deterministically exercise the path-ID retry branch in a real data-path lab.

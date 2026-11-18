@@ -108,6 +108,7 @@ pub(crate) async fn prepare_relay_control(
     connection: &iroh::endpoint::ControlHandle,
     gate: &AdmissionGate,
     resources: &crate::resources::ResourceConfig,
+    log: crate::connection_coordinator::connection_diagnostic::AttemptLog,
 ) -> io::Result<()> {
     let check = || {
         if !gate.allows_member_path_upgrade(connection) || connection.close_reason().is_some() {
@@ -150,6 +151,7 @@ pub(crate) async fn prepare_relay_control(
         .iter()
         .find(|url| resources.allows(url.as_str(), crate::resources::ResourceUse::DataRelay))
         .cloned();
+    let mut opening = None;
     let validation = async {
             let remote = remote.ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no mutually permitted relay"))?;
             let deadline = tokio::time::Instant::now() + Duration::from_secs(6);
@@ -161,6 +163,9 @@ pub(crate) async fn prepare_relay_control(
             loop {
                 check()?;
                 if connection.side().is_client() {
+                    if fresh.is_none() && opening.is_none() {
+                        opening = Some(log.phase("path-open", serde_json::json!({"routeKind":"relay"})));
+                    }
                     match connection.open_control_relay_path(remote.clone()).await {
                         Ok(()) => {},
                         Err(error) if error.kind() == io::ErrorKind::WouldBlock => {},
@@ -170,6 +175,9 @@ pub(crate) async fn prepare_relay_control(
                 if let Some(path) = connection.paths().iter().find(|path| matches!(path.remote_addr(), TransportAddr::Relay(url)
                     if resources.allows(url.as_str(), crate::resources::ResourceUse::DataRelay))) {
                     if fresh.is_none() {
+                        if let Some(phase) = opening.take() {
+                            phase.finish_with("succeeded", serde_json::json!({"pathId":path.id().to_string()}));
+                        }
                         let probe = path.start_probe()?;
                         let mut details=relay_probe_debug_details(connection,Some(&path.id().to_string()),started.elapsed().as_millis(),Some(deadline.saturating_duration_since(tokio::time::Instant::now()).as_millis()),started_utc_ms);
                         details["freshProbeIssued"]=serde_json::json!(true);
@@ -197,6 +205,9 @@ pub(crate) async fn prepare_relay_control(
                 tokio::time::sleep(Duration::from_millis(40)).await;
             }
         }.await;
+    if let Some(phase) = opening {
+        phase.finish("failed");
+    }
     debug_relay_check(
         connection,
         gate,

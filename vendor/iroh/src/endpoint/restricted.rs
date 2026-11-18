@@ -1157,6 +1157,12 @@ impl ControlHandle {
         self.connection.caller_deadline()
     }
 
+    /// Process-local identifiers for this outgoing dial, when supplied.
+    #[doc(hidden)]
+    pub fn diagnostic_dial(&self) -> Option<(usize, usize)> {
+        self.connection.diagnostic_dial()
+    }
+
     /// The individual attempt's cancellation token, if supplied by the caller.
     pub fn attempt_cancellation(&self) -> Option<tokio_util::sync::CancellationToken> {
         self.connection.attempt_cancellation()

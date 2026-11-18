@@ -11,6 +11,7 @@ use iroh::{TransportAddr, endpoint::ControlHandle};
 use crate::{
     admission_gate::{AdmissionGate, PathQualification},
     connection_coordinator::PreparedPath,
+    connection_coordinator::connection_diagnostic::AttemptLog,
     control_session::ControlSession,
     nat_connection::{NatConnector, PreparedUdpPath},
     tcp_punch::{PreparedTcpPath, TcpPunch},
@@ -81,6 +82,7 @@ impl NativePathAdapter {
         original: &ControlHandle,
         gate: &AdmissionGate,
         active_control: Option<&ControlHandle>,
+        log: AttemptLog,
     ) -> io::Result<NativeCandidate> {
         let existing_paths: Vec<_> = original
             .paths()
@@ -100,7 +102,11 @@ impl NativePathAdapter {
                 } else {
                     ControlSession::from_control(original.clone())
                 };
-                PreparedNative::Udp(self.udp.prepare_upgrade(&control, gate).await?)
+                PreparedNative::Udp(
+                    self.udp
+                        .prepare_upgrade(&control.with_diagnostic(log), gate)
+                        .await?,
+                )
             }
             NativeMechanism::Tcp if self.tcp_available() => {
                 let tcp = self.tcp.as_ref().unwrap();
@@ -108,11 +114,17 @@ impl NativePathAdapter {
                 // are independent. Preparation must still exchange the same
                 // protected unavailable status when local enhancement is
                 // absent, so the peer does not consume UDP frames as TCP.
-                PreparedNative::Tcp(if let Some(control) = active_control {
-                    tcp.prepare_active(original, control, gate).await?
-                } else {
-                    tcp.prepare_control(original, gate).await?
-                })
+                PreparedNative::Tcp(
+                    log.phase("candidate", serde_json::json!({"mechanism":"tcp"}))
+                        .run(async {
+                            if let Some(control) = active_control {
+                                tcp.prepare_active(original, control, gate, log).await
+                            } else {
+                                tcp.prepare_control(original, gate, log).await
+                            }
+                        })
+                        .await?,
+                )
             }
             _ => {
                 return Err(io::Error::new(
@@ -161,8 +173,10 @@ impl NativePathAdapter {
         gate: &AdmissionGate,
         tcp: bool,
         udp: bool,
+        log: AttemptLog,
     ) -> io::Result<PreparedPath> {
-        self.prepare_paths(original, gate, tcp, udp, None).await
+        self.prepare_paths(original, gate, tcp, udp, None, log)
+            .await
     }
 
     pub(crate) async fn prepare_active_paths(
@@ -172,8 +186,9 @@ impl NativePathAdapter {
         gate: &AdmissionGate,
         tcp: bool,
         udp: bool,
+        log: AttemptLog,
     ) -> io::Result<PreparedPath> {
-        self.prepare_paths(original, gate, tcp, udp, Some(control))
+        self.prepare_paths(original, gate, tcp, udp, Some(control), log)
             .await
     }
 
@@ -184,11 +199,12 @@ impl NativePathAdapter {
         tcp: bool,
         udp: bool,
         active_control: Option<&ControlHandle>,
+        log: AttemptLog,
     ) -> io::Result<PreparedPath> {
         let pending_admission = active_control.is_none();
         if tcp {
             match self
-                .prepare(NativeMechanism::Tcp, original, gate, active_control)
+                .prepare(NativeMechanism::Tcp, original, gate, active_control, log)
                 .await
             {
                 Ok(candidate) => return candidate.into_shared(original, gate, pending_admission),
@@ -199,13 +215,12 @@ impl NativePathAdapter {
                     {
                         return Err(error);
                     }
-                    eprintln!("NATIVE_CANDIDATE_FAILED mechanism=tcp error={error}");
                 }
             }
         }
         if udp {
             return self
-                .prepare(NativeMechanism::Udp, original, gate, active_control)
+                .prepare(NativeMechanism::Udp, original, gate, active_control, log)
                 .await?
                 .into_shared(original, gate, pending_admission);
         }

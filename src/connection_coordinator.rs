@@ -8,6 +8,12 @@ use iroh::{
 };
 use std::{future::Future, io, pin::Pin};
 
+#[doc(hidden)]
+#[path = "connection_diagnostic.rs"]
+pub mod connection_diagnostic;
+use connection_diagnostic::AttemptLog;
+use serde_json::{Value, json};
+
 pub const MEMBER_ALPN: &[u8] = b"miopunch/session/member/1";
 pub const ADMISSION_REQUEST_ALPN: &[u8] = b"miopunch/session/admission/1";
 pub const PRECODE_REQUEST_ALPN: &[u8] = b"miopunch/session/precode/1";
@@ -220,6 +226,7 @@ pub(crate) struct ProtectedAttempt {
     pub local_runtime: Platform,
     pub peer_runtime: Platform,
     pub mutual: u8,
+    pub(crate) log: AttemptLog,
 }
 impl ProtectedAttempt {
     pub(crate) fn id_hex(self) -> String {
@@ -378,6 +385,7 @@ pub(crate) struct PreparedPath {
     current: Box<dyn Fn() -> io::Result<()> + Send + Sync>,
     retain: Option<Retain>,
     rollback: Option<Box<dyn FnOnce() + Send>>,
+    log: Option<AttemptLog>,
 }
 impl PreparedPath {
     pub(crate) fn candidate(
@@ -394,6 +402,7 @@ impl PreparedPath {
             current: Box::new(current),
             retain: None,
             rollback: None,
+            log: None,
         }
     }
     pub(crate) fn with_proof(
@@ -449,7 +458,13 @@ impl PreparedPath {
 impl Drop for PreparedPath {
     fn drop(&mut self) {
         if let Some(rollback) = self.rollback.take() {
+            let phase = self
+                .log
+                .map(|log| log.phase("rollback", json!({"pathId":self.path_id})));
             rollback();
+            if let Some(phase) = phase {
+                phase.finish("invoked");
+            }
         }
     }
 }
@@ -547,6 +562,13 @@ enum ContactDialFailure {
     Unavailable(ConnectError),
     Terminal(ConnectError),
 }
+impl ContactDialFailure {
+    fn error(&self) -> &ConnectError {
+        match self {
+            Self::Terminal(error) | Self::Unavailable(error) => error,
+        }
+    }
+}
 // The two platform owners share contact selection without widening the
 // restricted endpoint into an ordinary endpoint.
 #[derive(Clone)]
@@ -574,6 +596,13 @@ pub(crate) enum ConnectionDelivery {
     Control(crate::control_protocol::ControlOwner),
 }
 impl ConnectionDelivery {
+    fn stable_id(&self) -> usize {
+        match self {
+            Self::Business(c) => c.stable_id(),
+            Self::Control(c) => c.stable_id(),
+        }
+    }
+
     pub(crate) fn business(self) -> Result<Connection, ConnectError> {
         match self {
             Self::Business(c) => Ok(c),
@@ -747,22 +776,49 @@ impl ConnectionCoordinator {
         attempt: &AttemptContext,
         wire_alpn: &[u8],
         control_only: bool,
+        mut log: AttemptLog,
     ) -> Result<ConnectionDelivery, ContactDialFailure> {
         if SessionPurpose::from_alpn(wire_alpn) != Some(purpose) {
             return Err(ContactDialFailure::Terminal(
                 ConnectError::ProtocolUnsupported,
             ));
         }
-        use iroh::endpoint::{ConnectWithOptsError, ConnectingError};
         if attempt.cancellation.is_cancelled() {
             return Err(ContactDialFailure::Terminal(ConnectError::Cancelled));
         }
         if n0_future::time::Instant::now() >= attempt.deadline {
             return Err(ContactDialFailure::Terminal(ConnectError::DeadlineExceeded));
         }
+        // Public contact may supply a set of transports for one QUIC dial.
+        // Do not print relay URLs or arbitrary custom transport addresses.
+        let routes: Vec<_> = target
+            .addrs
+            .iter()
+            .map(|address| match address {
+                TransportAddr::Ip(address) => json!({"kind":"ip","address":address}),
+                TransportAddr::Relay(url) => {
+                    json!({"kind":"relay","host":url.host_str(),"port":url.port_or_known_default()})
+                }
+                TransportAddr::Custom(route) => json!({
+                    "kind":if Some(route.id()) == self.member_data_id { "member_data" }
+                        else if Some(route.id()) == self.member_contact_id { "member_contact" }
+                        else { "custom" },
+                    "transportId":route.id().to_string(),
+                }),
+                _ => json!({"kind":"unknown"}),
+            })
+            .collect();
+        let phase = log.phase("route-dial", json!({
+            "routeMode":if routes.len() == 1 {"explicit"} else {"mapped_contact"},
+            "routeHints":routes,
+            "purpose":purpose.label(),
+            "budgetMs":attempt.deadline.saturating_duration_since(n0_future::time::Instant::now()).as_millis() as u64,
+        }));
+        use iroh::endpoint::{ConnectWithOptsError, ConnectingError};
         let mut options = iroh::endpoint::ConnectOptions::new()
             .with_caller_deadline(attempt.deadline)
-            .with_attempt_cancellation(attempt.cancellation.clone());
+            .with_attempt_cancellation(attempt.cancellation.clone())
+            .with_diagnostic_dial(log.local_id, phase.id());
         if let Some(route) = target.addrs.iter().next()
             && target.addrs.len() == 1
         {
@@ -778,33 +834,7 @@ impl ConnectionCoordinator {
             }
             _ => ContactDialFailure::Terminal(ConnectError::Transport(error.to_string())),
         };
-        let delivered = match &self.endpoint {
-            EndpointAccess::Ordinary(endpoint) => endpoint
-                .connect_with_opts(target, wire_alpn, options)
-                .await
-                .map_err(setup_error)?
-                .await
-                .map(|c| {
-                    if control_only {
-                        ConnectionDelivery::Control(c.retain_control())
-                    } else {
-                        ConnectionDelivery::Business(c)
-                    }
-                }),
-            EndpointAccess::Restricted(endpoint) if control_only => endpoint
-                .connect_control_with_opts(target, wire_alpn, options)
-                .await
-                .map_err(setup_error)?
-                .await
-                .map(|c| ConnectionDelivery::Control(std::sync::Arc::new(c).retain_control())),
-            EndpointAccess::Restricted(endpoint) => endpoint
-                .connect_with_opts(target, wire_alpn, options)
-                .await
-                .map_err(setup_error)?
-                .await
-                .map(ConnectionDelivery::Business),
-        };
-        delivered.map_err(|error| {
+        let connecting_error = |error: ConnectingError| {
             // Only QUIC setup reachability failures may move to another contact.
             // Protected gate/control/data failures have an authenticated M and
             // must never be turned into a new membership attempt.
@@ -818,7 +848,77 @@ impl ConnectionCoordinator {
             } else {
                 ContactDialFailure::Terminal(error)
             }
-        })
+        };
+        let result = match &self.endpoint {
+            EndpointAccess::Ordinary(endpoint) => {
+                match endpoint.connect_with_opts(target, wire_alpn, options).await {
+                    Ok(connecting) => connecting
+                        .await
+                        .map(|connection| {
+                            if control_only {
+                                ConnectionDelivery::Control(connection.retain_control())
+                            } else {
+                                ConnectionDelivery::Business(connection)
+                            }
+                        })
+                        .map_err(connecting_error),
+                    Err(error) => Err(setup_error(error)),
+                }
+            }
+            EndpointAccess::Restricted(endpoint) if control_only => match endpoint
+                .connect_control_with_opts(target, wire_alpn, options)
+                .await
+            {
+                Ok(connecting) => connecting
+                    .await
+                    .map(|connection| {
+                        ConnectionDelivery::Control(
+                            std::sync::Arc::new(connection).retain_control(),
+                        )
+                    })
+                    .map_err(connecting_error),
+                Err(error) => Err(setup_error(error)),
+            },
+            EndpointAccess::Restricted(endpoint) => {
+                match endpoint.connect_with_opts(target, wire_alpn, options).await {
+                    Ok(connecting) => connecting
+                        .await
+                        .map(ConnectionDelivery::Business)
+                        .map_err(connecting_error),
+                    Err(error) => Err(setup_error(error)),
+                }
+            }
+        };
+        match &result {
+            Ok(delivery) => {
+                let id = delivery.stable_id();
+                log.route_phase_id = Some(phase.id());
+                if control_only {
+                    log.control = Some(id);
+                } else {
+                    log.original = Some(id);
+                }
+                phase.finish_with("succeeded", json!({"deliveredStableId":id}));
+                log.event(
+                    "dial-delivered",
+                    "succeeded",
+                    json!({"purpose":purpose.label()}),
+                );
+            }
+            Err(error) => {
+                let (result, reason) = match error.error() {
+                    ConnectError::Cancelled => ("cancelled", "cancelled"),
+                    ConnectError::DeadlineExceeded => ("failed", "deadline"),
+                    ConnectError::IdentityOrAdmissionRejected => ("failed", "admission"),
+                    ConnectError::ProtocolUnsupported => ("failed", "protocol_unsupported"),
+                    ConnectError::InvalidControl => ("failed", "invalid_control"),
+                    ConnectError::DataPathUnavailable => ("failed", "data_path_unavailable"),
+                    ConnectError::Transport(_) => ("failed", "transport"),
+                };
+                phase.finish_with(result, json!({"reason":reason}));
+            }
+        }
+        result
     }
 
     /// Keep each cold direct address inside this caller's original deadline.
@@ -832,6 +932,7 @@ impl ConnectionCoordinator {
         attempt: &AttemptContext,
         wire_alpn: &[u8],
         control_only: bool,
+        log: AttemptLog,
     ) -> Result<ConnectionDelivery, ContactDialFailure> {
         let mut last_unavailable = None;
         for (index, route) in routes.iter().enumerate() {
@@ -849,7 +950,7 @@ impl ConnectionCoordinator {
                 AttemptContext::new(attempt.deadline, attempt.cancellation.child_token());
             let data = iroh::EndpointAddr::new(id).with_addrs([route.clone()]);
             let mut work =
-                Box::pin(self.dial(data, purpose, &route_attempt, wire_alpn, control_only));
+                Box::pin(self.dial(data, purpose, &route_attempt, wire_alpn, control_only, log));
             match n0_future::time::timeout(share, &mut work).await {
                 Ok(Ok(connection)) => return Ok(connection),
                 Ok(Err(ContactDialFailure::Terminal(error))) => {
@@ -898,6 +999,16 @@ impl ConnectionCoordinator {
             .await?
             .control()
     }
+    pub(crate) async fn connect_active_control(
+        &self,
+        target: iroh::EndpointAddr,
+        attempt: AttemptContext,
+        log: AttemptLog,
+    ) -> Result<crate::control_protocol::ControlOwner, ConnectError> {
+        self.connect_delivery_logged(target, ACTIVE_IMPROVEMENT_ALPN, attempt, true, log)
+            .await?
+            .control()
+    }
     pub(crate) async fn connect_alpn(
         &self,
         target: iroh::EndpointAddr,
@@ -908,12 +1019,29 @@ impl ConnectionCoordinator {
             .await?
             .business()
     }
-    pub(crate) async fn connect_delivery(
+    pub(crate) fn connect_delivery(
+        &self,
+        target: iroh::EndpointAddr,
+        wire_alpn: &[u8],
+        attempt: AttemptContext,
+        control_only: bool,
+    ) -> impl Future<Output = Result<ConnectionDelivery, ConnectError>> {
+        self.connect_delivery_logged(
+            target,
+            wire_alpn,
+            attempt,
+            control_only,
+            AttemptLog::new(AttemptRole::Initiator, "connect"),
+        )
+    }
+
+    async fn connect_delivery_logged(
         &self,
         mut target: iroh::EndpointAddr,
         wire_alpn: &[u8],
         attempt: AttemptContext,
         control_only: bool,
+        log: AttemptLog,
     ) -> Result<ConnectionDelivery, ConnectError> {
         let purpose =
             SessionPurpose::from_alpn(wire_alpn).ok_or(ConnectError::ProtocolUnsupported)?;
@@ -959,7 +1087,7 @@ impl ConnectionCoordinator {
                 for route in active_routes.chain(relay_routes) {
                     let data = iroh::EndpointAddr::new(target.id).with_addrs([route.clone()]);
                     match self
-                        .dial(data, purpose, &attempt, wire_alpn, control_only)
+                        .dial(data, purpose, &attempt, wire_alpn, control_only, log)
                         .await
                     {
                         Ok(connection) => return Ok(connection),
@@ -998,7 +1126,7 @@ impl ConnectionCoordinator {
                         let member = iroh::EndpointAddr::new(target.id)
                             .with_addrs([TransportAddr::Custom(route.clone())]);
                         match self
-                            .dial(member, purpose, &attempt, wire_alpn, control_only)
+                            .dial(member, purpose, &attempt, wire_alpn, control_only, log)
                             .await
                         {
                             Ok(connection) => return Ok(connection),
@@ -1030,6 +1158,7 @@ impl ConnectionCoordinator {
                                 &attempt,
                                 wire_alpn,
                                 control_only,
+                                log,
                             )
                             .await
                         {
@@ -1043,7 +1172,14 @@ impl ConnectionCoordinator {
                     return Err(last_unavailable.unwrap_or(ConnectError::DataPathUnavailable));
                 }
                 match self
-                    .dial(public_contact, purpose, &attempt, wire_alpn, control_only)
+                    .dial(
+                        public_contact,
+                        purpose,
+                        &attempt,
+                        wire_alpn,
+                        control_only,
+                        log,
+                    )
                     .await
                 {
                     Ok(connection) => return Ok(connection),
@@ -1059,6 +1195,7 @@ impl ConnectionCoordinator {
                             &attempt,
                             wire_alpn,
                             control_only,
+                            log,
                         )
                         .await
                     {
@@ -1202,12 +1339,35 @@ pub(crate) async fn prepare_control_offer(
     local: RuntimeCapabilities,
 ) -> io::Result<ControlOffer> {
     let role = AttemptRole::initial(connection);
-    local.validate(role)?;
-    let exchange = if connection.side().is_client() {
-        connection.open_control_exchange().await?
+    let mut log = AttemptLog::for_dial(role, connection.diagnostic_dial());
+    if purpose == SessionPurpose::MemberBusiness {
+        log.original = Some(connection.stable_id());
     } else {
-        connection.accept_control_exchange().await?
-    };
+        log.control = Some(connection.stable_id());
+    }
+    local.validate(role)?;
+    let exchange = log
+        .phase("control-establishment", json!({"purpose":purpose.label()}))
+        .run(async {
+            if connection.side().is_client() {
+                connection.open_control_exchange().await
+            } else {
+                connection.accept_control_exchange().await
+            }
+        })
+        .await?;
+    log.phase("hello", json!({"purpose":purpose.label()}))
+        .run(prepare_control_hello(purpose, local, role, log, exchange))
+        .await
+}
+
+async fn prepare_control_hello(
+    purpose: SessionPurpose,
+    local: RuntimeCapabilities,
+    role: AttemptRole,
+    log: AttemptLog,
+    exchange: ControlExchange,
+) -> io::Result<ControlOffer> {
     let nonce: [u8; 16] = rand::random();
     let mut frame = [0; FRAME_LEN];
     frame[..4].copy_from_slice(b"MUC1");
@@ -1272,6 +1432,12 @@ pub(crate) async fn prepare_control_offer(
         hasher.update(&nonce);
     }
     let id: [u8; 16] = hasher.finalize().as_bytes()[..16].try_into().unwrap();
+    let log = log.with_shared(id);
+    log.event(
+        "attempt-associated",
+        "succeeded",
+        json!({"purpose":purpose.label()}),
+    );
     Ok(ControlOffer {
         exchange,
         nonce,
@@ -1283,6 +1449,7 @@ pub(crate) async fn prepare_control_offer(
             local_runtime: local.runtime,
             peer_runtime,
             mutual: local.permitted & peer[9],
+            log,
         },
     })
 }
@@ -1348,7 +1515,12 @@ impl PreparedAdmission {
         }
         let offer = self.offer;
         if purpose == SessionPurpose::AdmissionRequest {
-            offer.confirm().await?;
+            attempt
+                .log
+                .phase("ready", Value::Null)
+                .run(offer.confirm())
+                .await?;
+            return attempt.log.phase("commit", Value::Null).run(async {
             adapter.check(connection, purpose).await?;
             if adapter.authorization_revision(connection, purpose)? != revision
                 || connection.stable_id() != original
@@ -1366,13 +1538,19 @@ impl PreparedAdmission {
             adapter.committed(connection, report.clone());
             println!("{report}");
             self.cancellation.0 = None;
-            return Ok(());
+            Ok(())
+            }).await;
         }
         let mut prepared = self
             .prepared
             .take()
             .ok_or_else(|| control_error("DataPathUnavailable"))?;
-        offer.confirm().await?;
+        attempt
+            .log
+            .phase("ready", Value::Null)
+            .run(offer.confirm())
+            .await?;
+        attempt.log.phase("commit", json!({"pathId":prepared.path_id})).run(async {
         adapter.check(connection, purpose).await?;
         if adapter.authorization_revision(connection, purpose)? != revision {
             return Err(control_error("IdentityOrAdmissionRejected"));
@@ -1401,6 +1579,7 @@ impl PreparedAdmission {
         prepared.rollback = None;
         self.cancellation.0 = None;
         Ok(())
+        }).await
     }
 }
 pub(crate) async fn prepare_control_session<
@@ -1450,20 +1629,27 @@ pub(crate) async fn prepare_control_session<
     let plans = attempt.plans(connection, direct.as_ref(), relay.as_ref())?;
     let mut prepared = None;
     for plan in plans {
-        let candidate = match plan {
-            PathPlan::ExistingDirect => Ok(PreparedPath::candidate(
-                connection,
-                direct
-                    .as_ref()
-                    .ok_or_else(|| control_error("DataPathUnavailable"))?
-                    .0
-                    .clone(),
-                || Ok(()),
-            )),
-            _ => adapter.prepare(endpoint, connection, attempt, plan).await,
-        };
+        let candidate = attempt
+            .log
+            .phase("candidate", json!({"plan":format!("{plan:?}")}))
+            .run(async {
+                match plan {
+                    PathPlan::ExistingDirect => Ok(PreparedPath::candidate(
+                        connection,
+                        direct
+                            .as_ref()
+                            .ok_or_else(|| control_error("DataPathUnavailable"))?
+                            .0
+                            .clone(),
+                        || Ok(()),
+                    )),
+                    _ => adapter.prepare(endpoint, connection, attempt, plan).await,
+                }
+            })
+            .await;
         match candidate {
-            Ok(candidate) => {
+            Ok(mut candidate) => {
+                candidate.log = Some(attempt.log);
                 prepared = Some(candidate);
                 break;
             }
@@ -1482,45 +1668,58 @@ pub(crate) async fn prepare_control_session<
                 }
                 // The original absolute context remains in force for the next
                 // permitted candidate; failed RTC does not mark its node offline.
-                eprintln!("UNIFIED_CANDIDATE_FAILED plan={plan:?} error={error}");
             }
         }
     }
     let mut prepared = prepared.ok_or_else(|| control_error("DataPathUnavailable"))?;
-    prepared.check(connection, false)?;
-    if prepared.acknowledged.is_none() {
-        let paths = connection.paths();
-        let path = paths
-            .iter()
-            .find(|path| {
-                path.remote_addr() == &prepared.route
-                    && prepared
-                        .path_id
-                        .as_ref()
-                        .is_none_or(|id| path.id().to_string() == *id)
-            })
-            .ok_or_else(|| control_error("DataPathUnavailable"))?;
-        let probe = path.start_probe()?;
-        prepared.path_id = Some(path.id().to_string());
-        prepared.watermark = probe.watermark();
-        prepared.acknowledged = Some(Box::new(move || {
-            probe.is_acknowledged().map_err(io::Error::other)
-        }));
-    }
-    loop {
-        adapter.check(connection, purpose).await?;
-        if adapter.authorization_revision(connection, purpose)? != revision {
-            return Err(control_error("IdentityOrAdmissionRejected"));
-        }
+    let phase = attempt.log.phase("fresh-ack", Value::Null);
+    let qualification: io::Result<()> = async {
         prepared.check(connection, false)?;
-        if matches!(
-            prepared.acknowledged.as_ref().map(|ack| ack()),
-            Some(Ok(true))
-        ) {
-            break;
+        if prepared.acknowledged.is_none() {
+            let paths = connection.paths();
+            let path = paths
+                .iter()
+                .find(|path| {
+                    path.remote_addr() == &prepared.route
+                        && prepared
+                            .path_id
+                            .as_ref()
+                            .is_none_or(|id| path.id().to_string() == *id)
+                })
+                .ok_or_else(|| control_error("DataPathUnavailable"))?;
+            let probe = path.start_probe()?;
+            prepared.path_id = Some(path.id().to_string());
+            prepared.watermark = probe.watermark();
+            prepared.acknowledged = Some(Box::new(move || {
+                probe.is_acknowledged().map_err(io::Error::other)
+            }));
         }
-        n0_future::time::sleep(std::time::Duration::from_millis(10)).await;
+        loop {
+            adapter.check(connection, purpose).await?;
+            if adapter.authorization_revision(connection, purpose)? != revision {
+                return Err(control_error("IdentityOrAdmissionRejected"));
+            }
+            prepared.check(connection, false)?;
+            if matches!(
+                prepared.acknowledged.as_ref().map(|ack| ack()),
+                Some(Ok(true))
+            ) {
+                break;
+            }
+            n0_future::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        Ok(())
     }
+    .await;
+    phase.finish_with(
+        if qualification.is_ok() {
+            "succeeded"
+        } else {
+            "failed"
+        },
+        json!({"pathId":prepared.path_id}),
+    );
+    qualification?;
     Ok(PreparedAdmission {
         purpose,
         original,
@@ -1842,6 +2041,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
     attempt: AttemptContext,
     local: ActiveHello,
     peer_hello: ActiveHello,
+    log: AttemptLog,
 ) -> io::Result<()> {
     // The active control initiator/responder owns RTC offer/answer roles;
     // `ProtectedAttempt::quic_dialer` still derives the original M's QUIC
@@ -1880,6 +2080,8 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
         hasher.update(&local.nonce);
     }
     let id: [u8; 16] = hasher.finalize().as_bytes()[..16].try_into().unwrap();
+    let log = log.with_shared(id);
+    log.event("attempt-associated", "succeeded", Value::Null);
     let protected = ProtectedAttempt {
         id,
         role,
@@ -1887,6 +2089,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
         local_runtime: local.runtime,
         peer_runtime: peer_hello.runtime,
         mutual: local.permitted & peer_hello.permitted,
+        log,
     };
     adapter
         .check(&original, SessionPurpose::MemberBusiness)
@@ -1900,11 +2103,13 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
     }
     let mut prepared = None;
     for plan in protected.improvement_plans() {
-        match adapter
-            .prepare_active(endpoint, &original, control, protected, plan)
+        match log
+            .phase("candidate", json!({"plan":format!("{plan:?}")}))
+            .run(adapter.prepare_active(endpoint, &original, control, protected, plan))
             .await
         {
-            Ok(candidate) => {
+            Ok(mut candidate) => {
+                candidate.log = Some(log);
                 prepared = Some(candidate);
                 break;
             }
@@ -1922,11 +2127,6 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
                 {
                     return Err(error);
                 }
-                eprintln!(
-                    "UNIFIED_ACTIVE_CANDIDATE_FAILED stable_id={} control_id={} plan={plan:?} error={error}",
-                    original.stable_id(),
-                    control.stable_id()
-                );
             }
         }
     }
@@ -1936,95 +2136,110 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
 
     // The first C stream is owned by the adapter's bounded candidate protocol.
     // A second strictly framed stream carries the bilateral commit barrier.
-    let ready = n0_future::time::timeout(
-        attempt
-            .deadline
-            .saturating_duration_since(n0_future::time::Instant::now()),
-        open_active_stream(control),
-    )
-    .await
-    .map_err(|_| control_error("DeadlineExceeded"))??;
-    write_active_frame(
-        &ready,
-        ACTIVE_READY_KIND,
-        protected.id,
-        prepared.watermark,
-        original.stable_id(),
-        control.stable_id(),
-    )
-    .await?;
-    adapter.active_diagnostic(&original, control, "common-ready-sent");
-    let _peer_watermark = n0_future::time::timeout(
-        attempt
-            .deadline
-            .saturating_duration_since(n0_future::time::Instant::now()),
-        read_active_frame::<C, A>(
-            &ready,
-            ACTIVE_READY_KIND,
-            protected.id,
-            original.stable_id(),
-            control.stable_id(),
-            adapter,
-            attempt.deadline,
-        ),
-    )
-    .await
-    .map_err(|_| control_error("DeadlineExceeded"))??;
-    adapter.active_diagnostic(&original, control, "common-peer-ready");
-    adapter
-        .check(&original, SessionPurpose::MemberBusiness)
+    let ready = log
+        .phase("ready", json!({"pathId":prepared.path_id}))
+        .run(async {
+            let ready = n0_future::time::timeout(
+                attempt
+                    .deadline
+                    .saturating_duration_since(n0_future::time::Instant::now()),
+                open_active_stream(control),
+            )
+            .await
+            .map_err(|_| control_error("DeadlineExceeded"))??;
+            write_active_frame(
+                &ready,
+                ACTIVE_READY_KIND,
+                protected.id,
+                prepared.watermark,
+                original.stable_id(),
+                control.stable_id(),
+            )
+            .await?;
+            adapter.active_diagnostic(&original, control, "common-ready-sent");
+            let _peer_watermark = n0_future::time::timeout(
+                attempt
+                    .deadline
+                    .saturating_duration_since(n0_future::time::Instant::now()),
+                read_active_frame::<C, A>(
+                    &ready,
+                    ACTIVE_READY_KIND,
+                    protected.id,
+                    original.stable_id(),
+                    control.stable_id(),
+                    adapter,
+                    attempt.deadline,
+                ),
+            )
+            .await
+            .map_err(|_| control_error("DeadlineExceeded"))??;
+            adapter.active_diagnostic(&original, control, "common-peer-ready");
+            Ok::<_, io::Error>(ready)
+        })
         .await?;
-    adapter
-        .check(control, SessionPurpose::ActiveImprovement)
+    log.phase("commit", json!({"pathId":prepared.path_id}))
+        .run(async {
+            adapter
+                .check(&original, SessionPurpose::MemberBusiness)
+                .await?;
+            adapter
+                .check(control, SessionPurpose::ActiveImprovement)
+                .await?;
+            if adapter.authorization_revision(&original, SessionPurpose::MemberBusiness)?
+                != revision
+            {
+                return Err(control_error("IdentityOrAdmissionRejected"));
+            }
+            prepared.check(&original, true)?;
+            if let Some(retain) = prepared.retain.take() {
+                adapter.active_diagnostic(&original, control, "common-retain-begin");
+                retain().await?;
+                adapter.active_diagnostic(&original, control, "common-retain-returned");
+            }
+            prepared.check(&original, true)?;
+            write_active_frame(
+                &ready,
+                ACTIVE_COMMITTED_KIND,
+                protected.id,
+                prepared.watermark,
+                original.stable_id(),
+                control.stable_id(),
+            )
+            .await?;
+            let _peer_final = n0_future::time::timeout(
+                attempt
+                    .deadline
+                    .saturating_duration_since(n0_future::time::Instant::now()),
+                read_active_frame::<C, A>(
+                    &ready,
+                    ACTIVE_COMMITTED_KIND,
+                    protected.id,
+                    original.stable_id(),
+                    control.stable_id(),
+                    adapter,
+                    attempt.deadline,
+                ),
+            )
+            .await
+            .map_err(|_| control_error("DeadlineExceeded"))??;
+            adapter.active_diagnostic(&original, control, "peer-committed-observed");
+            adapter
+                .check(&original, SessionPurpose::MemberBusiness)
+                .await?;
+            adapter.active_diagnostic(&original, control, "post-committed-original-checked");
+            // Peer COMMITTED completes C's protocol role. Its peer may now close C;
+            // only current original-M authorization and candidate proof govern commit.
+            if adapter.authorization_revision(&original, SessionPurpose::MemberBusiness)?
+                != revision
+            {
+                return Err(control_error("IdentityOrAdmissionRejected"));
+            }
+            prepared.check(&original, true)?;
+            prepared.rollback = None;
+            adapter.active_diagnostic(&original, control, "rollback-disarmed");
+            Ok::<_, io::Error>(())
+        })
         .await?;
-    if adapter.authorization_revision(&original, SessionPurpose::MemberBusiness)? != revision {
-        return Err(control_error("IdentityOrAdmissionRejected"));
-    }
-    prepared.check(&original, true)?;
-    if let Some(retain) = prepared.retain.take() {
-        adapter.active_diagnostic(&original, control, "common-retain-begin");
-        retain().await?;
-        adapter.active_diagnostic(&original, control, "common-retain-returned");
-    }
-    prepared.check(&original, true)?;
-    write_active_frame(
-        &ready,
-        ACTIVE_COMMITTED_KIND,
-        protected.id,
-        prepared.watermark,
-        original.stable_id(),
-        control.stable_id(),
-    )
-    .await?;
-    let _peer_final = n0_future::time::timeout(
-        attempt
-            .deadline
-            .saturating_duration_since(n0_future::time::Instant::now()),
-        read_active_frame::<C, A>(
-            &ready,
-            ACTIVE_COMMITTED_KIND,
-            protected.id,
-            original.stable_id(),
-            control.stable_id(),
-            adapter,
-            attempt.deadline,
-        ),
-    )
-    .await
-    .map_err(|_| control_error("DeadlineExceeded"))??;
-    adapter.active_diagnostic(&original, control, "peer-committed-observed");
-    adapter
-        .check(&original, SessionPurpose::MemberBusiness)
-        .await?;
-    adapter.active_diagnostic(&original, control, "post-committed-original-checked");
-    // Peer COMMITTED completes C's protocol role. Its peer may now close C;
-    // only current original-M authorization and candidate proof govern commit.
-    if adapter.authorization_revision(&original, SessionPurpose::MemberBusiness)? != revision {
-        return Err(control_error("IdentityOrAdmissionRejected"));
-    }
-    prepared.check(&original, true)?;
-    prepared.rollback = None;
-    adapter.active_diagnostic(&original, control, "rollback-disarmed");
     // Terminal stream cleanup is best effort after bilateral qualified commit.
     // A completed peer C cannot retire the retained original-M candidate.
     if ready.finish_send().await.is_err() {
@@ -2049,6 +2264,7 @@ pub(crate) async fn improve_existing<E: ActiveEndpoint, A: MemberPathAdapter<E::
     control: &E::Session,
     adapter: &A,
     attempt: AttemptContext,
+    mut log: AttemptLog,
 ) -> io::Result<()> {
     if original.remote_id() != control.remote_id() || original.close_reason().is_some() {
         return Err(control_error("DataPathUnavailable"));
@@ -2056,34 +2272,47 @@ pub(crate) async fn improve_existing<E: ActiveEndpoint, A: MemberPathAdapter<E::
     let binding = crate::connection_recovery_core::binding(original)?;
     let role = AttemptRole::initial(control);
     let original = endpoint.active_session(original);
+    log.original = Some(original.stable_id());
+    log.control = Some(control.stable_id());
+    log.route_phase_id = control.diagnostic_dial().map(|(_, route)| route);
     let local = active_hello(adapter.capabilities_for(&original, role), role, binding);
-    let exchange = n0_future::time::timeout(
-        attempt
-            .deadline
-            .saturating_duration_since(n0_future::time::Instant::now()),
-        open_active_stream(control),
-    )
-    .await
-    .map_err(|_| control_error("DeadlineExceeded"))??;
-    write_active_hello(&exchange, local).await?;
-    let peer = n0_future::time::timeout(
-        attempt
-            .deadline
-            .saturating_duration_since(n0_future::time::Instant::now()),
-        read_active_hello(&exchange),
-    )
-    .await
-    .map_err(|_| control_error("DeadlineExceeded"))??;
-    active_session(
-        endpoint.ordinary_endpoint(),
-        original,
-        control,
-        adapter,
-        attempt,
-        local,
-        peer,
-    )
-    .await
+    let exchange = log
+        .phase("control-establishment", Value::Null)
+        .run(n0_future::time::timeout(
+            attempt
+                .deadline
+                .saturating_duration_since(n0_future::time::Instant::now()),
+            open_active_stream(control),
+        ))
+        .await
+        .map_err(|_| control_error("DeadlineExceeded"))??;
+    let peer = log
+        .phase("hello", Value::Null)
+        .run(async {
+            write_active_hello(&exchange, local).await?;
+            let peer = n0_future::time::timeout(
+                attempt
+                    .deadline
+                    .saturating_duration_since(n0_future::time::Instant::now()),
+                read_active_hello(&exchange),
+            )
+            .await
+            .map_err(|_| control_error("DeadlineExceeded"))??;
+            Ok::<_, io::Error>(peer)
+        })
+        .await?;
+    log.phase("active-session", Value::Null)
+        .run(active_session(
+            endpoint.ordinary_endpoint(),
+            original,
+            control,
+            adapter,
+            attempt,
+            local,
+            peer,
+            log,
+        ))
+        .await
 }
 
 /// Fault fixture using the real active hello framing on an authenticated C.
@@ -2138,34 +2367,45 @@ where
         .caller_deadline()
         .map(|deadline| deadline.min(responder_deadline))
         .unwrap_or(responder_deadline);
-    let exchange = n0_future::time::timeout(
-        deadline.saturating_duration_since(n0_future::time::Instant::now()),
-        open_active_stream(control),
-    )
-    .await
-    .map_err(|_| control_error("DeadlineExceeded"))??;
-    let peer = n0_future::time::timeout(
-        deadline.saturating_duration_since(n0_future::time::Instant::now()),
-        read_active_hello(&exchange),
-    )
-    .await
-    .map_err(|_| control_error("DeadlineExceeded"))??;
-    let original = lookup(control.remote_id(), &peer.binding)
-        .ok_or_else(|| control_error("DataPathUnavailable"))?;
-    let remaining = deadline;
-    let attempt = AttemptContext::new(remaining, tokio_util::sync::CancellationToken::new());
     let role = AttemptRole::initial(control);
-    let local = active_hello(
-        adapter.capabilities_for(&endpoint.active_session(&original), role),
-        role,
-        peer.binding,
-    );
-    write_active_hello(&exchange, local).await?;
+    // The initiator's reason is local diagnostic context, never a wire field.
+    let mut log = AttemptLog::new(role, "incoming_active_control");
+    log.control = Some(control.stable_id());
+    let exchange = log
+        .phase("control-establishment", Value::Null)
+        .run(n0_future::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            open_active_stream(control),
+        ))
+        .await
+        .map_err(|_| control_error("DeadlineExceeded"))??;
+    let (peer, original, local) = log
+        .phase("hello", Value::Null)
+        .run(async {
+            let peer = n0_future::time::timeout(
+                deadline.saturating_duration_since(n0_future::time::Instant::now()),
+                read_active_hello(&exchange),
+            )
+            .await
+            .map_err(|_| control_error("DeadlineExceeded"))??;
+            let original = lookup(control.remote_id(), &peer.binding)
+                .ok_or_else(|| control_error("DataPathUnavailable"))?;
+            let local = active_hello(
+                adapter.capabilities_for(&endpoint.active_session(&original), role),
+                role,
+                peer.binding,
+            );
+            write_active_hello(&exchange, local).await?;
+            Ok::<_, io::Error>((peer, original, local))
+        })
+        .await?;
+    log.original = Some(original.stable_id());
+    let attempt = AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new());
     let lease = registry
         .acquire(&original, &attempt, ())
         .map_err(|error| control_error(&format!("active/{error:?}")))?;
     lease
-        .run(active_session(
+        .run(log.phase("active-session", Value::Null).run(active_session(
             endpoint.ordinary_endpoint(),
             endpoint.active_session(&original),
             control,
@@ -2173,7 +2413,8 @@ where
             attempt,
             local,
             peer,
-        ))
+            log,
+        )))
         .await
         .map_err(|error| control_error(&format!("active/{error:?}")))?
 }

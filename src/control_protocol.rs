@@ -16,6 +16,10 @@ pub trait AuthenticatedControl: Debug + Send + Sync {
     fn side(&self) -> Side;
     fn alpn(&self) -> &[u8];
     fn caller_deadline(&self) -> Option<Instant>;
+    #[doc(hidden)]
+    fn diagnostic_dial(&self) -> Option<(usize, usize)> {
+        None
+    }
     fn attempt_cancellation(&self) -> Option<tokio_util::sync::CancellationToken>;
     fn close_reason(&self) -> Option<ConnectionError>;
     fn close(&self, code: VarInt, reason: &[u8]);
@@ -47,6 +51,9 @@ macro_rules! inherent_metadata {
         }
         fn caller_deadline(&self) -> Option<Instant> {
             <$ty>::caller_deadline(self)
+        }
+        fn diagnostic_dial(&self) -> Option<(usize, usize)> {
+            <$ty>::diagnostic_dial(self)
         }
         fn attempt_cancellation(&self) -> Option<tokio_util::sync::CancellationToken> {
             <$ty>::attempt_cancellation(self)
@@ -123,6 +130,9 @@ impl<T: AuthenticatedControl + ?Sized> AuthenticatedControl for Arc<T> {
     }
     fn caller_deadline(&self) -> Option<Instant> {
         self.as_ref().caller_deadline()
+    }
+    fn diagnostic_dial(&self) -> Option<(usize, usize)> {
+        self.as_ref().diagnostic_dial()
     }
     fn attempt_cancellation(&self) -> Option<tokio_util::sync::CancellationToken> {
         self.as_ref().attempt_cancellation()
@@ -225,6 +235,7 @@ impl AuthenticatedControl for ControlOwner {
     owner_metadata!(side, Side);
     owner_metadata!(alpn, &[u8]);
     owner_metadata!(caller_deadline, Option<Instant>);
+    owner_metadata!(diagnostic_dial, Option<(usize, usize)>);
     owner_metadata!(
         attempt_cancellation,
         Option<tokio_util::sync::CancellationToken>

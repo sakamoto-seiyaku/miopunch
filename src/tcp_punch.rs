@@ -1,9 +1,13 @@
 //! TCP traversal during the fork-owned admitted control stage.
-use crate::{admission_gate::AdmissionGate, tcp_transport::TcpTransport};
+use crate::{
+    admission_gate::AdmissionGate, connection_coordinator::connection_diagnostic::AttemptLog,
+    tcp_transport::TcpTransport,
+};
 use iroh::{
     TransportAddr,
     endpoint::{ControlHandle, WeakControlConnection},
 };
+use serde_json::json;
 use std::{
     collections::HashMap,
     io,
@@ -247,8 +251,9 @@ impl TcpPunch {
         &self,
         connection: &ControlHandle,
         gate: &AdmissionGate,
+        log: AttemptLog,
     ) -> io::Result<PreparedTcpPath> {
-        self.prepare_with_exchange(connection, connection, gate)
+        self.prepare_with_exchange(connection, connection, gate, log)
             .await
     }
 
@@ -257,8 +262,10 @@ impl TcpPunch {
         original: &ControlHandle,
         control: &ControlHandle,
         gate: &AdmissionGate,
+        log: AttemptLog,
     ) -> io::Result<PreparedTcpPath> {
-        self.prepare_with_exchange(original, control, gate).await
+        self.prepare_with_exchange(original, control, gate, log)
+            .await
     }
 
     async fn prepare_with_exchange(
@@ -266,6 +273,7 @@ impl TcpPunch {
         connection: &ControlHandle,
         exchange_control: &ControlHandle,
         gate: &AdmissionGate,
+        log: AttemptLog,
     ) -> io::Result<PreparedTcpPath> {
         let check = || {
             if connection.close_reason().is_some()
@@ -289,15 +297,17 @@ impl TcpPunch {
         // punch. Unsupported platforms neither query observers nor prime a
         // circuit, and report unavailable before the shared UDP fallback.
         if self.transport.supports_punching() {
-            for observer in &self.observers {
+            for (index, observer) in self.observers.iter().enumerate() {
                 check()?;
+                let phase = log.phase("observation", json!({"method":"tcp","observerIndex":index}));
                 match crate::tcp_observation::observe(connection, &self.transport, observer).await {
                     Ok(result) if result.is_fresh() && result.mapped.is_ipv4() => {
+                        phase.finish("succeeded");
                         observation = Some(result);
                         break;
                     }
-                    result => {
-                        eprintln!("TCP_OBSERVATION_FAILED observer={observer} result={result:?}")
+                    _ => {
+                        phase.finish("failed");
                     }
                 }
             }
@@ -383,32 +393,42 @@ impl TcpPunch {
         }
         check()?;
         let mut circuit = None;
-        let validation = async {
-            circuit = Some(self.transport.prime(remote)?);
-            println!(
-                "TCP_PUNCH_START stable_id={} peer={} remote={remote}",
-                connection.stable_id(),
-                connection.remote_id()
-            );
-            let deadline = tokio::time::Instant::now() + Duration::from_secs(6);
-            loop {
-                check()?;
-                if !generation.is_current()
-                    || connection.is_closed()
-                    || !observation.as_ref().is_some_and(|result| result.is_fresh())
-                {
-                    return Err(io::Error::other(
-                        "TCP observation invalidated during punching",
-                    ));
-                }
-                if connection.side().is_client() {
-                    match connection.open_control_path(route.clone()).await {
-                        Ok(()) => {}
-                        Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
-                        Err(error) => return Err(error),
-                    }
-                }
-                if connection.paths().iter().any(
+        let validation = log
+            .phase(
+                "punch",
+                json!({"routeKind":"tcp","validationBudgetMs":6000}),
+            )
+            .run(async {
+                circuit = Some(self.transport.prime(remote)?);
+                println!(
+                    "TCP_PUNCH_START stable_id={} peer={} remote={remote}",
+                    connection.stable_id(),
+                    connection.remote_id()
+                );
+                let deadline = tokio::time::Instant::now() + Duration::from_secs(6);
+                log.phase(
+                    "path-open",
+                    json!({"routeKind":"tcp","dialing":connection.side().is_client()}),
+                )
+                .run(async {
+                    loop {
+                        check()?;
+                        if !generation.is_current()
+                            || connection.is_closed()
+                            || !observation.as_ref().is_some_and(|result| result.is_fresh())
+                        {
+                            return Err(io::Error::other(
+                                "TCP observation invalidated during punching",
+                            ));
+                        }
+                        if connection.side().is_client() {
+                            match connection.open_control_path(route.clone()).await {
+                                Ok(()) => {}
+                                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+                                Err(error) => return Err(error),
+                            }
+                        }
+                        if connection.paths().iter().any(
                     |path| matches!(path.remote_addr(),TransportAddr::Custom(addr) if addr==&route),
                 ) {
                     println!(
@@ -418,16 +438,18 @@ impl TcpPunch {
                     );
                     return Ok(());
                 }
-                if tokio::time::Instant::now() >= deadline {
-                    return Err(io::Error::new(
-                        io::ErrorKind::TimedOut,
-                        "TCP punching path validation timed out",
-                    ));
-                }
-                tokio::time::sleep(Duration::from_millis(50)).await;
-            }
-        }
-        .await;
+                        if tokio::time::Instant::now() >= deadline {
+                            return Err(io::Error::new(
+                                io::ErrorKind::TimedOut,
+                                "TCP punching path validation timed out",
+                            ));
+                        }
+                        tokio::time::sleep(Duration::from_millis(50)).await;
+                    }
+                })
+                .await
+            })
+            .await;
         // A unilateral validation cannot release business while its peer is
         // entering fallback. Both endpoints commit the same phase result.
         exchange
