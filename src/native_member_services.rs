@@ -165,8 +165,8 @@ pub(crate) enum PeerStreamEnd {
 }
 
 pub(crate) struct ServiceStream {
-    peer: EndpointId,
-    status: Value,
+    connection: MemberConnection,
+    stream: String,
     halves: Mutex<Option<(SendStream, RecvStream)>>,
     control: StreamControl,
     id: (usize, Option<u64>),
@@ -183,12 +183,10 @@ impl ServiceTransport {
     fn member(connection: &MemberConnection, stream: MemberStream) -> Self {
         let control = stream.control();
         let (send, recv, lease) = stream.into_parts();
-        let mut status = path_status(connection);
-        status["stream"] = json!(send.id().to_string());
         let id = (connection.stable_id(), Some(send.id().into()));
         Self::Member(Arc::new(ServiceStream {
-            peer: connection.remote_id(),
-            status,
+            connection: connection.clone(),
+            stream: send.id().to_string(),
             halves: Mutex::new(Some((send, recv))),
             control,
             id,
@@ -200,17 +198,28 @@ impl ServiceTransport {
         matches!(self, Self::Member(_))
     }
 
+    pub(crate) fn member_connection(&self) -> Option<MemberConnection> {
+        match self {
+            Self::Legacy(_) => None,
+            Self::Member(stream) => Some(stream.connection.clone()),
+        }
+    }
+
     pub(crate) fn remote_id(&self) -> EndpointId {
         match self {
             Self::Legacy(connection) => connection.remote_id(),
-            Self::Member(stream) => stream.peer,
+            Self::Member(stream) => stream.connection.remote_id(),
         }
     }
 
     pub(crate) fn status(&self) -> Value {
         match self {
             Self::Legacy(connection) => crate::native_client::path_status(connection),
-            Self::Member(stream) => stream.status.clone(),
+            Self::Member(stream) => {
+                let mut status = path_status(&stream.connection);
+                status["stream"] = json!(stream.stream);
+                status
+            }
         }
     }
 
@@ -404,8 +413,12 @@ pub(crate) async fn receive(connection: MemberConnection, services: MemberServic
 pub(crate) fn path_status(connection: &MemberConnection) -> Value {
     json!({"peer":connection.remote_id().to_string(), "connection":connection.stable_id(),
         "initial_data_path":connection.initial_data_path(),
-        "paths":connection.paths().iter().map(|path| json!({"remote":path.remote_addr(),
+        "paths":connection.paths().iter().map(|path| {
+            let stats = path.stats();
+            json!({"id":path.id().to_string(),"remote":path.remote_addr(),
             "local":format!("{:?}",path.local_addr()),
-            "selected":path.is_selected(),"tx_bytes":path.stats().udp_tx.bytes,
-            "rx_bytes":path.stats().udp_rx.bytes})).collect::<Vec<_>>()})
+            "selected":path.is_selected(),"tx_bytes":stats.udp_tx.bytes,"rx_bytes":stats.udp_rx.bytes,
+            "rx_stream_frames":stats.frame_rx.stream,"tx_stream_frames":stats.frame_tx.stream,
+            "last_ack_age_ms":stats.acknowledgment.map(|ack| ack.received_at.elapsed().as_millis())})
+        }).collect::<Vec<_>>()})
 }

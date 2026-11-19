@@ -14,7 +14,7 @@ use tokio::{
 };
 
 use super::{Connection, RecvStream, RelayResourceUse, TransportAddr};
-use crate::endpoint::Endpoint;
+use crate::endpoint::{Endpoint, ObservationValidity};
 
 const PREFACE: &[u8] = b"iroh/member-direct/1\0";
 const MAX_CANDIDATES: usize = 2;
@@ -22,6 +22,7 @@ const MAX_DIRECT_ADDRESS: usize = 32;
 const MAX_OFFER_ADDRESS: usize = 64;
 const EXCHANGE_LIMIT: Duration = Duration::from_secs(6);
 const VALIDATION_LIMIT: Duration = Duration::from_secs(6);
+type Hint = (ObservationValidity, TransportAddr);
 
 #[derive(Debug)]
 pub(in crate::endpoint) struct PathCandidates {
@@ -30,8 +31,8 @@ pub(in crate::endpoint) struct PathCandidates {
     member_relay: Option<u64>,
     native_relay: bool,
     dialer: bool,
-    sender: mpsc::UnboundedSender<TransportAddr>,
-    learned: Mutex<BTreeSet<TransportAddr>>,
+    sender: mpsc::UnboundedSender<Hint>,
+    learned: Mutex<(ObservationValidity, BTreeSet<TransportAddr>)>,
 }
 
 impl PathCandidates {
@@ -54,13 +55,13 @@ impl PathCandidates {
     }
 
     fn enqueue(&self, address: TransportAddr) {
-        if self
-            .learned
-            .lock()
-            .expect("member path candidates")
-            .insert(address.clone())
-        {
-            let _ = self.sender.send(address);
+        let now = self.endpoint.udp_network_generation();
+        let mut learned = self.learned.lock().expect("member path candidates");
+        if learned.0 != now {
+            *learned = (now.clone(), BTreeSet::new());
+        }
+        if learned.1.insert(address.clone()) {
+            let _ = self.sender.send((now, address));
         }
     }
 
@@ -131,6 +132,7 @@ pub(in crate::endpoint) fn watch_path_candidates(
     // Contact inputs can arrive before any business stream. Queue each
     // permitted route once and bound the number of simultaneous QUIC probes.
     let (sender, receiver) = mpsc::unbounded_channel();
+    let generation = endpoint.udp_network_generation();
     let candidates = Arc::new(PathCandidates {
         endpoint,
         direct,
@@ -138,7 +140,7 @@ pub(in crate::endpoint) fn watch_path_candidates(
         native_relay,
         dialer: connection.side().is_client(),
         sender,
-        learned: Mutex::new(BTreeSet::new()),
+        learned: Mutex::new((generation, BTreeSet::new())),
     });
     tokio::spawn(watch(connection, activity, candidates.clone(), receiver));
     Some(candidates)
@@ -148,7 +150,7 @@ async fn watch(
     connection: Connection,
     mut activity: watch::Receiver<bool>,
     candidates: Arc<PathCandidates>,
-    receiver: mpsc::UnboundedReceiver<TransportAddr>,
+    receiver: mpsc::UnboundedReceiver<Hint>,
 ) {
     let direct_offer_received = Notify::new();
     let mut offer_activity = activity.clone();
@@ -182,9 +184,13 @@ async fn watch(
     let receive = async {
         let mut received_direct = false;
         while let Ok(stream) = connection.accept_uni().await {
+            let generation = candidates.endpoint.udp_network_generation();
             let Ok(Ok(addresses)) = time::timeout(EXCHANGE_LIMIT, read_offer(stream)).await else {
                 continue;
             };
+            if !generation.is_current() {
+                continue;
+            }
             let first_direct = !received_direct
                 && (addresses.is_empty()
                     || addresses
@@ -208,7 +214,10 @@ async fn watch(
                 let address = TransportAddr::Custom(address);
                 if accepted
                     && candidates.permits(&address)
-                    && peer_offers.send(address).await.is_err()
+                    && peer_offers
+                        .send((generation.clone(), address))
+                        .await
+                        .is_err()
                 {
                     return;
                 }
@@ -217,12 +226,13 @@ async fn watch(
     };
     let known = async {
         let mut receiver = receiver;
+        let mut generation = candidates.endpoint.udp_network_generation();
         let mut attempted = BTreeSet::new();
         let mut in_flight = FuturesUnordered::new();
         loop {
             let has_slot = in_flight.len() < MAX_CANDIDATES;
             let active = *activity.borrow_and_update();
-            let address = tokio::select! {
+            let (observed, address) = tokio::select! {
                 biased;
                 Ok(()) = activity.changed() => continue,
                 Some(()) = in_flight.next() => continue,
@@ -230,8 +240,20 @@ async fn watch(
                 Some(address) = receiver.recv(), if has_slot && active => address,
                 else => break,
             };
+            if !observed.is_current() {
+                continue;
+            }
+            if generation != observed {
+                generation = observed.clone();
+                attempted.clear();
+            }
             if candidates.permits(&address) && attempted.insert(address.clone()) {
-                in_flight.push(process_candidate(&connection, &candidates, address));
+                in_flight.push(process_candidate(
+                    &connection,
+                    &candidates,
+                    address,
+                    observed,
+                ));
             }
         }
     };
@@ -245,9 +267,14 @@ async fn process_candidate(
     connection: &Connection,
     candidates: &PathCandidates,
     address: TransportAddr,
+    generation: ObservationValidity,
 ) {
     if candidates.dialer {
-        let _ = time::timeout(VALIDATION_LIMIT, validate(candidates, connection, address)).await;
+        let _ = time::timeout(
+            VALIDATION_LIMIT,
+            validate(candidates, connection, address, generation),
+        )
+        .await;
     } else if let TransportAddr::Custom(local) = address
         && candidates
             .local_addresses(candidates.member_relay)
@@ -308,6 +335,7 @@ async fn validate(
     candidates: &PathCandidates,
     connection: &Connection,
     remote: TransportAddr,
+    generation: ObservationValidity,
 ) -> io::Result<()> {
     let endpoint = &candidates.endpoint;
     let Some(candidate) = endpoint
@@ -333,13 +361,17 @@ async fn validate(
         }
     };
     while !probe.is_acknowledged().map_err(io::Error::other)? {
+        if !generation.is_current() {
+            return Err(io::ErrorKind::Interrupted.into());
+        }
         time::sleep(Duration::from_millis(15)).await;
     }
     let custom = match &remote {
         TransportAddr::Custom(address) => Some(address.id()),
         _ => None,
     };
-    if candidates.permits(&remote)
+    if generation.is_current()
+        && candidates.permits(&remote)
         && endpoint
             .inner
             .qualifies_admission_data_path(
@@ -349,6 +381,7 @@ async fn validate(
                 custom.as_slice(),
             )
             .await
+        && generation.is_current()
     {
         candidate.retain();
     }

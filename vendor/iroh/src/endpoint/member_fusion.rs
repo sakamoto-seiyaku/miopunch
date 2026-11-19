@@ -16,7 +16,7 @@ use tokio_util::sync::CancellationToken;
 use super::{
     BindError, Builder, ConnectError, ConnectOptions, ConnectingError, Connection, ConnectionError,
     ControlConfirmation, ControlConnection, ControlExchange, ControlMessageFormat, DataPathPermit,
-    EndpointAddr, EndpointId, ExportKeyingMaterialError, PathId, PathList, RecvStream,
+    Endpoint, EndpointAddr, EndpointId, ExportKeyingMaterialError, PathId, PathList, RecvStream,
     RelayResourceUse, RestrictedBuilder, RestrictedEndpoint, SendStream, Side, TransportAddr,
     WeakControlConnection,
     restricted::{AdmissionOutcome, BoxFuture, DynEndpointAdmission},
@@ -26,6 +26,23 @@ mod dial;
 mod direct;
 pub use dial::MemberDialOptions;
 pub(super) use direct::{PathCandidates, watch_path_candidates};
+
+const REPAIR_LIMIT: Duration = Duration::from_secs(3);
+
+#[derive(Clone, derive_more::Debug)]
+struct RepairContact {
+    #[debug(skip)]
+    exchange: Arc<
+        dyn Fn(
+                Connection,
+                MemberRepairContacts,
+                Instant,
+                CancellationToken,
+            ) -> BoxFuture<'static, ()>
+            + Send
+            + Sync,
+    >,
+}
 
 /// Application authorization for the native member ALPN.
 pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
@@ -435,6 +452,29 @@ impl MemberFusionEndpoint {
         self.inner.endpoint.online().await;
     }
 
+    /// Install the application's protected contact exchange for live-path repair.
+    /// The owner starts it only for active originals without a working data path.
+    /// The exchange uses the provided restricted contacts under one caller lifetime.
+    pub fn set_repair_contact<F, Fut>(&self, exchange: F)
+    where
+        F: Fn(Connection, MemberRepairContacts, Instant, CancellationToken) -> Fut
+            + Send
+            + Sync
+            + 'static,
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        let contact = RepairContact {
+            exchange: Arc::new(move |connection, contact, end, cancel| {
+                Box::pin(exchange(connection, contact, end, cancel))
+            }),
+        };
+        self.inner
+            .fusion
+            .repair_contact
+            .set(contact)
+            .expect("member repair contact already installed");
+    }
+
     /// Synchronize two real candidates after they qualify at this test endpoint.
     #[cfg(feature = "miopunch-test-hooks")]
     #[doc(hidden)]
@@ -756,6 +796,7 @@ pub(super) struct Fusion {
     shutdown: CancellationToken,
     idle_timeout: std::sync::OnceLock<Duration>,
     selected: Option<mpsc::UnboundedSender<IncomingResult>>,
+    repair_contact: std::sync::OnceLock<RepairContact>,
     #[cfg(feature = "miopunch-test-hooks")]
     qualification_gate: std::sync::OnceLock<Arc<QualificationGate>>,
 }
@@ -779,11 +820,33 @@ impl Fusion {
         data_path: TransportAddr,
         activity: Arc<Activity>,
         path_candidates: Option<Arc<PathCandidates>>,
+        repair: Option<RepairPath>,
     ) {
-        let live = selection.publish(connection, data_path, activity, path_candidates);
+        let live = selection.publish(connection, data_path, activity, path_candidates, repair);
         if let Some(selected) = &self.selected {
             let _ = selected.send(Ok(live));
         }
+    }
+
+    pub(super) fn repair_path(
+        &self,
+        endpoint: &Endpoint,
+        connection: &Connection,
+        activity: &Activity,
+    ) -> Option<RepairPath> {
+        let contact = self.repair_contact.get()?.clone();
+        let (health, failed) = watch::channel(false);
+        let (addresses, learned) = watch::channel(Vec::new());
+        tokio::spawn(repair_path(
+            endpoint.clone(),
+            connection.clone(),
+            activity.subscribe(),
+            failed,
+            learned,
+            self.shutdown.clone(),
+            contact,
+        ));
+        Some(RepairPath { health, addresses })
     }
     fn peer(&self, id: EndpointId) -> Arc<Peer> {
         let mut peers = self.peers.lock().expect("member peers lock");
@@ -811,6 +874,113 @@ impl Fusion {
             #[cfg(feature = "miopunch-test-hooks")]
             qualification_gate: self.qualification_gate.get().cloned(),
         }
+    }
+}
+
+pub(super) struct RepairPath {
+    pub(super) health: watch::Sender<bool>,
+    addresses: watch::Sender<Vec<iroh_base::CustomAddr>>,
+}
+
+/// Permitted restricted contacts for one attempt on an existing member connection.
+#[derive(Debug)]
+pub struct MemberRepairContacts {
+    endpoint: Endpoint,
+    peer: EndpointId,
+    failed: watch::Receiver<bool>,
+    routes: Vec<iroh_base::CustomAddr>,
+    deadline: Instant,
+}
+
+impl MemberRepairContacts {
+    /// Run sequential contact exchanges, giving a silent route only its share
+    /// of the original deadline to reach the peer. Authenticated path
+    /// validation can use the remainder. Permission denial ends the attempt.
+    pub async fn run<T, F>(
+        self,
+        mut exchange: impl FnMut(EndpointAddr, Instant) -> F,
+    ) -> io::Result<T>
+    where
+        F: Future<Output = io::Result<T>>,
+    {
+        let Self {
+            endpoint,
+            peer,
+            failed,
+            mut routes,
+            deadline,
+        } = self;
+        let mut failure = None;
+        while *failed.borrow() && Instant::now() < deadline {
+            routes.retain(|route| endpoint.inner.permits_custom_bootstrap(route));
+            if routes.is_empty() {
+                break;
+            }
+            let share = dial::split_deadline(deadline, routes.len() as u32);
+            let route = routes.remove(0);
+            let target = EndpointAddr::new(peer).with_addrs([TransportAddr::Custom(route.clone())]);
+            let result = tokio::select! { biased;
+                result = exchange(target, share) => result,
+                _ = endpoint.inner.custom_bootstrap_unavailable(&route) => {
+                    Err(io::Error::new(io::ErrorKind::NotConnected, "repair contact sender unavailable"))
+                }
+            };
+            match result {
+                Err(error) if !dial::stops_dial(&error) => {
+                    failure = Some(dial::prefer_error(failure, error));
+                }
+                result => return result,
+            }
+        }
+        Err(failure.unwrap_or_else(|| io::ErrorKind::NotConnected.into()))
+    }
+}
+
+async fn repair_path(
+    endpoint: Endpoint,
+    original: Connection,
+    mut active: watch::Receiver<bool>,
+    mut failed: watch::Receiver<bool>,
+    mut learned: watch::Receiver<Vec<iroh_base::CustomAddr>>,
+    shutdown: CancellationToken,
+    contact: RepairContact,
+) {
+    let repair = async {
+        loop {
+            let routes = learned.borrow_and_update().clone();
+            if *failed.borrow_and_update() && *active.borrow_and_update() {
+                if routes
+                    .iter()
+                    .any(|route| endpoint.inner.permits_custom_bootstrap(route))
+                {
+                    let end = Instant::now() + REPAIR_LIMIT;
+                    let contacts = MemberRepairContacts {
+                        endpoint: endpoint.clone(),
+                        peer: original.remote_id(),
+                        failed: failed.clone(),
+                        routes,
+                        deadline: end,
+                    };
+                    let cancel = shutdown.child_token();
+                    let _guard = cancel.clone().drop_guard();
+                    tokio::select! { biased;
+                        _ = active.wait_for(|active| !*active) => {},
+                        _ = (contact.exchange)(original.clone(), contacts, end, cancel) => {},
+                    }
+                }
+            }
+            tokio::select! {
+                Ok(()) = failed.changed() => {},
+                Ok(()) = active.changed() => {},
+                Ok(()) = learned.changed() => {},
+                else => break,
+            }
+        }
+    };
+    tokio::select! { biased;
+        _ = shutdown.cancelled() => {},
+        _ = original.closed() => {},
+        _ = repair => {},
     }
 }
 
@@ -1337,12 +1507,14 @@ impl Selection {
         data_path: TransportAddr,
         activity: Arc<Activity>,
         path_candidates: Option<Arc<PathCandidates>>,
+        repair: Option<RepairPath>,
     ) -> Weak<Live> {
         let live = MemberConnection(Arc::new(Live {
             connection,
             data_path,
             activity,
             path_candidates,
+            repair: repair.map(|repair| repair.addresses),
         }));
         {
             let mut state = self.peer.state.lock().expect("member peer lock");
@@ -1394,6 +1566,20 @@ impl Drop for Selection {
 pub struct MemberConnection(Arc<Live>);
 
 impl MemberConnection {
+    /// Supply the application's currently permitted restricted contact routes
+    /// in preference order for this live original.
+    pub fn learn_repair_contacts(&self, routes: Vec<iroh_base::CustomAddr>) {
+        if let Some(repair) = &self.0.repair {
+            repair.send_if_modified(|current| {
+                if *current == routes {
+                    return false;
+                }
+                *current = routes;
+                true
+            });
+        }
+    }
+
     /// Authenticated member at the other end.
     pub fn remote_id(&self) -> EndpointId {
         self.0.connection.remote_id()
@@ -1591,6 +1777,7 @@ struct Live {
     data_path: TransportAddr,
     activity: Arc<Activity>,
     path_candidates: Option<Arc<PathCandidates>>,
+    repair: Option<watch::Sender<Vec<iroh_base::CustomAddr>>>,
 }
 
 impl Live {

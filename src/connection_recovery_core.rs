@@ -3,7 +3,9 @@
 use futures_util::FutureExt;
 use iroh::{
     Endpoint, EndpointAddr, TransportAddr,
-    endpoint::{ConnectOptions, Connection, ControlExchange, ControlMessageFormat},
+    endpoint::{
+        ConnectOptions, Connection, ControlExchange, ControlMessageFormat, DataCandidatePath,
+    },
 };
 use n0_future::time::{Instant, sleep, timeout};
 use std::{io, time::Duration};
@@ -20,6 +22,17 @@ pub(crate) trait RecoveryEndpoint: Sync {
         options: ConnectOptions,
     ) -> impl Future<Output = io::Result<Self::Control>> + Send;
     fn original_control(&self, original: &Connection) -> iroh::endpoint::ControlHandle;
+    fn open_repair_candidate(
+        &self,
+        original: &Connection,
+        address: TransportAddr,
+    ) -> impl Future<Output = io::Result<Option<DataCandidatePath>>> + Send {
+        let control = self.original_control(original);
+        async move {
+            control.open_data_transport_path(address).await?;
+            Ok(None)
+        }
+    }
 }
 impl RecoveryEndpoint for Endpoint {
     type Control = Connection;
@@ -161,6 +174,15 @@ pub(crate) struct ValidatedPath {
     pub address: TransportAddr,
     pub id: String,
     pub watermark: u64,
+    owner: Option<DataCandidatePath>,
+}
+
+impl ValidatedPath {
+    pub(crate) fn retain_candidate(&mut self) {
+        if let Some(candidate) = self.owner.take() {
+            candidate.retain();
+        }
+    }
 }
 pub(crate) async fn validate_candidates<C: AuthenticatedControl + ?Sized>(
     endpoint: &(impl RecoveryEndpoint + ?Sized),
@@ -180,29 +202,31 @@ pub(crate) async fn validate_candidates<C: AuthenticatedControl + ?Sized>(
     if paths.is_empty() {
         return Err(io::Error::other("no mutually permitted data candidate"));
     }
-    if original.side().is_client() {
-        for path in &paths {
-            loop {
-                check(original, control)?;
-                let opened = endpoint
-                    .original_control(original)
-                    .open_data_transport_path(path.clone())
-                    .await;
-                match opened {
-                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                        sleep(Duration::from_millis(50)).await
-                    }
-                    // A candidate-local refusal cannot rule out another
-                    // permitted carrier. Fatal original/control qualification
-                    // is checked independently before opening and probing.
-                    _ => break,
-                }
-            }
-        }
-    }
+    let mut candidates = Vec::new();
+    let mut pending = if original.side().is_client() {
+        paths.clone()
+    } else {
+        Vec::new()
+    };
     let mut probes = Vec::new();
     loop {
         check(original, control)?;
+        // Path ID pressure can defer a route while a candidate already open
+        // collects its first ACK. Give both a chance within the same deadline.
+        for address in std::mem::take(&mut pending) {
+            check(original, control)?;
+            if !permits(&address) {
+                continue;
+            }
+            match endpoint
+                .open_repair_candidate(original, address.clone())
+                .await
+            {
+                Ok(Some(candidate)) => candidates.push(candidate),
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => pending.push(address),
+                _ => {}
+            }
+        }
         for path in original
             .paths()
             .iter()
@@ -227,10 +251,14 @@ pub(crate) async fn validate_candidates<C: AuthenticatedControl + ?Sized>(
                     "data permission changed during repair",
                 ));
             }
+            let owner = candidates
+                .into_iter()
+                .find(|candidate| candidate.id() == *id);
             return Ok(ValidatedPath {
                 address: address.clone(),
                 id: id.to_string(),
                 watermark: *watermark,
+                owner,
             });
         }
         sleep(Duration::from_millis(20)).await;
@@ -250,14 +278,21 @@ pub(crate) async fn recover<E: RecoveryEndpoint>(
     permits: impl Fn(&TransportAddr) -> bool,
     check_original: impl Fn(&Connection) -> io::Result<()>,
     check: impl Fn(&Connection, &E::Control) -> io::Result<()>,
-) -> Result<ConnectionPathRecovery, ConnectionPathRecoveryError> {
+    begin_validation: impl FnOnce() -> io::Result<()>,
+) -> io::Result<ConnectionPathRecovery> {
     if original.close_reason().is_some() {
-        return Err(failed(original, "original connection closed"));
+        return Err(io::Error::new(
+            io::ErrorKind::NotConnected,
+            "original connection closed",
+        ));
     }
     if contact.id != original.remote_id() {
-        return Err(failed(original, "repair target differs from original peer"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "repair target differs from original peer",
+        ));
     }
-    check_original(original).map_err(|error| failed(original, error))?;
+    check_original(original)?;
     let deadline = caller_deadline.min(Instant::now() + REPAIR_TIMEOUT);
     let _cancel = CancelContact(cancel.clone());
     offer.addrs.retain(&permits);
@@ -276,8 +311,10 @@ pub(crate) async fn recover<E: RecoveryEndpoint>(
         let exchange = control.0.open_control_exchange().await?;
         send_message(&exchange, &request).await?;
         let candidate = recv_message(&exchange).await?;
-        let path = validate_candidates(endpoint, original, &control.0, candidate, &permits, &check)
-            .await?;
+        begin_validation()?;
+        let mut path =
+            validate_candidates(endpoint, original, &control.0, candidate, &permits, &check)
+                .await?;
         check(original, &control.0)?;
         if require_confirmation {
             let confirmation_exchange = control.0.accept_control_exchange().await?;
@@ -299,6 +336,16 @@ pub(crate) async fn recover<E: RecoveryEndpoint>(
                 .await?;
             confirmation_exchange.finish_send_confirmed().await?;
         }
+        if path.owner.is_some() {
+            check(original, &control.0)?;
+            if !permits(&path.address) {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "data permission changed during repair",
+                ));
+            }
+            path.retain_candidate();
+        }
         Ok::<_, io::Error>(ConnectionPathRecovery {
             stable_id: original.stable_id(),
             path: path.address,
@@ -318,9 +365,12 @@ pub(crate) async fn recover<E: RecoveryEndpoint>(
             _ = cancelled => Err(io::Error::new(io::ErrorKind::Interrupted, "path repair cancelled")),
             result = work => result,
         }
-    }).await.map_err(|_| failed(original, "bounded path repair caller deadline exceeded"))?;
+    }).await.map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "bounded path repair caller deadline exceeded"))?;
     if original.close_reason().is_some() {
-        return Err(failed(original, "original connection closed"));
+        return Err(io::Error::new(
+            io::ErrorKind::NotConnected,
+            "original connection closed",
+        ));
     }
-    result.map_err(|error| failed(original, error))
+    result
 }

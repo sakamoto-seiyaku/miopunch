@@ -765,8 +765,11 @@ async fn ordinary_service_close_and_revocation_are_scoped_until_membership_ends(
         b"TCP stays after UDP revoke",
     )
     .await;
-    assert_eq!(flow(consumer, Protocol::Tcp)["transport"], client_transport);
-    assert_eq!(flow(provider, Protocol::Tcp)["transport"], server_transport);
+    for (node, before) in [(consumer, &client_transport), (provider, &server_transport)] {
+        let current = &flow(node, Protocol::Tcp)["transport"];
+        assert_eq!(current["connection"], before["connection"]);
+        assert_eq!(current["stream"], before["stream"]);
+    }
 
     let peer = consumer.status().await.node.node_id;
     let proposal = provider
@@ -821,6 +824,605 @@ async fn only_configured_mqtt_contact_qualifies_the_first_native_member_path() {
     consumer.close().await.unwrap();
     provider.close().await.unwrap();
     broker.close().await;
+}
+
+struct NativeStreamCut {
+    pair: Pair,
+    broker: relay_contact_broker::Broker,
+    target: TcpListener,
+    listener_id: String,
+    sender: TcpStream,
+    receiver: TcpStream,
+    proxy: tokio_util::sync::CancellationToken,
+    before: [serde_json::Value; 2],
+    contact: [iroh::EndpointAddr; 2],
+}
+
+impl NativeStreamCut {
+    async fn new() -> Self {
+        use miopunch_native_probe::tcp_transport::{DATA_TRANSPORT_ID, TcpTransport};
+        let broker = relay_contact_broker::Broker::new().await;
+        let relay = relay().await;
+        let Pair {
+            root,
+            provider,
+            consumer,
+            ..
+        } = Pair::admit(relay.http_url().unwrap()).await;
+        provider.close().await.unwrap();
+        consumer.close().await.unwrap();
+        relay.shutdown().await.unwrap();
+        let mqtt = Resource {
+            url: format!("mqtt://{}/", broker.address),
+            uses: [ResourceUse::Signaling].into(),
+            limitation: "owned restricted contact for path recovery".into(),
+        };
+        let configure = |resources: &mut ResourceConfig| {
+            resources.defaults.resources = vec![mqtt.clone()];
+            resources.tcp_direct_disabled = false;
+            resources.tcp_listen = Some((Ipv4Addr::LOCALHOST, 0).into());
+        };
+        let provider = reopen_with_resources(&root.path().join("provider"), configure).await;
+        let [provider_route]: [String; 1] = broker.datagram_routes().try_into().unwrap();
+        let consumer = reopen_with_resources(&root.path().join("consumer"), configure).await;
+        let [consumer_route]: [String; 1] = broker
+            .datagram_routes()
+            .into_iter()
+            .filter(|route| route != &provider_route)
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        let mut provider_contact = provider.invitation().await.unwrap().address().clone();
+        use miopunch_native_probe::mqtt_datagram::{TRANSPORT_ID, address_for};
+        provider_contact.addrs.retain(|route| {
+            matches!(route,
+            iroh::TransportAddr::Custom(address) if address.id() == TRANSPORT_ID)
+        });
+        let Some(iroh::TransportAddr::Custom(address)) = provider_contact.addrs.first() else {
+            panic!("provider advertises the configured signaling carrier");
+        };
+        assert_eq!(provider_contact.addrs.len(), 1);
+        assert_eq!(hex::encode(&address.data()[16..]), provider_route);
+        // The admitted ordinary member cannot issue invitations. Read its
+        // actual broker subscription and use the shared configured origin tag.
+        let service = address.data()[..16].try_into().unwrap();
+        let route = hex::decode(consumer_route).unwrap().try_into().unwrap();
+        let consumer_contact = iroh::EndpointAddr::new(consumer.address().id).with_addrs([
+            iroh::TransportAddr::Custom(address_for(Some(service), route)),
+        ]);
+        let contact = [provider_contact, consumer_contact];
+        let (mut sender, mut receiver, before, target, listener_id, proxy) = {
+            let server_data = provider.address();
+            let actual = server_data
+                .addrs
+                .iter()
+                .find_map(|address| match address {
+                    iroh::TransportAddr::Custom(address) if address.id() == DATA_TRANSPORT_ID => {
+                        Some(TcpTransport::socket_addr(address).unwrap())
+                    }
+                    _ => None,
+                })
+                .unwrap();
+            let (proxy_address, proxy) = delayed_relay::delay_relay(actual, Duration::ZERO).await;
+            let route = iroh::TransportAddr::Custom(TcpTransport::address((
+                Ipv4Addr::LOCALHOST,
+                proxy_address.port_or_known_default().unwrap(),
+            )));
+            let target = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+            let target_address = target.local_addr().unwrap();
+            provider
+                .enable_forwarding(Protocol::Tcp, vec![target_address])
+                .await
+                .unwrap();
+            let dial = iroh::EndpointAddr::new(server_data.id).with_addrs([route.clone()]);
+            let listener = consumer
+                .start_forwarding(
+                    dial,
+                    Protocol::Tcp,
+                    target_address,
+                    (Ipv4Addr::LOCALHOST, 0).into(),
+                )
+                .await
+                .unwrap();
+            let address: SocketAddr = serde_json::from_value(listener["listen"].clone()).unwrap();
+            let sender = TcpStream::connect(address).await.unwrap();
+            let (receiver, _) = timeout(IO, target.accept()).await.unwrap().unwrap();
+            let before =
+                [&consumer, &provider].map(|node| flow(node, Protocol::Tcp)["transport"].clone());
+            assert_eq!(
+                before[0]["initial_data_path"],
+                serde_json::to_value(route).unwrap()
+            );
+            assert!(
+                before
+                    .iter()
+                    .all(|side| side["paths"].as_array().unwrap().len() == 1)
+            );
+            (
+                sender,
+                receiver,
+                before,
+                target,
+                listener["id"].as_str().unwrap().to_owned(),
+                proxy,
+            )
+        };
+        sequence_reply(&mut sender, &mut receiver, 1).await;
+        let target_address = provider.address();
+        Self {
+            pair: Pair {
+                root,
+                provider,
+                consumer,
+                target: target_address,
+            },
+            broker,
+            target,
+            listener_id,
+            sender,
+            receiver,
+            proxy,
+            before,
+            contact,
+        }
+    }
+
+    async fn learn_contact(&self, side: usize) {
+        let peers = [&self.pair.consumer, &self.pair.provider];
+        let reply = peers[side].ping(self.contact[side].clone()).await.unwrap();
+        assert_eq!(
+            reply["transport"]["connection"],
+            self.before[side]["connection"]
+        );
+    }
+
+    fn independent_dials(&self, side: usize) -> usize {
+        let Some(iroh::TransportAddr::Custom(route)) = self.contact[side].addrs.first() else {
+            unreachable!("fixture uses a restricted MQTT address");
+        };
+        self.broker.initial_dials_to(route)
+    }
+
+    fn status(&self) -> [serde_json::Value; 2] {
+        [&self.pair.consumer, &self.pair.provider]
+            .map(|node| flow(node, Protocol::Tcp)["transport"].clone())
+    }
+
+    async fn wait_for_replacement_paths(&self) -> [serde_json::Value; 2] {
+        wait_until(|| {
+            self.status().iter().zip(&self.before).all(|(now, before)| {
+                selected_path(now)
+                    .is_some_and(|new| new["id"] != selected_path(before).unwrap()["id"])
+            })
+        })
+        .await;
+        self.status()
+    }
+
+    fn listener_stats(&self) -> serde_json::Value {
+        self.pair.consumer.forwarding_status()["listeners"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|listener| listener["id"] == self.listener_id)
+            .unwrap()["counters"]
+            .clone()
+    }
+
+    async fn close(self) {
+        self.pair.close().await;
+        self.broker.close().await;
+    }
+}
+
+async fn sequence_reply(sender: &mut TcpStream, receiver: &mut TcpStream, sequence: u64) {
+    timeout(IO, async {
+        let mut bytes = [0; 8];
+        sender.write_all(&sequence.to_be_bytes()).await.unwrap();
+        receiver.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(bytes, sequence.to_be_bytes());
+        receiver.write_all(&bytes).await.unwrap();
+        sender.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(bytes, sequence.to_be_bytes());
+    })
+    .await
+    .expect("a sequence reply within the original five-second business deadline");
+}
+
+fn selected_path(transport: &serde_json::Value) -> Option<&serde_json::Value> {
+    transport["paths"]
+        .as_array()?
+        .iter()
+        .find(|path| path["selected"] == true)
+}
+
+#[tokio::test]
+async fn restricted_contact_repairs_the_live_native_forwarding_stream() {
+    native_forwarding_repair(0).await;
+}
+
+#[tokio::test]
+async fn accepting_peer_alone_can_contact_and_repair_the_original_native_stream() {
+    native_forwarding_repair(1).await;
+}
+
+#[tokio::test]
+async fn a_silent_repair_contact_leaves_time_for_the_live_alternative() {
+    use miopunch_native_probe::mqtt_datagram::address_for;
+
+    let mut cut = NativeStreamCut::new().await;
+    let mut contact = cut.contact[0].clone();
+    let Some(iroh::TransportAddr::Custom(live)) = contact.addrs.first() else {
+        unreachable!("fixture uses a configured MQTT address");
+    };
+    let stale = address_for(Some(live.data()[..16].try_into().unwrap()), [0; 16]);
+    assert!(stale < *live);
+    assert!(!cut.broker.datagram_routes().contains(&hex::encode([0; 16])));
+    contact
+        .addrs
+        .insert(iroh::TransportAddr::Custom(stale.clone()));
+    let pong = cut.pair.consumer.ping(contact).await.unwrap();
+    assert_eq!(pong["transport"]["connection"], cut.before[0]["connection"]);
+    let first_dials = cut.broker.initial_dials_to(&stale);
+    let backup_dials = cut.independent_dials(0);
+    let started = Instant::now();
+    cut.proxy.cancel();
+    cut.sender.write_all(&2u64.to_be_bytes()).await.unwrap();
+    wait_until(|| cut.broker.initial_dials_to(&stale) == first_dials + 1).await;
+    assert_eq!(
+        cut.independent_dials(0),
+        backup_dials,
+        "the first route is given a chance"
+    );
+    tokio::time::timeout_at(started + IO, async {
+        let mut bytes = [0; 8];
+        cut.receiver.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(bytes, 2u64.to_be_bytes());
+        cut.receiver.write_all(&bytes).await.unwrap();
+        cut.sender.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(bytes, 2u64.to_be_bytes());
+    })
+    .await
+    .expect("the live alternative repairs the original flow within its business deadline");
+    let first_reply = started.elapsed();
+    assert_eq!(cut.broker.initial_dials_to(&stale), first_dials + 1);
+    assert_eq!(cut.independent_dials(0), backup_dials + 1);
+    let repaired = cut.wait_for_replacement_paths().await;
+    sequence_reply(&mut cut.sender, &mut cut.receiver, 3).await;
+    for ((side, current), repaired) in cut.status().iter().enumerate().zip(&repaired) {
+        assert_eq!(current["connection"], cut.before[side]["connection"]);
+        assert_eq!(current["stream"], cut.before[side]["stream"]);
+        let path = selected_path(current).unwrap();
+        assert_ne!(path["id"], selected_path(&cut.before[side]).unwrap()["id"]);
+        assert!(path["last_ack_age_ms"].is_u64());
+        assert!(
+            path["rx_stream_frames"].as_u64().unwrap()
+                > selected_path(repaired).unwrap()["rx_stream_frames"]
+                    .as_u64()
+                    .unwrap()
+        );
+    }
+    eprintln!("MIO154 silent-first backup_dials=1 original_reply={first_reply:?}");
+    cut.close().await;
+}
+
+#[tokio::test]
+async fn crossed_repair_contacts_install_one_path_on_the_original_connection() {
+    let mut cut = NativeStreamCut::new().await;
+    cut.learn_contact(0).await;
+    cut.learn_contact(1).await;
+    cut.broker.mute_datagrams();
+    let before = [cut.independent_dials(0), cut.independent_dials(1)];
+    let started = Instant::now();
+    cut.proxy.cancel();
+    cut.sender.write_all(&2u64.to_be_bytes()).await.unwrap();
+    cut.receiver.write_all(&3u64.to_be_bytes()).await.unwrap();
+    wait_until(|| (0..2).all(|side| cut.independent_dials(side) > before[side])).await;
+    cut.broker.unmute_datagrams();
+    tokio::time::timeout_at(started + IO, async {
+        let mut received = [0; 8];
+        cut.receiver.read_exact(&mut received).await.unwrap();
+        assert_eq!(received, 2u64.to_be_bytes());
+        cut.sender.read_exact(&mut received).await.unwrap();
+        assert_eq!(received, 3u64.to_be_bytes());
+    })
+    .await
+    .expect("both queued sequences cross the same original stream");
+    sequence_reply(&mut cut.sender, &mut cut.receiver, 4).await;
+    for (side, current) in cut.status().iter().enumerate() {
+        let original = &cut.before[side];
+        assert_eq!(current["connection"], original["connection"]);
+        assert_eq!(current["stream"], original["stream"]);
+        assert_eq!(cut.independent_dials(side), before[side] + 1);
+        let original_id = &selected_path(original).unwrap()["id"];
+        let candidates: Vec<_> = current["paths"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|path| path["id"] != *original_id)
+            .collect();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0]["selected"], true);
+        assert!(candidates[0]["last_ack_age_ms"].is_u64());
+    }
+    eprintln!(
+        "MIO154 crossed_contact one_candidate_both_ends seq4_after={:?}",
+        started.elapsed()
+    );
+    cut.close().await;
+}
+
+async fn native_forwarding_repair(contact_side: usize) {
+    let mut cut = NativeStreamCut::new().await;
+    cut.learn_contact(contact_side).await;
+    let mqtt_before = cut.broker.datagram_publishes();
+    let dials_before = cut.independent_dials(contact_side);
+    let started = Instant::now();
+    cut.proxy.cancel();
+    if contact_side == 0 {
+        sequence_reply(&mut cut.sender, &mut cut.receiver, 2).await;
+    } else {
+        sequence_reply(&mut cut.receiver, &mut cut.sender, 2).await;
+    }
+    let first_reply = started.elapsed();
+    assert!(cut.broker.datagram_publishes() > mqtt_before);
+    assert_eq!(cut.independent_dials(contact_side), dials_before + 1);
+    let repaired = cut.wait_for_replacement_paths().await;
+    let repaired_at = started.elapsed();
+    for sequence in 3..=8 {
+        sequence_reply(&mut cut.sender, &mut cut.receiver, sequence).await;
+    }
+    for ((now, repaired), before) in cut.status().iter().zip(&repaired).zip(&cut.before) {
+        assert_eq!(now["peer"], before["peer"]);
+        assert_eq!(now["connection"], before["connection"]);
+        assert_eq!(now["stream"], before["stream"]);
+        let path = selected_path(now).unwrap();
+        let proof = selected_path(repaired).unwrap();
+        assert_eq!(path["id"], proof["id"]);
+        assert_ne!(path["id"], selected_path(before).unwrap()["id"]);
+        assert!(u128::from(proof["last_ack_age_ms"].as_u64().unwrap()) < repaired_at.as_millis());
+        assert!(
+            path["rx_stream_frames"].as_u64().unwrap()
+                > proof["rx_stream_frames"].as_u64().unwrap()
+        );
+        eprintln!(
+            "MIO154 contact_side={contact_side} first_original_reply={first_reply:?} before={before} after={now}"
+        );
+    }
+    cut.close().await;
+}
+
+#[tokio::test]
+#[cfg(target_os = "linux")]
+#[ignore = "requires a disposable namespace for the old TCP return-path filter"]
+async fn exhausted_native_path_reports_terminal_before_the_next_business_reply() {
+    let mut cut = NativeStreamCut::new().await;
+    cut.learn_contact(0).await;
+    use miopunch_native_probe::tcp_transport::{DATA_TRANSPORT_ID, TcpTransport};
+    let client_port = cut
+        .pair
+        .consumer
+        .address()
+        .addrs
+        .iter()
+        .find_map(|route| match route {
+            iroh::TransportAddr::Custom(address) if address.id() == DATA_TRANSPORT_ID => {
+                Some(TcpTransport::socket_addr(address).unwrap().port())
+            }
+            _ => None,
+        })
+        .unwrap();
+    // The TCP transport may open a separate return circuit directly to the
+    // initiator. Remove that circuit's packets too so both QUIC ends lose data.
+    let no_return = TcpReturnBlackhole::new(client_port);
+    cut.broker.mute_datagrams();
+    let initial = cut.broker.datagram_publishes();
+    let started = Instant::now();
+    cut.proxy.cancel();
+    cut.sender.write_all(&2u64.to_be_bytes()).await.unwrap();
+    wait_until(|| cut.broker.datagram_publishes() > initial).await;
+    // The configured contact stays subscribed but drops every protected packet.
+    // Its three-second limit expires while the old QUIC remains alive.
+    sleep(Duration::from_secs(3)).await;
+    let stopped = cut.broker.datagram_publishes();
+    assert!(cut.status().iter().all(|status| !status.is_null()));
+    assert_eq!(cut.listener_stats()["failed"], 0);
+    let mut byte = [0];
+    assert_eq!(
+        tokio::time::timeout_at(
+            started + Duration::from_secs(16),
+            cut.sender.read(&mut byte)
+        )
+        .await
+        .unwrap()
+        .unwrap(),
+        0
+    );
+    wait_until(|| cut.listener_stats()["last_error"] == "member_connection_terminated").await;
+    assert_eq!(cut.broker.datagram_publishes(), stopped);
+    assert_eq!(cut.listener_stats()["accepted"], 1);
+    assert_eq!(cut.listener_stats()["failed"], 1);
+    assert!(cut.status().iter().all(serde_json::Value::is_null));
+    let terminal_at = started.elapsed();
+    let return_packets = no_return.dropped();
+    assert!(
+        return_packets > 0,
+        "the blocked return circuit carried packets"
+    );
+
+    drop(no_return);
+    let target = cut.target.local_addr().unwrap();
+    let listener = cut
+        .pair
+        .consumer
+        .start_forwarding(
+            cut.pair.target.clone(),
+            Protocol::Tcp,
+            target,
+            (Ipv4Addr::LOCALHOST, 0).into(),
+        )
+        .await
+        .unwrap();
+    let address: SocketAddr = serde_json::from_value(listener["listen"].clone()).unwrap();
+    let redial_at = Instant::now();
+    let mut sender = TcpStream::connect(address).await.unwrap();
+    let (mut receiver, _) = timeout(IO, cut.target.accept()).await.unwrap().unwrap();
+    sequence_reply(&mut sender, &mut receiver, 3).await;
+    let next = cut.status();
+    for (next, before) in next.iter().zip(&cut.before) {
+        assert_eq!(next["peer"], before["peer"]);
+        assert_ne!(next["connection"], before["connection"]);
+    }
+    assert_eq!(cut.listener_stats()["accepted"], 1);
+    eprintln!(
+        "MIO154 terminal_after={terminal_at:?} blocked_return_packets={return_packets} next_first_reply={:?} old={:?} new={next:?}",
+        redial_at.elapsed(),
+        cut.before
+    );
+    cut.close().await;
+}
+
+#[cfg(target_os = "linux")]
+struct TcpReturnBlackhole(String);
+
+#[cfg(target_os = "linux")]
+impl TcpReturnBlackhole {
+    fn new(port: u16) -> Self {
+        let filter = Self(port.to_string());
+        filter.apply("-I");
+        filter
+    }
+
+    fn apply(&self, action: &str) {
+        for port in ["--sport", "--dport"] {
+            assert!(
+                std::process::Command::new("iptables")
+                    .args([
+                        "-w", action, "OUTPUT", "-o", "lo", "-p", "tcp", port, &self.0, "-j",
+                        "DROP",
+                    ])
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+    }
+
+    fn dropped(&self) -> u64 {
+        let stats = std::process::Command::new("iptables")
+            .args(["-w", "-nvx", "-L", "OUTPUT"])
+            .output()
+            .unwrap();
+        assert!(stats.status.success());
+        let source = format!("spt:{}", self.0);
+        let destination = format!("dpt:{}", self.0);
+        String::from_utf8(stats.stdout)
+            .unwrap()
+            .lines()
+            .filter_map(|line| {
+                let mut fields = line.split_whitespace();
+                let packets = fields.next()?.parse::<u64>().ok()?;
+                fields
+                    .any(|field| field == source || field == destination)
+                    .then_some(packets)
+            })
+            .sum()
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl Drop for TcpReturnBlackhole {
+    fn drop(&mut self) {
+        self.apply("-D");
+    }
+}
+
+#[tokio::test]
+async fn cancelling_the_last_native_flow_stops_independent_repair() {
+    let mut cut = NativeStreamCut::new().await;
+    cut.learn_contact(0).await;
+    cut.broker.mute_datagrams();
+    let initial = cut.broker.datagram_publishes();
+    let initial_dials = cut.independent_dials(0);
+    cut.proxy.cancel();
+    cut.sender.write_all(&2u64.to_be_bytes()).await.unwrap();
+    wait_until(|| cut.broker.datagram_publishes() > initial).await;
+    assert_eq!(cut.independent_dials(0), initial_dials + 1);
+    let id = flow(&cut.pair.consumer, Protocol::Tcp)["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    cut.pair.consumer.cancel_forwarding_flow(&id).await.unwrap();
+    assert!(cut.status()[0].is_null());
+    assert!(!cut.status()[1].is_null());
+    // MQTT's already queued packet and QUIC's cancellation close can reach
+    // the broker after the flow disappears. Keep them behind the fault.
+    sleep(Duration::from_millis(150)).await;
+    cut.broker.unmute_datagrams();
+    let stopped = cut.broker.datagram_publishes();
+    let mut bytes = [0; 8];
+    assert!(
+        timeout(
+            Duration::from_millis(1350),
+            cut.receiver.read_exact(&mut bytes)
+        )
+        .await
+        .is_err()
+    );
+    assert_eq!(cut.broker.datagram_publishes(), stopped);
+    assert_eq!(cut.independent_dials(0), initial_dials + 1);
+    assert_ne!(
+        cut.listener_stats()["last_error"],
+        "member_connection_terminated"
+    );
+    cut.close().await;
+}
+
+#[tokio::test]
+async fn membership_revocation_closes_the_original_even_when_path_repair_has_started() {
+    let mut cut = NativeStreamCut::new().await;
+    cut.learn_contact(0).await;
+    cut.broker.mute_datagrams();
+    let initial = cut.broker.datagram_publishes();
+    cut.proxy.cancel();
+    cut.sender.write_all(&2u64.to_be_bytes()).await.unwrap();
+    wait_until(|| cut.broker.datagram_publishes() > initial).await;
+    let proposal = cut
+        .pair
+        .provider
+        .propose_device_operation(
+            DeviceAction::RemoveMember,
+            cut.pair.consumer.status().await.node.node_id,
+        )
+        .await
+        .unwrap();
+    let operation: DeviceOperation = serde_json::from_value(proposal["operation"].clone()).unwrap();
+    assert_eq!(
+        cut.pair
+            .provider
+            .execute_device_operation(operation.id)
+            .await
+            .unwrap()["effective_locally"],
+        true
+    );
+    cut.broker.unmute_datagrams();
+    let mut bytes = [0; 8];
+    assert_eq!(
+        timeout(IO, cut.receiver.read(&mut bytes))
+            .await
+            .unwrap()
+            .unwrap(),
+        0
+    );
+    wait_until(|| cut.status()[1].is_null()).await;
+    assert!(
+        timeout(IO, cut.pair.consumer.ping(cut.pair.target.clone()))
+            .await
+            .unwrap()
+            .is_err()
+    );
+    assert!(cut.status()[1].is_null());
+    cut.close().await;
 }
 
 #[tokio::test]

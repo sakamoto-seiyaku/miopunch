@@ -107,6 +107,7 @@ pub(crate) struct MemberPathPolicy {
     activity: Option<watch::Receiver<bool>>,
     acked_custom_transports: [Option<u64>; 2],
     ack_native_relay: bool,
+    repair: Option<watch::Sender<bool>>,
     #[debug(skip)]
     permit: Arc<dyn Fn(&TransportAddr) -> bool + Send + Sync>,
 }
@@ -121,6 +122,7 @@ impl MemberPathPolicy {
             activity,
             acked_custom_transports: [None; 2],
             ack_native_relay: false,
+            repair: None,
             permit: Arc::new(permit),
         }
     }
@@ -133,6 +135,12 @@ impl MemberPathPolicy {
     ) -> Self {
         self.acked_custom_transports = custom;
         self.ack_native_relay = native_relay;
+        self
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn with_repair_health(mut self, repair: Option<watch::Sender<bool>>) -> Self {
+        self.repair = repair;
         self
     }
 
@@ -1274,6 +1282,7 @@ impl RemoteStateActor {
                 }
             }
             self.trigger_holepunching();
+            self.select_path();
         }
     }
 
@@ -1823,11 +1832,9 @@ impl RemoteStateActor {
             {
                 conn_state.update_path_health(&conn, now, interval);
             }
-            let current = current_id
-                .and_then(|id| conn_state.paths.get(&id))
-                .filter(|path| conn_state.has_qualified_path(path, &conn));
+            let current = current_id.filter(|id| conn_state.path_is_qualified(*id, &conn));
             let context = PathSelectionContext::for_connection(
-                current,
+                current.and_then(|id| conn_state.paths.get(&id)),
                 conn_state,
                 health_interval.map(|interval| (now, interval)),
             );
@@ -1836,42 +1843,67 @@ impl RemoteStateActor {
             {
                 // Confirmation must traverse the newly qualified exact route,
                 // even when the signaling path has a lower measured latency.
-                conn_state.paths.values().find(|path| matches!(&path.address, transports::FourTuple::Custom { remote, .. } if remote == exact) && conn_state.may_select(path)).cloned()
+                conn_state.paths.iter().find_map(|(id, path)| (matches!(&path.address, transports::FourTuple::Custom { remote, .. } if remote == exact) && conn_state.may_select(path)).then_some(*id))
             } else if let Some(selector) = &self.state.connection_path_selector {
                 selector
                     .select(&context)
-                    .selected()
                     // A selector can retain a result from an earlier callback.
                     // Revalidate exact ownership and live path existence here.
-                    .filter(|selected| conn_state.has_qualified_path(selected, &conn))
-                    .cloned()
-                    .or_else(|| current.cloned())
+                    .for_connection(conn_state, &conn)
+                    .or(current)
             } else if conn_state.purpose == ConnectionPurpose::Ordinary
                 && conn_state.member_paths.is_none()
-                && let Some(selected) = self
-                    .state
-                    .selected_path
-                    .as_ref()
-                    .filter(|selected| conn_state.has_qualified_path(selected, &conn))
+                && let Some(selected) = self.state.selected_path.as_ref().and_then(|selected| {
+                    conn_state.paths.iter().find_map(|(id, path)| {
+                        (selected == path && conn_state.path_is_qualified(*id, &conn))
+                            .then_some(*id)
+                    })
+                })
             {
                 // Apply the peer decision without invoking the legacy callback
                 // again. A hint never transfers another connection's capability.
-                Some(selected.clone())
+                Some(selected)
             } else {
                 // Restricted paths, or a peer preference that this connection
                 // cannot own, use the same built-in scorer on qualified paths.
                 super::super::biased_rtt_path_selector::BiasedRttPathSelector::default()
                     .select(&context)
-                    .selected()
-                    .cloned()
-                    .or_else(|| current.cloned())
+                    .for_connection(conn_state, &conn)
+                    .or(current)
             };
 
+            let fused = conn_state.member_paths.is_some();
+            let selected_binding = selected_for_conn.and_then(|id| conn_state.paths.get(&id));
+            let is_selected = |id, binding| {
+                if fused {
+                    selected_for_conn == Some(id)
+                } else {
+                    selected_binding == Some(binding)
+                }
+            };
             let failed_current = current_id.filter(|id| {
-                current.is_some()
-                    && current != selected_for_conn.as_ref()
-                    && conn_state.suspect_paths.contains_key(id)
+                conn_state.suspect_paths.contains_key(id)
+                    && if fused {
+                        Some(*id) != selected_for_conn
+                    } else {
+                        current.is_some() && conn_state.paths.get(id) != selected_binding
+                    }
             });
+            if let Some(repair) = conn_state
+                .member_paths
+                .as_ref()
+                .and_then(|member| member.policy.repair.as_ref())
+            {
+                let failed =
+                    selected_for_conn.is_none_or(|id| conn_state.suspect_paths.contains_key(&id));
+                repair.send_if_modified(|current| {
+                    if *current == failed {
+                        return false;
+                    }
+                    *current = failed;
+                    true
+                });
+            }
             let mut activated = false;
             for (path_id, path_fourtuple) in conn_state.paths.iter() {
                 let Some(path) = conn.path(*path_id) else {
@@ -1897,9 +1929,8 @@ impl RemoteStateActor {
                         .suspect_paths
                         .get(path_id)
                         .is_some_and(|suspect| suspect.retained_for_recovery)
-                    && selected_for_conn
-                        .as_ref()
-                        .is_some_and(|selected| path_fourtuple != selected)
+                    && selected_for_conn.is_some()
+                    && !is_selected(*path_id, path_fourtuple)
                     && conn_state.paths.values().filter(|a| a.is_ip()).count() > 1
                 {
                     trace!(?path_fourtuple, %conn_id, %path_id, "closing direct path");
@@ -1920,7 +1951,7 @@ impl RemoteStateActor {
 
                 // Set path status: The selected path becomes Available, all other paths
                 // become Backup.
-                let status = if selected_for_conn.as_ref() == Some(path_fourtuple) {
+                let status = if is_selected(*path_id, path_fourtuple) {
                     PathStatus::Available
                 } else {
                     PathStatus::Backup
@@ -1945,8 +1976,8 @@ impl RemoteStateActor {
             }
 
             // Record the new selected path in the path watcher.
-            if let Some(addr) = selected_for_conn.as_ref() {
-                conn_state.path_state.record_selected(addr);
+            if fused || selected_for_conn.is_some() {
+                conn_state.path_state.record_selected(selected_for_conn);
             }
         }
     }
@@ -2348,7 +2379,9 @@ impl State {
         }
 
         let mapped_4tuple = self.mapped_addrs.to_mapped_tuple(open_4tuple);
-        let path_status = if conn_state.requires_path_ack(open_4tuple) {
+        let path_status = if conn_state.requires_path_ack(open_4tuple)
+            || (conn_state.member_paths.is_some() && explicit_request)
+        {
             PathStatus::Backup
         } else {
             self.path_status_for_addr(open_4tuple)
@@ -2771,11 +2804,13 @@ impl ConnectionState {
                 now.saturating_duration_since(since.into()) >= interval.max(2 * stats.probe_timeout)
             })
         };
-        if paths.iter().any(|(id, stats)| {
-            !self.suspect_paths.contains_key(id)
-                && !stalled(stats)
-                && has_fresh_ack(stats, now, interval)
-        }) {
+        if self.member_paths.is_some()
+            || paths.iter().any(|(id, stats)| {
+                !self.suspect_paths.contains_key(id)
+                    && !stalled(stats)
+                    && has_fresh_ack(stats, now, interval)
+            })
+        {
             for (id, stats) in paths {
                 if stalled(&stats) {
                     self.suspect_paths
@@ -2823,17 +2858,14 @@ impl ConnectionState {
         }
         true
     }
-    fn has_qualified_path(
-        &self,
-        candidate: &transports::PathBinding,
-        conn: &noq::Connection,
-    ) -> bool {
-        self.paths.iter().any(|(id, path)| {
-            path == candidate
-                && self.may_select(path)
-                && conn.path(*id).is_some()
+    fn path_is_qualified(&self, id: PathId, conn: &noq::Connection) -> bool {
+        self.paths.get(&id).is_some_and(|path| {
+            self.may_select(path)
+                && conn.path(id).is_some()
                 && (!self.requires_path_ack(path)
-                    || conn.path_stats(*id).is_some_and(|stats| stats.acknowledgment.is_some()))
+                    || conn
+                        .path_stats(id)
+                        .is_some_and(|stats| stats.acknowledgment.is_some()))
         })
     }
 
@@ -3008,6 +3040,12 @@ impl<'a> PathSelectionContext<'a> {
 
     /// Whether this candidate is the current path, including its local socket.
     pub fn is_current(&self, candidate: &PathSelectionData<'_>) -> bool {
+        if let PathsSource::Connection(state) = &self.source
+            && state.member_paths.is_some()
+            && let StatsSource::Live { path_id, .. } = &candidate.source
+        {
+            return self.current.is_some() && state.path_state.selected_id() == Some(*path_id);
+        }
         self.current.is_some_and(|path| {
             path.address == *candidate.network_path && path.local_socket == candidate.local_socket
         }) || {
@@ -3067,13 +3105,22 @@ impl<'a> PathSelectionContext<'a> {
                     .flat_map(move |conn| {
                         state.paths.iter().filter_map(move |(id, addr)| {
                             let suspect = state.suspect_paths.contains_key(id);
-                            if state.member_paths.is_some() {
-                                let current = self.current == Some(addr);
+                            if let Some(member) = &state.member_paths {
+                                let current = state.path_state.selected_id() == Some(*id);
                                 let current_suspect =
-                                    state.path_state.selected_id().is_some_and(|current| {
+                                    state.path_state.selected_id().is_none_or(|current| {
                                         state.suspect_paths.contains_key(&current)
                                     });
                                 if suspect
+                                    || (addr.is_ip()
+                                        && member.network_changed_at.is_some_and(|changed| {
+                                            !conn
+                                                .path_stats(*id)
+                                                .and_then(|stats| stats.acknowledgment)
+                                                .is_some_and(|ack| {
+                                                    Instant::from(ack.sent_at) > changed
+                                                })
+                                        }))
                                     || ((state.requires_path_ack(addr)
                                         || (!current && (current_suspect || addr.is_ip())))
                                         && !conn.path_stats(*id)
@@ -3245,13 +3292,17 @@ pub trait ConnectionPathSelector: Send + Sync + std::fmt::Debug + 'static {
 #[cfg_attr(not(feature = "unstable-custom-transports"), allow(unreachable_pub))]
 pub struct PathSelection {
     selection: Option<transports::PathBinding>,
+    original: Option<(usize, PathId)>,
 }
 
 #[cfg_attr(not(feature = "unstable-custom-transports"), allow(unreachable_pub))]
 impl PathSelection {
     /// An empty selection.
     pub fn none() -> Self {
-        Self { selection: None }
+        Self {
+            selection: None,
+            original: None,
+        }
     }
 
     /// Sets the path as the selected path.
@@ -3270,6 +3321,9 @@ impl PathSelection {
             path.network_path.clone(),
             path.local_socket,
         ));
+        if let StatsSource::Live { path_id, conn } = &path.source {
+            self.original = Some((conn.stable_id(), *path_id));
+        }
     }
 
     /// The selected path: the one data should be sent on. This is not public so
@@ -3279,6 +3333,20 @@ impl PathSelection {
     /// Returns `None` when nothing has been selected.
     pub(crate) fn selected(&self) -> Option<&transports::PathBinding> {
         self.selection.as_ref()
+    }
+
+    fn for_connection(&self, state: &ConnectionState, conn: &noq::Connection) -> Option<PathId> {
+        if state.member_paths.is_none() {
+            let selected = self.selected()?;
+            return state.paths.iter().find_map(|(id, path)| {
+                (path == selected && state.path_is_qualified(*id, conn)).then_some(*id)
+            });
+        }
+        let (owner, id) = self.original?;
+        (owner == state.connection_id
+            && state.paths.get(&id) == self.selected()
+            && state.path_is_qualified(id, conn))
+        .then_some(id)
     }
 }
 

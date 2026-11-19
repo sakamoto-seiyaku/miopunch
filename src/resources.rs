@@ -1184,6 +1184,10 @@ impl ResourceEndpoint {
         }
     }
 
+    pub(crate) fn allows_restricted_contact(&self, address: &iroh_base::CustomAddr) -> bool {
+        self.config.allows_member_contact_carrier(address)
+    }
+
     /// A bounded contact attempt, independent of the resource startup snapshot.
     pub fn with_contact_timeout(mut self, timeout: Duration) -> Result<Self, std::io::Error> {
         if timeout.is_zero() || timeout > crate::connection_budget::MAX {
@@ -1217,29 +1221,40 @@ impl ResourceEndpoint {
         mut target: iroh::EndpointAddr,
         deadline: tokio::time::Instant,
     ) -> std::io::Result<iroh::endpoint::MemberConnection> {
-        let (owner, _) = self.member_fusion.as_ref().expect("native client member owner");
+        let (owner, _) = self
+            .member_fusion
+            .as_ref()
+            .expect("native client member owner");
+        let restricted_contacts = |target: &iroh::EndpointAddr| {
+            let mut contacts: Vec<_> = target
+                .addrs
+                .iter()
+                .filter_map(|route| match route {
+                    iroh::TransportAddr::Custom(address)
+                        if self.config.allows_member_contact_carrier(address) =>
+                    {
+                        Some(address.clone())
+                    }
+                    _ => None,
+                })
+                .collect();
+            contacts.sort_by_key(|address| match address.id() {
+                crate::member_transport::TRANSPORT_ID => 0,
+                crate::mqtt_datagram::TRANSPORT_ID => 1,
+                _ => 2,
+            });
+            contacts
+        };
         if let Some(connection) = owner.reuse_until(target.id, deadline).await? {
+            let restricted = restricted_contacts(&target);
+            if !restricted.is_empty() {
+                connection.learn_repair_contacts(restricted);
+            }
             let _ = tokio::time::timeout_at(deadline, owner.learn_path_candidates(target)).await;
             return Ok(connection);
         }
         let recent = self.merge_contact_hints(&mut target).await?;
-        let mut restricted: Vec<_> = target
-            .addrs
-            .iter()
-            .filter_map(|route| match route {
-                iroh::TransportAddr::Custom(address)
-                    if self.config.allows_member_contact_carrier(address) =>
-                {
-                    Some(address.clone())
-                }
-                _ => None,
-            })
-            .collect();
-        restricted.sort_by_key(|address| match address.id() {
-            crate::member_transport::TRANSPORT_ID => 0,
-            crate::mqtt_datagram::TRANSPORT_ID => 1,
-            _ => 2,
-        });
+        let restricted = restricted_contacts(&target);
         target.addrs.retain(|addr| self.allows_data_path(addr));
         let mut active = Vec::new();
         if !self.config.udp_direct_disabled
@@ -1266,7 +1281,7 @@ impl ResourceEndpoint {
         let log = AttemptLog::new(AttemptRole::Initiator, "member_fusion").with_round(1);
         let backoff = self.backoff.clone();
         let routes = iroh::endpoint::MemberDialOptions::new(active, recent, fallbacks)
-            .with_restricted_contacts(restricted)
+            .with_restricted_contacts(restricted.clone())
             .with_identity_diagnostics(move |(_, route), peer, stable_id| {
                 let mut route_log = log;
                 route_log.route_phase_id = Some(route);
@@ -1329,6 +1344,9 @@ impl ResourceEndpoint {
                 &tokio_util::sync::CancellationToken::new(),
             )
             .await?;
+        if !restricted.is_empty() {
+            connection.learn_repair_contacts(restricted);
+        }
         if let Some(contacts) = &self.member_contacts {
             contacts.observe_member(&connection).await?;
         }

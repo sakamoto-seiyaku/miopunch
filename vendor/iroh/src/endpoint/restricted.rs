@@ -1935,6 +1935,7 @@ pub(super) async fn finish_admission(
                 .clone()
                 .expect("member policy");
             let relay_policy = endpoint.inner.static_config.relay_resource_policy.clone();
+            let repair = fusion.repair_path(endpoint, &connection, &activity);
             let member_paths = crate::socket::remote_map::MemberPathPolicy::new(
                 Some(activity.subscribe()),
                 move |address| {
@@ -1947,7 +1948,8 @@ pub(super) async fn finish_admission(
                         }
                 },
             )
-            .with_required_path_acks([direct_transport, member_relay], started_on_member_relay);
+            .with_required_path_acks([direct_transport, member_relay], started_on_member_relay)
+            .with_repair_health(repair.as_ref().map(|repair| repair.health.clone()));
             endpoint
                 .inner
                 .authorize_candidates(
@@ -1981,6 +1983,7 @@ pub(super) async fn finish_admission(
                 permit.remote,
                 activity,
                 candidates,
+                repair,
             );
         }
         if run_legacy_hook {

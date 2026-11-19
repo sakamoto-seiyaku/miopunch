@@ -227,35 +227,27 @@ impl PathStateSender {
     }
 
     /// Updates the selected transmission path.
-    pub(super) fn record_selected(&self, network_path: &transports::PathBinding) {
-        let remote_addr: TransportAddr = network_path.remote().into();
-        let local_addr = network_path.local();
-        let event = {
+    pub(super) fn record_selected(&self, id: Option<PathId>) {
+        let selected = {
             let mut state = self.shared.state.lock().expect("poisoned");
-            let selected_path_id = state
+            if state.selected == id {
+                return;
+            }
+            state.selected = id;
+            state
                 .list
                 .iter()
-                .find(|p| {
-                    p.remote_addr == remote_addr
-                        && p.local_addr == local_addr
-                        && p.local_socket == network_path.local_socket
+                .find(|path| Some(path.handle.id()) == id)
+                .map(|path| PathEvent::Selected {
+                    id: path.handle.id(),
+                    remote_addr: path.remote_addr.clone(),
+                    local_addr: path.local_addr.clone(),
                 })
-                .map(|p| p.handle.id());
-            if selected_path_id != state.selected {
-                state.selected = selected_path_id;
-                selected_path_id.map(|path_id| PathEvent::Selected {
-                    id: path_id,
-                    remote_addr: remote_addr.clone(),
-                    local_addr: local_addr.clone(),
-                })
-            } else {
-                None
-            }
         };
-        if let Some(event) = event {
+        if let Some(event) = selected {
             let _ = self.events.send(event);
-            self.shared.notify.notify_waiters();
         }
+        self.shared.notify.notify_waiters();
     }
 
     /// Closes the writer side of the path observation.

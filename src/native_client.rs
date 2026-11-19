@@ -179,12 +179,44 @@ impl NativeClient {
             ProtocolScope::AdmissionRequest,
         );
         let resources = Arc::new(node.bind_client_endpoint(bind).await?);
-        let fusion = resources.member_fusion.as_ref().expect("native client member owner").0.clone();
+        let (fusion, gate) = resources
+            .member_fusion
+            .as_ref()
+            .expect("native client member owner")
+            .clone();
+        let weak_resources = Arc::downgrade(&resources);
+        let repair_gate = gate.clone();
+        fusion.set_repair_contact(move |original, contact, deadline, cancel| {
+            let resources = weak_resources.clone();
+            let gate = repair_gate.clone();
+            async move {
+                if let Some(resources) = resources.upgrade() {
+                    use crate::connection_coordinator::{
+                        AttemptRole, connection_diagnostic::AttemptLog,
+                    };
+                    let mut log = AttemptLog::new(AttemptRole::Initiator, "member_fusion_repair");
+                    log.original = Some(original.stable_id());
+                    let phase = log.phase("repair", json!({"originalSide":format!("{:?}", original.side()),
+                        "budgetMs":deadline.saturating_duration_since(tokio::time::Instant::now()).as_millis()}));
+                    let result = crate::connection_recovery::recover_member_path(
+                        &gate, &resources, &original, contact, deadline, cancel,
+                    )
+                    .await;
+                    match result {
+                        Ok(path) => phase.finish_with("succeeded", json!({"path":path.path,
+                            "pathId":path.path_id,"probeWatermark":path.probe_watermark,
+                            "controlStableId":path.control_stable_id,"peerConfirmed":path.peer_confirmed})),
+                        Err(error) => phase.finish_with("failed", json!({"error":error.to_string()})),
+                    }
+                }
+            }
+        });
         resources.endpoint().set_alpns(vec![
             ADMISSION_REQUEST_ALPN.to_vec(),
             PRECODE_REQUEST_ALPN.to_vec(),
             MEMBER_MESSAGE.to_vec(),
             crate::native_network::FUSED_MEMBER_ALPN.to_vec(),
+            crate::connection_recovery::CONNECTION_RECOVERY_ALPN.to_vec(),
             crate::web::WEB_ALPN.to_vec(),
             crate::terminal::TERMINAL_ALPN.to_vec(),
             crate::forwarding::TCP_ALPN.to_vec(),
@@ -246,6 +278,7 @@ impl NativeClient {
         let cancel = CancellationToken::new();
         let listener = {
             let endpoint = resources.endpoint().clone();
+            let resources = resources.clone();
             let node = node.clone();
             let cancel = cancel.clone();
             let recovery_saved = recovery_saved.clone();
@@ -295,6 +328,8 @@ impl NativeClient {
                             let Some(incoming) = incoming else { break };
                             if handlers.len() >= 16 { incoming.refuse(); continue; }
                             let node = node.clone();
+                            let resources = resources.clone();
+                            let gate = gate.clone();
                             let recovery_saved = recovery_saved.clone();
                             let replacement_ready = replacement_ready.clone();
                             let files = files.clone();
@@ -320,6 +355,17 @@ impl NativeClient {
                                 let Ok(Ok((accepting, alpn))) = accepted else { return };
                                 if alpn == crate::native_network::FUSED_MEMBER_ALPN {
                                     let _ = tokio::time::timeout_at(deadline, accepting).await;
+                                    return;
+                                }
+                                if alpn == crate::connection_recovery::CONNECTION_RECOVERY_ALPN {
+                                    let _ = tokio::time::timeout_at(deadline, async {
+                                        let control = accepting.into_control().await?;
+                                        let result = crate::connection_recovery::serve_path_recovery(
+                                            &gate, &resources, &control, true,
+                                        ).await;
+                                        control.close(0u32.into(), b"member path repair ended");
+                                        result.map_err(ClientError::from)
+                                    }).await;
                                     return;
                                 }
                                 if alpn == crate::web::WEB_ALPN {

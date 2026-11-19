@@ -745,6 +745,7 @@ impl NativeClient {
                         let counters = worker_counters.clone();
                         tasks.spawn(async move {
                             let source = match &input { Input::Udp(_, source, _) => Some(*source), _ => None };
+                            let mut original = None;
                             let result = async {
                                 let owner = runtime.claim(peer, protocol, target, false, cancel.clone())?;
                                 tokio::select! {
@@ -752,6 +753,7 @@ impl NativeClient {
                                     _ = cancel.cancelled() => Err("forward stopped".into()),
                                     result = async {
                                         let connection = resources.connect_service(address, protocol.into()).await?;
+                                        original = connection.member_connection();
                                         runtime.attach(&owner, connection.clone())?;
                                         let stream = forwarding::open_on_stream(connection.stream(true).await?, target).await?;
                                         match input {
@@ -765,7 +767,16 @@ impl NativeClient {
                                 }
                             }.await;
                             let mut counters = counters.lock().unwrap();
-                            if result.is_err() { counters.failed += 1; counters.last_error = Some("forward_flow_ended"); }
+                            if result.is_err() {
+                                counters.failed += 1;
+                                counters.last_error = Some(
+                                    if original.is_some_and(|connection| connection.close_reason().is_some()) {
+                                        "member_connection_terminated"
+                                    } else {
+                                        "forward_flow_ended"
+                                    }
+                                );
+                            }
                             else { counters.completed += 1; }
                             source
                         });

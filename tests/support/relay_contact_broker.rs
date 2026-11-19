@@ -1,6 +1,6 @@
 //! Owned routed MQTT and cold-relay TCP gate for SDK timing regressions.
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     io,
     net::SocketAddr,
     sync::{
@@ -23,6 +23,18 @@ type Routes = Arc<Mutex<BTreeMap<String, Vec<(usize, mpsc::Sender<Vec<u8>>)>>>>;
 struct DatagramDelivery {
     muted: AtomicBool,
     publishes: AtomicUsize,
+    initials: Mutex<BTreeSet<(String, Vec<u8>)>>,
+}
+
+fn initial_connection_ids(frame: &[u8]) -> Option<(&[u8], &[u8])> {
+    let (_, packet) = miopunch_native_probe::mqtt_datagram::decode_datagram(frame).ok()?;
+    if *packet.first()? & 0xf0 != 0xc0 || packet.get(1..5)? != [0, 0, 0, 1] {
+        return None;
+    }
+    let suffix = packet.get(6..)?;
+    let (destination, source) = suffix.split_at_checked(usize::from(*packet.get(5)?))?;
+    let length = usize::from(*source.first()?);
+    Some((destination, source.get(1..1 + length)?))
 }
 struct Active(Arc<AtomicUsize>);
 impl Drop for Active {
@@ -157,6 +169,14 @@ async fn serve(
                 let (name, start) = topic(&body)?;
                 if body[start..].starts_with(b"MIO1") {
                     delivery.publishes.fetch_add(1, Ordering::SeqCst);
+                    if let Some((destination, source)) = initial_connection_ids(&body[start..]) {
+                        let mut initials = delivery.initials.lock().unwrap();
+                        // A server Initial targets the earlier client's source ID.
+                        // Retransmissions preserve the initiator's source ID.
+                        if !initials.iter().any(|(_, earlier)| earlier == destination) {
+                            initials.insert((name.clone(), source.to_vec()));
+                        }
+                    }
                     if delivery.muted.load(Ordering::SeqCst) {
                         continue;
                     }
@@ -197,6 +217,7 @@ async fn serve(
 pub struct Broker {
     pub address: SocketAddr,
     active: Arc<AtomicUsize>,
+    routes: Routes,
     delivery: Arc<DatagramDelivery>,
     stop: CancellationToken,
     task: JoinHandle<()>,
@@ -209,10 +230,11 @@ impl Broker {
         let delivery = Arc::new(DatagramDelivery::default());
         let stop = CancellationToken::new();
         let active_task = active.clone();
+        let routes = Routes::default();
+        let task_routes = routes.clone();
         let datagrams = delivery.clone();
         let stop_task = stop.clone();
         let task = tokio::spawn(async move {
-            let routes = Routes::default();
             let mut sessions = JoinSet::new();
             let mut id = 0;
             loop {
@@ -222,7 +244,7 @@ impl Broker {
                         let (socket, _) = connection.unwrap();
                         id += 1;
                         let id = id;
-                        let routes = routes.clone();
+                        let routes = task_routes.clone();
                         let stop = stop_task.clone();
                         let active = active_task.clone();
                         let datagrams = datagrams.clone();
@@ -242,6 +264,7 @@ impl Broker {
         Self {
             address,
             active,
+            routes,
             delivery,
             stop,
             task,
@@ -253,8 +276,38 @@ impl Broker {
     pub fn datagram_publishes(&self) -> usize {
         self.delivery.publishes.load(Ordering::SeqCst)
     }
+    #[allow(dead_code)]
+    pub fn datagram_routes(&self) -> Vec<String> {
+        self.routes
+            .lock()
+            .unwrap()
+            .keys()
+            .filter_map(|topic| {
+                topic
+                    .strip_prefix("miopunch/test/")?
+                    .strip_suffix("/packet")
+                    .map(str::to_owned)
+            })
+            .collect()
+    }
+    #[allow(dead_code)]
+    pub fn initial_dials_to(&self, route: &iroh_base::CustomAddr) -> usize {
+        let bytes = route.data();
+        let route: [u8; 16] = bytes[bytes.len() - 16..].try_into().unwrap();
+        let topic = miopunch_native_probe::mqtt_datagram::topic(route);
+        self.delivery
+            .initials
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(target, _)| target == &topic)
+            .count()
+    }
     pub fn mute_datagrams(&self) {
         self.delivery.muted.store(true, Ordering::SeqCst);
+    }
+    pub fn unmute_datagrams(&self) {
+        self.delivery.muted.store(false, Ordering::SeqCst);
     }
     pub fn disconnect(&self) {
         self.stop.cancel();

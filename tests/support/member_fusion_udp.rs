@@ -59,6 +59,15 @@ struct Pair {
 
 impl Pair {
     async fn new(ips: [IpAddr; 2], delay: Duration, preference: PathPreference) -> Self {
+        Self::bind(ips, ips, delay, preference).await
+    }
+
+    async fn bind(
+        ips: [IpAddr; 2],
+        binds: [IpAddr; 2],
+        delay: Duration,
+        preference: PathPreference,
+    ) -> Self {
         let relay = relay().await;
         let url = relay.http_url().unwrap();
         let root = tempfile::tempdir().unwrap();
@@ -79,7 +88,7 @@ impl Pair {
         let builder = |side: usize| {
             Endpoint::builder(presets::Minimal)
                 .clear_ip_transports()
-                .bind_addr(SocketAddr::new(ips[side], 0))
+                .bind_addr(SocketAddr::new(binds[side], 0))
                 .unwrap()
                 .hooks(dials[side].clone())
         };
@@ -142,6 +151,111 @@ impl Pair {
         self.delay.cancel();
         self.relay.shutdown().await.unwrap();
     }
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+#[ignore = "requires a disposable namespace with mio154a and its two configured IP addresses"]
+async fn changed_interface_address_revalidates_the_original_udp_stream() {
+    let old = IpAddr::V4(Ipv4Addr::new(10, 154, 0, 1));
+    let new = IpAddr::V4(Ipv4Addr::new(10, 154, 0, 2));
+    let mut pair = Pair::bind(
+        [old; 2],
+        [Ipv4Addr::UNSPECIFIED.into(); 2],
+        LOW_RELAY_DELAY,
+        PathPreference::PreferDirect,
+    )
+    .await;
+    let ids = pair.connections.each_ref().map(MemberConnection::stable_id);
+    let started = Instant::now();
+    let mut stream = time::timeout(
+        BUSINESS_LIMIT,
+        OriginalStream::open(&pair.connections[0], &pair.connections[1], 1),
+    )
+    .await
+    .unwrap();
+    let addresses = pair.addresses();
+    let old_paths = qualified_udp(&pair.connections, addresses, started, true).await;
+    let adjust = |action: &str, address: IpAddr| {
+        let address = format!("{address}/24");
+        assert!(
+            std::process::Command::new("ip")
+                .args(["addr", action, &address, "dev", "mio154a"])
+                .status()
+                .unwrap()
+                .success()
+        );
+    };
+    let cut = Instant::now();
+    adjust("del", old);
+    time::timeout_at(cut + BUSINESS_LIMIT, stream.round_trip(2))
+        .await
+        .unwrap();
+    wait_for(
+        "original selects live relay after old address is removed",
+        BUSINESS_LIMIT,
+        || {
+            pair.connections
+                .iter()
+                .all(|connection| relay_is_selected(connection, &pair.url))
+        },
+    )
+    .await;
+    time::timeout(BUSINESS_LIMIT, stream.round_trip(3))
+        .await
+        .unwrap();
+    let added = Instant::now();
+    adjust("add", new);
+    wait_for(
+        "endpoint advertises changed interface address",
+        BUSINESS_LIMIT,
+        || {
+            pair.endpoints.iter().all(|endpoint| {
+                let address = endpoint.addr();
+                address.ip_addrs().any(|addr| addr.ip() == new)
+                    && address.ip_addrs().all(|addr| addr.ip() != old)
+            })
+        },
+    )
+    .await;
+    pair.ips = [new; 2];
+    let new_sockets = pair.addresses();
+    for (local, remote) in [(0, 1), (1, 0)] {
+        pair.endpoints[local]
+            .learn_ip_candidates(
+                EndpointAddr::new(pair.endpoints[remote].id()).with_ip_addr(new_sockets[remote]),
+            )
+            .await;
+    }
+    let paths = qualified_udp(&pair.connections, new_sockets, added, true).await;
+    assert_ne!(paths, old_paths);
+    let stream_frames = |side: usize| {
+        pair.connections[side]
+            .paths()
+            .iter()
+            .find(|path| path.id() == paths[side])
+            .unwrap()
+            .stats()
+            .frame_rx
+            .stream
+    };
+    let before = [stream_frames(0), stream_frames(1)];
+    time::timeout(BUSINESS_LIMIT, stream.round_trip(4))
+        .await
+        .unwrap();
+    for (side, connection) in pair.connections.iter().enumerate() {
+        assert_eq!(connection.stable_id(), ids[side]);
+        assert!(stream_frames(side) > before[side]);
+        assert!(connection.paths().iter().all(|path| {
+            path.remote_addr() != &TransportAddr::Ip(addresses[1 - side]) || !path.is_selected()
+        }));
+    }
+    eprintln!(
+        "MIO154 interface old={addresses:?} new={new_sockets:?} original={ids:?} stream={} old_paths={old_paths:?} new_paths={paths:?} recovered={:?}",
+        stream.stream_id,
+        added.elapsed()
+    );
+    pair.close().await;
 }
 
 pub(super) async fn on_relay(

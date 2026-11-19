@@ -3066,7 +3066,13 @@ impl Actor {
             self.transports_network_change.check_relay_connection();
 
             #[cfg(not(wasm_browser))]
-            self.sock.dns_resolver.reset();
+            {
+                self.sock.dns_resolver.reset();
+                // Interface addresses do not depend on a new report arriving.
+                // With no observers, consecutive major changes can publish the
+                // same unavailable report and never wake its watcher.
+                self.update_direct_addresses(None);
+            }
             self.re_stun(UpdateReason::LinkChangeMajor);
         } else {
             self.re_stun(UpdateReason::LinkChangeMinor);

@@ -671,7 +671,7 @@ async fn first_relay(clock: &mut watch::Receiver<Option<RelayStart>>) -> RelaySt
         .unwrap()
 }
 
-fn split_deadline(end: Instant, shares: u32) -> Instant {
+pub(super) fn split_deadline(end: Instant, shares: u32) -> Instant {
     let now = Instant::now();
     now + end.saturating_duration_since(now) / shares
 }
@@ -697,14 +697,14 @@ async fn race(
     }
 }
 
-fn stops_dial(error: &io::Error) -> bool {
+pub(super) fn stops_dial(error: &io::Error) -> bool {
     matches!(
         error.kind(),
         io::ErrorKind::PermissionDenied | io::ErrorKind::Interrupted
     )
 }
 
-fn prefer_error(previous: Option<io::Error>, next: io::Error) -> io::Error {
+pub(super) fn prefer_error(previous: Option<io::Error>, next: io::Error) -> io::Error {
     previous
         .filter(|error| error.kind() == io::ErrorKind::Unsupported)
         .unwrap_or(next)

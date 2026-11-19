@@ -105,7 +105,8 @@ pub use hooks::{AfterHandshakeOutcome, BeforeConnectOutcome, EndpointHooks};
 #[cfg(not(wasm_browser))]
 pub use member_fusion::{
     IncomingMemberStream, MemberConnection, MemberDialOptions, MemberFusionAdmission,
-    MemberFusionBuilder, MemberFusionEndpoint, MemberFusionEvent, MemberStream, MemberStreamLease,
+    MemberFusionBuilder, MemberFusionEndpoint, MemberFusionEvent, MemberRepairContacts,
+    MemberStream, MemberStreamLease,
 };
 #[cfg(not(wasm_browser))]
 pub use noq::StreamControl;
