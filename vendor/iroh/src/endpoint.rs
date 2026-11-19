@@ -100,6 +100,9 @@ mod member_fusion;
 pub mod nat_plan;
 #[cfg(not(wasm_browser))]
 #[doc(hidden)]
+pub mod nat_execution;
+#[cfg(not(wasm_browser))]
+#[doc(hidden)]
 pub mod nat_selector;
 pub mod presets;
 pub(crate) mod quic;
@@ -112,7 +115,7 @@ pub use hooks::{AfterHandshakeOutcome, BeforeConnectOutcome, EndpointHooks};
 pub use member_fusion::{
     IncomingMemberStream, MemberConnection, MemberDialOptions, MemberFusionAdmission,
     MemberFusionBuilder, MemberFusionEndpoint, MemberFusionEvent, MemberRepairContacts,
-    MemberStream, MemberStreamLease, MemberUdpConfig, MemberUdpPlan,
+    MemberStream, MemberStreamLease, MemberUdpConfig, MemberUdpPlan, MemberUdpTraversalReport,
 };
 #[cfg(not(wasm_browser))]
 pub use noq::StreamControl;

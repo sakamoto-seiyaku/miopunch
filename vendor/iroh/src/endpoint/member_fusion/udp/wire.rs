@@ -20,6 +20,11 @@ const PLAN: u8 = 4;
 const ACCEPT: u8 = 5;
 pub(super) const COMMITTED: u8 = 6;
 const ERROR: u8 = 7;
+pub(super) const LISTENING: u8 = 8;
+pub(super) const WINNER_READY: u8 = 9;
+pub(super) const VALIDATED: u8 = 10;
+pub(super) const BUSINESS_READY: u8 = 11;
+pub(super) const BUSINESS_CONFIRMED: u8 = 12;
 
 pub(super) struct Hello {
     network: [u8; 32],
@@ -98,6 +103,12 @@ impl Round {
             return Err(invalid("UDP plan belongs to a different round"));
         }
         Ok(bytes)
+    }
+
+    pub(super) fn business(self, kind: u8, stream: noq::StreamId) -> Vec<u8> {
+        let mut bytes = self.message(kind);
+        bytes.extend(u64::from(stream).to_be_bytes());
+        bytes
     }
 
     pub(super) fn check(self, bytes: &[u8], kind: u8) -> io::Result<()> {

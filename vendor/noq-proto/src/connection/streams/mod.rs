@@ -196,6 +196,12 @@ impl RecvStream<'_> {
         Ok(recv.assembler.bytes_read())
     }
 
+    pub(super) fn drained_ordered_offset(&self) -> Option<u64> {
+        let recv = self.state.recv.get(&self.id)?.as_ref()?.as_open_recv()?;
+        let offset = recv.assembler.bytes_read();
+        (!recv.stopped && recv.assembler.is_ordered() && recv.end == offset).then_some(offset)
+    }
+
     /// Check whether this stream has been reset by the peer, returning the reset error code if so
     ///
     /// After returning `Ok(Some(_))` once, stream state will be discarded and all future calls will

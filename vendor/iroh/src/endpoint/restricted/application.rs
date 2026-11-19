@@ -130,6 +130,16 @@ impl ControlExchange {
         self.stream_id
     }
 
+    #[cfg(not(wasm_browser))]
+    pub(in crate::endpoint) async fn send_control(&self) -> io::Result<noq::StreamControl> {
+        self.send
+            .lock()
+            .await
+            .as_ref()
+            .map(SendStream::control)
+            .ok_or_else(retired)
+    }
+
     /// Encode one complete bounded message in the application's existing format.
     /// End-terminated messages also finish this exchange's sending direction.
     pub async fn send_message(

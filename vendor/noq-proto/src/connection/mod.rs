@@ -164,6 +164,7 @@ pub struct Connection {
     /// acknowledgment probes remain possible on an unqualified path.
     application_data_permit: Option<Arc<dyn Fn(FourTuple) -> bool + Send + Sync>>,
     application_path_ack_required: Option<Arc<dyn Fn(FourTuple) -> bool + Send + Sync>>,
+    stream_receive_observation: Option<Box<StreamReceiveObservation>>,
     #[cfg(feature = "miopunch-test-hooks")]
     suppressed_path_acks: Option<(PathId, Arc<std::sync::atomic::AtomicBool>)>,
     rng: StdRng,
@@ -319,6 +320,16 @@ pub struct Connection {
     qlog: QlogSink,
 }
 
+#[derive(Debug)]
+struct StreamReceiveObservation {
+    stream: StreamId,
+    path: PathId,
+    binding: FourTuple,
+    start: u64,
+    consumed: u64,
+    other_path_at: u64,
+}
+
 impl Connection {
     pub(crate) fn new(
         endpoint_config: Arc<EndpointConfig>,
@@ -422,6 +433,7 @@ impl Connection {
 
             next_observed_addr_seq_no: 0u32.into(),
 
+            stream_receive_observation: None,
             streams: StreamsState::new(
                 side,
                 config.max_concurrent_uni_streams,
@@ -5322,6 +5334,50 @@ impl Connection {
         Ok(())
     }
 
+    /// Observe new, ordered reads of one currently drained stream on an exact physical path.
+    pub fn observe_stream_receive_path(&mut self, stream: StreamId, path: PathId) -> bool {
+        if self.stream_receive_observation.is_some() {
+            return false;
+        }
+        let Ok(binding) = self.network_path(path) else {
+            return false;
+        };
+        let Some(start) = self.recv_stream(stream).drained_ordered_offset() else {
+            return false;
+        };
+        self.stream_receive_observation = Some(Box::new(StreamReceiveObservation {
+            stream,
+            path,
+            binding,
+            start,
+            consumed: start,
+            other_path_at: u64::MAX,
+        }));
+        true
+    }
+
+    /// Record the application reads that occur while a receive-path observation is armed.
+    pub fn observe_stream_read(&mut self, stream: StreamId, bytes: u64, ordered: bool) {
+        if let Some(observation) = &mut self.stream_receive_observation
+            && observation.stream == stream
+        {
+            if ordered {
+                observation.consumed += bytes;
+            } else {
+                observation.other_path_at = observation.start;
+            }
+        }
+    }
+
+    /// Finish the scoped observation and confirm that new bytes were consumed only on its path.
+    pub fn finish_stream_receive_observation(&mut self) -> bool {
+        self.stream_receive_observation.take().is_some_and(|observation| {
+            observation.consumed > observation.start
+                && observation.consumed <= observation.other_path_at
+                && self.network_path(observation.path).is_ok_and(|path| path == observation.binding)
+        })
+    }
+
     /// Processes the decrypted packet payload, always in the data space.
     fn process_payload(
         &mut self,
@@ -5402,6 +5458,14 @@ impl Connection {
                     self.read_crypto(SpaceId::Data, &frame, payload_len)?;
                 }
                 Frame::Stream(frame) => {
+                    if let Some(observation) = &mut self.stream_receive_observation
+                        && observation.stream == frame.id
+                        && !frame.data.is_empty()
+                        && frame.offset + frame.data.len() as u64 > observation.start
+                        && (observation.path != path_id || observation.binding != network_path)
+                    {
+                        observation.other_path_at = observation.other_path_at.min(frame.offset);
+                    }
                     if self.streams.received(frame, payload_len)?.should_transmit() {
                         self.spaces[SpaceId::Data].pending.max_data = true;
                     }

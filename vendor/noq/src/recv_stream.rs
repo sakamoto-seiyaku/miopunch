@@ -318,6 +318,18 @@ impl RecvStream {
         self.stream
     }
 
+    /// Observe newly consumed bytes on the given path of this original connection.
+    /// Requires an ordered, drained stream and one observation at a time per connection.
+    pub fn observe_receive_path(&self, path: &crate::Path) -> Option<StreamReceivePath> {
+        if path.connection_id() != self.conn.stable_id() {
+            return None;
+        }
+        let mut conn = self.conn.lock_without_waking("observe stream receive path");
+        conn.inner
+            .observe_stream_receive_path(self.stream, path.id())
+            .then(|| StreamReceivePath(Some(self.conn.clone())))
+    }
+
     /// Returns the number of bytes read from this stream.
     ///
     /// This is the offset of the next byte to be read, i.e. the length of the contiguous
@@ -406,9 +418,11 @@ impl RecvStream {
                     ReadableError::IllegalOrderedRead => ReadError::ClosedStream,
                 })?;
                 let status = read_fn(&mut chunks);
+                let consumed = chunks.bytes_read();
                 if chunks.finalize().should_transmit() {
                     conn.wake();
                 }
+                conn.inner.observe_stream_read(self.stream, consumed, ordered);
                 status
             }
         };
@@ -446,6 +460,31 @@ impl RecvStream {
     /// Converts this stream into an unordered stream.
     pub fn into_unordered(self) -> UnorderedRecvStream {
         UnorderedRecvStream { inner: self }
+    }
+}
+
+/// An observation of new bytes consumed from one stream on one original path.
+#[derive(Debug)]
+pub struct StreamReceivePath(Option<ConnectionRef>);
+
+impl StreamReceivePath {
+    /// Confirm that the application read new bytes and that none arrived via another path.
+    pub fn confirm(mut self) -> bool {
+        self.finish()
+    }
+
+    fn finish(&mut self) -> bool {
+        self.0.take().is_some_and(|conn| {
+            conn.lock_without_waking("finish stream receive path")
+                .inner
+                .finish_stream_receive_observation()
+        })
+    }
+}
+
+impl Drop for StreamReceivePath {
+    fn drop(&mut self) {
+        self.finish();
     }
 }
 

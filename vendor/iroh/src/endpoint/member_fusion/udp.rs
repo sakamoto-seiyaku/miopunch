@@ -1,4 +1,4 @@
-//! Enhanced UDP planning on the protected, already admitted original.
+//! Enhanced UDP coordination on the protected, already admitted original.
 
 use std::{
     io,
@@ -18,11 +18,15 @@ use crate::{
     endpoint::{
         ControlMessageFormat, ObservationValidity, UdpMappingSample, UdpMappingSequence,
         nat_plan::{MAX_OBSERVATIONS, PhasePlan, SNAPSHOT_LIFETIME, SnapshotWire, make_plan},
-        nat_selector::{Analyzer, BehaviorId, LearningScope, behaviors, initial_scores},
+        nat_selector::{
+            Analyzer, BehaviorId, LearningScope, Recommendation, behaviors, initial_scores,
+        },
     },
 };
 
+mod execute;
 mod wire;
+pub use execute::MemberUdpTraversalReport;
 use wire::{Hello, Round};
 
 const WRAP: ControlMessageFormat = ControlMessageFormat::LengthPrefixed16 { maximum: 2048 };
@@ -102,6 +106,7 @@ pub(super) struct Planning {
     config: MemberUdpConfig,
     owner: Arc<Planner>,
     latest: Mutex<Option<MemberUdpPlan>>,
+    traversal: Mutex<Option<Arc<execute::Execution>>>,
 }
 
 impl Planning {
@@ -123,6 +128,7 @@ impl Planning {
             config,
             owner,
             latest: Mutex::new(None),
+            traversal: Mutex::new(None),
         }))
     }
 
@@ -207,26 +213,46 @@ impl Planning {
         &self,
         deadline: Instant,
         cancel: &CancellationToken,
+        kind: StreamKind,
     ) -> io::Result<MemberUdpPlan> {
         let scope = self.round_scope(self.scope()?)?;
         let deadline = deadline.min(Instant::now() + self.config.round_timeout);
+        let traverse = kind == StreamKind::UdpTraversal;
+        let work = async {
+            let _slot = self.owner.slot.try_acquire().map_err(|_| busy())?;
+            let stream = self
+                .guarded(deadline, &scope, async {
+                    let (mut send, recv) =
+                        self.connection.open_bi().await.map_err(io::Error::other)?;
+                    send.write_all(&[kind as u8])
+                        .await
+                        .map_err(io::Error::other)?;
+                    Ok(ControlExchange::from_streams(send, recv))
+                })
+                .await?;
+            let result = async {
+                let plan = self
+                    .guarded(
+                        deadline,
+                        &scope,
+                        self.offer(&stream, &scope, deadline, traverse),
+                    )
+                    .await?;
+                self.publish(&plan);
+                if traverse {
+                    self.execute(&stream, &plan, None).await?;
+                }
+                Ok(plan)
+            }
+            .await;
+            if let Err(error) = &result {
+                let _ = time::timeout_at(deadline, report_error(&stream, error)).await;
+            }
+            result
+        };
         tokio::select! { biased;
             _ = cancel.cancelled() => Err(io::ErrorKind::Interrupted.into()),
-            result = self.guarded(deadline, &scope, async {
-                let _slot = self.owner.slot.try_acquire().map_err(|_| busy())?;
-                let (mut send, recv) = self.connection.open_bi().await.map_err(io::Error::other)?;
-                send.write_all(&[StreamKind::UdpPlan as u8]).await.map_err(io::Error::other)?;
-                let stream = ControlExchange::from_streams(send, recv);
-                let result = self.offer(&stream, &scope, deadline).await;
-                if let Err(error) = &result {
-                    report_error(&stream, error).await;
-                }
-                result
-            }) => {
-                let plan = result?;
-                self.publish(&plan);
-                Ok(plan)
-            },
+            result = work => result,
         }
     }
 
@@ -234,7 +260,7 @@ impl Planning {
         CONTROL_WAIT.min(self.config.round_timeout)
     }
 
-    pub(super) async fn respond(&self, stream: ControlExchange) {
+    pub(super) async fn respond(&self, stream: ControlExchange, traverse: bool) {
         let started = Instant::now();
         let work = async {
             let hello =
@@ -243,15 +269,26 @@ impl Planning {
             hello.check(&scope)?;
             let scope = self.round_scope(scope)?;
             let deadline = started + self.config.round_timeout.min(hello.budget);
-            self.guarded(deadline, &scope, async {
-                let _slot = self.owner.slot.try_acquire().map_err(|_| busy())?;
-                self.choose(&stream, &scope, deadline).await
-            })
-            .await
+            let _slot = self.owner.slot.try_acquire().map_err(|_| busy())?;
+            let (plan, recommendation) = self
+                .guarded(
+                    deadline,
+                    &scope,
+                    self.choose(&stream, &scope, deadline, traverse),
+                )
+                .await?;
+            self.publish(&plan);
+            if traverse {
+                self.execute(&stream, &plan, recommendation).await?;
+            }
+            Ok(())
         };
-        match work.await {
-            Ok(plan) => self.publish(&plan),
-            Err(error) => report_error(&stream, &error).await,
+        if let Err(error) = work.await {
+            let _ = time::timeout_at(
+                started + self.config.round_timeout,
+                report_error(&stream, &error),
+            )
+            .await;
         }
     }
 
@@ -264,6 +301,7 @@ impl Planning {
         stream: &ControlExchange,
         scope: &RoundScope,
         deadline: Instant,
+        traverse: bool,
     ) -> io::Result<MemberUdpPlan> {
         send(
             stream,
@@ -299,7 +337,9 @@ impl Planning {
         self.check_scope(scope)?;
         send(stream, &round.accept(accepted)?).await?;
         // Send FIN without resetting bytes the peer has yet to read.
-        stream.finish_send().await?;
+        if !traverse {
+            stream.finish_send().await?;
+        }
         round.check(&receive(stream).await?, wire::COMMITTED)?;
         check_phase_time(accepted.min(remaining(bound)?), [&local_phase, &peer_phase])?;
         local.check()?;
@@ -323,7 +363,8 @@ impl Planning {
         stream: &ControlExchange,
         scope: &RoundScope,
         deadline: Instant,
-    ) -> io::Result<MemberUdpPlan> {
+        traverse: bool,
+    ) -> io::Result<(MemberUdpPlan, Option<Recommendation>)> {
         let round = Round(rand::random());
         send(stream, &round.message(wire::CHALLENGE)).await?;
         // Dropping or cancelling the visitor's stream stops even a pending observation.
@@ -332,7 +373,7 @@ impl Planning {
         },)?;
         local.check()?;
         self.check_scope(scope)?;
-        let (plan, _) = make_plan(
+        let (plan, recommendation) = make_plan(
             &mut self.owner.analyzer.lock().expect("member UDP analyzer"),
             scope.authorization.clone(),
             &local.wire,
@@ -363,20 +404,25 @@ impl Planning {
         self.check_scope(scope)?;
         let deadline = bound.min(Instant::now() + accepted);
         send(stream, &round.message(wire::COMMITTED)).await?;
-        stream.finish_send().await?;
-        Ok(MemberUdpPlan {
-            round: round.0,
-            id: plan.id,
-            fallback,
-            disabled,
-            local_phase,
-            peer_phase,
-            execution_budget: accepted,
-            deadline,
-            coordinator: true,
-            evidence: local,
-            scope: scope.clone(),
-        })
+        if !traverse {
+            stream.finish_send().await?;
+        }
+        Ok((
+            MemberUdpPlan {
+                round: round.0,
+                id: plan.id,
+                fallback,
+                disabled,
+                local_phase,
+                peer_phase,
+                execution_budget: accepted,
+                deadline,
+                coordinator: true,
+                evidence: local,
+                scope: scope.clone(),
+            },
+            recommendation,
+        ))
     }
 
     fn check_limits(&self, phase: &PhasePlan) -> io::Result<()> {

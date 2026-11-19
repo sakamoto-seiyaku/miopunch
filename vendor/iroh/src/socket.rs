@@ -1842,6 +1842,17 @@ impl EndpointInner {
             .await
     }
 
+    #[cfg(not(wasm_browser))]
+    pub(crate) async fn open_udp_candidate_from(
+        &self,
+        remote: EndpointId,
+        conn_id: usize,
+        local: transports::LocalSocketBinding,
+        addr: SocketAddr,
+    ) -> io::Result<Option<crate::endpoint::UdpCandidatePath>> {
+        self.request_udp_path(remote, conn_id, addr, Some(local), true).await
+    }
+
     async fn request_udp_path(
         &self,
         remote: EndpointId,

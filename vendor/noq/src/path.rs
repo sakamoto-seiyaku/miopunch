@@ -117,6 +117,10 @@ pub struct Path {
 }
 
 impl Path {
+    pub(crate) fn connection_id(&self) -> usize {
+        self.conn.stable_id()
+    }
+
     /// Returns a [`Path`] for a path id, after checking that the path is not closed.
     pub(crate) fn new(conn: &ConnectionRef, id: PathId) -> Option<Self> {
         let path_ref = {

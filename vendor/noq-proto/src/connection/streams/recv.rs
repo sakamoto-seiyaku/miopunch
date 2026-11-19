@@ -253,6 +253,11 @@ pub struct Chunks<'a> {
 }
 
 impl<'a> Chunks<'a> {
+    /// Bytes consumed through this read guard so far.
+    pub fn bytes_read(&self) -> u64 {
+        self.read
+    }
+
     pub(super) fn new(
         id: StreamId,
         ordered: bool,

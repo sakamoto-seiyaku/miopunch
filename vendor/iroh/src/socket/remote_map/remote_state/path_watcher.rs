@@ -516,6 +516,14 @@ impl<'conn> Path<'conn> {
             .map_err(std::io::Error::other)
     }
 
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn observe_stream_receive(
+        &self,
+        stream: &noq::RecvStream,
+    ) -> Option<noq::StreamReceivePath> {
+        stream.observe_receive_path(&self.data.upgrade(self.conn))
+    }
+
     /// Returns `true` if this path is currently selected for application data transmission.
     pub fn is_selected(&self) -> bool {
         self.is_selected

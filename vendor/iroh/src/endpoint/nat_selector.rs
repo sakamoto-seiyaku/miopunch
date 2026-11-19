@@ -464,8 +464,7 @@ impl Analyzer {
     }
 
     /// Runtime callers must first verify the same connection's committed data
-    /// path, business receipt and current scope. Only the legacy runtime uses
-    /// this entry point. Planning on the member connection records no success.
+    /// path, business receipt and current scope. Planning alone records no success.
     pub fn report_success(&mut self, recommendation: &Recommendation, now: Instant) -> bool {
         if let Some(records) = self.records.get_mut(&recommendation.key) {
             records.report_success(recommendation.id, now);

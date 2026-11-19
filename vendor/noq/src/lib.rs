@@ -87,7 +87,8 @@ pub use crate::event_stream::{Lagged, NatTraversalUpdates, ObservedExternalAddr,
 pub use crate::incoming::{Incoming, IncomingFuture, RetryError};
 pub use crate::path::{AddressDiscovery, OpenPath, Path, PathProbe, WeakPathHandle};
 pub use crate::recv_stream::{
-    ReadError, ReadExactError, ReadToEndError, RecvStream, ResetError, UnorderedRecvStream,
+    ReadError, ReadExactError, ReadToEndError, RecvStream, ResetError, StreamReceivePath,
+    UnorderedRecvStream,
 };
 #[cfg(feature = "runtime-smol")]
 pub use crate::runtime::SmolRuntime;

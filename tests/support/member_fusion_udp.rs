@@ -1,5 +1,8 @@
 #[path = "udp_blackhole.rs"]
 mod udp_blackhole;
+#[cfg(target_os = "linux")]
+#[path = "member_fusion_nat.rs"]
+mod nat_lab;
 
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -183,23 +186,27 @@ fn observation_resource(url: String) -> Resource {
 async fn reply_stun(socket: &tokio::net::UdpSocket, expected: [SocketAddr; 2]) {
     let mut seen = Vec::new();
     for _ in 0..2 {
-        let mut request = [0; 1500];
-        let (len, source) = socket.recv_from(&mut request).await.unwrap();
-        assert_eq!(len, 20);
-        assert_eq!(&request[..8], &[0, 1, 0, 0, 0x21, 0x12, 0xa4, 0x42]);
-        let SocketAddr::V4(source) = source else {
-            panic!("IPv4 observation required");
-        };
-        let mut reply = [0; 32];
-        reply[..8].copy_from_slice(&[1, 1, 0, 12, 0x21, 0x12, 0xa4, 0x42]);
-        reply[8..20].copy_from_slice(&request[8..20]);
-        reply[20..26].copy_from_slice(&[0, 0x20, 0, 8, 0, 1]);
-        reply[26..28].copy_from_slice(&(source.port() ^ 0x2112).to_be_bytes());
-        reply[28..32].copy_from_slice(&(u32::from(*source.ip()) ^ 0x2112_a442).to_be_bytes());
-        socket.send_to(&reply, source).await.unwrap();
-        seen.push(SocketAddr::V4(source));
+        seen.push(reply_one_stun(socket).await);
     }
     assert!(expected.iter().all(|address| seen.contains(address)));
+}
+
+async fn reply_one_stun(socket: &tokio::net::UdpSocket) -> SocketAddr {
+    let mut request = [0; 1500];
+    let (len, source) = socket.recv_from(&mut request).await.unwrap();
+    assert_eq!(len, 20);
+    assert_eq!(&request[..8], &[0, 1, 0, 0, 0x21, 0x12, 0xa4, 0x42]);
+    let SocketAddr::V4(source) = source else {
+        panic!("IPv4 observation required");
+    };
+    let mut reply = [0; 32];
+    reply[..8].copy_from_slice(&[1, 1, 0, 12, 0x21, 0x12, 0xa4, 0x42]);
+    reply[8..20].copy_from_slice(&request[8..20]);
+    reply[20..26].copy_from_slice(&[0, 0x20, 0, 8, 0, 1]);
+    reply[26..28].copy_from_slice(&(source.port() ^ 0x2112).to_be_bytes());
+    reply[28..32].copy_from_slice(&(u32::from(*source.ip()) ^ 0x2112_a442).to_be_bytes());
+    socket.send_to(&reply, source).await.unwrap();
+    SocketAddr::V4(source)
 }
 
 #[tokio::test]
@@ -329,6 +336,74 @@ async fn paired_plan(pair: &Pair, initiator: usize, plan: &MemberUdpPlan) -> Mem
     assert_eq!(their_plan.peer_phase, plan.local_phase);
     assert_eq!(their_plan.execution_budget, plan.execution_budget);
     their_plan
+}
+
+#[tokio::test]
+async fn enhanced_udp_moves_the_original_business_stream() {
+    let observer_a = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let observer_b = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let pair = Pair::bind_with_observers(
+        LOOPBACK,
+        LOOPBACK,
+        LOW_RELAY_DELAY,
+        PathPreference::Quality,
+        &[
+            observation_resource(format!("stun://{}/", observer_a.local_addr().unwrap())),
+            observation_resource(format!("stun://{}/", observer_b.local_addr().unwrap())),
+        ],
+        |builder| builder,
+    )
+    .await;
+    let expected = pair.addresses();
+    let ids = pair.connections.each_ref().map(MemberConnection::stable_id);
+    let mut stream = time::timeout(
+        BUSINESS_LIMIT,
+        OriginalStream::open(&pair.connections[0], &pair.connections[1], 150),
+    )
+    .await
+    .unwrap();
+    let started = Instant::now();
+    let deadline = started + Duration::from_secs(4);
+    let cancel = CancellationToken::new();
+    let (plan, ()) = time::timeout_at(deadline, async {
+        tokio::join!(
+            pair.connections[0].coordinate_udp_traversal(deadline, &cancel),
+            async {
+                tokio::join!(reply_stun(&observer_a, expected), reply_stun(&observer_b, expected));
+                qualified_udp(&pair.connections, expected, started, true).await;
+                wait_for("both sides have enhanced winner evidence", BUSINESS_LIMIT, || {
+                    pair.connections.iter().all(|connection| connection.udp_traversal()
+                        .is_some_and(|report| report.first_match.is_some() && report.validated.is_some()))
+                }).await;
+                let round = pair.connections[0].udp_traversal().unwrap().round;
+                stream.confirm_round_trip(&pair.connections, round, 151).await;
+            },
+        )
+    })
+    .await
+    .expect("the enhanced round should select the exact physical UDP path on the original");
+    let plan = plan.unwrap();
+    paired_plan(&pair, 0, &plan).await;
+    assert!(!plan.fallback);
+    wait_for("both sides settled enhanced UDP", BUSINESS_LIMIT, || {
+        pair.connections.iter().all(|connection| connection.udp_traversal()
+            .is_some_and(|report| report.outcome.is_some()))
+    }).await;
+    for (side, connection) in pair.connections.iter().enumerate() {
+        let report = connection.udp_traversal().unwrap();
+        assert_eq!(report.outcome, Some(Ok(())), "{report:?}");
+        assert_eq!(report.round, plan.round);
+        assert_eq!(report.connection_id, ids[side]);
+        assert_eq!(report.business.unwrap().0, stream.stream_id);
+        assert_eq!(report.learned, side == 1);
+        let (matched, matched_at) = report.first_match.as_ref().unwrap();
+        assert_eq!(matched.local_addr, expected[side]);
+        assert_eq!(matched.remote, expected[1 - side]);
+        assert!(report.started <= *matched_at && *matched_at <= report.validated.unwrap().1.sent_at);
+        eprintln!("MIO150 visitor=0 side={side} {report:?}");
+    }
+    assert_eq!(pair.connections.each_ref().map(MemberConnection::stable_id), ids);
+    pair.close().await;
 }
 
 #[tokio::test]
@@ -786,6 +861,28 @@ impl OriginalStream {
             .await
             .unwrap();
         self.echo(data).await;
+    }
+
+    async fn confirm_round_trip(&mut self, connections: &[MemberConnection; 2], round: [u8; 16], data: u64) {
+        let payload = data.to_be_bytes();
+        tokio::try_join!(
+            connections[0].confirm_udp_business(round, &mut self.outgoing, async |stream| {
+                let (send, recv) = stream.streams();
+                send.write_all(&payload).await.map_err(std::io::Error::other)?;
+                let mut response = [0; 8];
+                recv.read_exact(&mut response).await.map_err(std::io::Error::other)?;
+                assert_eq!(response, payload);
+                Ok(())
+            }),
+            connections[1].confirm_udp_business(round, &mut self.incoming, async |stream| {
+                let (send, recv) = stream.streams();
+                let mut request = [0; 8];
+                recv.read_exact(&mut request).await.map_err(std::io::Error::other)?;
+                assert_eq!(request, payload);
+                send.write_all(&request).await.map_err(std::io::Error::other)?;
+                Ok(())
+            })
+        ).unwrap();
     }
 }
 

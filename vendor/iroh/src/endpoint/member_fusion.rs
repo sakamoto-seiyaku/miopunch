@@ -27,7 +27,7 @@ mod direct;
 mod udp;
 pub use dial::MemberDialOptions;
 pub(super) use direct::{PathCandidates, watch_path_candidates};
-pub use udp::{MemberUdpConfig, MemberUdpPlan};
+pub use udp::{MemberUdpConfig, MemberUdpPlan, MemberUdpTraversalReport};
 
 const REPAIR_LIMIT: Duration = Duration::from_secs(3);
 
@@ -1621,12 +1621,61 @@ impl MemberConnection {
         cancel: &CancellationToken,
     ) -> io::Result<MemberUdpPlan> {
         let planning = self.0.udp.as_ref().ok_or(io::ErrorKind::Unsupported)?;
-        planning.initiate(deadline, cancel).await
+        planning.initiate(deadline, cancel, StreamKind::UdpPlan).await
     }
 
     /// Observe the most recent still-current coordinated UDP plan on this original.
     pub fn udp_plan(&self) -> Option<MemberUdpPlan> {
         self.0.udp.as_ref()?.current()
+    }
+
+    /// Coordinate and execute one enhanced UDP round on this admitted original.
+    /// Final settlement requires both applications to confirm business on the selected winner.
+    pub async fn coordinate_udp_traversal(
+        &self,
+        deadline: Instant,
+        cancel: &CancellationToken,
+    ) -> io::Result<MemberUdpPlan> {
+        let planning = self.0.udp.as_ref().ok_or(io::ErrorKind::Unsupported)?;
+        planning.initiate(deadline, cancel, StreamKind::UdpTraversal).await
+    }
+
+    /// Independently read this side's actual packet, path and settlement evidence.
+    pub fn udp_traversal(&self) -> Option<MemberUdpTraversalReport> {
+        self.0.udp.as_ref()?.traversal()
+    }
+
+    /// Run a cooperating application's authorized operation on its original business stream.
+    /// Both ends must arm the same stream before their operation starts. Only new bytes
+    /// received on the exact winning path can confirm the round on either end. If the
+    /// round ends early, the operation still runs normally and returns its own result.
+    pub async fn confirm_udp_business<T>(
+        &self,
+        round: [u8; 16],
+        stream: &mut MemberStream,
+        operation: impl AsyncFnOnce(&mut MemberStream) -> io::Result<T>,
+    ) -> io::Result<T> {
+        let observation = match &self.0.udp {
+            Some(planning) if stream.is_business() => planning.arm_business(round, &stream.recv).await,
+            _ => None,
+        };
+        let Some((observation, mut confirmation)) = observation else {
+            return operation(stream).await;
+        };
+        let work = operation(stream);
+        tokio::pin!(work);
+        tokio::select! {
+            result = &mut work => {
+                if result.is_ok() && observation.confirm() {
+                    let _ = confirmation.send(());
+                }
+                result
+            }
+            _ = confirmation.closed() => {
+                drop(observation);
+                work.await
+            }
+        }
     }
 
     /// Supply the application's currently permitted restricted contact routes
@@ -1796,6 +1845,7 @@ enum StreamKind {
     Business,
     Maintenance,
     UdpPlan,
+    UdpTraversal,
 }
 
 impl StreamKind {
@@ -1836,8 +1886,9 @@ fn watch_streams(
                     let udp = udp.clone();
                     pending.push(async move {
                         let Ok(kind) = read_stream_kind(&mut recv).await else { return; };
-                        if kind == StreamKind::UdpPlan as u8 {
-                            udp.respond(ControlExchange::from_streams(send, recv)).await;
+                        let traverse = kind == StreamKind::UdpTraversal as u8;
+                        if kind == StreamKind::UdpPlan as u8 || traverse {
+                            udp.respond(ControlExchange::from_streams(send, recv), traverse).await;
                         } else {
                             let _ = outgoing.send(IncomingMemberStream { send, recv, activity, kind: Some(kind) }).await;
                         }
