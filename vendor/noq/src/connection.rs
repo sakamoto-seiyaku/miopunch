@@ -1132,6 +1132,17 @@ impl Connection {
         conn.inner.get_remote_nat_traversal_addresses()
     }
 
+    /// Probe an IP address known locally on this original connection.
+    pub fn probe_known_nat_traversal_address(
+        &self,
+        address: SocketAddr,
+    ) -> Result<(), n0_nat_traversal::Error> {
+        self.0
+            .lock_and_wake("probe_known_nat_traversal_address")
+            .inner
+            .probe_known_nat_traversal_address(address)
+    }
+
     /// Initiates a new nat traversal round
     ///
     /// A nat traversal round involves advertising the client's local addresses in `REACH_OUT`
@@ -1143,6 +1154,18 @@ impl Connection {
         let mut conn = self.0.lock_and_wake("initiate_nat_traversal_round");
         let now = conn.runtime.now();
         conn.inner.initiate_nat_traversal_round(now)
+    }
+
+    /// Initiate QNT on this connection, skipping peer IP paths the caller
+    /// already verified or that are currently forbidden.
+    pub fn initiate_nat_traversal_round_filtered(
+        &self,
+        should_probe: impl Fn(SocketAddr) -> bool,
+    ) -> Result<Vec<SocketAddr>, n0_nat_traversal::Error> {
+        let mut conn = self.0.lock_and_wake("initiate_nat_traversal_round");
+        let now = conn.runtime.now();
+        conn.inner
+            .initiate_nat_traversal_round_filtered(now, should_probe)
     }
 }
 

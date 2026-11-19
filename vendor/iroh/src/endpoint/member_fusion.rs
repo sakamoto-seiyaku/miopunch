@@ -35,7 +35,9 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
     /// Check current authorization again before handing off the selected connection.
     fn is_current(&self, connection: &ControlConnection) -> bool;
 
-    /// Decide which already reachable carrier is eligible for member data.
+    /// Decide whether the named carrier is currently eligible for member data.
+    /// For IP and native relay this can run under the QUIC packet lock. The
+    /// callback must not access a connection or perform blocking I/O.
     fn permits_data_path(&self, remote: &TransportAddr) -> bool {
         matches!(remote, TransportAddr::Relay(_))
     }
@@ -141,6 +143,10 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
 
     fn member_fusion(&self) -> Option<&Fusion> {
         Some(&self.fusion)
+    }
+
+    fn permits_member_data_path(&self, path: &TransportAddr) -> bool {
+        self.inner.permits_data_path(path)
     }
 
     fn fusion_event(&self, connection: &ControlConnection, event: MemberFusionEvent) {
@@ -284,6 +290,18 @@ impl MemberFusionEndpoint {
         self.inner.endpoint.id()
     }
 
+    /// Current endpoint addresses that can be announced to an admitted peer.
+    pub fn addr(&self) -> EndpointAddr {
+        self.inner.endpoint.addr()
+    }
+
+    /// Inject a changed local candidate into the actual endpoint watcher.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub async fn test_add_external_addr(&self, address: std::net::SocketAddr) {
+        self.inner.endpoint.inner.add_external_addr(address).await;
+    }
+
     /// Wait for this endpoint's contact transport to become online.
     pub async fn online(&self) {
         self.inner.endpoint.online().await;
@@ -381,7 +399,20 @@ impl MemberFusionEndpoint {
             _ = self.inner.fusion.shutdown.cancelled() => Err(io::ErrorKind::NotConnected.into()),
             _ = cancellation.cancelled() => Err(io::ErrorKind::Interrupted.into()),
             _ = time::sleep_until(deadline) => Err(io::ErrorKind::TimedOut.into()),
-            result = self.shared_connect(target, routes, shared_deadline) => result,
+            result = async {
+                let connection = self.shared_connect(target.clone(), routes, shared_deadline).await?;
+                self.learn_ip_candidates(target).await;
+                Ok(connection)
+            } => result,
+        }
+    }
+
+    /// Supply freshly learned IP candidates for a live member. The existing
+    /// connection verifies every candidate before using it for business.
+    pub async fn learn_ip_candidates(&self, mut target: EndpointAddr) {
+        target.addrs.retain(TransportAddr::is_ip);
+        if !target.addrs.is_empty() && self.inner.fusion.selected(target.id).is_some() {
+            let _ = self.inner.endpoint.inner.inner.resolve_remote(target).await;
         }
     }
 
@@ -583,13 +614,25 @@ pub(super) struct Fusion {
 }
 
 impl Fusion {
+    fn selected(&self, id: EndpointId) -> Option<MemberConnection> {
+        let peer = self
+            .peers
+            .lock()
+            .expect("member peers lock")
+            .get(&id)?
+            .upgrade()?;
+        let connection = peer.state.lock().expect("member peer lock").connection();
+        connection
+    }
+
     pub(super) fn publish(
         &self,
         selection: Selection,
         connection: Connection,
         data_path: TransportAddr,
+        activity: Arc<Activity>,
     ) {
-        let live = selection.publish(connection, data_path);
+        let live = selection.publish(connection, data_path, activity);
         if let Some(selected) = &self.selected {
             let _ = selected.send(Ok(live));
         }
@@ -1140,11 +1183,16 @@ pub(super) struct Selection {
 }
 
 impl Selection {
-    fn publish(self, connection: Connection, data_path: TransportAddr) -> Weak<Live> {
+    fn publish(
+        self,
+        connection: Connection,
+        data_path: TransportAddr,
+        activity: Arc<Activity>,
+    ) -> Weak<Live> {
         let live = MemberConnection(Arc::new(Live {
             connection,
             data_path,
-            activity: Arc::new(Activity::default()),
+            activity,
         }));
         {
             let mut state = self.peer.state.lock().expect("member peer lock");
@@ -1214,6 +1262,11 @@ impl MemberConnection {
     /// Paths currently in use by the original connection.
     pub fn paths(&self) -> PathList<'_> {
         self.0.connection.paths()
+    }
+
+    /// Transport frames and bytes on this original QUIC connection.
+    pub fn stats(&self) -> noq::ConnectionStats {
+        self.0.connection.stats()
     }
 
     /// Remote address of the original data path verified at business handoff.
@@ -1408,9 +1461,9 @@ impl Live {
 }
 
 #[derive(Debug)]
-struct Activity {
+pub(super) struct Activity {
     state: Mutex<ActivityState>,
-    changed: watch::Sender<()>,
+    changed: watch::Sender<bool>,
 }
 
 #[derive(Debug)]
@@ -1432,6 +1485,10 @@ impl Default for Activity {
 }
 
 impl Activity {
+    pub(super) fn subscribe(&self) -> watch::Receiver<bool> {
+        self.changed.subscribe()
+    }
+
     fn lease(self: &Arc<Self>, kind: StreamKind) -> Option<ActivityLease> {
         if kind == StreamKind::Maintenance {
             return None;
@@ -1439,7 +1496,7 @@ impl Activity {
         let mut state = self.state.lock().expect("member activity lock");
         if state.holders == 0 {
             state.idle_since = None;
-            self.changed.send_modify(|_| {});
+            self.changed.send_replace(true);
         }
         state.holders += 1;
         Some(ActivityLease(self.clone()))
@@ -1455,7 +1512,7 @@ impl Drop for ActivityLease {
         state.holders -= 1;
         if state.holders == 0 {
             state.idle_since = Some(Instant::now());
-            self.0.changed.send_modify(|_| {});
+            self.0.changed.send_replace(false);
         }
     }
 }

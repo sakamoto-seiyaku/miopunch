@@ -43,20 +43,28 @@ impl NativeNetwork {
         let relays = resources.relay_map(ResourceUse::DataRelay)?;
         self.gate
             .register_protocol(FUSED_MEMBER_ALPN, ProtocolScope::Member);
+        let builder =
+            builder.default_connection_path_selector(resources.path_selection.selector()?);
+        let builder = if resources.udp_direct_disabled {
+            builder.clear_ip_transports()
+        } else {
+            builder
+        };
+        let relay_resources = resources.clone();
         let endpoint = builder
             .secret_key(SecretKey::from_bytes(self.node_key.as_bytes()))
-            .clear_ip_transports()
             .portmapper_config(PortmapperConfig::Disabled)
             .relay_mode(RelayMode::Custom(relays))
             .relay_resource_policy(RelayResourcePolicy::new(move |url, usage| {
                 matches!(usage, RelayResourceUse::DataRelay)
-                    && resources.allows(url.as_str(), ResourceUse::DataRelay)
+                    && relay_resources.allows(url.as_str(), ResourceUse::DataRelay)
             }))
             .member_fusion(
                 FUSED_MEMBER_ALPN,
                 Authorization {
                     gate: self.gate.clone(),
-                    resources: None,
+                    resources,
+                    allow_custom: false,
                 },
             )
             .admission_timeout(setup_budget)
@@ -77,7 +85,8 @@ impl NativeNetwork {
                 FUSED_MEMBER_ALPN,
                 Authorization {
                     gate: self.gate.clone(),
-                    resources: Some(resources.clone()),
+                    resources: resources.clone(),
+                    allow_custom: true,
                 },
                 Duration::from_millis(resources.maintenance.exploration_interval_ms),
             )
@@ -117,7 +126,8 @@ fn attempt_log(connection: &ControlConnection) -> AttemptLog {
 #[derive(Debug)]
 struct Authorization {
     gate: AdmissionGate,
-    resources: Option<ResourceConfig>,
+    resources: ResourceConfig,
+    allow_custom: bool,
 }
 
 impl MemberFusionAdmission for Authorization {
@@ -173,22 +183,20 @@ impl MemberFusionAdmission for Authorization {
     fn permits_data_path(&self, remote: &iroh::TransportAddr) -> bool {
         match remote {
             iroh::TransportAddr::Relay(_) => true,
-            iroh::TransportAddr::Ip(_) => self
-                .resources
-                .as_ref()
-                .is_some_and(|resources| !resources.udp_direct_disabled),
-            iroh::TransportAddr::Custom(addr) => self
-                .resources
-                .as_ref()
-                .is_some_and(|resources| resources.allows_custom(addr)),
+            iroh::TransportAddr::Ip(_) => !self.resources.udp_direct_disabled,
+            iroh::TransportAddr::Custom(addr) => {
+                self.allow_custom && self.resources.allows_custom(addr)
+            }
             _ => false,
         }
     }
 
     fn custom_data_transports(&self) -> Vec<u64> {
-        self.resources
-            .as_ref()
-            .map_or_else(Vec::new, |_| self.gate.allowed_data_carriers())
+        if self.allow_custom {
+            self.gate.allowed_data_carriers()
+        } else {
+            Vec::new()
+        }
     }
 
     fn selection_event(&self, connection: &ControlConnection, event: MemberFusionEvent) {

@@ -170,6 +170,10 @@ pub(crate) trait DynEndpointAdmission: std::fmt::Debug + Send + Sync {
         None
     }
     #[cfg(not(wasm_browser))]
+    fn permits_member_data_path(&self, _path: &TransportAddr) -> bool {
+        false
+    }
+    #[cfg(not(wasm_browser))]
     fn fusion_event(&self, _connection: &ControlConnection, _event: MemberFusionEvent) {}
 }
 
@@ -254,6 +258,10 @@ impl DynEndpointAdmission for CustomDataLimit {
     #[cfg(not(wasm_browser))]
     fn member_fusion(&self) -> Option<&Fusion> {
         self.inner.member_fusion()
+    }
+    #[cfg(not(wasm_browser))]
+    fn permits_member_data_path(&self, path: &TransportAddr) -> bool {
+        self.inner.permits_member_data_path(path)
     }
     #[cfg(not(wasm_browser))]
     fn fusion_event(&self, connection: &ControlConnection, event: MemberFusionEvent) {
@@ -1822,14 +1830,17 @@ pub(super) async fn finish_admission(
         if !policy.is_current(&control) {
             return Err(changed("admission changed before delivery"));
         }
-        endpoint
-            .inner
-            .authorize_candidates(
-                connection.remote_id(),
-                connection.stable_id(),
-                permit.allowed_data_custom_ids.clone(),
-            )
-            .await?;
+        if run_legacy_hook {
+            endpoint
+                .inner
+                .authorize_candidates(
+                    connection.remote_id(),
+                    connection.stable_id(),
+                    permit.allowed_data_custom_ids.clone(),
+                    None,
+                )
+                .await?;
+        }
         #[cfg(not(wasm_browser))]
         let selection = match &mut member {
             Some(candidate) => {
@@ -1853,13 +1864,49 @@ pub(super) async fn finish_admission(
         if !policy.is_current(&control) {
             return Err(changed("admission changed during delivery"));
         }
-        policy.business_released(&connection);
         #[cfg(not(wasm_browser))]
         if let Some((fusion, selection)) = fusion.zip(selection) {
+            let activity = Arc::new(super::member_fusion::Activity::default());
+            let static_policy = endpoint
+                .inner
+                .static_config
+                .admission
+                .clone()
+                .expect("member policy");
+            let relay_policy = endpoint.inner.static_config.relay_resource_policy.clone();
+            let member_paths = crate::socket::remote_map::MemberPathPolicy::new(
+                activity.subscribe(),
+                move |address| {
+                    static_policy.permits_member_data_path(address)
+                        && match address {
+                            TransportAddr::Relay(url) => {
+                                relay_policy.allows(url, super::RelayResourceUse::DataRelay)
+                            }
+                            _ => true,
+                        }
+                },
+            );
+            endpoint
+                .inner
+                .authorize_candidates(
+                    connection.remote_id(),
+                    connection.stable_id(),
+                    permit.allowed_data_custom_ids.clone(),
+                    Some(member_paths),
+                )
+                .await?;
+            permit.check(&control).await?;
+            if !policy.is_current(&control) || !policy.permits_member_data_path(&permit.remote) {
+                return Err(changed("member admission changed during delivery"));
+            }
+            policy.business_released(&connection);
             if let Some(bootstrap) = bootstrap {
                 bootstrap.store(true, std::sync::atomic::Ordering::Release);
             }
-            fusion.publish(selection, connection.clone(), permit.remote);
+            fusion.publish(selection, connection.clone(), permit.remote, activity);
+        }
+        if run_legacy_hook {
+            policy.business_released(&connection);
         }
         control.close_on_drop = false;
         Ok(RegisteredConnection::Business(connection.clone()))

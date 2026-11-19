@@ -19,7 +19,7 @@ use n0_watcher::Watcher;
 use noq::{Closed, PathStats, PathStatus, WeakConnectionHandle};
 use noq_proto::{PathError, PathEvent as NoqPathEvent, PathId, n0_nat_traversal};
 use rustc_hash::FxHashMap;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, watch};
 use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, Level, Span, debug, error, event, info_span, instrument, trace, warn};
 
@@ -49,6 +49,8 @@ mod remote_info;
 /// If there have been no changes to the NAT address candidates, holepunching will not be
 /// attempted more frequently than at this interval.
 const HOLEPUNCH_ATTEMPTS_INTERVAL: Duration = Duration::from_secs(5);
+const MEMBER_REEVALUATION_INTERVAL: Duration = Duration::from_secs(1);
+const LOCAL_PROBE_GRACE: Duration = Duration::from_millis(250);
 
 /// A connection-specific retry is needed after noq issues further path IDs.
 pub(crate) const PATH_IDENTIFIERS_UNAVAILABLE: &str =
@@ -95,6 +97,40 @@ type AddrEvents = MergeUnbounded<
     >,
 >;
 
+type MemberActivity = MergeUnbounded<Pin<Box<dyn Stream<Item = ConnId> + Send + Sync>>>;
+
+#[derive(Clone, derive_more::Debug)]
+pub(crate) struct MemberPathPolicy {
+    activity: watch::Receiver<bool>,
+    #[debug(skip)]
+    permit: Arc<dyn Fn(&TransportAddr) -> bool + Send + Sync>,
+}
+
+impl MemberPathPolicy {
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn new(
+        activity: watch::Receiver<bool>,
+        permit: impl Fn(&TransportAddr) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            activity,
+            permit: Arc::new(permit),
+        }
+    }
+
+    fn permits(&self, address: transports::Addr) -> bool {
+        matches!(address, transports::Addr::Custom(_)) || (self.permit)(&address.into())
+    }
+}
+
+#[derive(Debug)]
+struct MemberPaths {
+    policy: MemberPathPolicy,
+    known_probes: FxHashMap<SocketAddr, Instant>,
+    last_exchange: Option<HolepunchAttempt>,
+    network_changed_at: Option<Instant>,
+}
+
 /// The state we need to know about a single remote endpoint.
 ///
 /// This actor manages all connections to the remote endpoint.  It will trigger holepunching
@@ -102,6 +138,7 @@ type AddrEvents = MergeUnbounded<
 pub(super) struct RemoteStateActor {
     /// All connections we have to this remote endpoint.
     connections: FxHashMap<ConnId, ConnectionState>,
+    member_activity: MemberActivity,
     #[cfg(feature = "miopunch-test-hooks")]
     force_path_id_retry_once: Option<ConnId>,
     /// State of the actor and hooks into the rest of the remote endpoint.
@@ -201,6 +238,7 @@ impl RemoteStateActor {
             .is_some_and(|selector| selector.uses_path_health());
         Self {
             connections: FxHashMap::default(),
+            member_activity: MemberActivity::default(),
             #[cfg(feature = "miopunch-test-hooks")]
             force_path_id_retry_once: None,
             state: State {
@@ -274,9 +312,19 @@ impl RemoteStateActor {
         let check_connections = time::interval(UPGRADE_INTERVAL);
         n0_future::pin!(check_connections);
 
-        let reevaluation_interval = self.state.reevaluation_interval;
-        let mut next_reevaluation = reevaluation_interval.map(|interval| Instant::now() + interval);
+        let mut next_reevaluation = None;
         loop {
+            let reevaluation_interval = self.state.reevaluation_interval.or_else(|| {
+                self.connections
+                    .values()
+                    .any(|state| state.member_paths.is_some())
+                    .then_some(MEMBER_REEVALUATION_INTERVAL)
+            });
+            if let Some(interval) = reevaluation_interval {
+                next_reevaluation.get_or_insert_with(|| Instant::now() + interval);
+            } else {
+                next_reevaluation = None;
+            }
             let reevaluation = match next_reevaluation {
                 Some(when) => MaybeFuture::Some(time::sleep_until(when)),
                 None => MaybeFuture::None,
@@ -316,7 +364,14 @@ impl RemoteStateActor {
                 }
                 Some((id, evt)) = self.state.addr_events.next() => {
                     trace!(?id, ?evt, "remote addrs updated, triggering holepunching");
-                    self.trigger_holepunching();
+                    if self.connections.get(&id).is_some_and(|state| state.member_paths.is_some()) {
+                        self.update_member_udp(id, true);
+                    } else {
+                        self.trigger_holepunching();
+                    }
+                }
+                Some(id) = self.member_activity.next() => {
+                    self.update_member_udp(id, false);
                 }
                 Some((conn_id, closed)) = self.state.connections_close.next(), if !self.state.connections_close.is_empty() => {
                     self.handle_connection_close(conn_id, closed);
@@ -327,6 +382,7 @@ impl RemoteStateActor {
                         break;
                     }
                     self.update_local_direct_address();
+                    self.update_active_member_udp();
                     trace!("local addrs updated, triggering holepunching");
                     self.trigger_holepunching();
                 }
@@ -345,6 +401,7 @@ impl RemoteStateActor {
                 }
                 Some(item) = maybe_next(self.state.address_lookup_stream.as_mut()), if self.state.address_lookup_stream.is_some() => {
                     self.state.handle_address_lookup_item(item);
+                    self.update_active_member_udp();
                 }
                 _ = check_connections.tick() => {
                     self.check_connections();
@@ -354,6 +411,7 @@ impl RemoteStateActor {
                     // burst of delayed maintenance. No discovery or redial here.
                     next_reevaluation = reevaluation_interval.map(|interval| Instant::now() + interval);
                     self.reevaluate_paths();
+                    self.update_active_member_udp();
                 }
                 _ = &mut idle_timeout => {
                     if self.is_idle(&inbox) {
@@ -400,9 +458,11 @@ impl RemoteStateActor {
             RemoteStateMessage::AuthorizeCandidates {
                 conn_id,
                 allowed_data_custom_ids,
+                member,
                 tx,
             } => {
-                let result = self.authorize_candidates(ConnId(conn_id), allowed_data_custom_ids);
+                let result =
+                    self.authorize_candidates(ConnId(conn_id), allowed_data_custom_ids, member);
                 let _ = tx.send(result);
             }
             RemoteStateMessage::OpenAdmittedDataPath {
@@ -788,6 +848,7 @@ impl RemoteStateActor {
             }
             RemoteStateMessage::ResolveRemote(addrs, tx) => {
                 self.state.handle_msg_resolve_remote(addrs, tx);
+                self.update_active_member_udp();
             }
             RemoteStateMessage::RemoteInfo(tx) => {
                 let addrs = self.state.paths.to_remote_addrs();
@@ -887,6 +948,7 @@ impl RemoteStateActor {
                 },
                 allowed_data_custom_ids: BTreeSet::new(),
                 custom_data_policy: false,
+                member_paths: None,
                 retained_control_custom: None,
                 retired_custom: HashSet::new(),
                 #[cfg(not(wasm_browser))]
@@ -994,6 +1056,7 @@ impl RemoteStateActor {
         &mut self,
         conn_id: ConnId,
         allowed_data_custom_ids: Vec<u64>,
+        member: Option<MemberPathPolicy>,
     ) -> Result<(), &'static str> {
         let state = self
             .connections
@@ -1031,6 +1094,29 @@ impl RemoteStateActor {
             Some(_) => true,
             None => false,
         });
+        if let Some(policy) = member {
+            let packet_policy = policy.clone();
+            let mapped = self.state.mapped_addrs.clone();
+            conn.restrict_paths(move |addr| {
+                mapped
+                    .to_transport_addr(addr)
+                    .is_some_and(|address| packet_policy.permits(address))
+            });
+            let events = n0_future::stream::unfold(
+                policy.activity.clone(),
+                move |mut activity| async move {
+                    activity.changed().await.ok()?;
+                    Some((conn_id, activity))
+                },
+            );
+            self.member_activity.push(Box::pin(events));
+            state.member_paths = Some(MemberPaths {
+                policy,
+                known_probes: FxHashMap::default(),
+                last_exchange: None,
+                network_changed_at: None,
+            });
+        }
         state.allowed_data_custom_ids = allowed;
         state.custom_data_policy = true;
         for (id, path_addr) in &state.paths {
@@ -1047,9 +1133,11 @@ impl RemoteStateActor {
             }
         }
         state.purpose = ConnectionPurpose::Ordinary;
-        let local_candidates = self.state.local_candidates();
-        update_qnt_candidates(&conn, &local_candidates);
-        self.trigger_holepunching();
+        if state.member_paths.is_none() {
+            let local_candidates = self.state.local_candidates();
+            update_qnt_candidates(&conn, &local_candidates);
+            self.trigger_holepunching();
+        }
         self.select_path();
         Ok(())
     }
@@ -1071,7 +1159,177 @@ impl RemoteStateActor {
         }
 
         if is_major {
+            let now = Instant::now();
+            for state in self.connections.values_mut() {
+                if let Some(member) = &mut state.member_paths {
+                    member.known_probes.clear();
+                    member.last_exchange = None;
+                    member.network_changed_at = Some(now);
+                }
+            }
             self.trigger_holepunching();
+        }
+    }
+
+    fn update_active_member_udp(&mut self) {
+        let active: Vec<_> = self
+            .connections
+            .iter()
+            .filter(|(_, state)| {
+                state
+                    .member_paths
+                    .as_ref()
+                    .is_some_and(|member| *member.policy.activity.borrow())
+            })
+            .map(|(id, _)| *id)
+            .collect();
+        for id in active {
+            self.update_member_udp(id, false);
+        }
+    }
+
+    /// A member's outstanding business activates QNT on this connection. A
+    /// server advertisement is also a request for the client's existing QNT
+    /// role to participate, even before it has accepted any business stream.
+    fn update_member_udp(&mut self, id: ConnId, peer_advertised: bool) {
+        let Some(state) = self.connections.get_mut(&id) else {
+            return;
+        };
+        let Some(member) = &state.member_paths else {
+            return;
+        };
+        if !peer_advertised && !*member.policy.activity.borrow() {
+            return;
+        }
+        let Some(conn) = state
+            .handle
+            .upgrade()
+            .filter(|conn| conn.close_reason().is_none())
+        else {
+            return;
+        };
+        let now = Instant::now();
+        let mut good_direct = false;
+        let verified: BTreeSet<_> = state
+            .paths
+            .iter()
+            .filter_map(|(id, binding)| {
+                let transports::Addr::Ip(remote) = binding.remote() else {
+                    return None;
+                };
+                let path = conn.path(*id)?;
+                if !state.may_select(binding)
+                    || path
+                        .network_path()
+                        .ok()
+                        .and_then(|path| self.state.mapped_addrs.to_transport_tuple(&path))
+                        .as_ref()
+                        != Some(binding)
+                {
+                    return None;
+                }
+                let stats = path.stats();
+                let ack = stats.acknowledgment?;
+                if member
+                    .network_changed_at
+                        .is_some_and(|changed| Instant::from(ack.sent_at) <= changed)
+                {
+                    return None;
+                }
+                good_direct |=
+                    !state.suspect_paths.contains_key(id) && stats.rtt <= GOOD_ENOUGH_LATENCY;
+                Some(remote)
+            })
+            .collect();
+        let member = state
+            .member_paths
+            .as_mut()
+            .expect("checked member connection");
+        let local = self.state.local_candidates();
+        if local.is_empty() {
+            update_qnt_candidates(&conn, &local);
+            return;
+        }
+        let known: BTreeSet<_> = self
+            .state
+            .paths
+            .addrs()
+            .filter_map(|addr| match addr {
+                transports::Addr::Ip(remote)
+                    if member.policy.permits(addr.clone()) && !verified.contains(remote) =>
+                {
+                    Some(*remote)
+                }
+                _ => None,
+            })
+            .collect();
+        member
+            .known_probes
+            .retain(|remote, _| known.contains(remote));
+        for remote in &known {
+            if member
+                .known_probes
+                .get(remote)
+                .is_none_or(|last| !good_direct && now - *last >= HOLEPUNCH_ATTEMPTS_INTERVAL)
+                && conn.probe_known_nat_traversal_address(*remote).is_ok()
+            {
+                member.known_probes.insert(*remote, now);
+            }
+        }
+        let probing_known = member
+            .known_probes
+            .values()
+            .any(|sent| now - *sent < LOCAL_PROBE_GRACE);
+        if conn.side().is_server() {
+            // At first activation prefer local probes. Only advertise when a
+            // local path could not be verified or none can be attempted here.
+            if verified.is_empty() && !probing_known {
+                update_qnt_candidates(&conn, &local);
+            } else if let Ok(announced) = conn.get_local_nat_traversal_addresses() {
+                let still_current = announced
+                    .into_iter()
+                    .filter(|address| local.contains(address))
+                    .collect();
+                update_qnt_candidates(&conn, &still_current);
+            }
+            return;
+        }
+        let Ok(remote) = conn.get_remote_nat_traversal_addresses() else {
+            return;
+        };
+        let remote: BTreeSet<_> = remote
+            .into_iter()
+            .filter(|address| member.policy.permits(transports::Addr::Ip(*address)))
+            .collect();
+        if probing_known
+            || (!verified.is_empty() && remote.is_subset(&verified) && known.is_empty())
+        {
+            return;
+        }
+        if member.last_exchange.as_ref().is_some_and(|last| {
+            local.is_subset(&last.local_candidates)
+                && remote.is_subset(&last.remote_candidates)
+                && (good_direct || now - last.when < HOLEPUNCH_ATTEMPTS_INTERVAL)
+        }) {
+            return;
+        }
+        update_qnt_candidates(&conn, &local);
+        if conn
+            .initiate_nat_traversal_round_filtered(|remote| {
+                !verified.contains(&remote) && member.policy.permits(transports::Addr::Ip(remote))
+            })
+            .is_ok()
+        {
+            self.state.metrics.holepunch_attempts.inc();
+            member.last_exchange = Some(HolepunchAttempt {
+                when: now,
+                local_candidates: local,
+                remote_candidates: remote,
+            });
+            trace!(
+                stable_id = id.0,
+                "member QNT candidate exchange on original connection"
+            );
         }
     }
 
@@ -1099,11 +1357,9 @@ impl RemoteStateActor {
     /// candidates.
     fn update_local_direct_address(&mut self) {
         let local_addrs = self.state.local_candidates();
-        for state in self
-            .connections
-            .values()
-            .filter(|state| state.purpose != ConnectionPurpose::Control)
-        {
+        for state in self.connections.values().filter(|state| {
+            state.purpose != ConnectionPurpose::Control && state.member_paths.is_none()
+        }) {
             if let Some(conn) = state.handle.upgrade() {
                 update_qnt_candidates(&conn, &local_addrs);
             }
@@ -1131,7 +1387,9 @@ impl RemoteStateActor {
         let Some(conn) = self
             .connections
             .iter()
-            .filter(|(_, state)| state.purpose != ConnectionPurpose::Control)
+            .filter(|(_, state)| {
+                state.purpose != ConnectionPurpose::Control && state.member_paths.is_none()
+            })
             .filter_map(|(id, state)| state.handle.upgrade().map(|conn| (*id, conn)))
             .filter(|(_, conn)| conn.side().is_client())
             .min_by_key(|(id, _)| *id)
@@ -1215,6 +1473,9 @@ impl RemoteStateActor {
 
                 self.state
                     .register_and_configure_path(conn_id, conn_state, &path);
+                if conn_state.member_paths.is_some() {
+                    let _ = path.start_probe();
+                }
                 self.select_path();
             }
             NoqPathEvent::Abandoned { id, reason, .. } => {
@@ -1286,7 +1547,10 @@ impl RemoteStateActor {
         for state in self
             .connections
             .values()
-            .filter(|state| state.purpose != ConnectionPurpose::Control)
+            .filter(|state| {
+                state.purpose != ConnectionPurpose::Control
+                    && (self.state.reevaluation_interval.is_some() || state.member_paths.is_some())
+            })
         {
             if let Some(conn) = state
                 .handle
@@ -1297,7 +1561,7 @@ impl RemoteStateActor {
                     if state.may_select(address)
                         && let Some(path) = conn.path(*id)
                     {
-                        if health_checks {
+                        if health_checks || state.member_paths.is_some() {
                             // Backups must get their own authentic ACKs even if
                             // an Available carrier can no longer return them.
                             let _ = path.start_probe();
@@ -1425,6 +1689,7 @@ impl RemoteStateActor {
             if conn_state.purpose == ConnectionPurpose::Ordinary
                 && let Some(selected) = self.state.selected_path.clone()
                 && conn_state.may_select(&selected)
+                && !(conn_state.member_paths.is_some() && selected.is_ip())
             {
                 let _ = self
                     .state
@@ -1433,11 +1698,19 @@ impl RemoteStateActor {
             if self.state.connection_path_selector.is_none()
                 && conn_state.purpose == ConnectionPurpose::Ordinary
                 && self.state.selected_path.is_none()
+                && conn_state.member_paths.is_none()
             {
                 // The legacy empty result does not create a selection.
                 continue;
             }
             let current_id = conn_state.path_state.selected_id();
+            let health_interval = health_interval.or_else(|| {
+                conn_state.member_paths.as_ref().map(|_| {
+                    self.state
+                        .reevaluation_interval
+                        .unwrap_or(MEMBER_REEVALUATION_INTERVAL)
+                })
+            });
             if let Some(interval) = health_interval
                 && conn_state.purpose != ConnectionPurpose::Control
             {
@@ -1467,6 +1740,7 @@ impl RemoteStateActor {
                     .cloned()
                     .or_else(|| current.cloned())
             } else if conn_state.purpose == ConnectionPurpose::Ordinary
+                && conn_state.member_paths.is_none()
                 && let Some(selected) = self
                     .state
                     .selected_path
@@ -1572,6 +1846,9 @@ impl RemoteStateActor {
 
     fn open_path_on_all_conns(&mut self, open_addr: &transports::PathBinding) {
         for (conn_id, conn_state) in self.connections.iter() {
+            if conn_state.member_paths.is_some() && open_addr.is_ip() {
+                continue;
+            }
             let Some(conn) = conn_state.handle.upgrade() else {
                 continue;
             };
@@ -1586,7 +1863,7 @@ impl RemoteStateActor {
     /// Currently we need to have 1 IP path, with a good enough latency.
     fn check_connections(&mut self) {
         let mut is_goodenough = true;
-        for conn_state in self.connections.values() {
+        for conn_state in self.connections.values().filter(|state| state.member_paths.is_none()) {
             let mut is_conn_goodenough = false;
             if let Some(conn) = conn_state.handle.upgrade() {
                 let min_ip_rtt = conn_state
@@ -1859,7 +2136,9 @@ impl State {
             debug!(?e, "failed to set relay path idle timeout");
         }
 
-        self.set_path_status(conn_id, path, &network_path);
+        if conn_state.member_paths.is_none() {
+            self.set_path_status(conn_id, path, &network_path);
+        }
         // A traversal pool socket is owned by this connection. Its remote
         // destination cannot become a peer-wide bootstrap candidate: a new
         // connection would be rejected by the remote socket's owner filter.
@@ -2119,6 +2398,7 @@ pub(crate) enum RemoteStateMessage {
     AuthorizeCandidates {
         conn_id: usize,
         allowed_data_custom_ids: Vec<u64>,
+        member: Option<MemberPathPolicy>,
         tx: oneshot::Sender<Result<(), &'static str>>,
     },
     /// A permitted UDP, relay or custom data carrier on an admitted connection.
@@ -2284,6 +2564,7 @@ struct ConnectionState {
     purpose: ConnectionPurpose,
     allowed_data_custom_ids: BTreeSet<u64>,
     custom_data_policy: bool,
+    member_paths: Option<MemberPaths>,
     /// Exact grant sealed by a restricted hook; never a type-wide permission.
     retained_control_custom: Option<iroh_base::CustomAddr>,
     retired_custom: HashSet<iroh_base::CustomAddr>,
@@ -2445,7 +2726,10 @@ impl ConnectionState {
     }
 
     fn forbids(&self, path: &transports::PathBinding) -> bool {
-        matches!(&path.address, transports::FourTuple::Custom { remote, .. }
+        self.member_paths
+            .as_ref()
+            .is_some_and(|member| !member.policy.permits(path.remote()))
+            || matches!(&path.address, transports::FourTuple::Custom { remote, .. }
             if !self.mapped_addrs.permits_custom_connection(remote, self.connection_id)
                 || self.retired_custom.contains(remote) || (self.custom_data_policy && !self.allowed_data_custom_ids.contains(&remote.id()) && self.retained_control_custom.as_ref() != Some(remote)))
     }
@@ -2569,6 +2853,21 @@ impl<'a> PathSelectionContext<'a> {
         }
     }
 
+    /// Whether this context is evaluating an admitted shared member connection.
+    pub fn is_member_fusion(&self) -> bool {
+        matches!(&self.source, PathsSource::Connection(state) if state.member_paths.is_some())
+    }
+
+    /// Select using iroh's biased RTT and hysteresis, with optional application
+    /// transport tiers. A lower tier number takes precedence.
+    pub fn select_biased_rtt(
+        &self,
+        tier: impl Fn(&transports::FourTuple) -> Option<u8>,
+    ) -> PathSelection {
+        super::super::biased_rtt_path_selector::BiasedRttPathSelector::default()
+            .select_with_tier(self, tier)
+    }
+
     /// The path currently considered the preferred path to the remote endpoint, if any.
     pub fn current(&self) -> Option<&transports::FourTuple> {
         #[cfg(test)]
@@ -2631,14 +2930,25 @@ impl<'a> PathSelectionContext<'a> {
                     .into_iter()
                     .flat_map(move |conn| {
                         state.paths.iter().filter_map(move |(id, addr)| {
-                            (state.may_select(addr) && conn.path(*id).is_some()).then(|| {
-                                PathSelectionData::live(
-                                    addr,
-                                    *id,
-                                    conn.clone(),
-                                    state.suspect_paths.contains_key(id),
-                                )
-                            })
+                            let suspect = state.suspect_paths.contains_key(id);
+                            if state.member_paths.is_some() {
+                                let current = self.current == Some(addr);
+                                let current_suspect =
+                                    state.path_state.selected_id().is_some_and(|current| {
+                                        state.suspect_paths.contains_key(&current)
+                                    });
+                                if suspect
+                                    || (!current
+                                        && (current_suspect || addr.is_ip())
+                                        && !conn
+                                            .path_stats(*id)
+                                            .is_some_and(|stats| self.has_fresh_ack(&stats)))
+                                {
+                                    return None;
+                                }
+                            }
+                            (state.may_select(addr) && conn.path(*id).is_some())
+                                .then(|| PathSelectionData::live(addr, *id, conn.clone(), suspect))
                         })
                     }),
             ),

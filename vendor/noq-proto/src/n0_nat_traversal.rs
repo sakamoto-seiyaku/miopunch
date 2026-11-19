@@ -264,6 +264,29 @@ impl State {
         }
     }
 
+    /// Queue a locally known address in the existing traversal engine. Either
+    /// role can send a probe, while only the client opens a multipath path.
+    pub(crate) fn probe_known_address(
+        &mut self,
+        address: SocketAddr,
+        ipv6: bool,
+    ) -> Result<(), Error> {
+        let Some(address) = CanonicalIpPort::from(address).as_local_socket_family(ipv6) else {
+            return Ok(());
+        };
+        match self {
+            Self::NotNegotiated => Err(Error::ExtensionNotNegotiated),
+            Self::ClientSide(state) => {
+                state.pending_probes.insert(address);
+                Ok(())
+            }
+            Self::ServerSide(state) => {
+                state.pending_probes.insert(address);
+                Ok(())
+            }
+        }
+    }
+
     /// Marks a probe as sent to the address with the challenge.
     pub(crate) fn mark_probe_sent(&mut self, remote: IpPort, challenge: u64) {
         match self {
@@ -456,6 +479,7 @@ impl ClientState {
     pub(crate) fn initiate_nat_traversal_round(
         &mut self,
         ipv6: bool,
+        should_probe: impl Fn(SocketAddr) -> bool,
     ) -> Result<(PendingReachOutFrames, Vec<SocketAddr>), Error> {
         if self.local_addresses.is_empty() {
             return Err(Error::NotEnoughAddresses);
@@ -470,7 +494,9 @@ impl ClientState {
         self.remote_addresses
             .values_mut()
             .for_each(|(ip_port, state)| {
-                if let Some(ip_port) = ip_port.as_local_socket_family(ipv6) {
+                if !should_probe(ip_port.as_canonical_addr()) {
+                    *state = ProbeState::Succeeded;
+                } else if let Some(ip_port) = ip_port.as_local_socket_family(ipv6) {
                     self.pending_probes.insert(ip_port);
                     *state = ProbeState::Active(MAX_NAT_PROBE_ATTEMPTS - 1);
                 } else {
@@ -1045,7 +1071,8 @@ mod tests {
             ip: remote.ip(),
             port: remote.port(),
         })?;
-        nat.client_side_mut()?.initiate_nat_traversal_round(ipv6)?;
+        nat.client_side_mut()?
+            .initiate_nat_traversal_round(ipv6, |_| true)?;
 
         let challenges = [1u64, 2, 3, 4, 5, 6, 7];
         let delays = [

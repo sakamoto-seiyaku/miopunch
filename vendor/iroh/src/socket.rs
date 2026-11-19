@@ -2064,6 +2064,7 @@ impl EndpointInner {
         remote: EndpointId,
         conn_id: usize,
         allowed_data_custom_ids: Vec<u64>,
+        member: Option<remote_map::MemberPathPolicy>,
     ) -> std::io::Result<()> {
         let (tx, rx) = oneshot::channel();
         self.sock
@@ -2072,6 +2073,7 @@ impl EndpointInner {
                 RemoteStateMessage::AuthorizeCandidates {
                     conn_id,
                     allowed_data_custom_ids,
+                    member,
                     tx,
                 },
             )

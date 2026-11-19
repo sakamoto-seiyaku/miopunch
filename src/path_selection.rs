@@ -114,11 +114,13 @@ impl CarrierClasses {
                 !(path.is_ip()
                     || matches!(path, FourTuple::Custom { remote, .. } if self.direct.contains(&remote.id()))),
             ),
-            PathPreference::PreferRelay => u8::from(
-                !(path.is_relay()
-                    || matches!(path, FourTuple::Custom { remote, .. } if self.relay.contains(&remote.id()))),
-            ),
+            PathPreference::PreferRelay => u8::from(!self.is_relay(path)),
         }
+    }
+
+    fn is_relay(&self, path: &FourTuple) -> bool {
+        path.is_relay()
+            || matches!(path, FourTuple::Custom { remote, .. } if self.relay.contains(&remote.id()))
     }
 }
 
@@ -160,6 +162,15 @@ impl ConnectionPathSelector for QualityPathSelector {
     }
 
     fn select(&self, context: &PathSelectionContext<'_>) -> PathSelection {
+        if context.is_member_fusion() {
+            return context.select_biased_rtt(|path| {
+                let preference = self.policy.preference;
+                Some(match preference {
+                    PathPreference::Quality => u8::from(self.carriers.is_relay(path)),
+                    _ => self.carriers.tier(path, preference),
+                })
+            });
+        }
         let mut best = None;
         let mut best_confirmed = None;
         let mut current = None;

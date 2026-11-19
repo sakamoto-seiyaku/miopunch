@@ -125,22 +125,26 @@ impl BiasedRttPathSelector {
             .unwrap_or_else(TransportBias::primary)
     }
 
-    /// Computes the sort key for a path: lower is better.
-    fn sort_key(&self, addr: &FourTuple, rtt: Duration) -> (TransportType, i128) {
-        let bias = self.bias_for(addr);
-        let biased_rtt = (rtt.as_nanos() as i128).saturating_add(bias.rtt_bias);
-        (bias.transport_type, biased_rtt)
-    }
 }
 
 impl PathSelector for BiasedRttPathSelector {
     fn select(&self, ctx: &PathSelectionContext<'_>) -> PathSelection {
+        self.select_with_tier(ctx, |_| None)
+    }
+}
+
+impl BiasedRttPathSelector {
+    pub(crate) fn select_with_tier(
+        &self,
+        ctx: &PathSelectionContext<'_>,
+        tier: impl Fn(&FourTuple) -> Option<u8>,
+    ) -> PathSelection {
         // Single pass: track the best candidate by sort key, and the best (lowest)
         // sort key seen for the currently-selected address.  When the same address
         // appears multiple times (one path per connection), `min` over `sort_key`
         // naturally picks the lowest-RTT instance — no separate aggregation needed.
-        let mut best: Option<(PathSelectionData<'_>, (TransportType, i128))> = None;
-        let mut current_key: Option<(TransportType, i128)> = None;
+        let mut best: Option<(PathSelectionData<'_>, (u8, i128))> = None;
+        let mut current_key: Option<(u8, i128)> = None;
 
         trace!("dumping path RTTs");
         for psd in ctx.paths() {
@@ -151,7 +155,11 @@ impl PathSelector for BiasedRttPathSelector {
             };
             let rtt = stats.rtt;
             trace!(%network_path, ?rtt);
-            let key = self.sort_key(network_path, rtt);
+            let bias = self.bias_for(network_path);
+            let key = (
+                tier(network_path).unwrap_or(bias.transport_type as u8),
+                (rtt.as_nanos() as i128).saturating_add(bias.rtt_bias),
+            );
 
             if ctx.is_current(&psd) && current_key.is_none_or(|c| key < c) {
                 current_key = Some(key);

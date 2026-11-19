@@ -34,6 +34,8 @@ use super::{admit, bind, relay, resource};
 
 #[path = "delayed_relay.rs"]
 mod delayed_relay;
+#[path = "member_fusion_udp.rs"]
+mod udp;
 
 const SETUP: Duration = Duration::from_secs(5);
 const REQUEST: &[u8] = b"fusion ping 143";

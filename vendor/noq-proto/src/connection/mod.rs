@@ -7561,6 +7561,18 @@ impl Connection {
             .get_remote_nat_traversal_addresses())
     }
 
+    /// Probe a known peer address without exchanging candidate advertisements.
+    pub fn probe_known_nat_traversal_address(
+        &mut self,
+        address: SocketAddr,
+    ) -> Result<(), n0_nat_traversal::Error> {
+        if self.state.is_closed() {
+            return Err(n0_nat_traversal::Error::Closed);
+        }
+        let ipv6 = self.is_ipv6();
+        self.n0_nat_traversal.probe_known_address(address, ipv6)
+    }
+
     /// Initiates a new nat traversal round
     ///
     /// A nat traversal round involves advertising the client's local addresses in
@@ -7576,6 +7588,16 @@ impl Connection {
         &mut self,
         now: Instant,
     ) -> Result<Vec<SocketAddr>, n0_nat_traversal::Error> {
+        self.initiate_nat_traversal_round_filtered(now, |_| true)
+    }
+
+    /// Exchange traversal candidates while skipping ineligible or already
+    /// verified remote probes on this connection.
+    pub fn initiate_nat_traversal_round_filtered(
+        &mut self,
+        now: Instant,
+        should_probe: impl Fn(SocketAddr) -> bool,
+    ) -> Result<Vec<SocketAddr>, n0_nat_traversal::Error> {
         if self.state.is_closed() {
             return Err(n0_nat_traversal::Error::Closed);
         }
@@ -7583,7 +7605,7 @@ impl Connection {
         let ipv6 = self.is_ipv6();
         let client_state = self.n0_nat_traversal.client_side_mut()?;
         let (mut reach_out_frames, probed_addrs) =
-            client_state.initiate_nat_traversal_round(ipv6)?;
+            client_state.initiate_nat_traversal_round(ipv6, should_probe)?;
         if let Some(delay) = self.n0_nat_traversal.retry_delay(self.config.initial_rtt) {
             self.timers.set(
                 Timer::Conn(ConnTimer::NatTraversalProbeRetry),
