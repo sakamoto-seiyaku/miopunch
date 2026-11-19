@@ -1,0 +1,156 @@
+{
+  "sameOriginal": {
+    "original": [
+      136064564549232,
+      136064564019744
+    ],
+    "yieldedLocalAttempt": 29,
+    "yieldedPackets": 0,
+    "yieldedSamples": 0,
+    "handoffMs": 4215,
+    "businessSequences": [
+      36
+    ],
+    "work": {
+      "attempt": "8c332d69b092bf8367b93b6e91c97e50",
+      "sides": {
+        "136064564019744": {
+          "localAttempt": 41,
+          "cooldownStartMs": 4215,
+          "cooldownMs": 8000,
+          "samples": 2,
+          "firstSendMs": 4817,
+          "firstMatchedMs": 4943,
+          "packets": 5,
+          "packetLimit": 30,
+          "round": "93baadf1d7e60e8c9824f462b3d380cd"
+        },
+        "136064564549232": {
+          "localAttempt": 27,
+          "cooldownStartMs": 4291,
+          "cooldownMs": 8000,
+          "samples": 2,
+          "firstSendMs": 4943,
+          "firstMatchedMs": 4943,
+          "packets": 1,
+          "packetLimit": 30,
+          "round": "93baadf1d7e60e8c9824f462b3d380cd"
+        }
+      }
+    }
+  },
+  "independent": {
+    "originals": [
+      [
+        127081103653056,
+        127081104233328
+      ],
+      [
+        127081104353408,
+        127081103669296
+      ]
+    ],
+    "crossed": {
+      "127081104233328": {
+        "attempt": "a05fe5f1be1cd9c41916eeb2cabfec82",
+        "control": 127081103025536,
+        "localAttempt": 65,
+        "cooldownStartMs": 5729,
+        "cooldownMs": 8000,
+        "blockedStableId": 127081103653056,
+        "blockedAtMs": 5804,
+        "samples": 0,
+        "packets": 0
+      },
+      "127081104353408": {
+        "attempt": "06f403a05b3349cfa4cae58355ce0b80",
+        "control": 127081103921856,
+        "localAttempt": 67,
+        "cooldownStartMs": 5750,
+        "cooldownMs": 8000,
+        "blockedStableId": 127081103669296,
+        "blockedAtMs": 5825,
+        "samples": 0,
+        "packets": 0
+      }
+    },
+    "dryCooldownRemainingMs": {
+      "127081104233328": 6612,
+      "127081103653056": 6559
+    },
+    "work": {
+      "attempt": "5541614a967df4ce4012df31d66fc071",
+      "sides": {
+        "127081104233328": {
+          "localAttempt": 140,
+          "cooldownStartMs": 16502,
+          "cooldownMs": 8000,
+          "samples": 2,
+          "firstSendMs": 17094,
+          "firstMatchedMs": 17222,
+          "packets": 5,
+          "packetLimit": 30,
+          "round": "172a442ff11b4e2f17201666b2b3dedc"
+        },
+        "127081103653056": {
+          "localAttempt": 133,
+          "cooldownStartMs": 16576,
+          "cooldownMs": 8000,
+          "samples": 2,
+          "firstSendMs": 17222,
+          "firstMatchedMs": 17223,
+          "packets": 1,
+          "packetLimit": 30,
+          "round": "172a442ff11b4e2f17201666b2b3dedc"
+        }
+      }
+    },
+    "workDeadlineMs": 2999,
+    "workSettledMs": 3000,
+    "workedCooldownRemainingMs": {
+      "127081104233328": 5026,
+      "127081103653056": 5027
+    },
+    "businessSequences": {
+      "crossed-start": [
+        1,
+        1
+      ],
+      "crossed-end": [
+        16,
+        16
+      ],
+      "early-retry-end": [
+        30,
+        30
+      ],
+      "probe-end": [
+        174,
+        174
+      ],
+      "probe-retry-end": [
+        189,
+        189
+      ]
+    },
+    "repairOutcomes": {
+      "crossed-end": [
+        "Err(Retryable { stable_id: 127081103653056, cause: \"local enhanced-round budget deferred the path attempt\" })",
+        "Err(Retryable { stable_id: 127081103669296, cause: \"local enhanced-round budget deferred the path attempt\" })"
+      ],
+      "early-retry-end": [
+        "Err(Retryable { stable_id: 127081103653056, cause: \"local enhanced-round budget deferred the path attempt\" })"
+      ],
+      "probe-end": [
+        "Err(Retryable { stable_id: 127081103653056, cause: \"unified/DeadlineExceeded\" })"
+      ],
+      "probe-retry-end": [
+        "Err(Retryable { stable_id: 127081103653056, cause: \"local enhanced-round budget deferred the path attempt\" })"
+      ]
+    },
+    "acceptanceFailures": [
+      "neither crossed attempt nor the early follow-up reached observation and a real send",
+      "released zero-work permits held a full failure cooldown"
+    ]
+  }
+}
