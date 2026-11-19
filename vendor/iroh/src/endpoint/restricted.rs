@@ -206,6 +206,80 @@ pub(super) fn application_policy(
     Arc::new(ApplicationAdmission(policy))
 }
 
+/// Authorization supplied by an application using native member fusion.
+#[cfg(not(wasm_browser))]
+pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
+    /// Authenticate the member over the original connection's protected control
+    /// exchanges. The endpoint owns route selection and fresh data-path proof.
+    fn authorize<'a>(
+        &'a self,
+        connection: &'a ControlConnection,
+    ) -> impl Future<Output = io::Result<ControlConfirmation>> + Send + 'a;
+
+    /// Recheck that the member may still use this connection.
+    fn is_current(&self, connection: &ControlConnection) -> bool;
+
+    /// Observe business delivery after all endpoint and authorization checks.
+    fn business_released(&self, _connection: &Connection) {}
+}
+
+#[cfg(not(wasm_browser))]
+#[derive(Debug)]
+struct NativeMemberFusion<A>(A);
+
+#[cfg(not(wasm_browser))]
+impl<A: MemberFusionAdmission> DynEndpointAdmission for NativeMemberFusion<A> {
+    fn admit<'a>(
+        &'a self,
+        connection: &'a ControlConnection,
+    ) -> BoxFuture<'a, io::Result<AdmissionOutcome>> {
+        Box::pin(async move {
+            let confirmation = self.0.authorize(connection).await?;
+            let path = connection
+                .paths()
+                .iter()
+                .filter(|path| match path.remote_addr() {
+                    TransportAddr::Relay(url) => connection
+                        .endpoint
+                        .inner
+                        .static_config
+                        .relay_resource_policy
+                        .allows(url, super::RelayResourceUse::DataRelay),
+                    _ => false,
+                })
+                .max_by_key(|path| path.is_selected())
+                .map(|path| path.id())
+                .ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::NotConnected, "no permitted data relay")
+                })?;
+            let permit = connection.qualify_data_path(path, Vec::new()).await?;
+            Ok(AdmissionOutcome::AcceptWithConfirmation {
+                permit,
+                confirmation,
+            })
+        })
+    }
+
+    fn is_current(&self, connection: &ControlConnection) -> bool {
+        self.0.is_current(connection)
+    }
+
+    fn business_released(&self, connection: &Connection) {
+        self.0.business_released(connection);
+    }
+
+    fn application_protocol(&self) -> bool {
+        true
+    }
+}
+
+#[cfg(not(wasm_browser))]
+pub(super) fn member_fusion_policy(
+    admission: impl MemberFusionAdmission + 'static,
+) -> Arc<dyn DynEndpointAdmission> {
+    Arc::new(NativeMemberFusion(admission))
+}
+
 #[derive(Debug)]
 struct CustomDataLimit {
     inner: Arc<dyn DynEndpointAdmission>,

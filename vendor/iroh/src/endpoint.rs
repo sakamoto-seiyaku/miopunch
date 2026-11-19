@@ -100,6 +100,8 @@ pub(crate) mod restricted;
 #[cfg(not(wasm_browser))]
 pub use bind::{BindOpts, InvalidSocketAddr, ToSocketAddr};
 pub use hooks::{AfterHandshakeOutcome, BeforeConnectOutcome, EndpointHooks};
+#[cfg(not(wasm_browser))]
+pub use restricted::MemberFusionAdmission;
 pub use restricted::{
     AdmissionOutcome, ControlAccepting, ControlConfirmation, ControlConnecting, ControlConnection,
     ControlExchange, ControlHandle, ControlMessageFormat, DataCandidatePath, DataPathPermit,
@@ -962,6 +964,20 @@ impl Builder {
         admission: impl EndpointAdmission + 'static,
     ) -> RestrictedBuilder {
         self.admission = Some(restricted::application_policy(admission));
+        RestrictedBuilder::new(self)
+    }
+
+    /// Opt into native member fusion with the application's authorization policy.
+    ///
+    /// The endpoint owns the bounded connection attempt and releases ordinary
+    /// streams only after the original connection proves an allowed data relay.
+    /// Supply the permitted relays and resource policy on this builder.
+    #[cfg(not(wasm_browser))]
+    pub fn member_fusion(
+        mut self,
+        admission: impl MemberFusionAdmission + 'static,
+    ) -> RestrictedBuilder {
+        self.admission = Some(restricted::member_fusion_policy(admission));
         RestrictedBuilder::new(self)
     }
 

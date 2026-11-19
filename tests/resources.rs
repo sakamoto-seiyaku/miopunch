@@ -1,4 +1,7 @@
 //! Resource policy through public nodes, real admission, relay actors and TLS.
+
+#[path = "support/member_fusion.rs"]
+mod member_fusion;
 use std::{collections::BTreeSet, net::Ipv4Addr, time::Duration};
 
 use iroh::{Endpoint, EndpointAddr, endpoint::presets};
@@ -98,6 +101,38 @@ async fn connect_control(
     .expect("bounded real relay-only TLS connection")
 }
 
+async fn admit(
+    admin: &mut NativeNetwork,
+    joining: &mut NativeNetwork,
+    admin_endpoint: &iroh::endpoint::RestrictedEndpoint,
+    join_endpoint: &iroh::endpoint::RestrictedEndpoint,
+    url: &iroh::RelayUrl,
+) {
+    let (client, server) =
+        connect_control(join_endpoint, admin_endpoint, url, ADMISSION_REQUEST_ALPN).await;
+    let (result, served) = tokio::join!(
+        joining.request_manual_admission(&client),
+        admin.serve_manual_admission(&server)
+    );
+    assert!(matches!(result.unwrap(), ManualExchange::AwaitingApproval));
+    assert_eq!(served.unwrap(), AdmissionStage::AwaitingApproval);
+    let request = admin.manual_requests().await.unwrap().pop().unwrap();
+    admin.approve_manual_admission(&request).await.unwrap();
+    let receive = async {
+        let ManualExchange::Materials(materials) =
+            joining.request_manual_admission(&client).await.unwrap()
+        else {
+            panic!("actual materials")
+        };
+        joining.complete_manual_admission(materials).await.unwrap()
+    };
+    let (saved, served) = tokio::join!(receive, admin.serve_manual_admission(&server));
+    assert_eq!(saved, AdmissionStage::Complete);
+    assert_eq!(served.unwrap(), AdmissionStage::Complete);
+    client.close(0u32.into(), b"admitted");
+    server.close(0u32.into(), b"admitted");
+}
+
 async fn admission_and_business(self_hosted: bool) {
     let service = relay().await;
     let url = service.http_url().unwrap();
@@ -123,34 +158,14 @@ async fn admission_and_business(self_hosted: bool) {
     joining.save_resource_configuration(&config).unwrap();
     let admin_endpoint = bind(&admin).await;
     let join_endpoint = bind(&joining).await;
-    let (client, server) = connect_control(
-        &join_endpoint,
+    admit(
+        &mut admin,
+        &mut joining,
         &admin_endpoint,
+        &join_endpoint,
         &url,
-        ADMISSION_REQUEST_ALPN,
     )
     .await;
-    let (result, served) = tokio::join!(
-        joining.request_manual_admission(&client),
-        admin.serve_manual_admission(&server)
-    );
-    assert!(matches!(result.unwrap(), ManualExchange::AwaitingApproval));
-    assert_eq!(served.unwrap(), AdmissionStage::AwaitingApproval);
-    let request = admin.manual_requests().await.unwrap().pop().unwrap();
-    admin.approve_manual_admission(&request).await.unwrap();
-    let receive = async {
-        let ManualExchange::Materials(materials) =
-            joining.request_manual_admission(&client).await.unwrap()
-        else {
-            panic!("actual materials")
-        };
-        joining.complete_manual_admission(materials).await.unwrap()
-    };
-    let (saved, served) = tokio::join!(receive, admin.serve_manual_admission(&server));
-    assert_eq!(saved, AdmissionStage::Complete);
-    assert_eq!(served.unwrap(), AdmissionStage::Complete);
-    client.close(0u32.into(), b"admitted");
-    server.close(0u32.into(), b"admitted");
     join_endpoint.close().await;
     joining.close().await;
     let joining = NativeNetwork::open(dir.path().join("joining"))

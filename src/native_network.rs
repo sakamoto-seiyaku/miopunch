@@ -29,6 +29,11 @@ use crate::manual_admission::{JoinBinding, ManualInvitation};
 use crate::nat_connection::{NatConnector, UdpPolicy, UdpUpgrade};
 use crate::native_files::{publish_file, replace_file, sync_directory};
 
+#[cfg(not(target_arch = "wasm32"))]
+mod member_fusion;
+#[cfg(not(target_arch = "wasm32"))]
+pub use member_fusion::{FUSED_MEMBER_ALPN, member_fusion_attempt_id};
+
 const NODE_KEY: &str = "node.key";
 const GENESIS_CREDENTIAL: &str = "genesis.credential";
 const ANCHOR: &str = "network.anchor";

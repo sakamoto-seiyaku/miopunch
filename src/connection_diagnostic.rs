@@ -73,6 +73,7 @@ pub(crate) struct AttemptLog {
     pub(crate) local_id: usize,
     pub(crate) route_phase_id: Option<usize>,
     shared_id: Option<[u8; 16]>,
+    round: Option<u16>,
     pub(crate) original: Option<usize>,
     pub(crate) control: Option<usize>,
     role: AttemptRole,
@@ -85,6 +86,7 @@ impl AttemptLog {
             local_id: next_id(),
             route_phase_id: None,
             shared_id: None,
+            round: None,
             original: None,
             control: None,
             role,
@@ -106,15 +108,25 @@ impl AttemptLog {
         self
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn with_round(mut self, round: u16) -> Self {
+        self.round = Some(round);
+        self
+    }
+
     fn report(self, phase: &'static str, result: &'static str, duration_ms: u64, detail: Value) {
-        emit(json!({
+        let mut report = json!({
             "event":"connection-timeline","monotonicMs":monotonic_ms(),
             "localAttemptId":self.local_id,"routePhaseId":self.route_phase_id,"attemptId":self.shared_id.map(hex::encode),
             "stableId":self.original,"controlStableId":self.control,
             "role":match self.role { AttemptRole::Initiator => "initiator", AttemptRole::Responder => "responder" },
             "source":self.source,"phase":phase,"result":result,"durationMs":duration_ms,
             "detail":detail,
-        }));
+        });
+        if let Some(round) = self.round {
+            report["round"] = json!(round);
+        }
+        emit(report);
     }
 
     pub(crate) fn event(self, phase: &'static str, result: &'static str, detail: Value) {
