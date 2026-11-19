@@ -1,7 +1,13 @@
 //! Formal node startup, admission and streams over real direct TCP sockets.
-use std::{net::Ipv4Addr, time::Duration};
+use std::{io, net::Ipv4Addr, sync::Arc, time::Duration};
 
-use iroh::{EndpointAddr, TransportAddr, endpoint::Connection};
+use iroh::{
+    Endpoint, EndpointAddr, EndpointId, SecretKey, TransportAddr,
+    endpoint::{
+        AdmissionOutcome, ConnectingError, Connection, ControlConfirmation, ControlConnection,
+        EndpointAdmission, MemberFusionAdmission, PortmapperConfig, presets,
+    },
+};
 use miopunch_native_probe::control_protocol::AuthenticatedControl;
 use miopunch_native_probe::{
     admission_gate::{ADMISSION_REQUEST_ALPN, ProtocolScope},
@@ -9,9 +15,158 @@ use miopunch_native_probe::{
     native_network::NativeNetwork,
     offline_replica::REPLICA_ALPN,
     resources::{ResourceConfig, ResourceEndpoint},
+    tcp_transport::{DATA_TRANSPORT_ID, TcpTransport, Traffic},
 };
 
 const BUSINESS: &[u8] = b"miopunch/tcp-direct-business/1";
+const SHARED: &[u8] = b"test/tcp-direct-member/1";
+const DEDICATED: &[u8] = b"test/tcp-direct-dedicated/1";
+
+#[derive(Debug)]
+struct MemberTcp(EndpointId);
+
+impl MemberFusionAdmission for MemberTcp {
+    async fn authorize(&self, control: &ControlConnection) -> io::Result<ControlConfirmation> {
+        assert_eq!(control.remote_id(), self.0);
+        Ok(ControlConfirmation::new(async { Ok(()) }))
+    }
+
+    fn is_current(&self, control: &ControlConnection) -> bool {
+        control.remote_id() == self.0
+    }
+
+    fn permits_data_path(&self, remote: &TransportAddr) -> bool {
+        matches!(remote, TransportAddr::Custom(addr) if addr.id() == DATA_TRANSPORT_ID)
+    }
+
+    fn custom_data_transports(&self) -> Vec<u64> {
+        vec![DATA_TRANSPORT_ID]
+    }
+}
+
+#[derive(Debug)]
+struct DedicatedTcp(EndpointId);
+
+impl EndpointAdmission for DedicatedTcp {
+    async fn admit(&self, control: &ControlConnection) -> io::Result<AdmissionOutcome> {
+        assert_eq!(control.alpn(), DEDICATED);
+        assert_eq!(control.remote_id(), self.0);
+        Ok(AdmissionOutcome::ControlOnly)
+    }
+
+    fn is_current(&self, control: &ControlConnection) -> bool {
+        control.remote_id() == self.0
+    }
+}
+
+fn tcp_builder(identity: SecretKey, allowed: Vec<u64>) -> iroh::endpoint::Builder {
+    Endpoint::builder(presets::Minimal)
+        .secret_key(identity)
+        .portmapper_config(PortmapperConfig::Disabled)
+        .clear_ip_transports()
+        .clear_relay_transports()
+        .add_custom_transport(Arc::new(TcpTransport::new(
+            Ipv4Addr::LOCALHOST,
+            Arc::new(Traffic::default()),
+        )))
+        .restricted_data_custom_transports(allowed)
+}
+
+#[tokio::test]
+async fn shared_member_data_requires_the_endpoints_custom_transport_allowlist() {
+    for allowed in [vec![], vec![DATA_TRANSPORT_ID]] {
+        let permits_tcp = !allowed.is_empty();
+        tokio::time::timeout(Duration::from_secs(5), async {
+            let [left, right] = std::array::from_fn(|_| SecretKey::generate());
+            let left_id = left.public();
+            let right_id = right.public();
+            let (client, client_members) = tcp_builder(left, vec![DATA_TRANSPORT_ID])
+                .alpns(vec![DEDICATED.to_vec()])
+                .restricted(DedicatedTcp(right_id))
+                .bind_with_member_fusion(SHARED, MemberTcp(right_id), Duration::from_secs(5))
+                .await
+                .unwrap();
+            let (server, server_members) = tcp_builder(right, allowed)
+                .alpns(vec![DEDICATED.to_vec()])
+                .restricted(DedicatedTcp(left_id))
+                .bind_with_member_fusion(SHARED, MemberTcp(left_id), Duration::from_secs(5))
+                .await
+                .unwrap();
+            let target = EndpointAddr::new(right_id)
+                .with_addrs(server.custom_addrs().into_iter().map(TransportAddr::Custom));
+            assert_eq!(target.addrs.len(), 1);
+            let (outbound, inbound) = tokio::join!(client_members.connect(target.clone()), async {
+                server.accept().await.unwrap().await
+            });
+            if permits_tcp {
+                let outbound = outbound.unwrap();
+                let accepted = inbound.unwrap();
+                let inbound = server_members.accept().await.unwrap().unwrap();
+                assert_eq!(inbound.stable_id(), accepted.stable_id());
+                for connection in [&outbound, &inbound] {
+                    assert!(connection.paths().iter().any(|path| path.is_selected()
+                        && matches!(path.remote_addr(), TransportAddr::Custom(addr)
+                            if addr.id() == DATA_TRANSPORT_ID)));
+                }
+                tokio::join!(
+                    async {
+                        let mut stream = outbound.open_bi().await.unwrap();
+                        let (send, recv) = stream.streams();
+                        send.write_all(b"TCP member request").await.unwrap();
+                        send.finish().unwrap();
+                        assert_eq!(recv.read_to_end(64).await.unwrap(), b"TCP member reply");
+                    },
+                    async {
+                        let mut stream = inbound.accept_bi().await.unwrap();
+                        let (send, recv) = stream.streams();
+                        assert_eq!(recv.read_to_end(64).await.unwrap(), b"TCP member request");
+                        send.write_all(b"TCP member reply").await.unwrap();
+                        send.finish().unwrap();
+                        send.stopped().await.unwrap();
+                    }
+                );
+            } else {
+                assert!(
+                    matches!(
+                        inbound,
+                        Err(ConnectingError::AdmissionFailed {
+                            kind: io::ErrorKind::NotConnected,
+                            ..
+                        })
+                    ),
+                    "empty endpoint allowlist must exclude the only data path: {inbound:?}"
+                );
+                assert!(outbound.is_err());
+            }
+
+            let (outbound, inbound) =
+                tokio::join!(client.connect_control(target, DEDICATED), async {
+                    server
+                        .accept()
+                        .await
+                        .unwrap()
+                        .accept_control()
+                        .unwrap()
+                        .await
+                });
+            let outbound = outbound.unwrap();
+            let inbound = inbound.unwrap();
+            tokio::join!(
+                async {
+                    outbound.send_control(b"dedicated request").await.unwrap();
+                    assert_eq!(outbound.recv_control().await.unwrap(), b"dedicated reply");
+                },
+                async {
+                    assert_eq!(inbound.recv_control().await.unwrap(), b"dedicated request");
+                    inbound.send_control(b"dedicated reply").await.unwrap();
+                }
+            );
+            tokio::join!(client_members.close(), server_members.close());
+        })
+        .await
+        .expect("bounded custom-carrier and dedicated protocol exchanges");
+    }
+}
 
 fn configure(node: &NativeNetwork, address: &str) {
     let mut config = serde_json::to_value(ResourceConfig::default()).unwrap();

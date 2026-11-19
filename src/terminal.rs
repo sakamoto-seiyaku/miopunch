@@ -120,8 +120,14 @@ pub(crate) async fn open(
     connection: &iroh::endpoint::Connection,
     request: &TerminalRequest,
 ) -> io::Result<(DataStream, serde_json::Value)> {
+    open_on_stream(DataStream::open(connection).await?, request).await
+}
+
+pub(crate) async fn open_on_stream(
+    mut stream: DataStream,
+    request: &TerminalRequest,
+) -> io::Result<(DataStream, serde_json::Value)> {
     request.validate()?;
-    let mut stream = DataStream::open(connection).await?;
     stream.write_control(request).await?;
     let reply: serde_json::Value = stream.read_control().await?;
     if reply["ok"] != true {
@@ -196,12 +202,24 @@ pub(crate) async fn consume_attachment(
     stream: DataStream,
     connection: &iroh::endpoint::Connection,
     cancel: &tokio_util::sync::CancellationToken,
+    outgoing: tokio::sync::mpsc::Receiver<TerminalInput>,
+    incoming: tokio::sync::mpsc::Sender<TerminalOutput>,
+) -> bool {
+    consume_on_stream(stream, async { connection.closed().await; }, cancel, outgoing, incoming, false).await
+}
+
+pub(crate) async fn consume_on_stream(
+    stream: DataStream,
+    peer_closed: impl std::future::Future<Output = ()>,
+    cancel: &tokio_util::sync::CancellationToken,
     mut outgoing: tokio::sync::mpsc::Receiver<TerminalInput>,
     incoming: tokio::sync::mpsc::Sender<TerminalOutput>,
+    send_receipt: bool,
 ) -> bool {
     use futures_util::FutureExt;
     use std::time::Duration;
     let (mut writer, mut reader) = stream.split();
+    let completed = {
     let sending = async {
         loop {
             let message = outgoing
@@ -230,7 +248,7 @@ pub(crate) async fn consume_attachment(
     }
     .fuse();
     let stopped = cancel.cancelled().fuse();
-    let closed = connection.closed().fuse();
+    let closed = peer_closed.fuse();
     futures_util::pin_mut!(sending, receiving, stopped, closed);
     futures_util::select_biased! {
         _ = stopped => false,
@@ -248,4 +266,12 @@ pub(crate) async fn consume_attachment(
             }
         }
     }
+    };
+    if completed && send_receipt {
+        return n0_future::time::timeout(Duration::from_secs(5), async {
+            writer.write_chunk(&[]).await?;
+            writer.finish()
+        }).await.is_ok_and(|result| result.is_ok());
+    }
+    completed
 }

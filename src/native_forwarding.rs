@@ -3,9 +3,10 @@ use crate::{
     data_stream::DataStream,
     forwarding::{self, Protocol},
     native_client::{ClientError, NativeClient},
+    native_member_services::ServiceTransport,
     service_policy::ServiceAccess,
 };
-use iroh::{EndpointAddr, endpoint::Connection};
+use iroh::EndpointAddr;
 use p2panda_core::VerifyingKey;
 use serde_json::{Value, json};
 use std::{
@@ -34,7 +35,7 @@ struct Flow {
     provider: bool,
     target: SocketAddr,
     cancel: CancellationToken,
-    connection: Option<Connection>,
+    connection: Option<ServiceTransport>,
     dropped_datagrams: u64,
 }
 struct Receiver {
@@ -42,7 +43,7 @@ struct Receiver {
     protocol: Protocol,
     target: Option<SocketAddr>,
     cancel: CancellationToken,
-    connection: Connection,
+    connection: ServiceTransport,
 }
 struct Listener {
     peer: VerifyingKey,
@@ -102,7 +103,7 @@ impl Drop for FlowOwner {
         self.cancel.cancel();
         if let Some(flow) = flow {
             if let Some(connection) = flow.connection {
-                connection.close(0u32.into(), b"forward flow ended");
+                connection.end(b"forward flow ended");
             }
         }
         self.runtime.joined.notify_waiters();
@@ -125,7 +126,7 @@ impl Drop for ReceiverOwner {
         if let Some(receiver) = receiver {
             receiver
                 .connection
-                .close(0u32.into(), b"forward receiver ended");
+                .end(b"forward receiver ended");
         }
         self.runtime.joined.notify_waiters();
     }
@@ -161,14 +162,14 @@ impl NativeForwarding {
                 receiver.cancel.cancel();
                 receiver
                     .connection
-                    .close(1u32.into(), b"forward receiver authorization ended");
+                    .abort(1, b"forward receiver authorization ended");
             }
         }
         for flow in state.flows.values() {
             if !Self::permitted(&state, access, flow) {
                 flow.cancel.cancel();
                 if let Some(connection) = &flow.connection {
-                    connection.close(1u32.into(), b"forward authorization ended");
+                    connection.abort(1, b"forward authorization ended");
                 }
             }
         }
@@ -203,7 +204,7 @@ impl NativeForwarding {
     /// Full business capacity must leave normal policy/control receipt usable.
     pub async fn receive(
         self: &Arc<Self>,
-        connection: Connection,
+        connection: ServiceTransport,
         protocol: Protocol,
     ) -> Result<(), ClientError> {
         let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())?;
@@ -217,7 +218,7 @@ impl NativeForwarding {
                     .as_ref()
                     .is_some_and(|access| Self::provides(&state, access, peer, protocol))
             {
-                connection.close(1u32.into(), b"forward receiver unavailable");
+                connection.abort(1, b"forward receiver unavailable");
                 return Err("forward receiver unavailable".into());
             }
             state.next = state
@@ -289,11 +290,11 @@ impl NativeForwarding {
             cancel,
         })
     }
-    fn attach(&self, owner: &FlowOwner, connection: Connection) -> Result<(), ClientError> {
+    fn attach(&self, owner: &FlowOwner, connection: ServiceTransport) -> Result<(), ClientError> {
         let mut state = self.state.lock().unwrap();
         let flow = state.flows.get_mut(&owner.id).ok_or("forward ended")?;
         if flow.cancel.is_cancelled() {
-            connection.close(0u32.into(), b"forward stopped");
+            connection.abort(0, b"forward stopped");
             return Err("forward stopped".into());
         }
         flow.connection = Some(connection);
@@ -308,14 +309,14 @@ impl NativeForwarding {
         for flow in state.flows.values() {
             flow.cancel.cancel();
             if let Some(connection) = &flow.connection {
-                connection.close(0u32.into(), b"forward stopped");
+                connection.abort(0, b"forward stopped");
             }
         }
         for receiver in state.receivers.values() {
             receiver.cancel.cancel();
             receiver
                 .connection
-                .close(0u32.into(), b"forward receiver stopped");
+                .abort(0, b"forward receiver stopped");
         }
     }
     pub async fn close(&self) -> Result<(), ClientError> {
@@ -362,21 +363,21 @@ impl NativeForwarding {
             "active_flows":state.flows.len(),"provider_workers":state.receivers.len(),"max_provider_workers":MAX_FLOWS,"services":([Protocol::Tcp,Protocol::Udp].map(|protocol|json!({"protocol":protocol,
                 "enabled":state.scopes.contains_key(&protocol),"targets":state.scopes.get(&protocol)}))),
             "flows":state.flows.iter().map(|(id,flow)|json!({"id":id.to_string(),"protocol":flow.protocol,"peer":flow.peer,
-                "target":flow.target,"provider":flow.provider,"dropped_datagrams":flow.dropped_datagrams,"transport":flow.connection.as_ref().map(crate::native_client::path_status)})).collect::<Vec<_>>(),
+                "target":flow.target,"provider":flow.provider,"dropped_datagrams":flow.dropped_datagrams,"transport":flow.connection.as_ref().map(ServiceTransport::status)})).collect::<Vec<_>>(),
             "listeners":state.listeners.iter().map(|(id,l)|json!({"id":id.to_string(),"protocol":l.protocol,"peer":l.peer,
                 "target":l.target,"listen":l.listen,"running":!l.join.is_finished() && !l.cancel.is_cancelled(),
                 "counters":*l.counters.lock().unwrap()})).collect::<Vec<_>>()})
     }
     async fn serve(
         self: &Arc<Self>,
-        connection: Connection,
+        connection: ServiceTransport,
         protocol: Protocol,
         receiver: &ReceiverOwner,
     ) -> Result<(), ClientError> {
         // The guard closes rejected transports as well as accepted flows.
         let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())?;
         let result = async {
-            let mut stream = tokio::time::timeout(Duration::from_secs(10), DataStream::accept(&connection)).await??;
+            let mut stream = tokio::time::timeout(Duration::from_secs(10), connection.stream(false)).await??;
             let open: forwarding::Open = tokio::time::timeout(Duration::from_secs(10), stream.read_control()).await??;
             if let Some(current) = self.state.lock().unwrap().receivers.get_mut(&receiver.id) { current.target = Some(open.target); }
             let owner = self.claim(peer, protocol, open.target, true, receiver.cancel.child_token())?;
@@ -397,7 +398,7 @@ impl NativeForwarding {
                             // Keep the FlowOwner alive until that peer close;
                             // policy/host cancellation still interrupts this
                             // wait and an absent peer has the usual idle bound.
-                            tokio::time::timeout(IDLE, connection.closed()).await?;
+                            tokio::time::timeout(IDLE, connection.wait_for_drain()).await?;
                             Ok(())
                         },
                         Protocol::Udp => {
@@ -410,7 +411,7 @@ impl NativeForwarding {
                 } => result,
             }
         }.await;
-        connection.close(0u32.into(), b"forward provider ended");
+        connection.end(b"forward provider ended");
         result
     }
 }
@@ -554,9 +555,9 @@ impl NativeClient {
             biased;
             _ = owner.cancel.cancelled() => Err("forward stopped".into()),
             result = async {
-                let connection = self.resources.connect(address, protocol.alpn()).await?;
+                let connection = self.resources.connect_service(address, protocol.into()).await?;
                 self.forwarding.attach(&owner, connection.clone())?;
-                let stream = forwarding::open(&connection, target).await?;
+                let stream = forwarding::open_on_stream(connection.stream(true).await?, target).await?;
                 Ok(forwarding::exchange(stream, protocol, payload, response_bytes).await?)
             } => result,
         }
@@ -572,7 +573,7 @@ impl NativeClient {
         };
         cancel.cancel();
         if let Some(connection) = connection {
-            connection.close(0u32.into(), b"forward flow cancelled");
+            connection.abort(0, b"forward flow cancelled");
         }
         tokio::time::timeout(Duration::from_secs(5), async {
             loop {
@@ -750,9 +751,9 @@ impl NativeClient {
                                     biased;
                                     _ = cancel.cancelled() => Err("forward stopped".into()),
                                     result = async {
-                                        let connection = resources.connect(address, protocol.alpn()).await?;
+                                        let connection = resources.connect_service(address, protocol.into()).await?;
                                         runtime.attach(&owner, connection.clone())?;
-                                        let stream = forwarding::open(&connection, target).await?;
+                                        let stream = forwarding::open_on_stream(connection.stream(true).await?, target).await?;
                                         match input {
                                             Input::Tcp(socket) => tcp_bridge(socket, stream).await,
                                             Input::DroppedDatagram => Err("oversized datagram reached a flow".into()),

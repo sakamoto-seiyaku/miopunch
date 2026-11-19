@@ -2,11 +2,12 @@
 use crate::{
     data_stream::DataStream,
     native_client::{ClientError, NativeClient},
+    native_member_services::{MemberService, ServiceTransport},
     service_policy::{Service, ServiceAccess},
     terminal::{self, TerminalInput, TerminalOutput, TerminalProvider, TerminalRequest},
     terminal_tmux::{self, ControlClient, Tmux},
 };
-use iroh::{EndpointAddr, endpoint::Connection};
+use iroh::EndpointAddr;
 use p2panda_core::VerifyingKey;
 use serde_json::{Value, json};
 use std::{
@@ -26,7 +27,7 @@ struct Flow {
     peer: VerifyingKey,
     provider: bool,
     cancel: CancellationToken,
-    connection: Option<Connection>,
+    connection: Option<ServiceTransport>,
 }
 struct Attachment {
     outgoing: mpsc::Sender<TerminalInput>,
@@ -78,9 +79,9 @@ impl Drop for Operation {
             }
             if let Some(connection) = flow.connection {
                 if self.completed {
-                    connection.close(0u32.into(), b"Terminal operation completed");
+                    connection.end(b"Terminal operation completed");
                 } else {
-                    connection.close(1u32.into(), b"Terminal operation failed");
+                    connection.abort(1, b"Terminal operation failed");
                 }
             }
         }
@@ -118,7 +119,7 @@ impl NativeTerminal {
             if !Self::permitted(&state, access, flow) {
                 flow.cancel.cancel();
                 if let Some(connection) = &flow.connection {
-                    connection.close(1u32.into(), b"Terminal authorization ended");
+                    connection.abort(1, b"Terminal authorization ended");
                 }
             }
         }
@@ -181,11 +182,11 @@ impl NativeTerminal {
     fn attach_connection(
         &self,
         owner: &Operation,
-        connection: Connection,
+        connection: ServiceTransport,
     ) -> Result<(), ClientError> {
         let mut state = self.state.lock().unwrap();
         if owner.cancel.is_cancelled() {
-            connection.close(1u32.into(), b"Terminal cancelled");
+            connection.abort(1, b"Terminal cancelled");
             return Err("terminal operation cancelled".into());
         }
         state
@@ -219,7 +220,7 @@ impl NativeTerminal {
         for flow in state.active.values() {
             flow.cancel.cancel();
             if let Some(connection) = &flow.connection {
-                connection.close(1u32.into(), b"Terminal attachments stopped");
+                connection.abort(1, b"Terminal attachments stopped");
             }
         }
     }
@@ -256,14 +257,14 @@ impl NativeTerminal {
         }
         Ok(())
     }
-    pub async fn receive(self: &Arc<Self>, connection: Connection) -> Result<(), ClientError> {
+    pub async fn receive(self: &Arc<Self>, connection: ServiceTransport) -> Result<(), ClientError> {
         let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())?;
         let mut tasks = self.tasks.lock().await;
         while tasks.try_join_next().is_some() {}
         let owner = match self.claim(peer, true) {
             Ok(owner) => owner,
             Err(error) => {
-                connection.close(1u32.into(), b"Terminal unavailable");
+                connection.abort(1, b"Terminal unavailable");
                 return Err(error);
             }
         };
@@ -274,13 +275,13 @@ impl NativeTerminal {
         });
         Ok(())
     }
-    async fn serve(self: Arc<Self>, mut owner: Operation, connection: Connection) {
+    async fn serve(self: Arc<Self>, mut owner: Operation, connection: ServiceTransport) {
         let result = async {
             let (mut stream, request) = tokio::select! { biased;
                 _ = owner.cancel.cancelled() => return Err("terminal operation cancelled".into()),
                 _ = connection.closed() => return Err("terminal peer closed".into()),
                 result = async {
-                    let mut stream = DataStream::accept(&connection).await?;
+                    let mut stream = connection.stream(false).await?;
                     let request:TerminalRequest = stream.read_control().await?;
                     request.validate()?;
                     Ok::<_, ClientError>((stream,request))
@@ -314,9 +315,8 @@ impl NativeTerminal {
                 _ = owner.cancel.cancelled() => return Err("terminal operation cancelled".into()),
                 result = async { stream.write_control(&reply).await?; stream.finish() } => result?,
             }
-            let reason = tokio::time::timeout(Duration::from_secs(5), connection.closed()).await?;
-            if !matches!(reason, iroh::endpoint::ConnectionError::ApplicationClosed(reason)
-                if reason.error_code == 0u32.into() && reason.reason.as_ref() == b"Terminal operation completed") {
+            if !tokio::time::timeout(Duration::from_secs(5),
+                connection.received(b"Terminal operation completed", stream.read_chunk())).await? {
                 return Err("terminal consumer did not acknowledge operation".into());
             }
             Ok(())
@@ -326,7 +326,7 @@ impl NativeTerminal {
     async fn serve_attachment(
         &self,
         owner: &Operation,
-        connection: &Connection,
+        connection: &ServiceTransport,
         stream: DataStream,
         client: &mut ControlClient,
     ) -> Result<(), ClientError> {
@@ -399,9 +399,7 @@ impl NativeTerminal {
             result = tokio::time::timeout(Duration::from_secs(5), async {
                 terminal::write_output(&mut writer, &TerminalOutput::Detached).await?;
                 writer.finish()?;
-                let reason = connection.closed().await;
-                if !matches!(reason, iroh::endpoint::ConnectionError::ApplicationClosed(reason)
-                    if reason.error_code == 0u32.into() && reason.reason.as_ref() == b"Terminal operation completed") {
+                if !connection.received(b"Terminal operation completed", reader.read_chunk()).await {
                     return Err("terminal consumer did not acknowledge detach".into());
                 }
                 Ok::<_, ClientError>(())
@@ -424,11 +422,12 @@ impl NativeTerminal {
         outgoing: mpsc::Receiver<TerminalInput>,
         incoming: mpsc::Sender<TerminalOutput>,
         outcome: Arc<Mutex<Option<bool>>>,
-        connection: Connection,
+        connection: ServiceTransport,
     ) {
         let completed =
-            terminal::consume_attachment(stream, &connection, &owner.cancel, outgoing, incoming)
-                .await;
+            terminal::consume_on_stream(
+                stream, connection.closed(), &owner.cancel, outgoing, incoming, connection.is_member(),
+            ).await;
         *outcome.lock().unwrap() = Some(completed);
         owner.completed = completed;
     }
@@ -521,9 +520,13 @@ impl NativeClient {
         let result = tokio::select! { biased;
             _ = owner.cancel.cancelled() => Err("terminal request cancelled".into()),
             result = async {
-                let connection = { let _contact = self.terminal.connecting.lock().await; self.resources.connect(address, terminal::TERMINAL_ALPN).await? };
+                let connection = { let _contact = self.terminal.connecting.lock().await; self.resources.connect_service(address, MemberService::Terminal).await? };
                 self.terminal.attach_connection(&owner, connection.clone())?;
-                let (_, response) = terminal::open(&connection, &request).await?;
+                let (mut stream, response) = terminal::open_on_stream(connection.stream(true).await?, &request).await?;
+                if connection.is_member() {
+                    stream.write_chunk(&[]).await?;
+                    stream.finish()?;
+                }
                 Ok::<_, ClientError>(response)
             } => result,
         };
@@ -550,9 +553,9 @@ impl NativeClient {
         let (connection, stream, ready) = tokio::select! { biased;
             _ = owner.cancel.cancelled() => return Err("terminal attach cancelled".into()),
             result = async {
-                let connection = { let _contact = self.terminal.connecting.lock().await; self.resources.connect(address, terminal::TERMINAL_ALPN).await? };
+                let connection = { let _contact = self.terminal.connecting.lock().await; self.resources.connect_service(address, MemberService::Terminal).await? };
                 self.terminal.attach_connection(&owner, connection.clone())?;
-                let (stream, ready) = terminal::open(&connection, &request).await?;
+                let (stream, ready) = terminal::open_on_stream(connection.stream(true).await?, &request).await?;
                 Ok::<_, ClientError>((connection, stream, ready))
             } => result?,
         };

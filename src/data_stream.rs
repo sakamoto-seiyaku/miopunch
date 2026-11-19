@@ -24,15 +24,16 @@ fn transport(error: impl std::fmt::Display) -> io::Error {
 }
 
 impl DataStream {
+    pub(crate) fn from_parts(send: SendStream, recv: RecvStream) -> Self {
+        Self { send: DataWriter(send), recv: DataReader(recv) }
+    }
+
     pub async fn open(connection: &Connection) -> io::Result<Self> {
         let (send, recv) = n0_future::time::timeout(IDLE, connection.open_bi())
             .await
             .map_err(transport)?
             .map_err(transport)?;
-        Ok(Self {
-            send: DataWriter(send),
-            recv: DataReader(recv),
-        })
+        Ok(Self::from_parts(send, recv))
     }
 
     pub async fn accept(connection: &Connection) -> io::Result<Self> {
@@ -40,10 +41,7 @@ impl DataStream {
             .await
             .map_err(transport)?
             .map_err(transport)?;
-        Ok(Self {
-            send: DataWriter(send),
-            recv: DataReader(recv),
-        })
+        Ok(Self::from_parts(send, recv))
     }
 
     pub async fn write_chunk(&mut self, bytes: &[u8]) -> io::Result<()> {

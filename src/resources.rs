@@ -669,6 +669,7 @@ pub struct ResourceEndpoint {
     backoff: ContactStates,
     pub(crate) contacts: iroh::address_lookup::memory::MemoryLookup,
     pub(crate) member_contacts: Option<std::sync::Arc<crate::member_contacts::MemberContacts>>,
+    pub(crate) member_fusion: Option<(iroh::endpoint::MemberFusionEndpoint, crate::admission_gate::AdmissionGate)>,
     responders: std::sync::Mutex<Vec<(String, crate::mqtt_discovery::LiveResponder)>>,
     tcp: Option<crate::tcp_transport::TcpTransport>,
     native: Option<crate::native_path_adapter::NativePathAdapter>,
@@ -786,6 +787,7 @@ impl ResourceEndpoint {
             backoff: Default::default(),
             contacts: iroh::address_lookup::memory::MemoryLookup::new(),
             member_contacts: None,
+            member_fusion: None,
             responders: Default::default(),
             tcp: None,
             native: None,
@@ -858,21 +860,7 @@ impl ResourceEndpoint {
             permitted |= RELAY;
             contact_ids.push(crate::member_transport::DATA_TRANSPORT_ID);
         }
-        if !self.config.disabled_uses.contains(&ResourceUse::Signaling) {
-            if self.contact_listener.as_ref().is_some_and(|listener| {
-                listener.status().phase != crate::contact_listener::ContactListenerPhase::Stopped
-            }) {
-                contact_ids.push(crate::mqtt_datagram::TRANSPORT_ID);
-            }
-            if self
-                .endpoint
-                .custom_addrs()
-                .iter()
-                .any(|address| address.id() == crate::member_transport::TRANSPORT_ID)
-            {
-                contact_ids.push(crate::member_transport::TRANSPORT_ID);
-            }
-        }
+        contact_ids.extend(self.signaling_contact_ids());
         crate::connection_coordinator::ConnectionCoordinator::new_restricted(
             self.endpoint.clone(),
             permitted,
@@ -881,6 +869,23 @@ impl ResourceEndpoint {
         .with_member_contact(crate::member_transport::TRANSPORT_ID)
         .with_member_data(crate::member_transport::DATA_TRANSPORT_ID)
         .with_member_contacts(self.member_contacts.clone())
+    }
+
+    fn signaling_contact_ids(&self) -> Vec<u64> {
+        let mut ids = Vec::new();
+        if !self.config.disabled_uses.contains(&ResourceUse::Signaling) {
+            if self.contact_listener.as_ref().is_some_and(|listener| {
+                listener.status().phase != crate::contact_listener::ContactListenerPhase::Stopped
+            }) {
+                ids.push(crate::mqtt_datagram::TRANSPORT_ID);
+            }
+            if self.endpoint.custom_addrs().iter()
+                .any(|address| address.id() == crate::member_transport::TRANSPORT_ID)
+            {
+                ids.push(crate::member_transport::TRANSPORT_ID);
+            }
+        }
+        ids
     }
     #[cfg(feature = "rtc-probe")]
     pub(crate) fn with_rtc(mut self, rtc: Option<crate::rtc_transport::RtcTransport>) -> Self {
@@ -1152,6 +1157,47 @@ impl ResourceEndpoint {
         Ok(connection)
     }
 
+    pub(crate) async fn connect_member(
+        &self,
+        mut target: iroh::EndpointAddr,
+        deadline: tokio::time::Instant,
+    ) -> std::io::Result<Option<iroh::endpoint::MemberConnection>> {
+        let (owner, _) = self.member_fusion.as_ref().expect("native client member owner");
+        if let Some(connection) = owner.reuse_until(target.id, deadline).await? {
+            return Ok(Some(connection));
+        }
+        self.merge_contact_hints(&mut target).await?;
+        let signaling = self.signaling_contact_ids();
+        let has_contact = target.addrs.iter().any(|addr| matches!(addr,
+            iroh::TransportAddr::Custom(address) if signaling.contains(&address.id())));
+        target.addrs.retain(|addr| self.allows_data_path(addr));
+        self.add_configured_relays(&mut target)?;
+        if target.addrs.is_empty() && has_contact {
+            // Retain the deployed signaling-to-data entry until that path
+            // can qualify a shared member connection itself.
+            return owner.reuse_until(target.id, deadline).await;
+        }
+        owner.connect_until(target, deadline, &tokio_util::sync::CancellationToken::new()).await.map(Some)
+    }
+
+    async fn merge_contact_hints(&self, target: &mut iroh::EndpointAddr) -> std::io::Result<()> {
+        if let Some(known) = self.contacts.get_endpoint_info(target.id) {
+            target.addrs.extend(known.into_endpoint_addr().addrs);
+        }
+        if let Some(contacts) = &self.member_contacts {
+            contacts.merge_async(target).await?;
+        }
+        Ok(())
+    }
+
+    fn add_configured_relays(&self, target: &mut iroh::EndpointAddr) -> std::io::Result<()> {
+        if !target.addrs.iter().any(|addr| matches!(addr, iroh::TransportAddr::Relay(_))) {
+            target.addrs.extend(self.config.relay_map(ResourceUse::DataRelay)?.urls::<Vec<_>>()
+                .into_iter().map(iroh::TransportAddr::Relay));
+        }
+        Ok(())
+    }
+
     /// Establish a control-only protocol while preserving the shared contact budget.
     pub async fn connect_control(
         &self,
@@ -1218,18 +1264,13 @@ impl ResourceEndpoint {
         ResourceContactError,
     > {
         let (deadline, attempt) = self.begin_contact_attempt(target.id, class)?;
-        if let Some(known) = self.contacts.get_endpoint_info(target.id) {
-            target.addrs.extend(known.into_endpoint_addr().addrs);
-        }
-        if let Some(contacts) = &self.member_contacts {
-            tokio::time::timeout(
+        tokio::time::timeout(
                 deadline.saturating_duration_since(n0_future::time::Instant::now()),
-                contacts.merge_async(&mut target),
+                self.merge_contact_hints(&mut target),
             )
             .await
             .map_err(|_| attempt.failed("bounded contact attempt timed out".into()))?
             .map_err(|error| attempt.failed(error.to_string()))?;
-        }
         target.addrs.retain(|addr| match addr {
             iroh::TransportAddr::Relay(url) => {
                 self.config.allows(url.as_str(), ResourceUse::DataRelay)
@@ -1242,19 +1283,8 @@ impl ResourceEndpoint {
         let race_relays = purpose == Some(SessionPurpose::MemberBusiness) && !control_only;
         // The member business coordinator gives the peer's addresses a head
         // start over locally configured rendezvous hints.
-        if !race_relays
-            && !target
-                .addrs
-                .iter()
-                .any(|addr| matches!(addr, iroh::TransportAddr::Relay(_)))
-        {
-            target.addrs.extend(
-                self.config
-                    .relay_map(ResourceUse::DataRelay)?
-                    .urls::<Vec<_>>()
-                    .into_iter()
-                    .map(iroh::TransportAddr::Relay),
-            );
+        if !race_relays {
+            self.add_configured_relays(&mut target)?;
         }
         if purpose.is_some() {
             let mut coordinator = self.coordinator();

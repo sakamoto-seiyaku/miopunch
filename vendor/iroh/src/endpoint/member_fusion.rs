@@ -32,6 +32,16 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
     /// Check current authorization again before handing off the selected connection.
     fn is_current(&self, connection: &ControlConnection) -> bool;
 
+    /// Decide which already reachable carrier is eligible for member data.
+    fn permits_data_path(&self, remote: &TransportAddr) -> bool {
+        matches!(remote, TransportAddr::Relay(_))
+    }
+
+    /// Custom data carriers the application registered for current members.
+    fn custom_data_transports(&self) -> Vec<u64> {
+        Vec::new()
+    }
+
     /// Register the selected connection with the application's revocation policy.
     fn business_released(&self, _connection: &Connection) {}
 
@@ -64,33 +74,49 @@ pub enum MemberFusionEvent {
 struct Admission<A> {
     inner: A,
     fusion: Arc<Fusion>,
+    alternate: Option<(Vec<u8>, Arc<dyn DynEndpointAdmission>)>,
+    custom_data_limit: Option<Vec<u64>>,
 }
 
 impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
+    fn alternate_protocol(&self, alpn: &[u8]) -> Option<&dyn DynEndpointAdmission> {
+        let (member, fallback) = self.alternate.as_ref()?;
+        (member != alpn).then_some(fallback.as_ref())
+    }
+
     fn admit<'a>(
         &'a self,
         connection: &'a ControlConnection,
     ) -> BoxFuture<'a, io::Result<AdmissionOutcome>> {
         Box::pin(async move {
             let confirmation = self.inner.authorize(connection).await?;
+            let mut custom = self.inner.custom_data_transports();
+            if let Some(allowed) = &self.custom_data_limit {
+                custom.retain(|id| allowed.contains(id));
+            }
             let path = connection
                 .paths()
                 .iter()
-                .filter(|path| match path.remote_addr() {
-                    TransportAddr::Relay(url) => connection
-                        .endpoint
-                        .inner
-                        .static_config
-                        .relay_resource_policy
-                        .allows(url, RelayResourceUse::DataRelay),
-                    _ => false,
+                .filter(|path| {
+                    self.inner.permits_data_path(path.remote_addr())
+                        && match path.remote_addr() {
+                            TransportAddr::Relay(url) => connection
+                                .endpoint
+                                .inner
+                                .static_config
+                                .relay_resource_policy
+                                .allows(url, RelayResourceUse::DataRelay),
+                            TransportAddr::Ip(_) => true,
+                            TransportAddr::Custom(addr) => custom.contains(&addr.id()),
+                            _ => false,
+                        }
                 })
                 .max_by_key(|path| path.is_selected())
                 .map(|path| path.id())
                 .ok_or_else(|| {
-                    io::Error::new(io::ErrorKind::NotConnected, "no permitted data relay")
+                    io::Error::new(io::ErrorKind::NotConnected, "no permitted member data path")
                 })?;
-            let permit = connection.qualify_data_path(path, Vec::new()).await?;
+            let permit = connection.qualify_data_path(path, custom).await?;
             Ok(AdmissionOutcome::AcceptWithConfirmation {
                 permit,
                 confirmation,
@@ -135,9 +161,12 @@ impl MemberFusionBuilder {
         admission: impl MemberFusionAdmission + 'static,
     ) -> Self {
         let owner = Arc::new(Fusion::default());
+        let custom_data_limit = builder.restricted_data_custom_transports.take();
         builder.admission = Some(Arc::new(Admission {
             inner: admission,
             fusion: owner.clone(),
+            alternate: None,
+            custom_data_limit,
         }));
         Self {
             inner: RestrictedBuilder::new(builder.alpns(vec![alpn.to_vec()])),
@@ -176,6 +205,52 @@ impl MemberFusionBuilder {
                 incoming: tokio::sync::Mutex::new(incoming),
             }),
         })
+    }
+}
+
+pub(super) struct SharedOwner {
+    fusion: Arc<Fusion>,
+    incoming: mpsc::UnboundedReceiver<IncomingResult>,
+}
+
+pub(super) fn shared_policy(
+    alpn: &[u8],
+    admission: impl MemberFusionAdmission + 'static,
+    fallback: Arc<dyn DynEndpointAdmission>,
+    custom_data_limit: Option<Vec<u64>>,
+    idle_timeout: Duration,
+) -> (Arc<dyn DynEndpointAdmission>, SharedOwner) {
+    let (selected, incoming) = mpsc::unbounded_channel();
+    let fusion = Arc::new(Fusion {
+        selected: Some(selected),
+        idle_timeout: idle_timeout.into(),
+        ..Default::default()
+    });
+    let policy = Admission {
+        inner: admission,
+        fusion: fusion.clone(),
+        alternate: Some((alpn.to_vec(), fallback)),
+        custom_data_limit,
+    };
+    (Arc::new(policy), SharedOwner { fusion, incoming })
+}
+
+impl SharedOwner {
+    pub(super) fn attach(
+        self,
+        endpoint: RestrictedEndpoint,
+        alpn: &[u8],
+        setup: Duration,
+    ) -> MemberFusionEndpoint {
+        MemberFusionEndpoint {
+            inner: Arc::new(EndpointOwner {
+                endpoint,
+                fusion: self.fusion,
+                alpn: alpn.to_vec(),
+                setup,
+                incoming: tokio::sync::Mutex::new(self.incoming),
+            }),
+        }
     }
 }
 
@@ -277,6 +352,35 @@ impl MemberFusionEndpoint {
         }
     }
 
+    /// Reuse a selected connection or await an existing attempt without dialing.
+    pub async fn reuse_until(
+        &self,
+        id: EndpointId,
+        deadline: Instant,
+    ) -> io::Result<Option<MemberConnection>> {
+        let peer = self
+            .inner
+            .fusion
+            .peers
+            .lock()
+            .expect("member peers lock")
+            .get(&id)
+            .and_then(Weak::upgrade);
+        let Some(peer) = peer else { return Ok(None) };
+        let waiter = peer
+            .state
+            .lock()
+            .expect("member peer lock")
+            .dial
+            .as_ref()
+            .and_then(Dial::join);
+        tokio::select! { biased;
+            _ = self.inner.fusion.shutdown.cancelled() => Err(io::ErrorKind::NotConnected.into()),
+            _ = time::sleep_until(deadline) => Err(io::ErrorKind::TimedOut.into()),
+            result = await_selected(peer, waiter) => result,
+        }
+    }
+
     async fn shared_connect(&self, target: EndpointAddr) -> io::Result<MemberConnection> {
         let owner = &self.inner;
         let peer = owner.fusion.peer(target.id);
@@ -317,28 +421,14 @@ impl MemberFusionEndpoint {
                 waiter
             }
         };
-        let mut changed = peer.changed.subscribe();
-        loop {
-            {
-                let state = peer.state.lock().expect("member peer lock");
-                if let Some(connection) = state.connection() {
-                    waiter.0.satisfy();
-                    return Ok(connection);
-                }
-                if state.incoming == 0 {
-                    match &waiter.0.state.lock().expect("member dial lock").result {
-                        Some(Err(error)) => return Err(io::Error::other(error.clone())),
-                        Some(Ok(())) => return Err(io::ErrorKind::NotConnected.into()),
-                        None => {}
-                    }
-                }
-            }
-            let _ = changed.changed().await;
-        }
+        await_selected(peer, Some(waiter))
+            .await?
+            .ok_or_else(|| io::ErrorKind::NotConnected.into())
     }
 
-    /// Receive an admitted peer's selected incoming connection or its setup error.
-    /// Outbound selection is returned directly to its waiting dialers.
+    /// Receive an admitted peer's selected connection. A standalone endpoint
+    /// reports incoming selection and setup errors. A shared endpoint reports
+    /// successful selection in either direction exactly once.
     pub async fn accept(&self) -> Option<Result<MemberConnection, ConnectingError>> {
         let mut incoming = self.inner.incoming.lock().await;
         loop {
@@ -362,6 +452,60 @@ impl MemberFusionEndpoint {
     pub async fn close(&self) {
         self.inner.fusion.shutdown.cancel();
         self.inner.endpoint.close().await;
+    }
+}
+
+async fn await_selected(
+    peer: Arc<Peer>,
+    waiter: Option<Waiter>,
+) -> io::Result<Option<MemberConnection>> {
+    let mut changed = peer.changed.subscribe();
+    loop {
+        {
+            let state = peer.state.lock().expect("member peer lock");
+            if let Some(connection) = state.connection() {
+                if let Some(waiter) = &waiter {
+                    waiter.0.satisfy();
+                }
+                return Ok(Some(connection));
+            }
+            if state.incoming == 0 {
+                let Some(waiter) = &waiter else {
+                    return Ok(None);
+                };
+                match &waiter.0.state.lock().expect("member dial lock").result {
+                    Some(Err(error)) => {
+                        let kind = match error.as_ref() {
+                            // TLS alert no_application_protocol. The application
+                            // may still have a dedicated browser service wire.
+                            ConnectError::Connecting {
+                                source:
+                                    ConnectingError::ConnectionError {
+                                        source: ConnectionError::ConnectionClosed(close),
+                                        ..
+                                    },
+                                ..
+                            } if close.error_code == noq::TransportErrorCode::crypto(0x78) => {
+                                io::ErrorKind::Unsupported
+                            }
+                            ConnectError::Connecting {
+                                source:
+                                    ConnectingError::AdmissionFailed {
+                                        kind: io::ErrorKind::PermissionDenied,
+                                        ..
+                                    },
+                                ..
+                            } => io::ErrorKind::PermissionDenied,
+                            _ => io::ErrorKind::Other,
+                        };
+                        return Err(io::Error::new(kind, error.clone()));
+                    }
+                    Some(Ok(())) => return Err(io::ErrorKind::NotConnected.into()),
+                    None => {}
+                }
+            }
+        }
+        let _ = changed.changed().await;
     }
 }
 
@@ -408,11 +552,18 @@ pub(super) struct Fusion {
     peers: Mutex<HashMap<EndpointId, Weak<Peer>>>,
     shutdown: CancellationToken,
     idle_timeout: std::sync::OnceLock<Duration>,
+    selected: Option<mpsc::UnboundedSender<IncomingResult>>,
     #[cfg(feature = "miopunch-test-hooks")]
     qualification_gate: std::sync::OnceLock<Arc<QualificationGate>>,
 }
 
 impl Fusion {
+    pub(super) fn publish(&self, selection: Selection, connection: Connection) {
+        let live = selection.publish(connection);
+        if let Some(selected) = &self.selected {
+            let _ = selected.send(Ok(live));
+        }
+    }
     fn peer(&self, id: EndpointId) -> Arc<Peer> {
         let mut peers = self.peers.lock().expect("member peers lock");
         if let Some(peer) = peers.get(&id).and_then(Weak::upgrade) {
@@ -938,12 +1089,13 @@ pub(super) struct Selection {
 }
 
 impl Selection {
-    pub(super) fn publish(self, connection: Connection) {
+    fn publish(self, connection: Connection) -> Weak<Live> {
         let live = MemberConnection(Arc::new(Live {
             connection,
             activity: Arc::new(Activity::default()),
         }));
         self.peer.state.lock().expect("member peer lock").live = Some(live.clone());
+        let selected = Arc::downgrade(&live.0);
         let peer = self.peer.clone();
         let idle_timeout = self.idle_timeout;
         let shutdown = self.shutdown.clone();
@@ -962,6 +1114,7 @@ impl Selection {
                 state.live = None;
             }
         });
+        selected
     }
 }
 
@@ -1053,14 +1206,39 @@ impl MemberConnection {
 
     /// Accept the next independent stream; its wire prefix identifies activity.
     pub async fn accept_bi(&self) -> io::Result<MemberStream> {
-        let (send, mut recv) = self
+        self.incoming_bi().await?.accept().await
+    }
+
+    /// Receive a stream independently from reading its activity header.
+    pub async fn incoming_bi(&self) -> io::Result<IncomingMemberStream> {
+        let (send, recv) = self
             .0
             .connection
             .accept_bi()
             .await
             .map_err(io::Error::other)?;
+        Ok(IncomingMemberStream {
+            send,
+            recv,
+            activity: self.0.activity.clone(),
+        })
+    }
+}
+
+/// One incoming stream waiting to declare its activity scope.
+#[derive(Debug)]
+pub struct IncomingMemberStream {
+    send: SendStream,
+    recv: RecvStream,
+    activity: Arc<Activity>,
+}
+
+impl IncomingMemberStream {
+    /// Read and apply this stream's activity scope.
+    pub async fn accept(mut self) -> io::Result<MemberStream> {
         let mut header = [0];
-        recv.read_exact(&mut header)
+        self.recv
+            .read_exact(&mut header)
             .await
             .map_err(io::Error::other)?;
         let kind = match header[0] {
@@ -1068,10 +1246,10 @@ impl MemberConnection {
             1 => StreamKind::Maintenance,
             _ => return Err(io::ErrorKind::InvalidData.into()),
         };
-        let lease = self.0.activity.lease(kind);
+        let lease = self.activity.lease(kind);
         Ok(MemberStream {
-            send,
-            recv,
+            send: self.send,
+            recv: self.recv,
             _lease: lease,
         })
     }
@@ -1093,10 +1271,36 @@ pub struct MemberStream {
 }
 
 impl MemberStream {
+    /// Whether this stream carries a local business-activity lease.
+    pub fn is_business(&self) -> bool {
+        self._lease.is_some()
+    }
+    /// Independently cancel or observe only this stream.
+    pub fn control(&self) -> noq::StreamControl {
+        self.send.control()
+    }
+
     /// Access the original QUIC stream halves for this service.
     pub fn streams(&mut self) -> (&mut SendStream, &mut RecvStream) {
         (&mut self.send, &mut self.recv)
     }
+
+    /// Separate transport halves while retaining a stream activity owner.
+    pub fn into_parts(self) -> (SendStream, RecvStream, MemberStreamLease) {
+        (
+            self.send,
+            self.recv,
+            MemberStreamLease {
+                _lease: self._lease,
+            },
+        )
+    }
+}
+
+/// Invokes the existing idle policy when the last owner of a business stream ends.
+#[derive(Debug)]
+pub struct MemberStreamLease {
+    _lease: Option<ActivityLease>,
 }
 
 #[derive(Debug)]

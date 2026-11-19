@@ -53,6 +53,7 @@ pub mod nat_punch;
 pub mod nat_scheduler;
 pub mod nat_selector;
 pub mod native_client;
+mod native_member_services;
 pub mod client_commands;
 pub mod client_host;
 #[cfg(target_os = "linux")]

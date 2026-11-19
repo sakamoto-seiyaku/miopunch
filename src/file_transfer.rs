@@ -192,11 +192,11 @@ pub(crate) async fn run_receive<S: FileSink>(
     stream: &mut DataStream,
     partial: &mut PartialFile<S>,
     tasks: &FileTasks,
-    connection: &Connection,
+    connection: &impl FileTransport,
 ) -> Result<FileReceipt, FileError> {
     let id = partial.offer.id.clone();
     let cancel = tasks.token(&id).ok_or(FileError::UnknownTask)?;
-    tasks.connection(&id, Some(connection));
+    tasks.transport(&id, Some(connection));
     tasks.update(&id, |status| status.state = FileState::Transferring);
     let result = {
         let work = receive_file(stream, partial, |bytes, saving| {
@@ -211,19 +211,22 @@ pub(crate) async fn run_receive<S: FileSink>(
         })
         .fuse();
         let cancelled = cancel.cancelled().fuse();
-        let peer_cancelled = cancelled_by_peer(connection).fuse();
+        let peer_cancelled = async {
+            connection.closed().await;
+            if !connection.peer_cancelled() { futures_util::future::pending::<()>().await; }
+        }.fuse();
         futures_util::pin_mut!(work, cancelled, peer_cancelled);
         futures_util::select_biased! { _ = cancelled => Err(FileError::Cancelled),
         _ = peer_cancelled => Err(FileError::Cancelled), result = work => result }
     };
     let mut result = if let Some(receipt) = &partial.receipt {
         Ok(receipt.clone())
-    } else if cancel.is_cancelled() || peer_cancelled(connection) {
+    } else if cancel.is_cancelled() || connection.peer_cancelled() {
         Err(FileError::Cancelled)
     } else {
         result
     };
-    tasks.connection(&id, None);
+    tasks.clear_transport(&id);
     if result == Err(FileError::Interrupted) && !cancel.is_cancelled() {
         tasks.update(&id, |status| status.state = FileState::Interrupted);
         return result;
@@ -425,10 +428,27 @@ impl FileTaskStatus {
     }
 }
 
+/// File tasks may interrupt only the transport which owns their current attempt.
+pub(crate) trait FileTransport: Clone + Send + Sync + 'static {
+    fn status(&self) -> serde_json::Value;
+    fn abort(&self, code: u32, reason: &[u8]);
+    fn peer_cancelled(&self) -> bool;
+    fn closed(&self) -> impl std::future::Future<Output = ()> + Send;
+}
+
+impl FileTransport for Connection {
+    fn status(&self) -> serde_json::Value { path_status(self) }
+    fn abort(&self, code: u32, reason: &[u8]) { self.close(code.into(), reason); }
+    fn peer_cancelled(&self) -> bool { peer_cancelled(self) }
+    async fn closed(&self) { self.closed().await; }
+}
+
+type InterruptTransport = Box<dyn Fn(u32, &[u8]) + Send + Sync>;
+
 struct Entry {
     status: FileTaskStatus,
     cancel: CancellationToken,
-    connection: Option<Connection>,
+    connection: Option<InterruptTransport>,
     touched: n0_future::time::Instant,
     approval: Option<Arc<Approval>>,
     offer: Option<FileOffer>,
@@ -466,6 +486,10 @@ impl ReceiveReservation<'_> {
             .and_then(|task| task.receipt)
     }
     pub async fn wait_for_approval(&self, connection: &Connection) -> Result<(), FileError> {
+        self.await_approval(connection).await
+    }
+
+    pub(crate) async fn await_approval(&self, connection: &impl FileTransport) -> Result<(), FileError> {
         let Some(approval) = self.approval.as_ref() else {
             return Ok(());
         };
@@ -687,6 +711,14 @@ impl FileTasks {
     }
 
     pub fn connection(&self, id: &str, connection: Option<&Connection>) {
+        self.transport(id, connection);
+    }
+
+    pub(crate) fn clear_transport(&self, id: &str) {
+        self.connection(id, None);
+    }
+
+    pub(crate) fn transport(&self, id: &str, connection: Option<&impl FileTransport>) {
         if let Some(entry) = self
             .0
             .lock()
@@ -694,10 +726,13 @@ impl FileTasks {
             .iter_mut()
             .find(|entry| entry.status.id == id)
         {
-            entry.connection = connection.cloned();
+            entry.connection = connection.cloned().map(|transport| {
+                let abort: InterruptTransport = Box::new(move |code, reason| transport.abort(code, reason));
+                abort
+            });
             if let Some(connection) = connection {
                 entry.status.attempts += 1;
-                entry.status.transport = Some(path_status(connection));
+                entry.status.transport = Some(connection.status());
             }
         }
     }
@@ -810,7 +845,7 @@ impl FileTasks {
         if !entry.status.state.terminal() && !entry.cancel.is_cancelled() {
             entry.cancel.cancel();
             if let Some(connection) = &entry.connection {
-                connection.close(1u32.into(), b"file cancelled");
+                connection(1, b"file cancelled");
             }
             // Cancellation is a request. The platform owner publishes the
             // terminal state only after its I/O and partial cleanup finish.
@@ -820,8 +855,8 @@ impl FileTasks {
         Ok(false)
     }
 
-    /// Technical host control: drop only this task's present connection. The
-    /// sender may resume on a new admitted connection; this is not stream revival.
+    /// Technical host control: interrupt only this task's current transport.
+    /// The sender may resume on another stream.
     pub fn disconnect(&self, id: &str) -> Result<(), FileError> {
         let entries = self.0.lock().unwrap();
         let entry = entries
@@ -829,7 +864,7 @@ impl FileTasks {
             .find(|entry| entry.status.id == id)
             .ok_or(FileError::UnknownTask)?;
         let connection = entry.connection.as_ref().ok_or(FileError::Interrupted)?;
-        connection.close(2u32.into(), b"file connection interrupted");
+        connection(2, b"file connection interrupted");
         Ok(())
     }
 

@@ -24,13 +24,14 @@ use crate::{
     admission_gate::{ADMISSION_REQUEST_ALPN, PRECODE_REQUEST_ALPN, ProtocolScope},
     control_protocol::{AuthenticatedControl, ControlOwner, OwnedControl},
     manual_admission::{AdmissionRequest, AdmissionStage, ManualExchange, ManualInvitation},
+    native_member_services::{self, MemberService},
     native_network::{NativeNetwork, NodeStatus},
     precode::Precode,
     resources::ResourceEndpoint,
 };
 
 pub type ClientError = Box<dyn Error + Send + Sync>;
-const MEMBER_MESSAGE: &[u8] = b"miopunch/client-message/1";
+pub(crate) const MEMBER_MESSAGE: &[u8] = b"miopunch/client-message/1";
 
 pub use crate::client_invitation::ClientInvitation;
 impl ClientInvitation {
@@ -177,11 +178,13 @@ impl NativeClient {
             crate::invitation_pairing::PAIRING_ALPN,
             ProtocolScope::AdmissionRequest,
         );
-        let resources = Arc::new(node.bind_configured_endpoint(bind).await?);
+        let resources = Arc::new(node.bind_client_endpoint(bind).await?);
+        let fusion = resources.member_fusion.as_ref().expect("native client member owner").0.clone();
         resources.endpoint().set_alpns(vec![
             ADMISSION_REQUEST_ALPN.to_vec(),
             PRECODE_REQUEST_ALPN.to_vec(),
             MEMBER_MESSAGE.to_vec(),
+            crate::native_network::FUSED_MEMBER_ALPN.to_vec(),
             crate::web::WEB_ALPN.to_vec(),
             crate::terminal::TERMINAL_ALPN.to_vec(),
             crate::forwarding::TCP_ALPN.to_vec(),
@@ -253,12 +256,21 @@ impl NativeClient {
             let forwarding = forwarding.clone();
             let web = web.clone();
             let terminal = terminal.clone();
+            let members = native_member_services::MemberServices {
+                terminal: terminal.clone(), files: files.clone(), forwarding: forwarding.clone(),
+                web: web.clone(), clipboard: clipboard.clone(), node: node.clone(), policies: services.clone(),
+            };
             tokio::spawn(async move {
                 let mut handlers = tokio::task::JoinSet::new();
+                let mut member_handlers = tokio::task::JoinSet::new();
                 let mut expiry = tokio::time::interval(Duration::from_secs(1));
                 loop {
                     tokio::select! {
                         _ = cancel.cancelled() => break,
+                        Some(Ok(connection)) = fusion.accept() => {
+                            member_handlers.spawn(native_member_services::receive(connection, members.clone()));
+                        }
+                        _ = member_handlers.join_next(), if !member_handlers.is_empty() => {},
                         _ = expiry.tick() => {
                             files.expire().await;
                             let node = node.lock().await;
@@ -295,27 +307,31 @@ impl NativeClient {
                                     Ok::<_, ClientError>((accepting, alpn))
                                 }).await;
                                 let Ok(Ok((accepting, alpn))) = accepted else { return };
+                                if alpn == crate::native_network::FUSED_MEMBER_ALPN {
+                                    let _ = tokio::time::timeout_at(deadline, accepting).await;
+                                    return;
+                                }
                                 if alpn == crate::web::WEB_ALPN {
                                     if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
-                                        let _ = web.receive(connection).await;
+                                        let _ = web.receive(connection.into()).await;
                                     }
                                     return;
                                 }
                                 if alpn == crate::terminal::TERMINAL_ALPN {
                                     if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
-                                        let _ = terminal.receive(connection).await;
+                                        let _ = terminal.receive(connection.into()).await;
                                     }
                                     return;
                                 }
                                 if let Some(protocol) = crate::forwarding::Protocol::from_alpn(&alpn) {
                                     if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
-                                        let _ = forwarding.receive(connection, protocol).await;
+                                        let _ = forwarding.receive(connection.into(), protocol).await;
                                     }
                                     return;
                                 }
                                 if alpn == crate::clipboard::CLIPBOARD_ALPN {
                                     if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
-                                        let _ = clipboard.run(connection, node, services, false, clipboard_request).await;
+                                        let _ = clipboard.run(connection.into(), node, services, false, clipboard_request).await;
                                     }
                                     return;
                                 }
@@ -330,7 +346,7 @@ impl NativeClient {
                                             return;
                                         };
                                         files.update_access(access);
-                                        files.receive(connection);
+                                        files.receive(connection.into());
                                     }
                                     return;
                                 }
@@ -401,6 +417,7 @@ impl NativeClient {
                 }
                 handlers.abort_all();
                 while handlers.join_next().await.is_some() {}
+                member_handlers.shutdown().await;
                 // Drop also reaches this owned listener through its cancel
                 // guard. Keep the endpoint alive while QUIC close frames are
                 // drained, so peer forwarding sockets need not wait for idle
@@ -672,18 +689,23 @@ impl NativeClient {
     /// route selection. Diagnostics report the actual selected connection path.
     pub async fn ping(&self, address: EndpointAddr) -> Result<Value, ClientError> {
         self.require_ready()?;
-        let connection = self.resources.connect(address, MEMBER_MESSAGE).await?;
+        let queued = tokio::time::Instant::now();
+        let contact = self.resources.dial_service(address, MemberService::Ping).await?;
         let result = tokio::time::timeout(Duration::from_secs(5), async {
-            let (mut send, mut recv) = connection.open_bi().await?;
+            let transport = contact.open(MemberService::Ping).await?;
+            let (mut send, mut recv) = transport.stream_halves(true).await?;
             send.write_all(b"PING").await?;
             send.finish()?;
+            let sent = tokio::time::Instant::now();
             if recv.read_to_end(64).await? != b"PONG" {
                 return Err("unexpected member response".into());
             }
-            Ok::<_, ClientError>(json!({"reply": "PONG", "transport": path_status(&connection)}))
+            Ok::<_, ClientError>(json!({"reply": "PONG", "transport": contact.status(),
+                "timing": {"queue_ms": (sent - queued).as_secs_f64() * 1000.0,
+                    "response_ms": sent.elapsed().as_secs_f64() * 1000.0}}))
         })
         .await;
-        connection.close(0u32.into(), b"client ping ended");
+        contact.end_legacy(b"client ping ended");
         result?
     }
     /// Stop this host's listener and handlers, close endpoint resources, then

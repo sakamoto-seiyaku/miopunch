@@ -1,16 +1,16 @@
 //! Native host for the shared clipboard pair and existing provider authority.
 use crate::{
     clipboard::{
-        self, ClipboardClaim, ClipboardConnection, ClipboardError, ClipboardHost, ClipboardLease,
+        self, ClipboardClaim, ClipboardError, ClipboardHost, ClipboardLease,
         ClipboardRequest, ClipboardState,
     },
-    data_stream::DataStream,
     native_client::{ClientError, NativeClient},
+    native_member_services::{MemberService, ServiceTransport},
     native_network::NativeNetwork,
     native_services::NativeServices,
     system_clipboard::SystemClipboard,
 };
-use iroh::{EndpointAddr, endpoint::Connection};
+use iroh::EndpointAddr;
 use p2panda_core::VerifyingKey;
 use std::{
     sync::{Arc, Mutex as SyncMutex},
@@ -25,7 +25,7 @@ pub(crate) struct NativeClipboard {
     setup: Mutex<()>,
     effect: Mutex<()>,
     tasks: Mutex<JoinSet<()>>,
-    connection: SyncMutex<Option<Connection>>,
+    connection: SyncMutex<Option<ServiceTransport>>,
 }
 pub(crate) struct ClipboardOwner(pub Arc<NativeClipboard>);
 impl Drop for ClipboardOwner {
@@ -74,7 +74,7 @@ impl NativeClipboard {
     fn stop_now(&self, disable: bool) {
         self.state.stop(disable);
         if let Some(connection) = self.connection.lock().unwrap().as_ref() {
-            connection.close(0u32.into(), b"clipboard pair stopped");
+            connection.abort(0, b"clipboard pair stopped");
         }
     }
     pub async fn stop(&self, disable: bool) {
@@ -99,15 +99,14 @@ impl NativeClipboard {
     }
     pub async fn run(
         self: &Arc<Self>,
-        connection: Connection,
+        connection: ServiceTransport,
         node: Arc<Mutex<NativeNetwork>>,
         services: Arc<Mutex<NativeServices>>,
         initiator: bool,
         request: ClipboardRequest,
     ) -> Result<(), ClipboardError> {
         let _setup = self.setup.lock().await;
-        let connection = ClipboardConnection::new(connection);
-        let peer = VerifyingKey::from_bytes(connection.get().remote_id().as_bytes())
+        let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())
             .map_err(|_| ClipboardError::Denied)?;
         let prepared = self.prepare(peer, node, services, request).await?;
         self.attach(connection, prepared, initiator).await
@@ -153,17 +152,17 @@ impl NativeClipboard {
         let connection = tokio::select! {
             biased;
             _ = prepared.claim.lease().cancellation.cancelled() => return Err(ClipboardError::Stopped),
-            result = resources.connect(address, clipboard::CLIPBOARD_ALPN) => match result {
+            result = resources.connect_service(address, MemberService::Clipboard) => match result {
                 Ok(connection) => connection,
                 Err(_) => { prepared.claim.fail(ClipboardError::Transport); return Err(ClipboardError::Transport); }
             },
         };
-        self.attach(ClipboardConnection::new(connection), prepared, true)
+        self.attach(connection, prepared, true)
             .await
     }
     async fn attach(
         self: &Arc<Self>,
-        connection: ClipboardConnection,
+        connection: ServiceTransport,
         prepared: PreparedClipboard,
         initiator: bool,
     ) -> Result<(), ClipboardError> {
@@ -174,12 +173,7 @@ impl NativeClipboard {
         } = prepared;
         let lease = claim.lease();
         let setup = async {
-            let mut stream = if initiator {
-                DataStream::open(connection.get()).await
-            } else {
-                DataStream::accept(connection.get()).await
-            }
-            .map_err(|_| ClipboardError::Transport)?;
+            let mut stream = connection.stream(initiator).await.map_err(|_| ClipboardError::Transport)?;
             clipboard::begin(&mut stream, initiator).await?;
             // Recheck current authority and platform after the transport wait.
             // The earlier baseline still detects copies made during setup.
@@ -198,19 +192,18 @@ impl NativeClipboard {
         let mut tasks = self.tasks.lock().await;
         while tasks.try_join_next().is_some() {}
         self.state.activated(lease)?;
-        let connection = connection.transfer();
         *self.connection.lock().unwrap() = Some(connection.clone());
-        self.state.transport(&connection);
+        self.state.transport_status(connection.status());
         let lease = claim.transfer();
         tasks.spawn(async move {
             let result =
                 clipboard::synchronize(&host, &service.state, &lease, stream, baseline).await;
-            connection.close(0u32.into(), b"clipboard pair ended");
+            connection.end(b"clipboard pair ended");
             service.state.finish(&lease, result);
             let mut current = service.connection.lock().unwrap();
             if current
                 .as_ref()
-                .is_some_and(|saved| saved.stable_id() == connection.stable_id())
+                .is_some_and(|saved| saved.same_flow(&connection))
             {
                 *current = None;
             }
@@ -381,7 +374,7 @@ impl NativeClient {
             .state
             .capability(crate::system_clipboard::current_capability().await);
         if let Some(connection) = self.clipboard.connection.lock().unwrap().as_ref() {
-            self.clipboard.state.transport(connection);
+            self.clipboard.state.transport_status(connection.status());
         }
         Ok(serde_json::to_value(self.clipboard.state.status())?)
     }

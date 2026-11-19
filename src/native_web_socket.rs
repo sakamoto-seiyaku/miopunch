@@ -1,13 +1,13 @@
 //! Bounded WebSocket ownership for the Web service; no general socket tunnel.
 use super::{
-    ClientError, Connection, DataStream, EndpointAddr, FlowOwner, MAX_FLOWS, NativeClient,
-    NativeWeb, RequestHead, ResponseHead, forward_header, web,
+    ClientError, DataStream, EndpointAddr, FlowOwner, MAX_FLOWS, MemberService, NativeClient,
+    NativeWeb, RequestHead, ResponseHead, ServiceTransport, forward_header, web,
 };
 use crate::web::WebSocketMessage;
 use futures_util::{SinkExt, StreamExt};
 use p2panda_core::VerifyingKey;
 use serde_json::{Value, json};
-use std::{sync::Arc, time::Duration};
+use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Duration};
 use tokio::sync::{Mutex, mpsc};
 use tokio_util::sync::CancellationToken;
 
@@ -55,7 +55,7 @@ impl NativeWeb {
     pub(super) async fn serve_socket(
         &self,
         owner: &FlowOwner,
-        connection: Connection,
+        connection: ServiceTransport,
         mut stream: DataStream,
         request: RequestHead,
     ) -> Result<(), ClientError> {
@@ -109,16 +109,26 @@ impl NativeWeb {
         self.phase(owner, "socket_duplex");
         let (mut output, mut input) = stream.split();
         let (mut target_send, mut target_receive) = socket.split();
+        let acknowledged = connection.is_member();
+        let target_closed = AtomicBool::new(false);
         // Keep each directional future alive across opposite-direction work.
         // DataReader::read_chunk is a multi-read operation; selecting a NEW
         // read on every message could discard a partially received record.
         let to_target = async {
+            let mut sent_close = false;
             loop {
-                let message = web::read_socket_message(&mut input).await?;
-                let closed = message.is_close();
-                target_send.send(target_message(message)?).await?;
-                if closed {
+                let record = input.read_chunk().await?;
+                if acknowledged && record.is_empty() && target_closed.load(Ordering::Acquire) {
                     return Ok::<_, ClientError>(());
+                }
+                let message = web::decode_socket_message(&record)?;
+                let closed = message.is_close();
+                if !sent_close && !target_closed.load(Ordering::Acquire) {
+                    target_send.send(target_message(message)?).await?;
+                }
+                if closed {
+                    if !acknowledged { return Ok(()); }
+                    sent_close = true;
                 }
             }
         };
@@ -146,6 +156,10 @@ impl NativeWeb {
                 };
                 if let Some(message) = outgoing {
                     let closed = message.is_close();
+                    if closed && acknowledged {
+                        self.phase(owner, "awaiting_socket_receipt");
+                        target_closed.store(true, Ordering::Release);
+                    }
                     web::write_socket_message(&mut output, &message).await?;
                     if closed {
                         output.finish()?;
@@ -156,26 +170,28 @@ impl NativeWeb {
         };
         tokio::pin!(to_target, from_target);
         tokio::select! {
-            result = &mut from_target => result?,
+            result = &mut from_target => {
+                result?;
+                if acknowledged { tokio::time::timeout(Duration::from_secs(5), &mut to_target).await??; }
+            },
             result = &mut to_target => { result?; tokio::time::timeout(Duration::from_secs(5), &mut from_target).await??; },
         }
         self.phase(owner, "awaiting_socket_receipt");
-        let reason = tokio::time::timeout(Duration::from_secs(5), connection.closed()).await?;
-        if !matches!(reason, iroh::endpoint::ConnectionError::ApplicationClosed(reason)
-            if reason.error_code == 0u32.into() && reason.reason.as_ref() == b"Web operation completed")
-        {
+        if !acknowledged && !tokio::time::timeout(Duration::from_secs(5),
+            connection.received(b"Web operation completed", std::future::pending())).await? {
             return Err("WebSocket consumer did not complete receipt".into());
         }
         Ok(())
     }
     async fn socket_consumer(
         &self,
-        owner: &FlowOwner,
         stream: DataStream,
         mut outgoing: mpsc::Receiver<WebSocketMessage>,
         incoming: mpsc::Sender<WebSocketMessage>,
+        acknowledge: bool,
     ) -> Result<(), ClientError> {
         let (mut writer, mut reader) = stream.split();
+        {
         let sending = async {
             loop {
                 let message = outgoing.recv().await.ok_or("WebSocket owner ended")?;
@@ -195,7 +211,6 @@ impl NativeWeb {
                     .await
                     .map_err(|_| "WebSocket reader ended")?;
                 if closed {
-                    self.completed(owner);
                     return Ok::<_, ClientError>(());
                 }
             }
@@ -204,7 +219,13 @@ impl NativeWeb {
         tokio::select! {
             result = &mut receiving => result,
             result = &mut sending => { result?; tokio::time::timeout(Duration::from_secs(5), &mut receiving).await? },
+        }?;
         }
+        if acknowledge {
+            writer.write_chunk(&[]).await?;
+            writer.finish()?;
+        }
+        Ok(())
     }
     fn socket(&self, id: &str) -> Result<Arc<SocketSlot>, ClientError> {
         self.state
@@ -251,10 +272,10 @@ impl NativeClient {
             result = async {
                 let connection = {
                     let _contact = self.web.connecting.lock().await;
-                    self.resources.connect(address, web::WEB_ALPN).await?
+                    self.resources.connect_service(address, MemberService::Web).await?
                 };
                 self.web.attach(&owner, connection.clone())?;
-                let (stream, ready) = web::open_socket(&connection, url, headers).await?;
+                let (stream, ready) = web::open_socket_on_stream(connection.stream(true).await?, url, headers).await?;
                 Ok::<_, ClientError>((connection, stream, ready))
             } => result?,
         };
@@ -282,7 +303,7 @@ impl NativeClient {
             let result = tokio::select! {
                 biased;
                 _ = owner.cancel.cancelled() => Err("WebSocket cancelled".into()),
-                result = runtime.socket_consumer(&owner, stream, outgoing, incoming) => result,
+                result = runtime.socket_consumer(stream, outgoing, incoming, connection.is_member()) => result,
                 _ = connection.closed() => Err("WebSocket peer closed before complete receipt".into()),
             };
             *outcome.lock().unwrap() = Some(result.is_ok());

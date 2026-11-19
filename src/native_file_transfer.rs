@@ -8,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-use iroh::{EndpointAddr, endpoint::Connection};
+use iroh::EndpointAddr;
 use sha2::{Digest, Sha256};
 use tokio::{
     fs::File,
@@ -16,7 +16,8 @@ use tokio::{
 };
 
 use crate::{
-    data_stream::{CHUNK_BYTES, DataStream},
+    native_member_services::{MemberService, ServiceTransport},
+    data_stream::CHUNK_BYTES,
     file_transfer::{
         self, ACTIVE_TASKS, FileError, FileFuture, FileOffer, FileReceipt, FileSink, FileSource,
         FileState, FileTaskStatus, FileTasks, PartialFile, Reply,
@@ -132,7 +133,7 @@ pub(crate) struct NativeFiles {
     jobs: Mutex<Vec<tokio::task::JoinHandle<()>>>,
     generation: AtomicU64,
     dials: tokio::sync::Mutex<()>,
-    receivers: Mutex<BTreeMap<usize, Connection>>,
+    receivers: Mutex<BTreeMap<(usize, Option<u64>), ServiceTransport>>,
     stopped: AtomicBool,
 }
 
@@ -148,7 +149,7 @@ impl Drop for FileOwner {
 
 struct ReceiveOwner {
     service: Arc<NativeFiles>,
-    connection: usize,
+    connection: (usize, Option<u64>),
 }
 impl Drop for ReceiveOwner {
     fn drop(&mut self) {
@@ -209,7 +210,7 @@ impl NativeFiles {
         self.gate.update_file_policy(access.guest_pairs(), denied);
         for connection in self.receivers.lock().unwrap().values() {
             if !self.permits(&connection.remote_id().to_string(), true) {
-                connection.close(1u32.into(), b"file access revoked");
+                connection.abort(1, b"file access revoked");
             }
         }
         for task in self.tasks.status() {
@@ -251,7 +252,7 @@ impl NativeFiles {
         // storage future remains owned and is joined; closing the transport
         // never aborts an in-flight filesystem operation.
         for connection in self.receivers.lock().unwrap().values() {
-            connection.close(1u32.into(), b"file service disabled");
+            connection.abort(1, b"file service disabled");
         }
     }
 
@@ -438,13 +439,13 @@ impl NativeFiles {
             let connection = {
                 let _dial = self.dials.lock().await;
                 resources
-                    .connect(address.clone(), file_transfer::FILE_ALPN)
+                    .connect_service(address.clone(), MemberService::Files)
                     .await
                     .map_err(|_| FileError::Interrupted)?
             };
-            self.tasks.connection(&id, Some(&connection));
+            self.tasks.transport(&id, Some(&connection));
             let result = async {
-                let mut stream = DataStream::open(&connection)
+                let mut stream = connection.stream(true)
                     .await
                     .map_err(|_| FileError::Interrupted)?;
                 file_transfer::send_file(&mut stream, &offer, &mut source, |bytes, resumed| {
@@ -457,13 +458,13 @@ impl NativeFiles {
                 .await
             }
             .await;
-            let result = if file_transfer::peer_cancelled(&connection) {
+            let result = if connection.peer_cancelled() {
                 Err(FileError::Cancelled)
             } else {
                 result
             };
-            connection.close(0u32.into(), b"file send ended");
-            self.tasks.connection(&id, None);
+            connection.end(b"file send ended");
+            self.tasks.clear_transport(&id);
             if result != Err(FileError::Interrupted) || attempt == 2 {
                 return result;
             }
@@ -587,22 +588,22 @@ impl NativeFiles {
     /// Once file I/O can start, the service owns the entire future. The
     /// listener may abort its finite handshakes, but never an in-flight
     /// filesystem open/write/save whose completion must be joined at close.
-    pub fn receive(self: &Arc<Self>, connection: Connection) {
+    pub fn receive(self: &Arc<Self>, connection: ServiceTransport) {
         {
             let mut receivers = self.receivers.lock().unwrap();
             if self.stopped.load(Ordering::Acquire) {
-                connection.close(1u32.into(), b"file host closed");
+                connection.abort(1, b"file host closed");
                 return;
             }
             if receivers.len() >= 16 {
-                connection.close(0u32.into(), b"file receiver busy");
+                connection.abort(1, b"file receiver busy");
                 return;
             }
-            receivers.insert(connection.stable_id(), connection.clone());
+            receivers.insert(connection.flow_id(), connection.clone());
         }
         let owner = ReceiveOwner {
             service: self.clone(),
-            connection: connection.stable_id(),
+            connection: connection.flow_id(),
         };
         self.track_job(tokio::spawn(async move {
             let owner = owner;
@@ -610,8 +611,8 @@ impl NativeFiles {
         }));
     }
 
-    async fn receive_inner(self: &Arc<Self>, connection: Connection) {
-        let mut stream = match DataStream::accept(&connection).await {
+    async fn receive_inner(self: &Arc<Self>, connection: ServiceTransport) {
+        let mut stream = match connection.stream(false).await {
             Ok(stream) => stream,
             Err(_) => return,
         };
@@ -653,7 +654,7 @@ impl NativeFiles {
                 return;
             }
         };
-        if let Err(reason) = reservation.wait_for_approval(&connection).await {
+        if let Err(reason) = reservation.await_approval(&connection).await {
             self.reject_receive(&offer, &peer, reason).await;
             let _ = stream.write_control(&Reply::Failed { reason }).await;
             let _ = stream.finish();
@@ -724,7 +725,7 @@ impl NativeFiles {
     }
 }
 
-async fn wait_for_sender(connection: &Connection) {
-    let _ = tokio::time::timeout(Duration::from_secs(5), connection.closed()).await;
-    connection.close(0u32.into(), b"file receive ended");
+async fn wait_for_sender(connection: &ServiceTransport) {
+    let _ = tokio::time::timeout(Duration::from_secs(5), connection.wait_for_drain()).await;
+    connection.end(b"file receive ended");
 }

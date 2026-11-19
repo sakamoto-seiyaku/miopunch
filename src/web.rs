@@ -116,7 +116,14 @@ pub async fn request(
     connection: &iroh::endpoint::Connection,
     request: WebRequest,
 ) -> io::Result<WebResponse> {
-    let mut stream = DataStream::open(connection).await?;
+    request_on_stream(DataStream::open(connection).await?, request, false).await
+}
+
+pub(crate) async fn request_on_stream(
+    mut stream: DataStream,
+    request: WebRequest,
+    receipt: bool,
+) -> io::Result<WebResponse> {
     write_head(
         &mut stream,
         &RequestHead {
@@ -128,9 +135,15 @@ pub async fn request(
     )
     .await?;
     write_body(&mut stream, &request.body, MAX_REQUEST_BODY).await?;
-    stream.finish()?;
+    if !receipt {
+        stream.finish()?;
+    }
     let head: ResponseHead = read_head(&mut stream).await?;
     let body = read_body(&mut stream, MAX_BODY).await?;
+    if receipt {
+        stream.write_chunk(&[]).await?;
+        stream.finish()?;
+    }
     Ok(WebResponse {
         url: head.url,
         status: head.status,
@@ -201,7 +214,10 @@ pub(crate) async fn write_socket_message(
 pub(crate) async fn read_socket_message(
     reader: &mut crate::data_stream::DataReader,
 ) -> io::Result<WebSocketMessage> {
-    let record = reader.read_chunk().await?;
+    decode_socket_message(&reader.read_chunk().await?)
+}
+
+pub(crate) fn decode_socket_message(record: &[u8]) -> io::Result<WebSocketMessage> {
     if record.len() > MAX_SOCKET_MESSAGE + 1 {
         return Err(invalid("WebSocket message too large"));
     }
@@ -228,7 +244,14 @@ pub(crate) async fn open_socket(
     url: String,
     headers: Vec<(String, String)>,
 ) -> io::Result<(DataStream, ResponseHead)> {
-    let mut stream = DataStream::open(connection).await?;
+    open_socket_on_stream(DataStream::open(connection).await?, url, headers).await
+}
+
+pub(crate) async fn open_socket_on_stream(
+    mut stream: DataStream,
+    url: String,
+    headers: Vec<(String, String)>,
+) -> io::Result<(DataStream, ResponseHead)> {
     write_head(
         &mut stream,
         &RequestHead {

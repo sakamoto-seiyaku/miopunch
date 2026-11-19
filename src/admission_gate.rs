@@ -529,6 +529,11 @@ impl AdmissionGate {
             && !state.policy.removed.contains(peer.as_bytes())
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn scoped_guest_contact_allowed(&self, peer: EndpointId, alpn: &[u8]) -> bool {
+        self.state.lock().expect("admission policy lock").policy.service_guest(alpn, peer.as_bytes())
+    }
+
     pub(crate) fn member_connection_for_binding(
         &self,
         peer: iroh::EndpointId,

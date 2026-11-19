@@ -104,9 +104,11 @@ pub use bind::{BindOpts, InvalidSocketAddr, ToSocketAddr};
 pub use hooks::{AfterHandshakeOutcome, BeforeConnectOutcome, EndpointHooks};
 #[cfg(not(wasm_browser))]
 pub use member_fusion::{
-    MemberConnection, MemberFusionAdmission, MemberFusionBuilder, MemberFusionEndpoint,
-    MemberFusionEvent, MemberStream,
+    IncomingMemberStream, MemberConnection, MemberFusionAdmission, MemberFusionBuilder,
+    MemberFusionEndpoint, MemberFusionEvent, MemberStream, MemberStreamLease,
 };
+#[cfg(not(wasm_browser))]
+pub use noq::StreamControl;
 pub use restricted::{
     AdmissionOutcome, ControlAccepting, ControlConfirmation, ControlConnecting, ControlConnection,
     ControlExchange, ControlHandle, ControlMessageFormat, DataCandidatePath, DataPathPermit,
@@ -933,8 +935,8 @@ impl Builder {
     ///
     /// This intersects the policy's permitted custom transport IDs; it cannot
     /// grant admission or widen a path permit. IP and relay qualification still
-    /// apply normally. The option is used only by `restricted` and
-    /// `restricted_application`; ordinary endpoint behavior is unchanged.
+    /// apply normally. The option applies to restricted and member fusion
+    /// builders; ordinary endpoint behavior is unchanged.
     pub fn restricted_data_custom_transports(mut self, allowed: Vec<u64>) -> Self {
         self.restricted_data_custom_transports = Some(allowed);
         self

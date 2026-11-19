@@ -101,13 +101,13 @@ impl Target {
             task,
         })
     }
-    async fn wait_count(counter: &AtomicUsize, expected: usize) -> Result<(), ClientError> {
+    async fn wait_count(event: &str, counter: &AtomicUsize, expected: usize) -> Result<(), ClientError> {
         tokio::time::timeout(Duration::from_secs(5), async {
             while counter.load(Ordering::SeqCst) != expected {
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
         })
-        .await?;
+        .await.map_err(|_| format!("waiting for {event}: got {}, expected {expected}", counter.load(Ordering::SeqCst)))?;
         Ok(())
     }
     async fn close(self) -> Result<(), ClientError> {
@@ -225,16 +225,16 @@ async fn owned_web_future_cancel_close_drop_and_reopen_are_bounded() {
         let mut pending = Box::pin(consumer.request_web(provider.address(), request(target.url.clone()+"pending")));
         tokio::select! {
             result = &mut pending => return Err(format!("pending request ended before cancellation; success={}", result.is_ok()).into()),
-            result = Target::wait_count(&target.pending, 1) => result?,
+            result = Target::wait_count("dropped future target request", &target.pending, 1) => result?,
         }
         drop(pending);
-        Target::wait_count(&target.closed, 1).await?;
+        Target::wait_count("dropped future target EOF", &target.closed, 1).await?;
         if consumer.web_status()["active_flows"] != 0 { return Err("dropped public future retained consumer owner".into()); }
         let _job = consumer.begin_web_request(provider.address(), request(target.url.clone()+"pending")).await?;
-        Target::wait_count(&target.pending, 2).await?;
+        Target::wait_count("explicit close target request", &target.pending, 2).await?;
         let identity = consumer.address().id;
         tokio::time::timeout(Duration::from_secs(5), pair.consumer.take().unwrap().close()).await??;
-        Target::wait_count(&target.closed, 2).await?;
+        Target::wait_count("explicit close target EOF", &target.closed, 2).await?;
         pair.consumer = Some(NativeClient::open(root.join("consumer"), Ipv4Addr::LOCALHOST).await?);
         let consumer = pair.consumer.as_ref().unwrap();
         if consumer.address().id != identity || consumer.web_status()["active_flows"] != 0 || consumer.web_status()["request_handles"] != 0 {
@@ -242,15 +242,15 @@ async fn owned_web_future_cancel_close_drop_and_reopen_are_bounded() {
         }
         if consumer.request_web(provider.address(), request(target.url.clone())).await?.body != BODY { return Err("explicit fresh Web operation after reopen failed".into()); }
         consumer.begin_web_request(provider.address(), request(target.url.clone()+"pending")).await?;
-        Target::wait_count(&target.pending, 3).await?;
+        Target::wait_count("dropped consumer target request", &target.pending, 3).await?;
         drop(pair.consumer.take().unwrap());
-        Target::wait_count(&target.closed, 3).await?;
+        Target::wait_count("dropped consumer target EOF", &target.closed, 3).await?;
         pair.consumer = Some(NativeClient::open(root.join("consumer"), Ipv4Addr::LOCALHOST).await?);
         let consumer = pair.consumer.as_ref().unwrap();
         let job = consumer.begin_web_request(provider.address(), request(target.url.clone()+"pending")).await?;
-        Target::wait_count(&target.pending, 4).await?;
+        Target::wait_count("dropped provider target request", &target.pending, 4).await?;
         drop(pair.provider.take().unwrap());
-        Target::wait_count(&target.closed, 4).await?;
+        Target::wait_count("dropped provider target EOF", &target.closed, 4).await?;
         tokio::time::timeout(Duration::from_secs(5), async {
             loop {
                 match consumer.web_request_result(job["id"].as_str().unwrap()) {

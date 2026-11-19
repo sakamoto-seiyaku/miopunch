@@ -65,7 +65,10 @@ pub async fn open(
     connection: &iroh::endpoint::Connection,
     target: SocketAddr,
 ) -> io::Result<DataStream> {
-    let mut stream = DataStream::open(connection).await?;
+    open_on_stream(DataStream::open(connection).await?, target).await
+}
+
+pub(crate) async fn open_on_stream(mut stream: DataStream, target: SocketAddr) -> io::Result<DataStream> {
     stream.write_control(&Open { target }).await?;
     if !stream.read_control::<Ready>().await?.connected {
         return Err(io::Error::new(

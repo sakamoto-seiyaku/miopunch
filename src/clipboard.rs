@@ -203,13 +203,16 @@ impl ClipboardState {
         self.0.lock().unwrap().status.capability = capability;
     }
     pub fn transport(&self, connection: &iroh::endpoint::Connection) {
-        self.0.lock().unwrap().status.transport = Some(serde_json::json!({
+        self.transport_status(serde_json::json!({
             "peer": connection.remote_id().to_string(), "connection": connection.stable_id(),
             "paths": connection.paths().iter().map(|path| serde_json::json!({
                 "remote":path.remote_addr(),"local":format!("{:?}",path.local_addr()),
                 "selected":path.is_selected(),"tx_bytes":path.stats().udp_tx.bytes,
                 "rx_bytes":path.stats().udp_rx.bytes})).collect::<Vec<_>>()
         }));
+    }
+    pub(crate) fn transport_status(&self, status: serde_json::Value) {
+        self.0.lock().unwrap().status.transport = Some(status);
     }
     pub fn enable(&self, capability: ClipboardCapability) -> Result<(), ClipboardError> {
         let mut state = self.0.lock().unwrap();

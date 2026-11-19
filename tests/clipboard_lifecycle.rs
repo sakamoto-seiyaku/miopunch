@@ -7,10 +7,23 @@ use std::{net::Ipv4Addr, path::PathBuf, sync::Arc, time::Instant};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn stopping_an_in_flight_clipboard_start_cannot_create_a_late_pair() {
+    use miopunch_native_probe::resources::{Resource, ResourceConfig, ResourceTable, ResourceUse};
     let root = PathBuf::from(
         std::env::var_os("M117_CLIPBOARD_PRIVATE").expect("owned private test directory"),
     );
-    let source = NativeClient::create(root.join("sdk-source"), Ipv4Addr::UNSPECIFIED)
+    let mut config = iroh_relay::server::ServerConfig::default();
+    config.relay = Some(iroh_relay::server::RelayConfig::new((Ipv4Addr::LOCALHOST, 0)));
+    let relay = iroh_relay::server::Server::spawn(config).await.unwrap();
+    let mut resources = ResourceConfig::with_defaults(ResourceTable {
+        revision: 1,
+        resources: vec![Resource {
+            url: relay.http_url().unwrap().to_string(),
+            uses: [ResourceUse::DataRelay].into(),
+            limitation: "owned relay for public clipboard lifecycle".into(),
+        }],
+    });
+    resources.udp_direct_disabled = true;
+    let source = NativeClient::create_with_resources(root.join("sdk-source"), Ipv4Addr::LOCALHOST, resources.clone())
         .await
         .unwrap();
     source
@@ -22,7 +35,7 @@ async fn stopping_an_in_flight_clipboard_start_cannot_create_a_late_pair() {
         .issue_precode(service_policy::now() + 3600, Some(1))
         .await
         .unwrap();
-    let target = NativeClient::join(root.join("sdk-target"), &invitation, Ipv4Addr::UNSPECIFIED)
+    let target = NativeClient::join_with_resources(root.join("sdk-target"), &invitation, Ipv4Addr::LOCALHOST, resources)
         .await
         .unwrap();
     assert_eq!(
@@ -76,6 +89,7 @@ async fn stopping_an_in_flight_clipboard_start_cannot_create_a_late_pair() {
         .close()
         .await
         .unwrap();
+    relay.shutdown().await.unwrap();
     assert!(
         pending,
         "actual pending-start prerequisite was not established"

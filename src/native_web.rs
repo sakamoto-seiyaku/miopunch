@@ -2,10 +2,11 @@
 use crate::{
     data_stream::DataStream,
     native_client::{ClientError, NativeClient},
+    native_member_services::{MemberService, PeerStreamEnd, ServiceTransport},
     service_policy::{Service, ServiceAccess},
     web::{self, RequestHead, ResponseHead, WebRequest, WebResponse},
 };
-use iroh::{EndpointAddr, endpoint::Connection};
+use iroh::EndpointAddr;
 use p2panda_core::VerifyingKey;
 use serde_json::{Value, json};
 use std::{
@@ -24,7 +25,7 @@ struct Flow {
     peer: VerifyingKey,
     provider: bool,
     origin: Option<String>,
-    connection: Option<Connection>,
+    connection: Option<ServiceTransport>,
     cancel: CancellationToken,
     phase: &'static str,
     completed: bool,
@@ -81,9 +82,9 @@ impl Drop for FlowOwner {
             flow.cancel.cancel();
             if let Some(connection) = flow.connection {
                 if flow.completed {
-                    connection.close(0u32.into(), b"Web operation completed");
+                    connection.end(b"Web operation completed");
                 } else {
-                    connection.close(1u32.into(), b"Web operation failed");
+                    connection.abort(1, b"Web operation failed");
                 }
             }
         }
@@ -148,7 +149,7 @@ impl NativeWeb {
             if !Self::permitted(&state, access, flow) {
                 flow.cancel.cancel();
                 if let Some(connection) = &flow.connection {
-                    connection.close(1u32.into(), b"Web authorization ended");
+                    connection.abort(1, b"Web authorization ended");
                 }
             }
         }
@@ -191,14 +192,14 @@ impl NativeWeb {
             cancel,
         })
     }
-    fn attach(&self, owner: &FlowOwner, connection: Connection) -> Result<(), ClientError> {
+    fn attach(&self, owner: &FlowOwner, connection: ServiceTransport) -> Result<(), ClientError> {
         let mut state = self.state.lock().unwrap();
         let flow = state
             .flows
             .get_mut(&owner.id)
             .ok_or("Web operation ended")?;
         if flow.cancel.is_cancelled() {
-            connection.close(1u32.into(), b"Web cancelled");
+            connection.abort(1, b"Web cancelled");
             return Err("Web operation cancelled".into());
         }
         flow.connection = Some(connection);
@@ -213,6 +214,11 @@ impl NativeWeb {
         if let Some(flow) = self.state.lock().unwrap().flows.get_mut(&owner.id) {
             flow.completed = true;
         }
+    }
+    fn awaiting_receipt(&self, owner: &FlowOwner) -> bool {
+        self.state.lock().unwrap().flows.get(&owner.id).is_some_and(|flow| {
+            matches!(flow.phase, "awaiting_response_receipt" | "awaiting_socket_receipt")
+        })
     }
     fn authorized_client(
         &self,
@@ -239,14 +245,14 @@ impl NativeWeb {
             .clone()
             .ok_or_else(|| "Web service is off".into())
     }
-    pub async fn receive(self: &Arc<Self>, connection: Connection) -> Result<(), ClientError> {
+    pub async fn receive(self: &Arc<Self>, connection: ServiceTransport) -> Result<(), ClientError> {
         let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())?;
         let mut tasks = self.tasks.lock().await;
         while tasks.try_join_next().is_some() {}
         let owner = match self.claim(peer, true) {
             Ok(owner) => owner,
             Err(error) => {
-                connection.close(1u32.into(), b"Web unavailable");
+                connection.abort(1, b"Web unavailable");
                 return Err(error);
             }
         };
@@ -254,11 +260,20 @@ impl NativeWeb {
         let runtime = self.clone();
         let peer_connection = connection.clone();
         tasks.spawn(async move {
+            let disconnected = async {
+                // A dropped caller stops its read half immediately. Once the
+                // reply has been sent, the same stop can precede its receipt.
+                if peer_connection.peer_end().await == PeerStreamEnd::ReleasedReader
+                    && runtime.awaiting_receipt(&owner)
+                {
+                    std::future::pending::<()>().await;
+                }
+            };
             let result = tokio::select! {
                 biased;
                 _ = owner.cancel.cancelled() => Err("Web request cancelled".into()),
                 result = runtime.serve(&owner, connection) => result,
-                _ = peer_connection.closed() => Err("Web peer ended before operation completed".into()),
+                _ = disconnected => Err("Web peer ended before operation completed".into()),
             };
             if result.is_ok() {
                 runtime.completed(&owner);
@@ -266,9 +281,9 @@ impl NativeWeb {
         });
         Ok(())
     }
-    async fn serve(&self, owner: &FlowOwner, connection: Connection) -> Result<(), ClientError> {
+    async fn serve(&self, owner: &FlowOwner, connection: ServiceTransport) -> Result<(), ClientError> {
         self.phase(owner, "accepting_stream");
-        let mut stream = DataStream::accept(&connection).await?;
+        let mut stream = connection.stream(false).await?;
         self.phase(owner, "reading_request");
         let request: RequestHead = web::read_head(&mut stream).await?;
         let body = web::read_body(&mut stream, web::MAX_REQUEST_BODY).await?;
@@ -314,15 +329,14 @@ impl NativeWeb {
                 stream.write_chunk(bytes).await?;
             }
         }
+        self.phase(owner, "awaiting_response_receipt");
         stream.write_chunk(&[]).await?;
         stream.finish()?;
         // finish() queues a FIN; closing the connection here would discard
         // queued final bytes. The consumer closes only after reading the
         // complete bounded response, and marks failed reads with another code.
-        self.phase(owner, "awaiting_response_receipt");
-        let reason = tokio::time::timeout(Duration::from_secs(30), connection.closed()).await?;
-        if !matches!(reason, iroh::endpoint::ConnectionError::ApplicationClosed(reason)
-            if reason.error_code == 0u32.into() && reason.reason.as_ref() == b"Web operation completed")
+        if !tokio::time::timeout(Duration::from_secs(30),
+            connection.received(b"Web operation completed", stream.read_chunk())).await?
         {
             return Err("Web consumer did not complete response receipt".into());
         }
@@ -390,7 +404,7 @@ impl NativeWeb {
         for flow in self.state.lock().unwrap().flows.values() {
             flow.cancel.cancel();
             if let Some(connection) = &flow.connection {
-                connection.close(1u32.into(), b"Web host stopped");
+                connection.abort(1, b"Web host stopped");
             }
         }
     }
@@ -559,11 +573,11 @@ impl NativeWeb {
                 // or holding this lock during application I/O.
                 let connection = {
                     let _contact = runtime.connecting.lock().await;
-                    resources.connect(address, web::WEB_ALPN).await?
+                    resources.connect_service(address, MemberService::Web).await?
                 };
                 runtime.attach(&owner, connection.clone())?;
                 runtime.phase(&owner, "exchanging_response");
-                let response = web::request(&connection, request).await?;
+                let response = web::request_on_stream(connection.stream(true).await?, request, connection.is_member()).await?;
                 runtime.completed(&owner);
                 Ok::<_, ClientError>(response)
             } => result,

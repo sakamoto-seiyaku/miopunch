@@ -5,7 +5,8 @@ use iroh::{
     endpoint::{
         Builder, Connection, ControlConfirmation, ControlConnection, ExportKeyingMaterialError,
         MemberConnection, MemberFusionAdmission, MemberFusionEndpoint, MemberFusionEvent,
-        PortmapperConfig, RelayResourcePolicy, RelayResourceUse, presets,
+        PortmapperConfig, RelayResourcePolicy, RelayResourceUse, RestrictedBuilder,
+        RestrictedEndpoint, presets,
     },
 };
 use serde_json::json;
@@ -14,7 +15,7 @@ use super::{NativeNetwork, NodeError};
 use crate::{
     admission_gate::{AdmissionGate, ProtocolScope},
     connection_coordinator::{AttemptRole, connection_diagnostic::AttemptLog},
-    resources::ResourceUse,
+    resources::{ResourceConfig, ResourceUse},
 };
 
 /// Ordinary admitted business over the explicitly selected native fusion endpoint.
@@ -51,11 +52,36 @@ impl NativeNetwork {
                 matches!(usage, RelayResourceUse::DataRelay)
                     && resources.allows(url.as_str(), ResourceUse::DataRelay)
             }))
-            .member_fusion(FUSED_MEMBER_ALPN, Authorization(self.gate.clone()))
+            .member_fusion(
+                FUSED_MEMBER_ALPN,
+                Authorization {
+                    gate: self.gate.clone(),
+                    resources: None,
+                },
+            )
             .admission_timeout(setup_budget)
             .bind(idle_budget)
             .await?;
         Ok(endpoint)
+    }
+
+    pub(super) async fn bind_shared_member_fusion(
+        &self,
+        builder: RestrictedBuilder,
+        resources: &ResourceConfig,
+    ) -> Result<(RestrictedEndpoint, MemberFusionEndpoint), iroh::endpoint::BindError> {
+        self.gate
+            .register_protocol(FUSED_MEMBER_ALPN, ProtocolScope::Member);
+        builder
+            .bind_with_member_fusion(
+                FUSED_MEMBER_ALPN,
+                Authorization {
+                    gate: self.gate.clone(),
+                    resources: Some(resources.clone()),
+                },
+                Duration::from_millis(resources.maintenance.exploration_interval_ms),
+            )
+            .await
     }
 }
 
@@ -85,13 +111,21 @@ fn attempt_log(connection: &ControlConnection) -> AttemptLog {
 }
 
 #[derive(Debug)]
-struct Authorization(AdmissionGate);
+struct Authorization {
+    gate: AdmissionGate,
+    resources: Option<ResourceConfig>,
+}
 
 impl MemberFusionAdmission for Authorization {
     async fn authorize(&self, connection: &ControlConnection) -> io::Result<ControlConfirmation> {
         let log = attempt_log(connection);
         let admission = log.phase("member-admission", json!({"peer": connection.remote_id()}));
-        if self.0.authenticate_fusion_member(connection).await.is_err() {
+        if self
+            .gate
+            .authenticate_fusion_member(connection)
+            .await
+            .is_err()
+        {
             admission.finish("rejected");
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
@@ -100,7 +134,7 @@ impl MemberFusionAdmission for Authorization {
         }
         admission.finish("succeeded");
 
-        let gate = self.0.clone();
+        let gate = self.gate.clone();
         Ok(ControlConfirmation::with_control(move |connection| {
             Box::pin(async move {
                 if !gate.allows(connection, ProtocolScope::Member) {
@@ -109,18 +143,48 @@ impl MemberFusionAdmission for Authorization {
                         "member admission changed",
                     ));
                 }
-                log.event("data-relay", "qualified", serde_json::Value::Null);
+                let path = if connection
+                    .paths()
+                    .iter()
+                    .any(|path| path.is_selected() && path.is_relay())
+                {
+                    "data-relay"
+                } else {
+                    "data-path"
+                };
+                log.event(path, "qualified", serde_json::Value::Null);
                 Ok(())
             })
         }))
     }
 
     fn is_current(&self, connection: &ControlConnection) -> bool {
-        self.0.allows(connection, ProtocolScope::Member)
+        self.gate.allows(connection, ProtocolScope::Member)
     }
 
     fn business_released(&self, connection: &Connection) {
-        self.0.publish_business(connection);
+        self.gate.publish_business(connection);
+    }
+
+    fn permits_data_path(&self, remote: &iroh::TransportAddr) -> bool {
+        match remote {
+            iroh::TransportAddr::Relay(_) => true,
+            iroh::TransportAddr::Ip(_) => self
+                .resources
+                .as_ref()
+                .is_some_and(|resources| !resources.udp_direct_disabled),
+            iroh::TransportAddr::Custom(addr) => self
+                .resources
+                .as_ref()
+                .is_some_and(|resources| resources.allows_custom(addr)),
+            _ => false,
+        }
+    }
+
+    fn custom_data_transports(&self) -> Vec<u64> {
+        self.resources
+            .as_ref()
+            .map_or_else(Vec::new, |_| self.gate.allowed_data_carriers())
     }
 
     fn selection_event(&self, connection: &ControlConnection, event: MemberFusionEvent) {

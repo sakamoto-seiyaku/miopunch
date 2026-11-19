@@ -152,6 +152,10 @@ pub trait EndpointAdmission: std::fmt::Debug + Send + Sync {
 }
 
 pub(crate) trait DynEndpointAdmission: std::fmt::Debug + Send + Sync {
+    #[cfg(not(wasm_browser))]
+    fn alternate_protocol(&self, _alpn: &[u8]) -> Option<&dyn DynEndpointAdmission> {
+        None
+    }
     fn admit<'a>(
         &'a self,
         connection: &'a ControlConnection,
@@ -270,7 +274,7 @@ pub struct RestrictedBuilder {
 
 impl RestrictedBuilder {
     pub(super) fn new(mut inner: Builder) -> Self {
-        if let Some(allowed) = inner.restricted_data_custom_transports.take() {
+        if let Some(allowed) = inner.restricted_data_custom_transports.clone() {
             let policy = inner
                 .admission
                 .take()
@@ -306,6 +310,36 @@ impl RestrictedBuilder {
             inner,
             admission_timeout: self.admission_timeout,
         })
+    }
+
+    /// Add a shared member ALPN to the same socket, identity and relay registration.
+    /// The caller still routes incoming ALPNs through the restricted endpoint.
+    /// The member owner observes both incoming and outgoing selected connections.
+    #[cfg(not(wasm_browser))]
+    pub async fn bind_with_member_fusion(
+        mut self,
+        alpn: &[u8],
+        admission: impl super::MemberFusionAdmission + 'static,
+        idle_timeout: Duration,
+    ) -> Result<(RestrictedEndpoint, super::MemberFusionEndpoint), BindError> {
+        let fallback = self
+            .inner
+            .admission
+            .take()
+            .expect("restricted admission selected");
+        let (policy, owner) = super::member_fusion::shared_policy(
+            alpn,
+            admission,
+            fallback,
+            self.inner.restricted_data_custom_transports.take(),
+            idle_timeout,
+        );
+        self.inner.admission = Some(policy);
+        self.inner.alpn_protocols.push(alpn.to_vec());
+        let setup = self.admission_timeout;
+        let endpoint = self.bind().await?;
+        let member = owner.attach(endpoint.clone(), alpn, setup);
+        Ok((endpoint, member))
     }
 }
 
@@ -1669,9 +1703,11 @@ pub(super) async fn finish_admission(
     policy: &dyn DynEndpointAdmission,
 ) -> Result<RegisteredConnection, ConnectingError> {
     #[cfg(not(wasm_browser))]
-    let mut member = policy
-        .member_fusion()
-        .map(|fusion| fusion.candidate(&connection));
+    let policy = policy.alternate_protocol(connection.alpn()).unwrap_or(policy);
+    #[cfg(not(wasm_browser))]
+    let fusion = policy.member_fusion();
+    #[cfg(not(wasm_browser))]
+    let mut member = fusion.map(|fusion| fusion.candidate(&connection));
     #[cfg(not(wasm_browser))]
     let run_legacy_hook = member.is_none();
     #[cfg(wasm_browser)]
@@ -1804,8 +1840,8 @@ pub(super) async fn finish_admission(
         }
         policy.business_released(&connection);
         #[cfg(not(wasm_browser))]
-        if let Some(selection) = selection {
-            selection.publish(connection.clone());
+        if let Some((fusion, selection)) = fusion.zip(selection) {
+            fusion.publish(selection, connection.clone());
         }
         control.close_on_drop = false;
         Ok(RegisteredConnection::Business(connection.clone()))

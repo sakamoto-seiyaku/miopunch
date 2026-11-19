@@ -18,7 +18,9 @@ fn ensure(condition: bool, message: &'static str) -> Result<(), ClientError> {
 async fn call(host: &ClientHost, mut request: Value) -> Result<Value, ClientError> {
     request["id"] = 1.into();
     let response = host.request(&request.to_string()).await;
-    ensure(response["ok"] == true, "shared host command failed")?;
+    if response["ok"] != true {
+        return Err(format!("shared host command {} failed ({})", request["op"], response["error"]).into());
+    }
     Ok(response["result"].clone())
 }
 
@@ -31,7 +33,8 @@ async fn native_host_retains_identity_excludes_duplicate_and_closes_pending_work
         "defaults":{"revision":2,"resources":[]},
         "replacement":[{"url":relay,"uses":["DataRelay"],"limitation":"owned platform host fixture"}],
         "disabled":[],"disabled_uses":["Observation","Lookup","Signaling"],
-        "lan_discovery":"Disabled","port_mapping":"Disabled"
+        "lan_discovery":"Disabled","port_mapping":"Disabled",
+        "udp_direct_disabled":true,"tcp_direct_disabled":true
     }))?;
     let source = Arc::new(ClientHost::default());
     let member = Arc::new(ClientHost::default());

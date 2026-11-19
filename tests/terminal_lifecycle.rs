@@ -213,6 +213,20 @@ async fn wait_until(deadline: Duration, predicate: impl Fn() -> bool) -> Result<
     }
     Err("owned independent observation exceeded monotonic bound".into())
 }
+
+async fn observe_pending_operation<T>(
+    client: &NativeClient,
+    mut operation: std::pin::Pin<&mut impl std::future::Future<Output = T>>,
+) -> Result<(), ClientError> {
+    use std::task::Poll;
+    tokio::time::timeout(Duration::from_secs(1), std::future::poll_fn(|context| {
+        match operation.as_mut().poll(context) {
+            Poll::Ready(_) => Poll::Ready(Err("terminal operation ended before observing its pending owner".into())),
+            Poll::Pending if client.terminal_status()["active_operations"] == 1 => Poll::Ready(Ok(())),
+            Poll::Pending => Poll::Pending,
+        }
+    })).await?
+}
 async fn exact_file(path: &Path, literal: &[u8]) -> Result<(), ClientError> {
     wait_until(Duration::from_secs(10), || {
         std::fs::read(path).is_ok_and(|bytes| bytes == literal)
@@ -244,19 +258,13 @@ async fn owned_terminal_future_cancel_close_drop_and_reopen_are_bounded() {
     let product = async {
         let workspace = pair.create().await?;
         let mut opening = Box::pin(pair.consumer().attach_terminal(pair.provider().address(), workspace.clone(), 80,24));
-        tokio::select! {
-            result = &mut opening => return Err(format!("future-cancel premise invalid: opening already ended, success={}",result.is_ok()).into()),
-            _ = tokio::time::sleep(Duration::from_millis(20)) => {},
-        }
+        observe_pending_operation(pair.consumer(), opening.as_mut()).await?;
         if pair.consumer().terminal_status()["active_operations"] != 1 || pair.consumer().terminal_status()["attachment_handles"] != 0 { return Err("pending attach ownership premise invalid".into()); }
         drop(opening);
         wait_until(Duration::from_secs(1), || pair.consumer().terminal_status()["active_operations"] == 0).await?;
         pair.settle_provider().await?;
         let mut listing = Box::pin(pair.consumer().request_terminal(pair.provider().address(), TerminalRequest::List));
-        tokio::select! {
-            result = &mut listing => return Err(format!("request-cancel premise invalid: already ended, success={}",result.is_ok()).into()),
-            _ = tokio::time::sleep(Duration::from_millis(20)) => {},
-        }
+        observe_pending_operation(pair.consumer(), listing.as_mut()).await?;
         if pair.consumer().terminal_status()["active_operations"] != 1 { return Err("pending request owner premise invalid".into()); }
         drop(listing);
         wait_until(Duration::from_secs(1), || pair.consumer().terminal_status()["active_operations"] == 0).await?;

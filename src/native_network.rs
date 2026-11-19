@@ -60,11 +60,11 @@ fn network_protocols() -> Vec<Vec<u8>> {
     ]
 }
 
-async fn bind_restricted_native_endpoint(
+fn restricted_native_builder(
     builder: Builder,
     gate: AdmissionGate,
     coordinator: crate::connection_coordinator::CoordinatorHook,
-) -> Result<RestrictedEndpoint, iroh::endpoint::BindError> {
+) -> iroh::endpoint::RestrictedBuilder {
     let gate = gate.with_message_bootstrap();
     builder
         .hooks(crate::connection_coordinator::AdmissionBeforeConnect(
@@ -74,8 +74,6 @@ async fn bind_restricted_native_endpoint(
             gate,
             coordinator,
         ))
-        .bind()
-        .await
 }
 
 enum Initialization<'a> {
@@ -616,12 +614,13 @@ impl NativeNetwork {
             builder,
             &resources,
             false,
+            false,
             #[cfg(feature = "rtc-probe")]
             None,
             None,
         )
         .await
-        .map(|(endpoint, _, _, _, _)| endpoint)
+        .map(|(endpoint, _, _, _, _, _)| endpoint)
     }
 
     /// Bind an explicitly assembled native builder with the owned RTC carrier.
@@ -633,9 +632,9 @@ impl NativeNetwork {
         rtc: crate::rtc_transport::RtcTransport,
     ) -> Result<RestrictedEndpoint, NodeError> {
         let resources = self.resource_configuration()?;
-        self.bind_endpoint_with_resources(builder, &resources, false, Some(rtc), None)
+        self.bind_endpoint_with_resources(builder, &resources, false, false, Some(rtc), None)
             .await
-            .map(|(endpoint, _, _, _, _)| endpoint)
+            .map(|(endpoint, _, _, _, _, _)| endpoint)
     }
 
     async fn bind_endpoint_with_resources(
@@ -643,6 +642,7 @@ impl NativeNetwork {
         builder: Builder,
         resources: &crate::resources::ResourceConfig,
         configured_startup: bool,
+        member_fusion: bool,
         #[cfg(feature = "rtc-probe")] rtc: Option<crate::rtc_transport::RtcTransport>,
         contact_override: Option<Arc<crate::mqtt_transport::MqttTransport>>,
     ) -> Result<
@@ -652,6 +652,7 @@ impl NativeNetwork {
             Vec<Arc<crate::mqtt_transport::MqttTransport>>,
             Option<crate::contact_listener::ContactListenerControl>,
             crate::native_path_adapter::NativePathAdapter,
+            Option<iroh::endpoint::MemberFusionEndpoint>,
         ),
         NodeError,
     > {
@@ -847,12 +848,17 @@ impl NativeNetwork {
         #[cfg(feature = "rtc-probe")]
         let coordinator = coordinator.with_rtc(rtc.clone());
         let gate = self.gate.with_request_coordinator();
-        let endpoint = bind_restricted_native_endpoint(
+        let builder = restricted_native_builder(
             builder.secret_key(SecretKey::from_bytes(self.node_key.as_bytes())),
             gate,
             coordinator,
-        )
-        .await?;
+        );
+        let (endpoint, fusion) = if member_fusion {
+            let (endpoint, fusion) = self.bind_shared_member_fusion(builder, resources).await?;
+            (endpoint, Some(fusion))
+        } else {
+            (builder.bind().await?, None)
+        };
         // Poll all approved services within the adapter's shared startup bound.
         // A failed subscription cannot prevent another resource or direct path.
         for result in
@@ -867,7 +873,7 @@ impl NativeNetwork {
                 eprintln!("IRC_RESOURCE_UNAVAILABLE error={error}");
             }
         }
-        Ok((endpoint, tcp, mqtt, contact_listener, native))
+        Ok((endpoint, tcp, mqtt, contact_listener, native, fusion))
     }
 
     pub fn resource_configuration(&self) -> Result<crate::resources::ResourceConfig, NodeError> {
@@ -941,6 +947,21 @@ impl NativeNetwork {
         .await
     }
 
+    pub(crate) async fn bind_client_endpoint(
+        &self,
+        bind_ip: Ipv4Addr,
+    ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
+        self.bind_configured_endpoint_with_options(
+            Endpoint::builder(presets::Minimal)
+                .bind_addr(SocketAddr::from((bind_ip, 0)))
+                .map_err(|_| NodeError::InvalidData)?,
+            #[cfg(feature = "rtc-probe")]
+            None,
+            None,
+            true,
+        ).await
+    }
+
     /// The formal startup with advanced local socket/TLS settings. Saved
     /// resource consent, durable identity and member bootstrap remain owned by
     /// this assembly rather than by the caller's stream or synchronization code.
@@ -953,6 +974,7 @@ impl NativeNetwork {
             #[cfg(feature = "rtc-probe")]
             None,
             None,
+            false,
         )
         .await
     }
@@ -965,7 +987,7 @@ impl NativeNetwork {
         builder: Builder,
         rtc: crate::rtc_transport::RtcTransport,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
-        self.bind_configured_endpoint_with_options(builder, Some(rtc), None)
+        self.bind_configured_endpoint_with_options(builder, Some(rtc), None, false)
             .await
     }
 
@@ -981,6 +1003,7 @@ impl NativeNetwork {
             #[cfg(feature = "rtc-probe")]
             None,
             Some(contact),
+            false,
         )
         .await
     }
@@ -991,7 +1014,7 @@ impl NativeNetwork {
         rtc: crate::rtc_transport::RtcTransport,
         contact: Arc<crate::mqtt_transport::MqttTransport>,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
-        self.bind_configured_endpoint_with_options(builder, Some(rtc), Some(contact))
+        self.bind_configured_endpoint_with_options(builder, Some(rtc), Some(contact), false)
             .await
     }
 
@@ -1000,9 +1023,10 @@ impl NativeNetwork {
         builder: Builder,
         #[cfg(feature = "rtc-probe")] rtc: Option<crate::rtc_transport::RtcTransport>,
         contact_override: Option<Arc<crate::mqtt_transport::MqttTransport>>,
+        member_fusion: bool,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
         let config = self.resource_configuration()?;
-        let (endpoint, tcp, mqtt, contact_listener, native) = self
+        let (endpoint, tcp, mqtt, contact_listener, native, fusion) = self
             .bind_endpoint_with_resources(
                 builder
                     .alpns(network_protocols())
@@ -1014,6 +1038,7 @@ impl NativeNetwork {
                     ),
                 &config,
                 true,
+                member_fusion,
                 #[cfg(feature = "rtc-probe")]
                 rtc.clone(),
                 contact_override,
@@ -1033,6 +1058,7 @@ impl NativeNetwork {
         let resources = resources.with_rtc(rtc);
         let mut resources = resources;
         resources.member_contacts = Some(member_contacts);
+        resources.member_fusion = fusion.map(|endpoint| (endpoint, self.gate.clone()));
         if !resources.recovery_origins().is_empty() {
             resources
                 .endpoint()

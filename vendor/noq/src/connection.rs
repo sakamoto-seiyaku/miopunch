@@ -687,23 +687,7 @@ impl Connection {
     /// application layer. Cases that might be routine include [`ConnectionError::LocallyClosed`]
     /// and [`ConnectionError::ApplicationClosed`].
     pub async fn closed(&self) -> ConnectionError {
-        {
-            let conn = self.0.lock_without_waking("closed");
-            if let Some(error) = conn.error.as_ref() {
-                return error.clone();
-            }
-            // Construct the future while the lock is held to ensure we can't miss a wakeup if
-            // the `Notify` is signaled immediately after we release the lock. `await` it after
-            // the lock guard is out of scope.
-            self.0.shared.closed.notified()
-        }
-        .await;
-        self.0
-            .lock_without_waking("closed")
-            .error
-            .as_ref()
-            .expect("closed without an error")
-            .clone()
+        self.0.closed().await
     }
 
     /// Wait for the connection to be closed without keeping a strong reference to the connection
@@ -1545,6 +1529,18 @@ impl Future for OnClosed {
 pub(crate) struct ConnectionRef(Arc<Arc<ConnectionInner>>);
 
 impl ConnectionRef {
+    pub(crate) async fn closed(&self) -> ConnectionError {
+        {
+            let state = self.lock_without_waking("closed");
+            if let Some(error) = state.error.as_ref() {
+                return error.clone();
+            }
+            self.shared.closed.notified()
+        }.await;
+        self.lock_without_waking("closed").error.as_ref()
+            .expect("closed without an error").clone()
+    }
+
     #[allow(clippy::redundant_allocation)]
     fn from_arc(inner: Arc<Arc<ConnectionInner>>) -> Self {
         inner.shared.ref_count.fetch_add(1, Ordering::Relaxed);

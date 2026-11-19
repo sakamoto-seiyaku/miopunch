@@ -1173,10 +1173,10 @@ impl ConnectionCoordinator {
         id: iroh::EndpointId,
         routes: Vec<&TransportAddr>,
         purpose: SessionPurpose,
+        wire_alpn: &[u8],
         attempt: &AttemptContext,
         log: AttemptLog,
     ) -> Result<QualifiedRoute, ContactDialFailure> {
-        let wire_alpn = purpose.alpn();
         let control_only = purpose == SessionPurpose::ActiveImprovement;
         if routes.len() < 2 {
             return self
@@ -1409,7 +1409,8 @@ impl ConnectionCoordinator {
                             .dial_staggered_relays(
                                 target.id,
                                 relay_routes,
-                                SessionPurpose::MemberBusiness,
+                                purpose,
+                                wire_alpn,
                                 route_attempt,
                                 log,
                             )
@@ -1430,6 +1431,7 @@ impl ConnectionCoordinator {
                                     target.id,
                                     network,
                                     purpose,
+                                    wire_alpn,
                                     route_attempt,
                                     log,
                                 )

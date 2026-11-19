@@ -7,7 +7,7 @@ use std::{
 
 use bytes::Bytes;
 use pin_project_lite::pin_project;
-use proto::{ClosedStream, ConnectionError, FinishError, StreamId};
+use proto::{ClosedStream, ConnectionError, Dir, FinishError, StreamId};
 use thiserror::Error;
 use tokio::sync::futures::OwnedNotified;
 
@@ -253,25 +253,19 @@ impl SendStream {
     /// Clients may wish to await this after finishing a unidirectional 0-RTT stream to reliably
     /// determine whether the stream was rejected.
     pub fn stopped(&self) -> Stopped {
-        let notified = {
-            // Create an `OwnedNotified` to move into the future. By creating it before the first
-            // poll, we make sure that we don't miss any notifications.
-            let mut conn = self.conn.lock_without_waking("SendStream::stopped");
-            conn.stopped
-                .entry(self.stream)
-                .or_default()
-                .clone()
-                .notified_owned()
-        };
-        Stopped {
+        self.control().stopped()
+    }
+
+    /// A scoped handle to stop or observe this stream without owning either half.
+    pub fn control(&self) -> StreamControl {
+        StreamControl {
             conn: self.conn.clone(),
             stream: self.stream,
             is_0rtt: self.is_0rtt,
-            notified,
         }
     }
 
-    /// Get the identity of this stream
+    /// Get the identity of this stream.
     pub fn id(&self) -> StreamId {
         self.stream
     }
@@ -289,6 +283,71 @@ impl SendStream {
         buf: &[u8],
     ) -> Poll<Result<usize, WriteError>> {
         pin!(self.get_mut().write(buf)).as_mut().poll(cx)
+    }
+}
+
+/// A cancellation and observation handle scoped to one QUIC stream.
+#[derive(Clone, Debug)]
+pub struct StreamControl {
+    conn: ConnectionRef,
+    stream: StreamId,
+    is_0rtt: bool,
+}
+
+impl StreamControl {
+    /// Wait for the enclosing transport to become unavailable.
+    pub async fn connection_closed(&self) -> ConnectionError {
+        self.conn.closed().await
+    }
+
+    /// Read a peer stop code if it is already visible.
+    pub fn stop_code(&self) -> Option<VarInt> {
+        let mut conn = self.conn.lock_without_waking("StreamControl::stop_code");
+        send_stream_stopped(&mut conn, self.stream, self.is_0rtt)?
+            .ok()
+            .flatten()
+    }
+
+    /// Reset the sending half and stop the receiving half, if present.
+    pub fn abort(&self, error_code: VarInt) {
+        let (reader, writer) = {
+            let mut conn = self.conn.lock_and_wake("StreamControl::abort");
+            if self.is_0rtt && conn.check_0rtt().is_err() {
+                conn.skip_waking();
+                return;
+            }
+            let _ = conn.inner.send_stream(self.stream).reset(error_code);
+            if self.stream.dir() == Dir::Bi {
+                let _ = conn.inner.recv_stream(self.stream).stop(error_code);
+            }
+            (
+                conn.blocked_readers.remove(&self.stream),
+                conn.blocked_writers.remove(&self.stream),
+            )
+        };
+        for waiter in reader.into_iter().chain(writer) {
+            waiter.wake();
+        }
+    }
+
+    /// Observe the peer's stop code or the acknowledgement of a finished send half.
+    pub fn stopped(&self) -> Stopped {
+        let notified = {
+            // Create an `OwnedNotified` to move into the future. By creating it before the first
+            // poll, we make sure that we don't miss any notifications.
+            let mut conn = self.conn.lock_without_waking("SendStream::stopped");
+            conn.stopped
+                .entry(self.stream)
+                .or_default()
+                .clone()
+                .notified_owned()
+        };
+        Stopped {
+            conn: self.conn.clone(),
+            stream: self.stream,
+            is_0rtt: self.is_0rtt,
+            notified,
+        }
     }
 }
 
