@@ -1,3 +1,5 @@
+#[cfg(not(wasm_browser))]
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     collections::{BTreeSet, HashSet, VecDeque},
     net::SocketAddr,
@@ -101,7 +103,8 @@ type MemberActivity = MergeUnbounded<Pin<Box<dyn Stream<Item = ConnId> + Send + 
 
 #[derive(Clone, derive_more::Debug)]
 pub(crate) struct MemberPathPolicy {
-    activity: watch::Receiver<bool>,
+    // Bootstrap is active until release. Afterward streams drive QNT.
+    activity: Option<watch::Receiver<bool>>,
     #[debug(skip)]
     permit: Arc<dyn Fn(&TransportAddr) -> bool + Send + Sync>,
 }
@@ -109,7 +112,7 @@ pub(crate) struct MemberPathPolicy {
 impl MemberPathPolicy {
     #[cfg(not(wasm_browser))]
     pub(crate) fn new(
-        activity: watch::Receiver<bool>,
+        activity: Option<watch::Receiver<bool>>,
         permit: impl Fn(&TransportAddr) -> bool + Send + Sync + 'static,
     ) -> Self {
         Self {
@@ -121,14 +124,35 @@ impl MemberPathPolicy {
     fn permits(&self, address: transports::Addr) -> bool {
         matches!(address, transports::Addr::Custom(_)) || (self.permit)(&address.into())
     }
+
+    fn active(&self) -> bool {
+        self.activity
+            .as_ref()
+            .is_none_or(|activity| *activity.borrow())
+    }
 }
 
 #[derive(Debug)]
 struct MemberPaths {
     policy: MemberPathPolicy,
+    #[cfg(not(wasm_browser))]
+    restricted_contact: Option<Arc<AtomicBool>>,
     known_probes: FxHashMap<SocketAddr, Instant>,
     last_exchange: Option<HolepunchAttempt>,
     network_changed_at: Option<Instant>,
+}
+
+impl MemberPaths {
+    fn new(policy: MemberPathPolicy) -> Self {
+        Self {
+            policy,
+            #[cfg(not(wasm_browser))]
+            restricted_contact: None,
+            known_probes: FxHashMap::default(),
+            last_exchange: None,
+            network_changed_at: None,
+        }
+    }
 }
 
 /// The state we need to know about a single remote endpoint.
@@ -463,6 +487,15 @@ impl RemoteStateActor {
             } => {
                 let result =
                     self.authorize_candidates(ConnId(conn_id), allowed_data_custom_ids, member);
+                let _ = tx.send(result);
+            }
+            #[cfg(not(wasm_browser))]
+            RemoteStateMessage::PrepareMemberUdp {
+                conn_id,
+                policy,
+                tx,
+            } => {
+                let result = self.prepare_member_udp(ConnId(conn_id), policy);
                 let _ = tx.send(result);
             }
             RemoteStateMessage::OpenAdmittedDataPath {
@@ -1051,7 +1084,41 @@ impl RemoteStateActor {
         Ok(())
     }
 
-    /// Release QNT only after the application hook has granted normal scope.
+    /// Use the member QNT owner during restricted admission, holding the
+    /// original contact open for protected control while UDP is verified.
+    #[cfg(not(wasm_browser))]
+    fn prepare_member_udp(
+        &mut self,
+        conn_id: ConnId,
+        policy: MemberPathPolicy,
+    ) -> Result<(), &'static str> {
+        let state = self
+            .connections
+            .get_mut(&conn_id)
+            .ok_or("connection not registered")?;
+        let conn = state.handle.upgrade().ok_or("connection closed")?;
+        let initial = conn
+            .path(PathId::ZERO)
+            .and_then(|path| path.network_path().ok())
+            .ok_or("contact path lost")?;
+        let bootstrap = initial.remote();
+        let mapped = self.state.mapped_addrs.clone();
+        let packet_policy = policy.clone();
+        let restricted_contact = Arc::new(AtomicBool::new(true));
+        let before_release = restricted_contact.clone();
+        conn.restrict_paths(move |address| {
+            !before_release.load(Ordering::Acquire) || address == bootstrap
+                || matches!(mapped.to_transport_addr(address), Some(address @ transports::Addr::Ip(_))
+                    if packet_policy.permits(address.clone()))
+        });
+        let mut paths = MemberPaths::new(policy);
+        paths.restricted_contact = Some(restricted_contact);
+        state.member_paths = Some(paths);
+        self.update_member_udp(conn_id, false);
+        Ok(())
+    }
+
+    /// Release ordinary carriers only after the full admission decision.
     fn authorize_candidates(
         &mut self,
         conn_id: ConnId,
@@ -1103,19 +1170,22 @@ impl RemoteStateActor {
                     .is_some_and(|address| packet_policy.permits(address))
             });
             let events = n0_future::stream::unfold(
-                policy.activity.clone(),
+                policy.activity.clone().expect("released member activity"),
                 move |mut activity| async move {
                     activity.changed().await.ok()?;
                     Some((conn_id, activity))
                 },
             );
             self.member_activity.push(Box::pin(events));
-            state.member_paths = Some(MemberPaths {
-                policy,
-                known_probes: FxHashMap::default(),
-                last_exchange: None,
-                network_changed_at: None,
-            });
+            if let Some(paths) = &mut state.member_paths {
+                paths.policy = policy;
+                #[cfg(not(wasm_browser))]
+                if let Some(contact) = paths.restricted_contact.take() {
+                    contact.store(false, Ordering::Release);
+                }
+            } else {
+                state.member_paths = Some(MemberPaths::new(policy));
+            }
         }
         state.allowed_data_custom_ids = allowed;
         state.custom_data_policy = true;
@@ -1179,7 +1249,7 @@ impl RemoteStateActor {
                 state
                     .member_paths
                     .as_ref()
-                    .is_some_and(|member| *member.policy.activity.borrow())
+                    .is_some_and(|member| member.policy.active())
             })
             .map(|(id, _)| *id)
             .collect();
@@ -1198,7 +1268,7 @@ impl RemoteStateActor {
         let Some(member) = &state.member_paths else {
             return;
         };
-        if !peer_advertised && !*member.policy.activity.borrow() {
+        if !peer_advertised && !member.policy.active() {
             return;
         }
         let Some(conn) = state
@@ -2399,6 +2469,13 @@ pub(crate) enum RemoteStateMessage {
         conn_id: usize,
         allowed_data_custom_ids: Vec<u64>,
         member: Option<MemberPathPolicy>,
+        tx: oneshot::Sender<Result<(), &'static str>>,
+    },
+    /// Start the same member UDP owner before business handoff.
+    #[cfg(not(wasm_browser))]
+    PrepareMemberUdp {
+        conn_id: usize,
+        policy: MemberPathPolicy,
         tx: oneshot::Sender<Result<(), &'static str>>,
     },
     /// A permitted UDP, relay or custom data carrier on an admitted connection.

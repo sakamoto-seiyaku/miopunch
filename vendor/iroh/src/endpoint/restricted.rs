@@ -990,6 +990,26 @@ impl Drop for ControlConnection {
 }
 
 impl ControlHandle {
+    #[cfg(not(wasm_browser))]
+    pub(super) async fn prepare_member_udp(&self) -> io::Result<()> {
+        let policy = self
+            .endpoint
+            .inner
+            .static_config
+            .admission
+            .clone()
+            .expect("member policy");
+        self.endpoint
+            .inner
+            .prepare_member_udp(
+                &self.connection,
+                crate::socket::remote_map::MemberPathPolicy::new(None, move |address| {
+                    address.is_ip() && policy.permits_member_data_path(address)
+                }),
+            )
+            .await
+    }
+
     /// Exercise transport-path loss on this original connection only.
     #[cfg(feature = "miopunch-test-hooks")]
     #[doc(hidden)]
@@ -1875,7 +1895,7 @@ pub(super) async fn finish_admission(
                 .expect("member policy");
             let relay_policy = endpoint.inner.static_config.relay_resource_policy.clone();
             let member_paths = crate::socket::remote_map::MemberPathPolicy::new(
-                activity.subscribe(),
+                Some(activity.subscribe()),
                 move |address| {
                     static_policy.permits_member_data_path(address)
                         && match address {

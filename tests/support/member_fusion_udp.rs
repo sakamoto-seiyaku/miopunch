@@ -4,7 +4,7 @@ mod udp_blackhole;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::{
-        Arc,
+        Arc, OnceLock,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::Duration,
@@ -657,6 +657,7 @@ async fn explicit_relay_preference_preserves_both_admitted_paths() {
 #[derive(Debug)]
 struct RevocableUdp {
     peer: EndpointId,
+    peer_address: Arc<OnceLock<SocketAddr>>,
     allowed: Arc<AtomicBool>,
 }
 
@@ -678,7 +679,9 @@ impl MemberFusionAdmission for RevocableUdp {
     }
 
     fn permits_data_path(&self, path: &TransportAddr) -> bool {
-        path.is_relay() || (path.is_ip() && self.allowed.load(Ordering::Acquire))
+        path.is_relay()
+            || (self.allowed.load(Ordering::Acquire)
+                && matches!(path, TransportAddr::Ip(address) if self.peer_address.get() == Some(address)))
     }
 }
 
@@ -690,6 +693,7 @@ async fn withdrawing_udp_permission_retires_the_path_and_keeps_original_bytes() 
     let client_secret = iroh::SecretKey::generate();
     let server_secret = iroh::SecretKey::generate();
     let allowed = Arc::new(AtomicBool::new(true));
+    let udp_addresses = [Arc::new(OnceLock::new()), Arc::new(OnceLock::new())];
     let dials = [Dials::default(), Dials::default()];
     let builder = |secret, peer, side: usize| {
         Endpoint::builder(presets::Minimal)
@@ -704,6 +708,7 @@ async fn withdrawing_udp_permission_retires_the_path_and_keeps_original_bytes() 
                 b"miopunch/test-udp-policy/1",
                 RevocableUdp {
                     peer,
+                    peer_address: udp_addresses[1 - side].clone(),
                     allowed: allowed.clone(),
                 },
             )
@@ -718,7 +723,6 @@ async fn withdrawing_udp_permission_retires_the_path_and_keeps_original_bytes() 
         .bind(SETUP)
         .await
         .unwrap();
-    let connections = on_relay(&client, &server, &url).await;
     let endpoints = [client, server];
     let addresses = endpoints.each_ref().map(|endpoint| {
         *endpoint
@@ -727,6 +731,11 @@ async fn withdrawing_udp_permission_retires_the_path_and_keeps_original_bytes() 
             .find(|address| address.ip().is_loopback())
             .unwrap()
     });
+    assert_ne!(addresses[0], addresses[1]);
+    for (address, observed) in addresses.iter().zip(&udp_addresses) {
+        observed.set(*address).unwrap();
+    }
+    let connections = on_relay(&endpoints[0], &endpoints[1], &url).await;
     let ids = connections.each_ref().map(MemberConnection::stable_id);
     let after = Instant::now();
     let mut stream = time::timeout(

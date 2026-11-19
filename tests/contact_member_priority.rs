@@ -770,3 +770,214 @@ async fn active_udp_ip_data_precedes_member_and_configured_mqtt_contact() {
 async fn live_ip_bootstrap_ignores_actual_cached_mqtt_control_route() {
     run_case(false, DataHint::WarmCacheLiveIp).await;
 }
+
+#[tokio::test]
+async fn fused_member_forwarding_qualifies_udp_with_a_healthy_responder_relay() {
+    fused_member_forwarding(true).await;
+}
+
+#[tokio::test]
+async fn fused_member_forwarding_reports_unavailable_without_a_data_path() {
+    fused_member_forwarding(false).await;
+}
+
+async fn fused_member_forwarding(receiver_udp: bool) {
+    use iroh::{
+        Endpoint, EndpointAddr, TransportAddr,
+        endpoint::{MemberDialOptions, presets},
+    };
+    use miopunch_native_probe::native_network::member_fusion_attempt_id;
+    use tokio::time::{Instant, timeout};
+    use tokio_util::sync::CancellationToken;
+
+    const LINK: &[u8] = b"miopunch/contact-forward-link/1";
+    const BUDGET: Duration = Duration::from_secs(8);
+    let directory = tempfile::tempdir().unwrap();
+    let mut forwarder = NativeNetwork::create(directory.path().join("forwarder"))
+        .await
+        .unwrap();
+    let mut config = forwarder.resource_configuration().unwrap();
+    config.replacement = Some(Vec::new());
+    config.tcp_direct_disabled = true;
+    config.member_data_relay_disabled = true;
+    forwarder.save_resource_configuration(&config).unwrap();
+    let mut sender = admit(&mut forwarder, &directory.path().join("sender")).await;
+    let receiver = admit(&mut forwarder, &directory.path().join("receiver")).await;
+    for record in forwarder.management_history().await.unwrap() {
+        sender
+            .ingest_management_record(record.header(), record.body())
+            .await
+            .unwrap();
+    }
+    for node in [&sender, &receiver, &forwarder] {
+        node.save_resource_configuration(&config).unwrap();
+        node.admission_gate()
+            .register_protocol(LINK, ProtocolScope::Member);
+    }
+    let hub = forwarder
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    hub.endpoint().set_alpns(vec![LINK.to_vec()]);
+    let via = hub.endpoint().id();
+    let adapters = [
+        Arc::new(MemberSignalingTransport::new(via, sender.admission_gate())),
+        Arc::new(MemberSignalingTransport::new(
+            via,
+            receiver.admission_gate(),
+        )),
+    ];
+    let sender_link = sender
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let receiver_link = receiver
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+
+    let mut relay_config = iroh_relay::server::ServerConfig::default();
+    relay_config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let relay = iroh_relay::server::Server::spawn(relay_config)
+        .await
+        .unwrap();
+    let relay_url = relay.http_url().unwrap();
+    config.replacement = Some(vec![Resource {
+        url: relay_url.to_string(),
+        uses: [ResourceUse::DataRelay].into(),
+        limitation: "receiver's owned relay remains healthy during member signaling".into(),
+    }]);
+    config.udp_direct_disabled = !receiver_udp;
+    receiver.save_resource_configuration(&config).unwrap();
+    let builder = |side: usize| {
+        Endpoint::builder(presets::Minimal)
+            .clear_ip_transports()
+            .bind_addr(std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+            .unwrap()
+            .add_custom_transport(adapters[side].clone())
+    };
+    let caller = sender
+        .bind_member_fusion_endpoint_with(builder(0), BUDGET)
+        .await
+        .unwrap();
+    let acceptor = receiver
+        .bind_member_fusion_endpoint_with(builder(1), BUDGET)
+        .await
+        .unwrap();
+    timeout(BUDGET, acceptor.online()).await.unwrap();
+    assert!(acceptor.addr().relay_urls().any(|url| url == &relay_url));
+    assert!(caller.addr().relay_urls().next().is_none());
+
+    let forward_service = MemberForwarder::new(forwarder.admission_gate());
+    let mut leases = Vec::new();
+    for (link, adapter) in [(&sender_link, &adapters[0]), (&receiver_link, &adapters[1])] {
+        let (outgoing, incoming) = timeout(BUDGET, async {
+            tokio::join!(link.endpoint().connect(hub.addr(), LINK), async {
+                hub.endpoint().accept().await.unwrap().await
+            })
+        })
+        .await
+        .unwrap();
+        let outgoing = outgoing.unwrap();
+        let incoming = incoming.unwrap();
+        let lease = Duration::from_secs(30);
+        let (device, hub) = tokio::join!(
+            adapter.attach(&outgoing, lease),
+            forward_service.accept_link(&incoming, lease),
+        );
+        leases.extend([device.unwrap(), hub.unwrap()]);
+    }
+    assert_eq!(forward_service.active_links(), 2);
+    let route = adapters[1].address().unwrap();
+    let target = EndpointAddr::new(acceptor.id());
+    let options = MemberDialOptions::default().with_restricted_contacts(vec![route]);
+    let start = Instant::now();
+    let deadline = start + BUDGET;
+    let cancel = CancellationToken::new();
+    let (outgoing, incoming) = tokio::join!(
+        caller.connect_with_routes_until(target, options, deadline, &cancel),
+        tokio::time::timeout_at(deadline, acceptor.accept()),
+    );
+    if receiver_udp {
+        let outgoing = outgoing.unwrap();
+        let incoming = incoming.unwrap().unwrap().unwrap();
+        assert_eq!(outgoing.remote_id(), acceptor.id());
+        assert_eq!(incoming.remote_id(), caller.id());
+        let attempt = member_fusion_attempt_id(&outgoing).unwrap();
+        assert_eq!(attempt, member_fusion_attempt_id(&incoming).unwrap());
+        timeout(BUDGET, async {
+            tokio::join!(
+                async {
+                    let mut stream = outgoing.open_bi().await.unwrap();
+                    let (send, recv) = stream.streams();
+                    send.write_all(b"member route request 148").await.unwrap();
+                    send.finish().unwrap();
+                    assert_eq!(
+                        recv.read_to_end(64).await.unwrap(),
+                        b"forwarded member reply 148"
+                    );
+                },
+                async {
+                    let mut stream = incoming.accept_bi().await.unwrap();
+                    let (send, recv) = stream.streams();
+                    assert_eq!(
+                        recv.read_to_end(64).await.unwrap(),
+                        b"member route request 148"
+                    );
+                    send.write_all(b"forwarded member reply 148").await.unwrap();
+                    send.finish().unwrap();
+                    send.stopped().await.unwrap();
+                }
+            );
+        })
+        .await
+        .unwrap();
+        for connection in [&outgoing, &incoming] {
+            let TransportAddr::Ip(expected) = connection.initial_data_path() else {
+                panic!("contact must qualify an actual UDP path");
+            };
+            assert!(connection.paths().iter().any(|path| {
+                path.is_selected()
+                    && path.remote_addr() == &TransportAddr::Ip(*expected)
+                    && path.stats().acknowledgment.is_some()
+                    && path.stats().udp_rx.bytes > 0
+            }));
+            eprintln!(
+                "MIO148 member contact attempt={attempt:02x?} stable_id={} path={expected}",
+                connection.stable_id()
+            );
+        }
+    } else {
+        let error = outgoing.unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::NotConnected, "{error}");
+        assert!(
+            error.to_string().contains("no permitted member data path"),
+            "{error}"
+        );
+        assert!(
+            incoming
+                .unwrap()
+                .unwrap()
+                .unwrap_err()
+                .to_string()
+                .contains("no permitted member data path")
+        );
+        assert!(Instant::now() < deadline);
+    }
+    assert!(acceptor.addr().relay_urls().any(|url| url == &relay_url));
+    for lease in &mut leases {
+        lease.close().await;
+    }
+    caller.close().await;
+    acceptor.close().await;
+    sender_link.close().await;
+    receiver_link.close().await;
+    hub.close().await;
+    sender.close().await;
+    receiver.close().await;
+    forwarder.close().await;
+    relay.shutdown().await.unwrap();
+}

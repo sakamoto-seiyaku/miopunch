@@ -16,12 +16,16 @@ use crate::{RelayUrl, address_lookup::AddressLookupServices};
 
 use super::{
     super::ConnectWithOptsError, ConnectError, ConnectOptions, ConnectingError, ConnectionError,
-    EndpointAddr, MEMBER_ADMISSION_DENIED, RestrictedEndpoint, TransportAddr,
+    EndpointAddr, MEMBER_ADMISSION_DENIED, MEMBER_DATA_UNAVAILABLE, RestrictedEndpoint,
+    TransportAddr,
 };
 
 type RouteFinished = Box<dyn FnOnce(Result<usize, io::ErrorKind>) + Send>;
 type RouteStarted =
     dyn Fn(&TransportAddr, Instant) -> ((usize, usize), RouteFinished) + Send + Sync;
+type ContactFinished = Box<dyn FnOnce(&io::Result<()>) + Send>;
+type ContactBudget =
+    dyn Fn(crate::EndpointId, Instant) -> io::Result<ContactFinished> + Send + Sync;
 
 /// Current contact inputs for a native member dial, evaluated by the owner.
 #[derive(Default)]
@@ -31,6 +35,8 @@ pub struct MemberDialOptions {
     relay_fallbacks: Vec<RelayUrl>,
     discover_ip: bool,
     route_started: Option<Box<RouteStarted>>,
+    restricted: Vec<iroh_base::CustomAddr>,
+    contact_budget: Option<Box<ContactBudget>>,
 }
 
 impl MemberDialOptions {
@@ -45,9 +51,27 @@ impl MemberDialOptions {
             active,
             recent,
             relay_fallbacks,
-            discover_ip: false,
-            route_started: None,
+            ..Self::default()
         }
+    }
+
+    /// Current restricted contact candidates, in application preference order.
+    pub fn with_restricted_contacts(mut self, contacts: Vec<iroh_base::CustomAddr>) -> Self {
+        self.restricted = contacts;
+        self
+    }
+
+    /// Acquire an application contact allowance once, when the shared dial
+    /// actually starts restricted contact. Cancellation drops the allowance.
+    pub fn with_contact_budget<F, C>(mut self, acquire: F) -> Self
+    where
+        F: Fn(crate::EndpointId, Instant) -> io::Result<C> + Send + Sync + 'static,
+        C: FnOnce(&io::Result<()>) + Send + 'static,
+    {
+        self.contact_budget = Some(Box::new(move |peer, deadline| {
+            acquire(peer, deadline).map(|finished| Box::new(finished) as ContactFinished)
+        }));
+        self
     }
 
     /// Look up additional IP contacts after the initial routes when direct
@@ -148,13 +172,27 @@ impl Dial<'_> {
                 relays.push(relay);
             }
         }
+        let mut seen = BTreeSet::new();
+        let mut restricted = options
+            .restricted
+            .into_iter()
+            .filter(|route| {
+                target.addrs.remove(&TransportAddr::Custom(route.clone()));
+                seen.insert(route.clone())
+                    && self.endpoint.inner.inner.permits_custom_bootstrap(route)
+            })
+            .map(TransportAddr::Custom)
+            .collect::<Vec<_>>();
+        let contact_first = !restricted.is_empty() && relays.is_empty();
+        let contact_later = !restricted.is_empty() && !contact_first;
+        let contact_budget = options.contact_budget.as_deref();
         let cold = target.addrs.into_iter().collect::<Vec<_>>();
         let reporter = options.route_started.as_deref();
         let mut first = None;
-        let has_race = recent_ip.is_some() || !relays.is_empty();
+        let has_race = recent_ip.is_some() || !relays.is_empty() || contact_first;
         let has_cold = !cold.is_empty() || lookup.is_some();
         if !active.is_empty() {
-            let stages = 1 + u32::from(has_race) + u32::from(has_cold);
+            let stages = 1 + u32::from(has_race) + u32::from(contact_later) + u32::from(has_cold);
             let end = split_deadline(self.deadline, stages);
             match self.ordered(target.id, active, end, reporter).await {
                 Err(error) if !stops_dial(&error) => first = Some(error),
@@ -162,13 +200,39 @@ impl Dial<'_> {
             }
         }
         if has_race {
-            let end = split_deadline(self.deadline, 1 + u32::from(has_cold));
-            let relay_work = self.relays(target.id, relays, end, reporter);
+            let end = split_deadline(
+                self.deadline,
+                1 + u32::from(contact_later) + u32::from(has_cold),
+            );
+            let alternative = async {
+                if contact_first {
+                    self.contact(
+                        target.id,
+                        std::mem::take(&mut restricted),
+                        end,
+                        reporter,
+                        contact_budget,
+                    )
+                    .await
+                } else {
+                    self.relays(target.id, relays, end, reporter).await
+                }
+            };
             let result = match recent_ip {
-                Some(route) => race(self.route(target.id, route, end, reporter), relay_work).await,
-                None => relay_work.await,
+                Some(route) => race(self.route(target.id, route, end, reporter), alternative).await,
+                None => alternative.await,
             };
             match result {
+                Err(error) if !stops_dial(&error) => first = Some(prefer_error(first, error)),
+                result => return result,
+            }
+        }
+        if contact_later {
+            let end = split_deadline(self.deadline, 1 + u32::from(has_cold));
+            match self
+                .contact(target.id, restricted, end, reporter, contact_budget)
+                .await
+            {
                 Err(error) if !stops_dial(&error) => first = Some(prefer_error(first, error)),
                 result => return result,
             }
@@ -186,6 +250,24 @@ impl Dial<'_> {
                 .await;
         }
         Err(first.unwrap_or_else(|| io::ErrorKind::NotConnected.into()))
+    }
+
+    async fn contact(
+        &self,
+        id: crate::EndpointId,
+        routes: Vec<TransportAddr>,
+        end: Instant,
+        reporter: Option<&RouteStarted>,
+        budget: Option<&ContactBudget>,
+    ) -> io::Result<()> {
+        let finish = budget
+            .map(|acquire| acquire(id, self.deadline))
+            .transpose()?;
+        let result = self.ordered(id, routes, end, reporter).await;
+        if let Some(finish) = finish {
+            finish(&result);
+        }
+        result
     }
 
     async fn discover(
@@ -393,6 +475,14 @@ fn dial_error(error: ConnectError) -> io::Error {
                 },
             ..
         } if closed.reason.as_ref() == MEMBER_ADMISSION_DENIED => io::ErrorKind::PermissionDenied,
+        ConnectError::Connecting {
+            source:
+                ConnectingError::ConnectionError {
+                    source: ConnectionError::ApplicationClosed(closed),
+                    ..
+                },
+            ..
+        } if closed.reason.as_ref() == MEMBER_DATA_UNAVAILABLE => io::ErrorKind::NotConnected,
         ConnectError::Connecting {
             source:
                 ConnectingError::ConnectionError {

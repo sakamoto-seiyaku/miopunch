@@ -356,7 +356,7 @@ impl Observer {
         let task = tokio::spawn(async move {
             while let Some(line) = lines.next_line().await.unwrap_or(None) {
                 assert!(line.len() + 2 <= 512);
-                if line.contains(" PRIVMSG ") && line.contains(" :MIR1 ") {
+                if line.contains(" PRIVMSG ") && line.contains(" :MIR2 ") {
                     c.fetch_add(1, Ordering::Relaxed);
                     let mut packets = p.lock().unwrap();
                     if packets.len() < 128 {

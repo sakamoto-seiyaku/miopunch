@@ -530,6 +530,20 @@ impl ResourceConfig {
             && crate::tcp_transport::TcpTransport::socket_addr(address)
                 .is_ok_and(|addr| !self.disabled_tcp_addresses.contains(&addr))
     }
+
+    pub(crate) fn allows_member_contact_carrier(&self, address: &iroh_base::CustomAddr) -> bool {
+        !self.disabled_uses.contains(&ResourceUse::Signaling)
+            && Self::is_restricted_contact_carrier(address.id())
+    }
+
+    pub(crate) fn is_restricted_contact_carrier(id: u64) -> bool {
+        matches!(
+            id,
+            crate::member_transport::TRANSPORT_ID
+                | crate::mqtt_datagram::TRANSPORT_ID
+                | crate::irc_datagram::TRANSPORT_ID
+        )
+    }
 }
 
 /// Resource identity is the service origin, not an input URL's spelling or
@@ -596,6 +610,44 @@ pub(crate) struct ContactAttempt {
     class: ContactClass,
 }
 impl ContactAttempt {
+    fn begin(
+        states: &ContactStates,
+        id: iroh::EndpointId,
+        class: ContactClass,
+        deadline: n0_future::time::Instant,
+    ) -> Result<Self, ResourceContactError> {
+        let timeout = deadline.saturating_duration_since(n0_future::time::Instant::now());
+        if timeout.is_zero() {
+            return Err(ResourceContactError::TemporarilyUnreachable {
+                retry_after: timeout,
+                cause: Some("contact caller deadline expired".into()),
+            });
+        }
+        let mut backoff = states.lock().expect("contact budget");
+        let state = backoff.entry((id, class)).or_default();
+        if state.in_flight {
+            return Err(ResourceContactError::TemporarilyUnreachable {
+                retry_after: timeout,
+                cause: Some("contact attempt already in flight for this identity".into()),
+            });
+        }
+        if let Some(retry_after) = state
+            .retry_at
+            .and_then(|at| at.checked_duration_since(Instant::now()))
+        {
+            return Err(ResourceContactError::TemporarilyUnreachable {
+                retry_after,
+                cause: state.cause.clone(),
+            });
+        }
+        state.in_flight = true;
+        Ok(Self {
+            states: states.clone(),
+            id,
+            class,
+        })
+    }
+
     pub(crate) fn succeeded(&self) {
         let mut states = self.states.lock().expect("contact budget");
         for class in [ContactClass::Foreground, ContactClass::Background] {
@@ -1161,16 +1213,34 @@ impl ResourceEndpoint {
         &self,
         mut target: iroh::EndpointAddr,
         deadline: tokio::time::Instant,
-    ) -> std::io::Result<Option<iroh::endpoint::MemberConnection>> {
+    ) -> std::io::Result<iroh::endpoint::MemberConnection> {
         let (owner, _) = self.member_fusion.as_ref().expect("native client member owner");
         if let Some(connection) = owner.reuse_until(target.id, deadline).await? {
             let _ = tokio::time::timeout_at(deadline, owner.learn_ip_candidates(target)).await;
-            return Ok(Some(connection));
+            return Ok(connection);
         }
         let recent = self.merge_contact_hints(&mut target).await?;
-        let signaling = self.signaling_contact_ids();
-        let has_contact = target.addrs.iter().any(|addr| matches!(addr,
-            iroh::TransportAddr::Custom(address) if signaling.contains(&address.id())));
+        let local_contacts = self.endpoint.custom_addrs();
+        let mut restricted: Vec<_> = target
+            .addrs
+            .iter()
+            .filter_map(|route| match route {
+                iroh::TransportAddr::Custom(address)
+                    if self.config.allows_member_contact_carrier(address)
+                        && local_contacts
+                            .iter()
+                            .any(|local| local.id() == address.id()) =>
+                {
+                    Some(address.clone())
+                }
+                _ => None,
+            })
+            .collect();
+        restricted.sort_by_key(|address| match address.id() {
+            crate::member_transport::TRANSPORT_ID => 0,
+            crate::mqtt_datagram::TRANSPORT_ID => 1,
+            _ => 2,
+        });
         target.addrs.retain(|addr| self.allows_data_path(addr));
         let mut active = Vec::new();
         if !self.config.udp_direct_disabled
@@ -1193,14 +1263,19 @@ impl ResourceEndpoint {
                 .iter()
                 .any(|status| status.is_connected() && status.url() == url)
         });
-        if target.addrs.is_empty() && fallbacks.is_empty() && has_contact {
-            // Retain the deployed signaling-to-data entry until that path
-            // can qualify a shared member connection itself.
-            return owner.reuse_until(target.id, deadline).await;
-        }
         use crate::connection_coordinator::{AttemptRole, connection_diagnostic::AttemptLog};
         let log = AttemptLog::new(AttemptRole::Initiator, "member_fusion").with_round(1);
+        let backoff = self.backoff.clone();
         let routes = iroh::endpoint::MemberDialOptions::new(active, recent, fallbacks)
+            .with_restricted_contacts(restricted)
+            .with_contact_budget(move |peer, deadline| {
+                let attempt = ContactAttempt::begin(&backoff, peer, ContactClass::Foreground, deadline)
+                    .map_err(|error| std::io::Error::new(std::io::ErrorKind::WouldBlock, error))?;
+                Ok(move |result: &std::io::Result<()>| match result {
+                    Ok(()) => attempt.succeeded(),
+                    Err(error) => { attempt.failed(error.to_string()); }
+                })
+            })
             .with_route_diagnostics(move |route, deadline| {
                 let hint = match route {
                     iroh::TransportAddr::Ip(address) => serde_json::json!({"kind":"ip","address":address}),
@@ -1252,7 +1327,7 @@ impl ResourceEndpoint {
         if let Some(contacts) = &self.member_contacts {
             contacts.observe_member(&connection).await?;
         }
-        Ok(Some(connection))
+        Ok(connection)
     }
 
     async fn merge_contact_hints(
@@ -1519,36 +1594,7 @@ impl ResourceEndpoint {
         class: ContactClass,
         deadline: n0_future::time::Instant,
     ) -> Result<ContactAttempt, ResourceContactError> {
-        let timeout = deadline.saturating_duration_since(n0_future::time::Instant::now());
-        if timeout.is_zero() {
-            return Err(ResourceContactError::TemporarilyUnreachable {
-                retry_after: timeout,
-                cause: Some("contact caller deadline expired".into()),
-            });
-        }
-        let mut states = self.backoff.lock().expect("contact budget");
-        let state = states.entry((id, class)).or_default();
-        if state.in_flight {
-            return Err(ResourceContactError::TemporarilyUnreachable {
-                retry_after: timeout,
-                cause: Some("contact attempt already in flight for this identity".into()),
-            });
-        }
-        if let Some(retry_after) = state
-            .retry_at
-            .and_then(|at| at.checked_duration_since(Instant::now()))
-        {
-            return Err(ResourceContactError::TemporarilyUnreachable {
-                retry_after,
-                cause: state.cause.clone(),
-            });
-        }
-        state.in_flight = true;
-        Ok(ContactAttempt {
-            states: self.backoff.clone(),
-            id,
-            class,
-        })
+        ContactAttempt::begin(&self.backoff, id, class, deadline)
     }
 
     /// Whole-operation ceiling owned by this existing resource budget.

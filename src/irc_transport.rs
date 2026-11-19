@@ -425,7 +425,12 @@ async fn drive(
         }=>result?,
     }
     let (read, write) = tokio::io::split(stream);
-    let mut lines = FramedRead::new(BufReader::new(read), LinesCodec::new_with_max_length(510));
+    // LinesCodec counts the CR before finding the LF. The parser checks the
+    // full wire limit again after the codec removes both terminators.
+    let mut lines = FramedRead::new(
+        BufReader::new(read),
+        LinesCodec::new_with_max_length(wire::IRC_LINE_LIMIT - 1),
+    );
     let (control, commands) = tokio::sync::mpsc::channel(8);
     let reader = read_loop(&mut lines, &nick, binding, control, incoming);
     let writer = write_loop(write, binding, queue, commands, stop);

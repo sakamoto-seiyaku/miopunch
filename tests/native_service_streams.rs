@@ -809,17 +809,118 @@ async fn ordinary_service_close_and_revocation_are_scoped_until_membership_ends(
 }
 
 #[tokio::test]
-async fn only_configured_mqtt_contact_still_reaches_the_old_admitted_data_entry() {
+async fn only_configured_mqtt_contact_qualifies_the_first_native_member_path() {
     let broker = relay_contact_broker::Broker::new().await;
+    let (_root, provider, consumer, contact) = restricted_service_pair(
+        format!("mqtt://{}/", broker.address),
+        miopunch_native_probe::mqtt_transport::TRANSPORT_ID,
+        true,
+    )
+    .await;
+    verify_first_forward_reply(&provider, &consumer, contact).await;
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
+    broker.close().await;
+}
+
+#[tokio::test]
+async fn mqtt_member_rejection_ends_the_restricted_first_dial() {
+    let broker = relay_contact_broker::Broker::new().await;
+    let (_root, provider, consumer, contact) = restricted_service_pair(
+        format!("mqtt://{}/", broker.address),
+        miopunch_native_probe::mqtt_transport::TRANSPORT_ID,
+        true,
+    )
+    .await;
+    let proposal = provider
+        .propose_device_operation(
+            DeviceAction::RemoveMember,
+            consumer.status().await.node.node_id,
+        )
+        .await
+        .unwrap();
+    let operation: DeviceOperation = serde_json::from_value(proposal["operation"].clone()).unwrap();
+    assert_eq!(
+        provider
+            .execute_device_operation(operation.id)
+            .await
+            .unwrap()["effective_locally"],
+        true
+    );
+    assert!(!consumer.status().await.membership_ended);
+    verify_no_forward_release(
+        &provider,
+        &consumer,
+        contact,
+        std::io::ErrorKind::PermissionDenied,
+    )
+    .await;
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
+    broker.close().await;
+}
+
+#[tokio::test]
+#[ignore = "requires the owned real IRCd supplied by MIOPUNCH_IRC_SERVER"]
+async fn only_configured_irc_contact_qualifies_the_first_native_member_path() {
+    let (_root, provider, consumer, contact) = restricted_service_pair(
+        owned_irc_url(),
+        miopunch_native_probe::irc_transport::TRANSPORT_ID,
+        true,
+    )
+    .await;
+    verify_first_forward_reply(&provider, &consumer, contact).await;
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires the owned real IRCd supplied by MIOPUNCH_IRC_SERVER"]
+async fn only_configured_irc_contact_cannot_release_business_without_udp() {
+    let (_root, provider, consumer, contact) = restricted_service_pair(
+        owned_irc_url(),
+        miopunch_native_probe::irc_transport::TRANSPORT_ID,
+        false,
+    )
+    .await;
+    verify_no_forward_release(
+        &provider,
+        &consumer,
+        contact,
+        std::io::ErrorKind::NotConnected,
+    )
+    .await;
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
+}
+
+fn owned_irc_url() -> String {
+    format!(
+        "irc://{}/",
+        std::env::var("MIOPUNCH_IRC_SERVER").expect("owned real IRCd required")
+    )
+}
+
+async fn restricted_service_pair(
+    url: String,
+    carrier: u64,
+    receiver_udp: bool,
+) -> (
+    tempfile::TempDir,
+    NativeClient,
+    NativeClient,
+    iroh::EndpointAddr,
+) {
     let mut resources = ResourceConfig::with_defaults(ResourceTable {
         revision: 1,
         resources: vec![Resource {
-            url: format!("mqtt://{}/", broker.address),
+            url,
             uses: [ResourceUse::Signaling].into(),
-            limitation: "owned MQTT contact; payload requires a qualified UDP path".into(),
+            limitation: "owned restricted contact; payload requires a qualified UDP path".into(),
         }],
     });
     resources.tcp_direct_disabled = true;
+    resources.member_data_relay_disabled = true;
     let Pair {
         root,
         provider,
@@ -828,22 +929,33 @@ async fn only_configured_mqtt_contact_still_reaches_the_old_admitted_data_entry(
     } = Pair::admit_with_resources(resources).await;
     consumer.close().await.unwrap();
     provider.close().await.unwrap();
-    let provider = NativeClient::open(root.path().join("provider"), Ipv4Addr::LOCALHOST)
-        .await
-        .unwrap();
+    let provider = reopen_with_resources(&root.path().join("provider"), |resources| {
+        resources.udp_direct_disabled = !receiver_udp;
+    })
+    .await;
     let consumer = NativeClient::open(root.path().join("consumer"), Ipv4Addr::LOCALHOST)
         .await
         .unwrap();
     let mut contact = provider.invitation().await.unwrap().address().clone();
     contact.addrs.retain(|addr| {
         matches!(addr, iroh::TransportAddr::Custom(address)
-        if address.id() == miopunch_native_probe::mqtt_transport::TRANSPORT_ID)
+        if address.id() == carrier)
     });
     assert_eq!(
         contact.addrs.len(),
         1,
-        "only approved MQTT contact is supplied"
+        "only the approved restricted contact is supplied"
     );
+    assert!(consumer.address().relay_urls().next().is_none());
+    assert!(provider.address().relay_urls().next().is_none());
+    (root, provider, consumer, contact)
+}
+
+async fn verify_first_forward_reply(
+    provider: &NativeClient,
+    consumer: &NativeClient,
+    contact: iroh::EndpointAddr,
+) {
     let target = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let target_address = target.local_addr().unwrap();
     provider
@@ -864,25 +976,85 @@ async fn only_configured_mqtt_contact_still_reaches_the_old_admitted_data_entry(
                 let mut request = [0; 20];
                 socket.read_exact(&mut request).await.unwrap();
                 assert_eq!(&request, b"contact-only request");
-                let status = flow(&consumer, Protocol::Tcp);
-                assert!(status["transport"]["stream"].is_null());
-                assert!(
-                    status["transport"]["paths"]
-                        .as_array()
-                        .unwrap()
-                        .iter()
-                        .any(|path| path["selected"] == true && path["remote"].get("Ip").is_some())
-                );
+                for (side, endpoint, peer) in [
+                    ("consumer", consumer, provider),
+                    ("provider", provider, consumer),
+                ] {
+                    let status = flow(endpoint, Protocol::Tcp);
+                    let transport = &status["transport"];
+                    assert_eq!(
+                        transport["peer"],
+                        peer.address().id.to_string(),
+                        "{side}: {status}"
+                    );
+                    assert!(transport["stream"].is_string(), "{side}: {status}");
+                    assert!(
+                        transport["initial_data_path"]["Ip"].is_string(),
+                        "{side}: {status}"
+                    );
+                    assert!(
+                        transport["paths"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .any(|path| path["selected"] == true
+                                && path["remote"] == transport["initial_data_path"]),
+                        "{side}: {status}"
+                    );
+                    eprintln!("MIO148 {side} {transport}");
+                }
                 socket.write_all(b"qualified data reply").await.unwrap();
             },
         )
     })
     .await
-    .expect("the existing MQTT to data entry remains usable");
+    .expect("restricted contact qualifies and releases the first native member data path");
     assert_eq!(reply.unwrap(), b"qualified data reply");
-    consumer.close().await.unwrap();
-    provider.close().await.unwrap();
-    broker.close().await;
+}
+
+async fn verify_no_forward_release(
+    provider: &NativeClient,
+    consumer: &NativeClient,
+    contact: iroh::EndpointAddr,
+    kind: std::io::ErrorKind,
+) {
+    let target = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let address = target.local_addr().unwrap();
+    provider
+        .enable_forwarding(Protocol::Tcp, vec![address])
+        .await
+        .unwrap();
+    let started = Instant::now();
+    let error = timeout(
+        Duration::from_secs(20),
+        consumer.forward_exchange(
+            contact,
+            Protocol::Tcp,
+            address,
+            b"must not reach the target",
+            1,
+        ),
+    )
+    .await
+    .expect("the restricted first dial settles within its original budget")
+    .unwrap_err();
+    assert_eq!(
+        error.downcast_ref::<std::io::Error>().unwrap().kind(),
+        kind,
+        "{error}"
+    );
+    if kind == std::io::ErrorKind::NotConnected {
+        assert!(
+            error.to_string().contains("no permitted member data path"),
+            "{error}"
+        );
+    }
+    assert!(
+        timeout(Duration::from_millis(150), target.accept())
+            .await
+            .is_err()
+    );
+    eprintln!("MIO148 data stayed closed {:?}: {error}", started.elapsed());
 }
 
 #[tokio::test]

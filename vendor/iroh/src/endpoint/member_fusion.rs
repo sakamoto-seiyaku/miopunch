@@ -6,6 +6,7 @@ use std::{
     sync::{Arc, Mutex, Weak},
 };
 
+use futures_util::StreamExt;
 use tokio::{
     sync::{mpsc, watch},
     time::{self, Duration, Instant},
@@ -15,8 +16,9 @@ use tokio_util::sync::CancellationToken;
 use super::{
     BindError, Builder, ConnectError, ConnectOptions, ConnectingError, Connection, ConnectionError,
     ControlConfirmation, ControlConnection, ControlExchange, ControlMessageFormat, DataPathPermit,
-    EndpointAddr, EndpointId, ExportKeyingMaterialError, PathList, RecvStream, RelayResourceUse,
-    RestrictedBuilder, RestrictedEndpoint, SendStream, Side, TransportAddr, WeakControlConnection,
+    EndpointAddr, EndpointId, ExportKeyingMaterialError, PathId, PathList, RecvStream,
+    RelayResourceUse, RestrictedBuilder, RestrictedEndpoint, SendStream, Side, TransportAddr,
+    WeakControlConnection,
     restricted::{AdmissionOutcome, BoxFuture, DynEndpointAdmission},
 };
 
@@ -45,6 +47,12 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
     /// Custom data carriers the application registered for current members.
     fn custom_data_transports(&self) -> Vec<u64> {
         Vec::new()
+    }
+
+    /// Allow an installed custom carrier to establish only the protected
+    /// member bootstrap. Business still needs an eligible native UDP path.
+    fn permits_restricted_contact(&self, _address: &iroh_base::CustomAddr) -> bool {
+        false
     }
 
     /// Register the selected connection with the application's revocation policy.
@@ -99,6 +107,17 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
             if let Some(allowed) = &self.custom_data_limit {
                 custom.retain(|id| allowed.contains(id));
             }
+            if connection.paths().iter().any(|path| {
+                path.id() == PathId::ZERO
+                    && matches!(path.remote_addr(), TransportAddr::Custom(address)
+                        if self.inner.permits_restricted_contact(address))
+            }) {
+                let permit = self.qualify_restricted_contact(connection, custom).await?;
+                return Ok(AdmissionOutcome::AcceptWithConfirmation {
+                    permit,
+                    confirmation,
+                });
+            }
             let path = connection
                 .paths()
                 .iter()
@@ -151,6 +170,48 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
 
     fn fusion_event(&self, connection: &ControlConnection, event: MemberFusionEvent) {
         self.inner.selection_event(connection, event);
+    }
+}
+
+const MEMBER_DATA_UNAVAILABLE: &[u8] = b"no permitted member data path";
+
+impl<A: MemberFusionAdmission> Admission<A> {
+    async fn qualify_restricted_contact(
+        &self,
+        connection: &ControlConnection,
+        custom: Vec<u64>,
+    ) -> io::Result<DataPathPermit> {
+        let unavailable =
+            || io::Error::new(io::ErrorKind::NotConnected, "no permitted member data path");
+        if connection.endpoint.bound_sockets().is_empty() {
+            connection.close(0u32.into(), MEMBER_DATA_UNAVAILABLE);
+            return Err(unavailable());
+        }
+        let paths = connection.paths_stream();
+        connection.prepare_member_udp().await?;
+        let qualify = async {
+            tokio::pin!(paths);
+            while let Some(paths) = paths.next().await {
+                if let Some(path) = paths
+                    .iter()
+                    .find(|path| path.is_ip() && self.inner.permits_data_path(path.remote_addr()))
+                {
+                    return connection.qualify_data_path(path.id(), custom).await;
+                }
+            }
+            Err(unavailable())
+        };
+        tokio::select! { biased;
+            error = connection.closed() => match error {
+                ConnectionError::ApplicationClosed(closed)
+                    if closed.reason.as_ref() == MEMBER_ADMISSION_DENIED =>
+                    Err(io::ErrorKind::PermissionDenied.into()),
+                ConnectionError::ApplicationClosed(closed)
+                    if closed.reason.as_ref() == MEMBER_DATA_UNAVAILABLE => Err(unavailable()),
+                error => Err(io::Error::new(io::ErrorKind::ConnectionAborted, error)),
+            },
+            result = qualify => result,
+        }
     }
 }
 

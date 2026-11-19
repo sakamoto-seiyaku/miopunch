@@ -62,7 +62,7 @@ impl NativeNetwork {
             .member_fusion(
                 FUSED_MEMBER_ALPN,
                 Authorization {
-                    gate: self.gate.clone(),
+                    gate: self.gate.with_message_bootstrap(),
                     resources,
                     allow_custom: false,
                 },
@@ -84,7 +84,7 @@ impl NativeNetwork {
             .bind_with_member_fusion(
                 FUSED_MEMBER_ALPN,
                 Authorization {
-                    gate: self.gate.clone(),
+                    gate: self.gate.with_message_bootstrap(),
                     resources: resources.clone(),
                     allow_custom: true,
                 },
@@ -193,10 +193,18 @@ impl MemberFusionAdmission for Authorization {
 
     fn custom_data_transports(&self) -> Vec<u64> {
         if self.allow_custom {
-            self.gate.allowed_data_carriers()
+            self.gate
+                .allowed_data_carriers()
+                .into_iter()
+                .filter(|id| !ResourceConfig::is_restricted_contact_carrier(*id))
+                .collect()
         } else {
             Vec::new()
         }
+    }
+
+    fn permits_restricted_contact(&self, address: &iroh_base::CustomAddr) -> bool {
+        self.resources.allows_member_contact_carrier(address)
     }
 
     fn selection_event(&self, connection: &ControlConnection, event: MemberFusionEvent) {

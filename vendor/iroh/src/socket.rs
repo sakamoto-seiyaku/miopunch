@@ -2082,6 +2082,33 @@ impl EndpointInner {
             .map_err(|_| std::io::Error::other("remote state stopped"))?
             .map_err(std::io::Error::other)
     }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) async fn prepare_member_udp(
+        &self,
+        connection: &crate::endpoint::Connection,
+        policy: remote_map::MemberPathPolicy,
+    ) -> std::io::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.sock
+            .try_send_remote_state_msg(
+                connection.remote_id(),
+                RemoteStateMessage::PrepareMemberUdp {
+                    conn_id: connection.stable_id(),
+                    policy,
+                    tx,
+                },
+            )
+            .map_err(|_| io::Error::other("remote state unavailable"))?;
+        rx.await
+            .map_err(|_| io::Error::other("remote state stopped"))?
+            .map_err(io::Error::other)
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn permits_custom_bootstrap(&self, address: &iroh_base::CustomAddr) -> bool {
+        self.sock.mapped_addrs.permits_custom_bootstrap(address)
+    }
     /// Creates a [`EndpointInner`].
     pub(crate) async fn bind(opts: Options) -> Result<Self, BindError> {
         // Use the current span as the main span for all tasks spawned in this endpoint.

@@ -104,8 +104,7 @@ impl ResourceEndpoint {
                 return Ok(ServiceContact::Legacy(self.connect(target, alpn).await?));
             }
             match self.connect_member(target.clone(), deadline).await {
-                Ok(Some(connection)) => Ok(ServiceContact::Member(connection)),
-                Ok(None) => Ok(ServiceContact::Legacy(self.connect(target, alpn).await?)),
+                Ok(connection) => Ok(ServiceContact::Member(connection)),
                 // Browser nodes still advertise the dedicated application ALPNs.
                 Err(error)
                     if error.kind() == io::ErrorKind::Unsupported
