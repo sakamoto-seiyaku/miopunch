@@ -1,109 +1,19 @@
 //! Complete legacy UDP phase semantics on the original Endpoint's physical sockets.
 use crate::{
-    connection_coordinator::connection_diagnostic::AttemptLog,
-    nat_mapping::NodeProbeBudget,
-    nat_selector::{Behavior, Role},
+    connection_coordinator::connection_diagnostic::AttemptLog, nat_mapping::NodeProbeBudget,
+    nat_selector::Role,
 };
 use futures_util::{StreamExt, stream::FuturesUnordered};
 use iroh::endpoint::{LocalSocketId, UdpTraversalLease, UdpTraversalSender};
 use std::{
     collections::{HashMap, HashSet},
     io,
-    net::{IpAddr, SocketAddr},
+    net::SocketAddr,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
-/// A radius is converted using the last sample; it is never a next-port guess.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PhasePlan {
-    pub behavior: Behavior,
-    pub explicit: Vec<SocketAddr>,
-    pub candidates: Vec<SocketAddr>,
-    pub range: Option<(u16, u16)>,
-    pub total_budget_ms: u32,
-    pub read_budget_ms: u32,
-}
-impl PhasePlan {
-    pub fn new(
-        behavior: Behavior,
-        peer_delay_ms: u32,
-        mapped: &[SocketAddr],
-        assisted: &[SocketAddr],
-        difference: u16,
-    ) -> Self {
-        let range = mapped
-            .last()
-            .filter(|_| behavior.ports_range > 0)
-            .map(|last| {
-                let p = i32::from(last.port());
-                let d = i32::from(difference);
-                let r = i32::from(behavior.ports_range);
-                (
-                    (p - d - 5).max(p - r).max(1) as u16,
-                    (p + d + 5).min(p + r).min(65535) as u16,
-                )
-            });
-        let mut candidates = mapped.to_vec();
-        candidates.dedup();
-        let mut explicit = match behavior.role {
-            Role::Sender => assisted.iter().chain(mapped).copied().collect::<Vec<_>>(),
-            Role::Receiver if range.is_none() => mapped.to_vec(),
-            Role::Receiver => Vec::new(),
-        };
-        explicit.dedup();
-        let random_phase = behavior.ports_random > 0 || behavior.listen_random > 0;
-        // The old selector extends both partners' read timeout by 30s for
-        // random sending/listening, on top of max delay + 5s.
-        let total_budget_ms =
-            behavior.send_delay_ms.max(peer_delay_ms) + 5000 + if random_phase { 30000 } else { 0 };
-        Self {
-            behavior,
-            explicit,
-            candidates,
-            range,
-            total_budget_ms,
-            read_budget_ms: total_budget_ms - behavior.send_delay_ms,
-        }
-    }
-    /// IP order and adjacent-only compaction retain legacy parseIPs semantics.
-    pub fn range_targets(&self) -> Vec<SocketAddr> {
-        let Some((from, to)) = self.range else {
-            return Vec::new();
-        };
-        let mut ips = self
-            .candidates
-            .iter()
-            .map(SocketAddr::ip)
-            .collect::<Vec<IpAddr>>();
-        ips.dedup();
-        ips.into_iter()
-            .flat_map(|ip| (from..=to).map(move |port| SocketAddr::new(ip, port)))
-            .collect()
-    }
-
-    /// A conservative allowance for the complete phase, without shrinking any
-    /// candidate, listener, repeat or random iteration. Wall time may stop it first.
-    pub fn peer_datagram_bound(&self, physical_sockets: usize) -> usize {
-        let repeats = 1 + (self.total_budget_ms as usize).div_ceil(200);
-        let mut ips = self
-            .candidates
-            .iter()
-            .map(SocketAddr::ip)
-            .collect::<Vec<_>>();
-        ips.dedup();
-        physical_sockets
-            * (self.explicit.len() * repeats
-                + self.range_targets().len()
-                + usize::from(self.behavior.ports_random) * ips.len()
-                + 3)
-    }
-}
-
-/// Maximum wire candidates/assistance are 64 each. This deliberately covers
-/// the full 38s, 257 physical bindings and all literal legacy parameters.
-/// It is an allowance, never a promise to transmit this many datagrams.
-pub const DEFAULT_LEGACY_PEER_ALLOWANCE: usize = 257 * (128 * 191 + 64 * 21 + 1000 * 64 + 3);
+pub use iroh::endpoint::nat_plan::{DEFAULT_LEGACY_PEER_ALLOWANCE, PhasePlan};
 
 /// Raw traversal success remains provisional until original QUIC business succeeds.
 #[derive(Debug, Clone, PartialEq, Eq)]

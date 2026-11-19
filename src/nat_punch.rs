@@ -5,15 +5,15 @@
 //! separate adapter; a single prime never claims to implement a complete mode.
 
 use std::{
-    collections::HashSet,
     io,
-    net::{IpAddr, SocketAddr},
+    net::SocketAddr,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
 use iroh::endpoint::{
-    ObservationValidity, UdpMappingSequence, UdpObservation, UdpObservationFailure,
+    ObservationValidity, UdpMappingSequence, UdpObservation,
+    nat_plan::{SnapshotWire, make_plan, validate_plan},
 };
 use serde::{Deserialize, Serialize};
 
@@ -21,52 +21,13 @@ use crate::{
     admission_gate::AdmissionGate,
     control_session::{CommitError, ControlSession, DataPathOpen, DataSession},
     nat_mapping::{NodeProbeBudget, NodeRoundBudget, RoundPermit},
-    nat_selector::{
-        Analyzer, Behavior, BehaviorId, BehaviorScore, FeatureView, LearningScope, Recommendation,
-        behaviors, initial_scores,
-    },
+    nat_selector::{Analyzer, Behavior, LearningScope, Recommendation},
 };
 
 const FRAME_LIMIT: usize = 16 * 1024;
 const EXCHANGE_WAIT: Duration = Duration::from_secs(5);
-/// Supports the longest old 38-second plan, while bounding retained evidence.
-pub const SNAPSHOT_LIFETIME: Duration = Duration::from_secs(60);
-pub(crate) const MAX_OBSERVATIONS: usize = 64;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct SnapshotWire {
-    mapped: Vec<SocketAddr>,
-    local_ips: Vec<IpAddr>,
-    assisted: Vec<SocketAddr>,
-}
-
-impl SnapshotWire {
-    fn validate(&self) -> io::Result<()> {
-        if self.mapped.len() > MAX_OBSERVATIONS
-            || self.local_ips.len() > MAX_OBSERVATIONS
-            || self.assisted.len() > MAX_OBSERVATIONS
-            || self
-                .mapped
-                .iter()
-                .chain(&self.assisted)
-                .any(|a| !a.is_ipv4() || a.port() == 0 || a.ip().is_unspecified())
-        {
-            return Err(invalid("invalid or oversized mapping snapshot"));
-        }
-        Ok(())
-    }
-
-    fn view(&self) -> Option<FeatureView> {
-        FeatureView::new(self.mapped.clone(), &self.local_ips)
-    }
-    fn target(&self) -> Option<SocketAddr> {
-        self.assisted
-            .first()
-            .copied()
-            .or_else(|| self.mapped.last().copied())
-    }
-}
+pub(crate) use iroh::endpoint::nat_plan::MAX_OBSERVATIONS;
+pub use iroh::endpoint::nat_plan::{Plan, SNAPSHOT_LIFETIME};
 
 #[derive(Debug, Clone)]
 enum Validity {
@@ -101,41 +62,7 @@ impl MappingSnapshot {
     }
 
     fn from_samples(sequence: UdpMappingSequence, minimum: usize) -> io::Result<Self> {
-        let now = Instant::now();
-        let mut destinations = HashSet::new();
-        if sequence.samples.len() < minimum
-            || sequence.samples.len() > MAX_OBSERVATIONS
-            || !sequence.is_current_generation()
-            || sequence.samples.iter().enumerate().any(|(i, s)| {
-                !destinations.insert(s.destination)
-                    || now
-                        .checked_duration_since(s.observed_at.into())
-                        .is_none_or(|age| age > SNAPSHOT_LIFETIME)
-                    || (i > 0 && s.observed_at < sequence.samples[i - 1].observed_at)
-            })
-        {
-            return Err(invalid("invalid mapping observation input"));
-        }
-        let observed_at = sequence.samples[0].observed_at.into();
-        let mapped: Vec<_> = sequence
-            .samples
-            .iter()
-            .map(|sample| sample.mapped)
-            .collect();
-        // The classifier only asks whether a reported IP belongs to a local
-        // interface. Unrelated interfaces cannot affect that decision.
-        let mut seen_local_ips = HashSet::new();
-        let local_ips = mapped
-            .iter()
-            .map(SocketAddr::ip)
-            .filter(|ip| sequence.local_ips.contains(ip) && seen_local_ips.insert(*ip))
-            .collect();
-        let wire = SnapshotWire {
-            mapped,
-            local_ips,
-            assisted: Vec::new(),
-        };
-        wire.validate()?;
+        let (wire, observed_at) = SnapshotWire::from_samples(&sequence, minimum)?;
         Ok(Self {
             wire,
             validity: Validity::Sequence(sequence),
@@ -154,27 +81,7 @@ impl MappingSnapshot {
         generation: ObservationValidity,
         observation: UdpObservation,
     ) -> io::Result<Self> {
-        if matches!(
-            observation,
-            UdpObservation::Failed(UdpObservationFailure::NetworkChanged)
-        ) {
-            return Err(invalid("cannot use a network-invalidated fallback"));
-        }
-        let mapped = match &observation {
-            UdpObservation::Fresh { addresses, .. } if observation.is_fresh() => addresses
-                .iter()
-                .copied()
-                .filter(SocketAddr::is_ipv4)
-                .take(1)
-                .collect(),
-            _ => Vec::new(),
-        };
-        let wire = SnapshotWire {
-            mapped,
-            local_ips: Vec::new(),
-            assisted: Vec::new(),
-        };
-        wire.validate()?;
+        let wire = SnapshotWire::existing(observation)?;
         Ok(Self {
             wire,
             validity: Validity::Fallback { generation },
@@ -270,74 +177,6 @@ impl Round {
     }
     pub fn encoded(self) -> String {
         hex::encode(self.0)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Plan {
-    pub id: BehaviorId,
-    pub c: Behavior,
-    pub v: Behavior,
-    pub scores_before: Vec<BehaviorScore>,
-    pub fallback: bool,
-    pub disabled: bool,
-}
-
-fn make_plan(
-    analyzer: &mut Analyzer,
-    scope: LearningScope,
-    c: &SnapshotWire,
-    v: &SnapshotWire,
-) -> (Plan, Option<Recommendation>) {
-    if let (Some(c), Some(v)) = (c.view(), v.view()) {
-        let rec = analyzer.recommend(scope, &c, &v, Instant::now());
-        (
-            Plan {
-                id: rec.id,
-                c: rec.c,
-                v: rec.v,
-                scores_before: rec.scores_before.clone(),
-                fallback: false,
-                disabled: false,
-            },
-            Some(rec),
-        )
-    } else {
-        let c_is_receiver = v.target().is_none() && c.target().is_some();
-        let c_behavior = Behavior {
-            role: if c_is_receiver {
-                crate::nat_selector::Role::Receiver
-            } else {
-                crate::nat_selector::Role::Sender
-            },
-            ttl: 0,
-            send_delay_ms: 0,
-            ports_range: 0,
-            ports_random: 0,
-            listen_random: 0,
-        };
-        let v_behavior = Behavior {
-            role: if c_is_receiver {
-                crate::nat_selector::Role::Sender
-            } else {
-                crate::nat_selector::Role::Receiver
-            },
-            ..c_behavior
-        };
-        (
-            Plan {
-                id: BehaviorId {
-                    mode: 0,
-                    index: if c_is_receiver { 7 } else { 6 },
-                },
-                c: c_behavior,
-                v: v_behavior,
-                scores_before: Vec::new(),
-                fallback: true,
-                disabled: c.target().is_none() && v.target().is_none(),
-            },
-            None,
-        )
     }
 }
 
@@ -835,40 +674,7 @@ async fn coordinate_client_round(
         _ => return Err(invalid("old or missing NAT plan")),
     };
     remote.validate()?;
-    if let (Some(c), Some(v)) = (remote.view(), snapshot.wire.view()) {
-        let expected = initial_scores(c.feature(), v.feature());
-        let first_maximum = plan
-            .scores_before
-            .iter()
-            .fold(None::<&BehaviorScore>, |best, item| match best {
-                Some(best) if best.score >= item.score => Some(best),
-                _ => Some(item),
-            })
-            .map(|s| s.id);
-        if plan.fallback
-            || plan.disabled
-            || behaviors(plan.id, c.feature(), v.feature()) != Some((plan.c, plan.v))
-            || plan
-                .scores_before
-                .iter()
-                .map(|s| s.id)
-                .ne(expected.iter().map(|s| s.id))
-            || plan.scores_before.iter().any(|s| s.score > 10)
-            || first_maximum != Some(plan.id)
-        {
-            return Err(invalid("NAT plan does not match legacy parameters"));
-        }
-    } else {
-        let (expected, _) = make_plan(
-            &mut Analyzer::new(Instant::now()),
-            scope.clone(),
-            &remote,
-            &snapshot.wire,
-        );
-        if plan != expected {
-            return Err(invalid("invalid NAT fallback"));
-        }
-    }
+    validate_plan(&plan, &remote, &snapshot.wire)?;
     check_scope(control, gate, &scope, snapshot)?;
     let attempt = Attempt::new(
         control,

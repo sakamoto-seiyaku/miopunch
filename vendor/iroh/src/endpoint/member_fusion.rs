@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, Mutex, Weak},
 };
 
-use futures_util::StreamExt;
+use futures_util::{StreamExt, stream::FuturesUnordered};
 use tokio::{
     sync::{mpsc, watch},
     time::{self, Duration, Instant},
@@ -24,8 +24,10 @@ use super::{
 
 mod dial;
 mod direct;
+mod udp;
 pub use dial::MemberDialOptions;
 pub(super) use direct::{PathCandidates, watch_path_candidates};
+pub use udp::{MemberUdpConfig, MemberUdpPlan};
 
 const REPAIR_LIMIT: Duration = Duration::from_secs(3);
 
@@ -55,6 +57,16 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
 
     /// Check current authorization again before handing off the selected connection.
     fn is_current(&self, connection: &ControlConnection) -> bool;
+
+    /// Native UDP observation resources and per-round limits for this endpoint.
+    fn udp_config(&self) -> Option<&MemberUdpConfig> {
+        None
+    }
+
+    /// Current authorized learning scope of the admitted original connection.
+    fn udp_scope(&self, _connection: &Connection) -> Option<super::nat_selector::LearningScope> {
+        None
+    }
 
     /// Decide whether the named carrier is currently eligible for member data.
     /// For IP, native relay, and online direct carriers this can run under the
@@ -206,6 +218,17 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
 
     fn member_fusion(&self) -> Option<&Fusion> {
         Some(&self.fusion)
+    }
+
+    fn member_udp_config(&self) -> Option<&MemberUdpConfig> {
+        self.inner.udp_config()
+    }
+
+    fn member_udp_scope(
+        &self,
+        connection: &Connection,
+    ) -> Option<super::nat_selector::LearningScope> {
+        self.inner.udp_scope(connection)
     }
 
     fn permits_member_data_path(&self, path: &TransportAddr) -> bool {
@@ -429,13 +452,15 @@ impl MemberFusionEndpoint {
             .as_ref()
             .and_then(|policy| policy.member_relay_transport())
         {
-            address.addrs.extend(endpoint.inner.local_addr().into_iter().filter_map(|local| {
-                let TransportAddr::Custom(local) = local.into() else {
-                    return None;
-                };
-                (local.id() == id && config.relay_resource_policy.allows_custom(&local))
-                    .then_some(TransportAddr::Custom(local))
-            }));
+            address
+                .addrs
+                .extend(endpoint.inner.local_addr().into_iter().filter_map(|local| {
+                    let TransportAddr::Custom(local) = local.into() else {
+                        return None;
+                    };
+                    (local.id() == id && config.relay_resource_policy.allows_custom(&local))
+                        .then_some(TransportAddr::Custom(local))
+                }));
         }
         address
     }
@@ -450,6 +475,11 @@ impl MemberFusionEndpoint {
     /// Wait for this endpoint's contact transport to become online.
     pub async fn online(&self) {
         self.inner.endpoint.online().await;
+    }
+
+    /// Notify the owner that local network observations must be renewed.
+    pub async fn network_change(&self) {
+        self.inner.endpoint.network_change().await;
     }
 
     /// Install the application's protected contact exchange for live-path repair.
@@ -797,6 +827,7 @@ pub(super) struct Fusion {
     idle_timeout: std::sync::OnceLock<Duration>,
     selected: Option<mpsc::UnboundedSender<IncomingResult>>,
     repair_contact: std::sync::OnceLock<RepairContact>,
+    udp_planner: Arc<udp::Planner>,
     #[cfg(feature = "miopunch-test-hooks")]
     qualification_gate: std::sync::OnceLock<Arc<QualificationGate>>,
 }
@@ -815,6 +846,7 @@ impl Fusion {
 
     pub(super) fn publish(
         &self,
+        endpoint: &Endpoint,
         selection: Selection,
         connection: Connection,
         data_path: TransportAddr,
@@ -822,7 +854,19 @@ impl Fusion {
         path_candidates: Option<Arc<PathCandidates>>,
         repair: Option<RepairPath>,
     ) {
-        let live = selection.publish(connection, data_path, activity, path_candidates, repair);
+        let udp = udp::Planning::new(endpoint, &connection, self.udp_planner.clone());
+        let incoming = udp
+            .as_ref()
+            .map(|udp| watch_streams(connection.clone(), activity.clone(), udp.clone()));
+        let live = selection.publish(
+            connection,
+            data_path,
+            activity,
+            path_candidates,
+            repair,
+            udp,
+            incoming,
+        );
         if let Some(selected) = &self.selected {
             let _ = selected.send(Ok(live));
         }
@@ -1508,6 +1552,8 @@ impl Selection {
         activity: Arc<Activity>,
         path_candidates: Option<Arc<PathCandidates>>,
         repair: Option<RepairPath>,
+        udp: Option<Arc<udp::Planning>>,
+        incoming: Option<mpsc::Receiver<IncomingMemberStream>>,
     ) -> Weak<Live> {
         let live = MemberConnection(Arc::new(Live {
             connection,
@@ -1515,6 +1561,8 @@ impl Selection {
             activity,
             path_candidates,
             repair: repair.map(|repair| repair.addresses),
+            udp,
+            incoming: incoming.map(tokio::sync::Mutex::new),
         }));
         {
             let mut state = self.peer.state.lock().expect("member peer lock");
@@ -1566,6 +1614,21 @@ impl Drop for Selection {
 pub struct MemberConnection(Arc<Live>);
 
 impl MemberConnection {
+    /// Coordinate one enhanced UDP plan on this admitted original connection.
+    pub async fn coordinate_udp_plan(
+        &self,
+        deadline: Instant,
+        cancel: &CancellationToken,
+    ) -> io::Result<MemberUdpPlan> {
+        let planning = self.0.udp.as_ref().ok_or(io::ErrorKind::Unsupported)?;
+        planning.initiate(deadline, cancel).await
+    }
+
+    /// Observe the most recent still-current coordinated UDP plan on this original.
+    pub fn udp_plan(&self) -> Option<MemberUdpPlan> {
+        self.0.udp.as_ref()?.current()
+    }
+
     /// Supply the application's currently permitted restricted contact routes
     /// in preference order for this live original.
     pub fn learn_repair_contacts(&self, routes: Vec<iroh_base::CustomAddr>) {
@@ -1679,6 +1742,14 @@ impl MemberConnection {
 
     /// Receive a stream independently from reading its activity header.
     pub async fn incoming_bi(&self) -> io::Result<IncomingMemberStream> {
+        if let Some(incoming) = &self.0.incoming {
+            return incoming
+                .lock()
+                .await
+                .recv()
+                .await
+                .ok_or_else(|| io::ErrorKind::NotConnected.into());
+        }
         let (send, recv) = self
             .0
             .connection
@@ -1689,6 +1760,7 @@ impl MemberConnection {
             send,
             recv,
             activity: self.0.activity.clone(),
+            kind: None,
         })
     }
 }
@@ -1699,21 +1771,16 @@ pub struct IncomingMemberStream {
     send: SendStream,
     recv: RecvStream,
     activity: Arc<Activity>,
+    kind: Option<u8>,
 }
 
 impl IncomingMemberStream {
     /// Read and apply this stream's activity scope.
     pub async fn accept(mut self) -> io::Result<MemberStream> {
-        let mut header = [0];
-        self.recv
-            .read_exact(&mut header)
-            .await
-            .map_err(io::Error::other)?;
-        let kind = match header[0] {
-            0 => StreamKind::Business,
-            1 => StreamKind::Maintenance,
-            _ => return Err(io::ErrorKind::InvalidData.into()),
-        };
+        let kind = StreamKind::business_kind(match self.kind {
+            Some(kind) => kind,
+            None => read_stream_kind(&mut self.recv).await?,
+        })?;
         let lease = self.activity.lease(kind);
         Ok(MemberStream {
             send: self.send,
@@ -1728,6 +1795,58 @@ impl IncomingMemberStream {
 enum StreamKind {
     Business,
     Maintenance,
+    UdpPlan,
+}
+
+impl StreamKind {
+    fn business_kind(kind: u8) -> io::Result<Self> {
+        match kind {
+            0 => Ok(Self::Business),
+            1 => Ok(Self::Maintenance),
+            _ => Err(io::ErrorKind::InvalidData.into()),
+        }
+    }
+}
+
+async fn read_stream_kind(recv: &mut RecvStream) -> io::Result<u8> {
+    let mut header = [0];
+    recv.read_exact(&mut header)
+        .await
+        .map_err(io::Error::other)?;
+    Ok(header[0])
+}
+
+fn watch_streams(
+    connection: Connection,
+    activity: Arc<Activity>,
+    udp: Arc<udp::Planning>,
+) -> mpsc::Receiver<IncomingMemberStream> {
+    const MAX_PENDING: usize = 100;
+    let (outgoing, incoming) = mpsc::channel(MAX_PENDING);
+    tokio::spawn(async move {
+        let mut pending = FuturesUnordered::new();
+        loop {
+            tokio::select! {
+                _ = connection.closed() => break,
+                _ = pending.next(), if !pending.is_empty() => {},
+                streams = connection.accept_bi(), if pending.len() < MAX_PENDING => {
+                    let Ok((send, mut recv)) = streams else { break; };
+                    let outgoing = outgoing.clone();
+                    let activity = activity.clone();
+                    let udp = udp.clone();
+                    pending.push(async move {
+                        let Ok(kind) = read_stream_kind(&mut recv).await else { return; };
+                        if kind == StreamKind::UdpPlan as u8 {
+                            udp.respond(ControlExchange::from_streams(send, recv)).await;
+                        } else {
+                            let _ = outgoing.send(IncomingMemberStream { send, recv, activity, kind: Some(kind) }).await;
+                        }
+                    });
+                }
+            }
+        }
+    });
+    incoming
 }
 
 /// The two halves of one member stream and its local activity lease, if any.
@@ -1778,6 +1897,8 @@ struct Live {
     activity: Arc<Activity>,
     path_candidates: Option<Arc<PathCandidates>>,
     repair: Option<watch::Sender<Vec<iroh_base::CustomAddr>>>,
+    udp: Option<Arc<udp::Planning>>,
+    incoming: Option<tokio::sync::Mutex<mpsc::Receiver<IncomingMemberStream>>>,
 }
 
 impl Live {

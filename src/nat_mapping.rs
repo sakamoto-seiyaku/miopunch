@@ -168,6 +168,10 @@ impl NodeRoundBudget {
         self.0.peer_limit
     }
 
+    pub(crate) fn observation_limit(&self) -> usize {
+        self.0.observation_limit
+    }
+
     pub(crate) fn is_occupied(&self) -> bool {
         self.0
             .state

@@ -14,7 +14,7 @@ use iroh::{
     Endpoint, EndpointAddr, EndpointId, RelayMode, RelayUrl, TransportAddr,
     endpoint::{
         BeforeConnectOutcome, ControlConfirmation, ControlConnection, EndpointHooks,
-        MemberConnection, MemberFusionAdmission, MemberFusionEndpoint, MemberStream,
+        MemberConnection, MemberFusionAdmission, MemberFusionEndpoint, MemberStream, MemberUdpPlan,
         PortmapperConfig, presets,
     },
 };
@@ -22,7 +22,11 @@ use tokio::time::{self, Instant};
 use tokio_util::sync::CancellationToken;
 
 use super::{admitted_pair, delayed_relay::delay_relay, member_fusion_attempt_id, relay, resource};
-use miopunch_native_probe::{native_network::NativeNetwork, path_selection::PathPreference};
+use miopunch_native_probe::{
+    native_network::NativeNetwork,
+    path_selection::PathPreference,
+    resources::{Resource, ResourceUse},
+};
 use udp_blackhole::UdpBlackhole;
 
 const BUSINESS_LIMIT: Duration = Duration::from_secs(6);
@@ -68,6 +72,17 @@ impl Pair {
         delay: Duration,
         preference: PathPreference,
     ) -> Self {
+        Self::bind_with_observers(ips, binds, delay, preference, &[], |builder| builder).await
+    }
+
+    async fn bind_with_observers(
+        ips: [IpAddr; 2],
+        binds: [IpAddr; 2],
+        delay: Duration,
+        preference: PathPreference,
+        observers: &[Resource],
+        configure: impl Fn(iroh::endpoint::Builder) -> iroh::endpoint::Builder,
+    ) -> Self {
         let relay = relay().await;
         let url = relay.http_url().unwrap();
         let root = tempfile::tempdir().unwrap();
@@ -80,14 +95,18 @@ impl Pair {
         let dials = [Dials::default(), Dials::default()];
         for node in &nodes {
             let mut config = node.resource_configuration().unwrap();
-            config.replacement = Some(vec![resource(&url)]);
+            config.replacement = Some(
+                [resource(&url)]
+                    .into_iter()
+                    .chain(observers.iter().cloned())
+                    .collect(),
+            );
             config.udp_direct_disabled = false;
             config.path_selection.preference = preference;
             node.save_resource_configuration(&config).unwrap();
         }
         let builder = |side: usize| {
-            Endpoint::builder(presets::Minimal)
-                .clear_ip_transports()
+            configure(Endpoint::builder(presets::Minimal).clear_ip_transports())
                 .bind_addr(SocketAddr::new(binds[side], 0))
                 .unwrap()
                 .hooks(dials[side].clone())
@@ -151,6 +170,431 @@ impl Pair {
         self.delay.cancel();
         self.relay.shutdown().await.unwrap();
     }
+}
+
+fn observation_resource(url: String) -> Resource {
+    Resource {
+        url,
+        uses: [ResourceUse::Observation].into(),
+        limitation: "controlled loopback observer".into(),
+    }
+}
+
+async fn reply_stun(socket: &tokio::net::UdpSocket, expected: [SocketAddr; 2]) {
+    let mut seen = Vec::new();
+    for _ in 0..2 {
+        let mut request = [0; 1500];
+        let (len, source) = socket.recv_from(&mut request).await.unwrap();
+        assert_eq!(len, 20);
+        assert_eq!(&request[..8], &[0, 1, 0, 0, 0x21, 0x12, 0xa4, 0x42]);
+        let SocketAddr::V4(source) = source else {
+            panic!("IPv4 observation required");
+        };
+        let mut reply = [0; 32];
+        reply[..8].copy_from_slice(&[1, 1, 0, 12, 0x21, 0x12, 0xa4, 0x42]);
+        reply[8..20].copy_from_slice(&request[8..20]);
+        reply[20..26].copy_from_slice(&[0, 0x20, 0, 8, 0, 1]);
+        reply[26..28].copy_from_slice(&(source.port() ^ 0x2112).to_be_bytes());
+        reply[28..32].copy_from_slice(&(u32::from(*source.ip()) ^ 0x2112_a442).to_be_bytes());
+        socket.send_to(&reply, source).await.unwrap();
+        seen.push(SocketAddr::V4(source));
+    }
+    assert!(expected.iter().all(|address| seen.contains(address)));
+}
+
+#[tokio::test]
+async fn enhanced_round_uses_two_samples_while_qad_is_waiting_on_the_original() {
+    use tokio::net::UdpSocket;
+
+    let qad = UdpSocket::bind((
+        Ipv4Addr::new(127, 0, 0, 14),
+        iroh_relay::defaults::DEFAULT_RELAY_QUIC_PORT,
+    ))
+    .await
+    .unwrap();
+    let stun_a = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let stun_b = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let pair = Pair::bind_with_observers(
+        LOOPBACK,
+        LOOPBACK,
+        LOW_RELAY_DELAY,
+        PathPreference::Quality,
+        &[
+            observation_resource("https://127.0.0.14/".into()),
+            observation_resource(format!("stun://{}/", stun_a.local_addr().unwrap())),
+            observation_resource(format!("stun://{}/", stun_b.local_addr().unwrap())),
+        ],
+        |builder| builder,
+    )
+    .await;
+    let expected = pair.addresses();
+    let ids = pair.connections.each_ref().map(MemberConnection::stable_id);
+    assert!(
+        pair.connections
+            .iter()
+            .all(|connection| connection.udp_plan().is_none())
+    );
+    let mut stream = time::timeout(
+        BUSINESS_LIMIT,
+        OriginalStream::open(&pair.connections[0], &pair.connections[1], 157),
+    )
+    .await
+    .unwrap();
+    for (initiator, selected_index) in [(0, 2), (1, 2), (0, 3)] {
+        while qad.try_recv_from(&mut [0; 2048]).is_ok() {}
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let collect = async {
+            let mut sources = Vec::new();
+            while sources.len() != 2 {
+                let (len, source) = qad.recv_from(&mut [0; 2048]).await.unwrap();
+                assert!(len >= 1200);
+                if !sources.contains(&source) {
+                    sources.push(source);
+                }
+            }
+            assert!(expected.iter().all(|address| sources.contains(address)));
+            tokio::join!(reply_stun(&stun_a, expected), reply_stun(&stun_b, expected));
+        };
+        let (plan, ()) = time::timeout_at(deadline, async {
+            tokio::join!(coordinate_once(&pair, initiator, deadline), async {
+                collect.await;
+                stream.round_trip(158).await;
+            })
+        })
+        .await
+        .expect("two independent STUN replies must advance while real QAD is still waiting");
+        let peer = paired_plan(&pair, initiator, &plan).await;
+        assert_eq!((plan.id.mode, plan.id.index), (0, selected_index));
+        assert!(!plan.fallback);
+        for (side, agreed) in [(initiator, &plan), (1 - initiator, &peer)] {
+            assert_eq!(agreed.local_samples().len(), 2);
+            assert!(agreed.local_samples().iter().all(|sample| {
+                sample.mapped == expected[side] && sample.observer.starts_with("stun://")
+            }));
+        }
+        assert!(plan.execution_budget <= Duration::from_secs(2));
+        eprintln!(
+            "MIO157 mixed sources={expected:?} original={ids:?} initiator={initiator} round={:?} mode={} index={} c={:?} v={:?}",
+            plan.round,
+            plan.id.mode,
+            plan.id.index,
+            peer.local_phase.behavior.role,
+            plan.local_phase.behavior.role
+        );
+        if initiator == 0 && selected_index == 2 {
+            let after = Instant::now();
+            for side in 0..2 {
+                pair.endpoints[side]
+                    .learn_ip_candidates(
+                        EndpointAddr::new(pair.endpoints[1 - side].id())
+                            .with_ip_addr(expected[1 - side]),
+                    )
+                    .await;
+            }
+            qualified_udp(&pair.connections, expected, after, true).await;
+            time::timeout(BUSINESS_LIMIT, stream.round_trip(159))
+                .await
+                .unwrap();
+        }
+    }
+    assert_eq!(
+        pair.connections.each_ref().map(MemberConnection::stable_id),
+        ids
+    );
+    pair.close().await;
+}
+
+async fn coordinate_once(pair: &Pair, initiator: usize, deadline: Instant) -> MemberUdpPlan {
+    pair.connections[initiator]
+        .coordinate_udp_plan(deadline, &CancellationToken::new())
+        .await
+        .expect("coordinate one protected enhancement on the admitted connection")
+}
+
+async fn paired_plan(pair: &Pair, initiator: usize, plan: &MemberUdpPlan) -> MemberUdpPlan {
+    let peer = &pair.connections[1 - initiator];
+    let their_plan = time::timeout(Duration::from_secs(1), async {
+        loop {
+            if let Some(their_plan) = peer.udp_plan().filter(|value| value.round == plan.round) {
+                break their_plan;
+            }
+            time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("coordinator independently accepted the same protected plan");
+    assert!(their_plan.coordinator && !plan.coordinator);
+    assert_eq!(their_plan.id, plan.id);
+    assert_eq!(their_plan.local_phase, plan.peer_phase);
+    assert_eq!(their_plan.peer_phase, plan.local_phase);
+    assert_eq!(their_plan.execution_budget, plan.execution_budget);
+    their_plan
+}
+
+#[tokio::test]
+async fn enhanced_round_deduplicates_qad_destinations_and_falls_back_for_one_sample() {
+    use iroh_relay::{defaults::DEFAULT_RELAY_QUIC_PORT, server, tls::CaTlsConfig};
+
+    let destination = (Ipv4Addr::LOCALHOST, DEFAULT_RELAY_QUIC_PORT).into();
+    let (certs, tls) = server::testing::self_signed_tls_certs_and_config();
+    let mut quic = server::QuicConfig::new(destination);
+    quic.server_config = Some(tls);
+    let mut config = server::ServerConfig::default();
+    config.quic = Some(quic);
+    let qad = server::Server::spawn(config).await.unwrap();
+    let stun = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let stun_destination = stun.local_addr().unwrap();
+    let pair = Pair::bind_with_observers(
+        LOOPBACK,
+        LOOPBACK,
+        LOW_RELAY_DELAY,
+        PathPreference::Quality,
+        &[
+            observation_resource("https://127.0.0.1:44341/".into()),
+            observation_resource("https://127.0.0.1:44342/".into()),
+            observation_resource(format!("stun://{stun_destination}/")),
+        ],
+        |builder| builder.ca_tls_config(CaTlsConfig::custom_roots(certs.clone())),
+    )
+    .await;
+    let addresses = pair.addresses();
+    // Two names use one QAD UDP destination. With the STUN server silent,
+    // both endpoints may offer that QAD mapping as a basic candidate only.
+    let fallback = coordinate_once(&pair, 0, Instant::now() + Duration::from_secs(5)).await;
+    let peer = paired_plan(&pair, 0, &fallback).await;
+    assert!(fallback.fallback && peer.fallback);
+    assert_eq!((fallback.id.mode, fallback.id.index), (0, 6));
+    for (side, plan) in [fallback, peer].iter().enumerate() {
+        assert_eq!(plan.local_samples().len(), 1);
+        assert_eq!(plan.local_samples()[0].destination, destination);
+        assert_eq!(plan.local_samples()[0].mapped, addresses[side]);
+    }
+    while stun.try_recv_from(&mut [0; 2048]).is_ok() {}
+    let (mixed, ()) = tokio::join!(
+        coordinate_once(&pair, 1, Instant::now() + Duration::from_secs(2)),
+        reply_stun(&stun, addresses),
+    );
+    let peer = paired_plan(&pair, 1, &mixed).await;
+    assert!(!mixed.fallback && !peer.fallback);
+    for (side, plan) in [(1, &mixed), (0, &peer)] {
+        let samples = plan.local_samples();
+        assert_eq!(samples.len(), 2);
+        assert!(
+            samples
+                .iter()
+                .all(|sample| sample.mapped == addresses[side])
+        );
+        for expected in [destination, stun_destination] {
+            assert!(samples.iter().any(|sample| sample.destination == expected));
+        }
+    }
+    eprintln!(
+        "MIO157 distinct actual QAD={destination} STUN={stun_destination} same physical bindings={addresses:?}"
+    );
+    pair.close().await;
+    qad.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn enhanced_round_keeps_ordered_stun_for_an_unsupported_mixed_binding() {
+    use iroh::endpoint::BindOpts;
+    use tokio::net::UdpSocket;
+
+    let mut observers = [
+        UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap(),
+        UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap(),
+    ];
+    observers.sort_by_key(|socket| socket.local_addr().unwrap().to_string());
+    let [first, second] = &observers;
+    let resources = observers
+        .each_ref()
+        .map(|socket| observation_resource(format!("stun://{}/", socket.local_addr().unwrap())));
+    let extra = Ipv4Addr::new(127, 0, 0, 15);
+    let pair = Pair::bind_with_observers(
+        LOOPBACK,
+        LOOPBACK,
+        LOW_RELAY_DELAY,
+        PathPreference::Quality,
+        &resources,
+        |builder| {
+            builder
+                .bind_addr_with_opts((extra, 0), BindOpts::default().set_prefix_len(32))
+                .unwrap()
+        },
+    )
+    .await;
+    assert!(pair.endpoints.iter().all(|endpoint| {
+        endpoint
+            .addr()
+            .ip_addrs()
+            .any(|address| address.ip() == IpAddr::V4(extra))
+    }));
+    let expected = pair.addresses();
+    let (plan, ()) = tokio::join!(
+        coordinate_once(&pair, 0, Instant::now() + Duration::from_secs(3)),
+        async {
+            assert!(
+                time::timeout(Duration::from_millis(250), second.recv_from(&mut [0; 2048]))
+                    .await
+                    .is_err(),
+                "second ordered request must wait for a reply to the first"
+            );
+            reply_stun(first, expected).await;
+            reply_stun(second, expected).await;
+        },
+    );
+    let peer = paired_plan(&pair, 0, &plan).await;
+    for outcome in [plan, peer] {
+        assert!(!outcome.fallback);
+        assert_eq!(
+            outcome
+                .local_samples()
+                .iter()
+                .map(|sample| sample.destination)
+                .collect::<Vec<_>>(),
+            observers
+                .each_ref()
+                .map(|socket| socket.local_addr().unwrap()),
+        );
+    }
+    eprintln!("MIO157 unsupported mixed binding kept ordered STUN");
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn enhanced_round_classifies_and_releases_interrupted_observation() {
+    use std::io::ErrorKind;
+    use tokio::net::UdpSocket;
+
+    #[derive(Debug, Clone, Copy)]
+    enum Stop {
+        Cancel,
+        Network,
+        Revoke,
+        Timeout,
+    }
+    for (stop, kind) in [
+        (Stop::Cancel, ErrorKind::Interrupted),
+        (Stop::Network, ErrorKind::Interrupted),
+        (Stop::Revoke, ErrorKind::PermissionDenied),
+        (Stop::Timeout, ErrorKind::TimedOut),
+    ] {
+        let stun = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let pair = Pair::bind_with_observers(
+            LOOPBACK,
+            LOOPBACK,
+            LOW_RELAY_DELAY,
+            PathPreference::Quality,
+            &[observation_resource(format!(
+                "stun://{}/",
+                stun.local_addr().unwrap()
+            ))],
+            |builder| builder,
+        )
+        .await;
+        let token = CancellationToken::new();
+        let deadline = Instant::now() + Duration::from_millis(950);
+        let (result, ()) = time::timeout_at(deadline + Duration::from_millis(100), async {
+            tokio::join!(
+                pair.connections[0].coordinate_udp_plan(deadline, &token),
+                async {
+                    let mut sources = [
+                        stun.recv_from(&mut [0; 1500]).await.unwrap().1,
+                        stun.recv_from(&mut [0; 1500]).await.unwrap().1,
+                    ];
+                    let mut expected = pair.addresses();
+                    sources.sort();
+                    expected.sort();
+                    assert_eq!(sources, expected, "stop both active observation requests");
+                    match stop {
+                        Stop::Cancel => token.cancel(),
+                        Stop::Network => pair.endpoints[0].network_change().await,
+                        Stop::Revoke => pair.nodes[0].udp_connector().set_udp_enabled(false),
+                        Stop::Timeout => {}
+                    }
+                }
+            )
+        })
+        .await
+        .expect("both observers see this round before it terminates");
+        assert_eq!(result.unwrap_err().kind(), kind, "{stop:?}");
+        while stun.try_recv_from(&mut [0; 1500]).is_ok() {}
+        assert!(
+            time::timeout(Duration::from_millis(650), stun.recv_from(&mut [0; 1500]))
+                .await
+                .is_err(),
+            "{stop:?}: neither endpoint may retransmit after stopping"
+        );
+        assert!(
+            pair.connections
+                .iter()
+                .all(|connection| connection.udp_plan().is_none())
+        );
+        assert!(
+            pair.connections
+                .iter()
+                .all(|connection| relay_is_selected(connection, &pair.url))
+        );
+        if matches!(stop, Stop::Revoke) {
+            let error = pair.connections[1]
+                .coordinate_udp_plan(
+                    Instant::now() + Duration::from_secs(2),
+                    &CancellationToken::new(),
+                )
+                .await
+                .unwrap_err();
+            assert_eq!(error.kind(), ErrorKind::PermissionDenied);
+            assert!(stun.try_recv_from(&mut [0; 1500]).is_err());
+        }
+        eprintln!(
+            "MIO157 stopped={stop:?} classified={kind:?} retained original relay without STUN retries"
+        );
+        pair.close().await;
+    }
+}
+
+#[tokio::test]
+async fn enhanced_round_treats_silent_observation_as_unavailable_without_restarting_stun() {
+    let stun = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let pair = Pair::bind_with_observers(
+        LOOPBACK,
+        LOOPBACK,
+        LOW_RELAY_DELAY,
+        PathPreference::Quality,
+        &[observation_resource(format!(
+            "stun://{}/",
+            stun.local_addr().unwrap()
+        ))],
+        |builder| builder,
+    )
+    .await;
+    let outcome = coordinate_once(&pair, 0, Instant::now() + Duration::from_secs(5)).await;
+    let peer = paired_plan(&pair, 0, &outcome).await;
+    assert!(outcome.fallback && peer.fallback);
+    assert!(outcome.local_samples().is_empty() && peer.local_samples().is_empty());
+    let mut transactions = std::collections::BTreeMap::new();
+    let mut request = [0; 1500];
+    while let Ok((length, source)) = stun.try_recv_from(&mut request) {
+        assert_eq!(length, 20);
+        let transaction = <[u8; 12]>::try_from(&request[8..20]).unwrap();
+        transactions
+            .entry(source)
+            .or_insert_with(std::collections::BTreeSet::new)
+            .insert(transaction);
+    }
+    for addr in pair.addresses() {
+        assert_eq!(
+            transactions[&addr].len(),
+            1,
+            "ordinary silence may only make one observation request"
+        );
+    }
+    eprintln!("MIO157 ordinary no-response used basic candidate without ordered STUN retries");
+    pair.close().await;
 }
 
 #[cfg(target_os = "linux")]

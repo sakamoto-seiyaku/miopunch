@@ -1,12 +1,19 @@
-use std::{io, time::Duration};
+use std::{
+    io,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 
 use iroh::{
     Endpoint, RelayMode, SecretKey,
     endpoint::{
         Builder, Connection, ControlConfirmation, ControlConnection, ExportKeyingMaterialError,
         MemberConnection, MemberFusionAdmission, MemberFusionEndpoint, MemberFusionEvent,
-        PortmapperConfig, RelayResourcePolicy, RelayResourceUse, RestrictedBuilder,
-        RestrictedEndpoint, presets,
+        MemberUdpConfig, PortmapperConfig, RelayResourcePolicy, RelayResourceUse,
+        RestrictedBuilder, RestrictedEndpoint, presets,
     },
 };
 use serde_json::json;
@@ -50,6 +57,7 @@ impl NativeNetwork {
         let (builder, _) = resources.configure_with_tcp(builder)?;
         let relay_resources = resources.clone();
         let custom_resources = resources.clone();
+        let udp_config = self.udp.fusion_config(&resources)?;
         let endpoint = builder
             .secret_key(SecretKey::from_bytes(self.node_key.as_bytes()))
             .portmapper_config(PortmapperConfig::Disabled)
@@ -59,6 +67,7 @@ impl NativeNetwork {
                     let use_ = match usage {
                         RelayResourceUse::DataRelay => ResourceUse::DataRelay,
                         RelayResourceUse::Signaling => ResourceUse::Signaling,
+                        RelayResourceUse::Observation => ResourceUse::Observation,
                         _ => return false,
                     };
                     relay_resources.allows(url.as_str(), use_)
@@ -71,6 +80,8 @@ impl NativeNetwork {
                     gate: self.gate.with_message_bootstrap(),
                     resources,
                     allow_custom: false,
+                    udp: self.udp.fusion_permission(),
+                    udp_config,
                 },
             )
             .admission_timeout(setup_budget)
@@ -83,20 +94,22 @@ impl NativeNetwork {
         &self,
         builder: RestrictedBuilder,
         resources: &ResourceConfig,
-    ) -> Result<(RestrictedEndpoint, MemberFusionEndpoint), iroh::endpoint::BindError> {
+    ) -> Result<(RestrictedEndpoint, MemberFusionEndpoint), NodeError> {
         self.gate
             .register_protocol(FUSED_MEMBER_ALPN, ProtocolScope::Member);
-        builder
+        Ok(builder
             .bind_with_member_fusion(
                 FUSED_MEMBER_ALPN,
                 Authorization {
                     gate: self.gate.with_message_bootstrap(),
                     resources: resources.clone(),
                     allow_custom: true,
+                    udp: self.udp.fusion_permission(),
+                    udp_config: self.udp.fusion_config(resources)?,
                 },
                 Duration::from_millis(resources.maintenance.exploration_interval_ms),
             )
-            .await
+            .await?)
     }
 }
 
@@ -134,6 +147,8 @@ struct Authorization {
     gate: AdmissionGate,
     resources: ResourceConfig,
     allow_custom: bool,
+    udp: Arc<AtomicBool>,
+    udp_config: MemberUdpConfig,
 }
 
 impl MemberFusionAdmission for Authorization {
@@ -180,6 +195,18 @@ impl MemberFusionAdmission for Authorization {
 
     fn is_current(&self, connection: &ControlConnection) -> bool {
         self.gate.allows(connection, ProtocolScope::Member)
+    }
+
+    fn udp_config(&self) -> Option<&MemberUdpConfig> {
+        Some(&self.udp_config)
+    }
+
+    fn udp_scope(&self, connection: &Connection) -> Option<crate::nat_selector::LearningScope> {
+        if !self.udp.load(Ordering::Acquire) || !self.gate.allows(connection, ProtocolScope::Member)
+        {
+            return None;
+        }
+        self.gate.nat_learning_scope(connection)
     }
 
     fn business_released(&self, connection: &Connection) {

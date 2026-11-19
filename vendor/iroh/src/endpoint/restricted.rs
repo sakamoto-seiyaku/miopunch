@@ -170,6 +170,17 @@ pub(crate) trait DynEndpointAdmission: std::fmt::Debug + Send + Sync {
         None
     }
     #[cfg(not(wasm_browser))]
+    fn member_udp_config(&self) -> Option<&super::MemberUdpConfig> {
+        None
+    }
+    #[cfg(not(wasm_browser))]
+    fn member_udp_scope(
+        &self,
+        _connection: &Connection,
+    ) -> Option<super::nat_selector::LearningScope> {
+        None
+    }
+    #[cfg(not(wasm_browser))]
     fn permits_member_data_path(&self, _path: &TransportAddr) -> bool {
         false
     }
@@ -1764,7 +1775,9 @@ pub(super) async fn finish_admission(
     policy: &dyn DynEndpointAdmission,
 ) -> Result<RegisteredConnection, ConnectingError> {
     #[cfg(not(wasm_browser))]
-    let policy = policy.alternate_protocol(connection.alpn()).unwrap_or(policy);
+    let policy = policy
+        .alternate_protocol(connection.alpn())
+        .unwrap_or(policy);
     #[cfg(not(wasm_browser))]
     let fusion = policy.member_fusion();
     #[cfg(not(wasm_browser))]
@@ -1978,6 +1991,7 @@ pub(super) async fn finish_admission(
                 started_on_member_relay,
             );
             fusion.publish(
+                endpoint,
                 selection,
                 connection.clone(),
                 permit.remote,

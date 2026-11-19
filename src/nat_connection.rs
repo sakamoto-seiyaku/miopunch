@@ -160,6 +160,49 @@ impl NatConnector {
         self.resource_enabled && self.enabled.load(Ordering::Acquire)
     }
 
+    pub(crate) fn fusion_permission(&self) -> Arc<AtomicBool> {
+        self.enabled.clone()
+    }
+
+    pub(crate) fn fusion_config(
+        &self,
+        resources: &crate::resources::ResourceConfig,
+    ) -> io::Result<iroh::endpoint::MemberUdpConfig> {
+        use crate::resources::ResourceUse;
+
+        let qad = match &self.observers {
+            Some(observers) => observers.clone(),
+            None => resources.relay_map(ResourceUse::Observation)?,
+        };
+        let stun = resources.udp_stun_resources();
+        let sources_disabled = qad.is_empty()
+            && stun.is_empty()
+            && resources
+                .replacement
+                .as_ref()
+                .unwrap_or(&resources.defaults.resources)
+                .iter()
+                .any(|resource| {
+                    resource.uses.contains(&ResourceUse::Observation)
+                        && resource
+                            .url
+                            .parse::<iroh::RelayUrl>()
+                            .is_ok_and(|url| matches!(url.scheme(), "http" | "https" | "stun"))
+                });
+        Ok(iroh::endpoint::MemberUdpConfig {
+            enabled: self.max_rounds != 0
+                && !resources.udp_direct_disabled
+                && !resources.disabled_uses.contains(&ResourceUse::Observation)
+                && !sources_disabled,
+            qad,
+            stun,
+            observations: self.budget.observation_limit(),
+            peer_datagrams: self.budget.peer_limit(),
+            round_timeout: Duration::from_millis(resources.maintenance.contact_timeout_ms)
+                .min(crate::connection_budget::MAX),
+        })
+    }
+
     pub(crate) fn round_wait_until(
         &self,
         now: n0_future::time::Instant,
