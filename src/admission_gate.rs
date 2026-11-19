@@ -676,6 +676,27 @@ impl AdmissionGate {
         &self,
         connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<ProtocolScope, ()> {
+        self.authenticate_inner(connection, false).await
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) async fn authenticate_fusion_member(
+        &self,
+        connection: &iroh::endpoint::ControlConnection,
+    ) -> Result<(), ()> {
+        // The fusion endpoint supplies the bilateral stage on its qualified
+        // candidates. All other protocols keep the existing exchange below.
+        match self.authenticate_inner(connection, true).await? {
+            ProtocolScope::Member => Ok(()),
+            _ => Err(()),
+        }
+    }
+
+    async fn authenticate_inner(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+        defer_stage: bool,
+    ) -> Result<ProtocolScope, ()> {
         let peer = *connection.remote_id().as_bytes();
         let (protocol, policy, allowed_data_custom_ids) = {
             let state = self.state.lock().expect("admission policy lock");
@@ -788,7 +809,7 @@ impl AdmissionGate {
             && protocol == ProtocolScope::AdmissionRequest
             && crate::connection_coordinator::SessionPurpose::from_alpn(connection.alpn())
                 == Some(crate::connection_coordinator::SessionPurpose::AdmissionRequest);
-        let agreed = coordinated_request || agree_on_stage(connection).await;
+        let agreed = defer_stage || coordinated_request || agree_on_stage(connection).await;
 
         if !agreed {
             return Err(());

@@ -93,6 +93,8 @@ use crate::{
 mod bind;
 mod connection;
 pub(crate) mod hooks;
+#[cfg(not(wasm_browser))]
+mod member_fusion;
 pub mod presets;
 pub(crate) mod quic;
 pub(crate) mod restricted;
@@ -101,7 +103,10 @@ pub(crate) mod restricted;
 pub use bind::{BindOpts, InvalidSocketAddr, ToSocketAddr};
 pub use hooks::{AfterHandshakeOutcome, BeforeConnectOutcome, EndpointHooks};
 #[cfg(not(wasm_browser))]
-pub use restricted::MemberFusionAdmission;
+pub use member_fusion::{
+    MemberConnection, MemberFusionAdmission, MemberFusionBuilder, MemberFusionEndpoint,
+    MemberFusionEvent, MemberStream,
+};
 pub use restricted::{
     AdmissionOutcome, ControlAccepting, ControlConfirmation, ControlConnecting, ControlConnection,
     ControlExchange, ControlHandle, ControlMessageFormat, DataCandidatePath, DataPathPermit,
@@ -969,16 +974,18 @@ impl Builder {
 
     /// Opt into native member fusion with the application's authorization policy.
     ///
-    /// The endpoint owns the bounded connection attempt and releases ordinary
-    /// streams only after the original connection proves an allowed data relay.
-    /// Supply the permitted relays and resource policy on this builder.
+    /// The specified ALPN is the only protocol on this endpoint. The endpoint
+    /// shares the admitted connection and releases streams after an allowed
+    /// data path and a common connection have been confirmed by both peers.
+    /// Use the member admission policy for authorization because ordinary
+    /// post-handshake hooks expose unrestricted I/O during setup.
     #[cfg(not(wasm_browser))]
     pub fn member_fusion(
-        mut self,
+        self,
+        alpn: &[u8],
         admission: impl MemberFusionAdmission + 'static,
-    ) -> RestrictedBuilder {
-        self.admission = Some(restricted::member_fusion_policy(admission));
-        RestrictedBuilder::new(self)
+    ) -> MemberFusionBuilder {
+        MemberFusionBuilder::new(self, alpn, admission)
     }
 
     /// Configures the portmapper service (UPnP, PCP, NAT-PMP).

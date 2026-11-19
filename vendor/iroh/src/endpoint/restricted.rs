@@ -7,6 +7,8 @@ use n0_error::e;
 use n0_future::time::{self, Duration, Instant};
 use tokio::sync::Mutex;
 
+#[cfg(not(wasm_browser))]
+use super::member_fusion::{Fusion, MemberFusionEvent, SUPERSEDED_REASON};
 use super::{
     Accepting, AfterHandshakeOutcome, AlpnError, BindError, Builder, ConnectError, ConnectOptions,
     ConnectWithOptsError, Connecting, ConnectingError, Connection, Endpoint,
@@ -15,7 +17,7 @@ use super::{
     connection::{AttemptOptions, RegisteredConnection},
 };
 
-type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+pub(super) type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 mod application;
 use application::ApplicationControl;
@@ -159,6 +161,12 @@ pub(crate) trait DynEndpointAdmission: std::fmt::Debug + Send + Sync {
     fn application_protocol(&self) -> bool {
         false
     }
+    #[cfg(not(wasm_browser))]
+    fn member_fusion(&self) -> Option<&Fusion> {
+        None
+    }
+    #[cfg(not(wasm_browser))]
+    fn fusion_event(&self, _connection: &ControlConnection, _event: MemberFusionEvent) {}
 }
 
 impl<T: EndpointAdmission> DynEndpointAdmission for T {
@@ -206,80 +214,6 @@ pub(super) fn application_policy(
     Arc::new(ApplicationAdmission(policy))
 }
 
-/// Authorization supplied by an application using native member fusion.
-#[cfg(not(wasm_browser))]
-pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
-    /// Authenticate the member over the original connection's protected control
-    /// exchanges. The endpoint owns route selection and fresh data-path proof.
-    fn authorize<'a>(
-        &'a self,
-        connection: &'a ControlConnection,
-    ) -> impl Future<Output = io::Result<ControlConfirmation>> + Send + 'a;
-
-    /// Recheck that the member may still use this connection.
-    fn is_current(&self, connection: &ControlConnection) -> bool;
-
-    /// Observe business delivery after all endpoint and authorization checks.
-    fn business_released(&self, _connection: &Connection) {}
-}
-
-#[cfg(not(wasm_browser))]
-#[derive(Debug)]
-struct NativeMemberFusion<A>(A);
-
-#[cfg(not(wasm_browser))]
-impl<A: MemberFusionAdmission> DynEndpointAdmission for NativeMemberFusion<A> {
-    fn admit<'a>(
-        &'a self,
-        connection: &'a ControlConnection,
-    ) -> BoxFuture<'a, io::Result<AdmissionOutcome>> {
-        Box::pin(async move {
-            let confirmation = self.0.authorize(connection).await?;
-            let path = connection
-                .paths()
-                .iter()
-                .filter(|path| match path.remote_addr() {
-                    TransportAddr::Relay(url) => connection
-                        .endpoint
-                        .inner
-                        .static_config
-                        .relay_resource_policy
-                        .allows(url, super::RelayResourceUse::DataRelay),
-                    _ => false,
-                })
-                .max_by_key(|path| path.is_selected())
-                .map(|path| path.id())
-                .ok_or_else(|| {
-                    io::Error::new(io::ErrorKind::NotConnected, "no permitted data relay")
-                })?;
-            let permit = connection.qualify_data_path(path, Vec::new()).await?;
-            Ok(AdmissionOutcome::AcceptWithConfirmation {
-                permit,
-                confirmation,
-            })
-        })
-    }
-
-    fn is_current(&self, connection: &ControlConnection) -> bool {
-        self.0.is_current(connection)
-    }
-
-    fn business_released(&self, connection: &Connection) {
-        self.0.business_released(connection);
-    }
-
-    fn application_protocol(&self) -> bool {
-        true
-    }
-}
-
-#[cfg(not(wasm_browser))]
-pub(super) fn member_fusion_policy(
-    admission: impl MemberFusionAdmission + 'static,
-) -> Arc<dyn DynEndpointAdmission> {
-    Arc::new(NativeMemberFusion(admission))
-}
-
 #[derive(Debug)]
 struct CustomDataLimit {
     inner: Arc<dyn DynEndpointAdmission>,
@@ -312,6 +246,14 @@ impl DynEndpointAdmission for CustomDataLimit {
     }
     fn business_released(&self, connection: &Connection) {
         self.inner.business_released(connection)
+    }
+    #[cfg(not(wasm_browser))]
+    fn member_fusion(&self) -> Option<&Fusion> {
+        self.inner.member_fusion()
+    }
+    #[cfg(not(wasm_browser))]
+    fn fusion_event(&self, connection: &ControlConnection, event: MemberFusionEvent) {
+        self.inner.fusion_event(connection, event)
     }
 }
 
@@ -976,7 +918,7 @@ pub struct ControlConnection {
 #[derive(Debug, Clone)]
 pub struct ControlHandle {
     connection: Connection,
-    endpoint: Endpoint,
+    pub(super) endpoint: Endpoint,
     channel: Arc<ControlChannel>,
 }
 
@@ -1726,6 +1668,14 @@ pub(super) async fn finish_admission(
     endpoint: &Endpoint,
     policy: &dyn DynEndpointAdmission,
 ) -> Result<RegisteredConnection, ConnectingError> {
+    #[cfg(not(wasm_browser))]
+    let member = policy
+        .member_fusion()
+        .map(|fusion| fusion.candidate(&connection));
+    #[cfg(not(wasm_browser))]
+    let run_legacy_hook = member.is_none();
+    #[cfg(wasm_browser)]
+    let run_legacy_hook = true;
     let result = async {
         let mut control = ControlConnection {
             control: ControlHandle {
@@ -1791,14 +1741,16 @@ pub(super) async fn finish_admission(
         }
         // This is deliberately after the new policy and path checks: the old
         // hook receives a full Connection and may use its business methods.
-        match endpoint.inner.hooks.after_handshake(&connection).await {
-            AfterHandshakeOutcome::Accept => {}
-            AfterHandshakeOutcome::Reject { error_code, reason } => {
-                connection.close(error_code, &reason);
-                return Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    "legacy handshake hook rejected",
-                ));
+        if run_legacy_hook {
+            match endpoint.inner.hooks.after_handshake(&connection).await {
+                AfterHandshakeOutcome::Accept => {}
+                AfterHandshakeOutcome::Reject { error_code, reason } => {
+                    connection.close(error_code, &reason);
+                    return Err(io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        "legacy handshake hook rejected",
+                    ));
+                }
             }
         }
         permit.check(&control).await?;
@@ -1824,6 +1776,24 @@ pub(super) async fn finish_admission(
                 permit.allowed_data_custom_ids.clone(),
             )
             .await?;
+        #[cfg(not(wasm_browser))]
+        let selection = match &member {
+            Some(candidate) => {
+                permit.check(&control).await?;
+                if !policy.is_current(&control) {
+                    return Err(io::ErrorKind::PermissionDenied.into());
+                }
+                match candidate.select(&control, policy).await {
+                    Ok(selection) => Some(selection),
+                    Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+                        connection.close(0u32.into(), SUPERSEDED_REASON);
+                        return Err(error);
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
+            None => None,
+        };
         control.channel.retire().await?;
         permit.check(&control).await?;
         if !policy.is_current(&control) {
@@ -1833,6 +1803,10 @@ pub(super) async fn finish_admission(
             ));
         }
         policy.business_released(&connection);
+        #[cfg(not(wasm_browser))]
+        if let Some(selection) = selection {
+            selection.publish(connection.clone());
+        }
         control.close_on_drop = false;
         Ok(RegisteredConnection::Business(connection.clone()))
     }
