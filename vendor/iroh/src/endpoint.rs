@@ -2046,7 +2046,7 @@ impl Endpoint {
         observers: &[RelayUrl],
     ) -> std::io::Result<UdpMappingSequence> {
         self.inner
-            .observe_udp_stun_mapping_sequence(observers)
+            .observe_udp_stun_mapping_sequence(observers, &|| {})
             .await
     }
 
@@ -2058,7 +2058,9 @@ impl Endpoint {
         &self,
         observers: &RelayMap,
     ) -> std::io::Result<UdpMappingSequence> {
-        self.inner.observe_udp_mapping_sequence(observers).await
+        self.inner
+            .observe_udp_mapping_sequence(observers, None)
+            .await
     }
 
     /// Race QAD and STUN on the endpoint's sole IPv4 binding. Returns up to
@@ -2069,7 +2071,9 @@ impl Endpoint {
         qad: &RelayMap,
         stun: &[RelayUrl],
     ) -> std::io::Result<UdpMappingSequence> {
-        self.inner.observe_udp_mapping_round(qad, stun).await
+        self.inner
+            .observe_udp_mapping_round(qad, stun, &|| {}, None)
+            .await
     }
 
     /// A local generation token for a candidate-only traversal snapshot when

@@ -1164,6 +1164,22 @@ impl Connection {
             .probe_known_nat_traversal_address(address)
     }
 
+    /// Pause off-path NAT traversal probe transmission on this connection.
+    pub fn set_nat_traversal_probes_paused(&self, paused: bool) {
+        self.0
+            .lock_and_wake("set_nat_traversal_probes_paused")
+            .inner
+            .set_nat_traversal_probes_paused(paused);
+    }
+
+    /// Whether off-path NAT traversal probe transmission is paused.
+    pub fn nat_traversal_probes_paused(&self) -> bool {
+        self.0
+            .lock_without_waking("nat_traversal_probes_paused")
+            .inner
+            .nat_traversal_probes_paused()
+    }
+
     /// Initiates a new nat traversal round
     ///
     /// A nat traversal round involves advertising the client's local addresses in `REACH_OUT`

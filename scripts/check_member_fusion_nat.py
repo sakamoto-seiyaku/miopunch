@@ -154,13 +154,16 @@ def cell(binary, output, case, visitor, trial):
         if case == "validation-blocked":
             assert a["match"] and b["match"] and a["winner"] and b["winner"]
             assert a["ack_ms"] is None and b["ack_ms"] is None
-        if case == "fixed":
+        if case in ("fixed", "fixed-auto"):
             assert a["success"]
             sender = 1 - visitor
             receiver = (a, b)[visitor]
             assert receiver["match"]["remote"] == f"{PUBLIC[sender]}:{PRIMARY[sender] + 10}"
             assert receiver["winner"]["remote"] == receiver["match"]["remote"]
             assert receiver["winner"]["remote"] not in (a, b)[sender]["samples"]
+        if case == "fixed-auto":
+            assert a["automatic_business_verified"] and b["automatic_business_verified"]
+            assert not a["learned"] and not b["learned"]
         if case.startswith("random"):
             assert a["mode"] == 4 and a["listener_attempted"] == 256
             assert a["retained"] == int(a["success"])
@@ -181,7 +184,7 @@ def main():
     parser.add_argument("test_binary", type=Path)
     parser.add_argument("evidence", type=Path)
     cases = ("fixed", "fixed-blocked", "validation-blocked", "random", "random-blocked", "random-cancel")
-    parser.add_argument("--case", action="append", choices=cases)
+    parser.add_argument("--case", action="append", choices=(*cases, "fixed-auto"))
     parser.add_argument("--random-trials", type=int, default=2)
     args = parser.parse_args()
     binary = args.test_binary.resolve(strict=True)

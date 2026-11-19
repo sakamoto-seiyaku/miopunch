@@ -13,8 +13,8 @@ use std::{
 use tokio::sync::{mpsc, oneshot};
 
 use super::{
-    ControlExchange, Duration, Instant, MemberUdpPlan, Planning, Recommendation, Round, denied,
-    invalid, receive, send, time, wire,
+    ControlExchange, Duration, Instant, MemberUdpPlan, Planning, Recommendation, Reservation,
+    Round, StreamKind, denied, invalid, receive, send, time, wire,
 };
 use crate::{
     TransportAddr,
@@ -111,6 +111,8 @@ impl Planning {
         stream: &ControlExchange,
         plan: &MemberUdpPlan,
         recommendation: Option<Recommendation>,
+        slot: &Reservation<'_>,
+        kind: StreamKind,
     ) -> io::Result<()> {
         let (business, incoming) = mpsc::channel(1);
         let state = Arc::new(Execution {
@@ -136,8 +138,16 @@ impl Planning {
         let running = Running(state);
         let result = self
             .guarded(plan.deadline, &plan.scope, async {
-                self.drive(stream, plan, recommendation, &running.0, incoming)
-                    .await
+                self.drive(
+                    stream,
+                    plan,
+                    recommendation,
+                    slot,
+                    kind,
+                    &running.0,
+                    incoming,
+                )
+                .await
             })
             .await;
         running.0.update(|report| {
@@ -152,6 +162,8 @@ impl Planning {
         stream: &ControlExchange,
         plan: &MemberUdpPlan,
         recommendation: Option<Recommendation>,
+        slot: &Reservation<'_>,
+        kind: StreamKind,
         state: &Execution,
         mut incoming: mpsc::Receiver<Business>,
     ) -> io::Result<()> {
@@ -217,7 +229,7 @@ impl Planning {
         setup?;
         exchange_phase(stream, &round.message(wire::LISTENING)).await?;
         let packets = AtomicUsize::new(super::packet_limit(&plan.local_phase));
-        let (winner, retained) = while_peer_receives(&peer, async {
+        let (winner, mut retained) = while_peer_receives(&peer, async {
             let winner = nat_execution::run(
                 &plan.local_phase,
                 &mut lease,
@@ -234,8 +246,11 @@ impl Planning {
                     trace: &state.trace,
                     peer_sends_immediately: plan.peer_phase.behavior.send_delay_ms == 0,
                     receiver_wait: false,
-                    event: &|event, _| {
-                        if let PhaseEvent::FirstMatch { winner, at } = event {
+                    event: &|event, _| match event {
+                        PhaseEvent::FirstSend { .. } => {
+                            slot.spend(&plan.scope.generation, self.config.round_interval);
+                        }
+                        PhaseEvent::FirstMatch { winner, at } => {
                             state.update(|report| report.first_match = Some((winner.clone(), at)));
                         }
                     },
@@ -255,13 +270,31 @@ impl Planning {
         let (path, ack, candidate) = while_peer_receives(&peer, self.validate(&winner)).await?;
         state.update(|report| report.validated = Some((path, ack)));
         exchange_phase(stream, &round.message(wire::VALIDATED)).await?;
-        let business = while_peer_receives(&peer, async {
+        while_peer_receives(&peer, async {
             while self.on_winner(&winner, |candidate| {
                 candidate.id() == path && candidate.is_selected()
             }) != Some(true)
             {
                 time::sleep(Duration::from_millis(10)).await;
             }
+            Ok(())
+        })
+        .await?;
+        if kind.automatically_improves_path() {
+            // A bilateral fresh ACK makes the path usable by ordinary streams.
+            // Scoring still requires the application's explicit business confirmation.
+            exchange_phase(stream, &round.message(wire::SELECTED)).await?;
+            stream.finish_send().await?;
+            self.permits_winner(&winner)?;
+            if let Some(lease) = &mut retained {
+                lease.commit(&self.connection)?;
+            }
+            if let Some(candidate) = candidate {
+                candidate.retain();
+            }
+            return Ok(());
+        }
+        let business = while_peer_receives(&peer, async {
             incoming
                 .recv()
                 .await

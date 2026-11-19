@@ -176,7 +176,7 @@ impl EndpointInner {
         &self,
         observer: &RelayUrl,
     ) -> io::Result<UdpStunObservation> {
-        self.observe_udp_stun_in_sequence(observer, self.begin_udp_stun_observation())
+        self.observe_udp_stun_in_sequence(observer, self.begin_udp_stun_observation(), &|| {})
             .await
     }
 
@@ -184,6 +184,8 @@ impl EndpointInner {
         &self,
         qad: &iroh_relay::RelayMap,
         stun: &[RelayUrl],
+        on_work: &(impl Fn() + Sync),
+        qad_submission: Option<&super::transports::QadSubmission>,
     ) -> io::Result<UdpMappingSequence> {
         // Both request types use the endpoint IPv4 transport. A single binding
         // makes that physical socket unambiguous even for wildcard addresses.
@@ -250,6 +252,7 @@ impl EndpointInner {
                 self.qad_client.clone(),
                 self.sock.dns_resolver.clone(),
                 closed.child_token(),
+                qad_submission,
             );
             probes.push(
                 async move {
@@ -268,7 +271,8 @@ impl EndpointInner {
             );
         }
         for observer in &stun {
-            let probe = self.observe_udp_stun_in_sequence(observer, round_validity.clone());
+            let probe =
+                self.observe_udp_stun_in_sequence(observer, round_validity.clone(), on_work);
             probes.push(
                 async move {
                     let sample = probe.await?;
@@ -352,6 +356,7 @@ impl EndpointInner {
     pub(crate) async fn observe_udp_stun_mapping_sequence(
         &self,
         observers: &[RelayUrl],
+        on_work: &(impl Fn() + Sync),
     ) -> io::Result<UdpMappingSequence> {
         if observers.len() > 4 {
             return Err(io::Error::new(
@@ -375,7 +380,7 @@ impl EndpointInner {
                 ));
             }
             match self
-                .observe_udp_stun_in_sequence(observer, validity.clone())
+                .observe_udp_stun_in_sequence(observer, validity.clone(), on_work)
                 .await
             {
                 Ok(result) => {
@@ -439,6 +444,7 @@ impl EndpointInner {
         &self,
         observer: &RelayUrl,
         validity: ObservationValidity,
+        on_work: &(impl Fn() + Sync),
     ) -> io::Result<UdpStunObservation> {
         if observer.scheme() != "stun"
             || observer.username() != ""
@@ -516,6 +522,7 @@ impl EndpointInner {
                         let path = transports::FourTuple::Ip { remote: destination, local: None };
                         let packet = transports::Transmit { ecn: None, contents: &request, segment_size: None };
                         std::future::poll_fn(|cx| std::pin::Pin::new(&mut *sender).poll_send(cx, &path, &packet)).await?;
+                        if sends == 0 { on_work(); }
                         sends += 1;
                         eprintln!("STUN_UDP_SEND destination={destination} endpoint_binding={:?} attempt={sends} sent_to_kernel=true",
                             self.sock.ip_local_addrs().find(SocketAddr::is_ipv4));

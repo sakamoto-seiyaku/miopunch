@@ -200,6 +200,8 @@ impl NatConnector {
             peer_datagrams: self.budget.peer_limit(),
             round_timeout: Duration::from_millis(resources.maintenance.contact_timeout_ms)
                 .min(crate::connection_budget::MAX),
+            round_interval: round_interval(&resources.maintenance),
+            quality_interval: Duration::from_millis(resources.maintenance.quality_interval_ms),
         })
     }
 

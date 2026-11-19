@@ -1078,6 +1078,7 @@ impl TransportsSender {
         network_path: &FourTuple,
         local_socket: Option<noq::LocalSocketId>,
         transmit: &Transmit<'_>,
+        #[cfg(not(wasm_browser))] qad: Option<&QadSubmission>,
     ) -> Poll<io::Result<()>> {
         if let Some(id) = local_socket {
             #[cfg(not(wasm_browser))]
@@ -1103,7 +1104,13 @@ impl TransportsSender {
                 )));
             }
         }
-        self.poll_send(cx, network_path, transmit)
+        self.poll_send_inner(
+            cx,
+            network_path,
+            transmit,
+            #[cfg(not(wasm_browser))]
+            qad,
+        )
     }
 
     #[cfg(not(wasm_browser))]
@@ -1140,12 +1147,28 @@ impl TransportsSender {
         Poll::Ready(Err(io::Error::other("no IPv4 traversal transport")))
     }
 
-    #[instrument(name = "poll_send", skip(self, cx, transmit), fields(len = transmit.contents.len()))]
     pub(crate) fn poll_send(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context,
+        network_path: &FourTuple,
+        transmit: &Transmit<'_>,
+    ) -> Poll<io::Result<()>> {
+        self.poll_send_inner(
+            cx,
+            network_path,
+            transmit,
+            #[cfg(not(wasm_browser))]
+            None,
+        )
+    }
+
+    #[instrument(name = "poll_send", skip_all, fields(network_path = ?network_path, len = transmit.contents.len()))]
+    fn poll_send_inner(
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context,
         network_path: &FourTuple,
         transmit: &Transmit<'_>,
+        #[cfg(not(wasm_browser))] qad: Option<&QadSubmission>,
     ) -> Poll<io::Result<()>> {
         match network_path {
             #[cfg(wasm_browser)]
@@ -1163,12 +1186,14 @@ impl TransportsSender {
                         .v4_iter_mut()
                         .find(|s| s.is_valid_send_addr(*src, dst_addr))
                     {
-                        return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
+                        return Pin::new(sender)
+                            .poll_send_observing(cx, *dst_addr, *src, transmit, qad);
                     }
                     if let Some(sender) = self.ip.v4_default_mut()
                         && sender.is_valid_default_addr(*src, dst_addr)
                     {
-                        return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
+                        return Pin::new(sender)
+                            .poll_send_observing(cx, *dst_addr, *src, transmit, qad);
                     }
                 }
                 SocketAddr::V6(_) => {
@@ -1258,6 +1283,8 @@ impl Transport {
             sender: self.transports.create_sender(),
             #[cfg(not(wasm_browser))]
             exact_relay: None,
+            #[cfg(not(wasm_browser))]
+            qad: None,
         }
     }
 }
@@ -1274,6 +1301,7 @@ impl noq::AsyncUdpSocket for Transport {
     ) -> Pin<Box<dyn noq::UdpSender>> {
         let mut sender = self.sender();
         sender.exact_relay = context.downcast_ref::<ExactRelayBootstrap>().cloned();
+        sender.qad = context.downcast_ref::<QadSubmission>().cloned();
         Box::pin(sender)
     }
 
@@ -1374,6 +1402,8 @@ pub(crate) struct Sender {
     sock: Arc<Socket>,
     #[cfg(not(wasm_browser))]
     exact_relay: Option<ExactRelayBootstrap>,
+    #[cfg(not(wasm_browser))]
+    qad: Option<QadSubmission>,
     #[pin]
     sender: TransportsSender,
 }
@@ -1383,6 +1413,27 @@ pub(crate) struct Sender {
 pub(crate) struct ExactRelayBootstrap {
     pub(crate) address: SocketAddr,
     pub(crate) route: Arc<RelayBootstrap>,
+}
+
+/// One real IPv4 datagram submission across the QAD connections in a round.
+#[cfg(not(wasm_browser))]
+#[derive(Clone, derive_more::Debug)]
+pub(crate) struct QadSubmission(
+    #[debug(skip)] Arc<std::sync::Mutex<Option<Box<dyn FnOnce() + Send>>>>,
+);
+
+#[cfg(not(wasm_browser))]
+impl QadSubmission {
+    pub(crate) fn new(on_work: impl FnOnce() + Send + 'static) -> Self {
+        Self(Arc::new(std::sync::Mutex::new(Some(Box::new(on_work)))))
+    }
+
+    fn submitted(&self) {
+        let on_work = self.0.lock().expect("QAD submission").take();
+        if let Some(on_work) = on_work {
+            on_work();
+        }
+    }
 }
 
 type RelayStatusReceiver = tokio::sync::watch::Receiver<bool>;
@@ -1578,8 +1629,14 @@ impl noq::UdpSender for Sender {
             this.sender
                 .poll_send_relay(cx, url, *endpoint_id, &transmit, exact)
         } else {
-            this.sender
-                .poll_send_on_socket(cx, &network_path, local_socket, &transmit)
+            this.sender.poll_send_on_socket(
+                cx,
+                &network_path,
+                local_socket,
+                &transmit,
+                #[cfg(not(wasm_browser))]
+                this.qad.as_ref(),
+            )
         };
         match sent {
             Poll::Ready(Ok(())) => {

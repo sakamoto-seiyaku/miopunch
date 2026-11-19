@@ -230,14 +230,54 @@ def independent(path):
     }
 
 
+def fused(path):
+    lines = path.read_text().splitlines()
+    require(any(line.startswith("test result: ok.") for line in lines),
+            f"incomplete fused fixture run in {path}")
+    marker = one([json.loads(line) for line in lines if line.startswith("{")
+                  and '"event":"fused-contention-fixture"' in line])
+    require(marker["dryRequests"] == [0, 0] and marker["dryCancelled"] == "Interrupted"
+            and marker["dryYielded"] == "WouldBlock", "dry crossed round did not yield before I/O")
+    require(marker["followUpMs"] < 250 and marker["deadlineMs"] == 3_000
+            and marker["settledMs"] <= 3_100, "fused fixture changed the exploration or caller window")
+    require(marker["stunRequests"] == marker["samples"] == [2, 2],
+            "both real observation points must see one submitted request per endpoint")
+    require(all(0 < actual <= limit for actual, limit in
+                zip(marker["packets"], marker["limits"], strict=True)), "fused datagram limit")
+    require(all(marker["matched"]) and marker["workedCooldown"], "substantive round did not settle")
+    require(len(set(marker["streams"])) == 2 and all(seq > 3 for seq in marker["businessSequences"]),
+            "original business streams did not both continue")
+    work = []
+    for samples, packets in zip(marker["samples"], marker["packets"], strict=True):
+        if samples:
+            work.append({"phase": "observation", "result": "succeeded",
+                         "attemptId": marker["round"], "detail": {"output": {"samples": samples}}})
+        if packets:
+            work.append({"phase": "punch-first-send", "result": "sent",
+                         "attemptId": marker["round"]})
+    # The just-released collision left both sides available: a unilateral request
+    # from the yielder reached its own observation and send within the same floor.
+    marker["acceptanceFailures"] = check_unspent_handoff(work, {})
+    return marker
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("same_original", type=Path)
-    parser.add_argument("independent", type=Path)
+    parser.add_argument("independent", type=Path, nargs="?")
+    parser.add_argument("--fused", action="store_true", help="check the same fused business input")
     parser.add_argument("--expect-baseline-red", action="store_true",
                         help="succeed only after reproducing the legacy red and its working control")
     args = parser.parse_args()
     try:
+        if args.fused:
+            if args.independent is not None or args.expect_baseline_red:
+                parser.error("--fused accepts one fused log")
+            result = fused(args.same_original)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return bool(result["acceptanceFailures"])
+        if args.independent is None:
+            parser.error("the two frozen baseline logs are required")
         result = {"sameOriginal": same_original(args.same_original), "independent": independent(args.independent)}
     except (ValueError, KeyError) as error:
         parser.exit(2, f"incomplete witness: {error}\n")

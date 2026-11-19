@@ -1932,7 +1932,8 @@ pub(super) async fn finish_admission(
         }
         #[cfg(not(wasm_browser))]
         if let Some((fusion, selection)) = fusion.zip(selection) {
-            let activity = Arc::new(super::member_fusion::Activity::default());
+            let activity = fusion.activity();
+            let udp = fusion.plan_udp(endpoint, &connection);
             let direct_transport = policy
                 .member_direct_transport()
                 .filter(|id| permit.allowed_data_custom_ids.contains(id));
@@ -1962,6 +1963,7 @@ pub(super) async fn finish_admission(
                 },
             )
             .with_required_path_acks([direct_transport, member_relay], started_on_member_relay)
+            .with_enhanced_udp(udp.as_ref().and_then(|udp| udp.path_work()))
             .with_repair_health(repair.as_ref().map(|repair| repair.health.clone()));
             endpoint
                 .inner
@@ -1991,13 +1993,13 @@ pub(super) async fn finish_admission(
                 started_on_member_relay,
             );
             fusion.publish(
-                endpoint,
                 selection,
                 connection.clone(),
                 permit.remote,
                 activity,
                 candidates,
                 repair,
+                udp,
             );
         }
         if run_legacy_hook {

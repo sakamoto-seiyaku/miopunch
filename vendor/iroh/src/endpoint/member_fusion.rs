@@ -516,6 +516,31 @@ impl MemberFusionEndpoint {
             .expect("candidate coordination already enabled");
     }
 
+    /// Synchronize the next outgoing enhanced attempts after reserving their real slots.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_coordinate_udp_reservation(&self, barrier: Arc<tokio::sync::Barrier>) {
+        self.inner
+            .fusion
+            .udp_planner
+            .test_coordinate_reservation(barrier);
+    }
+
+    /// Apply the ordinary test path mask to an admitted fused original.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub async fn test_limit_transport_paths(
+        &self,
+        connection: &MemberConnection,
+        allowed: Vec<TransportAddr>,
+    ) -> io::Result<()> {
+        self.inner
+            .endpoint
+            .inner
+            .test_limit_transport_paths(&connection.0.connection, allowed)
+            .await
+    }
+
     /// Expose the test barriers for preferred qualification, release of READY,
     /// and the reverse candidate's first response, in that order.
     #[cfg(feature = "miopunch-test-hooks")]
@@ -844,17 +869,33 @@ impl Fusion {
         connection
     }
 
-    pub(super) fn publish(
+    pub(super) fn activity(&self) -> Arc<Activity> {
+        Arc::new(Activity::new(self.udp_planner.clone()))
+    }
+
+    pub(super) fn plan_udp(
         &self,
         endpoint: &Endpoint,
+        connection: &Connection,
+    ) -> Option<Arc<udp::Planning>> {
+        udp::Planning::new(
+            endpoint,
+            connection,
+            self.udp_planner.clone(),
+            *self.idle_timeout.get().expect("bound member idle timeout"),
+        )
+    }
+
+    pub(super) fn publish(
+        &self,
         selection: Selection,
         connection: Connection,
         data_path: TransportAddr,
         activity: Arc<Activity>,
         path_candidates: Option<Arc<PathCandidates>>,
         repair: Option<RepairPath>,
+        udp: Option<Arc<udp::Planning>>,
     ) {
-        let udp = udp::Planning::new(endpoint, &connection, self.udp_planner.clone());
         let incoming = udp
             .as_ref()
             .map(|udp| watch_streams(connection.clone(), activity.clone(), udp.clone()));
@@ -1585,7 +1626,15 @@ impl Selection {
                 _ = live.0.connection.closed() => {},
                 _ = shutdown.cancelled() => live.0.connection.close(0u32.into(), b"member owner ended"),
                 _ = live.0.idle(idle_timeout) => {},
+                _ = async {
+                    if let Some(udp) = &live.0.udp {
+                        udp.maintain(&live.0.activity).await;
+                    } else {
+                        std::future::pending().await
+                    }
+                } => {},
             }
+            live.0.activity.end();
             let mut state = peer.state.lock().expect("member peer lock");
             if state
                 .live
@@ -1723,6 +1772,27 @@ impl MemberConnection {
         self.0.connection.test_suppress_path_acks(id, suppressed);
     }
 
+    /// Observe real application bytes on the exact selected path in an owned fixture.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_observe_stream_receive(
+        &self,
+        id: PathId,
+        stream: &MemberStream,
+    ) -> Option<noq::StreamReceivePath> {
+        self.paths()
+            .iter()
+            .find(|path| path.is_selected() && path.id() == id)?
+            .observe_stream_receive(&stream.recv)
+    }
+
+    /// Read the original transport's off-path QNT send gate in an owned fixture.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_nat_traversal_probes_paused(&self) -> bool {
+        self.0.connection.nat_traversal_probes_paused()
+    }
+
     /// Transport frames and bytes on this original QUIC connection.
     pub fn stats(&self) -> noq::ConnectionStats {
         self.0.connection.stats()
@@ -1763,7 +1833,13 @@ impl MemberConnection {
     /// Open a periodic maintenance stream on this already selected connection.
     /// Neither side counts it as business activity or extends its idle lifetime.
     pub async fn open_maintenance_bi(&self) -> io::Result<MemberStream> {
-        self.open(StreamKind::Maintenance).await
+        let stream = self.open(StreamKind::Maintenance).await?;
+        if self.0.activity.idle_since().is_some()
+            && let Some(udp) = &self.0.udp
+        {
+            udp.request_maintenance();
+        }
+        Ok(stream)
     }
 
     async fn open(&self, kind: StreamKind) -> io::Result<MemberStream> {
@@ -1846,9 +1922,26 @@ enum StreamKind {
     Maintenance,
     UdpPlan,
     UdpTraversal,
+    UdpImprovement,
+    UdpMaintenance,
 }
 
 impl StreamKind {
+    fn automatically_improves_path(self) -> bool {
+        matches!(self, Self::UdpImprovement | Self::UdpMaintenance)
+    }
+
+    fn udp_kind(kind: u8) -> Option<Self> {
+        [
+            Self::UdpPlan,
+            Self::UdpTraversal,
+            Self::UdpImprovement,
+            Self::UdpMaintenance,
+        ]
+        .into_iter()
+        .find(|value| *value as u8 == kind)
+    }
+
     fn business_kind(kind: u8) -> io::Result<Self> {
         match kind {
             0 => Ok(Self::Business),
@@ -1886,9 +1979,9 @@ fn watch_streams(
                     let udp = udp.clone();
                     pending.push(async move {
                         let Ok(kind) = read_stream_kind(&mut recv).await else { return; };
-                        let traverse = kind == StreamKind::UdpTraversal as u8;
-                        if kind == StreamKind::UdpPlan as u8 || traverse {
-                            udp.respond(ControlExchange::from_streams(send, recv), traverse).await;
+                        if let Some(kind) = StreamKind::udp_kind(kind) {
+                            udp.respond(ControlExchange::from_streams(send, recv), &activity, kind)
+                                .await;
                         } else {
                             let _ = outgoing.send(IncomingMemberStream { send, recv, activity, kind: Some(kind) }).await;
                         }
@@ -1956,12 +2049,7 @@ impl Live {
     async fn idle(&self, budget: Duration) {
         let mut changed = self.activity.changed.subscribe();
         loop {
-            let idle_since = self
-                .activity
-                .state
-                .lock()
-                .expect("member activity lock")
-                .idle_since;
+            let idle_since = self.activity.idle_since();
             if let Some(since) = idle_since {
                 if time::timeout_at(since + budget, changed.changed())
                     .await
@@ -1985,29 +2073,43 @@ impl Live {
 pub(super) struct Activity {
     state: Mutex<ActivityState>,
     changed: watch::Sender<bool>,
+    planner: Arc<udp::Planner>,
 }
 
 #[derive(Debug)]
 struct ActivityState {
     idle_since: Option<Instant>,
     holders: usize,
+    ended: bool,
 }
 
-impl Default for Activity {
-    fn default() -> Self {
+impl Activity {
+    fn new(planner: Arc<udp::Planner>) -> Self {
         Self {
             state: Mutex::new(ActivityState {
                 idle_since: Some(Instant::now()),
                 holders: 0,
+                ended: false,
             }),
             changed: watch::Sender::default(),
+            planner,
         }
     }
-}
-
-impl Activity {
     pub(super) fn subscribe(&self) -> watch::Receiver<bool> {
         self.changed.subscribe()
+    }
+
+    fn idle_since(&self) -> Option<Instant> {
+        self.state.lock().expect("member activity lock").idle_since
+    }
+
+    fn end(&self) {
+        let mut state = self.state.lock().expect("member activity lock");
+        if state.holders != 0 {
+            self.planner.business_changed(false);
+            self.changed.send_replace(false);
+        }
+        state.ended = true;
     }
 
     fn lease(self: &Arc<Self>, kind: StreamKind) -> Option<ActivityLease> {
@@ -2015,8 +2117,12 @@ impl Activity {
             return None;
         }
         let mut state = self.state.lock().expect("member activity lock");
+        if state.ended {
+            return None;
+        }
         if state.holders == 0 {
             state.idle_since = None;
+            self.planner.business_changed(true);
             self.changed.send_replace(true);
         }
         state.holders += 1;
@@ -2031,8 +2137,9 @@ impl Drop for ActivityLease {
     fn drop(&mut self) {
         let mut state = self.0.state.lock().expect("member activity lock");
         state.holders -= 1;
-        if state.holders == 0 {
+        if state.holders == 0 && !state.ended {
             state.idle_since = Some(Instant::now());
+            self.0.planner.business_changed(false);
             self.0.changed.send_replace(false);
         }
     }

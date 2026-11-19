@@ -54,6 +54,7 @@ async fn enhanced_udp_through_translated_members() {
     let a = role == "a";
     let mode = env::var("MIO150_CASE").unwrap();
     let visitor = env::var("MIO150_VISITOR").unwrap() == role;
+    let automatic = mode == "fixed-auto";
     let cancel_during_probes = mode == "random-cancel";
     let blocked = mode.ends_with("blocked") || cancel_during_probes;
     let random = mode.starts_with("random");
@@ -71,6 +72,9 @@ async fn enhanced_udp_through_translated_members() {
     resources.udp_direct_disabled = false;
     resources.path_selection.preference = PathPreference::Quality;
     resources.maintenance.contact_timeout_ms = budget.as_millis() as u64;
+    if automatic {
+        resources.maintenance.quality_interval_ms = if visitor { 250 } else { 3_000 };
+    }
     node.save_resource_configuration(&resources).unwrap();
 
     let primary = if a { CLIENT } else { SERVER };
@@ -165,7 +169,8 @@ async fn enhanced_udp_through_translated_members() {
                         );
                     }
                 }
-                if !blocked
+                if !automatic
+                    && !blocked
                     && report.validated.is_some_and(|(id, _)| {
                         connection
                             .paths()
@@ -196,7 +201,7 @@ async fn enhanced_udp_through_translated_members() {
     let (result, (report, plan)) = time::timeout_at(deadline + Duration::from_secs(3), async {
         tokio::join!(
             async {
-                if visitor {
+                if visitor && !automatic {
                     Some(connection.coordinate_udp_traversal(deadline, &cancel).await)
                 } else {
                     None
@@ -263,12 +268,43 @@ async fn enhanced_udp_through_translated_members() {
             && path.is_selected()
             && path.local_socket_id() == Some(winner.local_socket_id)
             && path.remote_addr() == &TransportAddr::Ip(winner.remote)));
-        assert_eq!(report.business.unwrap().0, stream_id);
-        assert!(
-            ack.sent_at >= report.first_match.as_ref().unwrap().1
-                && report.business.unwrap().1 >= ack.received_at
-        );
-        assert_eq!(report.learned, !visitor);
+        assert!(ack.sent_at >= report.first_match.as_ref().unwrap().1);
+        if automatic {
+            assert!(report.business.is_none() && !report.learned);
+            let bytes = connection.test_observe_stream_receive(id, &stream).unwrap();
+            time::timeout(BUSINESS_LIMIT, async {
+                // Arm both original readers before either side puts bytes on that stream.
+                let mut ready = if a {
+                    connection.open_maintenance_bi().await?
+                } else {
+                    connection.accept_bi().await?
+                };
+                assert!(!ready.is_business());
+                let (send, recv) = ready.streams();
+                let mut received = [0];
+                if a {
+                    send.write_all(&[151]).await.unwrap();
+                }
+                recv.read_exact(&mut received).await.unwrap();
+                assert_eq!(received, [151]);
+                if !a {
+                    send.write_all(&received).await.unwrap();
+                }
+                send.finish().unwrap();
+                business(&mut stream, a, 154).await
+            })
+            .await
+            .unwrap()
+            .unwrap();
+            assert!(
+                bytes.confirm(),
+                "ordinary business bytes came from the enhanced winner"
+            );
+        } else {
+            assert_eq!(report.business.unwrap().0, stream_id);
+            assert!(report.business.unwrap().1 >= ack.received_at);
+            assert_eq!(report.learned, !visitor);
+        }
     } else {
         assert!(report.business.is_none() && !report.learned);
         assert!(relay_is_selected(&connection, &relay_url));
@@ -277,7 +313,7 @@ async fn enhanced_udp_through_translated_members() {
     if blocked {
         assert!(!success);
     }
-    if mode == "fixed" {
+    if mode == "fixed" || automatic {
         assert!(success, "{report:?}");
     }
     if let Some(result) = result.as_ref() {
@@ -321,6 +357,7 @@ async fn enhanced_udp_through_translated_members() {
             "frp_role":phase_role, "samples":samples, "packet_limit":packet_limit,
             "match":first_match,"winner":winner,"ack_ms":report.validated.map(|(_, ack)| to_ms(ack.received_at)),
             "business_ms":report.business.map(|(_, at)| to_ms(at)),
+            "automatic_business_verified":automatic && success,
             "duration_ms":to_ms(report.finished.unwrap()),"deadline_ms":to_ms(report.deadline.into_std()),
             "probes":report.trace.probes,"responses":report.trace.responses,
             "listener_attempted":report.trace.listener_attempted, "listener_bound":report.trace.listener_bound,

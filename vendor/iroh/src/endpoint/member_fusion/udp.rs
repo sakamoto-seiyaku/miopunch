@@ -1,6 +1,7 @@
 //! Enhanced UDP coordination on the protected, already admitted original.
 
 use std::{
+    future::pending,
     io,
     sync::{Arc, Mutex},
     time::Instant as StdInstant,
@@ -8,10 +9,11 @@ use std::{
 
 use iroh_relay::RelayMap;
 use n0_watcher::Watcher as _;
-use tokio::sync::Semaphore;
+use tokio::sync::watch;
 
 use super::{
-    CancellationToken, Connection, ControlExchange, Duration, Endpoint, Instant, StreamKind, time,
+    Activity, CancellationToken, Connection, ControlExchange, Duration, Endpoint, Instant,
+    StreamKind, time,
 };
 use crate::{
     RelayUrl,
@@ -22,11 +24,14 @@ use crate::{
             Analyzer, BehaviorId, LearningScope, Recommendation, behaviors, initial_scores,
         },
     },
+    socket::remote_map::MemberUdpPathWork,
 };
 
 mod execute;
+mod slot;
 mod wire;
 pub use execute::MemberUdpTraversalReport;
+use slot::{Priority, Reservation, Slot};
 use wire::{Hello, Round};
 
 const WRAP: ControlMessageFormat = ControlMessageFormat::LengthPrefixed16 { maximum: 2048 };
@@ -47,6 +52,10 @@ pub struct MemberUdpConfig {
     pub peer_datagrams: usize,
     /// Local maximum for the entire round, including observation and coordination.
     pub round_timeout: Duration,
+    /// Minimum separation between physical rounds on this node after one starts work.
+    pub round_interval: Duration,
+    /// Local pacing for business and periodic maintenance requests.
+    pub quality_interval: Duration,
 }
 
 /// The single agreed frp plan and the local phase on the admitted original.
@@ -87,24 +96,45 @@ impl MemberUdpPlan {
 #[derive(Debug)]
 pub(super) struct Planner {
     analyzer: Mutex<Analyzer>,
-    slot: Semaphore,
+    slot: Slot,
+    #[cfg(feature = "miopunch-test-hooks")]
+    reservation_barrier: Mutex<Option<Arc<tokio::sync::Barrier>>>,
 }
 
 impl Default for Planner {
     fn default() -> Self {
         Self {
             analyzer: Mutex::new(Analyzer::new(StdInstant::now())),
-            slot: Semaphore::new(1),
+            slot: Slot::default(),
+            #[cfg(feature = "miopunch-test-hooks")]
+            reservation_barrier: Mutex::default(),
         }
     }
 }
 
+impl Planner {
+    pub(super) fn business_changed(&self, active: bool) {
+        self.slot.business_changed(active);
+    }
+
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(super) fn test_coordinate_reservation(&self, barrier: Arc<tokio::sync::Barrier>) {
+        *self
+            .reservation_barrier
+            .lock()
+            .expect("UDP reservation barrier") = Some(barrier);
+    }
+}
+
 #[derive(Debug)]
-pub(super) struct Planning {
+pub(in super::super) struct Planning {
     endpoint: Endpoint,
     connection: Connection,
     config: MemberUdpConfig,
     owner: Arc<Planner>,
+    idle_timeout: Duration,
+    path_work: Arc<MemberUdpPathWork>,
+    maintenance: watch::Sender<Option<Instant>>,
     latest: Mutex<Option<MemberUdpPlan>>,
     traversal: Mutex<Option<Arc<execute::Execution>>>,
 }
@@ -114,6 +144,7 @@ impl Planning {
         endpoint: &Endpoint,
         connection: &Connection,
         owner: Arc<Planner>,
+        idle_timeout: Duration,
     ) -> Option<Arc<Self>> {
         let config = endpoint
             .inner
@@ -127,9 +158,93 @@ impl Planning {
             connection: connection.clone(),
             config,
             owner,
+            idle_timeout,
+            path_work: Arc::default(),
+            maintenance: watch::Sender::default(),
             latest: Mutex::new(None),
             traversal: Mutex::new(None),
         }))
+    }
+
+    pub(in super::super) fn path_work(&self) -> Option<Arc<MemberUdpPathWork>> {
+        self.can_maintain().then(|| self.path_work.clone())
+    }
+
+    fn can_maintain(&self) -> bool {
+        self.config.enabled && (!self.config.qad.is_empty() || !self.config.stun.is_empty())
+    }
+
+    pub(super) fn request_maintenance(&self) {
+        if self.can_maintain() {
+            self.maintenance.send_replace(Some(Instant::now()));
+        }
+    }
+
+    pub(super) async fn maintain(&self, activity: &Activity) {
+        if !self.can_maintain() {
+            return pending().await;
+        }
+        let mut needed = self.path_work.needed.subscribe();
+        let mut active = activity.subscribe();
+        let mut maintenance = self.maintenance.subscribe();
+        let cancel = CancellationToken::new();
+        let interval = self.config.quality_interval;
+        let mut active_at = Instant::now() + interval;
+        let mut maintenance_at = Instant::now();
+        let mut last_check = None;
+        loop {
+            let idle_since = activity.idle_since();
+            let request = *maintenance.borrow_and_update();
+            let eligible = *needed.borrow_and_update();
+            let (due, deadline, kind) = if let Some(since) = idle_since {
+                let deadline = since + self.idle_timeout;
+                let fresh_check = request.is_some_and(|at| at >= since && last_check != request);
+                (
+                    eligible
+                        .then_some(maintenance_at)
+                        .filter(|_| fresh_check && maintenance_at < deadline),
+                    deadline,
+                    StreamKind::UdpMaintenance,
+                )
+            } else {
+                last_check = request;
+                (
+                    eligible.then_some(active_at),
+                    Instant::now() + self.config.round_timeout,
+                    StreamKind::UdpImprovement,
+                )
+            };
+            if let Some(due) = due.filter(|due| *due <= Instant::now())
+                && due < deadline
+                && deadline > Instant::now()
+            {
+                let work = self.initiate(deadline, &cancel, kind);
+                if kind == StreamKind::UdpMaintenance {
+                    maintenance_at = Instant::now() + interval;
+                    last_check = request;
+                    let _ = work.await;
+                } else {
+                    active_at = Instant::now() + interval;
+                    let inactive = active.wait_for(|active| !*active);
+                    tokio::select! { biased;
+                        _ = inactive => {},
+                        _ = work => {},
+                    }
+                }
+                continue;
+            }
+            tokio::select! {
+                _ = active.changed() => {},
+                _ = needed.changed() => {},
+                _ = maintenance.changed() => {},
+                _ = async {
+                    match due {
+                        Some(due) if due < deadline && deadline > Instant::now() => time::sleep_until(due).await,
+                        _ => pending().await,
+                    }
+                } => {}
+            }
+        }
     }
 
     pub(super) fn current(&self) -> Option<MemberUdpPlan> {
@@ -217,9 +332,41 @@ impl Planning {
     ) -> io::Result<MemberUdpPlan> {
         let scope = self.round_scope(self.scope()?)?;
         let deadline = deadline.min(Instant::now() + self.config.round_timeout);
-        let traverse = kind == StreamKind::UdpTraversal;
+        let traverse = kind != StreamKind::UdpPlan;
+        let priority = if kind == StreamKind::UdpMaintenance {
+            Priority::Maintenance
+        } else {
+            Priority::Business
+        };
+        if cancel.is_cancelled() {
+            return Err(io::ErrorKind::Interrupted.into());
+        }
+        let slot = self.owner.slot.reserve(
+            &scope.authorization,
+            self.connection.stable_id(),
+            true,
+            priority,
+            deadline,
+            traverse,
+        )?;
         let work = async {
-            let _slot = self.owner.slot.try_acquire().map_err(|_| busy())?;
+            let mut running = None;
+            #[cfg(feature = "miopunch-test-hooks")]
+            {
+                let barrier = self
+                    .owner
+                    .reservation_barrier
+                    .lock()
+                    .expect("UDP reservation barrier")
+                    .take();
+                if let Some(barrier) = barrier {
+                    self.guarded(deadline, &scope, async {
+                        barrier.wait().await;
+                        Ok(())
+                    })
+                    .await?;
+                }
+            }
             let stream = self
                 .guarded(deadline, &scope, async {
                     let (mut send, recv) =
@@ -235,12 +382,12 @@ impl Planning {
                     .guarded(
                         deadline,
                         &scope,
-                        self.offer(&stream, &scope, deadline, traverse),
+                        self.offer(&stream, &scope, deadline, kind, &slot, &mut running),
                     )
                     .await?;
                 self.publish(&plan);
                 if traverse {
-                    self.execute(&stream, &plan, None).await?;
+                    self.execute(&stream, &plan, None, &slot, kind).await?;
                 }
                 Ok(plan)
             }
@@ -252,6 +399,7 @@ impl Planning {
         };
         tokio::select! { biased;
             _ = cancel.cancelled() => Err(io::ErrorKind::Interrupted.into()),
+            _ = slot.yielded().cancelled() => Err(busy()),
             result = work => result,
         }
     }
@@ -260,28 +408,63 @@ impl Planning {
         CONTROL_WAIT.min(self.config.round_timeout)
     }
 
-    pub(super) async fn respond(&self, stream: ControlExchange, traverse: bool) {
+    pub(super) async fn respond(
+        &self,
+        stream: ControlExchange,
+        activity: &Activity,
+        kind: StreamKind,
+    ) {
         let started = Instant::now();
+        let traverse = kind != StreamKind::UdpPlan;
+        let priority = if kind == StreamKind::UdpMaintenance {
+            Priority::Maintenance
+        } else {
+            Priority::Business
+        };
         let work = async {
             let hello =
                 Hello::decode(&time::timeout(self.control_timeout(), receive(&stream)).await??)?;
             let scope = self.scope()?;
             hello.check(&scope)?;
             let scope = self.round_scope(scope)?;
-            let deadline = started + self.config.round_timeout.min(hello.budget);
-            let _slot = self.owner.slot.try_acquire().map_err(|_| busy())?;
-            let (plan, recommendation) = self
-                .guarded(
-                    deadline,
-                    &scope,
-                    self.choose(&stream, &scope, deadline, traverse),
-                )
-                .await?;
-            self.publish(&plan);
-            if traverse {
-                self.execute(&stream, &plan, recommendation).await?;
+            let mut deadline = started + self.config.round_timeout.min(hello.budget);
+            if priority == Priority::Maintenance {
+                let since = activity.idle_since().ok_or_else(busy)?;
+                deadline = deadline.min(since + self.idle_timeout);
             }
-            Ok(())
+            if kind.automatically_improves_path()
+                && (!self.can_maintain() || !*self.path_work.needed.borrow())
+            {
+                return Err(busy());
+            }
+            let slot = self.owner.slot.reserve(
+                &scope.authorization,
+                self.connection.stable_id(),
+                false,
+                priority,
+                deadline,
+                traverse,
+            )?;
+            let work = async {
+                let mut running = None;
+                let (plan, recommendation) = self
+                    .guarded(
+                        deadline,
+                        &scope,
+                        self.choose(&stream, &scope, deadline, kind, &slot, &mut running),
+                    )
+                    .await?;
+                self.publish(&plan);
+                if traverse {
+                    self.execute(&stream, &plan, recommendation, &slot, kind)
+                        .await?;
+                }
+                Ok(())
+            };
+            tokio::select! { biased;
+                _ = slot.yielded().cancelled() => Err(busy()),
+                result = work => result,
+            }
         };
         if let Err(error) = work.await {
             let _ = time::timeout_at(
@@ -292,16 +475,36 @@ impl Planning {
         }
     }
 
+    fn start_probes(&self, kind: StreamKind) -> io::Result<Option<RunningPath<'_>>> {
+        if kind == StreamKind::UdpPlan {
+            return Ok(None);
+        }
+        if kind.automatically_improves_path() && !*self.path_work.needed.borrow() {
+            return Err(busy());
+        }
+        let mut running = self.path_work.running.lock().expect("member UDP path work");
+        if *running == 0 {
+            self.connection.set_nat_traversal_probes_paused(true);
+        }
+        *running += 1;
+        Ok(Some(RunningPath {
+            work: &self.path_work,
+            connection: &self.connection,
+        }))
+    }
+
     fn publish(&self, plan: &MemberUdpPlan) {
         *self.latest.lock().expect("member UDP plan") = Some(plan.clone());
     }
 
-    async fn offer(
-        &self,
+    async fn offer<'a>(
+        &'a self,
         stream: &ControlExchange,
         scope: &RoundScope,
         deadline: Instant,
-        traverse: bool,
+        kind: StreamKind,
+        slot: &Reservation<'_>,
+        running: &mut Option<RunningPath<'a>>,
     ) -> io::Result<MemberUdpPlan> {
         send(
             stream,
@@ -310,9 +513,14 @@ impl Planning {
         .await?;
         let challenge = receive(stream).await?;
         let round = Round::decode(&challenge, wire::CHALLENGE)?;
+        slot.commit()?;
+        send(stream, &round.message(wire::OBSERVE)).await?;
+        round.check(&receive(stream).await?, wire::OBSERVE)?;
+        *running = self.start_probes(kind)?;
+        let traverse = kind != StreamKind::UdpPlan;
         let (local, proposal) = tokio::try_join!(
             async {
-                let local = self.observe(&scope.sources).await?;
+                let local = self.observe(scope, traverse, slot).await?;
                 local.check()?;
                 self.check_scope(scope)?;
                 send(stream, &round.offer(&local.wire)).await?;
@@ -358,17 +566,24 @@ impl Planning {
         })
     }
 
-    async fn choose(
-        &self,
+    async fn choose<'a>(
+        &'a self,
         stream: &ControlExchange,
         scope: &RoundScope,
         deadline: Instant,
-        traverse: bool,
+        kind: StreamKind,
+        slot: &Reservation<'_>,
+        running: &mut Option<RunningPath<'a>>,
     ) -> io::Result<(MemberUdpPlan, Option<Recommendation>)> {
         let round = Round(rand::random());
         send(stream, &round.message(wire::CHALLENGE)).await?;
+        round.check(&receive(stream).await?, wire::OBSERVE)?;
+        slot.commit()?;
+        *running = self.start_probes(kind)?;
+        send(stream, &round.message(wire::OBSERVE)).await?;
+        let traverse = kind != StreamKind::UdpPlan;
         // Dropping or cancelling the visitor's stream stops even a pending observation.
-        let (local, remote) = tokio::try_join!(self.observe(&scope.sources), async {
+        let (local, remote) = tokio::try_join!(self.observe(scope, traverse, slot), async {
             round.evidence(&receive(stream).await?)
         },)?;
         local.check()?;
@@ -466,10 +681,29 @@ impl Planning {
         Ok(Sources { qad, stun })
     }
 
-    async fn observe(&self, sources: &Sources) -> io::Result<Evidence> {
+    async fn observe(
+        &self,
+        scope: &RoundScope,
+        traverse: bool,
+        slot: &Reservation<'_>,
+    ) -> io::Result<Evidence> {
+        let sources = &scope.sources;
+        let on_work = || {
+            if traverse {
+                slot.spend(&scope.generation, self.config.round_interval);
+            }
+        };
+        let qad_submission = (traverse && !sources.qad.is_empty())
+            .then(|| slot.qad_submission(scope.generation.clone(), self.config.round_interval));
         let endpoint = &self.endpoint;
         let sequence = match endpoint
-            .observe_udp_mapping_round(&sources.qad, &sources.stun)
+            .inner
+            .observe_udp_mapping_round(
+                &sources.qad,
+                &sources.stun,
+                &on_work,
+                qad_submission.as_ref(),
+            )
             .await
         {
             Ok(sequence) => Some(sequence),
@@ -478,13 +712,19 @@ impl Planning {
                     if sources.qad.len() < 2 {
                         return Ok(None);
                     }
-                    ordered(endpoint.observe_udp_mapping_sequence(&sources.qad).await)
+                    ordered(
+                        endpoint
+                            .inner
+                            .observe_udp_mapping_sequence(&sources.qad, qad_submission.as_ref())
+                            .await,
+                    )
                 };
                 match ordered_qad.await? {
                     Some(sequence) => Some(sequence),
                     None if !sources.stun.is_empty() => ordered(
                         endpoint
-                            .observe_udp_stun_mapping_sequence(&sources.stun)
+                            .inner
+                            .observe_udp_stun_mapping_sequence(&sources.stun, &on_work)
                             .await,
                     )?,
                     None => None,
@@ -501,11 +741,33 @@ impl Planning {
         };
         wire.assisted = endpoint.udp_local_ipv4_candidates();
         wire.validate()?;
+        tracing::debug!(
+            stable_id = self.connection.stable_id(),
+            samples = sequence
+                .as_ref()
+                .map_or(0, |sequence| sequence.samples.len()),
+            "member UDP observation finished"
+        );
         Ok(Evidence {
             wire,
             sequence,
             observed,
         })
+    }
+}
+
+struct RunningPath<'a> {
+    work: &'a MemberUdpPathWork,
+    connection: &'a Connection,
+}
+
+impl Drop for RunningPath<'_> {
+    fn drop(&mut self) {
+        let mut running = self.work.running.lock().expect("member UDP path work");
+        *running -= 1;
+        if *running == 0 {
+            self.connection.set_nat_traversal_probes_paused(false);
+        }
     }
 }
 

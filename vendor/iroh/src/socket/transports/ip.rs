@@ -350,26 +350,43 @@ impl IpSender {
     }
 
     pub(super) fn poll_send(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut std::task::Context,
         dst: SocketAddr,
         src: Option<IpAddr>,
         transmit: &Transmit<'_>,
     ) -> Poll<io::Result<()>> {
+        self.poll_send_observing(cx, dst, src, transmit, None)
+    }
+
+    pub(super) fn poll_send_observing(
+        mut self: Pin<&mut Self>,
+        cx: &mut std::task::Context,
+        dst: SocketAddr,
+        src: Option<IpAddr>,
+        transmit: &Transmit<'_>,
+        qad: Option<&super::QadSubmission>,
+    ) -> Poll<io::Result<()>> {
         let total_bytes = transmit.contents.len() as u64;
-        let res = Pin::new(&mut self.sender).poll_send(
-            &noq_udp::Transmit {
-                destination: Self::canonical_addr(dst),
-                ecn: transmit.ecn,
-                contents: transmit.contents,
-                segment_size: transmit.segment_size,
-                src_ip: src,
-            },
-            cx,
-        );
+        let datagram = noq_udp::Transmit {
+            destination: Self::canonical_addr(dst),
+            ecn: transmit.ecn,
+            contents: transmit.contents,
+            segment_size: transmit.segment_size,
+            src_ip: src,
+        };
+        let sender = Pin::new(&mut self.sender);
+        let res = if qad.is_some() {
+            sender.poll_send_confirmed(&datagram, cx)
+        } else {
+            sender.poll_send(&datagram, cx)
+        };
 
         match res {
             Poll::Ready(Ok(res)) => {
+                if let Some(qad) = qad {
+                    qad.submitted();
+                }
                 match dst {
                     SocketAddr::V4(_) => {
                         self.metrics.send_ipv4.inc_by(total_bytes);

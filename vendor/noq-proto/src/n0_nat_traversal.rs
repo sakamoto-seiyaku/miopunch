@@ -307,6 +307,15 @@ impl State {
         };
     }
 
+    /// Discard ready probes without altering candidates, retry timers or sent challenges.
+    pub(crate) fn discard_pending_probes(&mut self) {
+        match self {
+            Self::NotNegotiated => {}
+            Self::ClientSide(state) => state.pending_probes.clear(),
+            Self::ServerSide(state) => state.pending_probes.clear(),
+        }
+    }
+
     /// Marks a remote as successful if the response matches a sent probe.
     ///
     /// Returns true if it was a response to one of the NAT traversal probes and a path

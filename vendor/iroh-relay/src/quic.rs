@@ -373,6 +373,18 @@ impl QuicClient {
         server_addr: SocketAddr,
         host: &str,
     ) -> Result<noq::Connection, Error> {
+        self.create_conn_with_sender_context(server_addr, host, &())
+            .await
+    }
+
+    /// Create a QAD connection with transport-specific context for its sender.
+    #[doc(hidden)]
+    pub async fn create_conn_with_sender_context(
+        &self,
+        server_addr: SocketAddr,
+        host: &str,
+        context: &(dyn std::any::Any + Sync),
+    ) -> Result<noq::Connection, Error> {
         let alternate = self.x25519_sni_config.as_ref().filter(|((name, port), _)| {
             server_addr.is_ipv4()
                 && *port == server_addr.port()
@@ -386,7 +398,9 @@ impl QuicClient {
             "qad-dial-start host={host} destination={server_addr} x25519_sni={x25519_sni}"
         ));
         let started = Instant::now();
-        let connecting = self.ep.connect_with(config.clone(), server_addr, host);
+        let connecting =
+            self.ep
+                .connect_with_sender_context(config.clone(), server_addr, host, context);
         let conn = connecting?.await?;
         crate::client::relay_diagnostic(format_args!(
             "qad-handshake host={host} destination={server_addr} x25519_sni={x25519_sni} elapsed_ms={}",

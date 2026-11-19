@@ -1064,6 +1064,16 @@ impl ConnectionState for OutgoingZeroRtt {
 pub struct RemoteEndpointIdError;
 
 impl<T: ConnectionState> Connection<T> {
+    #[cfg(not(wasm_browser))]
+    pub(super) fn set_nat_traversal_probes_paused(&self, paused: bool) {
+        self.inner.set_nat_traversal_probes_paused(paused);
+    }
+
+    #[cfg(all(not(wasm_browser), feature = "miopunch-test-hooks"))]
+    pub(super) fn nat_traversal_probes_paused(&self) -> bool {
+        self.inner.nat_traversal_probes_paused()
+    }
+
     /// Initiates a new outgoing unidirectional stream.
     ///
     /// A unidirectional stream can only transmit data from the endpoint which opens the

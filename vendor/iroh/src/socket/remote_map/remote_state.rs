@@ -108,6 +108,8 @@ pub(crate) struct MemberPathPolicy {
     acked_custom_transports: [Option<u64>; 2],
     ack_native_relay: bool,
     repair: Option<watch::Sender<bool>>,
+    #[cfg(not(wasm_browser))]
+    enhanced: Option<Arc<MemberUdpPathWork>>,
     #[debug(skip)]
     permit: Arc<dyn Fn(&TransportAddr) -> bool + Send + Sync>,
 }
@@ -123,6 +125,7 @@ impl MemberPathPolicy {
             acked_custom_transports: [None; 2],
             ack_native_relay: false,
             repair: None,
+            enhanced: None,
             permit: Arc::new(permit),
         }
     }
@@ -142,6 +145,42 @@ impl MemberPathPolicy {
     pub(crate) fn with_repair_health(mut self, repair: Option<watch::Sender<bool>>) -> Self {
         self.repair = repair;
         self
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn with_enhanced_udp(mut self, work: Option<Arc<MemberUdpPathWork>>) -> Self {
+        self.enhanced = work;
+        self
+    }
+
+    fn checks_enhanced_udp(&self) -> bool {
+        #[cfg(not(wasm_browser))]
+        return self.enhanced.is_some();
+        #[cfg(wasm_browser)]
+        false
+    }
+
+    fn needs_enhanced_udp(&self, needed: bool) {
+        #[cfg(not(wasm_browser))]
+        if let Some(work) = &self.enhanced {
+            work.needed.send_if_modified(|current| {
+                let changed = *current != needed;
+                *current = needed;
+                changed
+            });
+        }
+        #[cfg(wasm_browser)]
+        let _ = needed;
+    }
+
+    fn enhanced_udp_running(&self) -> bool {
+        #[cfg(not(wasm_browser))]
+        return self
+            .enhanced
+            .as_ref()
+            .is_some_and(|work| *work.running.lock().expect("member UDP path work") != 0);
+        #[cfg(wasm_browser)]
+        false
     }
 
     fn permits(&self, address: transports::Addr) -> bool {
@@ -166,6 +205,14 @@ impl MemberPathPolicy {
             .as_ref()
             .is_none_or(|activity| *activity.borrow())
     }
+}
+
+/// Signals between the member path actor and the enhanced UDP round owner.
+#[cfg(not(wasm_browser))]
+#[derive(Debug, Default)]
+pub(crate) struct MemberUdpPathWork {
+    pub(crate) needed: watch::Sender<bool>,
+    pub(crate) running: std::sync::Mutex<usize>,
 }
 
 #[derive(Debug)]
@@ -1253,6 +1300,7 @@ impl RemoteStateActor {
             self.trigger_holepunching();
         }
         self.select_path();
+        self.update_member_udp(conn_id, false);
         Ok(())
     }
 
@@ -1291,10 +1339,9 @@ impl RemoteStateActor {
             .connections
             .iter()
             .filter(|(_, state)| {
-                state
-                    .member_paths
-                    .as_ref()
-                    .is_some_and(|member| member.policy.active())
+                state.member_paths.as_ref().is_some_and(|member| {
+                    member.policy.active() || member.policy.checks_enhanced_udp()
+                })
             })
             .map(|(id, _)| *id)
             .collect();
@@ -1313,7 +1360,8 @@ impl RemoteStateActor {
         let Some(member) = &state.member_paths else {
             return;
         };
-        if !peer_advertised && !member.policy.active() {
+        let active = member.policy.active() || peer_advertised;
+        if !active && !member.policy.checks_enhanced_udp() {
             return;
         }
         let Some(conn) = state
@@ -1360,9 +1408,15 @@ impl RemoteStateActor {
             .member_paths
             .as_mut()
             .expect("checked member connection");
+        let needs_enhanced = verified.is_empty();
+        if !active || (needs_enhanced && member.policy.enhanced_udp_running()) {
+            member.policy.needs_enhanced_udp(needs_enhanced);
+            return;
+        }
         let local = self.state.local_candidates();
         if local.is_empty() {
             update_qnt_candidates(&conn, &local);
+            member.policy.needs_enhanced_udp(needs_enhanced);
             return;
         }
         let known: BTreeSet<_> = self
@@ -1395,6 +1449,11 @@ impl RemoteStateActor {
             .known_probes
             .values()
             .any(|sent| now - *sent < LOCAL_PROBE_GRACE);
+        let recent_exchange = member
+            .last_exchange
+            .as_ref()
+            .is_some_and(|last| now - last.when < LOCAL_PROBE_GRACE);
+        let fallback = needs_enhanced && !probing_known && !recent_exchange;
         if conn.side().is_server() {
             // At first activation prefer local probes. Only advertise when a
             // local path could not be verified or none can be attempted here.
@@ -1407,9 +1466,11 @@ impl RemoteStateActor {
                     .collect();
                 update_qnt_candidates(&conn, &still_current);
             }
+            member.policy.needs_enhanced_udp(fallback);
             return;
         }
         let Ok(remote) = conn.get_remote_nat_traversal_addresses() else {
+            member.policy.needs_enhanced_udp(fallback);
             return;
         };
         let remote: BTreeSet<_> = remote
@@ -1419,6 +1480,7 @@ impl RemoteStateActor {
         if probing_known
             || (!verified.is_empty() && remote.is_subset(&verified) && known.is_empty())
         {
+            member.policy.needs_enhanced_udp(fallback);
             return;
         }
         if member.last_exchange.as_ref().is_some_and(|last| {
@@ -1426,6 +1488,7 @@ impl RemoteStateActor {
                 && remote.is_subset(&last.remote_candidates)
                 && (good_direct || now - last.when < HOLEPUNCH_ATTEMPTS_INTERVAL)
         }) {
+            member.policy.needs_enhanced_udp(fallback);
             return;
         }
         update_qnt_candidates(&conn, &local);
@@ -1435,6 +1498,7 @@ impl RemoteStateActor {
             })
             .is_ok()
         {
+            member.policy.needs_enhanced_udp(false);
             self.state.metrics.holepunch_attempts.inc();
             member.last_exchange = Some(HolepunchAttempt {
                 when: now,
@@ -1445,6 +1509,8 @@ impl RemoteStateActor {
                 stable_id = id.0,
                 "member QNT candidate exchange on original connection"
             );
+        } else {
+            member.policy.needs_enhanced_udp(fallback);
         }
     }
 

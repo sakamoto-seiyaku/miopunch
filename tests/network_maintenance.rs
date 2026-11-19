@@ -4,6 +4,9 @@ mod native_connections;
 #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
 #[path = "support/path_contention_baseline.rs"]
 mod path_contention_baseline;
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[path = "support/member_fusion_arbitration.rs"]
+mod member_fusion_arbitration;
 #[cfg(target_os = "linux")]
 #[path = "support/tcp_binding_observer.rs"]
 mod tcp_binding_observer;

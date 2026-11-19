@@ -1105,6 +1105,24 @@ impl UdpSender {
         transmit: &noq_udp::Transmit,
         cx: &mut Context,
     ) -> Poll<io::Result<()>> {
+        self.poll_send_inner(transmit, cx, false)
+    }
+
+    /// Poll a datagram submission and report errors from the underlying socket.
+    pub fn poll_send_confirmed(
+        self: Pin<&mut Self>,
+        transmit: &noq_udp::Transmit,
+        cx: &mut Context,
+    ) -> Poll<io::Result<()>> {
+        self.poll_send_inner(transmit, cx, true)
+    }
+
+    fn poll_send_inner(
+        self: Pin<&mut Self>,
+        transmit: &noq_udp::Transmit,
+        cx: &mut Context,
+        confirm_submission: bool,
+    ) -> Poll<io::Result<()>> {
         let mut this = self.project();
         loop {
             if let Err(err) = this.socket.maybe_rebind() {
@@ -1134,7 +1152,13 @@ impl UdpSender {
             result?;
 
             let (socket, state) = guard.try_get_connected()?;
-            let result = socket.try_io(Interest::WRITABLE, || state.send(socket.into(), transmit));
+            let result = socket.try_io(Interest::WRITABLE, || {
+                if confirm_submission {
+                    state.try_send(socket.into(), transmit)
+                } else {
+                    state.send(socket.into(), transmit)
+                }
+            });
 
             match result {
                 // We thought the socket was writable, but it wasn't, then retry so that either another

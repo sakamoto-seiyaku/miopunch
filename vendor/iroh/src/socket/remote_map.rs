@@ -14,6 +14,8 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 use tracing::{Span, error, trace};
 
+#[cfg(not(wasm_browser))]
+pub(crate) use self::remote_state::MemberUdpPathWork;
 pub(crate) use self::remote_state::PATH_IDENTIFIERS_UNAVAILABLE;
 pub(crate) use self::remote_state::{MemberPathPolicy, PathStateReceiver};
 use self::remote_state::RemoteStateActor;

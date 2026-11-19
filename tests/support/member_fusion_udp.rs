@@ -311,6 +311,173 @@ async fn enhanced_round_uses_two_samples_while_qad_is_waiting_on_the_original() 
     pair.close().await;
 }
 
+#[tokio::test]
+async fn qad_only_round_charges_submitted_requests_even_without_a_mapping_reply() {
+    use iroh::endpoint::BindOpts;
+    use std::io::ErrorKind;
+    use tokio::net::UdpSocket;
+
+    for ordered in [false, true] {
+        let addresses = [Ipv4Addr::new(127, 0, 0, 16), Ipv4Addr::new(127, 0, 0, 17)];
+        let observers = [
+            UdpSocket::bind((addresses[0], iroh_relay::defaults::DEFAULT_RELAY_QUIC_PORT))
+                .await
+                .unwrap(),
+            UdpSocket::bind((addresses[1], iroh_relay::defaults::DEFAULT_RELAY_QUIC_PORT))
+                .await
+                .unwrap(),
+        ];
+        let resources = addresses.map(|ip| observation_resource(format!("https://{ip}/")));
+        let pair = Pair::bind_with_observers(
+            LOOPBACK,
+            LOOPBACK,
+            LOW_RELAY_DELAY,
+            PathPreference::Quality,
+            &resources,
+            |builder| {
+                if ordered {
+                    builder
+                        .bind_addr_with_opts(
+                            (Ipv4Addr::new(127, 0, 0, 15), 0),
+                            BindOpts::default().set_prefix_len(32),
+                        )
+                        .unwrap()
+                } else {
+                    builder
+                }
+            },
+        )
+        .await;
+        assert!(pair.endpoints.iter().all(|endpoint| {
+            endpoint
+                .addr()
+                .ip_addrs()
+                .filter(|addr| addr.is_ipv4())
+                .count()
+                == 1 + usize::from(ordered)
+        }));
+        let cancel = CancellationToken::new();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let mut expected = pair.addresses();
+        expected.sort();
+        let (result, ()) = tokio::join!(
+            pair.connections[0].coordinate_udp_traversal(deadline, &cancel),
+            async {
+                let sources = time::timeout_at(deadline, async {
+                    let mut sources = Vec::new();
+                    let mut packet = [0; 2048];
+                    while sources.len() < 2 {
+                        let (size, source) = observers[0].recv_from(&mut packet).await.unwrap();
+                        assert!(size >= 1200);
+                        if !sources.contains(&source) {
+                            sources.push(source);
+                        }
+                    }
+                    sources.sort();
+                    sources
+                })
+                .await
+                .expect("both real IPv4 QAD Initials arrive without a response");
+                assert_eq!(sources, expected);
+                if ordered {
+                    assert_eq!(
+                        observers[1]
+                            .try_recv_from(&mut [0; 2048])
+                            .unwrap_err()
+                            .kind(),
+                        ErrorKind::WouldBlock,
+                        "ordered QAD cannot send to its second observation point before a reply"
+                    );
+                }
+                cancel.cancel();
+            }
+        );
+        assert_eq!(result.unwrap_err().kind(), ErrorKind::Interrupted);
+        assert!(
+            pair.connections
+                .iter()
+                .all(|connection| connection.udp_traversal().is_none())
+        );
+        time::sleep(Duration::from_millis(150)).await;
+        for observer in &observers {
+            while observer.try_recv_from(&mut [0; 2048]).is_ok() {}
+        }
+        let cancel = CancellationToken::new();
+        let (retry, received_again) = tokio::join!(
+            pair.connections[0]
+                .coordinate_udp_traversal(Instant::now() + Duration::from_secs(2), &cancel,),
+            async {
+                let mut first = [0; 2048];
+                let mut second = [0; 2048];
+                let repeated = time::timeout(Duration::from_millis(500), async {
+                    tokio::select! {
+                        result = observers[0].recv_from(&mut first) => result.unwrap(),
+                        result = observers[1].recv_from(&mut second) => result.unwrap(),
+                    }
+                })
+                .await
+                .ok();
+                cancel.cancel();
+                repeated
+            },
+        );
+        let retry = retry.unwrap_err();
+        eprintln!(
+            "QAD-only ordered={ordered} actual_initial_sources={expected:?} retry={retry} repeat={received_again:?}"
+        );
+        assert_eq!(retry.kind(), ErrorKind::WouldBlock);
+        assert_eq!(retry.to_string(), "member UDP round cooling down");
+        assert!(received_again.is_none());
+        pair.close().await;
+    }
+}
+
+#[tokio::test]
+async fn qad_only_round_without_an_ipv4_sender_can_retry_immediately() {
+    use std::{io::ErrorKind, net::Ipv6Addr};
+    use tokio::net::UdpSocket;
+
+    let ips = [Ipv4Addr::new(127, 0, 0, 18), Ipv4Addr::new(127, 0, 0, 19)];
+    let port = iroh_relay::defaults::DEFAULT_RELAY_QUIC_PORT;
+    let first = UdpSocket::bind((ips[0], port)).await.unwrap();
+    let second = UdpSocket::bind((ips[1], port)).await.unwrap();
+    let resources = ips.map(|ip| observation_resource(format!("https://{ip}/")));
+    let pair = Pair::bind_with_observers(
+        [Ipv6Addr::LOCALHOST.into(); 2],
+        [Ipv6Addr::LOCALHOST.into(); 2],
+        LOW_RELAY_DELAY,
+        PathPreference::Quality,
+        &resources,
+        |builder| builder,
+    )
+    .await;
+    assert!(
+        pair.endpoints
+            .iter()
+            .all(|endpoint| endpoint.addr().ip_addrs().all(SocketAddr::is_ipv6))
+    );
+    for _ in 0..2 {
+        let result = pair.connections[0]
+            .coordinate_udp_traversal(
+                Instant::now() + Duration::from_millis(750),
+                &CancellationToken::new(),
+            )
+            .await;
+        assert_eq!(result.unwrap_err().kind(), ErrorKind::TimedOut);
+        time::sleep(Duration::from_millis(150)).await;
+        for observer in [&first, &second] {
+            assert_eq!(
+                observer.try_recv_from(&mut [0; 2048]).unwrap_err().kind(),
+                ErrorKind::WouldBlock
+            );
+        }
+    }
+    eprintln!(
+        "QAD-only no IPv4 sender: two rounds reached their original timeout, zero UDP datagrams"
+    );
+    pair.close().await;
+}
+
 async fn coordinate_once(pair: &Pair, initiator: usize, deadline: Instant) -> MemberUdpPlan {
     pair.connections[initiator]
         .coordinate_udp_plan(deadline, &CancellationToken::new())

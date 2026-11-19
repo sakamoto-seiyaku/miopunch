@@ -25,6 +25,8 @@ pub(super) const WINNER_READY: u8 = 9;
 pub(super) const VALIDATED: u8 = 10;
 pub(super) const BUSINESS_READY: u8 = 11;
 pub(super) const BUSINESS_CONFIRMED: u8 = 12;
+pub(super) const OBSERVE: u8 = 13;
+pub(super) const SELECTED: u8 = 14;
 
 pub(super) struct Hello {
     network: [u8; 32],

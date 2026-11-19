@@ -40,6 +40,9 @@ use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 use tracing::{Level, debug, event, trace, warn};
 
+#[cfg(not(wasm_browser))]
+use crate::socket::transports::QadSubmission;
+
 use self::reportgen::{ProbeFinished, ProbeReport};
 #[cfg(not(wasm_browser))]
 use self::reportgen::{QadProbeReport, SocketState};
@@ -504,7 +507,7 @@ impl Client {
                         .child_token()
                         .run_until_cancelled_owned(time::timeout(
                             QAD_PROBE_TIMEOUT,
-                            run_probe_v4(relay, quic_client, dns_resolver, inner_token),
+                            run_probe_v4(relay, quic_client, dns_resolver, inner_token, None),
                         ))
                         .instrument(info_span!("QADv4", %relay_url)),
                 );
@@ -808,12 +811,16 @@ pub(crate) async fn observe_mapping_sample(
     client: QuicClient,
     dns: DnsResolver,
     cancel: CancellationToken,
+    qad: Option<&QadSubmission>,
 ) -> std::io::Result<MappingProbeSample> {
     let observer = relay.url.to_string();
-    let (report, conn) = time::timeout(QAD_PROBE_TIMEOUT, run_probe_v4(relay, client, dns, cancel))
-        .await
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "QAD timed out"))?
-        .map_err(|error| std::io::Error::other(format!("QAD mapping observation: {error:#}")))?;
+    let (report, conn) = time::timeout(
+        QAD_PROBE_TIMEOUT,
+        run_probe_v4(relay, client, dns, cancel, qad),
+    )
+    .await
+    .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "QAD timed out"))?
+    .map_err(|error| std::io::Error::other(format!("QAD mapping observation: {error:#}")))?;
     conn.conn
         .close(QUIC_ADDR_DISC_CLOSE_CODE, QUIC_ADDR_DISC_CLOSE_REASON);
     Ok(MappingProbeSample {
@@ -832,6 +839,7 @@ pub(crate) async fn observe_mapping_sequence(
     client: QuicClient,
     dns_resolver: DnsResolver,
     cancel: CancellationToken,
+    qad: Option<&QadSubmission>,
 ) -> std::io::Result<Vec<MappingProbeSample>> {
     use std::io;
 
@@ -853,6 +861,7 @@ pub(crate) async fn observe_mapping_sequence(
                 client.clone(),
                 dns_resolver.clone(),
                 cancel.child_token(),
+                qad,
             ),
         );
         let result = tokio::select! {
@@ -916,6 +925,7 @@ async fn run_probe_v4(
     quic_client: QuicClient,
     dns_resolver: DnsResolver,
     shutdown_token: CancellationToken,
+    qad: Option<&QadSubmission>,
 ) -> n0_error::Result<(QadProbeReport, QadConn), QadProbeError> {
     use noq_proto::PathId;
 
@@ -929,8 +939,9 @@ async fn run_probe_v4(
         .host_str()
         .ok_or_else(|| e!(QadProbeError::MissingHost))?;
     let started = Instant::now();
+    let context: &(dyn std::any::Any + Sync) = qad.map_or(&(), |qad| qad);
     let conn = quic_client
-        .create_conn(relay_addr.into(), host)
+        .create_conn_with_sender_context(relay_addr.into(), host, context)
         .await
         .map_err(|source| e!(QadProbeError::Quic { source }))?;
 

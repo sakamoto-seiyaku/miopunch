@@ -2,7 +2,7 @@
 //! legacy enhanced UDP experiment. Keep the operation phases in the witness
 //! when switching the driver to the fused endpoint.
 #[path = "delayed_relay.rs"]
-mod delayed_relay;
+pub(super) mod delayed_relay;
 
 use super::{ObserveBusiness, join};
 use iroh::endpoint::{BeforeConnectOutcome, EndpointHooks};
@@ -25,9 +25,9 @@ use std::{
 use tokio::{net::UdpSocket, sync::Barrier, task::JoinSet, time::Instant};
 use tokio_util::sync::CancellationToken;
 
-const FLOOR: Duration = Duration::from_millis(250);
+pub(super) const FLOOR: Duration = Duration::from_millis(250);
 const COOLDOWN: Duration = FLOOR.saturating_mul(32);
-const DEADLINE: Duration = Duration::from_secs(3);
+pub(super) const DEADLINE: Duration = Duration::from_secs(3);
 
 tokio::task_local! {
     static EXPLICIT_REPAIR: bool;
@@ -57,7 +57,10 @@ impl EndpointHooks for ControlStart {
     }
 }
 
-async fn observe_stun(observers: &mut JoinSet<()>, requests: &Arc<AtomicUsize>) -> Vec<Resource> {
+pub(super) async fn observe_stun(
+    observers: &mut JoinSet<()>,
+    requests: &Arc<AtomicUsize>,
+) -> Vec<Resource> {
     let mut allowed = Vec::new();
     for _ in 0..2 {
         let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();

@@ -317,6 +317,7 @@ pub struct Connection {
 
     /// State for n0's (<https://n0.computer>) nat traversal protocol.
     n0_nat_traversal: n0_nat_traversal::State,
+    nat_traversal_probes_paused: bool,
     qlog: QlogSink,
 }
 
@@ -458,6 +459,7 @@ impl Connection {
             abandoned_paths: Default::default(),
 
             n0_nat_traversal: Default::default(),
+            nat_traversal_probes_paused: false,
             qlog,
         };
         if path_validated {
@@ -2305,6 +2307,7 @@ impl Connection {
             .find_validated_path_on_network_path(network_path)
             .is_none()
             && self.n0_nat_traversal.client_side().is_ok()
+            && !self.nat_traversal_probes_paused
         {
             let token = self.rng.random();
             let stats = &mut self.path_stats.get_mut(path_id).frame_tx;
@@ -2344,6 +2347,9 @@ impl Connection {
         buf: &mut Vec<u8>,
         path_id: PathId,
     ) -> Option<Transmit> {
+        if self.nat_traversal_probes_paused {
+            return None;
+        }
         let remote = self.n0_nat_traversal.next_probe_addr()?;
 
         if !self.paths.get(&path_id)?.data.validated {
@@ -7682,6 +7688,21 @@ impl Connection {
         }
         let ipv6 = self.is_ipv6();
         self.n0_nat_traversal.probe_known_address(address, ipv6)
+    }
+
+    /// Pause off-path NAT traversal probes while a cooperating path mechanism
+    /// owns probing on this connection. Existing retry timers continue to run.
+    /// Ordinary QUIC path validation and responses remain available.
+    pub fn set_nat_traversal_probes_paused(&mut self, paused: bool) {
+        if self.nat_traversal_probes_paused != paused {
+            self.n0_nat_traversal.discard_pending_probes();
+            self.nat_traversal_probes_paused = paused;
+        }
+    }
+
+    /// Whether off-path NAT traversal probe transmission is paused.
+    pub fn nat_traversal_probes_paused(&self) -> bool {
+        self.nat_traversal_probes_paused
     }
 
     /// Initiates a new nat traversal round

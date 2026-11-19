@@ -1511,6 +1511,7 @@ impl EndpointInner {
     pub(crate) async fn observe_udp_mapping_sequence(
         &self,
         observers: &RelayMap,
+        qad: Option<&transports::QadSubmission>,
     ) -> io::Result<UdpMappingSequence> {
         if self.sock.shutdown.is_closed() {
             return Err(io::Error::other("endpoint closed"));
@@ -1528,6 +1529,7 @@ impl EndpointInner {
             self.qad_client.clone(),
             self.sock.dns_resolver.clone(),
             self.sock.shutdown.at_close_start.child_token(),
+            qad,
         );
         let check = || {
             if *self.sock.network_generation.lock().expect("poisoned") != network_generation {
