@@ -1,5 +1,7 @@
 #[path = "support/delayed_relay.rs"]
 mod delayed_relay;
+#[path = "support/native_service_nat.rs"]
+mod native_service_nat;
 #[path = "support/relay_contact_broker.rs"]
 #[allow(dead_code)]
 mod relay_contact_broker;
@@ -1817,13 +1819,18 @@ async fn verify_first_forward_reply(
         .unwrap();
     let (reply, ()) = timeout(Duration::from_secs(20), async {
         tokio::join!(
-            consumer.forward_exchange(
-                contact,
-                Protocol::Tcp,
-                target_address,
-                b"contact-only request",
-                b"qualified data reply".len()
-            ),
+            async {
+                consumer
+                    .forward_exchange(
+                        contact,
+                        Protocol::Tcp,
+                        target_address,
+                        b"contact-only request",
+                        b"qualified data reply".len(),
+                    )
+                    .await
+                    .expect("restricted call must deliver the qualified native reply")
+            },
             async {
                 let (mut socket, _) = target.accept().await.unwrap();
                 let mut request = [0; 20];
@@ -1862,7 +1869,7 @@ async fn verify_first_forward_reply(
     })
     .await
     .expect("restricted contact qualifies and releases the first native member data path");
-    assert_eq!(reply.unwrap(), b"qualified data reply");
+    assert_eq!(reply, b"qualified data reply");
 }
 
 async fn verify_no_forward_release(

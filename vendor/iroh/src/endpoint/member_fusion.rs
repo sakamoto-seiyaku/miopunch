@@ -15,19 +15,42 @@ use tokio_util::sync::CancellationToken;
 
 use super::{
     BindError, Builder, ConnectError, ConnectOptions, ConnectingError, Connection, ConnectionError,
-    ControlConfirmation, ControlConnection, ControlExchange, ControlMessageFormat, DataPathPermit,
-    Endpoint, EndpointAddr, EndpointId, ExportKeyingMaterialError, PathId, PathList, RecvStream,
-    RelayResourceUse, RestrictedBuilder, RestrictedEndpoint, SendStream, Side, TransportAddr,
-    WeakControlConnection,
+    ControlConfirmation, ControlConnection, ControlExchange, ControlHandle, ControlMessageFormat,
+    DataPathPermit, Endpoint, EndpointAddr, EndpointId, ExportKeyingMaterialError, PathId,
+    PathList, RecvStream, RelayResourceUse, RestrictedBuilder, RestrictedEndpoint, SendStream,
+    Side, TransportAddr, WeakControlConnection,
     restricted::{AdmissionOutcome, BoxFuture, DynEndpointAdmission},
 };
 
 mod dial;
 mod direct;
-mod udp;
+pub(super) mod udp;
 pub use dial::MemberDialOptions;
 pub(super) use direct::{PathCandidates, watch_path_candidates};
 pub use udp::{MemberUdpConfig, MemberUdpPlan, MemberUdpTraversalReport};
+
+/// A transport-owned candidate on this member connection. Its preparation
+/// retains the physical resources until iroh commits the verified path.
+#[derive(derive_more::Debug)]
+pub struct MemberDirectCandidate {
+    remote: iroh_base::CustomAddr,
+    #[debug(skip)]
+    retain: Box<dyn FnOnce() -> io::Result<()> + Send>,
+}
+
+impl MemberDirectCandidate {
+    /// Retain the candidate on commit. Dropping this value drops the captured
+    /// temporary transport resources.
+    pub fn new(
+        remote: iroh_base::CustomAddr,
+        retain: impl FnOnce() -> io::Result<()> + Send + 'static,
+    ) -> Self {
+        Self {
+            remote,
+            retain: Box::new(retain),
+        }
+    }
+}
 
 const REPAIR_LIMIT: Duration = Duration::from_secs(3);
 
@@ -83,6 +106,21 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
     /// Installed direct data transport eligible for online path improvement.
     fn member_direct_transport(&self) -> Option<u64> {
         None
+    }
+
+    /// Original caller budget and minimum interval for coordinated direct attempts.
+    fn member_direct_traversal(&self) -> Option<(Duration, Duration)> {
+        None
+    }
+
+    /// Prepare one direct candidate on the already admitted original using
+    /// the provided protected exchange. Iroh owns timing and final validation.
+    fn prepare_member_direct<'a>(
+        &'a self,
+        _connection: &'a ControlHandle,
+        _exchange: &'a ControlExchange,
+    ) -> impl Future<Output = io::Result<MemberDirectCandidate>> + Send + 'a {
+        async { Err(io::ErrorKind::Unsupported.into()) }
     }
 
     /// Custom carrier for explicitly permitted member data relay candidates.
@@ -239,6 +277,18 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
         self.inner.member_direct_transport()
     }
 
+    fn member_direct_traversal(&self) -> Option<(Duration, Duration)> {
+        self.inner.member_direct_traversal()
+    }
+
+    fn prepare_member_direct<'a>(
+        &'a self,
+        connection: &'a ControlHandle,
+        exchange: &'a ControlExchange,
+    ) -> BoxFuture<'a, io::Result<MemberDirectCandidate>> {
+        Box::pin(self.inner.prepare_member_direct(connection, exchange))
+    }
+
     fn member_relay_transport(&self) -> Option<u64> {
         self.inner.member_relay_transport().filter(|id| {
             self.custom_data_limit
@@ -287,10 +337,64 @@ impl<A: MemberFusionAdmission> Admission<A> {
                     .iter()
                     .find(|path| path.is_ip() && self.inner.permits_data_path(path.remote_addr()))
                 {
-                    return connection.qualify_data_path(path.id(), custom).await;
+                    return connection
+                        .qualify_data_path(path.id(), custom.clone())
+                        .await;
                 }
             }
             Err(unavailable())
+        };
+        let qualify_with_udp = async {
+            tokio::pin!(qualify);
+            // Both ends consume the same dedicated exchange before member
+            // selection. The QNT owner decides when enhanced work is needed.
+            let exchange = if connection.side().is_client() {
+                connection.open_control_exchange().await?
+            } else {
+                // A passive QUIC stream is only visible after its first bytes.
+                // The client's offer below wakes this accept.
+                connection.accept_control_exchange().await?
+            };
+            let mut direct = None;
+            let enhanced = if let Some(udp) = connection.member_udp.as_deref() {
+                tokio::select! { biased;
+                    result = &mut qualify => {
+                        direct = Some(result?);
+                        None
+                    }
+                    needed = udp.bootstrap_requested() => needed.then_some(udp),
+                }
+            } else {
+                None
+            };
+            const INTENT: ControlMessageFormat = ControlMessageFormat::Fixed { length: 1 };
+            exchange
+                .send_message(INTENT, &[u8::from(enhanced.is_some())])
+                .await?;
+            let intent = exchange.recv_message(INTENT).await?;
+            match intent.as_slice() {
+                [1] if let Some(udp) = enhanced => {
+                    let deadline = connection
+                        .caller_deadline()
+                        .expect("restricted admission deadline")
+                        .into();
+                    let cancel = connection.attempt_cancellation().unwrap_or_default();
+                    match udp.bootstrap(exchange, deadline, &cancel).await {
+                        Ok(path) => {
+                            return connection.qualify_data_path(path, custom.clone()).await;
+                        }
+                        Err(error) => tracing::debug!(stable_id = connection.stable_id(), %error,
+                            "enhanced UDP did not qualify the restricted member contact"),
+                    }
+                }
+                [0] | [1] => exchange.finish_send().await?,
+                _ => return Err(io::ErrorKind::InvalidData.into()),
+            }
+            if let Some(permit) = direct {
+                Ok(permit)
+            } else {
+                qualify.await
+            }
         };
         tokio::select! { biased;
             error = connection.closed() => match error {
@@ -301,7 +405,7 @@ impl<A: MemberFusionAdmission> Admission<A> {
                     if closed.reason.as_ref() == MEMBER_DATA_UNAVAILABLE => Err(unavailable()),
                 error => Err(io::Error::new(io::ErrorKind::ConnectionAborted, error)),
             },
-            result = qualify => result,
+            result = qualify_with_udp => result,
         }
     }
 }
@@ -853,6 +957,7 @@ pub(super) struct Fusion {
     selected: Option<mpsc::UnboundedSender<IncomingResult>>,
     repair_contact: std::sync::OnceLock<RepairContact>,
     udp_planner: Arc<udp::Planner>,
+    pub(super) direct_traversal_slot: Arc<tokio::sync::Mutex<()>>,
     #[cfg(feature = "miopunch-test-hooks")]
     qualification_gate: std::sync::OnceLock<Arc<QualificationGate>>,
 }
@@ -896,9 +1001,18 @@ impl Fusion {
         repair: Option<RepairPath>,
         udp: Option<Arc<udp::Planning>>,
     ) {
-        let incoming = udp
-            .as_ref()
-            .map(|udp| watch_streams(connection.clone(), activity.clone(), udp.clone()));
+        let incoming = (udp.is_some()
+            || path_candidates
+                .as_ref()
+                .is_some_and(|paths| paths.supports_traversal()))
+        .then(|| {
+            watch_streams(
+                connection.clone(),
+                activity.clone(),
+                udp.clone(),
+                path_candidates.clone(),
+            )
+        });
         let live = selection.publish(
             connection,
             data_path,
@@ -1820,6 +1934,13 @@ impl MemberConnection {
         self.0.connection.close_reason()
     }
 
+    /// Close this exact original in transportation and ownership fixtures.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_close(&self, error_code: u32, reason: &[u8]) {
+        self.0.connection.close(error_code.into(), reason);
+    }
+
     /// Wait for the original connection to close.
     pub async fn closed(&self) -> ConnectionError {
         self.0.connection.closed().await
@@ -1924,6 +2045,7 @@ enum StreamKind {
     UdpTraversal,
     UdpImprovement,
     UdpMaintenance,
+    DirectTraversal,
 }
 
 impl StreamKind {
@@ -1962,7 +2084,8 @@ async fn read_stream_kind(recv: &mut RecvStream) -> io::Result<u8> {
 fn watch_streams(
     connection: Connection,
     activity: Arc<Activity>,
-    udp: Arc<udp::Planning>,
+    udp: Option<Arc<udp::Planning>>,
+    paths: Option<Arc<PathCandidates>>,
 ) -> mpsc::Receiver<IncomingMemberStream> {
     const MAX_PENDING: usize = 100;
     let (outgoing, incoming) = mpsc::channel(MAX_PENDING);
@@ -1977,11 +2100,18 @@ fn watch_streams(
                     let outgoing = outgoing.clone();
                     let activity = activity.clone();
                     let udp = udp.clone();
+                    let paths = paths.clone();
+                    let original = paths.as_ref().map(|_| connection.clone());
                     pending.push(async move {
                         let Ok(kind) = read_stream_kind(&mut recv).await else { return; };
-                        if let Some(kind) = StreamKind::udp_kind(kind) {
-                            udp.respond(ControlExchange::from_streams(send, recv), &activity, kind)
-                                .await;
+                        if kind == StreamKind::DirectTraversal as u8 {
+                            if let Some((paths, original)) = paths.zip(original) {
+                                paths.respond(&original, ControlExchange::from_streams(send, recv)).await;
+                            }
+                        } else if let Some(kind) = StreamKind::udp_kind(kind) {
+                            if let Some(udp) = udp {
+                                udp.respond(ControlExchange::from_streams(send, recv), &activity, kind).await;
+                            }
                         } else {
                             let _ = outgoing.send(IncomingMemberStream { send, recv, activity, kind: Some(kind) }).await;
                         }

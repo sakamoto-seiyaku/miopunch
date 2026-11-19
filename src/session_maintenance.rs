@@ -389,7 +389,6 @@ pub(crate) struct MaintenanceLease<B> {
     completion: Option<Completion>,
 }
 impl<B> MaintenanceLease<B> {
-    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn seal_outgoing_hello(&self) -> io::Result<()> {
         let mut slots = self.registry.slots.lock().unwrap();
         if self.attempt.cancellation.is_cancelled() {

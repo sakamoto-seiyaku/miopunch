@@ -1040,7 +1040,7 @@ impl ConnectionCoordinator {
                     | iroh::endpoint::ConnectionError::Reset)
                     || (self.member_relay_fallbacks.is_some()
                         && matches!(source, iroh::endpoint::ConnectionError::ConnectionClosed(close)
-                            if close.error_code == noq_proto::TransportErrorCode::CONNECTION_REFUSED)));
+                            if close.error_code == iroh::endpoint::TransportErrorCode::CONNECTION_REFUSED)));
             let error = ConnectError::from_connecting(error);
             if unavailable {
                 ContactDialFailure::Unavailable(error)

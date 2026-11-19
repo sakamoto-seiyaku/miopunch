@@ -14,6 +14,7 @@ import time
 
 REPO = Path(__file__).resolve().parents[1]
 TEST = "member_fusion::udp::nat_lab::enhanced_udp_through_translated_members"
+RESTRICTED_TEST = "native_service_nat::restricted_contact_delivers_the_first_native_reply_through_enhanced_udp"
 WAN = "100.64.27.1"
 PUBLIC = ("100.64.27.2", "100.64.27.6")
 PRIVATE = ("10.27.1.2", "10.27.2.2")
@@ -35,7 +36,7 @@ def topology(names):
         "member-fusion-nat", *names)
 
 
-def rules(names, case, visitor):
+def rules(names, case, visitor, primary=PRIMARY):
     wan, *gateways, _, _ = names
     random = case.startswith("random")
     blocked = case.endswith("blocked") or case == "random-cancel"
@@ -64,14 +65,24 @@ def rules(names, case, visitor):
             # Preserve the real reply tuple through conntrack, with a peer-only port shift
             # on the sender so one end must use the received source instead of the observations.
             iptables("-t", "nat", "-I", "POSTROUTING", "1", "-o", "wan0", "-p", "udp",
-                     "-s", PRIVATE[side], "--sport", str(PRIMARY[side]), "-d", PUBLIC[receiver],
-                     "-j", "SNAT", "--to-source", f"{PUBLIC[side]}:{PRIMARY[side] + 10}")
+                         "-s", PRIVATE[side], "--sport", str(primary[side]), "-d", PUBLIC[receiver],
+                         "-j", "SNAT", "--to-source", f"{PUBLIC[side]}:{primary[side] + 10}")
 
     def wan_rule(side, *args):
         return run("ip", "netns", "exec", wan, "iptables", "-A", "FORWARD", "-p", "udp",
                    "-s", PUBLIC[side], "-d", PUBLIC[1 - side], *args)
 
-    if case == "validation-blocked":
+    if case.startswith("restricted-"):
+        # The lab permits regular peer QUIC only after seeing the separate
+        # traversal protocol in that direction. STUN and MQTT are unaffected.
+        for side in (0, 1):
+            if not blocked:
+                marker = ("-m", "recent", "--name", f"m155-{side}")
+                wan_rule(side, "-m", "string", "--algo", "bm", "--from", "28", "--to", "39",
+                         "--hex-string", "|004d494f50554e43483633|", *marker, "--set", "-j", "ACCEPT")
+                wan_rule(side, *marker, "--rcheck", "-j", "ACCEPT")
+            wan_rule(side, "-j", "DROP")
+    elif case == "validation-blocked":
         # Allow the 76-byte authenticated UDP message (104 including UDP/IPv4).
         # The same one-way fault then blocks padded QUIC validation on the return.
         wan_rule(receiver, "-m", "length", "!", "--length", "104", "-j", "DROP")
@@ -90,7 +101,8 @@ def worker(stack, names, binary, directory, case, visitor, role):
     process = subprocess.Popen(
         ["ip", "netns", "exec", names[index], "env", f"MIO150_WORKER={role}",
          f"MIO150_ROOT={directory / 'members'}", f"MIO150_CASE={case}",
-         f"MIO150_VISITOR={'ab'[visitor]}", str(binary), TEST, "--exact", "--ignored", "--nocapture"],
+         f"MIO150_VISITOR={'ab'[visitor]}", str(binary),
+         RESTRICTED_TEST if case.startswith("restricted-") else TEST, "--exact", "--ignored", "--nocapture"],
         stdout=log, stderr=subprocess.STDOUT)
     stack.callback(stop, process)
     return process
@@ -113,13 +125,56 @@ def read_result(log):
     return json.loads(lines[0])
 
 
+def restricted_result(directory, case, visitor, trial, stats):
+    assert "MIO155 MQTT_INITIALS 1" in (directory / "setup.log").read_text()
+    success = not case.endswith("blocked")
+    ends = []
+    for role, side in zip("ab", range(2)):
+        log = (directory / f"{role}.log").read_text().splitlines()
+        events = [json.loads(line) for line in log if line.startswith('{"attemptId":')]
+        admission, = [event for event in events if event["phase"] == "member-admission"
+                      and event["result"] == "succeeded"]
+        if side == visitor:
+            identity, = [event for event in events if event["phase"] == "quic-identity"]
+            assert identity["stableId"] == admission["stableId"]
+            reply, = [line for line in log if line.startswith("MIO155 FIRST_REPLY ")]
+            assert f"success={str(success).lower()}" in reply
+            elapsed = int(reply.rsplit("=", 1)[1])
+        label = f"MIO155 {'CONSUMER' if side == visitor else 'PROVIDER'}_ORIGINAL "
+        streams = [json.loads(line[len(label):]) for line in log if line.startswith(label)]
+        assert len(streams) == int(success)
+        if success:
+            stream, = streams
+            assert stream["connection"] == admission["stableId"]
+            ends.append({"side": role, "attempt": admission["attemptId"], "transport": stream})
+    if success:
+        a, b = ends
+        assert a["attempt"] == b["attempt"]
+        assert a["transport"]["stream"] == b["transport"]["stream"]
+        assert a["transport"]["enhanced_udp"]["round"] == b["transport"]["enhanced_udp"]["round"]
+        # Each directions' WAN rule saw the separate raw protocol and allowed
+        # follow-up QUIC on the learned mapping. A drop alone proves neither.
+        for side in (0, 1):
+            marker = [line.split() for line in stats.splitlines() if f"name: m155-{side}" in line]
+            assert len(marker) == 2 and all(int(rule[0]) > 0 for rule in marker), stats
+    else:
+        assert any(rule[2] == "DROP" and int(rule[0]) > 0
+                   for line in stats.splitlines() if (rule := line.split()) and rule[0].isdigit()), stats
+    result = {"case": case, "visit": "ab"[visitor], "trial": trial,
+              "success": success, "elapsed_ms": elapsed, "ends": ends}
+    (directory / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+    return result
+
+
 def cell(binary, output, case, visitor, trial):
     directory = output / f"{case}-{'ab'[visitor]}-{trial}"
     directory.mkdir()
     names = [f"m150-{role}" for role in ("wan", "na", "nb", "a", "b")]
     try:
         topology(names)
-        rules(names, case, visitor)
+        restricted = case.startswith("restricted-")
+        if not restricted:
+            rules(names, case, visitor)
         with ExitStack() as stack:
             setup = worker(stack, names, binary, directory, case, visitor, "setup")
             ready = directory / "setup.log"
@@ -129,6 +184,14 @@ def cell(binary, output, case, visitor, trial):
                 time.sleep(0.05)
             processes = [worker(stack, names, binary, directory, case, visitor, role) for role in "ba"]
             deadline = time.monotonic() + 72
+            if restricted:
+                members = directory / "members"
+                ports = [members / f"port-{role}" for role in "ab"]
+                while any(not port.exists() or not port.stat().st_size for port in ports):
+                    assert all(process.poll() is None for process in processes) and time.monotonic() < deadline
+                    time.sleep(0.02)
+                rules(names, case, visitor, tuple(int(port.read_text()) for port in ports))
+                (members / "start").touch()
             exits = [process.wait(timeout=max(1, deadline - time.monotonic())) for process in processes]
             assert exits == [0, 0], (directory, exits)
         stats = run("ip", "netns", "exec", names[0], "iptables", "-nvxL", "FORWARD")
@@ -136,6 +199,8 @@ def cell(binary, output, case, visitor, trial):
         for role, name in zip("ab", names[1:3]):
             (directory / f"gateway-{role}.txt").write_text(
                 run("ip", "netns", "exec", name, "iptables", "-t", "nat", "-nvxL"))
+        if restricted:
+            return restricted_result(directory, case, visitor, trial, stats)
         a, b = (read_result(directory / f"{role}.log") for role in "ab")
         for field in ("round", "attempt", "stream", "mode", "index", "success"):
             assert a[field] == b[field], (field, a, b)
@@ -184,7 +249,7 @@ def main():
     parser.add_argument("test_binary", type=Path)
     parser.add_argument("evidence", type=Path)
     cases = ("fixed", "fixed-blocked", "validation-blocked", "random", "random-blocked", "random-cancel")
-    parser.add_argument("--case", action="append", choices=(*cases, "fixed-auto"))
+    parser.add_argument("--case", action="append", choices=(*cases, "fixed-auto", "restricted-fixed", "restricted-fixed-blocked"))
     parser.add_argument("--random-trials", type=int, default=2)
     args = parser.parse_args()
     binary = args.test_binary.resolve(strict=True)
@@ -199,8 +264,8 @@ def main():
                 result = cell(binary, output, case, visitor, trial)
                 summary.append(result)
                 (output / "results.json").write_text(json.dumps(summary, indent=2) + "\n")
-                print(f"{case} visitor={result['visit']} trial={trial} success={result['ends'][0]['success']}",
-                      flush=True)
+                success = result["success"] if "success" in result else result["ends"][0]["success"]
+                print(f"{case} visitor={result['visit']} trial={trial} success={success}", flush=True)
 
 
 if __name__ == "__main__":

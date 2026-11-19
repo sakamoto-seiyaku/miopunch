@@ -76,31 +76,6 @@ impl NativePathAdapter {
             .is_some_and(|tcp| tcp.transport.data_path_qualified(address, stable))
     }
 
-    pub(crate) async fn retain_existing_control(
-        &self,
-        original: &ControlHandle,
-        gate: &AdmissionGate,
-    ) -> io::Result<()> {
-        if let Some(tcp) = &self.tcp
-            && original.paths().iter().any(|path| {
-                matches!(path.remote_addr(),TransportAddr::Custom(address)
-                if address.id()==crate::tcp_transport::DATA_TRANSPORT_ID)
-            })
-        {
-            let control = ControlSession::from_control(original.clone());
-            let mut cancellation = control.cancellation_guard();
-            tcp.retain_existing_control(original).await?;
-            if !gate.allows_member_path_upgrade(original) {
-                return Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    "TCP membership changed before data release",
-                ));
-            }
-            cancellation.disarm();
-        }
-        Ok(())
-    }
-
     async fn prepare(
         &self,
         kind: NativeMechanism,

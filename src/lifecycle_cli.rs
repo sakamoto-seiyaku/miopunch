@@ -49,7 +49,9 @@ impl Lifecycle<'_> {
             return Err("already running".into());
         }
         let node = NativeNetwork::open(self.path).await?;
-        let network = node.maintain_network(self.bind_ip).await?;
+        let network = node
+            .maintain_application_network(self.bind_ip, |builder| builder)
+            .await?;
         self.node = network.node_status().node_id.to_string();
         // Connection stable IDs are local to this runtime, never durable identity.
         self.generation = format!("{:032x}", rand::random::<u128>());

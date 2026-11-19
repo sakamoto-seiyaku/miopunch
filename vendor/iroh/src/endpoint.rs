@@ -113,9 +113,10 @@ pub use bind::{BindOpts, InvalidSocketAddr, ToSocketAddr};
 pub use hooks::{AfterHandshakeOutcome, BeforeConnectOutcome, EndpointHooks};
 #[cfg(not(wasm_browser))]
 pub use member_fusion::{
-    IncomingMemberStream, MemberConnection, MemberDialOptions, MemberFusionAdmission,
-    MemberFusionBuilder, MemberFusionEndpoint, MemberFusionEvent, MemberRepairContacts,
-    MemberStream, MemberStreamLease, MemberUdpConfig, MemberUdpPlan, MemberUdpTraversalReport,
+    IncomingMemberStream, MemberConnection, MemberDialOptions, MemberDirectCandidate,
+    MemberFusionAdmission, MemberFusionBuilder, MemberFusionEndpoint, MemberFusionEvent,
+    MemberRepairContacts, MemberStream, MemberStreamLease, MemberUdpConfig, MemberUdpPlan,
+    MemberUdpTraversalReport,
 };
 #[cfg(not(wasm_browser))]
 pub use noq::StreamControl;

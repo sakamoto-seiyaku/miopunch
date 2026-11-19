@@ -64,6 +64,7 @@ fn restricted_native_builder(
     builder: Builder,
     gate: AdmissionGate,
     coordinator: crate::connection_coordinator::CoordinatorHook,
+    tcp: Option<crate::tcp_punch::TcpPunch>,
 ) -> iroh::endpoint::RestrictedBuilder {
     let gate = gate.with_message_bootstrap();
     builder
@@ -73,6 +74,7 @@ fn restricted_native_builder(
         .restricted_application(crate::connection_coordinator::NativeAdmission::new(
             gate,
             coordinator,
+            tcp,
         ))
 }
 
@@ -651,7 +653,7 @@ impl NativeNetwork {
             Option<crate::tcp_transport::TcpTransport>,
             Vec<Arc<crate::mqtt_transport::MqttTransport>>,
             Option<crate::contact_listener::ContactListenerControl>,
-            crate::native_path_adapter::NativePathAdapter,
+            Option<crate::native_path_adapter::NativePathAdapter>,
             Option<iroh::endpoint::MemberFusionEndpoint>,
         ),
         NodeError,
@@ -812,24 +814,30 @@ impl NativeNetwork {
             self.gate
                 .register_protocol(alpn, crate::admission_gate::ProtocolScope::Member);
         }
-        let observers = resources.relay_map(crate::resources::ResourceUse::Observation)?;
-        let native_udp = Arc::new(self.udp.for_endpoint(
-            (!observers.is_empty()).then_some(observers),
-            resources.udp_stun_resources(),
-            !resources.udp_direct_disabled,
-            &resources.maintenance,
-        )?);
-        let native_tcp = tcp.clone().map(|transport| {
+        // Explicit low-level protocol callers can still negotiate their legacy
+        // native carriers. Fused application endpoints have one traversal owner.
+        let tcp_punch = tcp.clone().map(|transport| {
             crate::tcp_punch::TcpPunch::new(
                 transport,
                 resources.tcp_stun_resources(),
                 resources.clone(),
             )
         });
-        let native = crate::native_path_adapter::NativePathAdapter::new(
-            native_udp.clone(),
-            native_tcp.clone(),
-        );
+        let native = if member_fusion {
+            None
+        } else {
+            let observers = resources.relay_map(crate::resources::ResourceUse::Observation)?;
+            let udp = Arc::new(self.udp.for_endpoint(
+                (!observers.is_empty()).then_some(observers),
+                resources.udp_stun_resources(),
+                !resources.udp_direct_disabled,
+                &resources.maintenance,
+            )?);
+            Some(crate::native_path_adapter::NativePathAdapter::new(
+                udp,
+                tcp_punch.clone(),
+            ))
+        };
         let coordinator = crate::connection_coordinator::CoordinatorHook::new(
             self.gate.clone(),
             !resources.udp_direct_disabled,
@@ -839,8 +847,11 @@ impl NativeNetwork {
             !resources
                 .relay_map(crate::resources::ResourceUse::DataRelay)?
                 .is_empty(),
-        )
-        .with_native(native.clone());
+        );
+        let coordinator = match &native {
+            Some(native) => coordinator.with_native(native.clone()),
+            None => coordinator,
+        };
         #[cfg(feature = "rtc-probe")]
         let coordinator = coordinator.with_rtc(rtc.clone());
         let gate = self.gate.with_request_coordinator();
@@ -848,9 +859,12 @@ impl NativeNetwork {
             builder.secret_key(SecretKey::from_bytes(self.node_key.as_bytes())),
             gate,
             coordinator,
+            tcp_punch.clone(),
         );
         let (endpoint, fusion) = if member_fusion {
-            let (endpoint, fusion) = self.bind_shared_member_fusion(builder, resources).await?;
+            let (endpoint, fusion) = self
+                .bind_shared_member_fusion(builder, resources, tcp_punch)
+                .await?;
             (endpoint, Some(fusion))
         } else {
             (builder.bind().await?, None)
@@ -943,7 +957,7 @@ impl NativeNetwork {
         .await
     }
 
-    pub(crate) async fn bind_client_endpoint(
+    pub(crate) async fn bind_application_endpoint(
         &self,
         bind_ip: Ipv4Addr,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
@@ -1014,7 +1028,7 @@ impl NativeNetwork {
             .await
     }
 
-    async fn bind_configured_endpoint_with_options(
+    pub(crate) async fn bind_configured_endpoint_with_options(
         &self,
         builder: Builder,
         #[cfg(feature = "rtc-probe")] rtc: Option<crate::rtc_transport::RtcTransport>,
@@ -1045,6 +1059,7 @@ impl NativeNetwork {
             self.gate.clone(),
             config.clone(),
         )?);
+        let timeout = std::time::Duration::from_millis(config.maintenance.contact_timeout_ms);
         let resources = crate::resources::ResourceEndpoint::new(endpoint, config)
             .with_native(native)
             .with_tcp(tcp)
@@ -1053,6 +1068,9 @@ impl NativeNetwork {
         #[cfg(feature = "rtc-probe")]
         let resources = resources.with_rtc(rtc);
         let mut resources = resources;
+        if member_fusion {
+            resources = resources.with_contact_timeout(timeout)?;
+        }
         resources.member_contacts = Some(member_contacts);
         resources.member_fusion = fusion.map(|endpoint| (endpoint, self.gate.clone()));
         if !resources.recovery_origins().is_empty() {

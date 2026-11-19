@@ -127,11 +127,9 @@ async fn exercise_sampler(signal_directory: PathBuf) {
     );
     node.save_resource_configuration(&config).unwrap();
     let network = Arc::new(
-        node.maintain_network_with_endpoint(
-            Ipv4Addr::UNSPECIFIED,
-            |builder| builder.ca_tls_config(iroh_relay::tls::CaTlsConfig::custom_roots(certs)),
-            |router| router,
-        )
+        node.maintain_application_network(Ipv4Addr::UNSPECIFIED, |builder| {
+            builder.ca_tls_config(iroh_relay::tls::CaTlsConfig::custom_roots(certs))
+        })
         .await
         .unwrap(),
     );

@@ -5,8 +5,17 @@ use crate::{
 };
 use iroh::{
     TransportAddr,
-    endpoint::{ControlHandle, DataCandidatePath, WeakControlConnection},
+    endpoint::{
+        ControlExchange, ControlHandle, ControlMessageFormat, DataCandidatePath,
+        WeakControlConnection,
+    },
 };
+
+enum Preparation<'a> {
+    Admission,
+    Active(&'a ControlHandle),
+    Fused(&'a ControlExchange),
+}
 use serde_json::json;
 use std::{
     collections::HashMap,
@@ -295,7 +304,7 @@ impl TcpPunch {
         gate: &AdmissionGate,
         log: AttemptLog,
     ) -> io::Result<PreparedTcpPath> {
-        self.prepare_with_exchange(connection, gate, log, None)
+        self.prepare_with_exchange(connection, gate, log, Preparation::Admission)
             .await
     }
 
@@ -306,7 +315,18 @@ impl TcpPunch {
         gate: &AdmissionGate,
         log: AttemptLog,
     ) -> io::Result<PreparedTcpPath> {
-        self.prepare_with_exchange(original, gate, log, Some(control))
+        self.prepare_with_exchange(original, gate, log, Preparation::Active(control))
+            .await
+    }
+
+    pub(crate) async fn prepare_fused(
+        &self,
+        original: &ControlHandle,
+        exchange: &ControlExchange,
+        gate: &AdmissionGate,
+        log: AttemptLog,
+    ) -> io::Result<PreparedTcpPath> {
+        self.prepare_with_exchange(original, gate, log, Preparation::Fused(exchange))
             .await
     }
 
@@ -315,9 +335,13 @@ impl TcpPunch {
         connection: &ControlHandle,
         gate: &AdmissionGate,
         log: AttemptLog,
-        active_control: Option<&ControlHandle>,
+        preparation: Preparation<'_>,
     ) -> io::Result<PreparedTcpPath> {
-        let exchange_control = active_control.unwrap_or(connection);
+        let exchange_control = match preparation {
+            Preparation::Active(control) => control,
+            _ => connection,
+        };
+        let initial = matches!(preparation, Preparation::Admission);
         let check = || {
             if connection.close_reason().is_some()
                 || exchange_control.close_reason().is_some()
@@ -334,7 +358,7 @@ impl TcpPunch {
         check()?;
         // Active work already holds the exact M's reservation. Initial
         // contact deduplication must never replace or pin another living M.
-        let claim = if active_control.is_none() {
+        let claim = if initial {
             Some(self.claim(connection).await?)
         } else {
             None
@@ -372,10 +396,17 @@ impl TcpPunch {
             );
         }
         check()?;
-        let exchange = if connection.side().is_client() {
-            exchange_control.open_control_exchange().await?
-        } else {
-            exchange_control.accept_control_exchange().await?
+        let owned_exchange;
+        let exchange = match preparation {
+            Preparation::Fused(exchange) => exchange,
+            _ => {
+                owned_exchange = if connection.side().is_client() {
+                    exchange_control.open_control_exchange().await?
+                } else {
+                    exchange_control.accept_control_exchange().await?
+                };
+                &owned_exchange
+            }
         };
         // Keep both peers in the TCP phase even when only one observer fails.
         // The retained observation socket lives through the path decision.
@@ -418,7 +449,7 @@ impl TcpPunch {
             && !remote.ip().is_unspecified()
             && !remote.ip().is_multicast()
             && remote.port() != 0;
-        let mut active = if active_control.is_some() {
+        let mut active = if !initial {
             let remote_addr = TransportAddr::Custom(route.clone());
             let local_opens = connection.side().is_client();
             let owned = allowed
@@ -544,15 +575,15 @@ impl TcpPunch {
             .await;
         // A unilateral validation cannot release business while its peer is
         // entering fallback. Both endpoints commit the same phase result.
+        let format = if matches!(preparation, Preparation::Fused(_)) {
+            ControlMessageFormat::Fixed { length: 1 }
+        } else {
+            ControlMessageFormat::EndTerminated { maximum: 1 }
+        };
         exchange
-            .send_message(
-                iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 1 },
-                &[u8::from(validation.is_ok())],
-            )
+            .send_message(format, &[u8::from(validation.is_ok())])
             .await?;
-        let peer_validated = exchange
-            .recv_message(iroh::endpoint::ControlMessageFormat::EndTerminated { maximum: 1 })
-            .await?;
+        let peer_validated = exchange.recv_message(format).await?;
         if peer_validated.len() != 1 || peer_validated[0] > 1 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -560,13 +591,13 @@ impl TcpPunch {
             ));
         }
         if let Err(error) = validation {
-            if active_control.is_none() {
+            if initial {
                 let _ = connection.retire_control_path(route).await;
             }
             return Err(error);
         }
         if peer_validated[0] == 0 {
-            if active_control.is_none() {
+            if initial {
                 let _ = connection.retire_control_path(route).await;
             }
             return Err(io::Error::other("TCP path unavailable at a peer"));
@@ -575,7 +606,7 @@ impl TcpPunch {
             || connection.is_closed()
             || !observation.as_ref().is_some_and(|result| result.is_fresh())
         {
-            if active_control.is_none() {
+            if initial {
                 let _ = connection.retire_control_path(route).await;
             }
             return Err(io::Error::other(

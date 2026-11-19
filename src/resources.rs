@@ -986,9 +986,9 @@ impl ResourceEndpoint {
 
     pub(crate) fn with_native(
         mut self,
-        native: crate::native_path_adapter::NativePathAdapter,
+        native: Option<crate::native_path_adapter::NativePathAdapter>,
     ) -> Self {
-        self.native = Some(native);
+        self.native = native;
         self
     }
 
@@ -1221,10 +1221,11 @@ impl ResourceEndpoint {
         mut target: iroh::EndpointAddr,
         deadline: tokio::time::Instant,
     ) -> std::io::Result<iroh::endpoint::MemberConnection> {
+        let deadline = deadline.min(tokio::time::Instant::now() + self.timeout);
         let (owner, _) = self
             .member_fusion
             .as_ref()
-            .expect("native client member owner");
+            .ok_or(std::io::ErrorKind::Unsupported)?;
         let restricted_contacts = |target: &iroh::EndpointAddr| {
             let mut contacts: Vec<_> = target
                 .addrs

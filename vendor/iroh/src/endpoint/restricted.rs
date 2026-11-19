@@ -189,6 +189,18 @@ pub(crate) trait DynEndpointAdmission: std::fmt::Debug + Send + Sync {
         None
     }
     #[cfg(not(wasm_browser))]
+    fn member_direct_traversal(&self) -> Option<(Duration, Duration)> {
+        None
+    }
+    #[cfg(not(wasm_browser))]
+    fn prepare_member_direct<'a>(
+        &'a self,
+        _connection: &'a ControlHandle,
+        _exchange: &'a ControlExchange,
+    ) -> BoxFuture<'a, io::Result<super::MemberDirectCandidate>> {
+        Box::pin(async { Err(io::ErrorKind::Unsupported.into()) })
+    }
+    #[cfg(not(wasm_browser))]
     fn member_relay_transport(&self) -> Option<u64> {
         None
     }
@@ -1006,6 +1018,8 @@ pub struct ControlHandle {
     connection: Connection,
     pub(super) endpoint: Endpoint,
     channel: Arc<ControlChannel>,
+    #[cfg(not(wasm_browser))]
+    pub(super) member_udp: Option<Arc<super::member_fusion::udp::Planning>>,
 }
 
 impl std::ops::Deref for ControlConnection {
@@ -1049,7 +1063,8 @@ impl ControlHandle {
                 &self.connection,
                 crate::socket::remote_map::MemberPathPolicy::new(None, move |address| {
                     address.is_ip() && policy.permits_member_data_path(address)
-                }),
+                })
+                .with_enhanced_udp(self.member_udp.as_ref().and_then(|udp| udp.path_work())),
             )
             .await
     }
@@ -1081,6 +1096,8 @@ impl ControlHandle {
             endpoint: endpoint.clone(),
             connection: connection.clone(),
             channel: Arc::new(ControlChannel::Application(ApplicationControl::new())),
+            #[cfg(not(wasm_browser))]
+            member_udp: None,
         }
     }
 
@@ -1781,6 +1798,8 @@ pub(super) async fn finish_admission(
     #[cfg(not(wasm_browser))]
     let fusion = policy.member_fusion();
     #[cfg(not(wasm_browser))]
+    let member_udp = fusion.and_then(|fusion| fusion.plan_udp(endpoint, &connection));
+    #[cfg(not(wasm_browser))]
     let mut member = fusion.map(|fusion| fusion.candidate(&connection));
     // Once one peer authorizes QNT, it can open a faster IP path and retire
     // the original before the other peer has checked its data-path permit.
@@ -1817,6 +1836,8 @@ pub(super) async fn finish_admission(
                 ),
                 connection: connection.clone(),
                 endpoint: endpoint.clone(),
+                #[cfg(not(wasm_browser))]
+                member_udp: member_udp.clone(),
             },
             close_on_drop: true,
         };
@@ -1933,7 +1954,7 @@ pub(super) async fn finish_admission(
         #[cfg(not(wasm_browser))]
         if let Some((fusion, selection)) = fusion.zip(selection) {
             let activity = fusion.activity();
-            let udp = fusion.plan_udp(endpoint, &connection);
+            let udp = member_udp;
             let direct_transport = policy
                 .member_direct_transport()
                 .filter(|id| permit.allowed_data_custom_ids.contains(id));
@@ -1991,6 +2012,7 @@ pub(super) async fn finish_admission(
                 direct,
                 member_relay,
                 started_on_member_relay,
+                fusion.direct_traversal_slot.clone(),
             );
             fusion.publish(
                 selection,

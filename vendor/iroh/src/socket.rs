@@ -375,6 +375,8 @@ pub(crate) struct Socket {
     observation_generation: Arc<Mutex<u64>>,
     /// Physical socket/network epoch, independent of ordinary QAD refreshes.
     network_generation: Arc<Mutex<u64>>,
+    #[cfg(not(wasm_browser))]
+    network_generation_changed: tokio::sync::Notify,
     /// If the last net_report report, reports IPv6 to be available.
     ipv6_reported: Arc<AtomicBool>,
     /// Maps for resolving mapped addrs to/from IP and relay addresses.
@@ -1508,6 +1510,14 @@ impl EndpointInner {
     }
 
     #[cfg(not(wasm_browser))]
+    pub(crate) async fn wait_network_generation_change(&self, observed: &ObservationValidity) {
+        let changed = self.sock.network_generation_changed.notified();
+        if observed.is_current() {
+            changed.await;
+        }
+    }
+
+    #[cfg(not(wasm_browser))]
     pub(crate) async fn observe_udp_mapping_sequence(
         &self,
         observers: &RelayMap,
@@ -2332,6 +2342,8 @@ impl EndpointInner {
             observation_generation: Arc::new(Mutex::new(0)),
             network_generation: Arc::new(Mutex::new(0)),
             #[cfg(not(wasm_browser))]
+            network_generation_changed: tokio::sync::Notify::new(),
+            #[cfg(not(wasm_browser))]
             dns_resolver: dns_resolver.clone(),
             metrics: metrics.clone(),
             local_addrs_watch: transports.local_addrs_watch(),
@@ -3045,6 +3057,7 @@ impl Actor {
 
         #[cfg(not(wasm_browser))]
         {
+            self.sock.network_generation_changed.notify_waiters();
             let rounds = self
                 .sock
                 .udp_traversal

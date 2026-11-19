@@ -411,7 +411,7 @@ pub(crate) async fn receive(connection: MemberConnection, services: MemberServic
 }
 
 pub(crate) fn path_status(connection: &MemberConnection) -> Value {
-    json!({"peer":connection.remote_id().to_string(), "connection":connection.stable_id(),
+    let mut status = json!({"peer":connection.remote_id().to_string(), "connection":connection.stable_id(),
         "initial_data_path":connection.initial_data_path(),
         "paths":connection.paths().iter().map(|path| {
             let stats = path.stats();
@@ -420,5 +420,19 @@ pub(crate) fn path_status(connection: &MemberConnection) -> Value {
             "selected":path.is_selected(),"tx_bytes":stats.udp_tx.bytes,"rx_bytes":stats.udp_rx.bytes,
             "rx_stream_frames":stats.frame_rx.stream,"tx_stream_frames":stats.frame_tx.stream,
             "last_ack_age_ms":stats.acknowledgment.map(|ack| ack.received_at.elapsed().as_millis())})
-        }).collect::<Vec<_>>()})
+        }).collect::<Vec<_>>()});
+    if let Some(round) = connection.udp_traversal()
+        && let Some((matched, matched_at)) = round.first_match
+        && let Some((path, ack)) = round.validated
+    {
+        status["enhanced_udp"] = json!({
+            "round":hex::encode(round.round), "connection":round.connection_id,
+            "path":path.to_string(), "peer":matched.remote, "binding":matched.local_addr,
+            "socket":format!("{:?}", matched.local_socket_id),
+            "fresh_ack":ack.sent_at >= matched_at,
+            "selected_round":round.outcome == Some(Ok(())),
+            "learned":round.learned,
+        });
+    }
+    status
 }

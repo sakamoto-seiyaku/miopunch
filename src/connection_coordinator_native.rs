@@ -429,6 +429,13 @@ impl CoordinatorHook {
         if self.existing_relay(connection).is_some() {
             caps.permitted |= RELAY;
         }
+        if self
+            .existing_direct(connection)
+            .is_some_and(|(_, carrier)| carrier == TCP)
+        {
+            caps.supported |= TCP;
+            caps.permitted |= TCP;
+        }
         caps
     }
     fn existing_relay(
@@ -513,10 +520,14 @@ impl CoordinatorHook {
                     TransportAddr::Ip(_) if self.udp_allowed => UDP,
                     TransportAddr::Custom(address)
                         if address.id() == crate::tcp_transport::DATA_TRANSPORT_ID
-                            && self
+                            && (self
                                 .native
                                 .as_ref()
-                                .is_some_and(|native| native.tcp_available()) =>
+                                .is_some_and(|native| native.tcp_available())
+                                || self
+                                    .resources
+                                    .as_ref()
+                                    .is_some_and(|resources| resources.allows_custom(address))) =>
                     {
                         TCP
                     }
@@ -556,20 +567,42 @@ impl CoordinatorHook {
 pub(crate) struct NativeAdmission {
     gate: AdmissionGate,
     coordinator: CoordinatorHook,
+    tcp: Option<crate::tcp_punch::TcpPunch>,
 }
 impl NativeAdmission {
-    pub(crate) fn new(gate: AdmissionGate, coordinator: CoordinatorHook) -> Self {
-        Self { gate, coordinator }
+    pub(crate) fn new(
+        gate: AdmissionGate,
+        coordinator: CoordinatorHook,
+        tcp: Option<crate::tcp_punch::TcpPunch>,
+    ) -> Self {
+        Self {
+            gate,
+            coordinator,
+            tcp,
+        }
     }
 
     async fn admit_registered_member(
         &self,
         connection: &iroh::endpoint::ControlConnection,
     ) -> io::Result<iroh::endpoint::AdmissionOutcome> {
-        if let Some(native) = &self.coordinator.native {
-            native
-                .retain_existing_control(&connection.control_handle(), &self.gate)
-                .await?;
+        if let Some(tcp) = &self.tcp
+            && connection.paths().iter().any(|path| {
+                matches!(path.remote_addr(), TransportAddr::Custom(address)
+                    if address.id() == crate::tcp_transport::DATA_TRANSPORT_ID)
+            })
+        {
+            let control =
+                crate::control_session::ControlSession::from_control(connection.control_handle());
+            let mut cancellation = control.cancellation_guard();
+            tcp.retain_existing_control(connection).await?;
+            if !self.gate.allows_member_path_upgrade(connection) {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "TCP membership changed before data release",
+                ));
+            }
+            cancellation.disarm();
         }
         self.gate
             .admit_member_control(connection, |remote| match remote {

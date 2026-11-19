@@ -149,6 +149,7 @@ impl BrowserMemberConnection {
                     &self.gate,
                     attempt,
                     log,
+                    || lease.seal_outgoing_hello(),
                 )
                 .await
             })

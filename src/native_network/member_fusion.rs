@@ -10,10 +10,11 @@ use std::{
 use iroh::{
     Endpoint, RelayMode, SecretKey,
     endpoint::{
-        Builder, Connection, ControlConfirmation, ControlConnection, ExportKeyingMaterialError,
-        MemberConnection, MemberFusionAdmission, MemberFusionEndpoint, MemberFusionEvent,
-        MemberUdpConfig, PortmapperConfig, RelayResourcePolicy, RelayResourceUse,
-        RestrictedBuilder, RestrictedEndpoint, presets,
+        Builder, Connection, ControlConfirmation, ControlConnection, ControlExchange,
+        ControlHandle, ExportKeyingMaterialError, MemberConnection, MemberDirectCandidate,
+        MemberFusionAdmission, MemberFusionEndpoint, MemberFusionEvent, MemberUdpConfig,
+        PortmapperConfig, RelayResourcePolicy, RelayResourceUse, RestrictedBuilder,
+        RestrictedEndpoint, presets,
     },
 };
 use serde_json::json;
@@ -26,7 +27,7 @@ use crate::{
 };
 
 /// Ordinary admitted business over the explicitly selected native fusion endpoint.
-pub const FUSED_MEMBER_ALPN: &[u8] = b"miopunch/session/member-fusion/2";
+pub const FUSED_MEMBER_ALPN: &[u8] = b"miopunch/session/member-fusion/3";
 
 impl NativeNetwork {
     /// Bind the node's ordinary member endpoint using the persisted identity,
@@ -54,7 +55,14 @@ impl NativeNetwork {
             self.gate
                 .register_data_carrier(crate::member_transport::DATA_TRANSPORT_ID);
         }
-        let (builder, _) = resources.configure_with_tcp(builder)?;
+        let (builder, tcp) = resources.configure_with_tcp(builder)?;
+        let tcp = tcp.map(|transport| {
+            crate::tcp_punch::TcpPunch::new(
+                transport,
+                resources.tcp_stun_resources(),
+                resources.clone(),
+            )
+        });
         let relay_resources = resources.clone();
         let custom_resources = resources.clone();
         let udp_config = self.udp.fusion_config(&resources)?;
@@ -82,6 +90,7 @@ impl NativeNetwork {
                     allow_custom: false,
                     udp: self.udp.fusion_permission(),
                     udp_config,
+                    tcp,
                 },
             )
             .admission_timeout(setup_budget)
@@ -94,6 +103,7 @@ impl NativeNetwork {
         &self,
         builder: RestrictedBuilder,
         resources: &ResourceConfig,
+        tcp: Option<crate::tcp_punch::TcpPunch>,
     ) -> Result<(RestrictedEndpoint, MemberFusionEndpoint), NodeError> {
         self.gate
             .register_protocol(FUSED_MEMBER_ALPN, ProtocolScope::Member);
@@ -106,10 +116,51 @@ impl NativeNetwork {
                     allow_custom: true,
                     udp: self.udp.fusion_permission(),
                     udp_config: self.udp.fusion_config(resources)?,
+                    tcp,
                 },
                 Duration::from_millis(resources.maintenance.exploration_interval_ms),
             )
             .await?)
+    }
+}
+
+impl crate::resources::ResourceEndpoint {
+    pub(crate) fn install_member_repair(self: &Arc<Self>) {
+        let (fusion, gate) = self.member_fusion.as_ref().expect("fused endpoint").clone();
+        let weak_resources = Arc::downgrade(self);
+        fusion.set_repair_contact(move |original, contact, deadline, cancel| {
+            let resources = weak_resources.clone();
+            let gate = gate.clone();
+            async move {
+                if let Some(resources) = resources.upgrade() {
+                    use crate::connection_coordinator::{
+                        AttemptRole, connection_diagnostic::AttemptLog,
+                    };
+                    let mut log = AttemptLog::new(AttemptRole::Initiator, "member_fusion_repair");
+                    log.original = Some(original.stable_id());
+                    let phase = log.phase("repair", json!({"originalSide":format!("{:?}", original.side()),
+                        "budgetMs":deadline.saturating_duration_since(tokio::time::Instant::now()).as_millis()}));
+                    let result = crate::connection_recovery::recover_member_path(
+                        &gate, &resources, &original, contact, deadline, cancel,
+                    )
+                    .await;
+                    match result {
+                        Ok(path) => phase.finish_with("succeeded", json!({"path":path.path,
+                            "pathId":path.path_id,"probeWatermark":path.probe_watermark,
+                            "controlStableId":path.control_stable_id,"peerConfirmed":path.peer_confirmed})),
+                        Err(error) => phase.finish_with("failed", json!({"error":error.to_string()})),
+                    }
+                }
+            }
+        });
+    }
+
+    pub(crate) async fn serve_member_repair(&self, control: &ControlConnection) -> io::Result<()> {
+        let (_, gate) = self.member_fusion.as_ref().expect("fused endpoint");
+        let result =
+            crate::connection_recovery::serve_path_recovery(gate, self, control, true).await;
+        control.close(0u32.into(), b"member path repair ended");
+        result
     }
 }
 
@@ -149,6 +200,7 @@ struct Authorization {
     allow_custom: bool,
     udp: Arc<AtomicBool>,
     udp_config: MemberUdpConfig,
+    tcp: Option<crate::tcp_punch::TcpPunch>,
 }
 
 impl MemberFusionAdmission for Authorization {
@@ -242,6 +294,44 @@ impl MemberFusionAdmission for Authorization {
 
     fn member_direct_transport(&self) -> Option<u64> {
         (!self.resources.tcp_direct_disabled).then_some(crate::tcp_transport::DATA_TRANSPORT_ID)
+    }
+
+    fn member_direct_traversal(&self) -> Option<(Duration, Duration)> {
+        self.tcp
+            .as_ref()
+            .filter(|tcp| tcp.transport.supports_punching() && !tcp.observers.is_empty())
+            .map(|_| {
+                let policy = &self.resources.maintenance;
+                (
+                    Duration::from_millis(policy.contact_timeout_ms),
+                    Duration::from_millis(policy.exploration_interval_ms),
+                )
+            })
+    }
+
+    async fn prepare_member_direct(
+        &self,
+        original: &ControlHandle,
+        exchange: &ControlExchange,
+    ) -> io::Result<MemberDirectCandidate> {
+        let tcp = self.tcp.as_ref().ok_or(io::ErrorKind::Unsupported)?;
+        let mut log = AttemptLog::new(AttemptRole::initial(original), "member_fusion_tcp");
+        log.original = Some(original.stable_id());
+        let mut candidate = tcp
+            .prepare_fused(original, exchange, &self.gate, log)
+            .await?;
+        let remote = candidate.route().clone();
+        let original = original.clone();
+        let gate = self.gate.clone();
+        Ok(MemberDirectCandidate::new(remote, move || {
+            candidate.check(&original, &gate)?;
+            candidate
+                .active
+                .take()
+                .expect("prepared fused TCP")
+                .retain();
+            Ok(())
+        }))
     }
 
     fn member_relay_transport(&self) -> Option<u64> {

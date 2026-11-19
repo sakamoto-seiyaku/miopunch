@@ -495,25 +495,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         [_, network, action, data_dir, bind @ ..] if network == "network" && action == "run" => {
             let bind_ip = optional_bind_ip(bind)?;
-            let node = NativeNetwork::open(data_dir).await?;
-            let resources = node.bind_configured_endpoint(bind_ip).await?;
-            let endpoint = resources.endpoint();
-            let address = local_udp_addr(&endpoint.addr()).ok().or_else(|| {
-                resources.addr().addrs.iter().find_map(|addr| match addr {
+            let client =
+                miopunch_native_probe::native_client::NativeClient::open(data_dir, bind_ip)
+                    .await
+                    .map_err(std::io::Error::other)?;
+            let contact = client.address();
+            let address = local_udp_addr(&contact).ok().or_else(|| {
+                contact.addrs.iter().find_map(|addr| match addr {
                     iroh::TransportAddr::Custom(addr) => TcpTransport::socket_addr(addr).ok(),
                     _ => None,
                 })
             });
             println!(
                 "READY {} {}",
-                node.status().node_id,
+                contact.id,
                 address
                     .map(|addr| addr.to_string())
                     .unwrap_or_else(|| "no-direct-address".into())
             );
             tokio::signal::ctrl_c().await?;
-            resources.close().await;
-            node.close().await;
+            client.close().await.map_err(std::io::Error::other)?;
             return Ok(());
         }
         _ => {}

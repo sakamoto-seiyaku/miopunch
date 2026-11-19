@@ -8,11 +8,24 @@ pub async fn tcp_binding_observer(
     start: Option<Arc<tokio::sync::Notify>>,
     reject_first: usize,
 ) -> (SocketAddr, tokio::task::JoinHandle<()>) {
+    let (address, task, _) = tcp_binding_observer_with_sources(start, reject_first).await;
+    (address, task)
+}
+
+pub async fn tcp_binding_observer_with_sources(
+    start: Option<Arc<tokio::sync::Notify>>,
+    reject_first: usize,
+) -> (
+    SocketAddr,
+    tokio::task::JoinHandle<()>,
+    tokio::sync::mpsc::UnboundedReceiver<SocketAddr>,
+) {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
         .await
         .unwrap();
     let observer = listener.local_addr().unwrap();
+    let (sources, observed) = tokio::sync::mpsc::unbounded_channel();
     let task = tokio::spawn(async move {
         let initial_round = Arc::new(tokio::sync::Semaphore::new(reject_first));
         let mut started = start.is_none();
@@ -23,10 +36,12 @@ pub async fn tcp_binding_observer(
                 accepted = listener.accept(), if started => {
                     let (mut stream, std::net::SocketAddr::V4(peer)) = accepted.unwrap() else { unreachable!() };
                     let reject = initial_round.clone().try_acquire_owned().map(|permit| permit.forget()).is_ok();
+                    let sources = sources.clone();
                     bindings.spawn(async move {
                         let mut frame = [0; 20];
                         stream.read_exact(&mut frame).await?;
                         assert_eq!(&frame[..8], &[0, 1, 0, 0, 0x21, 0x12, 0xa4, 0x42]);
+                        let _ = sources.send(SocketAddr::V4(peer));
                         if reject {
                             return Ok(());
                         }
@@ -45,5 +60,5 @@ pub async fn tcp_binding_observer(
             }
         }
     });
-    (observer, task)
+    (observer, task, observed)
 }

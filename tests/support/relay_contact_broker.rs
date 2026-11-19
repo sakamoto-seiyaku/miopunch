@@ -224,7 +224,11 @@ pub struct Broker {
 }
 impl Broker {
     pub async fn new() -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        Self::bind("127.0.0.1:0".parse().unwrap()).await
+    }
+
+    pub async fn bind(bind: SocketAddr) -> Self {
+        let listener = TcpListener::bind(bind).await.unwrap();
         let address = listener.local_addr().unwrap();
         let active = Arc::new(AtomicUsize::new(0));
         let delivery = Arc::new(DatagramDelivery::default());

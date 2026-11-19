@@ -22,6 +22,431 @@ use miopunch_native_probe::{
 };
 use std::{collections::BTreeSet, net::Ipv4Addr, sync::Arc, time::Duration};
 
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn observed_tcp_moves_the_application_members_original_stream_after_fresh_ack() {
+    observed_tcp_on_application_members(TcpRound::Commit).await;
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn cancelling_application_tcp_traversal_retires_the_candidate_and_preserves_the_relay() {
+    observed_tcp_on_application_members(TcpRound::Cancel).await;
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn original_application_members_retry_a_failed_tcp_observation_after_network_change() {
+    observed_tcp_on_application_members(TcpRound::RetryAfterNetworkChange).await;
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn active_original_application_members_retry_tcp_after_same_generation_cooldown() {
+    observed_tcp_on_application_members(TcpRound::RetryAfterCooldown).await;
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn active_original_application_members_requalify_tcp_after_path_retirement() {
+    observed_tcp_on_application_members(TcpRound::Requalify).await;
+}
+
+#[cfg(target_os = "linux")]
+enum TcpRound {
+    Commit,
+    Cancel,
+    RetryAfterNetworkChange,
+    RetryAfterCooldown,
+    Requalify,
+}
+
+#[cfg(target_os = "linux")]
+async fn observed_tcp_on_application_members(scenario: TcpRound) {
+    use iroh::{
+        EndpointAddr, TransportAddr,
+        endpoint::{BeforeConnectOutcome, EndpointHooks, MemberConnection, MemberStream},
+    };
+    use miopunch_native_probe::{
+        connection_coordinator::ACTIVE_IMPROVEMENT_ALPN,
+        native_network::{FUSED_MEMBER_ALPN, member_fusion_attempt_id},
+        path_selection::PathPreference,
+        tcp_transport::TcpTransport,
+    };
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering::Relaxed};
+    use tokio::time::{Instant, timeout};
+
+    #[derive(Clone, Debug, Default)]
+    struct Dials(Arc<AtomicUsize>);
+    impl EndpointHooks for Dials {
+        async fn before_connect(&self, _: &EndpointAddr, alpn: &[u8]) -> BeforeConnectOutcome {
+            if matches!(alpn, FUSED_MEMBER_ALPN | ACTIVE_IMPROVEMENT_ALPN) {
+                self.0.fetch_add(1, Relaxed);
+            }
+            BeforeConnectOutcome::Accept
+        }
+    }
+    async fn echo(a: &mut MemberStream, b: &mut MemberStream, sequence: u64) {
+        let bytes = sequence.to_be_bytes();
+        let (send, recv) = a.streams();
+        let (send_back, recv_at_peer) = b.streams();
+        let mut read = [0; 8];
+        send.write_all(&bytes).await.unwrap();
+        recv_at_peer.read_exact(&mut read).await.unwrap();
+        assert_eq!(read, bytes);
+        send_back.write_all(&read).await.unwrap();
+        recv.read_exact(&mut read).await.unwrap();
+        assert_eq!(read, bytes);
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut provider = NativeNetwork::create(dir.path().join("provider"))
+        .await
+        .unwrap();
+    let consumer = join(&mut provider, &dir.path().join("consumer")).await;
+    let mut relay_config = iroh_relay::server::ServerConfig::default();
+    relay_config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let relay = iroh_relay::server::Server::spawn(relay_config)
+        .await
+        .unwrap();
+    let relay_url = relay.http_url().unwrap();
+    let cooldown_retry = matches!(scenario, TcpRound::RetryAfterCooldown);
+    let requalify = matches!(scenario, TcpRound::Requalify);
+    let retry = cooldown_retry || matches!(scenario, TcpRound::RetryAfterNetworkChange);
+    let exploration_interval = Duration::from_millis(600);
+    let (observer, listener, mut sources) =
+        tcp_binding_observer::tcp_binding_observer_with_sources(None, usize::from(retry) * 2).await;
+    for node in [&consumer, &provider] {
+        let mut config = node.resource_configuration().unwrap();
+        config.replacement = Some(vec![
+            Resource {
+                url: relay_url.to_string(),
+                uses: [ResourceUse::DataRelay].into(),
+                limitation: "owned healthy relay".into(),
+            },
+            Resource {
+                url: format!("stun+tcp://{observer}/"),
+                uses: [ResourceUse::Observation].into(),
+                limitation: "owned TCP observer of the retained port".into(),
+            },
+        ]);
+        config.udp_direct_disabled = true;
+        config.tcp_listen = Some((Ipv4Addr::UNSPECIFIED, 0).into());
+        config.path_selection.preference = PathPreference::PreferDirect;
+        config.maintenance.quality_interval_ms = 250;
+        if cooldown_retry || requalify {
+            config.maintenance.exploration_interval_ms = exploration_interval.as_millis() as u64;
+        }
+        config.maintenance.contact_timeout_ms = 8_000;
+        node.save_resource_configuration(&config).unwrap();
+    }
+    let dials = [Dials::default(), Dials::default()];
+    let consumer = consumer
+        .maintain_application_network(Ipv4Addr::LOCALHOST, |b| b.hooks(dials[0].clone()))
+        .await
+        .unwrap();
+    let provider = provider
+        .maintain_application_network(Ipv4Addr::LOCALHOST, |b| b.hooks(dials[1].clone()))
+        .await
+        .unwrap();
+    let bound = [&consumer, &provider].map(|node| {
+        node.addr()
+            .addrs
+            .iter()
+            .find_map(|addr| match addr {
+                TransportAddr::Custom(addr) => TcpTransport::socket_addr(addr).ok(),
+                _ => None,
+            })
+            .unwrap()
+    });
+    assert!(
+        bound.iter().all(|addr| addr.ip().is_unspecified()),
+        "{bound:?}"
+    );
+    let observed = bound.map(|addr| std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, addr.port())));
+    let relay_path = TransportAddr::Relay(relay_url.clone());
+    let (out, entrance) = tokio::join!(
+        consumer
+            .connect_member(EndpointAddr::new(provider.endpoint().id()).with_relay_url(relay_url)),
+        provider.accept_member()
+    );
+    let originals = [out.unwrap(), entrance.unwrap().unwrap()];
+    let ids = originals.each_ref().map(MemberConnection::stable_id);
+    assert_eq!(
+        member_fusion_attempt_id(&originals[0]).unwrap(),
+        member_fusion_attempt_id(&originals[1]).unwrap()
+    );
+    assert!(
+        originals
+            .iter()
+            .all(|m| m.initial_data_path() == &relay_path)
+    );
+    let suppressed = Arc::new(AtomicBool::new(true));
+    let path_id = noq_proto::PathId::from(1u8);
+    let generations =
+        [consumer.endpoint(), provider.endpoint()].map(|e| e.udp_network_generation());
+    for owner in &originals {
+        owner.test_suppress_path_acks(path_id, suppressed.clone());
+    }
+    let started = Instant::now();
+    // The accepting side's real business can trigger the client-controlled TCP round.
+    let mut a = originals[1].open_bi().await.unwrap();
+    a.streams().0.write_all(b"open original").await.unwrap();
+    let mut b = originals[0].accept_bi().await.unwrap();
+    let stream = u64::from(a.streams().0.id());
+    assert_eq!(u64::from(b.streams().0.id()), stream);
+    let mut open = [0; 13];
+    b.streams().1.read_exact(&mut open).await.unwrap();
+    assert_eq!(&open, b"open original");
+    echo(&mut a, &mut b, 1).await;
+    let mut cooldown_source = None;
+    if retry {
+        let first = timeout(Duration::from_secs(4), async {
+            [sources.recv().await.unwrap(), sources.recv().await.unwrap()]
+        })
+        .await
+        .expect("the original member connection must perform both initial TCP observations");
+        assert_ne!(first[0], first[1]);
+        assert!(first.into_iter().all(|source| observed.contains(&source)));
+        assert!(
+            originals
+                .iter()
+                .all(|member| member.paths().get(path_id).is_none())
+        );
+        echo(&mut a, &mut b, 10).await;
+        if cooldown_retry {
+            let first_round = Instant::now();
+            let (source, request_count) = timeout(Duration::from_secs(4), async {
+                let mut business = tokio::time::interval(Duration::from_millis(25));
+                let mut sequence = 11;
+                loop {
+                    tokio::select! {
+                        biased;
+                        source = sources.recv() => break (source.unwrap(), sequence - 11),
+                        _ = business.tick() => {
+                            echo(&mut a, &mut b, sequence).await;
+                            sequence += 1;
+                        }
+                    }
+                }
+            })
+            .await
+            .expect(
+                "continuous business must retry an observed TCP failure in the same generation",
+            );
+            let elapsed = first_round.elapsed();
+            assert!(
+                elapsed >= exploration_interval * 2 - Duration::from_millis(50),
+                "{elapsed:?}"
+            );
+            assert!(request_count >= 2);
+            assert!(generations.iter().all(|generation| generation.is_current()));
+            cooldown_source = Some(source);
+            eprintln!("MIO155 TCP cooldown={elapsed:?} sameGenerationRequests={request_count}");
+        } else {
+            for endpoint in [provider.endpoint(), consumer.endpoint()] {
+                let previous = endpoint.udp_network_generation();
+                endpoint.network_change().await;
+                timeout(Duration::from_secs(1), async {
+                    while previous.is_current() {
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    }
+                })
+                .await
+                .expect("the socket actor must process the network notification");
+            }
+        }
+    }
+    let peer_routes = observed.map(TcpTransport::address);
+    timeout(Duration::from_secs(5), async {
+        let first = match cooldown_source {
+            Some(source) => source,
+            None => sources.recv().await.unwrap(),
+        };
+        let mut actual = [first, sources.recv().await.unwrap()];
+        actual.sort();
+        let mut expected = observed;
+        expected.sort();
+        assert_eq!(actual, expected, "observations use actual listener ports");
+        while !originals.iter().enumerate().all(|(side, m)| {
+            m.paths().get(path_id).is_some_and(|p| {
+                p.remote_addr() == &TransportAddr::Custom(peer_routes[1 - side].clone())
+            })
+        }) {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("configured enhanced TCP must observe and prime the original QUIC connection");
+    for m in &originals {
+        assert!(
+            m.paths()
+                .iter()
+                .any(|p| p.is_selected() && p.remote_addr() == &relay_path)
+        );
+        assert!(
+            m.paths()
+                .get(path_id)
+                .unwrap()
+                .stats()
+                .acknowledgment
+                .is_none()
+        );
+    }
+    echo(&mut a, &mut b, 2).await;
+    if matches!(scenario, TcpRound::Cancel) {
+        let mut maintenance = originals[0].open_maintenance_bi().await.unwrap();
+        maintenance
+            .streams()
+            .0
+            .write_all(b"same original")
+            .await
+            .unwrap();
+        let mut peer = originals[1].accept_bi().await.unwrap();
+        peer.streams().1.read_exact(&mut open).await.unwrap();
+        assert_eq!(&open, b"same original");
+        assert!(!maintenance.is_business() && !peer.is_business());
+        drop((a, b));
+        timeout(Duration::from_secs(3), async {
+            while originals.iter().any(|m| m.paths().get(path_id).is_some()) {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("last business release drops both uncommitted TCP candidates");
+        for m in &originals {
+            assert!(
+                m.paths()
+                    .iter()
+                    .any(|p| p.is_selected() && p.remote_addr() == &relay_path)
+            );
+        }
+        echo(&mut maintenance, &mut peer, 3).await;
+        eprintln!("MIO155 TCP cancelled originals={ids:?} relayMaintenanceReply=3");
+    } else {
+        suppressed.store(false, Relaxed);
+        timeout(Duration::from_secs(6), async {
+            while !originals.iter().all(|m| {
+                m.paths().get(path_id).is_some_and(|p| {
+                    p.is_selected()
+                        && p.stats()
+                            .acknowledgment
+                            .is_some_and(|ack| ack.sent_at >= started.into_std())
+                })
+            }) {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("only the exact fresh-ACK TCP path can take the original stream");
+        let received = [
+            originals[1]
+                .test_observe_stream_receive(path_id, &a)
+                .unwrap(),
+            originals[0]
+                .test_observe_stream_receive(path_id, &b)
+                .unwrap(),
+        ];
+        echo(&mut a, &mut b, 3).await;
+        assert!(received.into_iter().all(|received| received.confirm()));
+        for (side, original) in originals.iter().enumerate() {
+            let paths = original.paths();
+            let path = paths.get(path_id).unwrap();
+            eprintln!(
+                "MIO155 TCP side={side} stable={} stream={stream} binding={} observed={} path={path_id} ack_ms={}",
+                ids[side],
+                bound[side],
+                observed[side],
+                path.stats()
+                    .acknowledgment
+                    .unwrap()
+                    .received_at
+                    .duration_since(started.into_std())
+                    .as_millis()
+            );
+        }
+        if requalify {
+            let replacement = path_id.saturating_add(1u8);
+            suppressed.store(true, Relaxed);
+            for owner in &originals {
+                owner.test_suppress_path_acks(replacement, suppressed.clone());
+            }
+            let retired = Instant::now();
+            originals[0].paths().get(path_id).unwrap().close().unwrap();
+            timeout(Duration::from_secs(3), async {
+                while !originals.iter().all(|m| {
+                    let paths = m.paths();
+                    paths.get(path_id).is_none()
+                        && paths
+                            .iter()
+                            .any(|p| p.is_selected() && p.remote_addr() == &relay_path)
+                }) {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            })
+            .await
+            .expect("retiring the selected TCP path must return both originals to their relay");
+            let relay = noq_proto::PathId::ZERO;
+            let relay_bytes = [
+                originals[1].test_observe_stream_receive(relay, &a).unwrap(),
+                originals[0].test_observe_stream_receive(relay, &b).unwrap(),
+            ];
+            echo(&mut a, &mut b, 4).await;
+            assert!(relay_bytes.into_iter().all(|received| received.confirm()));
+
+            timeout(Duration::from_secs(5), async {
+                let mut actual = [sources.recv().await.unwrap(), sources.recv().await.unwrap()];
+                actual.sort();
+                let mut expected = observed;
+                expected.sort();
+                assert_eq!(actual, expected, "observe both real listeners again");
+                suppressed.store(false, Relaxed);
+                while !originals.iter().enumerate().all(|(side, m)| {
+                    m.paths().get(replacement).is_some_and(|p| {
+                        p.is_selected()
+                            && p.remote_addr()
+                                == &TransportAddr::Custom(peer_routes[1 - side].clone())
+                            && p.stats()
+                                .acknowledgment
+                                .is_some_and(|ack| ack.sent_at >= retired.into_std())
+                    })
+                }) {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            })
+            .await
+            .expect(
+                "the original members must observe and requalify a new TCP path after retirement",
+            );
+            assert!(generations.iter().all(|generation| generation.is_current()));
+            let tcp_bytes = [
+                originals[1]
+                    .test_observe_stream_receive(replacement, &a)
+                    .unwrap(),
+                originals[0]
+                    .test_observe_stream_receive(replacement, &b)
+                    .unwrap(),
+            ];
+            echo(&mut a, &mut b, 5).await;
+            assert!(tcp_bytes.into_iter().all(|received| received.confirm()));
+            eprintln!(
+                "MIO155 TCP retired={path_id} relaySequence=4 replacement={replacement} tcpSequence=5 ids={ids:?} stream={stream} elapsed={:?}",
+                retired.elapsed()
+            );
+        }
+        drop((a, b));
+    }
+    assert_eq!(originals.each_ref().map(MemberConnection::stable_id), ids);
+    assert_eq!(dials.each_ref().map(|d| d.0.load(Relaxed)), [1, 0]);
+    assert!(sources.try_recv().is_err());
+    listener.abort();
+    tokio::join!(consumer.close(), provider.close());
+    relay.shutdown().await.unwrap();
+}
+
 #[tokio::test]
 async fn member_business_reaches_relay_missing_from_the_saved_contact() {
     use iroh::{

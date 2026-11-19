@@ -12,7 +12,7 @@ use n0_watcher::Watcher as _;
 use tokio::sync::watch;
 
 use super::{
-    Activity, CancellationToken, Connection, ControlExchange, Duration, Endpoint, Instant,
+    Activity, CancellationToken, Connection, ControlExchange, Duration, Endpoint, Instant, PathId,
     StreamKind, time,
 };
 use crate::{
@@ -174,6 +174,39 @@ impl Planning {
         self.config.enabled && (!self.config.qad.is_empty() || !self.config.stun.is_empty())
     }
 
+    pub(super) async fn bootstrap_requested(&self) -> bool {
+        self.can_maintain()
+            && self.scope().is_ok()
+            && self.sources().is_ok()
+            && self
+                .path_work
+                .needed
+                .subscribe()
+                .wait_for(|needed| *needed)
+                .await
+                .is_ok()
+    }
+
+    pub(super) async fn bootstrap(
+        &self,
+        exchange: ControlExchange,
+        deadline: Instant,
+        cancel: &CancellationToken,
+    ) -> io::Result<PathId> {
+        // Reuse the same physical round as online improvement. Both sides need
+        // its actual selected path, but cannot confirm business during admission.
+        let kind = StreamKind::UdpImprovement;
+        if self.connection.side().is_client() {
+            self.initiate_on(deadline, cancel, kind, Some(exchange))
+                .await?;
+        } else {
+            self.respond_until(exchange, None, kind, deadline).await?;
+        }
+        self.traversal()
+            .and_then(|report| report.validated.map(|(path, _)| path))
+            .ok_or_else(|| io::ErrorKind::NotConnected.into())
+    }
+
     pub(super) fn request_maintenance(&self) {
         if self.can_maintain() {
             self.maintenance.send_replace(Some(Instant::now()));
@@ -330,6 +363,16 @@ impl Planning {
         cancel: &CancellationToken,
         kind: StreamKind,
     ) -> io::Result<MemberUdpPlan> {
+        self.initiate_on(deadline, cancel, kind, None).await
+    }
+
+    async fn initiate_on(
+        &self,
+        deadline: Instant,
+        cancel: &CancellationToken,
+        kind: StreamKind,
+        exchange: Option<ControlExchange>,
+    ) -> io::Result<MemberUdpPlan> {
         let scope = self.round_scope(self.scope()?)?;
         let deadline = deadline.min(Instant::now() + self.config.round_timeout);
         let traverse = kind != StreamKind::UdpPlan;
@@ -367,8 +410,10 @@ impl Planning {
                     .await?;
                 }
             }
-            let stream = self
-                .guarded(deadline, &scope, async {
+            let stream = if let Some(exchange) = exchange {
+                exchange
+            } else {
+                self.guarded(deadline, &scope, async {
                     let (mut send, recv) =
                         self.connection.open_bi().await.map_err(io::Error::other)?;
                     send.write_all(&[kind as u8])
@@ -376,7 +421,8 @@ impl Planning {
                         .map_err(io::Error::other)?;
                     Ok(ControlExchange::from_streams(send, recv))
                 })
-                .await?;
+                .await?
+            };
             let result = async {
                 let plan = self
                     .guarded(
@@ -414,7 +460,25 @@ impl Planning {
         activity: &Activity,
         kind: StreamKind,
     ) {
+        let _ = self
+            .respond_until(
+                stream,
+                Some(activity),
+                kind,
+                Instant::now() + self.config.round_timeout,
+            )
+            .await;
+    }
+
+    async fn respond_until(
+        &self,
+        stream: ControlExchange,
+        activity: Option<&Activity>,
+        kind: StreamKind,
+        deadline: Instant,
+    ) -> io::Result<()> {
         let started = Instant::now();
+        let deadline = deadline.min(started + self.config.round_timeout);
         let traverse = kind != StreamKind::UdpPlan;
         let priority = if kind == StreamKind::UdpMaintenance {
             Priority::Maintenance
@@ -422,14 +486,19 @@ impl Planning {
             Priority::Business
         };
         let work = async {
-            let hello =
-                Hello::decode(&time::timeout(self.control_timeout(), receive(&stream)).await??)?;
+            let hello = Hello::decode(
+                &time::timeout_at(
+                    deadline.min(started + self.control_timeout()),
+                    receive(&stream),
+                )
+                .await??,
+            )?;
             let scope = self.scope()?;
             hello.check(&scope)?;
             let scope = self.round_scope(scope)?;
-            let mut deadline = started + self.config.round_timeout.min(hello.budget);
+            let mut deadline = deadline.min(started + hello.budget);
             if priority == Priority::Maintenance {
-                let since = activity.idle_since().ok_or_else(busy)?;
+                let since = activity.and_then(Activity::idle_since).ok_or_else(busy)?;
                 deadline = deadline.min(since + self.idle_timeout);
             }
             if kind.automatically_improves_path()
@@ -466,13 +535,11 @@ impl Planning {
                 result = work => result,
             }
         };
-        if let Err(error) = work.await {
-            let _ = time::timeout_at(
-                started + self.config.round_timeout,
-                report_error(&stream, &error),
-            )
-            .await;
+        let result = work.await;
+        if let Err(error) = &result {
+            let _ = time::timeout_at(deadline, report_error(&stream, error)).await;
         }
+        result
     }
 
     fn start_probes(&self, kind: StreamKind) -> io::Result<Option<RunningPath<'_>>> {
