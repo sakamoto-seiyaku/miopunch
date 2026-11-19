@@ -18,6 +18,8 @@
 
 ## 恢复讨论时可复用的实测
 
+原生迁移基点为 `694f004d`。该工作树已有上表中的参数差异，WASM 构建结果需在实施入口单独记录。浏览器仍使用的共享源码随原生迁移继续维护。以后若允许 TURN，须按 ICE 实际选中的候选对判定承载：任一侧使用 relay 候选的路径归备用档。当前 ICE 配置只提供获准观察资源。[ICE 配置](../../src/rtc_ice_profile.rs#L2)
+
 - 浏览器与原生节点曾在不同公网地址间选中 RTC。关闭 relay WebSocket 并禁止重连后，原成员连接仍返回了正确文件字节。该 demo 的 RTC 宿主是持有节点的 Window。[实机与窗口生命周期](../evidence/client-demo-2026-10-21/rtc/README.md)
 - 两个浏览器曾经 MQTT 双向发起并收发业务；另有同机 relay 切 RTC 保留原流，以及关闭 RTC 载体后修复的记录。各用例的设施与覆盖范围见[主线验收](../evidence/current-connection-mainline-2026-10-11/README.md)。
 - Android 原生端和 Pixel 浏览器在蜂窝／Wi-Fi 环境下，曾用公共 MQTT、无数据 relay 和 TURN 完成成员业务与同步。这是换网后新建连接的成功样本；持续原流跨网迁移要单独验证。[移动网络复测](../evidence/rtc-switched-wifi-retest-2026-10-11/README.md)
