@@ -380,6 +380,27 @@ impl Connection {
             .restrict_application_data_paths(permit);
     }
 
+    /// Require the current binding's authenticated ACK before it can carry
+    /// ordinary frames. The predicate runs under the connection lock.
+    pub fn require_application_path_ack(
+        &self,
+        requires_ack: impl Fn(FourTuple) -> bool + Send + Sync + 'static,
+    ) {
+        self.0
+            .lock_and_wake("require application path ack")
+            .inner
+            .require_application_path_ack(requires_ack);
+    }
+
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_suppress_path_acks(&self, id: PathId, suppressed: Arc<AtomicBool>) {
+        self.0
+            .lock_and_wake("test path ACK fault")
+            .inner
+            .test_suppress_path_acks(id, suppressed);
+    }
+
     /// Returns a weak reference to the inner connection struct.
     pub fn weak_handle(&self) -> WeakConnectionHandle {
         self.0.weak_handle()

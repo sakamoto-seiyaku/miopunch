@@ -82,6 +82,7 @@ default = [
 ]
 fast-apple-datapath = ["udp/fast-apple-datapath"]
 lock_tracking = []
+miopunch-test-hooks = ["proto/miopunch-test-hooks"]
 platform-verifier = ["proto/platform-verifier"]
 qlog = ["proto/qlog"]
 ring = ["proto/ring"]

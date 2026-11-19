@@ -163,6 +163,9 @@ pub struct Connection {
     /// Dynamic, connection-local ordinary-frame eligibility. Validation and
     /// acknowledgment probes remain possible on an unqualified path.
     application_data_permit: Option<Arc<dyn Fn(FourTuple) -> bool + Send + Sync>>,
+    application_path_ack_required: Option<Arc<dyn Fn(FourTuple) -> bool + Send + Sync>>,
+    #[cfg(feature = "miopunch-test-hooks")]
+    suppressed_path_acks: Option<(PathId, Arc<std::sync::atomic::AtomicBool>)>,
     rng: StdRng,
     /// Consolidated cryptographic state
     crypto_state: CryptoState,
@@ -372,6 +375,9 @@ impl Connection {
         let mut this = Self {
             endpoint_config,
             application_data_permit: None,
+            application_path_ack_required: None,
+            #[cfg(feature = "miopunch-test-hooks")]
+            suppressed_path_acks: None,
             crypto_state: CryptoState::new(crypto, init_cid, side, &mut rng),
             handshake_cid: local_cid,
             remote_handshake_cid: remote_cid,
@@ -2946,6 +2952,27 @@ impl Connection {
         self.application_data_permit
             .as_ref()
             .is_none_or(|permit| permit(path))
+            && self
+                .application_path_ack_required
+                .as_ref()
+                .is_none_or(|requires_ack| {
+                    !requires_ack(path)
+                        || self.paths.iter().any(|(id, candidate)| {
+                            !self.abandoned_paths.contains(id)
+                                && candidate.data.network_path == path
+                                && candidate.data.acknowledgment.is_some()
+                        })
+                })
+    }
+
+    /// Require an authenticated data-space ACK on each selected physical
+    /// binding before it may carry ordinary frames. A binding change resets
+    /// this evidence. The predicate must not re-enter the connection.
+    pub fn require_application_path_ack(
+        &mut self,
+        requires_ack: impl Fn(FourTuple) -> bool + Send + Sync + 'static,
+    ) {
+        self.application_path_ack_required = Some(Arc::new(requires_ack));
     }
 
     /// Recheck application permission immediately before sending a transmit from this connection.
@@ -3256,6 +3283,16 @@ impl Connection {
         self.inner_on_ack_received(now, space, path, ack)
     }
 
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_suppress_path_acks(
+        &mut self,
+        id: PathId,
+        suppressed: Arc<std::sync::atomic::AtomicBool>,
+    ) {
+        self.suppressed_path_acks = Some((id, suppressed));
+    }
+
     /// Handles an ACK frame acknowledging packets sent on *path*.
     fn inner_on_ack_received(
         &mut self,
@@ -3264,6 +3301,16 @@ impl Connection {
         path: PathId,
         ack: frame::Ack,
     ) -> Result<(), TransportError> {
+        #[cfg(feature = "miopunch-test-hooks")]
+        if self
+            .suppressed_path_acks
+            .as_ref()
+            .is_some_and(|(id, suppressed)| {
+                *id == path && suppressed.load(std::sync::atomic::Ordering::Acquire)
+            })
+        {
+            return Ok(());
+        }
         if !self.spaces[space].number_spaces.contains_key(&path) {
             if self.abandoned_paths.contains(&path) {
                 // See also

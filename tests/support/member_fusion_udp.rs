@@ -36,7 +36,7 @@ const SETUP: Duration = Duration::from_secs(30);
 const LOOPBACK: [IpAddr; 2] = [IpAddr::V4(Ipv4Addr::LOCALHOST); 2];
 
 #[derive(Debug, Clone, Default)]
-struct Dials(Arc<AtomicUsize>);
+pub(super) struct Dials(pub(super) Arc<AtomicUsize>);
 
 impl EndpointHooks for Dials {
     async fn before_connect(&self, _: &EndpointAddr, _: &[u8]) -> BeforeConnectOutcome {
@@ -144,7 +144,7 @@ impl Pair {
     }
 }
 
-async fn on_relay(
+pub(super) async fn on_relay(
     client: &MemberFusionEndpoint,
     server: &MemberFusionEndpoint,
     url: &RelayUrl,
@@ -178,14 +178,18 @@ async fn on_relay(
     connections
 }
 
-struct OriginalStream {
+pub(super) struct OriginalStream {
     outgoing: MemberStream,
     incoming: MemberStream,
-    stream_id: noq::StreamId,
+    pub(super) stream_id: noq::StreamId,
 }
 
 impl OriginalStream {
-    async fn open(sender: &MemberConnection, receiver: &MemberConnection, first: u64) -> Self {
+    pub(super) async fn open(
+        sender: &MemberConnection,
+        receiver: &MemberConnection,
+        first: u64,
+    ) -> Self {
         let mut outgoing = sender.open_bi().await.unwrap();
         let (send, _) = outgoing.streams();
         let stream_id = send.id();
@@ -216,7 +220,7 @@ impl OriginalStream {
         assert_eq!(data, expected.to_be_bytes());
     }
 
-    async fn round_trip(&mut self, data: u64) {
+    pub(super) async fn round_trip(&mut self, data: u64) {
         self.outgoing
             .streams()
             .0

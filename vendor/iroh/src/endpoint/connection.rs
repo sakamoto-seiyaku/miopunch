@@ -1461,6 +1461,15 @@ impl Connection<HandshakeCompleted> {
         self.data.paths.get(&self.inner)
     }
 
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(super) fn test_suppress_path_acks(
+        &self,
+        id: PathId,
+        suppressed: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    ) {
+        self.inner.test_suppress_path_acks(id, suppressed);
+    }
+
     /// Returns a stream of [`PathList`] snapshots for this connection.
     ///
     /// Yields the current snapshot on the first poll, and a fresh

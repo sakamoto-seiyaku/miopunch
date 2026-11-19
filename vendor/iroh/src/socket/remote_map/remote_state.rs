@@ -105,6 +105,7 @@ type MemberActivity = MergeUnbounded<Pin<Box<dyn Stream<Item = ConnId> + Send + 
 pub(crate) struct MemberPathPolicy {
     // Bootstrap is active until release. Afterward streams drive QNT.
     activity: Option<watch::Receiver<bool>>,
+    direct_transport: Option<u64>,
     #[debug(skip)]
     permit: Arc<dyn Fn(&TransportAddr) -> bool + Send + Sync>,
 }
@@ -117,12 +118,20 @@ impl MemberPathPolicy {
     ) -> Self {
         Self {
             activity,
+            direct_transport: None,
             permit: Arc::new(permit),
         }
     }
 
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn with_direct_transport(mut self, transport: Option<u64>) -> Self {
+        self.direct_transport = transport;
+        self
+    }
+
     fn permits(&self, address: transports::Addr) -> bool {
-        matches!(address, transports::Addr::Custom(_)) || (self.permit)(&address.into())
+        matches!(&address, transports::Addr::Custom(custom) if self.direct_transport != Some(custom.id()))
+            || (self.permit)(&address.into())
     }
 
     fn active(&self) -> bool {
@@ -1169,6 +1178,15 @@ impl RemoteStateActor {
                     .to_transport_addr(addr)
                     .is_some_and(|address| packet_policy.permits(address))
             });
+            if let Some(transport) = policy.direct_transport {
+                let mapped = self.state.mapped_addrs.clone();
+                conn.require_application_path_ack(move |path| {
+                    matches!(
+                        mapped.to_transport_addr(path.remote()),
+                        Some(transports::Addr::Custom(address)) if address.id() == transport
+                    )
+                });
+            }
             let events = n0_future::stream::unfold(
                 policy.activity.clone().expect("released member activity"),
                 move |mut activity| async move {
@@ -1760,6 +1778,7 @@ impl RemoteStateActor {
                 && let Some(selected) = self.state.selected_path.clone()
                 && conn_state.may_select(&selected)
                 && !(conn_state.member_paths.is_some() && selected.is_ip())
+                && !conn_state.requires_direct_ack(&selected)
             {
                 let _ = self
                     .state
@@ -1916,7 +1935,9 @@ impl RemoteStateActor {
 
     fn open_path_on_all_conns(&mut self, open_addr: &transports::PathBinding) {
         for (conn_id, conn_state) in self.connections.iter() {
-            if conn_state.member_paths.is_some() && open_addr.is_ip() {
+            if (conn_state.member_paths.is_some() && open_addr.is_ip())
+                || conn_state.requires_direct_ack(open_addr)
+            {
                 continue;
             }
             let Some(conn) = conn_state.handle.upgrade() else {
@@ -2309,7 +2330,11 @@ impl State {
         }
 
         let mapped_4tuple = self.mapped_addrs.to_mapped_tuple(open_4tuple);
-        let path_status = self.path_status_for_addr(open_4tuple);
+        let path_status = if conn_state.requires_direct_ack(open_4tuple) {
+            PathStatus::Backup
+        } else {
+            self.path_status_for_addr(open_4tuple)
+        };
 
         let (fut, owned) = if keep_spare {
             conn.open_path_ensure_with_spare(mapped_4tuple, path_status)
@@ -2786,8 +2811,18 @@ impl ConnectionState {
         conn: &noq::Connection,
     ) -> bool {
         self.paths.iter().any(|(id, path)| {
-            path == candidate && self.may_select(path) && conn.path(*id).is_some()
+            path == candidate
+                && self.may_select(path)
+                && conn.path(*id).is_some()
+                && (!self.requires_direct_ack(path)
+                    || conn.path_stats(*id).is_some_and(|stats| stats.acknowledgment.is_some()))
         })
+    }
+
+    fn requires_direct_ack(&self, path: &transports::PathBinding) -> bool {
+        matches!(&path.address, transports::FourTuple::Custom { remote, .. }
+            if self.member_paths.as_ref().and_then(|member| member.policy.direct_transport)
+                == Some(remote.id()))
     }
 
     fn may_select(&self, path: &transports::PathBinding) -> bool {
@@ -2993,7 +3028,14 @@ impl<'a> PathSelectionContext<'a> {
                         state
                             .paths
                             .iter()
-                            .filter(move |(_, addr)| state.may_select(addr))
+                            .filter({
+                                let conn = conn.clone();
+                                move |(id, addr)| {
+                                    state.may_select(addr)
+                                        && (!state.requires_direct_ack(addr)
+                                            || conn.path_stats(**id).is_some_and(|stats| stats.acknowledgment.is_some()))
+                                }
+                            })
                             .map(move |(path_id, addr)| {
                                 PathSelectionData::live(addr, *path_id, conn.clone(), false)
                             })
@@ -3015,10 +3057,9 @@ impl<'a> PathSelectionContext<'a> {
                                         state.suspect_paths.contains_key(&current)
                                     });
                                 if suspect
-                                    || (!current
-                                        && (current_suspect || addr.is_ip())
-                                        && !conn
-                                            .path_stats(*id)
+                                    || ((state.requires_direct_ack(addr)
+                                        || (!current && (current_suspect || addr.is_ip())))
+                                        && !conn.path_stats(*id)
                                             .is_some_and(|stats| self.has_fresh_ack(&stats)))
                                 {
                                     return None;

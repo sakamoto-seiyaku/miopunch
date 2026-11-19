@@ -1216,7 +1216,7 @@ impl ResourceEndpoint {
     ) -> std::io::Result<iroh::endpoint::MemberConnection> {
         let (owner, _) = self.member_fusion.as_ref().expect("native client member owner");
         if let Some(connection) = owner.reuse_until(target.id, deadline).await? {
-            let _ = tokio::time::timeout_at(deadline, owner.learn_ip_candidates(target)).await;
+            let _ = tokio::time::timeout_at(deadline, owner.learn_path_candidates(target)).await;
             return Ok(connection);
         }
         let recent = self.merge_contact_hints(&mut target).await?;

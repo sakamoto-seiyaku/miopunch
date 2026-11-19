@@ -7,6 +7,7 @@ use std::{
 };
 
 use futures_util::StreamExt;
+use iroh_base::CustomAddr;
 use tokio::{
     sync::{mpsc, watch},
     time::{self, Duration, Instant},
@@ -23,7 +24,9 @@ use super::{
 };
 
 mod dial;
+mod direct;
 pub use dial::MemberDialOptions;
+pub(super) use direct::improve_direct_path;
 
 /// Application authorization for the native member ALPN.
 pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
@@ -38,8 +41,8 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
     fn is_current(&self, connection: &ControlConnection) -> bool;
 
     /// Decide whether the named carrier is currently eligible for member data.
-    /// For IP and native relay this can run under the QUIC packet lock. The
-    /// callback must not access a connection or perform blocking I/O.
+    /// For IP, native relay, and online direct carriers this can run under the
+    /// QUIC packet lock. The callback must not access a connection or block.
     fn permits_data_path(&self, remote: &TransportAddr) -> bool {
         matches!(remote, TransportAddr::Relay(_))
     }
@@ -47,6 +50,16 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
     /// Custom data carriers the application registered for current members.
     fn custom_data_transports(&self) -> Vec<u64> {
         Vec::new()
+    }
+
+    /// Installed direct data transport eligible for online path improvement.
+    fn member_direct_transport(&self) -> Option<u64> {
+        None
+    }
+
+    /// Decide whether this direct candidate may be advertised or attempted.
+    fn permits_direct_candidate(&self, _address: &iroh_base::CustomAddr) -> bool {
+        false
     }
 
     /// Allow an installed custom carrier to establish only the protected
@@ -166,6 +179,14 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
 
     fn permits_member_data_path(&self, path: &TransportAddr) -> bool {
         self.inner.permits_data_path(path)
+    }
+
+    fn member_direct_transport(&self) -> Option<u64> {
+        self.inner.member_direct_transport()
+    }
+
+    fn permits_direct_candidate(&self, address: &iroh_base::CustomAddr) -> bool {
+        self.inner.permits_direct_candidate(address)
     }
 
     fn fusion_event(&self, connection: &ControlConnection, event: MemberFusionEvent) {
@@ -462,7 +483,7 @@ impl MemberFusionEndpoint {
             _ = time::sleep_until(deadline) => Err(io::ErrorKind::TimedOut.into()),
             result = async {
                 let connection = self.shared_connect(target.clone(), routes, shared_deadline).await?;
-                self.learn_ip_candidates(target).await;
+                self.learn_path_candidates(target).await;
                 Ok(connection)
             } => result,
         }
@@ -475,6 +496,23 @@ impl MemberFusionEndpoint {
         if !target.addrs.is_empty() && self.inner.fusion.selected(target.id).is_some() {
             let _ = self.inner.endpoint.inner.inner.resolve_remote(target).await;
         }
+    }
+
+    /// Supply current contact hints to the already selected member connection.
+    /// Direct carrier addresses stay local to its original connection.
+    pub async fn learn_path_candidates(&self, target: EndpointAddr) {
+        if let Some(connection) = self.inner.fusion.selected(target.id)
+            && let Some((id, candidates)) = &connection.0.direct_candidates
+        {
+            for address in &target.addrs {
+                if let TransportAddr::Custom(address) = address
+                    && address.id() == *id
+                {
+                    let _ = candidates.try_send(address.clone());
+                }
+            }
+        }
+        self.learn_ip_candidates(target).await;
     }
 
     /// Reuse a selected connection or await an existing attempt without dialing.
@@ -692,8 +730,9 @@ impl Fusion {
         connection: Connection,
         data_path: TransportAddr,
         activity: Arc<Activity>,
+        direct_candidates: Option<(u64, mpsc::Sender<CustomAddr>)>,
     ) {
-        let live = selection.publish(connection, data_path, activity);
+        let live = selection.publish(connection, data_path, activity, direct_candidates);
         if let Some(selected) = &self.selected {
             let _ = selected.send(Ok(live));
         }
@@ -1249,11 +1288,13 @@ impl Selection {
         connection: Connection,
         data_path: TransportAddr,
         activity: Arc<Activity>,
+        direct_candidates: Option<(u64, mpsc::Sender<CustomAddr>)>,
     ) -> Weak<Live> {
         let live = MemberConnection(Arc::new(Live {
             connection,
             data_path,
             activity,
+            direct_candidates,
         }));
         {
             let mut state = self.peer.state.lock().expect("member peer lock");
@@ -1323,6 +1364,17 @@ impl MemberConnection {
     /// Paths currently in use by the original connection.
     pub fn paths(&self) -> PathList<'_> {
         self.0.connection.paths()
+    }
+
+    /// Suppress incoming ACKs for exactly one candidate in a real QUIC fixture.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_suppress_path_acks(
+        &self,
+        id: PathId,
+        suppressed: Arc<std::sync::atomic::AtomicBool>,
+    ) {
+        self.0.connection.test_suppress_path_acks(id, suppressed);
     }
 
     /// Transport frames and bytes on this original QUIC connection.
@@ -1490,6 +1542,7 @@ struct Live {
     connection: Connection,
     data_path: TransportAddr,
     activity: Arc<Activity>,
+    direct_candidates: Option<(u64, mpsc::Sender<CustomAddr>)>,
 }
 
 impl Live {

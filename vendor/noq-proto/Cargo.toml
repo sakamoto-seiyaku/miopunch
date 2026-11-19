@@ -73,6 +73,7 @@ aws-lc-rs-fips = [
 ]
 bench = ["dep:criterion"]
 bloom = ["dep:fastbloom"]
+miopunch-test-hooks = []
 default = [
     "rustls",
     "ring",

@@ -36,6 +36,8 @@ use super::{admit, bind, relay, resource};
 mod backup;
 #[path = "delayed_relay.rs"]
 mod delayed_relay;
+#[path = "member_fusion_tcp.rs"]
+mod tcp;
 #[path = "member_fusion_udp.rs"]
 mod udp;
 

@@ -174,6 +174,14 @@ pub(crate) trait DynEndpointAdmission: std::fmt::Debug + Send + Sync {
         false
     }
     #[cfg(not(wasm_browser))]
+    fn member_direct_transport(&self) -> Option<u64> {
+        None
+    }
+    #[cfg(not(wasm_browser))]
+    fn permits_direct_candidate(&self, _address: &iroh_base::CustomAddr) -> bool {
+        false
+    }
+    #[cfg(not(wasm_browser))]
     fn fusion_event(&self, _connection: &ControlConnection, _event: MemberFusionEvent) {}
 }
 
@@ -1900,6 +1908,9 @@ pub(super) async fn finish_admission(
         #[cfg(not(wasm_browser))]
         if let Some((fusion, selection)) = fusion.zip(selection) {
             let activity = Arc::new(super::member_fusion::Activity::default());
+            let direct_transport = policy
+                .member_direct_transport()
+                .filter(|id| permit.allowed_data_custom_ids.contains(id));
             let static_policy = endpoint
                 .inner
                 .static_config
@@ -1918,7 +1929,8 @@ pub(super) async fn finish_admission(
                             _ => true,
                         }
                 },
-            );
+            )
+            .with_direct_transport(direct_transport);
             endpoint
                 .inner
                 .authorize_candidates(
@@ -1936,7 +1948,13 @@ pub(super) async fn finish_admission(
             if let Some(bootstrap) = bootstrap {
                 bootstrap.store(true, std::sync::atomic::Ordering::Release);
             }
-            fusion.publish(selection, connection.clone(), permit.remote, activity);
+            let direct_candidates = direct_transport.filter(|_| permit.remote.is_relay()).map(|id| {
+                let candidates = super::member_fusion::improve_direct_path(
+                    endpoint.clone(), connection.clone(), activity.subscribe(), id,
+                );
+                (id, candidates)
+            });
+            fusion.publish(selection, connection.clone(), permit.remote, activity, direct_candidates);
         }
         if run_legacy_hook {
             policy.business_released(&connection);

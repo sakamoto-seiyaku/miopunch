@@ -31,10 +31,6 @@ impl Default for PathSelectionPolicy {
     }
 }
 impl PathSelectionPolicy {
-    pub(crate) fn selector(&self) -> std::io::Result<Arc<dyn ConnectionPathSelector>> {
-        self.selector_with_native_rtc(false)
-    }
-
     /// Native builders pass actual RTC installation, rather than feature support.
     pub(crate) fn selector_with_native_rtc(
         &self,

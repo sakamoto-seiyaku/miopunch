@@ -43,26 +43,24 @@ impl NativeNetwork {
         let relays = resources.relay_map(ResourceUse::DataRelay)?;
         self.gate
             .register_protocol(FUSED_MEMBER_ALPN, ProtocolScope::Member);
-        let builder =
-            builder.default_connection_path_selector(resources.path_selection.selector()?);
-        let builder = if resources.udp_direct_disabled {
-            builder.clear_ip_transports()
-        } else {
-            builder
-        };
+        let (builder, _) = resources.configure_with_tcp(builder)?;
         let relay_resources = resources.clone();
+        let custom_resources = resources.clone();
         let endpoint = builder
             .secret_key(SecretKey::from_bytes(self.node_key.as_bytes()))
             .portmapper_config(PortmapperConfig::Disabled)
             .relay_mode(RelayMode::Custom(relays))
-            .relay_resource_policy(RelayResourcePolicy::new(move |url, usage| {
-                let use_ = match usage {
-                    RelayResourceUse::DataRelay => ResourceUse::DataRelay,
-                    RelayResourceUse::Signaling => ResourceUse::Signaling,
-                    _ => return false,
-                };
-                relay_resources.allows(url.as_str(), use_)
-            }))
+            .relay_resource_policy(
+                RelayResourcePolicy::new(move |url, usage| {
+                    let use_ = match usage {
+                        RelayResourceUse::DataRelay => ResourceUse::DataRelay,
+                        RelayResourceUse::Signaling => ResourceUse::Signaling,
+                        _ => return false,
+                    };
+                    relay_resources.allows(url.as_str(), use_)
+                })
+                .with_custom_addresses(move |address| custom_resources.allows_custom(address)),
+            )
             .member_fusion(
                 FUSED_MEMBER_ALPN,
                 Authorization {
@@ -189,22 +187,34 @@ impl MemberFusionAdmission for Authorization {
             iroh::TransportAddr::Relay(_) => true,
             iroh::TransportAddr::Ip(_) => !self.resources.udp_direct_disabled,
             iroh::TransportAddr::Custom(addr) => {
-                self.allow_custom && self.resources.allows_custom(addr)
+                (self.allow_custom || addr.id() == crate::tcp_transport::DATA_TRANSPORT_ID)
+                    && self.resources.allows_custom(addr)
             }
             _ => false,
         }
     }
 
     fn custom_data_transports(&self) -> Vec<u64> {
-        if self.allow_custom {
-            self.gate
-                .allowed_data_carriers()
-                .into_iter()
-                .filter(|id| !ResourceConfig::is_restricted_contact_carrier(*id))
-                .collect()
-        } else {
-            Vec::new()
-        }
+        self.gate
+            .allowed_data_carriers()
+            .into_iter()
+            .filter(|id| {
+                if *id == crate::tcp_transport::DATA_TRANSPORT_ID {
+                    return !self.resources.tcp_direct_disabled;
+                }
+                self.allow_custom && !ResourceConfig::is_restricted_contact_carrier(*id)
+            })
+            .collect()
+    }
+
+    fn member_direct_transport(&self) -> Option<u64> {
+        (!self.resources.tcp_direct_disabled).then_some(crate::tcp_transport::DATA_TRANSPORT_ID)
+    }
+
+    fn permits_direct_candidate(&self, address: &iroh_base::CustomAddr) -> bool {
+        self.resources.allows_custom(address)
+            && crate::tcp_transport::TcpTransport::socket_addr(address)
+                .is_ok_and(|addr| !addr.ip().is_unspecified())
     }
 
     fn permits_restricted_contact(&self, address: &iroh_base::CustomAddr) -> bool {
