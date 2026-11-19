@@ -298,6 +298,7 @@ async fn one_way_uses_the_existing_admission_round_and_crossed_dials_choose_one_
         ("high-serve", "high-dial"),
         ("stalled-hold", "stalled-reverse"),
         ("cross", "cross"),
+        ("stale", "stale"),
     ] {
         let (low_output, high_output) = time::timeout(SETUP * 2, async {
             tokio::join!(
@@ -315,8 +316,11 @@ async fn one_way_uses_the_existing_admission_round_and_crossed_dials_choose_one_
         assert_eq!(low_report["attemptId"], high_report["attemptId"]);
         assert_eq!(low_report["peer"], high.to_string());
         assert_eq!(high_report["peer"], low.to_string());
-        let client_is_low = matches!(low_mode, "low-dial" | "cross");
-        assert_eq!(low_report["client"], client_is_low);
+        let client_is_low = matches!(low_mode, "low-dial" | "cross" | "stale");
+        assert_eq!(
+            low_report["client"], client_is_low,
+            "{low_mode}: expected the preferred candidate if both are qualified"
+        );
         assert_eq!(high_report["client"], !client_is_low);
         let winner = low_report["attemptId"].as_str().unwrap();
 
@@ -347,7 +351,7 @@ async fn one_way_uses_the_existing_admission_round_and_crossed_dials_choose_one_
                     .any(|record| record["event"] == "fusion-outgoing-held")
             );
         }
-        if low_mode == "cross" {
+        if matches!(low_mode, "cross" | "stale") {
             assert_eq!(low_starts.len(), 2);
             assert_eq!(high_starts.len(), 2);
             assert_overlap(&low_records, &low_starts);
@@ -364,8 +368,6 @@ async fn one_way_uses_the_existing_admission_round_and_crossed_dials_choose_one_
                     .iter()
                     .any(|record| record["attemptId"] == loser)
             );
-            assert_eq!(stage(&low_records, loser), ["ready-received", "superseded"]);
-            assert_eq!(stage(&high_records, loser), ["ready-sent", "superseded"]);
             let ready = timeline_position(
                 &low_records,
                 loser,
@@ -379,9 +381,46 @@ async fn one_way_uses_the_existing_admission_round_and_crossed_dials_choose_one_
                 "ready-sent",
             );
             assert!(timeline_position(&low_records, winner, "data-relay", "qualified") < ready);
-            assert!(
-                timeline_position(&high_records, winner, "data-relay", "qualified") < remote_ready
-            );
+            if low_mode == "stale" {
+                assert_eq!(
+                    stage(&low_records, loser),
+                    [
+                        "ready-received",
+                        "qualification-requested",
+                        "qualification-confirmed",
+                        "superseded"
+                    ]
+                );
+                assert_eq!(
+                    stage(&high_records, loser),
+                    ["ready-sent", "qualification-confirmed", "superseded"]
+                );
+                let qualified = high_records
+                    .iter()
+                    .position(|record| record["event"] == "fusion-preferred-qualified")
+                    .unwrap();
+                let preferred_ready = timeline_position(
+                    &high_records,
+                    winner,
+                    "member-fusion-admission-stage",
+                    "ready-sent",
+                );
+                let confirmation = timeline_position(
+                    &high_records,
+                    loser,
+                    "member-fusion-admission-stage",
+                    "qualification-confirmed",
+                );
+                assert!(remote_ready < qualified && qualified < confirmation);
+                assert!(qualified < preferred_ready);
+            } else {
+                assert_eq!(stage(&low_records, loser), ["ready-received", "superseded"]);
+                assert_eq!(stage(&high_records, loser), ["ready-sent", "superseded"]);
+                assert!(
+                    timeline_position(&high_records, winner, "data-relay", "qualified")
+                        < remote_ready
+                );
+            }
             let committed = timeline_position(
                 &low_records,
                 winner,
@@ -438,6 +477,7 @@ async fn wire_process(
     let local = endpoint.id();
     let remote = target.id;
     let fixture = mode.split('-').next().unwrap();
+    let stale_gate = (mode == "stale").then(|| endpoint.test_coordinate_stale_readiness());
     if mode == "cross" {
         endpoint.test_coordinate_qualified_candidates();
     }
@@ -451,7 +491,7 @@ async fn wire_process(
     }
     let dialing = matches!(
         mode,
-        "low-dial" | "high-dial" | "cross" | "idle" | "stalled-hold" | "stalled-reverse"
+        "low-dial" | "high-dial" | "cross" | "stale" | "idle" | "stalled-hold" | "stalled-reverse"
     );
     let stalled = root.join("stalled-outgoing-entered");
     let reverse_deadline = if mode == "stalled-reverse" {
@@ -462,25 +502,50 @@ async fn wire_process(
     } else {
         None
     };
-    let connection = if let Some(held_outgoing) = held_outgoing {
-        let (connection, ()) = tokio::join!(endpoint.connect(target), async {
-            held_outgoing.notified().await;
-            eprintln!("{}", json!({"event": "fusion-outgoing-held"}));
-            tokio::fs::write(stalled, []).await.unwrap();
-        });
-        connection.unwrap()
-    } else if let Some(deadline) = reverse_deadline {
-        endpoint
-            .connect_until(target, deadline, &CancellationToken::new())
-            .await
-            .expect("the sole qualified reverse candidate must meet the caller's deadline")
-    } else if dialing {
-        endpoint.connect(target).await.unwrap()
-    } else {
-        endpoint.accept().await.unwrap().unwrap()
-    };
+    let connection =
+        if let Some((preferred_qualified, release_ready, reverse_response)) = stale_gate {
+            let (connection, ()) = tokio::join!(endpoint.connect(target), async {
+                let remote_qualification = root.join(format!("stale-preferred-qualified-{remote}"));
+                let reverse = root.join("stale-reverse-response");
+                preferred_qualified.notified().await;
+                eprintln!("{}", json!({"event": "fusion-preferred-qualified"}));
+                tokio::fs::write(root.join(format!("stale-preferred-qualified-{local}")), [])
+                    .await
+                    .unwrap();
+                if local.as_bytes() < remote.as_bytes() {
+                    while !remote_qualification.exists() {
+                        time::sleep(Duration::from_millis(5)).await;
+                    }
+                    release_ready.notify_one();
+                    reverse_response.notified().await;
+                    tokio::fs::write(reverse, []).await.unwrap();
+                } else {
+                    while !reverse.exists() {
+                        time::sleep(Duration::from_millis(5)).await;
+                    }
+                    release_ready.notify_one();
+                }
+            });
+            connection.unwrap()
+        } else if let Some(held_outgoing) = held_outgoing {
+            let (connection, ()) = tokio::join!(endpoint.connect(target), async {
+                held_outgoing.notified().await;
+                eprintln!("{}", json!({"event": "fusion-outgoing-held"}));
+                tokio::fs::write(stalled, []).await.unwrap();
+            });
+            connection.unwrap()
+        } else if let Some(deadline) = reverse_deadline {
+            endpoint
+                .connect_until(target, deadline, &CancellationToken::new())
+                .await
+                .expect("the sole qualified reverse candidate must meet the caller's deadline")
+        } else if dialing {
+            endpoint.connect(target).await.unwrap()
+        } else {
+            endpoint.accept().await.unwrap().unwrap()
+        };
     assert_eq!(connection.remote_id(), remote);
-    if matches!(mode, "cross" | "stalled-hold") && connection.side().is_server() {
+    if matches!(mode, "cross" | "stale" | "stalled-hold") && connection.side().is_server() {
         assert_eq!(
             endpoint.accept().await.unwrap().unwrap().stable_id(),
             connection.stable_id()

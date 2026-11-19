@@ -127,6 +127,9 @@ impl MemberFusionAdmission for Authorization {
         let result = match event {
             MemberFusionEvent::ReadySent => "ready-sent",
             MemberFusionEvent::ReadyReceived => "ready-received",
+            MemberFusionEvent::QualificationRequested => "qualification-requested",
+            MemberFusionEvent::QualificationConfirmed => "qualification-confirmed",
+            MemberFusionEvent::QualificationUnavailable => "qualification-unavailable",
             MemberFusionEvent::Committed => "commit-sent",
             MemberFusionEvent::CommitReceived => "commit-received",
             MemberFusionEvent::Superseded => "superseded",

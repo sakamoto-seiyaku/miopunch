@@ -14,8 +14,8 @@ use tokio_util::sync::CancellationToken;
 
 use super::{
     BindError, Builder, ConnectError, ConnectOptions, ConnectingError, Connection, ConnectionError,
-    ControlConfirmation, ControlConnection, ControlMessageFormat, DataPathPermit, EndpointAddr,
-    EndpointId, ExportKeyingMaterialError, PathList, RecvStream, RelayResourceUse,
+    ControlConfirmation, ControlConnection, ControlExchange, ControlMessageFormat, DataPathPermit,
+    EndpointAddr, EndpointId, ExportKeyingMaterialError, PathList, RecvStream, RelayResourceUse,
     RestrictedBuilder, RestrictedEndpoint, SendStream, Side, TransportAddr, WeakControlConnection,
     restricted::{AdmissionOutcome, BoxFuture, DynEndpointAdmission},
 };
@@ -46,6 +46,12 @@ pub enum MemberFusionEvent {
     ReadySent,
     /// The smaller-ID peer received readiness on its locally qualified candidate.
     ReadyReceived,
+    /// The chooser requested the other endpoint's current qualification of a candidate.
+    QualificationRequested,
+    /// Both endpoints' qualification of the requested candidate was confirmed.
+    QualificationConfirmed,
+    /// The requested candidate was unavailable and the reverse candidate was reserved.
+    QualificationUnavailable,
     /// The smaller-ID peer committed this connection for the pair.
     Committed,
     /// The larger-ID peer received the committed connection.
@@ -214,6 +220,35 @@ impl MemberFusionEndpoint {
             .qualification_gate
             .set(Arc::new(QualificationGate::default()))
             .expect("candidate coordination already enabled");
+    }
+
+    /// Expose the test barriers for preferred qualification, release of READY,
+    /// and the reverse candidate's first response, in that order.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_coordinate_stale_readiness(
+        &self,
+    ) -> (
+        Arc<tokio::sync::Notify>,
+        Arc<tokio::sync::Notify>,
+        Arc<tokio::sync::Notify>,
+    ) {
+        let stale = StaleReadiness::default();
+        let signals = (
+            stale.preferred_qualified.clone(),
+            stale.release_ready.clone(),
+            stale.reverse_response.clone(),
+        );
+        let gate = QualificationGate {
+            stale: Some(stale),
+            ..Default::default()
+        };
+        self.inner
+            .fusion
+            .qualification_gate
+            .set(Arc::new(gate))
+            .expect("candidate coordination already enabled");
+        signals
     }
 
     /// Join the first dial or use the already selected connection.
@@ -429,6 +464,13 @@ impl PeerState {
             .filter(|live| live.close_reason().is_none())
             .cloned()
     }
+
+    fn preferred_binding(&self) -> Option<CandidateBinding> {
+        self.preferred
+            .as_ref()
+            .filter(|candidate| candidate.is_current())
+            .map(|candidate| candidate.binding)
+    }
 }
 
 #[derive(Debug)]
@@ -509,10 +551,11 @@ impl Drop for Candidate {
 
 const BINDING_SIZE: usize = 16;
 type CandidateBinding = [u8; BINDING_SIZE];
-const READY: ControlMessageFormat = ControlMessageFormat::LengthPrefixed16 {
+const STAGE: ControlMessageFormat = ControlMessageFormat::LengthPrefixed16 {
     maximum: BINDING_SIZE,
 };
-const DECISION: ControlMessageFormat = ControlMessageFormat::Fixed { length: 1 };
+const QUALIFIED: &[u8] = b"\x01";
+const UNAVAILABLE: &[u8] = b"\x00";
 const COMMIT: &[u8] = b"\x02";
 const SUPERSEDED: &[u8] = b"\x03";
 pub(super) const SUPERSEDED_REASON: &[u8] = b"member connection superseded";
@@ -523,6 +566,12 @@ struct Qualification {
     connection: WeakControlConnection,
     deadline: Instant,
     cancellation: Option<CancellationToken>,
+}
+
+enum ReverseChoice {
+    Reserve(Selection),
+    Prefer(CandidateBinding),
+    Confirm(CandidateBinding, Selection),
 }
 
 impl Qualification {
@@ -541,6 +590,7 @@ impl Qualification {
 struct QualificationGate {
     both: tokio::sync::Barrier,
     reverse_ready: tokio::sync::Notify,
+    stale: Option<StaleReadiness>,
 }
 
 #[cfg(feature = "miopunch-test-hooks")]
@@ -549,8 +599,17 @@ impl Default for QualificationGate {
         Self {
             both: tokio::sync::Barrier::new(2),
             reverse_ready: tokio::sync::Notify::new(),
+            stale: None,
         }
     }
+}
+
+#[cfg(feature = "miopunch-test-hooks")]
+#[derive(Debug, Default)]
+struct StaleReadiness {
+    preferred_qualified: Arc<tokio::sync::Notify>,
+    release_ready: Arc<tokio::sync::Notify>,
+    reverse_response: Arc<tokio::sync::Notify>,
 }
 
 impl Candidate {
@@ -565,6 +624,19 @@ impl Candidate {
     ) -> io::Result<Selection> {
         let local_is_larger = control.id().as_bytes() > control.remote_id().as_bytes();
         let preferred = self.incoming == local_is_larger;
+        #[cfg(feature = "miopunch-test-hooks")]
+        let qualification_gate = self.qualification_gate.clone();
+        #[cfg(feature = "miopunch-test-hooks")]
+        let stale = qualification_gate
+            .as_ref()
+            .and_then(|gate| gate.stale.as_ref().map(|stale| (gate, stale)));
+        #[cfg(feature = "miopunch-test-hooks")]
+        if let Some((gate, _)) = stale
+            && local_is_larger
+            && preferred
+        {
+            gate.reverse_ready.notified().await;
+        }
         // The admission path calls select only after authorization and data-path
         // qualification. Before this point a dial cannot participate in selection.
         if preferred {
@@ -572,9 +644,18 @@ impl Candidate {
         }
         #[cfg(feature = "miopunch-test-hooks")]
         if let Some(gate) = &self.qualification_gate {
-            gate.both.wait().await;
-            if !local_is_larger && preferred {
-                gate.reverse_ready.notified().await;
+            if let Some(stale) = &gate.stale {
+                if preferred {
+                    stale.preferred_qualified.notify_one();
+                }
+                if preferred == local_is_larger {
+                    stale.release_ready.notified().await;
+                }
+            } else {
+                gate.both.wait().await;
+                if !local_is_larger && preferred {
+                    gate.reverse_ready.notified().await;
+                }
             }
         }
 
@@ -592,24 +673,21 @@ impl Candidate {
             let ready = alternate
                 .as_ref()
                 .map_or(&[][..], |binding| binding.as_slice());
-            exchange.send_message(READY, ready).await?;
-            exchange.finish_send().await?;
+            exchange.send_message(STAGE, ready).await?;
             event(MemberFusionEvent::ReadySent);
-            return match exchange.recv_message(DECISION).await?.as_slice() {
-                COMMIT => {
-                    event(MemberFusionEvent::CommitReceived);
-                    self.reserve(control.stable_id()).ok_or_else(superseded)
-                }
-                SUPERSEDED => {
-                    event(MemberFusionEvent::Superseded);
-                    Err(superseded())
-                }
-                _ => Err(io::ErrorKind::InvalidData.into()),
-            };
+            #[cfg(feature = "miopunch-test-hooks")]
+            if let Some((gate, _)) = stale
+                && !preferred
+            {
+                gate.reverse_ready.notify_one();
+            }
+            return self
+                .finish_larger(control.stable_id(), &exchange, &event, preferred)
+                .await;
         }
 
         let exchange = control.accept_control_exchange().await?;
-        let ready = exchange.recv_message(READY).await?;
+        let ready = exchange.recv_message(STAGE).await?;
         let alternate = match ready.as_slice() {
             [] => None,
             binding if self.incoming => {
@@ -625,23 +703,130 @@ impl Candidate {
         {
             gate.reverse_ready.notify_one();
         }
-        if let Some(binding) = alternate {
-            self.wait_for_preferred_candidate(control, binding).await;
-        }
-        permit.check(control).await?;
-        if !policy.is_current(control) {
-            return Err(io::ErrorKind::PermissionDenied.into());
-        }
-        if let Some(selection) = self.reserve(control.stable_id()) {
-            exchange.send_message(DECISION, COMMIT).await?;
+        let selection = if self.incoming {
+            self.choose_reverse(control, &exchange, &event, alternate)
+                .await?
+        } else {
+            self.reserve(control.stable_id()).await
+        };
+        if let Some(selection) = selection {
+            permit.check(control).await?;
+            if !policy.is_current(control) {
+                return Err(io::ErrorKind::PermissionDenied.into());
+            }
+            exchange.send_message(STAGE, COMMIT).await?;
             exchange.finish_send().await?;
             event(MemberFusionEvent::Committed);
+            #[cfg(feature = "miopunch-test-hooks")]
+            if self.incoming {
+                self.signal_reverse_response();
+            }
             return Ok(selection);
         }
-        exchange.send_message(DECISION, SUPERSEDED).await?;
+        exchange.send_message(STAGE, SUPERSEDED).await?;
         event(MemberFusionEvent::Superseded);
         let _ = exchange.finish_send_confirmed().await;
         Err(superseded())
+    }
+
+    async fn finish_larger(
+        &self,
+        id: usize,
+        exchange: &ControlExchange,
+        event: &(impl Fn(MemberFusionEvent) + Sync),
+        preferred: bool,
+    ) -> io::Result<Selection> {
+        let mut message = exchange.recv_message(STAGE).await?;
+        let mut reserved = None;
+        if !preferred && let Ok(binding) = CandidateBinding::try_from(message.as_slice()) {
+            // The answer and reservation share the same lock as preferred
+            // qualification. A later candidate cannot make a negative answer stale.
+            reserved = self
+                .when_unselected(|state| {
+                    (state.preferred_binding() != Some(binding)).then(|| self.reserve_in(state, id))
+                })
+                .await
+                .ok_or_else(superseded)?;
+            let (reply, observed) = if reserved.is_some() {
+                (UNAVAILABLE, MemberFusionEvent::QualificationUnavailable)
+            } else {
+                (QUALIFIED, MemberFusionEvent::QualificationConfirmed)
+            };
+            exchange.send_message(STAGE, reply).await?;
+            event(observed);
+            message = exchange.recv_message(STAGE).await?;
+        }
+        match message.as_slice() {
+            COMMIT => {
+                exchange.finish_send().await?;
+                event(MemberFusionEvent::CommitReceived);
+                if let Some(reserved) = reserved {
+                    Ok(reserved)
+                } else {
+                    self.reserve(id).await.ok_or_else(superseded)
+                }
+            }
+            SUPERSEDED => {
+                event(MemberFusionEvent::Superseded);
+                Err(superseded())
+            }
+            _ => Err(io::ErrorKind::InvalidData.into()),
+        }
+    }
+
+    async fn choose_reverse(
+        &self,
+        control: &ControlConnection,
+        exchange: &ControlExchange,
+        event: &(impl Fn(MemberFusionEvent) + Sync),
+        advertised: Option<CandidateBinding>,
+    ) -> io::Result<Option<Selection>> {
+        let id = control.stable_id();
+        // The local qualifier and the fallback's choice share the same decision
+        // point. Without a qualified local alternate, READY leads straight to COMMIT.
+        let choice = self
+            .when_unselected(|state| match state.preferred_binding() {
+                None => ReverseChoice::Reserve(self.reserve_in(state, id)),
+                Some(binding) if advertised == Some(binding) => ReverseChoice::Prefer(binding),
+                Some(binding) => ReverseChoice::Confirm(binding, self.reserve_in(state, id)),
+            })
+            .await;
+        let binding = match choice {
+            None => return Ok(None),
+            Some(ReverseChoice::Reserve(selection)) => return Ok(Some(selection)),
+            Some(ReverseChoice::Prefer(binding)) => binding,
+            Some(ReverseChoice::Confirm(binding, reserved)) => {
+                exchange.send_message(STAGE, &binding).await?;
+                event(MemberFusionEvent::QualificationRequested);
+                #[cfg(feature = "miopunch-test-hooks")]
+                self.signal_reverse_response();
+                match exchange.recv_message(STAGE).await?.as_slice() {
+                    QUALIFIED => {
+                        event(MemberFusionEvent::QualificationConfirmed);
+                        drop(reserved);
+                    }
+                    UNAVAILABLE => {
+                        event(MemberFusionEvent::QualificationUnavailable);
+                        return Ok(Some(reserved));
+                    }
+                    _ => return Err(io::ErrorKind::InvalidData.into()),
+                }
+                binding
+            }
+        };
+        self.wait_for_preferred_candidate(binding).await;
+        Ok(self.reserve(id).await)
+    }
+
+    #[cfg(feature = "miopunch-test-hooks")]
+    fn signal_reverse_response(&self) {
+        if let Some(stale) = self
+            .qualification_gate
+            .as_ref()
+            .and_then(|gate| gate.stale.as_ref())
+        {
+            stale.reverse_response.notify_one();
+        }
     }
 
     fn qualify_preferred(&mut self, control: &ControlConnection) -> io::Result<()> {
@@ -667,31 +852,12 @@ impl Candidate {
             .state
             .lock()
             .expect("member peer lock")
-            .preferred
-            .as_ref()
-            .filter(|candidate| candidate.is_current())
-            .map(|candidate| candidate.binding)
+            .preferred_binding()
     }
 
-    async fn wait_for_preferred_candidate(
-        &self,
-        control: &ControlConnection,
-        binding: CandidateBinding,
-    ) {
-        // Await only this transport of a decision for a bilaterally qualified
-        // candidate. Leave time on the fallback to deliver if it disappears.
-        let rtt = control
-            .paths()
-            .iter()
-            .find(|path| path.is_selected())
-            .map(|path| path.rtt())
-            .unwrap_or(Duration::from_millis(100));
-        let Some(until) = control
-            .caller_deadline()
-            .and_then(|end| end.checked_sub(rtt * 2))
-        else {
-            return;
-        };
+    async fn wait_for_preferred_candidate(&self, binding: CandidateBinding) {
+        // The surrounding admission bounds the reverse candidate's wait. It
+        // can resume if the exact preferred qualification ceases to be current.
         let mut changed = self.peer.changed.subscribe();
         loop {
             let deadline = {
@@ -704,7 +870,7 @@ impl Candidate {
                 if state.connection().is_some() {
                     return;
                 }
-                until.min(candidate.deadline)
+                candidate.deadline
             };
             if time::timeout_at(deadline, changed.changed()).await.is_err() {
                 return;
@@ -712,18 +878,37 @@ impl Candidate {
         }
     }
 
-    fn reserve(&self, id: usize) -> Option<Selection> {
-        let mut state = self.peer.state.lock().expect("member peer lock");
-        if state.selection.is_some() || state.connection().is_some() {
-            return None;
+    // Wait for an in-flight selection to publish or abandon its reservation.
+    // The surrounding admission future bounds this by the original deadline.
+    async fn when_unselected<T>(&self, choose: impl FnOnce(&mut PeerState) -> T) -> Option<T> {
+        let mut changed = self.peer.changed.subscribe();
+        loop {
+            {
+                let mut state = self.peer.state.lock().expect("member peer lock");
+                if state.connection().is_some() {
+                    return None;
+                }
+                if state.selection.is_none() {
+                    return Some(choose(&mut state));
+                }
+            }
+            let _ = changed.changed().await;
         }
+    }
+
+    async fn reserve(&self, id: usize) -> Option<Selection> {
+        self.when_unselected(|state| self.reserve_in(state, id))
+            .await
+    }
+
+    fn reserve_in(&self, state: &mut PeerState, id: usize) -> Selection {
         state.selection = Some(id);
-        Some(Selection {
+        Selection {
             peer: self.peer.clone(),
             id,
             idle_timeout: self.idle_timeout,
             shutdown: self.shutdown.clone(),
-        })
+        }
     }
 }
 
