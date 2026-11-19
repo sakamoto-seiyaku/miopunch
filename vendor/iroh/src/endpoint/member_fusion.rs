@@ -14,9 +14,9 @@ use tokio_util::sync::CancellationToken;
 
 use super::{
     BindError, Builder, ConnectError, ConnectOptions, ConnectingError, Connection, ConnectionError,
-    ControlConfirmation, ControlConnection, ControlMessageFormat, EndpointAddr, EndpointId,
-    ExportKeyingMaterialError, PathList, RecvStream, RelayResourceUse, RestrictedBuilder,
-    RestrictedEndpoint, SendStream, Side, TransportAddr,
+    ControlConfirmation, ControlConnection, ControlMessageFormat, DataPathPermit, EndpointAddr,
+    EndpointId, ExportKeyingMaterialError, PathList, RecvStream, RelayResourceUse,
+    RestrictedBuilder, RestrictedEndpoint, SendStream, Side, TransportAddr, WeakControlConnection,
     restricted::{AdmissionOutcome, BoxFuture, DynEndpointAdmission},
 };
 
@@ -205,6 +205,17 @@ impl MemberFusionEndpoint {
         self.inner.endpoint.online().await;
     }
 
+    /// Synchronize two real candidates after they qualify at this test endpoint.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_coordinate_qualified_candidates(&self) {
+        self.inner
+            .fusion
+            .qualification_gate
+            .set(Arc::new(QualificationGate::default()))
+            .expect("candidate coordination already enabled");
+    }
+
     /// Join the first dial or use the already selected connection.
     pub async fn connect(&self, target: EndpointAddr) -> io::Result<MemberConnection> {
         self.connect_until(
@@ -362,6 +373,8 @@ pub(super) struct Fusion {
     peers: Mutex<HashMap<EndpointId, Weak<Peer>>>,
     shutdown: CancellationToken,
     idle_timeout: std::sync::OnceLock<Duration>,
+    #[cfg(feature = "miopunch-test-hooks")]
+    qualification_gate: std::sync::OnceLock<Arc<QualificationGate>>,
 }
 
 impl Fusion {
@@ -385,8 +398,11 @@ impl Fusion {
         Candidate {
             peer,
             incoming,
+            qualified: None,
             shutdown: self.shutdown.clone(),
             idle_timeout: *self.idle_timeout.get().expect("bound member idle timeout"),
+            #[cfg(feature = "miopunch-test-hooks")]
+            qualification_gate: self.qualification_gate.get().cloned(),
         }
     }
 }
@@ -401,6 +417,7 @@ struct Peer {
 struct PeerState {
     dial: Option<Arc<Dial>>,
     incoming: usize,
+    preferred: Option<Qualification>,
     selection: Option<usize>,
     live: Option<MemberConnection>,
 }
@@ -464,41 +481,121 @@ impl Drop for Waiter {
 pub(super) struct Candidate {
     peer: Arc<Peer>,
     incoming: bool,
+    qualified: Option<CandidateBinding>,
     shutdown: CancellationToken,
     idle_timeout: Duration,
+    #[cfg(feature = "miopunch-test-hooks")]
+    qualification_gate: Option<Arc<QualificationGate>>,
 }
 
 impl Drop for Candidate {
     fn drop(&mut self) {
-        if self.incoming {
-            self.peer.state.lock().expect("member peer lock").incoming -= 1;
+        if self.incoming || self.qualified.is_some() {
+            let mut state = self.peer.state.lock().expect("member peer lock");
+            if self.incoming {
+                state.incoming -= 1;
+            }
+            if state
+                .preferred
+                .as_ref()
+                .is_some_and(|preferred| Some(preferred.binding) == self.qualified)
+            {
+                state.preferred = None;
+            }
             self.peer.changed.send_modify(|_| {});
         }
     }
 }
 
-const ADMISSION_STAGE: ControlMessageFormat = ControlMessageFormat::Fixed { length: 1 };
-const READY: &[u8] = b"\x01";
+const BINDING_SIZE: usize = 16;
+type CandidateBinding = [u8; BINDING_SIZE];
+const READY: ControlMessageFormat = ControlMessageFormat::LengthPrefixed16 {
+    maximum: BINDING_SIZE,
+};
+const DECISION: ControlMessageFormat = ControlMessageFormat::Fixed { length: 1 };
 const COMMIT: &[u8] = b"\x02";
 const SUPERSEDED: &[u8] = b"\x03";
 pub(super) const SUPERSEDED_REASON: &[u8] = b"member connection superseded";
+
+#[derive(Debug)]
+struct Qualification {
+    binding: CandidateBinding,
+    connection: WeakControlConnection,
+    deadline: Instant,
+    cancellation: Option<CancellationToken>,
+}
+
+impl Qualification {
+    fn is_current(&self) -> bool {
+        Instant::now() < self.deadline
+            && self.connection.is_open()
+            && self
+                .cancellation
+                .as_ref()
+                .is_none_or(|token| !token.is_cancelled())
+    }
+}
+
+#[cfg(feature = "miopunch-test-hooks")]
+#[derive(Debug)]
+struct QualificationGate {
+    both: tokio::sync::Barrier,
+    reverse_ready: tokio::sync::Notify,
+}
+
+#[cfg(feature = "miopunch-test-hooks")]
+impl Default for QualificationGate {
+    fn default() -> Self {
+        Self {
+            both: tokio::sync::Barrier::new(2),
+            reverse_ready: tokio::sync::Notify::new(),
+        }
+    }
+}
 
 impl Candidate {
     // Substitute READY/COMMIT for the ordinary bilateral stage exchange. The
     // larger authenticated ID opens the stream regardless of QUIC dial role.
     // Only the smaller ID can commit, so two crossed dials cannot each win.
     pub(super) async fn select(
-        &self,
+        &mut self,
         control: &ControlConnection,
         policy: &dyn DynEndpointAdmission,
+        permit: &DataPathPermit,
     ) -> io::Result<Selection> {
+        let local_is_larger = control.id().as_bytes() > control.remote_id().as_bytes();
+        let preferred = self.incoming == local_is_larger;
+        // The admission path calls select only after authorization and data-path
+        // qualification. Before this point a dial cannot participate in selection.
+        if preferred {
+            self.qualify_preferred(control)?;
+        }
+        #[cfg(feature = "miopunch-test-hooks")]
+        if let Some(gate) = &self.qualification_gate {
+            gate.both.wait().await;
+            if !local_is_larger && preferred {
+                gate.reverse_ready.notified().await;
+            }
+        }
+
         let event = |event| policy.fusion_event(control, event);
-        if control.id().as_bytes() > control.remote_id().as_bytes() {
+        if local_is_larger {
             let exchange = control.open_control_exchange().await?;
-            exchange.send_message(ADMISSION_STAGE, READY).await?;
+            // A reverse READY may name the exact other connection that is
+            // already qualified here. This is evidence carried by the existing
+            // stage message, even if its own READY is still in transit.
+            let alternate = if preferred {
+                None
+            } else {
+                self.preferred_binding()
+            };
+            let ready = alternate
+                .as_ref()
+                .map_or(&[][..], |binding| binding.as_slice());
+            exchange.send_message(READY, ready).await?;
             exchange.finish_send().await?;
             event(MemberFusionEvent::ReadySent);
-            return match exchange.recv_message(ADMISSION_STAGE).await?.as_slice() {
+            return match exchange.recv_message(DECISION).await?.as_slice() {
                 COMMIT => {
                     event(MemberFusionEvent::CommitReceived);
                     self.reserve(control.stable_id()).ok_or_else(superseded)
@@ -512,32 +609,77 @@ impl Candidate {
         }
 
         let exchange = control.accept_control_exchange().await?;
-        if exchange.recv_message(ADMISSION_STAGE).await? != READY {
-            return Err(io::ErrorKind::InvalidData.into());
-        }
+        let ready = exchange.recv_message(READY).await?;
+        let alternate = match ready.as_slice() {
+            [] => None,
+            binding if self.incoming => {
+                Some(CandidateBinding::try_from(binding).map_err(|_| io::ErrorKind::InvalidData)?)
+            }
+            _ => return Err(io::ErrorKind::InvalidData.into()),
+        };
         event(MemberFusionEvent::ReadyReceived);
 
-        if self.incoming {
-            self.wait_for_preferred_dial(control).await;
+        #[cfg(feature = "miopunch-test-hooks")]
+        if self.incoming
+            && let Some(gate) = &self.qualification_gate
+        {
+            gate.reverse_ready.notify_one();
         }
+        if let Some(binding) = alternate {
+            self.wait_for_preferred_candidate(control, binding).await;
+        }
+        permit.check(control).await?;
         if !policy.is_current(control) {
             return Err(io::ErrorKind::PermissionDenied.into());
         }
         if let Some(selection) = self.reserve(control.stable_id()) {
-            exchange.send_message(ADMISSION_STAGE, COMMIT).await?;
+            exchange.send_message(DECISION, COMMIT).await?;
             exchange.finish_send().await?;
             event(MemberFusionEvent::Committed);
             return Ok(selection);
         }
-        exchange.send_message(ADMISSION_STAGE, SUPERSEDED).await?;
+        exchange.send_message(DECISION, SUPERSEDED).await?;
         event(MemberFusionEvent::Superseded);
         let _ = exchange.finish_send_confirmed().await;
         Err(superseded())
     }
 
-    async fn wait_for_preferred_dial(&self, control: &ControlConnection) {
-        // Only a real local dial can defer an eligible incoming candidate.
-        // Leave time to send the selection on the fallback's original budget.
+    fn qualify_preferred(&mut self, control: &ControlConnection) -> io::Result<()> {
+        let mut binding = [0; BINDING_SIZE];
+        control
+            .export_keying_material(&mut binding, b"EXPORTER-iroh-member-fusion-qualified", b"")
+            .map_err(|_| io::Error::other("could not bind the qualified candidate to TLS"))?;
+        let qualification = Qualification {
+            binding,
+            connection: control.weak_handle(),
+            deadline: control
+                .caller_deadline()
+                .expect("fusion uses bounded admission"),
+            cancellation: control.attempt_cancellation(),
+        };
+        self.peer.state.lock().expect("member peer lock").preferred = Some(qualification);
+        self.qualified = Some(binding);
+        Ok(())
+    }
+
+    fn preferred_binding(&self) -> Option<CandidateBinding> {
+        self.peer
+            .state
+            .lock()
+            .expect("member peer lock")
+            .preferred
+            .as_ref()
+            .filter(|candidate| candidate.is_current())
+            .map(|candidate| candidate.binding)
+    }
+
+    async fn wait_for_preferred_candidate(
+        &self,
+        control: &ControlConnection,
+        binding: CandidateBinding,
+    ) {
+        // Await only this transport of a decision for a bilaterally qualified
+        // candidate. Leave time on the fallback to deliver if it disappears.
         let rtt = control
             .paths()
             .iter()
@@ -552,18 +694,19 @@ impl Candidate {
         };
         let mut changed = self.peer.changed.subscribe();
         loop {
-            {
+            let deadline = {
                 let state = self.peer.state.lock().expect("member peer lock");
-                if state.connection().is_some()
-                    || state
-                        .dial
-                        .as_ref()
-                        .is_none_or(|dial| dial.cancel.is_cancelled())
-                {
+                let peer_choice = state
+                    .preferred
+                    .as_ref()
+                    .filter(|candidate| candidate.binding == binding && candidate.is_current());
+                let Some(candidate) = peer_choice else { return };
+                if state.connection().is_some() {
                     return;
                 }
-            }
-            if time::timeout_at(until, changed.changed()).await.is_err() {
+                until.min(candidate.deadline)
+            };
+            if time::timeout_at(deadline, changed.changed()).await.is_err() {
                 return;
             }
         }

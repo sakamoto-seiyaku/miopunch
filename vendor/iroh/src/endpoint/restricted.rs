@@ -1464,7 +1464,7 @@ pub struct DataPathPermit {
 }
 
 impl DataPathPermit {
-    async fn check(&self, control: &ControlHandle) -> io::Result<()> {
+    pub(super) async fn check(&self, control: &ControlHandle) -> io::Result<()> {
         if self.connection_id != control.stable_id()
             || control.connection.close_reason().is_some()
             || !control
@@ -1669,7 +1669,7 @@ pub(super) async fn finish_admission(
     policy: &dyn DynEndpointAdmission,
 ) -> Result<RegisteredConnection, ConnectingError> {
     #[cfg(not(wasm_browser))]
-    let member = policy
+    let mut member = policy
         .member_fusion()
         .map(|fusion| fusion.candidate(&connection));
     #[cfg(not(wasm_browser))]
@@ -1777,13 +1777,13 @@ pub(super) async fn finish_admission(
             )
             .await?;
         #[cfg(not(wasm_browser))]
-        let selection = match &member {
+        let selection = match &mut member {
             Some(candidate) => {
                 permit.check(&control).await?;
                 if !policy.is_current(&control) {
                     return Err(io::ErrorKind::PermissionDenied.into());
                 }
-                match candidate.select(&control, policy).await {
+                match candidate.select(&control, policy, &permit).await {
                     Ok(selection) => Some(selection),
                     Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
                         connection.close(0u32.into(), SUPERSEDED_REASON);

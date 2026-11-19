@@ -1,8 +1,11 @@
-use std::{io::ErrorKind, path::Path, process, time::Duration};
+use std::{future, io::ErrorKind, path::Path, process, sync::Arc, time::Duration};
 
 use iroh::{
-    EndpointAddr, EndpointId, RelayUrl, TransportAddr,
-    endpoint::{ConnectingError, ConnectionError, MemberConnection, MemberFusionEndpoint},
+    Endpoint, EndpointAddr, EndpointId, RelayUrl, TransportAddr,
+    endpoint::{
+        BeforeConnectOutcome, ConnectingError, ConnectionError, EndpointHooks, MemberConnection,
+        MemberFusionEndpoint, presets,
+    },
 };
 use miopunch_native_probe::{
     connection_coordinator::connection_diagnostic::monotonic_ms,
@@ -14,6 +17,7 @@ use p2panda_core::VerifyingKey;
 use serde_json::{Value, json};
 use tokio::{
     process::Command,
+    sync::Notify,
     time::{self, Instant},
 };
 use tokio_util::sync::CancellationToken;
@@ -24,6 +28,17 @@ const SETUP: Duration = Duration::from_secs(5);
 const REQUEST: &[u8] = b"fusion ping 143";
 const REPLY: &[u8] = b"fusion pong 143";
 const IDLE: Duration = Duration::from_millis(600);
+const REVERSE_BUDGET: Duration = Duration::from_secs(2);
+
+#[derive(Debug)]
+struct HoldOutgoing(Arc<Notify>);
+
+impl EndpointHooks for HoldOutgoing {
+    async fn before_connect(&self, _target: &EndpointAddr, _alpn: &[u8]) -> BeforeConnectOutcome {
+        self.0.notify_one();
+        future::pending().await
+    }
+}
 
 async fn admitted_pair(dir: &Path, url: &RelayUrl) -> (NativeNetwork, EndpointId) {
     let mut admin = NativeNetwork::create(dir.join("admin")).await.unwrap();
@@ -193,7 +208,21 @@ async fn dialer_process() {
         config.maintenance.exploration_interval_ms = idle_budget.as_millis().try_into().unwrap();
         node.save_resource_configuration(&config).unwrap();
     }
-    let endpoint = node.bind_member_fusion_endpoint(SETUP).await.unwrap();
+    let held_outgoing = if expected == "stalled-hold" {
+        Some(Arc::new(Notify::new()))
+    } else {
+        None
+    };
+    let endpoint = if let Some(held) = &held_outgoing {
+        node.bind_member_fusion_endpoint_with(
+            Endpoint::builder(presets::Minimal).hooks(HoldOutgoing(held.clone())),
+            SETUP,
+        )
+        .await
+        .unwrap()
+    } else {
+        node.bind_member_fusion_endpoint(SETUP).await.unwrap()
+    };
     let started = monotonic_ms();
     let target = EndpointAddr::new(peer).with_relay_url(relay.clone());
     if expected == "approved" {
@@ -240,6 +269,7 @@ async fn dialer_process() {
             target,
             &relay,
             &expected,
+            held_outgoing,
         )
         .await;
     }
@@ -266,6 +296,7 @@ async fn one_way_uses_the_existing_admission_round_and_crossed_dials_choose_one_
     for (low_mode, high_mode) in [
         ("low-dial", "low-serve"),
         ("high-serve", "high-dial"),
+        ("stalled-hold", "stalled-reverse"),
         ("cross", "cross"),
     ] {
         let (low_output, high_output) = time::timeout(SETUP * 2, async {
@@ -284,7 +315,7 @@ async fn one_way_uses_the_existing_admission_round_and_crossed_dials_choose_one_
         assert_eq!(low_report["attemptId"], high_report["attemptId"]);
         assert_eq!(low_report["peer"], high.to_string());
         assert_eq!(high_report["peer"], low.to_string());
-        let client_is_low = low_mode != "high-serve";
+        let client_is_low = matches!(low_mode, "low-dial" | "cross");
         assert_eq!(low_report["client"], client_is_low);
         assert_eq!(high_report["client"], !client_is_low);
         let winner = low_report["attemptId"].as_str().unwrap();
@@ -309,6 +340,13 @@ async fn one_way_uses_the_existing_admission_round_and_crossed_dials_choose_one_
 
         let low_starts = admission_starts(&low_records);
         let high_starts = admission_starts(&high_records);
+        if low_mode == "stalled-hold" {
+            assert!(
+                low_records
+                    .iter()
+                    .any(|record| record["event"] == "fusion-outgoing-held")
+            );
+        }
         if low_mode == "cross" {
             assert_eq!(low_starts.len(), 2);
             assert_eq!(high_starts.len(), 2);
@@ -333,6 +371,16 @@ async fn one_way_uses_the_existing_admission_round_and_crossed_dials_choose_one_
                 loser,
                 "member-fusion-admission-stage",
                 "ready-received",
+            );
+            let remote_ready = timeline_position(
+                &high_records,
+                loser,
+                "member-fusion-admission-stage",
+                "ready-sent",
+            );
+            assert!(timeline_position(&low_records, winner, "data-relay", "qualified") < ready);
+            assert!(
+                timeline_position(&high_records, winner, "data-relay", "qualified") < remote_ready
             );
             let committed = timeline_position(
                 &low_records,
@@ -384,11 +432,15 @@ async fn wire_process(
     target: EndpointAddr,
     relay: &RelayUrl,
     mode: &str,
+    held_outgoing: Option<Arc<Notify>>,
 ) {
     let started = monotonic_ms();
     let local = endpoint.id();
     let remote = target.id;
     let fixture = mode.split('-').next().unwrap();
+    if mode == "cross" {
+        endpoint.test_coordinate_qualified_candidates();
+    }
     time::timeout(SETUP, endpoint.online()).await.unwrap();
     tokio::fs::write(root.join(format!("{fixture}-bound-{local}")), [])
         .await
@@ -397,19 +449,38 @@ async fn wire_process(
     while !remote_is_ready.exists() {
         time::sleep(Duration::from_millis(5)).await;
     }
-    if mode == "cross" && local.as_bytes() < remote.as_bytes() {
-        // Give the fallback a head start without letting its real SCRAM and
-        // relay checks complete. The trace below must witness both qualified.
-        time::sleep(Duration::from_millis(50)).await;
-    }
-    let dialing = matches!(mode, "low-dial" | "high-dial" | "cross" | "idle");
-    let connection = if dialing {
+    let dialing = matches!(
+        mode,
+        "low-dial" | "high-dial" | "cross" | "idle" | "stalled-hold" | "stalled-reverse"
+    );
+    let stalled = root.join("stalled-outgoing-entered");
+    let reverse_deadline = if mode == "stalled-reverse" {
+        while !stalled.exists() {
+            time::sleep(Duration::from_millis(5)).await;
+        }
+        Some(Instant::now() + REVERSE_BUDGET)
+    } else {
+        None
+    };
+    let connection = if let Some(held_outgoing) = held_outgoing {
+        let (connection, ()) = tokio::join!(endpoint.connect(target), async {
+            held_outgoing.notified().await;
+            eprintln!("{}", json!({"event": "fusion-outgoing-held"}));
+            tokio::fs::write(stalled, []).await.unwrap();
+        });
+        connection.unwrap()
+    } else if let Some(deadline) = reverse_deadline {
+        endpoint
+            .connect_until(target, deadline, &CancellationToken::new())
+            .await
+            .expect("the sole qualified reverse candidate must meet the caller's deadline")
+    } else if dialing {
         endpoint.connect(target).await.unwrap()
     } else {
         endpoint.accept().await.unwrap().unwrap()
     };
     assert_eq!(connection.remote_id(), remote);
-    if mode == "cross" && connection.side().is_server() {
+    if matches!(mode, "cross" | "stalled-hold") && connection.side().is_server() {
         assert_eq!(
             endpoint.accept().await.unwrap().unwrap().stable_id(),
             connection.stable_id()
@@ -453,6 +524,12 @@ async fn wire_process(
     report["firstStreamIndex"] = json!(index);
     report["firstReplyMs"] = json!(monotonic_ms());
     eprintln!("{report}");
+    if let Some(deadline) = reverse_deadline {
+        assert!(
+            Instant::now() < deadline,
+            "bidirectional replies must fit within the reverse caller budget"
+        );
+    }
     assert!(
         time::timeout(Duration::from_millis(250), endpoint.accept())
             .await

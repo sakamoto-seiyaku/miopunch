@@ -3,7 +3,7 @@ use std::{io, time::Duration};
 use iroh::{
     Endpoint, RelayMode, SecretKey,
     endpoint::{
-        Connection, ControlConfirmation, ControlConnection, ExportKeyingMaterialError,
+        Builder, Connection, ControlConfirmation, ControlConnection, ExportKeyingMaterialError,
         MemberConnection, MemberFusionAdmission, MemberFusionEndpoint, MemberFusionEvent,
         PortmapperConfig, RelayResourcePolicy, RelayResourceUse, presets,
     },
@@ -27,12 +27,22 @@ impl NativeNetwork {
         &self,
         setup_budget: Duration,
     ) -> Result<MemberFusionEndpoint, NodeError> {
+        self.bind_member_fusion_endpoint_with(Endpoint::builder(presets::Minimal), setup_budget)
+            .await
+    }
+
+    /// Bind with caller-supplied endpoint hooks and the node's fusion policy.
+    pub async fn bind_member_fusion_endpoint_with(
+        &self,
+        builder: Builder,
+        setup_budget: Duration,
+    ) -> Result<MemberFusionEndpoint, NodeError> {
         let resources = self.resource_configuration()?;
         let idle_budget = Duration::from_millis(resources.maintenance.exploration_interval_ms);
         let relays = resources.relay_map(ResourceUse::DataRelay)?;
         self.gate
             .register_protocol(FUSED_MEMBER_ALPN, ProtocolScope::Member);
-        let endpoint = Endpoint::builder(presets::Minimal)
+        let endpoint = builder
             .secret_key(SecretKey::from_bytes(self.node_key.as_bytes()))
             .clear_ip_transports()
             .portmapper_config(PortmapperConfig::Disabled)
