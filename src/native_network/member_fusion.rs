@@ -43,6 +43,10 @@ impl NativeNetwork {
         let relays = resources.relay_map(ResourceUse::DataRelay)?;
         self.gate
             .register_protocol(FUSED_MEMBER_ALPN, ProtocolScope::Member);
+        if resources.allows_member_data_relay() {
+            self.gate
+                .register_data_carrier(crate::member_transport::DATA_TRANSPORT_ID);
+        }
         let (builder, _) = resources.configure_with_tcp(builder)?;
         let relay_resources = resources.clone();
         let custom_resources = resources.clone();
@@ -186,10 +190,11 @@ impl MemberFusionAdmission for Authorization {
         match remote {
             iroh::TransportAddr::Relay(_) => true,
             iroh::TransportAddr::Ip(_) => !self.resources.udp_direct_disabled,
-            iroh::TransportAddr::Custom(addr) => {
-                (self.allow_custom || addr.id() == crate::tcp_transport::DATA_TRANSPORT_ID)
-                    && self.resources.allows_custom(addr)
-            }
+            iroh::TransportAddr::Custom(addr) => match addr.id() {
+                crate::tcp_transport::DATA_TRANSPORT_ID
+                | crate::member_transport::DATA_TRANSPORT_ID => self.resources.allows_custom(addr),
+                id => self.allow_custom && !ResourceConfig::is_restricted_contact_carrier(id),
+            },
             _ => false,
         }
     }
@@ -198,17 +203,32 @@ impl MemberFusionAdmission for Authorization {
         self.gate
             .allowed_data_carriers()
             .into_iter()
-            .filter(|id| {
-                if *id == crate::tcp_transport::DATA_TRANSPORT_ID {
-                    return !self.resources.tcp_direct_disabled;
+            .filter(|id| match *id {
+                crate::tcp_transport::DATA_TRANSPORT_ID => !self.resources.tcp_direct_disabled,
+                crate::member_transport::DATA_TRANSPORT_ID => {
+                    self.resources.allows_member_data_relay()
                 }
-                self.allow_custom && !ResourceConfig::is_restricted_contact_carrier(*id)
+                id => self.allow_custom && !ResourceConfig::is_restricted_contact_carrier(id),
             })
             .collect()
     }
 
     fn member_direct_transport(&self) -> Option<u64> {
         (!self.resources.tcp_direct_disabled).then_some(crate::tcp_transport::DATA_TRANSPORT_ID)
+    }
+
+    fn member_relay_transport(&self) -> Option<u64> {
+        self.resources
+            .allows_member_data_relay()
+            .then_some(crate::member_transport::DATA_TRANSPORT_ID)
+    }
+
+    fn shares_member_relay(
+        &self,
+        local: &iroh_base::CustomAddr,
+        remote: &iroh_base::CustomAddr,
+    ) -> bool {
+        crate::member_transport::MemberDataTransport::shares_forwarder(local, remote)
     }
 
     fn permits_direct_candidate(&self, address: &iroh_base::CustomAddr) -> bool {

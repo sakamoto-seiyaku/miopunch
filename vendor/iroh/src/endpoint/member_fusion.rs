@@ -7,7 +7,6 @@ use std::{
 };
 
 use futures_util::StreamExt;
-use iroh_base::CustomAddr;
 use tokio::{
     sync::{mpsc, watch},
     time::{self, Duration, Instant},
@@ -26,7 +25,7 @@ use super::{
 mod dial;
 mod direct;
 pub use dial::MemberDialOptions;
-pub(super) use direct::improve_direct_path;
+pub(super) use direct::{PathCandidates, watch_path_candidates};
 
 /// Application authorization for the native member ALPN.
 pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
@@ -55,6 +54,21 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
     /// Installed direct data transport eligible for online path improvement.
     fn member_direct_transport(&self) -> Option<u64> {
         None
+    }
+
+    /// Custom carrier for explicitly permitted member data relay candidates.
+    /// These are data paths and never qualify a signaling-only contact.
+    fn member_relay_transport(&self) -> Option<u64> {
+        None
+    }
+
+    /// Whether the route addresses use the same forwarding member.
+    fn shares_member_relay(
+        &self,
+        _local: &iroh_base::CustomAddr,
+        _remote: &iroh_base::CustomAddr,
+    ) -> bool {
+        false
     }
 
     /// Decide whether this direct candidate may be advertised or attempted.
@@ -183,6 +197,22 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
 
     fn member_direct_transport(&self) -> Option<u64> {
         self.inner.member_direct_transport()
+    }
+
+    fn member_relay_transport(&self) -> Option<u64> {
+        self.inner.member_relay_transport().filter(|id| {
+            self.custom_data_limit
+                .as_ref()
+                .is_none_or(|allowed| allowed.contains(id))
+        })
+    }
+
+    fn shares_member_relay(
+        &self,
+        local: &iroh_base::CustomAddr,
+        remote: &iroh_base::CustomAddr,
+    ) -> bool {
+        self.inner.shares_member_relay(local, remote)
     }
 
     fn permits_direct_candidate(&self, address: &iroh_base::CustomAddr) -> bool {
@@ -374,7 +404,23 @@ impl MemberFusionEndpoint {
 
     /// Current endpoint addresses that can be announced to an admitted peer.
     pub fn addr(&self) -> EndpointAddr {
-        self.inner.endpoint.addr()
+        let endpoint = &self.inner.endpoint.inner;
+        let mut address = endpoint.addr();
+        let config = &endpoint.inner.static_config;
+        if let Some(id) = config
+            .admission
+            .as_ref()
+            .and_then(|policy| policy.member_relay_transport())
+        {
+            address.addrs.extend(endpoint.inner.local_addr().into_iter().filter_map(|local| {
+                let TransportAddr::Custom(local) = local.into() else {
+                    return None;
+                };
+                (local.id() == id && config.relay_resource_policy.allows_custom(&local))
+                    .then_some(TransportAddr::Custom(local))
+            }));
+        }
+        address
     }
 
     /// Inject a changed local candidate into the actual endpoint watcher.
@@ -467,7 +513,7 @@ impl MemberFusionEndpoint {
 
     async fn connect_inner(
         &self,
-        target: EndpointAddr,
+        mut target: EndpointAddr,
         routes: Option<MemberDialOptions>,
         deadline: Instant,
         cancellation: &CancellationToken,
@@ -482,7 +528,13 @@ impl MemberFusionEndpoint {
             _ = cancellation.cancelled() => Err(io::ErrorKind::Interrupted.into()),
             _ = time::sleep_until(deadline) => Err(io::ErrorKind::TimedOut.into()),
             result = async {
+                // Configured rendezvous relays are also hints for the original
+                // if a member relay wins the first qualified dial.
+                let relays = routes.as_ref().map(|routes| routes.relay_fallbacks().to_vec());
                 let connection = self.shared_connect(target.clone(), routes, shared_deadline).await?;
+                if let Some(relays) = relays {
+                    target.addrs.extend(relays.into_iter().map(TransportAddr::Relay));
+                }
                 self.learn_path_candidates(target).await;
                 Ok(connection)
             } => result,
@@ -499,17 +551,13 @@ impl MemberFusionEndpoint {
     }
 
     /// Supply current contact hints to the already selected member connection.
-    /// Direct carrier addresses stay local to its original connection.
+    /// New data carriers are validated on the original connection.
     pub async fn learn_path_candidates(&self, target: EndpointAddr) {
         if let Some(connection) = self.inner.fusion.selected(target.id)
-            && let Some((id, candidates)) = &connection.0.direct_candidates
+            && let Some(candidates) = &connection.0.path_candidates
         {
             for address in &target.addrs {
-                if let TransportAddr::Custom(address) = address
-                    && address.id() == *id
-                {
-                    let _ = candidates.try_send(address.clone());
-                }
+                candidates.learn(address);
             }
         }
         self.learn_ip_candidates(target).await;
@@ -730,9 +778,9 @@ impl Fusion {
         connection: Connection,
         data_path: TransportAddr,
         activity: Arc<Activity>,
-        direct_candidates: Option<(u64, mpsc::Sender<CustomAddr>)>,
+        path_candidates: Option<Arc<PathCandidates>>,
     ) {
-        let live = selection.publish(connection, data_path, activity, direct_candidates);
+        let live = selection.publish(connection, data_path, activity, path_candidates);
         if let Some(selected) = &self.selected {
             let _ = selected.send(Ok(live));
         }
@@ -1288,13 +1336,13 @@ impl Selection {
         connection: Connection,
         data_path: TransportAddr,
         activity: Arc<Activity>,
-        direct_candidates: Option<(u64, mpsc::Sender<CustomAddr>)>,
+        path_candidates: Option<Arc<PathCandidates>>,
     ) -> Weak<Live> {
         let live = MemberConnection(Arc::new(Live {
             connection,
             data_path,
             activity,
-            direct_candidates,
+            path_candidates,
         }));
         {
             let mut state = self.peer.state.lock().expect("member peer lock");
@@ -1542,7 +1590,7 @@ struct Live {
     connection: Connection,
     data_path: TransportAddr,
     activity: Arc<Activity>,
-    direct_candidates: Option<(u64, mpsc::Sender<CustomAddr>)>,
+    path_candidates: Option<Arc<PathCandidates>>,
 }
 
 impl Live {

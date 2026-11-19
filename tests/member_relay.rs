@@ -1,6 +1,8 @@
 //! Three persistent members, real admission and QUIC, one intermediate member.
 #[path = "support/native_connections.rs"]
 mod native_connections;
+#[path = "support/fused_member_data.rs"]
+mod fused_member_data;
 use iroh::endpoint::RestrictedEndpoint;
 
 use iroh::{

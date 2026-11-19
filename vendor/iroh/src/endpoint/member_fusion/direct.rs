@@ -1,146 +1,287 @@
-//! Online direct carrier candidates travel over the already admitted QUIC connection.
+//! Validate new carriers on the already admitted QUIC connection.
 
-use std::io;
+use std::{
+    collections::BTreeSet,
+    io,
+    sync::{Arc, Mutex},
+};
 
-use futures_util::{StreamExt, future::join_all};
+use futures_util::{StreamExt, stream::FuturesUnordered};
 use iroh_base::CustomAddr;
 use tokio::{
-    sync::{mpsc, watch},
+    sync::{Notify, mpsc, watch},
     time::{self, Duration},
 };
 
-use super::{Connection, RecvStream, TransportAddr};
+use super::{Connection, RecvStream, RelayResourceUse, TransportAddr};
 use crate::endpoint::Endpoint;
 
 const PREFACE: &[u8] = b"iroh/member-direct/1\0";
 const MAX_CANDIDATES: usize = 2;
-const MAX_ADDRESS: usize = 32;
+const MAX_DIRECT_ADDRESS: usize = 32;
+const MAX_OFFER_ADDRESS: usize = 64;
 const EXCHANGE_LIMIT: Duration = Duration::from_secs(6);
 const VALIDATION_LIMIT: Duration = Duration::from_secs(6);
 
-pub(in crate::endpoint) fn improve_direct_path(
+#[derive(Debug)]
+pub(in crate::endpoint) struct PathCandidates {
     endpoint: Endpoint,
-    connection: Connection,
-    activity: watch::Receiver<bool>,
-    transport: u64,
-) -> mpsc::Sender<CustomAddr> {
-    let (sender, candidates) = mpsc::channel(MAX_CANDIDATES);
-    tokio::spawn(improve(
-        endpoint, connection, activity, transport, candidates,
-    ));
-    sender
+    direct: Option<u64>,
+    member_relay: Option<u64>,
+    native_relay: bool,
+    dialer: bool,
+    sender: mpsc::UnboundedSender<TransportAddr>,
+    learned: Mutex<BTreeSet<TransportAddr>>,
 }
 
-async fn improve(
-    endpoint: Endpoint,
-    connection: Connection,
-    mut activity: watch::Receiver<bool>,
-    transport: u64,
-    mut candidates: mpsc::Receiver<CustomAddr>,
-) {
-    let addresses = || {
-        endpoint
+impl PathCandidates {
+    pub(super) fn learn(&self, address: &TransportAddr) {
+        if !self.permits(address) {
+            return;
+        }
+        if self.dialer {
+            self.enqueue(address.clone());
+        } else if let TransportAddr::Custom(remote) = address
+            && self.member_relay == Some(remote.id())
+        {
+            // The peer already owns `remote`. Deduplicate by the current
+            // local registration to be announced, which may rotate while
+            // the peer keeps the same contact address.
+            for local in self.local_member_routes(remote) {
+                self.enqueue(TransportAddr::Custom(local));
+            }
+        }
+    }
+
+    fn enqueue(&self, address: TransportAddr) {
+        if self
+            .learned
+            .lock()
+            .expect("member path candidates")
+            .insert(address.clone())
+        {
+            let _ = self.sender.send(address);
+        }
+    }
+
+    fn permits(&self, address: &TransportAddr) -> bool {
+        let config = &self.endpoint.inner.static_config;
+        let policy = config.admission.as_ref().expect("member policy");
+        match address {
+            TransportAddr::Custom(custom) if Some(custom.id()) == self.direct => {
+                config.relay_resource_policy.allows_custom(custom)
+                    && policy.permits_direct_candidate(custom)
+            }
+            TransportAddr::Custom(custom) => {
+                Some(custom.id()) == self.member_relay
+                    && policy.permits_member_data_path(address)
+                    && config.relay_resource_policy.allows_custom(custom)
+                    && self.endpoint.inner.has_custom_bootstrap(custom)
+            }
+            TransportAddr::Relay(url) => {
+                self.native_relay
+                    && policy.permits_member_data_path(address)
+                    && config
+                        .relay_resource_policy
+                        .allows(url, RelayResourceUse::DataRelay)
+            }
+            _ => false,
+        }
+    }
+
+    fn local_addresses(&self, carrier: Option<u64>) -> impl Iterator<Item = CustomAddr> {
+        self.endpoint
             .inner
             .local_addr()
             .into_iter()
-            .filter_map(|address| {
+            .filter_map(move |address| {
                 let TransportAddr::Custom(address) = address.into() else {
                     return None;
                 };
-                (address.id() == transport).then_some(address)
+                (carrier == Some(address.id())).then_some(address)
             })
-    };
-    if addresses().next().is_none() {
-        return;
     }
-    let policy = endpoint
-        .inner
-        .static_config
-        .admission
-        .as_ref()
-        .expect("member policy");
-    let permitted = |address: &CustomAddr| {
-        address.id() == transport
-            && endpoint
-                .inner
-                .static_config
-                .relay_resource_policy
-                .allows_custom(address)
-            && policy.permits_direct_candidate(address)
-    };
-    let mut offer_activity = activity.clone();
-    let offers = async {
-        // A peer's offer also activates this exchange before the application
-        // accepts an incoming business stream. Member business uses bidi streams.
-        let incoming = connection.accept_uni();
-        tokio::pin!(incoming);
-        let stream = tokio::select! {
-            result = &mut incoming => Some(result.map_err(io::Error::other)?),
-            result = offer_activity.wait_for(|active| *active) => {
-                result.map_err(io::Error::other)?;
-                None
-            }
-        };
-        let remote = time::timeout(EXCHANGE_LIMIT, async {
-            let send = async {
-                let mut offer = PREFACE.to_vec();
-                for address in addresses().filter(&permitted).take(MAX_CANDIDATES) {
-                    let encoded = address.to_vec();
-                    if encoded.len() <= MAX_ADDRESS {
-                        offer.push(encoded.len() as u8);
-                        offer.extend_from_slice(&encoded);
-                    }
-                }
-                let mut stream = connection.open_uni().await.map_err(io::Error::other)?;
-                stream.write_all(&offer).await.map_err(io::Error::other)?;
-                stream.finish().map_err(io::Error::other)
-            };
-            let receive = async {
-                let stream = match stream {
-                    Some(stream) => stream,
-                    None => incoming.await.map_err(io::Error::other)?,
-                };
-                read_offer(stream).await
-            };
-            let (_, remote) = tokio::try_join!(send, receive)?;
-            Ok::<_, io::Error>(remote)
+
+    fn local_member_routes(&self, remote: &CustomAddr) -> impl Iterator<Item = CustomAddr> {
+        let policy = self
+            .endpoint
+            .inner
+            .static_config
+            .admission
+            .as_ref()
+            .expect("member policy");
+        self.local_addresses(self.member_relay).filter(|local| {
+            policy.shares_member_relay(local, remote)
+                && self.permits(&TransportAddr::Custom(local.clone()))
         })
-        .await??;
-        if connection.side().is_client() {
-            let attempts = remote
-                .into_iter()
-                .filter(&permitted)
-                .map(|address| validate(&endpoint, &connection, address, &permitted));
-            let _ = time::timeout(VALIDATION_LIMIT, join_all(attempts)).await;
+    }
+}
+
+pub(in crate::endpoint) fn watch_path_candidates(
+    endpoint: Endpoint,
+    connection: Connection,
+    activity: watch::Receiver<bool>,
+    direct: Option<u64>,
+    member_relay: Option<u64>,
+    native_relay: bool,
+) -> Option<Arc<PathCandidates>> {
+    if direct.is_none() && member_relay.is_none() {
+        return None;
+    }
+    // Contact inputs can arrive before any business stream. Queue each
+    // permitted route once and bound the number of simultaneous QUIC probes.
+    let (sender, receiver) = mpsc::unbounded_channel();
+    let candidates = Arc::new(PathCandidates {
+        endpoint,
+        direct,
+        member_relay,
+        native_relay,
+        dialer: connection.side().is_client(),
+        sender,
+        learned: Mutex::new(BTreeSet::new()),
+    });
+    tokio::spawn(watch(connection, activity, candidates.clone(), receiver));
+    Some(candidates)
+}
+
+async fn watch(
+    connection: Connection,
+    mut activity: watch::Receiver<bool>,
+    candidates: Arc<PathCandidates>,
+    receiver: mpsc::UnboundedReceiver<TransportAddr>,
+) {
+    let direct_offer_received = Notify::new();
+    let mut offer_activity = activity.clone();
+    // Bound pending offers from the peer; a full queue stops reading the
+    // control stream until an original-connection validation slot opens.
+    let (peer_offers, mut peer_receiver) = mpsc::channel(MAX_CANDIDATES);
+    let announce_direct = async {
+        if candidates
+            .local_addresses(candidates.direct)
+            .next()
+            .is_none()
+        {
+            return Ok(());
         }
-        Ok::<_, io::Error>(())
+        // Either side's business can trigger the existing TCP offer.
+        tokio::select! {
+            _ = direct_offer_received.notified() => {},
+            active = offer_activity.wait_for(|active| *active) => { active.map_err(io::Error::other)?; }
+        }
+        let routes = candidates
+            .local_addresses(candidates.direct)
+            .filter(|address| candidates.permits(&TransportAddr::Custom(address.clone())))
+            .take(MAX_CANDIDATES)
+            .collect();
+        time::timeout(
+            EXCHANGE_LIMIT,
+            send_offer(&connection, routes, MAX_DIRECT_ADDRESS),
+        )
+        .await?
     };
-    let known = async {
-        if connection.side().is_server() {
-            return;
-        }
-        while let Some(address) = candidates.recv().await {
-            if activity.wait_for(|active| *active).await.is_err() {
+    let receive = async {
+        let mut received_direct = false;
+        while let Ok(stream) = connection.accept_uni().await {
+            let Ok(Ok(addresses)) = time::timeout(EXCHANGE_LIMIT, read_offer(stream)).await else {
+                continue;
+            };
+            let first_direct = !received_direct
+                && (addresses.is_empty()
+                    || addresses
+                        .iter()
+                        .any(|address| candidates.direct == Some(address.id())));
+            if first_direct {
+                received_direct = true;
+                direct_offer_received.notify_one();
+            }
+            if !candidates.dialer && received_direct {
+                // Member-relay offers only go toward the dialing peer.
                 break;
             }
-            if permitted(&address) {
-                let _ = time::timeout(
-                    VALIDATION_LIMIT,
-                    validate(&endpoint, &connection, address, &permitted),
-                )
-                .await;
+            if !candidates.dialer {
+                continue;
+            }
+            for address in addresses {
+                let accepted = (first_direct && candidates.direct == Some(address.id()))
+                    || (candidates.member_relay == Some(address.id())
+                        && candidates.local_member_routes(&address).next().is_some());
+                let address = TransportAddr::Custom(address);
+                if accepted
+                    && candidates.permits(&address)
+                    && peer_offers.send(address).await.is_err()
+                {
+                    return;
+                }
+            }
+        }
+    };
+    let known = async {
+        let mut receiver = receiver;
+        let mut attempted = BTreeSet::new();
+        let mut in_flight = FuturesUnordered::new();
+        loop {
+            let has_slot = in_flight.len() < MAX_CANDIDATES;
+            let active = *activity.borrow_and_update();
+            let address = tokio::select! {
+                biased;
+                Ok(()) = activity.changed() => continue,
+                Some(()) = in_flight.next() => continue,
+                Some(address) = peer_receiver.recv(), if has_slot => address,
+                Some(address) = receiver.recv(), if has_slot && active => address,
+                else => break,
+            };
+            if candidates.permits(&address) && attempted.insert(address.clone()) {
+                in_flight.push(process_candidate(&connection, &candidates, address));
             }
         }
     };
     tokio::select! {
         _ = connection.closed() => {}
-        _ = async { let _ = tokio::join!(offers, known); } => {}
+        _ = async { let _ = tokio::join!(announce_direct, receive, known); } => {}
     }
+}
+
+async fn process_candidate(
+    connection: &Connection,
+    candidates: &PathCandidates,
+    address: TransportAddr,
+) {
+    if candidates.dialer {
+        let _ = time::timeout(VALIDATION_LIMIT, validate(candidates, connection, address)).await;
+    } else if let TransportAddr::Custom(local) = address
+        && candidates
+            .local_addresses(candidates.member_relay)
+            .any(|current| current == local)
+    {
+        let _ = time::timeout(
+            EXCHANGE_LIMIT,
+            send_offer(connection, vec![local], MAX_OFFER_ADDRESS),
+        )
+        .await;
+    }
+}
+
+async fn send_offer(
+    connection: &Connection,
+    addresses: Vec<CustomAddr>,
+    max_address: usize,
+) -> io::Result<()> {
+    let mut offer = PREFACE.to_vec();
+    for address in addresses {
+        let encoded = address.to_vec();
+        if encoded.len() <= max_address {
+            offer.push(encoded.len() as u8);
+            offer.extend_from_slice(&encoded);
+        }
+    }
+    let mut stream = connection.open_uni().await.map_err(io::Error::other)?;
+    stream.write_all(&offer).await.map_err(io::Error::other)?;
+    stream.finish().map_err(io::Error::other)
 }
 
 async fn read_offer(mut stream: RecvStream) -> io::Result<Vec<CustomAddr>> {
     let offer = stream
-        .read_to_end(PREFACE.len() + MAX_CANDIDATES * (1 + MAX_ADDRESS))
+        .read_to_end(PREFACE.len() + MAX_CANDIDATES * (1 + MAX_OFFER_ADDRESS))
         .await
         .map_err(io::Error::other)?;
     let mut body = offer
@@ -149,7 +290,7 @@ async fn read_offer(mut stream: RecvStream) -> io::Result<Vec<CustomAddr>> {
     let mut addresses = Vec::new();
     while let Some((&length, rest)) = body.split_first() {
         let length = usize::from(length);
-        if length > MAX_ADDRESS || addresses.len() == MAX_CANDIDATES {
+        if length > MAX_OFFER_ADDRESS || addresses.len() == MAX_CANDIDATES {
             return Err(io::ErrorKind::InvalidData.into());
         }
         let (bytes, next) = rest
@@ -164,13 +305,11 @@ async fn read_offer(mut stream: RecvStream) -> io::Result<Vec<CustomAddr>> {
 }
 
 async fn validate(
-    endpoint: &Endpoint,
+    candidates: &PathCandidates,
     connection: &Connection,
-    address: CustomAddr,
-    permitted: impl Fn(&CustomAddr) -> bool,
+    remote: TransportAddr,
 ) -> io::Result<()> {
-    let transport = address.id();
-    let remote = TransportAddr::Custom(address.clone());
+    let endpoint = &candidates.endpoint;
     let Some(candidate) = endpoint
         .inner
         .request_admitted_data_path(
@@ -196,14 +335,18 @@ async fn validate(
     while !probe.is_acknowledged().map_err(io::Error::other)? {
         time::sleep(Duration::from_millis(15)).await;
     }
-    if permitted(&address)
+    let custom = match &remote {
+        TransportAddr::Custom(address) => Some(address.id()),
+        _ => None,
+    };
+    if candidates.permits(&remote)
         && endpoint
             .inner
             .qualifies_admission_data_path(
                 connection.remote_id(),
                 connection.stable_id(),
                 &remote,
-                &[transport],
+                custom.as_slice(),
             )
             .await
     {

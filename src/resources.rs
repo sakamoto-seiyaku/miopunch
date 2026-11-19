@@ -520,8 +520,7 @@ impl ResourceConfig {
     /// custom carriers retain their own auxiliary/use qualification.
     pub fn allows_custom(&self, address: &iroh_base::CustomAddr) -> bool {
         if address.id() == crate::member_transport::DATA_TRANSPORT_ID {
-            return !self.member_data_relay_disabled
-                && !self.disabled_uses.contains(&ResourceUse::DataRelay);
+            return self.allows_member_data_relay();
         }
         if address.id() != crate::tcp_transport::DATA_TRANSPORT_ID {
             return true;
@@ -529,6 +528,10 @@ impl ResourceConfig {
         !self.tcp_direct_disabled
             && crate::tcp_transport::TcpTransport::socket_addr(address)
                 .is_ok_and(|addr| !self.disabled_tcp_addresses.contains(&addr))
+    }
+
+    pub(crate) fn allows_member_data_relay(&self) -> bool {
+        !self.member_data_relay_disabled && !self.disabled_uses.contains(&ResourceUse::DataRelay)
     }
 
     pub(crate) fn allows_member_contact_carrier(&self, address: &iroh_base::CustomAddr) -> bool {

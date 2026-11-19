@@ -692,11 +692,7 @@ impl NativeNetwork {
         #[cfg(not(feature = "rtc-probe"))]
         let rtc_installed = false;
         let (mut builder, tcp) = resources.configure_with_tcp_and_rtc(builder, rtc_installed)?;
-        if !resources.member_data_relay_disabled
-            && !resources
-                .disabled_uses
-                .contains(&crate::resources::ResourceUse::DataRelay)
-        {
+        if resources.allows_member_data_relay() {
             self.gate
                 .register_data_carrier(crate::member_transport::DATA_TRANSPORT_ID);
         }

@@ -178,6 +178,18 @@ pub(crate) trait DynEndpointAdmission: std::fmt::Debug + Send + Sync {
         None
     }
     #[cfg(not(wasm_browser))]
+    fn member_relay_transport(&self) -> Option<u64> {
+        None
+    }
+    #[cfg(not(wasm_browser))]
+    fn shares_member_relay(
+        &self,
+        _local: &iroh_base::CustomAddr,
+        _remote: &iroh_base::CustomAddr,
+    ) -> bool {
+        false
+    }
+    #[cfg(not(wasm_browser))]
     fn permits_direct_candidate(&self, _address: &iroh_base::CustomAddr) -> bool {
         false
     }
@@ -1911,6 +1923,11 @@ pub(super) async fn finish_admission(
             let direct_transport = policy
                 .member_direct_transport()
                 .filter(|id| permit.allowed_data_custom_ids.contains(id));
+            let member_relay = policy
+                .member_relay_transport()
+                .filter(|id| permit.allowed_data_custom_ids.contains(id));
+            let started_on_member_relay = matches!(&permit.remote, TransportAddr::Custom(address)
+                if member_relay == Some(address.id()));
             let static_policy = endpoint
                 .inner
                 .static_config
@@ -1930,7 +1947,7 @@ pub(super) async fn finish_admission(
                         }
                 },
             )
-            .with_direct_transport(direct_transport);
+            .with_required_path_acks([direct_transport, member_relay], started_on_member_relay);
             endpoint
                 .inner
                 .authorize_candidates(
@@ -1948,13 +1965,23 @@ pub(super) async fn finish_admission(
             if let Some(bootstrap) = bootstrap {
                 bootstrap.store(true, std::sync::atomic::Ordering::Release);
             }
-            let direct_candidates = direct_transport.filter(|_| permit.remote.is_relay()).map(|id| {
-                let candidates = super::member_fusion::improve_direct_path(
-                    endpoint.clone(), connection.clone(), activity.subscribe(), id,
-                );
-                (id, candidates)
-            });
-            fusion.publish(selection, connection.clone(), permit.remote, activity, direct_candidates);
+            let direct =
+                direct_transport.filter(|_| permit.remote.is_relay() || started_on_member_relay);
+            let candidates = super::member_fusion::watch_path_candidates(
+                endpoint.clone(),
+                connection.clone(),
+                activity.subscribe(),
+                direct,
+                member_relay,
+                started_on_member_relay,
+            );
+            fusion.publish(
+                selection,
+                connection.clone(),
+                permit.remote,
+                activity,
+                candidates,
+            );
         }
         if run_legacy_hook {
             policy.business_released(&connection);

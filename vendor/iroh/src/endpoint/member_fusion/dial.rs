@@ -108,6 +108,10 @@ impl MemberDialOptions {
         self.identity_confirmed = Some(Box::new(authenticated));
         self
     }
+
+    pub(super) fn relay_fallbacks(&self) -> &[RelayUrl] {
+        &self.relay_fallbacks
+    }
 }
 
 pub(super) struct Dial<'a> {
@@ -180,13 +184,24 @@ impl Dial<'_> {
         if let Some(route) = &recent_ip {
             target.addrs.remove(route);
         }
+        let endpoint = &self.endpoint.inner.inner;
+        let member_relay = endpoint
+            .static_config
+            .admission
+            .as_ref()
+            .and_then(|policy| policy.member_relay_transport());
+        let is_data_relay = |route: &TransportAddr| match route {
+            TransportAddr::Relay(_) => true,
+            TransportAddr::Custom(address) => member_relay == Some(address.id()),
+            _ => false,
+        };
         let mut relays = target
             .addrs
             .iter()
-            .filter(|route| route.is_relay())
+            .filter(|route| is_data_relay(route))
             .cloned()
             .collect::<Vec<_>>();
-        target.addrs.retain(|route| !route.is_relay());
+        target.addrs.retain(|route| !is_data_relay(route));
         relays.sort_by_key(|route| {
             options
                 .recent
@@ -200,14 +215,13 @@ impl Dial<'_> {
                 relays.push(relay);
             }
         }
-        let relay_policy = &self
-            .endpoint
-            .inner
-            .inner
-            .static_config
-            .relay_resource_policy;
-        relays.retain(|route| {
-            matches!(route, TransportAddr::Relay(url) if relay_policy.allows(url, RelayResourceUse::DataRelay))
+        let relay_policy = &endpoint.static_config.relay_resource_policy;
+        relays.retain(|route| match route {
+            TransportAddr::Relay(url) => relay_policy.allows(url, RelayResourceUse::DataRelay),
+            TransportAddr::Custom(address) => {
+                relay_policy.allows_custom(address) && endpoint.has_custom_bootstrap(address)
+            }
+            _ => false,
         });
         let mut seen = BTreeSet::new();
         let restricted = options
@@ -455,13 +469,14 @@ impl Dial<'_> {
             return Err(io::ErrorKind::TimedOut.into());
         }
         let mut options = self.opts().with_bootstrap_route(route.clone());
-        let (watch_unavailable, unavailable) = if relay.is_some_and(|(_, track)| track) {
+        let native_relay = relay.filter(|_| route.is_relay());
+        let (watch_unavailable, unavailable) = if native_relay.is_some_and(|(_, track)| track) {
             let (send, receive) = oneshot::channel();
             (Some(send), Some(receive))
         } else {
             (None, None)
         };
-        let _relay_scope = relay.map(|_| {
+        let _relay_scope = native_relay.map(|_| {
             let scope = Arc::new(RelayBootstrap {
                 released: AtomicBool::new(false),
                 watch_unavailable: std::sync::Mutex::new(watch_unavailable),
@@ -480,7 +495,9 @@ impl Dial<'_> {
             (None, options, None)
         };
         let contact = match &route {
-            TransportAddr::Custom(contact) if silent_until.is_some() => Some(contact.clone()),
+            TransportAddr::Custom(contact) if silent_until.is_some() || relay.is_some() => {
+                Some(contact.clone())
+            }
             _ => None,
         };
         let target = EndpointAddr::new(id).with_addrs([route]);

@@ -105,7 +105,8 @@ type MemberActivity = MergeUnbounded<Pin<Box<dyn Stream<Item = ConnId> + Send + 
 pub(crate) struct MemberPathPolicy {
     // Bootstrap is active until release. Afterward streams drive QNT.
     activity: Option<watch::Receiver<bool>>,
-    direct_transport: Option<u64>,
+    acked_custom_transports: [Option<u64>; 2],
+    ack_native_relay: bool,
     #[debug(skip)]
     permit: Arc<dyn Fn(&TransportAddr) -> bool + Send + Sync>,
 }
@@ -118,20 +119,38 @@ impl MemberPathPolicy {
     ) -> Self {
         Self {
             activity,
-            direct_transport: None,
+            acked_custom_transports: [None; 2],
+            ack_native_relay: false,
             permit: Arc::new(permit),
         }
     }
 
     #[cfg(not(wasm_browser))]
-    pub(crate) fn with_direct_transport(mut self, transport: Option<u64>) -> Self {
-        self.direct_transport = transport;
+    pub(crate) fn with_required_path_acks(
+        mut self,
+        custom: [Option<u64>; 2],
+        native_relay: bool,
+    ) -> Self {
+        self.acked_custom_transports = custom;
+        self.ack_native_relay = native_relay;
         self
     }
 
     fn permits(&self, address: transports::Addr) -> bool {
-        matches!(&address, transports::Addr::Custom(custom) if self.direct_transport != Some(custom.id()))
-            || (self.permit)(&address.into())
+        match &address {
+            transports::Addr::Custom(_) if !self.requires_path_ack(&address) => true,
+            _ => (self.permit)(&address.into()),
+        }
+    }
+
+    fn requires_path_ack(&self, address: &transports::Addr) -> bool {
+        match address {
+            transports::Addr::Custom(custom) => {
+                self.acked_custom_transports.contains(&Some(custom.id()))
+            }
+            transports::Addr::Relay(..) => self.ack_native_relay,
+            _ => false,
+        }
     }
 
     fn active(&self) -> bool {
@@ -1178,13 +1197,12 @@ impl RemoteStateActor {
                     .to_transport_addr(addr)
                     .is_some_and(|address| packet_policy.permits(address))
             });
-            if let Some(transport) = policy.direct_transport {
+            if policy.acked_custom_transports.iter().any(Option::is_some) || policy.ack_native_relay {
                 let mapped = self.state.mapped_addrs.clone();
+                let packet_policy = policy.clone();
                 conn.require_application_path_ack(move |path| {
-                    matches!(
-                        mapped.to_transport_addr(path.remote()),
-                        Some(transports::Addr::Custom(address)) if address.id() == transport
-                    )
+                    mapped.to_transport_addr(path.remote())
+                        .is_some_and(|address| packet_policy.requires_path_ack(&address))
                 });
             }
             let events = n0_future::stream::unfold(
@@ -1778,7 +1796,7 @@ impl RemoteStateActor {
                 && let Some(selected) = self.state.selected_path.clone()
                 && conn_state.may_select(&selected)
                 && !(conn_state.member_paths.is_some() && selected.is_ip())
-                && !conn_state.requires_direct_ack(&selected)
+                && !conn_state.requires_path_ack(&selected)
             {
                 let _ = self
                     .state
@@ -1936,7 +1954,7 @@ impl RemoteStateActor {
     fn open_path_on_all_conns(&mut self, open_addr: &transports::PathBinding) {
         for (conn_id, conn_state) in self.connections.iter() {
             if (conn_state.member_paths.is_some() && open_addr.is_ip())
-                || conn_state.requires_direct_ack(open_addr)
+                || conn_state.requires_path_ack(open_addr)
             {
                 continue;
             }
@@ -2330,7 +2348,7 @@ impl State {
         }
 
         let mapped_4tuple = self.mapped_addrs.to_mapped_tuple(open_4tuple);
-        let path_status = if conn_state.requires_direct_ack(open_4tuple) {
+        let path_status = if conn_state.requires_path_ack(open_4tuple) {
             PathStatus::Backup
         } else {
             self.path_status_for_addr(open_4tuple)
@@ -2814,15 +2832,14 @@ impl ConnectionState {
             path == candidate
                 && self.may_select(path)
                 && conn.path(*id).is_some()
-                && (!self.requires_direct_ack(path)
+                && (!self.requires_path_ack(path)
                     || conn.path_stats(*id).is_some_and(|stats| stats.acknowledgment.is_some()))
         })
     }
 
-    fn requires_direct_ack(&self, path: &transports::PathBinding) -> bool {
-        matches!(&path.address, transports::FourTuple::Custom { remote, .. }
-            if self.member_paths.as_ref().and_then(|member| member.policy.direct_transport)
-                == Some(remote.id()))
+    fn requires_path_ack(&self, path: &transports::PathBinding) -> bool {
+        self.member_paths.as_ref()
+            .is_some_and(|member| member.policy.requires_path_ack(&path.remote()))
     }
 
     fn may_select(&self, path: &transports::PathBinding) -> bool {
@@ -3032,7 +3049,7 @@ impl<'a> PathSelectionContext<'a> {
                                 let conn = conn.clone();
                                 move |(id, addr)| {
                                     state.may_select(addr)
-                                        && (!state.requires_direct_ack(addr)
+                                        && (!state.requires_path_ack(addr)
                                             || conn.path_stats(**id).is_some_and(|stats| stats.acknowledgment.is_some()))
                                 }
                             })
@@ -3057,7 +3074,7 @@ impl<'a> PathSelectionContext<'a> {
                                         state.suspect_paths.contains_key(&current)
                                     });
                                 if suspect
-                                    || ((state.requires_direct_ack(addr)
+                                    || ((state.requires_path_ack(addr)
                                         || (!current && (current_suspect || addr.is_ip())))
                                         && !conn.path_stats(*id)
                                             .is_some_and(|stats| self.has_fresh_ack(&stats)))

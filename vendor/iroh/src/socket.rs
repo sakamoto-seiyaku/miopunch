@@ -2111,6 +2111,12 @@ impl EndpointInner {
     }
 
     #[cfg(not(wasm_browser))]
+    pub(crate) fn has_custom_bootstrap(&self, address: &iroh_base::CustomAddr) -> bool {
+        self.sock.mapped_addrs.custom_route_senders.is_some()
+            && self.permits_custom_bootstrap(address)
+    }
+
+    #[cfg(not(wasm_browser))]
     pub(crate) async fn custom_bootstrap_unavailable(&self, address: &iroh_base::CustomAddr) {
         let mut local_addrs = self.sock.local_addrs_watch.clone();
         while self.permits_custom_bootstrap(address) {
