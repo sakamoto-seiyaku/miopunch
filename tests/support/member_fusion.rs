@@ -1,10 +1,18 @@
-use std::{future, io::ErrorKind, path::Path, process, sync::Arc, time::Duration};
+use std::{
+    future,
+    io::ErrorKind,
+    net::Ipv4Addr,
+    path::Path,
+    process,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use iroh::{
     Endpoint, EndpointAddr, EndpointId, RelayUrl, TransportAddr,
     endpoint::{
         BeforeConnectOutcome, ConnectingError, ConnectionError, EndpointHooks, MemberConnection,
-        MemberFusionEndpoint, presets,
+        MemberDialOptions, MemberFusionEndpoint, presets,
     },
 };
 use miopunch_native_probe::{
@@ -23,6 +31,9 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 use super::{admit, bind, relay, resource};
+
+#[path = "delayed_relay.rs"]
+mod delayed_relay;
 
 const SETUP: Duration = Duration::from_secs(5);
 const REQUEST: &[u8] = b"fusion ping 143";
@@ -68,6 +79,172 @@ async fn admitted_pair(dir: &Path, url: &RelayUrl) -> (NativeNetwork, EndpointId
     tokio::join!(admin_bootstrap.close(), join_bootstrap.close());
     joining.close().await;
     (admin, member_id)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn route_stagger_uses_remaining_time_and_releases_losing_relay_slots() {
+    #[derive(Debug)]
+    enum Event {
+        Started(Instant, Instant),
+        Cancelled,
+        Finished(Result<usize, ErrorKind>),
+    }
+
+    struct RouteReport {
+        timeline: Arc<Mutex<Vec<(RelayUrl, Event)>>>,
+        url: RelayUrl,
+        finished: bool,
+    }
+
+    impl Drop for RouteReport {
+        fn drop(&mut self) {
+            if !self.finished {
+                self.timeline
+                    .lock()
+                    .unwrap()
+                    .push((self.url.clone(), Event::Cancelled));
+            }
+        }
+    }
+
+    let relay = relay().await;
+    let healthy = relay.http_url().unwrap();
+    let backend = (Ipv4Addr::LOCALHOST, healthy.port().unwrap()).into();
+    let (silent_first, stop_first) = delayed_relay::delay_relay(backend, SETUP * 3).await;
+    let (silent_second, stop_second) = delayed_relay::delay_relay(backend, SETUP * 3).await;
+    let (silent_tail, stop_tail) = delayed_relay::delay_relay(backend, SETUP * 3).await;
+    let dir = tempfile::tempdir().unwrap();
+    let (admin, member_id) = admitted_pair(dir.path(), &healthy).await;
+    let member = NativeNetwork::open(dir.path().join("joining"))
+        .await
+        .unwrap();
+    let mut config = member.resource_configuration().unwrap();
+    config.replacement = Some(
+        [&healthy, &silent_first, &silent_second, &silent_tail]
+            .into_iter()
+            .map(resource)
+            .collect(),
+    );
+    member.save_resource_configuration(&config).unwrap();
+    let server = admin.bind_member_fusion_endpoint(SETUP).await.unwrap();
+    time::timeout(SETUP, server.online()).await.unwrap();
+
+    for (budget, candidates) in [
+        (Duration::from_millis(900), vec![healthy.clone()]),
+        (
+            Duration::from_secs(4),
+            vec![silent_second.clone(), healthy.clone(), silent_tail.clone()],
+        ),
+    ] {
+        let client = member.bind_member_fusion_endpoint(SETUP).await.unwrap();
+        let timeline = Arc::new(Mutex::new(Vec::new()));
+        let attempt_timeline = timeline.clone();
+        let options = MemberDialOptions::new(Vec::new(), Vec::new(), candidates.clone())
+            .with_route_diagnostics(move |route, deadline| {
+                let TransportAddr::Relay(url) = route else {
+                    panic!("expected a relay route");
+                };
+                let mut timeline = attempt_timeline.lock().unwrap();
+                timeline.push((url.clone(), Event::Started(Instant::now(), deadline)));
+                let ids = (1, timeline.len());
+                let mut diagnostic = RouteReport {
+                    timeline: attempt_timeline.clone(),
+                    url: url.clone(),
+                    finished: false,
+                };
+                (ids, move |outcome| {
+                    diagnostic.finished = true;
+                    diagnostic
+                        .timeline
+                        .lock()
+                        .unwrap()
+                        .push((diagnostic.url.clone(), Event::Finished(outcome)));
+                })
+            });
+        let deadline = Instant::now() + budget;
+        let cancel = CancellationToken::new();
+        let (connection, _) = time::timeout(SETUP, async {
+            tokio::join!(
+                async {
+                    let target =
+                        EndpointAddr::new(server.id()).with_relay_url(silent_first.clone());
+                    let connection = client
+                        .connect_with_routes_until(target, options, deadline, &cancel)
+                        .await
+                        .unwrap();
+                    assert_eq!(connection.remote_id(), server.id());
+                    assert_eq!(
+                        connection.initial_data_path(),
+                        &TransportAddr::Relay(healthy.clone())
+                    );
+                    request(&connection).await;
+                    connection
+                },
+                async {
+                    let connection = server.accept().await.unwrap().unwrap();
+                    assert_eq!(connection.remote_id(), member_id);
+                    let mut stream = connection.accept_bi().await.unwrap();
+                    let (send, recv) = stream.streams();
+                    assert_eq!(recv.read_to_end(64).await.unwrap(), REQUEST);
+                    send.write_all(REPLY).await.unwrap();
+                    send.finish().unwrap();
+                    assert_eq!(send.stopped().await.unwrap(), None);
+                }
+            )
+        })
+        .await
+        .unwrap();
+        {
+            let timeline = timeline.lock().unwrap();
+            let mut pending = 0;
+            let mut starts = Vec::new();
+            for (url, event) in timeline.iter() {
+                match event {
+                    Event::Started(at, route_deadline) => {
+                        pending += 1;
+                        assert!(pending <= 2);
+                        assert_eq!(*route_deadline, deadline);
+                        starts.push((url, *at));
+                    }
+                    Event::Finished(Ok(stable_id)) => {
+                        pending -= 1;
+                        assert_eq!(*stable_id, connection.stable_id());
+                        assert_eq!(*url, healthy);
+                    }
+                    Event::Cancelled => pending -= 1,
+                    Event::Finished(Err(error)) => panic!("unexpected failure from {url}: {error}"),
+                }
+            }
+            assert_eq!(
+                pending, 0,
+                "all relay attempts resolved or cancelled: {timeline:?}"
+            );
+            assert_eq!(
+                starts.iter().map(|(route, _)| *route).collect::<Vec<_>>(),
+                std::iter::once(&silent_first)
+                    .chain(candidates.iter())
+                    .collect::<Vec<_>>(),
+            );
+            let actual = starts[1].1.duration_since(starts[0].1);
+            let expected = (deadline.saturating_duration_since(starts[0].1) / 4)
+                .min(Duration::from_millis(250));
+            assert!(
+                actual.abs_diff(expected) <= Duration::from_millis(30),
+                "expected {expected:?}, saw {actual:?}"
+            );
+            println!(
+                "relay-race budget={budget:?} expected={expected:?} actual={actual:?} {timeline:?}"
+            );
+        }
+        client.close().await;
+    }
+    server.close().await;
+    member.close().await;
+    admin.close().await;
+    for stop in [stop_first, stop_second, stop_tail] {
+        stop.cancel();
+    }
+    relay.shutdown().await.unwrap();
 }
 
 #[tokio::test]

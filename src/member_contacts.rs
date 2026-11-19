@@ -67,6 +67,20 @@ impl MemberContacts {
         let connection = connection.clone();
         self.blocking(move |store| store.observe(&connection)).await
     }
+    pub(crate) async fn observe_member(
+        self: &Arc<Self>,
+        connection: &iroh::endpoint::MemberConnection,
+    ) -> io::Result<()> {
+        let id = connection.remote_id();
+        let route = connection.initial_data_path().clone();
+        self.blocking(move |store| {
+            if store.gate.member_contact_allowed(id) && store.permitted(&route) {
+                store.record(id, vec![route], true)?;
+            }
+            Ok(())
+        })
+        .await
+    }
     pub(crate) async fn refresh_async(self: &Arc<Self>) -> io::Result<()> {
         self.blocking(Self::refresh).await
     }
@@ -241,10 +255,19 @@ impl MemberContacts {
             if route.is_recent(now)
                 && (route.verified || matches!(route.address, TransportAddr::Relay(_)))
             {
-                preferred.push(route.address.clone());
+                preferred.push(route);
             }
         }
-        Ok(preferred)
+        preferred.sort_by_key(|route| {
+            (
+                std::cmp::Reverse(route.verified),
+                std::cmp::Reverse(route.observed_at),
+            )
+        });
+        Ok(preferred
+            .into_iter()
+            .map(|route| route.address.clone())
+            .collect())
     }
 }
 

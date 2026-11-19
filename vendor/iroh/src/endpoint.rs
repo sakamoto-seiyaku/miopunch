@@ -104,8 +104,8 @@ pub use bind::{BindOpts, InvalidSocketAddr, ToSocketAddr};
 pub use hooks::{AfterHandshakeOutcome, BeforeConnectOutcome, EndpointHooks};
 #[cfg(not(wasm_browser))]
 pub use member_fusion::{
-    IncomingMemberStream, MemberConnection, MemberFusionAdmission, MemberFusionBuilder,
-    MemberFusionEndpoint, MemberFusionEvent, MemberStream, MemberStreamLease,
+    IncomingMemberStream, MemberConnection, MemberDialOptions, MemberFusionAdmission,
+    MemberFusionBuilder, MemberFusionEndpoint, MemberFusionEvent, MemberStream, MemberStreamLease,
 };
 #[cfg(not(wasm_browser))]
 pub use noq::StreamControl;
@@ -1686,10 +1686,19 @@ impl Endpoint {
                 .unwrap_or_else(|| mapped_addr.private_socket_addr()),
         };
         let server_name = &tls::name::encode(endpoint_id);
-        let connect =
-            self.inner
-                .noq_endpoint()
-                .connect_with(client_config, dest_addr, server_name)?;
+        let endpoint = self.inner.noq_endpoint();
+        #[cfg(not(wasm_browser))]
+        let connect = if let Some(released) = options.exact_relay_bootstrap {
+            let context = crate::socket::transports::ExactRelayBootstrap {
+                address: dest_addr,
+                released,
+            };
+            endpoint.connect_with_sender_context(client_config, dest_addr, server_name, &context)?
+        } else {
+            endpoint.connect_with(client_config, dest_addr, server_name)?
+        };
+        #[cfg(wasm_browser)]
+        let connect = endpoint.connect_with(client_config, dest_addr, server_name)?;
 
         Ok(Connecting::new(
             connect,
@@ -2410,6 +2419,8 @@ pub struct ConnectOptions {
     transport_config: Option<QuicTransportConfig>,
     additional_alpns: Vec<Vec<u8>>,
     bootstrap_route: Option<TransportAddr>,
+    #[cfg(not(wasm_browser))]
+    exact_relay_bootstrap: Option<Arc<std::sync::atomic::AtomicBool>>,
     attempt: connection::AttemptOptions,
 }
 

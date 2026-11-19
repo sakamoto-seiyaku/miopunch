@@ -181,6 +181,39 @@ impl std::fmt::Display for ProofError {
 }
 impl std::error::Error for ProofError {}
 
+pub(crate) enum ProofFailure {
+    Proof(ProofError),
+    Protocol,
+}
+
+impl From<ProofError> for ProofFailure {
+    fn from(error: ProofError) -> Self {
+        Self::Proof(error)
+    }
+}
+
+impl ProofFailure {
+    fn legacy(self) -> ProofError {
+        match self {
+            Self::Protocol => ProofError::Rejected,
+            Self::Proof(error) => error,
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn admission_kind(self) -> std::io::ErrorKind {
+        use std::io::ErrorKind;
+
+        match self {
+            Self::Proof(ProofError::Rejected) => ErrorKind::PermissionDenied,
+            Self::Proof(ProofError::Timeout) => ErrorKind::TimedOut,
+            Self::Proof(ProofError::Busy | ProofError::AlreadyAttempted) => ErrorKind::WouldBlock,
+            Self::Proof(ProofError::Transport) => ErrorKind::ConnectionAborted,
+            Self::Protocol => ErrorKind::InvalidInput,
+        }
+    }
+}
+
 struct ClientCredentials {
     auth_id: String,
     password: String,
@@ -273,12 +306,12 @@ impl SessionCallback for ServerCredentials {
 
 fn config(
     callback: impl SessionCallback + 'static,
-) -> Result<std::sync::Arc<SASLConfig>, ProofError> {
+) -> Result<std::sync::Arc<SASLConfig>, ProofFailure> {
     static MECHANISMS: &[rsasl::prelude::Mechanism] = &[SCRAM_SHA256_PLUS];
     SASLConfig::builder()
         .with_registry(Registry::with_mechanisms(MECHANISMS))
         .with_callback(callback)
-        .map_err(|_| ProofError::Rejected)
+        .map_err(|_| ProofFailure::Protocol)
 }
 
 fn exporter(connection: &(impl AuthenticatedControl + ?Sized)) -> Result<[u8; 32], ProofError> {
@@ -297,13 +330,23 @@ struct AttemptGuard {
 }
 
 impl AttemptGuard {
-    fn succeed(
+    fn complete(
         mut self,
+        result: Result<(), ProofFailure>,
         scope: &AdmissionScope,
         secret: &AdmissionSecret,
-    ) -> Result<BootstrapProof, ProofError> {
+        report_failure: bool,
+    ) -> Result<BootstrapProof, ProofFailure> {
+        if let Err(error) = result {
+            if report_failure {
+                // Fusion will close the candidate after classifying its error.
+                // An abandoned future still closes through Drop below.
+                self.token.take();
+            }
+            return Err(error);
+        }
         if !self.connection.is_open() {
-            return Err(ProofError::Transport);
+            return Err(ProofError::Transport.into());
         }
         Ok(BootstrapProof {
             connection: self.connection.clone(),
@@ -327,20 +370,20 @@ impl Drop for AttemptGuard {
 
 fn reserve_once(
     connection: &(impl AuthenticatedControl + ?Sized),
-) -> Result<AttemptGuard, ProofError> {
+) -> Result<AttemptGuard, ProofFailure> {
     if connection.close_reason().is_some() {
-        return Err(ProofError::AlreadyAttempted);
+        return Err(ProofError::AlreadyAttempted.into());
     }
     let id = connection.stable_id();
     let mut attempts = ATTEMPTED_CONNECTIONS
         .lock()
-        .map_err(|_| ProofError::Rejected)?;
+        .map_err(|_| ProofFailure::Protocol)?;
     attempts.retain(|_, attempt| attempt.token.strong_count() > 0 && attempt.connection.is_open());
     if attempts.contains_key(&id) {
-        return Err(ProofError::AlreadyAttempted);
+        return Err(ProofError::AlreadyAttempted.into());
     }
     if attempts.len() >= MAX_LIVE_PROOFS {
-        return Err(ProofError::Busy);
+        return Err(ProofError::Busy.into());
     }
     let token = Arc::new(());
     attempts.insert(
@@ -358,9 +401,9 @@ fn reserve_once(
     })
 }
 
-async fn send_frame(exchange: &ControlExchange, bytes: &[u8]) -> Result<(), ProofError> {
+async fn send_frame(exchange: &ControlExchange, bytes: &[u8]) -> Result<(), ProofFailure> {
     if bytes.is_empty() || bytes.len() > MAX_FRAME {
-        return Err(ProofError::Rejected);
+        return Err(ProofFailure::Protocol);
     }
     exchange
         .send_message(
@@ -368,15 +411,15 @@ async fn send_frame(exchange: &ControlExchange, bytes: &[u8]) -> Result<(), Proo
             bytes,
         )
         .await
-        .map_err(|_| ProofError::Transport)
+        .map_err(|_| ProofError::Transport.into())
 }
-async fn read_frame(exchange: &ControlExchange) -> Result<Vec<u8>, ProofError> {
+async fn read_frame(exchange: &ControlExchange) -> Result<Vec<u8>, ProofFailure> {
     let bytes = exchange
         .recv_message(ControlMessageFormat::LengthPrefixed16 { maximum: MAX_FRAME })
         .await
         .map_err(|_| ProofError::Transport)?;
     if bytes.is_empty() {
-        return Err(ProofError::Rejected);
+        return Err(ProofFailure::Protocol);
     }
     Ok(bytes)
 }
@@ -399,6 +442,30 @@ pub async fn prove_client(
     scope: &AdmissionScope,
     secret: &AdmissionSecret,
 ) -> Result<BootstrapProof, ProofError> {
+    prove_client_inner(connection, scope, secret, false)
+        .await
+        .map_err(ProofFailure::legacy)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) async fn prove_fusion_member(
+    connection: &(impl AuthenticatedControl + ?Sized),
+    scope: &AdmissionScope,
+    secret: &AdmissionSecret,
+) -> Result<BootstrapProof, ProofFailure> {
+    if connection.side().is_client() {
+        prove_client_inner(connection, scope, secret, true).await
+    } else {
+        prove_server_inner(connection, scope, secret, true).await
+    }
+}
+
+async fn prove_client_inner(
+    connection: &(impl AuthenticatedControl + ?Sized),
+    scope: &AdmissionScope,
+    secret: &AdmissionSecret,
+    report_failure: bool,
+) -> Result<BootstrapProof, ProofFailure> {
     let result = async {
         let _permit = ACTIVE_PROOFS.try_acquire().map_err(|_| ProofError::Busy)?;
         let attempt = reserve_once(connection)?;
@@ -416,7 +483,7 @@ pub async fn prove_client(
                 );
                 let mut session = sasl
                     .start_suggested(&[SCRAM_SHA256_PLUS.mechanism])
-                    .map_err(|_| ProofError::Rejected)?;
+                    .map_err(|_| ProofFailure::Protocol)?;
                 let exchange = connection
                     .open_control_exchange()
                     .await
@@ -425,26 +492,26 @@ pub async fn prove_client(
                 let mut first = Vec::new();
                 if !session
                     .step(None, &mut first)
-                    .map_err(|_| ProofError::Rejected)?
+                    .map_err(|_| ProofFailure::Protocol)?
                     .is_running()
                 {
-                    return Err(ProofError::Rejected);
+                    return Err(ProofFailure::Protocol);
                 }
                 send_frame(&exchange, &first).await?;
 
                 let server_first = read_frame(&exchange).await?;
 
                 if !acceptable_server_first(&server_first) {
-                    return Err(ProofError::Rejected);
+                    return Err(ProofFailure::Protocol);
                 }
 
                 let mut final_message = Vec::new();
                 if !session
                     .step(Some(&server_first), &mut final_message)
-                    .map_err(|_| ProofError::Rejected)?
+                    .map_err(|_| ProofFailure::Protocol)?
                     .is_running()
                 {
-                    return Err(ProofError::Rejected);
+                    return Err(ProofFailure::Protocol);
                 }
 
                 send_frame(&exchange, &final_message).await?;
@@ -452,28 +519,43 @@ pub async fn prove_client(
                 let server_final = read_frame(&exchange).await?;
 
                 let mut unused = Vec::new();
-                if !matches!(
-                    session.step(Some(&server_final), &mut unused),
-                    Ok(State::Finished(_))
-                ) {
-                    return Err(ProofError::Rejected);
+                match session.step(Some(&server_final), &mut unused) {
+                    Ok(State::Finished(_)) => {}
+                    Err(SessionError::MutualAuthenticationFailed) => {
+                        return Err(ProofError::Rejected.into());
+                    }
+                    Err(_)
+                        if matches!(
+                            server_final.as_slice(),
+                            b"e=invalid-proof"
+                                | b"e=unknown-user"
+                                | b"e=channel-bindings-dont-match"
+                        ) =>
+                    {
+                        return Err(ProofError::Rejected.into());
+                    }
+                    _ => return Err(ProofFailure::Protocol),
                 }
                 send_frame(&exchange, b"OK").await?;
 
                 if read_frame(&exchange).await? != b"OK" {
-                    return Err(ProofError::Rejected);
+                    return Err(ProofFailure::Protocol);
                 }
 
                 exchange
                     .finish_send()
                     .await
                     .map_err(|_| ProofError::Transport)?;
-                Ok::<(), ProofError>(())
+                Ok::<(), ProofFailure>(())
             },
         );
 
-        timed.await.map_err(|_| ProofError::Timeout)??;
-        attempt.succeed(scope, secret)
+        attempt.complete(
+            timed.await.unwrap_or(Err(ProofError::Timeout.into())),
+            scope,
+            secret,
+            report_failure,
+        )
     }
     .await;
 
@@ -485,6 +567,17 @@ pub async fn prove_server(
     scope: &AdmissionScope,
     secret: &AdmissionSecret,
 ) -> Result<BootstrapProof, ProofError> {
+    prove_server_inner(connection, scope, secret, false)
+        .await
+        .map_err(ProofFailure::legacy)
+}
+
+async fn prove_server_inner(
+    connection: &(impl AuthenticatedControl + ?Sized),
+    scope: &AdmissionScope,
+    secret: &AdmissionSecret,
+    report_failure: bool,
+) -> Result<BootstrapProof, ProofFailure> {
     let result = async {
         let _permit = ACTIVE_PROOFS.try_acquire().map_err(|_| ProofError::Busy)?;
         let attempt = reserve_once(connection)?;
@@ -502,7 +595,7 @@ pub async fn prove_server(
                 );
                 let mut session = sasl
                     .start_suggested(SCRAM_SHA256_PLUS.mechanism)
-                    .map_err(|_| ProofError::Rejected)?;
+                    .map_err(|_| ProofFailure::Protocol)?;
                 let exchange = connection
                     .accept_control_exchange()
                     .await
@@ -511,15 +604,15 @@ pub async fn prove_server(
                 let first = read_frame(&exchange).await?;
 
                 if !first.starts_with(b"p=tls-exporter,,n=") {
-                    return Err(ProofError::Rejected);
+                    return Err(ProofFailure::Protocol);
                 }
                 let mut server_first = Vec::new();
                 if !session
                     .step(Some(&first), &mut server_first)
-                    .map_err(|_| ProofError::Rejected)?
+                    .map_err(|_| ProofFailure::Protocol)?
                     .is_running()
                 {
-                    return Err(ProofError::Rejected);
+                    return Err(ProofFailure::Protocol);
                 }
                 send_frame(&exchange, &server_first).await?;
 
@@ -528,17 +621,17 @@ pub async fn prove_server(
                 let mut server_final = Vec::new();
                 let state = session
                     .step(Some(&client_final), &mut server_final)
-                    .map_err(|_| ProofError::Rejected)?;
+                    .map_err(|_| ProofFailure::Protocol)?;
                 if !matches!(state, State::Finished(_)) {
-                    return Err(ProofError::Rejected);
+                    return Err(ProofFailure::Protocol);
                 }
                 send_frame(&exchange, &server_final).await?;
 
                 if session.validation() != Some(true) {
-                    return Err(ProofError::Rejected);
+                    return Err(ProofError::Rejected.into());
                 }
                 if read_frame(&exchange).await? != b"OK" {
-                    return Err(ProofError::Rejected);
+                    return Err(ProofFailure::Protocol);
                 }
 
                 send_frame(&exchange, b"OK").await?;
@@ -547,12 +640,16 @@ pub async fn prove_server(
                     .finish_send()
                     .await
                     .map_err(|_| ProofError::Transport)?;
-                Ok::<(), ProofError>(())
+                Ok::<(), ProofFailure>(())
             },
         );
 
-        timed.await.map_err(|_| ProofError::Timeout)??;
-        attempt.succeed(scope, secret)
+        attempt.complete(
+            timed.await.unwrap_or(Err(ProofError::Timeout.into())),
+            scope,
+            secret,
+            report_failure,
+        )
     }
     .await;
 

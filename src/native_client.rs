@@ -256,6 +256,7 @@ impl NativeClient {
             let forwarding = forwarding.clone();
             let web = web.clone();
             let terminal = terminal.clone();
+            let member_contacts = resources.member_contacts.clone();
             let members = native_member_services::MemberServices {
                 terminal: terminal.clone(), files: files.clone(), forwarding: forwarding.clone(),
                 web: web.clone(), clipboard: clipboard.clone(), node: node.clone(), policies: services.clone(),
@@ -268,7 +269,17 @@ impl NativeClient {
                     tokio::select! {
                         _ = cancel.cancelled() => break,
                         Some(Ok(connection)) = fusion.accept() => {
-                            member_handlers.spawn(native_member_services::receive(connection, members.clone()));
+                            let members = members.clone();
+                            let member_contacts = member_contacts.clone();
+                            member_handlers.spawn(async move {
+                                if connection.side().is_server()
+                                    && let Some(contacts) = member_contacts
+                                    && let Err(error) = contacts.observe_member(&connection).await
+                                {
+                                    eprintln!("could not save inbound member data path: {error}");
+                                }
+                                native_member_services::receive(connection, members).await;
+                            });
                         }
                         _ = member_handlers.join_next(), if !member_handlers.is_empty() => {},
                         _ = expiry.tick() => {
@@ -908,4 +919,73 @@ pub(crate) fn path_status(connection: &Connection) -> Value {
         "paths": connection.paths().iter().map(|path| json!({"remote": path.remote_addr(),
             "local": format!("{:?}", path.local_addr()), "selected": path.is_selected(),
             "tx_bytes": path.stats().udp_tx.bytes, "rx_bytes": path.stats().udp_rx.bytes})).collect::<Vec<_>>()})
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::resources::ResourceConfig;
+    use std::net::Ipv6Addr;
+
+    #[tokio::test]
+    async fn native_client_pings_a_member_over_the_bound_ipv6_socket() {
+        let dir = tempfile::tempdir().unwrap();
+        let resources = ResourceConfig {
+            replacement: Some(Vec::new()),
+            tcp_direct_disabled: true,
+            ..ResourceConfig::default()
+        };
+        let provider = NativeClient::create_with_resources(
+            dir.path().join("provider"),
+            Ipv4Addr::LOCALHOST,
+            resources.clone(),
+        )
+        .await
+        .unwrap();
+        provider
+            .export_recovery_card_to(dir.path().join("card"), None)
+            .await
+            .unwrap();
+        provider.acknowledge_recovery_saved().await.unwrap();
+        let invitation = provider
+            .issue_precode(crate::service_policy::now() + 300, Some(1))
+            .await
+            .unwrap();
+        let path = dir.path().join("consumer");
+        let consumer =
+            NativeClient::join_with_resources(&path, &invitation, Ipv4Addr::LOCALHOST, resources)
+                .await
+                .unwrap();
+        assert_eq!(
+            consumer.request_admission(&invitation).await.unwrap(),
+            AdmissionStage::Complete
+        );
+        consumer.close().await.unwrap();
+        let consumer = NativeClient::open(&path, Ipv4Addr::LOCALHOST)
+            .await
+            .unwrap();
+        let bound = provider
+            .resources
+            .endpoint()
+            .bound_sockets()
+            .into_iter()
+            .find(|socket| socket.is_ipv6())
+            .expect("the native endpoint bound IPv6");
+        let actual = std::net::SocketAddr::from((Ipv6Addr::LOCALHOST, bound.port()));
+        let peer = provider.address().id;
+        let target = EndpointAddr::new(peer).with_ip_addr(actual);
+        let reply = tokio::time::timeout(Duration::from_secs(5), consumer.ping(target))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(reply["reply"], "PONG");
+        assert_eq!(reply["transport"]["peer"], peer.to_string());
+        assert_eq!(
+            reply["transport"]["initial_data_path"],
+            json!({"Ip":actual})
+        );
+        println!("native-ipv6 {reply}");
+        consumer.close().await.unwrap();
+        provider.close().await.unwrap();
+    }
 }

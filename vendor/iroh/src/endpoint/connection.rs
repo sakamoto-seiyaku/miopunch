@@ -1355,6 +1355,25 @@ impl<T: ConnectionState> Connection<T> {
 }
 
 impl Connection<HandshakeCompleted> {
+    #[cfg(not(wasm_browser))]
+    pub(super) fn hold_member_ip_bootstrap(&self) -> Option<Arc<std::sync::atomic::AtomicBool>> {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        if !self
+            .paths()
+            .iter()
+            .any(|path| path.id() == PathId::ZERO && path.is_ip())
+        {
+            return None;
+        }
+        let bootstrap = self.inner.path(PathId::ZERO)?.remote_address().ok()?;
+        let released = Arc::new(AtomicBool::new(false));
+        let scope = released.clone();
+        self.inner
+            .restrict_paths(move |remote| remote == bootstrap || scope.load(Ordering::Acquire));
+        Some(released)
+    }
+
     /// Process-local attempt and route identifiers supplied by the caller for
     /// diagnostics. Neither identifier is sent to the peer.
     #[doc(hidden)]

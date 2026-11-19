@@ -38,6 +38,14 @@ async fn relay() -> iroh_relay::server::Server {
     iroh_relay::server::Server::spawn(config).await.unwrap()
 }
 
+fn relay_resource(url: &iroh::RelayUrl) -> Resource {
+    Resource {
+        url: url.to_string(),
+        uses: [ResourceUse::DataRelay].into(),
+        limitation: "owned relay for native service streams".into(),
+    }
+}
+
 struct Pair {
     root: tempfile::TempDir,
     provider: NativeClient,
@@ -49,11 +57,7 @@ impl Pair {
     async fn admit(relay_url: iroh::RelayUrl) -> Self {
         let mut resources = ResourceConfig::with_defaults(ResourceTable {
             revision: 1,
-            resources: vec![Resource {
-                url: relay_url.to_string(),
-                uses: [ResourceUse::DataRelay].into(),
-                limitation: "owned relay for native service streams".into(),
-            }],
+            resources: vec![relay_resource(&relay_url)],
         });
         resources.udp_direct_disabled = true;
         resources.tcp_direct_disabled = true;
@@ -105,6 +109,427 @@ impl Pair {
         self.consumer.close().await.unwrap();
         self.provider.close().await.unwrap();
     }
+}
+
+async fn reopen_with_resources(
+    path: &std::path::Path,
+    update: impl FnOnce(&mut ResourceConfig),
+) -> NativeClient {
+    let node = NativeNetwork::open(path).await.unwrap();
+    let mut resources = node.resource_configuration().unwrap();
+    update(&mut resources);
+    node.save_resource_configuration(&resources).unwrap();
+    node.close().await;
+    NativeClient::open(path, Ipv4Addr::LOCALHOST).await.unwrap()
+}
+
+async fn first_pong(
+    client: &NativeClient,
+    target: iroh::EndpointAddr,
+    expected_path: iroh::TransportAddr,
+) -> u64 {
+    let peer = target.id.to_string();
+    let reply = timeout(IO, client.ping(target)).await.unwrap().unwrap();
+    println!("first-pong {reply}");
+    assert_eq!(reply["reply"], "PONG");
+    assert_eq!(reply["transport"]["peer"], peer);
+    let transport = serde_json::to_value(expected_path).unwrap();
+    assert_eq!(
+        reply["transport"]["initial_data_path"], transport,
+        "the released connection was qualified on {transport}: {reply}"
+    );
+    reply["transport"]["connection"].as_u64().unwrap()
+}
+
+#[tokio::test]
+async fn native_ping_reuses_a_verified_member_address_after_reopen() {
+    let server = relay().await;
+    let backend = (
+        Ipv4Addr::LOCALHOST,
+        server.http_url().unwrap().port().unwrap(),
+    )
+        .into();
+    let (relay, stop) = delayed_relay::delay_relay(backend, Duration::from_millis(100)).await;
+    let Pair {
+        root,
+        provider,
+        consumer,
+        target,
+    } = Pair::admit_with_resources(ResourceConfig {
+        replacement: Some(vec![relay_resource(&relay)]),
+        tcp_direct_disabled: true,
+        ..ResourceConfig::default()
+    })
+    .await;
+    let consumer_path = root.path().join("consumer");
+    let consumer_id = consumer.address().id;
+    let direct = target
+        .ip_addrs()
+        .find(|address| address.is_ipv4())
+        .copied()
+        .unwrap();
+    consumer.close().await.unwrap();
+    let consumer = reopen_with_resources(&consumer_path, |resources| {
+        resources.disabled_uses.insert(ResourceUse::DataRelay);
+    })
+    .await;
+    first_pong(
+        &consumer,
+        iroh::EndpointAddr::new(target.id).with_ip_addr(direct),
+        iroh::TransportAddr::Ip(direct),
+    )
+    .await;
+    consumer.close().await.unwrap();
+
+    let verified = read_member_routes(&consumer_path, target.id);
+    assert!(
+        verified.iter().any(|route| {
+            route["verified"] == true && route["address"]["Ip"] == direct.to_string()
+        }),
+        "the first PONG saved the actual verified address"
+    );
+    let consumer = reopen_with_resources(&consumer_path, |resources| {
+        resources.disabled_uses.remove(&ResourceUse::DataRelay);
+    })
+    .await;
+    assert_eq!(consumer.address().id, consumer_id);
+    println!("redial-fixture verified-ip-wins");
+    let selected = first_pong(
+        &consumer,
+        iroh::EndpointAddr::new(target.id),
+        iroh::TransportAddr::Ip(direct),
+    )
+    .await;
+    assert_eq!(
+        first_pong(
+            &consumer,
+            iroh::EndpointAddr::new(target.id).with_relay_url(relay.clone()),
+            iroh::TransportAddr::Ip(direct)
+        )
+        .await,
+        selected
+    );
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
+
+    // Keep the old port open without a QUIC endpoint while the same target
+    // identity starts on a different port.
+    let stale = UdpSocket::bind(direct).await.unwrap();
+    let provider_path = root.path().join("provider");
+    let provider = NativeClient::open(&provider_path, Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    assert_eq!(provider.address().id, target.id);
+    let consumer = NativeClient::open(&consumer_path, Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    assert_eq!(consumer.address().id, consumer_id);
+    println!("redial-fixture stale-ip");
+    let mut packet = [0; 2048];
+    let (_, observed) = tokio::join!(
+        first_pong(
+            &consumer,
+            iroh::EndpointAddr::new(target.id),
+            iroh::TransportAddr::Relay(relay.clone())
+        ),
+        timeout(IO, stale.recv_from(&mut packet)),
+    );
+    assert!(
+        observed.unwrap().unwrap().0 >= 1200,
+        "the stale UDP port saw the QUIC Initial"
+    );
+    drop(stale);
+    consumer.close().await.unwrap();
+
+    // A reachable device with an unrelated TLS key takes the same cached port.
+    let wrong = iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+        .relay_mode(iroh::RelayMode::Disabled)
+        .clear_ip_transports()
+        .bind_addr(direct)
+        .unwrap()
+        .alpns(vec![
+            miopunch_native_probe::native_network::FUSED_MEMBER_ALPN.to_vec(),
+        ])
+        .bind()
+        .await
+        .unwrap();
+    assert_ne!(wrong.id(), target.id);
+    let consumer = NativeClient::open(&consumer_path, Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    println!("redial-fixture wrong-peer-ip");
+    let (_, observed) = tokio::join!(
+        first_pong(
+            &consumer,
+            iroh::EndpointAddr::new(target.id),
+            iroh::TransportAddr::Relay(relay.clone())
+        ),
+        timeout(IO, async {
+            let mut connecting = wrong.accept().await.unwrap().accept().unwrap();
+            let alpn = connecting.alpn().await.unwrap();
+            (alpn, connecting)
+        }),
+    );
+    let (alpn, wrong_connection) = observed.unwrap();
+    assert_eq!(
+        alpn,
+        miopunch_native_probe::native_network::FUSED_MEMBER_ALPN
+    );
+    drop(wrong_connection);
+    consumer.close().await.unwrap();
+    wrong.close().await;
+    drop(wrong);
+
+    // The cached route authenticates the right TLS identity, then loses its
+    // SCRAM stream. The admitted provider is still reachable through relay.
+    let key: [u8; 32] = std::fs::read(provider_path.join("node.key"))
+        .unwrap()
+        .try_into()
+        .unwrap();
+    let interrupted = iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+        .secret_key(iroh::SecretKey::from_bytes(&key))
+        .relay_mode(iroh::RelayMode::Disabled)
+        .clear_ip_transports()
+        .bind_addr(direct)
+        .unwrap()
+        .alpns(vec![
+            miopunch_native_probe::native_network::FUSED_MEMBER_ALPN.to_vec(),
+        ])
+        .bind()
+        .await
+        .unwrap();
+    assert_eq!(interrupted.id(), target.id);
+    let consumer = NativeClient::open(&consumer_path, Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    println!("redial-fixture reset-scram");
+    let (_, observed) = tokio::join!(
+        first_pong(
+            &consumer,
+            iroh::EndpointAddr::new(target.id),
+            iroh::TransportAddr::Relay(relay.clone())
+        ),
+        timeout(IO, async {
+            let connection = interrupted.accept().await.unwrap().await.unwrap();
+            assert_eq!(connection.remote_id(), consumer_id);
+            let (mut send, mut recv) = connection.accept_bi().await.unwrap();
+            let mut length = [0; 2];
+            recv.read_exact(&mut length).await.unwrap();
+            let mut message = vec![0; usize::from(u16::from_be_bytes(length))];
+            recv.read_exact(&mut message).await.unwrap();
+            assert!(message.starts_with(b"p=tls-exporter,,n="));
+            send.reset(1u32.into()).unwrap();
+            recv.stop(1u32.into()).unwrap();
+            println!(
+                "scram-reset tls-peer={} stream={}",
+                connection.remote_id(),
+                send.id()
+            );
+            connection
+        }),
+    );
+    drop(observed.unwrap());
+    consumer.close().await.unwrap();
+    interrupted.close().await;
+
+    let current = provider
+        .address()
+        .ip_addrs()
+        .find(|address| address.is_ipv4())
+        .copied()
+        .unwrap();
+    assert_ne!(current, direct);
+    let now = service_policy::now();
+    let recent = |address: SocketAddr, observed_at, verified| {
+        serde_json::json!({
+            "address": {"Ip": address}, "observed_at": observed_at, "verified": verified,
+        })
+    };
+    for (label, contacts, udp, data_relay, expected) in [
+        (
+            "newer-ip",
+            vec![recent(direct, now - 100, true), recent(current, now, true)],
+            true,
+            true,
+            iroh::TransportAddr::Ip(current),
+        ),
+        (
+            "announced-ip",
+            vec![recent(current, now, false)],
+            true,
+            true,
+            iroh::TransportAddr::Relay(relay.clone()),
+        ),
+        (
+            "expired-ip",
+            vec![recent(current, now - 301, true)],
+            true,
+            true,
+            iroh::TransportAddr::Relay(relay.clone()),
+        ),
+        (
+            "expired-ip-without-relay",
+            vec![recent(current, now - 301, true)],
+            true,
+            false,
+            iroh::TransportAddr::Ip(current),
+        ),
+        (
+            "disabled-ip",
+            vec![recent(current, now, true)],
+            false,
+            true,
+            iroh::TransportAddr::Relay(relay.clone()),
+        ),
+    ] {
+        write_member_routes(&consumer_path, target.id, contacts);
+        let consumer = reopen_with_resources(&consumer_path, |resources| {
+            resources.udp_direct_disabled = !udp;
+            if data_relay {
+                resources.disabled_uses.remove(&ResourceUse::DataRelay);
+            } else {
+                resources.disabled_uses.insert(ResourceUse::DataRelay);
+            }
+        })
+        .await;
+        println!("redial-fixture {label}");
+        first_pong(&consumer, iroh::EndpointAddr::new(target.id), expected).await;
+        consumer.close().await.unwrap();
+    }
+
+    // The removed peer is stopped when the administrator applies the record,
+    // so the fresh dial reaches the target's refusal rather than a local check.
+    let peer = p2panda_core::VerifyingKey::from_bytes(consumer_id.as_bytes()).unwrap();
+    let proposal = provider
+        .propose_device_operation(DeviceAction::RemoveMember, peer)
+        .await
+        .unwrap();
+    let operation: DeviceOperation = serde_json::from_value(proposal["operation"].clone()).unwrap();
+    assert_eq!(
+        provider
+            .execute_device_operation(operation.id)
+            .await
+            .unwrap()["effective_locally"],
+        true
+    );
+    write_member_routes(&consumer_path, target.id, vec![recent(current, now, true)]);
+    let consumer = reopen_with_resources(&consumer_path, |resources| {
+        resources.udp_direct_disabled = false;
+    })
+    .await;
+    assert!(!consumer.status().await.membership_ended);
+    println!("redial-fixture target-denied");
+    let rejected = timeout(IO, consumer.ping(iroh::EndpointAddr::new(target.id)))
+        .await
+        .expect("the authenticated target rejected within the original attempt")
+        .unwrap_err();
+    assert_eq!(
+        rejected.downcast_ref::<std::io::Error>().unwrap().kind(),
+        std::io::ErrorKind::PermissionDenied
+    );
+    println!("target-admission-denied {rejected}");
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
+    stop.cancel();
+    server.shutdown().await.unwrap();
+}
+
+fn read_member_routes(path: &std::path::Path, peer: iroh::EndpointId) -> Vec<serde_json::Value> {
+    let bytes = std::fs::read(path.join("member.contacts.json")).unwrap();
+    let peers: Vec<serde_json::Value> = serde_json::from_slice(&bytes).unwrap();
+    let id = serde_json::to_value(peer).unwrap();
+    peers.iter().find(|entry| entry["id"] == id).unwrap()["routes"]
+        .as_array()
+        .unwrap()
+        .clone()
+}
+
+fn write_member_routes(
+    path: &std::path::Path,
+    peer: iroh::EndpointId,
+    routes: Vec<serde_json::Value>,
+) {
+    let saved = serde_json::json!([{"id":peer,"routes":routes}]);
+    std::fs::write(
+        path.join("member.contacts.json"),
+        serde_json::to_vec(&saved).unwrap(),
+    )
+    .unwrap();
+}
+
+#[tokio::test]
+async fn native_ping_reaches_a_configured_relay_when_the_advertised_relay_is_silent() {
+    let server = relay().await;
+    let healthy = server.http_url().unwrap();
+    let Pair {
+        root,
+        provider,
+        consumer,
+        target,
+    } = Pair::admit(healthy.clone()).await;
+    let backend = (Ipv4Addr::LOCALHOST, healthy.port().unwrap()).into();
+    let (silent, stop) = delayed_relay::delay_relay(backend, Duration::from_secs(30)).await;
+    consumer.close().await.unwrap();
+    let consumer = reopen_with_resources(&root.path().join("consumer"), |resources| {
+        resources.replacement = Some(vec![relay_resource(&healthy), relay_resource(&silent)]);
+    })
+    .await;
+    let target = iroh::EndpointAddr::new(target.id).with_relay_url(silent);
+    println!("redial-fixture silent-relay");
+    let start = Instant::now();
+    first_pong(&consumer, target, iroh::TransportAddr::Relay(healthy)).await;
+    let elapsed = start.elapsed();
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
+    stop.cancel();
+    server.shutdown().await.unwrap();
+    assert!(
+        elapsed >= Duration::from_millis(250),
+        "the second relay started after the stagger"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires an actual host LAN address in MIOPUNCH_TEST_LAN"]
+async fn native_ping_keeps_lan_candidates() {
+    let lan: Ipv4Addr = std::env::var("MIOPUNCH_TEST_LAN").unwrap().parse().unwrap();
+    let Pair {
+        root,
+        provider,
+        consumer,
+        ..
+    } = Pair::admit_with_resources(ResourceConfig {
+        replacement: Some(Vec::new()),
+        tcp_direct_disabled: true,
+        ..ResourceConfig::default()
+    })
+    .await;
+    let provider_id = provider.address().id;
+    let consumer_id = consumer.address().id;
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
+    let provider = NativeClient::open(root.path().join("provider"), lan)
+        .await
+        .unwrap();
+    let consumer_path = root.path().join("consumer");
+    let consumer = NativeClient::open(&consumer_path, lan).await.unwrap();
+    let addresses = provider.address();
+    assert_eq!(addresses.id, provider_id);
+    assert_eq!(consumer.address().id, consumer_id);
+    let ipv4 = addresses
+        .ip_addrs()
+        .copied()
+        .find(|address| address.ip() == std::net::IpAddr::V4(lan))
+        .unwrap();
+    println!("redial-fixture lan-ipv4");
+    first_pong(
+        &consumer,
+        iroh::EndpointAddr::new(provider_id).with_ip_addr(ipv4),
+        iroh::TransportAddr::Ip(ipv4),
+    )
+    .await;
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
 }
 
 #[tokio::test]

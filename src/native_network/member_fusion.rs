@@ -99,6 +99,10 @@ const ATTEMPT_EXPORTER_LABEL: &[u8] = b"EXPORTER-miopunch-member-fusion-attempt-
 
 fn attempt_log(connection: &ControlConnection) -> AttemptLog {
     let mut log = AttemptLog::new(AttemptRole::initial(connection), "member_fusion").with_round(1);
+    if let Some((attempt, route)) = connection.diagnostic_dial() {
+        log.local_id = attempt;
+        log.route_phase_id = Some(route);
+    }
     let mut attempt = [0; 16];
     if connection
         .export_keying_material(&mut attempt, ATTEMPT_EXPORTER_LABEL, b"")
@@ -120,17 +124,13 @@ impl MemberFusionAdmission for Authorization {
     async fn authorize(&self, connection: &ControlConnection) -> io::Result<ControlConfirmation> {
         let log = attempt_log(connection);
         let admission = log.phase("member-admission", json!({"peer": connection.remote_id()}));
-        if self
-            .gate
-            .authenticate_fusion_member(connection)
-            .await
-            .is_err()
-        {
-            admission.finish("rejected");
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "member admission rejected",
-            ));
+        if let Err(error) = self.gate.authenticate_fusion_member(connection).await {
+            if error.kind() == io::ErrorKind::PermissionDenied {
+                admission.finish("rejected");
+            } else {
+                admission.finish_with("failed", json!({"kind": format!("{:?}", error.kind())}));
+            }
+            return Err(error);
         }
         admission.finish("succeeded");
 
@@ -139,7 +139,11 @@ impl MemberFusionAdmission for Authorization {
             Box::pin(async move {
                 if !gate.allows(connection, ProtocolScope::Member) {
                     return Err(io::Error::new(
-                        io::ErrorKind::PermissionDenied,
+                        if connection.close_reason().is_some() {
+                            io::ErrorKind::ConnectionAborted
+                        } else {
+                            io::ErrorKind::PermissionDenied
+                        },
                         "member admission changed",
                     ));
                 }

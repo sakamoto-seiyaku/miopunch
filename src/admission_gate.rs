@@ -3,6 +3,7 @@
 //! TLS handshake alone never grants network data or management history.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::io::{self, ErrorKind};
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicU64, Ordering},
@@ -14,7 +15,7 @@ use iroh::endpoint::{
 };
 use iroh_base::EndpointId;
 
-use crate::admission_proof::{AdmissionScope, AdmissionSecret, BootstrapProof};
+use crate::admission_proof::{AdmissionScope, AdmissionSecret, BootstrapProof, ProofFailure};
 use crate::control_protocol::AuthenticatedControl;
 use crate::genesis_recovery::RECOVERY_ALPN;
 use crate::member_bootstrap::MEMBER_BOOTSTRAP_ALPN;
@@ -681,19 +682,25 @@ impl AdmissionGate {
         &self,
         connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<ProtocolScope, ()> {
-        self.authenticate_inner(connection, false).await
+        self.authenticate_inner(connection, false)
+            .await
+            .map_err(|_| ())
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) async fn authenticate_fusion_member(
         &self,
         connection: &iroh::endpoint::ControlConnection,
-    ) -> Result<(), ()> {
+    ) -> io::Result<()> {
         // The fusion endpoint supplies the bilateral stage on its qualified
         // candidates. All other protocols keep the existing exchange below.
-        match self.authenticate_inner(connection, true).await? {
+        match self
+            .authenticate_inner(connection, true)
+            .await
+            .map_err(io::Error::from)?
+        {
             ProtocolScope::Member => Ok(()),
-            _ => Err(()),
+            _ => Err(ErrorKind::InvalidInput.into()),
         }
     }
 
@@ -701,7 +708,7 @@ impl AdmissionGate {
         &self,
         connection: &(impl AuthenticatedControl + ?Sized),
         defer_stage: bool,
-    ) -> Result<ProtocolScope, ()> {
+    ) -> Result<ProtocolScope, ErrorKind> {
         let peer = *connection.remote_id().as_bytes();
         let (protocol, policy, allowed_data_custom_ids) = {
             let state = self.state.lock().expect("admission policy lock");
@@ -710,10 +717,10 @@ impl AdmissionGate {
                 .as_ref()
                 .is_some_and(|set| !set.contains(connection.alpn()))
             {
-                return Err(());
+                return Err(ErrorKind::InvalidInput);
             }
             let Some(protocol) = state.protocols.get(connection.alpn()).copied() else {
-                return Err(());
+                return Err(ErrorKind::InvalidInput);
             };
             (
                 protocol,
@@ -723,7 +730,7 @@ impl AdmissionGate {
         };
 
         if protocol != ProtocolScope::AdmissionRequest && policy.removed.contains(&peer) {
-            return Err(());
+            return Err(ErrorKind::PermissionDenied);
         }
         // An unregistered custom carrier cannot start a member protocol.
         if protocol == ProtocolScope::Member
@@ -732,7 +739,7 @@ impl AdmissionGate {
                     if !self.member_carrier_allowed(custom.id(), &allowed_data_custom_ids))
             })
         {
-            return Err(());
+            return Err(ErrorKind::NotConnected);
         }
         let proof = match protocol {
             ProtocolScope::Member if policy.service_guest(connection.alpn(), &peer) => None,
@@ -786,16 +793,24 @@ impl AdmissionGate {
                         .map(|secret| (policy.scope.clone(), secret))
                 };
                 let Some((scope, secret)) = selected else {
-                    return Err(());
+                    return Err(if protocol == ProtocolScope::Rotation {
+                        ErrorKind::InvalidInput
+                    } else {
+                        ErrorKind::PermissionDenied
+                    });
                 };
-                let result = if connection.side().is_client() {
-                    crate::admission_proof::prove_client(connection, &scope, &secret).await
+                let result = if defer_stage {
+                    crate::admission_proof::prove_fusion_member(connection, &scope, &secret).await
+                } else if connection.side().is_client() {
+                    crate::admission_proof::prove_client(connection, &scope, &secret)
+                        .await
+                        .map_err(ProofFailure::from)
                 } else {
-                    crate::admission_proof::prove_server(connection, &scope, &secret).await
+                    crate::admission_proof::prove_server(connection, &scope, &secret)
+                        .await
+                        .map_err(ProofFailure::from)
                 };
-                let Ok(proof) = result else {
-                    return Err(());
-                };
+                let proof = result.map_err(ProofFailure::admission_kind)?;
                 Some(Arc::new(proof))
             }
         };
@@ -807,7 +822,7 @@ impl AdmissionGate {
                     && (!state.policy.members.contains(&peer)
                         || !state.policy.members.contains(&state.policy.local_id)))
             {
-                return Err(());
+                return Err(ErrorKind::PermissionDenied);
             }
         }
         let coordinated_request = self.request_coordinator
@@ -817,7 +832,7 @@ impl AdmissionGate {
         let agreed = defer_stage || coordinated_request || agree_on_stage(connection).await;
 
         if !agreed {
-            return Err(());
+            return Err(ErrorKind::InvalidInput);
         }
         let weak = connection.revocation_handle();
         let closed = weak.closed();
@@ -826,21 +841,26 @@ impl AdmissionGate {
             let mut state = self.state.lock().expect("admission policy lock");
             let current = state.policy.clone();
             state.sessions.retain(|_, session| session.valid(&current));
-            if state.lifecycle_protocols.as_ref().is_some_and(|set| !set.contains(connection.alpn()))
+            if state
+                .lifecycle_protocols
+                .as_ref()
+                .is_some_and(|set| !set.contains(connection.alpn()))
                 || state.protocols.get(connection.alpn()) != Some(&protocol)
-                || state.sessions.len() >= MAX_SESSIONS
-                || state.sessions.contains_key(&connection.stable_id())
-                || (protocol == ProtocolScope::Member
-                    && connection.paths().iter().any(|path| {
-                        matches!(
-                            path.remote_addr(),
-                            iroh_base::TransportAddr::Custom(custom)
-                                if !self.member_carrier_allowed(custom.id(), &state.allowed_data_custom_ids)
-                        )
-                    }))
             {
-
-                return Err(());
+                return Err(ErrorKind::InvalidInput);
+            }
+            if state.sessions.len() >= MAX_SESSIONS
+                || state.sessions.contains_key(&connection.stable_id())
+            {
+                return Err(ErrorKind::WouldBlock);
+            }
+            if protocol == ProtocolScope::Member
+                && connection.paths().iter().any(|path| {
+                    matches!(path.remote_addr(), iroh_base::TransportAddr::Custom(custom)
+                    if !self.member_carrier_allowed(custom.id(), &state.allowed_data_custom_ids))
+                })
+            {
+                return Err(ErrorKind::NotConnected);
             }
             let session = Session {
                 connection: weak,
@@ -854,7 +874,11 @@ impl AdmissionGate {
                 direct_candidates: Default::default(),
             };
             if !session.valid(&state.policy) {
-                return Err(());
+                return Err(if session.connection.is_open() {
+                    ErrorKind::PermissionDenied
+                } else {
+                    ErrorKind::ConnectionAborted
+                });
             }
             state.sessions.insert(connection.stable_id(), session);
         }

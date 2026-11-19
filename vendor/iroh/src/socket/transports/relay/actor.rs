@@ -975,6 +975,8 @@ pub(crate) struct RelaySendItem {
     pub(crate) url: RelayUrl,
     /// One or more datagrams to send.
     pub(crate) datagrams: Datagrams,
+    /// A scoped bootstrap attempt must send through its own relay.
+    pub(crate) exact: bool,
 }
 
 pub(super) struct RelayActor {
@@ -1314,10 +1316,13 @@ impl RelayActor {
     ) -> Option<impl Future<Output = ()> + use<>> {
         let url = item.url.clone();
         let start = Instant::now();
-        let Some(handle) = self
-            .active_relay_handle_for_endpoint(&item.url, &item.remote_endpoint)
-            .await
-        else {
+        let handle = if item.exact {
+            self.active_relay_handle(item.url.clone())
+        } else {
+            self.active_relay_handle_for_endpoint(&item.url, &item.remote_endpoint)
+                .await
+        };
+        let Some(handle) = handle else {
             warn!(?url, "Dropped datagram(s): relay resource is forbidden.");
             return None;
         };
@@ -1823,6 +1828,7 @@ mod tests {
                             remote_endpoint: src,
                             url: relay_url.clone(),
                             datagrams,
+                            exact: false,
                         };
                         send_datagram_tx.send(send).await.ok();
                     }
@@ -1912,6 +1918,7 @@ mod tests {
             remote_endpoint: peer_endpoint,
             url: relay_url.clone(),
             datagrams: Datagrams::from(b"hello"),
+            exact: false,
         };
         send_recv_echo(
             hello_send_item.clone(),

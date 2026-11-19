@@ -238,6 +238,17 @@ impl Endpoint {
         addr: SocketAddr,
         server_name: &str,
     ) -> Result<Connecting, ConnectError> {
+        self.connect_with_sender_context(config, addr, server_name, &())
+    }
+
+    /// Start a connection with optional transport-specific context for its sender.
+    pub fn connect_with_sender_context(
+        &self,
+        config: ClientConfig,
+        addr: SocketAddr,
+        server_name: &str,
+        context: &dyn std::any::Any,
+    ) -> Result<Connecting, ConnectError> {
         let mut endpoint = self.inner.state.lock().unwrap();
         if endpoint.driver_lost || endpoint.recv_state.connections.close.is_some() {
             return Err(ConnectError::EndpointStopping);
@@ -255,7 +266,7 @@ impl Endpoint {
             .inner
             .connect(self.runtime.now(), config, addr, server_name)?;
 
-        let sender = endpoint.socket.create_sender();
+        let sender = endpoint.socket.create_sender_with_context(context);
         endpoint.stats.outgoing_handshakes += 1;
         Ok(endpoint
             .recv_state

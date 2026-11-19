@@ -1187,21 +1187,7 @@ impl TransportsSender {
                 }
             },
             FourTuple::Relay { url, endpoint_id } => {
-                let mut has_valid_sender = false;
-                for sender in self
-                    .relay
-                    .iter_mut()
-                    .filter(|s| s.is_valid_send_addr(url, endpoint_id))
-                {
-                    has_valid_sender = true;
-                    match sender.poll_send(cx, url.clone(), *endpoint_id, transmit) {
-                        Poll::Pending => {}
-                        Poll::Ready(res) => return Poll::Ready(res),
-                    }
-                }
-                if has_valid_sender {
-                    return Poll::Pending;
-                }
+                return self.poll_send_relay(cx, url, *endpoint_id, transmit, false);
             }
             FourTuple::Custom { remote, local } => {
                 for sender in &mut self.custom {
@@ -1220,6 +1206,34 @@ impl TransportsSender {
         trace!(%network_path, "no valid transport available");
         Poll::Ready(Ok(()))
     }
+
+    fn poll_send_relay(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        url: &RelayUrl,
+        endpoint_id: EndpointId,
+        transmit: &Transmit<'_>,
+        exact: bool,
+    ) -> Poll<io::Result<()>> {
+        let mut has_sender = false;
+        for sender in self
+            .relay
+            .iter_mut()
+            .filter(|s| s.is_valid_send_addr(url, &endpoint_id))
+        {
+            has_sender = true;
+            if let Poll::Ready(result) =
+                sender.poll_send(cx, url.clone(), endpoint_id, transmit, exact)
+            {
+                return Poll::Ready(result);
+            }
+        }
+        if has_sender {
+            Poll::Pending
+        } else {
+            Poll::Ready(Ok(()))
+        }
+    }
 }
 
 /// A [`Transports`] that works with [`MultipathMappedAddr`]s and their IPv6 representation.
@@ -1237,14 +1251,30 @@ impl Transport {
     pub(crate) fn new(sock: Arc<Socket>, transports: Transports) -> Self {
         Self { sock, transports }
     }
+
+    fn sender(&self) -> Sender {
+        Sender {
+            sock: self.sock.clone(),
+            sender: self.transports.create_sender(),
+            #[cfg(not(wasm_browser))]
+            exact_relay: None,
+        }
+    }
 }
 
 impl noq::AsyncUdpSocket for Transport {
     fn create_sender(&self) -> Pin<Box<dyn noq::UdpSender>> {
-        Box::pin(Sender {
-            sock: self.sock.clone(),
-            sender: self.transports.create_sender(),
-        })
+        Box::pin(self.sender())
+    }
+
+    #[cfg(not(wasm_browser))]
+    fn create_sender_with_context(
+        &self,
+        context: &dyn std::any::Any,
+    ) -> Pin<Box<dyn noq::UdpSender>> {
+        let mut sender = self.sender();
+        sender.exact_relay = context.downcast_ref::<ExactRelayBootstrap>().cloned();
+        Box::pin(sender)
     }
 
     fn poll_recv(
@@ -1342,8 +1372,17 @@ impl noq::AsyncUdpSocket for Transport {
 #[pin_project::pin_project]
 pub(crate) struct Sender {
     sock: Arc<Socket>,
+    #[cfg(not(wasm_browser))]
+    exact_relay: Option<ExactRelayBootstrap>,
     #[pin]
     sender: TransportsSender,
+}
+
+#[cfg(not(wasm_browser))]
+#[derive(Clone, Debug)]
+pub(crate) struct ExactRelayBootstrap {
+    pub(crate) address: SocketAddr,
+    pub(crate) released: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl Sender {
@@ -1506,12 +1545,23 @@ impl noq::UdpSender for Sender {
             contents: noq_transmit.contents,
             segment_size: noq_transmit.segment_size,
         };
+        #[cfg(not(wasm_browser))]
+        let exact = self.exact_relay.as_ref().is_some_and(|route| {
+            route.address == noq_transmit.destination
+                && !route.released.load(std::sync::atomic::Ordering::Acquire)
+        });
+        #[cfg(wasm_browser)]
+        let exact = false;
         let this = self.project();
 
-        match this
-            .sender
-            .poll_send_on_socket(cx, &network_path, local_socket, &transmit)
-        {
+        let sent = if exact && let FourTuple::Relay { url, endpoint_id } = &network_path {
+            this.sender
+                .poll_send_relay(cx, url, *endpoint_id, &transmit, true)
+        } else {
+            this.sender
+                .poll_send_on_socket(cx, &network_path, local_socket, &transmit)
+        };
+        match sent {
             Poll::Ready(Ok(())) => {
                 trace!(
                     dst = %network_path,

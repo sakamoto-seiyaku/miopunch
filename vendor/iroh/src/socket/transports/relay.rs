@@ -289,6 +289,7 @@ impl RelaySender {
         dest_url: RelayUrl,
         dest_endpoint: EndpointId,
         transmit: &Transmit<'_>,
+        exact: bool,
     ) -> Poll<io::Result<()>> {
         match ready!(self.sender.poll_reserve(cx)) {
             Ok(()) => {
@@ -297,6 +298,7 @@ impl RelaySender {
                     remote_endpoint: dest_endpoint,
                     url: dest_url.clone(),
                     datagrams: contents,
+                    exact,
                 };
                 match self.sender.send_item(item) {
                     Ok(()) => Poll::Ready(Ok(())),

@@ -404,6 +404,7 @@ pub(crate) async fn receive(connection: MemberConnection, services: MemberServic
 
 pub(crate) fn path_status(connection: &MemberConnection) -> Value {
     json!({"peer":connection.remote_id().to_string(), "connection":connection.stable_id(),
+        "initial_data_path":connection.initial_data_path(),
         "paths":connection.paths().iter().map(|path| json!({"remote":path.remote_addr(),
             "local":format!("{:?}",path.local_addr()),
             "selected":path.is_selected(),"tx_bytes":path.stats().udp_tx.bytes,

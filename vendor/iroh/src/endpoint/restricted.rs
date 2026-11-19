@@ -8,7 +8,7 @@ use n0_future::time::{self, Duration, Instant};
 use tokio::sync::Mutex;
 
 #[cfg(not(wasm_browser))]
-use super::member_fusion::{Fusion, MemberFusionEvent, SUPERSEDED_REASON};
+use super::member_fusion::{Fusion, MEMBER_ADMISSION_DENIED, MemberFusionEvent, SUPERSEDED_REASON};
 use super::{
     Accepting, AfterHandshakeOutcome, AlpnError, BindError, Builder, ConnectError, ConnectOptions,
     ConnectWithOptsError, Connecting, ConnectingError, Connection, Endpoint,
@@ -1708,10 +1708,33 @@ pub(super) async fn finish_admission(
     let fusion = policy.member_fusion();
     #[cfg(not(wasm_browser))]
     let mut member = fusion.map(|fusion| fusion.candidate(&connection));
+    // Once one peer authorizes QNT, it can open a faster IP path and retire
+    // the original before the other peer has checked its data-path permit.
+    // Keep the real bootstrap until this side finishes bilateral release.
+    #[cfg(not(wasm_browser))]
+    let bootstrap = fusion.and_then(|_| connection.hold_member_ip_bootstrap());
     #[cfg(not(wasm_browser))]
     let run_legacy_hook = member.is_none();
     #[cfg(wasm_browser)]
     let run_legacy_hook = true;
+    let report = |error: io::Error| {
+        #[cfg(not(wasm_browser))]
+        if fusion.is_some()
+            && error.kind() == io::ErrorKind::PermissionDenied
+            && connection.close_reason().is_none()
+        {
+            connection.close(0u32.into(), MEMBER_ADMISSION_DENIED);
+        }
+        error
+    };
+    let changed = |reason| {
+        let kind = if !run_legacy_hook && connection.close_reason().is_some() {
+            io::ErrorKind::ConnectionAborted
+        } else {
+            io::ErrorKind::PermissionDenied
+        };
+        report(io::Error::new(kind, reason))
+    };
     let result = async {
         let mut control = ControlConnection {
             control: ControlHandle {
@@ -1723,7 +1746,7 @@ pub(super) async fn finish_admission(
             },
             close_on_drop: true,
         };
-        let (permit, confirmation) = match policy.admit(&control).await? {
+        let (permit, confirmation) = match policy.admit(&control).await.map_err(&report)? {
             AdmissionOutcome::Accept(permit) => (Some(permit), None),
             AdmissionOutcome::AcceptWithConfirmation {
                 permit,
@@ -1770,10 +1793,7 @@ pub(super) async fn finish_admission(
         };
         permit.check(&control).await?;
         if !policy.is_current(&control) {
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "admission decision is no longer current",
-            ));
+            return Err(changed("admission decision is no longer current"));
         }
         // This is deliberately after the new policy and path checks: the old
         // hook receives a full Connection and may use its business methods.
@@ -1791,18 +1811,16 @@ pub(super) async fn finish_admission(
         }
         permit.check(&control).await?;
         if !policy.is_current(&control) {
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "admission changed during legacy handshake checks",
-            ));
+            return Err(changed("admission changed during legacy handshake checks"));
         }
-        control.channel.ready(&control, confirmation, 0).await?;
+        control
+            .channel
+            .ready(&control, confirmation, 0)
+            .await
+            .map_err(&report)?;
         permit.check(&control).await?;
         if !policy.is_current(&control) {
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "admission changed before delivery",
-            ));
+            return Err(changed("admission changed before delivery"));
         }
         endpoint
             .inner
@@ -1817,7 +1835,7 @@ pub(super) async fn finish_admission(
             Some(candidate) => {
                 permit.check(&control).await?;
                 if !policy.is_current(&control) {
-                    return Err(io::ErrorKind::PermissionDenied.into());
+                    return Err(changed("member admission changed before selection"));
                 }
                 match candidate.select(&control, policy, &permit).await {
                     Ok(selection) => Some(selection),
@@ -1825,7 +1843,7 @@ pub(super) async fn finish_admission(
                         connection.close(0u32.into(), SUPERSEDED_REASON);
                         return Err(error);
                     }
-                    Err(error) => return Err(error),
+                    Err(error) => return Err(report(error)),
                 }
             }
             None => None,
@@ -1833,15 +1851,15 @@ pub(super) async fn finish_admission(
         control.channel.retire().await?;
         permit.check(&control).await?;
         if !policy.is_current(&control) {
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "admission changed during delivery",
-            ));
+            return Err(changed("admission changed during delivery"));
         }
         policy.business_released(&connection);
         #[cfg(not(wasm_browser))]
         if let Some((fusion, selection)) = fusion.zip(selection) {
-            fusion.publish(selection, connection.clone());
+            if let Some(bootstrap) = bootstrap {
+                bootstrap.store(true, std::sync::atomic::Ordering::Release);
+            }
+            fusion.publish(selection, connection.clone(), permit.remote);
         }
         control.close_on_drop = false;
         Ok(RegisteredConnection::Business(connection.clone()))

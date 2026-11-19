@@ -1166,28 +1166,105 @@ impl ResourceEndpoint {
         if let Some(connection) = owner.reuse_until(target.id, deadline).await? {
             return Ok(Some(connection));
         }
-        self.merge_contact_hints(&mut target).await?;
+        let recent = self.merge_contact_hints(&mut target).await?;
         let signaling = self.signaling_contact_ids();
         let has_contact = target.addrs.iter().any(|addr| matches!(addr,
             iroh::TransportAddr::Custom(address) if signaling.contains(&address.id())));
         target.addrs.retain(|addr| self.allows_data_path(addr));
-        self.add_configured_relays(&mut target)?;
-        if target.addrs.is_empty() && has_contact {
+        let mut active = Vec::new();
+        if !self.config.udp_direct_disabled
+            && let Some(info) = self.endpoint.remote_info(target.id).await
+        {
+            for entry in info.addrs() {
+                if entry.addr().is_ip()
+                    && matches!(entry.usage(), iroh::endpoint::TransportAddrUsage::Active)
+                {
+                    active.push(entry.addr().clone());
+                }
+            }
+        }
+        target.addrs.extend(active.iter().cloned());
+        use n0_watcher::Watcher;
+        let local = self.endpoint.home_relay_status().get();
+        let mut fallbacks: Vec<_> = self.config.relay_map(ResourceUse::DataRelay)?.urls();
+        fallbacks.sort_by_key(|url| {
+            !local
+                .iter()
+                .any(|status| status.is_connected() && status.url() == url)
+        });
+        if target.addrs.is_empty() && fallbacks.is_empty() && has_contact {
             // Retain the deployed signaling-to-data entry until that path
             // can qualify a shared member connection itself.
             return owner.reuse_until(target.id, deadline).await;
         }
-        owner.connect_until(target, deadline, &tokio_util::sync::CancellationToken::new()).await.map(Some)
+        use crate::connection_coordinator::{AttemptRole, connection_diagnostic::AttemptLog};
+        let log = AttemptLog::new(AttemptRole::Initiator, "member_fusion").with_round(1);
+        let routes = iroh::endpoint::MemberDialOptions::new(active, recent, fallbacks)
+            .with_route_diagnostics(move |route, deadline| {
+                let hint = match route {
+                    iroh::TransportAddr::Ip(address) => serde_json::json!({"kind":"ip","address":address}),
+                    iroh::TransportAddr::Relay(url) => serde_json::json!({
+                        "kind":"relay","host":url.host_str(),"port":url.port_or_known_default()
+                    }),
+                    iroh::TransportAddr::Custom(addr) => serde_json::json!({
+                        "kind":"custom","transportId":addr.id().to_string()
+                    }),
+                    _ => serde_json::json!({"kind":"unknown"}),
+                };
+                let phase = log.phase("route-dial", serde_json::json!({
+                    "routeMode":"explicit",
+                    "routeHints":[hint],
+                    "budgetMs":deadline.saturating_duration_since(tokio::time::Instant::now()).as_millis() as u64,
+                }));
+                ((log.local_id, phase.id()), |result| match result {
+                    Ok(stable_id) => phase.finish_with("succeeded", serde_json::json!({
+                        "qualifiedStableId":stable_id
+                    })),
+                    Err(error) => {
+                        use std::io::ErrorKind;
+                        let reason = match error {
+                            ErrorKind::PermissionDenied => "admission",
+                            ErrorKind::InvalidData => "wrong_identity",
+                            ErrorKind::InvalidInput => "protocol",
+                            ErrorKind::WouldBlock => "busy",
+                            ErrorKind::Unsupported => "protocol_unsupported",
+                            ErrorKind::TimedOut => "deadline",
+                            _ => "transport",
+                        };
+                        phase.finish_with("failed", serde_json::json!({"reason":reason}));
+                    }
+                })
+            });
+        let routes = if self.config.udp_direct_disabled {
+            routes
+        } else {
+            routes.with_ip_discovery()
+        };
+        let connection = owner
+            .connect_with_routes_until(
+                target,
+                routes,
+                deadline,
+                &tokio_util::sync::CancellationToken::new(),
+            )
+            .await?;
+        if let Some(contacts) = &self.member_contacts {
+            contacts.observe_member(&connection).await?;
+        }
+        Ok(Some(connection))
     }
 
-    async fn merge_contact_hints(&self, target: &mut iroh::EndpointAddr) -> std::io::Result<()> {
+    async fn merge_contact_hints(
+        &self,
+        target: &mut iroh::EndpointAddr,
+    ) -> std::io::Result<Vec<iroh::TransportAddr>> {
         if let Some(known) = self.contacts.get_endpoint_info(target.id) {
             target.addrs.extend(known.into_endpoint_addr().addrs);
         }
         if let Some(contacts) = &self.member_contacts {
-            contacts.merge_async(target).await?;
+            return contacts.merge_async(target).await;
         }
-        Ok(())
+        Ok(Vec::new())
     }
 
     fn add_configured_relays(&self, target: &mut iroh::EndpointAddr) -> std::io::Result<()> {

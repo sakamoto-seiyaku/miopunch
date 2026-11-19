@@ -20,6 +20,9 @@ use super::{
     restricted::{AdmissionOutcome, BoxFuture, DynEndpointAdmission},
 };
 
+mod dial;
+pub use dial::MemberDialOptions;
+
 /// Application authorization for the native member ALPN.
 pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
     /// Authenticate the peer as a member of this network. The confirmation
@@ -344,11 +347,41 @@ impl MemberFusionEndpoint {
         deadline: Instant,
         cancellation: &CancellationToken,
     ) -> io::Result<MemberConnection> {
+        self.connect_inner(target, None, deadline, cancellation)
+            .await
+    }
+
+    /// Establish one shared connection using the supplied current contact
+    /// inputs. Only the caller that starts the shared attempt supplies routes
+    /// and its absolute deadline. Later waiters keep their own wait limits.
+    pub async fn connect_with_routes_until(
+        &self,
+        target: EndpointAddr,
+        routes: MemberDialOptions,
+        deadline: Instant,
+        cancellation: &CancellationToken,
+    ) -> io::Result<MemberConnection> {
+        self.connect_inner(target, Some(routes), deadline, cancellation)
+            .await
+    }
+
+    async fn connect_inner(
+        &self,
+        target: EndpointAddr,
+        routes: Option<MemberDialOptions>,
+        deadline: Instant,
+        cancellation: &CancellationToken,
+    ) -> io::Result<MemberConnection> {
+        let shared_deadline = if routes.is_some() {
+            deadline.min(Instant::now() + self.inner.setup)
+        } else {
+            Instant::now() + self.inner.setup
+        };
         tokio::select! { biased;
             _ = self.inner.fusion.shutdown.cancelled() => Err(io::ErrorKind::NotConnected.into()),
             _ = cancellation.cancelled() => Err(io::ErrorKind::Interrupted.into()),
             _ = time::sleep_until(deadline) => Err(io::ErrorKind::TimedOut.into()),
-            result = self.shared_connect(target) => result,
+            result = self.shared_connect(target, routes, shared_deadline) => result,
         }
     }
 
@@ -381,7 +414,12 @@ impl MemberFusionEndpoint {
         }
     }
 
-    async fn shared_connect(&self, target: EndpointAddr) -> io::Result<MemberConnection> {
+    async fn shared_connect(
+        &self,
+        target: EndpointAddr,
+        routes: Option<MemberDialOptions>,
+        deadline: Instant,
+    ) -> io::Result<MemberConnection> {
         let owner = &self.inner;
         let peer = owner.fusion.peer(target.id);
         let waiter = {
@@ -392,23 +430,30 @@ impl MemberFusionEndpoint {
             if let Some(waiter) = state.dial.as_ref().and_then(Dial::join) {
                 waiter
             } else {
-                let dial = Arc::new(Dial::new(owner.fusion.shutdown.child_token()));
+                let dial = Arc::new(Dial::new(
+                    owner.fusion.shutdown.child_token(),
+                    routes.is_some(),
+                ));
                 let waiter = dial.join().expect("new member dial");
                 state.dial = Some(dial.clone());
                 let endpoint = owner.endpoint.clone();
                 let alpn = owner.alpn.clone();
                 let peer = peer.clone();
                 tokio::spawn(async move {
-                    let result = async {
-                        let opts = ConnectOptions::default()
-                            .with_attempt_cancellation(dial.cancel.clone());
-                        let connecting = endpoint.connect_with_opts(target, &alpn, opts).await?;
-                        Ok::<_, ConnectError>(connecting.await?)
-                    }
-                    .await;
+                    let work = dial::Dial {
+                        endpoint: &endpoint,
+                        alpn: &alpn,
+                        deadline,
+                        cancel: &dial.cancel,
+                    };
+                    let result = tokio::select! { biased;
+                        _ = dial.cancel.cancelled() => Err(io::ErrorKind::Interrupted.into()),
+                        _ = time::sleep_until(deadline) => Err(io::ErrorKind::TimedOut.into()),
+                        result = work.run(target, routes) => result,
+                    };
                     let mut state = peer.state.lock().expect("member peer lock");
                     dial.state.lock().expect("member dial lock").result =
-                        Some(result.map(drop).map_err(Arc::new));
+                        Some(result.map_err(Arc::new));
                     if state
                         .dial
                         .as_ref()
@@ -469,40 +514,20 @@ async fn await_selected(
                 }
                 return Ok(Some(connection));
             }
-            if state.incoming == 0 {
-                let Some(waiter) = &waiter else {
-                    return Ok(None);
-                };
-                match &waiter.0.state.lock().expect("member dial lock").result {
-                    Some(Err(error)) => {
-                        let kind = match error.as_ref() {
-                            // TLS alert no_application_protocol. The application
-                            // may still have a dedicated browser service wire.
-                            ConnectError::Connecting {
-                                source:
-                                    ConnectingError::ConnectionError {
-                                        source: ConnectionError::ConnectionClosed(close),
-                                        ..
-                                    },
-                                ..
-                            } if close.error_code == noq::TransportErrorCode::crypto(0x78) => {
-                                io::ErrorKind::Unsupported
-                            }
-                            ConnectError::Connecting {
-                                source:
-                                    ConnectingError::AdmissionFailed {
-                                        kind: io::ErrorKind::PermissionDenied,
-                                        ..
-                                    },
-                                ..
-                            } => io::ErrorKind::PermissionDenied,
-                            _ => io::ErrorKind::Other,
-                        };
-                        return Err(io::Error::new(kind, error.clone()));
-                    }
-                    Some(Ok(())) => return Err(io::ErrorKind::NotConnected.into()),
-                    None => {}
+            let dial = waiter
+                .as_ref()
+                .map(|waiter| waiter.0.state.lock().expect("member dial lock"));
+            match dial.as_ref().and_then(|dial| dial.result.as_ref()) {
+                Some(Err(error))
+                    if state.incoming == 0 || error.kind() == io::ErrorKind::PermissionDenied =>
+                {
+                    return Err(io::Error::new(error.kind(), error.clone()));
                 }
+                Some(Ok(())) if state.incoming == 0 => {
+                    return Err(io::ErrorKind::NotConnected.into());
+                }
+                None if state.incoming == 0 && waiter.is_none() => return Ok(None),
+                _ => {}
             }
         }
         let _ = changed.changed().await;
@@ -558,8 +583,13 @@ pub(super) struct Fusion {
 }
 
 impl Fusion {
-    pub(super) fn publish(&self, selection: Selection, connection: Connection) {
-        let live = selection.publish(connection);
+    pub(super) fn publish(
+        &self,
+        selection: Selection,
+        connection: Connection,
+        data_path: TransportAddr,
+    ) {
+        let live = selection.publish(connection, data_path);
         if let Some(selected) = &self.selected {
             let _ = selected.send(Ok(live));
         }
@@ -603,7 +633,7 @@ struct Peer {
 struct PeerState {
     dial: Option<Arc<Dial>>,
     incoming: usize,
-    preferred: Option<Qualification>,
+    preferred: Vec<Qualification>,
     selection: Option<usize>,
     live: Option<MemberConnection>,
 }
@@ -618,9 +648,15 @@ impl PeerState {
 
     fn preferred_binding(&self) -> Option<CandidateBinding> {
         self.preferred
-            .as_ref()
-            .filter(|candidate| candidate.is_current())
+            .iter()
+            .find(|candidate| candidate.is_current())
             .map(|candidate| candidate.binding)
+    }
+
+    fn preferred_at(&self, binding: CandidateBinding) -> Option<&Qualification> {
+        self.preferred
+            .iter()
+            .find(|candidate| candidate.binding == binding && candidate.is_current())
     }
 }
 
@@ -628,20 +664,22 @@ impl PeerState {
 struct Dial {
     state: Mutex<DialState>,
     cancel: CancellationToken,
+    race_routes: bool,
 }
 
 #[derive(Debug, Default)]
 struct DialState {
     waiters: usize,
     satisfied: bool,
-    result: Option<Result<(), Arc<ConnectError>>>,
+    result: Option<Result<(), Arc<io::Error>>>,
 }
 
 impl Dial {
-    fn new(cancel: CancellationToken) -> Self {
+    fn new(cancel: CancellationToken, race_routes: bool) -> Self {
         Self {
             state: Mutex::default(),
             cancel,
+            race_routes,
         }
     }
 
@@ -688,13 +726,9 @@ impl Drop for Candidate {
             if self.incoming {
                 state.incoming -= 1;
             }
-            if state
+            state
                 .preferred
-                .as_ref()
-                .is_some_and(|preferred| Some(preferred.binding) == self.qualified)
-            {
-                state.preferred = None;
-            }
+                .retain(|preferred| Some(preferred.binding) != self.qualified);
             self.peer.changed.send_modify(|_| {});
         }
     }
@@ -710,6 +744,7 @@ const UNAVAILABLE: &[u8] = b"\x00";
 const COMMIT: &[u8] = b"\x02";
 const SUPERSEDED: &[u8] = b"\x03";
 pub(super) const SUPERSEDED_REASON: &[u8] = b"member connection superseded";
+pub(super) const MEMBER_ADMISSION_DENIED: &[u8] = b"member fusion admission denied";
 
 #[derive(Debug)]
 struct Qualification {
@@ -863,7 +898,12 @@ impl Candidate {
         if let Some(selection) = selection {
             permit.check(control).await?;
             if !policy.is_current(control) {
-                return Err(io::ErrorKind::PermissionDenied.into());
+                return Err(if control.close_reason().is_some() {
+                    io::ErrorKind::ConnectionAborted
+                } else {
+                    io::ErrorKind::PermissionDenied
+                }
+                .into());
             }
             exchange.send_message(STAGE, COMMIT).await?;
             exchange.finish_send().await?;
@@ -894,7 +934,10 @@ impl Candidate {
             // qualification. A later candidate cannot make a negative answer stale.
             reserved = self
                 .when_unselected(|state| {
-                    (state.preferred_binding() != Some(binding)).then(|| self.reserve_in(state, id))
+                    state
+                        .preferred_at(binding)
+                        .is_none()
+                        .then(|| self.reserve_in(state, id))
                 })
                 .await
                 .ok_or_else(superseded)?;
@@ -936,10 +979,16 @@ impl Candidate {
         // The local qualifier and the fallback's choice share the same decision
         // point. Without a qualified local alternate, READY leads straight to COMMIT.
         let choice = self
-            .when_unselected(|state| match state.preferred_binding() {
-                None => ReverseChoice::Reserve(self.reserve_in(state, id)),
-                Some(binding) if advertised == Some(binding) => ReverseChoice::Prefer(binding),
-                Some(binding) => ReverseChoice::Confirm(binding, self.reserve_in(state, id)),
+            .when_unselected(|state| {
+                if let Some(binding) =
+                    advertised.filter(|binding| state.preferred_at(*binding).is_some())
+                {
+                    ReverseChoice::Prefer(binding)
+                } else if let Some(binding) = state.preferred_binding() {
+                    ReverseChoice::Confirm(binding, self.reserve_in(state, id))
+                } else {
+                    ReverseChoice::Reserve(self.reserve_in(state, id))
+                }
             })
             .await;
         let binding = match choice {
@@ -993,7 +1042,12 @@ impl Candidate {
                 .expect("fusion uses bounded admission"),
             cancellation: control.attempt_cancellation(),
         };
-        self.peer.state.lock().expect("member peer lock").preferred = Some(qualification);
+        self.peer
+            .state
+            .lock()
+            .expect("member peer lock")
+            .preferred
+            .push(qualification);
         self.qualified = Some(binding);
         Ok(())
     }
@@ -1013,10 +1067,7 @@ impl Candidate {
         loop {
             let deadline = {
                 let state = self.peer.state.lock().expect("member peer lock");
-                let peer_choice = state
-                    .preferred
-                    .as_ref()
-                    .filter(|candidate| candidate.binding == binding && candidate.is_current());
+                let peer_choice = state.preferred_at(binding);
                 let Some(candidate) = peer_choice else { return };
                 if state.connection().is_some() {
                     return;
@@ -1089,12 +1140,24 @@ pub(super) struct Selection {
 }
 
 impl Selection {
-    fn publish(self, connection: Connection) -> Weak<Live> {
+    fn publish(self, connection: Connection, data_path: TransportAddr) -> Weak<Live> {
         let live = MemberConnection(Arc::new(Live {
             connection,
+            data_path,
             activity: Arc::new(Activity::default()),
         }));
-        self.peer.state.lock().expect("member peer lock").live = Some(live.clone());
+        {
+            let mut state = self.peer.state.lock().expect("member peer lock");
+            state.live = Some(live.clone());
+            if live.side().is_server()
+                && let Some(dial) = &state.dial
+                && dial.race_routes
+            {
+                // Stop unstaged routes and stagger timers. The single mapped
+                // dial already retires through the bilateral selection stage.
+                dial.cancel.cancel();
+            }
+        }
         let selected = Arc::downgrade(&live.0);
         let peer = self.peer.clone();
         let idle_timeout = self.idle_timeout;
@@ -1151,6 +1214,11 @@ impl MemberConnection {
     /// Paths currently in use by the original connection.
     pub fn paths(&self) -> PathList<'_> {
         self.0.connection.paths()
+    }
+
+    /// Remote address of the original data path verified at business handoff.
+    pub fn initial_data_path(&self) -> &TransportAddr {
+        &self.0.data_path
     }
 
     /// Export material bound to the selected original TLS connection.
@@ -1306,6 +1374,7 @@ pub struct MemberStreamLease {
 #[derive(Debug)]
 struct Live {
     connection: Connection,
+    data_path: TransportAddr,
     activity: Arc<Activity>,
 }
 

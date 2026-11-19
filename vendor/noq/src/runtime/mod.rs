@@ -54,6 +54,12 @@ pub trait AsyncUdpSocket: Send + Sync + Debug + 'static {
     /// [`Waker`]: std::task::Waker
     fn create_sender(&self) -> Pin<Box<dyn UdpSender>>;
 
+    /// Create a sender with socket-specific context for one outgoing connection.
+    /// Ordinary UDP sockets use the same sender for all contexts.
+    fn create_sender_with_context(&self, _context: &dyn std::any::Any) -> Pin<Box<dyn UdpSender>> {
+        self.create_sender()
+    }
+
     /// Receive UDP datagrams, or register to be woken if receiving may succeed in the future
     fn poll_recv(
         &mut self,
