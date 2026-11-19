@@ -365,7 +365,9 @@ impl RestrictedEndpoint {
         &self,
         observers: &[crate::RelayUrl],
     ) -> io::Result<super::UdpMappingSequence> {
-        self.inner.observe_udp_stun_mapping_sequence(observers).await
+        self.inner
+            .observe_udp_stun_mapping_sequence(observers)
+            .await
     }
     /// Observation publication epoch, distinct from the physical network epoch.
     #[cfg(not(wasm_browser))]
@@ -1096,6 +1098,16 @@ impl ControlHandle {
         self.endpoint
             .observe_udp_stun_mapping_sequence(observers)
             .await
+    }
+
+    /// Race permitted QAD and STUN observations on the endpoint's IPv4 binding.
+    #[cfg(not(wasm_browser))]
+    pub async fn observe_udp_mapping_round(
+        &self,
+        qad: &crate::RelayMap,
+        stun: &[crate::RelayUrl],
+    ) -> io::Result<super::UdpMappingSequence> {
+        self.endpoint.observe_udp_mapping_round(qad, stun).await
     }
     /// Validate through the exact retained physical binding of this connection.
     #[cfg(not(wasm_browser))]

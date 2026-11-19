@@ -25,6 +25,31 @@ use tracing::{debug, trace};
 use url::Url;
 
 pub use self::conn::{RecvError, SendError};
+
+static RELAY_DIAGNOSTICS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[doc(hidden)]
+pub fn enable_relay_diagnostics() {
+    RELAY_DIAGNOSTICS.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+#[doc(hidden)]
+pub fn relay_diagnostics_enabled() -> bool {
+    RELAY_DIAGNOSTICS.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+#[doc(hidden)]
+pub fn relay_diagnostic(message: std::fmt::Arguments<'_>) {
+    #[cfg(not(wasm_browser))]
+    if relay_diagnostics_enabled() {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default();
+        eprintln!("[MIO140-RELAY] {} {message}", now.as_micros());
+    }
+    #[cfg(wasm_browser)]
+    let _ = message;
+}
 use crate::{
     KeyCache,
     http::{ProtocolVersion, RELAY_PATH},
@@ -293,7 +318,13 @@ impl ClientBuilder {
                 .prefer_ipv6(self.prefer_ipv6())
                 .proxy_url(self.proxy_url.clone());
 
+        let start = n0_future::time::Instant::now();
         let stream = builder.connect().await?;
+        relay_diagnostic(format_args!(
+            "tls-ready relay={} elapsed_ms={}",
+            dial_url.host_str().unwrap_or_default(),
+            start.elapsed().as_millis()
+        ));
         let local_addr = stream
             .as_ref()
             .local_addr()
@@ -333,7 +364,13 @@ impl ClientBuilder {
                     "impossible: CLIENT_AUTH_HEADER isn't a disallowed header value for websockets",
                 );
         }
+        let start = n0_future::time::Instant::now();
         let (conn, response) = builder.connect_on(stream).await.anyerr()?;
+        relay_diagnostic(format_args!(
+            "websocket-ready relay={} elapsed_ms={}",
+            dial_url.host_str().unwrap_or_default(),
+            start.elapsed().as_millis()
+        ));
 
         n0_error::ensure!(
             response.status() == hyper::StatusCode::SWITCHING_PROTOCOLS,

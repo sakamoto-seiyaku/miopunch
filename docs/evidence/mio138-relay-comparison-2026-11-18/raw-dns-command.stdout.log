@@ -1,0 +1,23 @@
+actor exit=0
+
+running 1 test
+{"event":"mio138-dns-step","label":"before-resolver","local":"0.0.0.0:51488","server":"172.24.0.10:53","stage":"bound"}
+{"bytes":43,"elapsedMs":1,"event":"mio138-dns-step","label":"before-resolver","stage":"sent"}
+{"elapsedMs":2006,"event":"mio138-dns-raw-result","label":"before-resolver","outcome":{"error":"deadline has elapsed"},"stage":"recv"}
+{"elapsedMs":3007,"event":"mio138-dns-sdk-result","host":"aps1-1.relay.n0.iroh.link.","outcome":{"error":"Request timed out"}}
+{"event":"mio138-dns-step","label":"after-resolver","local":"0.0.0.0:51320","server":"172.24.0.10:53","stage":"bound"}
+{"bytes":43,"elapsedMs":1,"event":"mio138-dns-step","label":"after-resolver","stage":"sent"}
+{"elapsedMs":2010,"event":"mio138-dns-raw-result","label":"after-resolver","outcome":{"error":"deadline has elapsed"},"stage":"recv"}
+{"at":1795006998505,"event":"mio138-endpoint-ready","home":[{"connected":false,"error":null,"url":"https://aps1-1.relay.n0.iroh.link./"}],"homePolicy":"https://aps1-1.relay.n0.iroh.link./","identity":"6e1625803502e06efca734a20b511e4acfcf6bcd129e84a2440408705e63af7d","mode":"serve","permissions":["https://aps1-1.relay.n0.iroh.link./","https://euc1-1.relay.n0.iroh.link./","https://use1-1.relay.n0.iroh.link./","https://usw1-1.relay.n0.iroh.link./"],"sockets":[]}
+{"at":1795006998506,"elapsedMs":1,"event":"mio138-home","home":[{"connected":false,"error":null,"url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795007003626,"elapsedMs":5121,"event":"mio138-home","home":[{"connected":false,"error":"Failed to connect to relay server\nCaused by:\n    unable to connect\n    Resolve failed, IPv4: Request timed out, IPv6: Request timed out","url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795007003735,"elapsedMs":5230,"event":"mio138-home","home":[{"connected":false,"error":null,"url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795007006797,"elapsedMs":8292,"event":"mio138-home","home":[{"connected":false,"error":"Failed to connect to relay server\nCaused by:\n    unable to connect\n    Resolve failed, IPv4: Request timed out, IPv6: Request timed out","url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795007007015,"elapsedMs":8510,"event":"mio138-home","home":[{"connected":false,"error":null,"url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795007008511,"completed":false,"elapsedMs":10006,"event":"mio138-registration-wait","home":[{"connected":false,"error":null,"url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795007008515,"event":"mio138-dns-state","nameserversDebug":"[Nameserver { addr: 172.24.0.10:53, protocol: Udp, server_name: None }, Nameserver { addr: 1.1.1.1:53, protocol: Udp, server_name: None }, Nameserver { addr: 8.8.8.8:53, protocol: Udp, server_name: None }, Nameserver { addr: 1.1.1.1:443, protocol: Https, server_name: None }, Nameserver { addr: 8.8.8.8:443, protocol: Https, server_name: None }, Nameserver { addr: 9.9.9.9:443, protocol: Https, server_name: None }, Nameserver { addr: 9.9.9.9:53, protocol: Udp, server_name: None }, Nameserver { addr: [2606:4700:4700::1111]:53, protocol: Udp, server_name: None }, Nameserver { addr: [2001:4860:4860::8888]:53, protocol: Udp, server_name: None }, Nameserver { addr: [2620:fe::fe]:53, protocol: Udp, server_name: None }, Nameserver { addr: 1.0.0.1:53, protocol: Udp, server_name: None }, Nameserver { addr: 8.8.4.4:53, protocol: Udp, server_name: None }, Nameserver { addr: 149.112.112.112:53, protocol: Udp, server_name: None }, Nameserver { addr: [2606:4700:4700::1001]:53, protocol: Udp, server_name: None }, Nameserver { addr: [2001:4860:4860::8844]:53, protocol: Udp, server_name: None }, Nameserver { addr: [2620:fe::9]:53, protocol: Udp, server_name: None }]","runtime":"tokio-current-thread"}
+{"event":"mio138-result","outcome":{"serverFinished":true}}
+test relay_probe_actor ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 18.21s
+

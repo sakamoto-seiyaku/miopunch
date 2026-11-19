@@ -1,8 +1,8 @@
 //! Native gate/candidate adapter for the common member coordinator.
 use super::{
-    AttemptContext, AttemptRole, MemberPathAdapter, PathPlan, Platform, PreparedPath,
-    ProtectedAttempt, RELAY, RTC, RepairFailure, RtcRole, RuntimeCapabilities, SessionPurpose, TCP,
-    UDP,
+    AttemptContext, AttemptRole, BackgroundRelayRace, MemberPathAdapter, PathPlan, Platform,
+    PreparedPath, ProtectedAttempt, RELAY, RTC, RepairFailure, RtcRole, RuntimeCapabilities,
+    SessionPurpose, TCP, UDP,
     connection_diagnostic::{self, AttemptLog},
     control_error,
 };
@@ -135,10 +135,26 @@ impl CoordinatorHook {
         original: &'a Connection,
         target: iroh::EndpointAddr,
         attempt: AttemptContext,
+        seal_hello: impl FnOnce() -> io::Result<()> + 'a,
     ) -> impl Future<Output = io::Result<CommittedPath>> + 'a {
         let mut log = AttemptLog::new(AttemptRole::Initiator, "maintenance_improvement");
         log.original = Some(original.stable_id());
-        self.improve_logged(endpoint, original, target, attempt, log)
+        let preferred = original
+            .paths()
+            .iter()
+            .find(|path| {
+                path.is_selected() && path.is_relay() && target.addrs.contains(path.remote_addr())
+            })
+            .map(|path| path.remote_addr().clone());
+        self.improve_logged(
+            endpoint,
+            original,
+            target,
+            attempt,
+            log,
+            Some(BackgroundRelayRace { preferred }),
+            seal_hello,
+        )
     }
 
     async fn improve_logged(
@@ -148,6 +164,8 @@ impl CoordinatorHook {
         target: iroh::EndpointAddr,
         attempt: AttemptContext,
         log: AttemptLog,
+        race: Option<BackgroundRelayRace>,
+        seal_hello: impl FnOnce() -> io::Result<()>,
     ) -> io::Result<CommittedPath> {
         let role = AttemptRole::initial(original);
         let caps = self.capabilities_for(original, role);
@@ -165,6 +183,7 @@ impl CoordinatorHook {
             contact_ids,
         )
         .with_member_data(crate::member_transport::DATA_TRANSPORT_ID)
+        .with_background_relay_race(race)
         .connect_active_control(target, attempt.clone(), log)
         .await
         .map_err(|error| io::Error::other(error.to_string()))?;
@@ -178,6 +197,7 @@ impl CoordinatorHook {
             &NativeControlAdapter(self.clone()),
             attempt,
             log,
+            seal_hello,
         )
         .await
     }
@@ -262,6 +282,8 @@ impl CoordinatorHook {
                 contact,
                 attempt.clone(),
                 log,
+                None,
+                || Ok(()),
             ))
             .await
             .map_err(|cause| io::Error::other(format!("repair attempt: {cause:?}")))
@@ -811,12 +833,27 @@ impl iroh::endpoint::EndpointAdmission for NativeAdmission {
         &self,
         connection: &iroh::endpoint::ControlConnection,
     ) -> io::Result<iroh::endpoint::AdmissionOutcome> {
-        let scope = self
-            .gate
-            .authenticate(connection)
-            .await
-            .map_err(|()| control_error("IdentityOrAdmissionRejected"))?;
         let purpose = SessionPurpose::from_alpn(connection.alpn());
+        let admission = (purpose == Some(SessionPurpose::ActiveImprovement)).then(|| {
+            let handle = connection.control_handle();
+            let mut log =
+                AttemptLog::new(AttemptRole::initial(&handle), "active_control_admission");
+            log.control = Some(handle.stable_id());
+            if let Some((attempt, route)) = handle.diagnostic_dial() {
+                log.local_id = attempt;
+                log.route_phase_id = Some(route);
+            }
+            log.phase("control-admission", serde_json::Value::Null)
+        });
+        let scope = match self.gate.authenticate(connection).await {
+            Ok(scope) => scope,
+            Err(()) => {
+                if let Some(phase) = admission {
+                    phase.finish("rejected");
+                }
+                return Err(control_error("IdentityOrAdmissionRejected"));
+            }
+        };
         if purpose.is_none() && scope == crate::admission_gate::ProtocolScope::Member {
             return self.admit_registered_member(connection).await;
         }
@@ -831,7 +868,11 @@ impl iroh::endpoint::EndpointAdmission for NativeAdmission {
                 iroh::endpoint::AdmissionOutcome::ControlOnlyWithConfirmation(
                     iroh::endpoint::ControlConfirmation::with_control(move |control| {
                         Box::pin(async move {
-                            if gate.allows(control, scope) {
+                            let allowed = gate.allows(control, scope);
+                            if let Some(phase) = admission {
+                                phase.finish(if allowed { "succeeded" } else { "rejected" });
+                            }
+                            if allowed {
                                 Ok(())
                             } else {
                                 Err(control_error("IdentityOrAdmissionRejected"))

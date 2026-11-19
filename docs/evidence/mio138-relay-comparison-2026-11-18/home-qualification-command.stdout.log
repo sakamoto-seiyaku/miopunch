@@ -1,0 +1,26 @@
+qualification exit=0
+
+running 1 test
+{"at":1795005683352,"event":"mio138-endpoint-ready","home":[{"connected":false,"error":null,"url":"https://aps1-1.relay.n0.iroh.link./"}],"homePolicy":"https://aps1-1.relay.n0.iroh.link./","identity":"6e1625803502e06efca734a20b511e4acfcf6bcd129e84a2440408705e63af7d","mode":"serve","permissions":["https://aps1-1.relay.n0.iroh.link./","https://euc1-1.relay.n0.iroh.link./","https://use1-1.relay.n0.iroh.link./","https://usw1-1.relay.n0.iroh.link./"],"sockets":[]}
+{"at":1795005683354,"elapsedMs":1,"event":"mio138-home","home":[{"connected":false,"error":null,"url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795005692419,"elapsedMs":9067,"event":"mio138-home","home":[{"connected":false,"error":"Failed to connect to relay server\nCaused by:\n    unable to connect\n    Resolve failed, IPv4: Request timed out, IPv6: Request timed out","url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795005692526,"elapsedMs":9173,"event":"mio138-home","home":[{"connected":false,"error":null,"url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795005693366,"completed":false,"elapsedMs":10013,"event":"mio138-registration-wait","home":[{"connected":false,"error":null,"url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795005695580,"elapsedMs":12227,"event":"mio138-home","home":[{"connected":false,"error":"Failed to connect to relay server\nCaused by:\n    unable to connect\n    Resolve failed, IPv4: Request timed out, IPv6: Request timed out","url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795005695690,"elapsedMs":12337,"event":"mio138-home","home":[{"connected":false,"error":null,"url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795005698745,"elapsedMs":15392,"event":"mio138-home","home":[{"connected":false,"error":"Failed to connect to relay server\nCaused by:\n    unable to connect\n    Resolve failed, IPv4: Request timed out, IPv6: Request timed out","url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795005698964,"elapsedMs":15612,"event":"mio138-home","home":[{"connected":false,"error":null,"url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795005702023,"elapsedMs":18670,"event":"mio138-home","home":[{"connected":false,"error":"Failed to connect to relay server\nCaused by:\n    unable to connect\n    Resolve failed, IPv4: Request timed out, IPv6: Request timed out","url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795005702349,"elapsedMs":18996,"event":"mio138-home","home":[{"connected":false,"error":null,"url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795005705403,"elapsedMs":22050,"event":"mio138-home","home":[{"connected":false,"error":"Failed to connect to relay server\nCaused by:\n    unable to connect\n    Resolve failed, IPv4: Request timed out, IPv6: Request timed out","url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"at":1795005706169,"elapsedMs":22816,"event":"mio138-home","home":[{"connected":false,"error":null,"url":"https://aps1-1.relay.n0.iroh.link./"}]}
+{"event":"mio138-result","outcome":{"serverFinished":true}}
+test relay_probe_actor ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 25.14s
+
+invalid mode exit=101
+
+thread 'relay_probe_actor' (16356) panicked at tests/relay_route_comparison.rs:416:79:
+called `Result::unwrap()` on an `Err` value: Error("unknown variant `serv`, expected one of `prepare`, `serve`, `connect`", line: 2, column: 19)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

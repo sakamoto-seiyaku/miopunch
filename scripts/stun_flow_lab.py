@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One owned dual-kernel-NAT lifecycle: QAD, STUN backup, disable, restore."""
+"""One owned dual-kernel-NAT lifecycle with either observation protocol blocked."""
 import pathlib
 import subprocess
 import sys
@@ -28,6 +28,8 @@ done
 # cannot preempt the sequence seam. The actual QAD service is healthy when
 # the ordinary admitted path reaches its observation round.
 ip netns exec "$wan" iptables -I INPUT 1 -p udp --dport 7842 -j DROP
+# Let QAD supply both samples in this phase even though STUN races it.
+ip netns exec "$wan" iptables -I INPUT 1 -p udp --dport 3478:3479 -j DROP
 
 run_phase() {
   local phase=$1
@@ -74,27 +76,24 @@ run_phase() {
     grep -q DATA_OK "$phase_dir/client.log"
     grep -q DATA_OK "$phase_dir/server.log"
     grep -q STUN_FLOW_SYNC "$phase_dir/client.log"
-    if [[ $phase == qad ]]; then
-      grep -q '^LEGACY_SAMPLE .*observer=https://' "$phase_dir/client.log"
-      grep -q '^LEGACY_SAMPLE .*observer=https://' "$phase_dir/server.log"
-      ! grep -q STUN_UDP_SEND "$phase_dir/client.log"
-      ! grep -q STUN_UDP_SEND "$phase_dir/server.log"
-      ! grep -q STUN_UDP_BINDING "$evidence/udp-observer.log"
-    else
-      if [[ $phase != coalesced ]]; then
-        grep -q QAD_SEQUENCE_UNAVAILABLE "$phase_dir/client.log"
-        grep -q QAD_SEQUENCE_UNAVAILABLE "$phase_dir/server.log"
+    for side in client server; do
+      log="$phase_dir/$side.log"
+      [[ $(grep -c '^LEGACY_SAMPLE ' "$log") == 2 ]]
+      grep -q '^LEGACY_FEATURE feature=Some' "$log"
+      if [[ $phase == qad ]]; then
+        [[ $(grep -c '^LEGACY_SAMPLE .*observer=https://' "$log") == 2 ]]
+      elif [[ $phase == coalesced ]]; then
+        grep -q '^LEGACY_SAMPLE .*observer=stun://' "$log"
+      else
+        [[ $(grep -c '^LEGACY_SAMPLE .*observer=stun://' "$log") == 2 ]]
       fi
-      [[ $(grep -c '^LEGACY_SAMPLE .*observer=stun://' "$phase_dir/client.log") == 4 ]]
-      [[ $(grep -c '^LEGACY_SAMPLE .*observer=stun://' "$phase_dir/server.log") == 4 ]]
-      grep -q '^LEGACY_FEATURE feature=Some' "$phase_dir/client.log"
-      grep -q '^LEGACY_FEATURE feature=Some' "$phase_dir/server.log"
-    fi
+    done
   fi
   date -u +%FT%TZ > "$phase_dir/finished.txt"
   echo "PASS STUN_FLOW phase=$phase"
 }
 run_phase qad
+ip netns exec "$wan" iptables -D INPUT -p udp --dport 3478:3479 -j DROP
 # Only QAD becomes unavailable; all STUN, signaling and peer routes stay allowed.
 ip netns exec "$wan" iptables -I INPUT 1 -p udp --dport 7842 -j DROP
 run_phase backup
@@ -102,11 +101,15 @@ env MIO43_CASE=stun_udp MIO43_ROLE=disable_stun MIO43_DIRECTORY="$runtime/nodes"
 run_phase disabled
 env MIO43_CASE=stun_udp MIO43_ROLE=restore_stun MIO43_DIRECTORY="$runtime/nodes" "$probe" --exact tcp_native_punch_worker --nocapture > "$evidence/restore-config.log" 2>&1
 run_phase restored
-echo 'PASS QAD-primary STUN-backup priority-disable exact-restore same-identities'
+echo 'PASS QAD-and-STUN resource-disable exact-restore same-identities'
 '''
     if coalesced:
         source = source.replace("100.64.27.5 qad2.miopunch.test", "100.64.27.1 qad2.miopunch.test")
-        source = source[:source.index("\nrun_phase qad\n")] + "\nrun_phase coalesced\necho 'PASS QAD DNS coalescence selects distinct STUN destinations'\n"
+        source = source[:source.index("\nrun_phase qad\n")] + r"""
+ip netns exec "$wan" iptables -D INPUT -p udp --dport 3478:3479 -j DROP
+run_phase coalesced
+echo 'PASS QAD DNS coalescence retains two distinct destinations'
+"""
     output.mkdir(parents=True, exist_ok=True)
     (output / "fixture.sh").write_text(source)
     with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", prefix="mio67-") as script:

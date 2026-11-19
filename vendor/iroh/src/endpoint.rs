@@ -167,6 +167,8 @@ pub struct Builder {
     path_selector_explicit: bool,
     portmapper_config: PortmapperConfig,
     net_report_config: NetReportConfig,
+    #[cfg(not(wasm_browser))]
+    qad_x25519_sni: Option<(String, u16)>,
     observation_servers: Option<RelayMap>,
     crypto_provider: Option<Arc<rustls::crypto::CryptoProvider>>,
     configured_addrs: BTreeSet<SocketAddr>,
@@ -317,6 +319,8 @@ impl Builder {
             path_selector_explicit: false,
             portmapper_config: Default::default(),
             net_report_config: Default::default(),
+            #[cfg(not(wasm_browser))]
+            qad_x25519_sni: None,
             observation_servers: None,
             crypto_provider: None,
             configured_addrs: Default::default(),
@@ -362,11 +366,26 @@ impl Builder {
 
         let metrics = EndpointMetrics::default();
 
-        let tls_config = self
-            .ca_tls_config
-            .unwrap_or_default()
-            .client_config(crypto_provider)
+        let ca_tls_config = self.ca_tls_config.unwrap_or_default();
+        let tls_config = ca_tls_config
+            .client_config(crypto_provider.clone())
             .map_err(|err| e!(BindError::InvalidCaRootConfig, err))?;
+        #[cfg(not(wasm_browser))]
+        let qad_tls_config = if let Some(observer) = self.qad_x25519_sni {
+            let mut qad_provider = (*crypto_provider).clone();
+            qad_provider
+                .kx_groups
+                .retain(|group| group.name() == rustls::NamedGroup::X25519);
+            if qad_provider.kx_groups.is_empty() {
+                return Err(e!(BindError::InvalidCryptoProvider));
+            }
+            let config = ca_tls_config
+                .client_config(Arc::new(qad_provider))
+                .map_err(|err| e!(BindError::InvalidCaRootConfig, err))?;
+            Some((observer, config))
+        } else {
+            None
+        };
 
         #[cfg(not(wasm_browser))]
         let dns_resolver = self.dns_resolver.unwrap_or_else(|| {
@@ -391,6 +410,8 @@ impl Builder {
             connection_path_selector: self.connection_path_selector,
             portmapper_config: self.portmapper_config,
             net_report_config: self.net_report_config,
+            #[cfg(not(wasm_browser))]
+            qad_tls_config,
             observation_servers: self.observation_servers,
             static_config,
             configured_addrs: self.configured_addrs,
@@ -975,6 +996,14 @@ impl Builder {
     /// [`BindError::InvalidTransportConfig`].
     pub fn observation_servers(mut self, servers: RelayMap) -> Self {
         self.observation_servers = Some(servers);
+        self
+    }
+
+    /// Use only X25519 and fragment the Initial SNI for QAD probes to this
+    /// IPv4 observer. The observation resource policy still controls dialing.
+    #[cfg(not(wasm_browser))]
+    pub fn qad_x25519_sni(mut self, host: impl Into<String>, port: u16) -> Self {
+        self.qad_x25519_sni = Some((host.into(), port));
         self
     }
 
@@ -1986,6 +2015,17 @@ impl Endpoint {
         observers: &RelayMap,
     ) -> std::io::Result<UdpMappingSequence> {
         self.inner.observe_udp_mapping_sequence(observers).await
+    }
+
+    /// Race QAD and STUN on the endpoint's sole IPv4 binding. Returns up to
+    /// two independent mappings in arrival order, without allocation-order evidence.
+    #[cfg(not(wasm_browser))]
+    pub async fn observe_udp_mapping_round(
+        &self,
+        qad: &RelayMap,
+        stun: &[RelayUrl],
+    ) -> std::io::Result<UdpMappingSequence> {
+        self.inner.observe_udp_mapping_round(qad, stun).await
     }
 
     /// A local generation token for a candidate-only traversal snapshot when

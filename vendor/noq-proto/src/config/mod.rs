@@ -560,6 +560,8 @@ pub struct ClientConfig {
 
     /// QUIC protocol version to use
     pub(crate) version: u32,
+
+    pub(crate) initial_sni_fragmentation: bool,
 }
 
 impl ClientConfig {
@@ -573,6 +575,7 @@ impl ClientConfig {
                 RandomConnectionIdGenerator::new(MAX_CID_SIZE).generate_cid()
             }),
             version: 1,
+            initial_sni_fragmentation: false,
         }
     }
 
@@ -609,6 +612,13 @@ impl ClientConfig {
     /// Set the QUIC version to use
     pub fn version(&mut self, version: u32) -> &mut Self {
         self.version = version;
+        self
+    }
+
+    /// Send the latter half of the ClientHello's SNI in a separate CRYPTO frame
+    /// after the rest of the ClientHello, retaining the original stream offsets.
+    pub fn initial_sni_fragmentation(&mut self, enabled: bool) -> &mut Self {
+        self.initial_sni_fragmentation = enabled;
         self
     }
 }

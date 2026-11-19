@@ -16,6 +16,102 @@ use miopunch_native_probe::{
 };
 use std::{collections::BTreeSet, net::Ipv4Addr, sync::Arc, time::Duration};
 
+#[tokio::test]
+async fn member_business_reaches_relay_missing_from_the_saved_contact() {
+    use iroh::{
+        EndpointAddr, TransportAddr,
+        protocol::{AcceptError, ProtocolHandler},
+    };
+    use miopunch_native_probe::connection_coordinator::MEMBER_ALPN;
+
+    #[derive(Debug)]
+    struct Echo;
+    impl ProtocolHandler for Echo {
+        async fn accept(&self, connection: Connection) -> Result<(), AcceptError> {
+            let (mut send, mut recv) = connection.accept_bi().await?;
+            let request = recv.read_to_end(8).await.map_err(AcceptError::from_err)?;
+            send.write_all(&request)
+                .await
+                .map_err(AcceptError::from_err)?;
+            send.finish()?;
+            send.stopped().await.map_err(AcceptError::from_err)?;
+            Ok(())
+        }
+    }
+
+    let directory = tempfile::tempdir().unwrap();
+    let mut server = NativeNetwork::create(directory.path().join("server"))
+        .await
+        .unwrap();
+    let client = join(&mut server, &directory.path().join("client")).await;
+    let mut config = iroh_relay::server::ServerConfig::default();
+    config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let relay = iroh_relay::server::Server::spawn(config).await.unwrap();
+    let healthy = relay.http_url().unwrap();
+    // Keep the listener open and leave its WebSocket handshakes unanswered.
+    // The first candidate therefore consumes the old serial dial's entire budget.
+    let blackhole = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let stale: iroh::RelayUrl = format!("http://{}/", blackhole.local_addr().unwrap())
+        .parse()
+        .unwrap();
+    for (node, relays) in [(&server, vec![&healthy]), (&client, vec![&stale, &healthy])] {
+        let mut config = node.resource_configuration().unwrap();
+        config.replacement = Some(
+            relays
+                .into_iter()
+                .map(|url| Resource {
+                    url: url.to_string(),
+                    uses: BTreeSet::from([ResourceUse::DataRelay]),
+                    limitation: "member relay redial fixture".into(),
+                })
+                .collect(),
+        );
+        config.udp_direct_disabled = true;
+        config.tcp_direct_disabled = true;
+        config.member_data_relay_disabled = true;
+        config.maintenance.contact_timeout_ms = 3000;
+        node.save_resource_configuration(&config).unwrap();
+    }
+    let server = server
+        .maintain_network_with(Ipv4Addr::LOCALHOST, |router| {
+            router.accept(MEMBER_ALPN, Echo)
+        })
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), server.endpoint().online())
+        .await
+        .unwrap();
+    let client = client.maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
+    let peer = server.endpoint().id();
+    let target = EndpointAddr::new(peer).with_addrs([TransportAddr::Relay(stale)]);
+    let (connection, _activity) = client
+        .connect(target, MEMBER_ALPN)
+        .await
+        .expect("a stale relay must leave time to reach the configured relay serving the peer");
+    assert_eq!(connection.remote_id(), peer);
+    assert!(
+        connection
+            .paths()
+            .iter()
+            .any(|path| path.remote_addr() == &TransportAddr::Relay(healthy.clone()))
+    );
+    tokio::time::timeout(Duration::from_secs(3), async {
+        let (mut send, mut recv) = connection.open_bi().await.unwrap();
+        send.write_all(&42u64.to_be_bytes()).await.unwrap();
+        send.finish().unwrap();
+        assert_eq!(recv.read_to_end(8).await.unwrap(), 42u64.to_be_bytes());
+    })
+    .await
+    .unwrap();
+    client.close().await;
+    server.close().await;
+}
+
 async fn observe_queries(
     broker: &str,
 ) -> (

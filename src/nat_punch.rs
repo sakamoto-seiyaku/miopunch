@@ -93,9 +93,17 @@ enum SnapshotRound {
 
 impl MappingSnapshot {
     pub fn from_sequence(sequence: UdpMappingSequence) -> io::Result<Self> {
+        Self::from_samples(sequence, 2)
+    }
+
+    pub(crate) fn from_observation_round(sequence: UdpMappingSequence) -> io::Result<Self> {
+        Self::from_samples(sequence, 1)
+    }
+
+    fn from_samples(sequence: UdpMappingSequence, minimum: usize) -> io::Result<Self> {
         let now = Instant::now();
         let mut destinations = HashSet::new();
-        if sequence.samples.len() < 2
+        if sequence.samples.len() < minimum
             || sequence.samples.len() > MAX_OBSERVATIONS
             || !sequence.is_current_generation()
             || sequence.samples.iter().enumerate().any(|(i, s)| {
@@ -109,9 +117,22 @@ impl MappingSnapshot {
             return Err(invalid("invalid mapping observation input"));
         }
         let observed_at = sequence.samples[0].observed_at.into();
+        let mapped: Vec<_> = sequence
+            .samples
+            .iter()
+            .map(|sample| sample.mapped)
+            .collect();
+        // The classifier only asks whether a reported IP belongs to a local
+        // interface. Unrelated interfaces cannot affect that decision.
+        let mut seen_local_ips = HashSet::new();
+        let local_ips = mapped
+            .iter()
+            .map(SocketAddr::ip)
+            .filter(|ip| sequence.local_ips.contains(ip) && seen_local_ips.insert(*ip))
+            .collect();
         let wire = SnapshotWire {
-            mapped: sequence.samples.iter().map(|s| s.mapped).collect(),
-            local_ips: sequence.local_ips.clone(),
+            mapped,
+            local_ips,
             assisted: Vec::new(),
         };
         wire.validate()?;
@@ -1014,14 +1035,23 @@ impl Attempt {
             })
     }
 
-    /// Both peers retain their winner before either starts QUIC validation.
-    /// This is an original authenticated control exchange within the same
-    /// phase deadline; raw receipts never grant a peer's business capability.
+    /// Both peers confirm the retained winner over the authenticated control
+    /// exchange before the validated path can advance to commitment.
     pub async fn synchronize_winner(
         &self,
         control: &ControlSession,
         gate: &AdmissionGate,
     ) -> io::Result<()> {
+        self.synchronize_winner_with(control, gate, async { Ok(()) })
+            .await
+    }
+
+    async fn synchronize_winner_with<T>(
+        &self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+        validate: impl std::future::Future<Output = io::Result<T>>,
+    ) -> io::Result<T> {
         self.log_handoff(control, "winner-ready-begin", None);
         let exchange = async {
             let outgoing = open(control).await?;
@@ -1033,10 +1063,16 @@ impl Attempt {
             }
             self.path_wait_remaining(control, gate)?;
             send(&incoming, Frame::WinnerReadyAck { round: self.round }).await?;
-            if !matches!(receive(&outgoing).await?, Frame::WinnerReadyAck { round } if round == self.round)
-            {
-                return Err(invalid("wrong NAT winner handoff acknowledgement"));
-            }
+            // The peer already retains its winner. Validate now while its
+            // acknowledgement is in flight, then require both results.
+            let confirm = async {
+                if !matches!(receive(&outgoing).await?, Frame::WinnerReadyAck { round } if round == self.round)
+                {
+                    return Err(invalid("wrong NAT winner handoff acknowledgement"));
+                }
+                Ok(())
+            };
+            let ((), report) = tokio::try_join!(confirm, validate)?;
             self.path_wait_remaining(control, gate)?;
             println!(
                 "LEGACY_WINNER_READY round={} stable_id={} remaining_ms={}",
@@ -1044,9 +1080,13 @@ impl Attempt {
                 self.connection_id,
                 self.path_wait_remaining(control, gate)?.as_millis()
             );
-            Ok(())
+            Ok(report)
         };
-        let result = self.guard_handoff(control, gate, exchange).await;
+        let result = control
+            .diagnostic()
+            .phase("punch-winner-ready", serde_json::Value::Null)
+            .run(self.guard_handoff(control, gate, exchange))
+            .await;
         self.log_handoff(control, "winner-ready-result", result.as_ref().err());
         result
     }
@@ -1084,9 +1124,8 @@ impl Attempt {
         guard_remaining(|| self.path_wait_remaining(control, gate), operation).await
     }
 
-    /// Retain both winners, then validate the original connection's exact
-    /// physical winner. The original QUIC dialer initiates path validation;
-    /// the legacy raw sender/receiver role remains independent.
+    /// Validate the original connection's exact physical winner while both
+    /// peers exchange readiness. The original QUIC dialer opens the path.
     pub async fn prepare_data_path(
         &self,
         control: &ControlSession,
@@ -1094,9 +1133,6 @@ impl Attempt {
     ) -> io::Result<DataPathOpen> {
         let early_validation = cfg!(feature = "nat-lab-test-hooks")
             && std::env::var("MIOPUNCH_NAT_LAB_EARLY_VALIDATE").as_deref() == Ok("1");
-        if !early_validation {
-            self.synchronize_winner(control, gate).await?;
-        }
         let local = self
             .local_winner
             .ok_or_else(|| invalid("NAT winner has no local binding"))?;
@@ -1107,37 +1143,45 @@ impl Attempt {
             .phase_deadline
             .ok_or_else(|| invalid("NAT phase not started"))?;
         self.log_handoff(control, "quic-path-begin", None);
-        let result = self
-            .guard_handoff(control, gate, async {
-                let report = if control.is_dialing_side() {
-                    self.log_handoff(control, "quic-open-request", None);
-                    let opened = control
-                        .open_data_path_from_until(local, remote, deadline, &|| {
-                            self.path_wait_remaining(control, gate).map(|_| ())
-                        })
-                        .await;
-                    self.log_handoff(control, "quic-open-result", opened.as_ref().err());
-                    opened?
-                } else {
-                    self.log_handoff(control, "quic-wait-for-dialer", None);
-                    DataPathOpen { path_id_retries: 0 }
-                };
-                let mut next_log = Instant::now();
-                loop {
-                    match self.verify_winner_path(control, gate) {
-                        Ok(()) => return Ok(report),
-                        Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                            if Instant::now() >= next_log {
-                                self.log_handoff(control, "quic-path-pending", Some(&error));
-                                next_log = Instant::now() + Duration::from_secs(1);
+        let validate = Box::pin(
+            control
+                .diagnostic()
+                .phase("punch-path-validation", serde_json::Value::Null)
+                .run(self.guard_handoff(control, gate, async {
+                    let report = if control.is_dialing_side() {
+                        self.log_handoff(control, "quic-open-request", None);
+                        let opened = control
+                            .open_data_path_from_until(local, remote, deadline, &|| {
+                                self.path_wait_remaining(control, gate).map(|_| ())
+                            })
+                            .await;
+                        self.log_handoff(control, "quic-open-result", opened.as_ref().err());
+                        opened?
+                    } else {
+                        self.log_handoff(control, "quic-wait-for-dialer", None);
+                        DataPathOpen { path_id_retries: 0 }
+                    };
+                    let mut next_log = Instant::now();
+                    loop {
+                        match self.verify_winner_path(control, gate) {
+                            Ok(()) => return Ok(report),
+                            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                                if Instant::now() >= next_log {
+                                    self.log_handoff(control, "quic-path-pending", Some(&error));
+                                    next_log = Instant::now() + Duration::from_secs(1);
+                                }
+                                tokio::time::sleep(Duration::from_millis(10)).await
                             }
-                            tokio::time::sleep(Duration::from_millis(10)).await
+                            Err(error) => return Err(error),
                         }
-                        Err(error) => return Err(error),
                     }
-                }
-            })
-            .await;
+                })),
+        );
+        let result = if early_validation {
+            validate.await
+        } else {
+            self.synchronize_winner_with(control, gate, validate).await
+        };
         self.log_handoff(control, "quic-path-result", result.as_ref().err());
         result
     }
@@ -1322,7 +1366,8 @@ impl Attempt {
         budget: &NodeProbeBudget,
     ) -> io::Result<ExecutionStatus> {
         self.check_caller_allowance()?;
-        self.execute_checked(control, gate, budget, &|| Ok(()))
+        let deadline = mapping_exchange_deadline(control, &self.snapshot, None);
+        self.execute_checked(control, gate, budget, deadline, &|| Ok(()))
             .await
     }
 
@@ -1331,6 +1376,7 @@ impl Attempt {
         control: &ControlSession,
         gate: &AdmissionGate,
         budget: &NodeProbeBudget,
+        round_deadline: tokio::time::Instant,
         permission: &(dyn Fn() -> io::Result<()> + Sync),
     ) -> io::Result<ExecutionStatus> {
         if self.submitted || self.finished || control.stable_id() != self.connection_id {
@@ -1364,15 +1410,30 @@ impl Attempt {
         // Old MakeHole starts the total deadline before creating random
         // listeners. Binding work therefore consumes the same phase budget.
         let started = Instant::now();
+        let control_rtt = control
+            .exchange_control()
+            .paths()
+            .iter()
+            .find(|path| path.is_selected())
+            .map_or(Duration::ZERO, |path| path.stats().rtt);
         let phase_ms = u64::from(phase.total_budget_ms);
+        let handoff_grace = control_rtt
+            .min(crate::connection_budget::MAX)
+            .saturating_mul(2);
         #[cfg(feature = "nat-lab-test-hooks")]
-        let phase_ms = match std::env::var("MIOPUNCH_NAT_LAB_PHASE_MS") {
-            Ok(value) => value
-                .parse::<u64>()
-                .map_err(|_| invalid("invalid experiment phase duration"))?,
-            Err(_) => phase_ms,
+        let (phase_ms, handoff_grace) = match std::env::var("MIOPUNCH_NAT_LAB_PHASE_MS") {
+            Ok(value) => (
+                value
+                    .parse::<u64>()
+                    .map_err(|_| invalid("invalid experiment phase duration"))?,
+                Duration::ZERO,
+            ),
+            Err(_) => (phase_ms, handoff_grace),
         };
-        let deadline = tokio::time::Instant::now() + Duration::from_millis(phase_ms);
+        let round_deadline =
+            round_deadline.min(mapping_exchange_deadline(control, &self.snapshot, None));
+        let deadline =
+            (tokio::time::Instant::now() + Duration::from_millis(phase_ms)).min(round_deadline);
         self.phase_deadline = Some(deadline);
         let check = || {
             permission()?;
@@ -1389,10 +1450,12 @@ impl Attempt {
             Ok(())
         };
         let trace = Arc::new(Mutex::new(crate::nat_scheduler::ExecutionTrace::default()));
+        let log = control.diagnostic();
         let _summary = crate::nat_scheduler::TraceSummary {
             trace: trace.clone(),
             round: self.round.encoded(),
             connection_id: self.connection_id,
+            log,
         };
         let setup = tokio::time::timeout_at(
             deadline,
@@ -1423,10 +1486,12 @@ impl Attempt {
             return Err(error);
         }
         println!(
-            "LEGACY_RECV_START round={} stable_id={} bind_elapsed_ms={} phase={phase:?}",
+            "LEGACY_RECV_START round={} stable_id={} bind_elapsed_ms={} control_rtt_ms={} handoff_grace_ms={} phase={phase:?}",
             self.round.encoded(),
             self.connection_id,
-            started.elapsed().as_millis()
+            started.elapsed().as_millis(),
+            control_rtt.as_millis(),
+            handoff_grace.as_millis()
         );
         for binding in lease.local_sockets() {
             println!(
@@ -1451,7 +1516,7 @@ impl Attempt {
             Ok::<(), io::Error>(())
         };
         let result = tokio::select! {
-            result=tokio::time::timeout_at(deadline,crate::nat_scheduler::run_with_trace(&phase,&mut lease,&auth,budget,&trace,&check))=>result.unwrap_or_else(|_|Err(io::Error::new(io::ErrorKind::TimedOut,"legacy NAT phase budget elapsed"))),
+            result=tokio::time::timeout_at(deadline,crate::nat_scheduler::run_with_trace(&phase,&mut lease,&auth,budget,&trace,&check,peer_delay == 0,Some(log)))=>result.unwrap_or_else(|_|Err(io::Error::new(io::ErrorKind::TimedOut,"legacy NAT phase budget elapsed"))),
             result=guard=> match result { Err(error)=>Err(error),Ok(())=>unreachable!() }
         };
         println!(
@@ -1464,6 +1529,10 @@ impl Attempt {
         self.execution_trace = Some(trace.lock().expect("NAT execution trace").clone());
         let winner = result?;
         check_scope(control, gate, &self.scope, &self.snapshot)?;
+        // Only the protected handoff gets the RTT allowance. Raw sends keep
+        // their original clock and datagram cap.
+        let handoff_deadline = (deadline + handoff_grace).min(round_deadline);
+        self.phase_deadline = Some(handoff_deadline);
         println!(
             "[DEBUG-udp-handoff] {}",
             serde_json::json!({"stage":"retain-winner-begin",
@@ -1471,8 +1540,16 @@ impl Attempt {
             "localSocket":winner.local_socket_id.get(),"local":winner.local_addr.to_string(),
             "remote":winner.remote.to_string(),"connection":control.handoff_diagnostic()})
         );
-        let winner_lease = lease
-            .retain_winner(winner.local_socket_id, winner.local_addr)
+        let winner_lease = log
+            .phase("punch-retain-winner", serde_json::Value::Null)
+            .run(async {
+                tokio::time::timeout_at(
+                    handoff_deadline,
+                    lease.retain_winner(winner.local_socket_id, winner.local_addr),
+                )
+                .await
+                .map_err(io::Error::other)?
+            })
             .await
             .inspect_err(|error| {
                 self.log_handoff(control, "retain-winner-failed", Some(error));

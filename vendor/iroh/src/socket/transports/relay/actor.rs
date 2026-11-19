@@ -41,7 +41,9 @@ use backon::{Backoff, BackoffBuilder, ExponentialBuilder};
 use iroh_base::{EndpointId, RelayUrl, SecretKey};
 use iroh_relay::{
     self as relay, PingTracker, RelayMap,
-    client::{Client, ConnectError, RecvError, SendError},
+    client::{
+        Client, ConnectError, RecvError, SendError, relay_diagnostic, relay_diagnostics_enabled,
+    },
     protos::{
         handshake,
         relay::{ClientToRelayMsg, Datagrams, RelayToClientMsg, Status},
@@ -94,6 +96,26 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 ///
 /// This value is set to 3 times the QUIC initial Probe Timeout (PTO).
 const UNDELIVERABLE_DATAGRAM_TIMEOUT: Duration = Duration::from_secs(3);
+
+fn trace_datagrams(stage: &str, relay: &RelayUrl, peer: EndpointId, datagrams: &Datagrams) {
+    if relay_diagnostics_enabled() {
+        let size = datagrams
+            .segment_size
+            .map(|size| usize::from(size.get()))
+            .unwrap_or(datagrams.contents.len().max(1));
+        for packet in datagrams.contents.chunks(size) {
+            let mut tag = [0; 8];
+            tag.copy_from_slice(&blake3::hash(packet).as_bytes()[..8]);
+            relay_diagnostic(format_args!(
+                "{stage} relay={} peer={} bytes={} packet={:016x}",
+                relay.host_str().unwrap_or_default(),
+                peer.fmt_short(),
+                packet.len(),
+                u64::from_be_bytes(tag),
+            ));
+        }
+    }
+}
 
 /// An actor which handles the connection to a single relay server.
 ///
@@ -405,16 +427,33 @@ impl ActiveRelayActor {
     /// be retried with a backoff.
     #[allow(clippy::result_large_err)]
     async fn run_once(&mut self) -> Result<(), RelayConnectionError> {
+        let dial_start = Instant::now();
+        relay_diagnostic(format_args!(
+            "dial-start relay={} home={}",
+            self.url.host_str().unwrap_or_default(),
+            self.is_home_relay
+        ));
         self.my_relay
             .set_status(&self.url, RelayConnectionState::Connecting);
         let client = match self.run_dialing().instrument(info_span!("dialing")).await {
             Some(Ok(client)) => client,
             Some(Err(err)) => {
+                relay_diagnostic(format_args!(
+                    "dial-failed relay={} elapsed_ms={}",
+                    self.url.host_str().unwrap_or_default(),
+                    dial_start.elapsed().as_millis()
+                ));
                 self.metrics.relay_conns_failed.inc();
                 return Err(e!(RelayConnectionError::Dial, err));
             }
             None => return Ok(()),
         };
+        relay_diagnostic(format_args!(
+            "dial-ready relay={} elapsed_ms={} home={}",
+            self.url.host_str().unwrap_or_default(),
+            dial_start.elapsed().as_millis(),
+            self.is_home_relay
+        ));
         self.my_relay
             .set_status(&self.url, RelayConnectionState::Connected);
         self.metrics.relay_conns_success.inc();
@@ -422,6 +461,11 @@ impl ActiveRelayActor {
             .run_connected(client)
             .instrument(info_span!("connected"))
             .await;
+        relay_diagnostic(format_args!(
+            "disconnected relay={} clean={}",
+            self.url.host_str().unwrap_or_default(),
+            res.is_ok()
+        ));
         self.metrics.relay_conns_closed.inc();
         res
     }
@@ -672,7 +716,10 @@ impl ActiveRelayActor {
                     self.reset_inactive_timeout();
                     // TODO(frando): can we avoid the clone here?
                     let metrics = self.metrics.clone();
+                    let relay = self.url.clone();
+                    let flush_start = Instant::now();
                     let packet_iter = send_datagrams_buf.drain(..).map(|item| {
+                        trace_datagrams("relay-send", &relay, item.remote_endpoint, &item.datagrams);
                         metrics.send_relay.inc_by(item.datagrams.contents.len() as _);
                         Ok(ClientToRelayMsg::Datagrams {
                             dst_endpoint_id: item.remote_endpoint,
@@ -681,7 +728,10 @@ impl ActiveRelayActor {
                     });
                     let mut packet_stream = n0_future::stream::iter(packet_iter);
                     let fut = client_sink.send_all(&mut packet_stream);
-                    self.run_sending(fut, &mut state, &mut client_stream).await?;
+                    let result = self.run_sending(fut, &mut state, &mut client_stream).await;
+                    relay_diagnostic(format_args!("flush relay={} count={count} elapsed_ms={} ok={}",
+                        self.url.host_str().unwrap_or_default(), flush_start.elapsed().as_millis(), result.is_ok()));
+                    result?;
                 }
                 msg = client_stream.next() => {
                     let Some(msg) = msg else {
@@ -718,6 +768,7 @@ impl ActiveRelayActor {
                 remote_endpoint_id,
                 datagrams,
             } => {
+                trace_datagrams("relay-receive", &self.url, remote_endpoint_id, &datagrams);
                 trace!(len = datagrams.contents.len(), "received msg");
                 // If this is a new sender, register a route for this peer.
                 if state
@@ -736,10 +787,19 @@ impl ActiveRelayActor {
                     src: remote_endpoint_id,
                     datagrams,
                 }) {
+                    relay_diagnostic(format_args!(
+                        "receive-dropped relay={}",
+                        self.url.host_str().unwrap_or_default()
+                    ));
                     warn!("Dropping received relay packet: {err:#}");
                 }
             }
             RelayToClientMsg::EndpointGone(endpoint_id) => {
+                relay_diagnostic(format_args!(
+                    "peer-gone relay={} peer={}",
+                    self.url.host_str().unwrap_or_default(),
+                    endpoint_id.fmt_short()
+                ));
                 state.endpoints_present.remove(&endpoint_id);
             }
             RelayToClientMsg::Ping(data) => state.pong_pending = Some(data),
@@ -1253,6 +1313,7 @@ impl RelayActor {
         item: RelaySendItem,
     ) -> Option<impl Future<Output = ()> + use<>> {
         let url = item.url.clone();
+        let start = Instant::now();
         let Some(handle) = self
             .active_relay_handle_for_endpoint(&item.url, &item.remote_endpoint)
             .await
@@ -1260,6 +1321,14 @@ impl RelayActor {
             warn!(?url, "Dropped datagram(s): relay resource is forbidden.");
             return None;
         };
+        trace_datagrams("relay-queued", &url, item.remote_endpoint, &item.datagrams);
+        if start.elapsed() >= Duration::from_millis(10) {
+            relay_diagnostic(format_args!(
+                "route-lookup-slow relay={} elapsed_ms={}",
+                url.host_str().unwrap_or_default(),
+                start.elapsed().as_millis()
+            ));
+        }
         match handle.datagrams_send_queue.try_send(item) {
             Ok(()) => None,
             Err(mpsc::error::TrySendError::Closed(_)) => {
@@ -1267,6 +1336,10 @@ impl RelayActor {
                 None
             }
             Err(mpsc::error::TrySendError::Full(item)) => {
+                relay_diagnostic(format_args!(
+                    "send-queue-full relay={}",
+                    url.host_str().unwrap_or_default()
+                ));
                 let sender = handle.datagrams_send_queue.clone();
                 let fut = async move {
                     if sender.send(item).await.is_err() {
@@ -1406,6 +1479,14 @@ impl RelayActor {
                     break;
                 }
             }
+        }
+        if let Some(found) = &found_relay {
+            relay_diagnostic(format_args!(
+                "route-substituted requested={} actual={} peer={}",
+                url.host_str().unwrap_or_default(),
+                found.host_str().unwrap_or_default(),
+                remote_endpoint.fmt_short()
+            ));
         }
         let url = found_relay.unwrap_or(url.clone());
         self.active_relay_handle(url)

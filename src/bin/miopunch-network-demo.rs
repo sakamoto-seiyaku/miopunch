@@ -62,6 +62,12 @@ struct Configuration {
     name: String,
     listen: SocketAddr,
     peers: Vec<Peer>,
+    #[serde(default = "aps_qad_compat_by_default")]
+    aps_qad_compat: bool,
+}
+
+fn aps_qad_compat_by_default() -> bool {
+    true
 }
 
 struct Observations {
@@ -296,10 +302,22 @@ fn path_view(connection: &Connection) -> Value {
         }).collect::<Vec<_>>()})
 }
 
-async fn exchange(connection: &Connection, sequence: u64) -> Result<Value, Failure> {
+#[derive(Default)]
+struct RequestProgress {
+    stream_id: Option<u64>,
+    sent_ms: Option<u64>,
+}
+
+async fn exchange(
+    connection: &Connection,
+    sequence: u64,
+    progress: &mut RequestProgress,
+) -> Result<Value, Failure> {
     let (mut send, mut recv) = connection.open_bi().await?;
+    progress.stream_id = Some(u64::from(send.id()));
     send.write_all(&sequence.to_be_bytes()).await?;
     send.finish()?;
+    progress.sent_ms = Some(connection_diagnostic::monotonic_ms());
     let reply: Value = serde_json::from_slice(&recv.read_to_end(MAX_REPLY).await?)?;
     if reply["sequence"].as_u64() != Some(sequence)
         || reply["snapshot"]["id"].as_str() != Some(&connection.remote_id().to_string())
@@ -359,6 +377,7 @@ async fn observe_peer(
                 let stopped = loop {
                     sequence += 1;
                     let start = Instant::now();
+                    let mut progress = RequestProgress::default();
                     state.lock().unwrap().event(
                         "business-request-start",
                         json!({"peer":peer.name,"stableId":connection.stable_id(),"sequence":sequence}),
@@ -366,7 +385,7 @@ async fn observe_peer(
                     let activity = network.business_activity();
                     let result = tokio::select! {
                         _ = cancellation.cancelled() => break true,
-                        result = timeout(Duration::from_secs(3),exchange(&connection,sequence)) => result,
+                        result = timeout(Duration::from_secs(3), exchange(&connection, sequence, &mut progress)) => result,
                     };
                     drop(activity);
                     match result {
@@ -393,7 +412,8 @@ async fn observe_peer(
                                     json!({"peer":peer.name,"elapsedMs":elapsed,
                                     "peerId":connection.remote_id().to_string(),"sequence":sequence,
                                     "roundTripMs":round_trip_ms,
-                                    "stableId":connection.stable_id(),"connections":connections}),
+                                    "stableId":connection.stable_id(),"connections":connections,
+                                    "streamId":progress.stream_id,"requestSentMonotonicMs":progress.sent_ms}),
                                 );
                             }
                             let entry = state.peers.get_mut(&peer.name).unwrap();
@@ -426,6 +446,7 @@ async fn observe_peer(
                                     "heartbeat-failed",
                                     json!({"peer":peer.name,"error":error,
                                     "stableId":connection.stable_id(),"sequence":sequence,
+                                    "streamId":progress.stream_id,"requestSentMonotonicMs":progress.sent_ms,
                                     "elapsedMs":start.elapsed().as_secs_f64()*1000.}),
                                 );
                             }
@@ -835,8 +856,21 @@ async fn run_node(
         cancellation: cancellation.clone(),
     };
     let network = Arc::new(
-        node.maintain_network_with(Ipv4Addr::UNSPECIFIED, |router| router.accept(ALPN, handler))
-            .await?,
+        node.maintain_network_with_endpoint(
+            Ipv4Addr::UNSPECIFIED,
+            |builder| {
+                if config.aps_qad_compat {
+                    builder.qad_x25519_sni(
+                        iroh::defaults::prod::AP_RELAY_HOSTNAME,
+                        iroh::defaults::DEFAULT_RELAY_QUIC_PORT,
+                    )
+                } else {
+                    builder
+                }
+            },
+            |router| router.accept(ALPN, handler),
+        )
+        .await?,
     );
     for peer in &config.peers {
         network.offer_contact(peer.address.clone()).await?;
@@ -896,6 +930,9 @@ async fn run_node(
 
 async fn run(state_directory: &Path, config_path: &Path) -> Result<(), Failure> {
     let config: Configuration = serde_json::from_slice(&std::fs::read(config_path)?)?;
+    if config_path.with_file_name("relay-trace").is_file() {
+        iroh_relay::client::enable_relay_diagnostics();
+    }
     if !config.listen.ip().is_loopback() {
         return Err("diagnostic HTTP must bind loopback".into());
     }
@@ -1212,20 +1249,27 @@ mod tests {
                 stalled.write_all(b"x").await.unwrap();
                 // This reply must arrive while the unrelated request is still
                 // waiting for its five-second receive deadline.
-                timeout(Duration::from_secs(2), exchange(&client, 42))
-                    .await
-                    .unwrap()
-                    .unwrap();
+                timeout(
+                    Duration::from_secs(2),
+                    exchange(&client, 42, &mut RequestProgress::default()),
+                )
+                .await
+                .unwrap()
+                .unwrap();
                 assert!(recv.read_to_end(MAX_REPLY).await.unwrap().is_empty());
                 drop(stalled);
-                exchange(&client, 43).await.unwrap();
+                exchange(&client, 43, &mut RequestProgress::default())
+                    .await
+                    .unwrap();
                 assert_eq!(client.stable_id(), origin);
                 assert!(client.close_reason().is_none());
                 let (mut outstanding, _recv) = client.open_bi().await.unwrap();
                 outstanding.write_all(b"x").await.unwrap();
                 // Completing a later stream proves the handler has accepted
                 // this earlier one, which still has no FIN.
-                exchange(&client, 44).await.unwrap();
+                exchange(&client, 44, &mut RequestProgress::default())
+                    .await
+                    .unwrap();
                 handler.cancellation.cancel();
                 timeout(Duration::from_secs(2), client.closed())
                     .await

@@ -4,6 +4,10 @@ Engineering choices for MIOPUNCH-120, implementing M107 stories 55–58 and
 ADRs 0017/0018. These are module choices within the accepted scope; no formal
 terminal interface or additional permission model is introduced.
 
+The dedicated connection per attachment below describes the October implementation.
+In the target architecture a member terminal attachment uses its own stream on the
+[shared member business connection](../adr/0020-shared-member-business-connection.md).
+
 The provider uses tmux's real pane PTY and control-mode attachment. A retained
 workspace is a named tmux session. An attachment is a separate control-mode
 client and admitted network connection. Detaching, losing a connection, closing

@@ -1,5 +1,6 @@
 //! Complete legacy UDP phase semantics on the original Endpoint's physical sockets.
 use crate::{
+    connection_coordinator::connection_diagnostic::AttemptLog,
     nat_mapping::NodeProbeBudget,
     nat_selector::{Behavior, Role},
 };
@@ -222,10 +223,19 @@ pub(crate) struct TraceSummary {
     pub trace: SharedTrace,
     pub round: String,
     pub connection_id: usize,
+    pub log: AttemptLog,
 }
 impl Drop for TraceSummary {
     fn drop(&mut self) {
         let trace = self.trace.lock().expect("NAT execution trace");
+        self.log.event(
+            "punch-packets",
+            "finished",
+            serde_json::json!({
+                "round":self.round, "probes":trace.probes, "responses":trace.responses,
+                "sendErrors":trace.send_errors, "rejectedReceipts":trace.rejected_receipts,
+            }),
+        );
         println!(
             "LEGACY_TRACE round={} stable_id={} probes={} responses={} ttl_degraded={} random_iterations={} random_draws={} random_skipped={} listener_attempted={} listener_bound={} listener_failed={} send_attempts={} send_errors={} send_aborted={} rejected_receipts={}",
             self.round,
@@ -255,6 +265,7 @@ struct PhaseSession<'a> {
     check: &'a (dyn Fn() -> io::Result<()> + Sync),
     outstanding: Mutex<HashMap<[u8; 16], LocalSocketId>>,
     started: std::time::Instant,
+    round_log: Option<AttemptLog>,
 }
 impl PhaseSession<'_> {
     async fn send(
@@ -307,6 +318,7 @@ impl PhaseSession<'_> {
             Err(error) => return Err(error),
         };
         let mut trace = self.trace.lock().expect("NAT execution trace");
+        let first = trace.probes == 0 && trace.responses == 0;
         trace.ttl_degraded += usize::from(degraded);
         if packet[0] == 1 {
             trace.responses += 1;
@@ -314,6 +326,15 @@ impl PhaseSession<'_> {
             trace.probes += 1;
             trace.targets.push(target);
             trace.local_sockets.push(sender.local_socket_id());
+        }
+        if let Some(log) = self.round_log.filter(|_| first) {
+            log.event(
+                "punch-first-send",
+                "sent",
+                serde_json::json!({
+                    "response":packet[0] == 1, "elapsedMs":self.started.elapsed().as_millis(),
+                }),
+            );
         }
         println!(
             "LEGACY_DATAGRAM target={target} ttl={ttl} response={} degraded={degraded} local_socket_id={} elapsed_ms={}",
@@ -419,6 +440,7 @@ async fn receive(
 ) -> io::Result<Winner> {
     let mut handled = HashSet::new();
     let mut replies = FuturesUnordered::new();
+    let mut first_receipt = session.round_log;
     loop {
         tokio::select! {
             packet = lease.recv() => {
@@ -429,6 +451,11 @@ async fn receive(
                 if !response && plan.behavior.role == Role::Sender { continue; }
                 if response && !session.accepts_response(&packet.payload, packet.local_socket_id) { session.reject("nonce_socket", packet.local_socket_id); continue; }
                 (session.check)()?;
+                if let Some(log) = first_receipt.take() {
+                    log.event("punch-first-receipt", "matched", serde_json::json!({
+                        "response":response, "elapsedMs":session.started.elapsed().as_millis(),
+                    }));
+                }
                 println!("LEGACY_RECEIPT remote={} response={response} local_socket_id={} elapsed_ms={}", packet.remote, packet.local_socket_id.get(), session.started.elapsed().as_millis());
                 let winner = Winner { local_socket_id: packet.local_socket_id, local_addr: packet.local_addr, remote: packet.remote, response, before_probe: false };
                 if response { return Ok(winner); }
@@ -461,7 +488,7 @@ pub async fn run(
     check: &(dyn Fn() -> io::Result<()> + Sync),
 ) -> io::Result<(Winner, ExecutionTrace)> {
     let trace = Arc::new(Mutex::new(ExecutionTrace::default()));
-    let winner = run_with_trace(plan, lease, auth, budget, &trace, check).await?;
+    let winner = run_with_trace(plan, lease, auth, budget, &trace, check, false, None).await?;
     let trace = trace.lock().expect("NAT execution trace").clone();
     Ok((winner, trace))
 }
@@ -474,6 +501,8 @@ pub(crate) async fn run_with_trace(
     budget: &NodeProbeBudget,
     trace: &SharedTrace,
     check: &(dyn Fn() -> io::Result<()> + Sync),
+    peer_sends_immediately: bool,
+    round_log: Option<AttemptLog>,
 ) -> io::Result<Winner> {
     let session = PhaseSession {
         auth,
@@ -482,6 +511,7 @@ pub(crate) async fn run_with_trace(
         check,
         outstanding: Mutex::new(HashMap::new()),
         started: std::time::Instant::now(),
+        round_log,
     };
     let senders = lease
         .local_sockets()
@@ -498,10 +528,16 @@ pub(crate) async fn run_with_trace(
         println!("LEGACY_EXPERIMENT receiver_wait=true");
         return recv.await;
     }
-    if plan.behavior.send_delay_ms > 0 {
+    // A filtering NAT still receives the scheduled probes after this wait.
+    let send_delay_ms = if plan.behavior.role == Role::Receiver && peer_sends_immediately {
+        plan.behavior.send_delay_ms.max(500)
+    } else {
+        plan.behavior.send_delay_ms
+    };
+    if send_delay_ms > 0 {
         tokio::select! {
             result = &mut recv => { let mut winner=result?; winner.before_probe=true; return Ok(winner); }
-            _ = tokio::time::sleep(Duration::from_millis(plan.behavior.send_delay_ms.into())) => {}
+            _ = tokio::time::sleep(Duration::from_millis(send_delay_ms.into())) => {}
         }
     }
     let mut first = Box::pin(probe_round(plan, &senders, &session, true));

@@ -389,26 +389,61 @@ async fn ordinary_candidate_probes_leave_a_real_slot_for_the_udp_winner() {
 
 #[tokio::test]
 async fn formal_entry_observes_selects_executes_and_confirms_original_business() {
-    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    use miopunch_native_probe::{
+        nat_connection::{NatConnector, UdpPolicy},
+        resources::{Resource, ResourceUse},
+    };
     let pair = Pair::new().await;
     let (c, v) = pair.connect().await;
     let ids = (c.stable_id(), v.stable_id());
     let blackhole = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
         .await
         .unwrap();
-    let map = RelayMap::from_iter(
+    let blocked = RelayConfig::new(
+        "https://127.0.0.1:1/".parse().unwrap(),
+        Some(RelayQuicConfig::new(blackhole.local_addr().unwrap().port())),
+    );
+    let visitor_qad = RelayMap::from_iter(
         pair.observers
             .relays::<Vec<_>>()
             .into_iter()
-            .chain([Arc::new(RelayConfig::new(
-                "https://127.0.0.1:1/".parse().unwrap(),
-                Some(RelayQuicConfig::new(blackhole.local_addr().unwrap().port())),
-            ))]),
+            .take(1)
+            .chain([Arc::new(blocked)]),
     );
-    let policy = UdpPolicy::default();
-    let cn = NatConnector::new(Some(map.clone()), policy.clone());
-    let vn = NatConnector::new(Some(map.clone()), policy);
-    let (ca, va) = tokio::join!(cn.prepare(&c, &pair.c_gate), vn.prepare(&v, &pair.v_gate));
+    let stun = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("visitor");
+    let node = NativeNetwork::create(&path).await.unwrap();
+    let mut resources = node.resource_configuration().unwrap();
+    resources.replacement = Some(vec![Resource {
+        url: format!("stun://{}/", stun.local_addr().unwrap()),
+        uses: [ResourceUse::Observation].into(),
+        limitation: "owned mapping observer".into(),
+    }]);
+    node.save_resource_configuration(&resources).unwrap();
+    node.close().await;
+    let visitor =
+        NativeNetwork::open_with_udp_resources(&path, Some(visitor_qad), UdpPolicy::default())
+            .await
+            .unwrap();
+    let stun = tokio::spawn(async move {
+        for _ in 0..2 {
+            reply_to_stun(&stun, None).await;
+        }
+    });
+    let cn = NatConnector::new(Some(pair.observers.clone()), UdpPolicy::default());
+    let vn = visitor.udp_connector();
+    let (ca, va) = tokio::time::timeout(Duration::from_secs(3), async {
+        tokio::join!(cn.prepare(&c, &pair.c_gate), vn.prepare(&v, &pair.v_gate))
+    })
+    .await
+    .expect("QAD and STUN must complete the protected plan before the blocked QAD expires");
+    assert!(
+        blackhole.try_recv(&mut [0; 1500]).is_ok(),
+        "the blocked observer was attempted"
+    );
     let (mut ca, mut va) = (ca.unwrap(), va.unwrap());
     assert_eq!(ca.mapped_candidates(), &[pair.v.bound_sockets()[0]; 2]);
     assert_eq!(va.mapped_candidates(), &[pair.c.bound_sockets()[0]; 2]);
@@ -449,6 +484,26 @@ async fn formal_entry_observes_selects_executes_and_confirms_original_business()
         2,
         "one recommendation-1 and actual business+2 retained across connections"
     );
+    stun.await.unwrap();
+    pair.close().await;
+    visitor.close().await;
+}
+
+#[tokio::test]
+async fn single_observation_builds_a_basic_plan_without_nat_classification() {
+    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+
+    let pair = Pair::new().await;
+    let (c, v) = pair.connect().await;
+    let observer = pair.observers.relays::<Vec<_>>().pop().unwrap();
+    let cn = NatConnector::new(Some(RelayMap::from_iter([observer])), UdpPolicy::default());
+    let vn = NatConnector::new(Some(pair.observers.clone()), UdpPolicy::default());
+    let (ca, va) = tokio::join!(cn.prepare(&c, &pair.c_gate), vn.prepare(&v, &pair.v_gate));
+    let (ca, va) = (ca.unwrap(), va.unwrap());
+    assert_eq!(va.mapped_candidates(), pair.c.bound_sockets());
+    assert!(va.remote_feature().is_none());
+    assert!(va.plan().fallback);
+    assert_eq!(ca.plan(), va.plan());
     pair.close().await;
 }
 
@@ -498,7 +553,7 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
     let mut config = initial.resource_configuration().unwrap();
     config.maintenance.exploration_interval_ms = 250;
     let mut stun_urls = Vec::new();
-    let mut stun_servers = Vec::new();
+    let mut stun_sockets = Vec::new();
     let mut qad_origins = Vec::new();
     let mut blackholes = Vec::new();
     let stun_requests = Arc::new(std::sync::atomic::AtomicUsize::new(0));
@@ -512,13 +567,7 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
         blackholes.push(qad);
         let stun = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
         stun_urls.push(format!("stun://{}/", stun.local_addr().unwrap()));
-        let received = stun_requests.clone();
-        stun_servers.push(tokio::spawn(async move {
-            for _ in 0..2 {
-                reply_to_stun(&stun).await;
-                received.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            }
-        }));
+        stun_sockets.push(stun);
     }
     config.replacement = Some(
         stun_urls
@@ -578,12 +627,18 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
         .unwrap();
     let (revoke_peer, revoke_client) = pair.connect().await;
     let revoke = async {
-        let (mut first, mut second) = ([0; 1500], [0; 1500]);
         tokio::time::timeout(Duration::from_secs(2), async {
-            tokio::select! {
-                result = blackholes[0].recv_from(&mut first) => result.unwrap(),
-                result = blackholes[1].recv_from(&mut second) => result.unwrap(),
-            }
+            let (mut q1, mut q2, mut s1, mut s2) = ([0; 1500], [0; 1500], [0; 1500], [0; 1500]);
+            let (qad_a, qad_b, stun_a, stun_b) = tokio::join!(
+                blackholes[0].recv_from(&mut q1),
+                blackholes[1].recv_from(&mut q2),
+                stun_sockets[0].recv_from(&mut s1),
+                stun_sockets[1].recv_from(&mut s2),
+            );
+            qad_a.unwrap();
+            qad_b.unwrap();
+            assert_eq!(stun_a.unwrap().0, 20);
+            assert_eq!(stun_b.unwrap().0, 20);
         })
         .await
         .unwrap();
@@ -596,13 +651,27 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
         revoke
     );
     assert_eq!(observed.unwrap_err().kind(), ErrorKind::PermissionDenied);
-    assert_eq!(stun_requests.load(std::sync::atomic::Ordering::Relaxed), 0);
     visitor.udp_connector().set_udp_enabled(true);
     drop((revoke_peer, revoke_client));
     pair.change_network_generation().await;
     for socket in &blackholes {
         while socket.try_recv(&mut [0; 1500]).is_ok() {}
     }
+    let stuns_in_flight = Arc::new(tokio::sync::Barrier::new(2));
+    let stun_servers: Vec<_> = stun_sockets
+        .into_iter()
+        .map(|stun| {
+            while stun.try_recv(&mut [0; 1500]).is_ok() {}
+            let received = stun_requests.clone();
+            let stuns_in_flight = stuns_in_flight.clone();
+            tokio::spawn(async move {
+                for _ in 0..2 {
+                    reply_to_stun(&stun, Some(&stuns_in_flight)).await;
+                    received.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                }
+            })
+        })
+        .collect();
     let (held_peer, _held_client) = pair.connect().await;
     let held = peer_connector
         .observe(&held_peer, &pair.c_gate)
@@ -666,8 +735,10 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
                 (attempt, data)
             })
         };
-        let (untouched, (upgrade, (mut peer_attempt, mut peer_data))) =
-            tokio::join!(tokio::time::timeout(Duration::from_secs(6), q), work);
+        let (other, (upgrade, (mut peer_attempt, mut peer_data))) =
+            tokio::time::timeout(Duration::from_secs(6), async { tokio::join!(q, work) })
+                .await
+                .expect("both STUN results must progress while both QAD observers are blocked");
         let mut upgrade = upgrade.unwrap();
         assert!(
             upgrade
@@ -679,8 +750,8 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
         );
         let mut drain = [0; 1500];
         assert!(
-            blackholes[untouched.unwrap()].try_recv(&mut drain).is_ok(),
-            "after the first timeout the next permitted QAD origin must get its opportunity"
+            blackholes[other].try_recv(&mut drain).is_ok(),
+            "both permitted QAD observers were contacted"
         );
         for blackhole in &blackholes {
             while blackhole.try_recv(&mut drain).is_ok() {}
@@ -742,11 +813,14 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
     visitor.close().await;
 }
 
-async fn reply_to_stun(socket: &tokio::net::UdpSocket) {
+async fn reply_to_stun(socket: &tokio::net::UdpSocket, rendezvous: Option<&tokio::sync::Barrier>) {
     let mut request = [0; 1500];
     let (len, source) = socket.recv_from(&mut request).await.unwrap();
     assert_eq!(len, 20);
     assert_eq!(&request[..8], &[0, 1, 0, 0, 0x21, 0x12, 0xa4, 0x42]);
+    if let Some(rendezvous) = rendezvous {
+        rendezvous.wait().await;
+    }
     let SocketAddr::V4(source) = source else {
         panic!("IPv4 observation required")
     };
@@ -1123,6 +1197,31 @@ async fn discarded_and_expired_split_results_release_only_their_own_occupancy() 
 }
 
 #[tokio::test]
+async fn ordinary_udp_opens_a_new_path_on_the_relay_control_connection() {
+    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    let (_directories, visitor, pair) = native_upgrade_pair(&[], true).await;
+    let (peer, client) = pair.connect().await;
+    let stable = (peer.stable_id(), client.stable_id());
+    assert!(!client.has_data_path() && !peer.has_data_path());
+    let acceptor = NatConnector::new(None, UdpPolicy::default());
+    let (opened_peer, opened_client) = tokio::join!(
+        acceptor.upgrade(peer, &pair.c_gate),
+        visitor.upgrade_udp(client),
+    );
+    let (opened_peer, opened_client) = (opened_peer.unwrap(), opened_client.unwrap());
+    assert!(opened_peer.direct.is_some() && opened_client.direct.is_some());
+    assert!(opened_peer.attempt.is_none() && opened_client.attempt.is_none());
+    assert_eq!(
+        (
+            opened_peer.data.connection().stable_id(),
+            opened_client.data.connection().stable_id()
+        ),
+        stable
+    );
+    pair.close().await;
+}
+
+#[tokio::test]
 async fn formal_direct_candidates_precede_selector_and_keep_original_identity() {
     use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
     let pair = Pair::new().await;
@@ -1190,7 +1289,7 @@ async fn formal_disabled_udp_blocks_business_before_stream_creation() {
 #[tokio::test]
 async fn formal_ipv6_direct_requires_no_ipv4_observation_or_punching() {
     use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
-    let pair = Pair::with_bind(std::net::Ipv6Addr::LOCALHOST.into()).await;
+    let pair = Pair::with_observers(std::net::Ipv6Addr::LOCALHOST.into(), false).await;
     let (c, v) = pair.connect().await;
     let ids = (c.stable_id(), v.stable_id());
     let cn = NatConnector::new(None, UdpPolicy::default());
@@ -1228,11 +1327,7 @@ struct Pair {
 
 impl Pair {
     async fn new() -> Self {
-        Self::with_bind(Ipv4Addr::LOCALHOST.into()).await
-    }
-
-    async fn with_bind(bind: std::net::IpAddr) -> Self {
-        Self::with_observers(bind, true).await
+        Self::with_observers(Ipv4Addr::LOCALHOST.into(), true).await
     }
 
     async fn without_observers() -> Self {

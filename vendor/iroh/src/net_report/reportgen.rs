@@ -495,11 +495,8 @@ pub(super) enum QuicError {
 /// Pieces needed to do QUIC address discovery.
 #[derive(derive_more::Debug, Clone)]
 pub(crate) struct QuicConfig {
-    /// A QUIC Endpoint
-    #[debug("noq::Endpoint")]
-    pub(crate) ep: noq::Endpoint,
-    /// A client config.
-    pub(crate) client_config: rustls::ClientConfig,
+    /// QAD client using the endpoint's QUIC socket.
+    pub(crate) client: iroh_relay::quic::QuicClient,
     /// Enable ipv4 QUIC address discovery probes
     pub(crate) ipv4: bool,
     /// Enable ipv6 QUIC address discovery probes

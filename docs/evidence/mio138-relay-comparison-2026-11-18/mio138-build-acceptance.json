@@ -1,0 +1,39 @@
+{
+  "command": [
+    "rtk",
+    "proxy",
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "--features",
+    "nat-lab-test-hooks",
+    "--test",
+    "relay_route_comparison",
+    "--no-run",
+    "--jobs",
+    "2",
+    "--message-format=json"
+  ],
+  "targetDirectory": "/home/js/Git/miopunch/target",
+  "isolationReason": null,
+  "incremental": false,
+  "exit": 0,
+  "diskBefore": {
+    "freeBytes": 506393337856,
+    "cacheBytes": 55066644480
+  },
+  "cargoSeconds": 3.667911979020573,
+  "freshArtifacts": 468,
+  "rebuiltArtifacts": 1,
+  "rebuiltTargets": [
+    {
+      "package": "path+file:///home/js/Git/miopunch#miopunch-native-probe@0.1.0",
+      "target": "relay_route_comparison"
+    }
+  ],
+  "diskAfter": {
+    "freeBytes": 506391969792,
+    "cacheBytes": 55067148288
+  }
+}

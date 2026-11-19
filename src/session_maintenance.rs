@@ -14,6 +14,7 @@ use std::{
     },
 };
 use tokio::sync::watch;
+use tokio_util::sync::CancellationToken;
 
 /// A protected peer deferral or a local enhanced-round budget deadline.
 const REMOTE_DEFERRAL: &str = "peer deferred the active path attempt";
@@ -102,6 +103,13 @@ struct Slot {
     epoch: u64,
     original: WeakConnectionHandle,
     completion: watch::Sender<Option<Completion>>,
+    outgoing_hello: Option<CancellationToken>,
+}
+
+enum ReservationKind {
+    Ordinary,
+    OutgoingHello,
+    IncomingHello,
 }
 
 #[derive(Clone, Debug)]
@@ -257,6 +265,49 @@ impl SessionMaintenance {
         attempt: &AttemptContext,
         node_budget_guard: B,
     ) -> Result<Reservation<B>, MaintenanceError> {
+        self.reserve(
+            original,
+            attempt,
+            node_budget_guard,
+            ReservationKind::Ordinary,
+        )
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn acquire_outgoing<B>(
+        &self,
+        original: &Connection,
+        attempt: &AttemptContext,
+        node_budget_guard: B,
+    ) -> Result<MaintenanceLease<B>, MaintenanceError> {
+        match self.reserve(
+            original,
+            attempt,
+            node_budget_guard,
+            ReservationKind::OutgoingHello,
+        )? {
+            Reservation::Owned(lease) => Ok(lease),
+            Reservation::Pending(_) => unreachable!("outgoing only acquires an empty slot"),
+        }
+    }
+
+    /// Only the original QUIC dialer's incoming Hello can make an outgoing
+    /// attempt yield. The caller must already have authenticated and bound C.
+    pub(crate) fn acquire_incoming(
+        &self,
+        original: &Connection,
+        attempt: &AttemptContext,
+    ) -> Result<Reservation<()>, MaintenanceError> {
+        self.reserve(original, attempt, (), ReservationKind::IncomingHello)
+    }
+
+    fn reserve<B>(
+        &self,
+        original: &Connection,
+        attempt: &AttemptContext,
+        node_budget_guard: B,
+        kind: ReservationKind,
+    ) -> Result<Reservation<B>, MaintenanceError> {
         if attempt.cancellation.is_cancelled() {
             return Err(MaintenanceError::Cancelled);
         }
@@ -268,7 +319,18 @@ impl SessionMaintenance {
         }
         let stable = original.stable_id();
         let mut slots = self.0.slots.lock().unwrap();
-        if let Some(slot) = slots.get(&stable).filter(|slot| slot.original.is_open()) {
+        if let Some(slot) = slots
+            .get_mut(&stable)
+            .filter(|slot| slot.original.is_open())
+        {
+            match kind {
+                ReservationKind::Ordinary => {}
+                ReservationKind::IncomingHello if !original.side().is_client() => {
+                    let cancellation = slot.outgoing_hello.take().ok_or(MaintenanceError::Busy)?;
+                    cancellation.cancel();
+                }
+                _ => return Err(MaintenanceError::Busy),
+            }
             return Ok(Reservation::Pending(MaintenanceWait {
                 original: slot.original.clone(),
                 attempt: attempt.clone(),
@@ -289,6 +351,8 @@ impl SessionMaintenance {
                 epoch,
                 original: original.clone(),
                 completion: watch::channel(None).0,
+                outgoing_hello: matches!(kind, ReservationKind::OutgoingHello)
+                    .then(|| attempt.cancellation.clone()),
             },
         );
         Ok(Reservation::Owned(MaintenanceLease {
@@ -325,6 +389,25 @@ pub(crate) struct MaintenanceLease<B> {
     completion: Option<Completion>,
 }
 impl<B> MaintenanceLease<B> {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn seal_outgoing_hello(&self) -> io::Result<()> {
+        let mut slots = self.registry.slots.lock().unwrap();
+        if self.attempt.cancellation.is_cancelled() {
+            return Err(io::Error::new(
+                io::ErrorKind::Interrupted,
+                "outgoing Hello yielded",
+            ));
+        }
+        let slot = slots
+            .get_mut(&self.stable)
+            .filter(|slot| slot.epoch == self.epoch)
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::Interrupted, "original maintenance ended")
+            })?;
+        slot.outgoing_hello = None;
+        Ok(())
+    }
+
     pub(crate) fn completed(&mut self, result: Completion) {
         self.completion = Some(result);
     }
@@ -476,6 +559,27 @@ mod tests {
             deadline: n0_future::time::Instant::now() + Duration::from_millis(ms),
             cancellation: tokio_util::sync::CancellationToken::new(),
         }
+    }
+
+    #[tokio::test]
+    async fn incoming_hello_respects_a_sealed_outgoing_lease() {
+        let (client_ep, server_ep, _client, server) = pair().await;
+        let registry = SessionMaintenance::default();
+        let outgoing = context(1000);
+        let incoming = context(1000);
+        let lease = registry.acquire_outgoing(&server, &outgoing, ()).unwrap();
+        lease.seal_outgoing_hello().unwrap();
+        assert!(matches!(
+            registry.acquire_incoming(&server, &incoming),
+            Err(MaintenanceError::Busy)
+        ));
+        assert!(!outgoing.cancellation.is_cancelled());
+        drop(lease);
+        assert!(matches!(
+            registry.acquire_incoming(&server, &incoming),
+            Ok(Reservation::Owned(_))
+        ));
+        tokio::join!(client_ep.close(), server_ep.close());
     }
 
     #[tokio::test]

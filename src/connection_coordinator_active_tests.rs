@@ -1049,7 +1049,13 @@ async fn production_native_active_scenario(udp_enabled: bool, reverse: bool) {
         let peer_lease = peer_registry.acquire(&remote, &attempt, ()).unwrap();
         let paths: Vec<_> = remote.paths().iter().map(|path| path.id()).collect();
         let error = lease
-            .run_ref(coordinator.improve(ae.endpoint(), &original, be.addr(), attempt.clone()))
+            .run_ref(coordinator.improve(
+                ae.endpoint(),
+                &original,
+                be.addr(),
+                attempt.clone(),
+                || Ok(()),
+            ))
             .await
             .unwrap()
             .unwrap_err();
@@ -1100,7 +1106,13 @@ async fn production_native_active_scenario(udp_enabled: bool, reverse: bool) {
         let result = tokio::time::timeout(Duration::from_secs(5), async {
             started.await.unwrap();
             lease
-                .run_ref(coordinator.improve(ae.endpoint(), &original, be.addr(), attempt.clone()))
+                .run_ref(coordinator.improve(
+                    ae.endpoint(),
+                    &original,
+                    be.addr(),
+                    attempt.clone(),
+                    || Ok(()),
+                ))
                 .await
         })
         .await;
@@ -1372,6 +1384,7 @@ async fn active_native_budget_deferral_preserves_another_members_original_stream
             &NativeControlAdapter(ae.active_coordinator(a.admission_gate())),
             attempt,
             AttemptLog::new(AttemptRole::Initiator, "active_native_budget_fixture"),
+            || Ok(()),
         ))
         .await
         .unwrap()
@@ -1657,6 +1670,7 @@ async fn scripted_native_udp_result(offer_count: Option<u16>, reverse: bool) {
                     &adapter,
                     attempt,
                     AttemptLog::new(AttemptRole::Initiator, "test_active_udp_result"),
+                    || Ok(()),
                 )),
                 scripted_peer
             )
@@ -1783,6 +1797,444 @@ async fn unmarked_active_control_close_is_not_deferred() {
 #[tokio::test]
 async fn production_native_active_from_accepting_side_keeps_concurrent_business() {
     production_native_active_scenario(true, true).await;
+}
+
+#[tokio::test]
+async fn background_relay_race_admits_backup_and_sends_one_hello() {
+    use iroh::endpoint::{BeforeConnectOutcome, EndpointHooks, presets};
+
+    #[derive(Debug, Clone)]
+    struct StalledRoute {
+        url: iroh::RelayUrl,
+        reject: Arc<AtomicBool>,
+        started: tokio::sync::mpsc::UnboundedSender<(iroh::RelayUrl, n0_future::time::Instant)>,
+    }
+    impl EndpointHooks for StalledRoute {
+        async fn before_connect(&self, target: &EndpointAddr, alpn: &[u8]) -> BeforeConnectOutcome {
+            if alpn == ACTIVE_IMPROVEMENT_ALPN {
+                let url = target.relay_urls().next().unwrap();
+                self.started
+                    .send((url.clone(), n0_future::time::Instant::now()))
+                    .unwrap();
+                if url == &self.url {
+                    if self.reject.load(Ordering::Acquire) {
+                        return BeforeConnectOutcome::Reject;
+                    }
+                    return std::future::pending().await;
+                }
+            }
+            BeforeConnectOutcome::Accept
+        }
+    }
+
+    let (_directory, a, b) = admitted_pair().await;
+    let mut config = iroh_relay::server::ServerConfig::default();
+    config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let relay = iroh_relay::server::Server::spawn(config).await.unwrap();
+    let live = relay.http_url().unwrap();
+    let stalled = format!("http://127.0.0.2:{}/", live.port().unwrap())
+        .parse::<iroh::RelayUrl>()
+        .unwrap();
+    for node in [&a, &b] {
+        let mut resources = node.resource_configuration().unwrap();
+        resources.replacement = Some(
+            [&live, &stalled]
+                .into_iter()
+                .map(|url| crate::resources::Resource {
+                    url: url.to_string(),
+                    uses: [crate::resources::ResourceUse::DataRelay].into(),
+                    limitation: "owned active relay race".into(),
+                })
+                .collect(),
+        );
+        node.save_resource_configuration(&resources).unwrap();
+    }
+    let (started, mut starts) = tokio::sync::mpsc::unbounded_channel();
+    let reject = Arc::new(AtomicBool::new(false));
+    let ae = a
+        .bind_configured_endpoint_with(
+            Endpoint::builder(presets::Minimal)
+                .bind_addr((Ipv4Addr::LOCALHOST, 0))
+                .unwrap()
+                .hooks(StalledRoute {
+                    url: stalled.clone(),
+                    reject: reject.clone(),
+                    started,
+                }),
+        )
+        .await
+        .unwrap();
+    let be = b
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::join!(ae.endpoint().online(), be.endpoint().online());
+    })
+    .await
+    .unwrap();
+    let direct = be
+        .endpoint()
+        .bound_sockets()
+        .into_iter()
+        .find(std::net::SocketAddr::is_ipv4)
+        .unwrap();
+    let (original, remote) = member_pair(
+        &ae,
+        &be,
+        EndpointAddr::new(be.addr().id).with_ip_addr(direct),
+    )
+    .await;
+    let stable = original.stable_id();
+    let (mut tx, mut rx) = original.open_bi().await.unwrap();
+    tx.write_all(b"first").await.unwrap();
+    let (mut echo, mut incoming) = remote.accept_bi().await.unwrap();
+    let mut bytes = [0; 5];
+    incoming.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"first");
+
+    let coordinator = ConnectionCoordinator::new_restricted(ae.endpoint().clone(), RELAY, vec![])
+        .with_background_relay_race(Some(BackgroundRelayRace {
+            preferred: Some(TransportAddr::Relay(stalled.clone())),
+        }));
+    let live_target = EndpointAddr::new(be.addr().id).with_relay_url(live.clone());
+    let target = live_target.clone().with_relay_url(stalled.clone());
+    let attempt = || {
+        AttemptContext::new(
+            n0_future::time::Instant::now() + Duration::from_secs(5),
+            tokio_util::sync::CancellationToken::new(),
+        )
+    };
+    let log = AttemptLog::new(AttemptRole::Initiator, "background_relay_race_fixture");
+    reject.store(true, Ordering::Release);
+    assert!(matches!(
+        coordinator
+            .connect_active_control(target.clone(), attempt(), log)
+            .await,
+        Err(ConnectError::IdentityOrAdmissionRejected)
+    ));
+    assert_eq!(starts.try_recv().unwrap().0, stalled);
+    assert!(starts.try_recv().is_err());
+    reject.store(false, Ordering::Release);
+
+    let (incoming_tx, mut controls) = tokio::sync::mpsc::unbounded_channel();
+    let router = iroh::protocol::RestrictedRouter::builder(be.endpoint().clone())
+        .accept_control(ACTIVE_IMPROVEMENT_ALPN, ObserveControl(incoming_tx))
+        .spawn();
+    let dialing = attempt();
+    let control = coordinator
+        .connect_active_control(target, dialing.clone(), log)
+        .await
+        .unwrap();
+    let (first, first_at) = starts.try_recv().unwrap();
+    let (second, second_at) = starts.try_recv().unwrap();
+    assert_eq!((first, second), (stalled, live.clone()));
+    assert!(second_at - first_at >= Duration::from_millis(240));
+    assert!(
+        control
+            .paths()
+            .iter()
+            .any(|path| matches!(path.remote_addr(), TransportAddr::Relay(url) if url == &live))
+    );
+    let received = tokio::time::timeout(Duration::from_secs(2), controls.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    let client = ProbeAdapter::new(a.admission_gate(), None, None);
+    let server = ProbeAdapter::new(b.admission_gate(), None, None);
+    let local_registry = client.gate.maintenance();
+    let registry = server.gate.maintenance();
+    let lease = local_registry
+        .acquire_outgoing(&original, &dialing, ())
+        .unwrap();
+    let winning = control.restricted_handle().unwrap();
+    let receiving = received.control_handle();
+    let deadline = dialing.deadline;
+    let (path, peer) = tokio::time::timeout_at(deadline, async {
+        tokio::join!(
+            lease.run_ref(improve_existing(
+                ae.endpoint(),
+                &original,
+                &winning,
+                &client,
+                dialing,
+                log,
+                || lease.seal_outgoing_hello()
+            )),
+            serve_active_session(
+                be.endpoint(),
+                &receiving,
+                &server,
+                &registry,
+                deadline,
+                |peer, binding| registry.for_binding(peer, binding)
+            ),
+        )
+    })
+    .await
+    .unwrap();
+    assert!(path.unwrap().unwrap().is_open(&original));
+    peer.unwrap();
+    assert!(
+        controls.try_recv().is_err(),
+        "only the admitted winner reaches the peer control handler"
+    );
+    assert!(starts.try_recv().is_err());
+    tx.write_all(b"after").await.unwrap();
+    incoming.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"after");
+    echo.write_all(b"reply").await.unwrap();
+    rx.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"reply");
+    assert_eq!(original.stable_id(), stable);
+    assert!(remote.close_reason().is_none());
+    drop(lease);
+
+    // The same race owns both ready results. Qualify two actual controls first
+    // so testing the tie doesn't depend on transport scheduling.
+    let (first, second) = (attempt(), attempt());
+    let (preferred, alternate) = tokio::join!(
+        coordinator.connect_active_control(live_target.clone(), first.clone(), log),
+        coordinator.connect_active_control(live_target, second.clone(), log),
+    );
+    let preferred = preferred.unwrap();
+    let alternate = alternate.unwrap();
+    let preferred_id = preferred.stable_id();
+    let alternate_binding =
+        crate::connection_recovery_core::binding(&alternate.restricted_handle().unwrap()).unwrap();
+    let raced = race_contact_routes(
+        (
+            &first,
+            std::future::ready(Ok(QualifiedRoute {
+                delivery: ConnectionDelivery::Control(preferred),
+                log,
+            })),
+        ),
+        (
+            &second,
+            std::future::ready(Ok(QualifiedRoute {
+                delivery: ConnectionDelivery::Control(alternate),
+                log,
+            })),
+        ),
+    )
+    .await
+    .map_err(|failure| failure.error().to_string())
+    .unwrap();
+    assert_eq!(raced.delivery.stable_id(), preferred_id);
+    let (left, right) = (
+        controls.recv().await.unwrap(),
+        controls.recv().await.unwrap(),
+    );
+    let (winner, loser) = if crate::connection_recovery_core::binding(&left.control_handle())
+        .unwrap()
+        == alternate_binding
+    {
+        (right, left)
+    } else {
+        assert_eq!(
+            crate::connection_recovery_core::binding(&right.control_handle()).unwrap(),
+            alternate_binding
+        );
+        (left, right)
+    };
+    assert!(
+        tokio::time::timeout(Duration::from_secs(2), loser.accept_control_exchange())
+            .await
+            .unwrap()
+            .is_err(),
+        "the qualified losing control is closed before Hello"
+    );
+    let winner = winner.control_handle();
+    let request = raced.delivery.control().unwrap();
+    let request = request.restricted_handle().unwrap();
+    let lease = local_registry
+        .acquire_outgoing(&original, &first, ())
+        .unwrap();
+    let deadline = first.deadline;
+    let (path, peer) = tokio::time::timeout_at(deadline, async {
+        tokio::join!(
+            lease.run_ref(improve_existing(
+                ae.endpoint(),
+                &original,
+                &request,
+                &client,
+                first,
+                log,
+                || lease.seal_outgoing_hello()
+            )),
+            serve_active_session(
+                be.endpoint(),
+                &winner,
+                &server,
+                &registry,
+                deadline,
+                |peer, binding| registry.for_binding(peer, binding)
+            ),
+        )
+    })
+    .await
+    .unwrap();
+    assert!(path.unwrap().unwrap().is_open(&original));
+    peer.unwrap();
+    tx.write_all(b"later").await.unwrap();
+    incoming.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"later");
+    drop(lease);
+    router.shutdown().await.unwrap();
+    tokio::join!(ae.close(), be.close());
+    tokio::join!(a.close(), b.close());
+    relay.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn colliding_active_hello_hands_off_to_the_original_dialer() {
+    use crate::session_maintenance::MaintenanceError;
+
+    let (_directory, a, b) = admitted_pair().await;
+    let ae = a
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let be = b
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let (original, remote) = ordinary_pair(&ae, &be).await;
+    let ids = (original.stable_id(), remote.stable_id());
+    assert!(original.side().is_client() && !remote.side().is_client());
+    let (mut send, mut reply) = original.open_bi().await.unwrap();
+    send.write_all(b"before").await.unwrap();
+    let (mut echo, mut receive) = remote.accept_bi().await.unwrap();
+    let mut bytes = [0; 6];
+    receive.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"before");
+
+    let deadline = n0_future::time::Instant::now() + Duration::from_secs(5);
+    let dial = |from: &crate::resources::ResourceEndpoint,
+                to: &crate::resources::ResourceEndpoint| {
+        let (from, to, address) = (from.endpoint().clone(), to.endpoint().clone(), to.addr());
+        async move {
+            let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
+            tokio::join!(
+                async {
+                    from.connect_control_with_opts(address, ACTIVE_IMPROVEMENT_ALPN, options)
+                        .await
+                        .unwrap()
+                        .await
+                        .unwrap()
+                },
+                async {
+                    to.accept()
+                        .await
+                        .unwrap()
+                        .with_caller_deadline(deadline)
+                        .accept_control()
+                        .unwrap()
+                        .await
+                        .unwrap()
+                }
+            )
+        }
+    };
+    let (winning, winning_incoming) = dial(&ae, &be).await;
+    let (losing, losing_incoming) = dial(&be, &ae).await;
+    let (winning, winning_incoming) = (winning.control_handle(), winning_incoming.control_handle());
+    let (losing, losing_incoming) = (losing.control_handle(), losing_incoming.control_handle());
+    let client = ProbeAdapter::new(a.admission_gate(), None, None);
+    let server = ProbeAdapter::new(b.admission_gate(), None, None);
+    let client_registry = client.gate.maintenance();
+    let server_registry = server.gate.maintenance();
+    let attempt = || AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new());
+    let (client_attempt, server_attempt) = (attempt(), attempt());
+    let client_lease = client_registry
+        .acquire_outgoing(&original, &client_attempt, ())
+        .unwrap();
+    let server_lease = server_registry
+        .acquire_outgoing(&remote, &server_attempt, ())
+        .unwrap();
+    let server_outgoing = async {
+        let result = server_lease
+            .run(improve_existing(
+                be.endpoint(),
+                &remote,
+                &losing,
+                &server,
+                server_attempt,
+                AttemptLog::new(AttemptRole::Initiator, "colliding_hello_acceptor"),
+                // Reaching this closure on the losing control would mean it received a reply.
+                || panic!("losing Hello entered candidate validation"),
+            ))
+            .await;
+        losing.close(0u32.into(), b"outgoing attempt yielded");
+        result
+    };
+    let serve_winner = async {
+        // Consume the losing request here without sending a reply. This forces
+        // the original acceptor to be waiting for Hello when the winner arrives.
+        let exchange = open_active_stream(&losing_incoming).await.unwrap();
+        let hello = read_active_hello(&exchange).await.unwrap();
+        assert_eq!(
+            hello.binding,
+            crate::connection_recovery_core::binding(&original).unwrap()
+        );
+        echo.write_all(b"during").await.unwrap();
+        reply.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"during");
+        serve_active_session(
+            be.endpoint(),
+            &winning_incoming,
+            &server,
+            &server_registry,
+            deadline,
+            |peer, binding| server_registry.for_binding(peer, binding),
+        )
+        .await
+    };
+    let client_outgoing = client_lease.run_ref(improve_existing(
+        ae.endpoint(),
+        &original,
+        &winning,
+        &client,
+        client_attempt,
+        AttemptLog::new(AttemptRole::Initiator, "colliding_hello_dialer"),
+        || client_lease.seal_outgoing_hello(),
+    ));
+    let (won, served, yielded) = tokio::time::timeout_at(deadline, async {
+        tokio::join!(client_outgoing, serve_winner, server_outgoing)
+    })
+    .await
+    .unwrap();
+    assert!(won.unwrap().unwrap().is_open(&original));
+    served.unwrap();
+    assert!(matches!(yielded, Err(MaintenanceError::Cancelled)));
+    for (adapter, control) in [(&client, &winning), (&server, &winning_incoming)] {
+        assert_eq!(
+            adapter.report.lock().unwrap().as_ref().unwrap()["controlStableId"],
+            json!(control.stable_id())
+        );
+        assert_eq!(
+            adapter
+                .stages
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|stage| **stage == "common-ready-begin")
+                .count(),
+            1
+        );
+    }
+    send.write_all(b"after!").await.unwrap();
+    receive.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"after!");
+    assert_eq!((original.stable_id(), remote.stable_id()), ids);
+    assert!(original.close_reason().is_none() && remote.close_reason().is_none());
+    drop(client_lease);
+    tokio::join!(ae.close(), be.close());
+    tokio::join!(a.close(), b.close());
 }
 
 #[tokio::test]
@@ -1990,6 +2442,7 @@ async fn scenario_with_native(
                                 AttemptRole::Initiator,
                                 "explicit_improvement",
                             ),
+                            || Ok(()),
                         ))
                         .await;
                     if matches!(&result, Ok(Ok(_))) {
@@ -2794,7 +3247,7 @@ async fn first_contact_relay_fixture() {
     let active_id = active.delivery.stable_id();
     // Supply both already qualified connections to exercise the same-poll tie
     // deterministically. The actual dials and data admission ran above.
-    let winner = race_active_and_relay(
+    let winner = race_contact_routes(
         (&active_attempt, std::future::ready(Ok(active))),
         (&relay_attempt, std::future::ready(Ok(relayed))),
     )
@@ -2815,7 +3268,7 @@ async fn first_contact_relay_fixture() {
 
     // A ready success cannot hide a terminal authorization failure from the
     // other branch. The already qualified connection must also be retired.
-    let rejected = race_active_and_relay(
+    let rejected = race_contact_routes(
         (&active_attempt, std::future::ready(Ok(winner))),
         (
             &attempt(),

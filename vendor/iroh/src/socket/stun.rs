@@ -11,7 +11,11 @@ use iroh_base::RelayUrl;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-use super::{EndpointInner, ObservationValidity, UdpMappingSample, UdpMappingSequence, transports};
+use super::{
+    EndpointInner, ObservationValidity, UdpMappingSample, UdpMappingSequence, net_report,
+    transports,
+};
+use futures_util::{FutureExt as _, StreamExt as _, stream::FuturesUnordered};
 use n0_watcher::Watcher as _;
 
 const COOKIE: [u8; 4] = [0x21, 0x12, 0xa4, 0x42];
@@ -176,6 +180,173 @@ impl EndpointInner {
             .await
     }
 
+    pub(crate) async fn observe_udp_mapping_round(
+        &self,
+        qad: &iroh_relay::RelayMap,
+        stun: &[RelayUrl],
+    ) -> io::Result<UdpMappingSequence> {
+        // Both request types use the endpoint IPv4 transport. A single binding
+        // makes that physical socket unambiguous even for wildcard addresses.
+        let mut bindings = self.sock.ip_local_addrs().filter(SocketAddr::is_ipv4);
+        let binding = bindings
+            .next()
+            .filter(|_| bindings.next().is_none())
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    "mixed observation requires one IPv4 binding",
+                )
+            })?;
+        let network_validity = self.udp_network_generation();
+        let validity = self.udp_observation_generation();
+        let closed = self.sock.shutdown.at_close_start.child_token();
+        let allowed = |url: &RelayUrl| {
+            self.static_config
+                .relay_resource_policy
+                .allows(url, crate::endpoint::RelayResourceUse::Observation)
+        };
+        let relays: Vec<_> = qad
+            .relays::<Vec<_>>()
+            .into_iter()
+            .filter(|r| allowed(&r.url))
+            .collect();
+        let stun: Vec<_> = stun.iter().filter(|url| allowed(url)).collect();
+        if stun.len() > 4 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "at most four STUN origins per round",
+            ));
+        }
+        if relays.is_empty() && stun.is_empty() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "no available mapping observers",
+            ));
+        }
+        let round_validity = self.begin_udp_stun_observation();
+        let check = || -> io::Result<()> {
+            if closed.is_cancelled()
+                || !network_validity.is_current()
+                || !round_validity.is_current()
+            {
+                return Err(io::Error::new(
+                    io::ErrorKind::Interrupted,
+                    "mapping observation invalidated",
+                ));
+            }
+            if relays.iter().any(|r| !allowed(&r.url)) || stun.iter().any(|url| !allowed(url)) {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "mapping observation permission changed",
+                ));
+            }
+            Ok(())
+        };
+        check()?;
+        let mut probes = FuturesUnordered::new();
+        for relay in &relays {
+            let probe = net_report::observe_mapping_sample(
+                relay.clone(),
+                self.qad_client.clone(),
+                self.sock.dns_resolver.clone(),
+                closed.child_token(),
+            );
+            probes.push(
+                async move {
+                    let sample = probe.await?;
+                    Ok((
+                        UdpMappingSample {
+                            observer: sample.observer,
+                            destination: sample.destination,
+                            mapped: sample.mapped,
+                            observed_at: sample.observed_at,
+                        },
+                        None,
+                    ))
+                }
+                .boxed(),
+            );
+        }
+        for observer in &stun {
+            let probe = self.observe_udp_stun_in_sequence(observer, round_validity.clone());
+            probes.push(
+                async move {
+                    let sample = probe.await?;
+                    if sample.local_addr.port() != binding.port()
+                        || (!binding.ip().is_unspecified()
+                            && sample.local_addr.ip() != binding.ip())
+                    {
+                        return Err(io::Error::other("STUN received on a different UDP binding"));
+                    }
+                    Ok((
+                        UdpMappingSample {
+                            observer: sample.observer.to_string(),
+                            destination: sample.destination,
+                            mapped: sample.mapped,
+                            observed_at: sample.observed_at.into(),
+                        },
+                        Some(n0_future::time::Instant::from(sample.valid_until)),
+                    ))
+                }
+                .boxed(),
+            );
+        }
+        let mut samples: Vec<(UdpMappingSample, Option<n0_future::time::Instant>)> =
+            Vec::with_capacity(2);
+        let mut recheck = tokio::time::interval(Duration::from_millis(10));
+        while !probes.is_empty() {
+            tokio::select! {
+                biased;
+                _ = closed.cancelled() => check()?,
+                _ = recheck.tick() => check()?,
+                result = probes.next() => {
+                    check()?;
+                    match result {
+                        Some(Ok((sample, expiry))) if sample.mapped.is_ipv4()
+                            && sample.mapped.port() != 0 && !sample.mapped.ip().is_unspecified()
+                            && !samples.iter().any(|(s, _)| s.destination == sample.destination) =>
+                        {
+                            samples.push((sample, expiry));
+                            if samples.len() == 2 {
+                                break;
+                            }
+                        }
+                        Some(Err(error)) if error.kind() == io::ErrorKind::PermissionDenied => return Err(error),
+                        _ => {}
+                    }
+                }
+            }
+        }
+        drop(probes);
+        check()?;
+        samples.sort_by_key(|(sample, _)| sample.observed_at);
+        let stun_deadline = samples.iter().filter_map(|(_, expiry)| *expiry).min();
+        let last = samples
+            .last()
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::NotFound, "no current mapping observations")
+            })?
+            .0
+            .observed_at;
+        let interfaces = self.local_interfaces_watcher.clone().get();
+        Ok(UdpMappingSequence {
+            samples: samples.into_iter().map(|(sample, _)| sample).collect(),
+            local_ips: interfaces
+                .local_addresses
+                .regular
+                .iter()
+                .chain(interfaces.local_addresses.loopback.iter())
+                .copied()
+                .collect(),
+            valid_until: stun_deadline.unwrap_or(last + Duration::from_secs(2)),
+            validity,
+            network_validity,
+            supersession_validity: Some(round_validity),
+            traversal_deadline: stun_deadline,
+            closed: Some(closed),
+        })
+    }
+
     /// One scope for the entire ordered sequence; individual queries must not
     /// invalidate earlier samples. Distinct URL names never imply distinct IPs.
     pub(crate) async fn observe_udp_stun_mapping_sequence(
@@ -259,6 +430,7 @@ impl EndpointInner {
             validity: validity.clone(),
             network_validity,
             supersession_validity: Some(validity),
+            traversal_deadline: Some(valid_until),
             closed: Some(self.sock.shutdown.at_close_start.child_token()),
         })
     }

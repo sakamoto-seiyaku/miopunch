@@ -14,7 +14,8 @@ use std::{
     sync::Arc,
 };
 
-use defaults::timeouts::PROBES_TIMEOUT;
+#[cfg(not(wasm_browser))]
+use defaults::timeouts::QAD_PROBE_TIMEOUT;
 use iroh_base::RelayUrl;
 #[cfg(not(wasm_browser))]
 use iroh_dns::dns::DnsResolver;
@@ -130,7 +131,6 @@ impl Default for NetReportConfig {
 }
 
 const FULL_REPORT_INTERVAL: Duration = Duration::from_secs(5 * 60);
-const ENOUGH_ENDPOINTS: usize = 3;
 
 /// Client to run net_reports.
 #[derive(Debug)]
@@ -264,9 +264,7 @@ impl Client {
         let probes = opts.as_protocols();
 
         #[cfg(not(wasm_browser))]
-        let quic_client = opts
-            .quic_config
-            .map(|c| iroh_relay::quic::QuicClient::new(c.ep, c.client_config));
+        let quic_client = opts.quic_config.map(|c| c.client);
 
         #[cfg(not(wasm_browser))]
         let socket_state = SocketState {
@@ -326,7 +324,6 @@ impl Client {
         self.metrics.reports.inc();
 
         let num_relays = self.relay_map.len();
-        let enough_relays = std::cmp::min(num_relays, ENOUGH_ENDPOINTS);
         #[cfg(wasm_browser)]
         let if_state = IfStateDetails::default();
         #[cfg(not(wasm_browser))]
@@ -353,12 +350,7 @@ impl Client {
 
         #[cfg(not(wasm_browser))]
         let reports = self
-            .spawn_qad_probes(
-                &if_state,
-                enough_relays,
-                do_full,
-                shutdown_token.child_token(),
-            )
+            .spawn_qad_probes(&if_state, do_full, shutdown_token.child_token())
             .await;
 
         #[cfg(not(wasm_browser))]
@@ -443,7 +435,6 @@ impl Client {
     async fn spawn_qad_probes(
         &mut self,
         if_state: &IfStateDetails,
-        enough_relays: usize,
         do_full: bool,
         shutdown_token: CancellationToken,
     ) -> Vec<ProbeReport> {
@@ -497,9 +488,7 @@ impl Client {
         const MAX_RELAYS: usize = 5;
 
         let mut v4_buf = JoinSet::new();
-        let cancel_v4 = shutdown_token.child_token();
         let mut v6_buf = JoinSet::new();
-        let cancel_v6 = shutdown_token.child_token();
 
         let relays = self.relay_map.relays::<Vec<_>>();
         for relay in relays.into_iter().take(MAX_RELAYS) {
@@ -509,12 +498,12 @@ impl Client {
                 let dns_resolver = self.socket_state.dns_resolver.clone();
                 let quic_client = quic_client.clone();
                 let relay_url = relay.url.clone();
-                let inner_token = cancel_v4.child_token();
+                let inner_token = shutdown_token.child_token();
                 v4_buf.spawn(
-                    cancel_v4
+                    shutdown_token
                         .child_token()
                         .run_until_cancelled_owned(time::timeout(
-                            PROBES_TIMEOUT,
+                            QAD_PROBE_TIMEOUT,
                             run_probe_v4(relay, quic_client, dns_resolver, inner_token),
                         ))
                         .instrument(info_span!("QADv4", %relay_url)),
@@ -526,12 +515,12 @@ impl Client {
                 let dns_resolver = self.socket_state.dns_resolver.clone();
                 let quic_client = quic_client.clone();
                 let relay_url = relay.url.clone();
-                let inner_token = cancel_v6.child_token();
+                let inner_token = shutdown_token.child_token();
                 v6_buf.spawn(
-                    cancel_v6
+                    shutdown_token
                         .child_token()
                         .run_until_cancelled_owned(time::timeout(
-                            PROBES_TIMEOUT,
+                            QAD_PROBE_TIMEOUT,
                             run_probe_v6(relay, quic_client, dns_resolver, inner_token),
                         ))
                         .instrument(info_span!("QADv6", %relay_url)),
@@ -539,25 +528,9 @@ impl Client {
             }
         }
 
-        // We set _pending to true if at least one report was started for each category.
-        // If we did not start any report for either category, _pending is set to false right away
-        // (it "completed" in the sense that nothing will ever run). If we did start at least one report,
-        // _pending is set to true, and will be set to false further down once the first task
-        // completed.
-        let mut ipv4_pending = !v4_buf.is_empty();
-        let mut ipv6_pending = !v6_buf.is_empty();
-
+        // Collect all started QAD probes within their shared per-probe budget.
+        // A later observation can still reveal a different NAT mapping.
         while !v4_buf.is_empty() || !v6_buf.is_empty() {
-            // We early-abort the tasks once we have at least `enough_relays` reports,
-            // and at least one ipv4 and one ipv6 report completed (if they were started, see comment above).
-
-            if reports.len() >= enough_relays && !ipv4_pending && !ipv6_pending {
-                debug!("enough probes: {}", reports.len());
-                cancel_v4.cancel();
-                cancel_v6.cancel();
-                break;
-            }
-
             tokio::select! {
                 biased;
 
@@ -569,7 +542,6 @@ impl Client {
                 val = v4_buf.join_next(), if !v4_buf.is_empty() => {
                     let span = info_span!("QADv4");
                     let _guard = span.enter();
-                    ipv4_pending = false;
                     match val {
                         Some(Ok(Some(Ok(res)))) => {
                             match res {
@@ -608,7 +580,6 @@ impl Client {
                 val = v6_buf.join_next(), if !v6_buf.is_empty() => {
                     let span = info_span!("QADv6");
                     let _guard = span.enter();
-                    ipv6_pending = false;
                     match val {
                         Some(Ok(Some(Ok(res)))) => {
                             match res {
@@ -831,13 +802,34 @@ pub(crate) struct MappingProbeSample {
     pub observed_at: Instant,
 }
 
+#[cfg(not(wasm_browser))]
+pub(crate) async fn observe_mapping_sample(
+    relay: Arc<RelayConfig>,
+    client: QuicClient,
+    dns: DnsResolver,
+    cancel: CancellationToken,
+) -> std::io::Result<MappingProbeSample> {
+    let observer = relay.url.to_string();
+    let (report, conn) = time::timeout(QAD_PROBE_TIMEOUT, run_probe_v4(relay, client, dns, cancel))
+        .await
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "QAD timed out"))?
+        .map_err(|error| std::io::Error::other(format!("QAD mapping observation: {error:#}")))?;
+    conn.conn
+        .close(QUIC_ADDR_DISC_CLOSE_CODE, QUIC_ADDR_DISC_CLOSE_REASON);
+    Ok(MappingProbeSample {
+        observer,
+        destination: report.destination,
+        mapped: report.addr,
+        observed_at: Instant::now(),
+    })
+}
+
 /// Run one observer at a time. Net report's parallel results and aggregate
 /// `mapping_varies_by_dest` cannot establish port allocation order.
 #[cfg(not(wasm_browser))]
 pub(crate) async fn observe_mapping_sequence(
     servers: &RelayMap,
-    endpoint: noq::Endpoint,
-    tls_config: rustls::ClientConfig,
+    client: QuicClient,
     dns_resolver: DnsResolver,
     cancel: CancellationToken,
 ) -> std::io::Result<Vec<MappingProbeSample>> {
@@ -850,13 +842,12 @@ pub(crate) async fn observe_mapping_sequence(
             "at least two configured QAD observers required",
         ));
     }
-    let client = QuicClient::new(endpoint, tls_config);
     let mut results: Vec<MappingProbeSample> = Vec::with_capacity(relays.len());
     let mut last_error = None;
     for relay in relays {
         let started = Instant::now();
         let probe = time::timeout(
-            PROBES_TIMEOUT,
+            QAD_PROBE_TIMEOUT,
             run_probe_v4(
                 relay.clone(),
                 client.clone(),
@@ -937,6 +928,7 @@ async fn run_probe_v4(
         .url
         .host_str()
         .ok_or_else(|| e!(QadProbeError::MissingHost))?;
+    let started = Instant::now();
     let conn = quic_client
         .create_conn(relay_addr.into(), host)
         .await
@@ -949,6 +941,10 @@ async fn run_probe_v4(
         .next()
         .await
         .ok_or_else(|| e!(QadProbeError::ReceiverDropped))?;
+    iroh_relay::client::relay_diagnostic(format_args!(
+        "qad-address-received host={host} destination={relay_addr} elapsed_ms={}",
+        started.elapsed().as_millis()
+    ));
     let report = QadProbeReport {
         relay: relay.url.clone(),
         addr: SocketAddr::new(addr.ip().to_canonical(), addr.port()),
@@ -1117,8 +1113,7 @@ mod tests {
         let client_config = iroh_relay::tls::make_dangerous_client_config();
         let ep = noq::Endpoint::client(SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 0)).anyerr()?;
         let quic_addr_disc = QuicConfig {
-            ep: ep.clone(),
-            client_config,
+            client: QuicClient::new(ep.clone(), client_config),
             ipv4: true,
             ipv6: true,
         };

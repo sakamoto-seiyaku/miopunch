@@ -199,6 +199,8 @@ pub(crate) struct Options {
     pub(crate) connection_path_selector: Option<Arc<dyn ConnectionPathSelector>>,
     pub(crate) portmapper_config: portmapper::PortmapperConfig,
     pub(crate) net_report_config: crate::net_report::NetReportConfig,
+    #[cfg(not(wasm_browser))]
+    pub(crate) qad_tls_config: Option<((String, u16), rustls::ClientConfig)>,
     pub(crate) observation_servers: Option<RelayMap>,
 
     /// Static configuration for the endpoint.
@@ -221,6 +223,8 @@ pub(crate) struct EndpointInner {
     actor_sender: mpsc::Sender<ActorMessage>,
     // noq endpoint
     endpoint: noq::Endpoint,
+    #[cfg(not(wasm_browser))]
+    qad_client: iroh_relay::quic::QuicClient,
     // Runtime used by noq
     runtime: Arc<Runtime>,
     /// Static configuration for the endpoint.
@@ -1521,8 +1525,7 @@ impl EndpointInner {
             }));
         let observe = net_report::observe_mapping_sequence(
             &observers,
-            self.endpoint.clone(),
-            self.sock.tls_config.clone(),
+            self.qad_client.clone(),
             self.sock.dns_resolver.clone(),
             self.sock.shutdown.at_close_start.child_token(),
         );
@@ -1593,6 +1596,7 @@ impl EndpointInner {
                 observed_generation: network_generation,
             },
             supersession_validity: None,
+            traversal_deadline: None,
             closed: None,
         })
     }
@@ -2098,6 +2102,8 @@ impl EndpointInner {
             connection_path_selector,
             portmapper_config,
             net_report_config,
+            #[cfg(not(wasm_browser))]
+            qad_tls_config,
             observation_servers,
             static_config,
             configured_addrs,
@@ -2314,6 +2320,15 @@ impl EndpointInner {
             .map_err(|err| e!(BindError::CreateNetmonMonitor, anyerr!(err)))?;
 
         #[cfg(not(wasm_browser))]
+        let qad_client = {
+            let client = iroh_relay::quic::QuicClient::new(endpoint.clone(), tls_config.clone());
+            match qad_tls_config {
+                Some(((host, port), tls)) => client.with_x25519_sni(host, port, tls),
+                None => client,
+            }
+        };
+
+        #[cfg(not(wasm_browser))]
         let net_report_config = {
             // Set a `QuicConfig` for address discovery (QAD), but only if we have IP transports.
             //
@@ -2322,8 +2337,7 @@ impl EndpointInner {
             // and the QAD probes that connect to the relay's QUIC endpoints would time out
             // because all outgoing packets to IP destinations would be dropped.
             let qad_config = has_ip_transports.then(|| QuicConfig {
-                ep: endpoint.clone(),
-                client_config: tls_config.clone(),
+                client: qad_client.clone(),
                 ipv4: true,
                 ipv6: has_ipv6_transport,
             });
@@ -2392,6 +2406,8 @@ impl EndpointInner {
             actor_sender,
             actor_task,
             endpoint,
+            #[cfg(not(wasm_browser))]
+            qad_client,
             runtime,
             static_config,
             #[cfg(not(wasm_browser))]
@@ -3407,11 +3423,12 @@ pub struct UdpMappingSample {
     pub observed_at: Instant,
 }
 
-/// A short-lived sequential UDP observation for mapping allocation analysis.
+/// A short-lived batch of UDP mapping observations.
 #[cfg(not(wasm_browser))]
 #[derive(Debug, Clone)]
 pub struct UdpMappingSequence {
-    /// Results in request order, each to a distinct configured destination.
+    /// Results to distinct destinations, in request order for a sequence or
+    /// completion order for a concurrent observation round.
     pub samples: Vec<UdpMappingSample>,
     /// Real interface IPs at observation time, excluding reflected candidates.
     /// Used for the legacy PublicNetwork feature even with wildcard bindings.
@@ -3419,9 +3436,8 @@ pub struct UdpMappingSequence {
     valid_until: Instant,
     validity: ObservationValidity,
     network_validity: ObservationValidity,
-    /// STUN rounds share one request generation and a forty-second lifetime.
-    /// QAD reports may refresh during long legacy plans without changing sockets.
     supersession_validity: Option<ObservationValidity>,
+    traversal_deadline: Option<Instant>,
     closed: Option<CancellationToken>,
 }
 
@@ -3430,20 +3446,14 @@ impl UdpMappingSequence {
     /// Deadline of the STUN traversal evidence. QAD's predictor refresh
     /// deadline is independent of the physical traversal lifetime.
     pub fn traversal_deadline(&self) -> Option<Instant> {
-        self.supersession_validity
-            .as_ref()
-            .map(|_| self.valid_until)
+        self.traversal_deadline
     }
 
     /// Network changes invalidate all copies of the observation.
     pub fn is_fresh(&self) -> bool {
         Instant::now() < self.valid_until
             && self.validity.is_current()
-            && self.network_validity.is_current()
-            && self
-                .closed
-                .as_ref()
-                .is_none_or(|closed| !closed.is_cancelled())
+            && self.is_current_generation()
     }
 
     /// Whether the socket/network generation that produced these samples is
@@ -3454,7 +3464,10 @@ impl UdpMappingSequence {
             && self
                 .supersession_validity
                 .as_ref()
-                .is_none_or(|validity| validity.is_current() && Instant::now() < self.valid_until)
+                .is_none_or(ObservationValidity::is_current)
+            && self
+                .traversal_deadline
+                .is_none_or(|end| Instant::now() < end)
             && self
                 .closed
                 .as_ref()
@@ -3722,6 +3735,8 @@ mod tests {
             connection_path_selector: None,
             portmapper_config: Default::default(),
             net_report_config: Default::default(),
+            #[cfg(not(wasm_browser))]
+            qad_tls_config: None,
             observation_servers: None,
             static_config,
             configured_addrs: Default::default(),
@@ -4142,6 +4157,8 @@ mod tests {
             connection_path_selector: None,
             portmapper_config: Default::default(),
             net_report_config: Default::default(),
+            #[cfg(not(wasm_browser))]
+            qad_tls_config: None,
             observation_servers: None,
             static_config,
             configured_addrs: Default::default(),

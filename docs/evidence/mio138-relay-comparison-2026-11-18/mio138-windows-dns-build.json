@@ -1,0 +1,40 @@
+{
+  "compilerContainer": "fcf651702e92fa56b42a4e9cb670b166e6d518591b33475489b14f4bbf63ca11",
+  "compilerImage": "sha256:af5de852d8a8ae263b8eaa6278aea87c3fedc9030d7eb51a0d1b2613c9ce4c4f",
+  "commands": [
+    {
+      "label": "tests",
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--features",
+        "nat-lab-test-hooks",
+        "--test",
+        "relay_route_comparison",
+        "--no-run",
+        "--jobs",
+        "2",
+        "--target",
+        "x86_64-pc-windows-gnu",
+        "--message-format=json"
+      ],
+      "exit": 0,
+      "fresh": 527,
+      "rebuilt": 3,
+      "pins": {
+        "relay_route_comparison": "/home/js/Git/miopunch/.artifacts/runs/mio138-windows-dns/relay_route_comparison.exe"
+      }
+    }
+  ],
+  "started": 1795006234.8617506,
+  "finished": 1795006287.4084022,
+  "diskAfter": {
+    "freeBytes": 500340494336,
+    "cacheBytes": 56770899968
+  },
+  "compilerCleanupExit": 0
+}

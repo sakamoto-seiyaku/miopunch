@@ -207,6 +207,17 @@ Connection maintenance should try to preserve the same end-to-end session
 across allowed path changes, but a session that cannot be maintained must fail
 clearly. Official facilities must not become an inescapable dependency.
 
+miopunch is an application that directly uses modified p2panda and iroh. The
+target architecture removes the separate miopunch SDK or helper-library layer.
+Connection and NAT traversal logic belongs in iroh, with the existing WebRTC
+adapter for browser connections. See
+[ADR 0019](docs/adr/0019-miopunch-application-on-p2panda-and-iroh.md).
+
+Two admitted devices in the same network establish a shared business connection
+on demand. Services such as file transfer and terminal access use separate
+streams with their own authorization on that connection. See
+[ADR 0020](docs/adr/0020-shared-member-business-connection.md).
+
 ## Open design
 
 Implementation planning now defers product UI and omits KCP. TCP carrying QUIC

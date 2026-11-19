@@ -253,7 +253,7 @@ impl NatConnector {
                         .filter(|relay| allowed(&relay.url)),
                 )
             })
-            .filter(|map| map.len() >= 2);
+            .filter(|map| !map.is_empty());
         let stun = self
             .stun_observers
             .iter()
@@ -316,7 +316,7 @@ impl NatConnector {
         result
     }
 
-    /// Acquire a fresh ordered mapping sequence only after current admission.
+    /// Acquire fresh mapping evidence only after current admission.
     pub async fn observe(
         &self,
         control: &ControlSession,
@@ -368,7 +368,52 @@ impl NatConnector {
             result
         };
         self.check_round(control, gate, permit)?;
-        let qad = if let Some(observers) = &observers.qad {
+        let none = RelayMap::empty();
+        let phase = log.phase("observation", serde_json::json!({"method":"mixed"}));
+        match endpoint
+            .observe_udp_mapping_round(observers.qad.as_ref().unwrap_or(&none), &observers.stun)
+            .await
+        {
+            Ok(sequence) => {
+                self.check_round(control, gate, permit)?;
+                let samples = sequence.samples.len();
+                let stun_samples = sequence
+                    .samples
+                    .iter()
+                    .filter(|sample| sample.observer.starts_with("stun://"))
+                    .count();
+                let snapshot =
+                    Self::mapping_snapshot(sequence, MappingSnapshot::from_observation_round);
+                phase.finish_with(
+                    if snapshot.is_ok() {
+                        "succeeded"
+                    } else {
+                        "failed"
+                    },
+                    serde_json::json!({"samples": samples, "stunSamples": stun_samples,
+                        "qadSamples": samples - stun_samples}),
+                );
+                return self.finish_observation(control, gate, snapshot?);
+            }
+            Err(error) if error.kind() == io::ErrorKind::Unsupported => {
+                phase.finish("skipped");
+            }
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::PermissionDenied | io::ErrorKind::Interrupted
+                ) =>
+            {
+                phase.finish("failed");
+                return Err(error);
+            }
+            Err(_) => {
+                phase.finish("unavailable");
+                self.check_round(control, gate, permit)?;
+                return self.finish_observation(control, gate, existing_mapping()?);
+            }
+        }
+        let qad = if let Some(observers) = observers.qad.as_ref().filter(|map| map.len() >= 2) {
             log.event(
                 "probe-budget",
                 "consumed",
@@ -380,7 +425,7 @@ impl NatConnector {
             match endpoint.observe_udp_mapping_sequence(observers).await {
                 Ok(sequence) => {
                     let samples = sequence.samples.len();
-                    let snapshot = Self::mapping_snapshot(sequence);
+                    let snapshot = Self::mapping_snapshot(sequence, MappingSnapshot::from_sequence);
                     phase.finish_with(
                         if snapshot.is_ok() {
                             "succeeded"
@@ -422,7 +467,7 @@ impl NatConnector {
             {
                 Ok(sequence) => {
                     let samples = sequence.samples.len();
-                    let snapshot = Self::mapping_snapshot(sequence);
+                    let snapshot = Self::mapping_snapshot(sequence, MappingSnapshot::from_sequence);
                     phase.finish_with(
                         if snapshot.is_ok() {
                             "succeeded"
@@ -446,7 +491,16 @@ impl NatConnector {
         } else {
             existing_mapping()?
         };
-        let snapshot = snapshot.with_assisted(endpoint.udp_local_ipv4_candidates())?;
+        self.finish_observation(control, gate, snapshot)
+    }
+
+    fn finish_observation(
+        &self,
+        control: &ControlSession,
+        gate: &AdmissionGate,
+        snapshot: MappingSnapshot,
+    ) -> io::Result<MappingSnapshot> {
+        let snapshot = snapshot.with_assisted(control.endpoint().udp_local_ipv4_candidates())?;
         self.check(control, gate)?;
         println!(
             "LEGACY_FEATURE feature={:?} socket_generation_current={}",
@@ -458,8 +512,9 @@ impl NatConnector {
 
     fn mapping_snapshot(
         sequence: iroh::endpoint::UdpMappingSequence,
+        snapshot: impl FnOnce(iroh::endpoint::UdpMappingSequence) -> io::Result<MappingSnapshot>,
     ) -> io::Result<MappingSnapshot> {
-        let snapshot = MappingSnapshot::from_sequence(sequence.clone())?;
+        let snapshot = snapshot(sequence.clone())?;
         for (index, sample) in sequence.samples.iter().enumerate() {
             println!(
                 "LEGACY_SAMPLE order={index} destination={} mapped={} observer={}",
@@ -498,7 +553,11 @@ impl NatConnector {
             .await?;
         let operation = async {
             self.check_round(control, gate, &permit)?;
-            let agreement = nat_punch::begin_round(control, gate, true).await?;
+            let agreement = control
+                .diagnostic()
+                .phase("punch-round-agreement", serde_json::Value::Null)
+                .run(nat_punch::begin_round(control, gate, true))
+                .await?;
             let snapshot = self
                 .observe_round(control, gate, &permit, observers)
                 .await?;
@@ -646,19 +705,25 @@ impl NatConnector {
             serde_json::json!({"resource":"punch_datagrams","requested":bound,"remaining":permit.peer_remaining()}),
         );
         let enabled = || self.check(control, gate);
-        log.phase("punch", serde_json::json!({"datagramLimit":bound}))
-            .run(async {
-                let status = attempt
-                    .execute_checked(control, gate, &allowance, &enabled)
-                    .await?;
-                if status != ExecutionStatus::CompleteExecution {
-                    return Err(io::Error::other(format!("NAT plan {status:?}")));
-                }
-                Ok(())
-            })
-            .await?;
+        let phase = log.phase("punch", serde_json::json!({"datagramLimit":bound}));
+        let result = async {
+            let status = attempt
+                .execute_checked(control, gate, &allowance, permit.deadline, &enabled)
+                .await?;
+            if status != ExecutionStatus::CompleteExecution {
+                return Err(io::Error::other(format!("NAT plan {status:?}")));
+            }
+            Ok(())
+        }
+        .await;
+        phase.finish_with(
+            if result.is_ok() { "succeeded" } else { "failed" },
+            serde_json::json!({"errorKind":result.as_ref().err().map(|error| format!("{:?}", error.kind()))}),
+        );
+        result?;
         self.check(control, gate)?;
-        self.guard(control, gate, attempt.prepare_data_path(control, gate))
+        log.phase("punch-handoff", serde_json::Value::Null)
+            .run(self.guard(control, gate, attempt.prepare_data_path(control, gate)))
             .await?;
         self.check(control, gate)
     }

@@ -28,6 +28,14 @@ impl NatProxy {
     }
 
     async fn start_on(observer_addr: SocketAddr, bind: SocketAddr) -> Self {
+        Self::start_on_with_delay(observer_addr, bind, None).await
+    }
+
+    async fn start_on_with_delay(
+        observer_addr: SocketAddr,
+        bind: SocketAddr,
+        mut first_packet_delay: Option<Duration>,
+    ) -> Self {
         let ingress = UdpSocket::bind(bind).await.unwrap();
         let egress = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
         let ingress_addr = ingress.local_addr().unwrap();
@@ -44,6 +52,9 @@ impl NatProxy {
                     Ok((len, from)) = ingress.recv_from(&mut inbound) => {
                         *source.lock().unwrap() = Some(from);
                         count.fetch_add(1, Ordering::Relaxed);
+                        if let Some(delay) = first_packet_delay.take() {
+                            tokio::time::sleep(delay).await;
+                        }
                         egress.send_to(&inbound[..len], observer_addr).await.unwrap();
                     }
                     Ok((len, from)) = egress.recv_from(&mut outbound) => {
@@ -81,6 +92,13 @@ fn observation_map(port: u16) -> RelayMap {
         "https://127.0.0.1/".parse().unwrap(),
         Some(RelayQuicConfig::new(port)),
     ))
+}
+
+fn localhost_observer(port: u16) -> RelayConfig {
+    RelayConfig::new(
+        "https://localhost/".parse().unwrap(),
+        Some(RelayQuicConfig::new(port)),
+    )
 }
 
 async fn fresh(endpoint: &Endpoint) -> UdpObservation {
@@ -203,17 +221,15 @@ async fn destination_dependent_nat_reports_mapping_variance() {
             "https://127.0.0.1/".parse().unwrap(),
             Some(RelayQuicConfig::new(first.ingress_addr.port())),
         ),
-        RelayConfig::new(
-            "https://localhost/".parse().unwrap(),
-            Some(RelayQuicConfig::new(second.ingress_addr.port())),
-        ),
+        localhost_observer(second.ingress_addr.port()),
     ]);
     let endpoint = Endpoint::builder(presets::Minimal)
         .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .clear_ip_transports()
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
-        .observation_servers(servers)
+        .observation_servers(servers.clone())
+        .qad_x25519_sni("localhost.", second.ingress_addr.port())
         .ca_tls_config(roots)
         .bind()
         .await
@@ -231,7 +247,103 @@ async fn destination_dependent_nat_reports_mapping_variance() {
     );
     assert!(first.packets.load(Ordering::Relaxed) > 0);
     assert!(second.packets.load(Ordering::Relaxed) > 0);
+    let sequence = endpoint
+        .observe_udp_mapping_sequence(&servers)
+        .await
+        .unwrap();
+    for proxy in [&first, &second] {
+        assert!(sequence.samples.iter().any(|sample| {
+            sample.destination == proxy.ingress_addr && sample.mapped == proxy.mapped_addr
+        }));
+        assert_eq!(
+            *proxy.endpoint_source.lock().unwrap(),
+            endpoint.bound_sockets().first().copied()
+        );
+    }
     endpoint.close().await;
+}
+
+#[tokio::test]
+async fn qad_x25519_sni_rejects_a_trusted_certificate_for_another_name() {
+    let certificate = rcgen::generate_simple_self_signed(vec!["other.test".into()]).unwrap();
+    let cert = certificate.cert.der().clone();
+    let key = rustls::pki_types::PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der());
+    let tls = rustls::ServerConfig::builder_with_provider(Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_safe_default_protocol_versions()
+    .unwrap()
+    .with_no_client_auth()
+    .with_single_cert(vec![cert.clone()], key.into())
+    .unwrap();
+    let mut quic = server::QuicConfig::new((Ipv4Addr::LOCALHOST, 0));
+    quic.server_config = Some(tls);
+    let mut config = server::ServerConfig::default();
+    config.quic = Some(quic);
+    let server = server::Server::spawn(config).await.unwrap();
+    let proxy = NatProxy::start(server.quic_addr().unwrap()).await;
+    let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+        .clear_ip_transports()
+        .bind_addr((Ipv4Addr::LOCALHOST, 0))
+        .unwrap()
+        .observation_servers(RelayMap::from(localhost_observer(
+            proxy.ingress_addr.port(),
+        )))
+        .ca_tls_config(CaTlsConfig::custom_roots([cert]))
+        .qad_x25519_sni("localhost", proxy.ingress_addr.port())
+        .bind()
+        .await
+        .unwrap();
+    assert!(matches!(fresh(&endpoint).await, UdpObservation::Failed(_)));
+    assert!(proxy.packets.load(Ordering::Relaxed) > 0);
+    endpoint.close().await;
+    server.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn parallel_qad_includes_a_slow_observer_after_three_fast_reports() {
+    let (observer, roots) = observer().await;
+    let observer_addr = observer.quic_addr().unwrap();
+    let fast = NatProxy::start(observer_addr).await;
+    let slow = NatProxy::start_on_with_delay(
+        observer_addr,
+        (Ipv4Addr::LOCALHOST, 0).into(),
+        Some(Duration::from_secs(4)),
+    )
+    .await;
+    // Three observer URLs share the fast mapping. A different mapping in
+    // the report therefore proves the delayed observer was included.
+    let regular = (20001..=20003).map(|port| {
+        RelayConfig::new(
+            format!("https://127.0.0.1:{port}/").parse().unwrap(),
+            Some(RelayQuicConfig::new(fast.ingress_addr.port())),
+        )
+    });
+    let servers =
+        RelayMap::from_iter(regular.chain([localhost_observer(slow.ingress_addr.port())]));
+    let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+        .clear_ip_transports()
+        .bind_addr((Ipv4Addr::LOCALHOST, 0))
+        .unwrap()
+        .observation_servers(servers)
+        .ca_tls_config(roots)
+        .bind()
+        .await
+        .unwrap();
+    let state = fresh(&endpoint).await;
+    let UdpObservation::Fresh {
+        addresses,
+        mapping_varies_by_dest: Some(true),
+        ..
+    } = state
+    else {
+        panic!("late mapping missing from {state:?}");
+    };
+    assert_eq!(addresses, [fast.mapped_addr]);
+    endpoint.close().await;
+    observer.shutdown().await.unwrap();
 }
 
 #[tokio::test]
@@ -244,6 +356,7 @@ async fn disabled_observation_endpoint_never_contacts_the_observer() {
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
         .observation_servers(RelayMap::empty())
+        .qad_x25519_sni("localhost", nat.ingress_addr.port())
         .ca_tls_config(roots)
         .bind()
         .await
@@ -373,17 +486,64 @@ async fn ordered_qad_skips_first_timeout_and_keeps_four_independent_samples() {
 }
 
 #[tokio::test]
-async fn ordered_qad_stops_when_observation_permission_is_revoked() {
+async fn observation_stops_when_permission_is_revoked() {
     use iroh::endpoint::{RelayResourcePolicy, RelayResourceUse};
     use std::sync::atomic::AtomicBool;
-    let allowed = Arc::new(AtomicBool::new(true));
-    let policy_allowed = allowed.clone();
-    let blackhole = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
-    let port = blackhole.local_addr().unwrap().port();
-    let map = RelayMap::from_iter([1, 2].map(|tag| {
+    for mixed in [false, true] {
+        let allowed = Arc::new(AtomicBool::new(true));
+        let policy_allowed = allowed.clone();
+        let blackhole = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let port = blackhole.local_addr().unwrap().port();
+        let map = RelayMap::from_iter([1, 2].map(|tag| {
+            RelayConfig::new(
+                format!("https://127.0.0.1:{tag}/").parse().unwrap(),
+                Some(RelayQuicConfig::new(port)),
+            )
+        }));
+        let endpoint = Endpoint::builder(presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+            .clear_ip_transports()
+            .bind_addr((Ipv4Addr::LOCALHOST, 0))
+            .unwrap()
+            .relay_resource_policy(RelayResourcePolicy::new(move |_, usage| {
+                !matches!(usage, RelayResourceUse::Observation)
+                    || policy_allowed.load(Ordering::SeqCst)
+            }))
+            .bind()
+            .await
+            .unwrap();
+        let revoke = async {
+            blackhole.recv_from(&mut [0; 2048]).await.unwrap();
+            allowed.store(false, Ordering::SeqCst);
+        };
+        let observe = async {
+            if mixed {
+                endpoint.observe_udp_mapping_round(&map, &[]).await
+            } else {
+                endpoint.observe_udp_mapping_sequence(&map).await
+            }
+        };
+        let (result, ()) = tokio::time::timeout(Duration::from_secs(1), async {
+            tokio::join!(observe, revoke)
+        })
+        .await
+        .expect("revocation must cancel pending observation, not wait for per-observer timeout");
+        assert_eq!(
+            result.unwrap_err().kind(),
+            std::io::ErrorKind::PermissionDenied
+        );
+        endpoint.close().await;
+    }
+}
+
+#[tokio::test]
+async fn mixed_round_counts_each_actual_destination_once_and_expires_on_network_change() {
+    let (observer, roots) = observer().await;
+    let addr = observer.quic_addr().unwrap();
+    let relays = RelayMap::from_iter([1, 2].map(|tag| {
         RelayConfig::new(
             format!("https://127.0.0.1:{tag}/").parse().unwrap(),
-            Some(RelayQuicConfig::new(port)),
+            Some(RelayQuicConfig::new(addr.port())),
         )
     }));
     let endpoint = Endpoint::builder(presets::Minimal)
@@ -391,26 +551,36 @@ async fn ordered_qad_stops_when_observation_permission_is_revoked() {
         .clear_ip_transports()
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
-        .relay_resource_policy(RelayResourcePolicy::new(move |_, usage| {
-            !matches!(usage, RelayResourceUse::Observation) || policy_allowed.load(Ordering::SeqCst)
-        }))
+        .ca_tls_config(roots)
         .bind()
         .await
         .unwrap();
-    let revoke = async {
-        blackhole.recv_from(&mut [0; 2048]).await.unwrap();
-        allowed.store(false, Ordering::SeqCst);
-    };
-    let (result, ()) = tokio::time::timeout(Duration::from_secs(1), async {
-        tokio::join!(endpoint.observe_udp_mapping_sequence(&map), revoke)
+    let first = endpoint
+        .observe_udp_mapping_round(&relays, &[])
+        .await
+        .unwrap();
+    assert_eq!(first.samples.len(), 1);
+    assert_eq!(first.samples[0].destination, addr);
+    assert_eq!(first.samples[0].mapped, endpoint.bound_sockets()[0]);
+    assert!(first.is_current_generation());
+
+    let second = endpoint
+        .observe_udp_mapping_round(&relays, &[])
+        .await
+        .unwrap();
+    assert!(!first.is_current_generation());
+    assert!(second.is_current_generation());
+    endpoint.network_change().await;
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while second.is_current_generation() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
     })
     .await
-    .expect("revocation must cancel pending observation, not wait for per-observer timeout");
-    assert_eq!(
-        result.unwrap_err().kind(),
-        std::io::ErrorKind::PermissionDenied
-    );
+    .expect("network actor must invalidate the observation round");
+    assert!(!second.is_current_generation());
     endpoint.close().await;
+    observer.shutdown().await.unwrap();
 }
 
 #[tokio::test]

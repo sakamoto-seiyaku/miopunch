@@ -1237,13 +1237,16 @@ impl ResourceEndpoint {
             iroh::TransportAddr::Custom(addr) => self.config.allows_custom(addr),
             _ => true,
         });
-        // An advertised relay identifies where this peer is registered. Local
-        // facilities are fallback hints when no allowed peer relay is known,
-        // not additional registrations that may preempt its actual address.
-        if !target
-            .addrs
-            .iter()
-            .any(|addr| matches!(addr, iroh::TransportAddr::Relay(_)))
+        use crate::connection_coordinator::{AttemptContext, ConnectError, SessionPurpose};
+        let purpose = SessionPurpose::from_alpn(alpn);
+        let race_relays = purpose == Some(SessionPurpose::MemberBusiness) && !control_only;
+        // The member business coordinator gives the peer's addresses a head
+        // start over locally configured rendezvous hints.
+        if !race_relays
+            && !target
+                .addrs
+                .iter()
+                .any(|addr| matches!(addr, iroh::TransportAddr::Relay(_)))
         {
             target.addrs.extend(
                 self.config
@@ -1253,10 +1256,25 @@ impl ResourceEndpoint {
                     .map(iroh::TransportAddr::Relay),
             );
         }
-        use crate::connection_coordinator::{AttemptContext, ConnectError, SessionPurpose};
-        if SessionPurpose::from_alpn(alpn).is_some() {
-            let result = self
-                .coordinator()
+        if purpose.is_some() {
+            let mut coordinator = self.coordinator();
+            if race_relays {
+                use n0_watcher::Watcher;
+                let current = self.endpoint.home_relay_status().get();
+                let mut fallbacks: Vec<_> = self.config.relay_map(ResourceUse::DataRelay)?.urls();
+                fallbacks.sort_by_key(|url| {
+                    !current
+                        .iter()
+                        .any(|status| status.is_connected() && status.url() == url)
+                });
+                coordinator = coordinator.with_member_relay_fallbacks(
+                    fallbacks
+                        .into_iter()
+                        .map(iroh::TransportAddr::Relay)
+                        .collect(),
+                );
+            }
+            let result = coordinator
                 .connect_delivery(
                     target,
                     alpn,

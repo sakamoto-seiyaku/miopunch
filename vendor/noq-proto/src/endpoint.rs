@@ -381,6 +381,7 @@ impl Endpoint {
             SideArgs::Client {
                 token_store: config.token_store,
                 server_name: server_name.into(),
+                initial_sni_fragmentation: config.initial_sni_fragmentation,
             },
             &params,
         );

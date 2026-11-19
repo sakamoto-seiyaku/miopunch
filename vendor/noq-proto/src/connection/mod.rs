@@ -59,6 +59,8 @@ pub use assembler::Chunk;
 mod cid_state;
 use cid_state::CidState;
 
+mod client_hello;
+
 mod datagrams;
 use datagrams::DatagramState;
 pub use datagrams::{Datagrams, SendDatagramError};
@@ -4453,19 +4455,22 @@ impl Connection {
             }
             let offset = self.crypto_state.spaces[space].crypto_offset;
             let outgoing = Bytes::from(outgoing);
+            self.crypto_state.spaces[space].crypto_offset += outgoing.len() as u64;
+            trace!("wrote {} {:?} CRYPTO bytes", outgoing.len(), space);
+            let pending = &mut self.spaces[space].pending.crypto;
             if let Some(hs) = self.state.as_handshake_mut()
                 && space == SpaceKind::Initial
                 && offset == 0
                 && self.side.is_client()
             {
                 hs.client_hello = Some(outgoing.clone());
+                self.side.queue_client_hello(pending, outgoing);
+            } else {
+                pending.push_back(frame::Crypto {
+                    offset,
+                    data: outgoing,
+                });
             }
-            self.crypto_state.spaces[space].crypto_offset += outgoing.len() as u64;
-            trace!("wrote {} {:?} CRYPTO bytes", outgoing.len(), space);
-            self.spaces[space].pending.crypto.push_back(frame::Crypto {
-                offset,
-                data: outgoing,
-            });
         }
     }
 
@@ -4997,10 +5002,8 @@ impl Connection {
                 self.spaces[SpaceId::Initial] = {
                     let mut space = PacketSpace::new(now, SpaceId::Initial, &mut self.rng);
                     space.for_path(path_id).next_packet_number = next_pn;
-                    space.pending.crypto.push_back(frame::Crypto {
-                        offset: 0,
-                        data: client_hello,
-                    });
+                    self.side
+                        .queue_client_hello(&mut space.pending.crypto, client_hello);
                     space
                 };
 
@@ -7777,6 +7780,7 @@ enum ConnectionSide {
         token: Bytes,
         token_store: Arc<dyn TokenStore>,
         server_name: String,
+        initial_sni_fragmentation: bool,
     },
     Server {
         server_config: Arc<ServerConfig>,
@@ -7784,6 +7788,29 @@ enum ConnectionSide {
 }
 
 impl ConnectionSide {
+    fn queue_client_hello(&self, pending: &mut VecDeque<frame::Crypto>, data: Bytes) {
+        if matches!(
+            self,
+            Self::Client {
+                initial_sni_fragmentation: true,
+                ..
+            }
+        ) && let Some(tail) = client_hello::sni_tail(&data)
+        {
+            // Same stream bytes, with the SNI tail emitted after the rest of the message.
+            for range in [0..tail.start, tail.end..data.len(), tail] {
+                if !range.is_empty() {
+                    pending.push_back(frame::Crypto {
+                        offset: range.start as u64,
+                        data: data.slice(range),
+                    });
+                }
+            }
+        } else {
+            pending.push_back(frame::Crypto { offset: 0, data });
+        }
+    }
+
     fn is_client(&self) -> bool {
         self.side().is_client()
     }
@@ -7806,10 +7833,12 @@ impl From<SideArgs> for ConnectionSide {
             SideArgs::Client {
                 token_store,
                 server_name,
+                initial_sni_fragmentation,
             } => Self::Client {
                 token: token_store.take(&server_name).unwrap_or_default(),
                 token_store,
                 server_name,
+                initial_sni_fragmentation,
             },
             SideArgs::Server {
                 server_config,
@@ -7825,6 +7854,7 @@ pub(crate) enum SideArgs {
     Client {
         token_store: Arc<dyn TokenStore>,
         server_name: String,
+        initial_sni_fragmentation: bool,
     },
     Server {
         server_config: Arc<ServerConfig>,

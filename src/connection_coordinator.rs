@@ -712,9 +712,9 @@ impl QualifiedRoute {
     }
 }
 
-/// Poll both groups before choosing so a terminal rejection takes precedence
-/// over a ready success, and two ready successes favor the active IP.
-async fn race_active_and_relay(
+/// Poll both groups before choosing. A terminal rejection takes precedence
+/// over a ready success, and two ready successes favor the first group.
+async fn race_contact_routes(
     (active_attempt, active): (
         &AttemptContext,
         impl Future<Output = Result<QualifiedRoute, ContactDialFailure>>,
@@ -864,12 +864,19 @@ impl CoordinatedAccepting {
 }
 
 #[derive(Clone)]
+pub(crate) struct BackgroundRelayRace {
+    pub(crate) preferred: Option<TransportAddr>,
+}
+
+#[derive(Clone)]
 pub struct ConnectionCoordinator {
     endpoint: EndpointAccess,
     permitted: u8,
     contact_ids: Vec<u64>,
     member_contact_id: Option<u64>,
     member_data_id: Option<u64>,
+    member_relay_fallbacks: Option<Vec<TransportAddr>>,
+    background_relay_race: Option<BackgroundRelayRace>,
     #[cfg(not(target_arch = "wasm32"))]
     member_contacts: Option<std::sync::Arc<crate::member_contacts::MemberContacts>>,
 }
@@ -892,6 +899,8 @@ impl ConnectionCoordinator {
             contact_ids,
             member_contact_id: None,
             member_data_id: None,
+            member_relay_fallbacks: None,
+            background_relay_race: None,
             #[cfg(not(target_arch = "wasm32"))]
             member_contacts: None,
         }
@@ -907,6 +916,8 @@ impl ConnectionCoordinator {
             contact_ids,
             member_contact_id: None,
             member_data_id: None,
+            member_relay_fallbacks: None,
+            background_relay_race: None,
             #[cfg(not(target_arch = "wasm32"))]
             member_contacts: None,
         }
@@ -941,6 +952,17 @@ impl ConnectionCoordinator {
                 self.contact_ids.push(id);
             }
         }
+        self
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn with_member_relay_fallbacks(mut self, routes: Vec<TransportAddr>) -> Self {
+        self.member_relay_fallbacks = Some(routes);
+        self
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn with_background_relay_race(mut self, race: Option<BackgroundRelayRace>) -> Self {
+        self.background_relay_race = race;
         self
     }
     async fn dial(
@@ -1015,7 +1037,10 @@ impl ConnectionCoordinator {
             let unavailable = matches!(&error,
                 ConnectingError::ConnectionError { source, .. }
                 if matches!(source, iroh::endpoint::ConnectionError::TimedOut
-                    | iroh::endpoint::ConnectionError::Reset));
+                    | iroh::endpoint::ConnectionError::Reset)
+                    || (self.member_relay_fallbacks.is_some()
+                        && matches!(source, iroh::endpoint::ConnectionError::ConnectionClosed(close)
+                            if close.error_code == noq_proto::TransportErrorCode::CONNECTION_REFUSED)));
             let error = ConnectError::from_connecting(error);
             if unavailable {
                 ContactDialFailure::Unavailable(error)
@@ -1093,13 +1118,12 @@ impl ConnectionCoordinator {
         }
     }
 
-    /// Keep each cold direct address inside this caller's original deadline.
-    /// A blackholed first IP must leave time for the other announced IPs;
-    /// each dial still scopes its bootstrap packets to exactly one route.
-    async fn dial_ordered_direct_ips(
+    /// Give each candidate a share of the original caller's remaining time.
+    /// Each dial still scopes its bootstrap packets to exactly one route.
+    async fn dial_ordered_routes(
         &self,
         id: iroh::EndpointId,
-        routes: &[TransportAddr],
+        routes: &[&TransportAddr],
         purpose: SessionPurpose,
         attempt: &AttemptContext,
         wire_alpn: &[u8],
@@ -1119,11 +1143,15 @@ impl ConnectionCoordinator {
                 return Err(ContactDialFailure::Terminal(ConnectError::DeadlineExceeded));
             }
             let route_attempt = attempt.child();
-            let data = iroh::EndpointAddr::new(id).with_addrs([route.clone()]);
+            let cancellation = route_attempt.cancellation.drop_guard_ref();
+            let data = iroh::EndpointAddr::new(id).with_addrs([(*route).clone()]);
             let mut work =
                 Box::pin(self.dial(data, purpose, &route_attempt, wire_alpn, control_only, log));
             match n0_future::time::timeout(share, &mut work).await {
-                Ok(Ok(connection)) => return Ok(connection),
+                Ok(Ok(connection)) => {
+                    cancellation.disarm();
+                    return Ok(connection);
+                }
                 Ok(Err(ContactDialFailure::Terminal(error))) => {
                     return Err(ContactDialFailure::Terminal(error));
                 }
@@ -1131,8 +1159,6 @@ impl ConnectionCoordinator {
                     last_unavailable = Some(error);
                 }
                 Err(_) => {
-                    route_attempt.cancellation.cancel();
-                    drop(work);
                     last_unavailable = Some(ConnectError::DeadlineExceeded);
                 }
             }
@@ -1140,6 +1166,63 @@ impl ConnectionCoordinator {
         Err(ContactDialFailure::Unavailable(
             last_unavailable.unwrap_or(ConnectError::DataPathUnavailable),
         ))
+    }
+
+    async fn dial_staggered_relays(
+        &self,
+        id: iroh::EndpointId,
+        routes: Vec<&TransportAddr>,
+        purpose: SessionPurpose,
+        attempt: &AttemptContext,
+        log: AttemptLog,
+    ) -> Result<QualifiedRoute, ContactDialFailure> {
+        let wire_alpn = purpose.alpn();
+        let control_only = purpose == SessionPurpose::ActiveImprovement;
+        if routes.len() < 2 {
+            return self
+                .dial_ordered_routes(id, &routes, purpose, attempt, wire_alpn, control_only, log)
+                .await;
+        }
+        // Stagger two lanes. Each lane reserves time for its later candidates,
+        // even if both of the first relay registrations are unreachable.
+        let (mut preferred, mut alternate) = (Vec::new(), Vec::new());
+        for (index, route) in routes.into_iter().enumerate() {
+            if index % 2 == 0 {
+                preferred.push(route);
+            } else {
+                alternate.push(route);
+            }
+        }
+        let first = attempt.child();
+        let second = attempt.child();
+        let delay = (attempt
+            .deadline
+            .saturating_duration_since(n0_future::time::Instant::now())
+            / 4)
+        .min(std::time::Duration::from_millis(250));
+        let primary = Box::pin(self.dial_ordered_routes(
+            id,
+            &preferred,
+            purpose,
+            &first,
+            wire_alpn,
+            control_only,
+            log,
+        ));
+        let backup = Box::pin(async {
+            n0_future::time::sleep(delay).await;
+            self.dial_ordered_routes(
+                id,
+                &alternate,
+                purpose,
+                &second,
+                wire_alpn,
+                control_only,
+                log,
+            )
+            .await
+        });
+        race_contact_routes((&first, primary), (&second, backup)).await
     }
     pub async fn connect(
         &self,
@@ -1248,7 +1331,8 @@ impl ConnectionCoordinator {
                     }
                 }
                 target.addrs.extend(active_ips.iter().cloned());
-                if target.addrs.is_empty() {
+                let member_relay_fallbacks = self.member_relay_fallbacks.as_deref();
+                if target.addrs.is_empty() && member_relay_fallbacks.is_none_or(<[_]>::is_empty) {
                     return Err(ConnectError::DataPathUnavailable);
                 }
                 let is_active_ip = |address: &TransportAddr| {
@@ -1273,7 +1357,27 @@ impl ConnectionCoordinator {
                             if Some(route.id()) == self.member_data_id)
                     })
                     .collect();
-                relay_routes.sort_by_key(|route| !recent_routes.contains(route));
+                let background_race = self
+                    .background_relay_race
+                    .as_ref()
+                    .filter(|_| purpose == SessionPurpose::ActiveImprovement && control_only);
+                if let Some(fallbacks) = member_relay_fallbacks {
+                    relay_routes.sort_by_key(|route| {
+                        recent_routes
+                            .iter()
+                            .position(|preferred| preferred == *route)
+                            .unwrap_or(usize::MAX)
+                    });
+                    relay_routes.extend(
+                        fallbacks
+                            .iter()
+                            .filter(|route| !target.addrs.contains(*route)),
+                    );
+                } else if let Some(race) = background_race {
+                    relay_routes.sort_by_key(|route| race.preferred.as_ref() != Some(*route));
+                } else {
+                    relay_routes.sort_by_key(|route| !recent_routes.contains(route));
+                }
                 let dial_group =
                     async |routes: Vec<&TransportAddr>, route_attempt: &AttemptContext| {
                         let mut last_error = ConnectError::DataPathUnavailable;
@@ -1297,25 +1401,74 @@ impl ConnectionCoordinator {
                         }
                         Err(ContactDialFailure::Unavailable(last_error))
                     };
-                let preferred = if active_routes.is_empty() || relay_routes.is_empty() {
-                    let routes = if active_routes.is_empty() {
-                        relay_routes
-                    } else {
-                        active_routes
-                    };
-                    dial_group(routes, &attempt).await
+                let has_relay_routes = !relay_routes.is_empty();
+                let race_relays = background_race.is_some() && active_routes.is_empty();
+                let dial_relays = async |route_attempt: &AttemptContext| {
+                    if member_relay_fallbacks.is_some() {
+                        return self
+                            .dial_staggered_relays(
+                                target.id,
+                                relay_routes,
+                                SessionPurpose::MemberBusiness,
+                                route_attempt,
+                                log,
+                            )
+                            .await;
+                    }
+                    if race_relays {
+                        let (network, other): (Vec<_>, Vec<_>) = relay_routes
+                            .iter()
+                            .copied()
+                            .partition(|route| matches!(route, TransportAddr::Relay(_)));
+                        if network.len() >= 2 {
+                            let phase = log.phase(
+                                "background-relay-race",
+                                json!({"routeCount":network.len()}),
+                            );
+                            let result = self
+                                .dial_staggered_relays(
+                                    target.id,
+                                    network,
+                                    purpose,
+                                    route_attempt,
+                                    log,
+                                )
+                                .await;
+                            match &result {
+                                Ok(winner) => phase.finish_with(
+                                    "succeeded",
+                                    json!({
+                                        "winnerRoutePhaseId":winner.log.route_phase_id,
+                                    }),
+                                ),
+                                Err(ContactDialFailure::Unavailable(_)) => {
+                                    phase.finish("unavailable")
+                                }
+                                Err(ContactDialFailure::Terminal(_)) => phase.finish("failed"),
+                            }
+                            return match result {
+                                Err(ContactDialFailure::Unavailable(_)) if !other.is_empty() => {
+                                    dial_group(other, route_attempt).await
+                                }
+                                result => result,
+                            };
+                        }
+                    }
+                    dial_group(relay_routes, route_attempt).await
+                };
+                let preferred = if active_routes.is_empty() {
+                    dial_relays(&attempt).await
+                } else if !has_relay_routes {
+                    dial_group(active_routes, &attempt).await
                 } else {
                     let active_attempt = attempt.child();
                     let relay_attempt = attempt.child();
-                    race_active_and_relay(
+                    race_contact_routes(
                         (
                             &active_attempt,
                             Box::pin(dial_group(active_routes, &active_attempt)),
                         ),
-                        (
-                            &relay_attempt,
-                            Box::pin(dial_group(relay_routes, &relay_attempt)),
-                        ),
+                        (&relay_attempt, Box::pin(dial_relays(&relay_attempt))),
                     )
                     .await
                 };
@@ -1371,7 +1524,6 @@ impl ConnectionCoordinator {
                     .filter(|address| {
                         matches!(address, TransportAddr::Ip(_)) && !is_active_ip(address)
                     })
-                    .cloned()
                     .collect();
                 // A recently working address is still a hint. Give it the
                 // first bounded share, preserving time for current caller
@@ -1380,7 +1532,7 @@ impl ConnectionCoordinator {
                 if public_contact.addrs.is_empty() {
                     if !inactive_ips.is_empty() {
                         match self
-                            .dial_ordered_direct_ips(
+                            .dial_ordered_routes(
                                 target.id,
                                 &inactive_ips,
                                 purpose,
@@ -1415,7 +1567,7 @@ impl ConnectionCoordinator {
                 }
                 if !inactive_ips.is_empty() {
                     match self
-                        .dial_ordered_direct_ips(
+                        .dial_ordered_routes(
                             target.id,
                             &inactive_ips,
                             purpose,
@@ -1963,6 +2115,14 @@ pub(crate) async fn prepare_control_session<
             let probe = path.start_probe()?;
             prepared.path_id = Some(path.id().to_string());
             prepared.watermark = probe.watermark();
+            let stats = path.stats();
+            attempt.log.event(
+                "fresh-ack-probe",
+                "queued",
+                json!({"pathId":prepared.path_id,"relay":path.is_relay(),
+                    "rttMs":stats.rtt.as_millis(),"lostPackets":stats.lost_packets,
+                    "watermark":prepared.watermark}),
+            );
             prepared.acknowledged = Some(Box::new(move || {
                 probe.is_acknowledged().map_err(io::Error::other)
             }));
@@ -2591,6 +2751,7 @@ pub(crate) async fn improve_existing<E: ActiveEndpoint, A: MemberPathAdapter<E::
     adapter: &A,
     attempt: AttemptContext,
     mut log: AttemptLog,
+    seal_hello: impl FnOnce() -> io::Result<()>,
 ) -> io::Result<crate::session_maintenance::CommittedPath> {
     if control.alpn() != ACTIVE_IMPROVEMENT_ALPN
         || original.remote_id() != control.remote_id()
@@ -2632,6 +2793,7 @@ pub(crate) async fn improve_existing<E: ActiveEndpoint, A: MemberPathAdapter<E::
         })
         .await
         .map_err(|error| active_control_error(control, error))?;
+    seal_hello()?;
     log.phase("active-session", Value::Null)
         .run(active_session(
             endpoint.ordinary_endpoint(),
@@ -2749,9 +2911,27 @@ where
         .await?;
     log.original = Some(original.stable_id());
     let attempt = AttemptContext::new(deadline, tokio_util::sync::CancellationToken::new());
-    let mut lease = match registry.acquire(&original, &attempt, ()) {
+    use crate::session_maintenance::{MaintenanceError, Reservation};
+    let reservation = match registry.acquire_incoming(&original, &attempt) {
+        Ok(Reservation::Owned(lease)) => Ok(lease),
+        Ok(Reservation::Pending(wait)) => {
+            let phase = log.phase("hello-arbitration", Value::Null);
+            let result = match wait.wait().await {
+                Ok(_) => registry.acquire(&original, &attempt, ()),
+                Err(error) => Err(error),
+            };
+            phase.finish(if result.is_ok() {
+                "handed-off"
+            } else {
+                "failed"
+            });
+            result
+        }
+        Err(error) => Err(error),
+    };
+    let mut lease = match reservation {
         Ok(lease) => lease,
-        Err(crate::session_maintenance::MaintenanceError::Busy) => {
+        Err(MaintenanceError::Busy) => {
             let error = crate::session_maintenance::MaintenanceDeferral::Remote.into();
             close_active_failure(control, &error);
             return Err(error);

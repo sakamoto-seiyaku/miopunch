@@ -36,6 +36,22 @@ fn stateless_retry() {
 }
 
 #[test]
+fn fragmented_client_hello_recovers_from_initial_loss_and_retry() {
+    let mut pair = Pair::default();
+    pair.server.handle_incoming = Box::new(validate_incoming);
+    let mut config = client_config();
+    config.initial_sni_fragmentation(true);
+    let client = pair.begin_connect(config);
+    pair.drive_client();
+    assert!(pair.client_conn_mut(client).stats().frame_tx.crypto > 1);
+    pair.server.inbound.pop_first().expect("client Initial");
+    pair.drive();
+    let server = pair.server.assert_accept();
+    pair.finish_connect(client, server);
+    assert!(pair.client_conn_mut(client).stats().frame_tx.crypto > 3);
+}
+
+#[test]
 fn retry_token_expired() {
     let _guard = subscribe();
 

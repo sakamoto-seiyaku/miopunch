@@ -332,7 +332,7 @@ pub(crate) async fn attempt(
         .filter(|address| valid(*address))
         .collect::<Vec<_>>();
     let available_addresses = local.len();
-    let addresses = gate
+    let mut addresses = gate
         .with_direct_candidates(control.endpoint(), |progress| {
             let cursor = &mut progress.advertised;
             cursor
@@ -346,6 +346,8 @@ pub(crate) async fn attempt(
         })
         .ok_or_else(session_ended)?;
     let unadvertised = available_addresses > addresses.len();
+    let log = control.diagnostic();
+    let dialing = control.is_dialing_side();
     println!(
         "NAT_DIRECT_LOCAL stable_id={} available={} advertised={addresses:?}",
         control.stable_id(),
@@ -353,41 +355,60 @@ pub(crate) async fn attempt(
     );
     let operation = async {
         check()?;
-        let (nonce, remote) = if control.is_dialing_side() {
-            let exchange = control.open_control_exchange().await?;
-            send(
-                &exchange,
-                Frame::Hello {
-                    network: scope.network,
-                    generation: scope.secret_generation,
-                },
-            )
+        let (nonce, remote) = log
+            .phase("direct-hello-offer", serde_json::Value::Null)
+            .run(async {
+                if dialing {
+                    let exchange = control.open_control_exchange().await?;
+                    send(
+                        &exchange,
+                        Frame::Hello {
+                            network: scope.network,
+                            generation: scope.secret_generation,
+                        },
+                    )
+                    .await?;
+                    let Frame::Offer {
+                        nonce,
+                        addresses: remote,
+                    } = receive(&exchange).await?
+                    else {
+                        return Err(control_error("InvalidControl"));
+                    };
+                    validate(&remote)?;
+                    check()?;
+                    Ok::<_, io::Error>((nonce, remote))
+                } else {
+                    let exchange = control.accept_control_exchange().await?;
+                    if !matches!(receive(&exchange).await?, Frame::Hello { network, generation }
+                    if network == scope.network && generation == scope.secret_generation)
+                    {
+                        return Err(control_error("InvalidControl"));
+                    }
+                    let nonce = rand::random();
+                    check()?;
+                    send(
+                        &exchange,
+                        Frame::Offer {
+                            nonce,
+                            addresses: std::mem::take(&mut addresses),
+                        },
+                    )
+                    .await?;
+                    Ok((nonce, Vec::new()))
+                }
+            })
             .await?;
-            let Frame::Offer {
-                nonce,
-                addresses: remote,
-            } = receive(&exchange).await?
-            else {
-                return Err(control_error("InvalidControl"));
-            };
-            validate(&remote)?;
-            check()?;
-            let exchange = control.open_control_exchange().await?;
-            send(&exchange, Frame::Offer { nonce, addresses }).await?;
-            if !matches!(receive(&exchange).await?, Frame::Ready { nonce: ack } if ack == nonce) {
-                return Err(control_error("InvalidControl"));
+        let ready = async {
+            if dialing {
+                let exchange = control.open_control_exchange().await?;
+                send(&exchange, Frame::Offer { nonce, addresses }).await?;
+                let reply = receive(&exchange).await?;
+                if !matches!(reply, Frame::Ready { nonce: ack } if ack == nonce) {
+                    return Err(control_error("InvalidControl"));
+                }
+                return Ok(remote);
             }
-            (nonce, remote)
-        } else {
-            let exchange = control.accept_control_exchange().await?;
-            if !matches!(receive(&exchange).await?, Frame::Hello { network, generation }
-                if network == scope.network && generation == scope.secret_generation)
-            {
-                return Err(control_error("InvalidControl"));
-            }
-            let nonce = rand::random();
-            check()?;
-            send(&exchange, Frame::Offer { nonce, addresses }).await?;
             let exchange = control.accept_control_exchange().await?;
             let Frame::Offer {
                 nonce: offered,
@@ -402,53 +423,75 @@ pub(crate) async fn attempt(
             validate(&remote)?;
             check()?;
             send(&exchange, Frame::Ready { nonce }).await?;
-            (nonce, remote)
+            Ok(remote)
         };
+        let remote = log
+            .phase("direct-offer-ready", serde_json::Value::Null)
+            .run(ready)
+            .await?;
         println!(
             "NAT_DIRECT_PEER stable_id={} received={remote:?}",
             control.stable_id()
         );
-        let candidate = if control.is_dialing_side() {
-            let (candidate, more_candidates) =
-                probe_candidates(control, gate, remote, deadline, check).await?;
-            check()?;
-            let exchange = control.open_control_exchange().await?;
-            send(
-                &exchange,
-                Frame::Result {
-                    nonce,
-                    available: ip_path(control).is_some(),
-                    more_candidates,
-                },
-            )
+        let probing = dialing && !remote.is_empty() && ip_path(control).is_none();
+        let local_probe =
+            if dialing {
+                let phase = log.phase("direct-probe", serde_json::json!({
+                "candidateCount":remote.len(), "pathAlreadyPresent": ip_path(control).is_some(),
+            }));
+                let result = probe_candidates(control, gate, remote, deadline, check).await;
+                phase.finish_with(
+                    match &result {
+                        Err(_) => "failed",
+                        Ok(_) if !probing => "skipped",
+                        Ok(_) if ip_path(control).is_some() => "succeeded",
+                        Ok(_) => "unavailable",
+                    },
+                    serde_json::Value::Null,
+                );
+                Some(result?)
+            } else {
+                None
+            };
+        let (available, more_candidates, candidate) = log
+            .phase("direct-result", serde_json::Value::Null)
+            .run(async {
+                if let Some((candidate, more_candidates)) = local_probe {
+                    check()?;
+                    let exchange = control.open_control_exchange().await?;
+                    send(
+                        &exchange,
+                        Frame::Result {
+                            nonce,
+                            available: ip_path(control).is_some(),
+                            more_candidates,
+                        },
+                    )
+                    .await?;
+                    let (available, peer_more) = receive_result(&exchange, nonce).await?;
+                    Ok::<_, io::Error>((available, more_candidates || peer_more, candidate))
+                } else {
+                    let exchange = control.accept_control_exchange().await?;
+                    let (available, peer_more) = receive_result(&exchange, nonce).await?;
+                    check()?;
+                    let available = available && ip_path(control).is_some();
+                    let more_candidates = peer_more || unadvertised;
+                    send(
+                        &exchange,
+                        Frame::Result {
+                            nonce,
+                            available,
+                            more_candidates,
+                        },
+                    )
+                    .await?;
+                    Ok((available, more_candidates, None))
+                }
+            })
             .await?;
-            let (available, peer_more) = receive_result(&exchange, nonce).await?;
-            if !available {
-                return Ok(DirectAttempt::Unavailable {
-                    more_candidates: more_candidates || peer_more,
-                });
-            }
-            candidate
-        } else {
-            let exchange = control.accept_control_exchange().await?;
-            let (available, peer_more) = receive_result(&exchange, nonce).await?;
-            check()?;
-            let available = available && ip_path(control).is_some();
-            let more_candidates = peer_more || unadvertised;
-            send(
-                &exchange,
-                Frame::Result {
-                    nonce,
-                    available,
-                    more_candidates,
-                },
-            )
-            .await?;
-            if !available {
-                return Ok(DirectAttempt::Unavailable { more_candidates });
-            }
-            None
-        };
+        if !available {
+            return Ok(DirectAttempt::Unavailable { more_candidates });
+        }
         check()?;
         let (id, remote) = ip_path(control).ok_or_else(|| {
             io::Error::new(
@@ -465,11 +508,13 @@ pub(crate) async fn attempt(
             candidate: candidate.filter(|path| path.id() == id),
         }))
     };
-    let phase = control.diagnostic().phase(
+    let phase = log.phase(
         "direct-candidates",
         serde_json::json!({
             "budgetMs":deadline.saturating_duration_since(Instant::now()).as_millis() as u64,
             "candidateBudgetMs":CANDIDATE_WINDOW.as_millis() as u64,
+            "existingUdp":ip_path(control).is_some(),
+            "originalDialer":dialing,
         }),
     );
     let result = tokio::select! {

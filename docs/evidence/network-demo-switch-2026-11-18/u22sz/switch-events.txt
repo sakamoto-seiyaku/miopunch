@@ -1,0 +1,62 @@
+15:55:55.422+08:00  +669.108s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027777002000}
+15:55:55.573+08:00  +669.259s  local-address-changed  {'added': [], 'removed': ['{"Ip": "172.31.0.36:56491"}', '{"Ip": "182.48.107.243:2244"}']}
+15:55:55.574+08:00  +669.259s  network-generation-changed  {}
+15:55:58.432+08:00  +672.118s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027777002000}
+15:55:59.580+08:00  +673.266s  local-address-changed  {'added': ['{"Relay": "https://euc1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://aps1-1.relay.n0.iroh.link./"}']}
+15:56:01.445+08:00  +675.131s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027777002000}
+15:56:02.574+08:00  +676.260s  local-address-changed  {'added': ['{"Relay": "https://use1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://euc1-1.relay.n0.iroh.link./"}']}
+15:56:04.452+08:00  +678.138s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027777002000}
+15:56:05.579+08:00  +679.265s  local-address-changed  {'added': ['{"Relay": "https://usw1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://use1-1.relay.n0.iroh.link./"}']}
+15:56:07.460+08:00  +681.146s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027777002000}
+15:56:08.568+08:00  +682.253s  local-address-changed  {'added': ['{"Relay": "https://aps1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://usw1-1.relay.n0.iroh.link./"}']}
+15:56:09.578+08:00  +683.263s  local-address-changed  {'added': ['{"Relay": "https://euc1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://aps1-1.relay.n0.iroh.link./"}']}
+15:56:10.475+08:00  +684.161s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027777002000}
+15:56:12.570+08:00  +686.256s  local-address-changed  {'added': ['{"Relay": "https://use1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://euc1-1.relay.n0.iroh.link./"}']}
+15:56:13.484+08:00  +687.169s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027777002000}
+15:56:15.571+08:00  +689.257s  local-address-changed  {'added': ['{"Relay": "https://usw1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://use1-1.relay.n0.iroh.link./"}']}
+15:56:16.494+08:00  +690.179s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027777002000}
+15:56:18.568+08:00  +692.254s  local-address-changed  {'added': ['{"Relay": "https://aps1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://usw1-1.relay.n0.iroh.link./"}']}
+15:56:19.505+08:00  +693.190s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027777002000}
+15:56:19.583+08:00  +693.268s  local-address-changed  {'added': ['{"Relay": "https://euc1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://aps1-1.relay.n0.iroh.link./"}']}
+15:56:22.518+08:00  +696.203s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027777002000}
+15:56:22.581+08:00  +696.267s  local-address-changed  {'added': ['{"Relay": "https://use1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://euc1-1.relay.n0.iroh.link./"}']}
+15:56:24.150+08:00  +697.835s  heartbeat-failed  {'error': 'read error: connection lost', 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027777002000}
+15:56:24.150+08:00  +697.835s  connection-close-invoked  {'owner': 'demo_reconnect', 'peer': 'r_proxy (192.168.4.14)', 'priorCloseReason': 'transport_timeout', 'reason': 'reconnect_cleanup', 'stableId': 2027777002000}
+15:56:24.150+08:00  +697.835s  connection-ended  {'closeReason': 'transport_timeout', 'owner': 'transport', 'peer': 'r_proxy (192.168.4.14)', 'priorCloseReason': 'transport_timeout', 'reason': 'reconnect_cleanup', 'stableId': 2027777002000}
+15:56:24.151+08:00  +697.836s  probe-failed  {'peer': '55a55dacf17ea02d14d4db42415fce3c56470d261e5156ff46e7e9b0506418b2', 'reason': 'accept_stream', 'stableId': 2027772553520}
+15:56:24.151+08:00  +697.836s  connection-close-invoked  {'owner': 'demo_receive', 'peer': '55a55dacf17ea02d14d4db42415fce3c56470d261e5156ff46e7e9b0506418b2', 'priorCloseReason': 'transport_timeout', 'reason': 'accept_stream', 'stableId': 2027772553520}
+15:56:24.151+08:00  +697.837s  connection-ended  {'closeReason': 'transport_timeout', 'owner': 'transport', 'peer': '55a55dacf17ea02d14d4db42415fce3c56470d261e5156ff46e7e9b0506418b2', 'priorCloseReason': 'transport_timeout', 'reason': 'accept_stream', 'stableId': 2027772553520}
+15:56:24.577+08:00  +698.263s  local-address-changed  {'added': ['{"Relay": "https://usw1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://use1-1.relay.n0.iroh.link./"}']}
+15:56:25.160+08:00  +698.846s  connect-start  {}
+15:56:28.571+08:00  +702.257s  local-address-changed  {'added': ['{"Relay": "https://aps1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://usw1-1.relay.n0.iroh.link./"}']}
+15:56:35.574+08:00  +709.260s  local-address-changed  {'added': ['{"Relay": "https://euc1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://aps1-1.relay.n0.iroh.link./"}']}
+15:56:37.582+08:00  +711.268s  local-address-changed  {'added': ['{"Relay": "https://use1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://euc1-1.relay.n0.iroh.link./"}']}
+15:56:40.579+08:00  +714.264s  local-address-changed  {'added': ['{"Relay": "https://usw1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://use1-1.relay.n0.iroh.link./"}']}
+15:56:45.577+08:00  +719.263s  local-address-changed  {'added': ['{"Relay": "https://aps1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://usw1-1.relay.n0.iroh.link./"}']}
+15:56:46.634+08:00  +720.319s  local-address-changed  {'added': ['{"Relay": "https://euc1-1.relay.n0.iroh.link./"}'], 'removed': ['{"Relay": "https://aps1-1.relay.n0.iroh.link./"}']}
+15:56:47.735+08:00  +721.421s  local-address-changed  {'added': ['{"Ip": "10.108.137.75:56491"}'], 'removed': ['{"Ip": "172.28.16.1:56491"}']}
+15:56:47.735+08:00  +721.421s  network-generation-changed  {}
+15:56:48.577+08:00  +722.262s  local-address-changed  {'added': ['{"Ip": "114.246.236.82:9844"}'], 'removed': []}
+15:56:50.573+08:00  +724.259s  local-address-changed  {'added': ['{"Ip": "172.28.16.1:56491"}', '{"Ip": "[2408:8409:18d0:346:8475:4679:73b0:ac1e]:56489"}', '{"Ip": "[2408:8409:18d0:346:a806:2cb4:7da0:a67d]:56489"}'], 'removed': ['{"Ip": "114.246.236.82:9844"}']}
+15:56:50.574+08:00  +724.259s  network-generation-changed  {}
+15:57:07.313+08:00  +740.999s  operator-network-switch-marker  {'doesNotChangeNetwork': True}
+15:57:25.177+08:00  +758.863s  connect-failed  {'error': 'TemporarilyUnreachable { retry_after: 1s, cause: Some("connection deadline exceeded") }', 'peer': 'r_proxy (192.168.4.14)'}
+15:57:26.187+08:00  +759.873s  connect-start  {}
+15:58:26.192+08:00  +819.878s  connect-failed  {'error': 'TemporarilyUnreachable { retry_after: 2s, cause: Some("connection deadline exceeded") }', 'peer': 'r_proxy (192.168.4.14)'}
+15:58:27.204+08:00  +820.890s  connect-start  {}
+15:58:27.204+08:00  +820.890s  connect-failed  {'error': 'TemporarilyUnreachable { retry_after: 988.1855ms, cause: Some("connection deadline exceeded") }', 'peer': 'r_proxy (192.168.4.14)'}
+15:58:28.211+08:00  +821.897s  connect-start  {}
+15:58:40.659+08:00  +834.344s  probe-failed  {'peer': '55a55dacf17ea02d14d4db42415fce3c56470d261e5156ff46e7e9b0506418b2', 'reason': 'stream_read', 'stableId': 2027773295664}
+15:58:42.889+08:00  +836.574s  probe-failed  {'peer': '55a55dacf17ea02d14d4db42415fce3c56470d261e5156ff46e7e9b0506418b2', 'reason': 'stream_read', 'stableId': 2027773295664}
+15:58:44.577+08:00  +838.263s  local-address-changed  {'added': ['{"Ip": "172.31.0.36:56491"}'], 'removed': ['{"Ip": "10.108.137.75:56491"}', '{"Ip": "[2408:8409:18d0:346:8475:4679:73b0:ac1e]:56489"}', '{"Ip": "[2408:8409:18d0:346:a806:2cb4:7da0:a67d]:56489"}']}
+15:58:44.577+08:00  +838.263s  network-generation-changed  {}
+15:58:45.573+08:00  +839.259s  local-address-changed  {'added': ['{"Ip": "182.48.107.243:4834"}'], 'removed': []}
+15:58:47.752+08:00  +841.438s  probe-failed  {'peer': '55a55dacf17ea02d14d4db42415fce3c56470d261e5156ff46e7e9b0506418b2', 'reason': 'stream_write', 'stableId': 2027773295664}
+15:58:51.936+08:00  +845.622s  operator-network-switch-marker  {'doesNotChangeNetwork': True}
+15:58:54.238+08:00  +847.924s  connection-open  {'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027773239408}
+15:58:54.571+08:00  +848.257s  selected-path-changed  {'after': ['ip:111.197.236.230:10457'], 'before': ['relay:https://aps1-1.relay.n0.iroh.link./'], 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027773239408}
+15:58:54.901+08:00  +848.586s  business-restored  {'connections': 2, 'elapsedMs': 182481, 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027773239408}
+15:59:02.574+08:00  +856.260s  selected-path-changed  {'after': ['relay:https://aps1-1.relay.n0.iroh.link./'], 'before': ['ip:111.197.236.230:10457'], 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027773239408}
+15:59:03.572+08:00  +857.258s  selected-path-changed  {'after': ['ip:111.197.236.230:10457'], 'before': ['relay:https://aps1-1.relay.n0.iroh.link./'], 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027773239408}
+15:59:15.584+08:00  +869.269s  selected-path-changed  {'after': ['relay:https://aps1-1.relay.n0.iroh.link./'], 'before': ['ip:111.197.236.230:10457'], 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027773239408}
+15:59:16.580+08:00  +870.266s  selected-path-changed  {'after': ['ip:111.197.236.230:10457'], 'before': ['relay:https://aps1-1.relay.n0.iroh.link./'], 'peer': 'r_proxy (192.168.4.14)', 'stableId': 2027773239408}

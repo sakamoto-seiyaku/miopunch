@@ -902,15 +902,45 @@ impl Coordinator {
         let qualification = self.node.gate.path_qualification(original)?;
         let peer = original.remote_id();
         let paths = original.paths();
+        let preferred_relay = paths
+            .iter()
+            .find(|path| {
+                path.is_selected()
+                    && path.is_relay()
+                    && self.resources.allows_data_path(path.remote_addr())
+            })
+            .map(|path| path.remote_addr().clone());
         let current = paths
             .iter()
             .filter(|path| self.resources.allows_data_path(path.remote_addr()))
-            .map(|path| path.remote_addr().clone());
+            .map(|path| path.remote_addr().clone())
+            .filter(|address| Some(address) != preferred_relay.as_ref());
         let hint = self.candidates.get(&peer);
+        let learned = self
+            .resources
+            .contacts
+            .get_endpoint_info(peer)
+            .map(|info| info.into_endpoint_addr());
+        let learned_relays = learned
+            .iter()
+            .flat_map(|contact| contact.addrs.iter())
+            .filter(|address| matches!(address, TransportAddr::Relay(_)));
         let hints = hint
             .into_iter()
-            .flat_map(|candidate| &candidate.address.addrs);
-        let target = EndpointAddr::new(peer).with_addrs(current.chain(hints.cloned()).take(8));
+            .flat_map(|candidate| &candidate.address.addrs)
+            .chain(learned_relays)
+            .filter(|address| {
+                !matches!(address, TransportAddr::Relay(_))
+                    || self.resources.allows_data_path(address)
+            });
+        let target = EndpointAddr::new(peer).with_addrs(
+            preferred_relay
+                .iter()
+                .cloned()
+                .chain(current)
+                .chain(hints.cloned())
+                .take(8),
+        );
         (!target.addrs.is_empty()).then(|| ImprovementClues {
             target,
             local: local.clone(),
@@ -974,7 +1004,7 @@ impl Coordinator {
                 continue;
             };
             let attempt = AttemptContext::new(deadline, cancel.child_token());
-            let mut lease = match registry.acquire(&original, &attempt, contact) {
+            let mut lease = match registry.acquire_outgoing(&original, &attempt, contact) {
                 Ok(lease) => lease,
                 Err(MaintenanceError::SessionClosed) => {
                     self.improvements.remove(&stable);
@@ -1000,6 +1030,7 @@ impl Coordinator {
                     &original,
                     clues.target.clone(),
                     attempt,
+                    || lease.seal_outgoing_hello(),
                 ))
                 .await;
             let now = Instant::now();
@@ -1060,7 +1091,11 @@ impl Coordinator {
                 Err(MaintenanceError::SessionClosed) => {
                     self.improvements.remove(&stable);
                 }
-                Err(MaintenanceError::Cancelled) => return true,
+                Err(MaintenanceError::Cancelled) => {
+                    if !cancel.is_cancelled() {
+                        state.defer(now + floor);
+                    }
+                }
                 Err(error) => {
                     self.status.cause = Some(format!("active improvement: {error:?}"));
                     state.failed(now, floor);

@@ -16,11 +16,13 @@ pub(crate) mod timeouts {
     /// The maximum amount of time net_report will spend gathering a single report.
     pub(crate) const OVERALL_REPORT_TIMEOUT: Duration = Duration::from_secs(TIMEOUT);
 
-    /// The total time we wait for all the probes.
-    ///
-    /// This includes the QAD and HTTPS probes, which will all
-    /// start at different times based on the ProbePlan.
+    /// Time allotted to an HTTPS probe, including its scheduled delay.
     pub(crate) const PROBES_TIMEOUT: Duration = Duration::from_secs(3);
+
+    /// Time to resolve, authenticate and receive an address from one QAD observer.
+    /// This is inside the socket's 10-second deadline for a parallel net report.
+    #[cfg(not(wasm_browser))]
+    pub(crate) const QAD_PROBE_TIMEOUT: Duration = Duration::from_secs(8);
 
     /// How long to await for a captive-portal result.
     ///

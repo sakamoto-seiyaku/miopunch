@@ -1,0 +1,41 @@
+15:55:56.355+08:00  +703.291s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'u22sz', 'stableId': 140434157723248}
+15:55:59.356+08:00  +706.292s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'u22sz', 'stableId': 140434157723248}
+15:56:02.357+08:00  +709.293s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'u22sz', 'stableId': 140434157723248}
+15:56:05.359+08:00  +712.295s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'u22sz', 'stableId': 140434157723248}
+15:56:08.360+08:00  +715.296s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'u22sz', 'stableId': 140434157723248}
+15:56:11.362+08:00  +718.298s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'u22sz', 'stableId': 140434157723248}
+15:56:14.363+08:00  +721.299s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'u22sz', 'stableId': 140434157723248}
+15:56:17.366+08:00  +724.302s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'u22sz', 'stableId': 140434157723248}
+15:56:20.368+08:00  +727.304s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'u22sz', 'stableId': 140434157723248}
+15:56:23.370+08:00  +730.305s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'u22sz', 'stableId': 140434157723248}
+15:56:25.112+08:00  +732.048s  probe-failed  {'peer': 'e48707bfc03d355c9eb5e4cf5a0904b5cbce3c90075ccc52c744f557af167353', 'reason': 'accept_stream', 'stableId': 140434223879920}
+15:56:25.112+08:00  +732.048s  connection-close-invoked  {'owner': 'demo_receive', 'peer': 'e48707bfc03d355c9eb5e4cf5a0904b5cbce3c90075ccc52c744f557af167353', 'priorCloseReason': 'transport_timeout', 'reason': 'accept_stream', 'stableId': 140434223879920}
+15:56:25.112+08:00  +732.048s  connection-ended  {'closeReason': 'transport_timeout', 'owner': 'transport', 'peer': 'e48707bfc03d355c9eb5e4cf5a0904b5cbce3c90075ccc52c744f557af167353', 'priorCloseReason': 'transport_timeout', 'reason': 'accept_stream', 'stableId': 140434223879920}
+15:56:25.113+08:00  +732.049s  heartbeat-failed  {'error': 'read error: connection lost', 'peer': 'u22sz', 'stableId': 140434157723248}
+15:56:25.113+08:00  +732.049s  connection-close-invoked  {'owner': 'demo_reconnect', 'peer': 'u22sz', 'priorCloseReason': 'transport_timeout', 'reason': 'reconnect_cleanup', 'stableId': 140434157723248}
+15:56:25.113+08:00  +732.049s  connection-ended  {'closeReason': 'transport_timeout', 'owner': 'transport', 'peer': 'u22sz', 'priorCloseReason': 'transport_timeout', 'reason': 'reconnect_cleanup', 'stableId': 140434157723248}
+15:56:26.116+08:00  +733.052s  connect-start  {}
+15:56:56.123+08:00  +763.058s  connect-failed  {'error': 'TemporarilyUnreachable { retry_after: 1s, cause: Some("connection transport failed: timed out") }', 'peer': 'u22sz'}
+15:56:57.124+08:00  +764.060s  connect-start  {}
+15:57:27.130+08:00  +794.065s  connect-failed  {'error': 'TemporarilyUnreachable { retry_after: 2s, cause: Some("connection transport failed: timed out") }', 'peer': 'u22sz'}
+15:57:28.131+08:00  +795.067s  connect-start  {}
+15:57:28.131+08:00  +795.067s  connect-failed  {'error': 'TemporarilyUnreachable { retry_after: 998.460107ms, cause: Some("connection transport failed: timed out") }', 'peer': 'u22sz'}
+15:57:29.133+08:00  +796.069s  connect-start  {}
+15:57:59.136+08:00  +826.072s  connect-failed  {'error': 'TemporarilyUnreachable { retry_after: 4s, cause: Some("connection transport failed: timed out") }', 'peer': 'u22sz'}
+15:58:00.138+08:00  +827.074s  connect-start  {}
+15:58:00.138+08:00  +827.074s  connect-failed  {'error': 'TemporarilyUnreachable { retry_after: 2.998108497s, cause: Some("connection transport failed: timed out") }', 'peer': 'u22sz'}
+15:58:01.139+08:00  +828.075s  connect-start  {}
+15:58:01.139+08:00  +828.075s  connect-failed  {'error': 'TemporarilyUnreachable { retry_after: 1.99685133s, cause: Some("connection transport failed: timed out") }', 'peer': 'u22sz'}
+15:58:02.141+08:00  +829.076s  connect-start  {}
+15:58:02.141+08:00  +829.077s  connect-failed  {'error': 'TemporarilyUnreachable { retry_after: 995.543243ms, cause: Some("connection transport failed: timed out") }', 'peer': 'u22sz'}
+15:58:03.142+08:00  +830.077s  connect-start  {}
+15:58:29.076+08:00  +856.012s  connection-open  {'peer': 'u22sz', 'stableId': 140434223837120}
+15:58:32.077+08:00  +859.013s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'u22sz', 'stableId': 140434223837120}
+15:58:35.078+08:00  +862.014s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'u22sz', 'stableId': 140434223837120}
+15:58:36.221+08:00  +863.157s  selected-path-changed  {'after': ['ip:[2408:8409:18d0:346:a806:2cb4:7da0:a67d]:56489'], 'before': ['relay:https://aps1-1.relay.n0.iroh.link./'], 'peer': 'u22sz', 'stableId': 140434223837120}
+15:58:38.080+08:00  +865.015s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'u22sz', 'stableId': 140434223837120}
+15:58:38.117+08:00  +865.052s  business-restored  {'connections': 2, 'elapsedMs': 164762, 'peer': 'u22sz', 'stableId': 140434223837120}
+15:58:46.221+08:00  +873.157s  selected-path-changed  {'after': ['relay:https://aps1-1.relay.n0.iroh.link./'], 'before': ['ip:[2408:8409:18d0:346:a806:2cb4:7da0:a67d]:56489'], 'peer': 'u22sz', 'stableId': 140434223837120}
+15:58:47.090+08:00  +874.026s  heartbeat-failed  {'error': 'heartbeat deadline (3s)', 'peer': 'u22sz', 'stableId': 140434223837120}
+15:58:47.102+08:00  +874.038s  business-restored  {'connections': 2, 'elapsedMs': 3013, 'peer': 'u22sz', 'stableId': 140434223837120}
+15:58:47.220+08:00  +874.156s  selected-path-changed  {'after': ['ip:182.48.107.243:4834'], 'before': ['relay:https://aps1-1.relay.n0.iroh.link./'], 'peer': 'u22sz', 'stableId': 140434223837120}

@@ -1,0 +1,97 @@
+{
+  "classification": "Windows SDK DNS unresolved; these are not valid strategy comparison conclusions",
+  "cases": [
+    {
+      "case": "windows-to-linux-normal-auto",
+      "condition": "normal-auto",
+      "direction": "windows-to-linux",
+      "connectBudgetMs": 30000,
+      "requestBudgetsMs": [
+        3000,
+        10000
+      ],
+      "permissions": [
+        "https://aps1-1.relay.n0.iroh.link./",
+        "https://euc1-1.relay.n0.iroh.link./",
+        "https://use1-1.relay.n0.iroh.link./",
+        "https://usw1-1.relay.n0.iroh.link./"
+      ],
+      "home": null,
+      "earlyMs": null,
+      "clientOutcome": {
+        "connected": false,
+        "elapsedMs": 30007,
+        "error": "connection deadline exceeded"
+      }
+    },
+    {
+      "case": "windows-to-linux-relay-auto",
+      "condition": "relay-auto",
+      "direction": "windows-to-linux",
+      "connectBudgetMs": 30000,
+      "requestBudgetsMs": [
+        3000,
+        10000
+      ],
+      "permissions": [
+        "https://aps1-1.relay.n0.iroh.link./",
+        "https://euc1-1.relay.n0.iroh.link./",
+        "https://use1-1.relay.n0.iroh.link./",
+        "https://usw1-1.relay.n0.iroh.link./"
+      ],
+      "home": null,
+      "earlyMs": null,
+      "clientOutcome": {
+        "connected": false,
+        "elapsedMs": 30016,
+        "error": "connection deadline exceeded"
+      }
+    },
+    {
+      "case": "windows-to-linux-relay-fixed",
+      "condition": "relay-fixed",
+      "direction": "windows-to-linux",
+      "connectBudgetMs": 30000,
+      "requestBudgetsMs": [
+        3000,
+        10000
+      ],
+      "permissions": [
+        "https://aps1-1.relay.n0.iroh.link./",
+        "https://euc1-1.relay.n0.iroh.link./",
+        "https://use1-1.relay.n0.iroh.link./",
+        "https://usw1-1.relay.n0.iroh.link./"
+      ],
+      "home": "https://aps1-1.relay.n0.iroh.link./",
+      "earlyMs": null,
+      "clientOutcome": {
+        "connected": false,
+        "elapsedMs": 30016,
+        "error": "connection deadline exceeded"
+      }
+    },
+    {
+      "case": "windows-to-linux-relay-fixed-early",
+      "condition": "relay-fixed-early",
+      "direction": "windows-to-linux",
+      "connectBudgetMs": 30000,
+      "requestBudgetsMs": [
+        3000,
+        10000
+      ],
+      "permissions": [
+        "https://aps1-1.relay.n0.iroh.link./",
+        "https://euc1-1.relay.n0.iroh.link./",
+        "https://use1-1.relay.n0.iroh.link./",
+        "https://usw1-1.relay.n0.iroh.link./"
+      ],
+      "home": "https://aps1-1.relay.n0.iroh.link./",
+      "earlyMs": 250,
+      "clientOutcome": {
+        "connected": false,
+        "elapsedMs": 30016,
+        "error": "connection deadline exceeded"
+      }
+    }
+  ]
+}

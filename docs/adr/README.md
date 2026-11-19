@@ -17,5 +17,7 @@ See also [confirming each genesis operation](0015-confirm-each-genesis-operation
 See also [preserving node identity when replacing a device](0016-preserve-node-identity-on-device-replacement.md).
 See also [three node roles and scoped guest invitations](0017-guest-access-with-scoped-invitations.md).
 See also [shared Vue UI with Tauri shells and Rust nodes](0018-shared-vue-ui-with-tauri-shells.md).
+See also [miopunch as an application on modified p2panda and iroh](0019-miopunch-application-on-p2panda-and-iroh.md).
+See also [shared QUIC connection for member business streams](0020-shared-member-business-connection.md).
 Working hypotheses and research remain in
 `docs/notes/`; unresolved decisions belong in Plane.

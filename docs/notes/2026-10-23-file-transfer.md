@@ -4,6 +4,10 @@
 The [qualification report](../evidence/file-transfer-2026-10-23/README.md)
 identifies the actual platforms, source graphs, immutable artifacts and limits.
 
+The dedicated file connection below describes the October implementation.
+The target for member file transfers is a stream on the
+[shared member business connection](../adr/0020-shared-member-business-connection.md).
+
 The file module uses the existing durable node identity, member admission gate
 and configured connection coordinator. Its `miopunch/file/1` application
 protocol has the existing member-business purpose. A host explicitly enables
