@@ -282,7 +282,7 @@ impl IntoFuture for Incoming {
     fn into_future(self) -> Self::IntoFuture {
         IncomingFuture(Box::pin(async move {
             let noq_conn = self.inner.into_future().await?;
-            conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?
+            conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone(), |_, _| {})?
                 .await?
                 .into_business()
         }))
@@ -383,6 +383,7 @@ fn conn_from_noq_conn(
     conn: noq::Connection,
     ep: &Endpoint,
     attempt: AttemptOptions,
+    authenticated: impl FnOnce(EndpointId, usize),
 ) -> Result<
     impl Future<Output = Result<RegisteredConnection, ConnectingError>> + Send + 'static,
     ConnectingError,
@@ -399,6 +400,7 @@ fn conn_from_noq_conn(
             }
         }
     };
+    authenticated(info.endpoint_id, conn.stable_id());
 
     event!(
         target: "iroh::_events::conn::connected",
@@ -693,9 +695,14 @@ impl Connecting {
                     let noq_conn = noq_conn.clone();
                     async move {
                         let accepted = zrtt_accepted.await;
-                        let conn = conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?
-                            .await?
-                            .into_business()?;
+                        let conn = conn_from_noq_conn(
+                            noq_conn,
+                            &self.ep,
+                            self.attempt.clone(),
+                            |_, _| {},
+                        )?
+                        .await?
+                        .into_business()?;
                         Ok(match accepted {
                             true => ZeroRttStatus::Accepted(conn),
                             false => ZeroRttStatus::Rejected(conn),
@@ -750,15 +757,30 @@ impl Connecting {
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<RegisteredConnection, ConnectingError>> {
-        loop {
-            if let Some(fut) = &mut self.register_with_socket {
-                return fut.poll_unpin(cx).map_err(Into::into);
-            } else {
-                let noq_conn = std::task::ready!(self.inner.poll_unpin(cx)?);
-                let fut = conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?;
-                self.register_with_socket = Some(Box::pin(fut.err_into()));
-            }
+        self.poll_registered_with(cx, |_, _| {})
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(super) async fn with_authenticated_identity(
+        mut self,
+        mut authenticated: impl FnMut(EndpointId, usize),
+    ) -> Result<Connection, ConnectingError> {
+        std::future::poll_fn(|cx| self.poll_registered_with(cx, &mut authenticated))
+            .await?
+            .into_business()
+    }
+
+    fn poll_registered_with(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+        authenticated: impl FnOnce(EndpointId, usize),
+    ) -> Poll<Result<RegisteredConnection, ConnectingError>> {
+        if self.register_with_socket.is_none() {
+            let conn = std::task::ready!(self.inner.poll_unpin(cx)?);
+            let register = conn_from_noq_conn(conn, &self.ep, self.attempt.clone(), authenticated)?;
+            self.register_with_socket = Some(Box::pin(register.err_into()));
         }
+        self.register_with_socket.as_mut().unwrap().poll_unpin(cx)
     }
 }
 
@@ -835,7 +857,7 @@ impl Accepting {
             let noq_conn = noq_conn.clone();
             async move {
                 let _ = zrtt_accepted.await;
-                conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone())?
+                conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone(), |_, _| {})?
                     .await?
                     .into_business()
             }
@@ -898,7 +920,7 @@ impl Accepting {
                 return fut.poll_unpin(cx).map_err(Into::into);
             } else {
                 let noq_conn = std::task::ready!(self.inner.poll_unpin(cx)?);
-                match conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone()) {
+                match conn_from_noq_conn(noq_conn, &self.ep, self.attempt.clone(), |_, _| {}) {
                     Err(err) => return Poll::Ready(Err(err)),
                     Ok(fut) => self.register_with_socket = Some(Box::pin(fut.err_into())),
                 };

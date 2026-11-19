@@ -824,6 +824,126 @@ async fn only_configured_mqtt_contact_qualifies_the_first_native_member_path() {
 }
 
 #[tokio::test]
+async fn silent_relay_race_starts_mqtt_before_the_relays_finish() {
+    let broker = relay_contact_broker::Broker::new().await;
+    let (root, provider, consumer, mut contact) = restricted_service_pair(
+        format!("mqtt://{}/", broker.address),
+        miopunch_native_probe::mqtt_transport::TRANSPORT_ID,
+        true,
+    )
+    .await;
+    consumer.close().await.unwrap();
+    let backend = relay().await;
+    let mut silent = Vec::new();
+    for _ in 0..4 {
+        silent.push(
+            delayed_relay::delay_relay(backend.http_addr().unwrap(), Duration::from_secs(10)).await,
+        );
+    }
+    let consumer = reopen_with_resources(&root.path().join("consumer"), |resources| {
+        resources
+            .defaults
+            .resources
+            .extend(silent.iter().map(|(url, _)| relay_resource(url)));
+    })
+    .await;
+    contact.addrs.extend(
+        silent
+            .iter()
+            .map(|(url, _)| iroh::TransportAddr::Relay(url.clone())),
+    );
+    let started = Instant::now();
+    timeout(
+        Duration::from_secs(4),
+        verify_first_forward_reply(&provider, &consumer, contact),
+    )
+    .await
+    .expect("four silent relays leave time for the first MQTT business reply");
+    println!("first reply after {:?}", started.elapsed());
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
+    for (_, stop) in silent {
+        stop.cancel();
+    }
+    backend.shutdown().await.unwrap();
+    broker.close().await;
+}
+
+#[tokio::test]
+async fn verified_cache_and_mqtt_both_start_when_data_relays_are_disabled() {
+    let broker = relay_contact_broker::Broker::new().await;
+    let (root, provider, consumer, _) = restricted_service_pair(
+        format!("mqtt://{}/", broker.address),
+        miopunch_native_probe::mqtt_transport::TRANSPORT_ID,
+        true,
+    )
+    .await;
+    let consumer_path = root.path().join("consumer");
+    let provider_path = root.path().join("provider");
+    let peer = provider.address().id;
+    let cached = *provider
+        .address()
+        .ip_addrs()
+        .find(|addr| addr.is_ipv4())
+        .unwrap();
+    let direct = iroh::EndpointAddr::new(peer).with_ip_addr(cached);
+    first_pong(&consumer, direct, iroh::TransportAddr::Ip(cached)).await;
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
+    assert!(
+        read_member_routes(&consumer_path, peer)
+            .iter()
+            .any(|route| {
+                route["verified"] == true && route["address"]["Ip"] == cached.to_string()
+            })
+    );
+    let previous = UdpSocket::bind(cached).await.unwrap();
+    let provider = NativeClient::open(provider_path, Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let consumer = NativeClient::open(consumer_path, Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let invitation = provider.invitation().await.unwrap();
+    let mut contact = invitation.address().clone();
+    contact.addrs.retain(|route| {
+        matches!(route, iroh::TransportAddr::Custom(address)
+        if address.id() == miopunch_native_probe::mqtt_transport::TRANSPORT_ID)
+    });
+    assert_eq!(contact.addrs.len(), 1);
+    let mqtt_before = broker.datagram_publishes();
+    let started = Instant::now();
+    let (reply, cached_initial) = timeout(IO, async {
+        tokio::join!(consumer.ping(contact), async {
+            let mut packet = [0; 2048];
+            let (len, caller) = previous.recv_from(&mut packet).await.unwrap();
+            (Instant::now(), len, caller)
+        })
+    })
+    .await
+    .unwrap();
+    let reply = reply.unwrap();
+    assert_eq!(reply["reply"], "PONG");
+    assert_eq!(reply["transport"]["peer"], peer.to_string());
+    assert_ne!(
+        reply["transport"]["initial_data_path"]["Ip"],
+        cached.to_string()
+    );
+    assert!(reply["transport"]["initial_data_path"]["Ip"].is_string());
+    assert!(cached_initial.1 >= 1200);
+    assert!(cached_initial.0 - started < Duration::from_millis(250));
+    let mqtt_packets = broker.datagram_publishes() - mqtt_before;
+    assert!(mqtt_packets > 0);
+    println!(
+        "MIO149 zero-data-relays cached_initial={cached_initial:?} mqtt_packets={mqtt_packets} reply_after={:?} {reply}",
+        started.elapsed()
+    );
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
+    broker.close().await;
+}
+
+#[tokio::test]
 async fn mqtt_member_rejection_ends_the_restricted_first_dial() {
     let broker = relay_contact_broker::Broker::new().await;
     let (_root, provider, consumer, contact) = restricted_service_pair(
@@ -872,6 +992,137 @@ async fn only_configured_irc_contact_qualifies_the_first_native_member_path() {
     verify_first_forward_reply(&provider, &consumer, contact).await;
     consumer.close().await.unwrap();
     provider.close().await.unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires the owned real IRCd supplied by MIOPUNCH_IRC_SERVER"]
+async fn public_contact_selection_preserves_the_confirmed_irc_reply_deadline() {
+    use miopunch_native_probe::{irc_transport, mqtt_transport};
+
+    const REPLY_DEADLINE: Duration = Duration::from_secs(35);
+    let other_broker = relay_contact_broker::Broker::new().await;
+    let irc = owned_irc_url();
+    let wrong_origin = format!("mqtt://{}/", other_broker.address);
+    let backend = relay().await;
+    let (silent_relay, stop) =
+        delayed_relay::delay_relay(backend.http_addr().unwrap(), Duration::from_secs(45)).await;
+
+    for label in [
+        "irc-only",
+        "both-ready",
+        "other-mqtt-origin",
+        "withdrawn-mqtt",
+        "silent-mqtt-first",
+    ] {
+        let broker = relay_contact_broker::Broker::new().await;
+        let mqtt = format!("mqtt://{}/", broker.address);
+        let resources = ResourceConfig {
+            tcp_direct_disabled: true,
+            member_data_relay_disabled: true,
+            replacement: Some(
+                [&irc, &mqtt]
+                    .into_iter()
+                    .filter(|url| label != "irc-only" || *url == &irc)
+                    .map(|url| Resource {
+                        url: url.clone(),
+                        uses: [ResourceUse::Signaling].into(),
+                        limitation: "owned public contact facility".into(),
+                    })
+                    .collect(),
+            ),
+            ..ResourceConfig::default()
+        };
+        let Pair {
+            root,
+            provider,
+            consumer,
+            ..
+        } = Pair::admit_with_resources(resources).await;
+        consumer.close().await.unwrap();
+        provider.close().await.unwrap();
+        let provider = NativeClient::open(root.path().join("provider"), Ipv4Addr::LOCALHOST)
+            .await
+            .unwrap();
+        let consumer = reopen_with_resources(&root.path().join("consumer"), |resources| {
+            let records = resources.replacement.as_mut().unwrap();
+            if label == "other-mqtt-origin" {
+                records
+                    .iter_mut()
+                    .find(|resource| resource.url == mqtt)
+                    .unwrap()
+                    .url = wrong_origin.clone();
+            } else if label == "silent-mqtt-first" {
+                records.push(relay_resource(&silent_relay));
+            }
+        })
+        .await;
+        let target = provider.invitation().await.unwrap().address().clone();
+        let mut contact = iroh::EndpointAddr::new(target.id);
+        contact.addrs.extend(target.addrs.into_iter().filter(|addr| {
+            matches!(addr, iroh::TransportAddr::Custom(address)
+                if [irc_transport::TRANSPORT_ID, mqtt_transport::TRANSPORT_ID].contains(&address.id()))
+        }));
+        assert_eq!(contact.addrs.len(), if label == "irc-only" { 1 } else { 2 });
+        assert!(provider.address().relay_urls().next().is_none());
+        if label == "silent-mqtt-first" {
+            contact
+                .addrs
+                .insert(iroh::TransportAddr::Relay(silent_relay.clone()));
+        }
+        if matches!(label, "withdrawn-mqtt" | "silent-mqtt-first") {
+            broker.mute_datagrams();
+        }
+        let before = broker.datagram_publishes();
+        let started = Instant::now();
+        println!("MIO149 public {label} start deadline={REPLY_DEADLINE:?}");
+        let (reply, ()) = timeout(REPLY_DEADLINE, async {
+            tokio::join!(consumer.ping(contact), async {
+                if label == "withdrawn-mqtt" {
+                    wait_until(|| broker.datagram_publishes() > before).await;
+                    broker.disconnect();
+                }
+            })
+        })
+        .await
+        .expect("the preselected standalone IRC deadline also bounds signal fallback");
+        let reply = reply.unwrap();
+        let elapsed = started.elapsed();
+        assert_eq!(reply["reply"], "PONG");
+        assert_eq!(reply["transport"]["peer"], target.id.to_string());
+        assert!(
+            reply["transport"]["initial_data_path"]["Ip"].is_string(),
+            "{reply}"
+        );
+        let mqtt_packets = broker.datagram_publishes() - before;
+        if matches!(label, "both-ready" | "withdrawn-mqtt" | "silent-mqtt-first") {
+            assert!(
+                mqtt_packets > 0,
+                "the first MQTT entry actually sent packets"
+            );
+        } else {
+            assert_eq!(mqtt_packets, 0, "this route should only use IRC");
+        }
+        if label == "withdrawn-mqtt" {
+            assert!(
+                elapsed < IO,
+                "known unavailability leaves the IRC opportunity immediately"
+            );
+        }
+        assert_eq!(
+            other_broker.datagram_publishes(),
+            0,
+            "the other MQTT origin cannot contact this peer"
+        );
+        println!(
+            "MIO149 public {label} elapsed={elapsed:?} mqtt_packets={mqtt_packets} reply={reply}"
+        );
+        consumer.close().await.unwrap();
+        provider.close().await.unwrap();
+        broker.close().await;
+    }
+    stop.cancel();
+    backend.shutdown().await.unwrap();
+    other_broker.close().await;
 }
 
 #[tokio::test]

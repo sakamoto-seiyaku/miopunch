@@ -18,6 +18,12 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 type Routes = Arc<Mutex<BTreeMap<String, Vec<(usize, mpsc::Sender<Vec<u8>>)>>>>;
+
+#[derive(Default)]
+struct DatagramDelivery {
+    muted: AtomicBool,
+    publishes: AtomicUsize,
+}
 struct Active(Arc<AtomicUsize>);
 impl Drop for Active {
     fn drop(&mut self) {
@@ -95,6 +101,7 @@ async fn serve(
     socket: TcpStream,
     id: usize,
     routes: Routes,
+    delivery: Arc<DatagramDelivery>,
     stop: CancellationToken,
 ) -> io::Result<()> {
     let (mut reader, mut writer) = socket.into_split();
@@ -148,6 +155,12 @@ async fn serve(
                     return Err(io::Error::other("owned publish QoS0 only"));
                 }
                 let (name, start) = topic(&body)?;
+                if body[start..].starts_with(b"MIO1") {
+                    delivery.publishes.fetch_add(1, Ordering::SeqCst);
+                    if delivery.muted.load(Ordering::SeqCst) {
+                        continue;
+                    }
+                }
                 let subscribers = routes
                     .lock()
                     .unwrap()
@@ -184,6 +197,7 @@ async fn serve(
 pub struct Broker {
     pub address: SocketAddr,
     active: Arc<AtomicUsize>,
+    delivery: Arc<DatagramDelivery>,
     stop: CancellationToken,
     task: JoinHandle<()>,
 }
@@ -192,8 +206,10 @@ impl Broker {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let active = Arc::new(AtomicUsize::new(0));
+        let delivery = Arc::new(DatagramDelivery::default());
         let stop = CancellationToken::new();
         let active_task = active.clone();
+        let datagrams = delivery.clone();
         let stop_task = stop.clone();
         let task = tokio::spawn(async move {
             let routes = Routes::default();
@@ -202,7 +218,20 @@ impl Broker {
             loop {
                 tokio::select! {
                     _ = stop_task.cancelled() => break,
-                    connection = listener.accept() => { let (socket, _) = connection.unwrap(); id += 1; let id = id; let routes = routes.clone(); let stop = stop_task.clone(); let active = active_task.clone(); active.fetch_add(1, Ordering::SeqCst); sessions.spawn(async move { let _active = Active(active); let _ = serve(socket, id, routes, stop).await; }); },
+                    connection = listener.accept() => {
+                        let (socket, _) = connection.unwrap();
+                        id += 1;
+                        let id = id;
+                        let routes = routes.clone();
+                        let stop = stop_task.clone();
+                        let active = active_task.clone();
+                        let datagrams = datagrams.clone();
+                        active.fetch_add(1, Ordering::SeqCst);
+                        sessions.spawn(async move {
+                            let _active = Active(active);
+                            let _ = serve(socket, id, routes, datagrams, stop).await;
+                        });
+                    },
                     Some(result) = sessions.join_next() => { result.unwrap(); },
                 }
             }
@@ -213,6 +242,7 @@ impl Broker {
         Self {
             address,
             active,
+            delivery,
             stop,
             task,
         }
@@ -220,8 +250,17 @@ impl Broker {
     pub fn active(&self) -> usize {
         self.active.load(Ordering::SeqCst)
     }
-    pub async fn close(self) {
+    pub fn datagram_publishes(&self) -> usize {
+        self.delivery.publishes.load(Ordering::SeqCst)
+    }
+    pub fn mute_datagrams(&self) {
+        self.delivery.muted.store(true, Ordering::SeqCst);
+    }
+    pub fn disconnect(&self) {
         self.stop.cancel();
+    }
+    pub async fn close(self) {
+        self.disconnect();
         self.task.await.unwrap();
     }
 }

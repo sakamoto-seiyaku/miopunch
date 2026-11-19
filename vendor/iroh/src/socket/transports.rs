@@ -1187,7 +1187,7 @@ impl TransportsSender {
                 }
             },
             FourTuple::Relay { url, endpoint_id } => {
-                return self.poll_send_relay(cx, url, *endpoint_id, transmit, false);
+                return self.poll_send_relay(cx, url, *endpoint_id, transmit, None);
             }
             FourTuple::Custom { remote, local } => {
                 for sender in &mut self.custom {
@@ -1213,7 +1213,7 @@ impl TransportsSender {
         url: &RelayUrl,
         endpoint_id: EndpointId,
         transmit: &Transmit<'_>,
-        exact: bool,
+        exact: Option<Arc<RelayBootstrap>>,
     ) -> Poll<io::Result<()>> {
         let mut has_sender = false;
         for sender in self
@@ -1223,7 +1223,7 @@ impl TransportsSender {
         {
             has_sender = true;
             if let Poll::Ready(result) =
-                sender.poll_send(cx, url.clone(), endpoint_id, transmit, exact)
+                sender.poll_send(cx, url.clone(), endpoint_id, transmit, exact.clone())
             {
                 return Poll::Ready(result);
             }
@@ -1382,7 +1382,18 @@ pub(crate) struct Sender {
 #[derive(Clone, Debug)]
 pub(crate) struct ExactRelayBootstrap {
     pub(crate) address: SocketAddr,
-    pub(crate) released: Arc<std::sync::atomic::AtomicBool>,
+    pub(crate) route: Arc<RelayBootstrap>,
+}
+
+type RelayStatusReceiver = tokio::sync::watch::Receiver<bool>;
+
+/// Bootstrap traffic and registration failures are scoped to one physical
+/// relay until the explicit QUIC candidate finishes.
+#[derive(Debug)]
+pub(crate) struct RelayBootstrap {
+    pub(crate) released: std::sync::atomic::AtomicBool,
+    pub(crate) watch_unavailable:
+        std::sync::Mutex<Option<tokio::sync::oneshot::Sender<RelayStatusReceiver>>>,
 }
 
 impl Sender {
@@ -1546,17 +1557,26 @@ impl noq::UdpSender for Sender {
             segment_size: noq_transmit.segment_size,
         };
         #[cfg(not(wasm_browser))]
-        let exact = self.exact_relay.as_ref().is_some_and(|route| {
-            route.address == noq_transmit.destination
-                && !route.released.load(std::sync::atomic::Ordering::Acquire)
-        });
+        let exact = self
+            .exact_relay
+            .as_ref()
+            .filter(|route| {
+                route.address == noq_transmit.destination
+                    && !route
+                        .route
+                        .released
+                        .load(std::sync::atomic::Ordering::Acquire)
+            })
+            .map(|route| route.route.clone());
         #[cfg(wasm_browser)]
-        let exact = false;
+        let exact = None;
         let this = self.project();
 
-        let sent = if exact && let FourTuple::Relay { url, endpoint_id } = &network_path {
+        let sent = if exact.is_some()
+            && let FourTuple::Relay { url, endpoint_id } = &network_path
+        {
             this.sender
-                .poll_send_relay(cx, url, *endpoint_id, &transmit, true)
+                .poll_send_relay(cx, url, *endpoint_id, &transmit, exact)
         } else {
             this.sender
                 .poll_send_on_socket(cx, &network_path, local_socket, &transmit)

@@ -289,7 +289,7 @@ impl RelaySender {
         dest_url: RelayUrl,
         dest_endpoint: EndpointId,
         transmit: &Transmit<'_>,
-        exact: bool,
+        exact: Option<std::sync::Arc<super::RelayBootstrap>>,
     ) -> Poll<io::Result<()>> {
         match ready!(self.sender.poll_reserve(cx)) {
             Ok(()) => {

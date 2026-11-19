@@ -32,6 +32,8 @@ use tokio_util::sync::CancellationToken;
 
 use super::{admit, bind, relay, resource};
 
+#[path = "member_fusion_backup.rs"]
+mod backup;
 #[path = "delayed_relay.rs"]
 mod delayed_relay;
 #[path = "member_fusion_udp.rs"]

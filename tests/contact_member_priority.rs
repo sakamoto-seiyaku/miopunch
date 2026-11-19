@@ -786,7 +786,10 @@ async fn fused_member_forwarding(receiver_udp: bool) {
         Endpoint, EndpointAddr, TransportAddr,
         endpoint::{MemberDialOptions, presets},
     };
-    use miopunch_native_probe::native_network::member_fusion_attempt_id;
+    use miopunch_native_probe::{
+        mqtt_transport::{MqttTransport, Traffic},
+        native_network::member_fusion_attempt_id,
+    };
     use tokio::time::{Instant, timeout};
     use tokio_util::sync::CancellationToken;
 
@@ -845,11 +848,50 @@ async fn fused_member_forwarding(receiver_udp: bool) {
         .await
         .unwrap();
     let relay_url = relay.http_url().unwrap();
-    config.replacement = Some(vec![Resource {
-        url: relay_url.to_string(),
-        uses: [ResourceUse::DataRelay].into(),
-        limitation: "receiver's owned relay remains healthy during member signaling".into(),
-    }]);
+    let public_events = Events::default();
+    let broker = member_priority_broker::Broker::new(public_events.clone()).await;
+    let mqtt_resource = Resource {
+        url: format!("mqtt://{}/", broker.address),
+        uses: [ResourceUse::Signaling].into(),
+        limitation: "owned public contact that is ready while member forwarding wins".into(),
+    };
+    let mqtt = [
+        Arc::new(MqttTransport::new(
+            broker.address,
+            Arc::new(Traffic::default()),
+        )),
+        Arc::new(MqttTransport::new(
+            broker.address,
+            Arc::new(Traffic::default()),
+        )),
+    ];
+    let mut caller_relay_config = iroh_relay::server::ServerConfig::default();
+    caller_relay_config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let caller_relay = iroh_relay::server::Server::spawn(caller_relay_config)
+        .await
+        .unwrap();
+    let caller_relay_url = caller_relay.http_url().unwrap();
+    let mut sender_resources = vec![mqtt_resource.clone()];
+    if receiver_udp {
+        sender_resources.push(Resource {
+            url: caller_relay_url.to_string(),
+            uses: [ResourceUse::DataRelay].into(),
+            limitation: "registered caller relay with no recipient session".into(),
+        });
+    }
+    config.replacement = Some(sender_resources);
+    sender.save_resource_configuration(&config).unwrap();
+    config.replacement = Some(vec![
+        mqtt_resource,
+        Resource {
+            url: relay_url.to_string(),
+            uses: [ResourceUse::DataRelay].into(),
+            limitation: "receiver's owned relay remains healthy during member signaling".into(),
+        },
+    ]);
     config.udp_direct_disabled = !receiver_udp;
     receiver.save_resource_configuration(&config).unwrap();
     let builder = |side: usize| {
@@ -858,6 +900,7 @@ async fn fused_member_forwarding(receiver_udp: bool) {
             .bind_addr(std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
             .unwrap()
             .add_custom_transport(adapters[side].clone())
+            .add_custom_transport(mqtt[side].clone())
     };
     let caller = sender
         .bind_member_fusion_endpoint_with(builder(0), BUDGET)
@@ -869,7 +912,20 @@ async fn fused_member_forwarding(receiver_udp: bool) {
         .unwrap();
     timeout(BUDGET, acceptor.online()).await.unwrap();
     assert!(acceptor.addr().relay_urls().any(|url| url == &relay_url));
-    assert!(caller.addr().relay_urls().next().is_none());
+    if receiver_udp {
+        timeout(BUDGET, caller.online()).await.unwrap();
+        assert!(
+            caller
+                .addr()
+                .relay_urls()
+                .any(|url| url == &caller_relay_url)
+        );
+    } else {
+        assert!(caller.addr().relay_urls().next().is_none());
+    }
+    for port in &mqtt {
+        port.wait_ready().await.unwrap();
+    }
 
     let forward_service = MemberForwarder::new(forwarder.admission_gate());
     let mut leases = Vec::new();
@@ -893,10 +949,19 @@ async fn fused_member_forwarding(receiver_udp: bool) {
     assert_eq!(forward_service.active_links(), 2);
     let route = adapters[1].address().unwrap();
     let target = EndpointAddr::new(acceptor.id());
-    let options = MemberDialOptions::default().with_restricted_contacts(vec![route]);
+    let options = if receiver_udp {
+        MemberDialOptions::new(Vec::new(), Vec::new(), vec![caller_relay_url])
+            .with_restricted_contacts(vec![
+                route,
+                MqttTransport::address(&mqtt[1].route().unwrap()).unwrap(),
+            ])
+    } else {
+        MemberDialOptions::default().with_restricted_contacts(vec![route])
+    };
     let start = Instant::now();
     let deadline = start + BUDGET;
     let cancel = CancellationToken::new();
+    public_events.begin();
     let (outgoing, incoming) = tokio::join!(
         caller.connect_with_routes_until(target, options, deadline, &cancel),
         tokio::time::timeout_at(deadline, acceptor.accept()),
@@ -908,6 +973,10 @@ async fn fused_member_forwarding(receiver_udp: bool) {
         assert_eq!(incoming.remote_id(), caller.id());
         let attempt = member_fusion_attempt_id(&outgoing).unwrap();
         assert_eq!(attempt, member_fusion_attempt_id(&incoming).unwrap());
+        assert!(
+            public_events.snapshot().is_empty(),
+            "member forwarding takes precedence over the ready MQTT route"
+        );
         timeout(BUDGET, async {
             tokio::join!(
                 async {
@@ -976,6 +1045,8 @@ async fn fused_member_forwarding(receiver_udp: bool) {
     sender_link.close().await;
     receiver_link.close().await;
     hub.close().await;
+    caller_relay.shutdown().await.unwrap();
+    broker.close().await;
     sender.close().await;
     receiver.close().await;
     forwarder.close().await;

@@ -23,7 +23,7 @@ pub const FUSED_MEMBER_ALPN: &[u8] = b"miopunch/session/member-fusion/2";
 
 impl NativeNetwork {
     /// Bind the node's ordinary member endpoint using the persisted identity,
-    /// membership and data relay permissions.
+    /// membership and contact resource permissions.
     pub async fn bind_member_fusion_endpoint(
         &self,
         setup_budget: Duration,
@@ -56,8 +56,12 @@ impl NativeNetwork {
             .portmapper_config(PortmapperConfig::Disabled)
             .relay_mode(RelayMode::Custom(relays))
             .relay_resource_policy(RelayResourcePolicy::new(move |url, usage| {
-                matches!(usage, RelayResourceUse::DataRelay)
-                    && relay_resources.allows(url.as_str(), ResourceUse::DataRelay)
+                let use_ = match usage {
+                    RelayResourceUse::DataRelay => ResourceUse::DataRelay,
+                    RelayResourceUse::Signaling => ResourceUse::Signaling,
+                    _ => return false,
+                };
+                relay_resources.allows(url.as_str(), use_)
             }))
             .member_fusion(
                 FUSED_MEMBER_ALPN,

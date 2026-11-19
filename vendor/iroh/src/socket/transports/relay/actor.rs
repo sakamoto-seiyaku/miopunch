@@ -57,7 +57,7 @@ use n0_future::{
 };
 use n0_watcher::{Watchable, Watcher};
 use netwatch::interfaces;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, watch};
 use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, Level, debug, error, event, info, info_span, instrument, trace, warn};
 use url::Url;
@@ -177,6 +177,7 @@ struct ActiveRelayActor {
     stop_token: CancellationToken,
     metrics: Arc<SocketMetrics>,
     my_relay: HomeRelayWatch,
+    unavailable: watch::Sender<bool>,
 }
 
 #[derive(Debug)]
@@ -221,6 +222,7 @@ struct ActiveRelayActorOptions {
     stop_token: CancellationToken,
     metrics: Arc<SocketMetrics>,
     my_relay: HomeRelayWatch,
+    unavailable: watch::Sender<bool>,
 }
 
 /// Configuration needed to create a connection to a relay server.
@@ -293,6 +295,7 @@ impl ActiveRelayActor {
             stop_token,
             metrics,
             my_relay,
+            unavailable,
         } = opts;
         let relay_client_builder = Self::create_relay_builder(url.clone(), connection_opts);
         ActiveRelayActor {
@@ -307,6 +310,7 @@ impl ActiveRelayActor {
             stop_token,
             metrics,
             my_relay,
+            unavailable,
         }
     }
 
@@ -350,6 +354,15 @@ impl ActiveRelayActor {
 
         while let Err(err) = self.run_once().await {
             warn!("{err:#}");
+            if matches!(
+                err,
+                RelayConnectionError::Dial {
+                    source: DialError::Connect { .. },
+                    ..
+                }
+            ) {
+                self.unavailable.send_replace(true);
+            }
             let was_established = matches!(err, RelayConnectionError::Established { .. });
             let last_failure = Some(Arc::new(RelayConnectionFailure::new(err)));
             self.my_relay.set_status(
@@ -456,6 +469,7 @@ impl ActiveRelayActor {
         ));
         self.my_relay
             .set_status(&self.url, RelayConnectionState::Connected);
+        self.unavailable.send_replace(false);
         self.metrics.relay_conns_success.inc();
         let res = self
             .run_connected(client)
@@ -718,7 +732,7 @@ impl ActiveRelayActor {
                     let metrics = self.metrics.clone();
                     let relay = self.url.clone();
                     let flush_start = Instant::now();
-                    let packet_iter = send_datagrams_buf.drain(..).map(|item| {
+                    let packet_iter = send_datagrams_buf.drain(..).filter(|item| !item.relay_released()).map(|item| {
                         trace_datagrams("relay-send", &relay, item.remote_endpoint, &item.datagrams);
                         metrics.send_relay.inc_by(item.datagrams.contents.len() as _);
                         Ok(ClientToRelayMsg::Datagrams {
@@ -976,7 +990,15 @@ pub(crate) struct RelaySendItem {
     /// One or more datagrams to send.
     pub(crate) datagrams: Datagrams,
     /// A scoped bootstrap attempt must send through its own relay.
-    pub(crate) exact: bool,
+    pub(crate) exact: Option<Arc<super::super::RelayBootstrap>>,
+}
+
+impl RelaySendItem {
+    fn relay_released(&self) -> bool {
+        self.exact
+            .as_ref()
+            .is_some_and(|route| route.released.load(Ordering::Acquire))
+    }
 }
 
 pub(super) struct RelayActor {
@@ -1314,14 +1336,23 @@ impl RelayActor {
         &mut self,
         item: RelaySendItem,
     ) -> Option<impl Future<Output = ()> + use<>> {
+        if item.relay_released() {
+            return None;
+        }
         let url = item.url.clone();
         let start = Instant::now();
-        let handle = if item.exact {
+        let handle = if item.exact.is_some() {
             self.active_relay_handle(item.url.clone())
         } else {
             self.active_relay_handle_for_endpoint(&item.url, &item.remote_endpoint)
                 .await
         };
+        if let Some(route) = &item.exact
+            && let Some(watch) = route.watch_unavailable.lock().unwrap().take()
+            && let Some(handle) = &handle
+        {
+            let _ = watch.send(handle.unavailable.clone());
+        }
         let Some(handle) = handle else {
             warn!(?url, "Dropped datagram(s): relay resource is forbidden.");
             return None;
@@ -1548,6 +1579,7 @@ impl RelayActor {
         let (send_datagram_tx, send_datagram_rx) = mpsc::channel(64);
         let (prio_inbox_tx, prio_inbox_rx) = mpsc::channel(32);
         let (inbox_tx, inbox_rx) = mpsc::channel(64);
+        let (unavailable, relay_status) = watch::channel(false);
         let span = info_span!("active-relay", %url);
         let opts = ActiveRelayActorOptions {
             url,
@@ -1559,6 +1591,7 @@ impl RelayActor {
             stop_token: self.cancel_token.child_token(),
             metrics: self.config.metrics.clone(),
             my_relay: self.config.my_relay.clone(),
+            unavailable,
         };
         let actor = ActiveRelayActor::new(opts);
         self.active_relay_tasks.spawn(
@@ -1571,6 +1604,7 @@ impl RelayActor {
             prio_inbox_addr: prio_inbox_tx,
             inbox_addr: inbox_tx,
             datagrams_send_queue: send_datagram_tx,
+            unavailable: relay_status,
         };
         self.log_active_relay();
         handle
@@ -1681,6 +1715,7 @@ struct ActiveRelayHandle {
     prio_inbox_addr: mpsc::Sender<ActiveRelayPrioMessage>,
     inbox_addr: mpsc::Sender<ActiveRelayMessage>,
     datagrams_send_queue: mpsc::Sender<RelaySendItem>,
+    unavailable: watch::Receiver<bool>,
 }
 
 /// A single datagram received from a relay server.
@@ -1729,6 +1764,7 @@ mod tests {
             initial_home: None,
             resource_policy: Default::default(),
             my_relay: Default::default(),
+            unavailable: watch::channel(false).0,
             secret_key: SecretKey::from_bytes(&[0u8; 32]),
             dns_resolver: DnsResolver::new(),
             proxy_url: None,
@@ -1828,7 +1864,7 @@ mod tests {
                             remote_endpoint: src,
                             url: relay_url.clone(),
                             datagrams,
-                            exact: false,
+                            exact: None,
                         };
                         send_datagram_tx.send(send).await.ok();
                     }
@@ -1918,7 +1954,7 @@ mod tests {
             remote_endpoint: peer_endpoint,
             url: relay_url.clone(),
             datagrams: Datagrams::from(b"hello"),
-            exact: false,
+            exact: None,
         };
         send_recv_echo(
             hello_send_item.clone(),

@@ -2109,6 +2109,16 @@ impl EndpointInner {
     pub(crate) fn permits_custom_bootstrap(&self, address: &iroh_base::CustomAddr) -> bool {
         self.sock.mapped_addrs.permits_custom_bootstrap(address)
     }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) async fn custom_bootstrap_unavailable(&self, address: &iroh_base::CustomAddr) {
+        let mut local_addrs = self.sock.local_addrs_watch.clone();
+        while self.permits_custom_bootstrap(address) {
+            if local_addrs.updated().await.is_err() {
+                break;
+            }
+        }
+    }
     /// Creates a [`EndpointInner`].
     pub(crate) async fn bind(opts: Options) -> Result<Self, BindError> {
         // Use the current span as the main span for all tasks spawned in this endpoint.

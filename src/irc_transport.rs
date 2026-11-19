@@ -676,6 +676,11 @@ impl CustomSender for IrcSender {
     fn is_valid_send_addr(&self, addr: &CustomAddr) -> bool {
         route_from_addr(addr, self.0.service).is_ok()
     }
+    fn can_bootstrap_connection(&self, addr: &CustomAddr) -> bool {
+        self.is_valid_send_addr(addr)
+            && self.0.report.lock().unwrap().qualification.ready
+            && !*self.0.shutdown.borrow()
+    }
     fn poll_send(
         &self,
         cx: &mut Context,

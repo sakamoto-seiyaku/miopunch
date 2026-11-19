@@ -828,6 +828,10 @@ impl CustomSender for MqttSender {
         route_from_addr(addr, self.0.service).is_ok()
     }
 
+    fn can_bootstrap_connection(&self, addr: &CustomAddr) -> bool {
+        *self.0.status.borrow() == Status::Ready && self.is_valid_send_addr(addr)
+    }
+
     fn poll_send(
         &self,
         cx: &mut Context,

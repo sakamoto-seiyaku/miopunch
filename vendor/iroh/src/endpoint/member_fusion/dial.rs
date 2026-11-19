@@ -9,20 +9,24 @@ use std::{
 };
 
 use futures_util::{StreamExt, stream::FuturesUnordered};
+use tokio::sync::{oneshot, watch};
 use tokio::time::{self, Duration, Instant};
 use tokio_util::sync::CancellationToken;
 
-use crate::{RelayUrl, address_lookup::AddressLookupServices};
+use crate::{
+    EndpointId, RelayUrl, address_lookup::AddressLookupServices, socket::transports::RelayBootstrap,
+};
 
 use super::{
     super::ConnectWithOptsError, ConnectError, ConnectOptions, ConnectingError, ConnectionError,
-    EndpointAddr, MEMBER_ADMISSION_DENIED, MEMBER_DATA_UNAVAILABLE, RestrictedEndpoint,
-    TransportAddr,
+    EndpointAddr, MEMBER_ADMISSION_DENIED, MEMBER_DATA_UNAVAILABLE, RelayResourceUse,
+    RestrictedEndpoint, TransportAddr,
 };
 
 type RouteFinished = Box<dyn FnOnce(Result<usize, io::ErrorKind>) + Send>;
 type RouteStarted =
     dyn Fn(&TransportAddr, Instant) -> ((usize, usize), RouteFinished) + Send + Sync;
+type IdentityConfirmed = dyn Fn((usize, usize), EndpointId, usize) + Send + Sync;
 type ContactFinished = Box<dyn FnOnce(&io::Result<()>) + Send>;
 type ContactBudget =
     dyn Fn(crate::EndpointId, Instant) -> io::Result<ContactFinished> + Send + Sync;
@@ -35,6 +39,7 @@ pub struct MemberDialOptions {
     relay_fallbacks: Vec<RelayUrl>,
     discover_ip: bool,
     route_started: Option<Box<RouteStarted>>,
+    identity_confirmed: Option<Box<IdentityConfirmed>>,
     restricted: Vec<iroh_base::CustomAddr>,
     contact_budget: Option<Box<ContactBudget>>,
 }
@@ -94,6 +99,15 @@ impl MemberDialOptions {
         }));
         self
     }
+
+    /// Observe a route's authenticated QUIC identity before member admission.
+    pub fn with_identity_diagnostics(
+        mut self,
+        authenticated: impl Fn((usize, usize), EndpointId, usize) + Send + Sync + 'static,
+    ) -> Self {
+        self.identity_confirmed = Some(Box::new(authenticated));
+        self
+    }
 }
 
 pub(super) struct Dial<'a> {
@@ -103,11 +117,25 @@ pub(super) struct Dial<'a> {
     pub(super) cancel: &'a CancellationToken,
 }
 
-struct RelayBootstrap(Arc<AtomicBool>);
+struct RouteProgress<'a> {
+    started: Option<&'a RouteStarted>,
+    identity_confirmed: Option<&'a IdentityConfirmed>,
+    authenticated: AtomicBool,
+}
 
-impl Drop for RelayBootstrap {
+#[derive(Clone, Copy)]
+struct RelayStart {
+    at: Instant,
+    stagger: Duration,
+}
+
+type RelayClock = watch::Sender<Option<RelayStart>>;
+
+struct ReleaseRelay(Arc<RelayBootstrap>);
+
+impl Drop for ReleaseRelay {
     fn drop(&mut self) {
-        self.0.store(true, Ordering::Release);
+        self.0.released.store(true, Ordering::Release);
     }
 }
 
@@ -172,98 +200,191 @@ impl Dial<'_> {
                 relays.push(relay);
             }
         }
+        let relay_policy = &self
+            .endpoint
+            .inner
+            .inner
+            .static_config
+            .relay_resource_policy;
+        relays.retain(|route| {
+            matches!(route, TransportAddr::Relay(url) if relay_policy.allows(url, RelayResourceUse::DataRelay))
+        });
         let mut seen = BTreeSet::new();
-        let mut restricted = options
+        let restricted = options
             .restricted
             .into_iter()
             .filter(|route| {
                 target.addrs.remove(&TransportAddr::Custom(route.clone()));
                 seen.insert(route.clone())
-                    && self.endpoint.inner.inner.permits_custom_bootstrap(route)
             })
-            .map(TransportAddr::Custom)
             .collect::<Vec<_>>();
-        let contact_first = !restricted.is_empty() && relays.is_empty();
-        let contact_later = !restricted.is_empty() && !contact_first;
+        let combined = !restricted.is_empty() && !relays.is_empty();
         let contact_budget = options.contact_budget.as_deref();
         let cold = target.addrs.into_iter().collect::<Vec<_>>();
-        let reporter = options.route_started.as_deref();
+        let progress = RouteProgress {
+            started: options.route_started.as_deref(),
+            identity_confirmed: options.identity_confirmed.as_deref(),
+            authenticated: AtomicBool::new(false),
+        };
+        let id = target.id;
         let mut first = None;
-        let has_race = recent_ip.is_some() || !relays.is_empty() || contact_first;
+        let has_race = recent_ip.is_some() || !relays.is_empty() || !restricted.is_empty();
         let has_cold = !cold.is_empty() || lookup.is_some();
         if !active.is_empty() {
-            let stages = 1 + u32::from(has_race) + u32::from(contact_later) + u32::from(has_cold);
+            let stages = 1 + u32::from(has_race) + u32::from(has_cold) + u32::from(combined);
             let end = split_deadline(self.deadline, stages);
-            match self.ordered(target.id, active, end, reporter).await {
+            match self.ordered(id, active, end, &progress).await {
                 Err(error) if !stops_dial(&error) => first = Some(error),
                 result => return result,
             }
         }
         if has_race {
-            let end = split_deadline(
-                self.deadline,
-                1 + u32::from(contact_later) + u32::from(has_cold),
-            );
+            let next_stage = split_deadline(self.deadline, 1 + u32::from(has_cold));
+            // Fallback shares the original deadline with the live relay lanes.
+            let end = if combined { self.deadline } else { next_stage };
             let alternative = async {
-                if contact_first {
-                    self.contact(
-                        target.id,
-                        std::mem::take(&mut restricted),
-                        end,
-                        reporter,
-                        contact_budget,
-                    )
-                    .await
+                if relays.is_empty() {
+                    self.contact(id, restricted, end, &progress, contact_budget)
+                        .await
+                } else if combined {
+                    self.relays_with_contact(id, relays, restricted, &progress, contact_budget)
+                        .await
                 } else {
-                    self.relays(target.id, relays, end, reporter).await
+                    let (clock, _) = watch::channel(None);
+                    self.relays(id, relays, end, &progress, &clock, false).await
                 }
             };
-            let result = match recent_ip {
-                Some(route) => race(self.route(target.id, route, end, reporter), alternative).await,
-                None => alternative.await,
+            let primary = async {
+                match recent_ip {
+                    Some(route) => {
+                        race(
+                            self.route(id, route, end, &progress, None, None),
+                            alternative,
+                        )
+                        .await
+                    }
+                    None => alternative.await,
+                }
+            };
+            tokio::pin!(primary);
+            let result = if combined && has_cold {
+                tokio::select! { biased;
+                    result = &mut primary => result,
+                    _ = time::sleep_until(next_stage) => {
+                        return race(primary, self.cold(id, cold, lookup, known_ips, &progress, first)).await;
+                    }
+                }
+            } else {
+                primary.await
             };
             match result {
                 Err(error) if !stops_dial(&error) => first = Some(prefer_error(first, error)),
                 result => return result,
             }
         }
-        if contact_later {
-            let end = split_deadline(self.deadline, 1 + u32::from(has_cold));
-            match self
-                .contact(target.id, restricted, end, reporter, contact_budget)
-                .await
-            {
-                Err(error) if !stops_dial(&error) => first = Some(prefer_error(first, error)),
-                result => return result,
+        self.cold(id, cold, lookup, known_ips, &progress, first)
+            .await
+    }
+
+    async fn relays_with_contact(
+        &self,
+        id: EndpointId,
+        relays: Vec<TransportAddr>,
+        restricted: Vec<iroh_base::CustomAddr>,
+        progress: &RouteProgress<'_>,
+        budget: Option<&ContactBudget>,
+    ) -> io::Result<()> {
+        let count = relays.len();
+        let (clock, mut started) = watch::channel(None);
+        let relay = self.relays(id, relays, self.deadline, progress, &clock, true);
+        let contact = self.contact(id, restricted, self.deadline, progress, budget);
+        let window = async {
+            let first = first_relay(&mut started).await;
+            time::sleep_until(first.at + first.stagger * (count as u32 + 1)).await;
+        };
+        tokio::pin!(relay);
+        let authenticated = || progress.authenticated.load(Ordering::Acquire);
+        tokio::select! { biased;
+            result = &mut relay => {
+                match &result {
+                    Err(error) if !stops_dial(error) && !authenticated() => {
+                        race(std::future::ready(result), contact).await
+                    }
+                    _ => result,
+                }
+            }
+            _ = window => {
+                if authenticated() {
+                    relay.await
+                } else {
+                    race(relay, contact).await
+                }
             }
         }
+    }
+
+    async fn cold(
+        &self,
+        id: EndpointId,
+        cold: Vec<TransportAddr>,
+        lookup: Option<&AddressLookupServices>,
+        known_ips: BTreeSet<TransportAddr>,
+        progress: &RouteProgress<'_>,
+        mut first: Option<io::Error>,
+    ) -> io::Result<()> {
         if !cold.is_empty() {
             let end = split_deadline(self.deadline, 1 + u32::from(lookup.is_some()));
-            match self.ordered(target.id, cold, end, reporter).await {
+            match self.ordered(id, cold, end, progress).await {
                 Err(error) if !stops_dial(&error) => first = Some(prefer_error(first, error)),
                 result => return result,
             }
         }
         if let Some(lookup) = lookup {
-            return self
-                .discover(target.id, lookup, known_ips, reporter, first)
-                .await;
+            return self.discover(id, lookup, known_ips, progress, first).await;
         }
         Err(first.unwrap_or_else(|| io::ErrorKind::NotConnected.into()))
     }
 
     async fn contact(
         &self,
-        id: crate::EndpointId,
-        routes: Vec<TransportAddr>,
+        id: EndpointId,
+        mut routes: Vec<iroh_base::CustomAddr>,
         end: Instant,
-        reporter: Option<&RouteStarted>,
+        progress: &RouteProgress<'_>,
         budget: Option<&ContactBudget>,
     ) -> io::Result<()> {
+        let ready = |route: &iroh_base::CustomAddr| {
+            self.endpoint.inner.inner.permits_custom_bootstrap(route)
+        };
+        let Some(mut next) = routes.iter().position(&ready) else {
+            return Err(io::ErrorKind::NotConnected.into());
+        };
+        if self.cancel.is_cancelled() {
+            return Err(io::ErrorKind::Interrupted.into());
+        }
+        if Instant::now() >= end {
+            return Err(io::ErrorKind::TimedOut.into());
+        }
         let finish = budget
             .map(|acquire| acquire(id, self.deadline))
             .transpose()?;
-        let result = self.ordered(id, routes, end, reporter).await;
+        let mut failure = None;
+        let result = loop {
+            let route = TransportAddr::Custom(routes.remove(next));
+            let share = split_deadline(end, (routes.len() + 1) as u32);
+            let error = match self
+                .route(id, route, end, progress, None, Some(share))
+                .await
+            {
+                Err(error) if !stops_dial(&error) => prefer_error(failure, error),
+                result => break result,
+            };
+            let Some(index) = routes.iter().position(&ready) else {
+                break Err(error);
+            };
+            failure = Some(error);
+            next = index;
+        };
         if let Some(finish) = finish {
             finish(&result);
         }
@@ -272,10 +393,10 @@ impl Dial<'_> {
 
     async fn discover(
         &self,
-        id: crate::EndpointId,
+        id: EndpointId,
         lookup: &AddressLookupServices,
         mut seen: BTreeSet<TransportAddr>,
-        reporter: Option<&RouteStarted>,
+        progress: &RouteProgress<'_>,
         mut failure: Option<io::Error>,
     ) -> io::Result<()> {
         let contacts = lookup.resolve(id);
@@ -289,7 +410,7 @@ impl Dial<'_> {
                 .filter(|route| route.is_ip() && seen.insert(route.clone()))
                 .collect::<Vec<_>>();
             if !routes.is_empty() {
-                match self.ordered(id, routes, self.deadline, reporter).await {
+                match self.ordered(id, routes, self.deadline, progress).await {
                     Err(error) if !stops_dial(&error) => {
                         failure = Some(prefer_error(failure, error))
                     }
@@ -320,33 +441,133 @@ impl Dial<'_> {
 
     async fn route(
         &self,
-        id: crate::EndpointId,
+        id: EndpointId,
         route: TransportAddr,
         end: Instant,
-        reporter: Option<&RouteStarted>,
+        progress: &RouteProgress<'_>,
+        relay: Option<(&RelayClock, bool)>,
+        silent_until: Option<Instant>,
     ) -> io::Result<()> {
+        if self.cancel.is_cancelled() {
+            return Err(io::ErrorKind::Interrupted.into());
+        }
         if Instant::now() >= end {
             return Err(io::ErrorKind::TimedOut.into());
         }
         let mut options = self.opts().with_bootstrap_route(route.clone());
-        let _relay_scope = route.is_relay().then(|| {
-            let released = Arc::new(AtomicBool::new(false));
-            options.exact_relay_bootstrap = Some(released.clone());
-            RelayBootstrap(released)
-        });
-        let (options, finished) = if let Some(start) = reporter {
-            let ((attempt, phase), finish) = start(&route, self.deadline);
-            (options.with_diagnostic_dial(attempt, phase), Some(finish))
+        let (watch_unavailable, unavailable) = if relay.is_some_and(|(_, track)| track) {
+            let (send, receive) = oneshot::channel();
+            (Some(send), Some(receive))
         } else {
-            (options, None)
+            (None, None)
+        };
+        let _relay_scope = relay.map(|_| {
+            let scope = Arc::new(RelayBootstrap {
+                released: AtomicBool::new(false),
+                watch_unavailable: std::sync::Mutex::new(watch_unavailable),
+            });
+            options.exact_relay_bootstrap = Some(scope.clone());
+            ReleaseRelay(scope)
+        });
+        let (ids, options, finished) = if let Some(start) = progress.started {
+            let ((attempt, phase), finish) = start(&route, self.deadline);
+            (
+                Some((attempt, phase)),
+                options.with_diagnostic_dial(attempt, phase),
+                Some(finish),
+            )
+        } else {
+            (None, options, None)
+        };
+        let contact = match &route {
+            TransportAddr::Custom(contact) if silent_until.is_some() => Some(contact.clone()),
+            _ => None,
         };
         let target = EndpointAddr::new(id).with_addrs([route]);
+        let authenticated = AtomicBool::new(false);
+        let work = async {
+            let pending = self
+                .endpoint
+                .connect_with_opts(target, self.alpn, options)
+                .await
+                .map_err(ConnectError::from)
+                .map_err(dial_error)?;
+            if let Some((clock, _)) = relay {
+                clock.send_if_modified(|current| {
+                    if current.is_some() {
+                        return false;
+                    }
+                    let at = Instant::now();
+                    let stagger = (self.deadline.saturating_duration_since(at) / 4)
+                        .min(Duration::from_millis(250));
+                    *current = Some(RelayStart { at, stagger });
+                    true
+                });
+            }
+            let connection = pending
+                .with_authenticated_identity(|peer, stable_id| {
+                    authenticated.store(true, Ordering::Release);
+                    progress.authenticated.store(true, Ordering::Release);
+                    if let (Some(report), Some(ids)) = (progress.identity_confirmed, ids) {
+                        report(ids, peer, stable_id);
+                    }
+                })
+                .await
+                .map_err(ConnectError::from)
+                .map_err(dial_error)?;
+            Ok(connection.stable_id())
+        };
+        let failed_relay = async {
+            match unavailable {
+                Some(receive) => {
+                    if let Ok(mut status) = receive.await {
+                        let _ = status.wait_for(|unavailable| *unavailable).await;
+                    }
+                }
+                None => std::future::pending().await,
+            }
+            if authenticated.load(Ordering::Acquire) {
+                std::future::pending().await
+            }
+            Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "relay registration unavailable",
+            ))
+        };
+        let silent_contact = async {
+            if let Some(until) = silent_until {
+                time::sleep_until(until).await;
+                if !authenticated.load(Ordering::Acquire) {
+                    return Err(io::ErrorKind::TimedOut.into());
+                }
+            }
+            std::future::pending().await
+        };
+        let unavailable_contact = async {
+            if let Some(contact) = contact {
+                self.endpoint
+                    .inner
+                    .inner
+                    .custom_bootstrap_unavailable(&contact)
+                    .await;
+                if !authenticated.load(Ordering::Acquire) {
+                    return Err(io::Error::new(
+                        io::ErrorKind::NotConnected,
+                        "contact sender unavailable",
+                    ));
+                }
+            }
+            std::future::pending().await
+        };
         let result = tokio::select! { biased;
             _ = time::sleep_until(end) => {
                 // Dropping the observer marks the still-pending route cancelled.
                 return Err(io::ErrorKind::TimedOut.into());
             }
-            result = self.connect(target, options) => result.map_err(dial_error),
+            result = work => result,
+            result = failed_relay => result,
+            result = unavailable_contact => result,
+            result = silent_contact => result,
         };
         if let Some(finished) = finished {
             finished(result.as_ref().copied().map_err(io::Error::kind));
@@ -356,16 +577,16 @@ impl Dial<'_> {
 
     async fn ordered(
         &self,
-        id: crate::EndpointId,
+        id: EndpointId,
         routes: Vec<TransportAddr>,
         end: Instant,
-        reporter: Option<&RouteStarted>,
+        progress: &RouteProgress<'_>,
     ) -> io::Result<()> {
         let mut routes = routes.into_iter();
         let mut failure = None;
         while let Some(route) = routes.next() {
             let share = split_deadline(end, (routes.len() + 1) as u32);
-            match self.route(id, route, share, reporter).await {
+            match self.route(id, route, share, progress, None, None).await {
                 Err(error) if !stops_dial(&error) => failure = Some(prefer_error(failure, error)),
                 result => return result,
             }
@@ -375,43 +596,62 @@ impl Dial<'_> {
 
     async fn relays(
         &self,
-        id: crate::EndpointId,
+        id: EndpointId,
         routes: Vec<TransportAddr>,
         end: Instant,
-        reporter: Option<&RouteStarted>,
+        progress: &RouteProgress<'_>,
+        clock: &RelayClock,
+        track_failures: bool,
     ) -> io::Result<()> {
         let mut routes = routes.into_iter();
         let mut flying = FuturesUnordered::new();
         let mut failure = None;
-        let start = Instant::now();
-        let stagger =
-            (self.deadline.saturating_duration_since(start) / 4).min(Duration::from_millis(250));
-        let second = time::sleep_until(start + stagger);
+        let mut start = clock.subscribe();
+        let second = async {
+            let first = first_relay(&mut start).await;
+            time::sleep_until(first.at + first.stagger).await;
+        };
         tokio::pin!(second);
-        let mut second_started = false;
+        let mut slots = 1;
 
         // The first slot can expire before the second starts. Wait out the
         // stagger in that case as well. After it, pull in global route order.
-        if let Some(route) = routes.next() {
-            let share = split_deadline(end, (routes.len() + 1).div_ceil(2) as u32);
-            flying.push(self.route(id, route, share, reporter));
-        }
         while !flying.is_empty() || routes.len() != 0 {
-            while second_started && flying.len() < 2 {
+            while flying.len() < slots {
                 let Some(route) = routes.next() else { break };
                 let share = split_deadline(end, (routes.len() + 1).div_ceil(2) as u32);
-                flying.push(self.route(id, route, share, reporter));
+                flying.push(self.route(
+                    id,
+                    route,
+                    share,
+                    progress,
+                    Some((clock, track_failures)),
+                    None,
+                ));
             }
             tokio::select! { biased;
                 Some(result) = flying.next(), if !flying.is_empty() => match result {
-                    Err(error) if !stops_dial(&error) => failure = Some(prefer_error(failure, error)),
+                    Err(error) if !stops_dial(&error) => {
+                        failure = Some(prefer_error(failure, error));
+                        if slots == 1 && clock.borrow().is_some() {
+                            slots = 0;
+                        }
+                    },
                     result => return result,
                 },
-                _ = &mut second, if !second_started => second_started = true,
+                _ = &mut second, if slots < 2 => slots = 2,
             }
         }
         Err(failure.unwrap_or_else(|| io::ErrorKind::NotConnected.into()))
     }
+}
+
+async fn first_relay(clock: &mut watch::Receiver<Option<RelayStart>>) -> RelayStart {
+    clock
+        .wait_for(Option::is_some)
+        .await
+        .expect("relay clock lives through the race")
+        .unwrap()
 }
 
 fn split_deadline(end: Instant, shares: u32) -> Instant {

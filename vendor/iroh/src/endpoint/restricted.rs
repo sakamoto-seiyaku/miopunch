@@ -689,6 +689,19 @@ impl RestrictedConnecting {
         let attempt = self.inner.attempt.clone();
         bounded(&attempt, self.inner.alpn()).await
     }
+
+    #[cfg(not(wasm_browser))]
+    pub(super) async fn with_authenticated_identity(
+        self,
+        authenticated: impl FnMut(EndpointId, usize),
+    ) -> Result<Connection, ConnectingError> {
+        let attempt = self.inner.attempt.clone();
+        bounded(
+            &attempt,
+            self.inner.with_authenticated_identity(authenticated),
+        )
+        .await
+    }
 }
 
 impl IntoFuture for RestrictedConnecting {

@@ -1220,16 +1220,12 @@ impl ResourceEndpoint {
             return Ok(connection);
         }
         let recent = self.merge_contact_hints(&mut target).await?;
-        let local_contacts = self.endpoint.custom_addrs();
         let mut restricted: Vec<_> = target
             .addrs
             .iter()
             .filter_map(|route| match route {
                 iroh::TransportAddr::Custom(address)
-                    if self.config.allows_member_contact_carrier(address)
-                        && local_contacts
-                            .iter()
-                            .any(|local| local.id() == address.id()) =>
+                    if self.config.allows_member_contact_carrier(address) =>
                 {
                     Some(address.clone())
                 }
@@ -1268,6 +1264,12 @@ impl ResourceEndpoint {
         let backoff = self.backoff.clone();
         let routes = iroh::endpoint::MemberDialOptions::new(active, recent, fallbacks)
             .with_restricted_contacts(restricted)
+            .with_identity_diagnostics(move |(_, route), peer, stable_id| {
+                let mut route_log = log;
+                route_log.route_phase_id = Some(route);
+                route_log.original = Some(stable_id);
+                route_log.event("quic-identity", "confirmed", serde_json::json!({"peer":peer}));
+            })
             .with_contact_budget(move |peer, deadline| {
                 let attempt = ContactAttempt::begin(&backoff, peer, ContactClass::Foreground, deadline)
                     .map_err(|error| std::io::Error::new(std::io::ErrorKind::WouldBlock, error))?;

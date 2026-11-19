@@ -1688,10 +1688,10 @@ impl Endpoint {
         let server_name = &tls::name::encode(endpoint_id);
         let endpoint = self.inner.noq_endpoint();
         #[cfg(not(wasm_browser))]
-        let connect = if let Some(released) = options.exact_relay_bootstrap {
+        let connect = if let Some(route) = options.exact_relay_bootstrap {
             let context = crate::socket::transports::ExactRelayBootstrap {
                 address: dest_addr,
-                released,
+                route,
             };
             endpoint.connect_with_sender_context(client_config, dest_addr, server_name, &context)?
         } else {
@@ -2420,7 +2420,7 @@ pub struct ConnectOptions {
     additional_alpns: Vec<Vec<u8>>,
     bootstrap_route: Option<TransportAddr>,
     #[cfg(not(wasm_browser))]
-    exact_relay_bootstrap: Option<Arc<std::sync::atomic::AtomicBool>>,
+    exact_relay_bootstrap: Option<Arc<crate::socket::transports::RelayBootstrap>>,
     attempt: connection::AttemptOptions,
 }
 

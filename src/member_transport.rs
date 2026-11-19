@@ -643,6 +643,7 @@ impl CustomEndpoint for MemberEndpoint {
             carrier: self.carrier,
             via: self.via,
             outbound: self.outbound.clone(),
+            addresses: self.addresses.clone(),
         })
     }
     fn poll_recv(
@@ -684,11 +685,17 @@ struct MemberSender {
     carrier: Carrier,
     via: EndpointId,
     outbound: mpsc::Sender<Packet>,
+    addresses: Watchable<Vec<CustomAddr>>,
 }
 impl CustomSender for MemberSender {
     fn is_valid_send_addr(&self, addr: &CustomAddr) -> bool {
         route(self.carrier, addr, self.via).is_ok()
             && (matches!(self.carrier, Carrier::Signaling) || !self.outbound.is_closed())
+    }
+    fn can_bootstrap_connection(&self, addr: &CustomAddr) -> bool {
+        self.is_valid_send_addr(addr)
+            && !self.outbound.is_closed()
+            && !self.addresses.get().is_empty()
     }
     fn poll_send(
         &self,
