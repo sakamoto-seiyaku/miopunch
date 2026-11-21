@@ -17,7 +17,7 @@
 
 ## 受影响检查
 
-普通端点 2 项、受限端点 19 项、原生融合 TCP 6 项通过，日志 `/tmp/miopunch-164-contracts.log`。候选生命周期修订后普通 2 项和原生 TCP 6 项复验通过，日志 `/tmp/miopunch-164-owned-contracts.log`。162 的既有正式宿主入口完成未选中 TCP 学习、TCP-only 重启和多候选并拨，日志 `/tmp/miopunch-164-reviewed-cache.log`。WASM 检查通过，回执 `/tmp/miopunch-164-owned-wasm/receipt.json`。最终原生构建回执 `/tmp/miopunch-164-completion-build/receipt.json`。
+普通端点 2 项、受限端点 19 项、原生融合 TCP 6 项通过，日志 `/tmp/miopunch-164-contracts.log`。候选生命周期修订后普通 2 项和原生 TCP 6 项复验通过，日志 `/tmp/miopunch-164-owned-contracts.log`。162 的既有正式宿主入口完成未选中 TCP 学习、TCP-only 重启和多候选并拨，日志 `/tmp/miopunch-164-reviewed-cache.log`。WASM 检查通过，回执 `/tmp/miopunch-164-owned-wasm/receipt.json`。最终原生场景构建回执 `/tmp/miopunch-164-completion-build/receipt.json`。错误出口的候选清理统一到既有 `remove_channel` 后，载体三项契约通过，包含出站 preface EOF 后入站仍能传帧、最后准备租约释放后关闭通道。日志 `/tmp/miopunch-164-preface-contract.log`，构建回执 `/tmp/miopunch-164-preface-build2/receipt.json`。
 
 完整根库单次结果为 63 通过、4 失败、4 忽略，日志 `/tmp/miopunch-164-full-lib.log`。原 active budget 和 first-contact 失败沿用 162、163 的前置产物对照证据。RTC 用例在隔离网络中报告 `No such device`。额外的旧 SDK `production_native_active_prepares_udp_on_the_original_member` 在 1070 行的路径 ID 断言失败，当前 exact 与现存 17:30 前置库测试产物在相同入口均复现 `[PathId(1)]` 与 `[PathId(0)]` 的差异，日志 `/tmp/miopunch-164-active-exact.log` 和 `/tmp/miopunch-164-active-pre164-test.log`。完整套件全绿尚未成立。
 

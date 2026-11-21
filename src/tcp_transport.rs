@@ -950,13 +950,8 @@ fn ensure_channel(shared: &Arc<Shared>, target: SocketAddr) -> io::Result<Arc<Mu
                             .await
                         }
                         result => {
-                            let mut channel=task_channel.lock().unwrap();
+                            let channel=task_channel.lock().unwrap();
                             if channel.active {return;}
-                            if channel.owners == 0 || channel.established_data {
-                                channel.pending_queue.take();
-                            }
-                            // A still-preparing peer may win through the
-                            // incoming socket after our outgoing connect fails.
                             drop(channel);
                             let err = match result {
                                 Ok(Err(err)) => err,
@@ -989,13 +984,14 @@ fn remove_channel(shared: &Shared, peer: SocketAddr, channel: &Arc<Mutex<Channel
         .get(&peer)
         .is_some_and(|current| Arc::ptr_eq(current, channel))
     {
-        let prepared = channel.lock().unwrap();
+        let mut prepared = channel.lock().unwrap();
         if prepared.owners != 0 && !prepared.established_data {
             // A failed physical dial still belongs to this preparation lease.
-            // Its closed queue rejects late packets until that lease retires;
-            // replacing this entry would lose the cancellation owner.
+            // Preserve its queue so an incoming socket can still win. Neither
+            // error exit may replace the cancellation owner before retirement.
             return;
         }
+        prepared.pending_queue.take();
         drop(prepared);
         channels.remove(&peer);
     }
@@ -1187,7 +1183,6 @@ async fn run_stream(shared: Arc<Shared>, mut stream: TcpStream, outbound: Option
     .await;
     if let Some((peer, channel)) = outbound_cleanup {
         if owns_channel || !channel.lock().unwrap().active {
-            channel.lock().unwrap().pending_queue.take();
             remove_channel(&shared, peer, &channel);
         }
     }
@@ -1250,6 +1245,50 @@ mod tests {
             Err(err) if err.kind() == io::ErrorKind::ConnectionReset => {}
             other => panic!("unexpected TCP close after endpoint drop: {other:?}"),
         }
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    #[tokio::test]
+    async fn incoming_circuit_can_win_after_outgoing_preface_failure() {
+        let traffic = Arc::new(Traffic::default());
+        let transport = TcpTransport::new(Ipv4Addr::LOCALHOST, traffic.clone()).with_punching();
+        let mut endpoint = transport.bind().unwrap();
+        let peer = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let peer_address = peer.local_addr().unwrap();
+        let lease = transport.prime(peer_address).unwrap();
+        let (mut failed, _) = peer.accept().await.unwrap();
+        let mut preface = [0; 6];
+        failed.read_exact(&mut preface).await.unwrap();
+        drop(failed);
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            while traffic.failed_circuits.load(Ordering::Relaxed) == 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the outgoing preface must fail while its preparation is still held");
+
+        let mut incoming = TcpStream::connect(transport.bound_addr().unwrap()).await.unwrap();
+        incoming.read_exact(&mut preface).await.unwrap();
+        incoming.write_all(&encode(peer_address)).await.unwrap();
+        incoming.write_all(b"\0\x07witness").await.unwrap();
+        let mut packet = [0; 7];
+        let mut bufs = [io::IoSliceMut::new(&mut packet)];
+        let mut metas = [noq_udp::RecvMeta::default()];
+        let mut infos = [RecvInfo::new(TcpTransport::address(peer_address), None)];
+        let received = tokio::time::timeout(std::time::Duration::from_secs(1),
+            std::future::poll_fn(|cx| endpoint.poll_recv(cx, &mut bufs, &mut metas, &mut infos)))
+            .await.unwrap().unwrap();
+        assert_eq!(received, 1);
+        assert_eq!(metas[0].len, 7);
+        assert_eq!(&packet, b"witness");
+
+        drop(lease);
+        let closed = tokio::time::timeout(std::time::Duration::from_secs(1), incoming.read(&mut [0]))
+            .await.unwrap();
+        assert!(matches!(closed, Ok(0))
+            || closed.is_err_and(|error| error.kind() == io::ErrorKind::ConnectionReset));
+        drop(endpoint);
     }
 
     #[tokio::test]
