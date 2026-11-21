@@ -313,6 +313,13 @@ impl VerifiedDirect {
         }
         exchange.finish_send().await?;
         (self.prepared.retain)()?;
+        eprintln!(
+            "MEMBER_DIRECT_RETAINED stable_id={} path={:?} remote={:?}",
+            control.stable_id(),
+            control.paths().iter().find(|path| path.remote_addr() == &self.remote)
+                .map(|path| path.id()),
+            self.remote
+        );
         Ok(self.remote)
     }
 }

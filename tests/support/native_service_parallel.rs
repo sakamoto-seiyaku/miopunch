@@ -437,6 +437,10 @@ pub(super) async fn lab_first_reply(
         assert_eq!(retained["stream"], original["stream"]);
         assert!(both_paths(&retained), "{retained}");
         println!("MIO161 RETAINED {retained}");
+        #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+        if std::env::var_os("MIO163_BACKUP").is_some() {
+            super::native_service_backup::recover(root, client, role, &mut stream, &original).await;
+        }
         fs::write(root.join("finished"), []).unwrap();
         wait_file(&root.join("counted")).await;
     } else {
@@ -475,15 +479,30 @@ pub(super) async fn lab_first_reply(
                 read = timeout(Duration::from_secs(10), stream.read_exact(&mut bytes)) => { read.unwrap().unwrap(); }
             }
             assert!(bytes == *b"first" || bytes == *b"later");
+            #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+            if std::env::var_os("MIO163_BACKUP").is_some() {
+                super::native_service_backup::pause_acks(root, client, role).await;
+            }
             stream.write_all(b"reply").await.unwrap();
             let status = flow(client, Protocol::Tcp)["transport"].clone();
             if both_paths(&status) {
                 println!("MIO161 BOTH {status}");
+                #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+                if std::env::var_os("MIO163_BACKUP").is_some()
+                    && root.join("backup-committed").exists() {
+                    super::native_service_backup::capture(root, client, role).await;
+                }
                 fs::write(root.join("provider-both"), []).unwrap();
             }
         }
         let status = flow(client, Protocol::Tcp)["transport"].clone();
-        assert!(both_paths(&status), "{status}");
+        if std::env::var_os("MIO163_BACKUP").is_none() {
+            assert!(both_paths(&status), "{status}");
+        }
+        #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+        if std::env::var_os("MIO163_BACKUP").is_some() {
+            super::native_service_backup::finish(root, client, role).await;
+        }
         fs::write(root.join("provider-both"), []).unwrap();
         wait_file(&root.join("finished")).await;
     }

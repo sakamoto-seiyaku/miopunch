@@ -1681,8 +1681,11 @@ impl RemoteStateActor {
                 let binding = self
                     .state
                     .register_and_configure_path(conn_id, conn_state, &path);
-                if let (Some(member), Some(binding)) = (&mut conn_state.member_paths, binding) {
-                    if binding.is_ip() || binding.is_relay() {
+                let member_return_path = binding
+                    .as_ref()
+                    .is_some_and(|binding| conn_state.is_native_member_path(binding));
+                if let (Some(member), Some(_)) = (&mut conn_state.member_paths, binding) {
+                    if member_return_path {
                         // Keep the new carrier's qualification ACKs on its own binding.
                         // Either side can release when its new path becomes Available.
                         if let Ok(probe) = path.start_return_path_probe() {
@@ -2887,7 +2890,12 @@ enum ConnectionPurpose {
 
 impl ConnectionState {
     fn is_native_member_path(&self, binding: &transports::PathBinding) -> bool {
-        self.member_paths.is_some() && (binding.is_ip() || binding.is_relay())
+        self.member_paths.as_ref().is_some_and(|member| {
+            binding.is_ip()
+                || binding.is_relay()
+                || matches!(binding.remote(), transports::Addr::Custom(address)
+                    if member.policy.acked_custom_transports[0] == Some(address.id()))
+        })
     }
 
     fn binding_matches(&self, binding: &transports::PathBinding, live: noq::FourTuple) -> bool {
@@ -3344,12 +3352,30 @@ impl<'a> PathSelectionContext<'a> {
                                     && state.path_state.selected_id().is_some()
                                     && state.purpose == ConnectionPurpose::Ordinary
                                     && state.is_native_member_path(addr);
-                                let confirmed = needs_response
+                                // A response remains evidence after a healthy relay
+                                // takes over while the backup confirmation is in flight.
+                                let confirmed_tcp = !suspect
+                                    && addr.is_custom()
+                                    && state.is_native_member_path(addr);
+                                let confirmed = (needs_response || confirmed_tcp)
                                     && self.health_window.is_some_and(|(now, interval)| {
                                         conn.path(*id).is_some_and(|path| {
+                                            let stats = path.stats();
                                             let window =
-                                                2 * interval.max(path.stats().probe_timeout);
-                                            state.has_recent_return(addr, &path, now, window)
+                                                2 * interval.max(stats.probe_timeout);
+                                            if needs_response {
+                                                state.has_recent_return(addr, &path, now, window)
+                                            } else {
+                                                path.confirmation().is_some_and(|(live, received)| {
+                                                    state.binding_matches(addr, live)
+                                                        && now.saturating_duration_since(received.into())
+                                                            <= window
+                                                        && stats.ack_pending_since
+                                                            .is_none_or(|pending| pending <= received)
+                                                        && member.network_changed_at
+                                                            .is_none_or(|changed| Instant::from(received) > changed)
+                                                })
+                                            }
                                         })
                                     });
                                 if (needs_response && !confirmed)
