@@ -13,6 +13,8 @@ Windows 产品资源配置默认绑定临时 IPv4 TCP 监听端口。显式禁�
 
 ## 尚待验收
 
-本轮 Windows 正式业务结果使用回环路径。可控双 NAT 的 Windows 真实首拨尚未完成，MIOPUNCH-160 仍待这一验收。现有 159 双 NAT 驱动依赖 Linux namespace，已有 Windows 主机的 Sandbox 正在核实能否提供隔离 Windows NAT 节点。159 的 Linux 双 NAT 和既有普通消费者结果继续作为相应平台及共享实现的证据。
+本轮 Windows 正式业务结果使用回环路径。可控双 NAT 的 Windows 真实首拨尚未完成，MIOPUNCH-160 仍待这一验收。现有 159 双 NAT 驱动依赖 Linux namespace，Windows 主机的 Sandbox 功能已启用。直接 SSH 启动客户端退出；当前用户的一次性交互任务启动后仅保留远程会话客户端，`hcsdiag list` 无计算实例，探针未写回 guest 网络信息。本轮未得到可用 Sandbox guest；精确匹配的探针客户端和已结束任务已回收，回执为 `/tmp/miopunch-160-sandbox-cleanup.log`。现存 Hyper-V guest 是两台已关闭的 Ubuntu，Windows Containers 功能未启用。继续验收需要已有可启动的 Windows guest／隔离 Sandbox，或可路由到受控 Linux NAT 的 Windows 专用实验网卡与网段。159 的 Linux 双 NAT 和既有普通消费者结果继续作为相应平台及共享实现的证据。
 
 完整 root 运行的已有未全绿限制见 [159 证据](native-iroh-tcp-first-159.md)。本轮未重复与 Windows 配置变更无关的完整运行。
+
+本轮独立 Standards 审查通过，0 项违规和 0 项异味。Spec 审查未发现实现违背，保留 1 项 P1 验收缺口，即真实 Windows 可控双 NAT 成功结果缺失。MIOPUNCH-160 保持未完成，未执行完成式交接。
