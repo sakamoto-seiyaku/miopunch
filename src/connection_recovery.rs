@@ -563,6 +563,9 @@ pub(crate) async fn serve_path_recovery(
                         .repair_direct_until(&original, traversal, deadline, &attempt.cancellation)
                         .await?;
                     check(&original, control)?;
+                    // The requester retires this control only after consuming
+                    // our final Ready, just like the existing repair exchange.
+                    let _ = control.revocation_handle().closed().await;
                     Ok::<_, io::Error>(())
                 })
                 .await

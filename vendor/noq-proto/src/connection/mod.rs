@@ -3079,12 +3079,23 @@ impl Connection {
     ///
     /// Drivers must retain the [`crate::SocketTransmit`] while waiting for I/O capacity and
     /// call this again before each send attempt: a dynamic predicate can change after encoding.
-    /// Validation-only packets remain permitted, including when coalesced into a GSO batch;
-    /// a batch containing any ordinary frames requires permission for the complete batch.
+    /// Validation-only packets remain permitted on live connection-scoped carriers,
+    /// including when coalesced into a GSO batch. Retired scoped bindings cannot send
+    /// queued packets. A batch containing ordinary frames requires application permission.
     /// The callback must not acquire this connection's runtime lock.
     pub fn application_data_transmit_permitted(&self, transmit: &crate::SocketTransmit) -> bool {
-        !transmit.requires_application_permission
-            || self.application_data_allowed(transmit.network_path())
+        let network_path = transmit.network_path();
+        // A connection-scoped carrier must not be recreated by a validation
+        // packet encoded before its candidate was retired. New paths on this
+        // or another connection still own their own live binding.
+        if self.application_path_ack_required.as_ref().is_some_and(|required|
+            required(network_path))
+            && !self.paths.iter().any(|(id, path)|
+                !self.abandoned_paths.contains(id) && path.data.network_path == network_path)
+        {
+            return false;
+        }
+        !transmit.requires_application_permission || self.application_data_allowed(network_path)
     }
 
     /// Queue an ACK-eliciting PING on every current path.

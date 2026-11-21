@@ -99,6 +99,19 @@ pub(super) async fn run(root: &Path, client: &NativeClient, role: &str, visitor:
         .expect("new TCP must resume the UDP-started original stream");
         fs::write(root.join("tcp-used"), []).unwrap();
         wait_file(&root.join("tcp-committed")).await;
+        // Both other data carriers are now blocked by the gateway driver.
+        // The tagged bytes on this exact service stream can only use TCP.
+        stream.write_all(b"proof").await.unwrap();
+        let mut proof = [0; 5];
+        timeout(IO, stream.read_exact(&mut proof))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(&proof, b"proof");
+        println!(
+            "MIO164 SERVICE_PROOF {}",
+            flow(client, Protocol::Tcp)["transport"]
+        );
         fs::write(root.join("finished"), []).unwrap();
         wait_file(&root.join("counted")).await;
     } else {
@@ -127,8 +140,15 @@ pub(super) async fn run(root: &Path, client: &NativeClient, role: &str, visitor:
                 _ = wait_file(&finished) => break,
                 result = stream.read_exact(&mut bytes) => { result.unwrap(); }
             }
-            assert_eq!(&bytes, b"later");
-            stream.write_all(b"reply").await.unwrap();
+            assert!(bytes == *b"later" || bytes == *b"proof");
+            stream
+                .write_all(if bytes == *b"proof" {
+                    b"proof"
+                } else {
+                    b"reply"
+                })
+                .await
+                .unwrap();
         }
         println!("MIO164 PEER {}", flow(client, Protocol::Tcp)["transport"]);
     }

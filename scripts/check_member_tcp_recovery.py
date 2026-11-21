@@ -13,7 +13,7 @@ from check_member_fusion_nat import topology, rules, run, stop, PUBLIC, REPO
 TEST = "native_service_parallel::parallel_paths_through_translated_native_clients"
 
 
-def check(binary, directory, mode):
+def check(binary, directory, mode, failed_first):
     directory.mkdir()
     members = directory / "members"
     names = [f"m164-{role}" for role in ("wan", "na", "nb", "a", "b")]
@@ -31,6 +31,16 @@ def check(binary, directory, mode):
                     *([] if enabled else ["1"]), "-p", protocol, "-s", PUBLIC[side],
                     "-d", PUBLIC[1-side], "-j", "DROP")
 
+        def gate_initial_tcp(enabled):
+            # Fail the initial local dial before either gateway records peer
+            # TCP state. The later attempt still traverses both real NATs.
+            for side, name in enumerate(names[3:]):
+                run("ip", "netns", "exec", name, "iptables",
+                    "-D" if enabled else "-I", "OUTPUT",
+                    "-p", "tcp", "-d", PUBLIC[1-side], "-j", "DROP")
+
+        if failed_first:
+            gate_initial_tcp(False)
         with ExitStack() as stack:
             processes = []
 
@@ -55,6 +65,13 @@ def check(binary, directory, mode):
                     assert time.monotonic() < until, directory
                     time.sleep(0.02)
 
+            def observer():
+                process("observer", ["ip", "netns", "exec", names[0], "python3", "-u",
+                        str(REPO / "scripts/tcp_stun_observer.py")])
+                wait_for(lambda: "STUN_TCP_READY" in (directory / "observer.log").read_text())
+
+            if failed_first:
+                observer()
             worker("setup")
             wait_for(lambda: "MIO150 LAB_READY" in (directory / "setup.log").read_text())
             config = json.loads((members / "consumer" / "resources.json").read_text())
@@ -69,16 +86,25 @@ def check(binary, directory, mode):
             if mode == "relay":
                 run("ip", "netns", "exec", names[0], "iptables", "-D", *relay_rule)
             wait_for(lambda: (members / "udp-ready").exists())
-            process("observer", ["ip", "netns", "exec", names[0], "python3", "-u",
-                    str(REPO / "scripts/tcp_stun_observer.py")])
-            wait_for(lambda: "STUN_TCP_READY" in (directory / "observer.log").read_text())
+            if not failed_first:
+                observer()
+            else:
+                for side, name in enumerate(names[3:]):
+                    sockets = run("ip", "netns", "exec", name, "ss", "-tanpo")
+                    (directory / f"sockets-before-{side}.txt").write_text(sockets)
+                    assert not any("SYN-SENT" in line and PUBLIC[1-side] in line
+                                   for line in sockets.splitlines()), sockets
             gate("udp", False)
+            if failed_first:
+                gate_initial_tcp(True)
             (members / "fault").touch()
             if mode == "relay":
                 wait_for(lambda: (members / "relay").exists(), 5)
             wait_for(lambda: (members / "tcp-used").exists(), 15)
             wait_for(lambda: all("MEMBER_DIRECT_RETAINED" in (directory / f"{role}.log").read_text()
                                 for role in "ab"), 3)
+            if mode == "relay":
+                run("ip", "netns", "exec", names[0], "iptables", "-I", *relay_rule)
             (members / "tcp-committed").touch()
             assert [peer.wait(timeout=6) for peer in peers] == [0, 0]
         for role in "ab":
@@ -88,8 +114,8 @@ def check(binary, directory, mode):
         consumer_lines = (directory / "a.log").read_text().splitlines()
         first, = [json.loads(line.removeprefix("MIO164 FIRST ")) for line in consumer_lines
                   if line.startswith("MIO164 FIRST ")]
-        delivered, = [json.loads(line.split(" ", 3)[3]) for line in consumer_lines
-                      if line.startswith("MIO164 TCP ")]
+        delivered, = [json.loads(line.removeprefix("MIO164 SERVICE_PROOF ")) for line in consumer_lines
+                      if line.startswith("MIO164 SERVICE_PROOF ")]
         peer_lines = (directory / "b.log").read_text().splitlines()
         peer, = [json.loads(line.removeprefix("MIO164 PEER ")) for line in peer_lines
                  if line.startswith("MIO164 PEER ")]
@@ -115,5 +141,6 @@ if __name__ == "__main__":
     parser.add_argument("test_binary", type=Path)
     parser.add_argument("evidence", type=Path)
     parser.add_argument("--mode", choices=("relay", "signaling"), default="relay")
+    parser.add_argument("--failed-first", action="store_true")
     args = parser.parse_args()
-    check(args.test_binary.resolve(strict=True), args.evidence.resolve(), args.mode)
+    check(args.test_binary.resolve(strict=True), args.evidence.resolve(), args.mode, args.failed_first)

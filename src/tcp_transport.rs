@@ -952,7 +952,11 @@ fn ensure_channel(shared: &Arc<Shared>, target: SocketAddr) -> io::Result<Arc<Mu
                         result => {
                             let mut channel=task_channel.lock().unwrap();
                             if channel.active {return;}
-                            channel.pending_queue.take();
+                            if channel.owners == 0 || channel.established_data {
+                                channel.pending_queue.take();
+                            }
+                            // A still-preparing peer may win through the
+                            // incoming socket after our outgoing connect fails.
                             drop(channel);
                             let err = match result {
                                 Ok(Err(err)) => err,
@@ -985,6 +989,14 @@ fn remove_channel(shared: &Shared, peer: SocketAddr, channel: &Arc<Mutex<Channel
         .get(&peer)
         .is_some_and(|current| Arc::ptr_eq(current, channel))
     {
+        let prepared = channel.lock().unwrap();
+        if prepared.owners != 0 && !prepared.established_data {
+            // A failed physical dial still belongs to this preparation lease.
+            // Its closed queue rejects late packets until that lease retires;
+            // replacing this entry would lose the cancellation owner.
+            return;
+        }
+        drop(prepared);
         channels.remove(&peer);
     }
     shared
