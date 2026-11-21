@@ -45,13 +45,7 @@ pub(super) async fn recover(
     use super::native_service_nat::wait_file;
     wait_file(&root.join("backup-committed")).await;
     capture(root, client, role).await;
-    let mut ready = [0; 5];
-    stream.write_all(b"later").await.unwrap();
-    timeout(IO, stream.read_exact(&mut ready))
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(&ready, b"reply");
+    original_round_trip(stream).await;
     wait_file(&root.join("backup-aging")).await;
     pause_acks(root, client, role).await;
     let peer = original["peer"].as_str().unwrap().parse().unwrap();
@@ -77,13 +71,7 @@ pub(super) async fn recover(
                 );
                 break;
             }
-            let mut reply = [0; 5];
-            stream.write_all(b"later").await.unwrap();
-            timeout(IO, stream.read_exact(&mut reply))
-                .await
-                .unwrap()
-                .unwrap();
-            assert_eq!(&reply, b"reply");
+            original_round_trip(stream).await;
             sleep(Duration::from_millis(100)).await;
         }
     })
@@ -92,13 +80,7 @@ pub(super) async fn recover(
     std::fs::write(root.join("backup-stale"), []).unwrap();
     wait_file(&root.join("backup-fault")).await;
     let start = Instant::now();
-    let mut reply = [0; 5];
-    stream.write_all(b"later").await.unwrap();
-    timeout(IO, stream.read_exact(&mut reply))
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(&reply, b"reply");
+    original_round_trip(stream).await;
     let blocked = std::env::var("MIO163_BACKUP").unwrap() == "blocked";
     if !blocked {
         timeout(IO, async {
@@ -130,18 +112,23 @@ pub(super) async fn recover(
                     .map(|path| path.stats())
             )
         });
-        stream.write_all(b"later").await.unwrap();
-        timeout(IO, stream.read_exact(&mut reply))
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(&reply, b"reply");
+        original_round_trip(stream).await;
     }
     finish(root, client, role).await;
     println!(
         "MIO163 RECOVERED elapsed_ms={} blocked={blocked}",
         start.elapsed().as_millis()
     );
+}
+
+async fn original_round_trip(stream: &mut TcpStream) {
+    stream.write_all(b"later").await.unwrap();
+    let mut reply = [0; 5];
+    timeout(IO, stream.read_exact(&mut reply))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(&reply, b"reply");
 }
 
 pub(super) async fn pause_acks(root: &std::path::Path, client: &NativeClient, role: &str) {

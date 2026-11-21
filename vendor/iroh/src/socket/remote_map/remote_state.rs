@@ -2941,7 +2941,8 @@ impl ConnectionState {
                 && self.binding_matches(binding, live)
             {
                 let budget = 2 * interval.max(path.stats().probe_timeout);
-                if !self.has_recent_return(binding, &path, now, budget) {
+                let tcp_suspect = binding.is_custom() && self.suspect_paths.contains_key(id);
+                if tcp_suspect || !self.has_recent_return(binding, &path, now, budget) {
                     let _ = path.start_confirmation(live, budget);
                 }
             }
@@ -3354,28 +3355,27 @@ impl<'a> PathSelectionContext<'a> {
                                     && state.is_native_member_path(addr);
                                 // A response remains evidence after a healthy relay
                                 // takes over while the backup confirmation is in flight.
-                                let confirmed_tcp = !suspect
-                                    && addr.is_custom()
+                                let may_use_tcp_confirmation = addr.is_custom()
                                     && state.is_native_member_path(addr);
-                                let confirmed = (needs_response || confirmed_tcp)
+                                let confirmed = (needs_response || may_use_tcp_confirmation)
+                                    && (!may_use_tcp_confirmation || !suspect)
                                     && self.health_window.is_some_and(|(now, interval)| {
                                         conn.path(*id).is_some_and(|path| {
                                             let stats = path.stats();
                                             let window =
                                                 2 * interval.max(stats.probe_timeout);
-                                            if needs_response {
-                                                state.has_recent_return(addr, &path, now, window)
+                                            let proof = if needs_response {
+                                                path.return_evidence()
                                             } else {
-                                                path.confirmation().is_some_and(|(live, received)| {
-                                                    state.binding_matches(addr, live)
-                                                        && now.saturating_duration_since(received.into())
-                                                            <= window
-                                                        && stats.ack_pending_since
-                                                            .is_none_or(|pending| pending <= received)
-                                                        && member.network_changed_at
-                                                            .is_none_or(|changed| Instant::from(received) > changed)
-                                                })
-                                            }
+                                                path.confirmation()
+                                            };
+                                            proof.is_some_and(|(live, received)| {
+                                                state.binding_matches(addr, live)
+                                                    && now.saturating_duration_since(received.into()) <= window
+                                                    && (!may_use_tcp_confirmation
+                                                        || member.network_changed_at.is_none_or(|changed|
+                                                            Instant::from(received) > changed))
+                                            })
                                         })
                                     });
                                 if (needs_response && !confirmed)
