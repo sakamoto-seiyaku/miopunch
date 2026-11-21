@@ -369,59 +369,65 @@ pub(crate) async fn receive(
     services: MemberServices,
     mut path_events: iroh::endpoint::PathEventStream,
 ) {
-    let mut handlers = JoinSet::new();
-    loop {
-        tokio::select! {
-            biased;
-            Some(event) = path_events.next() => {
-                if let Some(contacts) = &services.member_contacts
-                    && let Err(error) = contacts.observe_event(connection.remote_id(), event).await
-                {
-                    eprintln!("could not save retired member path: {error}");
-                }
-            },
-            _ = connection.closed() => break,
-            _ = handlers.join_next(), if !handlers.is_empty() => {},
-            result = connection.incoming_bi(), if handlers.len() < 100 => {
-                let Ok(incoming) = result else { break };
-                let connection = connection.clone();
-                let services = services.clone();
-                handlers.spawn(async move {
-                    let Ok(Ok((service, mut stream))) = tokio::time::timeout(Duration::from_secs(60), async {
-                        let mut stream = incoming.accept().await?;
-                        if !stream.is_business() { return Err(io::ErrorKind::InvalidData.into()); }
-                        let mut header = [0];
-                        stream.streams().1.read_exact(&mut header).await.map_err(io::Error::other)?;
-                        let service = *MemberService::ALL.get(usize::from(header[0])).ok_or(io::ErrorKind::InvalidData)?;
-                        Ok::<_, io::Error>((service, stream))
-                    }).await else { return };
-                    if let MemberService::Ping = service {
-                        let _ = tokio::time::timeout(Duration::from_secs(5), async {
-                        let (send, recv) = stream.streams();
-                        let request = recv.read_to_end(64).await?;
-                        crate::member_message::respond(&request, send).await?;
-                        let _ = send.stopped().await?;
-                        Ok::<_, crate::native_client::ClientError>(())
-                        }).await;
-                        return;
-                    }
-                    let stream = ServiceTransport::member(&connection, stream);
-                    match service {
-                        MemberService::Files => services.files.receive(stream),
-                        MemberService::Terminal => { let _ = services.terminal.receive(stream).await; }
-                        MemberService::TcpForward => { let _ = services.forwarding.receive(stream, crate::forwarding::Protocol::Tcp).await; }
-                        MemberService::UdpForward => { let _ = services.forwarding.receive(stream, crate::forwarding::Protocol::Udp).await; }
-                        MemberService::Web => { let _ = services.web.receive(stream).await; }
-                        MemberService::Clipboard => {
-                            let request = services.clipboard.state.request();
-                            let _ = services.clipboard.run(stream, services.node, services.policies, false, request).await;
-                        }
-                        MemberService::Ping => unreachable!("handled before service stream dispatch"),
-                    }
-                });
+    let learning = async {
+        while let Some(event) = path_events.next().await {
+            if let Some(contacts) = &services.member_contacts
+                && let Err(error) = contacts.observe_event(connection.remote_id(), event).await
+            {
+                eprintln!("could not save retired member path: {error}");
             }
         }
-    }
+    };
+    let business = async {
+        let mut handlers = JoinSet::new();
+        loop {
+            tokio::select! {
+                _ = connection.closed() => break,
+                _ = handlers.join_next(), if !handlers.is_empty() => {},
+                result = connection.incoming_bi(), if handlers.len() < 100 => {
+                    let Ok(incoming) = result else { break };
+                    let connection = connection.clone();
+                    let services = services.clone();
+                    handlers.spawn(async move {
+                        let Ok(Ok((service, mut stream))) = tokio::time::timeout(Duration::from_secs(60), async {
+                            let mut stream = incoming.accept().await?;
+                            if !stream.is_business() { return Err(io::ErrorKind::InvalidData.into()); }
+                            let mut header = [0];
+                            stream.streams().1.read_exact(&mut header).await.map_err(io::Error::other)?;
+                            let service = *MemberService::ALL.get(usize::from(header[0])).ok_or(io::ErrorKind::InvalidData)?;
+                            Ok::<_, io::Error>((service, stream))
+                        }).await else { return };
+                        if let MemberService::Ping = service {
+                            let _ = tokio::time::timeout(Duration::from_secs(5), async {
+                            let (send, recv) = stream.streams();
+                            let request = recv.read_to_end(64).await?;
+                            crate::member_message::respond(&request, send).await?;
+                            let _ = send.stopped().await?;
+                            Ok::<_, crate::native_client::ClientError>(())
+                            }).await;
+                            return;
+                        }
+                        let stream = ServiceTransport::member(&connection, stream);
+                        match service {
+                            MemberService::Files => services.files.receive(stream),
+                            MemberService::Terminal => { let _ = services.terminal.receive(stream).await; }
+                            MemberService::TcpForward => { let _ = services.forwarding.receive(stream, crate::forwarding::Protocol::Tcp).await; }
+                            MemberService::UdpForward => { let _ = services.forwarding.receive(stream, crate::forwarding::Protocol::Udp).await; }
+                            MemberService::Web => { let _ = services.web.receive(stream).await; }
+                            MemberService::Clipboard => {
+                                let request = services.clipboard.state.request();
+                                let _ = services.clipboard.run(stream, services.node, services.policies, false, request).await;
+                            }
+                            MemberService::Ping => unreachable!("handled before service stream dispatch"),
+                        }
+                    });
+                }
+            }
+        }
+    };
+    // Connection closure wakes business before the remote actor publishes its
+    // final path statistics. Let the existing event stream finish naturally.
+    tokio::join!(business, learning);
 }
 
 pub(crate) fn path_status(connection: &MemberConnection) -> Value {

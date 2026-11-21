@@ -451,12 +451,12 @@ impl NativeClient {
                 }
                 handlers.abort_all();
                 while handlers.join_next().await.is_some() {}
-                member_handlers.shutdown().await;
                 // Drop also reaches this owned listener through its cancel
                 // guard. Keep the endpoint alive while QUIC close frames are
                 // drained, so peer forwarding sockets need not wait for idle
                 // timeout after the local owners have already ended.
                 endpoint.close().await;
+                while member_handlers.join_next().await.is_some() {}
             })
         };
         let drop_cancel = cancel.clone().drop_guard();
@@ -742,32 +742,29 @@ impl NativeClient {
         contact.end_legacy(b"client ping ended");
         result?
     }
-    /// Retire one real path on the existing member connection in an owned transport fixture.
+    /// Inspect the real selected connection in an owned transport fixture.
     #[cfg(feature = "nat-lab-test-hooks")]
     #[doc(hidden)]
-    pub async fn test_close_member_path(&self, peer: iroh::EndpointId, remote: &iroh::TransportAddr) -> Result<(), ClientError> {
+    pub async fn test_member_connection(&self, peer: iroh::EndpointId) -> Result<iroh::endpoint::MemberConnection, ClientError> {
         let (fusion, _) = self.resources.member_fusion.as_ref().ok_or("member owner absent")?;
-        let connection = fusion.reuse_until(peer, tokio::time::Instant::now() + Duration::from_secs(1)).await?
-            .ok_or("member connection absent")?;
-        connection.paths().iter().find(|path| path.remote_addr() == remote)
-            .ok_or("member path absent")?.close()?;
-        Ok(())
+        fusion.reuse_until(peer, tokio::time::Instant::now() + Duration::from_secs(1)).await?
+            .ok_or_else(|| "member connection absent".into())
     }
 
     /// Stop this host's listener and handlers, close endpoint resources, then
     /// close the durable store. Identity and authorization remain on disk.
     pub async fn close(self) -> Result<(), ClientError> {
-        let contacts_stop = if let Some(contacts) = &self.resources.member_contacts {
-            contacts.refresh_async().await
-        } else {
-            Ok(())
-        };
         let terminal_stop = self.terminal.close().await;
         let web_stop = self.web.close().await;
         let forwarding_stop = self.forwarding.close().await;
         let clipboard_stop = self.disable_clipboard().await;
         self.clipboard.close().await;
         let service_stop = self.disable_files().await;
+        let contacts_stop = if let Some(contacts) = &self.resources.member_contacts {
+            contacts.refresh_async().await
+        } else {
+            Ok(())
+        };
         self.cancel.cancel();
         self.listener.await?;
         self.files.close().await;

@@ -137,40 +137,59 @@ async fn udp_first_reply_keeps_the_started_tcp_round() {
     {
         let remote: iroh::TransportAddr =
             serde_json::from_value(unused_tcp["remote"].clone()).unwrap();
-        consumer
-            .test_close_member_path(provider.address().id, &remote)
+        let original = consumer
+            .test_member_connection(provider.address().id)
             .await
             .unwrap();
-        timeout(IO, async {
-            while flow(&consumer, Protocol::Tcp)["transport"]["paths"]
-                .as_array()
-                .unwrap()
+        if std::env::var_os("MIO162_CLOSE_ORIGINAL").is_some() {
+            original.test_close(0, b"verified backup lifecycle fixture");
+            original.closed().await;
+        } else {
+            original
+                .paths()
                 .iter()
-                .any(|path| path["remote"] == unused_tcp["remote"])
-            {
-                sleep(Duration::from_millis(5)).await;
+                .find(|path| path.remote_addr() == &remote)
+                .unwrap()
+                .close()
+                .unwrap();
+            if std::env::var_os("MIO162_CLOSE_CLIENT").is_none() {
+                timeout(IO, async {
+                    while original
+                        .paths()
+                        .iter()
+                        .any(|path| path.remote_addr() == &remote)
+                    {
+                        sleep(Duration::from_millis(5)).await;
+                    }
+                })
+                .await
+                .unwrap();
             }
-        })
-        .await
-        .unwrap();
-        timeout(IO, async {
-            loop {
-                if read_member_routes(&root.path().join("consumer"), provider.address().id)
-                    .iter()
-                    .any(|route| {
-                        route["address"] == unused_tcp["remote"] && route["verified"] == true
-                    })
-                {
-                    break;
+        }
+        if std::env::var_os("MIO162_CLOSE_CLIENT").is_none() {
+            timeout(IO, async {
+                loop {
+                    if read_member_routes(&root.path().join("consumer"), provider.address().id)
+                        .iter()
+                        .any(|route| {
+                            route["address"] == unused_tcp["remote"] && route["verified"] == true
+                        })
+                    {
+                        break;
+                    }
+                    sleep(Duration::from_millis(5)).await;
                 }
-                sleep(Duration::from_millis(5)).await;
-            }
-        })
-        .await
-        .expect("retired verified backup must be saved while the client remains open");
+            })
+            .await
+            .expect("retired verified backup must be saved while the client remains open");
+        }
         println!("MIO162 UNUSED_RETIRED {remote:?}");
     }
-    tcp_round_trip(&mut input, &mut output, b"late").await;
+    if std::env::var_os("MIO162_CLOSE_ORIGINAL").is_none()
+        && std::env::var_os("MIO162_CLOSE_CLIENT").is_none()
+    {
+        tcp_round_trip(&mut input, &mut output, b"late").await;
+    }
     consumer.close().await.unwrap();
     let saved = read_member_routes(&root.path().join("consumer"), provider.address().id);
     let tcp = saved
@@ -189,6 +208,11 @@ async fn udp_first_reply_keeps_the_started_tcp_round() {
             .iter()
             .any(|route| route["address"].get("Ip").is_some() && route["verified"] == true)
     );
+    if std::env::var_os("MIO162_LIFECYCLE_ONLY").is_some() {
+        provider.close().await.unwrap();
+        task.abort();
+        return;
+    }
     let reopened = reopen_with_resources(&root.path().join("consumer"), |resources| {
         resources.udp_direct_disabled = true;
     })
