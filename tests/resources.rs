@@ -2273,7 +2273,7 @@ async fn prebuilt_unconstrained_pkarr_cannot_bypass_product_policy() {
 mod test_cli;
 
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 #[tokio::test]
 async fn default_tcp_listener_preserves_the_callers_quic_idle_timeout() {
     use miopunch_native_probe::tcp_transport::TcpTransport;
@@ -2298,7 +2298,7 @@ async fn default_tcp_listener_preserves_the_callers_quic_idle_timeout() {
     let [client, server] = endpoints.as_slice() else { unreachable!() };
     let listener = server.custom_addrs().iter()
         .find_map(|address| TcpTransport::socket_addr(address).ok())
-        .expect("Linux default TCP listener");
+        .expect("default native TCP listener");
     let target = EndpointAddr::new(server.id()).with_addrs([
         iroh::TransportAddr::Custom(TcpTransport::address((Ipv4Addr::LOCALHOST, listener.port())))
     ]);

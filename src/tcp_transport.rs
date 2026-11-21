@@ -140,9 +140,11 @@ impl TcpTransport {
     }
 
     pub(crate) fn with_punching(mut self) -> Self {
-        self.punching = cfg!(target_os = "linux") && self.bind_addr.is_ipv4();
+        self.punching = cfg!(any(target_os = "linux", target_os = "windows"))
+            && self.bind_addr.is_ipv4();
         self.reuse_local_port =
-            cfg!(any(target_os = "linux", target_os = "android")) && self.bind_addr.is_ipv4();
+            cfg!(any(target_os = "linux", target_os = "android", target_os = "windows"))
+                && self.bind_addr.is_ipv4();
         self
     }
 

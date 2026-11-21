@@ -60,7 +60,7 @@ pub struct ResourceConfig {
     pub lan_discovery: LanDiscovery,
     #[serde(default)]
     pub port_mapping: PortMapping,
-    /// Native TCP listener override. Linux defaults to an ephemeral IPv4 listener.
+    /// Native TCP listener override. Windows and Linux default to an ephemeral IPv4 listener.
     #[serde(default)]
     pub tcp_listen: Option<std::net::SocketAddr>,
     #[serde(default)]
@@ -462,7 +462,8 @@ impl ResourceConfig {
         let tcp = self
             .tcp_listen
             .or_else(|| {
-                cfg!(target_os = "linux").then_some((std::net::Ipv4Addr::UNSPECIFIED, 0).into())
+                cfg!(any(target_os = "linux", target_os = "windows"))
+                    .then_some((std::net::Ipv4Addr::UNSPECIFIED, 0).into())
             })
             .filter(|_| !self.tcp_direct_disabled)
             .map(|address| {
