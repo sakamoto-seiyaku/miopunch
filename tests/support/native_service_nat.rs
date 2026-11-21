@@ -24,8 +24,9 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
     fs::create_dir_all(root).unwrap();
     let case = env::var("MIO150_CASE").unwrap();
     let parallel = case.starts_with("parallel-");
+    let relay_start = case.starts_with("parallel-relay-");
     if role == "setup" {
-        let relay = if case.starts_with("parallel-relay-") {
+        let relay = if relay_start {
             let mut config = iroh_relay::server::ServerConfig::default();
             config.relay = Some(iroh_relay::server::RelayConfig::new((WAN, 0)));
             Some(iroh_relay::server::Server::spawn(config).await.unwrap())
@@ -189,7 +190,7 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
                 };
                 let mut dials = 0;
                 for path in routes {
-                    if case.starts_with("parallel-relay-") {
+                    if relay_start {
                         continue;
                     }
                     let contact: iroh::EndpointAddr =
@@ -203,7 +204,7 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
                 if case == "simultaneous" {
                     assert!((1..=2).contains(&dials), "mutual member dials: {dials}");
                 } else {
-                    assert_eq!(dials, usize::from(!case.starts_with("parallel-relay-")));
+                    assert_eq!(dials, usize::from(!relay_start));
                 }
                 fs::write(root.join("counted"), []).unwrap();
                 pending::<()>().await;

@@ -17,6 +17,7 @@ def cell(binary, output, case):
     directory.mkdir()
     members = directory / "members"
     names = [f"m161-{role}" for role in ("wan", "na", "nb", "a", "b")]
+    relay_start = "relay" in case
     fast = "tcp" if case.endswith("tcp") else "udp"
     slow = "udp" if fast == "tcp" else "tcp"
     try:
@@ -35,7 +36,7 @@ def cell(binary, output, case):
                     "-s", PUBLIC[side], "-d", PUBLIC[1-side], "-j", "DROP")
 
         gate(slow, False)
-        if "relay" in case or fast == "tcp":
+        if relay_start or fast == "tcp":
             gate(fast, False)
         # Count real enhanced UDP probes before the gates, without changing forwarding.
         run("ip", "netns", "exec", names[0], "iptables", "-I", "FORWARD", "1",
@@ -77,13 +78,15 @@ def cell(binary, output, case):
                 return all((directory / f"{role}.log").read_text().count("STUN_UDP_SEND") >= 2
                            for role in "ab")
 
-            if fast == "tcp" and "relay" not in case:
+            if fast == "tcp" and not relay_start:
                 wait_for(udp_started, 5)
                 gate(fast, True)
             wait_for(lambda: (members / "first").exists())
-            if "relay" in case:
-                if fast == "tcp":
-                    wait_for(udp_started, 5)
+            if relay_start:
+                wait_for(udp_started, 5)
+                wait_for(lambda: all("TCP_PUNCH_START" in (directory / f"{role}.log").read_text() for role in "ab"), 5)
+                (members / "check-relay").touch()
+                wait_for(lambda: (members / "relay-held").exists(), 3)
                 gate(fast, True)
                 (members / "release").touch()
                 wait_for(lambda: (members / "fast").exists(), 7)

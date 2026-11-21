@@ -10,10 +10,11 @@ UDP 首次合格的前台工作不再固定等待一个质量维护间隔；后�
 
 ## 正式入口结果
 
-- 最初的 NativeClient 红测在 TCP 观察被挂起时等待不到 UDP 首笔业务。并发实现先经 UDP 读回业务，放开 TCP 观察后在同一连接、同一流上取得 TCP ACK。日志分别为 `/tmp/miopunch-161-parallel-red.log` 和 `/tmp/miopunch-161-parallel-green.log`。
+- 最初的 NativeClient 红测在 TCP 观察被挂起时等待不到 UDP 首笔业务。并发实现先经 UDP 读回业务，放开 TCP 观察后在同一连接、同一流上取得 TCP ACK。日志分别为 `/tmp/miopunch-161-parallel-red.log` 和 `/tmp/miopunch-161-parallel-green.log`。最终 Host 入口复验通过，日志为 `/tmp/miopunch-161-parallel-final-host.log`。
 - 两个真实 NAT 网关后的仅信令两组通过，分别以 TCP 和 UDP 开始业务，然后保留两个已验证路径并持续收发同一业务流。默认参数日志为 `/tmp/miopunch-161-default-parallel-lab/parallel-tcp/` 和 `parallel-udp/`。
-- 相同双 NAT 拓扑的健康 relay 两组通过，首笔业务经 relay 返回；两端开始实际 UDP 观察及 TCP 互拨后，先放行其中一路，再放行慢路。原业务在探测期间持续，两个实际路径均取得新鲜 ACK，并保留相同连接与流。默认参数日志为 `/tmp/miopunch-161-default-relay-fixed/`。
+- 相同双 NAT 拓扑的健康 relay 两组通过，首笔业务经 relay 返回；两端开始实际 UDP 观察及 TCP 互拨后，先放行其中一路，再放行慢路。原业务在探测期间持续，两个实际路径均取得新鲜 ACK，并保留相同连接与流。默认参数日志为 `/tmp/miopunch-161-default-relay-fixed/`。Spec 审查后补充确定性检查，在双端均实际发出 UDP 观察并开始 TCP 互拨、两个直连仍被网关封锁时，原连接原流再经 relay 完成一次往返，然后才放开快路径。两组日志为 `/tmp/miopunch-161-review-relay-lab/`，`MIO161 RELAY_PENDING` 保留实际承载、连接和流证据。
 - relay 诊断复现了已承诺 OBSERVE 后重复检查 QNT needed 的竞态。一端已观察，另一端因 needed 刷新返回 WouldBlock，随后被已消费的冷却阻挡。失败定点日志为 `/tmp/miopunch-161-coordination-diagnosis2/`。修复只移除了承诺后的重复资格检查，诊断输出已移除。
+- 并行首拨协议的 TCP-only 正反向成功、显式禁用与封锁六组通过，日志为 `/tmp/miopunch-161-tcp-only-regression/`。
 - 确定性选路 6 项通过，包括 IPv4/IPv6 等价地址、RTT 差异、TCP 平手、显式偏好、不可读路径统计和当前路径防抖。日志为 `/tmp/miopunch-161-unified_path_selection.log`。
 - 普通消费者 2 项、受限端点 19 项通过。既有 TCP 原流迁移 6 项、正式维护宿主 TCP 迁移及业务取消后候选退役通过。日志为 `/tmp/miopunch-161-existing-tcp.log`、`existing-traversal.log`、`cancel-traversal.log` 及同前缀的端点日志。
 - UDP 混合观察定向批次 4 项通过。停止观察的 Network 子场景在既有断言处失败；同 host、同 exact 入口的 161 前 `resources-fdce46ac5c8ca148` 产物也在同一行失败。旧产物时间为 2026-11-21 10:36。对照为 `/tmp/miopunch-161-interrupted-pre161.log`，当前为 `interrupted-exact.log`。该夹具没有前台业务，既有换网后的 standby 自动轮会再次采样，测试源码与核心断言保留。

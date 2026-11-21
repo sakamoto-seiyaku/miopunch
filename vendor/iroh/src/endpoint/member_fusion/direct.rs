@@ -33,6 +33,11 @@ enum PeerOffer {
     Traversal,
 }
 
+enum CandidateCompletion {
+    Address,
+    Traversal(io::Result<()>),
+}
+
 #[derive(Debug)]
 pub(in crate::endpoint) struct PathCandidates {
     endpoint: Endpoint,
@@ -480,7 +485,7 @@ async fn watch(
         let mut paths = connection.paths_stream();
         let mut generation = candidates.endpoint.udp_network_generation();
         let mut attempted = BTreeSet::new();
-        let mut in_flight: FuturesUnordered<BoxFuture<'_, Option<io::Result<()>>>> =
+        let mut in_flight: FuturesUnordered<BoxFuture<'_, CandidateCompletion>> =
             FuturesUnordered::new();
         let mut traversal_running = false;
         let mut traversal_interval = None;
@@ -521,7 +526,7 @@ async fn watch(
                     let owner = &candidates;
                     let original = &connection;
                     in_flight.push(async move {
-                        Some(tokio::select! { biased;
+                        CandidateCompletion::Traversal(tokio::select! { biased;
                             _ = running_activity.wait_for(|active| !*active) => Err(io::ErrorKind::WouldBlock.into()),
                             result = owner.initiate(original) => result,
                         })
@@ -535,7 +540,7 @@ async fn watch(
                 Ok(()) = activity.changed() => continue,
                 Some(_) = paths.next(), if can_traverse => continue,
                 Some(result) = in_flight.next() => {
-                    if let Some(result) = result {
+                    if let CandidateCompletion::Traversal(result) = result {
                         traversal_running = false;
                         match result {
                             Ok(()) => {
@@ -577,7 +582,7 @@ async fn watch(
                 in_flight.push(
                     async {
                         process_candidate(&connection, &candidates, address, observed).await;
-                        None
+                        CandidateCompletion::Address
                     }
                     .boxed(),
                 );

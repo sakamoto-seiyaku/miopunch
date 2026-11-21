@@ -134,6 +134,8 @@ pub(super) async fn lab_first_reply(
 ) {
     use super::native_service_nat::wait_file;
     use std::fs;
+    let relay_start = case.contains("relay");
+    let tcp_first = case.ends_with("tcp");
     fs::write(root.join(format!("port-{role}")), "ready").unwrap();
     wait_file(&root.join("start")).await;
     if visitor {
@@ -162,9 +164,9 @@ pub(super) async fn lab_first_reply(
         let original = flow(client, Protocol::Tcp)["transport"].clone();
         let initial: iroh::TransportAddr =
             serde_json::from_value(original["initial_data_path"].clone()).unwrap();
-        if case.contains("relay") {
+        if relay_start {
             assert!(initial.is_relay(), "{original}");
-        } else if case.ends_with("tcp") {
+        } else if tcp_first {
             assert!(
                 matches!(initial, iroh::TransportAddr::Custom(_)),
                 "{original}"
@@ -177,18 +179,34 @@ pub(super) async fn lab_first_reply(
             serde_json::json!({"elapsedMs":started.elapsed().as_millis(),"transport":original})
         );
         fs::write(root.join("first"), []).unwrap();
-        wait_file(&root.join("release")).await;
+        if !relay_start {
+            wait_file(&root.join("release")).await;
+        }
         timeout(Duration::from_secs(7), async {
             loop {
+                let check_relay = relay_start && root.join("check-relay").exists();
                 stream.write_all(b"later").await.unwrap();
                 stream.read_exact(&mut bytes).await.unwrap();
                 assert_eq!(&bytes, b"reply");
                 let current = flow(client, Protocol::Tcp)["transport"].clone();
                 assert_eq!(current["connection"], original["connection"]);
                 assert_eq!(current["stream"], original["stream"]);
+                if check_relay && !root.join("relay-held").exists() {
+                    assert!(
+                        current["paths"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .any(|path| path["selected"] == true
+                                && path["remote"].get("Relay").is_some()),
+                        "{current}"
+                    );
+                    println!("MIO161 RELAY_PENDING {current}");
+                    fs::write(root.join("relay-held"), []).unwrap();
+                }
                 if current["paths"].as_array().unwrap().iter().any(|path| {
                     path["selected"] == true
-                        && if case.ends_with("tcp") {
+                        && if tcp_first {
                             matches!(
                                 serde_json::from_value(path["remote"].clone()),
                                 Ok(iroh::TransportAddr::Custom(_))
@@ -236,7 +254,7 @@ pub(super) async fn lab_first_reply(
             .unwrap();
         let mut contact = client.invitation().await.unwrap().address().clone();
         contact.addrs.retain(|address| {
-            if case.contains("relay") {
+            if relay_start {
                 address.is_relay()
             } else {
                 matches!(address, iroh::TransportAddr::Custom(route)
