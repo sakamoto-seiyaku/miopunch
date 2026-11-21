@@ -200,6 +200,7 @@ struct FusedRecovery<'a> {
 }
 
 impl core::RecoveryEndpoint for FusedRecovery<'_> {
+    const VALIDATE_RETURN_PATH: bool = true;
     type Control = Arc<ControlConnection>;
 
     async fn connect_repair_control(
@@ -485,7 +486,7 @@ pub(crate) async fn serve_path_recovery(
                                 "data permission changed during repair",
                             ));
                         }
-                        path.retain_candidate();
+                        path.retain_candidate()?;
                     }
                 }
                 // Keep responder authentication until the requester finishes its

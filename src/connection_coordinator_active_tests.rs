@@ -194,6 +194,8 @@ async fn maintenance_fairness_fixture() {
         }
         config.replacement = Some(resources);
         config.maintenance.exploration_interval_ms = 250;
+        config.maintenance.path_retry_base_ms = 250;
+        config.maintenance.enhanced_udp_cooldown_ms = 8_000;
         config.maintenance.discovery_interval_ms = 1_000;
         config.maintenance.contact_timeout_ms = 5_000;
         node.save_resource_configuration(&config).unwrap();

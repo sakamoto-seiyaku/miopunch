@@ -24,6 +24,9 @@ use super::{
 
 mod dial;
 mod direct;
+mod standby;
+pub use standby::MemberRetention;
+use standby::StandbyPool;
 pub(super) mod udp;
 pub use dial::MemberDialOptions;
 pub(super) use direct::{PathCandidates, watch_path_candidates};
@@ -84,6 +87,11 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
     /// Native UDP observation resources and per-round limits for this endpoint.
     fn udp_config(&self) -> Option<&MemberUdpConfig> {
         None
+    }
+
+    /// Local backoff base for unsuccessful automatic path improvements.
+    fn path_retry_base(&self) -> Duration {
+        Duration::from_secs(1)
     }
 
     /// Current authorized learning scope of the admitted original connection.
@@ -256,6 +264,10 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
 
     fn member_fusion(&self) -> Option<&Fusion> {
         Some(&self.fusion)
+    }
+
+    fn member_path_retry_base(&self) -> Duration {
+        self.inner.path_retry_base()
     }
 
     fn member_udp_config(&self) -> Option<&MemberUdpConfig> {
@@ -450,9 +462,19 @@ impl MemberFusionBuilder {
 
     /// Bind the member endpoint with its local idle maintenance allowance.
     pub async fn bind(self, idle_timeout: Duration) -> Result<MemberFusionEndpoint, BindError> {
+        self.bind_with_retention(MemberRetention::IdleTimeout(idle_timeout))
+            .await
+    }
+
+    /// Bind with an explicit member standby or idle-time policy.
+    pub async fn bind_with_retention(
+        self,
+        retention: MemberRetention,
+    ) -> Result<MemberFusionEndpoint, BindError> {
+        self.owner.retention.set(retention).expect("new owner");
         self.owner
-            .idle_timeout
-            .set(idle_timeout)
+            .handoff_timeout
+            .set(self.setup)
             .expect("new owner");
         let endpoint = self.inner.bind().await?;
         let (incoming_tx, incoming) = mpsc::unbounded_channel();
@@ -483,12 +505,14 @@ pub(super) fn shared_policy(
     admission: impl MemberFusionAdmission + 'static,
     fallback: Arc<dyn DynEndpointAdmission>,
     custom_data_limit: Option<Vec<u64>>,
-    idle_timeout: Duration,
+    retention: MemberRetention,
+    setup: Duration,
 ) -> (Arc<dyn DynEndpointAdmission>, SharedOwner) {
     let (selected, incoming) = mpsc::unbounded_channel();
     let fusion = Arc::new(Fusion {
         selected: Some(selected),
-        idle_timeout: idle_timeout.into(),
+        retention: retention.into(),
+        handoff_timeout: setup.into(),
         ..Default::default()
     });
     let policy = Admission {
@@ -953,7 +977,9 @@ async fn accept_connections(
 pub(super) struct Fusion {
     peers: Mutex<HashMap<EndpointId, Weak<Peer>>>,
     shutdown: CancellationToken,
-    idle_timeout: std::sync::OnceLock<Duration>,
+    retention: std::sync::OnceLock<MemberRetention>,
+    standby: Arc<StandbyPool>,
+    handoff_timeout: std::sync::OnceLock<Duration>,
     selected: Option<mpsc::UnboundedSender<IncomingResult>>,
     repair_contact: std::sync::OnceLock<RepairContact>,
     udp_planner: Arc<udp::Planner>,
@@ -974,8 +1000,14 @@ impl Fusion {
         connection
     }
 
-    pub(super) fn activity(&self) -> Arc<Activity> {
-        Arc::new(Activity::new(self.udp_planner.clone()))
+    pub(super) fn activity(&self, connection: &Connection) -> Arc<Activity> {
+        let standby = match self.retention.get() {
+            Some(MemberRetention::Standby(limit)) => {
+                Some((self.standby.clone(), *limit, connection.clone()))
+            }
+            _ => None,
+        };
+        Arc::new(Activity::new(self.udp_planner.clone(), standby))
     }
 
     pub(super) fn plan_udp(
@@ -987,7 +1019,7 @@ impl Fusion {
             endpoint,
             connection,
             self.udp_planner.clone(),
-            *self.idle_timeout.get().expect("bound member idle timeout"),
+            *self.retention.get().expect("bound retention policy"),
         )
     }
 
@@ -1069,7 +1101,8 @@ impl Fusion {
             incoming,
             qualified: None,
             shutdown: self.shutdown.clone(),
-            idle_timeout: *self.idle_timeout.get().expect("bound member idle timeout"),
+            retention: *self.retention.get().expect("bound retention policy"),
+            handoff_timeout: *self.handoff_timeout.get().expect("bound setup timeout"),
             #[cfg(feature = "miopunch-test-hooks")]
             qualification_gate: self.qualification_gate.get().cloned(),
         }
@@ -1274,7 +1307,8 @@ pub(super) struct Candidate {
     incoming: bool,
     qualified: Option<CandidateBinding>,
     shutdown: CancellationToken,
-    idle_timeout: Duration,
+    retention: MemberRetention,
+    handoff_timeout: Duration,
     #[cfg(feature = "miopunch-test-hooks")]
     qualification_gate: Option<Arc<QualificationGate>>,
 }
@@ -1668,7 +1702,8 @@ impl Candidate {
         Selection {
             peer: self.peer.clone(),
             id,
-            idle_timeout: self.idle_timeout,
+            retention: self.retention,
+            handoff_timeout: self.handoff_timeout,
             shutdown: self.shutdown.clone(),
         }
     }
@@ -1695,7 +1730,8 @@ fn was_superseded(error: &ConnectingError) -> bool {
 pub(super) struct Selection {
     peer: Arc<Peer>,
     id: usize,
-    idle_timeout: Duration,
+    retention: MemberRetention,
+    handoff_timeout: Duration,
     shutdown: CancellationToken,
 }
 
@@ -1733,13 +1769,15 @@ impl Selection {
         }
         let selected = Arc::downgrade(&live.0);
         let peer = self.peer.clone();
-        let idle_timeout = self.idle_timeout;
+        let retention = self.retention;
+        let handoff_timeout = self.handoff_timeout;
+        live.0.activity.offer_standby();
         let shutdown = self.shutdown.clone();
         tokio::spawn(async move {
             tokio::select! {
                 _ = live.0.connection.closed() => {},
                 _ = shutdown.cancelled() => live.0.connection.close(0u32.into(), b"member owner ended"),
-                _ = live.0.idle(idle_timeout) => {},
+                _ = live.0.idle(retention, handoff_timeout) => {},
                 _ = async {
                     if let Some(udp) = &live.0.udp {
                         udp.maintain(&live.0.activity).await;
@@ -1875,6 +1913,13 @@ impl MemberConnection {
         self.0.connection.paths()
     }
 
+    /// Observe selection and retirement on this original connection in the transport lab.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_path_events(&self) -> super::PathEventStream {
+        self.0.connection.path_events()
+    }
+
     /// Suppress incoming ACKs for exactly one candidate in a real QUIC fixture.
     #[cfg(feature = "miopunch-test-hooks")]
     #[doc(hidden)]
@@ -1964,7 +2009,7 @@ impl MemberConnection {
     }
 
     async fn open(&self, kind: StreamKind) -> io::Result<MemberStream> {
-        let lease = self.0.activity.lease(kind);
+        let mut lease = self.0.activity.lease(kind)?;
         let (mut send, recv) = self
             .0
             .connection
@@ -1974,6 +2019,9 @@ impl MemberConnection {
         send.write_all(&[kind as u8])
             .await
             .map_err(io::Error::other)?;
+        if let Some(lease) = &mut lease {
+            lease.sending(&send);
+        }
         Ok(MemberStream {
             send,
             recv,
@@ -2005,8 +2053,7 @@ impl MemberConnection {
         Ok(IncomingMemberStream {
             send,
             recv,
-            activity: self.0.activity.clone(),
-            kind: None,
+            activity: IncomingActivity::Unread(self.0.activity.clone()),
         })
     }
 }
@@ -2016,18 +2063,28 @@ impl MemberConnection {
 pub struct IncomingMemberStream {
     send: SendStream,
     recv: RecvStream,
-    activity: Arc<Activity>,
-    kind: Option<u8>,
+    activity: IncomingActivity,
+}
+
+#[derive(Debug)]
+enum IncomingActivity {
+    Unread(Arc<Activity>),
+    Ready(io::Result<Option<ActivityLease>>),
 }
 
 impl IncomingMemberStream {
     /// Read and apply this stream's activity scope.
     pub async fn accept(mut self) -> io::Result<MemberStream> {
-        let kind = StreamKind::business_kind(match self.kind {
-            Some(kind) => kind,
-            None => read_stream_kind(&mut self.recv).await?,
-        })?;
-        let lease = self.activity.lease(kind);
+        let mut lease = match self.activity {
+            IncomingActivity::Ready(lease) => lease?,
+            IncomingActivity::Unread(activity) => {
+                let kind = StreamKind::business_kind(read_stream_kind(&mut self.recv).await?)?;
+                activity.lease(kind)?
+            }
+        };
+        if let Some(lease) = &mut lease {
+            lease.sending(&self.send);
+        }
         Ok(MemberStream {
             send: self.send,
             recv: self.recv,
@@ -2113,7 +2170,8 @@ fn watch_streams(
                                 udp.respond(ControlExchange::from_streams(send, recv), &activity, kind).await;
                             }
                         } else {
-                            let _ = outgoing.send(IncomingMemberStream { send, recv, activity, kind: Some(kind) }).await;
+                            let lease = StreamKind::business_kind(kind).and_then(|kind| activity.lease(kind));
+                            let _ = outgoing.send(IncomingMemberStream { send, recv, activity: IncomingActivity::Ready(lease) }).await;
                         }
                     });
                 }
@@ -2134,7 +2192,7 @@ pub struct MemberStream {
 impl MemberStream {
     /// Whether this stream carries a local business-activity lease.
     pub fn is_business(&self) -> bool {
-        self._lease.is_some()
+        self._lease.as_ref().is_some_and(|lease| lease.business)
     }
     /// Independently cancel or observe only this stream.
     pub fn control(&self) -> noq::StreamControl {
@@ -2176,7 +2234,14 @@ struct Live {
 }
 
 impl Live {
-    async fn idle(&self, budget: Duration) {
+    async fn idle(&self, retention: MemberRetention, handoff_timeout: Duration) {
+        let MemberRetention::IdleTimeout(budget) = retention else {
+            // An overflow dial has time to deliver its first stream. Abandoned
+            // handoffs must eventually release their transport as well.
+            time::sleep(handoff_timeout).await;
+            self.activity.finish_handoff();
+            return std::future::pending().await;
+        };
         let mut changed = self.activity.changed.subscribe();
         loop {
             let idle_since = self.activity.idle_since();
@@ -2204,25 +2269,38 @@ pub(super) struct Activity {
     state: Mutex<ActivityState>,
     changed: watch::Sender<bool>,
     planner: Arc<udp::Planner>,
+    standby: Option<(Arc<StandbyPool>, usize, Connection)>,
+    pub(super) path_activity: watch::Sender<bool>,
 }
 
 #[derive(Debug)]
 struct ActivityState {
     idle_since: Option<Instant>,
     holders: usize,
+    checks: usize,
+    used: bool,
+    handoff: bool,
     ended: bool,
 }
 
 impl Activity {
-    fn new(planner: Arc<udp::Planner>) -> Self {
+    fn new(
+        planner: Arc<udp::Planner>,
+        standby: Option<(Arc<StandbyPool>, usize, Connection)>,
+    ) -> Self {
         Self {
             state: Mutex::new(ActivityState {
                 idle_since: Some(Instant::now()),
                 holders: 0,
+                checks: 0,
+                used: false,
+                handoff: true,
                 ended: false,
             }),
             changed: watch::Sender::default(),
             planner,
+            standby,
+            path_activity: watch::Sender::default(),
         }
     }
     pub(super) fn subscribe(&self) -> watch::Receiver<bool> {
@@ -2242,35 +2320,77 @@ impl Activity {
         state.ended = true;
     }
 
-    fn lease(self: &Arc<Self>, kind: StreamKind) -> Option<ActivityLease> {
-        if kind == StreamKind::Maintenance {
-            return None;
+    fn lease(self: &Arc<Self>, kind: StreamKind) -> io::Result<Option<ActivityLease>> {
+        let business = kind == StreamKind::Business;
+        if !business && self.standby.is_none() {
+            return Ok(None);
         }
         let mut state = self.state.lock().expect("member activity lock");
         if state.ended {
-            return None;
+            return Err(io::ErrorKind::NotConnected.into());
         }
-        if state.holders == 0 {
-            state.idle_since = None;
-            self.planner.business_changed(true);
-            self.changed.send_replace(true);
+        state.handoff = false;
+        if business {
+            if state.holders == 0 {
+                state.idle_since = None;
+                self.planner.business_changed(true);
+                self.changed.send_replace(true);
+                self.path_activity.send_replace(true);
+            }
+            state.used = true;
+            state.holders += 1;
+        } else {
+            state.checks += 1;
         }
-        state.holders += 1;
-        Some(ActivityLease(self.clone()))
+        Ok(Some(ActivityLease {
+            activity: self.clone(),
+            business,
+            control: None,
+        }))
     }
 }
 
 #[derive(Debug)]
-struct ActivityLease(Arc<Activity>);
+struct ActivityLease {
+    activity: Arc<Activity>,
+    business: bool,
+    control: Option<(tokio::runtime::Handle, noq::StreamControl)>,
+}
+
+impl ActivityLease {
+    fn sending(&mut self, send: &SendStream) {
+        if !self.business {
+            self.control = Some((tokio::runtime::Handle::current(), send.control()));
+        }
+    }
+}
 
 impl Drop for ActivityLease {
     fn drop(&mut self) {
-        let mut state = self.0.state.lock().expect("member activity lock");
+        let activity = &self.activity;
+        if !self.business {
+            if let Some((runtime, control)) = self.control.take() {
+                let activity = activity.clone();
+                runtime.spawn(async move {
+                    let _ = control.stopped().await;
+                    activity.finish_check();
+                });
+            } else {
+                activity.finish_check();
+            }
+            return;
+        }
+        let mut state = activity.state.lock().expect("member activity lock");
         state.holders -= 1;
         if state.holders == 0 && !state.ended {
             state.idle_since = Some(Instant::now());
-            self.0.planner.business_changed(false);
-            self.0.changed.send_replace(false);
+            activity.planner.business_changed(false);
+            activity.changed.send_replace(false);
+            if activity.standby.is_none() {
+                activity.path_activity.send_replace(false);
+            }
+            drop(state);
+            activity.offer_standby();
         }
     }
 }

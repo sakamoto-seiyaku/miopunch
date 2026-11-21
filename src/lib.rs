@@ -11,6 +11,7 @@ mod android_shell;
 #[cfg(target_os = "android")]
 mod android_client_host;
 mod connection_budget;
+mod maintenance_policy;
 pub mod connection_coordinator;
 pub mod connection_recovery;
 mod connection_recovery_core;

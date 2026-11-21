@@ -551,7 +551,7 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
     let path = directories.path().join("visitor");
     let initial = NativeNetwork::create(&path).await.unwrap();
     let mut config = initial.resource_configuration().unwrap();
-    config.maintenance.exploration_interval_ms = 250;
+    config.maintenance.enhanced_udp_cooldown_ms = 8_000;
     let mut stun_urls = Vec::new();
     let mut stun_sockets = Vec::new();
     let mut qad_origins = Vec::new();
@@ -621,7 +621,7 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
     .await;
     let peer_connector = NatConnector::new(None, UdpPolicy::default())
         .with_maintenance_policy(&MaintenancePolicy {
-            exploration_interval_ms: 250,
+            enhanced_udp_cooldown_ms: 8_000,
             ..Default::default()
         })
         .unwrap();

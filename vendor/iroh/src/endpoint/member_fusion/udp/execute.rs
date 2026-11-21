@@ -267,9 +267,14 @@ impl Planning {
         drop(lease);
         state.update(|report| report.winner = Some(winner.clone()));
         exchange_phase(stream, &round.message(wire::WINNER_READY)).await?;
-        let (path, ack, candidate) = while_peer_receives(&peer, self.validate(&winner)).await?;
+        let (path, ack, probe, candidate) = while_peer_receives(&peer, self.validate(&winner)).await?;
         state.update(|report| report.validated = Some((path, ack)));
         exchange_phase(stream, &round.message(wire::VALIDATED)).await?;
+        // Keep each peer's ACK route available until both validators have finished.
+        if !probe.is_acknowledged().map_err(io::Error::other)? {
+            return Err(io::ErrorKind::Interrupted.into());
+        }
+        drop(probe);
         while_peer_receives(&peer, async {
             while self.on_winner(&winner, |candidate| {
                 candidate.id() == path && candidate.is_selected()
@@ -343,6 +348,7 @@ impl Planning {
     ) -> io::Result<(
         PathId,
         noq_proto::PathAcknowledgment,
+        noq::PathProbe,
         Option<UdpCandidatePath>,
     )> {
         let local = LocalSocketBinding {
@@ -377,7 +383,7 @@ impl Planning {
             };
         let (id, probe) = loop {
             if let Some(result) = self.on_winner(winner, |path| {
-                path.start_probe().map(|probe| (path.id(), probe))
+                path.start_return_path_probe().map(|probe| (path.id(), probe))
             }) {
                 break result?;
             }
@@ -395,7 +401,7 @@ impl Planning {
                     .flatten()
                     .filter(|ack| ack.sent_at >= started)
             {
-                return Ok((id, ack, candidate));
+                return Ok((id, ack, probe, candidate));
             }
             time::sleep(Duration::from_millis(10)).await;
         }

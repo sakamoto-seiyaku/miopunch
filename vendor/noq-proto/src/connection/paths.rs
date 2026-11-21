@@ -136,6 +136,23 @@ pub(super) struct SentChallengeInfo {
     pub(super) network_path: FourTuple,
 }
 
+/// One explicit challenge on an already validated path, independent of path opening.
+#[derive(Debug, Clone, Copy)]
+pub(super) enum ReturnConfirmation {
+    Queued { deadline: Instant },
+    Sent { token: u64, deadline: Instant },
+    Confirmed { received_at: Instant },
+}
+
+impl ReturnConfirmation {
+    pub(super) fn is_pending(self, now: Instant) -> bool {
+        match self {
+            Self::Queued { deadline } | Self::Sent { deadline, .. } => now < deadline,
+            Self::Confirmed { .. } => false,
+        }
+    }
+}
+
 /// State of particular network path 4-tuple within a [`PacketNumberSpace`].
 ///
 /// With QUIC-Multipath a path is identified by a [`PathId`] and it is possible to have
@@ -211,6 +228,11 @@ pub(super) struct PathData {
     /// Explicit fresh-probe callers prefer this binding for its Backup ACKs.
     /// Ordinary paths retain cross-path ACK routing, including after migration.
     pub(super) probe_ack_routing: bool,
+    /// Concurrent return-path validations on this exact physical binding.
+    pub(super) return_path_probes: std::sync::Weak<()>,
+    pub(super) local_binding_epoch: u64,
+    pub(super) same_path_acked: Option<(u64, Instant)>,
+    pub(super) return_confirmation: Option<ReturnConfirmation>,
     /// Total size of all UDP datagrams sent on this path
     pub(super) total_sent: u64,
     /// Total size of all UDP datagrams received on this path
@@ -325,6 +347,10 @@ impl PathData {
             pending_challenge: false,
             validated: false,
             probe_ack_routing: false,
+            return_path_probes: Default::default(),
+            local_binding_epoch: 0,
+            same_path_acked: None,
+            return_confirmation: None,
             total_sent: 0,
             total_recvd: 0,
             mtud: config
@@ -390,6 +416,10 @@ impl PathData {
             pending_challenge: false,
             validated: false,
             probe_ack_routing: false,
+            return_path_probes: Default::default(),
+            local_binding_epoch: 0,
+            same_path_acked: None,
+            return_confirmation: None,
             total_sent: 0,
             total_recvd: 0,
             mtud: prev.mtud.clone(),
@@ -416,6 +446,10 @@ impl PathData {
     pub(super) fn set_local_ip(&mut self, local_ip: Option<IpAddr>) {
         if local_ip.is_none() || self.network_path.local_ip != local_ip {
             self.probe_ack_routing = false;
+            self.return_path_probes = Default::default();
+            self.local_binding_epoch += 1;
+            self.same_path_acked = None;
+            self.return_confirmation = None;
         }
         self.network_path.local_ip = local_ip;
     }
@@ -1095,6 +1129,13 @@ pub enum PathEvent {
         ///
         /// [`Connection::stats`]: super::Connection::stats
         path_stats: Box<PathStats>,
+    },
+    /// An explicit challenge returned on its established physical path.
+    #[doc(hidden)]
+    #[non_exhaustive]
+    ReturnConfirmed {
+        /// The established binding that returned the matching response.
+        id: PathId,
     },
     /// The remote changed the status of the path
     ///

@@ -200,6 +200,72 @@ async fn maintenance(from: &MemberConnection, to: &MemberConnection, sequence: u
     exchange(&mut stream, sequence).await;
 }
 
+#[tokio::test]
+async fn one_standby_slot_preserves_business_across_background_contacts() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut admin = NativeNetwork::create(dir.path().join("owner"))
+        .await
+        .unwrap();
+    let b = join(&mut admin, &dir.path().join("b")).await;
+    let c = join(&mut admin, &dir.path().join("c")).await;
+    let mut endpoints = Vec::new();
+    for node in [&admin, &b, &c] {
+        let mut config = node.resource_configuration().unwrap();
+        config.replacement = Some(vec![]);
+        config.maintenance.max_standby_member_connections = 1;
+        node.save_resource_configuration(&config).unwrap();
+        endpoints.push(
+            node.bind_member_fusion_endpoint_with(
+                Endpoint::builder(presets::Minimal)
+                    .clear_ip_transports()
+                    .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+                    .unwrap(),
+                DEADLINE,
+            )
+            .await
+            .unwrap(),
+        );
+    }
+    let [owner, b, c]: [MemberFusionEndpoint; 3] = endpoints.try_into().unwrap();
+    async fn connect(
+        owner: &MemberFusionEndpoint,
+        peer: &MemberFusionEndpoint,
+    ) -> (MemberConnection, MemberConnection) {
+        let (local, remote) = tokio::join!(owner.connect(peer.addr()), peer.accept());
+        (local.unwrap(), remote.unwrap().unwrap())
+    }
+    time::timeout(Duration::from_secs(12), async {
+        let (ab, ba) = connect(&owner, &b).await;
+        let mut file = open_flow(&ab, &ba).await;
+        let mut terminal = open_flow(&ab, &ba).await;
+        exchange(&mut file, 1).await;
+        drop(file);
+        exchange(&mut terminal, 2).await;
+        drop(terminal);
+
+        let (ac, ca) = connect(&owner, &c).await;
+        maintenance(&ac, &ca, 3).await;
+        ac.closed().await;
+        assert!(ab.close_reason().is_none());
+        let (ac, ca) = connect(&owner, &c).await;
+        let (check, other) = tokio::join!(ac.open_maintenance_bi(), ca.accept_bi());
+        let mut checks = (check.unwrap(), other.unwrap());
+        exchange(&mut checks, 4).await;
+        let mut business = open_flow(&ac, &ca).await;
+        drop(checks);
+        exchange(&mut business, 5).await;
+        assert!(ab.close_reason().is_none());
+        drop(business);
+        ab.closed().await;
+        let reused = owner.connect(c.addr()).await.unwrap();
+        assert_eq!(reused.stable_id(), ac.stable_id());
+        exchange(&mut open_flow(&ac, &ca).await, 6).await;
+    })
+    .await
+    .expect("multi-peer standby and in-flight stream eviction");
+    tokio::join!(owner.close(), b.close(), c.close());
+}
+
 async fn plans(connections: &[MemberConnection; 2]) -> [MemberUdpPlan; 2] {
     loop {
         if let [Some(a), Some(b)] = connections.each_ref().map(MemberConnection::udp_plan) {
@@ -380,74 +446,61 @@ async fn crossed_fused_offers_share_one_physical_round_and_preserve_both_busines
 }
 
 #[tokio::test]
-async fn enhanced_maintenance_uses_each_nodes_policy_and_preserves_the_original_idle_deadline() {
-    for (profile, policy) in [
-        ("mobile", MaintenancePolicy::conservative()),
-        ("always-on", MaintenancePolicy::active()),
-    ] {
-        let idle = Duration::from_millis(policy.exploration_interval_ms);
-        let pair = Pair::bind(policy, true).await;
+async fn standby_udp_uses_the_round_budget_without_a_ping() {
+    for interval in [1_000, 30_000] {
+        let pair = Pair::bind(
+            MaintenancePolicy {
+                exploration_interval_ms: interval,
+                quality_interval_ms: 250,
+                path_retry_base_ms: 250,
+                contact_timeout_ms: 3_000,
+                enhanced_udp_cooldown_ms: 6_000,
+                ..MaintenancePolicy::active()
+            },
+            true,
+        )
+        .await;
         let [a, b] = &pair.connections;
-        let mut flow = open_flow(a, b).await;
-        exchange(&mut flow, 1).await;
-        assert_eq!(pair.requests(), [0, 0]);
-        drop(flow);
-        let released = Instant::now();
-        let cutoff = released + idle;
-        let mut checks = 0;
-        time::timeout_at(cutoff + Duration::from_millis(350), async {
-            let pings = async {
-                loop {
-                    maintenance(a, b, checks + 1).await;
-                    checks += 1;
-                    time::sleep(idle / 7).await;
+        let started = Instant::now();
+        let reports = time::timeout(Duration::from_secs(4), async {
+            loop {
+                if let [Some(a), Some(b)] = pair
+                    .connections
+                    .each_ref()
+                    .map(MemberConnection::udp_traversal)
+                {
+                    break [a, b];
                 }
-            };
-            tokio::select! {
-                biased;
-                _ = a.closed() => {}
-                _ = b.closed() => {}
-                _ = pings => {}
+                time::sleep(Duration::from_millis(10)).await;
             }
         })
         .await
-        .expect("periodic maintenance must let the original idle clock close the connection");
-        assert!(Instant::now() >= cutoff - Duration::from_millis(100));
-        assert!(checks >= 2, "{profile}: {checks} actual checks");
-        time::timeout(Duration::from_millis(350), async {
-            tokio::join!(a.closed(), b.closed());
-            while pair.connections.iter().any(|conn| {
-                conn.udp_traversal()
-                    .is_some_and(|report| report.outcome.is_none())
-            }) {
-                time::sleep(Duration::from_millis(5)).await;
-            }
-        })
-        .await
-        .expect("original idle closure cancels both maintenance workers");
-        assert_eq!(
-            pair.requests(),
-            [2, 2],
-            "{profile}: at most one real observation round while idle"
-        );
-        let reports = pair.connections.each_ref().map(|conn| {
-            conn.udp_traversal()
-                .expect("both ends entered the bounded maintenance round")
-        });
+        .expect("standby without a ping must start a round");
         assert_eq!(reports[0].round, reports[1].round);
-        for report in &reports {
-            assert!(report.deadline <= cutoff + Duration::from_millis(50));
-            assert!(report.finished.unwrap() <= (cutoff + Duration::from_millis(150)).into_std());
+        for report in reports {
+            assert!(report.deadline > started + Duration::from_secs(1));
+            assert!(report.deadline <= Instant::now() + Duration::from_secs(3));
         }
-        eprintln!(
-            "{}",
-            json!({
-                "event":"fusion-maintenance-fixture", "profile":profile, "checks":checks,
-                "observationRequests":pair.requests(), "idleMs":idle.as_millis(),
-                "elapsedMs":released.elapsed().as_millis(),
-                "packets":reports.map(|report| report.trace.probes + report.trace.responses),
-            })
-        );
+        time::sleep_until(started + Duration::from_secs(5)).await;
+        assert_eq!(pair.requests(), [2, 2]);
+        time::timeout_at(started + Duration::from_secs(9), async {
+            while !pair.requests().into_iter().all(|samples| samples >= 4) {
+                time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("the second physical round follows the configured cooldown in both profiles");
+        if interval == 30_000 {
+            tokio::join!(pair.endpoints[0].network_change(), pair.endpoints[1].network_change());
+            time::timeout(Duration::from_secs(4), async {
+                while !pair.requests().into_iter().all(|samples| samples >= 6) {
+                    time::sleep(Duration::from_millis(20)).await;
+                }
+            }).await.expect("a real network change wakes standby before the previous six-second cooldown");
+        }
+        let mut flow = open_flow(a, b).await;
+        exchange(&mut flow, 7).await;
+        drop(flow);
         pair.close().await;
     }
 }

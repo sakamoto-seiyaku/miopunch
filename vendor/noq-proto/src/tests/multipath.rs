@@ -3004,6 +3004,149 @@ fn backup_ping_ack_counts(pair: &mut ConnPair, backup: PathId) -> (u64, u64) {
 }
 
 #[test]
+fn one_peer_can_confirm_the_backup_with_its_available_path_blackholed() -> TestResult {
+    let (mut pair, backup) = backup_ack_pair();
+    let before = pair.path_stats(Server, backup).unwrap().frame_tx;
+    let client_backup = pair.network_path(Server, backup)?.remote();
+    let server_backup = pair.network_path(Client, backup)?.remote();
+    pair.routes = ManyToManyRouting::simple_symmetric([client_backup], [server_backup]).into();
+    let started = pair.time;
+    let binding = pair.network_path(Client, backup)?;
+    pair.conn_mut(Client).start_path_confirmation(
+        backup,
+        binding,
+        started,
+        started + Duration::from_secs(1),
+    )?;
+    pair.drive();
+    let (actual, confirmed) = pair
+        .conn(Client)
+        .path_confirmation(backup)
+        .expect("unilateral challenge returns on backup");
+    assert_eq!(actual, binding);
+    assert!(confirmed > started);
+    assert_eq!(
+        pair.conn(Server).path_status(PathId::ZERO)?,
+        PathStatus::Available
+    );
+    assert_eq!(pair.conn(Server).path_confirmation(backup), None);
+    // The response is emitted on Backup without enabling Backup ACK routing.
+    // Testing ordinary ACKs with a usable primary is covered by the adjacent
+    // backup ACK routing cases.
+    let after = pair.path_stats(Server, backup).unwrap().frame_tx;
+    assert!(after.path_response > before.path_response);
+    assert_eq!(after.path_acks, before.path_acks);
+    Ok(())
+}
+
+#[test]
+fn expired_path_confirmation_ignores_a_late_response() -> TestResult {
+    let (mut pair, backup) = backup_ack_pair();
+    pair.routes.set_latency(Duration::from_millis(50));
+    let started = pair.time;
+    let binding = pair.network_path(Client, backup)?;
+    pair.conn_mut(Client).start_path_confirmation(
+        backup,
+        binding,
+        started,
+        started + Duration::from_millis(20),
+    )?;
+    pair.drive();
+    assert_eq!(pair.conn(Client).path_confirmation(backup), None);
+    let now = pair.time;
+    pair.conn_mut(Client).start_path_confirmation(
+        backup,
+        binding,
+        now,
+        now + Duration::from_secs(1),
+    )?;
+    pair.drive();
+    assert!(
+        pair.conn(Client)
+            .path_confirmation(backup)
+            .is_some_and(|(actual, at)| actual == binding && at > now)
+    );
+    #[derive(Debug)]
+    struct ClearLocalIp;
+    impl NetworkChangeHint for ClearLocalIp {
+        fn is_path_recoverable(&self, _: PathId, _: FourTuple) -> bool {
+            true
+        }
+        fn local_ip_for_recovery(&self, _: FourTuple) -> Option<std::net::IpAddr> {
+            None
+        }
+    }
+    pair.handle_network_change(Client, Some(&ClearLocalIp));
+    assert_eq!(pair.conn(Client).path_return_evidence(backup), None);
+    let now = pair.time;
+    assert!(
+        pair.conn_mut(Client)
+            .start_path_confirmation(backup, binding, now, now + Duration::from_secs(1))
+            .is_err()
+    );
+    Ok(())
+}
+
+#[test]
+fn scoped_return_probes_route_backup_acks_only_until_the_last_drop() -> TestResult {
+    let (mut pair, backup) = backup_ack_pair();
+    let ordinary = pair
+        .conn_mut(Server)
+        .start_fresh_path_probe(backup, false)?;
+    pair.drive();
+    assert!(pair.conn(Server).fresh_path_probe_acknowledged(&ordinary)?);
+    assert_ordinary_backup_ack_on_available(&mut pair, backup);
+
+    let first = pair.conn_mut(Server).start_fresh_path_probe(backup, true)?;
+    let second = pair.conn_mut(Server).start_fresh_path_probe(backup, true)?;
+    pair.drive();
+    // The client returned the server's PING ACK on its ordinary Available path.
+    assert!(!pair.conn(Server).fresh_path_probe_acknowledged(&second)?);
+    drop(first);
+    let reverse = pair.conn_mut(Client).start_fresh_path_probe(backup, true)?;
+    pair.drive();
+    assert!(pair.conn(Client).fresh_path_probe_acknowledged(&reverse)?);
+    let (available, own) = backup_ping_ack_counts(&mut pair, backup);
+    assert_eq!(available, 0);
+    assert!(own > 0);
+    drop(second);
+    assert_ordinary_backup_ack_on_available(&mut pair, backup);
+    Ok(())
+}
+
+#[test]
+fn cancelling_an_old_binding_probe_preserves_the_new_return_route() -> TestResult {
+    #[derive(Debug)]
+    struct ClearLocal;
+    impl NetworkChangeHint for ClearLocal {
+        fn is_path_recoverable(&self, _: PathId, _: FourTuple) -> bool {
+            true
+        }
+        fn local_ip_for_recovery(&self, _: FourTuple) -> Option<std::net::IpAddr> {
+            None
+        }
+    }
+    let (mut pair, backup) = backup_ack_pair();
+    let stale = pair.conn_mut(Server).start_fresh_path_probe(backup, true)?;
+    pair.handle_network_change(Server, Some(&ClearLocal));
+    pair.drive();
+    let current = pair.conn_mut(Server).start_fresh_path_probe(backup, true)?;
+    assert!(
+        pair.conn(Server)
+            .fresh_path_probe_acknowledged(&stale)
+            .is_err()
+    );
+    drop(stale);
+    pair.drive();
+    let (available, own) = backup_ping_ack_counts(&mut pair, backup);
+    assert_eq!(available, 0);
+    assert!(own > 0);
+    drop(current);
+    assert_ordinary_backup_ack_on_available(&mut pair, backup);
+    Ok(())
+}
+
+#[test]
 fn recoverable_network_change_clears_probe_preference_only_for_changed_binding() -> TestResult {
     #[derive(Debug)]
     struct RecoverableHint {

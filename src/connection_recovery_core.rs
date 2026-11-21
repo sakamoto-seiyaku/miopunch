@@ -15,6 +15,7 @@ use crate::control_protocol::AuthenticatedControl;
 /// Actual platform owners share the repair algorithm without widening a
 /// restricted endpoint or the control capability it returns.
 pub(crate) trait RecoveryEndpoint: Sync {
+    const VALIDATE_RETURN_PATH: bool = false;
     type Control: AuthenticatedControl;
     fn connect_repair_control(
         &self,
@@ -174,18 +175,26 @@ pub(crate) struct ValidatedPath {
     pub address: TransportAddr,
     pub id: String,
     pub watermark: u64,
+    proof: iroh::endpoint::PathProbe,
     owner: Option<DataCandidatePath>,
 }
 
 impl ValidatedPath {
-    pub(crate) fn retain_candidate(&mut self) {
+    pub(crate) fn retain_candidate(&mut self) -> io::Result<()> {
+        if !self.proof.is_acknowledged().map_err(io::Error::other)? {
+            return Err(io::ErrorKind::Interrupted.into());
+        }
         if let Some(candidate) = self.owner.take() {
             candidate.retain();
         }
+        Ok(())
     }
 }
-pub(crate) async fn validate_candidates<C: AuthenticatedControl + ?Sized>(
-    endpoint: &(impl RecoveryEndpoint + ?Sized),
+pub(crate) async fn validate_candidates<
+    C: AuthenticatedControl + ?Sized,
+    E: RecoveryEndpoint + ?Sized,
+>(
+    endpoint: &E,
     original: &Connection,
     control: &C,
     candidate: EndpointAddr,
@@ -227,25 +236,33 @@ pub(crate) async fn validate_candidates<C: AuthenticatedControl + ?Sized>(
                 _ => {}
             }
         }
+        probes.retain(|(_, _, probe): &(_, _, iroh::endpoint::PathProbe)| {
+            probe.is_acknowledged().is_ok()
+        });
         for path in original
             .paths()
             .iter()
             .filter(|path| paths.contains(path.remote_addr()))
         {
-            if probes.iter().any(|(id, _, _, _)| *id == path.id()) {
+            if probes.iter().any(|(id, _, _)| *id == path.id()) {
                 continue;
             }
-            if let Ok(probe) = path.start_probe() {
-                let watermark = probe.watermark();
-                probes.push((path.id(), path.remote_addr().clone(), watermark, probe));
+            let probe = if E::VALIDATE_RETURN_PATH {
+                path.start_return_path_probe()
+            } else {
+                path.start_probe()
+            };
+            if let Ok(probe) = probe {
+                probes.push((path.id(), path.remote_addr().clone(), probe));
             }
         }
-        if let Some((id, address, watermark, _)) = probes
+        if let Some(index) = probes
             .iter()
-            .find(|(_, _, _, probe)| matches!(probe.is_acknowledged(), Ok(true)))
+            .position(|(_, _, probe)| matches!(probe.is_acknowledged(), Ok(true)))
         {
             check(original, control)?;
-            if !permits(address) {
+            let (id, address, proof) = probes.swap_remove(index);
+            if !permits(&address) {
                 return Err(io::Error::new(
                     io::ErrorKind::PermissionDenied,
                     "data permission changed during repair",
@@ -253,11 +270,12 @@ pub(crate) async fn validate_candidates<C: AuthenticatedControl + ?Sized>(
             }
             let owner = candidates
                 .into_iter()
-                .find(|candidate| candidate.id() == *id);
+                .find(|candidate| candidate.id() == id);
             return Ok(ValidatedPath {
-                address: address.clone(),
+                address,
                 id: id.to_string(),
-                watermark: *watermark,
+                watermark: proof.watermark(),
+                proof,
                 owner,
             });
         }
@@ -336,7 +354,7 @@ pub(crate) async fn recover<E: RecoveryEndpoint>(
                 .await?;
             confirmation_exchange.finish_send_confirmed().await?;
         }
-        if path.owner.is_some() {
+        if E::VALIDATE_RETURN_PATH || path.owner.is_some() {
             check(original, &control.0)?;
             if !permits(&path.address) {
                 return Err(io::Error::new(
@@ -344,7 +362,7 @@ pub(crate) async fn recover<E: RecoveryEndpoint>(
                     "data permission changed during repair",
                 ));
             }
-            path.retain_candidate();
+            path.retain_candidate()?;
         }
         Ok::<_, io::Error>(ConnectionPathRecovery {
             stable_id: original.stable_id(),

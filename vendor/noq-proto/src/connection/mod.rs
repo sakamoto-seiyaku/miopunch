@@ -119,6 +119,24 @@ use state::State;
 pub use state::State;
 use state::StateType;
 
+/// Watermark for an authenticated probe on its original connection. Overlapping
+/// return-path probes share an ACK preference until the last handle is dropped.
+#[derive(Debug)]
+pub struct FreshPathProbe {
+    path: PathId,
+    watermark: u64,
+    generation: u64,
+    epoch: u64,
+    return_route: Option<Arc<()>>,
+}
+
+impl FreshPathProbe {
+    /// First packet number eligible to confirm this probe.
+    pub fn watermark(&self) -> u64 {
+        self.watermark
+    }
+}
+
 /// Protocol state and logic for a single QUIC connection
 ///
 /// Objects of this type receive [`ConnectionEvent`]s and emit [`EndpointEvent`]s and application
@@ -1226,7 +1244,8 @@ impl Connection {
                     && !self.abandoned_paths.contains(id)
                     && self.remote_cids.contains_key(id)
                     && self.paths.get(id).is_some_and(|path| {
-                        path.data.probe_ack_routing
+                        (path.data.probe_ack_routing
+                            || path.data.return_path_probes.strong_count() != 0)
                             && path.data.validated
                             && path.data.local_status() == PathStatus::Backup
                     }))
@@ -1404,7 +1423,8 @@ impl Connection {
         // there is no other validated space to send it on, it can be sent on the path to be
         // abandoned itself if that was validated.
         let may_self_abandon = has_cids && validated && !have_validated_space;
-        let own_acks_only = path_data.probe_ack_routing
+        let own_acks_only = (path_data.probe_ack_routing
+            || path_data.return_path_probes.strong_count() != 0)
             && has_cids
             && !is_abandoned
             && validated
@@ -1507,6 +1527,13 @@ impl Connection {
             }
             return None;
         };
+
+        if let Some(data) = self.path_mut(path_id)
+            && let Some(paths::ReturnConfirmation::Queued { deadline }) = data.return_confirmation
+            && now >= deadline
+        {
+            data.return_confirmation = None;
+        }
 
         // Whether the last packet in the datagram must be padded so the datagram takes up
         // an exact size. An earlier space can decide to not fill an entire datagram and
@@ -2937,6 +2964,61 @@ impl Connection {
         Some(stats)
     }
 
+    /// Queue one authenticated on-path confirmation on an established binding.
+    #[doc(hidden)]
+    pub fn start_path_confirmation(
+        &mut self,
+        path: PathId,
+        binding: FourTuple,
+        now: Instant,
+        deadline: Instant,
+    ) -> Result<(), ClosedPath> {
+        if !self.state.is_established() || self.abandoned_paths.contains(&path) {
+            return Err(ClosedPath { _private: () });
+        }
+        let Some(data) = self
+            .path_mut(path)
+            .filter(|data| data.validated && data.network_path == binding)
+        else {
+            return Err(ClosedPath { _private: () });
+        };
+        if !data
+            .return_confirmation
+            .is_some_and(|confirmation| confirmation.is_pending(now))
+        {
+            data.return_confirmation = Some(paths::ReturnConfirmation::Queued { deadline });
+        }
+        Ok(())
+    }
+
+    /// Time of the last matched on-path response on this live binding.
+    #[doc(hidden)]
+    pub fn path_confirmation(&self, path: PathId) -> Option<(FourTuple, Instant)> {
+        if self.abandoned_paths.contains(&path) {
+            return None;
+        }
+        let data = self.path(path)?;
+        if let Some(paths::ReturnConfirmation::Confirmed { received_at }) = data.return_confirmation
+        {
+            Some((data.network_path, received_at))
+        } else {
+            None
+        }
+    }
+
+    /// Latest authenticated return on the current binding, from a PATH_RESPONSE
+    /// or from an ACK sent and received on this path.
+    #[doc(hidden)]
+    pub fn path_return_evidence(&self, path: PathId) -> Option<(FourTuple, Instant)> {
+        if self.abandoned_paths.contains(&path) {
+            return None;
+        }
+        let data = self.path(path)?;
+        let ack = data.same_path_acked.map(|(_, received_at)| received_at);
+        let received_at = self.path_confirmation(path).map(|(_, at)| at).max(ack)?;
+        Some((data.network_path, received_at))
+    }
+
     /// Return outstanding stream frames to the scheduler after moving application traffic
     /// off a suspect path. Packets still count as in flight until ACK or loss. Move the
     /// stream metadata so a late ACK cannot account for the same bytes a second time.
@@ -3033,6 +3115,12 @@ impl Connection {
     /// confirmation across a blackholed Available carrier. Ordinary ping and
     /// other paths retain upstream ACK routing; frame permissions do not change.
     pub fn start_path_probe(&mut self, path: PathId) -> Result<u64, ClosedPath> {
+        let watermark = self.queue_path_probe(path)?;
+        self.path_data_mut(path).probe_ack_routing = true;
+        Ok(watermark)
+    }
+
+    fn queue_path_probe(&mut self, path: PathId) -> Result<u64, ClosedPath> {
         if !self.state.is_established()
             || !self.paths.contains_key(&path)
             || self.abandoned_paths.contains(&path)
@@ -3045,7 +3133,6 @@ impl Connection {
             .ok_or(ClosedPath { _private: () })?;
         let watermark = space.next_packet_number;
         space.pending_ping = true;
-        self.paths.get_mut(&path).unwrap().data.probe_ack_routing = true;
         Ok(watermark)
     }
 
@@ -3053,6 +3140,50 @@ impl Connection {
     pub fn start_bound_path_probe(&mut self, path: PathId) -> Result<(u64, u64), ClosedPath> {
         let watermark = self.start_path_probe(path)?;
         Ok((watermark, self.path_data(path).generation()))
+    }
+
+    /// Start a fresh packet watermark on this physical path. Requesting same-binding
+    /// return also routes the binding's own Backup ACKs locally while the handle lives.
+    pub fn start_fresh_path_probe(
+        &mut self,
+        path: PathId,
+        return_path: bool,
+    ) -> Result<FreshPathProbe, ClosedPath> {
+        let watermark = self.queue_path_probe(path)?;
+        let data = self.path_data_mut(path);
+        let return_route = return_path.then(|| {
+            data.return_path_probes.upgrade().unwrap_or_else(|| {
+                let owner = Arc::new(());
+                data.return_path_probes = Arc::downgrade(&owner);
+                owner
+            })
+        });
+        Ok(FreshPathProbe {
+            path,
+            watermark,
+            generation: data.generation(),
+            epoch: data.local_binding_epoch,
+            return_route,
+        })
+    }
+
+    /// Check the probe on its original connection. When the probe requires a return
+    /// path, the ACK must also have arrived over that same physical binding.
+    pub fn fresh_path_probe_acknowledged(
+        &self,
+        probe: &FreshPathProbe,
+    ) -> Result<bool, ClosedPath> {
+        let acked =
+            self.bound_path_probe_acknowledged(probe.path, probe.watermark, probe.generation)?;
+        let data = self.path_data(probe.path);
+        if data.local_binding_epoch != probe.epoch {
+            return Err(ClosedPath { _private: () });
+        }
+        Ok(acked
+            && (probe.return_route.is_none()
+                || data
+                    .same_path_acked
+                    .is_some_and(|(pn, _)| pn >= probe.watermark)))
     }
 
     /// Check a probe without letting a migrated `PathId` reuse the old proof.
@@ -3288,7 +3419,7 @@ impl Connection {
     ) -> Result<(), TransportError> {
         // All ACKs are referencing path 0
         let path = PathId::ZERO;
-        self.inner_on_ack_received(now, space, path, ack)
+        self.inner_on_ack_received(now, space, path, ack, None)
     }
 
     fn on_path_ack_received(
@@ -3296,9 +3427,10 @@ impl Connection {
         now: Instant,
         space: SpaceId,
         path_ack: frame::PathAck,
+        ingress: Option<(PathId, FourTuple)>,
     ) -> Result<(), TransportError> {
         let (ack, path) = path_ack.into_ack();
-        self.inner_on_ack_received(now, space, path, ack)
+        self.inner_on_ack_received(now, space, path, ack, ingress)
     }
 
     #[cfg(feature = "miopunch-test-hooks")]
@@ -3318,6 +3450,7 @@ impl Connection {
         space: SpaceId,
         path: PathId,
         ack: frame::Ack,
+        ingress: Option<(PathId, FourTuple)>,
     ) -> Result<(), TransportError> {
         #[cfg(feature = "miopunch-test-hooks")]
         if self
@@ -3412,6 +3545,12 @@ impl Connection {
                     && info.ack_eliciting
                     && info.path_generation == path_data.generation()
                 {
+                    if ingress == Some((path, path_data.network_path)) {
+                        let largest = path_data
+                            .same_path_acked
+                            .map_or(packet, |(pn, _)| pn.max(packet));
+                        path_data.same_path_acked = Some((largest, now));
+                    }
                     path_data.ack_pending_since = Some(now);
                     if path_data
                         .acknowledgment
@@ -5312,7 +5451,7 @@ impl Connection {
                 Frame::PathAck(ack) => {
                     span.as_ref()
                         .map(|span| span.record("path", tracing::field::display(&ack.path_id)));
-                    self.on_path_ack_received(now, packet.header.space().into(), ack)?;
+                    self.on_path_ack_received(now, packet.header.space().into(), ack, None)?;
                 }
                 Frame::Close(reason) => {
                     self.state
@@ -5477,7 +5616,13 @@ impl Connection {
                     }
                 }
                 Frame::Ack(ack) => {
-                    self.on_ack_received(now, SpaceId::Data, ack)?;
+                    self.inner_on_ack_received(
+                        now,
+                        SpaceId::Data,
+                        PathId::ZERO,
+                        ack,
+                        Some((path_id, network_path)),
+                    )?;
                 }
                 Frame::PathAck(ack) => {
                     if !self.is_multipath_negotiated() {
@@ -5486,7 +5631,12 @@ impl Connection {
                         ));
                     }
                     span.record("path", tracing::field::display(&ack.path_id));
-                    self.on_path_ack_received(now, SpaceId::Data, ack)?;
+                    self.on_path_ack_received(
+                        now,
+                        SpaceId::Data,
+                        ack,
+                        Some((path_id, network_path)),
+                    )?;
                 }
                 Frame::Padding | Frame::Ping => {}
                 Frame::Close(reason) => {
@@ -5528,7 +5678,7 @@ impl Connection {
                         self.open_nat_traversed_paths(now);
                     } else {
                         // Try to see if this is a response to an on-path PATH_CHALLENGE.
-                        self.handle_path_response_on_path(now, response, path_id);
+                        self.handle_path_response_on_path(now, response, path_id, network_path);
                     }
                 }
                 Frame::MaxData(frame::MaxData(bytes)) => {
@@ -6141,12 +6291,28 @@ impl Connection {
         now: Instant,
         response: frame::PathResponse,
         path_id: PathId,
+        ingress: FourTuple,
     ) {
         let is_multipath_negotiated = self.is_multipath_negotiated();
         let path = self
             .paths
             .get_mut(&path_id)
             .expect("payload is processed only after the path becomes known");
+        if let Some(paths::ReturnConfirmation::Sent { token, deadline }) =
+            path.data.return_confirmation
+            && token == response.0
+        {
+            if now < deadline
+                && !self.abandoned_paths.contains(&path_id)
+                && ingress == path.data.network_path
+            {
+                path.data.return_confirmation =
+                    Some(paths::ReturnConfirmation::Confirmed { received_at: now });
+                self.events
+                    .push_back(PathEvent::ReturnConfirmed { id: path_id }.into());
+            }
+            return;
+        }
         match path.data.on_path_response_received(now, response.0) {
             paths::OnPathResponseReceived::OnPath if !self.abandoned_paths.contains(&path_id) => {
                 let qlog = self.qlog.with_time(now);
@@ -6309,6 +6475,8 @@ impl Connection {
             .should_report(&self.peer_params.address_discovery_role);
 
         let mut prev_path_data = mem::replace(&mut path.data, new_path_data);
+        prev_path_data.return_confirmation = None;
+        prev_path_data.same_path_acked = None;
 
         // Only store this as previous path if it was validated. For all we know there could
         // already be a previous path stored which might have been validated in the past,
@@ -6698,6 +6866,20 @@ impl Connection {
                 config.ack_eliciting_threshold.into_inner(),
                 max_ack_delay,
             );
+        }
+
+        if space_id == SpaceId::Data
+            && !scheduling_info.is_abandoned
+            && !self.state.is_closed()
+            && let Some(paths::ReturnConfirmation::Queued { deadline }) = path.return_confirmation
+            && now < deadline
+            && builder.frame_space_remaining() > frame::PathChallenge::SIZE_BOUND
+            && builder.buf.segment_size() >= usize::from(MIN_INITIAL_SIZE)
+        {
+            let token = self.rng.random();
+            path.return_confirmation = Some(paths::ReturnConfirmation::Sent { token, deadline });
+            builder.write_frame(frame::PathChallenge(token), stats);
+            builder.require_padding();
         }
 
         // PATH_CHALLENGE (on-path)
@@ -7478,14 +7660,17 @@ impl Connection {
     /// may need to be sent.
     fn can_send_1rtt(&self, path_id: PathId, max_size: usize) -> SendableFrames {
         let network_path = self.path_data(path_id).network_path;
-        let space_specific = self
-            .paths
+        let space_specific = self.paths.get(&path_id).is_some_and(|path| {
+            path.data.pending_challenge
+                || matches!(
+                    path.data.return_confirmation,
+                    Some(paths::ReturnConfirmation::Queued { .. })
+                )
+                || !path.data.pending.is_empty()
+        }) || self.spaces[SpaceKind::Data]
+            .number_spaces
             .get(&path_id)
-            .is_some_and(|path| path.data.pending_challenge || !path.data.pending.is_empty())
-            || self.spaces[SpaceKind::Data]
-                .number_spaces
-                .get(&path_id)
-                .is_some_and(|pns| pns.pending_path_responses.has_pending_on_path(network_path));
+            .is_some_and(|pns| pns.pending_path_responses.has_pending_on_path(network_path));
 
         // Stream control frames are checked in PacketSpace::can_send, only check data here.
         let other = self.streams.can_send_stream_data()

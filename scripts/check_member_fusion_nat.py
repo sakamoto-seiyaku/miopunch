@@ -175,6 +175,10 @@ def cell(binary, output, case, visitor, trial):
         restricted = case.startswith("restricted-")
         if not restricted:
             rules(names, case, visitor)
+        if case == "standby-retry":
+            for side in (0, 1):
+                run("ip", "netns", "exec", names[0], "iptables", "-I", "FORWARD", "1", "-p", "udp",
+                    "-s", PUBLIC[side], "-d", PUBLIC[1-side], "-j", "DROP")
         with ExitStack() as stack:
             setup = worker(stack, names, binary, directory, case, visitor, "setup")
             ready = directory / "setup.log"
@@ -192,6 +196,16 @@ def cell(binary, output, case, visitor, trial):
                     time.sleep(0.02)
                 rules(names, case, visitor, tuple(int(port.read_text()) for port in ports))
                 (members / "start").touch()
+            if case == "standby-retry":
+                while not all((directory / "members" / f"failed-{role}").exists() for role in "ab"):
+                    assert all(p.poll() is None for p in processes) and time.monotonic() < deadline, directory
+                    time.sleep(0.02)
+                dropped = run("ip", "netns", "exec", names[0], "iptables", "-nvxL", "FORWARD")
+                assert any(line.split()[2] == "DROP" and int(line.split()[0]) > 0
+                           for line in dropped.splitlines() if line.split() and line.split()[0].isdigit())
+                for side in (0, 1):
+                    run("ip", "netns", "exec", names[0], "iptables", "-D", "FORWARD", "-p", "udp",
+                        "-s", PUBLIC[side], "-d", PUBLIC[1-side], "-j", "DROP")
             exits = [process.wait(timeout=max(1, deadline - time.monotonic())) for process in processes]
             assert exits == [0, 0], (directory, exits)
         stats = run("ip", "netns", "exec", names[0], "iptables", "-nvxL", "FORWARD")
@@ -202,6 +216,12 @@ def cell(binary, output, case, visitor, trial):
         if restricted:
             return restricted_result(directory, case, visitor, trial, stats)
         a, b = (read_result(directory / f"{role}.log") for role in "ab")
+        if case == "standby-retry":
+            assert all(a[key] == b[key] for key in ("attempt", "failed", "winner", "stream"))
+            assert a["success"] and b["success"] and a["failed"] != a["winner"]
+            result = {"case": case, "visit": "ab"[visitor], "trial": trial, "ends": [a,b]}
+            (directory / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+            return result
         for field in ("round", "attempt", "stream", "mode", "index", "success"):
             assert a[field] == b[field], (field, a, b)
         assert a["frp_role"] != b["frp_role"]
@@ -249,7 +269,7 @@ def main():
     parser.add_argument("test_binary", type=Path)
     parser.add_argument("evidence", type=Path)
     cases = ("fixed", "fixed-blocked", "validation-blocked", "random", "random-blocked", "random-cancel")
-    parser.add_argument("--case", action="append", choices=(*cases, "fixed-auto", "restricted-fixed", "restricted-fixed-blocked"))
+    parser.add_argument("--case", action="append", choices=(*cases, "fixed-auto", "standby-retry", "restricted-fixed", "restricted-fixed-blocked"))
     parser.add_argument("--random-trials", type=int, default=2)
     args = parser.parse_args()
     binary = args.test_binary.resolve(strict=True)

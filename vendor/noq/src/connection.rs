@@ -2095,7 +2095,9 @@ impl State {
                     // this will happen also for already opened paths
                     self.path_events.send(evt.clone()).ok();
                 }
-                Path(evt @ PathEvent::RemoteStatus { .. }) => {
+                Path(
+                    evt @ (PathEvent::RemoteStatus { .. } | PathEvent::ReturnConfirmed { .. }),
+                ) => {
                     self.path_events.send(evt).ok();
                 }
                 NatTraversal(update) => {

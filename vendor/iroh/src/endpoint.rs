@@ -115,11 +115,12 @@ pub use hooks::{AfterHandshakeOutcome, BeforeConnectOutcome, EndpointHooks};
 pub use member_fusion::{
     IncomingMemberStream, MemberConnection, MemberDialOptions, MemberDirectCandidate,
     MemberFusionAdmission, MemberFusionBuilder, MemberFusionEndpoint, MemberFusionEvent,
-    MemberRepairContacts, MemberStream, MemberStreamLease, MemberUdpConfig, MemberUdpPlan,
-    MemberUdpTraversalReport,
+    MemberRepairContacts, MemberRetention, MemberStream, MemberStreamLease, MemberUdpConfig,
+    MemberUdpPlan, MemberUdpTraversalReport,
 };
 #[cfg(not(wasm_browser))]
 pub use noq::StreamControl;
+pub use noq::PathProbe;
 pub use restricted::{
     AdmissionOutcome, ControlAccepting, ControlConfirmation, ControlConnecting, ControlConnection,
     ControlExchange, ControlHandle, ControlMessageFormat, DataCandidatePath, DataPathPermit,

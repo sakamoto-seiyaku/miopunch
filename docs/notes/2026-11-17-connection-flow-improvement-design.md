@@ -6,6 +6,8 @@
 
 实施父规格：[MIOPUNCH-124](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/70c91dd0-805d-40e1-9ecd-e53f161dd9a9)。任务状态、认领和依赖以 Plane 为准；本文保存设计依据、实现约束与验收定义，不维护进度台账。本版整体替代旧初稿与“最终审核修订”，不再叠加覆盖规则。
 
+2026-11-20 修订：下文的 P=32F 是原实现的取值。现行节点策略以 `enhanced_udp_cooldown_ms` 控制增强 UDP 冷却（保守 160 秒、积极 32 秒），以 `path_retry_base_ms` 控制路径重试（保守 5 秒、积极 1 秒）。两者独立于探索间隔。待命连接见 [ADR 0020](../adr/0020-shared-member-business-connection.md)。
+
 ## 1. 目标与既有保证
 
 沿用 [ADR 0009](../adr/0009-unified-session-and-capability-based-paths.md)：已有可用且获准的直连优先，否则获准 relay 尽快承载业务；后台在同一会话上改善。新路径仍须原会话验证、新鲜 ACK、双方提交与权限检查。默认 Quality 和显式偏好不变，有直连不表示必须胜过质量更好的 relay。
@@ -181,6 +183,7 @@ peer 表按 (peer,class) 隔离，同类互斥，跨类不检查对方 in-flight
 - 路径放弃后恢复资格，真实世代只重置一次，重复通知不绕限，关闭清理状态。
 
 ## 10. MIOPUNCH-130：完整 NAT 轮次预算
+
 
 ### 实施
 

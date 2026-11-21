@@ -223,6 +223,7 @@ struct MemberPaths {
     known_probes: FxHashMap<SocketAddr, Instant>,
     last_exchange: Option<HolepunchAttempt>,
     network_changed_at: Option<Instant>,
+    new_path_probes: FxHashMap<PathId, (Instant, noq::PathProbe)>,
 }
 
 impl MemberPaths {
@@ -234,6 +235,7 @@ impl MemberPaths {
             known_probes: FxHashMap::default(),
             last_exchange: None,
             network_changed_at: None,
+            new_path_probes: FxHashMap::default(),
         }
     }
 }
@@ -1327,6 +1329,7 @@ impl RemoteStateActor {
                     member.known_probes.clear();
                     member.last_exchange = None;
                     member.network_changed_at = Some(now);
+                    member.new_path_probes.clear();
                 }
             }
             self.trigger_holepunching();
@@ -1404,11 +1407,20 @@ impl RemoteStateActor {
                 Some(remote)
             })
             .collect();
+        // An ACK-qualified direct TCP path satisfies standby improvement too.
+        let direct_tcp = member.policy.acked_custom_transports[0];
+        let healthy_tcp = direct_tcp.is_some() && state.paths.iter().any(|(id, binding)| {
+            matches!(binding.remote(), transports::Addr::Custom(addr) if Some(addr.id()) == direct_tcp)
+                && !state.suspect_paths.contains_key(id)
+                && state.may_select(binding)
+                && conn.path(*id).and_then(|p| p.stats().acknowledgment).is_some_and(|ack|
+                    member.network_changed_at.is_none_or(|at| Instant::from(ack.sent_at) > at))
+        });
         let member = state
             .member_paths
             .as_mut()
             .expect("checked member connection");
-        let needs_enhanced = verified.is_empty();
+        let needs_enhanced = verified.is_empty() && !healthy_tcp;
         if !active || (needs_enhanced && member.policy.enhanced_udp_running()) {
             member.policy.needs_enhanced_udp(needs_enhanced);
             return;
@@ -1652,10 +1664,26 @@ impl RemoteStateActor {
                     return;
                 };
 
-                self.state
+                let binding = self
+                    .state
                     .register_and_configure_path(conn_id, conn_state, &path);
-                if conn_state.member_paths.is_some() {
-                    let _ = path.start_probe();
+                if let (Some(member), Some(binding)) = (&mut conn_state.member_paths, binding) {
+                    if binding.is_ip() || binding.is_relay() {
+                        // Keep the new carrier's qualification ACKs on its own binding.
+                        // Either side can release when its new path becomes Available.
+                        if let Ok(probe) = path.start_return_path_probe() {
+                            let interval = self
+                                .state
+                                .reevaluation_interval
+                                .unwrap_or(MEMBER_REEVALUATION_INTERVAL);
+                            let budget = 2 * interval.max(path.stats().probe_timeout);
+                            member
+                                .new_path_probes
+                                .insert(path_id, (Instant::now() + budget, probe));
+                        }
+                    } else {
+                        let _ = path.start_probe();
+                    }
                 }
                 self.select_path();
             }
@@ -1708,6 +1736,7 @@ impl RemoteStateActor {
                     });
                 }
             }
+            NoqPathEvent::ReturnConfirmed { .. } => self.select_path(),
             NoqPathEvent::RemoteStatus { .. } | NoqPathEvent::ObservedAddr { .. } => {
                 // Nothing to do for these events.
             }
@@ -1742,12 +1771,12 @@ impl RemoteStateActor {
                     if state.may_select(address)
                         && let Some(path) = conn.path(*id)
                     {
-                        if health_checks || state.member_paths.is_some() {
-                            // Backups must get their own authentic ACKs even if
-                            // an Available carrier can no longer return them.
-                            let _ = path.start_probe();
-                        } else {
+                        if state.is_native_member_path(address)
+                            || !(health_checks || state.member_paths.is_some())
+                        {
                             let _ = path.ping();
+                        } else {
+                            let _ = path.start_probe();
                         }
                     }
                 }
@@ -1897,6 +1926,7 @@ impl RemoteStateActor {
                 && conn_state.purpose != ConnectionPurpose::Control
             {
                 conn_state.update_path_health(&conn, now, interval);
+                conn_state.confirm_member_backups(&conn, current_id, now, interval);
             }
             let current = current_id.filter(|id| conn_state.path_is_qualified(*id, &conn));
             let context = PathSelectionContext::for_connection(
@@ -2039,6 +2069,14 @@ impl RemoteStateActor {
                     .get_mut(&id)
                     .expect("failed current path is suspect")
                     .retained_for_recovery = true;
+            }
+
+            if let Some(member) = &mut conn_state.member_paths {
+                member.new_path_probes.retain(|id, (deadline, probe)| {
+                    now < *deadline
+                        && !(activated && selected_for_conn == Some(*id))
+                        && probe.is_acknowledged().is_ok()
+                });
             }
 
             // Record the new selected path in the path watcher.
@@ -2834,21 +2872,89 @@ enum ConnectionPurpose {
 }
 
 impl ConnectionState {
+    fn is_native_member_path(&self, binding: &transports::PathBinding) -> bool {
+        self.member_paths.is_some() && (binding.is_ip() || binding.is_relay())
+    }
+
+    fn binding_matches(&self, binding: &transports::PathBinding, live: noq::FourTuple) -> bool {
+        self.mapped_addrs.to_transport_tuple(&live).as_ref() == Some(binding)
+    }
+
+    fn has_recent_return(
+        &self,
+        binding: &transports::PathBinding,
+        path: &noq::Path,
+        now: Instant,
+        window: Duration,
+    ) -> bool {
+        path.return_evidence().is_some_and(|(live, received)| {
+            self.binding_matches(binding, live)
+                && now.saturating_duration_since(received.into()) <= window
+        })
+    }
+
+    fn confirm_member_backups(
+        &self,
+        conn: &noq::Connection,
+        selected: Option<PathId>,
+        now: Instant,
+        interval: Duration,
+    ) {
+        let Some(selected) = selected else { return };
+        if self.member_paths.is_none()
+            || self.purpose != ConnectionPurpose::Ordinary
+            || (!self.suspect_paths.contains_key(&selected)
+                && conn
+                    .path_stats(selected)
+                    .is_none_or(|stats| stats.pto_count == 0))
+        {
+            return;
+        }
+        for (id, binding) in &self.paths {
+            if *id != selected
+                && self.is_native_member_path(binding)
+                && self.path_is_qualified(*id, conn)
+                && let Some(path) = conn.path(*id)
+                && let Ok(live) = path.network_path()
+                && self.binding_matches(binding, live)
+            {
+                let budget = 2 * interval.max(path.stats().probe_timeout);
+                if !self.has_recent_return(binding, &path, now, budget) {
+                    let _ = path.start_confirmation(live, budget);
+                }
+            }
+        }
+    }
+
     fn update_path_health(&mut self, conn: &noq::Connection, now: Instant, interval: Duration) {
         let paths: Vec<_> = self
             .paths
             .iter()
-            .filter_map(|(id, path)| {
-                if self.may_select(path)
+            .filter_map(|(id, binding)| {
+                if self.may_select(binding)
                     && let Some(path) = conn.path(*id)
                 {
-                    Some((*id, path.stats()))
+                    let stats = path.stats();
+                    let progress = self.is_native_member_path(binding)
+                        && path.confirmation().is_some_and(|(live, received)| {
+                            self.binding_matches(binding, live)
+                                && now.saturating_duration_since(received.into())
+                                    < interval.max(2 * stats.probe_timeout)
+                                && stats
+                                    .ack_pending_since
+                                    .is_none_or(|pending| pending <= received)
+                        });
+                    Some((*id, stats, progress))
                 } else {
                     None
                 }
             })
             .collect();
-        for (id, stats) in &paths {
+        for (id, stats, progress) in &paths {
+            if *progress {
+                self.suspect_paths.remove(id);
+                continue;
+            }
             if self.suspect_paths.get(id).is_some_and(|suspect| {
                 stats
                     .acknowledgment
@@ -2871,14 +2977,14 @@ impl ConnectionState {
             })
         };
         if self.member_paths.is_some()
-            || paths.iter().any(|(id, stats)| {
+            || paths.iter().any(|(id, stats, _)| {
                 !self.suspect_paths.contains_key(id)
                     && !stalled(stats)
                     && has_fresh_ack(stats, now, interval)
             })
         {
-            for (id, stats) in paths {
-                if stalled(&stats) {
+            for (id, stats, progress) in paths {
+                if !progress && stalled(&stats) {
                     self.suspect_paths
                         .entry(id)
                         .or_insert_with(|| SuspectPath::new(now));
@@ -2927,7 +3033,12 @@ impl ConnectionState {
     fn path_is_qualified(&self, id: PathId, conn: &noq::Connection) -> bool {
         self.paths.get(&id).is_some_and(|path| {
             self.may_select(path)
-                && conn.path(id).is_some()
+                && conn.path(id).is_some_and(|live| {
+                    !self.is_native_member_path(path)
+                        || live
+                            .network_path()
+                            .is_ok_and(|live| self.binding_matches(path, live))
+                })
                 && (!self.requires_path_ack(path)
                     || conn
                         .path_stats(id)
@@ -3003,6 +3114,9 @@ impl ConnectionState {
     ) -> Option<transports::PathBinding> {
         let addr = self.paths.remove(path_id)?;
         self.suspect_paths.remove(path_id);
+        if let Some(member) = &mut self.member_paths {
+            member.new_path_probes.remove(path_id);
+        }
         self.path_state.record_abandoned(*path_id, conn);
         Some(addr)
     }
@@ -3177,7 +3291,23 @@ impl<'a> PathSelectionContext<'a> {
                                     state.path_state.selected_id().is_none_or(|current| {
                                         state.suspect_paths.contains_key(&current)
                                     });
-                                if suspect
+                                // A fresh same-binding response proves a backup can carry
+                                // this direction even when its ordinary ACKs use the failed path.
+                                let needs_response = !current
+                                    && current_suspect
+                                    && state.path_state.selected_id().is_some()
+                                    && state.purpose == ConnectionPurpose::Ordinary
+                                    && state.is_native_member_path(addr);
+                                let confirmed = needs_response
+                                    && self.health_window.is_some_and(|(now, interval)| {
+                                        conn.path(*id).is_some_and(|path| {
+                                            let window =
+                                                2 * interval.max(path.stats().probe_timeout);
+                                            state.has_recent_return(addr, &path, now, window)
+                                        })
+                                    });
+                                if (needs_response && !confirmed)
+                                    || (suspect && !confirmed)
                                     || (addr.is_ip()
                                         && member.network_changed_at.is_some_and(|changed| {
                                             !conn
@@ -3187,9 +3317,11 @@ impl<'a> PathSelectionContext<'a> {
                                                     Instant::from(ack.sent_at) > changed
                                                 })
                                         }))
-                                    || ((state.requires_path_ack(addr)
-                                        || (!current && (current_suspect || addr.is_ip())))
-                                        && !conn.path_stats(*id)
+                                    || (!confirmed
+                                        && (state.requires_path_ack(addr)
+                                            || (!current && (current_suspect || addr.is_ip())))
+                                        && !conn
+                                            .path_stats(*id)
                                             .is_some_and(|stats| self.has_fresh_ack(&stats)))
                                 {
                                     return None;

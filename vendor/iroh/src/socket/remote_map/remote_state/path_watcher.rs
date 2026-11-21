@@ -516,6 +516,23 @@ impl<'conn> Path<'conn> {
             .map_err(std::io::Error::other)
     }
 
+    /// Confirm a new packet on this binding with ordinary cross-path ACK scheduling.
+    pub fn start_fresh_probe(&self) -> std::io::Result<noq::PathProbe> {
+        self.data
+            .upgrade(self.conn)
+            .start_fresh_probe()
+            .map_err(std::io::Error::other)
+    }
+
+    /// Confirm the ACK returns on this binding and return its own Backup ACKs
+    /// locally until this validation handle is dropped.
+    pub fn start_return_path_probe(&self) -> std::io::Result<noq::PathProbe> {
+        self.data
+            .upgrade(self.conn)
+            .start_return_path_probe()
+            .map_err(std::io::Error::other)
+    }
+
     #[cfg(not(wasm_browser))]
     pub(crate) fn observe_stream_receive(
         &self,

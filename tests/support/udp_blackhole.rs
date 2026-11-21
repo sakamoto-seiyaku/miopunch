@@ -16,6 +16,13 @@ impl UdpBlackhole {
         filter
     }
 
+    #[allow(dead_code)]
+    pub fn one_way(from: SocketAddr, to: SocketAddr) -> Self {
+        let mut filter = Self(Vec::new());
+        filter.add(from, to, false);
+        filter
+    }
+
     /// Keep the short outbound QNT challenge and the inbound matching response.
     /// Block the padded QUIC 1200-byte validation packet that follows the probe.
     #[allow(dead_code)]

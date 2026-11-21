@@ -53,11 +53,20 @@ async fn active_original_application_members_requalify_tcp_after_path_retirement
 }
 
 #[cfg(target_os = "linux")]
+#[tokio::test]
+async fn application_standby_tcp_retry_is_independent_of_sync() {
+    for interval in [1_000, 30_000] {
+        observed_tcp_on_application_members(TcpRound::StandbyRetry(interval)).await;
+    }
+}
+
+#[cfg(target_os = "linux")]
 enum TcpRound {
     Commit,
     Cancel,
     RetryAfterNetworkChange,
     RetryAfterCooldown,
+    StandbyRetry(u64),
     Requalify,
 }
 
@@ -113,10 +122,13 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
         .await
         .unwrap();
     let relay_url = relay.http_url().unwrap();
-    let cooldown_retry = matches!(scenario, TcpRound::RetryAfterCooldown);
+    let cooldown_retry = matches!(
+        scenario,
+        TcpRound::RetryAfterCooldown | TcpRound::StandbyRetry(_)
+    );
     let requalify = matches!(scenario, TcpRound::Requalify);
     let retry = cooldown_retry || matches!(scenario, TcpRound::RetryAfterNetworkChange);
-    let exploration_interval = Duration::from_millis(600);
+    let retry_interval = Duration::from_millis(600);
     let (observer, listener, mut sources) =
         tcp_binding_observer::tcp_binding_observer_with_sources(None, usize::from(retry) * 2).await;
     for node in [&consumer, &provider] {
@@ -138,7 +150,14 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
         config.path_selection.preference = PathPreference::PreferDirect;
         config.maintenance.quality_interval_ms = 250;
         if cooldown_retry || requalify {
-            config.maintenance.exploration_interval_ms = exploration_interval.as_millis() as u64;
+            config.maintenance.exploration_interval_ms = match scenario {
+                TcpRound::StandbyRetry(interval) => interval,
+                _ => 30_000,
+            };
+            config.maintenance.path_retry_base_ms = retry_interval.as_millis() as u64;
+        }
+        if matches!(scenario, TcpRound::Cancel) {
+            config.maintenance.max_standby_member_connections = 0;
         }
         config.maintenance.contact_timeout_ms = 8_000;
         node.save_resource_configuration(&config).unwrap();
@@ -184,6 +203,24 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
             .iter()
             .all(|m| m.initial_data_path() == &relay_path)
     );
+    if let TcpRound::StandbyRetry(_) = scenario {
+        timeout(Duration::from_secs(6), async {
+            for _ in 0..2 { assert!(observed.contains(&sources.recv().await.unwrap())); }
+            let failed = Instant::now();
+            for _ in 0..2 { assert!(observed.contains(&sources.recv().await.unwrap())); }
+            assert!(failed.elapsed() >= retry_interval * 2 - Duration::from_millis(80));
+            while !originals.iter().all(|conn| conn.paths().iter().any(|p|
+                p.is_selected() && matches!(p.remote_addr(), TransportAddr::Custom(addr) if addr.id() == miopunch_native_probe::tcp_transport::DATA_TRANSPORT_ID) && p.stats().acknowledgment.is_some())) {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            let (a,b) = tokio::join!(originals[0].open_bi(), originals[1].accept_bi());
+            echo(&mut a.unwrap(), &mut b.unwrap(), 158).await;
+        }).await.expect("standby TCP retries without stream traffic or ping");
+        tokio::join!(consumer.close(), provider.close());
+        listener.abort();
+        relay.shutdown().await.unwrap();
+        return;
+    }
     let suppressed = Arc::new(AtomicBool::new(true));
     let path_id = noq_proto::PathId::from(1u8);
     let generations =
@@ -239,7 +276,7 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
             );
             let elapsed = first_round.elapsed();
             assert!(
-                elapsed >= exploration_interval * 2 - Duration::from_millis(50),
+                elapsed >= retry_interval * 2 - Duration::from_millis(50),
                 "{elapsed:?}"
             );
             assert!(request_count >= 2);
@@ -1212,6 +1249,64 @@ impl iroh::protocol::ProtocolHandler for ObserveReplica {
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
+async fn replica_sync_cadence_follows_only_exploration_interval() {
+    use miopunch_native_probe::{admission_gate::ProtocolScope, offline_replica::REPLICA_ALPN};
+    use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+    let dir = tempfile::tempdir().unwrap();
+    let mut admin = NativeNetwork::create(dir.path().join("admin"))
+        .await
+        .unwrap();
+    let path = dir.path().join("client");
+    let node = join(&mut admin, &path).await;
+    node.close().await;
+    admin
+        .admission_gate()
+        .register_protocol(REPLICA_ALPN, ProtocolScope::Member);
+    let mut config = admin.resource_configuration().unwrap();
+    config.replacement = Some(vec![]);
+    admin.save_resource_configuration(&config).unwrap();
+    let endpoint = admin
+        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let address = endpoint.addr();
+    let syncs = Arc::new(AtomicUsize::new(0));
+    let router = iroh::protocol::RestrictedRouter::builder(endpoint.endpoint().clone())
+        .accept(
+            REPLICA_ALPN,
+            ObserveReplica {
+                node: Arc::new(admin),
+                syncs: syncs.clone(),
+            },
+        )
+        .spawn();
+    for interval in [1_000, 30_000] {
+        let client = NativeNetwork::open(&path).await.unwrap();
+        config.maintenance.exploration_interval_ms = interval;
+        client.save_resource_configuration(&config).unwrap();
+        let before = syncs.load(SeqCst);
+        let client = client
+            .maintain_application_network(Ipv4Addr::LOCALHOST, |b| b)
+            .await
+            .unwrap();
+        client.offer_contact(address.clone()).await.unwrap();
+        wait_neighbors(&client, 1).await;
+        assert!(syncs.load(SeqCst) > before);
+        let first = syncs.load(SeqCst);
+        tokio::time::sleep(Duration::from_millis(2500)).await;
+        let repeats = syncs.load(SeqCst) - first;
+        if interval == 1000 {
+            assert!(repeats >= 1);
+        } else {
+            assert_eq!(repeats, 0);
+        }
+        client.close().await;
+    }
+    router.shutdown().await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
 async fn relay_member_improves_during_the_original_business_lease() {
     use iroh::{EndpointAddr, TransportAddr};
     use miopunch_native_probe::{
@@ -1273,6 +1368,8 @@ async fn relay_member_improves_during_the_original_business_lease() {
         ]);
         config.tcp_listen = Some((Ipv4Addr::LOCALHOST, 0).into());
         config.maintenance.exploration_interval_ms = floor;
+        config.maintenance.path_retry_base_ms = floor;
+        config.maintenance.enhanced_udp_cooldown_ms = 32 * floor;
         config.maintenance.quality_interval_ms = 250;
         config.path_selection.preference =
             miopunch_native_probe::path_selection::PathPreference::PreferDirect;
@@ -1591,6 +1688,8 @@ async fn only_a_real_network_generation_restarts_failed_member_pacing() {
         }]);
         config.udp_direct_disabled = floor == 60_000;
         config.maintenance.exploration_interval_ms = floor;
+        config.maintenance.path_retry_base_ms = floor;
+        config.maintenance.enhanced_udp_cooldown_ms = 32 * floor;
         config.maintenance.contact_timeout_ms = 5_000;
         node.save_resource_configuration(&config).unwrap();
     }

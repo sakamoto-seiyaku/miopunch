@@ -1339,7 +1339,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn periodic_probes_do_not_renew_the_original_members_idle_budget() {
+    async fn periodic_probes_reuse_the_standby_member_after_foreground_release() {
         let directory = FixtureDirectory::new();
         let (client, server) = admitted_nodes(&directory.0).await;
         for node in [&client, &server] {
@@ -1425,10 +1425,16 @@ mod tests {
             .unwrap();
         let idle = Instant::now();
         drop((foreground, incoming_foreground));
-        let reason = timeout(Duration::from_millis(3_700), original.closed())
-            .await
-            .expect("periodic demo probes must not extend the original idle budget");
-        assert!(idle.elapsed() >= Duration::from_millis(2_900), "{reason:?}");
+        tokio::time::sleep(Duration::from_millis(3_700)).await;
+        assert!(original.close_reason().is_none());
+        assert_eq!(
+            client
+                .connect_member(server.addr())
+                .await
+                .unwrap()
+                .stable_id(),
+            local.stable_id()
+        );
         let successes = probe.observations.lock().unwrap().peers["server"]["successes"]
             .as_u64()
             .unwrap();

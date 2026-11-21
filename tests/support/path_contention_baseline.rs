@@ -241,6 +241,8 @@ async fn scenario(independent: bool) {
         config.tcp_direct_disabled = true;
         config.member_data_relay_disabled = true;
         config.maintenance.exploration_interval_ms = FLOOR.as_millis() as u64;
+        config.maintenance.path_retry_base_ms = FLOOR.as_millis() as u64;
+        config.maintenance.enhanced_udp_cooldown_ms = COOLDOWN.as_millis() as u64;
         node.save_resource_configuration(&config).unwrap();
         let connector = node.udp_connector().clone();
         connector.set_udp_enabled(false);

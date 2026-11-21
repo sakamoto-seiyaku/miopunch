@@ -1330,17 +1330,192 @@ async fn matching_probe_without_quic_path_validation_keeps_healthy_relay() {
     pair.close().await;
 }
 
+#[tokio::test]
+async fn slow_backup_acks_follow_the_lifetime_of_return_path_validation() {
+    let pair = Pair::new(
+        LOOPBACK,
+        Duration::from_millis(100),
+        PathPreference::Quality,
+    )
+    .await;
+    let before = Instant::now();
+    let mut stream = OriginalStream::open(&pair.connections[0], &pair.connections[1], 0).await;
+    qualified_udp(&pair.connections, pair.addresses(), before, true).await;
+    let lists = pair.connections.each_ref().map(MemberConnection::paths);
+    let [a, b] = lists
+        .each_ref()
+        .map(|paths| paths.iter().find(|path| path.is_relay()).unwrap());
+    let primary = lists[1]
+        .iter()
+        .find(|path| path.is_selected() && path.is_ip())
+        .unwrap();
+    let observe = async |own: bool| {
+        let counts = || {
+            [
+                primary.stats().frame_tx.path_acks,
+                b.stats().frame_tx.path_acks,
+            ]
+        };
+        let initial = counts();
+        let probe = a.start_fresh_probe().unwrap();
+        wait_for(
+            "fresh packet acknowledged over the delayed backup",
+            BUSINESS_LIMIT,
+            || probe.is_acknowledged().unwrap(),
+        )
+        .await;
+        let after = counts();
+        assert!(after[usize::from(own)] > initial[usize::from(own)]);
+        if !own {
+            assert_eq!(after[1], initial[1]);
+        }
+    };
+    observe(false).await;
+    let first = b.start_return_path_probe().unwrap();
+    let second = b.start_return_path_probe().unwrap();
+    let client = a.start_return_path_probe().unwrap();
+    wait_for(
+        "both peers authenticated returning ACKs on the same relay binding",
+        BUSINESS_LIMIT,
+        || client.is_acknowledged().unwrap() && second.is_acknowledged().unwrap(),
+    )
+    .await;
+    drop(first);
+    observe(true).await;
+    drop(client);
+    // Cancelling an outstanding waiter drops the last validation handle.
+    let task = tokio::spawn(async move {
+        std::future::pending::<()>().await;
+        drop(second);
+    });
+    task.abort();
+    assert!(task.await.unwrap_err().is_cancelled());
+    observe(false).await;
+    stream.round_trip(1).await;
+    pair.close().await;
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+#[ignore = "requires a disposable network namespace with UDP filters"]
+async fn ack_return_does_not_promote_a_relay_with_expired_proof() {
+    let pair = Pair::new(LOOPBACK, LOW_RELAY_DELAY, PathPreference::Quality).await;
+    let before = Instant::now();
+    let mut stream = OriginalStream::open(&pair.connections[0], &pair.connections[1], 0).await;
+    let sockets = pair.addresses();
+    let direct = qualified_udp(&pair.connections, sockets, before, true).await;
+    let proof_window = pair
+        .connections
+        .iter()
+        .map(|conn| {
+            let paths = conn.paths();
+            let relay = paths.iter().find(|p| p.is_relay()).unwrap();
+            assert!(relay.stats().acknowledgment.is_some());
+            2 * Duration::from_secs(1).max(relay.stats().probe_timeout)
+        })
+        .max()
+        .unwrap();
+    pair.delay.cancel();
+    time::sleep(proof_window + Duration::from_millis(150)).await;
+    let blackhole = UdpBlackhole::new(sockets);
+    let ((), ()) = tokio::join!(
+        async {
+            time::timeout(BUSINESS_LIMIT, stream.round_trip(2))
+                .await
+                .unwrap();
+        },
+        async {
+            for _ in 0..15 {
+                time::sleep(Duration::from_millis(200)).await;
+                for (side, conn) in pair.connections.iter().enumerate() {
+                    let paths = conn.paths();
+                    assert!(paths.get(direct[side]).unwrap().is_selected());
+                }
+            }
+            drop(blackhole);
+        }
+    );
+    pair.close().await;
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+#[ignore = "requires disposable network namespace with UDP packet filters"]
+async fn ack_return_original_stream_during_one_way_udp_loss() {
+    use futures_util::StreamExt;
+    let pair = Pair::new(LOOPBACK, LOW_RELAY_DELAY, PathPreference::Quality).await;
+    let ids = pair.connections.each_ref().map(MemberConnection::stable_id);
+    let start = Instant::now();
+    let mut stream = OriginalStream::open(&pair.connections[0], &pair.connections[1], 0).await;
+    let sockets = pair.addresses();
+    let direct = qualified_udp(&pair.connections, sockets, start, true).await;
+    stream.round_trip(1).await;
+    let events = pair.connections.each_ref().map(|c| c.test_path_events());
+    let frame_counts = |c: &MemberConnection| {
+        let paths = c.paths();
+        [false, true].map(|relay| paths.iter().find(|p| p.is_relay() == relay).unwrap()
+            .stats().frame_tx.stream)
+    };
+    let initial = pair.connections.each_ref().map(frame_counts);
+    let spec = std::env::var("MIO_ACK_ONE_WAY").unwrap_or_else(|_| "short-server".into());
+    let (sender, duration) = match spec.as_str() {
+        "short-client" => (0, Duration::from_millis(1500)),
+        "short-server" => (1, Duration::from_millis(1500)),
+        "held-client" => (0, Duration::from_secs(5)),
+        _ => panic!("unknown one-way scenario {spec}"),
+    };
+    let blocked = UdpBlackhole::one_way(sockets[sender], sockets[1 - sender]);
+    let cut = Instant::now();
+    let tasks = events.into_iter().enumerate().map(|(side, mut events)| tokio::spawn(async move {
+        while let Some(event) = events.next().await {
+            if let iroh::endpoint::PathEvent::Selected { id, remote_addr, .. } = event {
+                eprintln!("ACK_DIRECTION side={side} path={id} relay={} after_ms={}", remote_addr.is_relay(), cut.elapsed().as_millis());
+            }
+        }
+    })).collect::<Vec<_>>();
+    let (mid_fault, ()) = tokio::join!(
+        async {
+            time::sleep_until(cut + duration).await;
+            let mid_fault = pair.connections.each_ref().map(frame_counts);
+            drop(blocked);
+            mid_fault
+        },
+        async {
+            for sequence in 2..=12 {
+                let sent = Instant::now();
+                time::timeout(Duration::from_secs(3), stream.round_trip(sequence)).await
+                    .unwrap_or_else(|_| panic!("sequence {sequence} exceeded the heartbeat deadline"));
+                eprintln!("ACK_ONE_WAY case={spec} seq={sequence} rtt_ms={}", sent.elapsed().as_millis());
+                time::sleep(Duration::from_millis(if sender == 0 && duration > Duration::from_secs(3) { 400 } else { 25 })).await;
+            }
+        }
+    );
+    let stream_tx_delta = [0, 1].map(|side| [0, 1].map(|kind| mid_fault[side][kind] - initial[side][kind]));
+    if spec == "held-client" {
+        assert!(stream_tx_delta[sender][1] > 0, "the affected sender must carry original traffic on relay while direct UDP is still blocked");
+    }
+    eprintln!("ACK_ONE_WAY_PATHS case={spec} original={ids:?} stream={} direct={direct:?} udp_and_relay_tx={stream_tx_delta:?}", stream.stream_id);
+    assert_eq!(ids, pair.connections.each_ref().map(MemberConnection::stable_id));
+    drop(stream);
+    pair.close().await;
+    for task in tasks { task.await.unwrap(); }
+}
+
 #[cfg(target_os = "linux")]
 #[tokio::test]
 #[ignore = "requires the lab's disposable network namespace and UDP packet filters"]
 async fn udp_blackhole_recovers_the_fused_original_with_continuous_and_single_writes() {
-    for (delay, continuous) in [
+    for (case, (delay, continuous)) in [
         (LOW_RELAY_DELAY, true),
         (LOW_RELAY_DELAY, false),
         (HIGH_RELAY_DELAY, true),
         (HIGH_RELAY_DELAY, false),
-    ] {
+    ].into_iter().enumerate() {
+        if std::env::var("MIO_ACK_HARD_CASE").ok().is_some_and(|value| value.parse::<usize>().unwrap() != case) {
+            continue;
+        }
         let pair = Pair::new(LOOPBACK, delay, PathPreference::PreferDirect).await;
+        let ids = pair.connections.each_ref().map(MemberConnection::stable_id);
         let before = Instant::now();
         let mut stream = time::timeout(
             BUSINESS_LIMIT,
@@ -1361,6 +1536,62 @@ async fn udp_blackhole_recovers_the_fused_original_with_continuous_and_single_wr
         .await;
         let blackhole = UdpBlackhole::new(sockets);
         let cut = Instant::now();
+        eprintln!(
+            "ACK_CUT delay_ms={} continuous={continuous} ids={ids:?} stream={}",
+            delay.as_millis(),
+            stream.stream_id
+        );
+        let timeline = (std::env::var_os("MIO_ACK_TIMELINE").is_some()).then(|| {
+            let connections = pair.connections.clone();
+            tokio::spawn(async move {
+                let since_cut_ms = |instant: std::time::Instant| {
+                    if instant >= cut.into_std() {
+                        instant.duration_since(cut.into_std()).as_millis() as i64
+                    } else {
+                        -(cut.into_std().duration_since(instant).as_millis() as i64)
+                    }
+                };
+                let mut previous = [Vec::new(), Vec::new()];
+                loop {
+                    for (side, conn) in connections.iter().enumerate() {
+                        for (idx, path) in conn.paths().iter().enumerate() {
+                            let stats = path.stats();
+                            let status = (path.id(), stats.pto_count, stats.ack_pending_since.map(since_cut_ms),
+                                stats.acknowledgment.map(|ack| since_cut_ms(ack.received_at)),
+                                stats.frame_tx.path_challenge, stats.frame_rx.path_response);
+                            if previous[side].get(idx) == Some(&status) {
+                                continue;
+                            }
+                            if idx == previous[side].len() {
+                                previous[side].push(status);
+                            } else {
+                                previous[side][idx] = status;
+                            }
+                            eprintln!("ACK_PROGRESS t_ms={} side={side} relay={} pto_base_ms={} (path,pto,pending,ack,challenge,response)={status:?}",
+                                cut.elapsed().as_millis(), path.is_relay(), stats.probe_timeout.as_millis());
+                        }
+                    }
+                    time::sleep(Duration::from_millis(10)).await;
+                }
+            })
+        });
+        let events = pair.connections.each_ref().map(|connection| {
+            use futures_util::StreamExt;
+            use iroh::endpoint::PathEvent;
+            let mut events = connection.test_path_events();
+            let stable = connection.stable_id();
+            tokio::spawn(async move {
+                while let Some(event) = events.next().await {
+                    match event {
+                        PathEvent::Selected { id, remote_addr, .. } =>
+                            eprintln!("CUT selected original={stable} path={id} remote={remote_addr:?} after={:?}", cut.elapsed()),
+                        PathEvent::Closed { id, remote_addr, .. } =>
+                            eprintln!("CUT retired original={stable} path={id} remote={remote_addr:?} after={:?}", cut.elapsed()),
+                        _ => {}
+                    }
+                }
+            })
+        });
         let deadline = cut + BUSINESS_LIMIT;
         let last_sequence = if continuous {
             (BUSINESS_LIMIT.as_millis() / SEND_INTERVAL.as_millis()) as u64
@@ -1371,7 +1602,7 @@ async fn udp_blackhole_recovers_the_fused_original_with_continuous_and_single_wr
         let (reply, request) = stream.incoming.streams();
         assert_eq!(send.id(), stream.stream_id);
         assert_eq!(request.id(), stream.stream_id);
-        let (_, first_byte, ()) = tokio::join!(
+        let (_, first_reply, first_byte) = tokio::join!(
             async {
                 let mut cadence = time::interval_at(cut, SEND_INTERVAL);
                 cadence.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
@@ -1384,10 +1615,11 @@ async fn udp_blackhole_recovers_the_fused_original_with_continuous_and_single_wr
                 let mut data = [0; 8];
                 time::timeout_at(deadline, recv.read_exact(&mut data))
                     .await
-                    .expect("original bytes must recover before the fixed six-second deadline")
+                    .expect("original reply must recover within the six-second deadline")
                     .unwrap();
                 let first_byte = Instant::now();
                 assert_eq!(data, 1u64.to_be_bytes());
+                eprintln!("ACK_FIRST_REPLY {}ms", (first_byte - cut).as_millis());
                 for sequence in 2..=last_sequence {
                     time::timeout_at(deadline + BUSINESS_LIMIT, recv.read_exact(&mut data))
                         .await
@@ -1399,7 +1631,19 @@ async fn udp_blackhole_recovers_the_fused_original_with_continuous_and_single_wr
             },
             async {
                 let mut data = [0; 8];
-                for sequence in 1..=last_sequence {
+                time::timeout_at(deadline, request.read_exact(&mut data[..1]))
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let delivered = Instant::now();
+                eprintln!("ACK_FIRST_BYTE {}ms", (delivered - cut).as_millis());
+                time::timeout_at(deadline, request.read_exact(&mut data[1..]))
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(data, 1u64.to_be_bytes());
+                reply.write_all(&data).await.unwrap();
+                for sequence in 2..=last_sequence {
                     time::timeout_at(deadline + BUSINESS_LIMIT, request.read_exact(&mut data))
                         .await
                         .unwrap()
@@ -1407,19 +1651,27 @@ async fn udp_blackhole_recovers_the_fused_original_with_continuous_and_single_wr
                     assert_eq!(data, sequence.to_be_bytes());
                     reply.write_all(&data).await.unwrap();
                 }
+                delivered
             }
         );
+        if let Some(timeline) = timeline {
+            timeline.abort();
+            let _ = timeline.await;
+        }
         let until = Instant::now().max(first_byte + Duration::from_secs(3));
         loop {
             for (side, connection) in pair.connections.iter().enumerate() {
                 assert!(relay_is_selected(connection, &pair.url));
                 let current = connection.paths();
-                let path = current
-                    .iter()
-                    .find(|path| path.id() == direct[side])
-                    .expect("retained original direct binding");
-                assert!(!path.is_selected());
-                assert!(path.stats().acknowledgment.unwrap().sent_at < cut.into_std());
+                if let Some(path) = current.iter().find(|path| path.id() == direct[side]) {
+                    assert!(!path.is_selected());
+                    assert!(
+                        path.stats()
+                            .acknowledgment
+                            .is_none_or(|ack| ack.sent_at < cut.into_std())
+                    );
+                }
+                assert!(connection.close_reason().is_none());
             }
             if Instant::now() >= until {
                 break;
@@ -1428,19 +1680,25 @@ async fn udp_blackhole_recovers_the_fused_original_with_continuous_and_single_wr
         }
         let release = Instant::now();
         drop(blackhole);
+        let restored = qualified_udp(&pair.connections, sockets, release, true).await;
         assert_eq!(
-            qualified_udp(&pair.connections, sockets, release, true).await,
-            direct
+            ids,
+            pair.connections.each_ref().map(MemberConnection::stable_id)
         );
         time::timeout(BUSINESS_LIMIT, stream.round_trip(last_sequence + 1))
             .await
             .unwrap();
         eprintln!(
-            "MIO147 blackhole relay_leg={delay:?} continuous={continuous} first_original_reply={:?} stream={} direct={direct:?}",
+            "MIO147 blackhole relay_leg={delay:?} continuous={continuous} first_byte={:?} first_original_reply={:?} within_six={} stream={} original={ids:?} direct={direct:?} restored={restored:?}",
             first_byte - cut,
+            first_reply - cut,
+            first_reply - cut <= BUSINESS_LIMIT,
             stream.stream_id
         );
         pair.close().await;
+        for task in events {
+            task.await.unwrap();
+        }
     }
 }
 

@@ -44,6 +44,7 @@ pub(in crate::endpoint) struct PathCandidates {
     learned: Mutex<(ObservationValidity, BTreeSet<TransportAddr>)>,
     traversal: Option<(Duration, Duration)>,
     node_traversal_slot: Arc<tokio::sync::Mutex<()>>,
+    activity: Arc<super::Activity>,
     last_traversal: Mutex<Option<(ObservationValidity, time::Instant)>>,
 }
 
@@ -166,6 +167,23 @@ impl PathCandidates {
         let (budget, interval) = self.traversal.ok_or(io::ErrorKind::Unsupported)?;
         let deadline = time::Instant::now() + budget;
         let generation = self.endpoint.udp_network_generation();
+        let yield_standby = async {
+            if self.activity.standby.is_none() {
+                return std::future::pending().await;
+            }
+            let mut foreground = self.activity.planner.foreground();
+            let mut local = self.activity.subscribe();
+            loop {
+                let busy = *foreground.borrow_and_update();
+                if busy && self.activity.idle_since().is_some() {
+                    break;
+                }
+                tokio::select! {
+                    _ = foreground.changed() => {},
+                    _ = local.changed() => {},
+                }
+            }
+        };
         let work = async {
             // Outgoing work waits for the existing node owner before opening
             // a stream. An incoming attempt never waits while its peer holds
@@ -218,6 +236,7 @@ impl PathCandidates {
         };
         tokio::select! { biased;
             _ = self.endpoint.inner.wait_network_generation_change(&generation) => Err(io::ErrorKind::Interrupted.into()),
+            _ = yield_standby => Err(io::ErrorKind::WouldBlock.into()),
             result = work => result,
         }
     }
@@ -252,7 +271,7 @@ impl PathCandidates {
                 .iter()
                 .find(|path| path.remote_addr() == &remote)
                 .ok_or(io::ErrorKind::NotConnected)?
-                .start_probe()?;
+                .start_fresh_probe()?;
             while !probe.is_acknowledged().map_err(io::Error::other)? {
                 check()?;
                 time::sleep(Duration::from_millis(15)).await;
@@ -289,7 +308,7 @@ impl PathCandidates {
 pub(in crate::endpoint) fn watch_path_candidates(
     endpoint: Endpoint,
     connection: Connection,
-    activity: watch::Receiver<bool>,
+    activity: Arc<super::Activity>,
     direct: Option<u64>,
     member_relay: Option<u64>,
     native_relay: bool,
@@ -320,9 +339,15 @@ pub(in crate::endpoint) fn watch_path_candidates(
         learned: Mutex::new((generation, BTreeSet::new())),
         traversal,
         node_traversal_slot,
+        activity: activity.clone(),
         last_traversal: Default::default(),
     });
-    tokio::spawn(watch(connection, activity, candidates.clone(), receiver));
+    tokio::spawn(watch(
+        connection,
+        activity.path_activity.subscribe(),
+        candidates.clone(),
+        receiver,
+    ));
     Some(candidates)
 }
 
@@ -618,7 +643,7 @@ async fn validate(
             .iter()
             .find(|path| path.id() == candidate.id() && path.remote_addr() == &remote)
         {
-            break path.start_probe()?;
+            break path.start_fresh_probe()?;
         }
     };
     while !probe.is_acknowledged().map_err(io::Error::other)? {

@@ -33,7 +33,7 @@ fn upgrade_cancelled_error() -> io::Error {
 }
 
 fn round_interval(policy: &MaintenancePolicy) -> Duration {
-    Duration::from_millis(policy.exploration_interval_ms) * 32
+    Duration::from_millis(policy.enhanced_udp_cooldown_ms)
 }
 
 /// Local permission and maintenance ceilings. They never shrink a legacy plan.
@@ -127,7 +127,7 @@ impl NatConnector {
         }
     }
 
-    /// Use the node's validated exploration interval for this connector.
+    /// Use the node's validated enhanced round cooldown for this connector.
     pub fn with_maintenance_policy(mut self, policy: &MaintenancePolicy) -> io::Result<Self> {
         policy.validate()?;
         self.round_interval = round_interval(policy);

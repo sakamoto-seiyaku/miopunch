@@ -72,6 +72,17 @@ async fn enhanced_udp_through_translated_members() {
     resources.udp_direct_disabled = false;
     resources.path_selection.preference = PathPreference::Quality;
     resources.maintenance.contact_timeout_ms = budget.as_millis() as u64;
+    if mode == "standby-retry" {
+        resources.maintenance.exploration_interval_ms =
+            if env::var("MIO150_VISITOR").unwrap() == "a" {
+                1_000
+            } else {
+                30_000
+            };
+        resources.maintenance.quality_interval_ms = 250;
+        resources.maintenance.enhanced_udp_cooldown_ms = 1_500;
+        resources.maintenance.path_retry_base_ms = 250;
+    }
     if automatic {
         resources.maintenance.quality_interval_ms = if visitor { 250 } else { 3_000 };
     }
@@ -109,6 +120,59 @@ async fn enhanced_udp_through_translated_members() {
     .unwrap();
     let stable_id = connection.stable_id();
     assert!(relay_is_selected(&connection, &relay_url));
+    if mode == "standby-retry" {
+        let (failed, winner) = time::timeout(Duration::from_secs(40), async {
+            let mut failed = None;
+            loop {
+                if let Some(report) = connection.udp_traversal() {
+                    if report.outcome.is_some_and(|result| result.is_err()) && failed.is_none() {
+                        std::fs::write(root.join(format!("failed-{role}")), []).unwrap();
+                        failed = Some(report.round);
+                    } else if let Some(first) = failed
+                        && first != report.round
+                        && report.validated.is_some()
+                        && connection
+                            .paths()
+                            .iter()
+                            .any(|p| p.is_ip() && p.is_selected())
+                    {
+                        break (first, report.round);
+                    }
+                }
+                time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("standby retry on the original without any stream or ping");
+        let mut stream = if a {
+            connection.open_bi().await.unwrap()
+        } else {
+            connection.accept_bi().await.unwrap()
+        };
+        business(&mut stream, a, 158).await.unwrap();
+        assert_eq!(connection.stable_id(), stable_id);
+        assert!(
+            connection
+                .paths()
+                .iter()
+                .any(|p| p.is_ip() && p.is_selected())
+        );
+        println!(
+            "MIO150 RESULT {}",
+            json!({"success":true,"attempt":hex::encode(member_fusion_attempt_id(&connection).unwrap()),"failed":failed,"winner":winner,"stable":stable_id,"stream":u64::from(stream.streams().0.id())})
+        );
+        std::fs::write(root.join(format!("done-{role}")), []).unwrap();
+        time::timeout(BUSINESS_LIMIT, async {
+            while !root.join(if a { "done-b" } else { "done-a" }).exists() {
+                time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        endpoint.close().await;
+        node.close().await;
+        return;
+    }
     let mut stream = time::timeout(BUSINESS_LIMIT, async {
         if a {
             let mut stream = connection.open_bi().await.unwrap();

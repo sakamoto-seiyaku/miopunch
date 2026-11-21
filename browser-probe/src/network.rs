@@ -1761,47 +1761,8 @@ struct Configuration {
     rtc_ice: Option<crate::rtc_ice_profile::RtcIceProfile>,
 }
 
-/// Browser-persisted maintenance policy. It mirrors the shared native policy
-/// fields so a saved configuration carries the complete operation budget,
-/// while this WASM crate avoids pulling in the native maintenance runtime.
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(default)]
-struct BrowserMaintenancePolicy {
-    exploration_interval_ms: u64,
-    discovery_interval_ms: u64,
-    max_concurrent_contacts: usize,
-    max_neighbors: usize,
-    quality_interval_ms: u64,
-    contact_timeout_ms: u64,
-}
-impl Default for BrowserMaintenancePolicy {
-    fn default() -> Self {
-        Self {
-            exploration_interval_ms: 5_000,
-            discovery_interval_ms: 15_000,
-            max_concurrent_contacts: 1,
-            max_neighbors: 1,
-            quality_interval_ms: 5_000,
-            contact_timeout_ms: crate::connection_budget::DEFAULT_MS,
-        }
-    }
-}
-impl BrowserMaintenancePolicy {
-    fn validate(&self) -> Result<(), JsValue> {
-        if !(250..=60_000).contains(&self.exploration_interval_ms)
-            || !(1_000..=120_000).contains(&self.discovery_interval_ms)
-            || !(1..=8).contains(&self.max_concurrent_contacts)
-            || !(1..=8).contains(&self.max_neighbors)
-            || !(250..=30_000).contains(&self.quality_interval_ms)
-            || !(100..=crate::connection_budget::MAX_MS).contains(&self.contact_timeout_ms)
-        {
-            return Err(error(
-                "browser maintenance budget is outside bounded limits",
-            ));
-        }
-        Ok(())
-    }
-}
+use crate::maintenance_policy::MaintenancePolicy as BrowserMaintenancePolicy;
+
 #[derive(Clone, Serialize, Deserialize)]
 struct ContactRoute {
     contact: String,
@@ -2024,7 +1985,7 @@ impl BrowserNetwork {
     ) -> Result<BrowserNetwork, JsValue> {
         let input: ConfigurationInput = serde_json::from_str(&configuration).map_err(error)?;
         if let Some(policy) = &input.maintenance {
-            policy.validate()?;
+            policy.validate().map_err(error)?;
         }
         let startup_budget = caller_override.unwrap_or_else(|| {
             input
@@ -2168,7 +2129,7 @@ impl BrowserNetwork {
             }
             Startup::Existing | Startup::Pairing => {}
         }
-        configuration.maintenance.validate()?;
+        configuration.maintenance.validate().map_err(error)?;
         let caller_budget = caller_override.unwrap_or_else(|| {
             std::time::Duration::from_millis(configuration.maintenance.contact_timeout_ms)
         });

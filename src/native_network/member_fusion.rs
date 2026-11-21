@@ -47,7 +47,9 @@ impl NativeNetwork {
         setup_budget: Duration,
     ) -> Result<MemberFusionEndpoint, NodeError> {
         let resources = self.resource_configuration()?;
-        let idle_budget = Duration::from_millis(resources.maintenance.exploration_interval_ms);
+        let standby = iroh::endpoint::MemberRetention::Standby(
+            resources.maintenance.max_standby_member_connections,
+        );
         let relays = resources.relay_map(ResourceUse::DataRelay)?;
         self.gate
             .register_protocol(FUSED_MEMBER_ALPN, ProtocolScope::Member);
@@ -94,7 +96,7 @@ impl NativeNetwork {
                 },
             )
             .admission_timeout(setup_budget)
-            .bind(idle_budget)
+            .bind_with_retention(standby)
             .await?;
         Ok(endpoint)
     }
@@ -108,7 +110,7 @@ impl NativeNetwork {
         self.gate
             .register_protocol(FUSED_MEMBER_ALPN, ProtocolScope::Member);
         Ok(builder
-            .bind_with_member_fusion(
+            .bind_with_member_retention(
                 FUSED_MEMBER_ALPN,
                 Authorization {
                     gate: self.gate.with_message_bootstrap(),
@@ -118,7 +120,9 @@ impl NativeNetwork {
                     udp_config: self.udp.fusion_config(resources)?,
                     tcp,
                 },
-                Duration::from_millis(resources.maintenance.exploration_interval_ms),
+                iroh::endpoint::MemberRetention::Standby(
+                    resources.maintenance.max_standby_member_connections,
+                ),
             )
             .await?)
     }
@@ -249,6 +253,10 @@ impl MemberFusionAdmission for Authorization {
         self.gate.allows(connection, ProtocolScope::Member)
     }
 
+    fn path_retry_base(&self) -> Duration {
+        Duration::from_millis(self.resources.maintenance.path_retry_base_ms)
+    }
+
     fn udp_config(&self) -> Option<&MemberUdpConfig> {
         Some(&self.udp_config)
     }
@@ -304,7 +312,7 @@ impl MemberFusionAdmission for Authorization {
                 let policy = &self.resources.maintenance;
                 (
                     Duration::from_millis(policy.contact_timeout_ms),
-                    Duration::from_millis(policy.exploration_interval_ms),
+                    Duration::from_millis(policy.path_retry_base_ms),
                 )
             })
     }

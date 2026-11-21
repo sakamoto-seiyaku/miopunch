@@ -47,7 +47,7 @@ fn browser_configuration(settings: &PortableSettings) -> Result<Configuration, J
         }
         config.contact_routes.clear();
     }
-    config.maintenance.validate()?;
+    config.maintenance.validate().map_err(error)?;
     Ok(config)
 }
 

@@ -299,9 +299,63 @@ impl Path {
         let (watermark, generation) = state.inner.start_bound_path_probe(self.id())?;
         Ok(PathProbe {
             path: self.clone(),
-            watermark,
-            generation,
+            proof: ProbeWatermark::Legacy {
+                watermark,
+                generation,
+            },
         })
+    }
+
+    /// Confirm fresh traffic without changing ACK scheduling.
+    pub fn start_fresh_probe(&self) -> Result<PathProbe, ClosedPath> {
+        self.fresh_probe(false)
+    }
+
+    /// Confirm a fresh ACK returning on this physical binding. While the probe
+    /// lives this peer also returns the binding's own Backup ACKs over it.
+    pub fn start_return_path_probe(&self) -> Result<PathProbe, ClosedPath> {
+        self.fresh_probe(true)
+    }
+
+    fn fresh_probe(&self, return_path: bool) -> Result<PathProbe, ClosedPath> {
+        let mut state = self.conn.lock_and_wake("fresh path probe");
+        let probe = state.inner.start_fresh_path_probe(self.id(), return_path)?;
+        Ok(PathProbe {
+            path: self.clone(),
+            proof: ProbeWatermark::Fresh(probe),
+        })
+    }
+
+    /// Queue a bounded PATH_CHALLENGE on this established path.
+    #[doc(hidden)]
+    pub fn start_confirmation(
+        &self,
+        binding: FourTuple,
+        budget: Duration,
+    ) -> Result<(), ClosedPath> {
+        let mut state = self.conn.lock_and_wake("confirm established path");
+        let now = state.runtime.now();
+        state
+            .inner
+            .start_path_confirmation(self.id(), binding, now, now + budget)
+    }
+
+    /// Time of the last authenticated response on this physical binding.
+    #[doc(hidden)]
+    pub fn confirmation(&self) -> Option<(FourTuple, crate::Instant)> {
+        self.conn
+            .lock_without_waking("read path confirmation")
+            .inner
+            .path_confirmation(self.id())
+    }
+
+    /// Latest fresh traffic seen returning on this path and its exact binding.
+    #[doc(hidden)]
+    pub fn return_evidence(&self) -> Option<(FourTuple, crate::Instant)> {
+        self.conn
+            .lock_without_waking("read path return")
+            .inner
+            .path_return_evidence(self.id())
     }
 
     /// Ping the remote endpoint over this path.
@@ -325,23 +379,39 @@ impl Path {
 #[derive(Debug)]
 pub struct PathProbe {
     path: Path,
-    watermark: u64,
-    generation: u64,
+    proof: ProbeWatermark,
+}
+
+#[derive(Debug)]
+enum ProbeWatermark {
+    Legacy { watermark: u64, generation: u64 },
+    Fresh(proto::FreshPathProbe),
 }
 
 impl PathProbe {
     /// Packet-number watermark captured when this fresh probe was issued.
     pub fn watermark(&self) -> u64 {
-        self.watermark
+        match &self.proof {
+            ProbeWatermark::Legacy { watermark, .. } => *watermark,
+            ProbeWatermark::Fresh(probe) => probe.watermark(),
+        }
     }
 
     /// Returns true only after a data packet sent since creation was acknowledged.
     pub fn is_acknowledged(&self) -> Result<bool, ClosedPath> {
-        self.path
+        let state = self
+            .path
             .conn
-            .lock_without_waking("path probe acknowledgment")
-            .inner
-            .bound_path_probe_acknowledged(self.path.id(), self.watermark, self.generation)
+            .lock_without_waking("path probe acknowledgment");
+        match &self.proof {
+            ProbeWatermark::Legacy {
+                watermark,
+                generation,
+            } => state
+                .inner
+                .bound_path_probe_acknowledged(self.path.id(), *watermark, *generation),
+            ProbeWatermark::Fresh(probe) => state.inner.fresh_path_probe_acknowledged(probe),
+        }
     }
 }
 

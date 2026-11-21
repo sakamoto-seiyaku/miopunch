@@ -170,6 +170,10 @@ pub(crate) trait DynEndpointAdmission: std::fmt::Debug + Send + Sync {
         None
     }
     #[cfg(not(wasm_browser))]
+    fn member_path_retry_base(&self) -> Duration {
+        Duration::from_secs(1)
+    }
+    #[cfg(not(wasm_browser))]
     fn member_udp_config(&self) -> Option<&super::MemberUdpConfig> {
         None
     }
@@ -368,10 +372,26 @@ impl RestrictedBuilder {
     /// The member owner observes both incoming and outgoing selected connections.
     #[cfg(not(wasm_browser))]
     pub async fn bind_with_member_fusion(
-        mut self,
+        self,
         alpn: &[u8],
         admission: impl super::MemberFusionAdmission + 'static,
         idle_timeout: Duration,
+    ) -> Result<(RestrictedEndpoint, super::MemberFusionEndpoint), BindError> {
+        self.bind_with_member_retention(
+            alpn,
+            admission,
+            super::MemberRetention::IdleTimeout(idle_timeout),
+        )
+        .await
+    }
+
+    /// Bind the shared member owner with the caller's retention policy.
+    #[cfg(not(wasm_browser))]
+    pub async fn bind_with_member_retention(
+        mut self,
+        alpn: &[u8],
+        admission: impl super::MemberFusionAdmission + 'static,
+        retention: super::MemberRetention,
     ) -> Result<(RestrictedEndpoint, super::MemberFusionEndpoint), BindError> {
         let fallback = self
             .inner
@@ -383,7 +403,8 @@ impl RestrictedBuilder {
             admission,
             fallback,
             self.inner.restricted_data_custom_transports.take(),
-            idle_timeout,
+            retention,
+            self.admission_timeout,
         );
         self.inner.admission = Some(policy);
         self.inner.alpn_protocols.push(alpn.to_vec());
@@ -1453,7 +1474,7 @@ impl ControlHandle {
                 "data path is not currently permitted and qualified",
             ));
         }
-        let probe = path.start_probe()?;
+        let probe = path.start_fresh_probe()?;
         let permit = DataPathPermit {
             connection_id: self.stable_id(),
             path_id,
@@ -1953,7 +1974,7 @@ pub(super) async fn finish_admission(
         }
         #[cfg(not(wasm_browser))]
         if let Some((fusion, selection)) = fusion.zip(selection) {
-            let activity = fusion.activity();
+            let activity = fusion.activity(&connection);
             let udp = member_udp;
             let direct_transport = policy
                 .member_direct_transport()
@@ -2008,7 +2029,7 @@ pub(super) async fn finish_admission(
             let candidates = super::member_fusion::watch_path_candidates(
                 endpoint.clone(),
                 connection.clone(),
-                activity.subscribe(),
+                activity.clone(),
                 direct,
                 member_relay,
                 started_on_member_relay,

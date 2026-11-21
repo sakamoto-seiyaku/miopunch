@@ -1,5 +1,6 @@
 //! One node-level member selector and durable sync coordinator. Endpoints own
 //! identity-scoped contact attempts; iroh owns the paths of each living session.
+pub use crate::maintenance_policy::MaintenancePolicy;
 use crate::{
     admission_gate::{AdmissionGate, ProtocolScope},
     connection_coordinator::ConnectionDelivery,
@@ -32,7 +33,6 @@ use p2panda_net::{
 use p2panda_store::{SqliteStore, SqliteStoreBuilder, Transaction, address_book::AddressBookStore};
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
-use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     net::{Ipv4Addr, SocketAddr},
@@ -48,59 +48,6 @@ use tokio::{
     time::Instant,
 };
 use tokio_util::sync::CancellationToken;
-/// This node's local effort, independent of membership or resource permission.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct MaintenancePolicy {
-    pub exploration_interval_ms: u64,
-    pub discovery_interval_ms: u64,
-    pub max_concurrent_contacts: usize,
-    pub max_neighbors: usize,
-    pub quality_interval_ms: u64,
-    pub contact_timeout_ms: u64,
-}
-impl Default for MaintenancePolicy {
-    fn default() -> Self {
-        Self::conservative()
-    }
-}
-impl MaintenancePolicy {
-    pub fn conservative() -> Self {
-        Self {
-            exploration_interval_ms: 5_000,
-            discovery_interval_ms: 15_000,
-            max_concurrent_contacts: 1,
-            max_neighbors: 1,
-            quality_interval_ms: 5_000,
-            contact_timeout_ms: crate::connection_budget::DEFAULT_MS,
-        }
-    }
-    pub fn active() -> Self {
-        Self {
-            exploration_interval_ms: 1_000,
-            discovery_interval_ms: 5_000,
-            max_concurrent_contacts: 4,
-            max_neighbors: 4,
-            quality_interval_ms: 1_000,
-            contact_timeout_ms: crate::connection_budget::DEFAULT_MS,
-        }
-    }
-    pub(crate) fn validate(&self) -> std::io::Result<()> {
-        if !(250..=60_000).contains(&self.exploration_interval_ms)
-            || !(1_000..=120_000).contains(&self.discovery_interval_ms)
-            || !(1..=8).contains(&self.max_concurrent_contacts)
-            || !(1..=8).contains(&self.max_neighbors)
-            || !(250..=30_000).contains(&self.quality_interval_ms)
-            || !(100..=crate::connection_budget::MAX_MS).contains(&self.contact_timeout_ms)
-        {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "node maintenance budget is outside bounded limits",
-            ));
-        }
-        Ok(())
-    }
-}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MaintenanceState {
@@ -684,6 +631,9 @@ impl Coordinator {
     fn floor(&self) -> Duration {
         Duration::from_millis(self.policy.exploration_interval_ms)
     }
+    fn path_retry_base(&self) -> Duration {
+        Duration::from_millis(self.policy.path_retry_base_ms)
+    }
     fn enhanced_budget_wait(&self, now: Instant) -> Option<Instant> {
         if !self
             .improvements
@@ -695,7 +645,11 @@ impl Coordinator {
         let due = Instant::from(self.active.as_ref()?.udp_round_wait_until(now.into())?);
         // The previous cooldown may already have elapsed while a holder
         // remains active. Recheck on the normal floor without changing it.
-        Some(if due <= now { now + self.floor() } else { due })
+        Some(if due <= now {
+            now + self.path_retry_base()
+        } else {
+            due
+        })
     }
     fn member(&self, id: EndpointId) -> bool {
         self.node
@@ -1024,7 +978,7 @@ impl Coordinator {
         if direct_capabilities == 0 || live.is_empty() {
             return false;
         }
-        let floor = self.floor();
+        let floor = self.path_retry_base();
         let now = Instant::now();
         let node_budget_wait = self.enhanced_budget_wait(now);
         let local = self.resources.addr();
@@ -1177,7 +1131,7 @@ impl Coordinator {
         if self.improve_at.is_some_and(|at| Instant::now() >= at) {
             let started = self.improve_live_member(cancel).await;
             let now = Instant::now();
-            let mut improve_at = now + self.floor();
+            let mut improve_at = now + self.path_retry_base();
             if !started {
                 // Continue observing path loss and generation changes on the
                 // same node timer, but wake at an earlier pending retry.

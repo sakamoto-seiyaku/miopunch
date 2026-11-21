@@ -97,6 +97,7 @@ impl MemberUdpPlan {
 pub(super) struct Planner {
     analyzer: Mutex<Analyzer>,
     slot: Slot,
+    standby_turn: tokio::sync::Mutex<()>,
     #[cfg(feature = "miopunch-test-hooks")]
     reservation_barrier: Mutex<Option<Arc<tokio::sync::Barrier>>>,
 }
@@ -106,6 +107,7 @@ impl Default for Planner {
         Self {
             analyzer: Mutex::new(Analyzer::new(StdInstant::now())),
             slot: Slot::default(),
+            standby_turn: Default::default(),
             #[cfg(feature = "miopunch-test-hooks")]
             reservation_barrier: Mutex::default(),
         }
@@ -113,6 +115,10 @@ impl Default for Planner {
 }
 
 impl Planner {
+    pub(super) fn foreground(&self) -> watch::Receiver<bool> {
+        self.slot.foreground()
+    }
+
     pub(super) fn business_changed(&self, active: bool) {
         self.slot.business_changed(active);
     }
@@ -132,7 +138,8 @@ pub(in super::super) struct Planning {
     connection: Connection,
     config: MemberUdpConfig,
     owner: Arc<Planner>,
-    idle_timeout: Duration,
+    retention: super::MemberRetention,
+    retry_base: Duration,
     path_work: Arc<MemberUdpPathWork>,
     maintenance: watch::Sender<Option<Instant>>,
     latest: Mutex<Option<MemberUdpPlan>>,
@@ -144,21 +151,17 @@ impl Planning {
         endpoint: &Endpoint,
         connection: &Connection,
         owner: Arc<Planner>,
-        idle_timeout: Duration,
+        retention: super::MemberRetention,
     ) -> Option<Arc<Self>> {
-        let config = endpoint
-            .inner
-            .static_config
-            .admission
-            .as_ref()?
-            .member_udp_config()?
-            .clone();
+        let policy = endpoint.inner.static_config.admission.as_ref()?;
+        let config = policy.member_udp_config()?.clone();
         Some(Arc::new(Self {
             endpoint: endpoint.clone(),
             connection: connection.clone(),
             config,
             owner,
-            idle_timeout,
+            retry_base: policy.member_path_retry_base(),
+            retention,
             path_work: Arc::default(),
             maintenance: watch::Sender::default(),
             latest: Mutex::new(None),
@@ -220,26 +223,54 @@ impl Planning {
         let mut needed = self.path_work.needed.subscribe();
         let mut active = activity.subscribe();
         let mut maintenance = self.maintenance.subscribe();
+        let mut permitted = activity.path_activity.subscribe();
         let cancel = CancellationToken::new();
         let interval = self.config.quality_interval;
         let mut active_at = Instant::now() + interval;
         let mut maintenance_at = Instant::now();
+        let mut automatic_at = Instant::now() + interval;
+        let mut failures = 0u32;
         let mut last_check = None;
+        let standby = matches!(self.retention, super::MemberRetention::Standby(_));
+        let mut generation = self.endpoint.udp_network_generation();
         loop {
+            if standby && !generation.is_current() {
+                generation = self.endpoint.udp_network_generation();
+                failures = 0;
+                automatic_at = Instant::now();
+                maintenance_at = automatic_at;
+            }
             let idle_since = activity.idle_since();
             let request = *maintenance.borrow_and_update();
             let eligible = *needed.borrow_and_update();
             let (due, deadline, kind) = if let Some(since) = idle_since {
-                let deadline = since + self.idle_timeout;
                 let fresh_check = request.is_some_and(|at| at >= since && last_check != request);
+                let (deadline, due) = match self.retention {
+                    super::MemberRetention::Standby(_) => {
+                        let ready = *permitted.borrow_and_update();
+                        let due = if fresh_check {
+                            Some(maintenance_at)
+                        } else if self.connection.side().is_client() {
+                            Some(automatic_at)
+                        } else {
+                            None
+                        };
+                        (
+                            Instant::now() + self.config.round_timeout,
+                            due.filter(|_| ready),
+                        )
+                    }
+                    super::MemberRetention::IdleTimeout(timeout) => {
+                        (since + timeout, fresh_check.then_some(maintenance_at))
+                    }
+                };
                 (
-                    eligible
-                        .then_some(maintenance_at)
-                        .filter(|_| fresh_check && maintenance_at < deadline),
+                    due.filter(|_| eligible),
                     deadline,
                     StreamKind::UdpMaintenance,
                 )
             } else {
+                automatic_at = Instant::now() + interval;
                 last_check = request;
                 (
                     eligible.then_some(active_at),
@@ -251,28 +282,55 @@ impl Planning {
                 && due < deadline
                 && deadline > Instant::now()
             {
-                let work = self.initiate(deadline, &cancel, kind);
                 if kind == StreamKind::UdpMaintenance {
                     maintenance_at = Instant::now() + interval;
                     last_check = request;
-                    let _ = work.await;
+                    let result = if standby {
+                        let turn = async {
+                            let turn = self.owner.standby_turn.lock().await;
+                            time::sleep_until(self.owner.slot.next_physical_round()).await;
+                            turn
+                        };
+                        let _turn = tokio::select! { biased;
+                            _ = active.wait_for(|yes| *yes) => continue,
+                            _ = permitted.wait_for(|yes| !*yes) => continue,
+                            _ = needed.wait_for(|yes| !*yes) => continue,
+                            _ = self.endpoint.inner.wait_network_generation_change(&generation) => continue,
+                            turn = turn => turn,
+                        };
+                        self.initiate(Instant::now() + self.config.round_timeout, &cancel, kind)
+                            .await
+                    } else {
+                        self.initiate(deadline, &cancel, kind).await
+                    };
+                    match result {
+                        Ok(_) => failures = 0,
+                        Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {}
+                        Err(_) => failures = (failures + 1).min(5),
+                    }
+                    automatic_at = Instant::now() + self.retry_base * (1 << failures);
+                    if standby {
+                        maintenance_at = automatic_at;
+                    }
                 } else {
                     active_at = Instant::now() + interval;
                     let inactive = active.wait_for(|active| !*active);
                     tokio::select! { biased;
                         _ = inactive => {},
-                        _ = work => {},
+                        _ = self.initiate(deadline, &cancel, kind) => {},
                     }
                 }
                 continue;
             }
             tokio::select! {
+                _ = self.endpoint.inner.wait_network_generation_change(&generation), if standby => {},
                 _ = active.changed() => {},
                 _ = needed.changed() => {},
+                _ = permitted.changed() => {},
                 _ = maintenance.changed() => {},
                 _ = async {
                     match due {
-                        Some(due) if due < deadline && deadline > Instant::now() => time::sleep_until(due).await,
+                        Some(due) if standby || (due < deadline && deadline > Instant::now()) => time::sleep_until(due).await,
                         _ => pending().await,
                     }
                 } => {}
@@ -499,7 +557,17 @@ impl Planning {
             let mut deadline = deadline.min(started + hello.budget);
             if priority == Priority::Maintenance {
                 let since = activity.and_then(Activity::idle_since).ok_or_else(busy)?;
-                deadline = deadline.min(since + self.idle_timeout);
+                match self.retention {
+                    super::MemberRetention::IdleTimeout(timeout) => {
+                        deadline = deadline.min(since + timeout)
+                    }
+                    super::MemberRetention::Standby(_)
+                        if !activity.is_some_and(|a| *a.path_activity.borrow()) =>
+                    {
+                        return Err(busy());
+                    }
+                    _ => {}
+                }
             }
             if kind.automatically_improves_path()
                 && (!self.can_maintain() || !*self.path_work.needed.borrow())

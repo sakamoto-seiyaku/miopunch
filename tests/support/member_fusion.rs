@@ -11,8 +11,8 @@ use std::{
 use iroh::{
     Endpoint, EndpointAddr, EndpointId, RelayUrl, TransportAddr,
     endpoint::{
-        BeforeConnectOutcome, ConnectingError, ConnectionError, EndpointHooks, MemberConnection,
-        MemberDialOptions, MemberFusionEndpoint, presets,
+        BeforeConnectOutcome, ConnectingError, EndpointHooks, MemberConnection, MemberDialOptions,
+        MemberFusionEndpoint, presets,
     },
 };
 use miopunch_native_probe::{
@@ -386,9 +386,9 @@ async fn dialer_process() {
         miopunch_native_probe::manual_admission::AdmissionStage::Complete
     );
     if expected.starts_with("idle") {
-        let idle_budget = if expected == "idle" { IDLE } else { IDLE * 3 };
+        let sync_interval = if expected == "idle" { IDLE } else { IDLE * 3 };
         let mut config = node.resource_configuration().unwrap();
-        config.maintenance.exploration_interval_ms = idle_budget.as_millis().try_into().unwrap();
+        config.maintenance.exploration_interval_ms = sync_interval.as_millis().try_into().unwrap();
         node.save_resource_configuration(&config).unwrap();
     }
     let held_outgoing = if expected == "stalled-hold" {
@@ -736,6 +736,18 @@ async fn wire_process(
     }
     if fixture == "idle" {
         idle_streams(&connection, dialing).await;
+        // Neither process may shut down its endpoint while the other is
+        // checking the last acknowledged reply and the original connection.
+        tokio::fs::write(root.join(format!("standby-verified-{local}")), [])
+            .await
+            .unwrap();
+        time::timeout(SETUP, async {
+            while !root.join(format!("standby-verified-{remote}")).exists() {
+                time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap();
         return;
     }
     let role = if connection.side().is_client() {
@@ -856,8 +868,7 @@ fn assert_overlap(records: &[Value], starts: &[&Value]) {
 }
 
 #[tokio::test]
-async fn an_independent_stream_failure_keeps_business_alive_and_periodic_ping_does_not_extend_idle()
-{
+async fn independent_stream_failure_and_standby_ping_reuse_the_same_connection() {
     let service = relay().await;
     let url = service.http_url().unwrap();
     let dir = tempfile::tempdir().unwrap();
@@ -880,8 +891,8 @@ async fn an_independent_stream_failure_keeps_business_alive_and_periodic_ping_do
     let responder = output_record(&server, "fusion-idle", "responder");
     assert_ne!(initiator["pid"], responder["pid"]);
     assert_eq!(initiator["attemptId"], responder["attemptId"]);
-    assert_eq!(initiator["ownerClosed"], true);
-    assert_eq!(responder["ownerClosed"], false);
+    assert_eq!(initiator["pingsSent"], 20);
+    assert_eq!(responder["pingsSent"], 20);
     service.shutdown().await.unwrap();
 }
 
@@ -934,12 +945,12 @@ async fn idle_streams(connection: &MemberConnection, initiator: bool) {
         drop(business);
         released
     };
-    let (sent, received, closed) = time::timeout(IDLE * 2, async {
+    let (sent, received) = time::timeout(IDLE * 5, async {
         tokio::join!(
             async {
                 let mut count = 0;
                 let mut ticks = time::interval(IDLE / 10);
-                loop {
+                while count < 20 {
                     ticks.tick().await;
                     let Ok(mut stream) = connection.open_maintenance_bi().await else {
                         break;
@@ -958,7 +969,8 @@ async fn idle_streams(connection: &MemberConnection, initiator: bool) {
             },
             async {
                 let mut count = 0;
-                while let Ok(mut stream) = connection.accept_bi().await {
+                while count < 20 {
+                    let mut stream = connection.accept_bi().await.unwrap();
                     let (send, recv) = stream.streams();
                     let Ok(request) = recv.read_to_end(64).await else {
                         break;
@@ -967,38 +979,28 @@ async fn idle_streams(connection: &MemberConnection, initiator: bool) {
                     if send.write_all(PONG).await.is_err() || send.finish().is_err() {
                         break;
                     }
+                    if count == 19 {
+                        send.stopped().await.unwrap();
+                    }
                     count += 1;
                 }
                 count
             },
-            connection.closed(),
         )
     })
     .await
-    .expect("periodic ping must not retain the idle connection");
-    assert!(
-        sent >= 2 && received >= 2,
-        "actual maintenance traffic in both directions: {sent}/{received}"
-    );
+    .expect("maintenance requests must finish on the original connection");
+    assert_eq!((sent, received), (20, 20));
     let elapsed = released.elapsed();
-    assert_eq!(matches!(closed, ConnectionError::LocallyClosed), initiator);
-    if initiator {
-        assert!(
-            elapsed >= IDLE && elapsed < IDLE * 3 / 2,
-            "idle budget elapsed: {elapsed:?}"
-        );
-    } else {
-        assert!(
-            matches!(closed, ConnectionError::ApplicationClosed(ref reason) if reason.reason.as_ref() == b"member connection idle")
-        );
-    }
+    assert!(elapsed >= IDLE);
+    assert!(connection.close_reason().is_none());
     eprintln!(
         "{}",
         json!({
             "event": "fusion-idle", "role": if initiator { "initiator" } else { "responder" },
             "pid": process::id(), "attemptId": hex::encode(member_fusion_attempt_id(connection).unwrap()),
             "stableId": connection.stable_id(), "idleMs": elapsed.as_millis(),
-            "pingsSent": sent, "pingsReceived": received, "ownerClosed": initiator,
+            "pingsSent": sent, "pingsReceived": received,
         })
     );
 }

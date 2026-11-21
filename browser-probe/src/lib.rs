@@ -1,5 +1,7 @@
 #[path = "../../src/connection_budget.rs"]
 mod connection_budget;
+#[path = "../../src/maintenance_policy.rs"]
+mod maintenance_policy;
 #[path = "../../src/connection_coordinator.rs"]
 pub mod connection_coordinator;
 #[path = "../../src/control_protocol.rs"]

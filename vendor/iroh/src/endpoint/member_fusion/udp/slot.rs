@@ -15,7 +15,7 @@ pub(super) enum Priority {
 }
 
 #[derive(Debug, Default)]
-pub(super) struct Slot(Arc<Mutex<State>>);
+pub(super) struct Slot(Arc<Mutex<State>>, tokio::sync::watch::Sender<bool>);
 
 #[derive(Debug, Default)]
 struct State {
@@ -57,6 +57,10 @@ pub(super) struct Reservation<'a> {
 }
 
 impl Slot {
+    pub(super) fn foreground(&self) -> tokio::sync::watch::Receiver<bool> {
+        self.1.subscribe()
+    }
+
     pub(super) fn business_changed(&self, active: bool) {
         let mut state = self.0.lock().expect("member UDP slot");
         if active {
@@ -69,6 +73,12 @@ impl Slot {
         } else {
             state.business -= 1;
         }
+        self.1.send_if_modified(|previous| {
+            let active = state.business != 0;
+            let changed = *previous != active;
+            *previous = active;
+            changed
+        });
     }
 
     fn yield_active(state: &mut State) {
@@ -80,6 +90,15 @@ impl Slot {
             "member UDP slot yielded before work"
         );
         old.holder.yielded.cancel();
+    }
+
+    pub(super) fn next_physical_round(&self) -> Instant {
+        let state = self.0.lock().expect("member UDP slot");
+        state
+            .cooldown
+            .as_ref()
+            .filter(|(generation, _)| generation.is_current())
+            .map_or_else(Instant::now, |(_, due)| *due)
     }
 
     pub(super) fn reserve(
