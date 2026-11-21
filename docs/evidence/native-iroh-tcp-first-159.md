@@ -12,6 +12,8 @@ Linux 产品端点在没有 `tcp_listen` 覆盖值时绑定临时 IPv4 TCP 端�
 - 共享结果检查将原 TLS 身份、准入、首笔业务和原流关联用于 TCP 与 UDP 两组实验。对上述既有日志的检查均通过。
 - 普通库消费者 2 项、受限端点 19 项及受影响的 UDP-only active 用例 4 项通过。维护监听器的原 host exact 用例通过，日志在 `/tmp/miopunch-159-contact-fixture-host.log`。隔离 netns 下该旧夹具的入网前置超时，普通 host 下完成相同断言。
 - TCP 物理断链用例显式提供原有的 10 秒 QUIC idle 配置，保留 13 秒断开、原流失败及新连接重拨断言，定向通过。日志在 `/tmp/miopunch-159-tcp-idle-fixture.log`。
+- 路径配置用例通过，既有 TCP 原流迁移六组通过。独立 idle 配置用例在原 2 秒上限内观察双方关闭，并确认至少一端实际因 idle timeout 结束，覆盖另一端先结束后本端收到 peer reset 的顺序。日志在 `/tmp/miopunch-159-quic-config-final.log`。
+- 默认线程栈运行缓存重启用例 `native_ping_reuses_a_verified_member_address_after_reopen` 时出现 stack overflow。159 前已有的 `target/debug/deps/native_service_streams-55e245953a462f5b` 在相同 host、默认栈和 exact 入口也发生相同 SIGABRT，其文件时间为 2026-11-21 10:42:10。对照日志在 `/tmp/miopunch-159-stack-pre159-default.log`，当前日志在 `/tmp/miopunch-159-stack-default.log`。当前产物以 8 MiB 栈作一次定位后完成原断言，耗时 63.59 秒；项目运行配置没有新增栈大小要求。
 - WASM 检查通过，回执在 `/tmp/miopunch-159-wasm-check/receipt.json`。
 
 完整 root 测试的构建通过。直接运行全部测试时，多组宿主、剪贴板、IRC 等夹具缺少专用驱动提供的私有目录、relay 或服务环境。已保留原始失败并结束该次运行，回执在 `/tmp/miopunch-159-full-suite/receipt.json`。面向 UDP 的旧定向夹具在相应业务阶段明确禁用 TCP，保留原路径和业务断言。完整套件的原始运行尚未全部通过。独立 raw TCP 融合 allowlist 用例还可复现 `Explicit admission failed (closed path)`，日志在 `/tmp/miopunch-159-allowlist-exact.log`。该用例不消费应用资源配置，未进入新增受限联系或直接候选流程；未保留可执行的旧基线副本。

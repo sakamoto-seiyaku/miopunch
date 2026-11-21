@@ -2308,10 +2308,16 @@ async fn default_tcp_listener_preserves_the_callers_quic_idle_timeout() {
     );
     let outgoing = outgoing.unwrap();
     let incoming = incoming.unwrap();
-    let reason = tokio::time::timeout(Duration::from_secs(2), outgoing.closed())
-        .await.expect("installing TCP must preserve the supplied idle timeout");
-    assert!(matches!(reason, iroh::endpoint::ConnectionError::TimedOut), "{reason}");
-    drop(incoming);
+    let (client_reason, server_reason) = tokio::time::timeout(Duration::from_secs(2), async {
+        tokio::join!(outgoing.closed(), incoming.closed())
+    })
+    .await
+    .expect("installing TCP must preserve the supplied idle timeout");
+    assert!(
+        matches!(client_reason, iroh::endpoint::ConnectionError::TimedOut)
+            || matches!(server_reason, iroh::endpoint::ConnectionError::TimedOut),
+        "client={client_reason}, server={server_reason}"
+    );
     client.close().await;
     server.close().await;
 }
