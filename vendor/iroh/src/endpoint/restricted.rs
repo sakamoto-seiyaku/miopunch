@@ -205,6 +205,15 @@ pub(crate) trait DynEndpointAdmission: std::fmt::Debug + Send + Sync {
         Box::pin(async { Err(io::ErrorKind::Unsupported.into()) })
     }
     #[cfg(not(wasm_browser))]
+    fn prepare_member_bootstrap_direct<'a>(
+        &'a self,
+        _connection: &'a ControlHandle,
+        _exchange: &'a ControlExchange,
+    ) -> BoxFuture<'a, io::Result<super::member_fusion::MemberDirectCandidate>> {
+        Box::pin(async { Err(io::ErrorKind::Unsupported.into()) })
+    }
+
+    #[cfg(not(wasm_browser))]
     fn member_relay_transport(&self) -> Option<u64> {
         None
     }

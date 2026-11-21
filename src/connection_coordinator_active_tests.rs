@@ -21,6 +21,7 @@ async fn admitted_pair() -> (tempfile::TempDir, NativeNetwork, NativeNetwork) {
     let mut a = NativeNetwork::create(&a_path).await.unwrap();
     let mut resources = a.resource_configuration().unwrap();
     resources.replacement = Some(vec![]);
+    resources.tcp_direct_disabled = true;
     a.save_resource_configuration(&resources).unwrap();
     let b = add_member(&mut a, &b_path).await;
     tokio::join!(a.close(), b.close());
@@ -37,6 +38,7 @@ async fn add_member(a: &mut NativeNetwork, path: &std::path::Path) -> NativeNetw
         .unwrap();
     let mut resources = b.resource_configuration().unwrap();
     resources.replacement = Some(vec![]);
+    resources.tcp_direct_disabled = true;
     b.save_resource_configuration(&resources).unwrap();
     let ae = a.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
     let be = b.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
@@ -2336,6 +2338,7 @@ async fn scenario_with_native(
                 uses: [crate::resources::ResourceUse::Observation].into(),
                 limitation: "owned TCP Binding observer".into(),
             }]);
+            config.tcp_direct_disabled = false;
             config.tcp_listen = Some((Ipv4Addr::LOCALHOST, 0).into());
             config.path_selection.preference = crate::path_selection::PathPreference::PreferDirect;
             node.save_resource_configuration(&config).unwrap();

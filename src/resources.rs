@@ -60,7 +60,7 @@ pub struct ResourceConfig {
     pub lan_discovery: LanDiscovery,
     #[serde(default)]
     pub port_mapping: PortMapping,
-    /// Explicit native TCP listener. None preserves the existing startup.
+    /// Native TCP listener override. Linux defaults to an ephemeral IPv4 listener.
     #[serde(default)]
     pub tcp_listen: Option<std::net::SocketAddr>,
     #[serde(default)]
@@ -461,6 +461,9 @@ impl ResourceConfig {
         };
         let tcp = self
             .tcp_listen
+            .or_else(|| {
+                cfg!(target_os = "linux").then_some((std::net::Ipv4Addr::UNSPECIFIED, 0).into())
+            })
             .filter(|_| !self.tcp_direct_disabled)
             .map(|address| {
                 let mut transport = crate::tcp_transport::TcpTransport::listen(
@@ -476,17 +479,7 @@ impl ResourceConfig {
                 transport
             });
         let builder = if let Some(transport) = &tcp {
-            builder
-                .add_custom_transport(std::sync::Arc::new(transport.clone()))
-                .transport_config(
-                    iroh::endpoint::QuicTransportConfig::builder()
-                        .keep_alive_interval(Duration::from_secs(5))
-                        .max_idle_timeout(Some(Duration::from_secs(10).try_into().unwrap()))
-                        .congestion_controller_factory(std::sync::Arc::new(
-                            noq_proto::congestion::Bbr3Config::default(),
-                        ))
-                        .build(),
-                )
+            builder.add_custom_transport(std::sync::Arc::new(transport.clone()))
         } else {
             builder
         };

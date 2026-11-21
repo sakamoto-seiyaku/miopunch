@@ -14,7 +14,10 @@ use iroh::{
 enum Preparation<'a> {
     Admission,
     Active(&'a ControlHandle),
-    Fused(&'a ControlExchange),
+    Fused {
+        exchange: &'a ControlExchange,
+        admission: bool,
+    },
 }
 use serde_json::json;
 use std::{
@@ -325,9 +328,18 @@ impl TcpPunch {
         exchange: &ControlExchange,
         gate: &AdmissionGate,
         log: AttemptLog,
+        admission: bool,
     ) -> io::Result<PreparedTcpPath> {
-        self.prepare_with_exchange(original, gate, log, Preparation::Fused(exchange))
-            .await
+        self.prepare_with_exchange(
+            original,
+            gate,
+            log,
+            Preparation::Fused {
+                exchange,
+                admission,
+            },
+        )
+        .await
     }
 
     async fn prepare_with_exchange(
@@ -341,7 +353,14 @@ impl TcpPunch {
             Preparation::Active(control) => control,
             _ => connection,
         };
-        let initial = matches!(preparation, Preparation::Admission);
+        let initial = matches!(
+            preparation,
+            Preparation::Admission
+                | Preparation::Fused {
+                    admission: true,
+                    ..
+                }
+        );
         let check = || {
             if connection.close_reason().is_some()
                 || exchange_control.close_reason().is_some()
@@ -398,7 +417,7 @@ impl TcpPunch {
         check()?;
         let owned_exchange;
         let exchange = match preparation {
-            Preparation::Fused(exchange) => exchange,
+            Preparation::Fused { exchange, .. } => exchange,
             _ => {
                 owned_exchange = if connection.side().is_client() {
                     exchange_control.open_control_exchange().await?
@@ -575,7 +594,7 @@ impl TcpPunch {
             .await;
         // A unilateral validation cannot release business while its peer is
         // entering fallback. Both endpoints commit the same phase result.
-        let format = if matches!(preparation, Preparation::Fused(_)) {
+        let format = if matches!(preparation, Preparation::Fused { .. }) {
             ControlMessageFormat::Fixed { length: 1 }
         } else {
             ControlMessageFormat::EndTerminated { maximum: 1 }

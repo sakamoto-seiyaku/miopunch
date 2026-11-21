@@ -2,6 +2,8 @@
 mod delayed_relay;
 #[path = "support/native_service_nat.rs"]
 mod native_service_nat;
+#[path = "support/native_service_tcp_nat.rs"]
+mod native_service_tcp_nat;
 #[path = "support/relay_contact_broker.rs"]
 #[allow(dead_code)]
 mod relay_contact_broker;

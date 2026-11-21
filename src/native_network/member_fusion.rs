@@ -27,7 +27,7 @@ use crate::{
 };
 
 /// Ordinary admitted business over the explicitly selected native fusion endpoint.
-pub const FUSED_MEMBER_ALPN: &[u8] = b"miopunch/session/member-fusion/3";
+pub const FUSED_MEMBER_ALPN: &[u8] = b"miopunch/session/member-fusion/4";
 
 impl NativeNetwork {
     /// Bind the node's ordinary member endpoint using the persisted identity,
@@ -207,6 +207,38 @@ struct Authorization {
     tcp: Option<crate::tcp_punch::TcpPunch>,
 }
 
+impl Authorization {
+    async fn prepare_tcp_candidate(
+        &self,
+        original: &ControlHandle,
+        exchange: &ControlExchange,
+        bootstrap: bool,
+    ) -> io::Result<MemberDirectCandidate> {
+        let tcp = self.tcp.as_ref().ok_or(io::ErrorKind::Unsupported)?;
+        let mut log = AttemptLog::new(AttemptRole::initial(original), "member_fusion_tcp");
+        log.original = Some(original.stable_id());
+        let mut candidate = tcp
+            .prepare_fused(original, exchange, &self.gate, log, bootstrap)
+            .await?;
+        let remote = candidate.route().clone();
+        let original = original.clone();
+        let gate = self.gate.clone();
+        Ok(MemberDirectCandidate::new(remote, move || {
+            candidate.check(&original, &gate)?;
+            if bootstrap {
+                candidate.retain_control(&original, &gate)
+            } else {
+                candidate
+                    .active
+                    .take()
+                    .expect("prepared fused TCP")
+                    .retain();
+                Ok(())
+            }
+        }))
+    }
+}
+
 impl MemberFusionAdmission for Authorization {
     async fn authorize(&self, connection: &ControlConnection) -> io::Result<ControlConfirmation> {
         let log = attempt_log(connection);
@@ -322,24 +354,15 @@ impl MemberFusionAdmission for Authorization {
         original: &ControlHandle,
         exchange: &ControlExchange,
     ) -> io::Result<MemberDirectCandidate> {
-        let tcp = self.tcp.as_ref().ok_or(io::ErrorKind::Unsupported)?;
-        let mut log = AttemptLog::new(AttemptRole::initial(original), "member_fusion_tcp");
-        log.original = Some(original.stable_id());
-        let mut candidate = tcp
-            .prepare_fused(original, exchange, &self.gate, log)
-            .await?;
-        let remote = candidate.route().clone();
-        let original = original.clone();
-        let gate = self.gate.clone();
-        Ok(MemberDirectCandidate::new(remote, move || {
-            candidate.check(&original, &gate)?;
-            candidate
-                .active
-                .take()
-                .expect("prepared fused TCP")
-                .retain();
-            Ok(())
-        }))
+        self.prepare_tcp_candidate(original, exchange, false).await
+    }
+
+    async fn prepare_member_bootstrap_direct(
+        &self,
+        original: &ControlHandle,
+        exchange: &ControlExchange,
+    ) -> io::Result<MemberDirectCandidate> {
+        self.prepare_tcp_candidate(original, exchange, true).await
     }
 
     fn member_relay_transport(&self) -> Option<u64> {

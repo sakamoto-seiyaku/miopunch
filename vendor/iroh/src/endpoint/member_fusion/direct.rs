@@ -17,7 +17,7 @@ use super::{
     Connection, ControlExchange, ControlHandle, ControlMessageFormat, RecvStream, RelayResourceUse,
     StreamKind, TransportAddr,
 };
-use crate::endpoint::{Endpoint, ObservationValidity};
+use crate::endpoint::{Endpoint, ObservationValidity, PathProbe};
 
 const PREFACE: &[u8] = b"iroh/member-direct/2\0";
 const MAX_CANDIDATES: usize = 2;
@@ -243,7 +243,6 @@ impl PathCandidates {
 
     async fn traverse(&self, connection: &Connection, exchange: ControlExchange) -> io::Result<()> {
         let peer = exchange.send_control().await?;
-        let generation = self.endpoint.udp_network_generation();
         let control = ControlHandle::narrow(&self.endpoint, connection);
         let policy = self
             .endpoint
@@ -254,38 +253,47 @@ impl PathCandidates {
             .expect("member policy");
         let qualify = async {
             let prepared = policy.prepare_member_direct(&control, &exchange).await?;
-            let remote = TransportAddr::Custom(prepared.remote);
-            let check = || {
-                if generation.is_current() && self.permits(&remote) {
-                    Ok(())
-                } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::Interrupted,
-                        "direct member candidate changed",
-                    ))
-                }
-            };
-            check()?;
-            let probe = connection
-                .paths()
-                .iter()
-                .find(|path| path.remote_addr() == &remote)
-                .ok_or(io::ErrorKind::NotConnected)?
-                .start_fresh_probe()?;
-            while !probe.is_acknowledged().map_err(io::Error::other)? {
-                check()?;
-                time::sleep(Duration::from_millis(15)).await;
-            }
-            Ok::<_, io::Error>((prepared.retain, remote, probe))
+            verify_direct(&control, prepared).await
         };
-        let (retain, remote, probe) = tokio::select! { biased;
+        let verified = tokio::select! { biased;
             _ = connection.closed() => return Err(io::ErrorKind::NotConnected.into()),
             _ = peer.stopped() => return Err(io::ErrorKind::Interrupted.into()),
             result = qualify => result?,
         };
-        // The adapter still guards business packets on this TCP circuit. A
-        // peer may stop this stream after consuming Ready, so use the framed
-        // exchange itself to decide whether it reached the same phase.
+        verified.commit(&control, &exchange).await.map(|_| ())
+    }
+}
+
+pub(super) struct VerifiedDirect {
+    prepared: super::MemberDirectCandidate,
+    remote: TransportAddr,
+    generation: ObservationValidity,
+    probe: PathProbe,
+}
+
+impl VerifiedDirect {
+    fn check(&self, control: &ControlHandle) -> io::Result<()> {
+        let config = &control.endpoint.inner.static_config;
+        let policy = config.admission.as_ref().expect("member policy");
+        if self.generation.is_current()
+            && config
+                .relay_resource_policy
+                .allows_custom(&self.prepared.remote)
+            && policy.permits_direct_candidate(&self.prepared.remote)
+        {
+            Ok(())
+        } else {
+            Err(io::ErrorKind::Interrupted.into())
+        }
+    }
+
+    pub(super) async fn commit(
+        self,
+        control: &ControlHandle,
+        exchange: &ControlExchange,
+    ) -> io::Result<TransportAddr> {
+        // A peer can finish its stream after reading Ready. Consume the framed
+        // confirmation even if its send-control handle has already stopped.
         const READY: ControlMessageFormat = ControlMessageFormat::Fixed { length: 1 };
         let (_, ready) = tokio::try_join!(
             exchange.send_message(READY, &[1]),
@@ -294,15 +302,41 @@ impl PathCandidates {
         if ready != [1] {
             return Err(io::ErrorKind::InvalidData.into());
         }
-        if !generation.is_current()
-            || !self.permits(&remote)
-            || !probe.is_acknowledged().map_err(io::Error::other)?
-        {
+        self.check(control)?;
+        if !self.probe.is_acknowledged().map_err(io::Error::other)? {
             return Err(io::ErrorKind::Interrupted.into());
         }
         exchange.finish_send().await?;
-        retain()
+        (self.prepared.retain)()?;
+        Ok(self.remote)
     }
+}
+
+/// Validate the candidate while its transport resources remain tentative.
+pub(super) async fn verify_direct(
+    control: &ControlHandle,
+    prepared: super::MemberDirectCandidate,
+) -> io::Result<VerifiedDirect> {
+    let remote = TransportAddr::Custom(prepared.remote.clone());
+    let generation = control.udp_network_generation();
+    let probe = control
+        .paths()
+        .iter()
+        .find(|path| path.remote_addr() == &remote)
+        .ok_or(io::ErrorKind::NotConnected)?
+        .start_fresh_probe()?;
+    let verified = VerifiedDirect {
+        prepared,
+        remote,
+        generation,
+        probe,
+    };
+    verified.check(control)?;
+    while !verified.probe.is_acknowledged().map_err(io::Error::other)? {
+        verified.check(control)?;
+        time::sleep(Duration::from_millis(15)).await;
+    }
+    Ok(verified)
 }
 
 pub(in crate::endpoint) fn watch_path_candidates(

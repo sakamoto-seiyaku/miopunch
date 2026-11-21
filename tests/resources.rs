@@ -2271,3 +2271,47 @@ async fn prebuilt_unconstrained_pkarr_cannot_bypass_product_policy() {
 
 #[path = "support/cli.rs"]
 mod test_cli;
+
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn default_tcp_listener_preserves_the_callers_quic_idle_timeout() {
+    use miopunch_native_probe::tcp_transport::TcpTransport;
+    let config = ResourceConfig::with_defaults(ResourceTable {
+        revision: 1,
+        resources: Vec::new(),
+    });
+    let mut endpoints = Vec::new();
+    for _ in 0..2 {
+        let endpoint = config.configure(
+            Endpoint::builder(presets::Minimal)
+                .clear_ip_transports()
+                .alpns(vec![BUSINESS.to_vec()])
+                .transport_config(
+                    iroh::endpoint::QuicTransportConfig::builder()
+                        .max_idle_timeout(Some(Duration::from_millis(250).try_into().unwrap()))
+                        .build(),
+                ),
+        ).unwrap().bind().await.unwrap();
+        endpoints.push(endpoint);
+    }
+    let [client, server] = endpoints.as_slice() else { unreachable!() };
+    let listener = server.custom_addrs().iter()
+        .find_map(|address| TcpTransport::socket_addr(address).ok())
+        .expect("Linux default TCP listener");
+    let target = EndpointAddr::new(server.id()).with_addrs([
+        iroh::TransportAddr::Custom(TcpTransport::address((Ipv4Addr::LOCALHOST, listener.port())))
+    ]);
+    let (outgoing, incoming) = tokio::join!(
+        client.connect(target, BUSINESS),
+        async { server.accept().await.unwrap().await }
+    );
+    let outgoing = outgoing.unwrap();
+    let incoming = incoming.unwrap();
+    let reason = tokio::time::timeout(Duration::from_secs(2), outgoing.closed())
+        .await.expect("installing TCP must preserve the supplied idle timeout");
+    assert!(matches!(reason, iroh::endpoint::ConnectionError::TimedOut), "{reason}");
+    drop(incoming);
+    client.close().await;
+    server.close().await;
+}

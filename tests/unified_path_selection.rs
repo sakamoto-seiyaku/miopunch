@@ -4,7 +4,7 @@
 #[path = "../src/path_selection.rs"]
 mod path_selection;
 
-// The source's existing native selector() defaults refer to actual carriers.
+// The source's existing native selector defaults refer to actual carriers.
 #[cfg(feature = "rtc-probe")]
 use miopunch_native_probe::rtc_transport;
 use miopunch_native_probe::{irc_transport, member_transport, mqtt_transport, tcp_transport};
@@ -156,7 +156,7 @@ fn current_and_explicit_selector_apis_keep_interval_defaults_and_bounds() {
     let policy = PathSelectionPolicy::default();
     assert_eq!(policy.preference, PathPreference::Quality);
     assert_eq!(
-        policy.selector().unwrap().reevaluation_interval(),
+        policy.selector_with_native_rtc(false).unwrap().reevaluation_interval(),
         Some(Duration::from_secs(1))
     );
     assert_eq!(
@@ -171,7 +171,7 @@ fn current_and_explicit_selector_apis_keep_interval_defaults_and_bounds() {
             reevaluation_interval_ms: interval,
             ..policy.clone()
         };
-        assert!(policy.selector().is_err());
+        assert!(policy.selector_with_native_rtc(false).is_err());
         assert!(policy.selector_with_carriers(classes()).is_err());
     }
     for interval in [250, 30_000] {

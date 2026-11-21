@@ -131,6 +131,16 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
         async { Err(io::ErrorKind::Unsupported.into()) }
     }
 
+    /// Prepare a direct carrier while this member is still control-only.
+    /// The candidate must retain the exact bootstrap circuit on commit.
+    fn prepare_member_bootstrap_direct<'a>(
+        &'a self,
+        _connection: &'a ControlHandle,
+        _exchange: &'a ControlExchange,
+    ) -> impl Future<Output = io::Result<MemberDirectCandidate>> + Send + 'a {
+        async { Err(io::ErrorKind::Unsupported.into()) }
+    }
+
     /// Custom carrier for explicitly permitted member data relay candidates.
     /// These are data paths and never qualify a signaling-only contact.
     fn member_relay_transport(&self) -> Option<u64> {
@@ -152,7 +162,7 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
     }
 
     /// Allow an installed custom carrier to establish only the protected
-    /// member bootstrap. Business still needs an eligible native UDP path.
+    /// member bootstrap. Business still needs an eligible, verified data path.
     fn permits_restricted_contact(&self, _address: &iroh_base::CustomAddr) -> bool {
         false
     }
@@ -301,6 +311,17 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
         Box::pin(self.inner.prepare_member_direct(connection, exchange))
     }
 
+    fn prepare_member_bootstrap_direct<'a>(
+        &'a self,
+        connection: &'a ControlHandle,
+        exchange: &'a ControlExchange,
+    ) -> BoxFuture<'a, io::Result<MemberDirectCandidate>> {
+        Box::pin(
+            self.inner
+                .prepare_member_bootstrap_direct(connection, exchange),
+        )
+    }
+
     fn member_relay_transport(&self) -> Option<u64> {
         self.inner.member_relay_transport().filter(|id| {
             self.custom_data_limit
@@ -336,6 +357,70 @@ impl<A: MemberFusionAdmission> Admission<A> {
     ) -> io::Result<DataPathPermit> {
         let unavailable =
             || io::Error::new(io::ErrorKind::NotConnected, "no permitted member data path");
+        let tcp = self.inner.member_direct_traversal().is_some()
+            && self
+                .inner
+                .member_direct_transport()
+                .is_some_and(|id| custom.contains(&id));
+        let bootstrap = async {
+            let slot = tcp
+                .then(|| self.fusion.direct_traversal_slot.try_lock().ok())
+                .flatten();
+            let tcp = tcp && slot.is_some();
+            let exchange = if connection.side().is_client() {
+                connection.open_control_exchange().await?
+            } else {
+                connection.accept_control_exchange().await?
+            };
+            const CAPABILITIES: ControlMessageFormat = ControlMessageFormat::Fixed { length: 1 };
+            exchange
+                .send_message(CAPABILITIES, &[u8::from(tcp)])
+                .await?;
+            let peer = exchange.recv_message(CAPABILITIES).await?;
+            exchange.finish_send().await?;
+            match peer.as_slice() {
+                [1] if tcp => {
+                    let exchange = if connection.side().is_client() {
+                        connection.open_control_exchange().await?
+                    } else {
+                        connection.accept_control_exchange().await?
+                    };
+                    let prepared = self
+                        .inner
+                        .prepare_member_bootstrap_direct(connection, &exchange)
+                        .await?;
+                    let remote = direct::verify_direct(connection, prepared)
+                        .await?
+                        .commit(connection, &exchange)
+                        .await?;
+                    let path = connection
+                        .paths()
+                        .iter()
+                        .find(|path| path.remote_addr() == &remote)
+                        .map(|path| path.id())
+                        .ok_or(io::ErrorKind::NotConnected)?;
+                    return connection
+                        .qualify_data_path(path, custom.clone())
+                        .await
+                        .map(Some);
+                }
+                [0] | [1] => {}
+                _ => return Err(io::ErrorKind::InvalidData.into()),
+            }
+            Ok(None)
+        };
+        // Admission still owns the caller's absolute deadline and cancellation.
+        // TCP preparation retains its exact circuit through bilateral validation.
+        let permit = tokio::select! { biased;
+            error = connection.closed() => return Err(io::Error::new(io::ErrorKind::ConnectionAborted, error)),
+            result = bootstrap => result,
+        };
+        match permit {
+            Ok(Some(permit)) => return Ok(permit),
+            Ok(None) => {}
+            Err(error) => tracing::debug!(stable_id = connection.stable_id(), %error,
+                "TCP did not qualify the restricted member contact"),
+        }
         if connection.endpoint.bound_sockets().is_empty() {
             connection.close(0u32.into(), MEMBER_DATA_UNAVAILABLE);
             return Err(unavailable());
@@ -1822,7 +1907,9 @@ impl MemberConnection {
         cancel: &CancellationToken,
     ) -> io::Result<MemberUdpPlan> {
         let planning = self.0.udp.as_ref().ok_or(io::ErrorKind::Unsupported)?;
-        planning.initiate(deadline, cancel, StreamKind::UdpPlan).await
+        planning
+            .initiate(deadline, cancel, StreamKind::UdpPlan)
+            .await
     }
 
     /// Observe the most recent still-current coordinated UDP plan on this original.
@@ -1838,7 +1925,9 @@ impl MemberConnection {
         cancel: &CancellationToken,
     ) -> io::Result<MemberUdpPlan> {
         let planning = self.0.udp.as_ref().ok_or(io::ErrorKind::Unsupported)?;
-        planning.initiate(deadline, cancel, StreamKind::UdpTraversal).await
+        planning
+            .initiate(deadline, cancel, StreamKind::UdpTraversal)
+            .await
     }
 
     /// Independently read this side's actual packet, path and settlement evidence.
@@ -1857,7 +1946,9 @@ impl MemberConnection {
         operation: impl AsyncFnOnce(&mut MemberStream) -> io::Result<T>,
     ) -> io::Result<T> {
         let observation = match &self.0.udp {
-            Some(planning) if stream.is_business() => planning.arm_business(round, &stream.recv).await,
+            Some(planning) if stream.is_business() => {
+                planning.arm_business(round, &stream.recv).await
+            }
             _ => None,
         };
         let Some((observation, mut confirmation)) = observation else {
