@@ -176,14 +176,25 @@ impl Dial<'_> {
             .into_iter()
             .filter(|route| route.is_ip() && target.addrs.remove(route))
             .collect::<Vec<_>>();
-        let recent_ip = options
+        let direct_transport = self
+            .endpoint
+            .inner
+            .inner
+            .static_config
+            .admission
+            .as_ref()
+            .and_then(|policy| policy.member_direct_transport());
+        let recent_direct = options
             .recent
             .iter()
-            .find(|route| route.is_ip() && target.addrs.contains(*route))
-            .cloned();
-        if let Some(route) = &recent_ip {
-            target.addrs.remove(route);
-        }
+            .filter(|route| {
+                route.is_ip()
+                    || matches!(route, TransportAddr::Custom(address)
+                if Some(address.id()) == direct_transport)
+            })
+            .filter(|route| target.addrs.remove(*route))
+            .cloned()
+            .collect::<Vec<_>>();
         let endpoint = &self.endpoint.inner.inner;
         let member_relay = endpoint
             .static_config
@@ -242,7 +253,7 @@ impl Dial<'_> {
         };
         let id = target.id;
         let mut first = None;
-        let has_race = recent_ip.is_some() || !relays.is_empty() || !restricted.is_empty();
+        let has_race = !recent_direct.is_empty() || !relays.is_empty() || !restricted.is_empty();
         let has_cold = !cold.is_empty() || lookup.is_some();
         if !active.is_empty() {
             let stages = 1 + u32::from(has_race) + u32::from(has_cold) + u32::from(combined);
@@ -269,15 +280,14 @@ impl Dial<'_> {
                 }
             };
             let primary = async {
-                match recent_ip {
-                    Some(route) => {
-                        race(
-                            self.route(id, route, end, &progress, None, None),
-                            alternative,
-                        )
-                        .await
-                    }
-                    None => alternative.await,
+                if recent_direct.is_empty() {
+                    alternative.await
+                } else {
+                    race(
+                        self.parallel(id, recent_direct, end, &progress),
+                        alternative,
+                    )
+                    .await
                 }
             };
             tokio::pin!(primary);
@@ -590,6 +600,27 @@ impl Dial<'_> {
             finished(result.as_ref().copied().map_err(io::Error::kind));
         }
         result.map(drop)
+    }
+
+    async fn parallel(
+        &self,
+        id: EndpointId,
+        routes: Vec<TransportAddr>,
+        end: Instant,
+        progress: &RouteProgress<'_>,
+    ) -> io::Result<()> {
+        let mut flying = routes
+            .into_iter()
+            .map(|route| self.route(id, route, end, progress, None, None))
+            .collect::<FuturesUnordered<_>>();
+        let mut failure = None;
+        while let Some(result) = flying.next().await {
+            match result {
+                Err(error) if !stops_dial(&error) => failure = Some(prefer_error(failure, error)),
+                result => return result,
+            }
+        }
+        Err(failure.unwrap_or_else(|| io::ErrorKind::NotConnected.into()))
     }
 
     async fn ordered(

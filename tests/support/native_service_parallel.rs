@@ -113,9 +113,156 @@ async fn udp_first_reply_keeps_the_started_tcp_round() {
     })
     .await
     .expect("started TCP must qualify on the same original after UDP delivery");
+    let learned = flow(&consumer, Protocol::Tcp)["transport"].clone();
+    let unused_tcp = learned["paths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|path| {
+            matches!(serde_json::from_value::<iroh::TransportAddr>(path["remote"].clone()),
+            Ok(iroh::TransportAddr::Custom(address))
+                if address.id() == miopunch_native_probe::tcp_transport::DATA_TRANSPORT_ID)
+        })
+        .unwrap();
+    assert_eq!(
+        unused_tcp["selected"], false,
+        "TCP remains a verified backup: {learned}"
+    );
+    assert_eq!(
+        unused_tcp["tx_stream_frames"], 0,
+        "no business used this candidate: {learned}"
+    );
+    println!("MIO162 VERIFIED_UNUSED {learned}");
     tcp_round_trip(&mut input, &mut output, b"late").await;
     consumer.close().await.unwrap();
+    let saved = read_member_routes(&root.path().join("consumer"), provider.address().id);
+    let tcp = saved
+        .iter()
+        .find_map(|route| {
+            let address: iroh::TransportAddr =
+                serde_json::from_value(route["address"].clone()).unwrap();
+            matches!(&address, iroh::TransportAddr::Custom(custom)
+            if custom.id() == miopunch_native_probe::tcp_transport::DATA_TRANSPORT_ID)
+            .then_some((address, route))
+        })
+        .expect("the validated, initially unselected TCP path must be saved");
+    assert_eq!(tcp.1["verified"], true);
+    assert!(
+        saved
+            .iter()
+            .any(|route| route["address"].get("Ip").is_some() && route["verified"] == true)
+    );
+    let reopened = reopen_with_resources(&root.path().join("consumer"), |resources| {
+        resources.udp_direct_disabled = true;
+    })
+    .await;
+    first_pong(
+        &reopened,
+        iroh::EndpointAddr::new(provider.address().id),
+        tcp.0.clone(),
+    )
+    .await;
+    reopened.close().await.unwrap();
+    let peer = provider.address().id;
+    let udp_address: SocketAddr = saved
+        .iter()
+        .find_map(|route| {
+            serde_json::from_value::<iroh::TransportAddr>(route["address"].clone())
+                .ok()
+                .and_then(|route| match route {
+                    iroh::TransportAddr::Ip(address) => Some(address),
+                    _ => None,
+                })
+        })
+        .unwrap();
+    let iroh::TransportAddr::Custom(ref tcp_route) = tcp.0 else {
+        unreachable!()
+    };
+    let tcp_address =
+        miopunch_native_probe::tcp_transport::TcpTransport::socket_addr(tcp_route).unwrap();
     provider.close().await.unwrap();
+    let old_udp = UdpSocket::bind(udp_address).await.unwrap();
+    let old_tcp = TcpListener::bind(tcp_address).await.unwrap();
+    let relay_server = relay().await;
+    let relay_url = relay_server.http_url().unwrap();
+    for with_relay in [true, false] {
+        let provider = reopen_with_resources(&root.path().join("provider"), |resources| {
+            resources.udp_direct_disabled = false;
+            if with_relay {
+                resources
+                    .defaults
+                    .resources
+                    .push(relay_resource(&relay_url));
+            } else {
+                resources
+                    .defaults
+                    .resources
+                    .retain(|resource| !resource.uses.contains(&ResourceUse::DataRelay));
+            }
+        })
+        .await;
+        // Restore the real, previously validated pair after the last run learned new paths.
+        write_member_routes(&root.path().join("consumer"), peer, saved.clone());
+        let consumer = reopen_with_resources(&root.path().join("consumer"), |resources| {
+            resources.udp_direct_disabled = false;
+            if with_relay {
+                resources
+                    .defaults
+                    .resources
+                    .push(relay_resource(&relay_url));
+            } else {
+                resources
+                    .defaults
+                    .resources
+                    .retain(|resource| !resource.uses.contains(&ResourceUse::DataRelay));
+            }
+        })
+        .await;
+        let mut contact = iroh::EndpointAddr::new(peer);
+        if !with_relay {
+            contact = provider.invitation().await.unwrap().address().clone();
+            contact.addrs.retain(|route| {
+                matches!(route, iroh::TransportAddr::Custom(address)
+                if address.id() == miopunch_native_probe::mqtt_datagram::TRANSPORT_ID)
+            });
+        }
+        let mut packet = [0; 1500];
+        let (reply, tcp_started, udp_started) = timeout(Duration::from_secs(4), async {
+            tokio::join!(
+                consumer.ping(contact),
+                old_tcp.accept(),
+                old_udp.recv_from(&mut packet)
+            )
+        })
+        .await
+        .expect("both cached protocols must start without holding up relay or restricted contact");
+        let reply = reply.unwrap();
+        assert_eq!(reply["reply"], "PONG");
+        assert_eq!(reply["transport"]["peer"], peer.to_string());
+        assert!(tcp_started.is_ok(), "TCP cached candidate was not dialed");
+        assert!(
+            udp_started.unwrap().0 >= 1200,
+            "UDP cached candidate did not send Initial"
+        );
+        if with_relay {
+            assert!(
+                reply["transport"]["initial_data_path"]
+                    .get("Relay")
+                    .is_some(),
+                "{reply}"
+            );
+        }
+        println!("MIO162 CACHED_PARALLEL relay={with_relay} {reply}");
+        let second = consumer.ping(iroh::EndpointAddr::new(peer)).await.unwrap();
+        assert_eq!(
+            second["transport"]["connection"],
+            reply["transport"]["connection"]
+        );
+        consumer.close().await.unwrap();
+        provider.close().await.unwrap();
+        while old_udp.try_recv_from(&mut packet).is_ok() {}
+    }
+    relay_server.shutdown().await.unwrap();
     task.abort();
 }
 

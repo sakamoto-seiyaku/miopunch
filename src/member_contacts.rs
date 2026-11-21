@@ -71,11 +71,10 @@ impl MemberContacts {
         self: &Arc<Self>,
         connection: &iroh::endpoint::MemberConnection,
     ) -> io::Result<()> {
-        let id = connection.remote_id();
-        let route = connection.initial_data_path().clone();
+        let connection = connection.clone();
         self.blocking(move |store| {
-            if store.gate.member_contact_allowed(id) && store.permitted(&route) {
-                store.record(id, vec![route], true)?;
+            if store.gate.member_contact_allowed(connection.remote_id()) {
+                store.observe_paths(connection.remote_id(), connection.paths())?;
             }
             Ok(())
         })
@@ -122,7 +121,14 @@ impl MemberContacts {
             TransportAddr::Relay(url) => self
                 .config
                 .allows(url.as_str(), crate::resources::ResourceUse::DataRelay),
-            // Session-scoped custom addresses are deliberately not persisted.
+            TransportAddr::Custom(address)
+                if address.id() == crate::tcp_transport::DATA_TRANSPORT_ID =>
+            {
+                self.config.allows_custom(address)
+                    && crate::tcp_transport::TcpTransport::socket_addr(address)
+                        .is_ok_and(|address| !address.ip().is_unspecified() && address.port() != 0)
+            }
+            // Signaling and session-scoped custom routes are not redial hints.
             _ => false,
         }
     }
@@ -130,14 +136,27 @@ impl MemberContacts {
         if !self.gate.allows_member_path_upgrade(connection) {
             return Ok(());
         }
-        let routes = connection
-            .paths()
+        self.observe_paths(connection.remote_id(), connection.paths())
+    }
+    fn observe_paths(&self, id: EndpointId, paths: iroh::endpoint::PathList<'_>) -> io::Result<()> {
+        let now = crate::service_policy::now();
+        let routes = paths
             .iter()
-            .map(|p| p.remote_addr().clone())
-            .filter(|r| self.permitted(r))
+            .filter_map(|path| {
+                let address = path.remote_addr();
+                if !self.permitted(address) {
+                    return None;
+                }
+                let ack = path.stats().acknowledgment?;
+                Some(SavedRoute {
+                    address: address.clone(),
+                    observed_at: now.saturating_sub(ack.received_at.elapsed().as_secs()),
+                    verified: true,
+                })
+            })
             .take(MAX_ROUTES)
-            .collect::<Vec<_>>();
-        self.record(connection.remote_id(), routes, true)
+            .collect();
+        self.record_routes(id, routes)
     }
     pub(crate) fn advertised(
         &self,
@@ -169,6 +188,20 @@ impl MemberContacts {
         )
     }
     fn record(&self, id: EndpointId, routes: Vec<TransportAddr>, verified: bool) -> io::Result<()> {
+        let now = crate::service_policy::now();
+        self.record_routes(
+            id,
+            routes
+                .into_iter()
+                .map(|address| SavedRoute {
+                    address,
+                    observed_at: now,
+                    verified,
+                })
+                .collect(),
+        )
+    }
+    fn record_routes(&self, id: EndpointId, routes: Vec<SavedRoute>) -> io::Result<()> {
         if routes.is_empty() {
             return Ok(());
         }
@@ -180,25 +213,19 @@ impl MemberContacts {
         });
         let before = entry.routes.clone();
         for route in routes {
-            if let Some(old) = entry.routes.iter_mut().find(|r| r.address == route) {
-                // An unvalidated announcement must not refresh a previously
-                // validated route's preference or its proof of reachability.
-                if verified || !old.verified || !old.is_recent(now) {
-                    if now >= old.observed_at
-                        && now - old.observed_at < RECENT_SECONDS / 2
-                        && old.verified == verified
-                    {
-                        continue;
-                    }
-                    old.observed_at = now;
-                    old.verified = verified;
+            if let Some(old) = entry
+                .routes
+                .iter_mut()
+                .find(|old| old.address == route.address)
+            {
+                // Announcements never refresh evidence from an authenticated path.
+                if (route.verified || !old.verified) && route.observed_at > old.observed_at {
+                    *old = route;
+                } else if route.verified && !old.verified {
+                    *old = route;
                 }
             } else {
-                entry.routes.push(SavedRoute {
-                    address: route,
-                    observed_at: now,
-                    verified,
-                });
+                entry.routes.push(route);
             }
         }
         entry.routes.sort_by_key(|r| {
@@ -229,8 +256,16 @@ impl MemberContacts {
         Ok(())
     }
     pub(crate) fn refresh(&self) -> io::Result<()> {
-        for connection in self.gate.maintenance().live() {
-            self.observe(&connection)?;
+        let mut seen = std::collections::BTreeSet::new();
+        for connection in self
+            .gate
+            .live_member_connections()
+            .into_iter()
+            .chain(self.gate.maintenance().live())
+        {
+            if seen.insert(connection.stable_id()) {
+                self.observe(&connection)?;
+            }
         }
         Ok(())
     }

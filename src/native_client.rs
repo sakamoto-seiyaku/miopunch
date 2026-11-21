@@ -290,6 +290,11 @@ impl NativeClient {
                         }
                         _ = member_handlers.join_next(), if !member_handlers.is_empty() => {},
                         _ = expiry.tick() => {
+                            if let Some(contacts) = &member_contacts
+                                && let Err(error) = contacts.refresh_async().await
+                            {
+                                eprintln!("could not save verified member paths: {error}");
+                            }
                             files.expire().await;
                             let node = node.lock().await;
                             if let Ok(access) = services.lock().await.access(&node).await {
@@ -738,6 +743,11 @@ impl NativeClient {
     /// Stop this host's listener and handlers, close endpoint resources, then
     /// close the durable store. Identity and authorization remain on disk.
     pub async fn close(self) -> Result<(), ClientError> {
+        let contacts_stop = if let Some(contacts) = &self.resources.member_contacts {
+            contacts.refresh_async().await
+        } else {
+            Ok(())
+        };
         let terminal_stop = self.terminal.close().await;
         let web_stop = self.web.close().await;
         let forwarding_stop = self.forwarding.close().await;
@@ -761,6 +771,7 @@ impl NativeClient {
         web_stop?;
         forwarding_stop?;
         terminal_stop?;
+        contacts_stop?;
         Ok(())
     }
 }

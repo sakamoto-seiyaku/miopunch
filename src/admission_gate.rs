@@ -535,6 +535,15 @@ impl AdmissionGate {
         self.state.lock().expect("admission policy lock").policy.service_guest(alpn, peer.as_bytes())
     }
 
+    pub(crate) fn live_member_connections(&self) -> Vec<Connection> {
+        let state = self.state.lock().expect("admission policy lock");
+        state.sessions.values()
+            .filter(|session| session.scope == ProtocolScope::Member && session.valid(&state.policy))
+            .filter_map(|session| session.business.as_ref()?.upgrade())
+            .filter(|connection| connection.close_reason().is_none())
+            .collect()
+    }
+
     pub(crate) fn member_connection_for_binding(
         &self,
         peer: iroh::EndpointId,
