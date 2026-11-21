@@ -51,6 +51,8 @@ pub(in crate::endpoint) struct PathCandidates {
     node_traversal_slot: Arc<tokio::sync::Mutex<()>>,
     activity: Arc<super::Activity>,
     last_traversal: Mutex<Option<(ObservationValidity, time::Instant)>>,
+    healthy_direct: watch::Receiver<bool>,
+    data_failed: Option<watch::Receiver<bool>>,
 }
 
 impl PathCandidates {
@@ -139,19 +141,8 @@ impl PathCandidates {
         })
     }
 
-    fn has_qualified_direct(&self, connection: &Connection) -> bool {
-        let policy = self
-            .endpoint
-            .inner
-            .static_config
-            .admission
-            .as_ref()
-            .expect("member policy");
-        connection.paths().iter().any(|path| {
-            (path.is_ip() || matches!(path.remote_addr(), TransportAddr::Custom(addr) if Some(addr.id()) == self.direct))
-                && policy.permits_member_data_path(path.remote_addr())
-                && path.stats().acknowledgment.is_some()
-        })
+    fn has_qualified_direct(&self) -> bool {
+        *self.healthy_direct.borrow()
     }
 
     async fn initiate(&self, connection: &Connection) -> io::Result<()> {
@@ -235,18 +226,53 @@ impl PathCandidates {
                 };
                 *self.last_traversal.lock().expect("direct traversal") =
                     Some((generation.clone(), time::Instant::now()));
-                self.traverse(connection, exchange).await
+                self.traverse(connection, exchange).await.map(|_| ())
             })
             .await?
         };
+        let unavailable = async {
+            if let Some(mut failed) = self.data_failed.clone() {
+                let _ = failed.wait_for(|failed| *failed).await;
+            } else {
+                std::future::pending::<()>().await;
+            }
+        };
         tokio::select! { biased;
+            _ = unavailable => Err(io::ErrorKind::NotConnected.into()),
             _ = self.endpoint.inner.wait_network_generation_change(&generation) => Err(io::ErrorKind::Interrupted.into()),
             _ = yield_standby => Err(io::ErrorKind::WouldBlock.into()),
             result = work => result,
         }
     }
 
-    async fn traverse(&self, connection: &Connection, exchange: ControlExchange) -> io::Result<()> {
+    pub(super) async fn repair(
+        &self,
+        connection: &Connection,
+        exchange: ControlExchange,
+        deadline: time::Instant,
+        cancel: &tokio_util::sync::CancellationToken,
+    ) -> io::Result<(TransportAddr, u64)> {
+        let (budget, _) = self.traversal.ok_or(io::ErrorKind::Unsupported)?;
+        let deadline = deadline.min(time::Instant::now() + budget);
+        let generation = self.endpoint.udp_network_generation();
+        let work = async {
+            let _slot = self.node_traversal_slot.lock().await;
+            self.traverse(connection, exchange).await
+        };
+        tokio::select! { biased;
+            _ = cancel.cancelled() => Err(io::ErrorKind::Interrupted.into()),
+            _ = connection.closed() => Err(io::ErrorKind::NotConnected.into()),
+            _ = self.endpoint.inner.wait_network_generation_change(&generation) => Err(io::ErrorKind::Interrupted.into()),
+            _ = time::sleep_until(deadline) => Err(io::ErrorKind::TimedOut.into()),
+            result = work => result,
+        }
+    }
+
+    async fn traverse(
+        &self,
+        connection: &Connection,
+        exchange: ControlExchange,
+    ) -> io::Result<(TransportAddr, u64)> {
         let peer = exchange.send_control().await?;
         let control = ControlHandle::narrow(&self.endpoint, connection);
         let policy = self
@@ -265,7 +291,11 @@ impl PathCandidates {
             _ = peer.stopped() => return Err(io::ErrorKind::Interrupted.into()),
             result = qualify => result?,
         };
-        verified.commit(&control, &exchange).await.map(|_| ())
+        let watermark = verified.probe.watermark();
+        verified
+            .commit(&control, &exchange)
+            .await
+            .map(|remote| (remote, watermark))
     }
 }
 
@@ -359,6 +389,8 @@ pub(in crate::endpoint) fn watch_path_candidates(
     member_relay: Option<u64>,
     native_relay: bool,
     node_traversal_slot: Arc<tokio::sync::Mutex<()>>,
+    healthy_direct: watch::Receiver<bool>,
+    data_failed: Option<watch::Receiver<bool>>,
 ) -> Option<Arc<PathCandidates>> {
     if direct.is_none() && member_relay.is_none() {
         return None;
@@ -387,6 +419,8 @@ pub(in crate::endpoint) fn watch_path_candidates(
         node_traversal_slot,
         activity: activity.clone(),
         last_traversal: Default::default(),
+        healthy_direct,
+        data_failed,
     });
     tokio::spawn(watch(
         connection,
@@ -494,6 +528,7 @@ async fn watch(
         let mut attempted = BTreeSet::new();
         let mut in_flight: FuturesUnordered<BoxFuture<'_, CandidateCompletion>> =
             FuturesUnordered::new();
+        let mut healthy_direct = candidates.healthy_direct.clone();
         let mut traversal_running = false;
         let mut traversal_interval = None;
         let mut next_traversal = None;
@@ -512,7 +547,7 @@ async fn watch(
                 next_traversal = traversal_interval.map(|_| now);
             }
             let can_traverse = active && traversal_interval.is_some();
-            let qualified = can_traverse && candidates.has_qualified_direct(&connection);
+            let qualified = can_traverse && candidates.has_qualified_direct();
             if can_traverse && (!previously_active || (previously_qualified && !qualified)) {
                 next_traversal.get_or_insert(now);
             }
@@ -545,6 +580,7 @@ async fn watch(
                 biased;
                 _ = candidates.endpoint.inner.wait_network_generation_change(&generation), if traversal_interval.is_some() => continue,
                 Ok(()) = activity.changed() => continue,
+                Ok(()) = healthy_direct.changed() => continue,
                 Some(_) = paths.next(), if can_traverse => continue,
                 Some(result) = in_flight.next() => {
                     if let CandidateCompletion::Traversal(result) = result {

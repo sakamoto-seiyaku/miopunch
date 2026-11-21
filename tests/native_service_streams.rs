@@ -7,6 +7,8 @@ mod native_service_parallel;
 #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
 #[path = "support/native_service_backup.rs"]
 mod native_service_backup;
+#[path = "support/native_service_recovery.rs"]
+mod native_service_recovery;
 #[path = "support/native_service_tcp_nat.rs"]
 mod native_service_tcp_nat;
 #[path = "support/relay_contact_broker.rs"]

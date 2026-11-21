@@ -301,6 +301,27 @@ pub(crate) async fn recover_member_path(
                     endpoint: endpoint.endpoint(),
                     contact: Some((TransportAddr::Custom(route.clone()), reach_by)),
                 };
+                if endpoint
+                    .member_fusion
+                    .as_ref()
+                    .is_some_and(|(fusion, _)| fusion.supports_direct_repair(original))
+                {
+                    match recover_member_tcp(
+                        gate,
+                        endpoint,
+                        &contact_endpoint,
+                        original,
+                        contact.clone(),
+                        deadline,
+                        cancel.clone(),
+                        || lease.seal_outgoing_hello(),
+                    )
+                    .await
+                    {
+                        Err(error) if error.kind() == io::ErrorKind::Unsupported => {}
+                        result => return result,
+                    }
+                }
                 core::recover(
                     &contact_endpoint,
                     original,
@@ -327,6 +348,89 @@ pub(crate) async fn recover_member_path(
         .map_err(|error| core::failed(original, error))?;
     quota.succeeded();
     Ok(result)
+}
+
+async fn recover_member_tcp(
+    gate: &AdmissionGate,
+    endpoint: &ResourceEndpoint,
+    contact_endpoint: &FusedRecovery<'_>,
+    original: &Connection,
+    contact: EndpointAddr,
+    deadline: n0_future::time::Instant,
+    cancel: CancellationToken,
+    begin_validation: impl FnOnce() -> io::Result<()>,
+) -> io::Result<ConnectionPathRecovery> {
+    use core::RecoveryEndpoint;
+    let network = endpoint.endpoint().udp_network_generation();
+    let work = async {
+        let control = contact_endpoint
+            .connect_repair_control(
+                contact,
+                ConnectOptions::default()
+                    .with_caller_deadline(deadline)
+                    .with_attempt_cancellation(cancel.clone()),
+            )
+            .await?;
+        let result = async {
+            check_repair_membership(gate, original, &control)?;
+            if !network.is_current() {
+                return Err(io::ErrorKind::Interrupted.into());
+            }
+            let exchange = control.open_control_exchange().await?;
+            exchange
+                .send_message(
+                    ControlMessageFormat::EndTerminated {
+                        maximum: MAX_MESSAGE,
+                    },
+                    &encode_message(&RepairRequest {
+                        binding: binding(original)?,
+                        offer: data_offer(endpoint),
+                        require_confirmation: true,
+                        traverse_tcp: true,
+                    })?,
+                )
+                .await?;
+            if exchange
+                .recv_message(ControlMessageFormat::Fixed { length: 1 })
+                .await?
+                != [1]
+            {
+                return Err(io::ErrorKind::Unsupported.into());
+            }
+            begin_validation()?;
+            let (fusion, _) = endpoint
+                .member_fusion
+                .as_ref()
+                .ok_or(io::ErrorKind::Unsupported)?;
+            let traversal = control.open_control_exchange().await?;
+            let (remote, watermark) = fusion
+                .repair_direct_until(original, traversal, deadline, &cancel)
+                .await?;
+            check_repair_membership(gate, original, &control)?;
+            let paths = original.paths();
+            let path = paths
+                .iter()
+                .find(|path| path.remote_addr() == &remote)
+                .ok_or(io::ErrorKind::NotConnected)?;
+            Ok(ConnectionPathRecovery {
+                stable_id: original.stable_id(),
+                path: remote,
+                path_id: path.id().to_string(),
+                probe_watermark: watermark,
+                control_stable_id: control.stable_id(),
+                peer_confirmed: true,
+            })
+        }
+        .await;
+        control.close(0u32.into(), b"member TCP repair ended");
+        result
+    };
+    tokio::select! { biased;
+        _ = original.closed() => Err(io::ErrorKind::NotConnected.into()),
+        _ = cancel.cancelled() => Err(io::ErrorKind::Interrupted.into()),
+        _ = tokio::time::sleep_until(deadline) => Err(io::ErrorKind::TimedOut.into()),
+        result = work => result,
+    }
 }
 
 pub(crate) async fn serve_path_recovery(
@@ -436,6 +540,35 @@ pub(crate) async fn serve_path_recovery(
                 .await
             }
         };
+        if fused && request.traverse_tcp {
+            let (fusion, _) = endpoint
+                .member_fusion
+                .as_ref()
+                .ok_or(io::ErrorKind::Unsupported)?;
+            let supported =
+                request.require_confirmation && fusion.supports_direct_repair(&original);
+            exchange
+                .send_message(
+                    ControlMessageFormat::Fixed { length: 1 },
+                    &[u8::from(supported)],
+                )
+                .await?;
+            if !supported {
+                return Err(io::ErrorKind::Unsupported.into());
+            }
+            lease
+                .run(async {
+                    let traversal = control.accept_control_exchange().await?;
+                    fusion
+                        .repair_direct_until(&original, traversal, deadline, &attempt.cancellation)
+                        .await?;
+                    check(&original, control)?;
+                    Ok::<_, io::Error>(())
+                })
+                .await
+                .map_err(|cause| io::Error::other(format!("incoming TCP repair: {cause:?}")))??;
+            return Ok(());
+        }
         lease
             .run(async {
                 if !fused && original.side().is_client() {

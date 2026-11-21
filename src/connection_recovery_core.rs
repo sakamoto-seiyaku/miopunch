@@ -120,6 +120,8 @@ pub(crate) struct RepairRequest {
     pub offer: EndpointAddr,
     #[serde(default, skip_serializing_if = "is_false")]
     pub require_confirmation: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub traverse_tcp: bool,
 }
 fn is_false(value: &bool) -> bool {
     !value
@@ -320,6 +322,7 @@ pub(crate) async fn recover<E: RecoveryEndpoint>(
             binding: binding(original)?,
             offer,
             require_confirmation,
+            traverse_tcp: false,
         };
         let options = ConnectOptions::default()
             .with_caller_deadline(deadline)

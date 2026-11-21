@@ -26,7 +26,7 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
     let parallel = case.starts_with("parallel-");
     let relay_start = case.starts_with("parallel-relay-");
     if role == "setup" {
-        let relay = if relay_start {
+        let relay = if relay_start || env::var_os("MIO164_RECOVERY").is_some() {
             let mut config = iroh_relay::server::ServerConfig::default();
             config.relay = Some(iroh_relay::server::RelayConfig::new((WAN, 0)));
             Some(iroh_relay::server::Server::spawn(config).await.unwrap())
@@ -203,6 +203,8 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
                 println!("MIO155 MQTT_INITIALS {dials}");
                 if case == "simultaneous" {
                     assert!((1..=2).contains(&dials), "mutual member dials: {dials}");
+                } else if env::var_os("MIO164_RECOVERY").is_some() {
+                    assert!(dials >= 1, "initial contact and permitted repair use signaling");
                 } else {
                     assert_eq!(dials, usize::from(!relay_start));
                 }
@@ -222,6 +224,11 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
         case.ends_with("blocked")
     };
     let client = NativeClient::open(root.join(name), ip).await.unwrap();
+    if env::var_os("MIO164_RECOVERY").is_some() {
+        super::native_service_recovery::run(root, &client, &role, visitor).await;
+        client.close().await.unwrap();
+        return;
+    }
     if parallel {
         super::native_service_parallel::lab_first_reply(root, &client, &role, visitor, &case).await;
         client.close().await.unwrap();

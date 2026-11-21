@@ -108,6 +108,7 @@ pub(crate) struct MemberPathPolicy {
     acked_custom_transports: [Option<u64>; 2],
     ack_native_relay: bool,
     repair: Option<watch::Sender<bool>>,
+    direct_health: Option<watch::Sender<bool>>,
     #[cfg(not(wasm_browser))]
     enhanced: Option<Arc<MemberUdpPathWork>>,
     #[debug(skip)]
@@ -125,6 +126,7 @@ impl MemberPathPolicy {
             acked_custom_transports: [None; 2],
             ack_native_relay: false,
             repair: None,
+            direct_health: None,
             enhanced: None,
             permit: Arc::new(permit),
         }
@@ -144,6 +146,12 @@ impl MemberPathPolicy {
     #[cfg(not(wasm_browser))]
     pub(crate) fn with_repair_health(mut self, repair: Option<watch::Sender<bool>>) -> Self {
         self.repair = repair;
+        self
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn with_direct_health(mut self, health: watch::Sender<bool>) -> Self {
+        self.direct_health = Some(health);
         self
     }
 
@@ -1951,6 +1959,22 @@ impl RemoteStateActor {
                 conn_state,
                 health_interval.map(|interval| (now, interval)),
             );
+            if let Some(member) = &conn_state.member_paths
+                && let Some(health) = &member.policy.direct_health
+            {
+                let healthy = context.paths().any(|path| {
+                    !path.is_suspect()
+                        && (path.network_path().is_ip()
+                            || matches!(path.network_path(), transports::FourTuple::Custom { remote, .. }
+                                if member.policy.acked_custom_transports[0] == Some(remote.id())))
+                        && path.stats().is_some_and(|stats| stats.acknowledgment.is_some())
+                });
+                health.send_if_modified(|previous| {
+                    let changed = *previous != healthy;
+                    *previous = healthy;
+                    changed
+                });
+            }
             let selected_for_conn = if conn_state.purpose == ConnectionPurpose::Control
                 && let Some(exact) = conn_state.retained_control_custom.as_ref()
             {

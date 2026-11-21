@@ -561,6 +561,32 @@ impl MemberFusionEndpoint {
             .expect("member repair contact already installed");
     }
 
+    /// Whether this exact selected original supports protected TCP repair.
+    pub fn supports_direct_repair(&self, original: &Connection) -> bool {
+        self.inner.fusion.selected(original.remote_id()).is_some_and(|live| {
+            live.stable_id() == original.stable_id()
+                && live.0.path_candidates.as_ref().is_some_and(|paths| paths.supports_traversal())
+        })
+    }
+
+    /// Coordinate a replacement carrier over an independently authenticated
+    /// contact. The caller binds the exchange to this original's TLS identity.
+    /// Validation and retention still belong to the original member owner.
+    /// Returns the retained address and the fresh probe's packet watermark.
+    pub async fn repair_direct_until(
+        &self,
+        original: &Connection,
+        exchange: ControlExchange,
+        deadline: Instant,
+        cancel: &CancellationToken,
+    ) -> io::Result<(TransportAddr, u64)> {
+        let live = self.inner.fusion.selected(original.remote_id())
+            .filter(|live| live.stable_id() == original.stable_id())
+            .ok_or(io::ErrorKind::NotConnected)?;
+        let paths = live.0.path_candidates.as_ref().ok_or(io::ErrorKind::Unsupported)?;
+        paths.repair(original, exchange, deadline, cancel).await
+    }
+
     /// Synchronize two real candidates after they qualify at this test endpoint.
     #[cfg(feature = "miopunch-test-hooks")]
     #[doc(hidden)]

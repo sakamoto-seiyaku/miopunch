@@ -2013,6 +2013,7 @@ pub(super) async fn finish_admission(
                 .expect("member policy");
             let relay_policy = endpoint.inner.static_config.relay_resource_policy.clone();
             let repair = fusion.repair_path(endpoint, &connection, &activity);
+            let (direct_health, healthy_direct) = tokio::sync::watch::channel(false);
             let member_paths = crate::socket::remote_map::MemberPathPolicy::new(
                 Some(activity.subscribe()),
                 move |address| {
@@ -2027,7 +2028,8 @@ pub(super) async fn finish_admission(
             )
             .with_required_path_acks([direct_transport, member_relay], started_on_member_relay)
             .with_enhanced_udp(udp.as_ref().and_then(|udp| udp.path_work()))
-            .with_repair_health(repair.as_ref().map(|repair| repair.health.clone()));
+            .with_repair_health(repair.as_ref().map(|repair| repair.health.clone()))
+            .with_direct_health(direct_health);
             endpoint
                 .inner
                 .authorize_candidates(
@@ -2045,16 +2047,17 @@ pub(super) async fn finish_admission(
             if let Some(bootstrap) = bootstrap {
                 bootstrap.store(true, std::sync::atomic::Ordering::Release);
             }
-            let direct =
-                direct_transport.filter(|_| permit.remote.is_relay() || started_on_member_relay);
+            let direct = direct_transport;
             let candidates = super::member_fusion::watch_path_candidates(
                 endpoint.clone(),
                 connection.clone(),
                 activity.clone(),
                 direct,
                 member_relay,
-                started_on_member_relay,
+                true,
                 fusion.direct_traversal_slot.clone(),
+                healthy_direct,
+                repair.as_ref().map(|repair| repair.health.subscribe()),
             );
             fusion.publish(
                 selection,
