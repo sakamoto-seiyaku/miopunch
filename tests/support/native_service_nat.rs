@@ -41,6 +41,24 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
             provider,
             ..
         } = Pair::admit_with_resources(resources.clone()).await;
+        let mqtt_prefix = if case == "simultaneous" {
+            let invitation = provider.invitation().await.unwrap();
+            let route = invitation
+                .address()
+                .addrs
+                .iter()
+                .find_map(|address| {
+                    let iroh::TransportAddr::Custom(route) = address else {
+                        return None;
+                    };
+                    (route.id() == miopunch_native_probe::mqtt_datagram::TRANSPORT_ID)
+                        .then_some(route)
+                })
+                .unwrap();
+            Some(route.data()[..16].to_vec())
+        } else {
+            None
+        };
         consumer.close().await.unwrap();
         provider.close().await.unwrap();
         resources.udp_direct_disabled = tcp;
@@ -109,15 +127,66 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
                 }
             },
             async {
+                if let Some(prefix) = &mqtt_prefix {
+                    let mut known = std::collections::BTreeSet::new();
+                    for role in ["b", "a"] {
+                        wait_file(&root.join(format!("id-{role}"))).await;
+                        let route = timeout(Duration::from_secs(10), async {
+                            loop {
+                                if let Some(route) = broker
+                                    .datagram_routes()
+                                    .into_iter()
+                                    .find(|route| !known.contains(route))
+                                {
+                                    break route;
+                                }
+                                sleep(Duration::from_millis(10)).await;
+                            }
+                        })
+                        .await
+                        .unwrap();
+                        known.insert(route.clone());
+                        let mut data = prefix.clone();
+                        data.extend(hex::decode(route).unwrap());
+                        let id = fs::read_to_string(root.join(format!("id-{role}")))
+                            .unwrap()
+                            .parse()
+                            .unwrap();
+                        let contact =
+                            iroh::EndpointAddr::new(id).with_addrs([iroh::TransportAddr::Custom(
+                                iroh_base::CustomAddr::from_parts(
+                                    miopunch_native_probe::mqtt_datagram::TRANSPORT_ID,
+                                    &data,
+                                ),
+                            )]);
+                        fs::write(
+                            root.join(format!("contact-{role}")),
+                            serde_json::to_vec(&contact).unwrap(),
+                        )
+                        .unwrap();
+                    }
+                }
                 wait_file(&root.join("finished")).await;
-                let contact: iroh::EndpointAddr =
-                    serde_json::from_slice(&fs::read(root.join("contact")).unwrap()).unwrap();
-                let iroh::TransportAddr::Custom(route) = contact.addrs.first().unwrap() else {
-                    panic!("MQTT route");
+                let routes = if case == "simultaneous" {
+                    vec![root.join("contact-a"), root.join("contact-b")]
+                } else {
+                    vec![root.join("contact")]
                 };
-                let dials = broker.initial_dials_to(route);
+                let mut dials = 0;
+                for path in routes {
+                    let contact: iroh::EndpointAddr =
+                        serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+                    let iroh::TransportAddr::Custom(route) = contact.addrs.first().unwrap() else {
+                        panic!("MQTT route");
+                    };
+                    dials += broker.initial_dials_to(route);
+                }
                 println!("MIO155 MQTT_INITIALS {dials}");
-                assert_eq!(dials, 1);
+                if case == "simultaneous" {
+                    assert!((1..=2).contains(&dials), "mutual member dials: {dials}");
+                } else {
+                    assert_eq!(dials, 1);
+                }
                 fs::write(root.join("counted"), []).unwrap();
                 pending::<()>().await;
             },
@@ -162,7 +231,15 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
             .port()
     };
     fs::write(root.join(format!("port-{role}")), port.to_string()).unwrap();
+    if case == "simultaneous" {
+        fs::write(root.join(format!("id-{role}")), address.id.to_string()).unwrap();
+    }
     wait_file(&root.join("start")).await;
+    if case == "simultaneous" {
+        super::native_service_tcp_nat::simultaneous_first_reply(root, &client, &role).await;
+        client.close().await.unwrap();
+        return;
+    }
     if visitor {
         wait_file(&root.join("contact")).await;
         let (contact, target): (iroh::EndpointAddr, SocketAddr) =
@@ -289,7 +366,7 @@ fn report_original(side: &str, client: &NativeClient, tcp: bool) {
     println!("MIO155 {side}_ORIGINAL {transport}");
 }
 
-async fn wait_file(path: &Path) {
+pub(super) async fn wait_file(path: &Path) {
     timeout(Duration::from_secs(18), async {
         while !path.exists() {
             sleep(Duration::from_millis(20)).await;

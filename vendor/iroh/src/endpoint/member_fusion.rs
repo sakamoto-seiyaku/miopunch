@@ -363,10 +363,6 @@ impl<A: MemberFusionAdmission> Admission<A> {
                 .member_direct_transport()
                 .is_some_and(|id| custom.contains(&id));
         let bootstrap = async {
-            let slot = tcp
-                .then(|| self.fusion.direct_traversal_slot.try_lock().ok())
-                .flatten();
-            let tcp = tcp && slot.is_some();
             let exchange = if connection.side().is_client() {
                 connection.open_control_exchange().await?
             } else {

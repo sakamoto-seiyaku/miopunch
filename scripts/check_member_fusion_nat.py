@@ -125,9 +125,8 @@ def read_result(log):
     return json.loads(lines[0])
 
 
-def restricted_result(directory, case, visitor, trial, stats):
-    assert "MIO155 MQTT_INITIALS 1" in (directory / "setup.log").read_text()
-    success = not case.endswith("blocked")
+def restricted_stream_results(directory, visitor, success):
+    """Check admission identity, original connection and first business stream."""
     ends = []
     for role, side in zip("ab", range(2)):
         log = (directory / f"{role}.log").read_text().splitlines()
@@ -151,6 +150,15 @@ def restricted_result(directory, case, visitor, trial, stats):
         a, b = ends
         assert a["attempt"] == b["attempt"]
         assert a["transport"]["stream"] == b["transport"]["stream"]
+    return ends, elapsed
+
+
+def restricted_result(directory, case, visitor, trial, stats):
+    assert "MIO155 MQTT_INITIALS 1" in (directory / "setup.log").read_text()
+    success = not case.endswith("blocked")
+    ends, elapsed = restricted_stream_results(directory, visitor, success)
+    if success:
+        a, b = ends
         assert a["transport"]["enhanced_udp"]["round"] == b["transport"]["enhanced_udp"]["round"]
         # Each directions' WAN rule saw the separate raw protocol and allowed
         # follow-up QUIC on the learned mapping. A drop alone proves neither.

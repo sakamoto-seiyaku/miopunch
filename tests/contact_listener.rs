@@ -146,6 +146,7 @@ async fn node_keeps_contact_ready_and_restarts_during_healthy_relay_and_business
     configuration.replacement = Some(vec![]);
     native.save_resource_configuration(&configuration).unwrap();
     let peer = admit(&mut native, &directory.path().join("peer")).await;
+    configuration.tcp_direct_disabled = true;
     peer.save_resource_configuration(&configuration).unwrap();
     configuration.replacement = Some(vec![
         Resource {

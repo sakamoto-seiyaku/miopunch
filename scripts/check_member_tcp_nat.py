@@ -11,7 +11,7 @@ from pathlib import Path
 import subprocess
 import time
 
-from check_member_fusion_nat import topology, stop, run, PUBLIC
+from check_member_fusion_nat import topology, stop, run, PUBLIC, restricted_stream_results
 
 TEST = "native_service_tcp_nat::restricted_contact_delivers_the_first_native_reply_through_tcp"
 REPO = Path(__file__).resolve().parents[1]
@@ -56,7 +56,13 @@ def cell(binary, output, case, visitor):
             while "MIO150 LAB_READY" not in (directory / "setup.log").read_text():
                 assert setup.poll() is None and observer.poll() is None and time.monotonic() < deadline, directory
                 time.sleep(0.05)
-            workers = [worker(role) for role in "ba"]
+            workers = [worker("b")]
+            if case == "simultaneous":
+                deadline = time.monotonic() + 15
+                while not (directory / "members" / "contact-b").exists():
+                    assert workers[0].poll() is None and setup.poll() is None and time.monotonic() < deadline, directory
+                    time.sleep(0.02)
+            workers.append(worker("a"))
             ports = [directory / "members" / f"port-{role}" for role in "ab"]
             deadline = time.monotonic() + 35
             while any(not port.exists() or not port.stat().st_size for port in ports):
@@ -65,24 +71,32 @@ def cell(binary, output, case, visitor):
             (directory / "members" / "start").touch()
             exits = [p.wait(timeout=max(1, deadline - time.monotonic())) for p in workers]
             assert exits == [0, 0], (directory, exits)
-            assert "MIO155 MQTT_INITIALS 1" in (directory / "setup.log").read_text()
+            initials, = [line for line in (directory / "setup.log").read_text().splitlines()
+                         if line.startswith("MIO155 MQTT_INITIALS ")]
+            dials = int(initials.rsplit(" ", 1)[1])
+            assert 1 <= dials <= (2 if case == "simultaneous" else 1)
         for name, label in zip(names, ("wan", "gateway-a", "gateway-b", "a", "b")):
             (directory / f"{label}-rules.txt").write_text(
                 run("ip", "netns", "exec", name, "iptables-save", "-c"))
             (directory / f"{label}-sockets.txt").write_text(
                 run("ip", "netns", "exec", name, "ss", "-tan"))
-        ends = []
+        if case == "simultaneous":
+            ends = []
+            for role in "ab":
+                prefix = "MIO159 MUTUAL_ORIGINAL "
+                records = [json.loads(line[len(prefix):])
+                           for line in (directory / f"{role}.log").read_text().splitlines()
+                           if line.startswith(prefix)]
+                transports, = records
+                assert len(transports) == 2
+                ends.append(transports)
+            assert sorted(t["stream"] for t in ends[0]) == sorted(t["stream"] for t in ends[1])
+            result = {"case": case, "success": True, "ends": ends}
+            (directory / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+            return result
+        ends, elapsed = restricted_stream_results(directory, visitor, case == "positive")
         for side, role in enumerate("ab"):
             lines = (directory / f"{role}.log").read_text().splitlines()
-            events = [json.loads(line) for line in lines if line.startswith('{"attemptId":')]
-            admission, = [e for e in events if e["phase"] == "member-admission" and e["result"] == "succeeded"]
-            prefix = f"MIO155 {'CONSUMER' if side == visitor else 'PROVIDER'}_ORIGINAL "
-            streams = [json.loads(line[len(prefix):]) for line in lines if line.startswith(prefix)]
-            assert len(streams) == int(case == "positive")
-            if streams:
-                stream, = streams
-                assert stream["connection"] == admission["stableId"]
-                ends.append({"side": role, "attempt": admission["attemptId"], "transport": stream})
             observed = [line for line in lines if line.startswith("TCP_OBSERVED")]
             punched = any("TCP_PUNCH_START" in line for line in lines)
             if case in ("disabled", "observer-denied"):
@@ -92,10 +106,6 @@ def cell(binary, output, case, visitor):
                 assert f"listener=0.0.0.0:{ports[side].read_text()}" in observed[0]
                 assert f"candidate={PUBLIC[side]}:" in observed[0]
                 assert punched == (case != "target-denied")
-            if side == visitor:
-                reply, = [line for line in lines if line.startswith("MIO155 FIRST_REPLY ")]
-                assert f"success={str(case == 'positive').lower()}" in reply
-                assert int(reply.rsplit("=", 1)[1]) < 10_000
         observations = (directory / "observer.log").read_text()
         assert observations.count("STUN_TCP_OBSERVED") == (0 if case in ("disabled", "observer-denied") else 2)
         if case in ("disabled", "observer-denied", "target-denied"):
@@ -103,9 +113,7 @@ def cell(binary, output, case, visitor):
                 rules = (directory / "wan-rules.txt").read_text().splitlines()
                 assert all(line.startswith("[0:0]") for line in rules
                            if f"-s {PUBLIC[side]}/32 -d {PUBLIC[1-side]}/32 -p tcp" in line), rules
-        if ends:
-            assert ends[0]["attempt"] == ends[1]["attempt"]
-            assert ends[0]["transport"]["stream"] == ends[1]["transport"]["stream"]
+        assert elapsed < 10_000
         result = {"case": case, "visitor": "ab"[visitor], "success": case == "positive", "ends": ends}
         (directory / "result.json").write_text(json.dumps(result, indent=2) + "\n")
         return result
@@ -118,13 +126,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("test_binary", type=Path)
     parser.add_argument("evidence", type=Path)
-    parser.add_argument("--case", action="append", choices=("positive", "blocked", "disabled", "observer-denied", "target-denied"))
+    parser.add_argument("--case", action="append", choices=("positive", "blocked", "disabled", "observer-denied", "target-denied", "simultaneous"))
     args = parser.parse_args()
     binary = args.test_binary.resolve(strict=True)
     output = args.evidence.resolve()
     output.mkdir()
     results = []
-    for case in args.case or ("positive", "blocked", "disabled", "observer-denied", "target-denied"):
+    for case in args.case or ("positive", "blocked", "disabled", "observer-denied", "target-denied", "simultaneous"):
         for visitor in (0, 1):
             result = cell(binary, output, case, visitor)
             results.append(result)

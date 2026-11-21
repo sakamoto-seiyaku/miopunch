@@ -781,6 +781,11 @@ async fn physical_tcp_loss_ends_old_stream_and_later_contact_is_a_new_connection
         io::{AsyncReadExt, AsyncWriteExt},
         net::{TcpListener, TcpStream},
     };
+    let builder = || Endpoint::builder(presets::Minimal).transport_config(
+        iroh::endpoint::QuicTransportConfig::builder()
+            .max_idle_timeout(Some(Duration::from_secs(10).try_into().unwrap()))
+            .build(),
+    );
     let dir = tempfile::tempdir().unwrap();
     let mut admin = NativeNetwork::create(dir.path().join("admin"))
         .await
@@ -797,13 +802,13 @@ async fn physical_tcp_loss_ends_old_stream_and_later_contact_is_a_new_connection
             .register_protocol(BUSINESS, ProtocolScope::Member);
     }
     let se = admin
-        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .bind_configured_endpoint_with(builder())
         .await
         .unwrap();
     se.endpoint()
         .set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec(), BUSINESS.to_vec()]);
     let mut ce = joining
-        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .bind_configured_endpoint_with(builder())
         .await
         .unwrap();
     admit(&mut admin, &mut joining, &mut ce, &se).await;
@@ -811,12 +816,12 @@ async fn physical_tcp_loss_ends_old_stream_and_later_contact_is_a_new_connection
     ce.close().await;
     se.close().await;
     let se = admin
-        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .bind_configured_endpoint_with(builder())
         .await
         .unwrap();
     se.endpoint().set_alpns(vec![BUSINESS.to_vec()]);
     let mut ce = joining
-        .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+        .bind_configured_endpoint_with(builder())
         .await
         .unwrap();
 

@@ -224,10 +224,10 @@ impl Authorization {
         let original = original.clone();
         let gate = self.gate.clone();
         Ok(MemberDirectCandidate::new(remote, move || {
-            candidate.check(&original, &gate)?;
             if bootstrap {
                 candidate.retain_control(&original, &gate)
             } else {
+                candidate.check(&original, &gate)?;
                 candidate
                     .active
                     .take()
