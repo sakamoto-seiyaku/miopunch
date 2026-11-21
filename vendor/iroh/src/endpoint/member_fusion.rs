@@ -22,6 +22,7 @@ use super::{
     restricted::{AdmissionOutcome, BoxFuture, DynEndpointAdmission},
 };
 
+mod bootstrap;
 mod dial;
 mod direct;
 mod standby;
@@ -224,7 +225,7 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
                     && matches!(path.remote_addr(), TransportAddr::Custom(address)
                         if self.inner.permits_restricted_contact(address))
             }) {
-                let permit = self.qualify_restricted_contact(connection, custom).await?;
+                let permit = bootstrap::qualify(connection, custom).await?;
                 return Ok(AdmissionOutcome::AcceptWithConfirmation {
                     permit,
                     confirmation,
@@ -348,160 +349,6 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
 }
 
 const MEMBER_DATA_UNAVAILABLE: &[u8] = b"no permitted member data path";
-
-impl<A: MemberFusionAdmission> Admission<A> {
-    async fn qualify_restricted_contact(
-        &self,
-        connection: &ControlConnection,
-        custom: Vec<u64>,
-    ) -> io::Result<DataPathPermit> {
-        let unavailable =
-            || io::Error::new(io::ErrorKind::NotConnected, "no permitted member data path");
-        let tcp = self.inner.member_direct_traversal().is_some()
-            && self
-                .inner
-                .member_direct_transport()
-                .is_some_and(|id| custom.contains(&id));
-        let bootstrap = async {
-            let exchange = if connection.side().is_client() {
-                connection.open_control_exchange().await?
-            } else {
-                connection.accept_control_exchange().await?
-            };
-            const CAPABILITIES: ControlMessageFormat = ControlMessageFormat::Fixed { length: 1 };
-            exchange
-                .send_message(CAPABILITIES, &[u8::from(tcp)])
-                .await?;
-            let peer = exchange.recv_message(CAPABILITIES).await?;
-            exchange.finish_send().await?;
-            match peer.as_slice() {
-                [1] if tcp => {
-                    let exchange = if connection.side().is_client() {
-                        connection.open_control_exchange().await?
-                    } else {
-                        connection.accept_control_exchange().await?
-                    };
-                    let prepared = self
-                        .inner
-                        .prepare_member_bootstrap_direct(connection, &exchange)
-                        .await?;
-                    let remote = direct::verify_direct(connection, prepared)
-                        .await?
-                        .commit(connection, &exchange)
-                        .await?;
-                    let path = connection
-                        .paths()
-                        .iter()
-                        .find(|path| path.remote_addr() == &remote)
-                        .map(|path| path.id())
-                        .ok_or(io::ErrorKind::NotConnected)?;
-                    return connection
-                        .qualify_data_path(path, custom.clone())
-                        .await
-                        .map(Some);
-                }
-                [0] | [1] => {}
-                _ => return Err(io::ErrorKind::InvalidData.into()),
-            }
-            Ok(None)
-        };
-        // Admission still owns the caller's absolute deadline and cancellation.
-        // TCP preparation retains its exact circuit through bilateral validation.
-        let permit = tokio::select! { biased;
-            error = connection.closed() => return Err(io::Error::new(io::ErrorKind::ConnectionAborted, error)),
-            result = bootstrap => result,
-        };
-        match permit {
-            Ok(Some(permit)) => return Ok(permit),
-            Ok(None) => {}
-            Err(error) => tracing::debug!(stable_id = connection.stable_id(), %error,
-                "TCP did not qualify the restricted member contact"),
-        }
-        if connection.endpoint.bound_sockets().is_empty() {
-            connection.close(0u32.into(), MEMBER_DATA_UNAVAILABLE);
-            return Err(unavailable());
-        }
-        let paths = connection.paths_stream();
-        connection.prepare_member_udp().await?;
-        let qualify = async {
-            tokio::pin!(paths);
-            while let Some(paths) = paths.next().await {
-                if let Some(path) = paths
-                    .iter()
-                    .find(|path| path.is_ip() && self.inner.permits_data_path(path.remote_addr()))
-                {
-                    return connection
-                        .qualify_data_path(path.id(), custom.clone())
-                        .await;
-                }
-            }
-            Err(unavailable())
-        };
-        let qualify_with_udp = async {
-            tokio::pin!(qualify);
-            // Both ends consume the same dedicated exchange before member
-            // selection. The QNT owner decides when enhanced work is needed.
-            let exchange = if connection.side().is_client() {
-                connection.open_control_exchange().await?
-            } else {
-                // A passive QUIC stream is only visible after its first bytes.
-                // The client's offer below wakes this accept.
-                connection.accept_control_exchange().await?
-            };
-            let mut direct = None;
-            let enhanced = if let Some(udp) = connection.member_udp.as_deref() {
-                tokio::select! { biased;
-                    result = &mut qualify => {
-                        direct = Some(result?);
-                        None
-                    }
-                    needed = udp.bootstrap_requested() => needed.then_some(udp),
-                }
-            } else {
-                None
-            };
-            const INTENT: ControlMessageFormat = ControlMessageFormat::Fixed { length: 1 };
-            exchange
-                .send_message(INTENT, &[u8::from(enhanced.is_some())])
-                .await?;
-            let intent = exchange.recv_message(INTENT).await?;
-            match intent.as_slice() {
-                [1] if let Some(udp) = enhanced => {
-                    let deadline = connection
-                        .caller_deadline()
-                        .expect("restricted admission deadline")
-                        .into();
-                    let cancel = connection.attempt_cancellation().unwrap_or_default();
-                    match udp.bootstrap(exchange, deadline, &cancel).await {
-                        Ok(path) => {
-                            return connection.qualify_data_path(path, custom.clone()).await;
-                        }
-                        Err(error) => tracing::debug!(stable_id = connection.stable_id(), %error,
-                            "enhanced UDP did not qualify the restricted member contact"),
-                    }
-                }
-                [0] | [1] => exchange.finish_send().await?,
-                _ => return Err(io::ErrorKind::InvalidData.into()),
-            }
-            if let Some(permit) = direct {
-                Ok(permit)
-            } else {
-                qualify.await
-            }
-        };
-        tokio::select! { biased;
-            error = connection.closed() => match error {
-                ConnectionError::ApplicationClosed(closed)
-                    if closed.reason.as_ref() == MEMBER_ADMISSION_DENIED =>
-                    Err(io::ErrorKind::PermissionDenied.into()),
-                ConnectionError::ApplicationClosed(closed)
-                    if closed.reason.as_ref() == MEMBER_DATA_UNAVAILABLE => Err(unavailable()),
-                error => Err(io::Error::new(io::ErrorKind::ConnectionAborted, error)),
-            },
-            result = qualify_with_udp => result,
-        }
-    }
-}
 
 /// Configure the node owner for a single ordinary member ALPN.
 #[derive(Debug)]

@@ -275,16 +275,6 @@ impl Planning {
             return Err(io::ErrorKind::Interrupted.into());
         }
         drop(probe);
-        while_peer_receives(&peer, async {
-            while self.on_winner(&winner, |candidate| {
-                candidate.id() == path && candidate.is_selected()
-            }) != Some(true)
-            {
-                time::sleep(Duration::from_millis(10)).await;
-            }
-            Ok(())
-        })
-        .await?;
         if kind.automatically_improves_path() {
             // A bilateral fresh ACK makes the path usable by ordinary streams.
             // Scoring still requires the application's explicit business confirmation.
@@ -299,6 +289,16 @@ impl Planning {
             }
             return Ok(());
         }
+        while_peer_receives(&peer, async {
+            while self.on_winner(&winner, |candidate| {
+                candidate.id() == path && candidate.is_selected()
+            }) != Some(true)
+            {
+                time::sleep(Duration::from_millis(10)).await;
+            }
+            Ok(())
+        })
+        .await?;
         let business = while_peer_receives(&peer, async {
             incoming
                 .recv()

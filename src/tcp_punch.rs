@@ -142,6 +142,9 @@ impl PreparedTcpPath {
         gate: &AdmissionGate,
     ) -> io::Result<()> {
         self.check(connection, gate)?;
+        if let Some(active) = self.active {
+            active.retain();
+        }
         let Some(claim) = self.claim else {
             return Ok(());
         };
@@ -468,7 +471,7 @@ impl TcpPunch {
             && !remote.ip().is_unspecified()
             && !remote.ip().is_multicast()
             && remote.port() != 0;
-        let mut active = if !initial {
+        let mut active = if !initial || matches!(preparation, Preparation::Fused { .. }) {
             let remote_addr = TransportAddr::Custom(route.clone());
             let local_opens = connection.side().is_client();
             let owned = allowed

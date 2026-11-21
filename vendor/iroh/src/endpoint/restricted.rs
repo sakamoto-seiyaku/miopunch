@@ -1079,6 +1079,14 @@ impl Drop for ControlConnection {
 
 impl ControlHandle {
     #[cfg(not(wasm_browser))]
+    pub(super) fn member_bootstrap_handle(&self) -> Self {
+        Self {
+            channel: Arc::new(ControlChannel::Application(ApplicationControl::new())),
+            ..self.clone()
+        }
+    }
+
+    #[cfg(not(wasm_browser))]
     pub(super) async fn prepare_member_udp(&self) -> io::Result<()> {
         let policy = self
             .endpoint
@@ -1087,13 +1095,17 @@ impl ControlHandle {
             .admission
             .clone()
             .expect("member policy");
+        let direct = policy.member_direct_transport();
         self.endpoint
             .inner
             .prepare_member_udp(
                 &self.connection,
                 crate::socket::remote_map::MemberPathPolicy::new(None, move |address| {
-                    address.is_ip() && policy.permits_member_data_path(address)
+                    policy.permits_member_data_path(address)
+                        && (address.is_ip() || matches!(address, TransportAddr::Custom(remote)
+                            if direct == Some(remote.id()) && policy.permits_direct_candidate(&remote)))
                 })
+                .with_required_path_acks([direct, None], false)
                 .with_enhanced_udp(self.member_udp.as_ref().and_then(|udp| udp.path_work())),
             )
             .await

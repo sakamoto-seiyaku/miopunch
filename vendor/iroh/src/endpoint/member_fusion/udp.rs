@@ -226,7 +226,9 @@ impl Planning {
         let mut permitted = activity.path_activity.subscribe();
         let cancel = CancellationToken::new();
         let interval = self.config.quality_interval;
-        let mut active_at = Instant::now() + interval;
+        // First eligible active work shares the current search opportunity.
+        // Subsequent rounds keep the configured quality pacing below.
+        let mut active_at = Instant::now();
         let mut maintenance_at = Instant::now();
         let mut automatic_at = Instant::now() + interval;
         let mut failures = 0u32;
@@ -614,9 +616,9 @@ impl Planning {
         if kind == StreamKind::UdpPlan {
             return Ok(None);
         }
-        if kind.automatically_improves_path() && !*self.path_work.needed.borrow() {
-            return Err(busy());
-        }
+        // The protected OBSERVE agreement has already committed this round.
+        // QNT may clear its request while refreshing candidates or finding TCP;
+        // that changes eligibility for a new round, not this round's lifetime.
         let mut running = self.path_work.running.lock().expect("member UDP path work");
         if *running == 0 {
             self.connection.set_nat_traversal_probes_paused(true);

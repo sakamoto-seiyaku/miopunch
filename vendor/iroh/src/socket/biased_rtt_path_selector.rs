@@ -4,7 +4,7 @@
 //! stickiness against flapping" behaviour and is what's installed when no custom
 //! selector is provided.
 
-use std::{sync::Arc, time::Duration};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use rustc_hash::FxHashMap;
 use tracing::trace;
@@ -124,7 +124,6 @@ impl BiasedRttPathSelector {
             .copied()
             .unwrap_or_else(TransportBias::primary)
     }
-
 }
 
 impl PathSelector for BiasedRttPathSelector {
@@ -139,11 +138,20 @@ impl BiasedRttPathSelector {
         ctx: &PathSelectionContext<'_>,
         tier: impl Fn(&FourTuple) -> Option<u8>,
     ) -> PathSelection {
+        self.select_with_tcp(ctx, tier, |_| None)
+    }
+
+    pub(crate) fn select_with_tcp(
+        &self,
+        ctx: &PathSelectionContext<'_>,
+        tier: impl Fn(&FourTuple) -> Option<u8>,
+        tcp_address: impl Fn(&FourTuple) -> Option<SocketAddr>,
+    ) -> PathSelection {
         // Single pass: track the best candidate by sort key, and the best (lowest)
         // sort key seen for the currently-selected address.  When the same address
         // appears multiple times (one path per connection), `min` over `sort_key`
         // naturally picks the lowest-RTT instance — no separate aggregation needed.
-        let mut best: Option<(PathSelectionData<'_>, (u8, i128))> = None;
+        let mut best: Option<(PathSelectionData<'_>, (u8, i128, bool))> = None;
         let mut current_key: Option<(u8, i128)> = None;
 
         trace!("dumping path RTTs");
@@ -155,14 +163,24 @@ impl BiasedRttPathSelector {
             };
             let rtt = stats.rtt;
             trace!(%network_path, ?rtt);
-            let bias = self.bias_for(network_path);
+            let tcp = tcp_address(network_path);
+            let bias = if let Some(address) = tcp {
+                // A TCP custom address has the same network-family bias as UDP.
+                self.bias_for(&FourTuple::from_remote(super::transports::Addr::Ip(
+                    address,
+                )))
+            } else {
+                self.bias_for(network_path)
+            };
             let key = (
                 tier(network_path).unwrap_or(bias.transport_type as u8),
                 (rtt.as_nanos() as i128).saturating_add(bias.rtt_bias),
+                tcp.is_none(),
             );
 
-            if ctx.is_current(&psd) && current_key.is_none_or(|c| key < c) {
-                current_key = Some(key);
+            let quality = (key.0, key.1);
+            if ctx.is_current(&psd) && current_key.is_none_or(|c| quality < c) {
+                current_key = Some(quality);
             }
             if best.as_ref().is_none_or(|(_, b)| key < *b) {
                 best = Some((psd, key));
@@ -170,7 +188,7 @@ impl BiasedRttPathSelector {
         }
 
         let mut selection = PathSelection::none();
-        let Some((best_psd, (best_tier, best_biased))) = best else {
+        let Some((best_psd, (best_tier, best_biased, _))) = best else {
             return selection;
         };
 

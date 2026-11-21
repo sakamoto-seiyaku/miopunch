@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use futures_util::{StreamExt, stream::FuturesUnordered};
+use futures_util::{FutureExt, StreamExt, future::BoxFuture, stream::FuturesUnordered};
 use iroh_base::CustomAddr;
 use tokio::{
     sync::{Notify, mpsc, watch},
@@ -480,7 +480,9 @@ async fn watch(
         let mut paths = connection.paths_stream();
         let mut generation = candidates.endpoint.udp_network_generation();
         let mut attempted = BTreeSet::new();
-        let mut in_flight = FuturesUnordered::new();
+        let mut in_flight: FuturesUnordered<BoxFuture<'_, Option<io::Result<()>>>> =
+            FuturesUnordered::new();
+        let mut traversal_running = false;
         let mut traversal_interval = None;
         let mut next_traversal = None;
         let mut traversal_failures = 0;
@@ -504,37 +506,26 @@ async fn watch(
             }
             previously_active = active;
             previously_qualified = qualified;
-            let mut wake_at = next_traversal.filter(|_| {
-                active && in_flight.is_empty() && receiver.is_empty() && peer_receiver.is_empty()
-            });
-            if let Some((due, interval)) = wake_at.zip(traversal_interval) {
+            let mut wake_at = next_traversal.filter(|_| active && !traversal_running);
+            if let Some((due, _)) = wake_at.zip(traversal_interval) {
                 if qualified {
                     next_traversal = None;
                     wake_at = None;
                     traversal_failures = 0;
                 } else if due <= now {
                     next_traversal = None;
-                    // Reuse this watcher's slot after the ordinary candidates.
-                    // The QUIC dialer is the only peer that opens the private stream.
-                    let result = tokio::select! { biased;
-                        _ = activity.wait_for(|active| !*active) => None,
-                        result = candidates.initiate(&connection) => Some(result),
-                    };
-                    match result {
-                        Some(Ok(())) => {
-                            traversal_failures = 0;
-                            previously_qualified = true;
-                        }
-                        Some(Err(error)) => {
-                            let mut delay = interval;
-                            if error.kind() != io::ErrorKind::WouldBlock {
-                                traversal_failures = (traversal_failures + 1).min(5);
-                                delay *= 1 << traversal_failures;
-                            }
-                            next_traversal = Some(time::Instant::now() + delay);
-                        }
-                        None => {}
-                    }
+                    // TCP has its own node slot and need not wait for ordinary
+                    // candidates. Only the QUIC dialer opens this private stream.
+                    traversal_running = true;
+                    let mut running_activity = activity.clone();
+                    let owner = &candidates;
+                    let original = &connection;
+                    in_flight.push(async move {
+                        Some(tokio::select! { biased;
+                            _ = running_activity.wait_for(|active| !*active) => Err(io::ErrorKind::WouldBlock.into()),
+                            result = owner.initiate(original) => result,
+                        })
+                    }.boxed());
                     continue;
                 }
             }
@@ -543,7 +534,26 @@ async fn watch(
                 _ = candidates.endpoint.inner.wait_network_generation_change(&generation), if traversal_interval.is_some() => continue,
                 Ok(()) = activity.changed() => continue,
                 Some(_) = paths.next(), if can_traverse => continue,
-                Some(()) = in_flight.next() => continue,
+                Some(result) = in_flight.next() => {
+                    if let Some(result) = result {
+                        traversal_running = false;
+                        match result {
+                            Ok(()) => {
+                                traversal_failures = 0;
+                                previously_qualified = true;
+                            }
+                            Err(error) => {
+                                let mut delay = traversal_interval.expect("running TCP traversal interval");
+                                if error.kind() != io::ErrorKind::WouldBlock {
+                                    traversal_failures = (traversal_failures + 1).min(5);
+                                    delay *= 1 << traversal_failures;
+                                }
+                                next_traversal = Some(time::Instant::now() + delay);
+                            }
+                        }
+                    }
+                    continue;
+                },
                 Some(address) = peer_receiver.recv(), if has_slot => address,
                 Some(address) = receiver.recv(), if has_slot && active => PeerOffer::Candidate(address),
                 _ = async { time::sleep_until(wake_at.expect("scheduled direct traversal")).await }, if wake_at.is_some() => continue,
@@ -564,12 +574,13 @@ async fn watch(
                 if traversal_interval.is_some() {
                     next_traversal.get_or_insert(now);
                 }
-                in_flight.push(process_candidate(
-                    &connection,
-                    &candidates,
-                    address,
-                    observed,
-                ));
+                in_flight.push(
+                    async {
+                        process_candidate(&connection, &candidates, address, observed).await;
+                        None
+                    }
+                    .boxed(),
+                );
             }
         }
     };

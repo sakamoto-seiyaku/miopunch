@@ -23,7 +23,15 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
     let root = Path::new(&root);
     fs::create_dir_all(root).unwrap();
     let case = env::var("MIO150_CASE").unwrap();
+    let parallel = case.starts_with("parallel-");
     if role == "setup" {
+        let relay = if case.starts_with("parallel-relay-") {
+            let mut config = iroh_relay::server::ServerConfig::default();
+            config.relay = Some(iroh_relay::server::RelayConfig::new((WAN, 0)));
+            Some(iroh_relay::server::Server::spawn(config).await.unwrap())
+        } else {
+            None
+        };
         let broker = relay_contact_broker::Broker::bind((WAN, 0).into()).await;
         let mut resources = ResourceConfig::with_defaults(ResourceTable {
             revision: 1,
@@ -33,6 +41,12 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
                 limitation: "isolated contact without a data relay".into(),
             }],
         });
+        if let Some(relay) = &relay {
+            resources
+                .defaults
+                .resources
+                .push(relay_resource(&relay.http_url().unwrap()));
+        }
         resources.member_data_relay_disabled = true;
         resources.tcp_direct_disabled = !tcp;
         let Pair {
@@ -61,7 +75,7 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
         };
         consumer.close().await.unwrap();
         provider.close().await.unwrap();
-        resources.udp_direct_disabled = tcp;
+        resources.udp_direct_disabled = tcp && !parallel;
         if tcp && case == "disabled" {
             resources.tcp_direct_disabled = true;
         }
@@ -74,7 +88,8 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
                 uses: [ResourceUse::Observation].into(),
                 limitation: "owned TCP observer for the actual listener".into(),
             });
-        } else {
+        }
+        if !tcp || parallel {
             resources
                 .defaults
                 .resources
@@ -109,7 +124,7 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
         println!("MIO150 LAB_READY");
         tokio::join!(
             async {
-                if tcp {
+                if tcp && !parallel {
                     pending::<()>().await;
                 }
                 let a = UdpSocket::bind((WAN, OBSERVERS[0])).await.unwrap();
@@ -118,7 +133,7 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
                 }
             },
             async {
-                if tcp {
+                if tcp && !parallel {
                     pending::<()>().await;
                 }
                 let b = UdpSocket::bind((WAN, OBSERVERS[1])).await.unwrap();
@@ -174,6 +189,9 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
                 };
                 let mut dials = 0;
                 for path in routes {
+                    if case.starts_with("parallel-relay-") {
+                        continue;
+                    }
                     let contact: iroh::EndpointAddr =
                         serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
                     let iroh::TransportAddr::Custom(route) = contact.addrs.first().unwrap() else {
@@ -185,7 +203,7 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
                 if case == "simultaneous" {
                     assert!((1..=2).contains(&dials), "mutual member dials: {dials}");
                 } else {
-                    assert_eq!(dials, 1);
+                    assert_eq!(dials, usize::from(!case.starts_with("parallel-relay-")));
                 }
                 fs::write(root.join("counted"), []).unwrap();
                 pending::<()>().await;
@@ -203,6 +221,11 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
         case.ends_with("blocked")
     };
     let client = NativeClient::open(root.join(name), ip).await.unwrap();
+    if parallel {
+        super::native_service_parallel::lab_first_reply(root, &client, &role, visitor, &case).await;
+        client.close().await.unwrap();
+        return;
+    }
     let address = client.address();
     assert!(address.relay_urls().next().is_none());
     let port = if tcp && case == "disabled" {

@@ -236,3 +236,33 @@ fn native_installed_carrier_classes_rank_rtc_without_biasing_uninstalled_or_sign
     assert!(!score(&installed, &rtc, 16, PathPreference::Quality).should_replace(Some(quality)));
     assert!(score(&installed, &rtc, 15, PathPreference::Quality).should_replace(Some(quality)));
 }
+
+#[test]
+fn fused_tcp_ties_preserve_family_bias_preference_health_and_current_path() {
+    use iroh::endpoint::transports::PathSelectionContext;
+    for address in ["127.0.0.1:5000", "[::1]:5000"] {
+        let remote = address.parse::<std::net::SocketAddr>().unwrap();
+        let udp = FourTuple::Ip { remote, local: None };
+        let tcp = FourTuple::Custom { remote: tcp_transport::TcpTransport::address(remote), local: None };
+        let select = |current, udp_rtt, tcp_rtt, prefer_udp| {
+            let stats = |rtt: Option<u64>| rtt.map(|millis| {
+                let mut stats = noq::PathStats::default();
+                stats.rtt = Duration::from_millis(millis);
+                stats
+            });
+            PathSelectionContext::test_select_biased_rtt_with_tcp(current,
+                vec![(&udp, stats(udp_rtt)), (&tcp, stats(tcp_rtt))],
+                |path| Some(u8::from(prefer_udp && path == &tcp)),
+                |path| (path == &tcp).then_some(remote))
+        };
+        assert_eq!(select(None, Some(20), Some(20), false), Some(tcp.clone()));
+        assert_eq!(select(None, Some(19), Some(20), false), Some(udp.clone()));
+        assert_eq!(select(None, Some(20), Some(19), false), Some(tcp.clone()));
+        assert_eq!(select(None, Some(20), Some(20), true), Some(udp.clone()));
+        assert_eq!(select(None, Some(20), None, false), Some(udp.clone()));
+        assert_eq!(select(Some(&udp), Some(20), Some(20), false), None);
+        assert_eq!(select(Some(&udp), Some(20), Some(16), false), None);
+        assert_eq!(select(Some(&udp), Some(20), Some(15), false), Some(tcp.clone()));
+        assert_eq!(select(Some(&tcp), Some(15), Some(20), false), Some(udp));
+    }
+}

@@ -159,13 +159,22 @@ impl ConnectionPathSelector for QualityPathSelector {
 
     fn select(&self, context: &PathSelectionContext<'_>) -> PathSelection {
         if context.is_member_fusion() {
-            return context.select_biased_rtt(|path| {
-                let preference = self.policy.preference;
-                Some(match preference {
-                    PathPreference::Quality => u8::from(self.carriers.is_relay(path)),
-                    _ => self.carriers.tier(path, preference),
-                })
-            });
+            return context.select_biased_rtt_with_tcp(
+                |path| {
+                    let preference = self.policy.preference;
+                    Some(match preference {
+                        PathPreference::Quality => u8::from(self.carriers.is_relay(path)),
+                        _ => self.carriers.tier(path, preference),
+                    })
+                },
+                |path| {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    if let FourTuple::Custom { remote, .. } = path {
+                        return crate::tcp_transport::TcpTransport::socket_addr(remote).ok();
+                    }
+                    None
+                },
+            );
         }
         let mut best = None;
         let mut best_confirmed = None;

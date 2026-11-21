@@ -593,8 +593,14 @@ impl RemoteStateActor {
                     return;
                 }
                 let result = if let Some(state) = self.connections.get(&ConnId(conn_id)) {
-                    if state.purpose != ConnectionPurpose::Ordinary {
-                        Err("data carrier opening requires an admitted connection")
+                    let fused_bootstrap = state.purpose == ConnectionPurpose::Control
+                        && state.member_paths.as_ref().is_some_and(|paths| matches!(&remote, TransportAddr::Custom(address)
+                            if paths.policy.requires_path_ack(&transports::Addr::Custom(address.clone()))
+                                && paths.policy.permits(transports::Addr::Custom(address.clone()))));
+                    if state.purpose != ConnectionPurpose::Ordinary && !fused_bootstrap {
+                        Err(
+                            "data carrier opening requires an admitted or pending member connection",
+                        )
                     } else if let Some(conn) = state.handle.upgrade() {
                         let address = match remote {
                             TransportAddr::Ip(address) => transports::Addr::Ip(address),
@@ -1192,9 +1198,13 @@ impl RemoteStateActor {
         let restricted_contact = Arc::new(AtomicBool::new(true));
         let before_release = restricted_contact.clone();
         conn.restrict_paths(move |address| {
-            !before_release.load(Ordering::Acquire) || address == bootstrap
-                || matches!(mapped.to_transport_addr(address), Some(address @ transports::Addr::Ip(_))
-                    if packet_policy.permits(address.clone()))
+            !before_release.load(Ordering::Acquire)
+                || address == bootstrap
+                || mapped.to_transport_addr(address).is_some_and(|address| {
+                    (matches!(address, transports::Addr::Ip(_))
+                        || packet_policy.requires_path_ack(&address))
+                        && packet_policy.permits(address)
+                })
         });
         let mut paths = MemberPaths::new(policy);
         paths.restricted_contact = Some(restricted_contact);
@@ -1420,7 +1430,11 @@ impl RemoteStateActor {
             .member_paths
             .as_mut()
             .expect("checked member connection");
-        let needs_enhanced = verified.is_empty() && !healthy_tcp;
+        if healthy_tcp {
+            member.policy.needs_enhanced_udp(false);
+            return;
+        }
+        let needs_enhanced = verified.is_empty();
         if !active || (needs_enhanced && member.policy.enhanced_udp_running()) {
             member.policy.needs_enhanced_udp(needs_enhanced);
             return;
@@ -3140,7 +3154,7 @@ pub struct PathSelectionContext<'a> {
 enum PathsSource<'a> {
     Live(&'a FxHashMap<ConnId, ConnectionState>),
     Connection(&'a ConnectionState),
-    #[cfg(test)]
+    #[cfg(any(test, feature = "miopunch-test-hooks"))]
     Test {
         current: Option<&'a transports::FourTuple>,
         paths: Vec<PathSelectionData<'a>>,
@@ -3173,7 +3187,7 @@ impl<'a> PathSelectionContext<'a> {
     }
 
     /// Constructs a context with synthetic path data for testing.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "miopunch-test-hooks"))]
     pub(crate) fn for_test(
         current: Option<&'a transports::FourTuple>,
         paths: Vec<PathSelectionData<'a>>,
@@ -3183,6 +3197,22 @@ impl<'a> PathSelectionContext<'a> {
             source: PathsSource::Test { current, paths },
             health_window: None,
         }
+    }
+
+    /// Exercise the real scorer with deterministic observations, without
+    /// constructing a connection or granting permission to a path.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_select_biased_rtt_with_tcp(
+        current: Option<&'a transports::FourTuple>,
+        paths: Vec<(&'a transports::FourTuple, Option<PathStats>)>,
+        tier: impl Fn(&transports::FourTuple) -> Option<u8>,
+        tcp_address: impl Fn(&transports::FourTuple) -> Option<SocketAddr>,
+    ) -> Option<transports::FourTuple> {
+        let paths = paths.into_iter().map(|(path, stats)| PathSelectionData::for_test(path, stats)).collect();
+        let context = Self::for_test(current, paths);
+        context.select_biased_rtt_with_tcp(tier, tcp_address)
+            .selected().map(|path| path.address.clone())
     }
 
     /// The original connection being evaluated, for connection-scoped callbacks.
@@ -3209,9 +3239,23 @@ impl<'a> PathSelectionContext<'a> {
             .select_with_tier(self, tier)
     }
 
+    /// Preserve network-family bias for an application's TCP carrier and use
+    /// TCP to break exact ties when no current path has a hysteresis claim.
+    pub fn select_biased_rtt_with_tcp(
+        &self,
+        tier: impl Fn(&transports::FourTuple) -> Option<u8>,
+        tcp_address: impl Fn(&transports::FourTuple) -> Option<SocketAddr>,
+    ) -> PathSelection {
+        super::super::biased_rtt_path_selector::BiasedRttPathSelector::default().select_with_tcp(
+            self,
+            tier,
+            tcp_address,
+        )
+    }
+
     /// The path currently considered the preferred path to the remote endpoint, if any.
     pub fn current(&self) -> Option<&transports::FourTuple> {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "miopunch-test-hooks"))]
         if let PathsSource::Test { current, .. } = &self.source {
             return *current;
         }
@@ -3229,12 +3273,12 @@ impl<'a> PathSelectionContext<'a> {
         self.current.is_some_and(|path| {
             path.address == *candidate.network_path && path.local_socket == candidate.local_socket
         }) || {
-            #[cfg(test)]
+            #[cfg(any(test, feature = "miopunch-test-hooks"))]
             {
                 matches!(&self.source, PathsSource::Test { current: Some(current), .. }
                     if *current == candidate.network_path)
             }
-            #[cfg(not(test))]
+            #[cfg(not(any(test, feature = "miopunch-test-hooks")))]
             {
                 false
             }
@@ -3268,7 +3312,9 @@ impl<'a> PathSelectionContext<'a> {
                                 move |(id, addr)| {
                                     state.may_select(addr)
                                         && (!state.requires_path_ack(addr)
-                                            || conn.path_stats(**id).is_some_and(|stats| stats.acknowledgment.is_some()))
+                                            || conn.path_stats(**id).is_some_and(|stats| {
+                                                stats.acknowledgment.is_some()
+                                            }))
                                 }
                             })
                             .map(move |(path_id, addr)| {
@@ -3332,7 +3378,7 @@ impl<'a> PathSelectionContext<'a> {
                         })
                     }),
             ),
-            #[cfg(test)]
+            #[cfg(any(test, feature = "miopunch-test-hooks"))]
             PathsSource::Test { paths, .. } => Box::new(paths.iter().cloned()),
         }
     }
@@ -3354,7 +3400,7 @@ fn has_fresh_ack(stats: &PathStats, now: Instant, interval: Duration) -> bool {
 /// Data the selector sees about one candidate path.
 //
 // In production this borrows from a live connection and looks up stats from noq on
-// demand.  In `#[cfg(test)]` builds it can also wrap synthesized stats so selectors
+// demand. Test builds can also wrap synthesized stats so selectors
 // can be unit-tested without standing up real connections.
 #[cfg_attr(not(feature = "unstable-custom-transports"), allow(unreachable_pub))]
 #[derive(derive_more::Debug, Clone)]
@@ -3374,7 +3420,7 @@ enum StatsSource {
     },
     /// Boxed so `PathStats` doesn't inflate the enum in production, where
     /// only the `Live` variant is ever constructed.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "miopunch-test-hooks"))]
     Test(Option<Box<PathStats>>),
 }
 
@@ -3398,7 +3444,7 @@ impl<'a> PathSelectionData<'a> {
     ///
     /// `PathStats` is `#[non_exhaustive]` so callers build it via
     /// `let mut s = PathStats::default(); s.rtt = ...;`.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "miopunch-test-hooks"))]
     pub(crate) fn for_test(
         network_path: &'a transports::FourTuple,
         stats: Option<PathStats>,
@@ -3427,7 +3473,7 @@ impl<'a> PathSelectionData<'a> {
     pub fn stats(&self) -> Option<PathStats> {
         match &self.source {
             StatsSource::Live { path_id, conn } => conn.path_stats(*path_id),
-            #[cfg(test)]
+            #[cfg(any(test, feature = "miopunch-test-hooks"))]
             StatsSource::Test(stats) => stats.as_deref().copied(),
         }
     }

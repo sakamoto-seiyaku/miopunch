@@ -27,7 +27,7 @@ use crate::{
 };
 
 /// Ordinary admitted business over the explicitly selected native fusion endpoint.
-pub const FUSED_MEMBER_ALPN: &[u8] = b"miopunch/session/member-fusion/4";
+pub const FUSED_MEMBER_ALPN: &[u8] = b"miopunch/session/member-fusion/5";
 
 impl NativeNetwork {
     /// Bind the node's ordinary member endpoint using the persisted identity,
