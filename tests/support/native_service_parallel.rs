@@ -133,6 +133,43 @@ async fn udp_first_reply_keeps_the_started_tcp_round() {
         "no business used this candidate: {learned}"
     );
     println!("MIO162 VERIFIED_UNUSED {learned}");
+    #[cfg(feature = "nat-lab-test-hooks")]
+    {
+        let remote: iroh::TransportAddr =
+            serde_json::from_value(unused_tcp["remote"].clone()).unwrap();
+        consumer
+            .test_close_member_path(provider.address().id, &remote)
+            .await
+            .unwrap();
+        timeout(IO, async {
+            while flow(&consumer, Protocol::Tcp)["transport"]["paths"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|path| path["remote"] == unused_tcp["remote"])
+            {
+                sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap();
+        timeout(IO, async {
+            loop {
+                if read_member_routes(&root.path().join("consumer"), provider.address().id)
+                    .iter()
+                    .any(|route| {
+                        route["address"] == unused_tcp["remote"] && route["verified"] == true
+                    })
+                {
+                    break;
+                }
+                sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("retired verified backup must be saved while the client remains open");
+        println!("MIO162 UNUSED_RETIRED {remote:?}");
+    }
     tcp_round_trip(&mut input, &mut output, b"late").await;
     consumer.close().await.unwrap();
     let saved = read_member_routes(&root.path().join("consumer"), provider.address().id);
@@ -186,7 +223,7 @@ async fn udp_first_reply_keeps_the_started_tcp_round() {
     let relay_server = relay().await;
     let relay_url = relay_server.http_url().unwrap();
     for with_relay in [true, false] {
-        let provider = reopen_with_resources(&root.path().join("provider"), |resources| {
+        let configure = |resources: &mut ResourceConfig| {
             resources.udp_direct_disabled = false;
             if with_relay {
                 resources
@@ -199,25 +236,11 @@ async fn udp_first_reply_keeps_the_started_tcp_round() {
                     .resources
                     .retain(|resource| !resource.uses.contains(&ResourceUse::DataRelay));
             }
-        })
-        .await;
+        };
+        let provider = reopen_with_resources(&root.path().join("provider"), &configure).await;
         // Restore the real, previously validated pair after the last run learned new paths.
         write_member_routes(&root.path().join("consumer"), peer, saved.clone());
-        let consumer = reopen_with_resources(&root.path().join("consumer"), |resources| {
-            resources.udp_direct_disabled = false;
-            if with_relay {
-                resources
-                    .defaults
-                    .resources
-                    .push(relay_resource(&relay_url));
-            } else {
-                resources
-                    .defaults
-                    .resources
-                    .retain(|resource| !resource.uses.contains(&ResourceUse::DataRelay));
-            }
-        })
-        .await;
+        let consumer = reopen_with_resources(&root.path().join("consumer"), &configure).await;
         let mut contact = iroh::EndpointAddr::new(peer);
         if !with_relay {
             contact = provider.invitation().await.unwrap().address().clone();

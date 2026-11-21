@@ -267,6 +267,7 @@ impl NativeClient {
             let members = native_member_services::MemberServices {
                 terminal: terminal.clone(), files: files.clone(), forwarding: forwarding.clone(),
                 web: web.clone(), clipboard: clipboard.clone(), node: node.clone(), policies: services.clone(),
+                member_contacts: member_contacts.clone(),
             };
             tokio::spawn(async move {
                 let mut handlers = tokio::task::JoinSet::new();
@@ -276,6 +277,7 @@ impl NativeClient {
                     tokio::select! {
                         _ = cancel.cancelled() => break,
                         Some(Ok(connection)) = fusion.accept() => {
+                            let path_events = connection.path_events();
                             let members = members.clone();
                             let member_contacts = member_contacts.clone();
                             member_handlers.spawn(async move {
@@ -285,7 +287,7 @@ impl NativeClient {
                                 {
                                     eprintln!("could not save inbound member data path: {error}");
                                 }
-                                native_member_services::receive(connection, members).await;
+                                native_member_services::receive(connection, members, path_events).await;
                             });
                         }
                         _ = member_handlers.join_next(), if !member_handlers.is_empty() => {},
@@ -740,6 +742,18 @@ impl NativeClient {
         contact.end_legacy(b"client ping ended");
         result?
     }
+    /// Retire one real path on the existing member connection in an owned transport fixture.
+    #[cfg(feature = "nat-lab-test-hooks")]
+    #[doc(hidden)]
+    pub async fn test_close_member_path(&self, peer: iroh::EndpointId, remote: &iroh::TransportAddr) -> Result<(), ClientError> {
+        let (fusion, _) = self.resources.member_fusion.as_ref().ok_or("member owner absent")?;
+        let connection = fusion.reuse_until(peer, tokio::time::Instant::now() + Duration::from_secs(1)).await?
+            .ok_or("member connection absent")?;
+        connection.paths().iter().find(|path| path.remote_addr() == remote)
+            .ok_or("member path absent")?.close()?;
+        Ok(())
+    }
+
     /// Stop this host's listener and handlers, close endpoint resources, then
     /// close the durable store. Identity and authorization remain on disk.
     pub async fn close(self) -> Result<(), ClientError> {

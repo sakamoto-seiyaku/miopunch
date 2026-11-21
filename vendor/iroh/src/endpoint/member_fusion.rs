@@ -1847,11 +1847,16 @@ impl MemberConnection {
         self.0.connection.paths()
     }
 
+    /// Observe lifecycle events, including the final statistics of retired paths.
+    pub fn path_events(&self) -> super::PathEventStream {
+        self.0.connection.path_events()
+    }
+
     /// Observe selection and retirement on this original connection in the transport lab.
     #[cfg(feature = "miopunch-test-hooks")]
     #[doc(hidden)]
     pub fn test_path_events(&self) -> super::PathEventStream {
-        self.0.connection.path_events()
+        self.path_events()
     }
 
     /// Suppress incoming ACKs for exactly one candidate in a real QUIC fixture.

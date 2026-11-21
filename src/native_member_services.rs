@@ -14,6 +14,7 @@ use iroh::{
     },
 };
 use serde_json::{Value, json};
+use futures_util::StreamExt;
 use tokio::{task::JoinSet, time::Instant};
 
 use crate::{data_stream::DataStream, native_client::ClientError, resources::ResourceEndpoint};
@@ -353,6 +354,7 @@ impl crate::file_transfer::FileTransport for ServiceTransport {
 
 #[derive(Clone)]
 pub(crate) struct MemberServices {
+    pub(crate) member_contacts: Option<Arc<crate::member_contacts::MemberContacts>>,
     pub(crate) terminal: Arc<crate::native_terminal::NativeTerminal>,
     pub(crate) files: Arc<crate::native_file_transfer::NativeFiles>,
     pub(crate) forwarding: Arc<crate::native_forwarding::NativeForwarding>,
@@ -362,10 +364,22 @@ pub(crate) struct MemberServices {
     pub(crate) policies: Arc<tokio::sync::Mutex<crate::native_services::NativeServices>>,
 }
 
-pub(crate) async fn receive(connection: MemberConnection, services: MemberServices) {
+pub(crate) async fn receive(
+    connection: MemberConnection,
+    services: MemberServices,
+    mut path_events: iroh::endpoint::PathEventStream,
+) {
     let mut handlers = JoinSet::new();
     loop {
         tokio::select! {
+            biased;
+            Some(event) = path_events.next() => {
+                if let Some(contacts) = &services.member_contacts
+                    && let Err(error) = contacts.observe_event(connection.remote_id(), event).await
+                {
+                    eprintln!("could not save retired member path: {error}");
+                }
+            },
             _ = connection.closed() => break,
             _ = handlers.join_next(), if !handlers.is_empty() => {},
             result = connection.incoming_bi(), if handlers.len() < 100 => {

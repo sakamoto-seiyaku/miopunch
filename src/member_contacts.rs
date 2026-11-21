@@ -80,6 +80,29 @@ impl MemberContacts {
         })
         .await
     }
+    pub(crate) async fn observe_event(
+        self: &Arc<Self>,
+        peer: EndpointId,
+        event: iroh::endpoint::PathEvent,
+    ) -> io::Result<()> {
+        let iroh::endpoint::PathEvent::Closed {
+            remote_addr,
+            last_stats,
+            ..
+        } = event
+        else {
+            return Ok(());
+        };
+        self.blocking(move |store| {
+            if store.gate.member_contact_allowed(peer)
+                && let Some(route) = store.verified_route(&remote_addr, *last_stats)
+            {
+                store.record_routes(peer, vec![route])?;
+            }
+            Ok(())
+        })
+        .await
+    }
     pub(crate) async fn refresh_async(self: &Arc<Self>) -> io::Result<()> {
         self.blocking(Self::refresh).await
     }
@@ -139,24 +162,28 @@ impl MemberContacts {
         self.observe_paths(connection.remote_id(), connection.paths())
     }
     fn observe_paths(&self, id: EndpointId, paths: iroh::endpoint::PathList<'_>) -> io::Result<()> {
-        let now = crate::service_policy::now();
         let routes = paths
             .iter()
-            .filter_map(|path| {
-                let address = path.remote_addr();
-                if !self.permitted(address) {
-                    return None;
-                }
-                let ack = path.stats().acknowledgment?;
-                Some(SavedRoute {
-                    address: address.clone(),
-                    observed_at: now.saturating_sub(ack.received_at.elapsed().as_secs()),
-                    verified: true,
-                })
-            })
+            .filter_map(|path| self.verified_route(path.remote_addr(), path.stats()))
             .take(MAX_ROUTES)
             .collect();
         self.record_routes(id, routes)
+    }
+    fn verified_route(
+        &self,
+        address: &TransportAddr,
+        stats: iroh::endpoint::PathStats,
+    ) -> Option<SavedRoute> {
+        if !self.permitted(address) {
+            return None;
+        }
+        let ack = stats.acknowledgment?;
+        Some(SavedRoute {
+            address: address.clone(),
+            observed_at: crate::service_policy::now()
+                .saturating_sub(ack.received_at.elapsed().as_secs()),
+            verified: true,
+        })
     }
     pub(crate) fn advertised(
         &self,
