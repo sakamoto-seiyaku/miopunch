@@ -1211,12 +1211,12 @@ impl ResourceEndpoint {
         Ok(connection)
     }
 
-    pub(crate) async fn connect_member(
+    pub(crate) fn connect_member(
         &self,
         target: iroh::EndpointAddr,
         deadline: tokio::time::Instant,
-    ) -> std::io::Result<iroh::endpoint::MemberConnection> {
-        self.connect_member_with_class(target, deadline, ContactClass::Foreground).await
+    ) -> impl std::future::Future<Output = std::io::Result<iroh::endpoint::MemberConnection>> + Send + '_ {
+        self.connect_member_with_class(target, deadline, ContactClass::Foreground)
     }
 
     pub(crate) async fn connect_member_background(

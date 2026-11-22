@@ -564,7 +564,7 @@ impl ControlProtocolHandler for FusedRepair {
 
 struct Coordinator {
     standby: crate::member_standby::MemberStandby,
-    standby_turn: bool,
+    standby_at: Option<Instant>,
     node: NativeNetwork,
     resources: Arc<ResourceEndpoint>,
     policy: MaintenancePolicy,
@@ -632,6 +632,14 @@ impl Coordinator {
     }
     fn floor(&self) -> Duration {
         Duration::from_millis(self.policy.exploration_interval_ms)
+    }
+    fn schedule_standby(&mut self) {
+        if !self.standby_at.is_some_and(|at| at <= Instant::now()) {
+            return;
+        }
+        self.standby.schedule(&self.resources, &self.node.gate, self.policy.max_concurrent_contacts);
+        self.status.max_in_flight = self.status.max_in_flight.max(self.standby.len());
+        self.standby_at = Some(Instant::now() + self.floor());
     }
     fn path_retry_base(&self) -> Duration {
         Duration::from_millis(self.policy.path_retry_base_ms)
@@ -1123,17 +1131,6 @@ impl Coordinator {
         false
     }
     async fn step(&mut self, cancel: &CancellationToken) -> Result<(), NodeError> {
-        if self.resources.member_fusion.is_some() && self.explore_at <= Instant::now() {
-            // At a one-contact budget, leave alternating opportunities for
-            // replica synchronization as well as ordinary member standby.
-            self.standby_turn = !self.standby_turn;
-            let available = if self.standby_turn || self.activity.is_active() {
-                self.policy.max_concurrent_contacts
-            } else {
-                0
-            };
-            self.standby.schedule(&self.resources, &self.node.gate, available);
-        }
         if let Some(contacts) = &self.resources.member_contacts {
             contacts.refresh_async().await?;
         }
@@ -1164,10 +1161,11 @@ impl Coordinator {
             self.improve_at = Some(improve_at);
         }
         if self.activity.is_active() {
-            self.explore_at = Instant::now() + self.floor();
+            self.schedule_standby();
             return Ok(());
         }
         if self.explore_at > Instant::now() {
+            self.schedule_standby();
             return Ok(());
         }
         // Existing neighbor synchronization and new contacts share this coordinator.
@@ -1194,6 +1192,7 @@ impl Coordinator {
                 }
                 continue;
             };
+            self.status.max_in_flight = self.status.max_in_flight.max(self.standby.len() + 1);
             if self.activity.is_active() {
                 return Ok(());
             }
@@ -1280,7 +1279,7 @@ impl Coordinator {
                 (candidate, result)
             });
         }
-        self.status.max_in_flight = self.status.max_in_flight.max(dials.len());
+        self.status.max_in_flight = self.status.max_in_flight.max(dials.len() + self.standby.len());
         if !dials.is_empty() {
             self.last_attempt_at = Some(Instant::now());
         }
@@ -1321,6 +1320,7 @@ impl Coordinator {
         }
         // Expand only after the known-contact batch, without waiting for every
         // stale address or running an independent per-peer recovery engine.
+        let mut new_recovery_contacts = false;
         if !activity.is_active()
             && self.discover_at <= Instant::now()
             && !self.resources.recovery_origins().is_empty()
@@ -1366,6 +1366,7 @@ impl Coordinator {
             }
             if changed {
                 self.backoff.reset();
+                new_recovery_contacts = true;
             } else {
                 self.backoff.increment();
             }
@@ -1374,6 +1375,13 @@ impl Coordinator {
             self.discover_at = Instant::now() + wait;
         }
         self.explore_at = Instant::now() + self.floor();
+        if new_recovery_contacts {
+            // Let the existing selector use newly discovered recovery hints
+            // before an ordinary standby dial occupies their contact allowance.
+            self.standby_at = self.standby_at.map(|_| self.explore_at);
+        } else {
+            self.schedule_standby();
+        }
         if self.neighbors.is_empty()
             && self.status.state != MaintenanceState::WaitingForDependencies
         {
@@ -1401,7 +1409,8 @@ impl Coordinator {
             let step_at = self
                 .improve_at
                 .into_iter()
-                .chain((!activity.is_active() || self.resources.member_fusion.is_some()).then_some(self.explore_at))
+                .chain((!activity.is_active()).then_some(self.explore_at))
+                .chain(self.standby_at)
                 .min();
             let listener_retry = self.listener_retry_at.unwrap_or(self.explore_at);
             tokio::select! {
@@ -1706,7 +1715,7 @@ impl NativeNetwork {
         let saved = self.saved_maintenance_contacts()?;
         let mut coordinator = Coordinator {
             standby: crate::member_standby::MemberStandby::new(),
-            standby_turn: false,
+            standby_at: member_fusion.then(Instant::now),
             node: self,
             resources: resources.clone(),
             policy,
