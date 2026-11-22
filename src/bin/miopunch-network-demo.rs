@@ -99,7 +99,7 @@ fn now_ms() -> u64 {
 
 // The maintenance/contact protocol accepts at most eight hints. Hosts with
 // many Docker/VPN interfaces can advertise far more. Keep transport diversity
-// in this initial hint; the full live address list remains in diagnostics.
+// in the hint and keep the full live address list in diagnostics.
 fn contact_hint(mut address: EndpointAddr) -> EndpointAddr {
     let mut relay = VecDeque::new();
     let mut ip = VecDeque::new();
@@ -110,6 +110,22 @@ fn contact_hint(mut address: EndpointAddr) -> EndpointAddr {
             iroh::TransportAddr::Ip(_) => ip.push_back(route),
             _ => custom.push_back(route),
         }
+    }
+    let public_ipv4 = ip.iter().position(|route| {
+        let iroh::TransportAddr::Ip(SocketAddr::V4(address)) = route else {
+            return false;
+        };
+        let ip = address.ip();
+        let [first, second, ..] = ip.octets();
+        (1..224).contains(&first)
+            && !ip.is_private()
+            && !ip.is_loopback()
+            && !ip.is_link_local()
+            && !ip.is_documentation()
+            && !matches!((first, second), (100, 64..=127) | (198, 18..=19))
+    });
+    if let Some(route) = public_ipv4.and_then(|index| ip.remove(index)) {
+        ip.push_front(route);
     }
     address.addrs = Default::default();
     while address.addrs.len() < 8 {
@@ -376,7 +392,7 @@ async fn observe_peer(
                                 && let Ok(address) =
                                     serde_json::from_value::<EndpointAddr>(address.clone())
                                 && address.id == connection.remote_id()
-                                && let Err(error) = network.offer_contact(address).await
+                                && let Err(error) = network.offer_contact(contact_hint(address)).await
                             {
                                 state.lock().unwrap().event(
                                     "contact-learning-failed",
@@ -1321,6 +1337,101 @@ mod tests {
         let (reply, _) = stream.streams();
         reply.write_all(data.to_string().as_bytes()).await.unwrap();
         reply.finish().unwrap();
+    }
+
+    #[tokio::test]
+    async fn heartbeat_learns_contact_from_a_full_address_snapshot() {
+        use iroh::{TransportAddr, address_lookup::memory::MemoryLookup};
+        use miopunch_native_probe::tcp_transport::TcpTransport;
+
+        let directory = FixtureDirectory::new();
+        let (client, server, outgoing, incoming) = probe_pair(&directory.0).await;
+        let client = Arc::new(client);
+        let probe = probe_server();
+        let peer = Peer {
+            name: "server".into(),
+            address: server.addr(),
+        };
+        let public_ip = TransportAddr::Ip("182.48.107.243:8529".parse().unwrap());
+        let relay = TransportAddr::Relay("https://relay.example.test/".parse().unwrap());
+        let tcp = TransportAddr::Custom(TcpTransport::address((Ipv4Addr::LOCALHOST, 4100)));
+        let advertised = EndpointAddr::new(peer.address.id).with_addrs(
+            (1..=9)
+                .map(|host| TransportAddr::Ip((Ipv4Addr::new(10, 0, 0, host), 4100).into()))
+                .chain([TransportAddr::Ip("100.64.0.1:4100".parse().unwrap())])
+                .chain([public_ip.clone(), relay.clone(), tcp.clone()]),
+        );
+        assert_eq!(advertised.addrs.len(), 13);
+        {
+            let mut state = probe.observations.lock().unwrap();
+            state.local = json!({"id": advertised.id.to_string(), "address": advertised});
+            state
+                .peers
+                .insert(peer.name.clone(), json!({"id": advertised.id}));
+        }
+        let observer = tokio::spawn(observe_peer(
+            client.clone(),
+            peer,
+            probe.observations.clone(),
+            probe.cancellation.clone(),
+        ));
+        let serving = tokio::spawn({
+            let probe = probe.clone();
+            async move { probe.accept(incoming).await }
+        });
+
+        let snapshot = timeout(Duration::from_secs(5), async {
+            loop {
+                if let Some(snapshot) = probe.observations.lock().unwrap().remote.get("server") {
+                    break snapshot["snapshot"]["address"].clone();
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("read a heartbeat reply from the admitted peer");
+        assert_eq!(snapshot, json!(advertised));
+        assert!(
+            probe
+                .observations
+                .lock()
+                .unwrap()
+                .events
+                .iter()
+                .all(|event| event["kind"] != "contact-learning-failed"),
+            "a full heartbeat snapshot should yield an accepted contact hint"
+        );
+
+        let learned = timeout(Duration::from_secs(2), async {
+            let lookup = client.endpoint().address_lookup().unwrap();
+            loop {
+                let mut results = std::pin::pin!(lookup.resolve(advertised.id));
+                while let Some(result) = results.next().await {
+                    if let Ok(Ok(item)) = result
+                        && item.provenance() == MemoryLookup::PROVENANCE
+                        && item.addrs().any(|address| address == &tcp)
+                    {
+                        return item.into_endpoint_addr();
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("the maintenance task published the heartbeat contact hint");
+        assert_eq!(learned.addrs.len(), 8);
+        assert!(learned.addrs.contains(&public_ip));
+        assert!(learned.addrs.contains(&relay));
+        assert!(learned.addrs.contains(&tcp));
+
+        probe.cancellation.cancel();
+        observer.await.unwrap();
+        serving.await.unwrap();
+        drop(outgoing);
+        tokio::join!(
+            Arc::try_unwrap(client).ok().unwrap().close(),
+            server.close()
+        );
     }
 
     #[tokio::test]
