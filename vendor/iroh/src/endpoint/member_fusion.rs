@@ -607,14 +607,18 @@ impl MemberFusionEndpoint {
             .expect("candidate coordination already enabled");
     }
 
-    /// Synchronize the next outgoing enhanced attempts after reserving their real slots.
+    /// Synchronize the next outgoing enhanced attempt after reserving its real slot.
+    /// The returned flag confirms that the worker reached the barrier.
     #[cfg(feature = "miopunch-test-hooks")]
     #[doc(hidden)]
-    pub fn test_coordinate_udp_reservation(&self, barrier: Arc<tokio::sync::Barrier>) {
+    pub fn test_coordinate_udp_reservation(
+        &self,
+        barrier: Arc<tokio::sync::Barrier>,
+    ) -> Arc<std::sync::atomic::AtomicBool> {
         self.inner
             .fusion
             .udp_planner
-            .test_coordinate_reservation(barrier);
+            .test_coordinate_reservation(barrier)
     }
 
     /// Apply the ordinary test path mask to an admitted fused original.

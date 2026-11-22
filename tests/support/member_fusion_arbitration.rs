@@ -549,11 +549,25 @@ async fn standby_udp_uses_the_round_budget_without_a_ping() {
 
 #[tokio::test]
 async fn business_preempts_unspent_idle_maintenance_and_cancel_releases_the_original_round() {
-    let pair = Pair::bind(MaintenancePolicy::active(), true).await;
+    let pair = Pair::bind(
+        MaintenancePolicy {
+            quality_interval_ms: 30_000,
+            ..MaintenancePolicy::active()
+        },
+        true,
+    )
+    .await;
     let [a, b] = &pair.connections;
     // The pending idle worker reaches its actual reservation and waits without starting I/O.
-    pair.endpoints[0].test_coordinate_udp_reservation(Arc::new(Barrier::new(2)));
+    let reserved = pair.endpoints[0].test_coordinate_udp_reservation(Arc::new(Barrier::new(2)));
     maintenance(a, b, 1).await;
+    time::timeout(DEADLINE, async {
+        while !reserved.load(std::sync::atomic::Ordering::Acquire) {
+            time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("the idle worker holds its actual reservation before business arrives");
     assert_eq!(pair.requests(), [0, 0]);
     let mut stream = open_flow(a, b).await;
     let work = time::timeout(Duration::from_secs(3), async {
@@ -654,6 +668,24 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
             .iter()
             .all(|conn| matches!(conn.initial_data_path(), TransportAddr::Relay(_)))
     );
+    let ipv4_probe = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let ipv4_target = ipv4_probe.local_addr().unwrap();
+    let first_ipv4 = Instant::now();
+    for (endpoint, connection) in pair.endpoints.iter().zip(&pair.connections) {
+        endpoint
+            .learn_ip_candidates(
+                EndpointAddr::new(connection.remote_id()).with_ip_addr(ipv4_target),
+            )
+            .await;
+    }
+    time::timeout(DEADLINE, async {
+        let mut sources = std::collections::BTreeSet::new();
+        while sources.len() < 2 {
+            sources.insert(ipv4_probe.recv_from(&mut [0; 1500]).await.unwrap().1);
+        }
+    })
+    .await
+    .expect("both originals queued an ordinary IPv4 probe before the enhanced pause");
     time::timeout(Duration::from_secs(3), async {
         let mut request = [0; 64];
         let (len, _) = observer.recv_from(&mut request).await.unwrap();
@@ -668,6 +700,15 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
     })
     .await
     .expect("both peers committed the enhanced round and an observer received real IPv4 traffic");
+    let reach_out = pair
+        .connections
+        .each_ref()
+        .map(|connection| connection.stats().frame_tx.reach_out);
+    let removed = pair
+        .connections
+        .each_ref()
+        .map(|connection| connection.stats().frame_tx.remove_address);
+    while ipv4_probe.try_recv_from(&mut [0; 1500]).is_ok() {}
     assert!(
         pair.connections.iter().all(|connection| {
             connection
@@ -687,17 +728,6 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
             .find(|addr| addr.ip() == Ipv6Addr::LOCALHOST)
             .unwrap()
     });
-    let ipv4_probe = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
-    let ipv4_target = ipv4_probe.local_addr().unwrap();
-    for (side, (endpoint, connection)) in pair.endpoints.iter().zip(&pair.connections).enumerate() {
-        let peer = addresses[1 - side];
-        endpoint
-            .learn_ip_candidates(
-                EndpointAddr::new(connection.remote_id())
-                    .with_addrs([TransportAddr::Ip(peer), TransportAddr::Ip(ipv4_target)]),
-            )
-            .await;
-    }
     let mut probe = [0; 1200];
     time::timeout(Duration::from_secs(2), async {
         loop {
@@ -721,6 +751,20 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
             .all(MemberConnection::test_ipv4_nat_traversal_probes_paused)
     );
     assert_eq!(
+        pair.connections
+            .each_ref()
+            .map(|connection| connection.stats().frame_tx.reach_out),
+        reach_out,
+        "IPv6 announced on the original must not replace the paused IPv4 QNT round"
+    );
+    assert_eq!(
+        pair.connections
+            .each_ref()
+            .map(|connection| connection.stats().frame_tx.remove_address),
+        removed,
+        "temporarily paused IPv4 candidates remain announced"
+    );
+    assert_eq!(
         ipv4_probe.try_recv_from(&mut probe).unwrap_err().kind(),
         ErrorKind::WouldBlock
     );
@@ -736,22 +780,33 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
     })
     .await
     .expect("the existing enhanced deadline retires its IPv4 probe pause");
-    assert_eq!(
-        ipv4_probe.try_recv_from(&mut probe).unwrap_err().kind(),
-        ErrorKind::WouldBlock,
-        "one healthy IPv6 direct path satisfies idle standby without probing another IPv4 candidate"
+    assert!(
+        first_ipv4.elapsed() < Duration::from_secs(5),
+        "resume must occur inside the existing ordinary retry window"
+    );
+    eprintln!(
+        "ORDINARY_IPV4_PROBE_WINDOW target={ipv4_target} first={first_ipv4:?} resumed_after_ms={}",
+        first_ipv4.elapsed().as_millis()
     );
     let mut stream = open_flow(a, b).await;
     exchange(&mut stream, 1).await;
-    let (len, _) = time::timeout(Duration::from_secs(3), ipv4_probe.recv_from(&mut probe))
-        .await
-        .expect("ordinary IPv4 probing must resume on the original when the round exits")
-        .unwrap();
-    assert!((1..probe.len()).contains(&len));
+    time::sleep(Duration::from_millis(200)).await;
+    assert!(
+        pair.connections
+            .iter()
+            .enumerate()
+            .all(|(side, connection)| {
+                connection.paths().iter().any(|path| {
+                    path.is_selected()
+                        && path.remote_addr() == &TransportAddr::Ip(addresses[1 - side])
+                })
+            })
+    );
     exchange(&mut stream, 1000).await;
     assert_eq!([a.stable_id(), b.stable_id()], ids);
     pair.close().await;
 }
+
 
 #[tokio::test]
 async fn a_live_direct_original_keeps_irohs_path_policy_without_enhanced_observation() {

@@ -722,20 +722,51 @@ async fn enhanced_round_classifies_and_releases_interrupted_observation() {
             |builder| builder,
         )
         .await;
+        for (endpoint, connection) in pair.endpoints.iter().zip(&pair.connections) {
+            endpoint
+                .test_limit_transport_paths(
+                    connection,
+                    vec![TransportAddr::Relay(pair.url.clone())],
+                )
+                .await
+                .unwrap();
+            for path in connection.paths().iter().filter(|path| !path.is_relay()) {
+                path.close().unwrap();
+            }
+        }
+        wait_for(
+            "controlled relay before interrupting enhanced work",
+            BUSINESS_LIMIT,
+            || {
+                pair.connections
+                    .iter()
+                    .all(|connection| relay_is_selected(connection, &pair.url))
+            },
+        )
+        .await;
         let token = CancellationToken::new();
+        let mut transactions = Vec::new();
         let deadline = Instant::now() + Duration::from_millis(950);
         let (result, ()) = time::timeout_at(deadline + Duration::from_millis(100), async {
             tokio::join!(
                 pair.connections[0].coordinate_udp_plan(deadline, &token),
                 async {
-                    let mut sources = [
-                        stun.recv_from(&mut [0; 1500]).await.unwrap().1,
-                        stun.recv_from(&mut [0; 1500]).await.unwrap().1,
-                    ];
+                    let mut sources = Vec::new();
+                    for _ in 0..2 {
+                        let mut packet = [0; 1500];
+                        let (length, source) = stun.recv_from(&mut packet).await.unwrap();
+                        assert_eq!(length, 20);
+                        transactions.push(packet[8..20].to_vec());
+                        sources.push(source);
+                    }
                     let mut expected = pair.addresses();
                     sources.sort();
                     expected.sort();
-                    assert_eq!(sources, expected, "stop both active observation requests");
+                    assert_eq!(
+                        sources.as_slice(),
+                        expected,
+                        "stop both active observation requests"
+                    );
                     match stop {
                         Stop::Cancel => token.cancel(),
                         Stop::Network => pair.endpoints[0].network_change().await,
@@ -749,12 +780,17 @@ async fn enhanced_round_classifies_and_releases_interrupted_observation() {
         .expect("both observers see this round before it terminates");
         assert_eq!(result.unwrap_err().kind(), kind, "{stop:?}");
         while stun.try_recv_from(&mut [0; 1500]).is_ok() {}
-        assert!(
-            time::timeout(Duration::from_millis(650), stun.recv_from(&mut [0; 1500]))
-                .await
-                .is_err(),
-            "{stop:?}: neither endpoint may retransmit after stopping"
-        );
+        let until = Instant::now() + Duration::from_millis(650);
+        let mut packet = [0; 1500];
+        while let Ok(Ok((length, _))) = time::timeout_at(until, stun.recv_from(&mut packet)).await {
+            assert!(length >= 20);
+            assert!(
+                !transactions
+                    .iter()
+                    .any(|transaction| transaction == &packet[8..20]),
+                "{stop:?}: neither endpoint may retransmit the stopped observation transaction"
+            );
+        }
         assert!(
             pair.connections
                 .iter()
@@ -1272,7 +1308,7 @@ async fn accepting_side_can_probe_a_locally_known_address_and_reuse_it() {
     .unwrap();
     assert_eq!(&bytes, b"reply");
     time::sleep(Duration::from_millis(1100)).await;
-    assert_eq!(exchanges(&pair.connections), [0, 0]);
+    assert_eq!(exchanges(&pair.connections), initial_exchanges);
     assert_eq!(
         pair.connections
             .each_ref()

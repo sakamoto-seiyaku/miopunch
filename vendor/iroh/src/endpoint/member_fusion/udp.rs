@@ -10,6 +10,8 @@ use std::{
 use iroh_relay::RelayMap;
 use n0_watcher::Watcher as _;
 use tokio::sync::watch;
+#[cfg(feature = "miopunch-test-hooks")]
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::{
     Activity, CancellationToken, Connection, ControlExchange, Duration, Endpoint, Instant, PathId,
@@ -99,7 +101,7 @@ pub(super) struct Planner {
     slot: Slot,
     standby_turn: tokio::sync::Mutex<()>,
     #[cfg(feature = "miopunch-test-hooks")]
-    reservation_barrier: Mutex<Option<Arc<tokio::sync::Barrier>>>,
+    reservation_barrier: Mutex<Option<(Arc<tokio::sync::Barrier>, Arc<AtomicBool>)>>,
 }
 
 impl Default for Planner {
@@ -124,11 +126,16 @@ impl Planner {
     }
 
     #[cfg(feature = "miopunch-test-hooks")]
-    pub(super) fn test_coordinate_reservation(&self, barrier: Arc<tokio::sync::Barrier>) {
+    pub(super) fn test_coordinate_reservation(
+        &self,
+        barrier: Arc<tokio::sync::Barrier>,
+    ) -> Arc<AtomicBool> {
+        let reached = Arc::new(AtomicBool::new(false));
         *self
             .reservation_barrier
             .lock()
-            .expect("UDP reservation barrier") = Some(barrier);
+            .expect("UDP reservation barrier") = Some((barrier, reached.clone()));
+        reached
     }
 }
 
@@ -462,7 +469,8 @@ impl Planning {
                     .lock()
                     .expect("UDP reservation barrier")
                     .take();
-                if let Some(barrier) = barrier {
+                if let Some((barrier, reached)) = barrier {
+                    reached.store(true, Ordering::Release);
                     self.guarded(deadline, &scope, async {
                         barrier.wait().await;
                         Ok(())

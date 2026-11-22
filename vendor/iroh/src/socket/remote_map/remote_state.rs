@@ -1431,7 +1431,7 @@ impl RemoteStateActor {
                 let ack = stats.acknowledgment?;
                 if member
                     .network_changed_at
-                        .is_some_and(|changed| Instant::from(ack.sent_at) <= changed)
+                    .is_some_and(|changed| Instant::from(ack.sent_at) <= changed)
                 {
                     return None;
                 }
@@ -1447,8 +1447,14 @@ impl RemoteStateActor {
             matches!(binding.remote(), transports::Addr::Custom(addr) if Some(addr.id()) == direct_tcp)
                 && !state.suspect_paths.contains_key(id)
                 && state.may_select(binding)
-                && conn.path(*id).and_then(|p| p.stats().acknowledgment).is_some_and(|ack|
-                    member.network_changed_at.is_none_or(|at| Instant::from(ack.sent_at) > at))
+                && conn
+                    .path(*id)
+                    .and_then(|p| p.stats().acknowledgment)
+                    .is_some_and(|ack| {
+                        member
+                            .network_changed_at
+                            .is_none_or(|at| Instant::from(ack.sent_at) > at)
+                    })
         });
         let member = state
             .member_paths
@@ -1461,15 +1467,17 @@ impl RemoteStateActor {
         let needs_enhanced = !healthy_tcp && verified.is_empty();
         if !active {
             if trace_ipv6 {
-                eprintln!("PEER_IPV6 member-qnt-skipped stable_id={} reason=inactive", id.0);
+                eprintln!(
+                    "PEER_IPV6 member-qnt-skipped stable_id={} reason=inactive",
+                    id.0
+                );
             }
             member.policy.needs_enhanced_udp(needs_enhanced);
             return;
         }
         let ipv4_paused = conn.ipv4_nat_traversal_probes_paused();
-        let can_probe = |addr: &SocketAddr| {
-            (!healthy_tcp && !ipv4_paused) || addr.ip().to_canonical().is_ipv6()
-        };
+        let can_probe =
+            |addr: &SocketAddr| (!healthy_tcp && !ipv4_paused) || addr.ip().to_canonical().is_ipv6();
         let local_candidates = self.state.local_candidates();
         if local_candidates.is_empty() {
             if trace_ipv6 {
@@ -1482,20 +1490,34 @@ impl RemoteStateActor {
             member.policy.needs_enhanced_udp(needs_enhanced);
             return;
         }
-        let known: BTreeSet<_> = self
+        let advertised_remote = conn.get_remote_nat_traversal_addresses();
+        let explicit: BTreeSet<_> = self
             .state
             .paths
             .addrs()
             .filter_map(|addr| match addr {
                 transports::Addr::Ip(remote)
-                    if can_probe(remote)
-                        && member.policy.permits(addr.clone())
-                        && !verified.contains(remote) =>
+                    if member.policy.permits(addr.clone()) && !verified.contains(remote) =>
                 {
                     Some(*remote)
                 }
                 _ => None,
             })
+            .collect();
+        let known: BTreeSet<_> = explicit
+            .iter()
+            .copied()
+            .chain(
+                advertised_remote
+                    .as_ref()
+                    .into_iter()
+                    .flatten()
+                    .copied()
+                    .filter(|remote| {
+                        member.policy.permits(transports::Addr::Ip(*remote))
+                            && !verified.contains(remote)
+                    }),
+            )
             .collect();
         if trace_ipv6 {
             let local_ipv6: Vec<_> = local_candidates
@@ -1518,20 +1540,30 @@ impl RemoteStateActor {
         member
             .known_probes
             .retain(|remote, _| known.contains(remote));
-        for remote in &known {
+        for remote in known.iter().filter(|address| {
+            can_probe(address)
+                && (explicit.contains(*address)
+                    || (ipv4_paused && address.ip().to_canonical().is_ipv6()))
+        }) {
             if member
                 .known_probes
                 .get(remote)
                 .is_none_or(|last| !good_direct && now - *last >= HOLEPUNCH_ATTEMPTS_INTERVAL)
                 && conn.probe_known_nat_traversal_address(*remote).is_ok()
             {
+                if trace_ipv6 {
+                    eprintln!(
+                        "PEER_IPV6 member-known-probe stable_id={} address={remote} at={now:?}",
+                        id.0,
+                    );
+                }
                 member.known_probes.insert(*remote, now);
             }
         }
         let probing_known = member
             .known_probes
-            .values()
-            .any(|sent| now - *sent < LOCAL_PROBE_GRACE);
+            .iter()
+            .any(|(remote, sent)| can_probe(remote) && now - *sent < LOCAL_PROBE_GRACE);
         let recent_exchange = member
             .last_exchange
             .as_ref()
@@ -1560,44 +1592,53 @@ impl RemoteStateActor {
             member.policy.needs_enhanced_udp(fallback);
             return;
         }
-        let local: BTreeSet<_> = local_candidates.into_iter().filter(can_probe).collect();
+        if ipv4_paused {
+            // A QNT round replaces the transport's whole probe state and sends
+            // REACH_OUT for all local candidates. Keep that state while IPv4
+            // is paused; IPv6 uses the server's existing announcements above.
+            member.policy.needs_enhanced_udp(fallback);
+            return;
+        }
+        let local: BTreeSet<_> = local_candidates.iter().copied().filter(can_probe).collect();
         if local.is_empty() {
             member.policy.needs_enhanced_udp(fallback);
             return;
         }
-        let Ok(remote) = conn.get_remote_nat_traversal_addresses() else {
+        let Ok(remote) = advertised_remote else {
             member.policy.needs_enhanced_udp(fallback);
             return;
         };
         let remote: BTreeSet<_> = remote
             .into_iter()
-            .filter(|address| {
-                can_probe(address) && member.policy.permits(transports::Addr::Ip(*address))
-            })
+            .filter(|address| member.policy.permits(transports::Addr::Ip(*address)))
             .collect();
-        if probing_known
-            || (!verified.is_empty() && remote.is_subset(&verified) && known.is_empty())
-        {
+        if probing_known || (!verified.is_empty() && remote.is_subset(&verified) && known.is_empty()) {
             member.policy.needs_enhanced_udp(fallback);
             return;
         }
         if member.last_exchange.as_ref().is_some_and(|last| {
-            local.is_subset(&last.local_candidates)
+            local_candidates.is_subset(&last.local_candidates)
                 && remote.is_subset(&last.remote_candidates)
                 && (good_direct || now - last.when < HOLEPUNCH_ATTEMPTS_INTERVAL)
         }) {
             member.policy.needs_enhanced_udp(fallback);
             return;
         }
-        update_qnt_candidates(&conn, &local);
+        let announced = conn.get_local_nat_traversal_addresses().unwrap_or_default();
+        let advertise = local_candidates
+            .iter()
+            .copied()
+            .filter(|address| can_probe(address) || announced.contains(address))
+            .collect();
+        update_qnt_candidates(&conn, &advertise);
         let exchange = conn.initiate_nat_traversal_round_filtered(|addr| {
-            remote.contains(&addr) && !verified.contains(&addr)
+            can_probe(&addr) && remote.contains(&addr) && !verified.contains(&addr)
         });
         if trace_ipv6
             && (local.iter().any(SocketAddr::is_ipv6) || remote.iter().any(SocketAddr::is_ipv6))
         {
             eprintln!(
-                "PEER_IPV6 member-qnt-exchange stable_id={} result={exchange:?}",
+                "PEER_IPV6 member-qnt-exchange stable_id={} result={exchange:?} at={now:?}",
                 id.0,
             );
         }
@@ -1606,7 +1647,7 @@ impl RemoteStateActor {
             self.state.metrics.holepunch_attempts.inc();
             member.last_exchange = Some(HolepunchAttempt {
                 when: now,
-                local_candidates: local,
+                local_candidates,
                 remote_candidates: remote,
             });
             trace!(
