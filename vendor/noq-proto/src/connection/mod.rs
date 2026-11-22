@@ -335,7 +335,7 @@ pub struct Connection {
 
     /// State for n0's (<https://n0.computer>) nat traversal protocol.
     n0_nat_traversal: n0_nat_traversal::State,
-    nat_traversal_probes_paused: bool,
+    ipv4_nat_traversal_probes_paused: bool,
     qlog: QlogSink,
 }
 
@@ -477,7 +477,7 @@ impl Connection {
             abandoned_paths: Default::default(),
 
             n0_nat_traversal: Default::default(),
-            nat_traversal_probes_paused: false,
+            ipv4_nat_traversal_probes_paused: false,
             qlog,
         };
         if path_validated {
@@ -2334,7 +2334,8 @@ impl Connection {
             .find_validated_path_on_network_path(network_path)
             .is_none()
             && self.n0_nat_traversal.client_side().is_ok()
-            && !self.nat_traversal_probes_paused
+            && (!self.ipv4_nat_traversal_probes_paused
+                || network_path.remote.ip().to_canonical().is_ipv6())
         {
             let token = self.rng.random();
             let stats = &mut self.path_stats.get_mut(path_id).frame_tx;
@@ -2374,10 +2375,9 @@ impl Connection {
         buf: &mut Vec<u8>,
         path_id: PathId,
     ) -> Option<Transmit> {
-        if self.nat_traversal_probes_paused {
-            return None;
-        }
-        let remote = self.n0_nat_traversal.next_probe_addr()?;
+        let remote = self
+            .n0_nat_traversal
+            .next_probe_addr(self.ipv4_nat_traversal_probes_paused)?;
 
         if !self.paths.get(&path_id)?.data.validated {
             // Path is not usable for probing
@@ -2418,8 +2418,18 @@ impl Connection {
         self.path_stats.get_mut(path_id).udp_tx.on_sent(1, size);
 
         trace!(dst = ?remote, len = buf.len(), "sending off-path NAT probe");
+        let destination: SocketAddr = remote.into();
+        if destination.ip().to_canonical().is_ipv6()
+            && std::env::var_os("MIOPUNCH_TRACE_PEER_IPV6").is_some()
+        {
+            eprintln!(
+                "PEER_IPV6 qnt-probe-encoded stable_id={:?} side={:?} path_id={path_id} target={destination} bytes={size}",
+                crate::packet_witness::connection_stable_id(),
+                self.side.side(),
+            );
+        }
         Some(Transmit {
-            destination: remote.into(),
+            destination,
             size,
             ecn: None,
             segment_size: None,
@@ -5654,6 +5664,15 @@ impl Connection {
                     close = Some(reason);
                 }
                 Frame::PathChallenge(challenge) => {
+                    if network_path.remote.ip().to_canonical().is_ipv6()
+                        && std::env::var_os("MIOPUNCH_TRACE_PEER_IPV6").is_some()
+                    {
+                        eprintln!(
+                            "PEER_IPV6 path-challenge-received stable_id={:?} side={:?} path_id={path_id} binding={network_path:?}",
+                            crate::packet_witness::connection_stable_id(),
+                            self.side.side(),
+                        );
+                    }
                     self.spaces[SpaceKind::Data]
                         .for_path(path_id)
                         .pending_path_responses
@@ -5682,10 +5701,19 @@ impl Connection {
                 }
                 Frame::PathResponse(response) => {
                     // First try to see if this is a NAT probe response.
-                    if self
+                    let qnt_matched = self
                         .n0_nat_traversal
-                        .handle_path_response(network_path, response.0)
+                        .handle_path_response(network_path, response.0);
+                    if network_path.remote.ip().to_canonical().is_ipv6()
+                        && std::env::var_os("MIOPUNCH_TRACE_PEER_IPV6").is_some()
                     {
+                        eprintln!(
+                            "PEER_IPV6 path-response-received stable_id={:?} side={:?} path_id={path_id} qnt_matched={qnt_matched} binding={network_path:?}",
+                            crate::packet_witness::connection_stable_id(),
+                            self.side.side(),
+                        );
+                    }
+                    if qnt_matched {
                         self.open_nat_traversed_paths(now);
                     } else {
                         // Try to see if this is a response to an on-path PATH_CHALLENGE.
@@ -6388,7 +6416,16 @@ impl Connection {
             .ok()
             .and_then(|s| s.pop_pending_path_open())
         {
-            match self.open_path_ensure(network_path, PathStatus::Backup, now) {
+            let result = self.open_path_ensure(network_path, PathStatus::Backup, now);
+            if network_path.remote().ip().to_canonical().is_ipv6()
+                && std::env::var_os("MIOPUNCH_TRACE_PEER_IPV6").is_some()
+            {
+                eprintln!(
+                    "PEER_IPV6 qnt-path-open stable_id={:?} binding={network_path:?} result={result:?}",
+                    crate::packet_witness::connection_stable_id(),
+                );
+            }
+            match result {
                 Ok((path_id, already_existed)) => {
                     debug!(
                         %path_id,
@@ -7883,22 +7920,31 @@ impl Connection {
             return Err(n0_nat_traversal::Error::Closed);
         }
         let ipv6 = self.is_ipv6();
-        self.n0_nat_traversal.probe_known_address(address, ipv6)
-    }
-
-    /// Pause off-path NAT traversal probes while a cooperating path mechanism
-    /// owns probing on this connection. Existing retry timers continue to run.
-    /// Ordinary QUIC path validation and responses remain available.
-    pub fn set_nat_traversal_probes_paused(&mut self, paused: bool) {
-        if self.nat_traversal_probes_paused != paused {
-            self.n0_nat_traversal.discard_pending_probes();
-            self.nat_traversal_probes_paused = paused;
+        let result = self.n0_nat_traversal.probe_known_address(address, ipv6);
+        if address.ip().to_canonical().is_ipv6()
+            && std::env::var_os("MIOPUNCH_TRACE_PEER_IPV6").is_some()
+        {
+            eprintln!(
+                "PEER_IPV6 qnt-known-probe side={:?} target={address} supports_ipv6={ipv6} ipv4_paused={} result={result:?}",
+                self.side.side(),
+                self.ipv4_nat_traversal_probes_paused,
+            );
         }
+        result
     }
 
-    /// Whether off-path NAT traversal probe transmission is paused.
-    pub fn nat_traversal_probes_paused(&self) -> bool {
-        self.nat_traversal_probes_paused
+    /// Pause off-path IPv4 NAT traversal probes while a cooperating mechanism
+    /// owns IPv4 probing. IPv6 probing and QUIC path validation continue.
+    pub fn set_ipv4_nat_traversal_probes_paused(&mut self, paused: bool) {
+        if paused && !self.ipv4_nat_traversal_probes_paused {
+            self.n0_nat_traversal.discard_pending_ipv4_probes();
+        }
+        self.ipv4_nat_traversal_probes_paused = paused;
+    }
+
+    /// Whether off-path IPv4 NAT traversal probe transmission is paused.
+    pub fn ipv4_nat_traversal_probes_paused(&self) -> bool {
+        self.ipv4_nat_traversal_probes_paused
     }
 
     /// Initiates a new nat traversal round

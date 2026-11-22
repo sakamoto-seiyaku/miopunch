@@ -1919,11 +1919,11 @@ impl MemberConnection {
             .observe_stream_receive(&stream.recv)
     }
 
-    /// Read the original transport's off-path QNT send gate in an owned fixture.
+    /// Read the original transport's off-path IPv4 QNT send gate in an owned fixture.
     #[cfg(feature = "miopunch-test-hooks")]
     #[doc(hidden)]
-    pub fn test_nat_traversal_probes_paused(&self) -> bool {
-        self.0.connection.nat_traversal_probes_paused()
+    pub fn test_ipv4_nat_traversal_probes_paused(&self) -> bool {
+        self.0.connection.ipv4_nat_traversal_probes_paused()
     }
 
     /// Transport frames and bytes on this original QUIC connection.

@@ -52,6 +52,7 @@ mod remote_info;
 /// attempted more frequently than at this interval.
 const HOLEPUNCH_ATTEMPTS_INTERVAL: Duration = Duration::from_secs(5);
 const MEMBER_REEVALUATION_INTERVAL: Duration = Duration::from_secs(1);
+const MEMBER_DIRECT_ACK_STALL_MIN: Duration = Duration::from_secs(1);
 const LOCAL_PROBE_GRACE: Duration = Duration::from_millis(250);
 
 /// A connection-specific retry is needed after noq issues further path IDs.
@@ -103,8 +104,10 @@ type MemberActivity = MergeUnbounded<Pin<Box<dyn Stream<Item = ConnId> + Send + 
 
 #[derive(Clone, derive_more::Debug)]
 pub(crate) struct MemberPathPolicy {
-    // Bootstrap is active until release. Afterward streams drive QNT.
+    // Bootstrap is active until release. Afterward retained standby or streams
+    // grant path work, while business activity can seek additional paths.
     activity: Option<watch::Receiver<bool>>,
+    business_activity: Option<watch::Receiver<bool>>,
     acked_custom_transports: [Option<u64>; 2],
     ack_native_relay: bool,
     repair: Option<watch::Sender<bool>>,
@@ -123,6 +126,7 @@ impl MemberPathPolicy {
     ) -> Self {
         Self {
             activity,
+            business_activity: None,
             acked_custom_transports: [None; 2],
             ack_native_relay: false,
             repair: None,
@@ -130,6 +134,12 @@ impl MemberPathPolicy {
             enhanced: None,
             permit: Arc::new(permit),
         }
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn with_business_activity(mut self, activity: watch::Receiver<bool>) -> Self {
+        self.business_activity = Some(activity);
+        self
     }
 
     #[cfg(not(wasm_browser))]
@@ -181,16 +191,6 @@ impl MemberPathPolicy {
         let _ = needed;
     }
 
-    fn enhanced_udp_running(&self) -> bool {
-        #[cfg(not(wasm_browser))]
-        return self
-            .enhanced
-            .as_ref()
-            .is_some_and(|work| *work.running.lock().expect("member UDP path work") != 0);
-        #[cfg(wasm_browser)]
-        false
-    }
-
     fn permits(&self, address: transports::Addr) -> bool {
         match &address {
             transports::Addr::Custom(_) if !self.requires_path_ack(&address) => true,
@@ -210,6 +210,12 @@ impl MemberPathPolicy {
 
     fn active(&self) -> bool {
         self.activity
+            .as_ref()
+            .is_none_or(|activity| *activity.borrow())
+    }
+
+    fn business_active(&self) -> bool {
+        self.business_activity
             .as_ref()
             .is_none_or(|activity| *activity.borrow())
     }
@@ -1371,9 +1377,8 @@ impl RemoteStateActor {
         }
     }
 
-    /// A member's outstanding business activates QNT on this connection. A
-    /// server advertisement is also a request for the client's existing QNT
-    /// role to participate, even before it has accepted any business stream.
+    /// Retained standby and business both activate QNT on the original. A
+    /// server advertisement also asks the client's existing role to participate.
     fn update_member_udp(&mut self, id: ConnId, peer_advertised: bool) {
         let Some(state) = self.connections.get_mut(&id) else {
             return;
@@ -1381,8 +1386,17 @@ impl RemoteStateActor {
         let Some(member) = &state.member_paths else {
             return;
         };
-        let active = member.policy.active() || peer_advertised;
-        if !active && !member.policy.checks_enhanced_udp() {
+        let trace_ipv6 = std::env::var_os("MIOPUNCH_TRACE_PEER_IPV6").is_some();
+        let activity = member.policy.active();
+        let active = activity || peer_advertised;
+        let enhanced = member.policy.checks_enhanced_udp();
+        if trace_ipv6 {
+            eprintln!(
+                "PEER_IPV6 member-update stable_id={} purpose={:?} activity={activity} peer_advertised={peer_advertised} enhanced={enhanced}",
+                id.0, state.purpose,
+            );
+        }
+        if !active && !enhanced {
             return;
         }
         let Some(conn) = state
@@ -1394,6 +1408,7 @@ impl RemoteStateActor {
         };
         let now = Instant::now();
         let mut good_direct = false;
+        let mut healthy_udp = false;
         let verified: BTreeSet<_> = state
             .paths
             .iter()
@@ -1420,8 +1435,9 @@ impl RemoteStateActor {
                 {
                     return None;
                 }
-                good_direct |=
-                    !state.suspect_paths.contains_key(id) && stats.rtt <= GOOD_ENOUGH_LATENCY;
+                let healthy = !state.suspect_paths.contains_key(id);
+                healthy_udp |= healthy;
+                good_direct |= healthy && stats.rtt <= GOOD_ENOUGH_LATENCY;
                 Some(remote)
             })
             .collect();
@@ -1438,18 +1454,31 @@ impl RemoteStateActor {
             .member_paths
             .as_mut()
             .expect("checked member connection");
-        if healthy_tcp {
+        if !member.policy.business_active() && (healthy_udp || healthy_tcp) {
             member.policy.needs_enhanced_udp(false);
             return;
         }
-        let needs_enhanced = verified.is_empty();
-        if !active || (needs_enhanced && member.policy.enhanced_udp_running()) {
+        let needs_enhanced = !healthy_tcp && verified.is_empty();
+        if !active {
+            if trace_ipv6 {
+                eprintln!("PEER_IPV6 member-qnt-skipped stable_id={} reason=inactive", id.0);
+            }
             member.policy.needs_enhanced_udp(needs_enhanced);
             return;
         }
-        let local = self.state.local_candidates();
-        if local.is_empty() {
-            update_qnt_candidates(&conn, &local);
+        let ipv4_paused = conn.ipv4_nat_traversal_probes_paused();
+        let can_probe = |addr: &SocketAddr| {
+            (!healthy_tcp && !ipv4_paused) || addr.ip().to_canonical().is_ipv6()
+        };
+        let local_candidates = self.state.local_candidates();
+        if local_candidates.is_empty() {
+            if trace_ipv6 {
+                eprintln!(
+                    "PEER_IPV6 member-qnt-skipped stable_id={} reason=no-local-candidates",
+                    id.0
+                );
+            }
+            update_qnt_candidates(&conn, &local_candidates);
             member.policy.needs_enhanced_udp(needs_enhanced);
             return;
         }
@@ -1459,13 +1488,33 @@ impl RemoteStateActor {
             .addrs()
             .filter_map(|addr| match addr {
                 transports::Addr::Ip(remote)
-                    if member.policy.permits(addr.clone()) && !verified.contains(remote) =>
+                    if can_probe(remote)
+                        && member.policy.permits(addr.clone())
+                        && !verified.contains(remote) =>
                 {
                     Some(*remote)
                 }
                 _ => None,
             })
             .collect();
+        if trace_ipv6 {
+            let local_ipv6: Vec<_> = local_candidates
+                .iter()
+                .filter(|addr| addr.is_ipv6())
+                .collect();
+            let known_ipv6: Vec<_> = known.iter().filter(|addr| addr.is_ipv6()).collect();
+            let peer_ipv6: Vec<_> = conn
+                .get_remote_nat_traversal_addresses()
+                .unwrap_or_default()
+                .into_iter()
+                .filter(SocketAddr::is_ipv6)
+                .collect();
+            eprintln!(
+                "PEER_IPV6 member-candidates stable_id={} side={:?} ipv4_paused={ipv4_paused} local={local_ipv6:?} known={known_ipv6:?} peer_announced={peer_ipv6:?} verified={verified:?}",
+                id.0,
+                conn.side(),
+            );
+        }
         member
             .known_probes
             .retain(|remote, _| known.contains(remote));
@@ -1491,15 +1540,28 @@ impl RemoteStateActor {
         if conn.side().is_server() {
             // At first activation prefer local probes. Only advertise when a
             // local path could not be verified or none can be attempted here.
-            if verified.is_empty() && !probing_known {
-                update_qnt_candidates(&conn, &local);
-            } else if let Ok(announced) = conn.get_local_nat_traversal_addresses() {
-                let still_current = announced
+            // IPv6 advertisements use their own verification state.
+            if let Ok(announced) = conn.get_local_nat_traversal_addresses() {
+                let have_ipv6 = verified
+                    .iter()
+                    .any(|addr| addr.ip().to_canonical().is_ipv6());
+                let advertise = local_candidates
                     .into_iter()
-                    .filter(|address| local.contains(address))
+                    .filter(|addr| {
+                        announced.contains(addr)
+                            || (!probing_known
+                                && can_probe(addr)
+                                && (verified.is_empty()
+                                    || (addr.ip().to_canonical().is_ipv6() && !have_ipv6)))
+                    })
                     .collect();
-                update_qnt_candidates(&conn, &still_current);
+                update_qnt_candidates(&conn, &advertise);
             }
+            member.policy.needs_enhanced_udp(fallback);
+            return;
+        }
+        let local: BTreeSet<_> = local_candidates.into_iter().filter(can_probe).collect();
+        if local.is_empty() {
             member.policy.needs_enhanced_udp(fallback);
             return;
         }
@@ -1509,7 +1571,9 @@ impl RemoteStateActor {
         };
         let remote: BTreeSet<_> = remote
             .into_iter()
-            .filter(|address| member.policy.permits(transports::Addr::Ip(*address)))
+            .filter(|address| {
+                can_probe(address) && member.policy.permits(transports::Addr::Ip(*address))
+            })
             .collect();
         if probing_known
             || (!verified.is_empty() && remote.is_subset(&verified) && known.is_empty())
@@ -1526,12 +1590,18 @@ impl RemoteStateActor {
             return;
         }
         update_qnt_candidates(&conn, &local);
-        if conn
-            .initiate_nat_traversal_round_filtered(|remote| {
-                !verified.contains(&remote) && member.policy.permits(transports::Addr::Ip(remote))
-            })
-            .is_ok()
+        let exchange = conn.initiate_nat_traversal_round_filtered(|addr| {
+            remote.contains(&addr) && !verified.contains(&addr)
+        });
+        if trace_ipv6
+            && (local.iter().any(SocketAddr::is_ipv6) || remote.iter().any(SocketAddr::is_ipv6))
         {
+            eprintln!(
+                "PEER_IPV6 member-qnt-exchange stable_id={} result={exchange:?}",
+                id.0,
+            );
+        }
+        if exchange.is_ok() {
             member.policy.needs_enhanced_udp(false);
             self.state.metrics.holepunch_attempts.inc();
             member.last_exchange = Some(HolepunchAttempt {
@@ -1689,6 +1759,15 @@ impl RemoteStateActor {
                 let binding = self
                     .state
                     .register_and_configure_path(conn_id, conn_state, &path);
+                if std::env::var_os("MIOPUNCH_TRACE_PEER_IPV6").is_some()
+                    && let Some(binding) = &binding
+                    && matches!(binding.remote(), transports::Addr::Ip(addr) if addr.ip().to_canonical().is_ipv6())
+                {
+                    eprintln!(
+                        "PEER_IPV6 actor-path-established stable_id={} purpose={:?} path_id={path_id} binding={binding:?}",
+                        conn_id.0, conn_state.purpose,
+                    );
+                }
                 let member_return_path = binding
                     .as_ref()
                     .is_some_and(|binding| conn_state.is_native_member_path(binding));
@@ -2071,6 +2150,15 @@ impl RemoteStateActor {
                     && conn_state.paths.values().filter(|a| a.is_ip()).count() > 1
                 {
                     trace!(?path_fourtuple, %conn_id, %path_id, "closing direct path");
+                    if std::env::var_os("MIOPUNCH_TRACE_PEER_IPV6").is_some()
+                        && matches!(path_fourtuple.remote(), transports::Addr::Ip(addr) if addr.ip().to_canonical().is_ipv6())
+                    {
+                        let stats = path.stats();
+                        eprintln!(
+                            "PEER_IPV6 actor-path-close stable_id={} path_id={path_id} selected={selected_for_conn:?} rtt={:?} has_ack={}",
+                            conn_id.0, stats.rtt, stats.acknowledgment.is_some(),
+                        );
+                    }
                     match path.close() {
                         Err(noq_proto::ClosePathError::MultipathNotNegotiated) => {
                             error!("multipath not negotiated");
@@ -2122,6 +2210,14 @@ impl RemoteStateActor {
 
             // Record the new selected path in the path watcher.
             if fused || selected_for_conn.is_some() {
+                if fused && current_id != selected_for_conn
+                    && std::env::var_os("MIOPUNCH_TRACE_PEER_IPV6").is_some()
+                {
+                    eprintln!(
+                        "PEER_IPV6 member-selected stable_id={} before={current_id:?} after={selected_for_conn:?} binding={selected_binding:?}",
+                        conn_id.0,
+                    );
+                }
                 conn_state.path_state.record_selected(selected_for_conn);
             }
         }
@@ -2633,7 +2729,14 @@ fn update_qnt_candidates(conn: &noq::Connection, direct_addrs: &BTreeSet<SocketA
         }
     };
     for addr in direct_addrs.difference(&noq_candidates) {
-        if let Err(err) = conn.add_nat_traversal_address(*addr) {
+        let result = conn.add_nat_traversal_address(*addr);
+        if addr.is_ipv6() && std::env::var_os("MIOPUNCH_TRACE_PEER_IPV6").is_some() {
+            eprintln!(
+                "PEER_IPV6 qnt-announce stable_id={} address={addr} result={result:?}",
+                conn.stable_id(),
+            );
+        }
+        if let Err(err) = result {
             warn!("failed adding local addr: {err:#}",);
         }
     }
@@ -2974,6 +3077,8 @@ impl ConnectionState {
     }
 
     fn update_path_health(&mut self, conn: &noq::Connection, now: Instant, interval: Duration) {
+        // Continuous sends can keep moving the actual PTO's deadline. Age the
+        // absence of ACK progress independently while packets are in flight.
         let paths: Vec<_> = self
             .paths
             .iter()
@@ -2982,7 +3087,9 @@ impl ConnectionState {
                     && let Some(path) = conn.path(*id)
                 {
                     let stats = path.stats();
-                    let progress = self.is_native_member_path(binding)
+                    let member_path = self.is_native_member_path(binding);
+                    let member_direct = member_path && !binding.is_relay();
+                    let progress = member_path
                         && path.confirmation().is_some_and(|(live, received)| {
                             self.binding_matches(binding, live)
                                 && now.saturating_duration_since(received.into())
@@ -2991,13 +3098,22 @@ impl ConnectionState {
                                     .ack_pending_since
                                     .is_none_or(|pending| pending <= received)
                         });
-                    Some((*id, stats, progress))
+                    let stall_interval = if member_direct {
+                        interval.max(MEMBER_DIRECT_ACK_STALL_MIN)
+                    } else {
+                        interval
+                    };
+                    let stalled = stats.ack_pending_since.is_some_and(|since| {
+                        now.saturating_duration_since(since.into())
+                            >= stall_interval.max(2 * stats.probe_timeout)
+                    });
+                    Some((*id, stats, progress, member_direct, stalled))
                 } else {
                     None
                 }
             })
             .collect();
-        for (id, stats, progress) in &paths {
+        for (id, stats, progress, member_direct, _) in &paths {
             if *progress {
                 self.suspect_paths.remove(id);
                 continue;
@@ -3009,29 +3125,24 @@ impl ConnectionState {
             }) {
                 self.suspect_paths.remove(id);
             }
-            if stats.pto_count >= 2 {
+            // On member direct paths, PTOs can prepare backups while the
+            // current sender still has time to make progress.
+            if !member_direct && stats.pto_count >= 2 {
                 self.suspect_paths
                     .entry(*id)
                     .or_insert_with(|| SuspectPath::new(now));
             }
         }
 
-        // Continuous sends can keep moving the actual PTO's deadline. Age the
-        // absence of ACK progress independently while packets are in flight.
-        let stalled = |stats: &PathStats| {
-            stats.ack_pending_since.is_some_and(|since| {
-                now.saturating_duration_since(since.into()) >= interval.max(2 * stats.probe_timeout)
-            })
-        };
         if self.member_paths.is_some()
-            || paths.iter().any(|(id, stats, _)| {
+            || paths.iter().any(|(id, stats, _, _, stalled)| {
                 !self.suspect_paths.contains_key(id)
-                    && !stalled(stats)
+                    && !stalled
                     && has_fresh_ack(stats, now, interval)
             })
         {
-            for (id, stats, progress) in paths {
-                if !progress && stalled(&stats) {
+            for (id, _, progress, _, stalled) in paths {
+                if !progress && stalled {
                     self.suspect_paths
                         .entry(id)
                         .or_insert_with(|| SuspectPath::new(now));

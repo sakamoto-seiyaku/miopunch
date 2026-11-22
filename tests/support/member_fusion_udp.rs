@@ -1459,6 +1459,7 @@ async fn ack_return_original_stream_during_one_way_udp_loss() {
     let initial = pair.connections.each_ref().map(frame_counts);
     let spec = std::env::var("MIO_ACK_ONE_WAY").unwrap_or_else(|_| "short-server".into());
     let (sender, duration) = match spec.as_str() {
+        "brief-client" => (0, Duration::from_millis(600)),
         "short-client" => (0, Duration::from_millis(1500)),
         "short-server" => (1, Duration::from_millis(1500)),
         "held-client" => (0, Duration::from_secs(5)),
@@ -1477,6 +1478,15 @@ async fn ack_return_original_stream_during_one_way_udp_loss() {
         async {
             time::sleep_until(cut + duration).await;
             let mid_fault = pair.connections.each_ref().map(frame_counts);
+            if spec == "brief-client" {
+                for (side, conn) in pair.connections.iter().enumerate() {
+                    assert!(conn.paths().get(direct[side]).unwrap().is_selected());
+                    assert_eq!(
+                        mid_fault[side][1], initial[side][1],
+                        "a brief stall must leave original stream traffic on direct UDP"
+                    );
+                }
+            }
             drop(blocked);
             mid_fault
         },

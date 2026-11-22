@@ -621,7 +621,7 @@ impl Planning {
         // that changes eligibility for a new round, not this round's lifetime.
         let mut running = self.path_work.running.lock().expect("member UDP path work");
         if *running == 0 {
-            self.connection.set_nat_traversal_probes_paused(true);
+            self.connection.set_ipv4_nat_traversal_probes_paused(true);
         }
         *running += 1;
         Ok(Some(RunningPath {
@@ -903,7 +903,7 @@ impl Drop for RunningPath<'_> {
         let mut running = self.work.running.lock().expect("member UDP path work");
         *running -= 1;
         if *running == 0 {
-            self.connection.set_nat_traversal_probes_paused(false);
+            self.connection.set_ipv4_nat_traversal_probes_paused(false);
         }
     }
 }

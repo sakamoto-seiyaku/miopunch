@@ -2,7 +2,7 @@
 
 use std::{
     io::ErrorKind,
-    net::{Ipv4Addr, SocketAddr},
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr},
     sync::{
         Arc,
         atomic::{AtomicUsize, Ordering::Relaxed},
@@ -21,6 +21,7 @@ use miopunch_native_probe::{
 };
 use serde_json::json;
 use tokio::{
+    net::UdpSocket,
     sync::Barrier,
     task::JoinSet,
     time::{self, Instant},
@@ -32,6 +33,9 @@ use super::{
     path_contention_baseline::{DEADLINE, FLOOR, delayed_relay::delay_relay, observe_stun},
 };
 
+#[path = "udp_blackhole.rs"]
+mod udp_blackhole;
+
 struct Pair {
     _directory: tempfile::TempDir,
     nodes: [NativeNetwork; 2],
@@ -41,10 +45,42 @@ struct Pair {
     requests: [Arc<AtomicUsize>; 2],
     relay: iroh_relay::server::Server,
     relay_stop: CancellationToken,
+    _ipv4_blackhole: Option<udp_blackhole::UdpBlackhole>,
+    ipv6_blackhole: Option<udp_blackhole::UdpBlackhole>,
 }
 
 impl Pair {
     async fn bind(policy: MaintenancePolicy, relay_only: bool) -> Self {
+        let pair = Self::bind_with(policy, relay_only, |builder| builder, None, false).await;
+        if relay_only {
+            for (endpoint, connection) in pair.endpoints.iter().zip(&pair.connections) {
+                let path = connection.initial_data_path().clone();
+                assert!(matches!(path, TransportAddr::Relay(_)));
+                endpoint
+                    .test_limit_transport_paths(connection, vec![path])
+                    .await
+                    .unwrap();
+                for local in connection.paths().iter().filter(|path| !path.is_relay()) {
+                    local.close().unwrap();
+                }
+                assert!(
+                    connection
+                        .paths()
+                        .iter()
+                        .any(|path| path.is_relay() && path.is_selected())
+                );
+            }
+        }
+        pair
+    }
+
+    async fn bind_with(
+        policy: MaintenancePolicy,
+        relay_only: bool,
+        configure: impl Fn(iroh::endpoint::Builder) -> iroh::endpoint::Builder,
+        observations: Option<&[Resource]>,
+        hold_direct: bool,
+    ) -> Self {
         let directory = tempfile::tempdir().unwrap();
         let mut left = NativeNetwork::create(directory.path().join("left"))
             .await
@@ -65,7 +101,10 @@ impl Pair {
         let mut endpoints = Vec::new();
         for (node, count) in nodes.iter().zip(&requests) {
             let mut config = node.resource_configuration().unwrap();
-            let mut resources = observe_stun(&mut observers, count).await;
+            let mut resources = match observations {
+                Some(resources) => resources.to_vec(),
+                None => observe_stun(&mut observers, count).await,
+            };
             resources.push(Resource {
                 url: url.to_string(),
                 uses: [ResourceUse::DataRelay].into(),
@@ -82,12 +121,30 @@ impl Pair {
                 .bind_addr(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
                 .unwrap();
             endpoints.push(
-                node.bind_member_fusion_endpoint_with(builder, DEADLINE)
+                node.bind_member_fusion_endpoint_with(configure(builder), DEADLINE)
                     .await
                     .unwrap(),
             );
         }
         let endpoints: [MemberFusionEndpoint; 2] = endpoints.try_into().ok().unwrap();
+        let ipv4_blackhole = hold_direct.then(|| {
+            udp_blackhole::UdpBlackhole::new(endpoints.each_ref().map(|endpoint| {
+                *endpoint
+                    .addr()
+                    .ip_addrs()
+                    .find(|address| address.is_ipv4())
+                    .unwrap()
+            }))
+        });
+        let ipv6_blackhole = hold_direct.then(|| {
+            udp_blackhole::UdpBlackhole::new(endpoints.each_ref().map(|endpoint| {
+                *endpoint
+                    .addr()
+                    .ip_addrs()
+                    .find(|address| address.is_ipv6())
+                    .unwrap()
+            }))
+        });
         let (left, right) = time::timeout(DEADLINE, async {
             tokio::join!(
                 async {
@@ -119,23 +176,6 @@ impl Pair {
             member_fusion_attempt_id(&connections[0]),
             member_fusion_attempt_id(&connections[1])
         );
-        if relay_only {
-            for (endpoint, connection) in endpoints.iter().zip(&connections) {
-                endpoint
-                    .test_limit_transport_paths(connection, vec![path.clone()])
-                    .await
-                    .unwrap();
-                for local in connection.paths().iter().filter(|path| !path.is_relay()) {
-                    local.close().unwrap();
-                }
-                assert!(
-                    connection
-                        .paths()
-                        .iter()
-                        .any(|path| path.is_relay() && path.is_selected())
-                );
-            }
-        }
         Self {
             _directory: directory,
             nodes,
@@ -145,6 +185,8 @@ impl Pair {
             requests,
             relay,
             relay_stop,
+            _ipv4_blackhole: ipv4_blackhole,
+            ipv6_blackhole,
         }
     }
 
@@ -542,13 +584,13 @@ async fn business_preempts_unspent_idle_maintenance_and_cancel_releases_the_orig
     assert!(
         pair.connections
             .iter()
-            .all(MemberConnection::test_nat_traversal_probes_paused)
+            .all(MemberConnection::test_ipv4_nat_traversal_probes_paused)
     );
     drop(stream);
     time::timeout(Duration::from_millis(600), async {
         loop {
             if pair.connections.iter().all(|conn| {
-                !conn.test_nat_traversal_probes_paused()
+                !conn.test_ipv4_nat_traversal_probes_paused()
                     && conn.udp_traversal().is_some_and(|report| {
                         report.round == round && report.outcome == Some(Err(ErrorKind::Interrupted))
                     })
@@ -577,10 +619,137 @@ async fn business_preempts_unspent_idle_maintenance_and_cancel_releases_the_orig
         "{}",
         json!({
             "event":"fusion-enhanced-cancellation", "round":hex::encode(round),
-            "qntPausedDuring":[true,true], "qntPausedAfter":[false,false], "packets":packets,
+            "ipv4QntPausedDuring":[true,true], "ipv4QntPausedAfter":[false,false], "packets":packets,
             "observationRequests":pair.requests(),
         })
     );
+    pair.close().await;
+}
+
+#[tokio::test]
+#[ignore = "requires a disposable network namespace with IPv4 UDP packet filters"]
+async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
+    let observer = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    // Keep real observations in flight without introducing an enhanced winner.
+    let resource = Resource {
+        url: format!("stun://{}/", observer.local_addr().unwrap()),
+        uses: [ResourceUse::Observation].into(),
+        limitation: "isolated observation held in flight".into(),
+    };
+    let mut pair = Pair::bind_with(
+        MaintenancePolicy {
+            contact_timeout_ms: DEADLINE.as_millis() as u64,
+            ..MaintenancePolicy::active()
+        },
+        true,
+        |builder| builder.bind_addr((Ipv6Addr::LOCALHOST, 0)).unwrap(),
+        Some(&[resource]),
+        true,
+    )
+    .await;
+    let [a, b] = &pair.connections;
+    let ids = [a.stable_id(), b.stable_id()];
+    assert!(
+        pair.connections
+            .iter()
+            .all(|conn| matches!(conn.initial_data_path(), TransportAddr::Relay(_)))
+    );
+    time::timeout(Duration::from_secs(3), async {
+        let mut request = [0; 64];
+        let (len, _) = observer.recv_from(&mut request).await.unwrap();
+        assert_eq!(len, 20);
+        while !pair
+            .connections
+            .iter()
+            .all(MemberConnection::test_ipv4_nat_traversal_probes_paused)
+        {
+            time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("both peers committed the enhanced round and an observer received real IPv4 traffic");
+    assert!(
+        pair.connections.iter().all(|connection| {
+            connection
+                .paths()
+                .iter()
+                .any(|path| path.is_selected() && path.is_relay())
+        }),
+        "both address families remain unavailable while the original relay carries enhanced control"
+    );
+
+    drop(pair.ipv6_blackhole.take());
+
+    let addresses = pair.endpoints.each_ref().map(|endpoint| {
+        *endpoint
+            .addr()
+            .ip_addrs()
+            .find(|addr| addr.ip() == Ipv6Addr::LOCALHOST)
+            .unwrap()
+    });
+    let ipv4_probe = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let ipv4_target = ipv4_probe.local_addr().unwrap();
+    for (side, (endpoint, connection)) in pair.endpoints.iter().zip(&pair.connections).enumerate() {
+        let peer = addresses[1 - side];
+        endpoint
+            .learn_ip_candidates(
+                EndpointAddr::new(connection.remote_id())
+                    .with_addrs([TransportAddr::Ip(peer), TransportAddr::Ip(ipv4_target)]),
+            )
+            .await;
+    }
+    let mut probe = [0; 1200];
+    time::timeout(Duration::from_secs(2), async {
+        loop {
+            if pair.connections.iter().enumerate().all(|(side, conn)| {
+                conn.paths().iter().any(|path| {
+                    path.is_selected()
+                        && path.remote_addr() == &TransportAddr::Ip(addresses[1 - side])
+                        && path.stats().acknowledgment.is_some()
+                })
+            }) {
+                break;
+            }
+            time::sleep(Duration::from_millis(15)).await;
+        }
+    })
+    .await
+    .expect("IPv6 must qualify and be selected on the idle original during enhanced IPv4");
+    assert!(
+        pair.connections
+            .iter()
+            .all(MemberConnection::test_ipv4_nat_traversal_probes_paused)
+    );
+    assert_eq!(
+        ipv4_probe.try_recv_from(&mut probe).unwrap_err().kind(),
+        ErrorKind::WouldBlock
+    );
+    eprintln!("IDLE_IPV6_ENHANCED_READY original={ids:?} ipv6={addresses:?} ipv4_paused=true");
+    time::timeout(DEADLINE, async {
+        while pair
+            .connections
+            .iter()
+            .any(MemberConnection::test_ipv4_nat_traversal_probes_paused)
+        {
+            time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("the existing enhanced deadline retires its IPv4 probe pause");
+    assert_eq!(
+        ipv4_probe.try_recv_from(&mut probe).unwrap_err().kind(),
+        ErrorKind::WouldBlock,
+        "one healthy IPv6 direct path satisfies idle standby without probing another IPv4 candidate"
+    );
+    let mut stream = open_flow(a, b).await;
+    exchange(&mut stream, 1).await;
+    let (len, _) = time::timeout(Duration::from_secs(3), ipv4_probe.recv_from(&mut probe))
+        .await
+        .expect("ordinary IPv4 probing must resume on the original when the round exits")
+        .unwrap();
+    assert!((1..probe.len()).contains(&len));
+    exchange(&mut stream, 1000).await;
+    assert_eq!([a.stable_id(), b.stable_id()], ids);
     pair.close().await;
 }
 

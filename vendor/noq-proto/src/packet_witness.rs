@@ -23,6 +23,7 @@ static ENABLED: AtomicBool = AtomicBool::new(false);
 static RECORDS: AtomicUsize = AtomicUsize::new(0);
 static BYTES: AtomicUsize = AtomicUsize::new(0);
 static LOST: AtomicUsize = AtomicUsize::new(0);
+static TRACE_PEER_IPV6: OnceLock<bool> = OnceLock::new();
 thread_local! {
     static CONNECTION: Cell<Option<usize>> = const { Cell::new(None) };
     static EMITTING: Cell<bool> = const { Cell::new(false) };
@@ -88,7 +89,8 @@ pub struct ConnectionScope {
     _thread: PhantomData<Rc<()>>,
 }
 pub fn enter_connection(stable: usize) -> ConnectionScope {
-    let active = enabled();
+    let active = enabled()
+        || *TRACE_PEER_IPV6.get_or_init(|| std::env::var_os("MIOPUNCH_TRACE_PEER_IPV6").is_some());
     let previous = if active {
         CONNECTION.with(|v| v.replace(Some(stable)))
     } else {
@@ -99,6 +101,10 @@ pub fn enter_connection(stable: usize) -> ConnectionScope {
         active,
         _thread: PhantomData,
     }
+}
+
+pub(crate) fn connection_stable_id() -> Option<usize> {
+    CONNECTION.with(Cell::get)
 }
 impl Drop for ConnectionScope {
     fn drop(&mut self) {

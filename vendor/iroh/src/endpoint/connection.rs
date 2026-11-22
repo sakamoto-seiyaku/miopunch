@@ -1065,13 +1065,13 @@ pub struct RemoteEndpointIdError;
 
 impl<T: ConnectionState> Connection<T> {
     #[cfg(not(wasm_browser))]
-    pub(super) fn set_nat_traversal_probes_paused(&self, paused: bool) {
-        self.inner.set_nat_traversal_probes_paused(paused);
+    pub(super) fn set_ipv4_nat_traversal_probes_paused(&self, paused: bool) {
+        self.inner.set_ipv4_nat_traversal_probes_paused(paused);
     }
 
     #[cfg(all(not(wasm_browser), feature = "miopunch-test-hooks"))]
-    pub(super) fn nat_traversal_probes_paused(&self) -> bool {
-        self.inner.nat_traversal_probes_paused()
+    pub(super) fn ipv4_nat_traversal_probes_paused(&self) -> bool {
+        self.inner.ipv4_nat_traversal_probes_paused()
     }
 
     /// Initiates a new outgoing unidirectional stream.

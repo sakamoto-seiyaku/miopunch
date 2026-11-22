@@ -977,6 +977,165 @@ mod tests {
     use crate::resources::ResourceConfig;
     use std::net::Ipv6Addr;
 
+    #[cfg(feature = "nat-lab-test-hooks")]
+    #[tokio::test]
+    #[ignore = "requires a disposable network namespace with IPv4 UDP blocked"]
+    async fn idle_relay_session_selects_ipv6_before_the_first_product_ping() {
+        use crate::{
+            native_network::member_fusion_attempt_id,
+            resources::{Resource, ResourceTable, ResourceUse},
+        };
+        use iroh::TransportAddr;
+        use tokio::time::{sleep, timeout};
+
+        let mut relay_config = iroh_relay::server::ServerConfig::default();
+        relay_config.relay = Some(iroh_relay::server::RelayConfig::new((
+            Ipv4Addr::LOCALHOST,
+            0,
+        )));
+        let relay = iroh_relay::server::Server::spawn(relay_config)
+            .await
+            .unwrap();
+        let resources = ResourceConfig {
+            udp_direct_disabled: true,
+            tcp_direct_disabled: true,
+            maintenance: crate::maintenance_policy::MaintenancePolicy {
+                exploration_interval_ms: 250,
+                quality_interval_ms: 250,
+                contact_timeout_ms: 8000,
+                ..Default::default()
+            },
+            ..ResourceConfig::with_defaults(ResourceTable {
+                revision: 1,
+                resources: vec![Resource {
+                    url: relay.http_url().unwrap().to_string(),
+                    uses: [ResourceUse::DataRelay].into(),
+                    limitation: "owned idle-session relay".into(),
+                }],
+            })
+        };
+        let root = tempfile::tempdir().unwrap();
+        let provider = NativeClient::create_with_resources(
+            root.path().join("provider"),
+            Ipv4Addr::LOCALHOST,
+            resources.clone(),
+        )
+        .await
+        .unwrap();
+        provider
+            .export_recovery_card_to(root.path().join("card"), None)
+            .await
+            .unwrap();
+        provider.acknowledge_recovery_saved().await.unwrap();
+        let invitation = provider
+            .issue_precode(crate::service_policy::now() + 300, Some(1))
+            .await
+            .unwrap();
+        let consumer = NativeClient::join_with_resources(
+            root.path().join("consumer"),
+            &invitation,
+            Ipv4Addr::LOCALHOST,
+            resources,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            consumer.request_admission(&invitation).await.unwrap(),
+            AdmissionStage::Complete
+        );
+        let peer_ids = [provider.address().id, consumer.address().id];
+        consumer.close().await.unwrap();
+        provider.close().await.unwrap();
+        for name in ["provider", "consumer"] {
+            let node = NativeNetwork::open(root.path().join(name)).await.unwrap();
+            let mut resources = node.resource_configuration().unwrap();
+            resources.udp_direct_disabled = false;
+            node.save_resource_configuration(&resources).unwrap();
+            node.close().await;
+        }
+        let (provider, consumer) = tokio::join!(
+            NativeClient::open(root.path().join("provider"), Ipv4Addr::LOCALHOST),
+            NativeClient::open(root.path().join("consumer"), Ipv4Addr::LOCALHOST),
+        );
+        let clients = [provider.unwrap(), consumer.unwrap()];
+        let mut originals = Vec::new();
+        for (side, client) in clients.iter().enumerate() {
+            let connection = timeout(Duration::from_secs(12), async {
+                loop {
+                    if let Ok(connection) = client.test_member_connection(peer_ids[1 - side]).await {
+                        break connection;
+                    }
+                    sleep(Duration::from_millis(20)).await;
+                }
+            })
+            .await
+            .expect("normal startup prepares the member without application traffic");
+            assert!(connection.initial_data_path().is_relay());
+            originals.push(connection);
+        }
+        let stable_ids: Vec<_> = originals
+            .iter()
+            .map(|connection| connection.stable_id())
+            .collect();
+        assert_eq!(
+            member_fusion_attempt_id(&originals[0]).unwrap(),
+            member_fusion_attempt_id(&originals[1]).unwrap()
+        );
+        let addresses: Vec<_> = clients
+            .iter()
+            .map(|client| {
+                let bound = client
+                    .resources
+                    .endpoint()
+                    .bound_sockets()
+                    .into_iter()
+                    .find(|address| address.is_ipv6())
+                    .unwrap();
+                std::net::SocketAddr::from((Ipv6Addr::LOCALHOST, bound.port()))
+            })
+            .collect();
+        for (side, client) in clients.iter().enumerate() {
+            client
+                .resources
+                .member_fusion
+                .as_ref()
+                .unwrap()
+                .0
+                .learn_ip_candidates(
+                    EndpointAddr::new(peer_ids[1 - side]).with_ip_addr(addresses[1 - side]),
+                )
+                .await;
+        }
+        timeout(Duration::from_secs(8), async {
+            while !originals.iter().enumerate().all(|(side, connection)| {
+                connection.paths().iter().any(|path| path.is_selected()
+                    && path.remote_addr() == &TransportAddr::Ip(addresses[1 - side])
+                    && path.stats().acknowledgment.is_some())
+            }) {
+                sleep(Duration::from_millis(20)).await;
+            }
+        }).await.expect("the original idle relay session actively validates and selects IPv6 before its first business stream");
+        eprintln!("IDLE_IPV6_BEFORE_BUSINESS stable_ids={stable_ids:?} bound={addresses:?}");
+        let reply = clients[1]
+            .ping(EndpointAddr::new(peer_ids[0]))
+            .await
+            .unwrap();
+        assert_eq!(reply["reply"], "PONG");
+        assert_eq!(reply["transport"]["connection"], stable_ids[1]);
+        assert_eq!(
+            clients[0]
+                .test_member_connection(peer_ids[1])
+                .await
+                .unwrap()
+                .stable_id(),
+            stable_ids[0]
+        );
+        let [provider, consumer] = clients;
+        consumer.close().await.unwrap();
+        provider.close().await.unwrap();
+        relay.shutdown().await.unwrap();
+    }
+
     #[tokio::test]
     async fn native_client_pings_a_member_over_the_bound_ipv6_socket() {
         let dir = tempfile::tempdir().unwrap();

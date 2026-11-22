@@ -1,7 +1,7 @@
 //! Tests for multipath
 
 use std::net::SocketAddr;
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -2232,6 +2232,50 @@ fn test_simple_nat_traveral_opens_path() -> TestResult {
     let event = pair.poll(Server).expect("should have event");
     assert_matches!(event, Event::Path(PathEvent::Established { .. }));
 
+    Ok(())
+}
+
+/// Verify the transmit queue across a pause, a retry and a resume.
+#[test]
+fn ipv4_probe_pause_preserves_queued_ipv6_probes_and_retries() -> TestResult {
+    let _guard = subscribe();
+    let mut pair = ConnPair::builder()
+        .enable_multipath()
+        .enable_nat_traversal()
+        .connect();
+    let ipv4: SocketAddr = "192.0.2.1:42000".parse()?;
+    let ipv6: SocketAddr = "[2001:db8::1]:42000".parse()?;
+    pair.add_nat_traversal_address(Server, ipv4)?;
+    pair.add_nat_traversal_address(Server, ipv6)?;
+    pair.add_nat_traversal_address(Client, Pair::CLIENT_ADDR)?;
+    pair.drive();
+    assert_eq!(pair.initiate_nat_traversal_round(Client)?.len(), 2);
+
+    let probe_targets = |pair: &mut ConnPair| {
+        let mut targets = Vec::new();
+        let mut buf = Vec::new();
+        while let Some(packet) = pair.poll_transmit(Client, NonZeroUsize::MIN, &mut buf) {
+            let target = packet.destination;
+            let target = SocketAddr::new(target.ip().to_canonical(), target.port());
+            if target == ipv4 || target == ipv6 {
+                targets.push(target);
+            }
+            buf.clear();
+        }
+        targets
+    };
+    pair.conn_mut(Client)
+        .set_ipv4_nat_traversal_probes_paused(true);
+    assert_eq!(probe_targets(&mut pair), [ipv6]);
+
+    let retry = pair.poll_timeout(Client).unwrap();
+    pair.time = retry;
+    pair.handle_timeout(Client, retry);
+    assert_eq!(probe_targets(&mut pair), [ipv6]);
+
+    pair.conn_mut(Client)
+        .set_ipv4_nat_traversal_probes_paused(false);
+    assert_eq!(probe_targets(&mut pair), [ipv4]);
     Ok(())
 }
 

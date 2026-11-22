@@ -1164,20 +1164,20 @@ impl Connection {
             .probe_known_nat_traversal_address(address)
     }
 
-    /// Pause off-path NAT traversal probe transmission on this connection.
-    pub fn set_nat_traversal_probes_paused(&self, paused: bool) {
+    /// Pause off-path IPv4 NAT traversal probe transmission on this connection.
+    pub fn set_ipv4_nat_traversal_probes_paused(&self, paused: bool) {
         self.0
-            .lock_and_wake("set_nat_traversal_probes_paused")
+            .lock_and_wake("set_ipv4_nat_traversal_probes_paused")
             .inner
-            .set_nat_traversal_probes_paused(paused);
+            .set_ipv4_nat_traversal_probes_paused(paused);
     }
 
-    /// Whether off-path NAT traversal probe transmission is paused.
-    pub fn nat_traversal_probes_paused(&self) -> bool {
+    /// Whether off-path IPv4 NAT traversal probe transmission is paused.
+    pub fn ipv4_nat_traversal_probes_paused(&self) -> bool {
         self.0
-            .lock_without_waking("nat_traversal_probes_paused")
+            .lock_without_waking("ipv4_nat_traversal_probes_paused")
             .inner
-            .nat_traversal_probes_paused()
+            .ipv4_nat_traversal_probes_paused()
     }
 
     /// Initiates a new nat traversal round

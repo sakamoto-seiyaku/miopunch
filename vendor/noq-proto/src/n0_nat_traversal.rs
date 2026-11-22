@@ -256,11 +256,11 @@ impl State {
     /// Returns the next ready probe's address.
     ///
     /// If this is actually sent you must call [`Self::mark_probe_sent`].
-    pub(crate) fn next_probe_addr(&self) -> Option<IpPort> {
+    pub(crate) fn next_probe_addr(&self, ipv4_paused: bool) -> Option<IpPort> {
         match self {
             Self::NotNegotiated => None,
-            Self::ClientSide(state) => state.next_probe_addr(),
-            Self::ServerSide(state) => state.next_probe_addr(),
+            Self::ClientSide(state) => state.next_probe_addr(ipv4_paused),
+            Self::ServerSide(state) => state.next_probe_addr(ipv4_paused),
         }
     }
 
@@ -307,13 +307,14 @@ impl State {
         };
     }
 
-    /// Discard ready probes without altering candidates, retry timers or sent challenges.
-    pub(crate) fn discard_pending_probes(&mut self) {
-        match self {
-            Self::NotNegotiated => {}
-            Self::ClientSide(state) => state.pending_probes.clear(),
-            Self::ServerSide(state) => state.pending_probes.clear(),
-        }
+    /// Discard ready IPv4 probes, leaving IPv6, retry timers and sent challenges intact.
+    pub(crate) fn discard_pending_ipv4_probes(&mut self) {
+        let pending = match self {
+            Self::NotNegotiated => return,
+            Self::ClientSide(state) => &mut state.pending_probes,
+            Self::ServerSide(state) => &mut state.pending_probes,
+        };
+        pending.retain(|(ip, _)| ip.to_canonical().is_ipv6());
     }
 
     /// Marks a remote as successful if the response matches a sent probe.
@@ -567,8 +568,11 @@ impl ClientState {
     /// Returns the next ready probe's address.
     ///
     /// If this is actually sent you must call [`Self::mark_probe_sent`].
-    fn next_probe_addr(&self) -> Option<IpPort> {
-        self.pending_probes.iter().next().copied()
+    fn next_probe_addr(&self, ipv4_paused: bool) -> Option<IpPort> {
+        self.pending_probes
+            .iter()
+            .copied()
+            .find(|(ip, _)| !ipv4_paused || ip.to_canonical().is_ipv6())
     }
 
     /// Marks a probe as sent to the address with the challenge.
@@ -876,8 +880,11 @@ impl ServerState {
     /// Returns the next ready probe's address.
     ///
     /// If this is actually sent you must call [`Self::mark_probe_sent`].
-    fn next_probe_addr(&self) -> Option<IpPort> {
-        self.pending_probes.iter().next().cloned()
+    fn next_probe_addr(&self, ipv4_paused: bool) -> Option<IpPort> {
+        self.pending_probes
+            .iter()
+            .copied()
+            .find(|(ip, _)| !ipv4_paused || ip.to_canonical().is_ipv6())
     }
 
     /// Marks a probe as sent to the address with the challenge.
@@ -962,7 +969,7 @@ mod tests {
         // Helper: send next ready probe
         let mut challenge = 0;
         let mut send_probe = |state: &mut ServerState| {
-            let remote = state.next_probe_addr().unwrap();
+            let remote = state.next_probe_addr(false).unwrap();
             challenge += 1;
             state.mark_probe_sent(remote, challenge);
         };
@@ -971,7 +978,7 @@ mod tests {
         send_probe(&mut state);
 
         // After sending both probes, no ready probes remain but they're still tracked.
-        assert!(state.next_probe_addr().is_none());
+        assert!(state.next_probe_addr(false).is_none());
 
         // After queuing retries, probes become available again
         state.queue_retries();
@@ -992,7 +999,7 @@ mod tests {
 
         // After max attempts, probes are removed
         state.queue_retries();
-        assert!(state.next_probe_addr().is_none());
+        assert!(state.next_probe_addr(false).is_none());
     }
 
     #[test]
@@ -1043,7 +1050,7 @@ mod tests {
         ];
         for (challenge, delay) in challenges.into_iter().zip(delays) {
             nat.queue_retries(ipv6);
-            assert_eq!(nat.next_probe_addr(), Some(remote_ipp));
+            assert_eq!(nat.next_probe_addr(false), Some(remote_ipp));
             nat.mark_probe_sent(remote_ipp, challenge);
             assert_eq!(
                 nat.retry_delay(initial_rtt),
@@ -1089,7 +1096,7 @@ mod tests {
         ];
         for (challenge, delay) in challenges.into_iter().zip(delays) {
             nat.queue_retries(ipv6);
-            assert_eq!(nat.next_probe_addr(), Some(remote_ipp));
+            assert_eq!(nat.next_probe_addr(false), Some(remote_ipp));
             nat.mark_probe_sent(remote_ipp, challenge);
             assert_eq!(
                 nat.retry_delay(initial_rtt),
