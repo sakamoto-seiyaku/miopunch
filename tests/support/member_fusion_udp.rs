@@ -1263,6 +1263,13 @@ async fn lan_ipv4_and_ipv6_keep_two_way_original_streams() {
 async fn accepting_side_can_probe_a_locally_known_address_and_reuse_it() {
     let pair = Pair::new(LOOPBACK, LOW_RELAY_DELAY, PathPreference::Quality).await;
     let sockets = pair.addresses();
+    wait_for("initial standby candidate exchange", BUSINESS_LIMIT, || {
+        exchanges(&pair.connections)
+            .into_iter()
+            .all(|frames| frames > 0)
+    })
+    .await;
+    let initial_exchanges = exchanges(&pair.connections);
     pair.endpoints[1]
         .learn_ip_candidates(EndpointAddr::new(pair.endpoints[0].id()).with_ip_addr(sockets[0]))
         .await;
@@ -1278,8 +1285,8 @@ async fn accepting_side_can_probe_a_locally_known_address_and_reuse_it() {
     let paths = qualified_udp(&pair.connections, sockets, initial, true).await;
     assert_eq!(
         exchanges(&pair.connections),
-        [0, 0],
-        "the passive dialer did not have to exchange candidates"
+        initial_exchanges,
+        "the locally known address does not require another candidate exchange"
     );
     let mut incoming = pair.connections[0].accept_bi().await.unwrap();
     assert_eq!(incoming.streams().0.id(), outgoing.streams().0.id());
