@@ -166,11 +166,11 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         provider,
         consumer,
         target,
-    } = Pair::admit_with_resources(ResourceConfig {
+    } = Box::pin(Pair::admit_with_resources(ResourceConfig {
         replacement: Some(vec![relay_resource(&relay)]),
         tcp_direct_disabled: true,
         ..ResourceConfig::default()
-    })
+    }))
     .await;
     let consumer_path = root.path().join("consumer");
     let consumer_id = consumer.address().id;
@@ -179,18 +179,18 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         .find(|address| address.is_ipv4())
         .copied()
         .unwrap();
-    consumer.close().await.unwrap();
-    let consumer = reopen_with_resources(&consumer_path, |resources| {
+    Box::pin(consumer.close()).await.unwrap();
+    let consumer = Box::pin(reopen_with_resources(&consumer_path, |resources| {
         resources.disabled_uses.insert(ResourceUse::DataRelay);
-    })
+    }))
     .await;
-    first_pong(
+    Box::pin(first_pong(
         &consumer,
         iroh::EndpointAddr::new(target.id).with_ip_addr(direct),
         iroh::TransportAddr::Ip(direct),
-    )
+    ))
     .await;
-    consumer.close().await.unwrap();
+    Box::pin(consumer.close()).await.unwrap();
 
     let verified = read_member_routes(&consumer_path, target.id);
     assert!(
@@ -199,50 +199,52 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         }),
         "the first PONG saved the actual verified address"
     );
-    let consumer = reopen_with_resources(&consumer_path, |resources| {
+    let consumer = Box::pin(reopen_with_resources(&consumer_path, |resources| {
         resources.disabled_uses.remove(&ResourceUse::DataRelay);
-    })
+    }))
     .await;
     assert_eq!(consumer.address().id, consumer_id);
     println!("redial-fixture verified-ip-wins");
-    let selected = first_pong(
+    let selected = Box::pin(first_pong(
         &consumer,
         iroh::EndpointAddr::new(target.id),
         iroh::TransportAddr::Ip(direct),
-    )
+    ))
     .await;
     assert_eq!(
-        first_pong(
+        Box::pin(first_pong(
             &consumer,
             iroh::EndpointAddr::new(target.id).with_relay_url(relay.clone()),
             iroh::TransportAddr::Ip(direct)
-        )
+        ))
         .await,
         selected
     );
-    consumer.close().await.unwrap();
-    provider.close().await.unwrap();
+    Box::pin(consumer.close()).await.unwrap();
+    Box::pin(provider.close()).await.unwrap();
 
     // Keep the old port open without a QUIC endpoint while the same target
     // identity starts on a different port.
     let stale = UdpSocket::bind(direct).await.unwrap();
     let provider_path = root.path().join("provider");
-    let provider = NativeClient::open(&provider_path, Ipv4Addr::LOCALHOST)
-        .await
-        .unwrap();
+    // Keep each cached-route restart initiated by the consumer under test.
+    let provider = Box::pin(reopen_with_resources(&provider_path, |resources| {
+        resources.maintenance.standby_member_limit = Some(0);
+    }))
+    .await;
     assert_eq!(provider.address().id, target.id);
-    let consumer = NativeClient::open(&consumer_path, Ipv4Addr::LOCALHOST)
+    let consumer = Box::pin(NativeClient::open(&consumer_path, Ipv4Addr::LOCALHOST))
         .await
         .unwrap();
     assert_eq!(consumer.address().id, consumer_id);
     println!("redial-fixture stale-ip");
     let mut packet = [0; 2048];
     let (_, observed) = tokio::join!(
-        first_pong(
+        Box::pin(first_pong(
             &consumer,
             iroh::EndpointAddr::new(target.id),
             iroh::TransportAddr::Relay(relay.clone())
-        ),
+        )),
         timeout(IO, stale.recv_from(&mut packet)),
     );
     assert!(
@@ -250,7 +252,7 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         "the stale UDP port saw the QUIC Initial"
     );
     drop(stale);
-    consumer.close().await.unwrap();
+    Box::pin(consumer.close()).await.unwrap();
 
     // A reachable device with an unrelated TLS key takes the same cached port.
     let wrong = iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
@@ -265,16 +267,16 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         .await
         .unwrap();
     assert_ne!(wrong.id(), target.id);
-    let consumer = NativeClient::open(&consumer_path, Ipv4Addr::LOCALHOST)
+    let consumer = Box::pin(NativeClient::open(&consumer_path, Ipv4Addr::LOCALHOST))
         .await
         .unwrap();
     println!("redial-fixture wrong-peer-ip");
     let (_, observed) = tokio::join!(
-        first_pong(
+        Box::pin(first_pong(
             &consumer,
             iroh::EndpointAddr::new(target.id),
             iroh::TransportAddr::Relay(relay.clone())
-        ),
+        )),
         timeout(IO, async {
             let mut connecting = wrong.accept().await.unwrap().accept().unwrap();
             let alpn = connecting.alpn().await.unwrap();
@@ -287,7 +289,7 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         miopunch_native_probe::native_network::FUSED_MEMBER_ALPN
     );
     drop(wrong_connection);
-    consumer.close().await.unwrap();
+    Box::pin(consumer.close()).await.unwrap();
     wrong.close().await;
     drop(wrong);
 
@@ -310,16 +312,16 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         .await
         .unwrap();
     assert_eq!(interrupted.id(), target.id);
-    let consumer = NativeClient::open(&consumer_path, Ipv4Addr::LOCALHOST)
+    let consumer = Box::pin(NativeClient::open(&consumer_path, Ipv4Addr::LOCALHOST))
         .await
         .unwrap();
     println!("redial-fixture reset-scram");
     let (_, observed) = tokio::join!(
-        first_pong(
+        Box::pin(first_pong(
             &consumer,
             iroh::EndpointAddr::new(target.id),
             iroh::TransportAddr::Relay(relay.clone())
-        ),
+        )),
         timeout(IO, async {
             let connection = interrupted.accept().await.unwrap().await.unwrap();
             assert_eq!(connection.remote_id(), consumer_id);
@@ -340,7 +342,7 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         }),
     );
     drop(observed.unwrap());
-    consumer.close().await.unwrap();
+    Box::pin(consumer.close()).await.unwrap();
     interrupted.close().await;
 
     let current = provider
@@ -394,39 +396,37 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         ),
     ] {
         write_member_routes(&consumer_path, target.id, contacts);
-        let consumer = reopen_with_resources(&consumer_path, |resources| {
+        let consumer = Box::pin(reopen_with_resources(&consumer_path, |resources| {
             resources.udp_direct_disabled = !udp;
             if data_relay {
                 resources.disabled_uses.remove(&ResourceUse::DataRelay);
             } else {
                 resources.disabled_uses.insert(ResourceUse::DataRelay);
             }
-        })
+        }))
         .await;
         println!("redial-fixture {label}");
-        first_pong(&consumer, iroh::EndpointAddr::new(target.id), expected).await;
-        consumer.close().await.unwrap();
+        Box::pin(first_pong(&consumer, iroh::EndpointAddr::new(target.id), expected)).await;
+        Box::pin(consumer.close()).await.unwrap();
     }
 
     // The removed peer is stopped when the administrator applies the record,
     // so the fresh dial reaches the target's refusal rather than a local check.
     let peer = p2panda_core::VerifyingKey::from_bytes(consumer_id.as_bytes()).unwrap();
-    let proposal = provider
-        .propose_device_operation(DeviceAction::RemoveMember, peer)
+    let proposal = Box::pin(provider.propose_device_operation(DeviceAction::RemoveMember, peer))
         .await
         .unwrap();
     let operation: DeviceOperation = serde_json::from_value(proposal["operation"].clone()).unwrap();
     assert_eq!(
-        provider
-            .execute_device_operation(operation.id)
+        Box::pin(provider.execute_device_operation(operation.id))
             .await
             .unwrap()["effective_locally"],
         true
     );
     write_member_routes(&consumer_path, target.id, vec![recent(current, now, true)]);
-    let consumer = reopen_with_resources(&consumer_path, |resources| {
+    let consumer = Box::pin(reopen_with_resources(&consumer_path, |resources| {
         resources.udp_direct_disabled = false;
-    })
+    }))
     .await;
     assert!(!consumer.status().await.membership_ended);
     println!("redial-fixture target-denied");
@@ -439,8 +439,8 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         std::io::ErrorKind::PermissionDenied
     );
     println!("target-admission-denied {rejected}");
-    consumer.close().await.unwrap();
-    provider.close().await.unwrap();
+    Box::pin(consumer.close()).await.unwrap();
+    Box::pin(provider.close()).await.unwrap();
     stop.cancel();
     server.shutdown().await.unwrap();
 }
