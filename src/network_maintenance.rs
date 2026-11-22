@@ -1448,7 +1448,12 @@ impl Coordinator {
                             }
                         }
                         result = self.step(&cancel) => {
-                            if let Err(error) = result { self.status.cause = Some(error.to_string()); self.status.state = MaintenanceState::TemporarilyUnreachable; self.explore_at = Instant::now() + self.floor(); }
+                            if let Err(error) = result {
+                                self.status.cause = Some(error.to_string());
+                                self.status.state = MaintenanceState::TemporarilyUnreachable;
+                                self.explore_at = Instant::now() + self.floor();
+                                self.standby_at = self.standby_at.map(|_| self.explore_at);
+                            }
                         }
                     }
                 }
