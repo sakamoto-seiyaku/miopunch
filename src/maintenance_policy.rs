@@ -10,7 +10,8 @@ pub struct MaintenancePolicy {
     pub max_neighbors: usize,
     pub quality_interval_ms: u64,
     pub contact_timeout_ms: u64,
-    pub max_standby_member_connections: usize,
+    /// Keep all healthy idle peers by default. Zero disables background standby.
+    pub standby_member_limit: Option<usize>,
     pub enhanced_udp_cooldown_ms: u64,
     pub path_retry_base_ms: u64,
 }
@@ -23,7 +24,7 @@ impl MaintenancePolicy {
     pub fn conservative() -> Self {
         Self {
             exploration_interval_ms: 5_000,
-            max_standby_member_connections: 1,
+            standby_member_limit: None,
             enhanced_udp_cooldown_ms: 160_000,
             path_retry_base_ms: 5_000,
             discovery_interval_ms: 15_000,
@@ -36,7 +37,7 @@ impl MaintenancePolicy {
     pub fn active() -> Self {
         Self {
             exploration_interval_ms: 1_000,
-            max_standby_member_connections: 4,
+            standby_member_limit: None,
             enhanced_udp_cooldown_ms: 32_000,
             path_retry_base_ms: 1_000,
             discovery_interval_ms: 5_000,
@@ -76,6 +77,8 @@ struct SavedPolicy {
     quality_interval_ms: u64,
     contact_timeout_ms: u64,
     max_standby_member_connections: Option<usize>,
+    #[serde(default, deserialize_with = "saved_standby_limit")]
+    standby_member_limit: Option<Option<usize>>,
     enhanced_udp_cooldown_ms: Option<u64>,
     path_retry_base_ms: Option<u64>,
 }
@@ -91,6 +94,7 @@ impl Default for SavedPolicy {
             quality_interval_ms: old.quality_interval_ms,
             contact_timeout_ms: old.contact_timeout_ms,
             max_standby_member_connections: None,
+            standby_member_limit: None,
             enhanced_udp_cooldown_ms: None,
             path_retry_base_ms: None,
         }
@@ -117,9 +121,14 @@ impl From<SavedPolicy> for MaintenancePolicy {
             max_neighbors: saved.max_neighbors,
             quality_interval_ms: saved.quality_interval_ms,
             contact_timeout_ms: saved.contact_timeout_ms,
-            max_standby_member_connections: saved
-                .max_standby_member_connections
-                .unwrap_or(profile.max_standby_member_connections),
+            // The old 1/4 values were persisted profile defaults, including on
+            // nodes with independently tuned timing/budget fields. The new key
+            // preserves explicit limits and lets null override a legacy value.
+            standby_member_limit: saved.standby_member_limit.unwrap_or_else(|| {
+                saved
+                    .max_standby_member_connections
+                    .filter(|limit| !matches!(limit, 1 | 4))
+            }),
             enhanced_udp_cooldown_ms: saved
                 .enhanced_udp_cooldown_ms
                 .unwrap_or(profile.enhanced_udp_cooldown_ms),
@@ -128,6 +137,13 @@ impl From<SavedPolicy> for MaintenancePolicy {
                 .unwrap_or(profile.path_retry_base_ms),
         }
     }
+}
+
+fn saved_standby_limit<'de, D>(value: D) -> Result<Option<Option<usize>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<usize>::deserialize(value).map(Some)
 }
 
 #[cfg(test)]
@@ -147,7 +163,7 @@ mod tests {
                 };
                 let mut saved = serde_json::to_value(&policy).unwrap();
                 for key in [
-                    "max_standby_member_connections",
+                    "standby_member_limit",
                     "enhanced_udp_cooldown_ms",
                     "path_retry_base_ms",
                 ] {
@@ -168,7 +184,43 @@ mod tests {
         }
         let config: MaintenancePolicy =
             serde_json::from_str(r#"{"max_neighbors":7,"exploration_interval_ms":30000}"#).unwrap();
-        assert_eq!(config.max_standby_member_connections, 1);
+        assert_eq!(config.standby_member_limit, None);
         assert_eq!(config.enhanced_udp_cooldown_ms, 160_000);
+    }
+
+    #[test]
+    fn old_standby_defaults_migrate_without_changing_effort_or_explicit_new_limits() {
+        for old_limit in [1, 4] {
+            let mut saved = serde_json::to_value(MaintenancePolicy::active()).unwrap();
+            saved
+                .as_object_mut()
+                .unwrap()
+                .remove("standby_member_limit");
+            saved["max_standby_member_connections"] = old_limit.into();
+            saved["exploration_interval_ms"] = 30_000.into();
+            saved["max_concurrent_contacts"] = 2.into();
+            saved["enhanced_udp_cooldown_ms"] = 725.into();
+            let migrated: MaintenancePolicy = serde_json::from_value(saved).unwrap();
+            assert_eq!(migrated.standby_member_limit, None);
+            assert_eq!(migrated.exploration_interval_ms, 30_000);
+            assert_eq!(migrated.max_concurrent_contacts, 2);
+            assert_eq!(migrated.enhanced_udp_cooldown_ms, 725);
+        }
+        for limit in [0, 2, 8] {
+            let saved = serde_json::json!({"max_standby_member_connections": limit});
+            let policy: MaintenancePolicy = serde_json::from_value(saved).unwrap();
+            assert_eq!(policy.standby_member_limit, Some(limit));
+        }
+        for limit in [None, Some(0), Some(1), Some(4), Some(8)] {
+            let saved = serde_json::json!({"max_standby_member_connections": 2, "standby_member_limit": limit});
+            let policy: MaintenancePolicy = serde_json::from_value(saved).unwrap();
+            assert_eq!(policy.standby_member_limit, limit);
+            let canonical = serde_json::to_value(&policy).unwrap();
+            assert!(canonical.get("max_standby_member_connections").is_none());
+            assert_eq!(
+                serde_json::from_value::<MaintenancePolicy>(canonical).unwrap(),
+                policy
+            );
+        }
     }
 }

@@ -89,6 +89,232 @@ async fn standby(
     .expect("normal startup establishes an admitted session before any business")
 }
 
+async fn five_idle_peers(
+    policy: miopunch_native_probe::network_maintenance::MaintenancePolicy,
+    legacy: bool,
+) {
+    let relay = relay().await;
+    let root = tempfile::tempdir().unwrap();
+    let mut config = resources(&relay.http_url().unwrap());
+    config.maintenance = policy;
+    config.maintenance.exploration_interval_ms = 250;
+    config.maintenance.contact_timeout_ms = 3000;
+    let limit = config.maintenance.max_concurrent_contacts;
+    let hub_path = root.path().join("hub");
+    let hub = NativeClient::create_with_resources(&hub_path, Ipv4Addr::LOCALHOST, config.clone())
+        .await
+        .unwrap();
+    hub.export_recovery_card_to(root.path().join("card"), None)
+        .await
+        .unwrap();
+    hub.acknowledge_recovery_saved().await.unwrap();
+    let invitation = hub
+        .issue_precode(service_policy::now() + 600, Some(6))
+        .await
+        .unwrap();
+    let mut peers = Vec::new();
+    for index in 0..6 {
+        let path = root.path().join(format!("peer-{index}"));
+        let peer = NativeClient::join_with_resources(
+            &path,
+            &invitation,
+            Ipv4Addr::LOCALHOST,
+            config.clone(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            peer.request_admission(&invitation).await.unwrap(),
+            AdmissionStage::Complete
+        );
+        peers.push((peer.address().id, path));
+        peer.close().await.unwrap();
+    }
+    let hub_id = hub.address().id;
+    hub.close().await.unwrap();
+    if legacy {
+        let path = hub_path.join("resources.json");
+        let mut saved: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        let maintenance = saved["maintenance"].as_object_mut().unwrap();
+        maintenance.remove("standby_member_limit");
+        maintenance.insert(
+            "max_standby_member_connections".into(),
+            if limit == 1 { 1.into() } else { 4.into() },
+        );
+        std::fs::write(path, serde_json::to_vec(&saved).unwrap()).unwrap();
+    }
+    peers.sort_by_key(|(id, _)| *id);
+    let offline = peers.remove(0);
+    let hub = NativeClient::open(&hub_path, Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let mut online = Vec::new();
+    for (id, path) in &peers {
+        online.push((
+            *id,
+            NativeClient::open(path, Ipv4Addr::LOCALHOST).await.unwrap(),
+        ));
+        sleep(Duration::from_millis(150)).await;
+    }
+    let mut max_pending = 0;
+    let originals = timeout(Duration::from_secs(40), async {
+        loop {
+            let pending = peers
+                .iter()
+                .chain(std::iter::once(&offline))
+                .filter(|(id, _)| hub.test_member_dial_pending(*id))
+                .count();
+            max_pending = max_pending.max(pending);
+            assert!(
+                pending <= limit,
+                "pending contacts {pending} exceed node budget {limit}"
+            );
+            let mut connections = Vec::new();
+            for (id, peer) in &online {
+                if let (Ok(a), Ok(b)) = (
+                    hub.test_member_connection(*id).await,
+                    peer.test_member_connection(hub_id).await,
+                ) {
+                    if a.close_reason().is_none() && b.close_reason().is_none() {
+                        assert_eq!(
+                            member_fusion_attempt_id(&a).unwrap(),
+                            member_fusion_attempt_id(&b).unwrap()
+                        );
+                        assert!(a.paths().iter().any(|p| p.is_selected() && p.is_relay()));
+                        connections.push((a, b));
+                    }
+                }
+            }
+            if connections.len() == 5
+                && connections
+                    .iter()
+                    .all(|(a, b)| a.close_reason().is_none() && b.close_reason().is_none())
+            {
+                break connections;
+            }
+            sleep(Duration::from_millis(30)).await;
+        }
+    })
+    .await
+    .expect("all five admitted peers remain simultaneously idle before the first product ping");
+    // The normal host grants an initial 60-second first-stream handoff. Cross
+    // that window without traffic so temporary handoffs cannot prove retention.
+    let idle_until = tokio::time::Instant::now() + Duration::from_secs(61);
+    while tokio::time::Instant::now() < idle_until {
+        let pending = peers
+            .iter()
+            .chain(std::iter::once(&offline))
+            .filter(|(id, _)| hub.test_member_dial_pending(*id))
+            .count();
+        max_pending = max_pending.max(pending);
+        assert!(
+            pending <= limit,
+            "pending contacts {pending} exceed node budget {limit}"
+        );
+        assert!(
+            originals
+                .iter()
+                .all(|(a, b)| a.close_reason().is_none() && b.close_reason().is_none()),
+            "healthy idle sessions survive the fifth peer"
+        );
+        sleep(Duration::from_millis(100)).await;
+    }
+    let identities: Vec<_> = originals
+        .iter()
+        .map(|(a, b)| {
+            serde_json::json!({
+                "peer": a.remote_id(), "hubStableId": a.stable_id(), "peerStableId": b.stable_id(),
+                "attempt": hex::encode(member_fusion_attempt_id(a).unwrap()),
+            })
+        })
+        .collect();
+    eprintln!(
+        "{}",
+        serde_json::json!({"event":"five-idle-members-before-business", "connections": identities, "legacy":legacy, "maxConcurrentContacts":limit, "maxObservedPending":max_pending})
+    );
+    for _ in 0..2 {
+        for ((id, peer), (a, b)) in online.iter().zip(&originals) {
+            let reply = hub.ping(peer.address()).await.unwrap_or_else(|error| {
+                panic!(
+                    "product ping {id}: {error}; original close reasons {:?}/{:?}",
+                    a.close_reason(),
+                    b.close_reason()
+                )
+            });
+            assert_eq!(reply["reply"], "PONG");
+            assert_eq!(reply["transport"]["connection"], a.stable_id());
+            assert_eq!(
+                peer.test_member_connection(hub_id)
+                    .await
+                    .unwrap()
+                    .stable_id(),
+                b.stable_id()
+            );
+            assert_eq!(
+                hub.test_member_connection(*id).await.unwrap().stable_id(),
+                a.stable_id()
+            );
+            assert!(
+                originals
+                    .iter()
+                    .all(|(a, b)| a.close_reason().is_none() && b.close_reason().is_none()),
+                "each completed business leaves all five originals alive"
+            );
+        }
+    }
+    assert!(
+        originals
+            .iter()
+            .all(|(a, b)| a.close_reason().is_none() && b.close_reason().is_none()),
+        "business completion returns every healthy original to standby"
+    );
+    eprintln!(
+        "FIVE_STANDBY_READY peers=5 relay_only=5 budget={limit} max_pending={max_pending} legacy={legacy}"
+    );
+    for (_, peer) in online {
+        peer.close().await.unwrap();
+    }
+    hub.close().await.unwrap();
+    relay.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn conservative_node_retains_five_idle_peers() {
+    five_idle_peers(
+        miopunch_native_probe::network_maintenance::MaintenancePolicy::conservative(),
+        false,
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn active_node_retains_five_idle_peers() {
+    five_idle_peers(
+        miopunch_native_probe::network_maintenance::MaintenancePolicy::active(),
+        false,
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn old_conservative_default_retains_five_idle_peers_after_reopen() {
+    five_idle_peers(
+        miopunch_native_probe::network_maintenance::MaintenancePolicy::conservative(),
+        true,
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn old_active_default_retains_five_idle_peers_after_reopen() {
+    five_idle_peers(
+        miopunch_native_probe::network_maintenance::MaintenancePolicy::active(),
+        true,
+    )
+    .await;
+}
+
 #[tokio::test]
 async fn startup_and_peer_restart_prepare_the_session_before_first_ping() {
     let relay = relay().await;
@@ -318,7 +544,7 @@ async fn offline_member_leaves_a_contact_opportunity_for_the_next_member() {
     let relay = relay().await;
     let root = tempfile::tempdir().unwrap();
     let mut config = resources(&relay.http_url().unwrap());
-    config.maintenance.max_standby_member_connections = 4;
+    config.maintenance.standby_member_limit = Some(4);
     let (provider, first) = admitted(root.path(), &config).await;
     let invitation = provider
         .issue_precode(service_policy::now() + 300, Some(1))
@@ -351,7 +577,7 @@ async fn offline_member_leaves_a_contact_opportunity_for_the_next_member() {
         .await
         .unwrap();
     let mut config = node.resource_configuration().unwrap();
-    config.maintenance.max_standby_member_connections = 0;
+    config.maintenance.standby_member_limit = Some(0);
     node.save_resource_configuration(&config).unwrap();
     node.close().await;
     let online = NativeClient::open(root.path().join(online_name), Ipv4Addr::LOCALHOST)

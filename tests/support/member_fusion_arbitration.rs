@@ -212,7 +212,7 @@ async fn one_standby_slot_preserves_business_across_background_contacts() {
     for node in [&admin, &b, &c] {
         let mut config = node.resource_configuration().unwrap();
         config.replacement = Some(vec![]);
-        config.maintenance.max_standby_member_connections = 1;
+        config.maintenance.standby_member_limit = Some(1);
         node.save_resource_configuration(&config).unwrap();
         endpoints.push(
             node.bind_member_fusion_endpoint_with(

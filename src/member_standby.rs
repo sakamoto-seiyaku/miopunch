@@ -48,7 +48,7 @@ impl MemberStandby {
         available: usize,
     ) {
         let policy = resources.maintenance_policy();
-        if Instant::now() < self.next || policy.max_standby_member_connections == 0 {
+        if Instant::now() < self.next || policy.standby_member_limit == Some(0) {
             return;
         }
         self.next = Instant::now() + Duration::from_millis(policy.exploration_interval_ms);

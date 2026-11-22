@@ -157,7 +157,7 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
             config.maintenance.path_retry_base_ms = retry_interval.as_millis() as u64;
         }
         if matches!(scenario, TcpRound::Cancel) {
-            config.maintenance.max_standby_member_connections = 0;
+            config.maintenance.standby_member_limit = Some(0);
         }
         config.maintenance.contact_timeout_ms = 8_000;
         node.save_resource_configuration(&config).unwrap();

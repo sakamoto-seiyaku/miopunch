@@ -48,7 +48,10 @@ impl NativeNetwork {
     ) -> Result<MemberFusionEndpoint, NodeError> {
         let resources = self.resource_configuration()?;
         let standby = iroh::endpoint::MemberRetention::Standby(
-            resources.maintenance.max_standby_member_connections,
+            resources
+                .maintenance
+                .standby_member_limit
+                .unwrap_or(usize::MAX),
         );
         let relays = resources.relay_map(ResourceUse::DataRelay)?;
         self.gate
@@ -121,7 +124,10 @@ impl NativeNetwork {
                     tcp,
                 },
                 iroh::endpoint::MemberRetention::Standby(
-                    resources.maintenance.max_standby_member_connections,
+                    resources
+                        .maintenance
+                        .standby_member_limit
+                        .unwrap_or(usize::MAX),
                 ),
             )
             .await?)
