@@ -533,6 +533,15 @@ impl MemberFusionEndpoint {
         self.inner.endpoint.online().await;
     }
 
+    /// Observe a shared first dial without starting or joining it.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_member_dial_pending(&self, id: EndpointId) -> bool {
+        self.inner.fusion.peers.lock().expect("member peers lock")
+            .get(&id).and_then(Weak::upgrade)
+            .is_some_and(|peer| peer.state.lock().expect("member peer lock").dial.is_some())
+    }
+
     /// Notify the owner that local network observations must be renewed.
     pub async fn network_change(&self) {
         self.inner.endpoint.network_change().await;

@@ -1212,8 +1212,44 @@ impl ResourceEndpoint {
 
     pub(crate) async fn connect_member(
         &self,
+        target: iroh::EndpointAddr,
+        deadline: tokio::time::Instant,
+    ) -> std::io::Result<iroh::endpoint::MemberConnection> {
+        self.connect_member_with_class(target, deadline, ContactClass::Foreground).await
+    }
+
+    pub(crate) async fn connect_member_background(
+        &self,
+        target: iroh::EndpointAddr,
+        deadline: tokio::time::Instant,
+    ) -> std::io::Result<iroh::endpoint::MemberConnection> {
+        let (_, gate) = self.member_fusion.as_ref().ok_or(std::io::ErrorKind::Unsupported)?;
+        if !gate.member_contact_allowed(target.id) {
+            return Err(std::io::ErrorKind::PermissionDenied.into());
+        }
+        let attempt = self.begin_contact_attempt_until(target.id, ContactClass::Background, deadline.into())
+            .map_err(|error| std::io::Error::new(std::io::ErrorKind::WouldBlock, error))?;
+        let result = tokio::select! {
+            biased;
+            _ = gate.member_contact_ended(target.id) => Err(std::io::ErrorKind::PermissionDenied.into()),
+            result = self.connect_member_with_class(target, deadline, ContactClass::Background) => result,
+        };
+        match &result {
+            Ok(_) => attempt.succeeded(),
+            Err(error) => { attempt.failed(error.to_string()); }
+        }
+        result
+    }
+
+    pub(crate) fn maintenance_policy(&self) -> &crate::maintenance_policy::MaintenancePolicy {
+        &self.config.maintenance
+    }
+
+    async fn connect_member_with_class(
+        &self,
         mut target: iroh::EndpointAddr,
         deadline: tokio::time::Instant,
+        class: ContactClass,
     ) -> std::io::Result<iroh::endpoint::MemberConnection> {
         let deadline = deadline.min(tokio::time::Instant::now() + self.timeout);
         let (owner, _) = self
@@ -1283,14 +1319,6 @@ impl ResourceEndpoint {
                 route_log.original = Some(stable_id);
                 route_log.event("quic-identity", "confirmed", serde_json::json!({"peer":peer}));
             })
-            .with_contact_budget(move |peer, deadline| {
-                let attempt = ContactAttempt::begin(&backoff, peer, ContactClass::Foreground, deadline)
-                    .map_err(|error| std::io::Error::new(std::io::ErrorKind::WouldBlock, error))?;
-                Ok(move |result: &std::io::Result<()>| match result {
-                    Ok(()) => attempt.succeeded(),
-                    Err(error) => { attempt.failed(error.to_string()); }
-                })
-            })
             .with_route_diagnostics(move |route, deadline| {
                 let hint = match route {
                     iroh::TransportAddr::Ip(address) => serde_json::json!({"kind":"ip","address":address}),
@@ -1326,6 +1354,20 @@ impl ResourceEndpoint {
                     }
                 })
             });
+        let routes = if class == ContactClass::Foreground {
+            routes.with_contact_budget(move |peer, deadline| {
+                let attempt = ContactAttempt::begin(&backoff, peer, ContactClass::Foreground, deadline)
+                    .map_err(|error| std::io::Error::new(std::io::ErrorKind::WouldBlock, error))?;
+                Ok(move |result: &std::io::Result<()>| match result {
+                    Ok(()) => attempt.succeeded(),
+                    Err(error) => { attempt.failed(error.to_string()); }
+                })
+            })
+        } else {
+            // The background owner reserves the whole dial, including relay
+            // failures. Restricted fallback is part of that same operation.
+            routes
+        };
         let routes = if self.config.udp_direct_disabled {
             routes
         } else {

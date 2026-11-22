@@ -563,6 +563,8 @@ impl ControlProtocolHandler for FusedRepair {
 }
 
 struct Coordinator {
+    standby: crate::member_standby::MemberStandby,
+    standby_turn: bool,
     node: NativeNetwork,
     resources: Arc<ResourceEndpoint>,
     policy: MaintenancePolicy,
@@ -1118,6 +1120,17 @@ impl Coordinator {
         false
     }
     async fn step(&mut self, cancel: &CancellationToken) -> Result<(), NodeError> {
+        if self.resources.member_fusion.is_some() && self.explore_at <= Instant::now() {
+            // At a one-contact budget, leave alternating opportunities for
+            // replica synchronization as well as ordinary member standby.
+            self.standby_turn = !self.standby_turn;
+            let available = if self.standby_turn || self.activity.is_active() {
+                self.policy.max_concurrent_contacts
+            } else {
+                0
+            };
+            self.standby.schedule(&self.resources, &self.node.gate, available);
+        }
         if let Some(contacts) = &self.resources.member_contacts {
             contacts.refresh_async().await?;
         }
@@ -1147,7 +1160,11 @@ impl Coordinator {
             }
             self.improve_at = Some(improve_at);
         }
-        if self.activity.is_active() || self.explore_at > Instant::now() {
+        if self.activity.is_active() {
+            self.explore_at = Instant::now() + self.floor();
+            return Ok(());
+        }
+        if self.explore_at > Instant::now() {
             return Ok(());
         }
         // Existing neighbor synchronization and new contacts share this coordinator.
@@ -1158,6 +1175,9 @@ impl Coordinator {
             .map(|(id, peer)| (*id, peer.connection.clone()))
             .collect::<Vec<_>>();
         for (id, connection) in due {
+            if self.standby.len() >= self.policy.max_concurrent_contacts {
+                break;
+            }
             if self.activity.is_active() {
                 return Ok(());
             }
@@ -1212,7 +1232,7 @@ impl Coordinator {
                 .min(self.policy.max_neighbors - self.neighbors.len())
         } else {
             1
-        };
+        }.min(self.policy.max_concurrent_contacts.saturating_sub(self.standby.len()));
         {
             for _ in 0..self.candidates.len().saturating_mul(2) {
                 if chosen.len() >= contact_limit {
@@ -1378,12 +1398,13 @@ impl Coordinator {
             let step_at = self
                 .improve_at
                 .into_iter()
-                .chain((!activity.is_active()).then_some(self.explore_at))
+                .chain((!activity.is_active() || self.resources.member_fusion.is_some()).then_some(self.explore_at))
                 .min();
             let listener_retry = self.listener_retry_at.unwrap_or(self.explore_at);
             tokio::select! {
                 biased;
                 _ = cancel.cancelled() => break,
+                _ = self.standby.completed(), if self.standby.len() > 0 => {},
                 command = disable_commands.recv() => {
                     let Some(command) = command else { break; };
                     if let Err(error) = self.command(command).await { self.status.cause = Some(error.to_string()); }
@@ -1429,6 +1450,7 @@ impl Coordinator {
             self.status.contact_listener = Some(listener.status());
         }
         self.status.state = MaintenanceState::Stopped;
+        self.standby.stop().await;
         self.published.send_replace(self.status.clone());
         let _ = router.shutdown().await;
         self.node.close().await;
@@ -1680,6 +1702,8 @@ impl NativeNetwork {
         let sampler = PeerSampler::new(self.status().node_id).await?;
         let saved = self.saved_maintenance_contacts()?;
         let mut coordinator = Coordinator {
+            standby: crate::member_standby::MemberStandby::new(),
+            standby_turn: false,
             node: self,
             resources: resources.clone(),
             policy,

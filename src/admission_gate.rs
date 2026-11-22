@@ -531,6 +531,32 @@ impl AdmissionGate {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn member_contact_peers(&self) -> Vec<EndpointId> {
+        let state = self.state.lock().expect("admission policy lock");
+        if state.policy.secret.is_none()
+            || !state.policy.members.contains(&state.policy.local_id)
+            || state.policy.removed.contains(&state.policy.local_id)
+        {
+            return Vec::new();
+        }
+        state.policy.members.iter()
+            .filter(|id| **id != state.policy.local_id && !state.policy.removed.contains(*id))
+            .filter_map(|id| EndpointId::from_bytes(id).ok())
+            .collect()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) async fn member_contact_ended(&self, peer: EndpointId) {
+        use n0_watcher::Watcher;
+        let mut updates = self.path_updates.watch();
+        while self.member_contact_allowed(peer) {
+            if updates.updated().await.is_err() {
+                break;
+            }
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn scoped_guest_contact_allowed(&self, peer: EndpointId, alpn: &[u8]) -> bool {
         self.state.lock().expect("admission policy lock").policy.service_guest(alpn, peer.as_bytes())
     }

@@ -272,10 +272,12 @@ impl NativeClient {
             tokio::spawn(async move {
                 let mut handlers = tokio::task::JoinSet::new();
                 let mut member_handlers = tokio::task::JoinSet::new();
+                let mut standby = crate::member_standby::MemberStandby::new();
                 let mut expiry = tokio::time::interval(Duration::from_secs(1));
                 loop {
                     tokio::select! {
                         _ = cancel.cancelled() => break,
+                        _ = standby.completed(), if standby.len() > 0 => {},
                         Some(Ok(connection)) = fusion.accept() => {
                             let path_events = connection.path_events();
                             let members = members.clone();
@@ -292,6 +294,9 @@ impl NativeClient {
                         }
                         _ = member_handlers.join_next(), if !member_handlers.is_empty() => {},
                         _ = expiry.tick() => {
+                            if recovery_saved.load(Ordering::Acquire) && replacement_ready.load(Ordering::Acquire) {
+                                standby.schedule(&resources, &gate, resources.maintenance_policy().max_concurrent_contacts);
+                            }
                             if let Some(contacts) = &member_contacts
                                 && let Err(error) = contacts.refresh_async().await
                             {
@@ -450,6 +455,7 @@ impl NativeClient {
                     }
                 }
                 handlers.abort_all();
+                standby.stop().await;
                 while handlers.join_next().await.is_some() {}
                 // Drop also reaches this owned listener through its cancel
                 // guard. Keep the endpoint alive while QUIC close frames are
@@ -749,6 +755,12 @@ impl NativeClient {
         let (fusion, _) = self.resources.member_fusion.as_ref().ok_or("member owner absent")?;
         fusion.reuse_until(peer, tokio::time::Instant::now() + Duration::from_secs(1)).await?
             .ok_or_else(|| "member connection absent".into())
+    }
+
+    #[cfg(feature = "nat-lab-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_member_dial_pending(&self, peer: iroh::EndpointId) -> bool {
+        self.resources.member_fusion.as_ref().is_some_and(|(owner, _)| owner.test_member_dial_pending(peer))
     }
 
     /// Stop this host's listener and handlers, close endpoint resources, then
