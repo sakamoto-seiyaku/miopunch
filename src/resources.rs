@@ -75,6 +75,9 @@ pub struct ResourceConfig {
     pub disabled_tcp_addresses: BTreeSet<std::net::SocketAddr>,
     #[serde(default)]
     pub path_selection: crate::path_selection::PathSelectionPolicy,
+    /// Overrides the endpoint's QUIC congestion control at startup.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub congestion_control: Option<iroh::endpoint::CongestionControl>,
     #[serde(default)]
     pub maintenance: crate::network_maintenance::MaintenancePolicy,
     /// Explicit trusted native/WSS contact mapping; no implicit public facility.
@@ -296,6 +299,7 @@ impl ResourceConfig {
             member_data_relay_disabled: false,
             disabled_tcp_addresses: BTreeSet::new(),
             path_selection: Default::default(),
+            congestion_control: None,
             maintenance: Default::default(),
             mqtt_facilities: Vec::new(),
             irc_facilities: Vec::new(),
@@ -454,6 +458,10 @@ impl ResourceConfig {
             self.path_selection
                 .selector_with_native_rtc(rtc_installed)?,
         );
+        let builder = match self.congestion_control {
+            Some(control) => builder.congestion_control(control),
+            None => builder,
+        };
         let builder = if self.udp_direct_disabled {
             builder.clear_ip_transports()
         } else {

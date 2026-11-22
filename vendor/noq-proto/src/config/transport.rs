@@ -352,6 +352,13 @@ impl TransportConfig {
         self
     }
 
+    /// Returns the factory used to create congestion controllers for new paths.
+    pub fn get_congestion_controller_factory(
+        &self,
+    ) -> &Arc<dyn congestion::ControllerFactory + Send + Sync> {
+        &self.congestion_controller_factory
+    }
+
     /// Whether to use "Generic Segmentation Offload" to accelerate transmits, when supported by the
     /// environment
     ///

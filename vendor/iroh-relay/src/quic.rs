@@ -5,6 +5,32 @@ use std::{net::SocketAddr, sync::Arc};
 use n0_error::stack_error;
 use n0_future::time::{Duration, Instant};
 use noq::{VarInt, crypto::rustls::QuicClientConfig};
+use noq_proto::congestion::{Bbr3Config, ControllerFactory, CubicConfig, NewRenoConfig};
+use serde::{Deserialize, Serialize};
+
+/// Congestion control for iroh endpoints and relay address discovery.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CongestionControl {
+    /// Bottleneck bandwidth and round-trip propagation time, version 3.
+    #[default]
+    Bbrv3,
+    /// CUBIC congestion control.
+    Cubic,
+    /// NewReno congestion control.
+    NewReno,
+}
+
+impl CongestionControl {
+    /// Returns the Noq factory for this algorithm using its standard parameters.
+    pub fn factory(self) -> Arc<dyn ControllerFactory + Send + Sync> {
+        match self {
+            Self::Bbrv3 => Arc::new(Bbr3Config::default()),
+            Self::Cubic => Arc::new(CubicConfig::default()),
+            Self::NewReno => Arc::new(NewRenoConfig::default()),
+        }
+    }
+}
 
 /// ALPN for our quic addr discovery
 pub const ALPN_QUIC_ADDR_DISC: &[u8] = b"/iroh-qad/0";
@@ -97,6 +123,7 @@ pub(crate) mod server {
         pub(crate) fn spawn(
             bind_addr: SocketAddr,
             mut server_config: rustls::ServerConfig,
+            congestion_control: super::CongestionControl,
             metrics: Arc<Metrics>,
         ) -> Result<Self, QuicSpawnError> {
             server_config.alpn_protocols = vec![crate::quic::ALPN_QUIC_ADDR_DISC.to_vec()];
@@ -105,6 +132,7 @@ pub(crate) mod server {
             let transport_config =
                 Arc::get_mut(&mut server_config.transport).expect("not used yet");
             transport_config
+                .congestion_controller_factory(congestion_control.factory())
                 .max_concurrent_uni_streams(0_u8.into())
                 .max_concurrent_bidi_streams(0_u8.into())
                 // enable sending quic address discovery frames
@@ -116,7 +144,7 @@ pub(crate) mod server {
                 .local_addr()
                 .map_err(|err| e!(QuicSpawnError::LocalAddr, err))?;
 
-            info!(?bind_addr, "QUIC server listening on");
+            info!(?bind_addr, ?congestion_control, "QUIC server listening on");
 
             let cancel = CancellationToken::new();
             let cancel_accept_loop = cancel.clone();
@@ -258,7 +286,7 @@ pub enum Error {
 }
 
 /// Handles the client side of QUIC address discovery.
-#[derive(Debug, Clone)]
+#[derive(Clone, derive_more::Debug)]
 pub struct QuicClient {
     /// A QUIC Endpoint.
     ep: noq::Endpoint,
@@ -270,13 +298,29 @@ impl QuicClient {
     /// Create a new QuicClient to handle the client side of QUIC
     /// address discovery.
     pub fn new(ep: noq::Endpoint, client_config: rustls::ClientConfig) -> Self {
+        Self::new_with_congestion_controller(
+            ep,
+            client_config,
+            CongestionControl::default().factory(),
+        )
+    }
+
+    /// Creates an address discovery client using the endpoint's congestion controller factory.
+    pub fn new_with_congestion_controller(
+        ep: noq::Endpoint,
+        client_config: rustls::ClientConfig,
+        congestion_controller: Arc<dyn ControllerFactory + Send + Sync>,
+    ) -> Self {
         Self {
             ep,
-            client_config: Self::qad_config(client_config),
+            client_config: Self::qad_config(client_config, congestion_controller),
         }
     }
 
-    fn qad_config(mut client_config: rustls::ClientConfig) -> noq::ClientConfig {
+    fn qad_config(
+        mut client_config: rustls::ClientConfig,
+        congestion_controller: Arc<dyn ControllerFactory + Send + Sync>,
+    ) -> noq::ClientConfig {
         // add QAD alpn
         client_config.alpn_protocols = vec![ALPN_QUIC_ADDR_DISC.into()];
         // go from rustls client config to rustls QUIC specific client config to
@@ -290,6 +334,7 @@ impl QuicClient {
 
         // enable the receive side of address discovery
         let mut transport = noq_proto::TransportConfig::default();
+        transport.congestion_controller_factory(congestion_controller);
         // Setting the initial RTT estimate to a low value means
         // we're sacrificing initial throughput, which is fine for
         // QAD, which doesn't require us to have good initial throughput.
@@ -420,7 +465,12 @@ mod tests {
         // create a server config with self signed certificates
         let (_, server_config) = super::super::server::testing::self_signed_tls_certs_and_config();
         let bind_addr = SocketAddr::new(host.into(), 0);
-        let quic_server = QuicServer::spawn(bind_addr, server_config, Default::default())?;
+        let quic_server = QuicServer::spawn(
+            bind_addr,
+            server_config,
+            CongestionControl::default(),
+            Default::default(),
+        )?;
 
         // create a client-side endpoint
         let client_endpoint =

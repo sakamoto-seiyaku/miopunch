@@ -66,10 +66,9 @@ pub fn relay_config() -> RelayConfig {
 /// - Uses [`self_signed_tls_certs_and_config`] to create tls certificates
 pub fn quic_config() -> QuicConfig {
     let (_, server_config) = self_signed_tls_certs_and_config();
-    QuicConfig {
-        bind_addr: (Ipv4Addr::UNSPECIFIED, 0).into(),
-        server_config: Some(server_config),
-    }
+    let mut config = QuicConfig::new((Ipv4Addr::UNSPECIFIED, 0));
+    config.server_config = Some(server_config);
+    config
 }
 
 /// Creates a [`ServerConfig`] suitable for testing.

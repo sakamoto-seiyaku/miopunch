@@ -235,6 +235,56 @@ async fn default_qad_completes_hostname_verified_ipv4_and_ipv6_observation() {
 }
 
 #[tokio::test]
+async fn default_qad_uses_the_endpoint_congestion_factory() {
+    use iroh::endpoint::QuicTransportConfig;
+    use noq_proto::congestion::{Controller, ControllerFactory, CubicConfig};
+
+    #[derive(Default)]
+    struct CountingCubic(AtomicUsize);
+
+    impl ControllerFactory for CountingCubic {
+        fn build(self: Arc<Self>, now: std::time::Instant, mtu: u16) -> Box<dyn Controller> {
+            self.0.fetch_add(1, Ordering::Relaxed);
+            Arc::new(CubicConfig::default()).build(now, mtu)
+        }
+    }
+
+    let (observer, roots) = observer().await;
+    let address = observer.quic_addr().unwrap();
+    for observers in [
+        observation_map(address.port()),
+        RelayMap::from(localhost_observer(address.port())),
+    ] {
+        let factory = Arc::new(CountingCubic::default());
+        let endpoint = Endpoint::builder(presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+            .clear_ip_transports()
+            .bind_addr((Ipv4Addr::LOCALHOST, 0))
+            .unwrap()
+            .observation_servers(observers)
+            .ca_tls_config(roots.clone())
+            .transport_config(
+                QuicTransportConfig::builder()
+                    .congestion_controller_factory(factory.clone())
+                    .build(),
+            )
+            .bind()
+            .await
+            .unwrap();
+        let state = fresh(&endpoint).await;
+        assert!(state.is_fresh(), "{state:?}");
+        let UdpObservation::Fresh { addresses, .. } = state else {
+            panic!("{state:?}")
+        };
+        assert_eq!(addresses, endpoint.bound_sockets());
+        assert!(factory.0.load(Ordering::Relaxed) > 0);
+        endpoint.close().await;
+    }
+
+    observer.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn failed_periodic_observation_withdraws_the_old_udp_candidate() {
     let (observer, roots) = observer().await;
     let nat = NatProxy::start(observer.quic_addr().unwrap()).await;

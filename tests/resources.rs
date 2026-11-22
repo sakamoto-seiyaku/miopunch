@@ -2276,13 +2276,17 @@ mod test_cli;
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 #[tokio::test]
 async fn default_tcp_listener_preserves_the_callers_quic_idle_timeout() {
+    use iroh::endpoint::{CongestionControl, PathId};
     use miopunch_native_probe::tcp_transport::TcpTransport;
-    let config = ResourceConfig::with_defaults(ResourceTable {
+    use noq_proto::congestion::{Cubic, NewReno, NewRenoConfig};
+
+    let mut config = ResourceConfig::with_defaults(ResourceTable {
         revision: 1,
         resources: Vec::new(),
     });
     let mut endpoints = Vec::new();
-    for _ in 0..2 {
+    for control in [None, Some(CongestionControl::Cubic)] {
+        config.congestion_control = control;
         let endpoint = config.configure(
             Endpoint::builder(presets::Minimal)
                 .clear_ip_transports()
@@ -2290,6 +2294,7 @@ async fn default_tcp_listener_preserves_the_callers_quic_idle_timeout() {
                 .transport_config(
                     iroh::endpoint::QuicTransportConfig::builder()
                         .max_idle_timeout(Some(Duration::from_millis(250).try_into().unwrap()))
+                        .congestion_controller_factory(std::sync::Arc::new(NewRenoConfig::default()))
                         .build(),
                 ),
         ).unwrap().bind().await.unwrap();
@@ -2308,6 +2313,12 @@ async fn default_tcp_listener_preserves_the_callers_quic_idle_timeout() {
     );
     let outgoing = outgoing.unwrap();
     let incoming = incoming.unwrap();
+    assert!(
+        outgoing.congestion_state(PathId::ZERO).unwrap().into_any().is::<NewReno>()
+    );
+    assert!(
+        incoming.congestion_state(PathId::ZERO).unwrap().into_any().is::<Cubic>()
+    );
     let (client_reason, server_reason) = tokio::time::timeout(Duration::from_secs(2), async {
         tokio::join!(outgoing.closed(), incoming.closed())
     })

@@ -8,7 +8,9 @@ use iroh::endpoint::{
     BeforeConnectOutcome, ControlExchange, ControlHandle, ControlMessageFormat, EndpointHooks,
     RestrictedEndpoint,
 };
-use iroh::endpoint::{Connection, RecvStream, RelayResourcePolicy, RelayResourceUse, SendStream};
+use iroh::endpoint::{
+    CongestionControl, Connection, RecvStream, RelayResourcePolicy, RelayResourceUse, SendStream,
+};
 use iroh::{Endpoint, EndpointAddr, RelayMode, RelayUrl, endpoint::presets};
 use iroh_base::SecretKey;
 use p2panda_auth::Access;
@@ -1740,6 +1742,8 @@ struct Configuration {
     member_data: Option<MemberDataConfiguration>,
     #[serde(default)]
     path_selection: crate::path_selection::PathSelectionPolicy,
+    #[serde(default)]
+    congestion_control: CongestionControl,
     relays: Vec<String>,
     disabled: Vec<String>,
     #[serde(default = "legacy_resource_replacement")]
@@ -1780,6 +1784,7 @@ impl Default for Configuration {
             rtc_enabled: true,
             member_data: None,
             path_selection: crate::path_selection::PathSelectionPolicy::default(),
+            congestion_control: CongestionControl::default(),
             relays: iroh::defaults::prod::default_relay_map()
                 .urls::<Vec<_>>()
                 .into_iter()
@@ -1802,6 +1807,7 @@ impl Default for Configuration {
 struct ConfigurationInput {
     member_data: Option<MemberDataConfiguration>,
     path_selection: Option<crate::path_selection::PathSelectionPolicy>,
+    congestion_control: Option<CongestionControl>,
     rtc_enabled: Option<bool>,
     relays: Option<Vec<String>>,
     disabled: Option<Vec<String>>,
@@ -2071,6 +2077,9 @@ impl BrowserNetwork {
         if let Some(path_selection) = input.path_selection {
             configuration.path_selection = path_selection;
         }
+        if let Some(congestion_control) = input.congestion_control {
+            configuration.congestion_control = congestion_control;
+        }
         if let Some(member_data) = input.member_data {
             member_data.validate()?;
             configuration.member_data = Some(member_data);
@@ -2293,6 +2302,7 @@ impl BrowserNetwork {
                 installed_relay,
             ))
             .map_err(error)?;
+        let congestion_control = configuration.congestion_control;
         saved.resources = Some(configuration);
         if saved.invitation.is_some() {
             saved = saved.declare_files(false)?;
@@ -2355,6 +2365,7 @@ impl BrowserNetwork {
                         .build()
                 },
             )
+            .congestion_control(congestion_control)
             .secret_key(SecretKey::from_bytes(&saved.key))
             .connection_path_selector(path_selector)
             .relay_mode(RelayMode::custom(relays.clone()))

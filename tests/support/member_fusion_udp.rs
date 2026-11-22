@@ -1161,17 +1161,47 @@ async fn original_relay_stream_migrates_to_ipv4() {
 #[tokio::test]
 #[ignore = "requires the lab's disposable network namespace and its assigned UDP addresses"]
 async fn lan_ipv4_and_ipv6_keep_two_way_original_streams() {
-    for (addresses, direction) in [
-        (["192.168.147.1", "192.168.147.2"], 1),
-        (["198.18.147.1", "198.18.147.2"], 0),
-        (["fd00:147::1", "fd00:147::2"], 1),
+    use iroh::endpoint::CongestionControl;
+    use noq_proto::congestion::{Bbr3, Cubic, NewReno};
+
+    for (addresses, direction, control) in [
+        (["192.168.147.1", "192.168.147.2"], 1, None),
+        (
+            ["198.18.147.1", "198.18.147.2"],
+            0,
+            Some(CongestionControl::Cubic),
+        ),
+        (
+            ["fd00:147::1", "fd00:147::2"],
+            1,
+            Some(CongestionControl::NewReno),
+        ),
     ] {
-        let pair = Pair::new(
-            addresses.map(|ip| ip.parse().unwrap()),
+        let ips = addresses.map(|ip| ip.parse().unwrap());
+        let pair = Pair::bind_with_observers(
+            ips,
+            ips,
             LOW_RELAY_DELAY,
             PathPreference::Quality,
+            &[],
+            |builder| match control {
+                Some(control) => builder.congestion_control(control),
+                None => builder,
+            },
         )
         .await;
+        let assert_controller = |connection: &MemberConnection, path| {
+            let controller = connection.test_congestion_state(path).unwrap().into_any();
+            let algorithm = control.unwrap_or_default();
+            assert!(
+                match algorithm {
+                    CongestionControl::Bbrv3 => controller.is::<Bbr3>(),
+                    CongestionControl::Cubic => controller.is::<Cubic>(),
+                    CongestionControl::NewReno => controller.is::<NewReno>(),
+                },
+                "path {path} must use {algorithm:?}"
+            );
+        };
         let sockets = pair.addresses();
         let initial_blackhole = UdpBlackhole::new(sockets);
         let ids = pair.connections.each_ref().map(MemberConnection::stable_id);
@@ -1189,6 +1219,9 @@ async fn lan_ipv4_and_ipv6_keep_two_way_original_streams() {
         assert!(first.elapsed() >= 4 * LOW_RELAY_DELAY);
         for connection in &pair.connections {
             assert!(relay_is_selected(connection, &pair.url));
+            let paths = connection.paths();
+            let relay = paths.iter().find(|path| path.is_selected()).unwrap();
+            assert_controller(connection, relay.id());
         }
         let release = Instant::now();
         drop(initial_blackhole);
@@ -1236,6 +1269,7 @@ async fn lan_ipv4_and_ipv6_keep_two_way_original_streams() {
                 .unwrap();
             assert!(path.is_selected());
             assert!(path.stats().udp_rx.bytes > before[side]);
+            assert_controller(connection, path.id());
             eprintln!(
                 "MIO147 migration side={side} stable={} stream={} local={:?} remote={} path={} ack_after_release={:?}",
                 ids[side],
@@ -1587,6 +1621,19 @@ async fn udp_blackhole_recovers_the_fused_original_with_continuous_and_single_wr
             })
         })
         .await;
+        for (side, connection) in pair.connections.iter().enumerate() {
+            let paths = connection.paths();
+            let relay = paths.iter().find(|path| path.is_relay()).unwrap();
+            for path in [relay.id(), direct[side]] {
+                assert!(
+                    connection
+                        .test_congestion_state(path)
+                        .unwrap()
+                        .into_any()
+                        .is::<noq_proto::congestion::Bbr3>()
+                );
+            }
+        }
         let blackhole = UdpBlackhole::new(sockets);
         let cut = Instant::now();
         eprintln!(

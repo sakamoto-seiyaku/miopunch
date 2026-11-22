@@ -2377,6 +2377,11 @@ impl EndpointInner {
 
         let runtime = Arc::new(Runtime::new(secret_key.public()));
 
+        #[cfg(not(wasm_browser))]
+        let qad_congestion_controller = server_config
+            .transport
+            .get_congestion_controller_factory()
+            .clone();
         let endpoint = noq::Endpoint::new_with_abstract_socket(
             endpoint_config,
             Some(server_config),
@@ -2390,7 +2395,11 @@ impl EndpointInner {
             .map_err(|err| e!(BindError::CreateNetmonMonitor, anyerr!(err)))?;
 
         #[cfg(not(wasm_browser))]
-        let qad_client = iroh_relay::quic::QuicClient::new(endpoint.clone(), qad_tls_config);
+        let qad_client = iroh_relay::quic::QuicClient::new_with_congestion_controller(
+            endpoint.clone(),
+            qad_tls_config,
+            qad_congestion_controller,
+        );
 
         #[cfg(not(wasm_browser))]
         let net_report_config = {

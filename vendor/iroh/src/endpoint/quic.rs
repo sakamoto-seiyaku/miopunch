@@ -10,6 +10,8 @@
 use std::path::Path;
 use std::{sync::Arc, time::Duration};
 
+use iroh_relay::quic::CongestionControl;
+
 /// `noq` types that are used in the public iroh API.
 // Each type is notated with the iroh type or noq type that uses it.
 pub use noq::{
@@ -151,6 +153,11 @@ impl QuicTransportConfig {
         Arc::make_mut(&mut self.0).active_connection_id_limit(limit);
         self
     }
+
+    pub(crate) fn with_congestion_control(mut self, control: CongestionControl) -> Self {
+        Arc::make_mut(&mut self.0).congestion_controller_factory(control.factory());
+        self
+    }
 }
 
 impl QuicTransportConfigBuilder {
@@ -158,6 +165,7 @@ impl QuicTransportConfigBuilder {
     fn new() -> Self {
         let mut cfg = noq::TransportConfig::default();
         // Override some transport config settings.
+        cfg.congestion_controller_factory(CongestionControl::default().factory());
         cfg.keep_alive_interval(Some(HEARTBEAT_INTERVAL));
         cfg.default_path_keep_alive_interval(Some(HEARTBEAT_INTERVAL));
         cfg.default_path_max_idle_timeout(Some(PATH_MAX_IDLE_TIMEOUT));

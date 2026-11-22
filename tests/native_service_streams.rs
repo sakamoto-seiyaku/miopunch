@@ -152,6 +152,69 @@ async fn first_pong(
     reply["transport"]["connection"].as_u64().unwrap()
 }
 
+#[cfg(feature = "nat-lab-test-hooks")]
+#[tokio::test]
+async fn native_member_congestion_control_applies_on_startup() {
+    use iroh::{TransportAddr, endpoint::CongestionControl};
+    use noq_proto::congestion::{Bbr3, Cubic, NewReno};
+
+    let server = relay().await;
+    let url = server.http_url().unwrap();
+    let Pair {
+        root,
+        provider,
+        mut consumer,
+        target,
+    } = Pair::admit(url.clone()).await;
+    let consumer_path = root.path().join("consumer");
+    let config_path = consumer_path.join("resources.json");
+    let config: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&config_path).unwrap()).unwrap();
+    assert!(config.get("congestion_control").is_none());
+    let mut invalid = config;
+    invalid["congestion_control"] = serde_json::json!("unknown");
+    assert!(serde_json::from_value::<ResourceConfig>(invalid).is_err());
+
+    for control in [
+        None,
+        Some(CongestionControl::Cubic),
+        Some(CongestionControl::NewReno),
+    ] {
+        if let Some(control) = control {
+            consumer.close().await.unwrap();
+            consumer = reopen_with_resources(&consumer_path, |resources| {
+                resources.congestion_control = Some(control);
+            })
+            .await;
+        }
+
+        let original_id = first_pong(&consumer, target.clone(), TransportAddr::Relay(url.clone()))
+            .await;
+        let connection = consumer.test_member_connection(target.id).await.unwrap();
+        assert_eq!(connection.stable_id() as u64, original_id);
+        let paths = connection.paths();
+        let path = paths.iter().find(|path| path.is_selected()).unwrap();
+        assert!(path.is_relay());
+        let controller = connection
+            .test_congestion_state(path.id())
+            .unwrap()
+            .into_any();
+        let algorithm = control.unwrap_or_default();
+        assert!(
+            match algorithm {
+                CongestionControl::Bbrv3 => controller.is::<Bbr3>(),
+                CongestionControl::Cubic => controller.is::<Cubic>(),
+                CongestionControl::NewReno => controller.is::<NewReno>(),
+            },
+            "relay path must use {algorithm:?}"
+        );
+    }
+
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
+    server.shutdown().await.unwrap();
+}
+
 #[tokio::test]
 async fn native_ping_reuses_a_verified_member_address_after_reopen() {
     let server = relay().await;

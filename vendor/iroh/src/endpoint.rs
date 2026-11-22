@@ -89,6 +89,8 @@ use crate::{
     tls::{self, DEFAULT_MAX_TLS_TICKETS, misc::RustlsTokenKey},
 };
 
+pub use iroh_relay::quic::CongestionControl;
+
 #[cfg(not(wasm_browser))]
 mod bind;
 mod connection;
@@ -822,6 +824,12 @@ impl Builder {
     /// and maintaining direct connections.
     pub fn transport_config(mut self, transport_config: QuicTransportConfig) -> Self {
         self.transport_config = transport_config;
+        self
+    }
+
+    /// Selects a congestion controller while retaining the other QUIC transport settings.
+    pub fn congestion_control(mut self, control: CongestionControl) -> Self {
+        self.transport_config = self.transport_config.with_congestion_control(control);
         self
     }
 

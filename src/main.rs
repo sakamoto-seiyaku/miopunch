@@ -16,7 +16,6 @@ use iroh::endpoint::presets;
 use iroh::protocol::{AcceptError, ProtocolHandler, Router};
 use iroh::{Endpoint, EndpointAddr};
 use iroh_base::{PublicKey, SecretKey};
-use noq_proto::congestion::Bbr3Config;
 use p2panda_core::{SigningKey, VerifyingKey};
 use p2panda_net::iroh_endpoint::IrohConfig;
 use p2panda_net::{AddressBook, Endpoint as PandaEndpoint};
@@ -102,7 +101,6 @@ fn quic_config() -> QuicTransportConfig {
     QuicTransportConfig::builder()
         .keep_alive_interval(Duration::from_secs(5))
         .max_idle_timeout(Some(Duration::from_secs(10).try_into().unwrap()))
-        .congestion_controller_factory(Arc::new(Bbr3Config::default()))
         .build()
 }
 

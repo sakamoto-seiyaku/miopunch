@@ -432,6 +432,8 @@ pub struct QuicConfig {
     ///
     /// Normally you'd chose port `7842`, see [`crate::defaults::DEFAULT_RELAY_QUIC_PORT`].
     pub bind_addr: SocketAddr,
+    /// Congestion control used by the QUIC address discovery server.
+    pub congestion_control: crate::quic::CongestionControl,
     /// The TLS server configuration for the QUIC server.
     ///
     /// If this [`rustls::ServerConfig`] does not support TLS 1.3, the QUIC server will fail
@@ -449,6 +451,7 @@ impl QuicConfig {
     pub fn new(bind_addr: impl Into<SocketAddr>) -> Self {
         Self {
             bind_addr: bind_addr.into(),
+            congestion_control: Default::default(),
             server_config: None,
         }
     }
@@ -848,8 +851,13 @@ impl Server {
                         e!(SpawnError::QuicSpawn, e!(QuicSpawnError::TlsNotConfigured))
                     })?;
                 Some(
-                    QuicServer::spawn(quic_config.bind_addr, server_config, metrics.server.clone())
-                        .map_err(|err| e!(SpawnError::QuicSpawn, err))?,
+                    QuicServer::spawn(
+                        quic_config.bind_addr,
+                        server_config,
+                        quic_config.congestion_control,
+                        metrics.server.clone(),
+                    )
+                    .map_err(|err| e!(SpawnError::QuicSpawn, err))?,
                 )
             }
             None => None,

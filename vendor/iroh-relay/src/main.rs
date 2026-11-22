@@ -17,6 +17,7 @@ use iroh_relay::{
     defaults::{
         DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT, DEFAULT_METRICS_PORT, DEFAULT_RELAY_QUIC_PORT,
     },
+    quic::CongestionControl,
     server::{
         self as relay, Access, AccessControl, AcmeConfig, ClientRateLimit, ClientRequest,
         DEFAULT_CERT_RELOAD_INTERVAL, QuicConfig, reloading_resolver,
@@ -132,6 +133,9 @@ struct Config {
     /// Defaults to `false`
     #[serde(default = "cfg_defaults::enable_quic_addr_discovery")]
     enable_quic_addr_discovery: bool,
+    /// Congestion control for QUIC address discovery. Defaults to `bbrv3`.
+    #[serde(default)]
+    congestion_control: CongestionControl,
     /// Rate limiting configuration.
     ///
     /// Disabled if not present.
@@ -354,6 +358,7 @@ impl Default for Config {
             http_bind_addr: None,
             tls: None,
             enable_quic_addr_discovery: cfg_defaults::enable_quic_addr_discovery(),
+            congestion_control: CongestionControl::default(),
             limits: None,
             enable_metrics: cfg_defaults::enable_metrics(),
             metrics_bind_addr: None,
@@ -691,9 +696,11 @@ async fn build_relay_config(cfg: Config) -> Result<relay::ServerConfig> {
         let cert = load_cert_config(cfg_tls).await?;
 
         // Use the server config from the relay::TlsConfig
-        let quic_config = cfg
-            .enable_quic_addr_discovery
-            .then(|| QuicConfig::new(cfg_tls.quic_bind_addr(&cfg)));
+        let quic_config = cfg.enable_quic_addr_discovery.then(|| {
+            let mut quic_config = QuicConfig::new(cfg_tls.quic_bind_addr(&cfg));
+            quic_config.congestion_control = cfg.congestion_control;
+            quic_config
+        });
 
         if cfg_tls.dangerous_http_only {
             // When `dangerous_http_only` is set through the --dev argument,
