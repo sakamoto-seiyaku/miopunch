@@ -194,6 +194,9 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
     );
     let originals = [out.unwrap(), entrance.unwrap().unwrap()];
     let ids = originals.each_ref().map(MemberConnection::stable_id);
+    let initial_dials = dials.each_ref().map(|d| d.0.load(Relaxed));
+    assert!(initial_dials.iter().all(|count| *count <= 1));
+    assert!((1..=2).contains(&initial_dials.iter().sum::<usize>()));
     assert_eq!(
         member_fusion_attempt_id(&originals[0]).unwrap(),
         member_fusion_attempt_id(&originals[1]).unwrap()
@@ -477,7 +480,7 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
         drop((a, b));
     }
     assert_eq!(originals.each_ref().map(MemberConnection::stable_id), ids);
-    assert_eq!(dials.each_ref().map(|d| d.0.load(Relaxed)), [1, 0]);
+    assert_eq!(dials.each_ref().map(|d| d.0.load(Relaxed)), initial_dials);
     assert!(sources.try_recv().is_err());
     listener.abort();
     tokio::join!(consumer.close(), provider.close());

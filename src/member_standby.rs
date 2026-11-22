@@ -64,7 +64,7 @@ impl MemberStandby {
                     connection.remote_id() == id
                         && connection.alpn() == crate::native_network::FUSED_MEMBER_ALPN
                 })
-                || !resources.contact_ready(id, ContactClass::Background)
+                || !resources.contact_ready(id, ContactClass::Standby)
             {
                 continue;
             }

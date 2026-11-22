@@ -596,6 +596,7 @@ struct ContactBackoff {
 pub(crate) enum ContactClass {
     Foreground,
     Background,
+    Standby,
 }
 
 type ContactStates =
@@ -647,7 +648,7 @@ impl ContactAttempt {
 
     pub(crate) fn succeeded(&self) {
         let mut states = self.states.lock().expect("contact budget");
-        for class in [ContactClass::Foreground, ContactClass::Background] {
+        for class in [ContactClass::Foreground, ContactClass::Background, ContactClass::Standby] {
             if let Some(state) = states.get_mut(&(self.id, class)) {
                 state.reset();
             }
@@ -1227,12 +1228,13 @@ impl ResourceEndpoint {
         if !gate.member_contact_allowed(target.id) {
             return Err(std::io::ErrorKind::PermissionDenied.into());
         }
-        let attempt = self.begin_contact_attempt_until(target.id, ContactClass::Background, deadline.into())
+        let attempt = self.begin_contact_attempt_until(target.id, ContactClass::Standby, deadline.into())
             .map_err(|error| std::io::Error::new(std::io::ErrorKind::WouldBlock, error))?;
         let result = tokio::select! {
             biased;
             _ = gate.member_contact_ended(target.id) => Err(std::io::ErrorKind::PermissionDenied.into()),
-            result = self.connect_member_with_class(target, deadline, ContactClass::Background) => result,
+            _ = tokio::time::sleep_until(deadline) => Err(std::io::ErrorKind::TimedOut.into()),
+            result = self.connect_member_with_class(target, deadline, ContactClass::Standby) => result,
         };
         match &result {
             Ok(_) => attempt.succeeded(),
@@ -1678,6 +1680,7 @@ impl ResourceEndpoint {
             != Some(&target)
         {
             self.reset_contact(target.id, class);
+            self.reset_contact(target.id, ContactClass::Standby);
         }
         self.contacts.set_endpoint_info(target);
     }

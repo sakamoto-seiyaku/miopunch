@@ -359,6 +359,68 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn standby_lookup_obeys_its_deadline_and_membership_cancellation() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut node = NativeNetwork::create(directory.path().join("node"))
+            .await
+            .unwrap();
+        let peer = p2panda_core::SigningKey::generate().verifying_key();
+        let mut management = node.begin_management_session();
+        node.manage(&mut management, ManagementAction::AddMember(peer))
+            .await
+            .unwrap();
+        let mut config = node.resource_configuration().unwrap();
+        config.replacement = Some(vec![]);
+        config.tcp_direct_disabled = true;
+        node.save_resource_configuration(&config).unwrap();
+        let resources = node
+            .bind_application_endpoint(Ipv4Addr::LOCALHOST)
+            .await
+            .unwrap();
+        let target = EndpointAddr::new(iroh::EndpointId::from_bytes(peer.as_bytes()).unwrap());
+
+        let writer = hold_writer(resources.member_contacts.as_ref().unwrap().clone());
+        let started = Instant::now();
+        let result = resources
+            .connect_member_background(
+                target.clone(),
+                tokio::time::Instant::now() + Duration::from_millis(60),
+            )
+            .await;
+        let elapsed = started.elapsed();
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::TimedOut);
+        writer.join().unwrap();
+        assert!(
+            elapsed < Duration::from_millis(250),
+            "standby contact waited for the writer: {elapsed:?}"
+        );
+
+        resources.reset_contact(target.id, crate::resources::ContactClass::Standby);
+        let writer = hold_writer(resources.member_contacts.as_ref().unwrap().clone());
+        let gate = node.admission_gate().clone();
+        let local = *node.status().node_id.as_bytes();
+        let revoked = *peer.as_bytes();
+        let timer = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(60)).await;
+            gate.update_authorization([local], [revoked]);
+        });
+        let started = Instant::now();
+        let result = resources
+            .connect_member_background(target, tokio::time::Instant::now() + Duration::from_secs(1))
+            .await;
+        let elapsed = started.elapsed();
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::PermissionDenied);
+        timer.await.unwrap();
+        writer.join().unwrap();
+        assert!(
+            elapsed < Duration::from_millis(250),
+            "revoked standby contact waited for the writer: {elapsed:?}"
+        );
+        resources.close().await;
+        node.close().await;
+    }
+
+    #[tokio::test]
     async fn cached_member_lookup_preserves_public_deadline_and_cancellation() {
         let directory = tempfile::tempdir().unwrap();
         let mut node = NativeNetwork::create(directory.path().join("node"))

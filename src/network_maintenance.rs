@@ -745,6 +745,9 @@ impl Coordinator {
                 for id in self.candidates.keys() {
                     self.resources.reset_contact(*id, ContactClass::Background);
                 }
+                for id in self.node.gate.member_contact_peers() {
+                    self.resources.reset_contact(id, ContactClass::Standby);
+                }
                 self.wake();
                 if let Some(listener) = &self.contact_listener {
                     if listener.status().phase == ContactListenerPhase::Unavailable {
