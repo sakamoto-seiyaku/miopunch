@@ -1638,6 +1638,16 @@ impl noq::UdpSender for Sender {
                 this.qad.as_ref(),
             )
         };
+        if let FourTuple::Ip { remote, local } = &network_path
+            && remote.is_ipv6()
+            && let Poll::Ready(result) = &sent
+            && std::env::var_os("MIOPUNCH_TRACE_PEER_IPV6").is_some()
+        {
+            eprintln!(
+                "PEER_IPV6 transport-submit target={remote} source={local:?} socket={local_socket:?} bytes={} result={result:?}",
+                transmit.contents.len(),
+            );
+        }
         match sent {
             Poll::Ready(Ok(())) => {
                 trace!(

@@ -189,6 +189,12 @@ records the concrete behavior discussed so far.
   contact or signaling messages does not make a node a data relay.
 - **Data path** carries the end-to-end session, directly or through an allowed
   relay. Signaling forwarding and application-data relaying are separate uses.
+- **Shared member QUIC session** is the admitted end-to-end session on which two
+  peers open service streams. A standby session is kept ready to open a stream
+  while no business stream is active. Its current data path can change.
+- **Product ping** is a request to the peer's ping service on a business stream
+  of the shared session. A periodic diagnostic check in the native demo uses a
+  maintenance stream on that session.
 - **Local network state** includes verifiable membership, authorization, and
   contact information; a contact list is only one view of it.
 - **Control-state history** retains the shareable network-control and authorization
@@ -213,9 +219,10 @@ Connection and NAT traversal logic belongs in iroh, with the existing WebRTC
 adapter for browser connections. See
 [ADR 0019](docs/adr/0019-miopunch-application-on-p2panda-and-iroh.md).
 
-Two admitted devices in the same network establish a shared business connection
-on demand. Services such as file transfer and terminal access use separate
-streams with their own authorization on that connection. See
+Two admitted devices in the same network can establish a shared member QUIC
+session on demand or prepare one for standby within their maintenance budgets.
+File transfer, terminal access and product ping use separate streams with
+their own authorization on that session. See
 [ADR 0020](docs/adr/0020-shared-member-business-connection.md).
 
 ## Open design
