@@ -188,8 +188,6 @@ pub struct Builder {
     path_selector_explicit: bool,
     portmapper_config: PortmapperConfig,
     net_report_config: NetReportConfig,
-    #[cfg(not(wasm_browser))]
-    qad_x25519_sni: Option<(String, u16)>,
     observation_servers: Option<RelayMap>,
     crypto_provider: Option<Arc<rustls::crypto::CryptoProvider>>,
     configured_addrs: BTreeSet<SocketAddr>,
@@ -340,8 +338,6 @@ impl Builder {
             path_selector_explicit: false,
             portmapper_config: Default::default(),
             net_report_config: Default::default(),
-            #[cfg(not(wasm_browser))]
-            qad_x25519_sni: None,
             observation_servers: None,
             crypto_provider: None,
             configured_addrs: Default::default(),
@@ -392,20 +388,21 @@ impl Builder {
             .client_config(crypto_provider.clone())
             .map_err(|err| e!(BindError::InvalidCaRootConfig, err))?;
         #[cfg(not(wasm_browser))]
-        let qad_tls_config = if let Some(observer) = self.qad_x25519_sni {
+        let qad_tls_config = {
             let mut qad_provider = (*crypto_provider).clone();
-            qad_provider
+            // Prefer the existing compact QAD key share when the selected
+            // provider supports it. Custom providers retain their supported groups.
+            if let Some(group) = qad_provider
                 .kx_groups
-                .retain(|group| group.name() == rustls::NamedGroup::X25519);
-            if qad_provider.kx_groups.is_empty() {
-                return Err(e!(BindError::InvalidCryptoProvider));
+                .iter()
+                .find(|group| group.name() == rustls::NamedGroup::X25519)
+                .copied()
+            {
+                qad_provider.kx_groups = vec![group];
             }
-            let config = ca_tls_config
+            ca_tls_config
                 .client_config(Arc::new(qad_provider))
-                .map_err(|err| e!(BindError::InvalidCaRootConfig, err))?;
-            Some((observer, config))
-        } else {
-            None
+                .map_err(|err| e!(BindError::InvalidCaRootConfig, err))?
         };
 
         #[cfg(not(wasm_browser))]
@@ -1033,14 +1030,6 @@ impl Builder {
     /// [`BindError::InvalidTransportConfig`].
     pub fn observation_servers(mut self, servers: RelayMap) -> Self {
         self.observation_servers = Some(servers);
-        self
-    }
-
-    /// Use only X25519 and fragment the Initial SNI for QAD probes to this
-    /// IPv4 observer. The observation resource policy still controls dialing.
-    #[cfg(not(wasm_browser))]
-    pub fn qad_x25519_sni(mut self, host: impl Into<String>, port: u16) -> Self {
-        self.qad_x25519_sni = Some((host.into(), port));
         self
     }
 

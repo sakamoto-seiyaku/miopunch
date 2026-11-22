@@ -57,12 +57,6 @@ struct Configuration {
     name: String,
     listen: SocketAddr,
     peers: Vec<Peer>,
-    #[serde(default = "aps_qad_compat_by_default")]
-    aps_qad_compat: bool,
-}
-
-fn aps_qad_compat_by_default() -> bool {
-    true
 }
 
 struct Observations {
@@ -839,17 +833,8 @@ async fn run_node(
         cancellation: cancellation.clone(),
     };
     let network = Arc::new(
-        node.maintain_application_network(Ipv4Addr::UNSPECIFIED, |builder| {
-            if config.aps_qad_compat {
-                builder.qad_x25519_sni(
-                    iroh::defaults::prod::AP_RELAY_HOSTNAME,
-                    iroh::defaults::DEFAULT_RELAY_QUIC_PORT,
-                )
-            } else {
-                builder
-            }
-        })
-        .await?,
+        node.maintain_application_network(Ipv4Addr::UNSPECIFIED, |builder| builder)
+            .await?,
     );
     for peer in &config.peers {
         network.offer_contact(peer.address.clone()).await?;

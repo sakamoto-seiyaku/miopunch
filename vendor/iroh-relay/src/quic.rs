@@ -264,7 +264,6 @@ pub struct QuicClient {
     ep: noq::Endpoint,
     /// A client config.
     client_config: noq::ClientConfig,
-    x25519_sni_config: Option<((String, u16), noq::ClientConfig)>,
 }
 
 impl QuicClient {
@@ -274,16 +273,7 @@ impl QuicClient {
         Self {
             ep,
             client_config: Self::qad_config(client_config),
-            x25519_sni_config: None,
         }
-    }
-
-    /// Use a dedicated X25519 TLS config with SNI fragmentation for this IPv4 observer.
-    pub fn with_x25519_sni(mut self, host: String, port: u16, tls: rustls::ClientConfig) -> Self {
-        let mut config = Self::qad_config(tls);
-        config.initial_sni_fragmentation(true);
-        self.x25519_sni_config = Some(((host, port), config));
-        self
     }
 
     fn qad_config(mut client_config: rustls::ClientConfig) -> noq::ClientConfig {
@@ -294,6 +284,9 @@ impl QuicClient {
         let mut client_config = noq::ClientConfig::new(Arc::new(
             QuicClientConfig::try_from(client_config).expect("known ciphersuite"),
         ));
+
+        // Apply the same standard CRYPTO reassembly behavior to every QAD server.
+        client_config.initial_sni_fragmentation(true);
 
         // enable the receive side of address discovery
         let mut transport = noq_proto::TransportConfig::default();
@@ -385,25 +378,16 @@ impl QuicClient {
         host: &str,
         context: &(dyn std::any::Any + Sync),
     ) -> Result<noq::Connection, Error> {
-        let alternate = self.x25519_sni_config.as_ref().filter(|((name, port), _)| {
-            server_addr.is_ipv4()
-                && *port == server_addr.port()
-                && name
-                    .trim_end_matches('.')
-                    .eq_ignore_ascii_case(host.trim_end_matches('.'))
-        });
-        let config = alternate.map_or(&self.client_config, |(_, config)| config);
-        let x25519_sni = alternate.is_some();
         crate::client::relay_diagnostic(format_args!(
-            "qad-dial-start host={host} destination={server_addr} x25519_sni={x25519_sni}"
+            "qad-dial-start host={host} destination={server_addr} sni_fragmentation=true"
         ));
         let started = Instant::now();
         let connecting =
             self.ep
-                .connect_with_sender_context(config.clone(), server_addr, host, context);
+                .connect_with_sender_context(self.client_config.clone(), server_addr, host, context);
         let conn = connecting?.await?;
         crate::client::relay_diagnostic(format_args!(
-            "qad-handshake host={host} destination={server_addr} x25519_sni={x25519_sni} elapsed_ms={}",
+            "qad-handshake host={host} destination={server_addr} sni_fragmentation=true elapsed_ms={}",
             started.elapsed().as_millis()
         ));
         Ok(conn)

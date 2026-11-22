@@ -178,6 +178,63 @@ async fn relay_disabled_observes_the_real_quic_socket_through_a_controlled_nat()
 }
 
 #[tokio::test]
+async fn default_qad_completes_hostname_verified_ipv4_and_ipv6_observation() {
+    use n0_future::StreamExt;
+    use std::net::Ipv6Addr;
+
+    for bind in [
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
+        SocketAddr::from((Ipv6Addr::LOCALHOST, 0)),
+    ] {
+        let (certs, server_tls) = server::testing::self_signed_tls_certs_and_config();
+        let mut quic = server::QuicConfig::new(bind);
+        quic.server_config = Some(server_tls);
+        let mut config = server::ServerConfig::default();
+        config.quic = Some(quic);
+        let server = server::Server::spawn(config).await.unwrap();
+        let endpoint = noq::Endpoint::client(bind).unwrap();
+        let local = endpoint.local_addr().unwrap();
+        let tls = CaTlsConfig::custom_roots(certs)
+            .client_config(Arc::new(rustls::crypto::ring::default_provider()))
+            .unwrap();
+        let client = iroh_relay::quic::QuicClient::new(endpoint.clone(), tls);
+        let connection = tokio::time::timeout(
+            Duration::from_secs(5),
+            client.create_conn(server.quic_addr().unwrap(), "localhost"),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let observed = tokio::time::timeout(
+            Duration::from_secs(5),
+            connection.observed_external_addr().next(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert!(
+            connection.stats().frame_tx.crypto > 2,
+            "default QAD must split the ClientHello CRYPTO stream on {bind}"
+        );
+        assert_eq!(observed.ip().to_canonical(), local.ip());
+        assert_eq!(observed.port(), local.port());
+        let handshake = connection
+            .handshake_data()
+            .unwrap()
+            .downcast::<noq::crypto::rustls::HandshakeData>()
+            .unwrap();
+        assert_eq!(
+            handshake.protocol.as_deref(),
+            Some(iroh_relay::quic::ALPN_QUIC_ADDR_DISC)
+        );
+        connection.close(0u32.into(), b"QAD test complete");
+        endpoint.close(0u32.into(), b"QAD test complete");
+        endpoint.wait_idle().await;
+        server.shutdown().await.unwrap();
+    }
+}
+
+#[tokio::test]
 async fn failed_periodic_observation_withdraws_the_old_udp_candidate() {
     let (observer, roots) = observer().await;
     let nat = NatProxy::start(observer.quic_addr().unwrap()).await;
@@ -229,7 +286,6 @@ async fn destination_dependent_nat_reports_mapping_variance() {
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
         .observation_servers(servers.clone())
-        .qad_x25519_sni("localhost.", second.ingress_addr.port())
         .ca_tls_config(roots)
         .bind()
         .await
@@ -264,7 +320,7 @@ async fn destination_dependent_nat_reports_mapping_variance() {
 }
 
 #[tokio::test]
-async fn qad_x25519_sni_rejects_a_trusted_certificate_for_another_name() {
+async fn default_qad_rejects_a_trusted_certificate_for_another_name() {
     let certificate = rcgen::generate_simple_self_signed(vec!["other.test".into()]).unwrap();
     let cert = certificate.cert.der().clone();
     let key = rustls::pki_types::PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der());
@@ -291,7 +347,6 @@ async fn qad_x25519_sni_rejects_a_trusted_certificate_for_another_name() {
             proxy.ingress_addr.port(),
         )))
         .ca_tls_config(CaTlsConfig::custom_roots([cert]))
-        .qad_x25519_sni("localhost", proxy.ingress_addr.port())
         .bind()
         .await
         .unwrap();
@@ -356,7 +411,6 @@ async fn disabled_observation_endpoint_never_contacts_the_observer() {
         .bind_addr((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
         .observation_servers(RelayMap::empty())
-        .qad_x25519_sni("localhost", nat.ingress_addr.port())
         .ca_tls_config(roots)
         .bind()
         .await

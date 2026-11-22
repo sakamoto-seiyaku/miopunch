@@ -200,7 +200,7 @@ pub(crate) struct Options {
     pub(crate) portmapper_config: portmapper::PortmapperConfig,
     pub(crate) net_report_config: crate::net_report::NetReportConfig,
     #[cfg(not(wasm_browser))]
-    pub(crate) qad_tls_config: Option<((String, u16), rustls::ClientConfig)>,
+    pub(crate) qad_tls_config: rustls::ClientConfig,
     pub(crate) observation_servers: Option<RelayMap>,
 
     /// Static configuration for the endpoint.
@@ -2390,13 +2390,7 @@ impl EndpointInner {
             .map_err(|err| e!(BindError::CreateNetmonMonitor, anyerr!(err)))?;
 
         #[cfg(not(wasm_browser))]
-        let qad_client = {
-            let client = iroh_relay::quic::QuicClient::new(endpoint.clone(), tls_config.clone());
-            match qad_tls_config {
-                Some(((host, port), tls)) => client.with_x25519_sni(host, port, tls),
-                None => client,
-            }
-        };
+        let qad_client = iroh_relay::quic::QuicClient::new(endpoint.clone(), qad_tls_config);
 
         #[cfg(not(wasm_browser))]
         let net_report_config = {
@@ -3813,7 +3807,9 @@ mod tests {
             portmapper_config: Default::default(),
             net_report_config: Default::default(),
             #[cfg(not(wasm_browser))]
-            qad_tls_config: None,
+            qad_tls_config: CaTlsConfig::default()
+                .client_config(crypto_provider.clone())
+                .unwrap(),
             observation_servers: None,
             static_config,
             configured_addrs: Default::default(),
@@ -4235,7 +4231,9 @@ mod tests {
             portmapper_config: Default::default(),
             net_report_config: Default::default(),
             #[cfg(not(wasm_browser))]
-            qad_tls_config: None,
+            qad_tls_config: CaTlsConfig::default()
+                .client_config(crypto_provider.clone())
+                .unwrap(),
             observation_servers: None,
             static_config,
             configured_addrs: Default::default(),
