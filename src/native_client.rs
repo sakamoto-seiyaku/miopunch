@@ -239,7 +239,7 @@ impl NativeClient {
             crate::native_clipboard::NativeClipboard::new(node.admission_gate().clone());
         clipboard.enforce_access(&services.lock().await.access(&node).await?);
         services.lock().await.clipboard = Some(Arc::downgrade(&clipboard));
-        let forwarding = crate::native_forwarding::NativeForwarding::new(node.admission_gate().clone());
+        let forwarding = crate::native_forwarding::NativeForwarding::new(node.admission_gate().clone(), node.resource_configuration()?.business_channel)?;
         forwarding.enforce_access(&services.lock().await.access(&node).await?);
         services.lock().await.forwarding = Some(Arc::downgrade(&forwarding));
         let web = crate::native_web::NativeWeb::new(node.admission_gate().clone());

@@ -1149,6 +1149,10 @@ impl NativeStreamCut {
     }
 
     async fn new_open(pause_ready: bool) -> Self {
+        Self::new_policy(pause_ready, Default::default()).await
+    }
+
+    async fn new_policy(pause_ready: bool, policy: miopunch_native_probe::forwarding::ChannelPolicy) -> Self {
         use miopunch_native_probe::tcp_transport::{DATA_TRANSPORT_ID, TcpTransport};
         let broker = relay_contact_broker::Broker::new().await;
         let relay = relay().await;
@@ -1168,6 +1172,7 @@ impl NativeStreamCut {
         };
         let configure = |resources: &mut ResourceConfig| {
             resources.defaults.resources = vec![mqtt.clone()];
+            resources.business_channel = policy.clone();
             resources.tcp_direct_disabled = false;
             resources.tcp_listen = Some((Ipv4Addr::LOCALHOST, 0).into());
         };
@@ -1379,6 +1384,25 @@ impl NativeStreamCut {
         drop(no_provider);
         self.broker.unmute_datagrams();
     }
+    #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+    async fn hold_interruption(&self) -> Vec<PortBlackhole> {
+        use miopunch_native_probe::tcp_transport::{DATA_TRANSPORT_ID, TcpTransport};
+        let original = self.pair.consumer.test_member_connection(self.pair.target.id).await.unwrap();
+        let faults: Vec<_> = [&self.pair.consumer, &self.pair.provider].iter().map(|node| {
+            let port = node.address().addrs.iter().find_map(|route| match route {
+                iroh::TransportAddr::Custom(address) if address.id() == DATA_TRANSPORT_ID => Some(TcpTransport::socket_addr(address).unwrap().port()),
+                _ => None,
+            }).unwrap();
+            PortBlackhole::new(port)
+        }).collect();
+        self.broker.mute_datagrams();
+        self.proxy.cancel();
+        let mut probe = original.open_bi().await.unwrap();
+        probe.streams().0.write_all(&[0]).await.unwrap();
+        assert!(matches!(timeout(Duration::from_secs(36), original.closed()).await.unwrap(), iroh::endpoint::ConnectionError::TimedOut));
+        faults
+    }
+
     async fn learn_contact(&self, side: usize) {
         let peers = [&self.pair.consumer, &self.pair.provider];
         let reply = peers[side].ping(self.contact[side].clone()).await.unwrap();
@@ -2748,5 +2772,716 @@ async fn lost_open_record_reports_unknown_without_opening_another_target() {
     assert!(timeout(Duration::from_millis(150), cut.target.accept()).await.is_err());
     assert_eq!(cut.listener_stats()["accepted"], 1);
     eprintln!("MIO172 lost opening record => public listener.last_error=open_outcome_unknown, original socket EOF, target accept=1");
+    cut.close().await;
+}
+
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace"]
+async fn disconnected_channel_accepts_bounded_bytes_while_application_wait_can_cancel() {
+    let mut cut = NativeStreamCut::new().await;
+    cut.learn_contact(0).await;
+    let faults = cut.hold_interruption().await;
+    cut.sender.write_all(&[173; 4096]).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let status = cut.pair.consumer.forwarding_status();
+    assert_eq!(
+        status["channel_buffers"]["send_bytes"], 4096,
+        "the channel accepts application bytes during carrier recovery"
+    );
+    let mut byte = [0];
+    assert!(
+        timeout(Duration::from_millis(100), cut.sender.read(&mut byte))
+            .await
+            .is_err()
+    );
+    drop(faults);
+    cut.broker.unmute_datagrams();
+    let mut bytes = [0; 4096];
+    timeout(Duration::from_secs(15), cut.receiver.read_exact(&mut bytes))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(bytes, [173; 4096]);
+    sequence_reply(&mut cut.sender, &mut cut.receiver, 174).await;
+    cut.close().await;
+}
+
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace"]
+async fn recovery_expiry_delivers_accepted_unread_tail_before_interruption() {
+    let policy = miopunch_native_probe::forwarding::ChannelPolicy {
+        recovery_ms: 1200,
+        ..Default::default()
+    };
+    let mut cut = NativeStreamCut::new_policy(false, policy).await;
+    cut.learn_contact(0).await;
+    cut.pair.consumer.test_limit_channel_delivery(68);
+    cut.receiver.write_all(&[173; 100]).await.unwrap();
+    let mut prefix = [0; 60];
+    timeout(IO, cut.sender.read_exact(&mut prefix))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(prefix, [173; 60]);
+    wait_until(|| cut.pair.consumer.forwarding_status()["channel_buffers"]["receive_bytes"] == 40)
+        .await;
+    let faults = cut.hold_interruption().await;
+    let started = Instant::now();
+    let mut tail = [0; 40];
+    timeout(IO, cut.sender.read_exact(&mut tail))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(tail, [173; 40]);
+    let mut byte = [0];
+    assert_eq!(
+        timeout(IO, cut.sender.read(&mut byte))
+            .await
+            .unwrap()
+            .unwrap(),
+        0
+    );
+    wait_until(|| cut.listener_stats()["failed"] == 1).await;
+    assert_eq!(
+        cut.listener_stats()["last_error"],
+        "business_channel_recovery_expired"
+    );
+    assert!(started.elapsed() < Duration::from_secs(5));
+    assert!(
+        timeout(Duration::from_millis(100), cut.target.accept())
+            .await
+            .is_err()
+    );
+    eprintln!(
+        "MIO173 accepted=100 application_before_expiry=60 tail_after_expiry=40 EOF=true elapsed={:?} buffers={}",
+        started.elapsed(),
+        cut.pair.consumer.forwarding_status()["channel_buffers"]
+    );
+    drop(faults);
+    cut.close().await;
+}
+
+#[tokio::test]
+#[cfg(feature = "nat-lab-test-hooks")]
+async fn healthy_quiet_and_one_way_channels_do_not_spend_recovery_time() {
+    let policy = miopunch_native_probe::forwarding::ChannelPolicy {
+        recovery_ms: 100,
+        ..Default::default()
+    };
+    let mut cut = NativeStreamCut::new_policy(false, policy).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    sequence_reply(&mut cut.sender, &mut cut.receiver, 173).await;
+    for number in 0..5u8 {
+        cut.receiver.write_all(&[number; 100]).await.unwrap();
+        let mut bytes = [0; 100];
+        timeout(IO, cut.sender.read_exact(&mut bytes))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(bytes, [number; 100]);
+        tokio::time::sleep(Duration::from_millis(80)).await;
+    }
+    assert_eq!(cut.status()[0]["connection"], cut.before[0]["connection"]);
+    cut.close().await;
+}
+
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace"]
+async fn node_and_channel_limits_backpressure_both_directions_and_release_after_resume() {
+    let policy = miopunch_native_probe::forwarding::ChannelPolicy {
+        channel_bytes: 64 * 1024,
+        node_bytes_per_direction: 96 * 1024,
+        ..Default::default()
+    };
+    let mut cut = NativeStreamCut::new_policy(false, policy).await;
+    cut.learn_contact(0).await;
+    let listener = cut.pair.consumer.forwarding_status()["listeners"][0]["listen"].clone();
+    let address: SocketAddr = serde_json::from_value(listener).unwrap();
+    let mut second_sender = TcpStream::connect(address).await.unwrap();
+    let (mut second_receiver, _) = timeout(IO, cut.target.accept()).await.unwrap().unwrap();
+    sequence_reply(&mut second_sender, &mut second_receiver, 1).await;
+    wait_until(|| {
+        [&cut.pair.consumer, &cut.pair.provider]
+            .iter()
+            .all(|node| node.forwarding_status()["channel_buffers"]["send_bytes"] == 0)
+    })
+    .await;
+    let faults = cut.hold_interruption().await;
+    cut.sender.write_all(&vec![1; 128 * 1024]).await.unwrap();
+    cut.receiver.write_all(&vec![2; 128 * 1024]).await.unwrap();
+    sleep(Duration::from_millis(200)).await;
+    eprintln!(
+        "MIO173 first quota consumer={} provider={}",
+        cut.pair.consumer.forwarding_status()["channel_buffers"],
+        cut.pair.provider.forwarding_status()["channel_buffers"]
+    );
+    wait_until(|| {
+        [&cut.pair.consumer, &cut.pair.provider].iter().all(|node| {
+            node.forwarding_status()["channel_buffers"]["send_bytes"]
+                .as_u64()
+                .is_some_and(|bytes| (65520..=65552).contains(&bytes))
+        })
+    })
+    .await;
+    second_sender.write_all(&[3; 16 * 1024]).await.unwrap();
+    second_receiver.write_all(&[4; 16 * 1024]).await.unwrap();
+    sleep(Duration::from_millis(200)).await;
+    eprintln!(
+        "MIO173 spare quota consumer={} provider={}",
+        cut.pair.consumer.forwarding_status()["channel_buffers"],
+        cut.pair.provider.forwarding_status()["channel_buffers"]
+    );
+    wait_until(|| {
+        [&cut.pair.consumer, &cut.pair.provider].iter().all(|node| {
+            node.forwarding_status()["channel_buffers"]["send_bytes"]
+                .as_u64()
+                .is_some_and(|bytes| (81904..=81936).contains(&bytes))
+        })
+    })
+    .await;
+    second_sender.write_all(&[5; 32 * 1024]).await.unwrap();
+    second_receiver.write_all(&[6; 32 * 1024]).await.unwrap();
+    wait_until(|| {
+        [&cut.pair.consumer, &cut.pair.provider]
+            .iter()
+            .all(|node| node.forwarding_status()["channel_buffers"]["send_bytes"] == 98304)
+    })
+    .await;
+    socket2::SockRef::from(&cut.sender)
+        .set_send_buffer_size(4096)
+        .unwrap();
+    let fill = vec![7; 4 * 1024 * 1024];
+    assert!(
+        timeout(Duration::from_millis(150), cut.sender.write_all(&fill))
+            .await
+            .is_err(),
+        "full channel eventually backpressures the application socket"
+    );
+    // The cancelled write may have enqueued a prefix in the OS. Verify the
+    // independent second channel exactly, and consume the first's known prefix.
+    drop(faults);
+    cut.broker.unmute_datagrams();
+    let started = Instant::now();
+    let mut first_out = vec![0; 128 * 1024];
+    let mut first_in = vec![0; 128 * 1024];
+    let mut second_out = vec![0; 48 * 1024];
+    let mut second_in = vec![0; 48 * 1024];
+    timeout(Duration::from_secs(20), async {
+        tokio::try_join!(
+            cut.receiver.read_exact(&mut first_out),
+            cut.sender.read_exact(&mut first_in),
+            second_receiver.read_exact(&mut second_out),
+            second_sender.read_exact(&mut second_in)
+        )
+        .unwrap();
+    })
+    .await
+    .unwrap();
+    assert_eq!(first_out, vec![1; 128 * 1024]);
+    assert_eq!(first_in, vec![2; 128 * 1024]);
+    assert_eq!(&second_out[..16 * 1024], &[3; 16 * 1024]);
+    assert_eq!(&second_out[16 * 1024..], &[5; 32 * 1024]);
+    assert_eq!(&second_in[..16 * 1024], &[4; 16 * 1024]);
+    assert_eq!(&second_in[16 * 1024..], &[6; 32 * 1024]);
+    sequence_reply(&mut second_sender, &mut second_receiver, 173).await;
+    for node in [&cut.pair.consumer, &cut.pair.provider] {
+        let stats = node.forwarding_status();
+        assert!(
+            stats["channel_buffers"]["peak_send_bytes"]
+                .as_u64()
+                .unwrap()
+                <= 98304
+        );
+        assert!(
+            stats["channel_buffers"]["peak_receive_bytes"]
+                .as_u64()
+                .unwrap()
+                <= 98304
+        );
+        assert_eq!(
+            flow(node, Protocol::Tcp)["transport"]["connection"],
+            stats["flows"][1]["transport"]["connection"],
+            "both channels reuse the one admitted member connection"
+        );
+    }
+    eprintln!(
+        "MIO173 two-way channel=65536 node=98304 spare=16384 full-write-cancel=true resumed_bytes={} elapsed={:?} budgets={} {}",
+        352 * 1024,
+        started.elapsed(),
+        cut.pair.consumer.forwarding_status()["channel_buffers"],
+        cut.pair.provider.forwarding_status()["channel_buffers"]
+    );
+    drop(second_sender);
+    drop(second_receiver);
+    cut.close().await;
+}
+
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace"]
+async fn recovery_cancellation_and_target_removal_do_not_revive_original_objects() {
+    let mut cut = NativeStreamCut::new().await;
+    cut.learn_contact(0).await;
+    let other_target = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let other_address = other_target.local_addr().unwrap();
+    cut.pair
+        .provider
+        .enable_forwarding(
+            Protocol::Tcp,
+            vec![cut.target.local_addr().unwrap(), other_address],
+        )
+        .await
+        .unwrap();
+    let listener = cut
+        .pair
+        .consumer
+        .start_forwarding(
+            cut.pair.target.clone(),
+            Protocol::Tcp,
+            other_address,
+            (Ipv4Addr::LOCALHOST, 0).into(),
+        )
+        .await
+        .unwrap();
+    let mut other_sender = TcpStream::connect(
+        serde_json::from_value::<SocketAddr>(listener["listen"].clone()).unwrap(),
+    )
+    .await
+    .unwrap();
+    let (mut other_receiver, _) = timeout(IO, other_target.accept()).await.unwrap().unwrap();
+    sequence_reply(&mut other_sender, &mut other_receiver, 1).await;
+    let faults = cut.hold_interruption().await;
+    cut.pair
+        .provider
+        .enable_forwarding(Protocol::Tcp, vec![other_address])
+        .await
+        .unwrap();
+    wait_until(|| cut.pair.provider.forwarding_status()["active_flows"] == 1).await;
+    drop(faults);
+    cut.broker.unmute_datagrams();
+    timeout(Duration::from_secs(20), async {
+        let mut byte = [0];
+        assert_eq!(cut.sender.read(&mut byte).await.unwrap(), 0);
+        assert_eq!(cut.receiver.read(&mut byte).await.unwrap(), 0);
+        sequence_reply(&mut other_sender, &mut other_receiver, 173).await;
+    })
+    .await
+    .unwrap();
+    assert!(
+        timeout(Duration::from_millis(150), cut.target.accept())
+            .await
+            .is_err()
+    );
+    let id = cut.pair.consumer.forwarding_status()["flows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["target"] == serde_json::to_value(other_address).unwrap())
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    cut.pair.consumer.cancel_forwarding_flow(&id).await.unwrap();
+    let mut byte = [0];
+    assert_eq!(
+        timeout(IO, other_sender.read(&mut byte))
+            .await
+            .unwrap()
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        timeout(IO, other_receiver.read(&mut byte))
+            .await
+            .unwrap()
+            .unwrap(),
+        0
+    );
+    assert!(
+        timeout(Duration::from_millis(150), other_target.accept())
+            .await
+            .is_err()
+    );
+    eprintln!(
+        "MIO173 removed target ends while unaffected target resumes; explicit cancel closes both original sockets with no late accept"
+    );
+    cut.close().await;
+}
+
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace"]
+async fn replacement_ready_handshake_cannot_restart_the_recovery_deadline() {
+    let policy = miopunch_native_probe::forwarding::ChannelPolicy {
+        recovery_ms: 12000,
+        ..Default::default()
+    };
+    let mut cut = NativeStreamCut::new_policy(false, policy).await;
+    cut.learn_contact(0).await;
+    cut.pair.provider.test_pause_forward_ready(true);
+    let faults = cut.hold_interruption().await;
+    let started = Instant::now();
+    drop(faults);
+    cut.broker.unmute_datagrams();
+    wait_until(|| cut.status()[0]["connection"] != cut.before[0]["connection"]).await;
+    let replaced = started.elapsed();
+    let mut byte = [0];
+    assert_eq!(
+        timeout(Duration::from_secs(14), cut.sender.read(&mut byte))
+            .await
+            .unwrap()
+            .unwrap(),
+        0
+    );
+    assert!(started.elapsed() >= Duration::from_secs(10));
+    assert!(
+        started.elapsed() < Duration::from_secs(14),
+        "replacement before Ready keeps the same recovery cutoff"
+    );
+    wait_until(|| cut.listener_stats()["failed"] == 1).await;
+    assert_eq!(
+        cut.listener_stats()["last_error"],
+        "business_channel_recovery_expired"
+    );
+    assert!(
+        timeout(Duration::from_millis(100), cut.target.accept())
+            .await
+            .is_err()
+    );
+    eprintln!(
+        "MIO173 new QUIC after={replaced:?}, paused Ready expired once at={:?}, original target accepts=1",
+        started.elapsed()
+    );
+    cut.close().await;
+}
+
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace"]
+async fn service_revocation_during_recovery_cancels_only_the_denied_service() {
+    let mut cut = NativeStreamCut::new().await;
+    cut.learn_contact(0).await;
+    let faults = cut.hold_interruption().await;
+    let provider_id = cut.pair.provider.status().await.node.node_id;
+    cut.pair
+        .provider
+        .set_service_rule(
+            provider_id,
+            Service::TcpForward,
+            None,
+            ServiceRule {
+                members: false,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    wait_until(|| cut.pair.provider.forwarding_status()["active_flows"] == 0).await;
+    let mut byte = [0];
+    assert_eq!(
+        timeout(IO, cut.receiver.read(&mut byte))
+            .await
+            .unwrap()
+            .unwrap(),
+        0
+    );
+    drop(faults);
+    cut.broker.unmute_datagrams();
+    assert_eq!(
+        timeout(Duration::from_secs(20), cut.sender.read(&mut byte))
+            .await
+            .unwrap()
+            .unwrap(),
+        0
+    );
+    assert!(
+        timeout(Duration::from_millis(100), cut.target.accept())
+            .await
+            .is_err()
+    );
+    let pong = timeout(
+        Duration::from_secs(20),
+        cut.pair.consumer.ping(cut.pair.provider.address()),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert!(pong["transport"]["connection"].is_u64());
+    eprintln!(
+        "MIO173 revoked TCP during recovery ends both sockets, no late target accept, authorized ping still works"
+    );
+    cut.close().await;
+}
+
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace and real guest expiry"]
+async fn scoped_guest_expiry_during_outage_retires_its_original_target() {
+    let relay = relay().await;
+    let url = relay.http_url().unwrap();
+    let pair = Pair::admit(url.clone()).await;
+    let target = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let destination = target.local_addr().unwrap();
+    pair.provider
+        .enable_forwarding(Protocol::Tcp, vec![destination])
+        .await
+        .unwrap();
+    let expires = service_policy::now() + 20;
+    let invitation = pair
+        .provider
+        .issue_service_guest(pair.target.clone(), Service::TcpForward, expires)
+        .await
+        .unwrap();
+    let mut resources = ResourceConfig::with_defaults(ResourceTable {
+        revision: 1,
+        resources: vec![relay_resource(&url)],
+    });
+    resources.udp_direct_disabled = true;
+    resources.tcp_direct_disabled = true;
+    let guest = NativeClient::join_guest_with_resources(
+        pair.root.path().join("guest"),
+        &invitation,
+        Ipv4Addr::LOCALHOST,
+        resources,
+    )
+    .await
+    .unwrap();
+    assert_eq!(guest.redeem_guest().await.unwrap()["stage"], "GuestActive");
+    let listener = guest
+        .start_forwarding(
+            pair.target.clone(),
+            Protocol::Tcp,
+            destination,
+            (Ipv4Addr::LOCALHOST, 0).into(),
+        )
+        .await
+        .unwrap();
+    let mut sender = TcpStream::connect(
+        serde_json::from_value::<SocketAddr>(listener["listen"].clone()).unwrap(),
+    )
+    .await
+    .unwrap();
+    let (mut receiver, _) = timeout(IO, target.accept()).await.unwrap().unwrap();
+    sequence_reply(&mut sender, &mut receiver, 173).await;
+    assert!(service_policy::now() < expires);
+    let fault = PortBlackhole::new(url.port_or_known_default().unwrap());
+    while service_policy::now() <= expires {
+        sleep(Duration::from_millis(100)).await;
+    }
+    wait_until(|| pair.provider.forwarding_status()["active_flows"] == 0).await;
+    let mut byte = [0];
+    assert_eq!(
+        timeout(IO, receiver.read(&mut byte))
+            .await
+            .unwrap()
+            .unwrap(),
+        0
+    );
+    drop(fault);
+    assert!(
+        guest
+            .start_forwarding(
+                pair.target.clone(),
+                Protocol::Tcp,
+                destination,
+                (Ipv4Addr::LOCALHOST, 0).into()
+            )
+            .await
+            .is_err()
+    );
+    assert!(
+        timeout(Duration::from_millis(150), target.accept())
+            .await
+            .is_err()
+    );
+    assert!(
+        timeout(
+            Duration::from_secs(20),
+            pair.consumer.ping(pair.target.clone())
+        )
+        .await
+        .unwrap()
+        .is_ok()
+    );
+    eprintln!(
+        "MIO173 guest actual expiry={expires}, target closed during relay blackout, no late accept, member ping allowed"
+    );
+    guest.close().await.unwrap();
+    pair.close().await;
+    relay.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+#[cfg(feature = "nat-lab-test-hooks")]
+async fn reliable_channel_defaults_have_measured_bidirectional_progress_and_bounded_memory() {
+    let mut cut = NativeStreamCut::new().await;
+    let before = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+    let before_rss = before
+        .lines()
+        .find(|line| line.starts_with("VmRSS:"))
+        .unwrap_or("RSS unavailable");
+    let count = 4 * 1024 * 1024;
+    let outgoing: Vec<_> = (0..count).map(|n| (n % 251) as u8).collect();
+    let incoming: Vec<_> = (0..count).map(|n| (n % 239) as u8).collect();
+    let mut out_read = vec![0; count];
+    let mut in_read = vec![0; count];
+    let started = Instant::now();
+    {
+        let (mut consumer_read, mut consumer_write) = cut.sender.split();
+        let (mut provider_read, mut provider_write) = cut.receiver.split();
+        timeout(Duration::from_secs(30), async {
+            tokio::try_join!(
+                consumer_write.write_all(&outgoing),
+                provider_write.write_all(&incoming),
+                consumer_read.read_exact(&mut in_read),
+                provider_read.read_exact(&mut out_read)
+            )
+            .unwrap();
+        })
+        .await
+        .unwrap();
+    }
+    assert_eq!(out_read, outgoing);
+    assert_eq!(in_read, incoming);
+    let elapsed = started.elapsed();
+    let after = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+    let after_rss = after
+        .lines()
+        .filter(|line| line.starts_with("VmRSS:") || line.starts_with("VmHWM:"))
+        .collect::<Vec<_>>();
+    eprintln!(
+        "MIO173 measured duplex bytes={} elapsed={elapsed:?} bytes_per_second={} RSS_before={before_rss} RSS_after={after_rss:?} budget_consumer={} budget_provider={}",
+        2 * count,
+        (2 * count) as f64 / elapsed.as_secs_f64(),
+        cut.pair.consumer.forwarding_status()["channel_buffers"],
+        cut.pair.provider.forwarding_status()["channel_buffers"]
+    );
+    cut.close().await;
+}
+
+#[tokio::test]
+#[cfg(feature = "nat-lab-test-hooks")]
+async fn receive_node_quota_is_shared_and_released_by_application_delivery() {
+    let policy = miopunch_native_probe::forwarding::ChannelPolicy {
+        channel_bytes: 64 * 1024,
+        node_bytes_per_direction: 96 * 1024,
+        ..Default::default()
+    };
+    let mut cut = NativeStreamCut::new_policy(false, policy).await;
+    let address: SocketAddr = serde_json::from_value(
+        cut.pair.consumer.forwarding_status()["listeners"][0]["listen"].clone(),
+    )
+    .unwrap();
+    let mut sender2 = TcpStream::connect(address).await.unwrap();
+    let (mut receiver2, _) = timeout(IO, cut.target.accept()).await.unwrap().unwrap();
+    sequence_reply(&mut sender2, &mut receiver2, 1).await;
+    wait_until(|| {
+        [&cut.pair.consumer, &cut.pair.provider]
+            .iter()
+            .all(|node| node.forwarding_status()["channel_buffers"]["send_bytes"] == 0)
+    })
+    .await;
+    cut.pair.consumer.test_limit_channel_delivery(8);
+    cut.pair.provider.test_limit_channel_delivery(8);
+    cut.sender.write_all(&vec![1; 64 * 1024]).await.unwrap();
+    cut.receiver.write_all(&vec![2; 64 * 1024]).await.unwrap();
+    wait_until(|| {
+        [&cut.pair.consumer, &cut.pair.provider]
+            .iter()
+            .all(|node| node.forwarding_status()["channel_buffers"]["receive_bytes"] == 65536)
+    })
+    .await;
+    sender2.write_all(&vec![3; 48 * 1024]).await.unwrap();
+    receiver2.write_all(&vec![4; 48 * 1024]).await.unwrap();
+    wait_until(|| {
+        [&cut.pair.consumer, &cut.pair.provider]
+            .iter()
+            .all(|node| node.forwarding_status()["channel_buffers"]["receive_bytes"] == 98304)
+    })
+    .await;
+    cut.pair.consumer.test_limit_channel_delivery(0);
+    cut.pair.provider.test_limit_channel_delivery(0);
+    let mut a = vec![0; 64 * 1024];
+    let mut b = vec![0; 64 * 1024];
+    let mut c = vec![0; 48 * 1024];
+    let mut d = vec![0; 48 * 1024];
+    timeout(IO, async {
+        tokio::try_join!(
+            cut.receiver.read_exact(&mut a),
+            cut.sender.read_exact(&mut b),
+            receiver2.read_exact(&mut c),
+            sender2.read_exact(&mut d)
+        )
+        .unwrap();
+    })
+    .await
+    .unwrap();
+    assert_eq!(a, vec![1; 64 * 1024]);
+    assert_eq!(b, vec![2; 64 * 1024]);
+    assert_eq!(c, vec![3; 48 * 1024]);
+    assert_eq!(d, vec![4; 48 * 1024]);
+    wait_until(|| {
+        [&cut.pair.consumer, &cut.pair.provider]
+            .iter()
+            .all(|node| node.forwarding_status()["channel_buffers"]["receive_bytes"] == 0)
+    })
+    .await;
+    sequence_reply(&mut sender2, &mut receiver2, 173).await;
+    eprintln!(
+        "MIO173 receive pool at capacity=98304 both directions; application release drained exact bytes and next sequence"
+    );
+    drop(sender2);
+    drop(receiver2);
+    cut.close().await;
+}
+
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace"]
+async fn cancelling_while_disconnected_ends_local_io_and_retained_peer_expires() {
+    let policy = miopunch_native_probe::forwarding::ChannelPolicy {
+        recovery_ms: 1200,
+        ..Default::default()
+    };
+    let mut cut = NativeStreamCut::new_policy(false, policy).await;
+    cut.learn_contact(0).await;
+    let id = flow(&cut.pair.consumer, Protocol::Tcp)["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let faults = cut.hold_interruption().await;
+    let started = Instant::now();
+    cut.pair.consumer.cancel_forwarding_flow(&id).await.unwrap();
+    let mut byte = [0];
+    assert_eq!(
+        timeout(Duration::from_millis(300), cut.sender.read(&mut byte))
+            .await
+            .unwrap()
+            .unwrap(),
+        0
+    );
+    assert_eq!(cut.pair.consumer.forwarding_status()["active_flows"], 0);
+    assert_eq!(
+        timeout(Duration::from_secs(3), cut.receiver.read(&mut byte))
+            .await
+            .unwrap()
+            .unwrap(),
+        0
+    );
+    drop(faults);
+    cut.broker.unmute_datagrams();
+    sleep(Duration::from_millis(300)).await;
+    assert!(
+        timeout(Duration::from_millis(150), cut.target.accept())
+            .await
+            .is_err()
+    );
+    eprintln!(
+        "MIO173 explicit cancellation during outage closes local IO immediately; unreachable retained peer bounded by recovery window; no target reopens; elapsed={:?}",
+        started.elapsed()
+    );
     cut.close().await;
 }

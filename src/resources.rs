@@ -80,6 +80,8 @@ pub struct ResourceConfig {
     pub congestion_control: Option<iroh::endpoint::CongestionControl>,
     #[serde(default)]
     pub maintenance: crate::network_maintenance::MaintenancePolicy,
+    #[serde(default)]
+    pub business_channel: crate::forwarding::ChannelPolicy,
     /// Explicit trusted native/WSS contact mapping; no implicit public facility.
     #[serde(default)]
     pub mqtt_facilities: Vec<crate::mqtt_datagram::MqttFacility>,
@@ -301,6 +303,7 @@ impl ResourceConfig {
             path_selection: Default::default(),
             congestion_control: None,
             maintenance: Default::default(),
+            business_channel: Default::default(),
             mqtt_facilities: Vec::new(),
             irc_facilities: Vec::new(),
             trusted_update_key: None,
@@ -1701,6 +1704,18 @@ impl ResourceEndpoint {
             .get_mut(&(id, class))
         {
             state.reset();
+        }
+    }
+
+    pub(crate) fn member_retry_after(&self, id: iroh::EndpointId, cause: String) -> Duration {
+        let mut states = self.backoff.lock().expect("contact budget");
+        let state = states.entry((id, ContactClass::Foreground)).or_default();
+        if let Some(delay) = state.retry_at.and_then(|at| at.checked_duration_since(Instant::now())) {
+            return delay;
+        }
+        match state.failed(cause) {
+            ResourceContactError::TemporarilyUnreachable { retry_after, .. } => retry_after,
+            _ => unreachable!("contact failure returns its existing retry interval"),
         }
     }
 

@@ -1,6 +1,6 @@
 //! Real native sockets behind the existing identity, admission and service ACL.
 use crate::{
-    business_channel::{BusinessChannel, ChannelError, RECOVERY},
+    business_channel::{BusinessChannel, ChannelBudget, ChannelError, RecoveryExpired},
     data_stream::DataStream,
     forwarding::{self, ChannelOrigin, ChannelReady, ChannelRequest, Protocol},
     native_client::{ClientError, NativeClient},
@@ -116,6 +116,7 @@ pub(crate) struct NativeForwarding {
     #[cfg(feature = "nat-lab-test-hooks")]
     ready_hook: ReadyHook,
     state: Mutex<State>,
+    channel_budget: Arc<ChannelBudget>,
     setup: tokio::sync::Mutex<()>,
     gate: crate::admission_gate::AdmissionGate,
     joined: tokio::sync::Notify,
@@ -181,8 +182,9 @@ impl Drop for ReceiverOwner {
     }
 }
 impl NativeForwarding {
-    pub fn new(gate: crate::admission_gate::AdmissionGate) -> Arc<Self> {
-        Arc::new(Self {
+    pub fn new(gate: crate::admission_gate::AdmissionGate, policy: forwarding::ChannelPolicy) -> Result<Arc<Self>, std::io::Error> {
+        Ok(Arc::new(Self {
+            channel_budget: ChannelBudget::new(policy)?,
             #[cfg(feature = "nat-lab-test-hooks")]
             channel_hooks: Default::default(),
             #[cfg(feature = "nat-lab-test-hooks")]
@@ -192,7 +194,7 @@ impl NativeForwarding {
             gate,
             joined: Default::default(),
             receiver_tasks: Default::default(),
-        })
+        }))
     }
     pub fn enforce_access(&self, access: &ServiceAccess) {
         for protocol in [Protocol::Tcp, Protocol::Udp] {
@@ -413,7 +415,7 @@ impl NativeForwarding {
     }
     pub fn status(&self) -> Value {
         let state = self.state.lock().unwrap();
-        json!({"native_listener":true,"provider":true,"max_listeners":MAX_LISTENERS,"max_flows":MAX_FLOWS,
+        json!({"channel_buffers":self.channel_budget.status(),"native_listener":true,"provider":true,"max_listeners":MAX_LISTENERS,"max_flows":MAX_FLOWS,
             "active_flows":state.flows.len(),"provider_workers":state.receivers.len(),"max_provider_workers":MAX_FLOWS + state.channels.len(),"services":([Protocol::Tcp,Protocol::Udp].map(|protocol|json!({"protocol":protocol,
                 "enabled":state.scopes.contains_key(&protocol),"targets":state.scopes.get(&protocol)}))),
             "flows":state.flows.iter().map(|(id,flow)|json!({"id":id.to_string(),"protocol":flow.protocol,"peer":flow.peer,
@@ -516,8 +518,15 @@ impl NativeForwarding {
         target: SocketAddr,
         request: ChannelRequest,
     ) -> Result<(), ClientError> {
-        let (owner, mut replacements, connected) = match self.reserve_channel(receiver, peer, target, &request, &transport).await? {
-            ChannelOpen::New { owner, replacements, connected } => (owner, replacements, connected),
+        let (owner, mut replacements, connected) = match self
+            .reserve_channel(receiver, peer, target, &request, &transport)
+            .await?
+        {
+            ChannelOpen::New {
+                owner,
+                replacements,
+                connected,
+            } => (owner, replacements, connected),
             ChannelOpen::Replace(slot) => {
                 slot.send((transport, stream));
                 return Ok(());
@@ -525,16 +534,27 @@ impl NativeForwarding {
             ChannelOpen::Duplicate(mut connected) => {
                 let available = tokio::time::timeout(Duration::from_secs(10), async {
                     while !*connected.borrow_and_update() {
-                        if connected.changed().await.is_err() { return false; }
+                        if connected.changed().await.is_err() {
+                            return false;
+                        }
                     }
                     true
-                }).await?;
-                stream.write_control(&if available { ChannelReady::Connected { attached: false } } else { ChannelReady::Ended }).await?;
+                })
+                .await?;
+                stream
+                    .write_control(&if available {
+                        ChannelReady::Connected { attached: false }
+                    } else {
+                        ChannelReady::Ended
+                    })
+                    .await?;
                 stream.finish()?;
                 return Ok(());
             }
             ChannelOpen::Unknown => {
-                stream.write_control(&ChannelReady::OpenOutcomeUnknown).await?;
+                stream
+                    .write_control(&ChannelReady::OpenOutcomeUnknown)
+                    .await?;
                 stream.finish()?;
                 return Ok(());
             }
@@ -547,9 +567,11 @@ impl NativeForwarding {
                 let socket = tokio::time::timeout(Duration::from_secs(10), TcpStream::connect(target)).await??;
                 connected.send_replace(true);
                 let (read, write) = socket.into_split();
-                let mut channel = BusinessChannel::new(read, write);
+                let mut channel = BusinessChannel::new(self.channel_budget.clone());
                 #[cfg(feature = "nat-lab-test-hooks")]
                 channel.set_test_hooks(self.channel_hooks.clone());
+                let network = async {
+                let mut deadline = None;
                 loop {
                     let result = async {
                         #[cfg(feature = "nat-lab-test-hooks")]
@@ -559,10 +581,10 @@ impl NativeForwarding {
                                 _ = transport.closed() => return Err(ChannelError::NetworkInterrupted),
                             }
                         }
-                        stream.write_control(&ChannelReady::Connected { attached: true }).await.map_err(|error| {
-                            if transport.network_interrupted() { ChannelError::NetworkInterrupted } else { ChannelError::Business(error) }
+                        within_recovery(deadline, async { stream.write_control(&ChannelReady::Connected { attached: true }).await.map_err(Into::into) }).await.map_err(|error| {
+                            if error.is::<RecoveryExpired>() { ChannelError::RecoveryExpired } else if transport.network_interrupted() { ChannelError::NetworkInterrupted } else { ChannelError::Business(std::io::Error::other(error.to_string())) }
                         })?;
-                        channel.carry(stream, &transport).await
+                        channel.carry(stream, &transport, &mut deadline).await
                     }.await;
                     match result {
                         Ok(()) => {
@@ -573,13 +595,17 @@ impl NativeForwarding {
                             transport.abort(1, b"original business ended");
                             return Err(error.into());
                         }
+                        Err(ChannelError::RecoveryExpired) => return Err(RecoveryExpired.into()),
                         Err(ChannelError::NetworkInterrupted) => {}
                     }
-                    let (next, next_stream) = tokio::time::timeout(RECOVERY, replacements.recv()).await?.ok_or("business channel ended")?;
+                    let at = *deadline.get_or_insert_with(|| tokio::time::Instant::now() + Duration::from_millis(self.channel_budget.policy.recovery_ms));
+                    let (next, next_stream) = tokio::time::timeout_at(at, replacements.recv()).await.map_err(|_| RecoveryExpired)?.ok_or("business channel ended")?;
                     self.attach(&owner, next.clone())?;
                     transport = next;
                     stream = next_stream;
                 }
+                };
+                channel.run(read, write, network).await
             } => result,
         }
     }
@@ -602,39 +628,92 @@ impl NativeForwarding {
             .ok_or("forward ended")?
             .channel = Some(request.id.clone());
         let (read, write) = socket.into_split();
-        let mut channel = BusinessChannel::new(read, write);
+        let mut channel = BusinessChannel::new(self.channel_budget.clone());
         #[cfg(feature = "nat-lab-test-hooks")]
         channel.set_test_hooks(self.channel_hooks.clone());
-        let mut opening = true;
-        loop {
-            match open_channel(&transport, target, &request).await {
-                Ok(stream) => {
-                    opening = false;
-                    match channel.carry(stream, &transport).await {
-                        Ok(()) => return Ok(()),
-                        Err(ChannelError::Business(error)) => {
-                            transport.abort(1, b"original business ended");
-                            return Err(error.into());
+        let network = async {
+            let mut deadline = None;
+            let mut opening = true;
+            loop {
+                match within_recovery(deadline, open_channel(&transport, target, &request)).await {
+                    Ok(stream) => {
+                        opening = false;
+                        match channel.carry(stream, &transport, &mut deadline).await {
+                            Ok(()) => return Ok(()),
+                            Err(ChannelError::Business(error)) => {
+                                transport.abort(1, b"original business ended");
+                                return Err(error.into());
+                            }
+                            Err(ChannelError::RecoveryExpired) => {
+                                return Err(RecoveryExpired.into());
+                            }
+                            Err(ChannelError::NetworkInterrupted) => {}
                         }
-                        Err(ChannelError::NetworkInterrupted) => {}
                     }
-                }
-                Err(error) if !transport.network_interrupted() => {
-                    if !opening && error.is::<OpenOutcomeUnknown>() {
-                        return Err("original business channel ended".into());
+                    Err(error) if !transport.network_interrupted() => {
+                        if !opening && error.is::<OpenOutcomeUnknown>() {
+                            return Err("original business channel ended".into());
+                        }
+                        return Err(error);
                     }
-                    return Err(error);
+                    Err(_) => {}
                 }
-                Err(_) => {}
+                let at = *deadline.get_or_insert_with(|| {
+                    tokio::time::Instant::now()
+                        + Duration::from_millis(self.channel_budget.policy.recovery_ms)
+                });
+                request.resume = true;
+                request.generation = request
+                    .generation
+                    .checked_add(1)
+                    .ok_or("channel generation exhausted")?;
+                transport = within_recovery(Some(at), async {
+                    loop {
+                        match resources
+                            .connect_service(address.clone(), Protocol::Tcp.into())
+                            .await
+                        {
+                            Ok(next) => return Ok(next),
+                            Err(error) => {
+                                if !error.is::<tokio::time::error::Elapsed>()
+                                    && error.downcast_ref::<std::io::Error>().is_none_or(|error| {
+                                        matches!(
+                                            error.kind(),
+                                            std::io::ErrorKind::PermissionDenied
+                                                | std::io::ErrorKind::InvalidInput
+                                                | std::io::ErrorKind::InvalidData
+                                                | std::io::ErrorKind::Unsupported
+                                        )
+                                    })
+                                {
+                                    return Err(error);
+                                }
+                                let delay =
+                                    resources.member_retry_after(address.id, error.to_string());
+                                tokio::time::sleep(delay).await;
+                            }
+                        }
+                    }
+                })
+                .await?;
+                self.attach(owner, transport.clone())?;
             }
-            let deadline = tokio::time::Instant::now() + RECOVERY;
-            request.resume = true;
-            request.generation = request.generation.checked_add(1).ok_or("channel generation exhausted")?;
-            transport = tokio::time::timeout_at(deadline, resources.connect_service(address.clone(), Protocol::Tcp.into())).await??;
-            self.attach(owner, transport.clone())?;
-        }
+        };
+        channel.run(read, write, network).await
     }
 
+}
+
+async fn within_recovery<T>(
+    deadline: Option<tokio::time::Instant>,
+    future: impl std::future::Future<Output = Result<T, ClientError>>,
+) -> Result<T, ClientError> {
+    match deadline {
+        Some(at) => tokio::time::timeout_at(at, future)
+            .await
+            .map_err(|_| RecoveryExpired)?,
+        None => future.await,
+    }
 }
 
 fn channel_origin(transport: &ServiceTransport) -> Result<ChannelOrigin, ClientError> {
@@ -795,6 +874,12 @@ impl NativeClient {
         use std::sync::atomic::Ordering;
         self.forwarding.channel_hooks.paused.store(paused, Ordering::SeqCst);
         self.forwarding.channel_hooks.suppressed.load(Ordering::SeqCst)
+    }
+
+    #[cfg(feature = "nat-lab-test-hooks")]
+    pub fn test_limit_channel_delivery(&self, bytes: u64) {
+        self.forwarding.channel_hooks.delivery_limit.store(bytes, std::sync::atomic::Ordering::SeqCst);
+        self.forwarding.channel_budget.notify();
     }
 
     #[cfg(feature = "nat-lab-test-hooks")]
@@ -1047,6 +1132,8 @@ impl NativeClient {
                                 counters.last_error = Some(
                                     if result.as_ref().is_err_and(|error| error.is::<OpenOutcomeUnknown>()) {
                                         "open_outcome_unknown"
+                                    } else if result.as_ref().err().is_some_and(|error| error.is::<RecoveryExpired>()) {
+                                        "business_channel_recovery_expired"
                                     } else if original.is_some_and(|connection| connection.close_reason().is_some()) {
                                         "member_connection_terminated"
                                     } else {

@@ -12,6 +12,39 @@ pub const UDP_ALPN: &[u8] = b"miopunch/udp-forward/1";
 pub const MAX_DATAGRAM: usize = 65507;
 pub const MAX_EXCHANGE: usize = 60 * 1024;
 
+/// Limits for retained reliable channels. Send and receive each get a node pool,
+/// so simultaneous bidirectional traffic can always release the peer's credit.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ChannelPolicy {
+    pub recovery_ms: u64,
+    pub channel_bytes: usize,
+    pub node_bytes_per_direction: usize,
+}
+impl Default for ChannelPolicy {
+    fn default() -> Self {
+        Self {
+            recovery_ms: 60_000,
+            channel_bytes: 256 * 1024,
+            node_bytes_per_direction: 2 * 1024 * 1024,
+        }
+    }
+}
+impl ChannelPolicy {
+    pub(crate) fn validate(&self) -> io::Result<()> {
+        if self.recovery_ms == 0
+            || self.channel_bytes == 0
+            || self.node_bytes_per_direction < self.channel_bytes
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid business channel limits",
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Protocol {
