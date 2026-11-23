@@ -81,6 +81,8 @@ struct State {
     closed: bool,
 }
 pub(crate) struct NativeForwarding {
+    #[cfg(feature = "nat-lab-test-hooks")]
+    channel_hooks: Arc<crate::business_channel::TestHooks>,
     state: Mutex<State>,
     setup: tokio::sync::Mutex<()>,
     gate: crate::admission_gate::AdmissionGate,
@@ -149,6 +151,8 @@ impl Drop for ReceiverOwner {
 impl NativeForwarding {
     pub fn new(gate: crate::admission_gate::AdmissionGate) -> Arc<Self> {
         Arc::new(Self {
+            #[cfg(feature = "nat-lab-test-hooks")]
+            channel_hooks: Default::default(),
             state: Mutex::new(State::default()),
             setup: tokio::sync::Mutex::new(()),
             gate,
@@ -477,6 +481,8 @@ impl NativeForwarding {
             .await?;
         let (read, write) = socket.into_split();
         let mut channel = BusinessChannel::new(read, write);
+        #[cfg(feature = "nat-lab-test-hooks")]
+        channel.set_test_hooks(self.channel_hooks.clone());
         loop {
             match channel.carry(stream, &transport).await {
                 Ok(()) => {
@@ -523,6 +529,8 @@ impl NativeForwarding {
         let mut stream = open_channel(&transport, target, &request).await?;
         let (read, write) = socket.into_split();
         let mut channel = BusinessChannel::new(read, write);
+        #[cfg(feature = "nat-lab-test-hooks")]
+        channel.set_test_hooks(self.channel_hooks.clone());
         loop {
             match channel.carry(stream, &transport).await {
                 Ok(()) => return Ok(()),
@@ -684,6 +692,13 @@ async fn udp_consumer(
 }
 
 impl NativeClient {
+    #[cfg(feature = "nat-lab-test-hooks")]
+    pub fn test_pause_channel_progress(&self, paused: bool) -> u64 {
+        use std::sync::atomic::Ordering;
+        self.forwarding.channel_hooks.paused.store(paused, Ordering::SeqCst);
+        self.forwarding.channel_hooks.suppressed.load(Ordering::SeqCst)
+    }
+
     /// One bounded request/response, using the same provider and wire as the
     /// browser operation. A local application listener is optional for SDK use.
     pub async fn forward_exchange(

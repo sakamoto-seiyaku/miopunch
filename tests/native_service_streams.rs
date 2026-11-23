@@ -666,6 +666,123 @@ async fn public_native_file_and_ping_share_the_admitted_member_connection() {
     );
 }
 
+#[tokio::test]
+async fn file_resume_still_uses_saved_offsets_and_file_receipts() {
+    let relay = relay().await;
+    let pair = Pair::admit(relay.http_url().unwrap()).await;
+    let inbox = pair.root.path().join("resume-inbox");
+    pair.provider.enable_files(&inbox).await.unwrap();
+    pair.consumer
+        .sync_services(pair.target.clone())
+        .await
+        .unwrap();
+    let bytes: Vec<u8> = (0..32 * 1024 * 1024).map(|i| (i % 251) as u8).collect();
+    let source = pair.root.path().join("resume-source.bin");
+    std::fs::write(&source, &bytes).unwrap();
+    let id = pair
+        .consumer
+        .send_file(pair.target.clone(), source)
+        .await
+        .unwrap();
+    let partial = timeout(Duration::from_secs(20), async {
+        loop {
+            if let Some(status) = pair
+                .provider
+                .file_tasks()
+                .into_iter()
+                .find(|status| status.id == id && status.bytes > 0)
+            {
+                break status;
+            }
+            sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(partial.bytes < partial.size);
+    pair.consumer.disconnect_file(&id).unwrap();
+    let sent = timeout(Duration::from_secs(60), async {
+        loop {
+            let status = pair
+                .consumer
+                .file_tasks()
+                .into_iter()
+                .find(|status| status.id == id)
+                .unwrap();
+            if status.state.terminal() {
+                break status;
+            }
+            sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(sent.attempts >= 2 && sent.resumed_bytes > 0, "{sent:?}");
+    let received = pair
+        .provider
+        .file_tasks()
+        .into_iter()
+        .find(|status| status.id == id)
+        .unwrap();
+    let receipt = sent
+        .receipt
+        .as_ref()
+        .expect("file service returns its saved receipt");
+    assert_eq!(Some(receipt), received.receipt.as_ref());
+    assert_eq!(
+        std::fs::read(inbox.join(&receipt.saved_name)).unwrap(),
+        bytes
+    );
+    eprintln!(
+        "MIO171 file partial={} resumed={} attempts={} matching_saved_receipt=true",
+        partial.bytes, sent.resumed_bytes, sent.attempts
+    );
+    pair.close().await;
+    relay.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn udp_keeps_datagram_boundaries_and_discards_only_an_oversized_datagram() {
+    let relay = relay().await;
+    let pair = Pair::admit(relay.http_url().unwrap()).await;
+    let target = UdpSocket::bind("[::1]:0").await.unwrap();
+    let client = UdpSocket::bind("[::1]:0").await.unwrap();
+    let destination = target.local_addr().unwrap();
+    pair.provider.enable_forwarding(Protocol::Udp, vec![destination]).await.unwrap();
+    pair.consumer.sync_services(pair.target.clone()).await.unwrap();
+    let listener = pair.consumer.start_forwarding(pair.target.clone(), Protocol::Udp, destination, "[::1]:0".parse().unwrap()).await.unwrap();
+    let listen: SocketAddr = serde_json::from_value(listener["listen"].clone()).unwrap();
+    timeout(IO, async {
+        let oversized = vec![77; 65508];
+        // IPv6 legally carries this host datagram, unlike IPv4. Establish the
+        // OS premise independently before checking the forwarding wire bound.
+        client.send_to(&oversized, destination).await.unwrap();
+        let mut buffer = vec![0; 65536];
+        let (count, _) = target.recv_from(&mut buffer).await.unwrap();
+        assert_eq!(&buffer[..count], oversized);
+        client.send_to(&oversized, listen).await.unwrap();
+        wait_until(|| pair.consumer.forwarding_status()["listeners"][0]["counters"]["dropped_datagrams"] == 1).await;
+        assert!(timeout(Duration::from_millis(100), target.recv_from(&mut buffer)).await.is_err());
+        for length in [0, 17, 65000, 65507] {
+            let payload: Vec<u8> = (0..length).map(|i| (i % 251) as u8).collect();
+            client.send_to(&payload, listen).await.unwrap();
+            let (count, source) = target.recv_from(&mut buffer).await.unwrap();
+            assert_eq!(&buffer[..count], payload);
+            if length == 17 {
+                target.send_to(&oversized, source).await.unwrap();
+                wait_until(|| flow(&pair.provider, Protocol::Udp)["dropped_datagrams"] == 1).await;
+                assert!(timeout(Duration::from_millis(100), client.recv_from(&mut buffer)).await.is_err());
+            }
+            target.send_to(&payload, source).await.unwrap();
+            let (count, _) = client.recv_from(&mut buffer).await.unwrap();
+            assert_eq!(&buffer[..count], payload);
+        }
+    }).await.expect("UDP drops one host datagram and continues with whole datagrams");
+    eprintln!("MIO171 IPv6 UDP lengths=0,17,65000,65507 exact; oversized=65508 discarded once in both directions");
+    pair.close().await;
+    relay.shutdown().await.unwrap();
+}
+
 fn flow(client: &NativeClient, protocol: Protocol) -> serde_json::Value {
     let status = client.forwarding_status();
     status["flows"]
@@ -1157,6 +1274,11 @@ impl NativeStreamCut {
 
     #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
     async fn interrupt_member(&self) {
+        self.interrupt_with_inflight(None).await;
+    }
+
+    #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+    async fn interrupt_with_inflight(&self, data: Option<(&[u8], &[u8], bool)>) {
         let original = self
             .pair
             .consumer
@@ -1200,6 +1322,31 @@ impl NativeStreamCut {
         let no_provider = PortBlackhole::new(provider_port);
         self.broker.mute_datagrams();
         self.proxy.cancel();
+        if let Some((outbound, inbound, half_close)) = data {
+            async fn queue(socket: &TcpStream, mut bytes: &[u8]) {
+                while !bytes.is_empty() {
+                    socket.writable().await.unwrap();
+                    match socket.try_write(bytes) {
+                        Ok(count) => bytes = &bytes[count..],
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
+                        Err(error) => panic!("queue original socket: {error}"),
+                    }
+                }
+            }
+            timeout(IO, async {
+                tokio::join!(
+                    queue(&self.sender, outbound),
+                    queue(&self.receiver, inbound)
+                );
+            })
+            .await
+            .expect("local sockets accept bounded in-flight bytes");
+            if half_close {
+                socket2::SockRef::from(&self.sender)
+                    .shutdown(std::net::Shutdown::Write)
+                    .unwrap();
+            }
+        }
         // A separate probe puts transport bytes in flight while the TCP business
         // itself is quiescent, so QUIC's loss/idle termination is observable.
         let mut probe = original.open_bi().await.unwrap();
@@ -1495,6 +1642,124 @@ async fn native_tcp_channel_keeps_both_sockets_after_member_replacement() {
     eprintln!(
         "MIO170 channel={channel} old={:?} replacement={after:?}",
         cut.before
+    );
+    cut.close().await;
+}
+
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable namespace for the old TCP return-path filter"]
+async fn original_tcp_sockets_replay_bidirectional_inflight_bytes_once() {
+    let mut cut = NativeStreamCut::new().await;
+    cut.learn_contact(0).await;
+    let outbound: Vec<u8> = (0..256 * 1024).map(|i| (i % 251) as u8).collect();
+    let inbound: Vec<u8> = (0..256 * 1024).map(|i| (250 - i % 251) as u8).collect();
+    cut.interrupt_with_inflight(Some((&outbound, &inbound, false)))
+        .await;
+    timeout(Duration::from_secs(10), async {
+        let mut received = vec![0; outbound.len()];
+        cut.receiver.read_exact(&mut received).await.unwrap();
+        assert_eq!(received, outbound);
+        cut.sender.read_exact(&mut received).await.unwrap();
+        assert_eq!(received, inbound);
+    })
+    .await
+    .expect("all original bytes arrive once after replacement");
+    sequence_reply(&mut cut.sender, &mut cut.receiver, 909).await;
+    assert!(
+        timeout(Duration::from_millis(100), cut.target.accept())
+            .await
+            .is_err()
+    );
+    let after = cut.status();
+    for (old, new) in cut.before.iter().zip(&after) {
+        assert_ne!(old["connection"], new["connection"]);
+    }
+    eprintln!("MIO171 duplex 262144 bytes each direction, exact sequence and tail, one target");
+    cut.close().await;
+}
+
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable namespace for the old TCP return-path filter"]
+async fn lost_channel_ack_and_interrupted_half_close_preserve_exact_tail() {
+    let mut cut = NativeStreamCut::new().await;
+    cut.learn_contact(0).await;
+    let old = cut
+        .pair
+        .consumer
+        .test_member_connection(cut.pair.target.id)
+        .await
+        .unwrap();
+    let old_provider = cut
+        .pair
+        .provider
+        .test_member_connection(cut.pair.consumer.address().id)
+        .await
+        .unwrap();
+    let suppressed = cut.pair.provider.test_pause_channel_progress(true);
+    let prefix = vec![71; 4096];
+    cut.sender.write_all(&prefix).await.unwrap();
+    let mut received = vec![0; prefix.len()];
+    timeout(IO, cut.receiver.read_exact(&mut received))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        received, prefix,
+        "target independently received bytes whose channel ACK will be lost"
+    );
+    wait_until(|| cut.pair.provider.test_pause_channel_progress(true) > suppressed).await;
+    let tail: Vec<u8> = (0..128 * 1024).map(|i| (i % 239) as u8).collect();
+    let response = vec![29; 128 * 1024];
+    cut.interrupt_with_inflight(Some((&tail, &response, true)))
+        .await;
+    cut.pair.provider.test_pause_channel_progress(false);
+    received.clear();
+    timeout(
+        Duration::from_secs(10),
+        cut.receiver.read_to_end(&mut received),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        received, tail,
+        "accepted prefix is not repeated and FIN follows the complete tail"
+    );
+    let after = cut.status();
+    for (before, after) in cut.before.iter().zip(&after) {
+        assert_ne!(before["connection"], after["connection"]);
+    }
+    // Delayed close/stream operations from the retired carriers cannot reach
+    // the new carry, which is the only owner of the channel's IO and progress.
+    old.test_close(0, b"late old carrier close");
+    old_provider.test_close(0, b"late old carrier close");
+    assert!(old.open_bi().await.is_err());
+    cut.receiver
+        .write_all(b"response after original half-close")
+        .await
+        .unwrap();
+    cut.receiver.shutdown().await.unwrap();
+    received.clear();
+    timeout(
+        Duration::from_secs(10),
+        cut.sender.read_to_end(&mut received),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let mut expected = response;
+    expected.extend_from_slice(b"response after original half-close");
+    assert_eq!(received, expected);
+    assert!(
+        timeout(Duration::from_millis(100), cut.target.accept())
+            .await
+            .is_err()
+    );
+    assert_eq!(cut.listener_stats()["failed"], 0);
+    eprintln!(
+        "MIO171 ACK lost after 4096 independently received bytes; 131072-byte tails, interrupted FIN, late retired carrier close, exact final response"
     );
     cut.close().await;
 }
