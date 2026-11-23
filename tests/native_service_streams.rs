@@ -900,6 +900,120 @@ async fn only_configured_mqtt_contact_qualifies_the_first_native_member_path() {
     broker.close().await;
 }
 
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable namespace for the UDP filter"]
+async fn native_tcp_channel_keeps_quic_and_stream_when_only_udp_path_is_cut() {
+    let relay = relay().await;
+    let mut config = ResourceConfig::with_defaults(ResourceTable {
+        revision: 1,
+        resources: vec![relay_resource(&relay.http_url().unwrap())],
+    });
+    config.maintenance.standby_member_limit = Some(0);
+    let pair = Pair::admit_with_resources(config).await;
+    let target = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let destination = target.local_addr().unwrap();
+    pair.provider
+        .enable_forwarding(Protocol::Tcp, vec![destination])
+        .await
+        .unwrap();
+    pair.consumer
+        .sync_services(pair.provider.address())
+        .await
+        .unwrap();
+    let mut direct = pair.provider.address();
+    direct
+        .addrs
+        .retain(|route| matches!(route, iroh::TransportAddr::Ip(_)));
+    assert!(!direct.addrs.is_empty(), "provider advertises UDP address");
+    let listener = pair
+        .consumer
+        .start_forwarding(
+            direct,
+            Protocol::Tcp,
+            destination,
+            (Ipv4Addr::LOCALHOST, 0).into(),
+        )
+        .await
+        .unwrap();
+    let address: SocketAddr = serde_json::from_value(listener["listen"].clone()).unwrap();
+    let mut sender = TcpStream::connect(address).await.unwrap();
+    let (mut receiver, _) = timeout(IO, target.accept()).await.unwrap().unwrap();
+    sequence_reply(&mut sender, &mut receiver, 1).await;
+    let original = pair
+        .consumer
+        .test_member_connection(pair.provider.address().id)
+        .await
+        .unwrap();
+    assert!(original.initial_data_path().is_ip());
+    pair.consumer
+        .ping(
+            iroh::EndpointAddr::new(pair.provider.address().id)
+                .with_relay_url(relay.http_url().unwrap()),
+        )
+        .await
+        .unwrap();
+    wait_until(|| {
+        original
+            .paths()
+            .iter()
+            .any(|path| path.is_relay() && path.stats().acknowledgment.is_some())
+    })
+    .await;
+    let udp_frames = original
+        .paths()
+        .iter()
+        .find(|path| path.is_ip())
+        .unwrap()
+        .stats()
+        .frame_tx
+        .stream;
+    sequence_reply(&mut sender, &mut receiver, 11).await;
+    assert!(
+        original
+            .paths()
+            .iter()
+            .find(|path| path.is_ip())
+            .unwrap()
+            .stats()
+            .frame_tx
+            .stream
+            > udp_frames,
+        "the pre-fault business uses UDP"
+    );
+    let before = flow(&pair.consumer, Protocol::Tcp);
+    let iroh::TransportAddr::Ip(address) = original.initial_data_path() else {
+        unreachable!()
+    };
+    let fault_filter = PortBlackhole(address.port().to_string(), "udp");
+    let fault = Instant::now();
+    fault_filter.apply("-I");
+    wait_until(|| {
+        original.paths().iter().any(|path| {
+            path.is_relay()
+                && path.is_selected()
+                && path
+                    .stats()
+                    .acknowledgment
+                    .is_some_and(|ack| ack.received_at >= fault.into_std())
+        })
+    })
+    .await;
+    sequence_reply(&mut sender, &mut receiver, 2).await;
+    sequence_reply(&mut receiver, &mut sender, 3).await;
+    let after = flow(&pair.consumer, Protocol::Tcp);
+    assert_eq!(before["channel"], after["channel"]);
+    assert_eq!(
+        before["transport"]["connection"],
+        after["transport"]["connection"]
+    );
+    assert_eq!(before["transport"]["stream"], after["transport"]["stream"]);
+    assert!(fault_filter.dropped() > 0);
+    eprintln!("MIO170 same carrier before={before} after={after}");
+    pair.close().await;
+    relay.shutdown().await.unwrap();
+}
+
 struct NativeStreamCut {
     pair: Pair,
     broker: relay_contact_broker::Broker,
@@ -1041,6 +1155,75 @@ impl NativeStreamCut {
         }
     }
 
+    #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+    async fn interrupt_member(&self) {
+        let original = self
+            .pair
+            .consumer
+            .test_member_connection(self.pair.target.id)
+            .await
+            .unwrap();
+        let provider_original = self
+            .pair
+            .provider
+            .test_member_connection(self.pair.consumer.address().id)
+            .await
+            .unwrap();
+        use miopunch_native_probe::tcp_transport::{DATA_TRANSPORT_ID, TcpTransport};
+        let port = self
+            .pair
+            .consumer
+            .address()
+            .addrs
+            .iter()
+            .find_map(|route| match route {
+                iroh::TransportAddr::Custom(address) if address.id() == DATA_TRANSPORT_ID => {
+                    Some(TcpTransport::socket_addr(address).unwrap().port())
+                }
+                _ => None,
+            })
+            .unwrap();
+        let provider_port = self
+            .pair
+            .provider
+            .address()
+            .addrs
+            .iter()
+            .find_map(|route| match route {
+                iroh::TransportAddr::Custom(address) if address.id() == DATA_TRANSPORT_ID => {
+                    Some(TcpTransport::socket_addr(address).unwrap().port())
+                }
+                _ => None,
+            })
+            .unwrap();
+        let no_return = PortBlackhole::new(port);
+        let no_provider = PortBlackhole::new(provider_port);
+        self.broker.mute_datagrams();
+        self.proxy.cancel();
+        // A separate probe puts transport bytes in flight while the TCP business
+        // itself is quiescent, so QUIC's loss/idle termination is observable.
+        let mut probe = original.open_bi().await.unwrap();
+        probe.streams().0.write_all(&[0]).await.unwrap();
+        let reason = timeout(Duration::from_secs(36), original.closed())
+            .await
+            .unwrap();
+        assert!(matches!(reason, iroh::endpoint::ConnectionError::TimedOut));
+        let remote_reason = timeout(Duration::from_secs(36), provider_original.closed())
+            .await
+            .unwrap();
+        assert!(matches!(
+            remote_reason,
+            iroh::endpoint::ConnectionError::TimedOut
+        ));
+        let dropped = no_return.dropped() + no_provider.dropped();
+        assert!(dropped > 0);
+        eprintln!(
+            "MIO170 terminal consumer={reason:?} provider={remote_reason:?} dropped={dropped}"
+        );
+        drop(no_return);
+        drop(no_provider);
+        self.broker.unmute_datagrams();
+    }
     async fn learn_contact(&self, side: usize) {
         let peers = [&self.pair.consumer, &self.pair.provider];
         let reply = peers[side].ping(self.contact[side].clone()).await.unwrap();
@@ -1267,102 +1450,98 @@ async fn native_forwarding_repair(contact_side: usize) {
 }
 
 #[tokio::test]
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
 #[ignore = "requires a disposable namespace for the old TCP return-path filter"]
-async fn exhausted_native_path_reports_terminal_before_the_next_business_reply() {
+async fn native_tcp_channel_keeps_both_sockets_after_member_replacement() {
     let mut cut = NativeStreamCut::new().await;
     cut.learn_contact(0).await;
-    use miopunch_native_probe::tcp_transport::{DATA_TRANSPORT_ID, TcpTransport};
-    let client_port = cut
-        .pair
-        .consumer
-        .address()
-        .addrs
-        .iter()
-        .find_map(|route| match route {
-            iroh::TransportAddr::Custom(address) if address.id() == DATA_TRANSPORT_ID => {
-                Some(TcpTransport::socket_addr(address).unwrap().port())
-            }
-            _ => None,
-        })
-        .unwrap();
-    // The TCP transport may open a separate return circuit directly to the
-    // initiator. Remove that circuit's packets too so both QUIC ends lose data.
-    let no_return = TcpReturnBlackhole::new(client_port);
-    cut.broker.mute_datagrams();
-    let initial = cut.broker.datagram_publishes();
-    let started = Instant::now();
-    cut.proxy.cancel();
-    cut.sender.write_all(&2u64.to_be_bytes()).await.unwrap();
-    wait_until(|| cut.broker.datagram_publishes() > initial).await;
-    // The configured contact stays subscribed but drops every protected packet.
-    // Its three-second limit expires while the old QUIC remains alive.
-    sleep(Duration::from_secs(3)).await;
-    let stopped = cut.broker.datagram_publishes();
-    assert!(cut.status().iter().all(|status| !status.is_null()));
-    assert_eq!(cut.listener_stats()["failed"], 0);
-    let mut byte = [0];
-    assert_eq!(
-        tokio::time::timeout_at(
-            started + Duration::from_secs(16),
-            cut.sender.read(&mut byte)
-        )
-        .await
-        .unwrap()
-        .unwrap(),
-        0
-    );
-    wait_until(|| cut.listener_stats()["last_error"] == "member_connection_terminated").await;
-    assert_eq!(cut.broker.datagram_publishes(), stopped);
-    assert_eq!(cut.listener_stats()["accepted"], 1);
-    assert_eq!(cut.listener_stats()["failed"], 1);
-    assert!(cut.status().iter().all(serde_json::Value::is_null));
-    let terminal_at = started.elapsed();
-    let return_packets = no_return.dropped();
-    assert!(
-        return_packets > 0,
-        "the blocked return circuit carried packets"
-    );
-
-    drop(no_return);
-    let target = cut.target.local_addr().unwrap();
-    let listener = cut
-        .pair
-        .consumer
-        .start_forwarding(
-            cut.pair.target.clone(),
-            Protocol::Tcp,
-            target,
-            (Ipv4Addr::LOCALHOST, 0).into(),
-        )
-        .await
-        .unwrap();
-    let address: SocketAddr = serde_json::from_value(listener["listen"].clone()).unwrap();
-    let redial_at = Instant::now();
-    let mut sender = TcpStream::connect(address).await.unwrap();
-    let (mut receiver, _) = timeout(IO, cut.target.accept()).await.unwrap().unwrap();
-    sequence_reply(&mut sender, &mut receiver, 3).await;
-    let next = cut.status();
-    for (next, before) in next.iter().zip(&cut.before) {
-        assert_eq!(next["peer"], before["peer"]);
-        assert_ne!(next["connection"], before["connection"]);
+    let channel = flow(&cut.pair.consumer, Protocol::Tcp)["channel"].clone();
+    assert!(channel.is_string());
+    let listen: SocketAddr = serde_json::from_value(
+        cut.pair.consumer.forwarding_status()["listeners"][0]["listen"].clone(),
+    )
+    .unwrap();
+    let mut others = Vec::new();
+    for index in 1..16 {
+        let mut sender = TcpStream::connect(listen).await.unwrap();
+        let (mut receiver, _) = timeout(IO, cut.target.accept()).await.unwrap().unwrap();
+        sequence_reply(&mut sender, &mut receiver, 100 + index).await;
+        others.push((sender, receiver));
     }
-    assert_eq!(cut.listener_stats()["accepted"], 1);
+    assert_eq!(cut.pair.provider.forwarding_status()["active_flows"], 16);
+    cut.interrupt_member().await;
+    sequence_reply(&mut cut.sender, &mut cut.receiver, 2).await;
+    sequence_reply(&mut cut.receiver, &mut cut.sender, 3).await;
+    for (index, (sender, receiver)) in others.iter_mut().enumerate() {
+        sequence_reply(sender, receiver, 200 + index as u64).await;
+        sequence_reply(receiver, sender, 300 + index as u64).await;
+    }
+    let after = cut.status();
+    for (before, after) in cut.before.iter().zip(&after) {
+        assert_eq!(before["peer"], after["peer"]);
+        assert_ne!(before["connection"], after["connection"]);
+    }
+    assert!(
+        timeout(Duration::from_millis(100), cut.target.accept())
+            .await
+            .is_err(),
+        "original target is accepted exactly once"
+    );
+    assert_eq!(cut.listener_stats()["accepted"], 16);
+    assert_eq!(cut.listener_stats()["failed"], 0);
+    for node in [&cut.pair.consumer, &cut.pair.provider] {
+        assert_eq!(flow(node, Protocol::Tcp)["channel"], channel);
+    }
     eprintln!(
-        "MIO154 terminal_after={terminal_at:?} blocked_return_packets={return_packets} next_first_reply={:?} old={:?} new={next:?}",
-        redial_at.elapsed(),
+        "MIO170 channel={channel} old={:?} replacement={after:?}",
         cut.before
     );
     cut.close().await;
 }
 
-#[cfg(target_os = "linux")]
-struct TcpReturnBlackhole(String);
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable namespace for the old TCP return-path filter"]
+async fn ended_tcp_target_is_never_opened_again_after_member_replacement() {
+    let mut cut = NativeStreamCut::new().await;
+    cut.learn_contact(0).await;
+    cut.interrupt_member().await;
+    socket2::SockRef::from(&cut.receiver)
+        .set_linger(Some(Duration::ZERO))
+        .unwrap();
+    drop(cut.receiver);
+    let mut byte = [0];
+    assert_eq!(
+        timeout(Duration::from_secs(65), cut.sender.read(&mut byte))
+            .await
+            .unwrap()
+            .unwrap(),
+        0
+    );
+    cut.sender.shutdown().await.unwrap();
+    wait_until(|| cut.pair.consumer.forwarding_status()["listeners"][0]["counters"]["failed"] == 1)
+        .await;
+    assert_eq!(
+        cut.pair.consumer.forwarding_status()["listeners"][0]["counters"]["completed"],
+        0
+    );
+    assert!(
+        timeout(Duration::from_millis(200), cut.target.accept())
+            .await
+            .is_err()
+    );
+    wait_until(|| cut.pair.provider.forwarding_status()["active_flows"] == 0).await;
+    cut.pair.close().await;
+    cut.broker.close().await;
+}
 
 #[cfg(target_os = "linux")]
-impl TcpReturnBlackhole {
+struct PortBlackhole(String, &'static str);
+
+#[cfg(target_os = "linux")]
+impl PortBlackhole {
     fn new(port: u16) -> Self {
-        let filter = Self(port.to_string());
+        let filter = Self(port.to_string(), "tcp");
         filter.apply("-I");
         filter
     }
@@ -1372,7 +1551,7 @@ impl TcpReturnBlackhole {
             assert!(
                 std::process::Command::new("iptables")
                     .args([
-                        "-w", action, "OUTPUT", "-o", "lo", "-p", "tcp", port, &self.0, "-j",
+                        "-w", action, "OUTPUT", "-o", "lo", "-p", self.1, port, &self.0, "-j",
                         "DROP",
                     ])
                     .status()
@@ -1405,7 +1584,7 @@ impl TcpReturnBlackhole {
 }
 
 #[cfg(target_os = "linux")]
-impl Drop for TcpReturnBlackhole {
+impl Drop for PortBlackhole {
     fn drop(&mut self) {
         self.apply("-D");
     }

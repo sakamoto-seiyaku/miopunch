@@ -22,6 +22,7 @@ pub mod credential_custody;
 pub mod custody_protocol;
 pub mod daily_management;
 pub mod data_stream;
+mod business_channel;
 pub mod device_operation;
 pub mod device_protocol;
 pub mod file_transfer;

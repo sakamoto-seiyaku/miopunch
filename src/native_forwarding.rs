@@ -1,7 +1,8 @@
 //! Real native sockets behind the existing identity, admission and service ACL.
 use crate::{
+    business_channel::{BusinessChannel, ChannelError, RECOVERY},
     data_stream::DataStream,
-    forwarding::{self, Protocol},
+    forwarding::{self, ChannelRequest, Protocol},
     native_client::{ClientError, NativeClient},
     native_member_services::ServiceTransport,
     service_policy::ServiceAccess,
@@ -37,6 +38,7 @@ struct Flow {
     cancel: CancellationToken,
     connection: Option<ServiceTransport>,
     dropped_datagrams: u64,
+    channel: Option<String>,
 }
 struct Receiver {
     peer: VerifyingKey,
@@ -62,6 +64,11 @@ struct ListenerCounters {
     dropped_datagrams: u64,
     last_error: Option<&'static str>,
 }
+struct ChannelAttachment {
+    peer: VerifyingKey,
+    target: SocketAddr,
+    incoming: tokio::sync::mpsc::Sender<(ServiceTransport, DataStream)>,
+}
 #[derive(Default)]
 struct State {
     access: Option<ServiceAccess>,
@@ -69,6 +76,7 @@ struct State {
     listeners: BTreeMap<u64, Listener>,
     flows: BTreeMap<u64, Flow>,
     receivers: BTreeMap<u64, Receiver>,
+    channels: BTreeMap<String, ChannelAttachment>,
     next: u64,
     closed: bool,
 }
@@ -99,7 +107,14 @@ impl FlowOwner {
 }
 impl Drop for FlowOwner {
     fn drop(&mut self) {
-        let flow = self.runtime.state.lock().unwrap().flows.remove(&self.id);
+        let flow = {
+            let mut state = self.runtime.state.lock().unwrap();
+            let flow = state.flows.remove(&self.id);
+            if let Some(id) = flow.as_ref().and_then(|flow| flow.channel.as_ref()) {
+                state.channels.remove(id);
+            }
+            flow
+        };
         self.cancel.cancel();
         if let Some(flow) = flow {
             if let Some(connection) = flow.connection {
@@ -212,7 +227,7 @@ impl NativeForwarding {
         while tasks.try_join_next().is_some() {}
         let owner = {
             let mut state = self.state.lock().unwrap();
-            if state.receivers.len() >= MAX_FLOWS
+            if state.receivers.len() >= MAX_FLOWS + state.channels.len()
                 || !state
                     .access
                     .as_ref()
@@ -267,6 +282,7 @@ impl NativeForwarding {
             cancel: cancel.clone(),
             connection: None,
             dropped_datagrams: 0,
+            channel: None,
         };
         if state.closed
             || cancel.is_cancelled()
@@ -360,10 +376,10 @@ impl NativeForwarding {
     pub fn status(&self) -> Value {
         let state = self.state.lock().unwrap();
         json!({"native_listener":true,"provider":true,"max_listeners":MAX_LISTENERS,"max_flows":MAX_FLOWS,
-            "active_flows":state.flows.len(),"provider_workers":state.receivers.len(),"max_provider_workers":MAX_FLOWS,"services":([Protocol::Tcp,Protocol::Udp].map(|protocol|json!({"protocol":protocol,
+            "active_flows":state.flows.len(),"provider_workers":state.receivers.len(),"max_provider_workers":MAX_FLOWS + state.channels.len(),"services":([Protocol::Tcp,Protocol::Udp].map(|protocol|json!({"protocol":protocol,
                 "enabled":state.scopes.contains_key(&protocol),"targets":state.scopes.get(&protocol)}))),
             "flows":state.flows.iter().map(|(id,flow)|json!({"id":id.to_string(),"protocol":flow.protocol,"peer":flow.peer,
-                "target":flow.target,"provider":flow.provider,"dropped_datagrams":flow.dropped_datagrams,"transport":flow.connection.as_ref().map(ServiceTransport::status)})).collect::<Vec<_>>(),
+                "target":flow.target,"provider":flow.provider,"channel":flow.channel,"dropped_datagrams":flow.dropped_datagrams,"transport":flow.connection.as_ref().map(ServiceTransport::status)})).collect::<Vec<_>>(),
             "listeners":state.listeners.iter().map(|(id,l)|json!({"id":id.to_string(),"protocol":l.protocol,"peer":l.peer,
                 "target":l.target,"listen":l.listen,"running":!l.join.is_finished() && !l.cancel.is_cancelled(),
                 "counters":*l.counters.lock().unwrap()})).collect::<Vec<_>>()})
@@ -380,6 +396,23 @@ impl NativeForwarding {
             let mut stream = tokio::time::timeout(Duration::from_secs(10), connection.stream(false)).await??;
             let open: forwarding::Open = tokio::time::timeout(Duration::from_secs(10), stream.read_control()).await??;
             if let Some(current) = self.state.lock().unwrap().receivers.get_mut(&receiver.id) { current.target = Some(open.target); }
+            if let Some(channel) = &open.channel {
+                if protocol != Protocol::Tcp || !connection.is_member() || channel.id.len() != 32 {
+                    return Err("unsupported business channel".into());
+                }
+                if channel.resume {
+                    let incoming = {
+                        let state = self.state.lock().unwrap();
+                        let retained = state.channels.get(&channel.id).ok_or("original business channel ended")?;
+                        if retained.peer != peer || retained.target != open.target {
+                            return Err("business channel identity mismatch".into());
+                        }
+                        retained.incoming.clone()
+                    };
+                    incoming.try_send((connection.clone(), stream)).map_err(|_| "business channel busy or ended")?;
+                    return Ok(());
+                }
+            }
             let owner = self.claim(peer, protocol, open.target, true, receiver.cancel.child_token())?;
             self.attach(&owner, connection.clone())?;
             tokio::select! {
@@ -389,16 +422,14 @@ impl NativeForwarding {
                     match protocol {
                         Protocol::Tcp => {
                             let socket = tokio::time::timeout(Duration::from_secs(10), TcpStream::connect(open.target)).await??;
-                            stream.write_control(&forwarding::Ready { connected: true }).await?;
-                            tcp_bridge(socket, stream).await?;
-                            // The consumer retires its connection only after
-                            // reading the full response and stream FIN. A
-                            // provider close here could discard its queued
-                            // final bytes, even after SendStream::finish().
-                            // Keep the FlowOwner alive until that peer close;
-                            // policy/host cancellation still interrupts this
-                            // wait and an absent peer has the usual idle bound.
-                            tokio::time::timeout(IDLE, connection.wait_for_drain()).await?;
+                            if let Some(channel) = open.channel {
+                                self.serve_channel(socket, stream, connection.clone(), &owner, channel.id).await?;
+                            } else {
+                                stream.write_control(&forwarding::Ready { connected: true }).await?;
+                                tcp_bridge(socket, stream).await?;
+                                // Preserve final bytes until the consumer releases its reader.
+                                tokio::time::timeout(IDLE, connection.wait_for_drain()).await?;
+                            }
                             Ok(())
                         },
                         Protocol::Udp => {
@@ -414,6 +445,126 @@ impl NativeForwarding {
         connection.end(b"forward provider ended");
         result
     }
+    async fn serve_channel(
+        &self,
+        socket: TcpStream,
+        mut stream: DataStream,
+        mut transport: ServiceTransport,
+        owner: &FlowOwner,
+        id: String,
+    ) -> Result<(), ClientError> {
+        let (incoming, mut replacements) = tokio::sync::mpsc::channel(1);
+        {
+            let mut state = self.state.lock().unwrap();
+            if state.channels.contains_key(&id) {
+                return Err("business channel already exists".into());
+            }
+            let flow = state.flows.get_mut(&owner.id).ok_or("forward ended")?;
+            flow.channel = Some(id.clone());
+            let peer = flow.peer;
+            let target = flow.target;
+            state.channels.insert(
+                id,
+                ChannelAttachment {
+                    peer,
+                    target,
+                    incoming,
+                },
+            );
+        }
+        stream
+            .write_control(&forwarding::Ready { connected: true })
+            .await?;
+        let (read, write) = socket.into_split();
+        let mut channel = BusinessChannel::new(read, write);
+        loop {
+            match channel.carry(stream, &transport).await {
+                Ok(()) => {
+                    tokio::time::timeout(IDLE, transport.wait_for_drain()).await?;
+                    return Ok(());
+                }
+                Err(ChannelError::Business(error)) => {
+                    transport.abort(1, b"original business ended");
+                    return Err(error.into());
+                }
+                Err(ChannelError::NetworkInterrupted) => {}
+            }
+            let (next, mut next_stream) = tokio::time::timeout(RECOVERY, replacements.recv())
+                .await?
+                .ok_or("business channel ended")?;
+            // An attachment is consumed only after the old carrier is terminal.
+            // The retained FlowOwner continues enforcing current access/target.
+            self.attach(owner, next.clone())?;
+            next_stream
+                .write_control(&forwarding::Ready { connected: true })
+                .await?;
+            transport = next;
+            stream = next_stream;
+        }
+    }
+
+    async fn consume_channel(
+        &self,
+        resources: &crate::resources::ResourceEndpoint,
+        address: EndpointAddr,
+        target: SocketAddr,
+        socket: TcpStream,
+        mut transport: ServiceTransport,
+        owner: &FlowOwner,
+    ) -> Result<(), ClientError> {
+        let mut request = ChannelRequest::new();
+        self.state
+            .lock()
+            .unwrap()
+            .flows
+            .get_mut(&owner.id)
+            .ok_or("forward ended")?
+            .channel = Some(request.id.clone());
+        let mut stream = open_channel(&transport, target, &request).await?;
+        let (read, write) = socket.into_split();
+        let mut channel = BusinessChannel::new(read, write);
+        loop {
+            match channel.carry(stream, &transport).await {
+                Ok(()) => return Ok(()),
+                Err(ChannelError::Business(error)) => {
+                    transport.abort(1, b"original business ended");
+                    return Err(error.into());
+                }
+                Err(ChannelError::NetworkInterrupted) => {}
+            }
+            let deadline = tokio::time::Instant::now() + RECOVERY;
+            request.resume = true;
+            let (next, next_stream) = tokio::time::timeout_at(deadline, async {
+                let next = resources
+                    .connect_service(address.clone(), Protocol::Tcp.into())
+                    .await?;
+                self.attach(owner, next.clone())?;
+                let stream = open_channel(&next, target, &request).await?;
+                Ok::<_, ClientError>((next, stream))
+            })
+            .await??;
+            transport = next;
+            stream = next_stream;
+        }
+    }
+}
+
+async fn open_channel(
+    transport: &ServiceTransport,
+    target: SocketAddr,
+    request: &ChannelRequest,
+) -> Result<DataStream, ClientError> {
+    let mut stream = transport.stream(true).await?;
+    stream
+        .write_control(&forwarding::Open {
+            target,
+            channel: Some(request.clone()),
+        })
+        .await?;
+    if !stream.read_control::<forwarding::Ready>().await?.connected {
+        return Err("business channel unavailable".into());
+    }
+    Ok(stream)
 }
 
 fn wildcard(target: SocketAddr) -> SocketAddr {
@@ -752,14 +903,20 @@ impl NativeClient {
                                     biased;
                                     _ = cancel.cancelled() => Err("forward stopped".into()),
                                     result = async {
-                                        let connection = resources.connect_service(address, protocol.into()).await?;
+                                        let connection = resources.connect_service(address.clone(), protocol.into()).await?;
                                         original = connection.member_connection();
                                         runtime.attach(&owner, connection.clone())?;
-                                        let stream = forwarding::open_on_stream(connection.stream(true).await?, target).await?;
                                         match input {
-                                            Input::Tcp(socket) => tcp_bridge(socket, stream).await,
+                                            Input::Tcp(socket) if connection.is_member() => {
+                                                runtime.consume_channel(&resources, address, target, socket, connection, &owner).await
+                                            }
+                                            Input::Tcp(socket) => {
+                                                let stream = forwarding::open_on_stream(connection.stream(true).await?, target).await?;
+                                                tcp_bridge(socket, stream).await
+                                            }
                                             Input::DroppedDatagram => Err("oversized datagram reached a flow".into()),
                                             Input::Udp(socket, source, payload) => {
+                                                let stream = forwarding::open_on_stream(connection.stream(true).await?, target).await?;
                                                 udp_consumer(socket, source, payload, pending.ok_or("missing datagram queue")?, stream).await
                                             }
                                         }

@@ -206,6 +206,14 @@ impl ServiceTransport {
         }
     }
 
+    pub(crate) fn network_interrupted(&self) -> bool {
+        let reason = match self {
+            Self::Legacy(connection) => connection.close_reason(),
+            Self::Member(stream) => stream.connection.close_reason(),
+        };
+        matches!(reason, Some(ConnectionError::TimedOut | ConnectionError::Reset))
+    }
+
     pub(crate) fn remote_id(&self) -> EndpointId {
         match self {
             Self::Legacy(connection) => connection.remote_id(),

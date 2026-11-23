@@ -40,10 +40,19 @@ impl Protocol {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChannelRequest {
+    pub id: String,
+    pub resume: bool,
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Open {
     pub target: SocketAddr,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channel: Option<ChannelRequest>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -69,7 +78,7 @@ pub async fn open(
 }
 
 pub(crate) async fn open_on_stream(mut stream: DataStream, target: SocketAddr) -> io::Result<DataStream> {
-    stream.write_control(&Open { target }).await?;
+    stream.write_control(&Open { target, channel: None }).await?;
     if !stream.read_control::<Ready>().await?.connected {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
