@@ -40,11 +40,30 @@ impl Protocol {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChannelOrigin {
+    pub connection: [u8; 32],
+    pub stream: u64,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ChannelRequest {
+    pub origin: ChannelOrigin,
     pub id: String,
     pub resume: bool,
+    #[serde(default)]
+    pub generation: u64,
+}
+
+/// Opening result is independent of which carrier currently owns the IO.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ChannelReady {
+    Connected { attached: bool },
+    Ended,
+    OpenOutcomeUnknown,
 }
 
 #[derive(Serialize, Deserialize)]

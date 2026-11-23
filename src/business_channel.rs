@@ -26,10 +26,12 @@ const PROGRESS: u8 = 1;
 const FIN: u8 = 2;
 
 impl ChannelRequest {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(origin: crate::forwarding::ChannelOrigin) -> Self {
         Self {
+            origin,
             id: hex::encode(rand::random::<[u8; 16]>()),
             resume: false,
+            generation: 0,
         }
     }
 }

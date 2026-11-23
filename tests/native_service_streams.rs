@@ -1145,6 +1145,10 @@ struct NativeStreamCut {
 
 impl NativeStreamCut {
     async fn new() -> Self {
+        Self::new_open(false).await
+    }
+
+    async fn new_open(pause_ready: bool) -> Self {
         use miopunch_native_probe::tcp_transport::{DATA_TRANSPORT_ID, TcpTransport};
         let broker = relay_contact_broker::Broker::new().await;
         let relay = relay().await;
@@ -1220,6 +1224,8 @@ impl NativeStreamCut {
                 .await
                 .unwrap();
             let dial = iroh::EndpointAddr::new(server_data.id).with_addrs([route.clone()]);
+            #[cfg(feature = "nat-lab-test-hooks")]
+            provider.test_pause_forward_ready(pause_ready);
             let listener = consumer
                 .start_forwarding(
                     dial,
@@ -1252,7 +1258,9 @@ impl NativeStreamCut {
                 proxy,
             )
         };
-        sequence_reply(&mut sender, &mut receiver, 1).await;
+        if !pause_ready {
+            sequence_reply(&mut sender, &mut receiver, 1).await;
+        }
         let target_address = provider.address();
         Self {
             pair: Pair {
@@ -2625,4 +2633,120 @@ async fn small_reply_meets_its_original_deadline_during_large_relay_stream_progr
     pair.close().await;
     stop.cancel();
     relay.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace"]
+async fn lost_initial_ready_rejoins_the_once_accepted_tcp_target() {
+    let mut cut = NativeStreamCut::new_open(true).await;
+    let channel = flow(&cut.pair.consumer, Protocol::Tcp)["channel"].clone();
+    cut.interrupt_member().await;
+    cut.pair.provider.test_pause_forward_ready(false);
+    sequence_reply(&mut cut.sender, &mut cut.receiver, 172).await;
+    sequence_reply(&mut cut.receiver, &mut cut.sender, 173).await;
+    assert!(timeout(Duration::from_millis(150), cut.target.accept()).await.is_err(), "first open has one target accept");
+    assert_eq!(cut.listener_stats()["accepted"], 1);
+    assert_eq!(cut.listener_stats()["failed"], 0);
+    assert_eq!(flow(&cut.pair.consumer, Protocol::Tcp)["channel"], channel);
+    for (old, new) in cut.before.iter().zip(cut.status()) {
+        assert_ne!(old["connection"], new["connection"]);
+    }
+    eprintln!("MIO172 first Ready lost after independent target accept, original sockets and channel={channel} on new QUIC");
+    cut.close().await;
+}
+
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+async fn original_open_request(cut: &NativeStreamCut) -> miopunch_native_probe::forwarding::ChannelRequest {
+    use miopunch_native_probe::forwarding::{ChannelOrigin, ChannelRequest};
+    let connection = cut.pair.consumer.test_member_connection(cut.pair.target.id).await.unwrap();
+    let mut origin = [0; 32];
+    connection.export_keying_material(&mut origin, b"miopunch-forward-open", &[]).unwrap();
+    let displayed = cut.before[0]["stream"].as_str().unwrap();
+    let initiator = if displayed.starts_with("client ") { noq_proto::Side::Client } else { noq_proto::Side::Server };
+    let index = displayed.rsplit(' ').next().unwrap().parse().unwrap();
+    let stream = noq_proto::StreamId::new(initiator, noq_proto::Dir::Bi, index).into();
+    ChannelRequest {
+        id: flow(&cut.pair.consumer, Protocol::Tcp)["channel"].as_str().unwrap().to_owned(),
+        origin: ChannelOrigin { connection: origin, stream },
+        resume: false,
+        generation: 0,
+    }
+}
+
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+async fn duplicate_open_result(cut: &NativeStreamCut, request: miopunch_native_probe::forwarding::ChannelRequest) -> miopunch_native_probe::forwarding::ChannelReady {
+    use miopunch_native_probe::forwarding::{ChannelReady, Open};
+    let connection = cut.pair.consumer.test_member_connection(cut.pair.target.id).await.unwrap();
+    let mut duplicate = connection.open_bi().await.unwrap();
+    let (send, recv) = duplicate.streams();
+    send.write_all(&[4]).await.unwrap();
+    let request = serde_json::to_vec(&Open {
+        target: cut.target.local_addr().unwrap(), channel: Some(request),
+    }).unwrap();
+    send.write_all(&(request.len() as u32).to_be_bytes()).await.unwrap();
+    send.write_all(&request).await.unwrap();
+    let mut length = [0; 4];
+    timeout(IO, recv.read_exact(&mut length)).await.unwrap().unwrap();
+    let mut record = vec![0; u32::from_be_bytes(length) as usize];
+    recv.read_exact(&mut record).await.unwrap();
+    let result = serde_json::from_slice::<ChannelReady>(&record).unwrap();
+    let mut byte = [0];
+    assert!(timeout(IO, recv.read(&mut byte)).await.unwrap().unwrap().is_none(), "a duplicate never becomes a second IO carrier");
+    send.finish().unwrap();
+    result
+}
+
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace"]
+async fn duplicate_and_delayed_open_leave_one_effective_channel() {
+    let mut cut = NativeStreamCut::new_open(true).await;
+    // Repeat the first request while its Ready is still paused. The result
+    // refers to the same accepted object and cannot grant another IO carrier.
+    let request = original_open_request(&cut).await;
+    assert!(matches!(duplicate_open_result(&cut, request.clone()).await, miopunch_native_probe::forwarding::ChannelReady::Connected { attached: false }));
+    assert!(timeout(Duration::from_millis(100), cut.target.accept()).await.is_err());
+    cut.interrupt_member().await;
+    cut.pair.provider.test_pause_forward_ready(false);
+    sequence_reply(&mut cut.sender, &mut cut.receiver, 1721).await;
+    // A delayed copy of generation zero arrives after the replacement took over.
+    assert!(matches!(duplicate_open_result(&cut, request.clone()).await, miopunch_native_probe::forwarding::ChannelReady::Connected { attached: false }));
+    let mut resumed = request;
+    resumed.generation = 1;
+    resumed.resume = true;
+    assert!(matches!(duplicate_open_result(&cut, resumed).await, miopunch_native_probe::forwarding::ChannelReady::Connected { attached: false }));
+    sequence_reply(&mut cut.receiver, &mut cut.sender, 1722).await;
+    assert!(timeout(Duration::from_millis(150), cut.target.accept()).await.is_err());
+    assert_eq!(cut.pair.provider.forwarding_status()["active_flows"], 1);
+    assert_eq!(cut.listener_stats()["accepted"], 1);
+    assert_eq!(cut.listener_stats()["failed"], 0);
+    eprintln!("MIO172 duplicate first Open before Ready and delayed generations after replacement return same connected result; one IO owner and one target");
+    cut.close().await;
+}
+
+#[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace"]
+async fn lost_open_record_reports_unknown_without_opening_another_target() {
+    let mut cut = NativeStreamCut::new_open(true).await;
+    let id = flow(&cut.pair.consumer, Protocol::Tcp)["channel"].as_str().unwrap().to_owned();
+    let original = original_open_request(&cut).await;
+    cut.pair.provider.test_forget_forward_open(&id);
+    assert!(matches!(duplicate_open_result(&cut, original).await, miopunch_native_probe::forwarding::ChannelReady::OpenOutcomeUnknown), "a late original Open cannot recreate a lost target record even on the original QUIC");
+    assert!(timeout(Duration::from_millis(150), cut.target.accept()).await.is_err());
+    cut.interrupt_member().await;
+    cut.pair.provider.test_pause_forward_ready(false);
+    timeout(Duration::from_secs(60), async {
+        while cut.listener_stats()["failed"] != 1 {
+            sleep(Duration::from_millis(20)).await;
+        }
+    }).await.expect("opening result settles within the node's existing reconnect budget");
+    assert_eq!(cut.listener_stats()["last_error"], "open_outcome_unknown");
+    let mut byte = [0];
+    assert_eq!(timeout(IO, cut.sender.read(&mut byte)).await.unwrap().unwrap(), 0);
+    assert!(timeout(Duration::from_millis(150), cut.target.accept()).await.is_err());
+    assert_eq!(cut.listener_stats()["accepted"], 1);
+    eprintln!("MIO172 lost opening record => public listener.last_error=open_outcome_unknown, original socket EOF, target accept=1");
+    cut.close().await;
 }
