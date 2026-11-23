@@ -219,13 +219,19 @@ async fn observe_pending_operation<T>(
     mut operation: std::pin::Pin<&mut impl std::future::Future<Output = T>>,
 ) -> Result<(), ClientError> {
     use std::task::Poll;
-    tokio::time::timeout(Duration::from_secs(1), std::future::poll_fn(|context| {
-        match operation.as_mut().poll(context) {
-            Poll::Ready(_) => Poll::Ready(Err("terminal operation ended before observing its pending owner".into())),
-            Poll::Pending if client.terminal_status()["active_operations"] == 1 => Poll::Ready(Ok(())),
+    tokio::time::timeout(
+        Duration::from_secs(1),
+        std::future::poll_fn(|context| match operation.as_mut().poll(context) {
+            Poll::Ready(_) => Poll::Ready(Err(
+                "terminal operation ended before observing its pending owner".into(),
+            )),
+            Poll::Pending if client.terminal_status()["active_operations"] == 1 => {
+                Poll::Ready(Ok(()))
+            }
             Poll::Pending => Poll::Pending,
-        }
-    })).await?
+        }),
+    )
+    .await?
 }
 async fn exact_file(path: &Path, literal: &[u8]) -> Result<(), ClientError> {
     wait_until(Duration::from_secs(10), || {
@@ -316,17 +322,26 @@ async fn owned_terminal_real_output_and_input_pressure_are_bounded() {
         // This is not an interposed stream, clock or fault implementation.
         send(pair.consumer(), &id, "python3 -c 'import os; open(\"output-start\",\"w\").write(\"started\"); [os.write(1,b\"P\"*16384) for _ in range(1024)]; open(\"output-done\",\"w\").write(\"completed\")'\n").await?;
         exact_file(&pair.file(&workspace,"output-start"),b"started").await?;
-        wait_until(Duration::from_secs(10), || pair.consumer().terminal_status()["active_operations"] == 0).await?;
-        if pair.provider().terminal_status()["enabled"] != true || pair.provider().terminal_status()["failed_operations"].as_u64().unwrap_or(0) <= failures { return Err("output-pressure failure premise absent".into()); }
+        wait_until(Duration::from_secs(10), || {
+            let status=pair.consumer().terminal_status();
+            status["channel_buffers"]["receive_bytes"] == status["channel_buffers"]["policy"]["channel_bytes"]
+        }).await?;
+        if pair.provider().terminal_status()["enabled"] != true
+            || pair.consumer().terminal_status()["active_operations"] != 1
+            || pair.provider().terminal_status()["failed_operations"].as_u64().unwrap_or(0) != failures {
+            return Err("output pressure did not preserve the bounded live channel".into());
+        }
         let outcome = pair.consumer().read_terminal(&id,Duration::from_millis(100)).await?;
-        if outcome["attached"] != false || outcome["failed"] != true { return Err("output pressure did not report truthful failure".into()); }
+        if outcome["attached"] != true || outcome["message"]["type"] != "bytes" {
+            return Err("confirmed output unavailable under backpressure".into());
+        }
         let started = Instant::now();
         let detached = tokio::time::timeout(Duration::from_millis(6250), pair.consumer().detach_terminal(&id)).await??;
         let detach_seconds = started.elapsed().as_secs_f64();
         if detached["workspace_ended"] != false || detached["failed"] != true { return Err("failed output attachment was reported as normal/end".into()); }
         pair.settle_provider().await?;
         exact_file(&pair.file(&workspace,"output-done"), b"completed").await?;
-        println!("M120_OUTPUT_PRESSURE produced_bytes=16777216 reader_consumed=false detach_seconds={detach_seconds} retained_job=true failure_truthful=true");
+        println!("M120_OUTPUT_PRESSURE produced_bytes=16777216 reader_absent_until_full=true confirmed_chunk_read_before_close=true detach_seconds={detach_seconds} retained_job=true backpressure_live=true explicit_abort_truthful=true");
         pair.end(&workspace).await?;
 
         let workspace = pair.create().await?;

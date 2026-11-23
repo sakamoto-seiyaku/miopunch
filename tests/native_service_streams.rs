@@ -3485,3 +3485,466 @@ async fn cancelling_while_disconnected_ends_local_io_and_retained_peer_expires()
     );
     cut.close().await;
 }
+
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[tokio::test]
+#[ignore = "requires a disposable network namespace and real tmux"]
+async fn terminal_keeps_original_attachment_and_shell_after_member_replacement() {
+    use miopunch_native_probe::terminal::{TerminalInput, TerminalProvider, TerminalRequest};
+    let cut = NativeStreamCut::new().await;
+    cut.learn_contact(0).await;
+    let directory = cut.pair.root.path().join("terminal");
+    cut.pair
+        .provider
+        .enable_terminal(TerminalProvider {
+            directory: directory.to_str().unwrap().into(),
+            distribution: None,
+        })
+        .await
+        .unwrap();
+    cut.pair
+        .provider
+        .sync_services(cut.pair.consumer.address())
+        .await
+        .unwrap();
+    let workspace = cut
+        .pair
+        .consumer
+        .request_terminal(cut.pair.provider.address(), TerminalRequest::Create)
+        .await
+        .unwrap()["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let attached = cut
+        .pair
+        .consumer
+        .attach_terminal(cut.pair.provider.address(), workspace.clone(), 80, 24)
+        .await
+        .unwrap();
+    let id = attached["id"].as_str().unwrap();
+    let command = "stty -echo; MIO174_STATE=original; printf '%s\\n' $$ > shell; printf 'BEFORE\\n' >> observed; printf 'MIO174_'; printf 'READY\\n'\n";
+    cut.pair
+        .consumer
+        .send_terminal(
+            id,
+            TerminalInput::Bytes {
+                data: command.as_bytes().to_vec(),
+            },
+        )
+        .await
+        .unwrap();
+    terminal_literal(&cut.pair.consumer, id, b"MIO174_READY").await;
+    let shell = std::fs::read(directory.join(&workspace).join("shell")).unwrap();
+    cut.interrupt_member().await;
+    cut.pair.consumer.send_terminal(id, TerminalInput::Bytes {data:b"printf '%s\\n' $$ > shell-after; printf '%s\\n' \"$MIO174_STATE\" >> observed; printf 'MIO174_'; printf 'RESUMED\\n'\n".to_vec()}).await.unwrap();
+    terminal_literal(&cut.pair.consumer, id, b"MIO174_RESUMED").await;
+    assert_eq!(
+        std::fs::read(directory.join(&workspace).join("shell-after")).unwrap(),
+        shell
+    );
+    assert_eq!(
+        std::fs::read(directory.join(&workspace).join("observed")).unwrap(),
+        b"BEFORE\noriginal\n"
+    );
+    assert_eq!(
+        cut.pair.consumer.detach_terminal(id).await.unwrap()["failed"],
+        false
+    );
+    cut.pair
+        .consumer
+        .request_terminal(
+            cut.pair.provider.address(),
+            TerminalRequest::End { workspace },
+        )
+        .await
+        .unwrap();
+    eprintln!(
+        "MIO174 original attachment={} shell={} survived actual QUIC TimedOut",
+        id,
+        String::from_utf8_lossy(&shell)
+    );
+    cut.close().await;
+}
+
+#[tokio::test]
+#[ignore = "observes a healthy retained channel beyond the former sixty-second IO deadline"]
+async fn healthy_retained_channel_survives_more_than_sixty_seconds_of_application_silence() {
+    let mut cut = NativeStreamCut::new().await;
+    sleep(Duration::from_secs(62)).await;
+    sequence_reply(&mut cut.sender, &mut cut.receiver, 174).await;
+    for (old, new) in cut.before.iter().zip(cut.status()) {
+        assert_eq!(old["connection"], new["connection"]);
+        assert_eq!(old["stream"], new["stream"]);
+    }
+    eprintln!(
+        "MIO174 healthy original channel accepted new IO after 62 seconds of application silence"
+    );
+    cut.close().await;
+}
+
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+async fn terminal_literal(node: &NativeClient, id: &str, literal: &[u8]) {
+    let mut bytes = Vec::new();
+    timeout(Duration::from_secs(15), async {
+        loop {
+            let reply = node
+                .read_terminal(id, Duration::from_millis(100))
+                .await
+                .unwrap();
+            assert_eq!(reply["attached"], true, "{reply}");
+            if reply["message"]["type"] == "bytes" {
+                bytes.extend(
+                    serde_json::from_value::<Vec<u8>>(reply["message"]["data"].clone()).unwrap(),
+                );
+                if bytes.windows(literal.len()).any(|s| s == literal) {
+                    break;
+                }
+            }
+        }
+    })
+    .await
+    .unwrap();
+}
+
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+async fn terminal_workspace(cut: &NativeStreamCut) -> (std::path::PathBuf, String) {
+    use miopunch_native_probe::terminal::{TerminalProvider, TerminalRequest};
+    let directory = cut.pair.root.path().join("terminal");
+    cut.pair
+        .provider
+        .enable_terminal(TerminalProvider {
+            directory: directory.to_str().unwrap().into(),
+            distribution: None,
+        })
+        .await
+        .unwrap();
+    cut.pair
+        .provider
+        .sync_services(cut.pair.consumer.address())
+        .await
+        .unwrap();
+    let workspace = cut
+        .pair
+        .consumer
+        .request_terminal(cut.pair.provider.address(), TerminalRequest::Create)
+        .await
+        .unwrap()["workspace"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    (directory, workspace)
+}
+
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[tokio::test]
+#[ignore = "requires disposable network namespace and real tmux"]
+async fn terminal_lost_initial_ready_recovers_the_original_control_process() {
+    use miopunch_native_probe::terminal::{TerminalInput, TerminalRequest};
+    let cut = NativeStreamCut::new().await;
+    cut.learn_contact(0).await;
+    let (_, workspace) = terminal_workspace(&cut).await;
+    cut.pair.provider.test_pause_terminal_ready(true);
+    let opening =
+        cut.pair
+            .consumer
+            .attach_terminal(cut.pair.provider.address(), workspace.clone(), 80, 24);
+    let fault = async {
+        wait_until(|| cut.pair.provider.terminal_status()["attachment_process_owners"] == 1).await;
+        let original = cut.pair.provider.terminal_status()["operations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|o| !o["channel"].is_null())
+            .unwrap()["transport"]["connection"]
+            .clone();
+        cut.interrupt_member().await;
+        timeout(Duration::from_secs(15), async {
+            loop {
+                let changed = cut.pair.provider.terminal_status()["operations"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|o| !o["channel"].is_null() && o["transport"]["connection"] != original);
+                if changed {
+                    break;
+                }
+                sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        // The first replacement also loses Ready. A fresh generation must
+        // resume within the same original recovery deadline.
+        cut.interrupt_member().await;
+        cut.pair.provider.test_pause_terminal_ready(false);
+    };
+    let (attached, ()) = tokio::join!(opening, fault);
+    let attached = attached.unwrap();
+    let id = attached["id"].as_str().unwrap();
+    assert_eq!(
+        cut.pair.provider.terminal_status()["attachment_process_owners"],
+        1
+    );
+    cut.pair
+        .consumer
+        .send_terminal(
+            id,
+            TerminalInput::Bytes {
+                data: b"stty -echo; printf 'MIO174_'; printf 'INITIAL\\n'\n".to_vec(),
+            },
+        )
+        .await
+        .unwrap();
+    terminal_literal(&cut.pair.consumer, id, b"MIO174_INITIAL").await;
+    assert_eq!(
+        cut.pair.consumer.detach_terminal(id).await.unwrap()["failed"],
+        false
+    );
+    wait_until(|| cut.pair.provider.terminal_status()["attachment_process_owners"] == 0).await;
+    cut.pair
+        .consumer
+        .request_terminal(
+            cut.pair.provider.address(),
+            TerminalRequest::End { workspace },
+        )
+        .await
+        .unwrap();
+    eprintln!(
+        "MIO174 lost first and replacement Ready, original single tmux control process and channel recovered"
+    );
+    cut.close().await;
+}
+
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[tokio::test]
+#[ignore = "requires disposable network namespace and real tmux"]
+async fn terminal_expiry_delivers_queued_confirmed_output_before_failure() {
+    use miopunch_native_probe::terminal::{TerminalInput, TerminalRequest};
+    let policy = miopunch_native_probe::forwarding::ChannelPolicy {
+        recovery_ms: 1200,
+        ..Default::default()
+    };
+    let cut = NativeStreamCut::new_policy(false, policy).await;
+    cut.learn_contact(0).await;
+    let (_, workspace) = terminal_workspace(&cut).await;
+    let attached = cut
+        .pair
+        .consumer
+        .attach_terminal(cut.pair.provider.address(), workspace.clone(), 80, 24)
+        .await
+        .unwrap();
+    let id = attached["id"].as_str().unwrap();
+    cut.pair
+        .consumer
+        .send_terminal(
+            id,
+            TerminalInput::Bytes {
+                data: b"stty -echo; printf 'MIO174_'; printf 'UNREAD\\n'\n".to_vec(),
+            },
+        )
+        .await
+        .unwrap();
+    wait_until(|| {
+        cut.pair.consumer.terminal_status()["queued_output_records"]
+            .as_u64()
+            .unwrap()
+            > 0
+    })
+    .await;
+    let faults = cut.hold_interruption().await;
+    sleep(Duration::from_millis(1600)).await;
+    let mut bytes = Vec::new();
+    timeout(Duration::from_secs(6), async {
+        loop {
+            let reply = cut
+                .pair
+                .consumer
+                .read_terminal(id, Duration::from_millis(100))
+                .await
+                .unwrap();
+            if reply["message"]["type"] == "bytes" {
+                bytes.extend(
+                    serde_json::from_value::<Vec<u8>>(reply["message"]["data"].clone()).unwrap(),
+                );
+            }
+            if reply["attached"] == false {
+                assert_eq!(reply["failed"], true);
+                break;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert!(
+        bytes
+            .windows(b"MIO174_UNREAD".len())
+            .any(|x| x == b"MIO174_UNREAD"),
+        "confirmed queued output {bytes:?}"
+    );
+    drop(faults);
+    cut.broker.unmute_datagrams();
+    cut.pair.consumer.cancel_terminal(id).await.unwrap();
+    cut.pair
+        .consumer
+        .request_terminal(
+            cut.pair.provider.address(),
+            TerminalRequest::End { workspace },
+        )
+        .await
+        .unwrap();
+    eprintln!("MIO174 confirmed unread terminal output drained before expiry failure");
+    cut.close().await;
+}
+
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[tokio::test]
+#[ignore = "requires disposable network namespace and sixteen real tmux control clients"]
+async fn terminal_full_attachment_capacity_recovers_on_one_member_connection() {
+    use miopunch_native_probe::terminal::{TerminalInput, TerminalRequest};
+    let cut = NativeStreamCut::new().await;
+    cut.learn_contact(0).await;
+    let (_, workspace) = terminal_workspace(&cut).await;
+    let mut attachments = Vec::new();
+    for _ in 0..16 {
+        let a = cut
+            .pair
+            .consumer
+            .attach_terminal(cut.pair.provider.address(), workspace.clone(), 80, 24)
+            .await
+            .unwrap();
+        attachments.push(a["id"].as_str().unwrap().to_owned());
+    }
+    assert_eq!(
+        cut.pair.provider.terminal_status()["attachment_process_owners"],
+        16
+    );
+    cut.interrupt_member().await;
+    for (n, id) in attachments.iter().enumerate() {
+        let marker = format!("MIO174_CAP_{n}");
+        let command = format!("printf 'MIO174_'; printf 'CAP_{n}\\n'\n");
+        cut.pair
+            .consumer
+            .send_terminal(
+                id,
+                TerminalInput::Bytes {
+                    data: command.into_bytes(),
+                },
+            )
+            .await
+            .unwrap();
+        terminal_literal(&cut.pair.consumer, id, marker.as_bytes()).await;
+    }
+    assert_eq!(
+        cut.pair.provider.terminal_status()["attachment_process_owners"],
+        16
+    );
+    let operations = cut.pair.consumer.terminal_status()["operations"]
+        .as_array()
+        .unwrap()
+        .clone();
+    let connections: std::collections::BTreeSet<_> = operations
+        .iter()
+        .filter_map(|o| o["transport"]["connection"].as_u64())
+        .collect();
+    assert_eq!(connections.len(), 1);
+    for id in attachments {
+        loop {
+            let reply = cut
+                .pair
+                .consumer
+                .read_terminal(&id, Duration::from_millis(20))
+                .await
+                .unwrap();
+            if reply["pending"] == true {
+                break;
+            }
+            assert_eq!(reply["attached"], true, "{reply}");
+        }
+        assert_eq!(
+            cut.pair.consumer.detach_terminal(&id).await.unwrap()["failed"],
+            false
+        );
+    }
+    cut.pair
+        .consumer
+        .request_terminal(
+            cut.pair.provider.address(),
+            TerminalRequest::End { workspace },
+        )
+        .await
+        .unwrap();
+    eprintln!("MIO174 sixteen original attachments recovered on one shared new QUIC");
+    cut.close().await;
+}
+
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[tokio::test]
+#[ignore = "requires disposable network namespace and real tmux"]
+async fn terminal_provider_expiry_delivers_confirmed_input_before_ending_control_client() {
+    use miopunch_native_probe::terminal::{TerminalInput, TerminalRequest};
+    let policy = miopunch_native_probe::forwarding::ChannelPolicy {
+        recovery_ms: 1200,
+        ..Default::default()
+    };
+    let cut = NativeStreamCut::new_policy(false, policy).await;
+    cut.learn_contact(0).await;
+    let (directory, workspace) = terminal_workspace(&cut).await;
+    let attached = cut
+        .pair
+        .consumer
+        .attach_terminal(cut.pair.provider.address(), workspace.clone(), 80, 24)
+        .await
+        .unwrap();
+    let id = attached["id"].as_str().unwrap();
+    cut.pair
+        .consumer
+        .send_terminal(
+            id,
+            TerminalInput::Bytes {
+                data: b"stty -echo; printf 'MIO174_'; printf 'INPUT_READY\\n'\n".to_vec(),
+            },
+        )
+        .await
+        .unwrap();
+    terminal_literal(&cut.pair.consumer, id, b"MIO174_INPUT_READY").await;
+    cut.pair.provider.test_pause_terminal_input(true);
+    cut.pair
+        .consumer
+        .send_terminal(
+            id,
+            TerminalInput::Bytes {
+                data: b"printf 'confirmed-input' > expiry-input\n".to_vec(),
+            },
+        )
+        .await
+        .unwrap();
+    wait_until(|| cut.pair.provider.test_terminal_input_waiting()).await;
+    let faults = cut.hold_interruption().await;
+    sleep(Duration::from_millis(1600)).await;
+    assert!(!directory.join(&workspace).join("expiry-input").exists());
+    cut.pair.provider.test_pause_terminal_input(false);
+    wait_until(|| {
+        std::fs::read(directory.join(&workspace).join("expiry-input"))
+            .ok()
+            .as_deref()
+            == Some(b"confirmed-input")
+    })
+    .await;
+    wait_until(|| cut.pair.provider.terminal_status()["attachment_process_owners"] == 0).await;
+    drop(faults);
+    cut.broker.unmute_datagrams();
+    cut.pair.consumer.cancel_terminal(id).await.unwrap();
+    cut.pair
+        .consumer
+        .request_terminal(
+            cut.pair.provider.address(),
+            TerminalRequest::End { workspace },
+        )
+        .await
+        .unwrap();
+    eprintln!(
+        "MIO174 provider drains confirmed original input before expiry closes the tmux control client"
+    );
+    cut.close().await;
+}

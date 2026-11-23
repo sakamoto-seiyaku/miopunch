@@ -1964,6 +1964,13 @@ impl MemberConnection {
         self.0.connection.close_reason()
     }
 
+    /// Whether bilateral member arbitration replaced this carrier. Application
+    /// channel owners may attach their retained state to the selected member.
+    pub fn was_superseded(&self) -> bool {
+        matches!(self.close_reason(), Some(ConnectionError::ApplicationClosed(closed))
+            if closed.error_code == 0u32.into() && closed.reason.as_ref() == SUPERSEDED_REASON)
+    }
+
     /// Close this exact original in transportation and ownership fixtures.
     #[cfg(feature = "miopunch-test-hooks")]
     #[doc(hidden)]

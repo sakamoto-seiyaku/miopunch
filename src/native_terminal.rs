@@ -1,6 +1,8 @@
 //! Terminal service ownership, using the existing admitted connection and ACL.
 use crate::{
+    business_channel::{BusinessChannel, ChannelBudget, ChannelError, RecoveryExpired},
     data_stream::DataStream,
+    forwarding::{ChannelOrigin, ChannelRequest},
     native_client::{ClientError, NativeClient},
     native_member_services::{MemberService, ServiceTransport},
     service_policy::{Service, ServiceAccess},
@@ -28,12 +30,22 @@ struct Flow {
     provider: bool,
     cancel: CancellationToken,
     connection: Option<ServiceTransport>,
+    channel: Option<String>,
+    header: bool,
 }
 struct Attachment {
+    peer: VerifyingKey,
     outgoing: mpsc::Sender<TerminalInput>,
     incoming: AsyncMutex<mpsc::Receiver<TerminalOutput>>,
     cancel: CancellationToken,
     outcome: Arc<Mutex<Option<bool>>>,
+}
+struct RetainedTerminal {
+    peer: VerifyingKey,
+    workspace: String,
+    origin: ChannelOrigin,
+    generation: u64,
+    incoming: mpsc::Sender<(ServiceTransport, DataStream)>,
 }
 #[derive(Default)]
 struct State {
@@ -44,6 +56,7 @@ struct State {
     next: u64,
     active: BTreeMap<u64, Flow>,
     attachments: BTreeMap<u64, Arc<Attachment>>,
+    channels: BTreeMap<String, RetainedTerminal>,
     completed: u64,
     failed: u64,
 }
@@ -54,6 +67,15 @@ pub(crate) struct NativeTerminal {
     configuring: AsyncMutex<()>,
     connecting: AsyncMutex<()>,
     joined: Notify,
+    budget: Arc<ChannelBudget>,
+    #[cfg(feature = "nat-lab-test-hooks")]
+    ready_paused: std::sync::atomic::AtomicBool,
+    #[cfg(feature = "nat-lab-test-hooks")]
+    ready_changed: Notify,
+    #[cfg(feature = "nat-lab-test-hooks")]
+    input_paused: std::sync::atomic::AtomicBool,
+    #[cfg(feature = "nat-lab-test-hooks")]
+    input_waiting: std::sync::atomic::AtomicBool,
 }
 pub(crate) struct TerminalOwner(pub Arc<NativeTerminal>);
 impl Drop for TerminalOwner {
@@ -71,6 +93,9 @@ impl Drop for Operation {
     fn drop(&mut self) {
         let mut state = self.runtime.state.lock().unwrap();
         if let Some(flow) = state.active.remove(&self.id) {
+            if let Some(id) = &flow.channel {
+                state.channels.remove(id);
+            }
             flow.cancel.cancel();
             if self.completed {
                 state.completed = state.completed.saturating_add(1);
@@ -90,9 +115,21 @@ impl Drop for Operation {
 }
 
 impl NativeTerminal {
-    pub fn new(gate: crate::admission_gate::AdmissionGate) -> Arc<Self> {
+    pub fn new(
+        gate: crate::admission_gate::AdmissionGate,
+        budget: Arc<ChannelBudget>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             state: Default::default(),
+            budget,
+            #[cfg(feature = "nat-lab-test-hooks")]
+            ready_paused: Default::default(),
+            #[cfg(feature = "nat-lab-test-hooks")]
+            ready_changed: Default::default(),
+            #[cfg(feature = "nat-lab-test-hooks")]
+            input_paused: Default::default(),
+            #[cfg(feature = "nat-lab-test-hooks")]
+            input_waiting: Default::default(),
             gate,
             tasks: Default::default(),
             configuring: Default::default(),
@@ -136,9 +173,12 @@ impl NativeTerminal {
             provider,
             cancel: CancellationToken::new(),
             connection: None,
+            channel: None,
+            header: provider,
         };
         if state.closed
-            || state.active.len() >= MAX_OPERATIONS
+            || state.active.len()
+                >= MAX_OPERATIONS + if provider { state.channels.len() } else { 0 }
             || !state
                 .access
                 .as_ref()
@@ -159,6 +199,18 @@ impl NativeTerminal {
             cancel,
             completed: false,
         })
+    }
+    fn activate(&self, owner: &Operation) -> Result<(), ClientError> {
+        let mut state = self.state.lock().unwrap();
+        if state.active.values().filter(|f| !f.header).count() >= MAX_OPERATIONS {
+            return Err("terminal capacity reached".into());
+        }
+        state
+            .active
+            .get_mut(&owner.id)
+            .ok_or("terminal ended")?
+            .header = false;
+        Ok(())
     }
     fn authorize(&self, owner: &Operation) -> Result<Arc<Tmux>, ClientError> {
         let state = self.state.lock().unwrap();
@@ -208,6 +260,9 @@ impl NativeTerminal {
             .is_some_and(|backend| backend.cleanup_unknown.load(Ordering::Acquire));
         json!({"provider_platform":cfg!(any(target_os="linux", windows)),"configured":state.backend.is_some(),
             "capable":state.backend.is_some(),"enabled":state.enabled,"closed":state.closed,"client_available":!state.closed,
+            "queued_output_records":state.attachments.values().filter_map(|a|a.incoming.try_lock().ok().map(|q|q.len())).sum::<usize>(),
+            "channel_buffers":self.budget.status(),
+            "operations":state.active.iter().map(|(id,f)| json!({"id":id.to_string(),"channel":f.channel,"transport":f.connection.as_ref().map(|c|c.status())})).collect::<Vec<_>>(),
             "active_operations":state.active.len(),"attachment_handles":state.attachments.len(),
             "attachment_process_owners":processes,"process_cleanup_unknown":cleanup_unknown,
             "max_operations":MAX_OPERATIONS,"max_workspaces":terminal::MAX_WORKSPACES,
@@ -257,7 +312,10 @@ impl NativeTerminal {
         }
         Ok(())
     }
-    pub async fn receive(self: &Arc<Self>, connection: ServiceTransport) -> Result<(), ClientError> {
+    pub async fn receive(
+        self: &Arc<Self>,
+        connection: ServiceTransport,
+    ) -> Result<(), ClientError> {
         let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())?;
         let mut tasks = self.tasks.lock().await;
         while tasks.try_join_next().is_some() {}
@@ -287,6 +345,7 @@ impl NativeTerminal {
                     Ok::<_, ClientError>((stream,request))
                 } => result?,
             };
+            if !matches!(request, TerminalRequest::AttachChannel {..}) { self.activate(&owner)?; }
             let backend = self.authorize(&owner)?;
             let reply = match request {
                 TerminalRequest::Create => json!({"ok":true,"workspace":backend.create(&owner.cancel).await?,"retained":true}),
@@ -294,6 +353,9 @@ impl NativeTerminal {
                 TerminalRequest::End { workspace } => {
                     backend.end(&workspace, &owner.cancel).await?;
                     json!({"ok":true,"workspace":workspace,"ended":true})
+                }
+                TerminalRequest::AttachChannel { workspace, columns, rows, channel } => {
+                    return self.serve_retained(&owner, connection.clone(), stream, workspace, columns, rows, channel).await;
                 }
                 TerminalRequest::Attach { workspace, columns, rows } => {
                     let mut client = backend.attach(&workspace, columns, rows, &owner.cancel).await?;
@@ -303,7 +365,7 @@ impl NativeTerminal {
                         _ = owner.cancel.cancelled() => Err("terminal attachment cancelled".into()),
                         result = stream.write_control(&response) => result.map_err(Into::into),
                     };
-                    let result = if ready.is_ok() { self.serve_attachment(&owner, &connection, stream, &mut client).await }
+                    let result = if ready.is_ok() { self.serve_attachment(&owner, Some(&connection), stream, &mut client).await }
                                  else { ready };
                     let cleanup = client.close().await;
                     result?;
@@ -321,12 +383,15 @@ impl NativeTerminal {
             }
             Ok(())
         }.await;
+        if let Err(error) = &result {
+            eprintln!("TERMINAL_PROVIDER_ENDED {error}");
+        }
         owner.completed = result.is_ok();
     }
     async fn serve_attachment(
         &self,
         owner: &Operation,
-        connection: &ServiceTransport,
+        connection: Option<&ServiceTransport>,
         stream: DataStream,
         client: &mut ControlClient,
     ) -> Result<(), ClientError> {
@@ -339,6 +404,13 @@ impl NativeTerminal {
             let receiving = async {
                 loop {
                     let message = terminal::read_input(&mut reader).await?;
+                    #[cfg(feature = "nat-lab-test-hooks")]
+                    while self.input_paused.load(Ordering::SeqCst) {
+                        self.input_waiting.store(true, Ordering::SeqCst);
+                        self.ready_changed.notified().await;
+                    }
+                    #[cfg(feature = "nat-lab-test-hooks")]
+                    self.input_waiting.store(false, Ordering::SeqCst);
                     self.authorize(owner)?;
                     input
                         .write_all(&ControlClient::encode(&workspace, &message)?)
@@ -353,10 +425,11 @@ impl NativeTerminal {
                     self.authorize(owner)?;
                     for chunk in bytes.chunks(terminal::MAX_BYTES) {
                         events
-                            .try_send(TerminalOutput::Bytes {
+                            .send(TerminalOutput::Bytes {
                                 data: chunk.to_vec(),
                             })
-                            .map_err(|_| "terminal output consumer fell behind")?;
+                            .await
+                            .map_err(|_| "terminal output consumer ended")?;
                     }
                 }
                 drop(events);
@@ -372,14 +445,14 @@ impl NativeTerminal {
             tokio::pin!(receiving, reading, sending);
             tokio::select! { biased;
                 _ = owner.cancel.cancelled() => Err("terminal authorization or attachment ended".into()),
-                _ = connection.closed() => Err("terminal peer disconnected".into()),
+                _ = async { match connection { Some(c) => c.closed().await, None => std::future::pending().await } } => Err("terminal peer disconnected".into()),
                 result = &mut receiving => result,
                 result = &mut reading => {
                     if let Err(failure) = result { Err(failure) }
                     else {
                         tokio::select! { biased;
                             _ = owner.cancel.cancelled() => Err("terminal attachment ended".into()),
-                            _ = connection.closed() => Err("terminal peer disconnected".into()),
+                            _ = async { match connection { Some(c) => c.closed().await, None => std::future::pending().await } } => Err("terminal peer disconnected".into()),
                             result = tokio::time::timeout(Duration::from_secs(5), &mut sending) => result.map_err(|_| "terminal output drain timed out".into()).and_then(|result| result),
                         }
                     }
@@ -399,7 +472,7 @@ impl NativeTerminal {
             result = tokio::time::timeout(Duration::from_secs(5), async {
                 terminal::write_output(&mut writer, &TerminalOutput::Detached).await?;
                 writer.finish()?;
-                if !connection.received(b"Terminal operation completed", reader.read_chunk()).await {
+                if !match connection { Some(c) => c.received(b"Terminal operation completed", reader.read_chunk()).await, None => reader.read_chunk().await.is_ok_and(|b| b.is_empty()) } {
                     return Err("terminal consumer did not acknowledge detach".into());
                 }
                 Ok::<_, ClientError>(())
@@ -407,6 +480,218 @@ impl NativeTerminal {
         }
         Ok(())
     }
+    async fn serve_retained(
+        &self,
+        owner: &Operation,
+        mut transport: ServiceTransport,
+        mut stream: DataStream,
+        workspace: String,
+        columns: u16,
+        rows: u16,
+        request: ChannelRequest,
+    ) -> Result<(), ClientError> {
+        let (sender, mut replacements) = mpsc::channel(1);
+        {
+            let mut state = self.state.lock().unwrap();
+            let peer = state.active.get(&owner.id).ok_or("terminal ended")?.peer;
+            if let Some(retained) = state.channels.get_mut(&request.id) {
+                if retained.peer != peer
+                    || retained.workspace != workspace
+                    || retained.origin != request.origin
+                {
+                    return Err("terminal channel identity mismatch".into());
+                }
+                if request.generation <= retained.generation {
+                    return Err("terminal carrier already attached".into());
+                }
+                retained
+                    .incoming
+                    .try_send((transport, stream))
+                    .map_err(|_| "terminal replacement busy")?;
+                retained.generation = request.generation;
+                state.active.get_mut(&owner.id).unwrap().connection = None;
+                return Ok(());
+            }
+            if request.resume
+                || request.origin
+                    != terminal_origin(
+                        &transport,
+                        stream.stream_id().ok_or("terminal stream missing")?,
+                    )?
+            {
+                return Err("original terminal opening unavailable".into());
+            }
+            if state.active.values().filter(|f| !f.header).count() >= MAX_OPERATIONS {
+                return Err("terminal capacity reached".into());
+            }
+            state.active.get_mut(&owner.id).unwrap().header = false;
+            state.active.get_mut(&owner.id).unwrap().channel = Some(request.id.clone());
+            state.channels.insert(
+                request.id.clone(),
+                RetainedTerminal {
+                    peer,
+                    workspace: workspace.clone(),
+                    origin: request.origin,
+                    generation: request.generation,
+                    incoming: sender,
+                },
+            );
+        }
+        let backend = self.authorize(owner)?;
+        let mut client = backend
+            .attach(&workspace, columns, rows, &owner.cancel)
+            .await?;
+        let response = json!({"ok":true,"workspace":workspace,"attached":true,"channel":request.id,"max_chunk_bytes":terminal::MAX_BYTES,"queue_capacity":terminal::QUEUE_CAPACITY});
+        let (logical, read, write) = DataStream::local(terminal::MAX_BYTES);
+        let channel = BusinessChannel::new(self.budget.clone());
+        let network = async {
+            let mut deadline = None;
+            loop {
+                let ready = async {
+                    #[cfg(feature = "nat-lab-test-hooks")]
+                    while self.ready_paused.load(Ordering::SeqCst) {
+                        tokio::select! { _=self.ready_changed.notified()=>{}, _=transport.closed()=>return Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted,"terminal carrier closed")) }
+                    }
+                    stream.write_control(&response).await
+                };
+                let ready = match deadline {
+                    Some(at) => tokio::time::timeout_at(at, ready)
+                        .await
+                        .map_err(|_| RecoveryExpired)?,
+                    None => ready.await,
+                };
+                let outcome = match ready {
+                    Ok(()) => channel.carry(stream, &transport, &mut deadline).await,
+                    Err(_) if transport.network_interrupted() => {
+                        Err(ChannelError::NetworkInterrupted)
+                    }
+                    Err(error) => Err(ChannelError::Business(error)),
+                };
+                match outcome {
+                    Ok(()) => return Ok(()),
+                    Err(ChannelError::Business(error)) => return Err(error.into()),
+                    Err(ChannelError::RecoveryExpired) => return Err(RecoveryExpired.into()),
+                    Err(ChannelError::NetworkInterrupted) => {}
+                }
+                let at = *deadline.get_or_insert_with(|| {
+                    tokio::time::Instant::now()
+                        + Duration::from_millis(self.budget.policy.recovery_ms)
+                });
+                (transport, stream) = tokio::time::timeout_at(at, replacements.recv())
+                    .await
+                    .map_err(|_| RecoveryExpired)?
+                    .ok_or("terminal channel ended")?;
+                self.authorize(owner)?;
+                self.attach_connection(owner, transport.clone())?;
+            }
+        };
+        let app = self.serve_attachment(owner, None, logical, &mut client);
+        let result: Result<(), ClientError> = tokio::select! { biased;
+            _ = owner.cancel.cancelled() => Err("terminal authorization or attachment ended".into()),
+            result = async {
+                let carried=channel.run(read,write,network);
+                tokio::pin!(app,carried);
+                tokio::select! {
+                    result=&mut app => { result?; carried.await },
+                    result=&mut carried => {
+                        let application=app.await;
+                        result?;
+                        application
+                    }
+                }
+            } => result,
+        };
+        let cleanup = client.close().await;
+        result?;
+        cleanup
+    }
+
+    async fn consume_retained(
+        &self,
+        owner: &Operation,
+        resources: &crate::resources::ResourceEndpoint,
+        address: EndpointAddr,
+        workspace: String,
+        columns: u16,
+        rows: u16,
+        mut request: ChannelRequest,
+        mut transport: ServiceTransport,
+        mut stream: DataStream,
+        channel: &BusinessChannel,
+        initial_deadline: Option<tokio::time::Instant>,
+    ) -> Result<(), ClientError> {
+        let mut deadline = initial_deadline;
+        loop {
+            match channel.carry(stream, &transport, &mut deadline).await {
+                Ok(()) => return Ok(()),
+                Err(ChannelError::Business(error)) => return Err(error.into()),
+                Err(ChannelError::RecoveryExpired) => return Err(RecoveryExpired.into()),
+                Err(ChannelError::NetworkInterrupted) => {}
+            }
+            let at = *deadline.get_or_insert_with(|| {
+                tokio::time::Instant::now() + Duration::from_millis(self.budget.policy.recovery_ms)
+            });
+            let reconnect = self.reopen(
+                owner,
+                resources,
+                &address,
+                &workspace,
+                columns,
+                rows,
+                &mut request,
+                at,
+            );
+            let (next, next_stream, _) = tokio::time::timeout_at(at, reconnect)
+                .await
+                .map_err(|_| RecoveryExpired)??;
+            transport = next;
+            stream = next_stream;
+        }
+    }
+
+    async fn reopen(
+        &self,
+        owner: &Operation,
+        resources: &crate::resources::ResourceEndpoint,
+        address: &EndpointAddr,
+        workspace: &str,
+        columns: u16,
+        rows: u16,
+        request: &mut ChannelRequest,
+        at: tokio::time::Instant,
+    ) -> Result<(ServiceTransport, DataStream, Value), ClientError> {
+        loop {
+            let next = resources
+                .reconnect_service(address.clone(), MemberService::Terminal, at)
+                .await?;
+            self.attach_connection(owner, next.clone())?;
+            request.resume = true;
+            request.generation = request
+                .generation
+                .checked_add(1)
+                .ok_or("terminal generation exhausted")?;
+            let wire = TerminalRequest::AttachChannel {
+                workspace: workspace.into(),
+                columns,
+                rows,
+                channel: request.clone(),
+            };
+            let opened = async {
+                terminal::open_on_stream(next.stream(true).await?, &wire)
+                    .await
+                    .map_err(Into::into)
+            };
+            match tokio::time::timeout_at(at, opened)
+                .await
+                .map_err(|_| RecoveryExpired)?
+            {
+                Ok((stream, ready)) => return Ok((next, stream, ready)),
+                Err(_) if next.network_interrupted() => continue,
+                Err(error) => return Err(error),
+            }
+        }
+    }
+
     fn attachment(&self, id: &str) -> Result<Arc<Attachment>, ClientError> {
         self.state
             .lock()
@@ -424,16 +709,35 @@ impl NativeTerminal {
         outcome: Arc<Mutex<Option<bool>>>,
         connection: ServiceTransport,
     ) {
-        let completed =
-            terminal::consume_on_stream(
-                stream, connection.closed(), &owner.cancel, outgoing, incoming, connection.is_member(),
-            ).await;
+        let completed = terminal::consume_on_stream(
+            stream,
+            connection.closed(),
+            &owner.cancel,
+            outgoing,
+            incoming,
+            connection.is_member(),
+        )
+        .await;
         *outcome.lock().unwrap() = Some(completed);
         owner.completed = completed;
     }
 }
 
 impl NativeClient {
+    #[cfg(feature = "nat-lab-test-hooks")]
+    pub fn test_pause_terminal_ready(&self, paused: bool) {
+        self.terminal.ready_paused.store(paused, Ordering::SeqCst);
+        self.terminal.ready_changed.notify_waiters();
+    }
+    #[cfg(feature = "nat-lab-test-hooks")]
+    pub fn test_pause_terminal_input(&self, paused: bool) {
+        self.terminal.input_paused.store(paused, Ordering::SeqCst);
+        self.terminal.ready_changed.notify_waiters();
+    }
+    #[cfg(feature = "nat-lab-test-hooks")]
+    pub fn test_terminal_input_waiting(&self) -> bool {
+        self.terminal.input_waiting.load(Ordering::SeqCst)
+    }
     pub async fn terminal_environments(&self) -> Result<Value, ClientError> {
         Tmux::environments().await
     }
@@ -512,7 +816,10 @@ impl NativeClient {
         address: EndpointAddr,
         request: TerminalRequest,
     ) -> Result<Value, ClientError> {
-        if matches!(request, TerminalRequest::Attach { .. }) {
+        if matches!(
+            request,
+            TerminalRequest::Attach { .. } | TerminalRequest::AttachChannel { .. }
+        ) {
             return Err("use attach_terminal for attachment ownership".into());
         }
         request.validate()?;
@@ -541,7 +848,7 @@ impl NativeClient {
         rows: u16,
     ) -> Result<Value, ClientError> {
         let request = TerminalRequest::Attach {
-            workspace,
+            workspace: workspace.clone(),
             columns,
             rows,
         };
@@ -550,20 +857,40 @@ impl NativeClient {
             return Err("terminal attachment limit reached".into());
         }
         let owner = self.terminal_operation(address.clone()).await?;
-        let (connection, stream, ready) = tokio::select! { biased;
+        let (connection, stream, ready, channel_request, initial_deadline) = tokio::select! { biased;
             _ = owner.cancel.cancelled() => return Err("terminal attach cancelled".into()),
             result = async {
-                let connection = { let _contact = self.terminal.connecting.lock().await; self.resources.connect_service(address, MemberService::Terminal).await? };
+                let connection = { let _contact = self.terminal.connecting.lock().await; self.resources.connect_service(address.clone(), MemberService::Terminal).await? };
                 self.terminal.attach_connection(&owner, connection.clone())?;
-                let (stream, ready) = terminal::open_on_stream(connection.stream(true).await?, &request).await?;
-                Ok::<_, ClientError>((connection, stream, ready))
+                let stream = connection.stream(true).await?;
+                let origin = terminal_origin(&connection, stream.stream_id().ok_or("terminal stream missing")?)?;
+                let mut channel = ChannelRequest::new(origin);
+                let wire = TerminalRequest::AttachChannel { workspace:workspace.clone(), columns, rows, channel:channel.clone() };
+                match terminal::open_on_stream(stream, &wire).await {
+                    Ok((stream,ready))=>Ok::<_,ClientError>((connection,stream,ready,channel,None)),
+                    Err(_) if connection.network_interrupted()=> {
+                        let at=tokio::time::Instant::now()+Duration::from_millis(self.terminal.budget.policy.recovery_ms);
+                        let (connection,stream,ready)=self.terminal.reopen(&owner,&self.resources,&address,&workspace,columns,rows,&mut channel,at).await?;
+                        Ok((connection,stream,ready,channel,Some(at)))
+                    }
+                    Err(error)=>Err(error.into()),
+                }
             } => result?,
         };
+        self.terminal
+            .state
+            .lock()
+            .unwrap()
+            .active
+            .get_mut(&owner.id)
+            .unwrap()
+            .channel = Some(channel_request.id.clone());
         let id = owner.id;
         let (sender, outgoing) = mpsc::channel(terminal::QUEUE_CAPACITY);
         let (incoming, receiver) = mpsc::channel(terminal::QUEUE_CAPACITY);
         let outcome = Arc::new(Mutex::new(None));
         let slot = Arc::new(Attachment {
+            peer: VerifyingKey::from_bytes(address.id.as_bytes())?,
             outgoing: sender,
             incoming: AsyncMutex::new(receiver),
             cancel: owner.cancel.clone(),
@@ -581,9 +908,30 @@ impl NativeClient {
             }
             state.attachments.insert(id, slot);
         }
-        tasks.spawn(NativeTerminal::consume(
-            owner, stream, outgoing, incoming, outcome, connection,
-        ));
+        let runtime = self.terminal.clone();
+        let resources = self.resources.clone();
+        tasks.spawn(async move {
+            let (logical, read, write) = DataStream::local(terminal::MAX_BYTES);
+            let channel = BusinessChannel::new(runtime.budget.clone());
+            let mut owner = owner;
+            let work = async {
+                let network = runtime.consume_retained(&owner, &resources, address, workspace, columns, rows, channel_request, connection, stream, &channel, initial_deadline);
+                let io = terminal::consume_on_stream(logical, std::future::pending(), &owner.cancel, outgoing, incoming, true);
+                tokio::pin!(io);
+                let carried = channel.run(read, write, network);
+                tokio::pin!(carried);
+                tokio::select! {
+                    result = &mut io => if result { carried.await.is_ok() } else { false },
+                    result = &mut carried => {
+                        if let Err(error)=&result {eprintln!("TERMINAL_CHANNEL_ENDED {error}");}
+                        io.await
+                    }
+                }
+            };
+            let completed = tokio::select! { biased; _ = owner.cancel.cancelled() => false, result = work => result };
+            *outcome.lock().unwrap() = Some(completed);
+            owner.completed = completed;
+        });
         Ok(
             json!({"id":id.to_string(),"workspace":ready["workspace"],"attached":true,"max_chunk_bytes":terminal::MAX_BYTES}),
         )
@@ -601,18 +949,18 @@ impl NativeClient {
             return Err("terminal read wait too long".into());
         }
         let slot = self.terminal.attachment(id)?;
-        if slot.cancel.is_cancelled() && *slot.outcome.lock().unwrap() != Some(true) {
+        if !self
+            .terminal
+            .state
+            .lock()
+            .unwrap()
+            .access
+            .as_ref()
+            .is_some_and(|access| terminal::peer_permitted(access, slot.peer))
+        {
             return Ok(json!({"pending":false,"attached":false,"failed":true}));
         }
-        let waiting = async {
-            let mut reader = slot.incoming.lock().await;
-            tokio::select! { biased;
-                _ = slot.cancel.cancelled() => {
-                    if *slot.outcome.lock().unwrap() == Some(true) { reader.recv().await } else { None }
-                }
-                message = reader.recv() => message,
-            }
-        };
+        let waiting = async { slot.incoming.lock().await.recv().await };
         match tokio::time::timeout(timeout, waiting).await {
             Err(_) => Ok(json!({"pending":true,"attached":true})),
             Ok(Some(message)) => {
@@ -631,7 +979,13 @@ impl NativeClient {
             if !slot.cancel.is_cancelled() {
                 let _ = self.send_terminal(id, TerminalInput::Detach).await;
             }
-            self.terminal.joined(Some(identifier)).await;
+            let mut output=slot.incoming.lock().await;
+            loop {
+                tokio::select! {
+                    _=self.terminal.joined(Some(identifier))=>break,
+                    message=output.recv()=>if message.is_none() {self.terminal.joined(Some(identifier)).await;break;},
+                }
+            }
         })
         .await;
         if protocol.is_err() {
@@ -676,4 +1030,21 @@ impl NativeClient {
             .remove(&identifier);
         Ok(json!({"attached":false,"workspace_ended":false,"cancelled":true}))
     }
+}
+
+fn terminal_origin(
+    transport: &ServiceTransport,
+    stream: u64,
+) -> Result<ChannelOrigin, ClientError> {
+    let mut connection = [0; 32];
+    if let Some(member) = transport.member_connection() {
+        member
+            .export_keying_material(&mut connection, b"miopunch-terminal-open", &[])
+            .map_err(|_| "terminal origin unavailable")?;
+    } else if let ServiceTransport::Legacy(member) = transport {
+        member
+            .export_keying_material(&mut connection, b"miopunch-terminal-open", &[])
+            .map_err(|_| "terminal origin unavailable")?;
+    }
+    Ok(ChannelOrigin { connection, stream })
 }

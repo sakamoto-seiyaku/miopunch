@@ -1,3 +1,5 @@
+#[path = "../../src/business_channel.rs"]
+mod business_channel;
 #[path = "../../src/connection_budget.rs"]
 mod connection_budget;
 #[path = "../../src/maintenance_policy.rs"]

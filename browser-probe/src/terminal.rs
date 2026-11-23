@@ -1,5 +1,24 @@
 //! Browser terminal clients use the same wire and admission rules as Native.
 use super::*;
+use crate::business_channel::{
+    BusinessChannel, ChannelBudget, ChannelError, ChannelTransport, RecoveryExpired,
+};
+use crate::forwarding::{ChannelOrigin, ChannelRequest};
+use std::sync::Arc;
+impl ChannelTransport for Connection {
+    fn network_interrupted(&self) -> bool {
+        matches!(
+            self.close_reason(),
+            Some(
+                iroh::endpoint::ConnectionError::TimedOut | iroh::endpoint::ConnectionError::Reset
+            )
+        )
+    }
+    async fn closed(&self) {
+        Connection::closed(self).await;
+    }
+}
+
 use crate::terminal::{self, TerminalInput, TerminalOutput, TerminalRequest};
 use futures_util::FutureExt;
 use std::{
@@ -11,7 +30,6 @@ use tokio::sync::{Mutex, Notify, mpsc};
 use tokio_util::sync::CancellationToken;
 
 const MAX_OPERATIONS: usize = 8;
-#[derive(Default)]
 pub(super) struct BrowserTerminal {
     next: Cell<u64>,
     closed: Cell<bool>,
@@ -19,6 +37,20 @@ pub(super) struct BrowserTerminal {
     attachments: RefCell<BTreeMap<u64, Rc<Attachment>>>,
     joined: Notify,
     connecting: Mutex<()>,
+    budget: Arc<ChannelBudget>,
+}
+impl Default for BrowserTerminal {
+    fn default() -> Self {
+        Self {
+            next: Default::default(),
+            closed: Default::default(),
+            active: Default::default(),
+            attachments: Default::default(),
+            joined: Default::default(),
+            connecting: Default::default(),
+            budget: ChannelBudget::new(Default::default()).expect("default channel limits"),
+        }
+    }
 }
 pub(super) struct TerminalOwner(pub Rc<BrowserTerminal>);
 impl Drop for TerminalOwner {
@@ -90,6 +122,63 @@ impl BrowserTerminal {
             .1 = Some(connection.clone());
         owner.connection = Some(connection);
         Ok(())
+    }
+    async fn reopen(
+        &self,
+        owner: &mut Operation,
+        gate: &BrowserGate,
+        coordinator: &crate::connection_coordinator::ConnectionCoordinator,
+        address: &iroh::EndpointAddr,
+        workspace: &str,
+        columns: u16,
+        rows: u16,
+        request: &mut ChannelRequest,
+        at: n0_future::time::Instant,
+    ) -> Result<
+        (
+            Connection,
+            crate::data_stream::DataStream,
+            serde_json::Value,
+        ),
+        crate::business_channel::ChannelFailure,
+    > {
+        loop {
+            if !BrowserGate::permits(
+                &gate
+                    .service_snapshot()
+                    .map_err(|_| "terminal policy unavailable")?,
+                address.id,
+                terminal::TERMINAL_ALPN,
+            ) {
+                return Err("terminal authorization ended".into());
+            }
+            let next = coordinator
+                .connect_alpn(
+                    address.clone(),
+                    terminal::TERMINAL_ALPN,
+                    crate::connection_coordinator::AttemptContext::new(at, owner.cancel.clone()),
+                )
+                .await
+                .map_err(|e| std::io::Error::other(e.to_string()))?;
+            self.attach(owner, next.clone())
+                .map_err(|_| "terminal owner ended")?;
+            request.resume = true;
+            request.generation = request
+                .generation
+                .checked_add(1)
+                .ok_or("terminal generation exhausted")?;
+            let wire = TerminalRequest::AttachChannel {
+                workspace: workspace.into(),
+                columns,
+                rows,
+                channel: request.clone(),
+            };
+            match terminal::open(&next, &wire).await {
+                Ok((stream, ready)) => return Ok((next, stream, ready)),
+                Err(_) if next.network_interrupted() => continue,
+                Err(error) => return Err(error.into()),
+            }
+        }
     }
     fn cancel(&self) {
         for (cancel, connection) in self.active.borrow().values() {
@@ -179,7 +268,10 @@ impl BrowserNetwork {
         }
         let request: TerminalRequest = serde_json::from_str(&request).map_err(error)?;
         request.validate().map_err(error)?;
-        if matches!(request, TerminalRequest::Attach { .. }) {
+        if matches!(
+            request,
+            TerminalRequest::Attach { .. } | TerminalRequest::AttachChannel { .. }
+        ) {
             return Err(error("use attach_terminal for attachment ownership"));
         }
         let target = self.terminal_target(&peer).await?;
@@ -208,7 +300,7 @@ impl BrowserNetwork {
         rows: u16,
     ) -> Result<String, JsValue> {
         let request = TerminalRequest::Attach {
-            workspace,
+            workspace: workspace.clone(),
             columns,
             rows,
         };
@@ -220,14 +312,60 @@ impl BrowserNetwork {
         let peer = target;
         let mut owner = self.terminal.claim()?;
         let cancel = owner.cancel.clone();
-        let (stream, ready) = {
+        let (stream, ready, channel_request, initial_deadline) = {
             let work = async {
                 let connection = {
                     let _contact = self.terminal.connecting.lock().await;
                     self.connect_target(target, terminal::TERMINAL_ALPN).await?
                 };
                 self.terminal.attach(&mut owner, connection.clone())?;
-                terminal::open(&connection, &request).await.map_err(error)
+                let stream = crate::data_stream::DataStream::open(&connection)
+                    .await
+                    .map_err(error)?;
+                let mut origin = [0; 32];
+                connection
+                    .export_keying_material(&mut origin, b"miopunch-terminal-open", &[])
+                    .map_err(|_| error("terminal origin unavailable"))?;
+                let mut channel = ChannelRequest::new(ChannelOrigin {
+                    connection: origin,
+                    stream: stream.stream_id().ok_or_else(rejected)?,
+                });
+                let request = TerminalRequest::AttachChannel {
+                    workspace: workspace.clone(),
+                    columns,
+                    rows,
+                    channel: channel.clone(),
+                };
+                match terminal::open_on_stream(stream, &request).await {
+                    Ok((stream, ready)) => Ok::<_, JsValue>((stream, ready, channel, None)),
+                    Err(_) if connection.network_interrupted() => {
+                        let at = n0_future::time::Instant::now()
+                            + std::time::Duration::from_millis(
+                                self.terminal.budget.policy.recovery_ms,
+                            );
+                        let coordinator = self.connection_coordinator();
+                        let address = self.target_address(target)?;
+                        let (_, stream, ready) = n0_future::time::timeout(
+                            at.saturating_duration_since(n0_future::time::Instant::now()),
+                            self.terminal.reopen(
+                                &mut owner,
+                                &self.gate,
+                                &coordinator,
+                                &address,
+                                &workspace,
+                                columns,
+                                rows,
+                                &mut channel,
+                                at,
+                            ),
+                        )
+                        .await
+                        .map_err(error)?
+                        .map_err(error)?;
+                        Ok((stream, ready, channel, Some(at)))
+                    }
+                    Err(failure) => Err(error(failure)),
+                }
             }
             .fuse();
             let stop = cancel.cancelled().fuse();
@@ -255,18 +393,80 @@ impl BrowserNetwork {
                 outcome: outcome.clone(),
             }),
         );
+        let runtime = self.terminal.clone();
+        let gate = self.gate.clone();
+        let coordinator = self.connection_coordinator();
+        let address = self.target_address(target)?;
         wasm_bindgen_futures::spawn_local(async move {
-            let completed = terminal::consume_attachment(
-                stream,
-                owner
-                    .connection
-                    .as_ref()
-                    .expect("attached terminal connection"),
-                &owner.cancel,
-                outgoing,
-                incoming,
-            )
-            .await;
+            let (logical, read, write) = crate::data_stream::DataStream::local(terminal::MAX_BYTES);
+            let channel = BusinessChannel::new(runtime.budget.clone());
+            let cancel = owner.cancel.clone();
+            let completed = {
+                let network = async {
+                    let mut stream = stream;
+                    let mut connection = owner
+                        .connection
+                        .clone()
+                        .expect("attached terminal connection");
+                    let mut request = channel_request;
+                    let mut deadline = initial_deadline;
+                    loop {
+                        match channel.carry(stream, &connection, &mut deadline).await {
+                            Ok(()) => return Ok(()),
+                            Err(ChannelError::Business(error)) => return Err(error.into()),
+                            Err(ChannelError::RecoveryExpired) => {
+                                return Err(RecoveryExpired.into());
+                            }
+                            Err(ChannelError::NetworkInterrupted) => {}
+                        }
+                        let at = *deadline.get_or_insert_with(|| {
+                            n0_future::time::Instant::now()
+                                + std::time::Duration::from_millis(
+                                    runtime.budget.policy.recovery_ms,
+                                )
+                        });
+                        let reconnect = runtime.reopen(
+                            &mut owner,
+                            &gate,
+                            &coordinator,
+                            &address,
+                            &workspace,
+                            columns,
+                            rows,
+                            &mut request,
+                            at,
+                        );
+                        let (next, next_stream, _) = n0_future::time::timeout(
+                            at.saturating_duration_since(n0_future::time::Instant::now()),
+                            reconnect,
+                        )
+                        .await
+                        .map_err(|_| RecoveryExpired)??;
+                        connection = next;
+                        stream = next_stream;
+                    }
+                };
+                let io = terminal::consume_on_stream(
+                    logical,
+                    std::future::pending(),
+                    &cancel,
+                    outgoing,
+                    incoming,
+                    true,
+                );
+                let carried = channel.run(read, write, network);
+                let work = async {
+                    futures_util::pin_mut!(io, carried);
+                    futures_util::select_biased! {
+                        result=io.as_mut().fuse()=> if result {carried.await.is_ok()} else {false},
+                        result=carried.as_mut().fuse()=> {let _=result; io.await},
+                    }
+                }
+                .fuse();
+                let stop = cancel.cancelled().fuse();
+                futures_util::pin_mut!(work, stop);
+                futures_util::select_biased! { _=stop=>false, result=work=>result }
+            };
             outcome.set(Some(completed));
             owner.completed = completed;
         });
@@ -300,11 +500,6 @@ impl BrowserNetwork {
             return Err(error("terminal read wait too long"));
         }
         let slot = self.terminal_attachment(&id).await?;
-        if slot.cancel.is_cancelled() && slot.outcome.get() != Some(true) {
-            return Ok(
-                serde_json::json!({"pending":false,"attached":false,"failed":true}).to_string(),
-            );
-        }
         let waiting = async { slot.incoming.lock().await.recv().await };
         let response = match n0_future::time::timeout(
             Duration::from_millis(timeout_ms as u64),
@@ -332,7 +527,13 @@ impl BrowserNetwork {
                     .send_terminal(id.clone(), serde_json::json!({"type":"detach"}).to_string())
                     .await;
             }
-            self.terminal.joined(Some(identifier)).await;
+            let mut output=slot.incoming.lock().await;
+            loop {
+                tokio::select! {
+                    _=self.terminal.joined(Some(identifier))=>break,
+                    message=output.recv()=>if message.is_none() {self.terminal.joined(Some(identifier)).await;break;},
+                }
+            }
         })
         .await;
         if protocol.is_err() {

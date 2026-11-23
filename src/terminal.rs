@@ -30,6 +30,12 @@ pub enum TerminalRequest {
     End {
         workspace: String,
     },
+    AttachChannel {
+        workspace: String,
+        columns: u16,
+        rows: u16,
+        channel: crate::forwarding::ChannelRequest,
+    },
     Attach {
         workspace: String,
         columns: u16,
@@ -40,7 +46,12 @@ impl TerminalRequest {
     pub fn validate(&self) -> io::Result<()> {
         match self {
             Self::End { workspace } => validate_workspace(workspace),
-            Self::Attach {
+            Self::AttachChannel {
+                workspace,
+                columns,
+                rows,
+                ..
+            } | Self::Attach {
                 workspace,
                 columns,
                 rows,

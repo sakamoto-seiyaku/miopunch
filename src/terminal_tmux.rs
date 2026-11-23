@@ -280,7 +280,7 @@ test -x /bin/bash
             {
                 return Ok(Vec::new());
             }
-            return Err("private tmux session list failed".into());
+            return Err(format!("private tmux session list failed: {}", error.trim()).into());
         }
         let names = String::from_utf8(out)?
             .lines()

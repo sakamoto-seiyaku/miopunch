@@ -6,6 +6,7 @@ use std::{
     time::Duration,
 };
 
+use futures_util::StreamExt;
 use iroh::{
     EndpointAddr, EndpointId,
     endpoint::{
@@ -14,7 +15,6 @@ use iroh::{
     },
 };
 use serde_json::{Value, json};
-use futures_util::StreamExt;
 use tokio::{task::JoinSet, time::Instant};
 
 use crate::{data_stream::DataStream, native_client::ClientError, resources::ResourceEndpoint};
@@ -85,6 +85,29 @@ impl ResourceEndpoint {
             .await?
             .open(service)
             .await
+    }
+
+    /// Reuse the node-owned contact backoff through a business recovery round.
+    pub(crate) async fn reconnect_service(
+        &self,
+        target: EndpointAddr,
+        service: MemberService,
+        deadline: Instant,
+    ) -> Result<ServiceTransport, ClientError> {
+        tokio::time::timeout_at(deadline, async {
+            loop {
+                match self.connect_service(target.clone(), service).await {
+                    Ok(next) => return Ok(next),
+                    Err(error) if crate::business_channel::retryable(&error) => {
+                        tokio::time::sleep(self.member_retry_after(target.id, error.to_string()))
+                            .await;
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
+        })
+        .await
+        .map_err(|_| crate::business_channel::RecoveryExpired)?
     }
 
     pub(crate) async fn dial_service(
@@ -211,7 +234,10 @@ impl ServiceTransport {
             Self::Legacy(connection) => connection.close_reason(),
             Self::Member(stream) => stream.connection.close_reason(),
         };
-        matches!(reason, Some(ConnectionError::TimedOut | ConnectionError::Reset))
+        matches!(
+            reason,
+            Some(ConnectionError::TimedOut | ConnectionError::Reset)
+        ) || matches!(self, Self::Member(stream) if stream.connection.was_superseded())
     }
 
     pub(crate) fn remote_id(&self) -> EndpointId {
@@ -463,4 +489,13 @@ pub(crate) fn path_status(connection: &MemberConnection) -> Value {
         });
     }
     status
+}
+
+impl crate::business_channel::ChannelTransport for ServiceTransport {
+    fn network_interrupted(&self) -> bool {
+        ServiceTransport::network_interrupted(self)
+    }
+    async fn closed(&self) {
+        ServiceTransport::closed(self).await;
+    }
 }

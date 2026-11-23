@@ -245,7 +245,10 @@ impl NativeClient {
         let web = crate::native_web::NativeWeb::new(node.admission_gate().clone());
         web.enforce_access(&services.lock().await.access(&node).await?);
         services.lock().await.web = Some(Arc::downgrade(&web));
-        let terminal = crate::native_terminal::NativeTerminal::new(node.admission_gate().clone());
+        let terminal = crate::native_terminal::NativeTerminal::new(
+            node.admission_gate().clone(),
+            forwarding.channel_budget.clone(),
+        );
         terminal.enforce_access(&services.lock().await.access(&node).await?);
         services.lock().await.terminal = Some(Arc::downgrade(&terminal));
         let node = Arc::new(Mutex::new(node));

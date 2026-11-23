@@ -3,7 +3,6 @@ use std::{
     collections::VecDeque,
     future::{Future, poll_fn},
     io,
-    pin::Pin,
     sync::{Arc, Mutex},
     task::Poll,
 };
@@ -16,8 +15,15 @@ use tokio::{
 use crate::{
     data_stream::{CHUNK_BYTES, DataReader, DataStream, DataWriter},
     forwarding::ChannelRequest,
-    native_member_services::ServiceTransport,
 };
+
+pub(crate) type ChannelFailure = Box<dyn std::error::Error + Send + Sync>;
+
+/// Carrier lifetime and recoverable termination are supplied by each host adapter.
+pub(crate) trait ChannelTransport {
+    fn network_interrupted(&self) -> bool;
+    fn closed(&self) -> impl Future<Output = ()> + Send;
+}
 
 #[derive(Default)]
 struct Usage {
@@ -81,13 +87,26 @@ impl ChannelRequest {
     }
 }
 
+pub(crate) fn retryable(error: &ChannelFailure) -> bool {
+    error.is::<n0_future::time::Elapsed>()
+        || error.downcast_ref::<io::Error>().is_some_and(|e| {
+            !matches!(
+                e.kind(),
+                io::ErrorKind::PermissionDenied
+                    | io::ErrorKind::InvalidData
+                    | io::ErrorKind::InvalidInput
+                    | io::ErrorKind::Unsupported
+            )
+        })
+}
+
 pub(crate) enum ChannelError {
     NetworkInterrupted,
     RecoveryExpired,
     Business(io::Error),
 }
 
-fn carrier_error(transport: &ServiceTransport, error: io::Error) -> ChannelError {
+fn carrier_error(transport: &impl ChannelTransport, error: io::Error) -> ChannelError {
     if transport.network_interrupted() {
         ChannelError::NetworkInterrupted
     } else {
@@ -243,11 +262,11 @@ impl BusinessChannel {
         mut read: R,
         mut write: W,
         network: F,
-    ) -> Result<(), crate::native_client::ClientError>
+    ) -> Result<(), ChannelFailure>
     where
         R: AsyncRead + Unpin,
         W: AsyncWrite + Unpin,
-        F: Future<Output = Result<(), crate::native_client::ClientError>>,
+        F: Future<Output = Result<(), ChannelFailure>>,
     {
         let outcome = {
             let local = async {
@@ -310,25 +329,28 @@ impl BusinessChannel {
     pub(crate) async fn carry(
         &self,
         mut stream: DataStream,
-        transport: &ServiceTransport,
-        deadline: &mut Option<tokio::time::Instant>,
+        transport: &impl ChannelTransport,
+        deadline: &mut Option<n0_future::time::Instant>,
     ) -> Result<(), ChannelError> {
         let handshake = async {
             let progress = self.state.lock().unwrap().progress;
             stream
-                .write_chunk(&progress.record())
+                .write_channel_record(&progress.record())
                 .await
                 .map_err(|e| carrier_error(transport, e))?;
             let peer = stream
-                .read_chunk()
+                .read_channel_record()
                 .await
                 .map_err(|e| carrier_error(transport, e))?;
             self.acknowledge(Progress::parse(&peer).map_err(ChannelError::Business)?)
         };
         if let Some(at) = *deadline {
-            tokio::time::timeout_at(at, handshake)
-                .await
-                .map_err(|_| ChannelError::RecoveryExpired)??;
+            n0_future::time::timeout(
+                at.saturating_duration_since(n0_future::time::Instant::now()),
+                handshake,
+            )
+            .await
+            .map_err(|_| ChannelError::RecoveryExpired)??;
         } else {
             handshake.await?;
         }
@@ -353,7 +375,7 @@ impl BusinessChannel {
     async fn upload(
         &self,
         mut send: DataWriter,
-        transport: &ServiceTransport,
+        transport: &impl ChannelTransport,
     ) -> Result<(), ChannelError> {
         let mut updates = self.budget.changed.subscribe();
         let state = &self.state;
@@ -413,7 +435,7 @@ impl BusinessChannel {
                         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                     continue;
                 }
-                send.write_chunk(&record)
+                send.write_chunk_without_timeout(&record)
                     .await
                     .map_err(|e| carrier_error(transport, e))?;
                 continue;
@@ -428,12 +450,12 @@ impl BusinessChannel {
     async fn download(
         &self,
         mut recv: DataReader,
-        transport: &ServiceTransport,
+        transport: &impl ChannelTransport,
     ) -> Result<(), ChannelError> {
         let mut updates = self.budget.changed.subscribe();
         loop {
             let record = recv
-                .read_chunk_or_end()
+                .read_chunk_without_timeout()
                 .await
                 .map_err(|e| carrier_error(transport, e))?;
             let Some(record) = record else {

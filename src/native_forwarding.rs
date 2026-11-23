@@ -116,7 +116,7 @@ pub(crate) struct NativeForwarding {
     #[cfg(feature = "nat-lab-test-hooks")]
     ready_hook: ReadyHook,
     state: Mutex<State>,
-    channel_budget: Arc<ChannelBudget>,
+    pub(crate) channel_budget: Arc<ChannelBudget>,
     setup: tokio::sync::Mutex<()>,
     gate: crate::admission_gate::AdmissionGate,
     joined: tokio::sync::Notify,
@@ -667,35 +667,7 @@ impl NativeForwarding {
                     .generation
                     .checked_add(1)
                     .ok_or("channel generation exhausted")?;
-                transport = within_recovery(Some(at), async {
-                    loop {
-                        match resources
-                            .connect_service(address.clone(), Protocol::Tcp.into())
-                            .await
-                        {
-                            Ok(next) => return Ok(next),
-                            Err(error) => {
-                                if !error.is::<tokio::time::error::Elapsed>()
-                                    && error.downcast_ref::<std::io::Error>().is_none_or(|error| {
-                                        matches!(
-                                            error.kind(),
-                                            std::io::ErrorKind::PermissionDenied
-                                                | std::io::ErrorKind::InvalidInput
-                                                | std::io::ErrorKind::InvalidData
-                                                | std::io::ErrorKind::Unsupported
-                                        )
-                                    })
-                                {
-                                    return Err(error);
-                                }
-                                let delay =
-                                    resources.member_retry_after(address.id, error.to_string());
-                                tokio::time::sleep(delay).await;
-                            }
-                        }
-                    }
-                })
-                .await?;
+                transport = resources.reconnect_service(address.clone(), Protocol::Tcp.into(), at).await?;
                 self.attach(owner, transport.clone())?;
             }
         };
