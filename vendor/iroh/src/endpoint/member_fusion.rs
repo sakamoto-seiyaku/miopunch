@@ -2261,6 +2261,7 @@ impl Live {
 pub(super) struct Activity {
     state: Mutex<ActivityState>,
     changed: watch::Sender<bool>,
+    pub(super) concurrent_business: watch::Sender<bool>,
     planner: Arc<udp::Planner>,
     standby: Option<(Arc<StandbyPool>, usize, Connection)>,
     pub(super) path_activity: watch::Sender<bool>,
@@ -2291,6 +2292,7 @@ impl Activity {
                 ended: false,
             }),
             changed: watch::Sender::default(),
+            concurrent_business: watch::Sender::default(),
             planner,
             standby,
             path_activity: watch::Sender::default(),
@@ -2309,6 +2311,9 @@ impl Activity {
         if state.holders != 0 {
             self.planner.business_changed(false);
             self.changed.send_replace(false);
+        }
+        if state.holders >= 2 {
+            self.concurrent_business.send_replace(false);
         }
         state.ended = true;
     }
@@ -2332,6 +2337,9 @@ impl Activity {
             }
             state.used = true;
             state.holders += 1;
+            if state.holders == 2 {
+                self.concurrent_business.send_replace(true);
+            }
             ActivityLeaseKind::Business(None)
         } else {
             state.checks += 1;
@@ -2400,6 +2408,9 @@ impl Drop for ActivityLease {
         }
         let mut state = activity.state.lock().expect("member activity lock");
         state.holders -= 1;
+        if state.holders == 1 && !state.ended {
+            activity.concurrent_business.send_replace(false);
+        }
         if state.holders == 0 && !state.ended {
             state.idle_since = Some(Instant::now());
             activity.planner.business_changed(false);

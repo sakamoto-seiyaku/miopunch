@@ -2026,7 +2026,7 @@ pub(super) async fn finish_admission(
                         }
                 },
             )
-            .with_business_activity(activity.subscribe())
+            .with_business_activity(activity.subscribe(), activity.concurrent_business.subscribe())
             .with_required_path_acks([direct_transport, member_relay], started_on_member_relay)
             .with_enhanced_udp(udp.as_ref().and_then(|udp| udp.path_work()))
             .with_repair_health(repair.as_ref().map(|repair| repair.health.clone()))

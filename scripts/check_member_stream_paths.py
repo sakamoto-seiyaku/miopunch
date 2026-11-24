@@ -100,11 +100,11 @@ def topology(phone):
         time.sleep(.010)
     for ns in (None, phone):
         command('ip', 'link', 'set', 'lo', 'up', namespace=ns)
-    for link, prefix in ((DIRECT, '10.92.0'), (BACKUP, '10.93.0')):
+    for link, prefix in LINKS.items():
         command('ip', 'link', 'add', link, 'type', 'veth', 'peer', 'name', 'peer-veth')
         command('ip', 'link', 'set', 'peer-veth', 'netns', str(phone))
         command('ip', 'link', 'set', 'peer-veth', 'name', link, namespace=phone)
-        for ns, address in ((None, f'{prefix}.1/30'), (phone, f'{prefix}.2/30')):
+        for ns, address in ((None, f'{prefix}1/30'), (phone, f'{prefix}2/30')):
             command('sysctl', '-q', '-w', f'net.ipv6.conf.{link}.disable_ipv6=1', namespace=ns)
             command('ip', 'addr', 'add', address, 'dev', link, namespace=ns)
             command('ip', 'link', 'set', link, 'up', namespace=ns)

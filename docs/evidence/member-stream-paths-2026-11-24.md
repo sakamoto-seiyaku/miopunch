@@ -41,3 +41,19 @@ C 是 `10.94.0.0/30` 上额外开放的直连，通过已有地址提示和同�
 178 CLI 固定在 `.artifacts/runs/mio-178/pinned/miopunch-client`，构建回执 `/tmp/mio178-cli-build/receipt.json`，审查后测试构建回执 `/tmp/mio178-reviewed-test-build/receipt.json`。178 复用原 relay pin。完成旧 CLI 对照后回收 177 CLI pin 和其对象，共 201,023,488 字节，原日志和收据仍可用。[MIOPUNCH-178](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/629da7d6-6d23-4b6f-992c-1134c976c829)
 
 同批较广回归中，`resources` 为 54 通过、3 失败、10 忽略，`native_service_streams` 为 17 通过、2 失败、33 忽略。失败涉及 UDP 观察中断、增强轮协商、LAN 发布、缓存重启首次连接路径和撤权后重新 ping。撤权 exact 的原 TCP 接收端已得到 EOF，provider 流和 receiver 均已退出，业务租约同步释放。后续 ping 尝试新的 TCP 路径，5 秒内未返回预期的错误。当前 exact 复现，精确 `971db45e` 在同环境通过；定点跟踪观察的业务流始终未分流，未定位后续 ping 差异的原因。原始记录 `/tmp/mio178-resources-suite.log`、`/tmp/mio178-native-services-suite.log`、`/tmp/mio178-revocation-exact.log`、`/tmp/mio178-revocation-971db45e.log`、`/tmp/mio178-revocation-trace.log`。
+
+## MIOPUNCH-179 · 业务先行与第二条直连准备
+
+原生 CLI 在一次性 Linux 网络命名空间中沿用 A、B、C 三路。双端选中已验证的 A 后，夹具延迟 B 的验证报文或持续丢弃 B 的 UDP。原终端保持打开，同时启动 TCP 转发，并发开的流都在放行 B 前完成实际收发。按两端的 QUIC 会话 ID、流 ID 和载荷 STREAM 核对每个发送方向，独立 TCP 服务与远端 shell 文件核对收到的内容。
+
+| 开流端在原 QUIC 的身份 / B 状态 | B 未完成时的新 TCP 流 | 后续新流 | 待命重开 | 原始记录 |
+| --- | --- | --- | --- | --- |
+| 服务端 / 成功 | 9、13、17 经 A | 21、25 经 B，原 5、9 仍经 A | 33 经 A | `/tmp/mio179-final-phone/` |
+| 客户端 / 成功 | 8、12、16 经 A | 20、24 经 B，原 5、8 仍经 A | 28 经 A | `/tmp/mio179-final-provider/` |
+| 服务端 / 失败 | 13、17、21 经 A | 25 与原 9、13 仍经 A | 33 经 A | `/tmp/mio179-final-failure/` |
+
+三轮在 B 放行或丢弃前均记录了原 QUIC 客户端向 B 发送的 UDP，C 的双端计数为零。成功轮随后开放 B、C，在双端测得 A/B RTT 差小于 5 ms，新增流在 A、B 间分配期间 C 仍为零。基线 `d5f8fbd7` 的同一入口在选定 A 后同时向 B 和 C 发送探测，失败记录 `/tmp/mio179-durable-red/`。
+
+两端的终端操作和 TCP 流完全退出后观察六秒。A 的双端 UDP 计数继续增加，B、C 无增量。随后同一监听入口打开 TCP 流，双端实际 STREAM、独立回送和原会话 ID 均匹配。待命修复前的相同行为在六秒内双方 B 各增加六包，记录 `/tmp/mio179-accept-server/`、`/tmp/mio179-accept-reverse/`。
+
+最终 CLI 构建回执 `/tmp/mio179-final-cli-build/receipt.json`（462 Fresh、5 rebuilt），固定产物 `.artifacts/runs/mio-179/pinned/miopunch-client`，对象 `.artifacts/sha256/de/de4c809b0f6e6b7fdb510a5936072a8a12aef6a8182b6f4474479c744f9021d5-555`。继续复用 177 的 relay。完成基线及待命差异对照后，回收确认没有宿主进程使用的 178 CLI 和 179 中间 CLI 的各两条链接，共 402,149,376 字节。[验收脚本](../../scripts/check_member_stream_warmup.py) · [MIOPUNCH-179](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/b88f2731-e0f6-46ac-ad4c-3fd0602ff270)

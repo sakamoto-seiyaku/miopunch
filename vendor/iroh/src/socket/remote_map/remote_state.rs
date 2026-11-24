@@ -108,6 +108,7 @@ pub(crate) struct MemberPathPolicy {
     // grant path work, while business activity can seek additional paths.
     activity: Option<watch::Receiver<bool>>,
     business_activity: Option<watch::Receiver<bool>>,
+    concurrent_business: Option<watch::Receiver<bool>>,
     acked_custom_transports: [Option<u64>; 2],
     ack_native_relay: bool,
     repair: Option<watch::Sender<bool>>,
@@ -127,6 +128,7 @@ impl MemberPathPolicy {
         Self {
             activity,
             business_activity: None,
+            concurrent_business: None,
             acked_custom_transports: [None; 2],
             ack_native_relay: false,
             repair: None,
@@ -137,8 +139,13 @@ impl MemberPathPolicy {
     }
 
     #[cfg(not(wasm_browser))]
-    pub(crate) fn with_business_activity(mut self, activity: watch::Receiver<bool>) -> Self {
+    pub(crate) fn with_business_activity(
+        mut self,
+        activity: watch::Receiver<bool>,
+        concurrent: watch::Receiver<bool>,
+    ) -> Self {
         self.business_activity = Some(activity);
+        self.concurrent_business = Some(concurrent);
         self
     }
 
@@ -235,6 +242,8 @@ struct MemberPaths {
     #[cfg(not(wasm_browser))]
     restricted_contact: Option<Arc<AtomicBool>>,
     known_probes: FxHashMap<SocketAddr, Instant>,
+    // One extra target for the current period of concurrent business.
+    additional_direct: Option<SocketAddr>,
     last_exchange: Option<HolepunchAttempt>,
     network_changed_at: Option<Instant>,
     new_path_probes: FxHashMap<PathId, (Instant, noq::PathProbe)>,
@@ -247,10 +256,18 @@ impl MemberPaths {
             #[cfg(not(wasm_browser))]
             restricted_contact: None,
             known_probes: FxHashMap::default(),
+            additional_direct: None,
             last_exchange: None,
             network_changed_at: None,
             new_path_probes: FxHashMap::default(),
         }
+    }
+
+    fn has_current_ack(&self, stats: &PathStats) -> bool {
+        stats.acknowledgment.is_some_and(|ack| {
+            self.network_changed_at
+                .is_none_or(|changed| Instant::from(ack.sent_at) > changed)
+        })
     }
 }
 
@@ -1287,14 +1304,16 @@ impl RemoteStateActor {
                         .is_some_and(|address| packet_policy.requires_path_ack(&address))
                 });
             }
-            let events = n0_future::stream::unfold(
-                policy.activity.clone().expect("released member activity"),
-                move |mut activity| async move {
+            for activity in [policy.activity.clone(), policy.concurrent_business.clone()]
+                .into_iter()
+                .flatten()
+            {
+                let events = n0_future::stream::unfold(activity, move |mut activity| async move {
                     activity.changed().await.ok()?;
                     Some((conn_id, activity))
-                },
-            );
-            self.member_activity.push(Box::pin(events));
+                });
+                self.member_activity.push(Box::pin(events));
+            }
             if let Some(paths) = &mut state.member_paths {
                 paths.policy = policy;
                 #[cfg(not(wasm_browser))]
@@ -1352,6 +1371,7 @@ impl RemoteStateActor {
             for state in self.connections.values_mut() {
                 if let Some(member) = &mut state.member_paths {
                     member.known_probes.clear();
+                    member.additional_direct = None;
                     member.last_exchange = None;
                     member.network_changed_at = Some(now);
                     member.new_path_probes.clear();
@@ -1409,61 +1429,58 @@ impl RemoteStateActor {
         };
         let now = Instant::now();
         let mut good_direct = false;
-        let mut healthy_udp = false;
-        let verified: BTreeSet<_> = state
-            .paths
-            .iter()
-            .filter_map(|(id, binding)| {
-                let transports::Addr::Ip(remote) = binding.remote() else {
-                    return None;
-                };
-                let path = conn.path(*id)?;
-                if !state.may_select(binding)
-                    || path
-                        .network_path()
-                        .ok()
-                        .and_then(|path| self.state.mapped_addrs.to_transport_tuple(&path))
-                        .as_ref()
-                        != Some(binding)
+        let mut healthy_direct = Vec::new();
+        let mut verified = BTreeSet::new();
+        let mut healthy_tcp = false;
+        for (path_id, binding) in &state.paths {
+            let ip = match binding.remote() {
+                transports::Addr::Ip(remote) => Some(remote),
+                transports::Addr::Custom(addr)
+                    if member.policy.acked_custom_transports[0] == Some(addr.id()) =>
                 {
-                    return None;
+                    None
                 }
-                let stats = path.stats();
-                let ack = stats.acknowledgment?;
-                if member
-                    .network_changed_at
-                    .is_some_and(|changed| Instant::from(ack.sent_at) <= changed)
-                {
-                    return None;
-                }
-                let healthy = !state.suspect_paths.contains_key(id);
-                healthy_udp |= healthy;
+                _ => continue,
+            };
+            if !state.path_is_qualified(*path_id, &conn) {
+                continue;
+            }
+            let Some(stats) = conn.path_stats(*path_id) else {
+                continue;
+            };
+            if !member.has_current_ack(&stats) {
+                continue;
+            }
+            let healthy = !state.suspect_paths.contains_key(path_id);
+            if let Some(remote) = ip {
+                verified.insert(remote);
                 good_direct |= healthy && stats.rtt <= GOOD_ENOUGH_LATENCY;
-                Some(remote)
-            })
-            .collect();
-        // An ACK-qualified direct TCP path satisfies standby improvement too.
-        let direct_tcp = member.policy.acked_custom_transports[0];
-        let healthy_tcp = direct_tcp.is_some() && state.paths.iter().any(|(id, binding)| {
-            matches!(binding.remote(), transports::Addr::Custom(addr) if Some(addr.id()) == direct_tcp)
-                && !state.suspect_paths.contains_key(id)
-                && state.may_select(binding)
-                && conn
-                    .path(*id)
-                    .and_then(|p| p.stats().acknowledgment)
-                    .is_some_and(|ack| {
-                        member
-                            .network_changed_at
-                            .is_none_or(|at| Instant::from(ack.sent_at) > at)
-                    })
-        });
+            } else {
+                healthy_tcp |= healthy;
+            }
+            if healthy && !healthy_direct.contains(&binding) {
+                healthy_direct.push(binding);
+            }
+        }
         let member = state
             .member_paths
             .as_mut()
             .expect("checked member connection");
-        if !member.policy.business_active() && (healthy_udp || healthy_tcp) {
+        let ready_direct = healthy_direct.len();
+        let concurrent = member
+            .policy
+            .concurrent_business
+            .as_ref()
+            .map(|demand| *demand.borrow());
+        if concurrent == Some(false) {
+            member.additional_direct = None;
+        }
+        let balancing = ready_direct != 0 && concurrent.is_some();
+        if ready_direct != 0 && (!member.policy.business_active() || balancing) {
             member.policy.needs_enhanced_udp(false);
-            return;
+            if ready_direct != 1 || concurrent != Some(true) {
+                return;
+            }
         }
         let needs_enhanced = !healthy_tcp && verified.is_empty();
         if !active {
@@ -1489,6 +1506,14 @@ impl RemoteStateActor {
             }
             update_qnt_candidates(&conn, &local_candidates);
             member.policy.needs_enhanced_udp(needs_enhanced);
+            return;
+        }
+        if balancing && conn.side().is_server() {
+            // Advertisements let the QUIC client own the extra probe in
+            // both business directions. Server probes could open a
+            // different binding through the client's reciprocal challenge.
+            let advertise = local_candidates.into_iter().filter(can_probe).collect();
+            update_qnt_candidates(&conn, &advertise);
             return;
         }
         let advertised_remote = conn.get_remote_nat_traversal_addresses();
@@ -1541,15 +1566,27 @@ impl RemoteStateActor {
         member
             .known_probes
             .retain(|remote, _| known.contains(remote));
+        let additional = if balancing {
+            member
+                .additional_direct
+                .or_else(|| explicit.iter().chain(&known).copied().find(can_probe))
+        } else {
+            None
+        };
+        let may_retry = !good_direct || (balancing && member.additional_direct.is_none());
         for remote in known.iter().filter(|address| {
             can_probe(address)
-                && (explicit.contains(*address)
-                    || (ipv4_paused && address.ip().to_canonical().is_ipv6()))
+                && if balancing {
+                    Some(**address) == additional
+                } else {
+                    explicit.contains(*address)
+                        || (ipv4_paused && address.ip().to_canonical().is_ipv6())
+                }
         }) {
             if member
                 .known_probes
                 .get(remote)
-                .is_none_or(|last| !good_direct && now - *last >= HOLEPUNCH_ATTEMPTS_INTERVAL)
+                .is_none_or(|last| may_retry && now - *last >= HOLEPUNCH_ATTEMPTS_INTERVAL)
                 && conn.probe_known_nat_traversal_address(*remote).is_ok()
             {
                 if trace_ipv6 {
@@ -1559,7 +1596,13 @@ impl RemoteStateActor {
                     );
                 }
                 member.known_probes.insert(*remote, now);
+                if balancing {
+                    member.additional_direct = Some(*remote);
+                }
             }
+        }
+        if balancing {
+            return;
         }
         let probing_known = member
             .known_probes
@@ -2132,6 +2175,18 @@ impl RemoteStateActor {
                 selected
             };
 
+            let selected_binding = selected_for_conn.and_then(|id| conn_state.paths.get(&id));
+            let standby_on_direct = conn_state.member_paths.as_ref().is_some_and(|member| {
+                !member.policy.business_active()
+                    && selected_binding.is_some_and(|binding| binding.is_ip())
+                    && selected_for_conn.is_some_and(|id| {
+                        !conn_state.suspect_paths.contains_key(&id)
+                            && conn
+                                .path_stats(id)
+                                .is_some_and(|stats| member.has_current_ack(&stats)
+                                    && context.has_fresh_ack(&stats))
+                    })
+            });
             if fused {
                 let mut seen_bindings = Vec::new();
                 let mut business_paths = Vec::new();
@@ -2156,7 +2211,6 @@ impl RemoteStateActor {
                 conn.set_business_paths(selected_for_conn, &business_paths);
             }
 
-            let selected_binding = selected_for_conn.and_then(|id| conn_state.paths.get(&id));
             let is_selected = |id, binding| {
                 if fused {
                     selected_for_conn == Some(id)
@@ -2202,12 +2256,13 @@ impl RemoteStateActor {
                     continue;
                 }
 
-                // Let an existing member path qualify and keep confirmed
-                // bindings available for later stream allocation.
+                // Keep paths with business or validation work. A healthy
+                // direct standby needs only its selected IP binding.
                 let keep_member_path = conn_state.member_paths.as_ref().is_some_and(|member| {
                     conn.business_on_path(*path_id)
                         || member.new_path_probes.get(path_id).is_some_and(|(deadline, _)| now < *deadline)
-                        || (selected_binding != Some(path_fourtuple)
+                        || (!standby_on_direct
+                            && selected_binding != Some(path_fourtuple)
                             && !conn_state.suspect_paths.contains_key(path_id)
                             && context.has_fresh_ack(&path.stats()))
                 });
