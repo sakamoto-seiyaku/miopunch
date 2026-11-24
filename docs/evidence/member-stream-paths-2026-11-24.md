@@ -17,7 +17,7 @@
 
 在一次性 user/network namespace 用相同产物分别运行 `--case veth-direct`、`--case veth-relay`、`--case both` 和 `--case slow`。 [验收脚本](../../scripts/check_member_stream_paths.py) · [MIOPUNCH-177](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/62278649-a24e-4b69-a3b7-a6f674413199)
 
-本轮 CLI 构建回执为 `/tmp/mio-177-build-review/receipt.json`。两项产物固定在 `.artifacts/runs/mio-177/pinned/`，分别链接到以下不可变对象。
+本轮 CLI 编译的 Rust 源码和 `Cargo.lock` 对应提交 `544735d6`，构建回执为 `/tmp/mio-177-build-review/receipt.json`。两项产物固定在 `.artifacts/runs/mio-177/pinned/`，分别链接到以下不可变对象。
 
 - `miopunch-client` 从当轮共享缓存的 `target/debug/miopunch-client` 固定。对象为 `.artifacts/sha256/d0/d03650ce921bbe31190da3e8fbde58de21515d1ed3859276d4d928ed7fc67f4c-555`。
-- `browser-probe-native` 复用开始验收时从 `target/debug/browser-probe-native` 固定的版本。对象为 `.artifacts/sha256/8d/8d5204f6f47363fc1a197a1adf095c2839dce1e2dfecae1a4eb5c9d5506d55d9-555`。
+- `browser-probe-native` 复用开始验收时从 `target/debug/browser-probe-native` 固定的版本。保留固定对象 `.artifacts/sha256/8d/8d5204f6f47363fc1a197a1adf095c2839dce1e2dfecae1a4eb5c9d5506d55d9-555`，原构建回执未保留。
