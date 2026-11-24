@@ -1078,6 +1078,7 @@ impl RemoteStateActor {
                 path_state: path_state_sender,
                 paths: Default::default(),
                 suspect_paths: Default::default(),
+                pending_stream_handoff: None,
                 has_been_direct: false,
                 purpose: if restricted {
                     ConnectionPurpose::Control
@@ -2139,13 +2140,16 @@ impl RemoteStateActor {
                 }
             };
             let failed_current = current_id.filter(|id| {
-                conn_state.suspect_paths.contains_key(id)
-                    && if fused {
-                        Some(*id) != selected_for_conn
-                    } else {
-                        current.is_some() && conn_state.paths.get(id) != selected_binding
-                    }
+                if fused {
+                    Some(*id) != selected_for_conn
+                        && (current.is_none() || conn_state.suspect_paths.contains_key(id))
+                } else {
+                    conn_state.suspect_paths.contains_key(id)
+                        && current.is_some()
+                        && conn_state.paths.get(id) != selected_binding
+                }
             });
+            let handoff = conn_state.pending_stream_handoff.or(failed_current);
             if let Some(repair) = conn_state
                 .member_paths
                 .as_ref()
@@ -2181,7 +2185,7 @@ impl RemoteStateActor {
                 // and racing to abandon the last one.
                 if conn.side().is_client()
                     && path_fourtuple.is_ip()
-                    && failed_current != Some(*path_id)
+                    && handoff != Some(*path_id)
                     && !conn_state
                         .suspect_paths
                         .get(path_id)
@@ -2227,18 +2231,22 @@ impl RemoteStateActor {
                 }
             }
 
-            if activated
-                && let Some(id) = failed_current
-                && let Some(path) = conn.path(id)
-            {
-                // A PTO probes the old carrier. Hand outstanding stream data
-                // to ordinary scheduling only after the new path is Available.
-                path.requeue_unacknowledged_stream_frames();
-                conn_state
-                    .suspect_paths
-                    .get_mut(&id)
-                    .expect("failed current path is suspect")
-                    .retained_for_recovery = true;
+            if activated {
+                conn_state.pending_stream_handoff = None;
+                if let Some(id) = handoff.filter(|id| Some(*id) != selected_for_conn)
+                    && let Some(path) = conn.path(id)
+                {
+                    // PTO probes the old carrier. Once a replacement is Available,
+                    // let ordinary scheduling send the old path's outstanding data.
+                    path.requeue_unacknowledged_stream_frames();
+                    if let Some(suspect) = conn_state.suspect_paths.get_mut(&id) {
+                        suspect.retained_for_recovery = true;
+                    }
+                }
+            } else if fused {
+                // Selection can become empty while the replacement is being
+                // qualified. Preserve the old carrier across that gap.
+                conn_state.pending_stream_handoff = handoff;
             }
 
             if let Some(member) = &mut conn_state.member_paths {
@@ -2999,6 +3007,7 @@ struct ConnectionState {
     /// received from the peer on the path.
     paths: FxHashMap<PathId, transports::PathBinding>,
     suspect_paths: FxHashMap<PathId, SuspectPath>,
+    pending_stream_handoff: Option<PathId>,
     /// Whether this connection has ever had a direct path.
     ///
     /// Used for recording metrics.

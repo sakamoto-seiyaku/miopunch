@@ -24,6 +24,12 @@
 
 普通端点 2 项、受限端点 19 项通过。现有受保护恢复入口另有 6 项通过，包括原接收侧发起、双端确认、实际断路、旧请求线格式及调用期限。WASM 使用上票同一条 Cargo 命令，仍有两项基线错误，`connection_coordinator.rs:1043` 引用了未链接的 `noq_proto`，`browser-probe/src/member_connection.rs:145` 少传 `seal_hello`。回执在 `/tmp/miopunch-154-fallback-wasm/receipt.json`。
 
+## 2026-11-24 换路回归复测
+
+当旧路径失去资格、替代路径仍在验证时，选路可能暂时为空。原实现此时丢失旧路径标识，使未确认的 STREAM 帧无法在替代路径成为可用后移交。修复保留该标识，在选中新承载后将待确认帧交回发送队列。宿主原流往返实测约 0.58 秒，原五秒断言保持。
+
+原有七项失败均通过复验。四项需控制直连备路的用例在独立命名空间运行，先制造故障再登记 MQTT 联系，避免在计数基线前起拨。宿主整文件 19 通过、0 失败、33 跳过。UDP 黑洞四种组合和恢复到期先读尽确认字节的回归也通过。原始记录在 `/tmp/mio-repair-fix.LXoLzs/`。 [HSRNet 全量复测](hsrnet-terminal-replay-2026-11-23.md#2026-11-24-全量复测)
+
 ## 复现入口
 
 ```sh
@@ -33,7 +39,7 @@ rtk proxy python3 scripts/cargo_cache.py run --output /tmp/mio154-build -- \
   --test native_service_streams --test resources --test path_maintenance --no-run --jobs 2
 ```
 
-从 Cargo 回执取得对应测试产物。`native_service_streams` 的独立联系、取消和撤权组使用宿主回环；`exhausted_native_path_reports_terminal_before_the_next_business_reply` 需在启用 `lo` 的一次性 Linux 网络命名空间使用 `--ignored`。`resources` 的 `member_fusion::udp::changed_interface_address_revalidates_the_original_udp_stream` 也使用 `--ignored`，在同类命名空间为一对交换 veth 设置下列起始拓扑。
+从 Cargo 回执取得对应测试产物。`native_service_streams` 的拨号端原流修复与撤权组使用宿主回环。接收端修复、静默首选、双端联系和取消组在一次性 Linux 网络命名空间内封锁直连 TCP，确认独立联系已起拨后按场景解封。启用 `lo` 后用 `--ignored --exact` 运行这四组及 `exhausted_native_path_reports_terminal_before_the_next_business_reply`。`resources` 的 `member_fusion::udp::changed_interface_address_revalidates_the_original_udp_stream` 也使用 `--ignored`，在同类命名空间为一对交换 veth 设置下列起始拓扑。
 
 ```sh
 ip link set lo up

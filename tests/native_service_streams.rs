@@ -134,16 +134,21 @@ async fn reopen_with_resources(
     NativeClient::open(path, Ipv4Addr::LOCALHOST).await.unwrap()
 }
 
-async fn first_pong(
-    client: &NativeClient,
-    target: iroh::EndpointAddr,
-    expected_path: iroh::TransportAddr,
-) -> u64 {
+async fn member_pong(client: &NativeClient, target: iroh::EndpointAddr) -> serde_json::Value {
     let peer = target.id.to_string();
     let reply = timeout(IO, client.ping(target)).await.unwrap().unwrap();
     println!("first-pong {reply}");
     assert_eq!(reply["reply"], "PONG");
     assert_eq!(reply["transport"]["peer"], peer);
+    reply
+}
+
+async fn first_pong(
+    client: &NativeClient,
+    target: iroh::EndpointAddr,
+    expected_path: iroh::TransportAddr,
+) -> u64 {
+    let reply = member_pong(client, target).await;
     let transport = serde_json::to_value(expected_path).unwrap();
     assert_eq!(
         reply["transport"]["initial_data_path"], transport,
@@ -334,12 +339,8 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         .await
         .unwrap();
     println!("redial-fixture wrong-peer-ip");
-    let (_, observed) = tokio::join!(
-        Box::pin(first_pong(
-            &consumer,
-            iroh::EndpointAddr::new(target.id),
-            iroh::TransportAddr::Relay(relay.clone())
-        )),
+    let (reply, observed) = tokio::join!(
+        Box::pin(member_pong(&consumer, iroh::EndpointAddr::new(target.id))),
         timeout(IO, async {
             let mut connecting = wrong.accept().await.unwrap().accept().unwrap();
             let alpn = connecting.alpn().await.unwrap();
@@ -350,6 +351,11 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
     assert_eq!(
         alpn,
         miopunch_native_probe::native_network::FUSED_MEMBER_ALPN
+    );
+    assert_ne!(
+        reply["transport"]["initial_data_path"],
+        serde_json::to_value(iroh::TransportAddr::Ip(direct)).unwrap(),
+        "the cached address now authenticates the wrong peer"
     );
     drop(wrong_connection);
     Box::pin(consumer.close()).await.unwrap();
@@ -1144,6 +1150,26 @@ struct NativeStreamCut {
 }
 
 impl NativeStreamCut {
+    #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+    fn block_direct_tcp(&self) -> [PortBlackhole; 2] {
+        use miopunch_native_probe::tcp_transport::{DATA_TRANSPORT_ID, TcpTransport};
+
+        [&self.pair.consumer, &self.pair.provider].map(|node| {
+            let port = node
+                .address()
+                .addrs
+                .iter()
+                .find_map(|route| match route {
+                    iroh::TransportAddr::Custom(address) if address.id() == DATA_TRANSPORT_ID => {
+                        Some(TcpTransport::socket_addr(address).unwrap().port())
+                    }
+                    _ => None,
+                })
+                .unwrap();
+            PortBlackhole::new(port)
+        })
+    }
+
     async fn new() -> Self {
         Self::new_open(false).await
     }
@@ -1385,16 +1411,9 @@ impl NativeStreamCut {
         self.broker.unmute_datagrams();
     }
     #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
-    async fn hold_interruption(&self) -> Vec<PortBlackhole> {
-        use miopunch_native_probe::tcp_transport::{DATA_TRANSPORT_ID, TcpTransport};
+    async fn hold_interruption(&self) -> [PortBlackhole; 2] {
         let original = self.pair.consumer.test_member_connection(self.pair.target.id).await.unwrap();
-        let faults: Vec<_> = [&self.pair.consumer, &self.pair.provider].iter().map(|node| {
-            let port = node.address().addrs.iter().find_map(|route| match route {
-                iroh::TransportAddr::Custom(address) if address.id() == DATA_TRANSPORT_ID => Some(TcpTransport::socket_addr(address).unwrap().port()),
-                _ => None,
-            }).unwrap();
-            PortBlackhole::new(port)
-        }).collect();
+        let faults = self.block_direct_tcp();
         self.broker.mute_datagrams();
         self.proxy.cancel();
         let mut probe = original.open_bi().await.unwrap();
@@ -1410,6 +1429,25 @@ impl NativeStreamCut {
             reply["transport"]["connection"],
             self.before[side]["connection"]
         );
+    }
+
+    #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+    async fn register_repair_contacts(&self, side: usize, first: Option<iroh_base::CustomAddr>) {
+        // Teach the original only after the fault is armed so the fixture can
+        // observe the first repair dial from its actual start.
+        let peers = [&self.pair.consumer, &self.pair.provider];
+        let connection = peers[side]
+            .test_member_connection(peers[1 - side].address().id)
+            .await
+            .unwrap();
+        assert_eq!(
+            connection.stable_id() as u64,
+            self.before[side]["connection"].as_u64().unwrap()
+        );
+        let iroh::TransportAddr::Custom(live) = self.contact[side].addrs.first().unwrap() else {
+            unreachable!("fixture uses an MQTT contact");
+        };
+        connection.learn_repair_contacts(first.into_iter().chain([live.clone()]).collect());
     }
 
     fn independent_dials(&self, side: usize) -> usize {
@@ -1428,7 +1466,7 @@ impl NativeStreamCut {
         wait_until(|| {
             self.status().iter().zip(&self.before).all(|(now, before)| {
                 selected_path(now)
-                    .is_some_and(|new| new["id"] != selected_path(before).unwrap()["id"])
+                    .is_some_and(|new| new["id"] != before["paths"][0]["id"])
             })
         })
         .await;
@@ -1478,31 +1516,31 @@ async fn restricted_contact_repairs_the_live_native_forwarding_stream() {
 }
 
 #[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace to hold the direct TCP backup"]
 async fn accepting_peer_alone_can_contact_and_repair_the_original_native_stream() {
     native_forwarding_repair(1).await;
 }
 
 #[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace to hold the direct TCP backup"]
 async fn a_silent_repair_contact_leaves_time_for_the_live_alternative() {
     use miopunch_native_probe::mqtt_datagram::address_for;
 
     let mut cut = NativeStreamCut::new().await;
-    let mut contact = cut.contact[0].clone();
-    let Some(iroh::TransportAddr::Custom(live)) = contact.addrs.first() else {
+    let Some(iroh::TransportAddr::Custom(live)) = cut.contact[0].addrs.first() else {
         unreachable!("fixture uses a configured MQTT address");
     };
     let stale = address_for(Some(live.data()[..16].try_into().unwrap()), [0; 16]);
     assert!(stale < *live);
     assert!(!cut.broker.datagram_routes().contains(&hex::encode([0; 16])));
-    contact
-        .addrs
-        .insert(iroh::TransportAddr::Custom(stale.clone()));
-    let pong = cut.pair.consumer.ping(contact).await.unwrap();
-    assert_eq!(pong["transport"]["connection"], cut.before[0]["connection"]);
     let first_dials = cut.broker.initial_dials_to(&stale);
     let backup_dials = cut.independent_dials(0);
+    let direct = cut.block_direct_tcp();
     let started = Instant::now();
     cut.proxy.cancel();
+    cut.register_repair_contacts(0, Some(stale.clone())).await;
     cut.sender.write_all(&2u64.to_be_bytes()).await.unwrap();
     wait_until(|| cut.broker.initial_dials_to(&stale) == first_dials + 1).await;
     assert_eq!(
@@ -1511,6 +1549,8 @@ async fn a_silent_repair_contact_leaves_time_for_the_live_alternative() {
         "the first route is given a chance"
     );
     tokio::time::timeout_at(started + IO, async {
+        wait_until(|| cut.independent_dials(0) > backup_dials).await;
+        drop(direct);
         let mut bytes = [0; 8];
         cut.receiver.read_exact(&mut bytes).await.unwrap();
         assert_eq!(bytes, 2u64.to_be_bytes());
@@ -1529,7 +1569,7 @@ async fn a_silent_repair_contact_leaves_time_for_the_live_alternative() {
         assert_eq!(current["connection"], cut.before[side]["connection"]);
         assert_eq!(current["stream"], cut.before[side]["stream"]);
         let path = selected_path(current).unwrap();
-        assert_ne!(path["id"], selected_path(&cut.before[side]).unwrap()["id"]);
+        assert_ne!(path["id"], cut.before[side]["paths"][0]["id"]);
         assert!(path["last_ack_age_ms"].is_u64());
         assert!(
             path["rx_stream_frames"].as_u64().unwrap()
@@ -1543,17 +1583,21 @@ async fn a_silent_repair_contact_leaves_time_for_the_live_alternative() {
 }
 
 #[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace to hold the direct TCP backup"]
 async fn crossed_repair_contacts_install_one_path_on_the_original_connection() {
     let mut cut = NativeStreamCut::new().await;
-    cut.learn_contact(0).await;
-    cut.learn_contact(1).await;
     cut.broker.mute_datagrams();
     let before = [cut.independent_dials(0), cut.independent_dials(1)];
+    let direct = cut.block_direct_tcp();
     let started = Instant::now();
     cut.proxy.cancel();
+    cut.register_repair_contacts(0, None).await;
+    cut.register_repair_contacts(1, None).await;
     cut.sender.write_all(&2u64.to_be_bytes()).await.unwrap();
     cut.receiver.write_all(&3u64.to_be_bytes()).await.unwrap();
     wait_until(|| (0..2).all(|side| cut.independent_dials(side) > before[side])).await;
+    drop(direct);
     cut.broker.unmute_datagrams();
     tokio::time::timeout_at(started + IO, async {
         let mut received = [0; 8];
@@ -1564,13 +1608,14 @@ async fn crossed_repair_contacts_install_one_path_on_the_original_connection() {
     })
     .await
     .expect("both queued sequences cross the same original stream");
+    cut.wait_for_replacement_paths().await;
     sequence_reply(&mut cut.sender, &mut cut.receiver, 4).await;
     for (side, current) in cut.status().iter().enumerate() {
         let original = &cut.before[side];
         assert_eq!(current["connection"], original["connection"]);
         assert_eq!(current["stream"], original["stream"]);
         assert_eq!(cut.independent_dials(side), before[side] + 1);
-        let original_id = &selected_path(original).unwrap()["id"];
+        let original_id = &original["paths"][0]["id"];
         let candidates: Vec<_> = current["paths"]
             .as_array()
             .unwrap()
@@ -1590,15 +1635,31 @@ async fn crossed_repair_contacts_install_one_path_on_the_original_connection() {
 
 async fn native_forwarding_repair(contact_side: usize) {
     let mut cut = NativeStreamCut::new().await;
-    cut.learn_contact(contact_side).await;
     let mqtt_before = cut.broker.datagram_publishes();
     let dials_before = cut.independent_dials(contact_side);
+    if contact_side == 0 {
+        cut.learn_contact(0).await;
+    }
+    #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+    let reverse_fault = (contact_side == 1).then(|| cut.block_direct_tcp());
     let started = Instant::now();
     cut.proxy.cancel();
     if contact_side == 0 {
         sequence_reply(&mut cut.sender, &mut cut.receiver, 2).await;
-    } else {
-        sequence_reply(&mut cut.receiver, &mut cut.sender, 2).await;
+    }
+    #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+    if let Some(direct) = reverse_fault {
+        cut.register_repair_contacts(contact_side, None).await;
+        let iroh::TransportAddr::Custom(route) = cut.contact[contact_side].addrs.first().unwrap() else {
+            unreachable!("fixture uses an MQTT contact");
+        };
+        tokio::join!(
+            sequence_reply(&mut cut.receiver, &mut cut.sender, 2),
+            async {
+                wait_until(|| cut.broker.initial_dials_to(route) > dials_before).await;
+                drop(direct);
+            },
+        );
     }
     let first_reply = started.elapsed();
     assert!(cut.broker.datagram_publishes() > mqtt_before);
@@ -1615,7 +1676,7 @@ async fn native_forwarding_repair(contact_side: usize) {
         let path = selected_path(now).unwrap();
         let proof = selected_path(repaired).unwrap();
         assert_eq!(path["id"], proof["id"]);
-        assert_ne!(path["id"], selected_path(before).unwrap()["id"]);
+        assert_ne!(path["id"], before["paths"][0]["id"]);
         assert!(u128::from(proof["last_ack_age_ms"].as_u64().unwrap()) < repaired_at.as_millis());
         assert!(
             path["rx_stream_frames"].as_u64().unwrap()
@@ -1888,15 +1949,17 @@ impl Drop for PortBlackhole {
 }
 
 #[tokio::test]
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[ignore = "requires a disposable network namespace to hold the direct TCP backup"]
 async fn cancelling_the_last_native_flow_stops_independent_repair() {
     let mut cut = NativeStreamCut::new().await;
-    cut.learn_contact(0).await;
     cut.broker.mute_datagrams();
-    let initial = cut.broker.datagram_publishes();
     let initial_dials = cut.independent_dials(0);
+    let _direct = cut.block_direct_tcp();
     cut.proxy.cancel();
+    cut.register_repair_contacts(0, None).await;
     cut.sender.write_all(&2u64.to_be_bytes()).await.unwrap();
-    wait_until(|| cut.broker.datagram_publishes() > initial).await;
+    wait_until(|| cut.independent_dials(0) > initial_dials).await;
     assert_eq!(cut.independent_dials(0), initial_dials + 1);
     let id = flow(&cut.pair.consumer, Protocol::Tcp)["id"]
         .as_str()
@@ -1993,6 +2056,7 @@ async fn silent_relay_race_starts_mqtt_before_the_relays_finish() {
         );
     }
     let consumer = reopen_with_resources(&root.path().join("consumer"), |resources| {
+        resources.maintenance.standby_member_limit = Some(0);
         resources
             .defaults
             .resources
