@@ -233,6 +233,27 @@ def wait_direct(output, phone, provider, case):
     raise RuntimeError(('direct path did not qualify', status))
 
 
+def wait_direct_pair(output, phone, provider, case):
+    deadline = time.monotonic() + 8
+    while True:
+        statuses = paired_status(output, phone, provider, 'both_ready')
+        rtts = {
+            side: {direct_link(p): p['rtt_us'] for p in paths(op)
+                   if direct_link(p) and p['last_ack_age_ms'] is not None
+                   and p['last_ack_age_ms'] < 500}
+            for side, op in statuses.items()
+        }
+        if all(set(values) == set(LINKS) for values in rtts.values()):
+            gaps = [values[BACKUP] - values[DIRECT] for values in rtts.values()]
+            if (case == 'both' and all(abs(gap) < 5000 for gap in gaps)
+                    or case == 'slow' and all(gap >= 40000 for gap in gaps)):
+                # Let each endpoint's next selection sample see both paths.
+                time.sleep(1.05)
+                return rtts
+        assert time.monotonic() < deadline, (statuses, rtts)
+        time.sleep(.02)
+
+
 def echo_target(server, sink):
     client, _ = server.accept()
     with client:
@@ -331,25 +352,7 @@ def run(output, case, cli, relay):
                 # member connection after A has delivered terminal data.
                 for node, peer in ((phone, provider), (provider, phone)):
                     assert node.call('ping', address=peer.relay_address(LINKS))['reply'] == 'PONG'
-                deadline = time.monotonic() + 8
-                while True:
-                    statuses = sample(output, phone, provider, 'both_ready')['terminal']
-                    qualified_rtts_us = {
-                        side: {direct_link(p): p['rtt_us'] for p in paths(op)
-                               if direct_link(p) and p['last_ack_age_ms'] is not None
-                               and p['last_ack_age_ms'] < 500}
-                        for side, op in statuses.items()
-                    }
-                    if all(set(rtts) == set(LINKS) for rtts in qualified_rtts_us.values()):
-                        gaps = [rtts[BACKUP] - rtts[DIRECT] for rtts in qualified_rtts_us.values()]
-                        if (case == 'both' and all(abs(gap) < 5000 for gap in gaps)
-                                or case == 'slow' and all(gap >= 40000 for gap in gaps)):
-                            break
-                    assert time.monotonic() < deadline, (statuses, qualified_rtts_us)
-                    time.sleep(.02)
-                # The selector samples QUIC path stats every second. Let each
-                # endpoint publish the new candidate before opening the flow.
-                time.sleep(1.05)
+                qualified_rtts_us = wait_direct_pair(output, phone, provider, case)
             server = stack.enter_context(socket.socket())
             server.bind(('127.0.0.1', 0))
             server.listen()
