@@ -287,6 +287,13 @@ impl State {
         }
     }
 
+    /// Keep new peer announcements out of an already scheduled round.
+    pub(crate) fn defer_probes_for_new_addresses(&mut self) {
+        if let Self::ClientSide(state) = self {
+            state.new_addresses_join_round = false;
+        }
+    }
+
     /// Marks a probe as sent to the address with the challenge.
     pub(crate) fn mark_probe_sent(&mut self, remote: IpPort, challenge: u64) {
         match self {
@@ -386,6 +393,7 @@ pub(crate) struct ClientState {
     ///
     /// This is set by the remote endpoint.
     max_local_addresses: usize,
+    new_addresses_join_round: bool,
     /// Candidate addresses the remote endpoint advertises.
     ///
     /// These are addresses on which the server is potentially reachable, to use for NAT
@@ -438,6 +446,7 @@ impl ClientState {
         Self {
             max_remote_addresses,
             max_local_addresses,
+            new_addresses_join_round: true,
             remote_addresses: Default::default(),
             local_addresses: Default::default(),
             round: Default::default(),
@@ -505,7 +514,7 @@ impl ClientState {
             .values_mut()
             .for_each(|(ip_port, state)| {
                 if !should_probe(ip_port.as_canonical_addr()) {
-                    *state = ProbeState::Succeeded;
+                    *state = ProbeState::Inactive;
                 } else if let Some(ip_port) = ip_port.as_local_socket_family(ipv6) {
                     self.pending_probes.insert(ip_port);
                     *state = ProbeState::Active(MAX_NAT_PROBE_ATTEMPTS - 1);
@@ -561,7 +570,7 @@ impl ClientState {
                         *remaining = 0;
                     }
                 }
-                ProbeState::Active(_) | ProbeState::Succeeded => {}
+                ProbeState::Active(_) | ProbeState::Inactive => {}
             });
     }
 
@@ -586,12 +595,8 @@ impl ClientState {
     /// On success returns the address if it was new to the set. It will error when the set
     /// has no capacity for the address.
     ///
-    /// If this is called while a round is in progress this will effectively add the address
-    /// to the current round. There is no guarantee however that the current round is still
-    /// in progress however, if the last [`Self::queue_retries`] call returned `false` the
-    /// round has stopped.
-    // TODO(flub): probably should add an event to signal that the round is finished, so
-    //    that the application knows to start a new round.
+    /// By default, a new address also joins any running round. An application
+    /// that explicitly schedules new probes can defer this until its next round.
     pub(crate) fn add_remote_address(
         &mut self,
         add_addr: AddAddress,
@@ -599,18 +604,23 @@ impl ClientState {
         let AddAddress { seq_no, ip, port } = add_addr;
         let address = CanonicalIpPort::from((ip, port));
         let allow_new = self.remote_addresses.len() < self.max_remote_addresses;
+        let probe = if self.new_addresses_join_round {
+            ProbeState::Active(MAX_NAT_PROBE_ATTEMPTS)
+        } else {
+            ProbeState::Inactive
+        };
         match self.remote_addresses.entry(seq_no) {
             Entry::Occupied(mut occupied_entry) => {
                 let is_update = occupied_entry.get().0 != address;
                 if is_update {
-                    occupied_entry.insert((address, ProbeState::Active(MAX_NAT_PROBE_ATTEMPTS)));
+                    occupied_entry.insert((address, probe));
                 }
                 // The value might be different. This should not happen, but we assume that the new
                 // address is more recent than the previous, and thus worth updating
                 Ok(is_update.then_some(address.as_canonical_addr()))
             }
             Entry::Vacant(vacant_entry) if allow_new => {
-                vacant_entry.insert((address, ProbeState::Active(MAX_NAT_PROBE_ATTEMPTS)));
+                vacant_entry.insert((address, probe));
                 Ok(Some(address.as_canonical_addr()))
             }
             _ => Err(Error::TooManyAddresses),
@@ -676,7 +686,7 @@ impl ClientState {
                 {
                     // Stop probing this remote address.
                     self.remote_addresses
-                        .insert(seq, (remote, ProbeState::Succeeded));
+                        .insert(seq, (remote, ProbeState::Inactive));
                 } else {
                     // Nothing to stop probing, the remote was only challenged because a
                     // PATH_RESPONSE was being sent to it. These are not retried locally
@@ -715,8 +725,8 @@ enum ProbeState {
     ///
     /// The remaining number of retries are stored in the `u8`.
     Active(u8),
-    /// We received a probe response for this remote.
-    Succeeded,
+    /// This remote has no further probes scheduled in the current round.
+    Inactive,
 }
 
 impl ProbeState {
@@ -724,7 +734,7 @@ impl ProbeState {
     fn remaining(&self) -> u8 {
         match self {
             Self::Active(remaining) => *remaining,
-            Self::Succeeded => 0,
+            Self::Inactive => 0,
         }
     }
 }
@@ -873,7 +883,7 @@ impl ServerState {
                     *remaining -= 1;
                     self.pending_probes.insert(*remote);
                 }
-                ProbeState::Active(_) | ProbeState::Succeeded => (),
+                ProbeState::Active(_) | ProbeState::Inactive => (),
             });
     }
 
@@ -901,7 +911,7 @@ impl ServerState {
             let remote = (src.remote().ip(), src.remote().port());
             if *entry.get() == remote {
                 entry.remove();
-                self.remotes.insert(remote, ProbeState::Succeeded);
+                self.remotes.insert(remote, ProbeState::Inactive);
                 return true;
             } else {
                 debug!(

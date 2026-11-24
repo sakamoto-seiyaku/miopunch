@@ -1373,6 +1373,93 @@ async fn original_relay_stream_migrates_to_ipv4() {
     pair.close().await;
 }
 
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[tokio::test]
+#[ignore = "requires the lab's disposable network namespace and UDP packet filters"]
+async fn old_qnt_retries_do_not_probe_new_balancing_candidates() {
+    use iroh::endpoint::QuicTransportConfig;
+    use tokio::net::UdpSocket;
+
+    let pair = Pair::bind_with_observers(
+        LOOPBACK,
+        LOOPBACK,
+        HIGH_RELAY_DELAY,
+        PathPreference::PreferDirect,
+        &[],
+        |builder| {
+            builder.transport_config(
+                QuicTransportConfig::builder()
+                    .initial_rtt(Duration::from_millis(1500))
+                    .build(),
+            )
+        },
+    )
+    .await;
+    let [client, server] = &pair.connections;
+    let addresses = pair.addresses();
+    let gate = UdpBlackhole::new(addresses);
+    assert!(pair.connections.iter().all(|conn| {
+        conn.paths().iter().all(|path| !path.is_ip())
+    }));
+    let ids = pair.connections.each_ref().map(MemberConnection::stable_id);
+    let previous_candidate = UdpSocket::bind(SocketAddr::from(([127, 0, 0, 4], 0))).await.unwrap();
+    let candidate_b = UdpSocket::bind(SocketAddr::from(([127, 0, 0, 2], 0))).await.unwrap();
+    let candidate_c = UdpSocket::bind(SocketAddr::from(([127, 0, 0, 3], 0))).await.unwrap();
+    let mut previous_probe = [0; 1200];
+    let mut b_probe = [0; 1200];
+    let mut c_probe = [0; 1200];
+    time::timeout(2 * BUSINESS_LIMIT, async {
+        pair.endpoints[1]
+            .test_add_external_addr(previous_candidate.local_addr().unwrap())
+            .await;
+        let (_, source) = previous_candidate.recv_from(&mut previous_probe).await.unwrap();
+        assert_eq!(source, addresses[0]);
+        assert!(client.stats().frame_tx.reach_out > 0);
+
+        let released = Instant::now();
+        drop(gate);
+        let paths = qualified_udp(&pair.connections, addresses, released, true).await;
+        let mut original = OriginalStream::open(client, server, 1).await;
+        stream_on_path(server, &mut original, paths[1], 2).await;
+        let advertised_before = client.stats().frame_rx.add_address;
+        let rounds_before = client.stats().frame_tx.reach_out;
+        pair.endpoints[0]
+            .learn_ip_candidates(EndpointAddr::new(pair.endpoints[1].id())
+                .with_ip_addr(candidate_b.local_addr().unwrap()))
+            .await;
+        pair.endpoints[1]
+            .test_add_external_addr(candidate_b.local_addr().unwrap())
+            .await;
+        pair.endpoints[1]
+            .test_add_external_addr(candidate_c.local_addr().unwrap())
+            .await;
+        let mut concurrent = OriginalStream::open(client, server, 3).await;
+        stream_on_path(server, &mut concurrent, paths[1], 4).await;
+        let (_, source) = candidate_b.recv_from(&mut b_probe).await.unwrap();
+        assert_eq!(source, addresses[0]);
+        wait_for("both new QNT advertisements", BUSINESS_LIMIT, || {
+            client.stats().frame_rx.add_address >= advertised_before + 2
+        })
+        .await;
+
+        while previous_candidate.try_recv_from(&mut previous_probe).is_ok() {}
+        let (_, source) = previous_candidate.recv_from(&mut previous_probe).await.unwrap();
+        assert_eq!(source, addresses[0]);
+        assert_eq!(client.stats().frame_tx.reach_out, rounds_before);
+        assert!(
+            time::timeout(Duration::from_millis(250), candidate_c.recv_from(&mut c_probe))
+                .await
+                .is_err(),
+            "the older QNT round also probed the new candidate C"
+        );
+        stream_on_path(server, &mut original, paths[1], 5).await;
+    })
+    .await
+    .expect("the prior QNT round retries while a healthy path carries both streams");
+    assert_eq!(pair.connections.each_ref().map(MemberConnection::stable_id), ids);
+    pair.close().await;
+}
+
 #[cfg(target_os = "linux")]
 #[tokio::test]
 #[ignore = "requires the lab's disposable network namespace and its assigned UDP addresses"]

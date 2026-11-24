@@ -1163,6 +1163,14 @@ impl Connection {
         conn.inner.get_remote_nat_traversal_addresses()
     }
 
+    /// Require an explicit probe or new round for future peer announcements.
+    pub fn defer_probes_for_new_nat_addresses(&self) {
+        self.0
+            .lock_without_waking("defer_probes_for_new_nat_addresses")
+            .inner
+            .defer_probes_for_new_nat_addresses();
+    }
+
     /// Probe an IP address known locally on this original connection.
     pub fn probe_known_nat_traversal_address(
         &self,

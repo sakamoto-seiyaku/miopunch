@@ -7948,6 +7948,11 @@ impl Connection {
             .get_remote_nat_traversal_addresses())
     }
 
+    /// Require an explicit probe or new round for future peer announcements.
+    pub fn defer_probes_for_new_nat_addresses(&mut self) {
+        self.n0_nat_traversal.defer_probes_for_new_addresses();
+    }
+
     /// Probe a known peer address without exchanging candidate advertisements.
     pub fn probe_known_nat_traversal_address(
         &mut self,

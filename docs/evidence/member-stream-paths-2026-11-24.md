@@ -48,12 +48,16 @@ C 是 `10.94.0.0/30` 上额外开放的直连，通过已有地址提示和同�
 
 | 开流端在原 QUIC 的身份 / B 状态 | B 未完成时的新 TCP 流 | 后续新流 | 待命重开 | 原始记录 |
 | --- | --- | --- | --- | --- |
-| 服务端 / 成功 | 9、13、17 经 A | 21、25 经 B，原 5、9 仍经 A | 33 经 A | `/tmp/mio179-final-phone/` |
-| 客户端 / 成功 | 8、12、16 经 A | 20、24 经 B，原 5、8 仍经 A | 28 经 A | `/tmp/mio179-final-provider/` |
-| 服务端 / 失败 | 13、17、21 经 A | 25 与原 9、13 仍经 A | 33 经 A | `/tmp/mio179-final-failure/` |
+| 服务端 / 成功 | 13、17、21 经 A | 25、29 经 B，原 9、13 仍经 A | 37 经 A | `/tmp/mio179-reviewed-phone/` |
+| 客户端 / 成功 | 8、12、16 经 A | 20、24 经 B，原 5、8 仍经 A | 28 经 A | `/tmp/mio179-reviewed-client/` |
+| 服务端 / 失败 | 9、13、17 经 A | 21 与原 5、9 仍经 A | 29 经 A | `/tmp/mio179-reviewed-failure/` |
 
-三轮在 B 放行或丢弃前均记录了原 QUIC 客户端向 B 发送的 UDP，C 的双端计数为零。成功轮随后开放 B、C，在双端测得 A/B RTT 差小于 5 ms，新增流在 A、B 间分配期间 C 仍为零。基线 `d5f8fbd7` 的同一入口在选定 A 后同时向 B 和 C 发送探测，失败记录 `/tmp/mio179-durable-red/`。
+三轮在 B 放行或丢弃前均记录了原 QUIC 客户端向 B 发送的 UDP，C 的双端计数为零。成功轮随后开放 B、C，在双端测得 A/B RTT 差小于 5 ms，新增流在 A、B 间分配期间 C 的连续计数仍为零。客户端发起的成功用例在开始计数前给首次 QNT 轮留出完整退避窗口。基线 `d5f8fbd7` 的同一入口在选定 A 后同时向 B 和 C 发送探测，失败记录 `/tmp/mio179-durable-red/`。
 
 两端的终端操作和 TCP 流完全退出后观察六秒。A 的双端 UDP 计数继续增加，B、C 无增量。随后同一监听入口打开 TCP 流，双端实际 STREAM、独立回送和原会话 ID 均匹配。待命修复前的相同行为在六秒内双方 B 各增加六包，记录 `/tmp/mio179-accept-server/`、`/tmp/mio179-accept-reverse/`。
 
-最终 CLI 构建回执 `/tmp/mio179-final-cli-build/receipt.json`（462 Fresh、5 rebuilt），固定产物 `.artifacts/runs/mio-179/pinned/miopunch-client`，对象 `.artifacts/sha256/de/de4c809b0f6e6b7fdb510a5936072a8a12aef6a8182b6f4474479c744f9021d5-555`。继续复用 177 的 relay。完成基线及待命差异对照后，回收确认没有宿主进程使用的 178 CLI 和 179 中间 CLI 的各两条链接，共 402,149,376 字节。[验收脚本](../../scripts/check_member_stream_warmup.py) · [MIOPUNCH-179](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/b88f2731-e0f6-46ac-ad4c-3fd0602ff270)
+融合端点回归 `old_qnt_retries_do_not_probe_new_balancing_candidates` 从 relay 引导，先在独立 UDP socket 看到旧候选 D 的探测，再放开并确认 A。原 QUIC 上的两条业务流经 A 向接收端交付字节。B、C 的 ADD_ADDRESS 都到达后，独立 socket 确认 D 的旧重试仍在、B 得到探测、C 无探测，原 QUIC 的 REACH_OUT 计数不变。`0e3f9ae0` 的产品代码会让 C 收到探测，日志 `/tmp/mio179-overlap-red.log`。审查修复后同一操作和断言通过，日志 `/tmp/mio179-overlap-green.log`。
+
+审查修复后的业务租约、首条直连、原生 TCP 修复和待命启动四项精确回归通过，日志分别为 `/tmp/mio179-split-lease.log`、`/tmp/mio179-first-direct.log`、`/tmp/mio179-tcp-repair.log`、`/tmp/mio179-standby-start.log`。审查前的 `resources`、`native_service_streams`、`member_standby` 整组运行触及 190 秒期限，日志在 `/tmp/mio179-final-*-suite.log`。
+
+CLI 构建回执 `/tmp/mio179-reviewed-cli-build/receipt.json`（461 Fresh、6 rebuilt），固定产物 `.artifacts/runs/mio-179/pinned/miopunch-client`，对象 `.artifacts/sha256/67/6715cc6e908784f4fca8380121be366eb5ed8b90449802ea77d0022102d1c7c2-555`。Rust 测试回执 `/tmp/mio179-overlap-green-build/receipt.json`（460 Fresh、11 rebuilt）。继续复用 177 的 relay。回收 178 CLI 和两版 179 中间 CLI 的闲置对象与对应链接，共 603,242,496 字节。[验收脚本](../../scripts/check_member_stream_warmup.py) · [MIOPUNCH-179](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/b88f2731-e0f6-46ac-ad4c-3fd0602ff270)

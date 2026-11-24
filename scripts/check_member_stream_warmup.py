@@ -63,7 +63,9 @@ def run(output, cli, relay, case, forward_from):
             allow_direct(ns.pid, DIRECT)
             start = wait_direct(output, phone, provider, DIRECT)
             original = {side: identity(op) for side, op in start.items()}
-            source, destination = (phone, provider) if forward_from == 'phone' else (provider, phone)
+            phone_role = original['phone'][3].split()[0]
+            source, destination = ((phone, provider) if forward_from in ('phone', phone_role)
+                                   else (provider, phone))
             client_namespace = ['nsenter', '-t', str(ns.pid), '-n', '--'] if source is phone else []
             target_host = '127.0.0.1' if destination is provider else '10.92.0.1'
             server = stack.enter_context(socketserver.ThreadingTCPServer((target_host, 0), Echo))
@@ -181,22 +183,23 @@ def run(output, cli, relay, case, forward_from):
                     (output / (label + '.json')).write_text(json.dumps(counts, indent=2))
                 return counts
 
+            # Let the ordinary first-route QNT retries settle with B and C
+            # gated. Start measuring only probes caused by the new business.
+            time.sleep(8)
             terminal = [terminal_round_trip('before')]
-            if case == 'success':
-                # Queue B's datagrams before they can complete the handshake.
-                # C stays gated until the business-before-B observation.
-                for namespace in (None, ns.pid):
+            for namespace in (None, ns.pid):
+                if case == 'success':
+                    # Queue B's datagrams before they can complete validation.
                     command('tc', 'qdisc', 'change', 'dev', BACKUP, 'root',
                             'netem', 'delay', '1200ms', namespace=namespace)
-                    command('nft', 'flush', 'chain', 'inet', 'warm', 'out', namespace=namespace)
-                    for link in LINKS:
-                        rule = ['nft', 'add', 'rule', 'inet', 'warm', 'out', 'oifname', link,
-                                'meta', 'l4proto', 'udp', 'counter']
-                        if link == THIRD:
-                            rule.append('drop')
-                        command(*rule, namespace=namespace)
-            else:
-                allow_direct(ns.pid, DIRECT)
+                # The output counters run before this gate and stay in place
+                # when the gate opens.
+                command('nft', 'add', 'chain', 'inet', 'warm', 'gate', '{', 'type', 'filter',
+                        'hook', 'output', 'priority', '1', ';', '}', namespace=namespace)
+                for link in (THIRD, BACKUP) if case == 'failure' else (THIRD,):
+                    command('nft', 'add', 'rule', 'inet', 'warm', 'gate', 'oifname', link,
+                            'meta', 'l4proto', 'udp', 'drop', namespace=namespace)
+            allow_direct(ns.pid, 'both')
 
             new_flow('while_B_unverified', DIRECT)
             open_flows(('concurrent_1', 'concurrent_2'), DIRECT)
@@ -211,8 +214,8 @@ def run(output, cli, relay, case, forward_from):
             assert all(not row[THIRD] for row in before_b.values()), before_b
             close_flows('concurrent_1', 'concurrent_2')
             if case == 'success':
-                allow_direct(ns.pid, 'both')
                 for namespace in (None, ns.pid):
+                    command('nft', 'flush', 'chain', 'inet', 'warm', 'gate', namespace=namespace)
                     command('tc', 'qdisc', 'change', 'dev', BACKUP, 'root',
                             'netem', 'delay', '4ms', namespace=namespace)
                 deadline = time.monotonic() + 9
@@ -262,7 +265,7 @@ def run(output, cli, relay, case, forward_from):
             source.call('forward_stop', task=forward['id'])
             report = dict(flows=results, independent_tcp_received=server.received,
                           independent_terminal_received=received_terminal,
-                          forward_from=forward_from, case=case)
+                          forward_from=source.label, case=case)
             (output / 'result.json').write_text(json.dumps(report, indent=2) + '\n')
             print(json.dumps(report))
         finally:
@@ -276,6 +279,7 @@ if __name__ == '__main__':
     parser.add_argument('--cli', type=Path, required=True)
     parser.add_argument('--relay', type=Path, required=True)
     parser.add_argument('--case', required=True, choices=('success', 'failure'))
-    parser.add_argument('--forward-from', choices=('phone', 'provider'), default='phone')
+    parser.add_argument('--forward-from', choices=('phone', 'provider', 'client', 'server'),
+                        default='phone')
     opts = parser.parse_args()
     run(opts.output, opts.cli.resolve(), opts.relay.resolve(), opts.case, opts.forward_from)

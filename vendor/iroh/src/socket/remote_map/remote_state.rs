@@ -1289,6 +1289,9 @@ impl RemoteStateActor {
             None => false,
         });
         if let Some(policy) = member {
+            // The admitted member planner decides which newly advertised
+            // addresses to probe, even if a bootstrap round is still retrying.
+            conn.defer_probes_for_new_nat_addresses();
             let packet_policy = policy.clone();
             let mapped = self.state.mapped_addrs.clone();
             conn.restrict_paths(move |addr| {
