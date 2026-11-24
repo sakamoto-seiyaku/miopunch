@@ -64,12 +64,12 @@ CLI 构建回执 `/tmp/mio179-reviewed-cli-build/receipt.json`（461 Fresh、6 r
 
 ## MIOPUNCH-180 · 分流后的断路和撤权
 
-两组原生 CLI 场景以 A 上的活动终端开始，通过原成员连接的 CLI ping 提供 B 地址，确认两条直连都已就绪后观察 TCP 转发在 B 交付。用双端带负载的 STREAM 帧核对发送方向、流与连接，用独立 TCP socket 核对每条请求和响应的原字节、顺序与 EOF，用远端 shell 文件核对终端输入的顺序和次数。
+两组原生 CLI 场景在一次性 Linux 用户、网络、PID 和挂载命名空间运行。以 A 上的活动终端开始，通过原成员连接的 CLI ping 提供 B 地址，确认两条直连都已就绪后观察 TCP 转发在 B 交付。用双端带负载的 STREAM 帧核对发送方向、流与连接，用独立 TCP socket 核对每条请求和响应的带序号字节、顺序与双端 EOF，用远端 shell 文件核对终端输入的顺序和次数。两组均显式结束夹具创建的工作区。
 
 | 场景 | 原业务 | 后续分配 | 原始记录 |
 | --- | --- | --- | --- |
-| 双端丢弃 B 的 UDP，保留 A | TCP 流 8 在 B 断开后继续在 A 交付，原终端流 9 留在 A。五次双向转发核对 25,344 / 12,672 字节，两个终端输入各执行一次。 | 断路后流 12 在 A，旧 TCP 流释放后流 16 也在 A。全程同一成员 QUIC。 | `/tmp/mio180-final-cut/` |
-| 保留两路，撤销终端服务规则 | 双端终端操作退出，原附件报告结束，新附着请求失败。原 TCP 流 12、16 分别在 B、A 继续双向交付，独立目标没有额外连接。 | A 持有终端和 TCP、B 持有 TCP 时，新流 20 走 B。撤权释放 A 的终端占用后，两路各剩一条 TCP，新流 24 沿既有偏好走 A。全程同一成员 QUIC。 | `/tmp/mio180-final-revoke/` |
+| 双端丢弃 B 的 UDP，保留 A | TCP 流 8 在 B 断开后继续在 A 交付，原终端流 9 留在 A。六次双向转发核对 36,608 / 18,304 字节，两个终端输入各执行一次。 | 断路期间新流 12 在 A。B 以原 PathId 2 恢复，终端分离后只剩原流 8 在 A，双端仍偏好 A。新流 20 走空闲 B。若 B 的旧持有残留，两个路径同为一条，平局会选 A。全程同一成员 QUIC。 | `/tmp/mio180-reviewed-cut/` |
+| 保留两路，撤销终端服务规则 | 双端终端操作退出，原附件报告结束，新附着请求失败。原 TCP 流 8、12 分别在 B、A 继续双向交付，独立目标没有额外连接。恢复终端授权后，新附件在同一成员 QUIC 上接回同一工作区和 shell，原附件仍报告结束。 | A 持有终端和 TCP、B 持有 TCP 时，新流 16 走 B。撤权释放 A 的终端占用后，两路各剩一条 TCP，新流 20 沿既有偏好走 A。全程同一成员 QUIC。 | `/tmp/mio180-reviewed-revoke/` |
 
 复用 179 的原生 CLI 与 177 的 relay 固定产物，此票没有产品源码变更或新增构建。共享夹具的 177 原双直连验收通过，记录 `/tmp/mio180-share-qualify-direct/`。在同一 Rust 测试产物上，原 TCP 通道跨失效 QUIC 双向各重放 262,144 字节，顺序和尾部准确且只接受一次目标；恢复期间撤销 TCP 服务后两端原 socket 结束，授权 ping 仍能交付；178 记录的成员撤销后新 ping 在当前产物上正常返回错误。日志分别为 `/tmp/mio180-isolated-original-inflight.log`、`/tmp/mio180-isolated-revoke-during-recovery.log` 和 `/tmp/mio180-baseline-membership-revocation.log`。[验收脚本](../../scripts/check_member_stream_cleanup.py) · [MIOPUNCH-180](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/8142bf13-0ff0-4f43-b117-79d051899837)
 

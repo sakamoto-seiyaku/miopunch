@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verify path failure and service revocation on a split native member QUIC.
 
-Run like check_member_stream_paths.py in a disposable user/network namespace.
+Run with unshare -Urn --fork --pid --mount-proc --kill-child.
 """
 import argparse
 from contextlib import ExitStack
@@ -45,6 +45,7 @@ def run(output, cli, relay, case):
         url = prepare_relay(output, stack, relay)
         nodes, phone, provider, attachment, workspace, directory = setup_nodes(
             output, Path(private), ns.pid, url, cli, DIRECT)
+        workspace_ended = False
         try:
             allow_direct(ns.pid, DIRECT)
             start = wait_direct(output, phone, provider, DIRECT)
@@ -78,16 +79,25 @@ def run(output, cli, relay, case):
                 terminal_received.append(marker)
 
             terminal_round_trip('initial_terminal')
-            allow_direct(ns.pid, 'both')
-            # Qualify B explicitly through the original CLI connection, with
-            # only the initial terminal open.
-            for node, peer in ((phone, provider), (provider, phone)):
-                ping = node.call('ping', address=peer.relay_address(LINKS))
-                assert ping['reply'] == 'PONG' and ping['transport']['connection'] == original[node.label][2]
-            rtts = wait_direct_pair(output, phone, provider, 'both')
-            preferred = paired_status(output, phone, provider, 'split_preferred')
+
+            def qualify_pair(label):
+                allow_direct(ns.pid, 'both')
+                for node, peer in ((phone, provider), (provider, phone)):
+                    ping = node.call('ping', address=peer.relay_address(LINKS))
+                    assert ping['reply'] == 'PONG'
+                    assert ping['transport']['connection'] == original[node.label][2]
+                rtts = wait_direct_pair(output, phone, provider, 'both')
+                record(output, 'qualified_pair', label=label, rtt_us=rtts)
+                return paired_status(output, phone, provider, label)
+
+            def backup_ids(transports):
+                return {side: next(p['id'] for p in transport['paths'] if direct_link(p) == BACKUP)
+                        for side, transport in transports.items()}
+
+            # Qualify B explicitly, with only the initial terminal open.
+            preferred = qualify_pair('split_preferred')
             assert all((selected_ip(op) or '').startswith(LINKS[DIRECT]) for op in preferred.values())
-            record(output, 'qualified_pair', rtt_us=rtts)
+            original_backup = backup_ids({side: op['transport'] for side, op in preferred.items()})
 
             # The provider namespace owns both independent sockets. The
             # serving CLI in the phone namespace reaches the target via A.
@@ -109,8 +119,8 @@ def run(output, cli, relay, case):
             def round_trip(client, receiver, label):
                 # Consecutive distinct records make a duplicate or out-of-order
                 # delivery visibly different at either independent reader.
-                sent = (label.encode() + b'\0') * 256
-                reply = (label.encode() + b'\1') * 128
+                sent = b''.join(label.encode() + b'\0' + i.to_bytes(2, 'big') for i in range(256))
+                reply = b''.join(label.encode() + b'\1' + i.to_bytes(2, 'big') for i in range(128))
                 client.sendall(sent)
                 read_bytes(receiver, sent)
                 receiver.sendall(reply)
@@ -157,32 +167,53 @@ def run(output, cli, relay, case):
                     assert time.monotonic() < deadline, ids
                     time.sleep(.02)
 
+            def wait_terminal_closed():
+                deadline = time.monotonic() + 6
+                while any(paired_status(output, phone, provider, 'terminal_release').values()):
+                    assert time.monotonic() < deadline
+                    time.sleep(.02)
+                return deadline
+
             split = open_flow('initial_forward_B', BACKUP)
             if case == 'cut':
+                split_ids, split_client, split_receiver = split
                 allow_direct(ns.pid, DIRECT)
                 record(output, 'cut', link=BACKUP)
                 # Start the first post-cut transfer before waiting for the
                 # existing stream to leave B.
-                original_forward = {side: rows[split[0][side]] for side, rows in flows().items()}
-                round_trip(*split[1:], 'during_cut')
+                original_forward = {side: rows[split_ids[side]] for side, rows in flows().items()}
+                round_trip(split_client, split_receiver, 'during_cut')
                 use_flow(split, 'old_forward_after_cut', DIRECT)
-                assert all(rows[split[0][side]]['stream'] == original_forward[side]['stream']
+                assert all(rows[split_ids[side]]['stream'] == original_forward[side]['stream']
                            for side, rows in flows().items())
                 terminal_round_trip('terminal_after_cut')
                 close_flow(open_flow('new_forward_after_cut', DIRECT))
+
+                # Recover the original B path before closing the migrated TCP
+                # flow. A stale B lease or an uncounted A lease would tie the
+                # paths after the terminal detaches, favoring A.
+                recovered = qualify_pair('original_backup_recovered')
+                assert backup_ids({side: op['transport'] for side, op in recovered.items()}) == original_backup
+                assert not phone.call('terminal_detach', attachment=attachment)['failed']
+                attachment = None
+                wait_terminal_closed()
+                use_flow(split, 'old_forward_after_B_recovery', DIRECT)
+                active = flows()
+                for side, rows in active.items():
+                    assert set(rows) == {split_ids[side]}, active
+                    transport = rows[split_ids[side]]
+                    assert (selected_ip({'transport': transport}) or '').startswith(LINKS[DIRECT]), transport
+                close_flow(open_flow('new_forward_after_B_recovery', BACKUP))
                 close_flow(split)
-                close_flow(open_flow('new_forward_after_release', DIRECT))
             else:
                 on_a = open_flow('initial_forward_A', DIRECT)
                 close_flow(open_flow('new_forward_before_revoke', BACKUP))
                 terminal_round_trip('terminal_before_revoke')
-                policy = provider.call('service_rule', provider=provider.identity,
-                                       service='terminal', rule={'members': False, 'guests': True, 'denied': []})
+                rule = {'members': True, 'guests': True, 'denied': []}
+                policy = provider.call('service_rule', provider=provider.identity, service='terminal',
+                                       rule={**rule, 'members': False})
                 assert policy['saved_locally']
-                deadline = time.monotonic() + 6
-                while any(paired_status(output, phone, provider, 'revoke_terminal').values()):
-                    assert time.monotonic() < deadline
-                    time.sleep(.02)
+                deadline = wait_terminal_closed()
                 while True:
                     ended = phone.call('terminal_read', attachment=attachment, timeout_ms=25)
                     if not ended['attached']:
@@ -198,10 +229,26 @@ def run(output, cli, relay, case):
                 use_flow(split, 'old_forward_B_after_revoke', BACKUP)
                 use_flow(on_a, 'old_forward_A_after_revoke', DIRECT)
                 close_flow(open_flow('new_forward_after_revoke', DIRECT))
+
+                restored = provider.call('service_rule', provider=provider.identity, service='terminal',
+                                         previous=policy['revision'], rule=rule)
+                assert restored['saved_locally']
+                reopened = phone.call('terminal_attach', address=provider.relay_address(), workspace=workspace)
+                assert reopened['attached'] and reopened['workspace'] == workspace and reopened['id'] != attachment
+                ops = paired_status(output, phone, provider, 'new_terminal_after_restore')
+                assert all(identity(op)[2] == original[side][2] for side, op in ops.items()), ops
+                assert not phone.call('terminal_read', attachment=attachment, timeout_ms=25)['attached']
+                attachment = reopened['id']
+                send(phone, attachment, 'test "$$" = "$(cat shell-before)" && printf "CONTROL_"; printf "READY\\n"\n')
+                read_marker(phone, attachment, 'CONTROL_READY')
                 close_flow(on_a)
                 close_flow(split)
 
             assert (directory / workspace / 'cleanup').read_text().splitlines() == terminal_received
+            if attachment is not None:
+                assert not phone.call('terminal_detach', attachment=attachment)['failed']
+            phone.call('terminal_end', address=provider.relay_address(), workspace=workspace)
+            workspace_ended = True
             listener.settimeout(.15)
             try:
                 unexpected, _ = listener.accept()
@@ -216,8 +263,13 @@ def run(output, cli, relay, case):
             (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result))
         finally:
-            for node in reversed(nodes):
-                node.close()
+            try:
+                tmux_socket = directory / 'server.sock'
+                if not workspace_ended and tmux_socket.exists():
+                    command('tmux', '-S', str(tmux_socket), 'kill-server')
+            finally:
+                for node in reversed(nodes):
+                    node.close()
 
 
 if __name__ == '__main__':
