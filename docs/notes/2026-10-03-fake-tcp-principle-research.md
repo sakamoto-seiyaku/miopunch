@@ -1,11 +1,26 @@
 # fake TCP 传输原理与 UDP 打洞后的路径转换
 
-日期：2026-10-03。状态：已归档的源码与规范研究证据。用户随后要求保留本文，并将后续验证标为低优先级任务
+初次研究日期：2026-10-03。用户当时要求保留本文，并将后续验证登记为低优先级任务
 [MIOPUNCH-66](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/f3b59f26-9db9-4992-9638-a0ca45f251cb)。
 研究方向是参考类似原理做 fake TCP 传输，没有决定接入现成项目或立即实现。
 TCP 仍是需要时显式开启的可选能力；本轮实际执行的是独立的
 [UDP/TCP STUN 集成票 MIOPUNCH-67](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/058e5f38-8632-4dba-92af-f1f28bbae3d5)。
 后续工作状态以 Plane 为准。
+
+## 2026-11-24 · 暂缓
+
+用户确认暂时封存 FakeTCP 议题，保留已有研究，暂停原型、实测与实施安排。
+
+本轮补充核对了 udp2raw。FakeTCP 使用独立的 TCP NAT 状态，已有 UDP 映射无法复用。
+一端有可达入口时，客户端可以主动建路。若两端都在 NAT 后且没有可达入口，直连需要另行验证 TCP 建路。
+双向探测包已到达只证明探测可达。udp2raw 仍需模拟 TCP 三次握手，再完成隧道握手后才转发数据。
+Linux 的 raw socket 收发需要 `CAP_NET_RAW`，Windows 客户端依赖 Npcap 一类的驱动。
+这些是文档和源码核对的结论，本轮没有运行 FakeTCP 实验。
+[udp2raw 说明](https://github.com/wangyu-/udp2raw#support-platforms) ·
+[TCP NAT 建连规则](https://www.rfc-editor.org/rfc/rfc5382#section-4.2) ·
+[Windows 驱动依赖](https://github.com/wangyu-/udp2raw-multiplatform/wiki/Install-pcap-and-libnet)
+
+## 2026-10-03 · Phantun 研究
 
 用户尚未给出项目名。本文暂按 Rust 项目 **Phantun / fake-tcp** 核查，它自称将 UDP 数据报转换为面向 L3/L4 防火墙与 NAT 的 fake TCP。上游源码固定到 [`6256f630`](https://github.com/dndx/phantun/commit/6256f630a1e6f91489805669afc9700c1289a48e)，查询时 docs.rs 的 fake-tcp 文档为 0.7.1；不假定两者版本完全一致。[项目说明](https://github.com/dndx/phantun#overview)、[库文档](https://docs.rs/fake-tcp/0.7.1/fake_tcp/)
 
