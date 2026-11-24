@@ -1122,9 +1122,9 @@ async fn qualified_udp(
 }
 
 #[cfg(feature = "nat-lab-test-hooks")]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn split_path_occupancy_follows_the_business_lease() {
-    use iroh::endpoint::BindOpts;
+    use iroh::endpoint::{BindOpts, QuicTransportConfig};
 
     let alternate = Ipv4Addr::new(127, 178, 0, 2);
     let pair = Pair::bind_with_observers(
@@ -1135,6 +1135,11 @@ async fn split_path_occupancy_follows_the_business_lease() {
         &[],
         |builder| {
             builder
+                .transport_config(
+                    QuicTransportConfig::builder()
+                        .default_path_keep_alive_interval(Duration::from_millis(80))
+                        .build(),
+                )
                 .bind_addr_with_opts((alternate, 0), BindOpts::default().set_prefix_len(32))
                 .unwrap()
         },
@@ -1185,35 +1190,55 @@ async fn split_path_occupancy_follows_the_business_lease() {
         stream_on_path(receiver, &mut next, b, 21).await;
 
         let mut maintenance = sender.open_maintenance_bi().await.unwrap();
-        maintenance.streams().0.write_all(b"check").await.unwrap();
         let mut maintenance_peer = receiver.accept_bi().await.unwrap();
         assert!(!maintenance.is_business() && !maintenance_peer.is_business());
+        let check_path = receiver
+            .test_observe_stream_receive(a, &maintenance_peer)
+            .unwrap();
+        maintenance.streams().0.write_all(b"check").await.unwrap();
         let mut check = [0; 5];
         maintenance_peer.streams().1.read_exact(&mut check).await.unwrap();
         assert_eq!(&check, b"check");
-        let pings = (sender.stats().frame_tx.ping, receiver.stats().frame_rx.ping);
+        assert!(check_path.confirm());
+        let pings = || {
+            (
+                sender.paths().get(a).unwrap().stats().frame_tx.ping,
+                receiver.paths().get(a).unwrap().stats().frame_rx.ping,
+            )
+        };
+        let before = pings();
+        // The path actor can send at most one periodic PING in this window.
         wait_for(
-            "QUIC keepalive traffic on the live original",
-            BUSINESS_LIMIT,
-            || sender.stats().frame_tx.ping > pings.0 && receiver.stats().frame_rx.ping > pings.1,
+            "multiple short QUIC keepalives on A's exact binding",
+            Duration::from_millis(800),
+            || {
+                let after = pings();
+                after.0 >= before.0 + 2 && after.1 >= before.1 + 2
+            },
         )
         .await;
 
-        // The two closing business leases leave A:1/B:2. The concurrent
-        // opens both select A, first on load and then on the usual tie break.
-        let closed = tokio::sync::Barrier::new(2);
-        let (one, two) = tokio::join!(
-            async {
+        // Each worker releases one A lease before opening its own stream. The
+        // two openings choose A in either order, even when both releases win.
+        let start = Arc::new(tokio::sync::Barrier::new(2));
+        let first = tokio::spawn({
+            let start = start.clone();
+            let sender = sender.clone();
+            async move {
+                start.wait().await;
                 drop((recv, lease, incoming));
-                closed.wait().await;
                 sender.open_bi().await.unwrap()
-            },
-            async {
+            }
+        });
+        let second = tokio::spawn({
+            let sender = sender.clone();
+            async move {
+                start.wait().await;
                 drop(half_closed);
-                closed.wait().await;
                 sender.open_bi().await.unwrap()
-            },
-        );
+            }
+        });
+        let (one, two) = tokio::try_join!(first, second).unwrap();
         let mut outgoing = vec![one, two];
         let mut opened = Vec::new();
         for payload in [30, 31] {
