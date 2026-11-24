@@ -192,6 +192,9 @@ records the concrete behavior discussed so far.
 - **Shared member QUIC session** is the admitted end-to-end session on which two
   peers open service streams. A standby session is kept ready to open a stream
   while no business stream is active. Its current data path can change.
+- **Per-stream load balancing** (按流负载均衡) means that concurrent service
+  streams on one shared member QUIC session can use different eligible direct
+  paths between the same two peers.
 - **Business channel** is the read/write context an application holds for an
   ongoing exchange with an authorized peer. For reliable byte streams, the
   same channel can continue over a replacement transport stream while both
