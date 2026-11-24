@@ -13,6 +13,9 @@ Do not turn research suggestions into product decisions. Read the current
 design entry points before planning implementation, and record new decisions
 explicitly. Use Plane for tasks; never use Plane MCP.
 
+Use **MioCube** as the product name in user-facing interfaces and documents.
+Use `miopunch` for the repository and existing technical identifiers.
+
 Use [ADR 0022](docs/adr/0022-native-shell-ux.md) for product UI work. It adopts
 NSH with native backends for installed clients and the Web backend for the
 independent browser node.

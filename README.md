@@ -1,8 +1,8 @@
-# miopunch
+# MioCube
 
-miopunch is an experimental identity-based private network for personal and
-small-group use. The repository now contains Rust native and browser/WASM node
-implementations, dependency forks, runnable probes and validation evidence.
+MioCube is an experimental identity-based private network for personal and
+small-group use. The `miopunch` repository contains Rust native and browser/WASM
+node implementations, dependency forks, runnable probes and validation evidence.
 The [initial application scope](docs/notes/2026-10-03-shared-web-client-ui-direction.md#首版功能范围五个独立业务模块)
 now comprises one-to-one clipboard synchronization, file transfer, TCP/UDP port
 forwarding, browser access to internal web services, and remote shell with

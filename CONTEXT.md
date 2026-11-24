@@ -1,4 +1,4 @@
-# miopunch Context
+# MioCube Context
 
 Status: the behavioral baseline is specified; concrete integration and validation
 remain open. This glossary and reading map accompanies the current
@@ -213,6 +213,10 @@ records the concrete behavior discussed so far.
 
 ## Confirmed direction
 
+**MioCube** is the product name. It refers to Mio's two wooden cube hair ties
+in *Nichijou*. `miopunch` identifies the repository and existing technical
+names, including commands and protocol identifiers.
+
 The network should remain useful without requiring every user to run a VPS or
 every pair of members to maintain a permanent connection. Members may retain
 and forward verifiable state so an offline node can catch up when it returns.
@@ -220,7 +224,7 @@ Connection maintenance should try to preserve the same end-to-end session
 across allowed path changes, but a session that cannot be maintained must fail
 clearly. Official facilities must not become an inescapable dependency.
 
-miopunch is an application that directly uses modified p2panda and iroh. The
+MioCube is an application that directly uses modified p2panda and iroh. The
 target architecture removes the separate miopunch SDK or helper-library layer.
 Connection and NAT traversal logic belongs in iroh, with the existing WebRTC
 adapter for browser connections. See
