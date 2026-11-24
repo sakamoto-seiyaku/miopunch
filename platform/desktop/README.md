@@ -1,8 +1,8 @@
 # Minimal Tauri platform host
 
-This is the installed desktop lifecycle shell for the existing Rust node.
-Its small bundled page is a technical verification surface; the shared Vue
-product UI remains outside the current implementation scope.
+This Tauri host exercises the installed desktop lifecycle for the existing Rust
+node. Its bundled page is a technical verification surface. The product UI
+follows [ADR 0022](../../docs/adr/0022-native-shell-ux.md).
 
 The process owns `ClientHost`, independently of its WebView. Closing the last
 window keeps the node running. Launching the application again asks the existing

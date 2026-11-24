@@ -232,6 +232,12 @@ File transfer, terminal access and product ping use separate streams with
 their own authorization on that session. See
 [ADR 0020](docs/adr/0020-shared-member-business-connection.md).
 
+The product UI uses Longbridge Native Shell (NSH) with Rust components and
+native backends for Windows, Linux desktop, and Android. The browser/PWA uses
+the NSH Web backend with its own Rust/WASM node. The application owns node and
+business state. Platforms adapt their own system capabilities and lifecycle.
+See [ADR 0022](docs/adr/0022-native-shell-ux.md).
+
 ## Open design
 
 Implementation planning now defers product UI and omits KCP. TCP carrying QUIC
@@ -242,16 +248,9 @@ real failure cases early. The available Docker/NAT lab materials and ADB-connect
 Pixel6a support this approach; see the
 [transport and validation follow-up](docs/notes/2026-09-29-transport-and-ui-followup.md).
 
-The [shared Web and client UI discussion](docs/notes/2026-10-03-shared-web-client-ui-direction.md)
-records the preference for code reuse and lower long-term maintenance cost,
-with full client integration still open. The accepted technology and runtime
-responsibility decision is recorded in
-[ADR 0018](docs/adr/0018-shared-vue-ui-with-tauri-shells.md); it does not itself
-start implementation.
-
-The later explicit authorization on 2026-10-21 starts a scoped
-[Linux/browser functional demo](demo/README.md), tracked by MIOPUNCH-109.
-It does not imply completion of the full client PRD or installed-platform lifecycle.
+The scoped [Linux/browser functional demo](demo/README.md) was authorized on
+2026-10-21 and is tracked by MIOPUNCH-109. Full client and installed-platform
+acceptance remain open.
 
 The detailed admission-proof mechanism, unknown-peer discovery messages,
 signaling-carrier integration, and concrete iroh/p2panda composition still need

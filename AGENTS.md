@@ -13,6 +13,10 @@ Do not turn research suggestions into product decisions. Read the current
 design entry points before planning implementation, and record new decisions
 explicitly. Use Plane for tasks; never use Plane MCP.
 
+Use [ADR 0022](docs/adr/0022-native-shell-ux.md) for product UI work. It adopts
+NSH with native backends for installed clients and the Web backend for the
+independent browser node.
+
 ## 实施与验证
 
 主线程、子代理、临时驱动和 worktree 同规；授权内连续完成，不逐步确认。

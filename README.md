@@ -12,18 +12,20 @@ Android, and browser/PWA clients, with services matched to platform capabilities
 These application modules now have a scoped [Linux/browser demo](demo/README.md);
 product-wide platform, lifecycle and integration acceptance remain incomplete.
 
-The accepted [UI stack](docs/adr/0018-shared-vue-ui-with-tauri-shells.md) uses
-Vue 3, TypeScript and Vite for shared interfaces, Tauri 2 for installed
-application shells, and Rust for node and application logic. Platform adapters
-provide system integration; browser/PWA clients remain independent WASM nodes.
-The explicitly authorized demo exercises the shared interface. Minimal
+The [product UI decision](docs/adr/0022-native-shell-ux.md) adopts Longbridge
+Native Shell (NSH). Windows, Linux desktop, and Android use NSH's Rust entry
+point and native backends. The browser/PWA uses the NSH Web backend with its own
+Rust/WASM node. Rust application code owns node and business logic, with
+platform adapters for system integration.
+
+The existing demo exercises client operations. Minimal
 [Tauri desktop hosts](platform/desktop/README.md), a
 [Linux headless host](platform/linux/README.md), and a
 [self-hosted browser entry](platform/browser/README.md) now have bounded
 [platform qualification and fixed-artifact records](docs/evidence/platform-host-2026-10-29/linux-login-qualification.json).
 Linux login autostart is qualified in an isolated LightDM/PAM/LXSession session.
 Windows login autostart, Android foreground/reboot, clipboard and WSL acceptance
-remain incomplete; the complete shared client UI remains to be implemented.
+remain incomplete. Product integration with NSH remains pending.
 The browser client will have a default access URL and support self-hosting.
 
 The accepted client behavior, platform requirements and validation scope are

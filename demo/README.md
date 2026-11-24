@@ -2,8 +2,8 @@
 
 这是用户在 2026-10-21 明确授权的可运行 demo，跟踪于
 [MIOPUNCH-109](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/d694bf68-f4da-427a-9158-aaed804d2184)。
-采用已确认的 Vue 3 / TypeScript / Vite 与 Rust Native/WASM 分工，功能集中在一页。
-本次交付 Linux 无界面宿主和浏览器接入；Tauri 安装版及完整客户端 PRD 的验收仍未完成。
+此 demo 以 Vue 3 / TypeScript / Vite 接入 Rust Native/WASM 节点，功能集中在一页。
+本次交付覆盖 Linux 无界面宿主和浏览器接入。产品界面遵循 [ADR 0022](../docs/adr/0022-native-shell-ux.md)。
 后续 WebRTC 接通与跨网络实测跟踪于
 [MIOPUNCH-110](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/3a9c20c1-8f4a-47d6-9d5f-e73d7f4a739e)。
 用户 Edge/VPN 环境的后续建路诊断及重复探测修复见
