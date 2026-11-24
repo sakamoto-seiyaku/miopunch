@@ -737,6 +737,16 @@ impl Connection {
         }
     }
 
+    /// Set qualified direct candidates for ordinary stream allocation.
+    pub fn set_business_paths(&self, preferred: Option<PathId>, paths: &[PathId]) {
+        self.0.lock_and_wake("set_business_paths").inner.set_business_paths(preferred, paths);
+    }
+
+    /// Whether this path carries an ordinary business sender.
+    pub fn business_on_path(&self, path: PathId) -> bool {
+        self.0.lock_without_waking("business_on_path").inner.business_on_path(path)
+    }
+
     /// Whether the connection is closed, and why.
     ///
     /// The close_reason is always set to `Some(ConnectionError)` when a socket is

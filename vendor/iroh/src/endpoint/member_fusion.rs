@@ -2008,6 +2008,9 @@ impl MemberConnection {
             .open_bi()
             .await
             .map_err(io::Error::other)?;
+        if kind == StreamKind::Business {
+            send.mark_business().map_err(io::Error::other)?;
+        }
         send.write_all(&[kind as u8])
             .await
             .map_err(io::Error::other)?;
@@ -2074,6 +2077,9 @@ impl IncomingMemberStream {
                 activity.lease(kind)?
             }
         };
+        if lease.as_ref().is_some_and(|lease| lease.business) {
+            self.send.mark_business().map_err(io::Error::other)?;
+        }
         if let Some(lease) = &mut lease {
             lease.sending(&self.send);
         }

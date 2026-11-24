@@ -2096,6 +2096,8 @@ impl RemoteStateActor {
                     changed
                 });
             }
+            let fused = context.is_member_fusion();
+            let mut stream_paths = Vec::new();
             let selected_for_conn = if conn_state.purpose == ConnectionPurpose::Control
                 && let Some(exact) = conn_state.retained_control_custom.as_ref()
             {
@@ -2103,12 +2105,10 @@ impl RemoteStateActor {
                 // even when the signaling path has a lower measured latency.
                 conn_state.paths.iter().find_map(|(id, path)| (matches!(&path.address, transports::FourTuple::Custom { remote, .. } if remote == exact) && conn_state.may_select(path)).then_some(*id))
             } else if let Some(selector) = &self.state.connection_path_selector {
-                selector
-                    .select(&context)
-                    // A selector can retain a result from an earlier callback.
-                    // Revalidate exact ownership and live path existence here.
-                    .for_connection(conn_state, &conn)
-                    .or(current)
+                let decision = selector.select(&context);
+                let selected = decision.for_connection(conn_state, &conn).or(current);
+                stream_paths = decision.stream_paths;
+                selected
             } else if conn_state.purpose == ConnectionPurpose::Ordinary
                 && conn_state.member_paths.is_none()
                 && let Some(selected) = self.state.selected_path.as_ref().and_then(|selected| {
@@ -2124,13 +2124,38 @@ impl RemoteStateActor {
             } else {
                 // Restricted paths, or a peer preference that this connection
                 // cannot own, use the same built-in scorer on qualified paths.
-                super::super::biased_rtt_path_selector::BiasedRttPathSelector::default()
-                    .select(&context)
-                    .for_connection(conn_state, &conn)
-                    .or(current)
+                let decision =
+                    super::super::biased_rtt_path_selector::BiasedRttPathSelector::default()
+                        .select(&context);
+                let selected = decision.for_connection(conn_state, &conn).or(current);
+                stream_paths = decision.stream_paths;
+                selected
             };
 
-            let fused = conn_state.member_paths.is_some();
+            if fused {
+                let mut seen_bindings = Vec::new();
+                let mut business_paths = Vec::new();
+                // Prefer the current binding's exact path ID if more than one
+                // QUIC path names that same binding.
+                if let Some(id) = selected_for_conn
+                    && stream_paths.contains(&(conn_state.connection_id, id))
+                {
+                    seen_bindings.extend(conn_state.paths.get(&id));
+                    business_paths.push(id);
+                }
+                for (owner, id) in stream_paths {
+                    if owner == conn_state.connection_id
+                        && conn_state.path_is_qualified(id, &conn)
+                        && let Some(binding) = conn_state.paths.get(&id)
+                        && !seen_bindings.contains(&binding)
+                    {
+                        seen_bindings.push(binding);
+                        business_paths.push(id);
+                    }
+                }
+                conn.set_business_paths(selected_for_conn, &business_paths);
+            }
+
             let selected_binding = selected_for_conn.and_then(|id| conn_state.paths.get(&id));
             let is_selected = |id, binding| {
                 if fused {
@@ -2177,14 +2202,24 @@ impl RemoteStateActor {
                     continue;
                 }
 
+                // Let an existing member path qualify and keep confirmed
+                // bindings available for later stream allocation.
+                let keep_member_path = conn_state.member_paths.as_ref().is_some_and(|member| {
+                    conn.business_on_path(*path_id)
+                        || member.new_path_probes.get(path_id).is_some_and(|(deadline, _)| now < *deadline)
+                        || (selected_binding != Some(path_fourtuple)
+                            && !conn_state.suspect_paths.contains_key(path_id)
+                            && context.has_fresh_ack(&path.stats()))
+                });
                 // Keep a health-demoted original binding until it proves recovery
-                // or QUIC retires it. Other redundant IP paths are closed as usual.
+                // or QUIC retires it.
                 //
                 // Relay and custom paths are kept open. Only the client closes paths,
                 // to avoid the client and server independently closing different paths
                 // and racing to abandon the last one.
                 if conn.side().is_client()
                     && path_fourtuple.is_ip()
+                    && !keep_member_path
                     && handoff != Some(*path_id)
                     && !conn_state
                         .suspect_paths
@@ -3637,6 +3672,13 @@ enum StatsSource {
 
 #[cfg_attr(not(feature = "unstable-custom-transports"), allow(unreachable_pub))]
 impl<'a> PathSelectionData<'a> {
+    pub(crate) fn original_id(&self) -> Option<(usize, PathId)> {
+        match &self.source {
+            StatsSource::Live { path_id, conn } => Some((conn.stable_id(), *path_id)),
+            _ => None,
+        }
+    }
+
     fn live(
         network_path: &'a transports::PathBinding,
         path_id: PathId,
@@ -3748,6 +3790,7 @@ pub trait ConnectionPathSelector: Send + Sync + std::fmt::Debug + 'static {
 pub struct PathSelection {
     selection: Option<transports::PathBinding>,
     original: Option<(usize, PathId)>,
+    pub(crate) stream_paths: Vec<(usize, PathId)>,
 }
 
 #[cfg_attr(not(feature = "unstable-custom-transports"), allow(unreachable_pub))]
@@ -3757,6 +3800,7 @@ impl PathSelection {
         Self {
             selection: None,
             original: None,
+            stream_paths: Vec::new(),
         }
     }
 

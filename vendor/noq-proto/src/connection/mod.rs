@@ -781,6 +781,7 @@ impl Connection {
     /// Only to be called once sure this path should be abandoned, all checks
     /// should have happened before calling this.
     fn abandon_path(&mut self, now: Instant, path_id: PathId, reason: PathAbandonReason) {
+        self.streams.release_business_path(path_id);
         trace!(%path_id, ?reason, "abandoning path");
 
         let pending_space = &mut self.spaces[SpaceId::Data].pending;
@@ -1331,6 +1332,16 @@ impl Connection {
         None
     }
 
+    /// Configure qualified, comparable direct paths for newly marked business streams.
+    pub fn set_business_paths(&mut self, preferred: Option<PathId>, paths: &[PathId]) {
+        self.streams.set_business_paths(preferred, paths);
+    }
+
+    /// Whether an ordinary business sender currently owns this path.
+    pub fn business_on_path(&self, path: PathId) -> bool {
+        self.streams.has_business_on_path(path)
+    }
+
     /// Computes the packet scheduling information for this path.
     ///
     /// While this information is only returned for a single path, it is important to know
@@ -1404,6 +1415,12 @@ impl Connection {
                     }
                 }
             };
+        let may_send_stream_data = may_send_data
+            || (application_data_allowed
+                && has_cids
+                && !is_abandoned
+                && validated
+                && self.streams.has_business_on_path(path_id));
 
         // CONNECTION_CLOSE is allowed to be sent on a non-validated
         // path. Particularly during the handshake we want to send it before the
@@ -1434,6 +1451,7 @@ impl Connection {
         PathSchedulingInfo {
             is_abandoned,
             may_send_data,
+            may_send_stream_data,
             own_acks_only,
             // An explicitly probed backup can acknowledge its fresh probe
             // even while an unavailable-but-not-yet-expired primary retains
@@ -2481,7 +2499,7 @@ impl Connection {
             // (application datagrams).
             let frame_space_1rtt =
                 packet_size.saturating_sub(self.predict_1rtt_overhead(pn, path_id));
-            can_send |= self.can_send_1rtt(path_id, frame_space_1rtt);
+            can_send |= self.can_send_1rtt(path_id, frame_space_1rtt, scheduling_info);
         }
 
         can_send.close = connection_close_pending && space_has_crypto;
@@ -3033,6 +3051,7 @@ impl Connection {
     /// off a suspect path. Packets still count as in flight until ACK or loss. Move the
     /// stream metadata so a late ACK cannot account for the same bytes a second time.
     pub fn requeue_unacknowledged_stream_frames(&mut self, path: PathId) {
+        self.streams.release_business_path(path);
         if let Some(space) = self.spaces[SpaceId::Data].path_space_mut(path) {
             for packet in space.sent_packets.values_mut() {
                 for frame in mem::take(&mut packet.stream_frames) {
@@ -5579,6 +5598,10 @@ impl Connection {
                 }
                 Frame::Stream(f) => {
                     trace!(id = %f.id, offset = f.offset, len = f.data.len(), fin = f.fin, "got frame STREAM");
+                    #[cfg(feature = "miopunch-test-hooks")]
+                    crate::packet_witness::trace_stream_path(
+                        "rx", f.id, path_id, f.offset, f.data.len() as u64,
+                    );
                 }
                 Frame::Datagram(f) => {
                     trace!(len = f.data.len(), "got frame DATAGRAM");
@@ -7311,11 +7334,16 @@ impl Connection {
 
         // STREAM
         if !scheduling_info.is_abandoned
-            && scheduling_info.may_send_data
+            && scheduling_info.may_send_stream_data
             && space_id == SpaceId::Data
         {
-            self.streams
-                .write_stream_frames(builder, self.config.send_fairness, stats);
+            self.streams.write_stream_frames(
+                builder,
+                self.config.send_fairness,
+                stats,
+                path_id,
+                scheduling_info.may_send_data,
+            );
         }
     }
 
@@ -7706,7 +7734,12 @@ impl Connection {
     ///
     /// See also [`PacketSpace::can_send`] which keeps track of all other frame types that
     /// may need to be sent.
-    fn can_send_1rtt(&self, path_id: PathId, max_size: usize) -> SendableFrames {
+    fn can_send_1rtt(
+        &self,
+        path_id: PathId,
+        max_size: usize,
+        scheduling: &PathSchedulingInfo,
+    ) -> SendableFrames {
         let network_path = self.path_data(path_id).network_path;
         let space_specific = self.paths.get(&path_id).is_some_and(|path| {
             path.data.pending_challenge
@@ -7721,7 +7754,9 @@ impl Connection {
             .is_some_and(|pns| pns.pending_path_responses.has_pending_on_path(network_path));
 
         // Stream control frames are checked in PacketSpace::can_send, only check data here.
-        let other = self.streams.can_send_stream_data()
+        let stream_data = scheduling.may_send_stream_data
+            && self.streams.can_send_stream_data(path_id, scheduling.may_send_data);
+        let other = (stream_data && scheduling.may_send_data)
             || self
                 .datagrams
                 .outgoing
@@ -7732,7 +7767,9 @@ impl Connection {
         SendableFrames {
             acks: false,
             close: false,
-            space_specific,
+            // An assigned STREAM may use its backup path without opening that
+            // path to unassigned STREAMs or changes to control-frame routing.
+            space_specific: space_specific || (stream_data && !scheduling.may_send_data),
             other,
         }
     }
@@ -8147,6 +8184,8 @@ struct PathSchedulingInfo {
     ///
     /// Note that once in the closed or draining states this will never be true.
     may_send_data: bool,
+    /// May also be true on a backup for its assigned STREAM frames.
+    may_send_stream_data: bool,
     /// Whether the path may send a CONNECTION_CLOSE frame.
     ///
     /// This essentially marks this path as the best validated space ID with a fallback

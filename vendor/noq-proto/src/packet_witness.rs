@@ -24,6 +24,8 @@ static RECORDS: AtomicUsize = AtomicUsize::new(0);
 static BYTES: AtomicUsize = AtomicUsize::new(0);
 static LOST: AtomicUsize = AtomicUsize::new(0);
 static TRACE_PEER_IPV6: OnceLock<bool> = OnceLock::new();
+#[cfg(feature = "miopunch-test-hooks")]
+static TRACE_STREAM_PATHS: OnceLock<bool> = OnceLock::new();
 thread_local! {
     static CONNECTION: Cell<Option<usize>> = const { Cell::new(None) };
     static EMITTING: Cell<bool> = const { Cell::new(false) };
@@ -91,6 +93,8 @@ pub struct ConnectionScope {
 pub fn enter_connection(stable: usize) -> ConnectionScope {
     let active = enabled()
         || *TRACE_PEER_IPV6.get_or_init(|| std::env::var_os("MIOPUNCH_TRACE_PEER_IPV6").is_some());
+    #[cfg(feature = "miopunch-test-hooks")]
+    let active = active || stream_path_trace_enabled();
     let previous = if active {
         CONNECTION.with(|v| v.replace(Some(stable)))
     } else {
@@ -105,6 +109,29 @@ pub fn enter_connection(stable: usize) -> ConnectionScope {
 
 pub(crate) fn connection_stable_id() -> Option<usize> {
     CONNECTION.with(Cell::get)
+}
+
+#[cfg(feature = "miopunch-test-hooks")]
+fn stream_path_trace_enabled() -> bool {
+    *TRACE_STREAM_PATHS.get_or_init(|| std::env::var_os("MIOPUNCH_TRACE_STREAM_PATHS").is_some())
+}
+
+/// Observe offsets and paths at real STREAM frame boundaries without retaining payload.
+#[cfg(feature = "miopunch-test-hooks")]
+pub(crate) fn trace_stream_path(
+    direction: &str,
+    stream: crate::StreamId,
+    path: crate::PathId,
+    offset: u64,
+    len: u64,
+) {
+    if stream_path_trace_enabled() {
+        eprintln!(
+            "STREAM_PATH {direction} stable={:?} stream={} path={path} offset={offset} len={len}",
+            connection_stable_id(),
+            u64::from(stream),
+        );
+    }
 }
 impl Drop for ConnectionScope {
     fn drop(&mut self) {

@@ -12,7 +12,7 @@ use super::{
     StreamHalf,
 };
 use crate::{
-    Dir, MAX_STREAM_COUNT, Side, StreamId, TransportError, VarInt,
+    Dir, MAX_STREAM_COUNT, PathId, Side, StreamId, TransportError, VarInt,
     connection::{PacketBuilder, stats::FrameStats},
     frame::{self, FrameStruct},
     transport_parameters::TransportParameters,
@@ -102,6 +102,8 @@ pub struct StreamsState {
     pub(super) send_streams: usize,
     /// Streams with outgoing data queued, sorted by priority
     pub(super) pending: PendingStreamsQueue,
+    business_paths: Vec<PathId>,
+    preferred_path: Option<PathId>,
 
     events: VecDeque<StreamEvent>,
     /// Streams blocked on connection-level flow control or stream window space
@@ -168,6 +170,8 @@ impl StreamsState {
             next_reported_remote: [0, 0],
             send_streams: 0,
             pending: PendingStreamsQueue::new(),
+            business_paths: Vec::new(),
+            preferred_path: None,
             events: VecDeque::new(),
             connection_blocked: Vec::new(),
             max_data: 0,
@@ -391,13 +395,13 @@ impl StreamsState {
     }
 
     /// Whether any stream data is queued, regardless of control frames
-    pub(crate) fn can_send_stream_data(&self) -> bool {
+    pub(crate) fn can_send_stream_data(&self, path: PathId, allow_unassigned: bool) -> bool {
         // Reset streams may linger in the pending stream list, but will never produce stream frames
         self.pending.iter().any(|stream| {
             self.send
                 .get(&stream.id)
                 .and_then(|s| s.as_ref())
-                .is_some_and(|s| !s.is_reset())
+                .is_some_and(|s| !s.is_reset() && s.can_send_on_path(path, allow_unassigned))
         })
     }
 
@@ -519,22 +523,79 @@ impl StreamsState {
         }
     }
 
+    pub(crate) fn set_business_paths(&mut self, preferred: Option<PathId>, paths: &[PathId]) {
+        self.preferred_path = preferred;
+        self.business_paths.clear();
+        self.business_paths.extend_from_slice(paths);
+        // Business streams opened on the fallback start using affinity once
+        // their ordinary route first becomes a qualified direct path.
+        if let Some(path) = preferred.filter(|id| paths.contains(id)) {
+            for stream in self.send.values_mut().flatten() {
+                if stream.business && stream.path.is_none() {
+                    stream.path = Some(path);
+                }
+            }
+        }
+    }
+
+    pub(crate) fn assign_business_path(&mut self, id: StreamId) {
+        let path = self.business_paths.iter().copied().min_by_key(|path| {
+            let count = self
+                .send
+                .values()
+                .flatten()
+                .filter(|stream| stream.path == Some(*path) && !stream.is_reset())
+                .count();
+            (count, Some(*path) != self.preferred_path)
+        });
+        if let Some(stream) = self.send.get_mut(&id).and_then(Option::as_mut) {
+            if !stream.business {
+                stream.business = true;
+                stream.path = path;
+            }
+        }
+    }
+
+    pub(crate) fn release_business_path(&mut self, path: PathId) {
+        self.business_paths.retain(|id| *id != path);
+        for stream in self.send.values_mut().flatten() {
+            if stream.path == Some(path) {
+                stream.path = None;
+            }
+        }
+    }
+
+    pub(crate) fn has_business_on_path(&self, path: PathId) -> bool {
+        self.send
+            .values()
+            .flatten()
+            .any(|stream| stream.path == Some(path) && !stream.is_reset())
+    }
+
     pub(in crate::connection) fn write_stream_frames<'a, 'b>(
         &mut self,
         builder: &mut PacketBuilder<'a, 'b>,
         fair: bool,
         stats: &mut FrameStats,
+        path: PathId,
+        allow_unassigned: bool,
     ) {
+        let mut deferred = Vec::new();
         while builder.frame_space_remaining() > frame::Stream::SIZE_BOUND {
             // Pop the stream of the highest priority that currently has pending data. If
             // the stream still has some pending data left after writing, it will be
             // reinserted, otherwise not
-            let Some(stream) = self.pending.pop() else {
+            let eligible = |id| {
+                self.send
+                    .get(&id)
+                    .and_then(Option::as_ref)
+                    .is_none_or(|stream| stream.can_send_on_path(path, allow_unassigned))
+            };
+            let Some(stream) = self.pending.pop(eligible, &mut deferred) else {
                 break;
             };
 
             let id = stream.id;
-
             let Some(stream) = self.send.get_mut(&id).and_then(|s| s.as_mut()) else {
                 // Stream was reset with pending data and the reset was acknowledged
                 continue;
@@ -577,6 +638,8 @@ impl StreamsState {
             builder.write_frame(meta.encoder(encode_length), stats);
             #[cfg(feature = "ring")]
             let witness_payload_start = builder.buf.len();
+            #[cfg(feature = "miopunch-test-hooks")]
+            crate::packet_witness::trace_stream_path("tx", id, path, range.start, range.end - range.start);
             stream.pending.get_into(range, builder.buf);
             #[cfg(feature = "ring")]
             if crate::packet_witness::enabled() {
@@ -593,6 +656,7 @@ impl StreamsState {
                 );
             }
         }
+        self.pending.restore(deferred);
     }
 
     #[cfg(test)]
@@ -602,7 +666,7 @@ impl StreamsState {
         tbuf.start_new_datagram_with_size(capacity);
         let builder = &mut PacketBuilder::simple_data_buf(&mut tbuf);
         let stats = &mut FrameStats::default();
-        self.write_stream_frames(builder, fair, stats);
+        self.write_stream_frames(builder, fair, stats, PathId::ZERO, true);
         builder.sent_frames().stream_frames.clone()
     }
 
@@ -1419,7 +1483,7 @@ mod tests {
         assert_eq!(meta[1].id, id_mid);
         assert_eq!(meta[2].id, id_low);
 
-        assert!(!server.can_send_stream_data());
+        assert!(!server.can_send_stream_data(PathId::ZERO, true));
         assert_eq!(server.pending.len(), 0);
     }
 
@@ -1485,7 +1549,7 @@ mod tests {
         assert_eq!(meta[0].id, id_mid);
         assert_eq!(meta[1].id, id_high);
 
-        assert!(!server.can_send_stream_data());
+        assert!(!server.can_send_stream_data(PathId::ZERO, true));
         assert_eq!(server.pending.len(), 0);
     }
 
@@ -1546,7 +1610,7 @@ mod tests {
                 metas.extend(meta);
             }
 
-            assert!(!server.can_send_stream_data());
+            assert!(!server.can_send_stream_data(PathId::ZERO, true));
             assert_eq!(server.pending.len(), 0);
 
             let stream_ids = metas.iter().map(|m| m.id).collect::<Vec<_>>();
@@ -1631,7 +1695,7 @@ mod tests {
             metas.extend(meta);
         }
 
-        assert!(!server.can_send_stream_data());
+        assert!(!server.can_send_stream_data(PathId::ZERO, true));
         assert_eq!(server.pending.len(), 0);
 
         let stream_ids = metas.iter().map(|m| m.id).collect::<Vec<_>>();
@@ -1696,7 +1760,7 @@ mod tests {
         stream.reset(0u32.into()).unwrap();
 
         assert_eq!(pending.reset_stream, &[(id, 0u32.into())]);
-        assert!(!server.can_send_stream_data());
+        assert!(!server.can_send_stream_data(PathId::ZERO, true));
     }
 
     #[test]

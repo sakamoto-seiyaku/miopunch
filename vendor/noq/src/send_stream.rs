@@ -233,6 +233,11 @@ impl SendStream {
         Ok(())
     }
 
+    /// Mark an ordinary business stream before writing its first byte.
+    pub fn mark_business(&self) -> Result<(), ClosedStream> {
+        self.conn.lock_and_wake("mark_business").inner.send_stream(self.stream).mark_business()
+    }
+
     /// Get the priority of the send stream
     pub fn priority(&self) -> Result<i32, ClosedStream> {
         let mut conn = self.conn.lock_without_waking("SendStream::priority");

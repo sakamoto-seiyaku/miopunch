@@ -13,6 +13,8 @@ pub(super) struct Send {
     pub(super) state: SendState,
     pub(super) pending: SendBuffer,
     pub(super) priority: i32,
+    pub(super) business: bool,
+    pub(super) path: Option<crate::PathId>,
     /// Whether a frame containing a FIN bit must be transmitted.
     ///
     /// Even if we don't have any new data.
@@ -30,6 +32,8 @@ impl Send {
             state: SendState::Ready,
             pending: SendBuffer::new(),
             priority: 0,
+            business: false,
+            path: None,
             fin_pending: false,
             connection_blocked: false,
             stop_reason: None,
@@ -39,6 +43,10 @@ impl Send {
     /// Whether the stream has been reset
     pub(super) fn is_reset(&self) -> bool {
         matches!(self.state, SendState::ResetSent)
+    }
+
+    pub(super) fn can_send_on_path(&self, path: crate::PathId, allow_unassigned: bool) -> bool {
+        self.path.map_or(allow_unassigned, |assigned| assigned == path)
     }
 
     pub(super) fn finish(&mut self) -> Result<(), FinishError> {

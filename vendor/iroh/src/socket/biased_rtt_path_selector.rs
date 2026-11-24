@@ -153,6 +153,7 @@ impl BiasedRttPathSelector {
         // naturally picks the lowest-RTT instance — no separate aggregation needed.
         let mut best: Option<(PathSelectionData<'_>, (u8, i128, bool))> = None;
         let mut current_key: Option<(u8, i128)> = None;
+        let mut direct_paths = Vec::new();
 
         trace!("dumping path RTTs");
         for psd in ctx.paths() {
@@ -178,6 +179,14 @@ impl BiasedRttPathSelector {
                 tcp.is_none(),
             );
 
+            if ctx.is_member_fusion()
+                && (network_path.is_ip() || tcp.is_some())
+                && !psd.is_suspect()
+                && ctx.has_fresh_ack(&stats)
+                && let Some(original) = psd.original_id()
+            {
+                direct_paths.push((original, key));
+            }
             let quality = (key.0, key.1);
             if ctx.is_current(&psd) && current_key.is_none_or(|c| quality < c) {
                 current_key = Some(quality);
@@ -191,6 +200,12 @@ impl BiasedRttPathSelector {
         let Some((best_psd, (best_tier, best_biased, _))) = best else {
             return selection;
         };
+
+        direct_paths.sort_unstable_by_key(|(id, key)| (*key, *id));
+        selection.stream_paths.extend(direct_paths.into_iter().filter_map(|(id, key)| {
+            (key.0 == best_tier && key.1 < best_biased + RTT_SWITCHING_MIN.as_nanos() as i128)
+                .then_some(id)
+        }));
 
         // If we have no current path or no data for it, switch to the best.
         let Some((current_tier, current_biased)) = current_key else {

@@ -397,6 +397,18 @@ impl<'a> SendStream<'a> {
         Ok(())
     }
 
+    /// Include this ordinary business stream in per-path allocation.
+    pub fn mark_business(&mut self) -> Result<(), ClosedStream> {
+        let max_send_data = self.state.max_send_data(self.id);
+        self.state
+            .send
+            .get_mut(&self.id)
+            .map(get_or_insert_send(max_send_data))
+            .ok_or(ClosedStream { _private: () })?;
+        self.state.assign_business_path(self.id);
+        Ok(())
+    }
+
     /// Get the priority of a stream
     ///
     /// # Panics
@@ -415,10 +427,9 @@ impl<'a> SendStream<'a> {
 /// A queue of streams with pending outgoing data, sorted by priority
 struct PendingStreamsQueue {
     streams: BinaryHeap<PendingStream>,
-    /// The next stream to write out. This is `Some` when `TransportConfig::send_fairness(false)`
-    /// and writing a stream is interrupted while the stream still has some pending data. See
-    /// `reinsert_pending()`.
-    next: Option<PendingStream>,
+    /// Interrupted streams to resume before selecting new ones on their paths.
+    /// Used only with `TransportConfig::send_fairness(false)`.
+    next: Vec<PendingStream>,
     /// A monotonically decreasing counter, used to implement round-robin scheduling for streams of
     /// the same priority. Underflowing is not a practical concern, as it is initialized to
     /// u64::MAX and only decremented by 1 in `push_pending`
@@ -429,16 +440,14 @@ impl PendingStreamsQueue {
     fn new() -> Self {
         Self {
             streams: BinaryHeap::new(),
-            next: None,
+            next: Vec::new(),
             recency: u64::MAX,
         }
     }
 
     /// Reinsert a stream that was pending and still contains unsent data.
     fn reinsert_pending(&mut self, id: StreamId, priority: i32) {
-        assert!(self.next.is_none());
-
-        self.next = Some(PendingStream {
+        self.next.push(PendingStream {
             priority,
             recency: self.recency, // the value here doesn't really matter
             id,
@@ -465,12 +474,29 @@ impl PendingStreamsQueue {
         });
     }
 
-    fn pop(&mut self) -> Option<PendingStream> {
-        self.next.take().or_else(|| self.streams.pop())
+    fn pop(
+        &mut self,
+        mut eligible: impl FnMut(StreamId) -> bool,
+        deferred: &mut Vec<PendingStream>,
+    ) -> Option<PendingStream> {
+        if let Some(index) = self.next.iter().rposition(|stream| eligible(stream.id)) {
+            return Some(self.next.remove(index));
+        }
+        while let Some(stream) = self.streams.pop() {
+            if eligible(stream.id) {
+                return Some(stream);
+            }
+            deferred.push(stream);
+        }
+        None
+    }
+
+    fn restore(&mut self, deferred: Vec<PendingStream>) {
+        self.streams.extend(deferred);
     }
 
     fn clear(&mut self) {
-        self.next = None;
+        self.next.clear();
         self.streams.clear();
     }
 
@@ -480,7 +506,7 @@ impl PendingStreamsQueue {
 
     #[cfg(test)]
     fn len(&self) -> usize {
-        self.streams.len() + self.next.is_some() as usize
+        self.streams.len() + self.next.len()
     }
 }
 
