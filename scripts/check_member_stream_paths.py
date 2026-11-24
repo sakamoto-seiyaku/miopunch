@@ -40,11 +40,14 @@ class ProbeNode(Node):
             finally:
                 self.queue.put(None, timeout=2)
 
-    def relay_address(self):
+    def relay_address(self, links=None):
+        if links is None:
+            links = self.runner.initial_links
+        prefixes = [LINKS[link] for link in links]
         address = dict(self.address)
         address['addrs'] = [addr for addr in address['addrs'] if 'Relay' in addr or
-                            any(addr.get('Ip', '').startswith(prefix) for prefix in LINKS.values())]
-        for prefix in LINKS.values():
+                            any(addr.get('Ip', '').startswith(prefix) for prefix in prefixes)]
+        for prefix in prefixes:
             assert any(addr.get('Ip', '').startswith(prefix) for addr in address['addrs']), address
         return address
 
@@ -129,7 +132,7 @@ def prepare_relay(output, stack, relay_binary):
                                 f'TCP:{local}'], stderr=errors))
     return f'http://10.93.0.1:{port}/'
 
-def setup_nodes(output, state, phone_pid, relay_url, cli):
+def setup_nodes(output, state, phone_pid, relay_url, cli, initial_link):
     config = state / 'resources.json'
     values = {
         'defaults': {'revision': 2, 'resources': []},
@@ -143,7 +146,7 @@ def setup_nodes(output, state, phone_pid, relay_url, cli):
     wrapper.chmod(0o700)
     nodes = []
     shared = dict(private=state, output=output, native_configuration=config, nodes=nodes, sequence=0,
-                  record=lambda *args: None)
+                  initial_links=(initial_link,), record=lambda *args: None)
     pr = SimpleNamespace(binary=cli, **shared)
     ph = SimpleNamespace(binary=wrapper, **shared)
     try:
@@ -220,12 +223,12 @@ def selected_ip(operation):
 
 
 def wait_direct(output, phone, provider, case):
-    expected = tuple(LINKS.values()) if case in ('both', 'slow') else (LINKS[case],)
+    expected = LINKS[case]
     deadline = time.monotonic() + 8
     while time.monotonic() < deadline:
         status = sample(output, phone, provider, 'qualify')['terminal']
         if all(s and (selected_ip(s) or '').startswith(expected) for s in status.values()):
-            return
+            return status
         time.sleep(.02)
     raise RuntimeError(('direct path did not qualify', status))
 
@@ -300,6 +303,8 @@ def direct_link(path):
 def run(output, case, cli, relay):
     output.mkdir()
     os.environ.setdefault('TOKIO_WORKER_THREADS', '2')
+    dual = case in ('both', 'slow')
+    initial_link = DIRECT if dual else case
     with tempfile.TemporaryDirectory(prefix='mio-healthy-direct-state-', dir='/tmp') as private, ExitStack() as stack:
         ns = stack.enter_context(process(['unshare', '-n', 'sleep', '1800']))
         topology(ns.pid)
@@ -309,22 +314,42 @@ def run(output, case, cli, relay):
             command('tc', 'qdisc', 'add', 'dev', BACKUP, 'root', 'netem', 'delay',
                     '45ms' if case == 'slow' else '4ms', namespace=namespace)
         url = prepare_relay(output, stack, relay)
-        nodes, phone, provider, attachment, workspace, directory = setup_nodes(output, Path(private), ns.pid, url, cli)
+        nodes, phone, provider, attachment, workspace, directory = setup_nodes(
+            output, Path(private), ns.pid, url, cli, initial_link)
         try:
-            # Make both direct candidates compete on the original member QUIC,
-            # after bootstrap has established its already usable relay path.
-            allow_direct(ns.pid, case)
-            wait_direct(output, phone, provider, case)
-            if case in ('both', 'slow'):
+            bootstrap = paired_status(output, phone, provider, 'bootstrap')
+            assert all('Relay' in op['transport']['initial_data_path'] for op in bootstrap.values())
+            allow_direct(ns.pid, initial_link)
+            wait_direct(output, phone, provider, initial_link)
+            trace_start = trace_positions(output)
+            send(phone, attachment, "printf 'BEFORE_'; printf 'FORWARD\\n'\n")
+            read_marker(phone, attachment, 'BEFORE_FORWARD')
+            qualified_rtts_us = {}
+            if dual:
+                allow_direct(ns.pid, case)
+                # Supply the B hint through the ordinary CLI on the live
+                # member connection after A has delivered terminal data.
+                for node, peer in ((phone, provider), (provider, phone)):
+                    assert node.call('ping', address=peer.relay_address(LINKS))['reply'] == 'PONG'
                 deadline = time.monotonic() + 8
                 while True:
                     statuses = sample(output, phone, provider, 'both_ready')['terminal']
-                    if all({direct_link(p) for p in paths(op)
-                            if p['last_ack_age_ms'] is not None and p['last_ack_age_ms'] < 1000}
-                           >= set(LINKS) for op in statuses.values()):
-                        break
-                    assert time.monotonic() < deadline, statuses
+                    qualified_rtts_us = {
+                        side: {direct_link(p): p['rtt_us'] for p in paths(op)
+                               if direct_link(p) and p['last_ack_age_ms'] is not None
+                               and p['last_ack_age_ms'] < 500}
+                        for side, op in statuses.items()
+                    }
+                    if all(set(rtts) == set(LINKS) for rtts in qualified_rtts_us.values()):
+                        gaps = [rtts[BACKUP] - rtts[DIRECT] for rtts in qualified_rtts_us.values()]
+                        if (case == 'both' and all(abs(gap) < 5000 for gap in gaps)
+                                or case == 'slow' and all(gap >= 40000 for gap in gaps)):
+                            break
+                    assert time.monotonic() < deadline, (statuses, qualified_rtts_us)
                     time.sleep(.02)
+                # The selector samples QUIC path stats every second. Let each
+                # endpoint publish the new candidate before opening the flow.
+                time.sleep(1.05)
             server = stack.enter_context(socket.socket())
             server.bind(('127.0.0.1', 0))
             server.listen()
@@ -340,9 +365,6 @@ def run(output, case, cli, relay):
             stop = Path(private) / 'forward-stop'
             net_before = counters(ns.pid)
             rules_before = nft_counters(ns.pid)
-            trace_start = trace_positions(output)
-            send(phone, attachment, "printf 'BEFORE_'; printf 'FORWARD\\n'\n")
-            read_marker(phone, attachment, 'BEFORE_FORWARD')
             trace_before_forward = trace_positions(output)
             with process(['nsenter', '-t', str(ns.pid), '-n', '--', sys.executable, '-c', SENDER,
                               forward['listen'], str(ready), str(stop)], stdout=subprocess.PIPE, text=True) as sender:
@@ -377,10 +399,12 @@ def run(output, case, cli, relay):
             assert effects == [f'DIR_{idx:03d}' for idx in range(26)], effects
             orig = {side: identity(op) for side, op in start['terminal'].items()}
             final = {side: identity(op) for side, op in end['terminal'].items()}
-            assert orig == final, (orig, final)
+            bootstrap_identity = {side: identity(op) for side, op in bootstrap.items()}
+            assert bootstrap_identity == orig == final, (bootstrap_identity, orig, final)
             report = dict(case=case, candidates={node.label: node.relay_address() for node in (phone, provider)},
                           transferred_bytes_each_direction=transferred, interactive_round_trips=len(delays),
-                          interactive_ms=delays, start=start, end=end,
+                          interactive_ms=delays, bootstrap=bootstrap, start=start, end=end,
+                          qualified_rtts_us=qualified_rtts_us,
                           path_deltas=per_path(start['terminal'], end['terminal']),
                           link_deltas={'before': net_before, 'after': net_after},
                           rules_before=rules_before, rules_after=rules_after)
@@ -433,9 +457,9 @@ def verify_paths(output, case, start, end, trace_start, trace_before_forward, tr
                     assert any(m[1] == direction and int(m[2]) == stable and int(m[3]) == stream
                                and int(m[4]) == path_id and int(m[6]) > 0
                                for m in pattern.finditer(before_forward)), (side, direction, stream, path_id)
-            assert (assigned[0] != assigned[1]) == (case == 'both'), (side, direction, assigned)
-            if case != 'both':
-                assert all(link == (DIRECT if case == 'slow' else case) for link in assigned), assigned
+            expected = ([DIRECT, BACKUP] if case == 'both' else
+                        [DIRECT, DIRECT] if case == 'slow' else [case, case])
+            assert assigned == expected, (side, direction, assigned, expected)
     for sender, receiver in (('phone', 'provider'), ('provider', 'phone')):
         for key, record in observed[sender].items():
             if key.startswith('tx-'):

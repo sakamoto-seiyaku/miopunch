@@ -182,7 +182,6 @@ impl BiasedRttPathSelector {
             if ctx.is_member_fusion()
                 && (network_path.is_ip() || tcp.is_some())
                 && !psd.is_suspect()
-                && ctx.has_fresh_ack(&stats)
                 && let Some(original) = psd.original_id()
             {
                 direct_paths.push((original, key));

@@ -473,6 +473,7 @@ pub(crate) fn path_status(connection: &MemberConnection) -> Value {
             "local":format!("{:?}",path.local_addr()),
             "selected":path.is_selected(),"tx_bytes":stats.udp_tx.bytes,"rx_bytes":stats.udp_rx.bytes,
             "rx_stream_frames":stats.frame_rx.stream,"tx_stream_frames":stats.frame_tx.stream,
+            "rtt_us":stats.rtt.as_micros(),
             "last_ack_age_ms":stats.acknowledgment.map(|ack| ack.received_at.elapsed().as_millis())})
         }).collect::<Vec<_>>()});
     if let Some(round) = connection.udp_traversal()

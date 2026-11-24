@@ -2278,6 +2278,17 @@ impl RemoteStateActor {
                         suspect.retained_for_recovery = true;
                     }
                 }
+                for (&id, suspect) in &mut conn_state.suspect_paths {
+                    if Some(id) != selected_for_conn
+                        && conn.business_on_path(id)
+                        && let Some(path) = conn.path(id)
+                    {
+                        // A split stream can lose its backup without a
+                        // connection-level selection change.
+                        path.requeue_unacknowledged_stream_frames();
+                        suspect.retained_for_recovery = true;
+                    }
+                }
             } else if fused {
                 // Selection can become empty while the replacement is being
                 // qualified. Preserve the old carrier across that gap.
