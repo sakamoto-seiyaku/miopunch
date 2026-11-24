@@ -524,12 +524,16 @@ impl StreamsState {
     }
 
     pub(crate) fn set_business_paths(&mut self, preferred: Option<PathId>, paths: &[PathId]) {
+        let previous = self.preferred_path;
         self.preferred_path = preferred;
         self.business_paths.clear();
         self.business_paths.extend_from_slice(paths);
-        // Business streams opened on the fallback start using affinity once
-        // their ordinary route first becomes a qualified direct path.
-        if let Some(path) = preferred.filter(|id| paths.contains(id)) {
+        // Until the connection can split streams, business follows its
+        // ordinary route, including during a single-path recovery. When a
+        // split becomes possible, keep existing streams on their route.
+        if paths.len() > 1
+            && let Some(path) = previous.into_iter().chain(preferred).find(|id| paths.contains(id))
+        {
             for stream in self.send.values_mut().flatten() {
                 if stream.business && stream.path.is_none() {
                     stream.path = Some(path);
@@ -539,15 +543,19 @@ impl StreamsState {
     }
 
     pub(crate) fn assign_business_path(&mut self, id: StreamId) {
-        let path = self.business_paths.iter().copied().min_by_key(|path| {
-            let count = self
-                .send
-                .values()
-                .flatten()
-                .filter(|stream| stream.path == Some(*path) && !stream.is_reset())
-                .count();
-            (count, Some(*path) != self.preferred_path)
-        });
+        let path = if self.business_paths.len() > 1 {
+            self.business_paths.iter().copied().min_by_key(|path| {
+                let count = self
+                    .send
+                    .values()
+                    .flatten()
+                    .filter(|stream| stream.path == Some(*path) && !stream.is_reset())
+                    .count();
+                (count, Some(*path) != self.preferred_path)
+            })
+        } else {
+            None
+        };
         if let Some(stream) = self.send.get_mut(&id).and_then(Option::as_mut) {
             if !stream.business {
                 stream.business = true;
