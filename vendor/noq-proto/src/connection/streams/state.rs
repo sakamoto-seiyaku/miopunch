@@ -102,6 +102,8 @@ pub struct StreamsState {
     pub(super) send_streams: usize,
     /// Streams with outgoing data queued, sorted by priority
     pub(super) pending: PendingStreamsQueue,
+    /// Business leases and their assigned send paths, independent of QUIC send-half state.
+    business_streams: FxHashMap<StreamId, Option<PathId>>,
     business_paths: Vec<PathId>,
     preferred_path: Option<PathId>,
 
@@ -170,6 +172,7 @@ impl StreamsState {
             next_reported_remote: [0, 0],
             send_streams: 0,
             pending: PendingStreamsQueue::new(),
+            business_streams: FxHashMap::default(),
             business_paths: Vec::new(),
             preferred_path: None,
             events: VecDeque::new(),
@@ -225,6 +228,7 @@ impl StreamsState {
                 // counters below.
                 let id = StreamId::new(self.side, dir, i);
                 self.send.remove(&id).unwrap();
+                self.business_streams.remove(&id);
                 if let Dir::Bi = dir {
                     self.recv.remove(&id).unwrap();
                 }
@@ -534,8 +538,12 @@ impl StreamsState {
         if paths.len() > 1
             && let Some(path) = previous.into_iter().chain(preferred).find(|id| paths.contains(id))
         {
-            for stream in self.send.values_mut().flatten() {
-                if stream.business && stream.path.is_none() {
+            for (&id, assigned) in &mut self.business_streams {
+                if assigned.is_some() {
+                    continue;
+                }
+                *assigned = Some(path);
+                if let Some(stream) = self.send.get_mut(&id).and_then(Option::as_mut) {
                     stream.path = Some(path);
                 }
             }
@@ -543,29 +551,39 @@ impl StreamsState {
     }
 
     pub(crate) fn assign_business_path(&mut self, id: StreamId) {
+        if self.business_streams.contains_key(&id) {
+            return;
+        }
         let path = if self.business_paths.len() > 1 {
             self.business_paths.iter().copied().min_by_key(|path| {
                 let count = self
-                    .send
+                    .business_streams
                     .values()
-                    .flatten()
-                    .filter(|stream| stream.path == Some(*path) && !stream.is_reset())
+                    .filter(|assigned| **assigned == Some(*path))
                     .count();
                 (count, Some(*path) != self.preferred_path)
             })
         } else {
             None
         };
+        self.business_streams.insert(id, path);
         if let Some(stream) = self.send.get_mut(&id).and_then(Option::as_mut) {
-            if !stream.business {
-                stream.business = true;
-                stream.path = path;
-            }
+            stream.path = path;
         }
+    }
+
+    pub(crate) fn release_business_stream(&mut self, id: StreamId) {
+        // The send half may still be delivering bytes or FIN on the assigned path.
+        self.business_streams.remove(&id);
     }
 
     pub(crate) fn release_business_path(&mut self, path: PathId) {
         self.business_paths.retain(|id| *id != path);
+        for assigned in self.business_streams.values_mut() {
+            if *assigned == Some(path) {
+                *assigned = None;
+            }
+        }
         for stream in self.send.values_mut().flatten() {
             if stream.path == Some(path) {
                 stream.path = None;
@@ -574,6 +592,11 @@ impl StreamsState {
     }
 
     pub(crate) fn has_business_on_path(&self, path: PathId) -> bool {
+        self.business_streams.values().any(|assigned| *assigned == Some(path))
+            || self.has_business_sender_on_path(path)
+    }
+
+    pub(crate) fn has_business_sender_on_path(&self, path: PathId) -> bool {
         self.send
             .values()
             .flatten()

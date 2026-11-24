@@ -1121,6 +1121,197 @@ async fn qualified_udp(
     found.map(Option::unwrap)
 }
 
+#[cfg(feature = "nat-lab-test-hooks")]
+#[tokio::test]
+async fn split_path_occupancy_follows_the_business_lease() {
+    use iroh::endpoint::BindOpts;
+
+    let alternate = Ipv4Addr::new(127, 178, 0, 2);
+    let pair = Pair::bind_with_observers(
+        LOOPBACK,
+        LOOPBACK,
+        LOW_RELAY_DELAY,
+        PathPreference::PreferDirect,
+        &[],
+        |builder| {
+            builder
+                .bind_addr_with_opts((alternate, 0), BindOpts::default().set_prefix_len(32))
+                .unwrap()
+        },
+    )
+    .await;
+    let [sender, receiver] = &pair.connections;
+    let ids = pair.connections.each_ref().map(MemberConnection::stable_id);
+    time::timeout(2 * BUSINESS_LIMIT, async {
+        let mut seed = OriginalStream::open(sender, receiver, 0).await;
+        finish_member_write(&mut seed.outgoing, &mut seed.incoming).await;
+        finish_member_write(&mut seed.incoming, &mut seed.outgoing).await;
+        drop(seed);
+        let [a, b] = wait_split_candidates(sender, receiver).await;
+
+        let mut primary = Vec::new();
+        let mut alternate = Vec::new();
+        for (index, path) in [a, b, a, b, a, b].into_iter().enumerate() {
+            let payload = index as u64 + 1;
+            let mut stream = OriginalStream::open(sender, receiver, payload).await;
+            stream_on_path(receiver, &mut stream, path, payload + 10).await;
+            if path == a {
+                primary.push(stream);
+            } else {
+                alternate.push(stream);
+            }
+        }
+        while alternate.len() > 1 {
+            let mut stream = alternate.pop().unwrap();
+            finish_member_write(&mut stream.outgoing, &mut stream.incoming).await;
+            finish_member_write(&mut stream.incoming, &mut stream.outgoing).await;
+        }
+        let OriginalStream {
+            outgoing,
+            mut incoming,
+            ..
+        } = primary.remove(0);
+        let (mut send, recv, lease) = outgoing.into_parts();
+        send.finish().unwrap();
+        assert_eq!(incoming.streams().1.read(&mut [0]).await.unwrap(), None);
+        assert_eq!(send.stopped().await.unwrap(), None);
+        drop(send);
+        let mut half_closed = primary.remove(0);
+        finish_member_write(&mut half_closed.outgoing, &mut half_closed.incoming).await;
+
+        // A still holds three business leases, although two of their write
+        // halves are already acknowledged and the surviving B stream is idle.
+        let mut next = OriginalStream::open(sender, receiver, 20).await;
+        stream_on_path(receiver, &mut next, b, 21).await;
+
+        let mut maintenance = sender.open_maintenance_bi().await.unwrap();
+        maintenance.streams().0.write_all(b"check").await.unwrap();
+        let mut maintenance_peer = receiver.accept_bi().await.unwrap();
+        assert!(!maintenance.is_business() && !maintenance_peer.is_business());
+        let mut check = [0; 5];
+        maintenance_peer.streams().1.read_exact(&mut check).await.unwrap();
+        assert_eq!(&check, b"check");
+        let pings = (sender.stats().frame_tx.ping, receiver.stats().frame_rx.ping);
+        wait_for(
+            "QUIC keepalive traffic on the live original",
+            BUSINESS_LIMIT,
+            || sender.stats().frame_tx.ping > pings.0 && receiver.stats().frame_rx.ping > pings.1,
+        )
+        .await;
+
+        // The two closing business leases leave A:1/B:2. The concurrent
+        // opens both select A, first on load and then on the usual tie break.
+        let closed = tokio::sync::Barrier::new(2);
+        let (one, two) = tokio::join!(
+            async {
+                drop((recv, lease, incoming));
+                closed.wait().await;
+                sender.open_bi().await.unwrap()
+            },
+            async {
+                drop(half_closed);
+                closed.wait().await;
+                sender.open_bi().await.unwrap()
+            },
+        );
+        let mut outgoing = vec![one, two];
+        let mut opened = Vec::new();
+        for payload in [30, 31] {
+            let mut incoming = receiver.accept_bi().await.unwrap();
+            let stream_id = incoming.streams().1.id();
+            let index = outgoing
+                .iter_mut()
+                .position(|stream| stream.streams().0.id() == stream_id)
+                .unwrap();
+            let mut stream = OriginalStream {
+                outgoing: outgoing.swap_remove(index),
+                incoming,
+                stream_id,
+            };
+            stream_on_path(receiver, &mut stream, a, payload).await;
+            opened.push(stream);
+        }
+
+        // No ACK wait between releasing business ownership and opening again.
+        // One of the original leases remains on each path, so use A on the tie.
+        drop((opened, next));
+        let mut tied = OriginalStream::open(sender, receiver, 32).await;
+        stream_on_path(receiver, &mut tied, a, 33).await;
+        stream_on_path(receiver, &mut primary[0], a, 34).await;
+        stream_on_path(receiver, &mut alternate[0], b, 35).await;
+    })
+    .await
+    .expect("physical paths and half-closed business streams deliver");
+    assert_eq!(
+        pair.connections.each_ref().map(MemberConnection::stable_id),
+        ids
+    );
+    pair.close().await;
+}
+
+#[cfg(feature = "nat-lab-test-hooks")]
+async fn wait_split_candidates(
+    sender: &MemberConnection,
+    receiver: &MemberConnection,
+) -> [noq_proto::PathId; 2] {
+    let mut qualified = None;
+    wait_for("two comparable physical paths on the original", BUSINESS_LIMIT, || {
+        let paths = sender.paths();
+        let healthy = |path: &iroh::endpoint::Path| {
+            path.is_ip()
+                && path.stats().acknowledgment.is_some()
+                && receiver.paths().get(path.id()).is_some_and(|path| {
+                    path.is_ip() && path.stats().acknowledgment.is_some()
+                })
+        };
+        let Some(primary) = paths.iter().find(|path| path.is_selected() && healthy(path)) else {
+            return false;
+        };
+        if let Some(other) = paths.iter().find(|path| {
+            path.remote_addr() != primary.remote_addr()
+                && healthy(path)
+                && path.stats().rtt.abs_diff(primary.stats().rtt) < Duration::from_millis(5)
+        }) {
+            qualified = Some([primary.id(), other.id()]);
+        }
+        qualified.is_some()
+    })
+    .await;
+    // The actor resamples comparable RTTs at its regular evaluation interval.
+    time::sleep(Duration::from_millis(1050)).await;
+    let mut paths = qualified.unwrap();
+    if !sender.paths().get(paths[0]).unwrap().is_selected() {
+        assert!(sender.paths().get(paths[1]).unwrap().is_selected());
+        paths.swap(0, 1);
+    }
+    eprintln!("MIO178 comparable paths {paths:?}");
+    paths
+}
+
+#[cfg(feature = "nat-lab-test-hooks")]
+async fn finish_member_write(outgoing: &mut MemberStream, incoming: &mut MemberStream) {
+    let (send, _) = outgoing.streams();
+    send.finish().unwrap();
+    assert_eq!(incoming.streams().1.read(&mut [0]).await.unwrap(), None);
+    assert_eq!(send.stopped().await.unwrap(), None);
+}
+
+#[cfg(feature = "nat-lab-test-hooks")]
+async fn stream_on_path(
+    receiver: &MemberConnection,
+    stream: &mut OriginalStream,
+    path: noq_proto::PathId,
+    payload: u64,
+) {
+    let request = receiver.test_observe_stream_receive(path, &stream.incoming).unwrap();
+    stream.round_trip(payload).await;
+    assert!(
+        request.confirm(),
+        "request {payload} on {path:?}, stream {}",
+        stream.stream_id,
+    );
+}
+
 fn relay_is_selected(connection: &MemberConnection, url: &RelayUrl) -> bool {
     connection
         .paths()

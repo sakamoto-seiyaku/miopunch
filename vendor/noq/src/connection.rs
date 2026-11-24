@@ -742,7 +742,7 @@ impl Connection {
         self.0.lock_and_wake("set_business_paths").inner.set_business_paths(preferred, paths);
     }
 
-    /// Whether this path carries an ordinary business sender.
+    /// Whether an ordinary business lease or its draining sender still uses this path.
     pub fn business_on_path(&self, path: PathId) -> bool {
         self.0.lock_without_waking("business_on_path").inner.business_on_path(path)
     }

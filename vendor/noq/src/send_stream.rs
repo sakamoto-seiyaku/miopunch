@@ -234,6 +234,7 @@ impl SendStream {
     }
 
     /// Mark an ordinary business stream before writing its first byte.
+    /// Its owner pairs this with [`StreamControl::release_business`].
     pub fn mark_business(&self) -> Result<(), ClosedStream> {
         self.conn.lock_and_wake("mark_business").inner.send_stream(self.stream).mark_business()
     }
@@ -300,6 +301,14 @@ pub struct StreamControl {
 }
 
 impl StreamControl {
+    /// Release the ordinary business stream's allocation when its owner ends.
+    pub fn release_business(&self) {
+        let mut conn = self.conn.lock_without_waking("release_business");
+        if !self.is_0rtt || conn.check_0rtt().is_ok() {
+            conn.inner.send_stream(self.stream).release_business();
+        }
+    }
+
     /// Wait for the enclosing transport to become unavailable.
     pub async fn connection_closed(&self) -> ConnectionError {
         self.conn.closed().await

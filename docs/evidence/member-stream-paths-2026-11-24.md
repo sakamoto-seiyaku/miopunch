@@ -23,3 +23,19 @@
 
 - `miopunch-client` 从当轮共享缓存的 `target/debug/miopunch-client` 固定。对象为 `.artifacts/sha256/3b/3ba0da59090c7bb8760df61316d099c98b973b612ff86c9a3630f2506bfbcbc8-555`。
 - `browser-probe-native` 复用开始验收时从 `target/debug/browser-probe-native` 固定的版本。保留固定对象 `.artifacts/sha256/8d/8d5204f6f47363fc1a197a1adf095c2839dce1e2dfecae1a4eb5c9d5506d55d9-555`，原构建回执未保留。
+
+## MIOPUNCH-178 · 业务流持有期和第三条直连
+
+原生 CLI 在一次性 Linux 网络命名空间中准入两个成员。A 先承载原终端与两个 TCP 转发，B 就绪后承载第三个转发。这三条转发保持静默，终端继续收发。全部检查按双端连接、流、方向与带负载的 STREAM 帧匹配；独立 TCP 接收端核对七条有序消息，独立 shell 文件核对四条终端输入。
+
+| 开流前已持有的流 | 新转发流 | 实际路径 |
+| --- | --- | --- |
+| A 3，B 1 | 29 | 双向 B |
+| A 1，B 1 | 33 | 双向 A（既有偏好） |
+| A 1，B 1，另外验证 C | 41 | 双向 C，原终端 9 和原转发 25 继续分别走 A、B |
+
+C 是 `10.94.0.0/30` 上额外开放的直连，通过已有地址提示和同一原连接验证。三路都获近期 ACK，双端测得 RTT 分别为 8.745/8.923/8.929 ms 和 8.901/9.063/9.659 ms。全程保持原成员连接。临时驱动 `/tmp/mio178-cli.py`，双端 STREAM 原始日志和结果 `/tmp/mio178-cli-final/`。
+
+融合端点的 `split_path_occupancy_follows_the_business_lease` 单独控制时序。两条 A 的写半流完成 FIN/ACK，其中一条已通过 `into_parts` 拆开，业务租约仍在。基线 `971db45e` 把下一条流送到 A；本次修改送到 B。释放两个租约后，两个并发开的流按较少占用和平局偏好都走 A。收到实际 QUIC PING，维护流仍打开且完成应用交付；释放新流后无须等待 FIN ACK，下一条流按 A/B 平局走 A，两条原流仍各自在旧路径交付。测试核对接收端实际读到的字节和该方向的物理路径。基线 `/tmp/mio178-red-direct3.log`，完整通过 `/tmp/mio178-green-final.log`。原生 TCP 修复 `restricted_contact_repairs_the_live_native_forwarding_stream` 通过，日志 `/tmp/mio178-tcp-repair.log`。
+
+178 CLI 固定在 `.artifacts/runs/mio-178/pinned/miopunch-client`，构建回执 `/tmp/mio178-cli-build/receipt.json`，测试构建回执 `/tmp/mio178-green-final/receipt.json`。178 复用原 relay pin；完成旧 CLI 对照后回收 177 CLI pin 和其对象，共 201,023,488 字节，原日志和收据仍可用。[MIOPUNCH-178](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/629da7d6-6d23-4b6f-992c-1134c976c829)

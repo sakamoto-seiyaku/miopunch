@@ -409,6 +409,11 @@ impl<'a> SendStream<'a> {
         Ok(())
     }
 
+    /// End the ordinary business stream's ownership of its allocated path.
+    pub fn release_business(&mut self) {
+        self.state.release_business_stream(self.id);
+    }
+
     /// Get the priority of a stream
     ///
     /// # Panics

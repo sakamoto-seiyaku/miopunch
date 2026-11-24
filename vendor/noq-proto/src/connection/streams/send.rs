@@ -13,7 +13,7 @@ pub(super) struct Send {
     pub(super) state: SendState,
     pub(super) pending: SendBuffer,
     pub(super) priority: i32,
-    pub(super) business: bool,
+    /// Route for STREAM frames, including retransmissions after the business lease ends.
     pub(super) path: Option<crate::PathId>,
     /// Whether a frame containing a FIN bit must be transmitted.
     ///
@@ -32,7 +32,6 @@ impl Send {
             state: SendState::Ready,
             pending: SendBuffer::new(),
             priority: 0,
-            business: false,
             path: None,
             fin_pending: false,
             connection_blocked: false,

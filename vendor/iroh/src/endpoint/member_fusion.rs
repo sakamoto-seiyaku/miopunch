@@ -1916,7 +1916,7 @@ impl MemberConnection {
         self.0.connection.test_suppress_path_acks(id, suppressed);
     }
 
-    /// Observe real application bytes on the exact selected path in an owned fixture.
+    /// Observe real application bytes on an exact path in an owned fixture.
     #[cfg(feature = "miopunch-test-hooks")]
     #[doc(hidden)]
     pub fn test_observe_stream_receive(
@@ -1924,10 +1924,7 @@ impl MemberConnection {
         id: PathId,
         stream: &MemberStream,
     ) -> Option<noq::StreamReceivePath> {
-        self.paths()
-            .iter()
-            .find(|path| path.is_selected() && path.id() == id)?
-            .observe_stream_receive(&stream.recv)
+        self.paths().get(id)?.observe_stream_receive(&stream.recv)
     }
 
     /// Read the original transport's off-path IPv4 QNT send gate in an owned fixture.
@@ -2008,14 +2005,14 @@ impl MemberConnection {
             .open_bi()
             .await
             .map_err(io::Error::other)?;
-        if kind == StreamKind::Business {
-            send.mark_business().map_err(io::Error::other)?;
+        if let Some(lease) = &mut lease {
+            lease.claim_path(&send)?;
         }
         send.write_all(&[kind as u8])
             .await
             .map_err(io::Error::other)?;
         if let Some(lease) = &mut lease {
-            lease.sending(&send);
+            lease.track_maintenance(&send);
         }
         Ok(MemberStream {
             send,
@@ -2077,11 +2074,9 @@ impl IncomingMemberStream {
                 activity.lease(kind)?
             }
         };
-        if lease.as_ref().is_some_and(|lease| lease.business) {
-            self.send.mark_business().map_err(io::Error::other)?;
-        }
         if let Some(lease) = &mut lease {
-            lease.sending(&self.send);
+            lease.claim_path(&self.send)?;
+            lease.track_maintenance(&self.send);
         }
         Ok(MemberStream {
             send: self.send,
@@ -2190,7 +2185,7 @@ pub struct MemberStream {
 impl MemberStream {
     /// Whether this stream carries a local business-activity lease.
     pub fn is_business(&self) -> bool {
-        self._lease.as_ref().is_some_and(|lease| lease.business)
+        self._lease.as_ref().is_some_and(ActivityLease::is_business)
     }
     /// Independently cancel or observe only this stream.
     pub fn control(&self) -> noq::StreamControl {
@@ -2328,7 +2323,7 @@ impl Activity {
             return Err(io::ErrorKind::NotConnected.into());
         }
         state.handoff = false;
-        if business {
+        let kind = if business {
             if state.holders == 0 {
                 state.idle_since = None;
                 self.planner.business_changed(true);
@@ -2337,13 +2332,14 @@ impl Activity {
             }
             state.used = true;
             state.holders += 1;
+            ActivityLeaseKind::Business(None)
         } else {
             state.checks += 1;
-        }
+            ActivityLeaseKind::Maintenance(None)
+        };
         Ok(Some(ActivityLease {
             activity: self.clone(),
-            business,
-            control: None,
+            kind,
         }))
     }
 }
@@ -2351,14 +2347,31 @@ impl Activity {
 #[derive(Debug)]
 struct ActivityLease {
     activity: Arc<Activity>,
-    business: bool,
-    control: Option<(tokio::runtime::Handle, noq::StreamControl)>,
+    kind: ActivityLeaseKind,
+}
+
+#[derive(Debug)]
+enum ActivityLeaseKind {
+    Business(Option<noq::StreamControl>),
+    Maintenance(Option<(tokio::runtime::Handle, noq::StreamControl)>),
 }
 
 impl ActivityLease {
-    fn sending(&mut self, send: &SendStream) {
-        if !self.business {
-            self.control = Some((tokio::runtime::Handle::current(), send.control()));
+    fn is_business(&self) -> bool {
+        matches!(self.kind, ActivityLeaseKind::Business(_))
+    }
+
+    fn claim_path(&mut self, send: &SendStream) -> io::Result<()> {
+        if let ActivityLeaseKind::Business(control) = &mut self.kind {
+            send.mark_business().map_err(io::Error::other)?;
+            *control = Some(send.control());
+        }
+        Ok(())
+    }
+
+    fn track_maintenance(&mut self, send: &SendStream) {
+        if let ActivityLeaseKind::Maintenance(control) = &mut self.kind {
+            *control = Some((tokio::runtime::Handle::current(), send.control()));
         }
     }
 }
@@ -2366,17 +2379,24 @@ impl ActivityLease {
 impl Drop for ActivityLease {
     fn drop(&mut self) {
         let activity = &self.activity;
-        if !self.business {
-            if let Some((runtime, control)) = self.control.take() {
-                let activity = activity.clone();
-                runtime.spawn(async move {
-                    let _ = control.stopped().await;
-                    activity.finish_check();
-                });
-            } else {
-                activity.finish_check();
+        match &mut self.kind {
+            ActivityLeaseKind::Business(control) => {
+                if let Some(control) = control.take() {
+                    control.release_business();
+                }
             }
-            return;
+            ActivityLeaseKind::Maintenance(control) => {
+                if let Some((runtime, control)) = control.take() {
+                    let activity = activity.clone();
+                    runtime.spawn(async move {
+                        let _ = control.stopped().await;
+                        activity.finish_check();
+                    });
+                } else {
+                    activity.finish_check();
+                }
+                return;
+            }
         }
         let mut state = activity.state.lock().expect("member activity lock");
         state.holders -= 1;

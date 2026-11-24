@@ -1337,7 +1337,7 @@ impl Connection {
         self.streams.set_business_paths(preferred, paths);
     }
 
-    /// Whether an ordinary business sender currently owns this path.
+    /// Whether an ordinary business lease or its draining sender still uses this path.
     pub fn business_on_path(&self, path: PathId) -> bool {
         self.streams.has_business_on_path(path)
     }
@@ -1420,7 +1420,7 @@ impl Connection {
                 && has_cids
                 && !is_abandoned
                 && validated
-                && self.streams.has_business_on_path(path_id));
+                && self.streams.has_business_sender_on_path(path_id));
 
         // CONNECTION_CLOSE is allowed to be sent on a non-validated
         // path. Particularly during the handshake we want to send it before the
