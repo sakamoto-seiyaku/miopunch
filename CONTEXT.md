@@ -192,6 +192,10 @@ records the concrete behavior discussed so far.
 - **Shared member QUIC session** is the admitted end-to-end session on which two
   peers open service streams. A standby session is kept ready to open a stream
   while no business stream is active. Its current data path can change.
+- **Business channel** is the read/write context an application holds for an
+  ongoing exchange with an authorized peer. For reliable byte streams, the
+  same channel can continue over a replacement transport stream while both
+  endpoints retain its state. See [ADR 0021](docs/adr/0021-business-channel-continuity.md).
 - **Product ping** is a request to the peer's ping service on a business stream
   of the shared session. A periodic diagnostic check in the native demo uses a
   maintenance stream on that session.

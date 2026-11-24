@@ -19,5 +19,6 @@ See also [three node roles and scoped guest invitations](0017-guest-access-with-
 See also [shared Vue UI with Tauri shells and Rust nodes](0018-shared-vue-ui-with-tauri-shells.md).
 See also [miopunch as an application on modified p2panda and iroh](0019-miopunch-application-on-p2panda-and-iroh.md).
 See also [shared QUIC connection for member business streams](0020-shared-member-business-connection.md).
+See also [continuity of established business channels](0021-business-channel-continuity.md).
 Working hypotheses and research remain in
 `docs/notes/`; unresolved decisions belong in Plane.

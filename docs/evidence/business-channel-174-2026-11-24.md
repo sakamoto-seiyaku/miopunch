@@ -1,5 +1,7 @@
 # MIOPUNCH-174 原终端附件跨承载继续交互
 
+后续以包含原流换路修复的版本复测了全部 195 段，本文两段也均在原观察窗口内收齐。`20210805-006` 再次在新 QUIC 上保留原附件与原 shell。[全量复测报告](hsrnet-terminal-replay-2026-11-23.md#2026-11-24-全量复测)
+
 原生与浏览器终端附件共用可靠业务通道。附件 ID、原 tmux control client、工作区及 shell 状态在底层 QUIC 结束后保留，终端输入与输出通过原通道按序补齐。原生节点的 TCP 与终端共用节点发送／接收额度和既有联系退避。浏览器沿其已有 ConnectionCoordinator 和独立服务连接角色接入相同字节进度协议。[MIOPUNCH-174](http://192.168.4.22:2080/work/projects/aa58cd82-2afc-404b-a097-58ef553c7ca4/issues/509ae474-a428-429b-ae1b-efd30bc634e4) · [ADR 0021](../adr/0021-business-channel-continuity.md)
 
 ## 接线与结束状态
