@@ -14,7 +14,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use super::{
     ControlExchange, Duration, Instant, MemberUdpPlan, Planning, Recommendation, Reservation,
-    Round, StreamKind, denied, invalid, receive, send, time, wire,
+    Round, RoundTrace, StreamKind, denied, invalid, receive, send, time, wire,
 };
 use crate::{
     TransportAddr,
@@ -50,7 +50,8 @@ pub struct MemberUdpTraversalReport {
     pub business: Option<(noq::StreamId, StdInstant)>,
     /// Whether the choosing endpoint scored its single recommendation.
     pub learned: bool,
-    /// Terminal result once the round released its temporary resources.
+    /// Local terminal result. Automatic success retains this end's validated path.
+    /// Only `business` records an exchange confirmed on the selected path.
     pub outcome: Option<Result<(), io::ErrorKind>>,
     /// Local time of terminal cleanup.
     pub finished: Option<StdInstant>,
@@ -113,7 +114,18 @@ impl Planning {
         recommendation: Option<Recommendation>,
         slot: &Reservation<'_>,
         kind: StreamKind,
+        trace: &mut RoundTrace,
     ) -> io::Result<()> {
+        trace.step("execution");
+        trace.log(
+            "plan",
+            format_args!(
+                " behavior={:?} fallback={} budget_ms={}",
+                plan.id,
+                plan.fallback,
+                plan.execution_budget.as_millis()
+            ),
+        );
         let (business, incoming) = mpsc::channel(1);
         let state = Arc::new(Execution {
             report: Mutex::new(MemberUdpTraversalReport {
@@ -146,6 +158,7 @@ impl Planning {
                     kind,
                     &running.0,
                     incoming,
+                    trace,
                 )
                 .await
             })
@@ -166,6 +179,7 @@ impl Planning {
         kind: StreamKind,
         state: &Execution,
         mut incoming: mpsc::Receiver<Business>,
+        trace: &mut RoundTrace,
     ) -> io::Result<()> {
         if plan.disabled {
             return Err(io::Error::new(
@@ -192,6 +206,7 @@ impl Planning {
             local: plan.scope.authorization.local,
             remote: plan.scope.authorization.remote,
         };
+        trace.step("listeners");
         let mut lease = while_peer_receives(
             &peer,
             self.endpoint
@@ -227,7 +242,15 @@ impl Planning {
                 .collect();
         });
         setup?;
+        trace.log(
+            "listeners-ready",
+            format_args!(
+                " attempted={} bound={} failed={}",
+                listeners.attempted, listeners.bound, listeners.failed
+            ),
+        );
         exchange_phase(stream, &round.message(wire::LISTENING)).await?;
+        trace.step("punch");
         let packets = AtomicUsize::new(super::packet_limit(&plan.local_phase));
         let (winner, mut retained) = while_peer_receives(&peer, async {
             let winner = nat_execution::run(
@@ -249,8 +272,13 @@ impl Planning {
                     event: &|event, _| match event {
                         PhaseEvent::FirstSend { .. } => {
                             slot.spend(&plan.scope.generation, self.config.round_interval);
+                            trace.log("first-send", format_args!(""));
                         }
                         PhaseEvent::FirstMatch { winner, at } => {
+                            trace.log(
+                                "first-match",
+                                format_args!(" socket={}", winner.local_socket_id.get()),
+                            );
                             state.update(|report| report.first_match = Some((winner.clone(), at)));
                         }
                     },
@@ -266,29 +294,65 @@ impl Planning {
         .await?;
         drop(lease);
         state.update(|report| report.winner = Some(winner.clone()));
+        trace.step("winner-ready");
         exchange_phase(stream, &round.message(wire::WINNER_READY)).await?;
-        let (path, ack, probe, candidate) = while_peer_receives(&peer, self.validate(&winner)).await?;
+        trace.step("local-path");
+        let (path, ack, probe, candidate) =
+            while_peer_receives(&peer, self.validate(&winner, trace)).await?;
         state.update(|report| report.validated = Some((path, ack)));
+        trace.log("local-ack", format_args!(" path={path:?}"));
+        trace.step("peer-ack");
         exchange_phase(stream, &round.message(wire::VALIDATED)).await?;
         // Keep each peer's ACK route available until both validators have finished.
-        if !probe.is_acknowledged().map_err(io::Error::other)? {
-            return Err(io::ErrorKind::Interrupted.into());
-        }
-        drop(probe);
+        trace.step("ack-recheck");
+        let check_ack = || {
+            if probe.is_acknowledged().map_err(io::Error::other)? {
+                Ok(())
+            } else {
+                Err(io::Error::from(io::ErrorKind::Interrupted))
+            }
+        };
         if kind.automatically_improves_path() {
-            // A bilateral fresh ACK makes the path usable by ordinary streams.
-            // Scoring still requires the application's explicit business confirmation.
+            let check_backup = || {
+                check()?;
+                self.permits_winner(&winner)?;
+                if let Some(lease) = &retained {
+                    lease.check_binding(
+                        &self.connection,
+                        LocalSocketBinding {
+                            id: winner.local_socket_id,
+                            local_addr: winner.local_addr,
+                        },
+                    )?;
+                }
+                // validate() started this probe on the winner's exact original
+                // path. It also detects a closed or rebound path, including on primary UDP.
+                check_ack()
+            };
+            trace.step("prepare-retention");
+            check_backup()?;
+            // SELECTED is the existing wire value for this barrier. Keep the
+            // rollback owners until both validators finish, even on cancellation.
+            trace.step("peer-ready");
             exchange_phase(stream, &round.message(wire::SELECTED)).await?;
             stream.finish_send().await?;
-            self.permits_winner(&winner)?;
+            trace.step("retain");
+            check_backup()?;
             if let Some(lease) = &mut retained {
-                lease.commit(&self.connection)?;
+                lease.retain();
             }
             if let Some(candidate) = candidate {
                 candidate.retain();
             }
+            trace.log(
+                "retained",
+                format_args!(" path={path:?} socket={}", winner.local_socket_id.get()),
+            );
             return Ok(());
         }
+        check_ack()?;
+        drop(probe);
+        trace.step("business");
         while_peer_receives(&peer, async {
             while self.on_winner(&winner, |candidate| {
                 candidate.id() == path && candidate.is_selected()
@@ -345,6 +409,7 @@ impl Planning {
     async fn validate(
         &self,
         winner: &Winner,
+        trace: &mut RoundTrace,
     ) -> io::Result<(
         PathId,
         noq_proto::PathAcknowledgment,
@@ -383,12 +448,14 @@ impl Planning {
             };
         let (id, probe) = loop {
             if let Some(result) = self.on_winner(winner, |path| {
-                path.start_return_path_probe().map(|probe| (path.id(), probe))
+                path.start_return_path_probe()
+                    .map(|probe| (path.id(), probe))
             }) {
                 break result?;
             }
             time::sleep(Duration::from_millis(10)).await;
         };
+        trace.step("return-probe");
         loop {
             self.permits_winner(winner)?;
             if probe.is_acknowledged().map_err(io::Error::other)?

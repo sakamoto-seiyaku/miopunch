@@ -732,8 +732,28 @@ async fn os_bind_failures_keep_exact_attempt_count_and_release_partial_pool() {
 
 #[tokio::test]
 async fn discarded_winner_paths_release_descriptors_while_original_control_connection_lives() {
+    retire_provisional_backup(false).await;
+}
+
+#[tokio::test]
+async fn network_change_releases_provisional_sockets_after_both_path_acks() {
+    retire_provisional_backup(true).await;
+}
+
+async fn retire_provisional_backup(network_change: bool) {
+    #[derive(Debug)]
+    struct KeepControl;
+    impl ConnectionPathSelector for KeepControl {
+        fn select(&self, context: &PathSelectionContext<'_>) -> PathSelection {
+            let mut selection = PathSelection::none();
+            if let Some(control) = context.paths().find(|p| !p.network_path().is_ip()) {
+                selection.set(&control);
+            }
+            selection
+        }
+    }
     tokio::time::timeout(Duration::from_secs(10), async {
-        let pair = Pair::new().await;
+        let pair = Pair::build_with_selector(false, Arc::new(KeepControl)).await;
         let (c, v) = pair.connect_connections().await;
         let stable = (c.stable_id(), v.stable_id());
         let mut cl = c.register_udp_traversal([9; 16]).await.unwrap();
@@ -781,16 +801,28 @@ async fn discarded_winner_paths_release_descriptors_while_original_control_conne
         {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        // This is still a restricted Control connection: the validated IP path
-        // is a backup, and the original TCP control path remains selected.
-        // Keep provisional guards alive while testing protocol path disposal.
         drop((cl, vl));
-        v.paths()
+        let paths = v.paths();
+        let path = paths
             .iter()
             .find(|p| p.local_socket_id() == Some(vb.id))
-            .unwrap()
-            .close()
             .unwrap();
+        let peer_paths = c.paths();
+        let peer_path = peer_paths
+            .iter()
+            .find(|p| p.local_socket_id() == Some(cb.id))
+            .unwrap();
+        assert!(!path.is_selected() && !peer_path.is_selected());
+        let probe = path.start_return_path_probe().unwrap();
+        let peer_probe = peer_path.start_return_path_probe().unwrap();
+        while !probe.is_acknowledged().unwrap() || !peer_probe.is_acknowledged().unwrap() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        if network_change {
+            tokio::join!(pair.c.network_change(), pair.v.network_change());
+        } else {
+            path.close().unwrap();
+        }
         // Noq retains the descriptor during abandonment grace and releases it
         // only after the last associated path is actually Discarded.
         loop {
@@ -827,7 +859,8 @@ async fn discarded_winner_paths_release_descriptors_while_original_control_conne
     .unwrap();
 }
 
-#[tokio::test]
+// The blocking OS port checks must not starve the original QUIC connection.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn all_256_physical_listeners_close_on_cancel_and_rounds_do_not_accumulate() {
     let pair = Pair::new().await;
     let (c, _v) = pair.connect().await;

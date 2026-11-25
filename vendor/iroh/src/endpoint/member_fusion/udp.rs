@@ -1,17 +1,21 @@
 //! Enhanced UDP coordination on the protected, already admitted original.
 
 use std::{
+    fmt,
     future::pending,
     io,
     sync::{Arc, Mutex},
     time::Instant as StdInstant,
 };
 
-use iroh_relay::RelayMap;
+use iroh_relay::{
+    RelayMap,
+    client::{relay_diagnostic, relay_diagnostics_enabled},
+};
 use n0_watcher::Watcher as _;
-use tokio::sync::watch;
 #[cfg(feature = "miopunch-test-hooks")]
 use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::sync::watch;
 
 use super::{
     Activity, CancellationToken, Connection, ControlExchange, Duration, Endpoint, Instant, PathId,
@@ -92,6 +96,95 @@ impl MemberUdpPlan {
             .sequence
             .as_ref()
             .map_or(&[], |value| &value.samples)
+    }
+}
+
+struct RoundTrace {
+    stable_id: usize,
+    role: &'static str,
+    kind: StreamKind,
+    started: StdInstant,
+    round: Option<u128>,
+    phase: &'static str,
+}
+
+impl RoundTrace {
+    fn new(connection: &Connection, role: &'static str, kind: StreamKind) -> Self {
+        Self {
+            stable_id: connection.stable_id(),
+            role,
+            kind,
+            started: StdInstant::now(),
+            round: None,
+            phase: "control",
+        }
+    }
+
+    fn start(&mut self, round: Round) {
+        if self.kind != StreamKind::UdpPlan && relay_diagnostics_enabled() {
+            self.round = Some(u128::from_be_bytes(round.0));
+            self.step("control");
+        }
+    }
+
+    fn step(&mut self, phase: &'static str) {
+        self.phase = phase;
+        self.log(phase, format_args!(""));
+    }
+
+    fn log(&self, event: &'static str, detail: fmt::Arguments<'_>) {
+        if let Some(round) = self.round {
+            relay_diagnostic(format_args!(
+                "member-udp stable_id={} round={round:032x} role={} kind={:?} elapsed_ms={} event={event}{detail}",
+                self.stable_id,
+                self.role,
+                self.kind,
+                self.started.elapsed().as_millis(),
+            ));
+        }
+    }
+
+    fn samples(&self, sequence: Option<&UdpMappingSequence>) {
+        if self.round.is_none() {
+            return;
+        }
+        let samples = sequence.map_or(&[][..], |sequence| sequence.samples.as_slice());
+        let stun = samples
+            .iter()
+            .filter(|sample| sample.observer.starts_with("stun://"))
+            .count();
+        self.log(
+            "samples-ready",
+            format_args!(
+                " samples={} stun={stun} qad={}",
+                samples.len(),
+                samples.len() - stun
+            ),
+        );
+    }
+
+    fn finish<T>(&mut self, result: &io::Result<T>) {
+        match result {
+            Ok(_) => self.log("finish", format_args!(" phase={} result=ok", self.phase)),
+            Err(error) => self.log(
+                "finish",
+                format_args!(
+                    " phase={} result=error error_kind={:?} error={error:?}",
+                    self.phase,
+                    error.kind()
+                ),
+            ),
+        }
+        self.round = None;
+    }
+}
+
+impl Drop for RoundTrace {
+    fn drop(&mut self) {
+        self.log(
+            "finish",
+            format_args!(" phase={} result=cancelled", self.phase),
+        );
     }
 }
 
@@ -459,6 +552,7 @@ impl Planning {
             deadline,
             traverse,
         )?;
+        let mut trace = RoundTrace::new(&self.connection, "initiator", kind);
         let work = async {
             let mut running = None;
             #[cfg(feature = "miopunch-test-hooks")]
@@ -496,26 +590,38 @@ impl Planning {
                     .guarded(
                         deadline,
                         &scope,
-                        self.offer(&stream, &scope, deadline, kind, &slot, &mut running),
+                        self.offer(
+                            &stream,
+                            &scope,
+                            deadline,
+                            kind,
+                            &slot,
+                            &mut running,
+                            &mut trace,
+                        ),
                     )
                     .await?;
                 self.publish(&plan);
                 if traverse {
-                    self.execute(&stream, &plan, None, &slot, kind).await?;
+                    self.execute(&stream, &plan, None, &slot, kind, &mut trace)
+                        .await?;
                 }
                 Ok(plan)
             }
             .await;
+            trace.finish(&result);
             if let Err(error) = &result {
                 let _ = time::timeout_at(deadline, report_error(&stream, error)).await;
             }
             result
         };
-        tokio::select! { biased;
+        let result = tokio::select! { biased;
             _ = cancel.cancelled() => Err(io::ErrorKind::Interrupted.into()),
             _ = slot.yielded().cancelled() => Err(busy()),
             result = work => result,
-        }
+        };
+        trace.finish(&result);
+        result
     }
 
     fn control_timeout(&self) -> Duration {
@@ -553,6 +659,7 @@ impl Planning {
         } else {
             Priority::Business
         };
+        let mut trace = RoundTrace::new(&self.connection, "responder", kind);
         let work = async {
             let hello = Hello::decode(
                 &time::timeout_at(
@@ -598,12 +705,20 @@ impl Planning {
                     .guarded(
                         deadline,
                         &scope,
-                        self.choose(&stream, &scope, deadline, kind, &slot, &mut running),
+                        self.choose(
+                            &stream,
+                            &scope,
+                            deadline,
+                            kind,
+                            &slot,
+                            &mut running,
+                            &mut trace,
+                        ),
                     )
                     .await?;
                 self.publish(&plan);
                 if traverse {
-                    self.execute(&stream, &plan, recommendation, &slot, kind)
+                    self.execute(&stream, &plan, recommendation, &slot, kind, &mut trace)
                         .await?;
                 }
                 Ok(())
@@ -614,6 +729,7 @@ impl Planning {
             }
         };
         let result = work.await;
+        trace.finish(&result);
         if let Err(error) = &result {
             let _ = time::timeout_at(deadline, report_error(&stream, error)).await;
         }
@@ -650,6 +766,7 @@ impl Planning {
         kind: StreamKind,
         slot: &Reservation<'_>,
         running: &mut Option<RunningPath<'a>>,
+        trace: &mut RoundTrace,
     ) -> io::Result<MemberUdpPlan> {
         send(
             stream,
@@ -658,14 +775,17 @@ impl Planning {
         .await?;
         let challenge = receive(stream).await?;
         let round = Round::decode(&challenge, wire::CHALLENGE)?;
+        trace.start(round);
         slot.commit()?;
         send(stream, &round.message(wire::OBSERVE)).await?;
         round.check(&receive(stream).await?, wire::OBSERVE)?;
         *running = self.start_probes(kind)?;
         let traverse = kind != StreamKind::UdpPlan;
+        trace.step("observation");
         let (local, proposal) = tokio::try_join!(
             async {
-                let local = self.observe(scope, traverse, slot).await?;
+                let local = self.observe(scope, traverse, slot, trace).await?;
+                trace.step("peer-plan");
                 local.check()?;
                 self.check_scope(scope)?;
                 send(stream, &round.offer(&local.wire)).await?;
@@ -673,6 +793,7 @@ impl Planning {
             },
             async { round.proposal(&receive(stream).await?) },
         )?;
+        trace.step("plan-commit");
         let (local_phase, peer_phase, fallback, disabled) =
             phases(proposal.id, &proposal.evidence, &local.wire, false)?;
         if proposal.packet_limits != packet_limits(&peer_phase, &local_phase) {
@@ -719,18 +840,27 @@ impl Planning {
         kind: StreamKind,
         slot: &Reservation<'_>,
         running: &mut Option<RunningPath<'a>>,
+        trace: &mut RoundTrace,
     ) -> io::Result<(MemberUdpPlan, Option<Recommendation>)> {
         let round = Round(rand::random());
+        trace.start(round);
         send(stream, &round.message(wire::CHALLENGE)).await?;
         round.check(&receive(stream).await?, wire::OBSERVE)?;
         slot.commit()?;
         *running = self.start_probes(kind)?;
         send(stream, &round.message(wire::OBSERVE)).await?;
         let traverse = kind != StreamKind::UdpPlan;
+        trace.step("observation");
         // Dropping or cancelling the visitor's stream stops even a pending observation.
-        let (local, remote) = tokio::try_join!(self.observe(scope, traverse, slot), async {
-            round.evidence(&receive(stream).await?)
-        },)?;
+        let (local, remote) = tokio::try_join!(
+            async {
+                let local = self.observe(scope, traverse, slot, trace).await?;
+                trace.step("peer-samples");
+                Ok::<_, io::Error>(local)
+            },
+            async { round.evidence(&receive(stream).await?) },
+        )?;
+        trace.step("plan-commit");
         local.check()?;
         self.check_scope(scope)?;
         let (plan, recommendation) = make_plan(
@@ -831,6 +961,7 @@ impl Planning {
         scope: &RoundScope,
         traverse: bool,
         slot: &Reservation<'_>,
+        trace: &RoundTrace,
     ) -> io::Result<Evidence> {
         let sources = &scope.sources;
         let on_work = || {
@@ -886,6 +1017,7 @@ impl Planning {
         };
         wire.assisted = endpoint.udp_local_ipv4_candidates();
         wire.validate()?;
+        trace.samples(sequence.as_ref());
         tracing::debug!(
             stable_id = self.connection.stable_id(),
             samples = sequence

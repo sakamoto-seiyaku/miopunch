@@ -61,11 +61,11 @@ def rules(names, case, visitor, primary=PRIMARY):
                          "-s", PRIVATE[side], "--sport", str(PRIMARY[side]), "-d", WAN,
                          "--dport", str(destination), "-j", "SNAT",
                          "--to-source", f"{PUBLIC[side]}:{mapped}")
-        elif side == sender:
+        elif side == sender or case == "fixed-auto":
             # Preserve the real reply tuple through conntrack, with a peer-only port shift
-            # on the sender so one end must use the received source instead of the observations.
+            # on the sender. Either end can win the first automatic round.
             iptables("-t", "nat", "-I", "POSTROUTING", "1", "-o", "wan0", "-p", "udp",
-                         "-s", PRIVATE[side], "--sport", str(primary[side]), "-d", PUBLIC[receiver],
+                         "-s", PRIVATE[side], "--sport", str(primary[side]), "-d", PUBLIC[1 - side],
                          "-j", "SNAT", "--to-source", f"{PUBLIC[side]}:{primary[side] + 10}")
 
     def wan_rule(side, *args):
@@ -250,11 +250,13 @@ def cell(binary, output, case, visitor, trial):
         if case in ("fixed", "fixed-auto"):
             assert a["success"]
             sender = 1 - visitor
-            receiver = (a, b)[visitor]
+            if case == "fixed-auto":
+                sender = 0 if a["frp_role"] == "Sender" else 1
+            receiver = (a, b)[1 - sender]
             assert receiver["match"]["remote"] == f"{PUBLIC[sender]}:{PRIMARY[sender] + 10}"
             assert receiver["winner"]["remote"] == receiver["match"]["remote"]
             assert receiver["winner"]["remote"] not in (a, b)[sender]["samples"]
-        if case == "fixed-auto":
+        if case in ("fixed-auto", "random-auto"):
             assert a["automatic_business_verified"] and b["automatic_business_verified"]
             assert not a["learned"] and not b["learned"]
         if case.startswith("random"):
@@ -277,7 +279,7 @@ def main():
     parser.add_argument("test_binary", type=Path)
     parser.add_argument("evidence", type=Path)
     cases = ("fixed", "fixed-blocked", "validation-blocked", "random", "random-blocked", "random-cancel")
-    parser.add_argument("--case", action="append", choices=(*cases, "fixed-auto", "standby-retry", "restricted-fixed", "restricted-fixed-blocked"))
+    parser.add_argument("--case", action="append", choices=(*cases, "fixed-auto", "random-auto", "standby-retry", "restricted-fixed", "restricted-fixed-blocked"))
     parser.add_argument("--random-trials", type=int, default=2)
     args = parser.parse_args()
     binary = args.test_binary.resolve(strict=True)

@@ -15,7 +15,8 @@ const RELAY_PORT: u16 = 46760;
 const FIXED_BUDGET: Duration = Duration::from_secs(5);
 const RANDOM_BUDGET: Duration = Duration::from_secs(38);
 
-#[tokio::test]
+// Keep the transport running while this worker independently rebinds up to 256 ports.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated two-NAT lab"]
 async fn enhanced_udp_through_translated_members() {
     let role = env::var("MIO150_WORKER").unwrap();
@@ -54,7 +55,8 @@ async fn enhanced_udp_through_translated_members() {
     let a = role == "a";
     let mode = env::var("MIO150_CASE").unwrap();
     let visitor = env::var("MIO150_VISITOR").unwrap() == role;
-    let automatic = mode == "fixed-auto";
+    let keep_backup = mode == "random-auto";
+    let automatic = mode == "fixed-auto" || keep_backup;
     let cancel_during_probes = mode == "random-cancel";
     let blocked = mode.ends_with("blocked") || cancel_during_probes;
     let random = mode.starts_with("random");
@@ -70,7 +72,11 @@ async fn enhanced_udp_through_translated_members() {
             .collect(),
     );
     resources.udp_direct_disabled = false;
-    resources.path_selection.preference = PathPreference::Quality;
+    resources.path_selection.preference = if keep_backup {
+        PathPreference::PreferRelay
+    } else {
+        PathPreference::Quality
+    };
     resources.maintenance.contact_timeout_ms = budget.as_millis() as u64;
     if mode == "standby-retry" {
         resources.maintenance.exploration_interval_ms =
@@ -325,9 +331,48 @@ async fn enhanced_udp_through_translated_members() {
             }
         }
     }
+    if keep_backup && success {
+        let (id, _) = report.validated.unwrap();
+        let winner = report.winner.as_ref().unwrap();
+        let paths = connection.paths();
+        let backup = paths.get(id).expect("retained UDP backup after round");
+        assert!(relay_is_selected(&connection, &relay_url));
+        assert!(!backup.is_selected());
+        assert_eq!(backup.local_socket_id(), Some(winner.local_socket_id));
+        assert_eq!(backup.remote_addr(), &TransportAddr::Ip(winner.remote));
+        assert_eq!(retained, usize::from(a));
+    }
+    if random {
+        // One peer may have 256 OS sockets to inspect while the other has none.
+        std::fs::write(root.join(format!("ports-checked-{role}")), []).unwrap();
+        let peer = if a { "b" } else { "a" };
+        let checked = root.join(format!("ports-checked-{peer}"));
+        wait_for("peer's port checks", SETUP, || checked.exists()).await;
+    }
     if success {
         let (id, ack) = report.validated.unwrap();
         let winner = report.winner.as_ref().unwrap();
+        if keep_backup {
+            endpoint
+                .test_limit_transport_paths(&connection, vec![TransportAddr::Ip(winner.remote)])
+                .await
+                .unwrap();
+            for relay in connection.paths().iter().filter(|path| path.is_relay()) {
+                // The peer may have closed this path after the snapshot.
+                let _ = relay.close();
+            }
+        }
+        if automatic {
+            // Selection is asynchronous even when the quality policy prefers UDP.
+            wait_for("selection of the retained winner", BUSINESS_LIMIT, || {
+                connection
+                    .paths()
+                    .get(id)
+                    .is_some_and(|path| path.is_selected())
+            })
+            .await;
+            assert_eq!(connection.udp_traversal().unwrap().round, report.round);
+        }
         assert!(connection.paths().iter().any(|path| path.id() == id
             && path.is_selected()
             && path.local_socket_id() == Some(winner.local_socket_id)

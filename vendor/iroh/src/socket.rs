@@ -496,13 +496,38 @@ pub struct UdpSocketPathLease {
 }
 #[cfg(not(wasm_browser))]
 impl UdpSocketPathLease {
+    fn is_live_on(&self, connection: &crate::endpoint::Connection) -> bool {
+        connection.stable_id() == self.socket.connection_id
+            && connection.remote_id() == self.socket.remote
+            && connection.close_reason().is_none()
+            && self.socket.is_live()
+    }
+
+    /// Check the provisional descriptor against the binding that returned the path ACK.
+    pub(crate) fn check_binding(
+        &self,
+        connection: &crate::endpoint::Connection,
+        binding: transports::LocalSocketBinding,
+    ) -> io::Result<()> {
+        if self.is_live_on(connection) && self.socket.binding() == binding {
+            Ok(())
+        } else {
+            Err(io::Error::other(
+                "validated UDP binding is no longer live on the original connection",
+            ))
+        }
+    }
+
+    /// Release this round's rollback guard. The original connection owns the socket.
+    pub(crate) fn retain(&mut self) {
+        self.socket.retain();
+        self.committed = true;
+    }
+
     /// Retain the winner for this exact Connection's validated selected path.
     /// This grants no admission or business permission.
     pub fn commit(&mut self, connection: &crate::endpoint::Connection) -> io::Result<()> {
-        if connection.stable_id() != self.socket.connection_id
-            || connection.remote_id() != self.socket.remote
-            || connection.close_reason().is_some()
-            || !self.socket.is_live()
+        if !self.is_live_on(connection)
             || !connection
                 .paths()
                 .iter()
@@ -512,8 +537,7 @@ impl UdpSocketPathLease {
                 "winner requires its validated original selected path",
             ));
         }
-        self.committed = true;
-        self.socket.retain();
+        self.retain();
         Ok(())
     }
 }
@@ -1862,7 +1886,8 @@ impl EndpointInner {
         local: transports::LocalSocketBinding,
         addr: SocketAddr,
     ) -> io::Result<Option<crate::endpoint::UdpCandidatePath>> {
-        self.request_udp_path(remote, conn_id, addr, Some(local), true).await
+        self.request_udp_path(remote, conn_id, addr, Some(local), true)
+            .await
     }
 
     async fn request_udp_path(
