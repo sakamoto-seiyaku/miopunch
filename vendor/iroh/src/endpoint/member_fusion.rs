@@ -1908,6 +1908,28 @@ impl MemberConnection {
             .await
     }
 
+    /// Execute an enhanced round on the requested address family's actual binding.
+    pub async fn coordinate_udp_traversal_for_family(
+        &self,
+        family: iroh_relay::ObservationFamily,
+        deadline: Instant,
+        cancel: &CancellationToken,
+    ) -> io::Result<MemberUdpPlan> {
+        self.0
+            .udp
+            .as_ref()
+            .ok_or(io::ErrorKind::Unsupported)?
+            .initiate_family(family, deadline, cancel, StreamKind::UdpTraversal)
+            .await
+    }
+    /// Read that family's independent packet, path and settlement evidence.
+    pub fn udp_traversal_for_family(
+        &self,
+        family: iroh_relay::ObservationFamily,
+    ) -> Option<MemberUdpTraversalReport> {
+        self.0.udp.as_ref()?.traversal_family(family)
+    }
+
     /// Independently read this side's actual packet, path and settlement evidence.
     pub fn udp_traversal(&self) -> Option<MemberUdpTraversalReport> {
         self.0.udp.as_ref()?.traversal()
@@ -2028,6 +2050,15 @@ impl MemberConnection {
     #[doc(hidden)]
     pub fn test_ipv4_nat_traversal_probes_paused(&self) -> bool {
         self.0.connection.ipv4_nat_traversal_probes_paused()
+    }
+
+    /// Read the original transport's per-family QNT send gate in an owned fixture.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_nat_traversal_probes_paused(&self, family: iroh_relay::ObservationFamily) -> bool {
+        self.0
+            .connection
+            .nat_traversal_probes_paused(family == iroh_relay::ObservationFamily::Ipv6)
     }
 
     /// Transport frames and bytes on this original QUIC connection.

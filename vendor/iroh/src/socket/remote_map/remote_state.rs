@@ -210,14 +210,16 @@ impl MemberPathPolicy {
         false
     }
 
-    fn needs_enhanced_udp(&self, needed: bool) {
+    fn needs_enhanced_udp(&self, needed: [bool; 2]) {
         #[cfg(not(wasm_browser))]
         if let Some(work) = &self.enhanced {
-            work.needed.send_if_modified(|current| {
-                let changed = *current != needed;
-                *current = needed;
-                changed
-            });
+            for (signal, needed) in work.needed.iter().zip(needed) {
+                signal.send_if_modified(|current| {
+                    let changed = *current != needed;
+                    *current = needed;
+                    changed
+                });
+            }
         }
         #[cfg(wasm_browser)]
         let _ = needed;
@@ -257,8 +259,8 @@ impl MemberPathPolicy {
 #[cfg(not(wasm_browser))]
 #[derive(Debug, Default)]
 pub(crate) struct MemberUdpPathWork {
-    pub(crate) needed: watch::Sender<bool>,
-    pub(crate) running: std::sync::Mutex<usize>,
+    pub(crate) needed: [watch::Sender<bool>; 2],
+    pub(crate) running: [std::sync::Mutex<usize>; 2],
 }
 
 #[derive(Debug)]
@@ -355,31 +357,30 @@ impl MemberPaths {
 
     #[cfg(not(wasm_browser))]
     fn gate_physical_probes(&self, conn: &noq::Connection, peer: EndpointId) {
-        let Some(building) = &self.policy.building else { return; };
-            let endpoint = self.policy.physical_endpoint.clone();
-            let physical = self.physical.clone();
-            let building = building.clone();
-            conn.set_nat_traversal_probe_gate(Some(Arc::new(move |remote| {
-                if remote.is_ipv6() {
-                    return true;
-                }
-                let Some(endpoint) = endpoint.upgrade() else {
-                    return false;
-                };
-                let Ok(scope) = endpoint.udp_punching_scope_for(remote) else {
-                    return false;
-                };
-                let mut leases = physical.lock().expect("ordinary probe physical leases");
-                if leases.contains_key(&scope) {
-                    return true;
-                }
-                if let Some(permit) = building.physical.try_acquire(scope.clone(), peer) {
-                    leases.insert(scope, permit);
-                    true
-                } else {
-                    false
-                }
-            })));
+        let Some(building) = &self.policy.building else {
+            return;
+        };
+        let endpoint = self.policy.physical_endpoint.clone();
+        let physical = self.physical.clone();
+        let building = building.clone();
+        conn.set_nat_traversal_probe_gate(Some(Arc::new(move |remote| {
+            let Some(endpoint) = endpoint.upgrade() else {
+                return false;
+            };
+            let Ok(scope) = endpoint.udp_punching_scope_for(remote) else {
+                return false;
+            };
+            let mut leases = physical.lock().expect("ordinary probe physical leases");
+            if leases.contains_key(&scope) {
+                return true;
+            }
+            if let Some(permit) = building.physical.try_acquire(scope.clone(), peer) {
+                leases.insert(scope, permit);
+                true
+            } else {
+                false
+            }
+        })));
     }
 
     fn has_current_ack(&self, stats: &PathStats) -> bool {
@@ -1688,14 +1689,14 @@ impl RemoteStateActor {
                             .to_transport_tuple(network)
                             .is_some_and(|binding| binding.is_ip())
                 });
-            if conn.ipv4_nat_traversal_probes_paused() || !conn.ipv4_nat_traversal_probes_pending()
-            {
-                member
-                    .physical
-                    .lock()
-                    .expect("ordinary physical leases")
-                    .clear();
-            }
+            member
+                .physical
+                .lock()
+                .expect("ordinary physical leases")
+                .retain(|scope, _| {
+                    !conn.nat_traversal_probes_paused(scope.is_ipv6())
+                        && conn.nat_traversal_probes_pending_for_family(scope.is_ipv6())
+                });
             let in_flight = conn.nat_traversal_probes_pending() || waiting_for_peer || validating;
             if !in_flight && member.building.is_some() {
                 conn.stop_nat_traversal_probes();
@@ -1723,7 +1724,7 @@ impl RemoteStateActor {
         }
         let balancing = ready_direct != 0 && concurrent.is_some();
         if ready_direct != 0 && (!member.policy.business_active() || balancing) {
-            member.policy.needs_enhanced_udp(false);
+            member.policy.needs_enhanced_udp([false; 2]);
             if ready_direct != 1 || concurrent != Some(true) {
                 #[cfg(not(wasm_browser))]
                 {
@@ -1749,12 +1750,18 @@ impl RemoteStateActor {
                     id.0
                 );
             }
-            member.policy.needs_enhanced_udp(needs_enhanced);
+            member.policy.needs_enhanced_udp([needs_enhanced; 2]);
             return;
         }
         let ipv4_paused = conn.ipv4_nat_traversal_probes_paused();
+        let ipv6_paused = conn.nat_traversal_probes_paused(true);
         let can_probe = |addr: &SocketAddr| {
-            (!healthy_tcp && !ipv4_paused) || addr.ip().to_canonical().is_ipv6()
+            !healthy_tcp
+                && if addr.ip().to_canonical().is_ipv6() {
+                    !ipv6_paused
+                } else {
+                    !ipv4_paused
+                }
         };
         let all_candidates = self.state.local_candidates();
         let limit = conn.local_nat_traversal_address_limit().unwrap_or(0);
@@ -1779,7 +1786,7 @@ impl RemoteStateActor {
                 );
             }
             update_qnt_candidates(&conn, &local_candidates);
-            member.policy.needs_enhanced_udp(needs_enhanced);
+            member.policy.needs_enhanced_udp([needs_enhanced; 2]);
             return;
         }
         if balancing && conn.side().is_server() {
@@ -1854,7 +1861,7 @@ impl RemoteStateActor {
                     Some(**address) == additional
                 } else {
                     explicit.contains(*address)
-                        || (ipv4_paused && address.ip().to_canonical().is_ipv6())
+                        || ((ipv4_paused || ipv6_paused) && can_probe(address))
                 }
         }) {
             if member
@@ -1882,16 +1889,17 @@ impl RemoteStateActor {
         if balancing {
             return;
         }
-        let probing_known = member
-            .known_probes
-            .iter()
-            .any(|(remote, sent)| can_probe(remote) && now - *sent < LOCAL_PROBE_GRACE);
-        let recent_exchange = member
-            .last_exchange
-            .iter()
-            .flatten()
-            .any(|last| now - last.when < LOCAL_PROBE_GRACE);
-        let fallback = needs_enhanced && !probing_known && !recent_exchange;
+        let fallback = std::array::from_fn(|family| {
+            let ipv6 = family == 1;
+            let probing = member
+                .known_probes
+                .iter()
+                .any(|(remote, sent)| remote.is_ipv6() == ipv6 && now - *sent < LOCAL_PROBE_GRACE);
+            let recent_exchange = member.last_exchange[family]
+                .as_ref()
+                .is_some_and(|last| now - last.when < LOCAL_PROBE_GRACE);
+            needs_enhanced && !probing && !recent_exchange
+        });
         if conn.side().is_server() {
             // At first activation prefer local probes. Only advertise when a
             // local path could not be verified or none can be attempted here.
@@ -1928,9 +1936,9 @@ impl RemoteStateActor {
             .filter(|address| can_probe(address) || announced.contains(address))
             .collect();
         update_qnt_candidates(&conn, &advertise);
-        let mut started = false;
+        let mut started = [false; 2];
         for ipv6 in [false, true] {
-            if !ipv6 && ipv4_paused {
+            if if ipv6 { ipv6_paused } else { ipv4_paused } {
                 continue;
             }
             let family = usize::from(ipv6);
@@ -1983,7 +1991,7 @@ impl RemoteStateActor {
                 );
             }
             if exchange.is_ok() {
-                started = true;
+                started[family] = true;
                 self.state.metrics.holepunch_attempts.inc();
                 member.last_exchange[family] = Some(HolepunchAttempt {
                     when: now,
@@ -1996,7 +2004,11 @@ impl RemoteStateActor {
                 );
             }
         }
-        member.policy.needs_enhanced_udp(!started && fallback);
+        member
+            .policy
+            .needs_enhanced_udp(std::array::from_fn(|family| {
+                !started[family] && fallback[family]
+            }));
     }
 
     fn handle_connection_close(&mut self, conn_id: ConnId, closed: Closed) {

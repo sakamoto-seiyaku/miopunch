@@ -275,6 +275,7 @@ impl State {
     pub(crate) fn next_probe_addr_permitted(
         &self,
         ipv4_paused: bool,
+        ipv6_paused: bool,
         permit: Option<&(dyn Fn(SocketAddr) -> bool + Send + Sync)>,
     ) -> Option<IpPort> {
         let pending = match self {
@@ -283,8 +284,11 @@ impl State {
             Self::ServerSide(state) => &state.pending_probes,
         };
         pending.iter().copied().find(|(ip, port)| {
-            (!ipv4_paused || ip.to_canonical().is_ipv6())
-                && permit.is_none_or(|permit| permit(SocketAddr::new(ip.to_canonical(), *port)))
+            !(if ip.to_canonical().is_ipv6() {
+                ipv6_paused
+            } else {
+                ipv4_paused
+            }) && permit.is_none_or(|permit| permit(SocketAddr::new(ip.to_canonical(), *port)))
         })
     }
 
@@ -396,28 +400,43 @@ impl State {
         }
     }
 
-    pub(crate) fn has_ipv4_probes(&self) -> bool {
+    pub(crate) fn has_family_probes(&self, ipv6: bool) -> bool {
         match self {
             Self::NotNegotiated => false,
             Self::ClientSide(state) => {
                 state
                     .pending_probes
                     .iter()
-                    .any(|(ip, _)| ip.to_canonical().is_ipv4())
-                    || state.remote_addresses.values().any(|(addr, probe)| {
-                        addr.as_canonical_addr().is_ipv4() && probe.remaining() > 0
+                    .any(|(ip, _)| ip.to_canonical().is_ipv6() == ipv6)
+                    || state.remote_addresses.values().any(|(address, probes)| {
+                        address.as_canonical_addr().is_ipv6() == ipv6 && probes.remaining() > 0
                     })
             }
             Self::ServerSide(state) => {
                 state
                     .pending_probes
                     .iter()
-                    .any(|(ip, _)| ip.to_canonical().is_ipv4())
-                    || state.remotes.iter().any(|((ip, _), probe)| {
-                        ip.to_canonical().is_ipv4() && probe.remaining() > 0
+                    .any(|(ip, _)| ip.to_canonical().is_ipv6() == ipv6)
+                    || state.remotes.iter().any(|((ip, _), probes)| {
+                        ip.to_canonical().is_ipv6() == ipv6 && probes.remaining() > 0
                     })
             }
         }
+    }
+    pub(crate) fn clear_pending_family(&mut self, ipv6: bool) {
+        match self {
+            Self::NotNegotiated => {}
+            Self::ClientSide(state) => state
+                .pending_probes
+                .retain(|(ip, _)| ip.to_canonical().is_ipv6() != ipv6),
+            Self::ServerSide(state) => state
+                .pending_probes
+                .retain(|(ip, _)| ip.to_canonical().is_ipv6() != ipv6),
+        }
+    }
+
+    pub(crate) fn has_ipv4_probes(&self) -> bool {
+        self.has_family_probes(false)
     }
 
     pub(crate) fn has_probes(&self) -> bool {

@@ -26,7 +26,7 @@ fn invalid(message: &'static str) -> io::Error {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-/// Ordered IPv4 mappings and local candidates exchanged in a round.
+/// Ordered single-family mappings and local candidates exchanged in a round.
 pub struct SnapshotWire {
     /// Addresses reported by the independent observers, in observation order.
     pub mapped: Vec<SocketAddr>,
@@ -46,7 +46,19 @@ impl SnapshotWire {
                 .mapped
                 .iter()
                 .chain(&self.assisted)
-                .any(|a| !a.is_ipv4() || a.port() == 0 || a.ip().is_unspecified())
+                .any(|a| a.port() == 0 || a.ip().is_unspecified())
+            || self.mapped.iter().chain(&self.assisted).any(|address| {
+                self.mapped
+                    .first()
+                    .or(self.assisted.first())
+                    .is_some_and(|first| first.is_ipv6() != address.is_ipv6())
+            })
+            || self.local_ips.iter().any(|ip| {
+                self.mapped
+                    .first()
+                    .or(self.assisted.first())
+                    .is_some_and(|first| first.is_ipv6() != ip.is_ipv6())
+            })
         {
             return Err(invalid("invalid or oversized mapping snapshot"));
         }
@@ -112,6 +124,14 @@ impl SnapshotWire {
 
     /// Use at most one existing mapping as a basic candidate.
     pub fn existing(observation: UdpObservation) -> io::Result<Self> {
+        Self::existing_for_family(observation, iroh_relay::ObservationFamily::Ipv4)
+    }
+
+    /// Use a basic candidate from the requested physical address family.
+    pub fn existing_for_family(
+        observation: UdpObservation,
+        family: iroh_relay::ObservationFamily,
+    ) -> io::Result<Self> {
         if matches!(
             observation,
             UdpObservation::Failed(UdpObservationFailure::NetworkChanged)
@@ -122,7 +142,7 @@ impl SnapshotWire {
             UdpObservation::Fresh { addresses, .. } if observation.is_fresh() => addresses
                 .iter()
                 .copied()
-                .filter(SocketAddr::is_ipv4)
+                .filter(|address| family.matches(*address))
                 .take(1)
                 .collect(),
             _ => Vec::new(),

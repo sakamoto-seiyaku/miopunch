@@ -2,7 +2,7 @@
 
 use std::{
     io::ErrorKind,
-    net::{Ipv4Addr, Ipv6Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     sync::{
         Arc,
         atomic::{AtomicUsize, Ordering::Relaxed},
@@ -35,6 +35,10 @@ use super::{
 
 #[path = "udp_blackhole.rs"]
 mod udp_blackhole;
+
+#[path = "relay_contact_broker.rs"]
+#[allow(dead_code)]
+mod broker;
 
 struct Pair {
     _directory: tempfile::TempDir,
@@ -648,6 +652,38 @@ async fn business_preempts_unspent_idle_maintenance_and_cancel_releases_the_orig
 #[tokio::test]
 #[ignore = "requires a disposable network namespace with IPv4 UDP packet filters"]
 async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
+    enhanced_leaves_other_family_probing(false).await;
+}
+
+#[tokio::test]
+#[ignore = "requires an isolated network namespace for dual-family UDP faults"]
+async fn enhanced_ipv6_leaves_late_ipv4_probing_on_the_original_idle_connection() {
+    enhanced_leaves_other_family_probing(true).await;
+}
+
+async fn enhanced_leaves_other_family_probing(enhanced_v6: bool) {
+    use iroh_relay::ObservationFamily;
+    let family = if enhanced_v6 {
+        ObservationFamily::Ipv6
+    } else {
+        ObservationFamily::Ipv4
+    };
+    let primary_ip = if enhanced_v6 {
+        IpAddr::V6(Ipv6Addr::LOCALHOST)
+    } else {
+        IpAddr::V4(Ipv4Addr::LOCALHOST)
+    };
+    let other_ip = if enhanced_v6 {
+        IpAddr::V4(Ipv4Addr::LOCALHOST)
+    } else {
+        IpAddr::V6(Ipv6Addr::LOCALHOST)
+    };
+    let mut observers = JoinSet::new();
+    let resources = if enhanced_v6 {
+        Some(observe_ipv6_stun(&mut observers, Arc::default()).await)
+    } else {
+        None
+    };
     // Existing STUN responders return actual mappings. Kernel faults hold the
     // primary IPv4 path while the enhanced round executes on the original.
     let mut pair = Pair::bind_with(
@@ -657,19 +693,23 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
         },
         true,
         |builder| builder.bind_addr((Ipv6Addr::LOCALHOST, 0)).unwrap(),
-        None,
+        resources.as_deref(),
         true,
     )
     .await;
-    let primary_v4 = pair.endpoints.each_ref().map(|endpoint| {
+    let primary_addresses = pair.endpoints.each_ref().map(|endpoint| {
         *endpoint
             .addr()
             .ip_addrs()
-            .find(|addr| addr.is_ipv4())
+            .find(|addr| addr.is_ipv6() == enhanced_v6)
             .unwrap()
     });
-    let _received_v4_blocked = udp_blackhole::UdpBlackhole::on_input(primary_v4);
-    drop(pair._ipv4_blackhole.take());
+    let _received_primary_blocked = udp_blackhole::UdpBlackhole::on_input(primary_addresses);
+    if enhanced_v6 {
+        drop(pair.ipv6_blackhole.take());
+    } else {
+        drop(pair._ipv4_blackhole.take());
+    }
     let [a, b] = &pair.connections;
     let ids = [a.stable_id(), b.stable_id()];
     let mut stream = open_flow(a, b).await;
@@ -679,32 +719,29 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
             .iter()
             .all(|conn| matches!(conn.initial_data_path(), TransportAddr::Relay(_)))
     );
-    let ipv4_probe = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
-    let ipv4_target = ipv4_probe.local_addr().unwrap();
-    let first_ipv4 = Instant::now();
+    let primary_probe = UdpSocket::bind((primary_ip, 0)).await.unwrap();
+    let primary_target = primary_probe.local_addr().unwrap();
+    let first_primary = Instant::now();
     for (endpoint, connection) in pair.endpoints.iter().zip(&pair.connections) {
         endpoint
             .learn_ip_candidates(
-                EndpointAddr::new(connection.remote_id()).with_ip_addr(ipv4_target),
+                EndpointAddr::new(connection.remote_id()).with_ip_addr(primary_target),
             )
             .await;
     }
     time::timeout(DEADLINE, async {
         let mut sources = std::collections::BTreeSet::new();
         while sources.len() < 2 {
-            sources.insert(ipv4_probe.recv_from(&mut [0; 1500]).await.unwrap().1);
+            sources.insert(primary_probe.recv_from(&mut [0; 1500]).await.unwrap().1);
         }
     })
     .await
-    .expect("both originals queued an ordinary IPv4 probe before the enhanced pause");
+    .expect("both originals queued an ordinary enhanced-family probe before the enhanced pause");
     time::timeout(Duration::from_secs(3), async {
-        while pair.requests().contains(&0) {
-            time::sleep(Duration::from_millis(5)).await;
-        }
         while !pair
             .connections
             .iter()
-            .all(MemberConnection::test_ipv4_nat_traversal_probes_paused)
+            .all(|connection| connection.test_nat_traversal_probes_paused(family))
         {
             time::sleep(Duration::from_millis(10)).await;
         }
@@ -716,7 +753,7 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
             if let [Some(left), Some(right)] = pair
                 .connections
                 .each_ref()
-                .map(MemberConnection::udp_traversal)
+                .map(|connection| connection.udp_traversal_for_family(family))
                 && left.round == right.round
                 && [
                     left.trace.probes + left.trace.responses,
@@ -739,7 +776,7 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
     assert!(
         pair.connections
             .iter()
-            .all(MemberConnection::test_ipv4_nat_traversal_probes_paused)
+            .all(|connection| connection.test_nat_traversal_probes_paused(family))
     );
     exchange(&mut stream, 1).await;
     let reach_out = pair
@@ -750,7 +787,7 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
         .connections
         .each_ref()
         .map(|connection| connection.stats().frame_tx.remove_address);
-    while ipv4_probe.try_recv_from(&mut [0; 1500]).is_ok() {}
+    while primary_probe.try_recv_from(&mut [0; 1500]).is_ok() {}
     assert!(
         pair.connections.iter().all(|connection| {
             connection
@@ -761,17 +798,17 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
         "both address families remain unavailable while the original relay carries enhanced control"
     );
 
-    let old_addresses = pair.endpoints.each_ref().map(|endpoint| {
+    let old_other_addresses = pair.endpoints.each_ref().map(|endpoint| {
         *endpoint
             .addr()
             .ip_addrs()
-            .find(|addr| addr.is_ipv6())
+            .find(|addr| addr.is_ipv6() != enhanced_v6)
             .unwrap()
     });
     // New real external UDP ports represent a later mapping without changing
     // interfaces or cancelling the unrelated IPv4 round's network generation.
-    let mapped_left = UdpSocket::bind((Ipv6Addr::LOCALHOST, 0)).await.unwrap();
-    let mapped_right = UdpSocket::bind((Ipv6Addr::LOCALHOST, 0)).await.unwrap();
+    let mapped_left = UdpSocket::bind((other_ip, 0)).await.unwrap();
+    let mapped_right = UdpSocket::bind((other_ip, 0)).await.unwrap();
     let addresses = [
         mapped_left.local_addr().unwrap(),
         mapped_right.local_addr().unwrap(),
@@ -795,17 +832,19 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
         }
     })
     .await
-    .expect("late IPv6 starts a new QNT round before IPv4 enhanced finishes");
+    .expect("late other-family starts a new QNT round before IPv4 enhanced finishes");
     assert!(
         pair.connections
             .iter()
-            .all(MemberConnection::test_ipv4_nat_traversal_probes_paused)
+            .all(|connection| connection.test_nat_traversal_probes_paused(family))
     );
     assert_eq!(
-        ipv4_probe.try_recv_from(&mut probe).unwrap_err().kind(),
+        primary_probe.try_recv_from(&mut probe).unwrap_err().kind(),
         ErrorKind::WouldBlock
     );
-    eprintln!("LATE_IPV6_QNT_DURING_IPV4_PAUSE original={ids:?} ipv6={addresses:?}");
+    eprintln!(
+        "LATE_OTHER_FAMILY_QNT_DURING_ENHANCED original={ids:?} enhanced={family:?} candidates={addresses:?}"
+    );
     let forwarding = tokio::spawn(async move {
         let mut left_packet = [0; 65536];
         let mut right_packet = [0; 65536];
@@ -813,11 +852,11 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
             tokio::select! {
                 received = mapped_left.recv_from(&mut left_packet) => {
                     let (length, _) = received.unwrap();
-                    mapped_right.send_to(&left_packet[..length], old_addresses[0]).await.unwrap();
+                    mapped_right.send_to(&left_packet[..length], old_other_addresses[0]).await.unwrap();
                 }
                 received = mapped_right.recv_from(&mut right_packet) => {
                     let (length, _) = received.unwrap();
-                    mapped_left.send_to(&right_packet[..length], old_addresses[1]).await.unwrap();
+                    mapped_left.send_to(&right_packet[..length], old_other_addresses[1]).await.unwrap();
                 }
             }
         }
@@ -837,20 +876,20 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
         }
     })
     .await
-    .expect("IPv6 must qualify and be selected on the idle original during enhanced IPv4");
+    .expect("the other family must qualify and be selected on the idle original during enhanced paused-family");
     assert_eq!(
         pair.connections
             .each_ref()
             .map(|connection| connection.stats().frame_tx.remove_address),
         removed,
-        "temporarily paused IPv4 candidates remain announced"
+        "temporarily paused enhanced-family candidates remain announced"
     );
-    eprintln!("IDLE_IPV6_ENHANCED_READY original={ids:?} ipv6={addresses:?}");
+    eprintln!("OTHER_FAMILY_READY original={ids:?} enhanced={family:?} candidates={addresses:?}");
     time::timeout_at(release_deadline, async {
         while pair
             .connections
             .iter()
-            .any(MemberConnection::test_ipv4_nat_traversal_probes_paused)
+            .any(|connection| connection.test_nat_traversal_probes_paused(family))
         {
             time::sleep(Duration::from_millis(5)).await;
         }
@@ -858,11 +897,14 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
     .await
     .expect("the original enhanced round releases its pause by its own fixed deadline");
     for connection in &pair.connections {
-        assert_eq!(connection.udp_traversal().unwrap().round, round);
+        assert_eq!(
+            connection.udp_traversal_for_family(family).unwrap().round,
+            round
+        );
     }
     eprintln!(
-        "ORDINARY_IPV4_PROBE_WINDOW target={ipv4_target} first={first_ipv4:?} resumed_after_ms={}",
-        first_ipv4.elapsed().as_millis()
+        "ORDINARY_ENHANCED_FAMILY_PROBE_WINDOW target={primary_target} first={first_primary:?} resumed_after_ms={}",
+        first_primary.elapsed().as_millis()
     );
     exchange(&mut stream, 2).await;
     time::sleep(Duration::from_millis(200)).await;
@@ -882,6 +924,7 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
     pair.close().await;
     forwarding.abort();
     let _ = forwarding.await;
+    observers.shutdown().await;
 }
 
 #[tokio::test]
@@ -1045,4 +1088,311 @@ async fn busy_peer_releases_the_unsampled_exit_for_another_member() {
         observers.shutdown().await;
         relay.shutdown().await.unwrap();
     }).await.expect("busy unsampled peer leaves the interface available to a ready member");
+}
+
+async fn observe_ipv6_stun(
+    observers: &mut JoinSet<()>,
+    received: Arc<AtomicUsize>,
+) -> Vec<Resource> {
+    let mut resources = Vec::new();
+    for _ in 0..2 {
+        let socket = UdpSocket::bind((Ipv6Addr::LOCALHOST, 0)).await.unwrap();
+        resources.push(Resource {
+            url: format!("stun://{}/", socket.local_addr().unwrap()),
+            uses: [ResourceUse::Observation].into(),
+            limitation: "real IPv6 mapping observer".into(),
+        });
+        let received = received.clone();
+        observers.spawn(async move {
+            loop {
+                let mut request = [0; 1500];
+                let (length, source) = socket.recv_from(&mut request).await.unwrap();
+                assert_eq!(length, 20);
+                received.fetch_add(1, Relaxed);
+                let SocketAddr::V6(source) = source else {
+                    panic!("IPv6 request")
+                };
+                let mut reply = vec![1, 1, 0, 24, 0x21, 0x12, 0xa4, 0x42];
+                reply.extend_from_slice(&request[8..20]);
+                reply.extend_from_slice(&[0, 0x20, 0, 20, 0, 2]);
+                reply.extend_from_slice(&(source.port() ^ 0x2112).to_be_bytes());
+                for (address, mask) in source.ip().octets().iter().zip(&request[4..20]) {
+                    reply.push(address ^ mask);
+                }
+                socket.send_to(&reply, source).await.unwrap();
+            }
+        });
+    }
+    resources
+}
+
+#[tokio::test]
+#[ignore = "requires an isolated network namespace for a receive-side IPv6 fault"]
+async fn ipv6_enhanced_uses_the_original_member_binding_and_stream() {
+    time::timeout(Duration::from_secs(20), async {
+        let mut observers = JoinSet::new();
+        let resources = observe_ipv6_stun(&mut observers, Arc::default()).await;
+        let pair = Pair::bind_with(
+            MaintenancePolicy {
+                quality_interval_ms: 30_000,
+                ..MaintenancePolicy::active()
+            },
+            true,
+            |builder| {
+                builder
+                    .clear_ip_transports()
+                    .bind_addr((Ipv6Addr::LOCALHOST, 0))
+                    .unwrap()
+            },
+            Some(&resources),
+            false,
+        )
+        .await;
+        let plan = pair.connections[0]
+            .coordinate_udp_plan(
+                Instant::now() + Duration::from_secs(4),
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(plan.local_samples().len(), 2);
+        assert!(
+            plan.local_samples()
+                .iter()
+                .all(|sample| sample.destination.is_ipv6() && sample.mapped.is_ipv6())
+        );
+        let ids = pair.connections.each_ref().map(MemberConnection::stable_id);
+        let mut stream = open_flow(&pair.connections[0], &pair.connections[1]).await;
+        exchange(&mut stream, 202).await;
+        while pair
+            .endpoints
+            .iter()
+            .any(|endpoint| !endpoint.test_building_peers().is_empty())
+        {
+            time::sleep(Duration::from_millis(5)).await;
+        }
+        let addresses = pair.endpoints.each_ref().map(|endpoint| {
+            *endpoint
+                .addr()
+                .ip_addrs()
+                .find(|addr| addr.is_ipv6())
+                .unwrap()
+        });
+        let fault = udp_blackhole::UdpBlackhole::on_input(addresses);
+        let suppressed = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        for (endpoint, connection) in pair.endpoints.iter().zip(&pair.connections) {
+            let next = connection
+                .paths()
+                .iter()
+                .map(|path| path.id())
+                .max()
+                .unwrap()
+                .saturating_add(1u8);
+            connection.test_suppress_path_acks(next, suppressed.clone());
+            endpoint
+                .test_limit_transport_paths(
+                    connection,
+                    vec![
+                        connection.initial_data_path().clone(),
+                        TransportAddr::Ip(addresses[0]),
+                        TransportAddr::Ip(addresses[1]),
+                    ],
+                )
+                .await
+                .unwrap();
+            for path in connection.paths().iter().filter(|path| !path.is_relay()) {
+                path.close().unwrap();
+            }
+        }
+        let task = tokio::spawn({
+            let connection = pair.connections[0].clone();
+            async move {
+                connection
+                    .coordinate_udp_traversal(
+                        Instant::now() + Duration::from_secs(8),
+                        &CancellationToken::new(),
+                    )
+                    .await
+            }
+        });
+        time::timeout(Duration::from_secs(3), async {
+            while !pair.connections.iter().all(|connection| {
+                connection.udp_traversal().is_some_and(|report| {
+                    report.trace.probes > 0 && report.physical_released.is_none()
+                })
+            }) {
+                time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("both real IPv6 raw phases start while primary receive is blocked");
+        exchange(&mut stream, 203).await;
+        drop(fault);
+        time::timeout(Duration::from_secs(3), async {
+            while !pair.connections.iter().all(|connection| {
+                connection
+                    .udp_traversal()
+                    .is_some_and(|report| report.physical_released.is_some())
+            }) {
+                time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("both retain the actual raw winner before original QUIC acknowledgment");
+        assert!(
+            pair.connections.iter().all(|connection| connection
+                .udp_traversal()
+                .unwrap()
+                .validated
+                .is_none())
+        );
+        suppressed.store(false, std::sync::atomic::Ordering::Release);
+        time::timeout(Duration::from_secs(3), async {
+            while !pair.connections.iter().all(|connection| {
+                connection.udp_traversal().is_some_and(|report| {
+                    report.validated.is_some_and(|(id, _)| {
+                        connection
+                            .paths()
+                            .get(id)
+                            .is_some_and(|path| path.is_selected())
+                    })
+                })
+            }) {
+                time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("both original QUICs acknowledge and select their exact raw IPv6 winner");
+        let round = pair.connections[0].udp_traversal().unwrap().round;
+        let (left, right) = (&pair.connections[0], &pair.connections[1]);
+        let (a, b) = tokio::join!(
+            left.confirm_udp_business(round, &mut stream.0, async |stream| {
+                let (send, recv) = stream.streams();
+                send.write_all(b"ipv6-202")
+                    .await
+                    .map_err(std::io::Error::other)?;
+                let mut bytes = [0; 8];
+                recv.read_exact(&mut bytes)
+                    .await
+                    .map_err(std::io::Error::other)?;
+                assert_eq!(&bytes, b"back-202");
+                Ok(())
+            }),
+            right.confirm_udp_business(round, &mut stream.1, async |stream| {
+                let (send, recv) = stream.streams();
+                let mut bytes = [0; 8];
+                recv.read_exact(&mut bytes)
+                    .await
+                    .map_err(std::io::Error::other)?;
+                assert_eq!(&bytes, b"ipv6-202");
+                send.write_all(b"back-202")
+                    .await
+                    .map_err(std::io::Error::other)?;
+                Ok(())
+            })
+        );
+        a.unwrap();
+        b.unwrap();
+        let executed = task.await.unwrap().unwrap();
+        time::timeout_at(executed.deadline, async {
+            while !pair.connections.iter().all(|connection| {
+                connection
+                    .udp_traversal()
+                    .is_some_and(|report| report.finished.is_some())
+            }) {
+                time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("both original round reports settle within their existing deadline");
+        for (side, connection) in pair.connections.iter().enumerate() {
+            let report = connection.udp_traversal().unwrap();
+            let phase = if side == 0 {
+                &executed.local_phase
+            } else {
+                &executed.peer_phase
+            };
+            assert!(
+                report.trace.probes <= phase.peer_datagram_bound(report.trace.listener_bound + 1)
+            );
+            assert!(report.trace.listener_attempted <= 256);
+            assert!(report.finished.unwrap() <= report.deadline.into_std());
+        }
+        assert_eq!(
+            pair.connections.each_ref().map(MemberConnection::stable_id),
+            ids
+        );
+        eprintln!("IPV6_ENHANCED_ORIGINAL ids={ids:?} samples=2 original_stream=true");
+        drop(stream);
+        pair.close().await;
+        observers.shutdown().await;
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires an isolated network namespace for a receive-side IPv6 fault"]
+async fn restricted_contact_qualifies_its_original_with_enhanced_ipv6() {
+    use iroh::endpoint::MemberDialOptions;
+    use miopunch_native_probe::mqtt_transport::MqttTransport;
+    time::timeout(Duration::from_secs(20), async {
+        let directory = tempfile::tempdir().unwrap();
+        let mut left = NativeNetwork::create(directory.path().join("left")).await.unwrap();
+        let right = join(&mut left, &directory.path().join("right")).await;
+        let nodes=[left,right];
+        let broker=broker::Broker::new().await;
+        let mut observers=JoinSet::new();
+        let received=Arc::new(AtomicUsize::new(0));
+        let mut resources=observe_ipv6_stun(&mut observers,received.clone()).await;
+        resources.push(Resource { url:format!("mqtt://{}/",broker.address), uses:[ResourceUse::Signaling].into(), limitation:"restricted control only".into() });
+        let mut endpoints=Vec::new();
+        let mut carriers=Vec::new();
+        for node in &nodes {
+            let mut config=node.resource_configuration().unwrap();
+            config.replacement=Some(resources.clone());
+            config.tcp_direct_disabled=true;
+            config.udp_direct_disabled=false;
+            config.member_data_relay_disabled=true;
+            config.maintenance.contact_timeout_ms=12_000;
+            node.save_resource_configuration(&config).unwrap();
+            let carrier=Arc::new(MqttTransport::new(broker.address,Arc::default()));
+            let endpoint=node.bind_member_fusion_endpoint_with(Endpoint::builder(presets::Minimal).clear_ip_transports().bind_addr((Ipv6Addr::LOCALHOST,0)).unwrap().add_custom_transport(carrier.clone()),Duration::from_secs(12)).await.unwrap();
+            carrier.wait_ready().await.unwrap();
+            endpoints.push(endpoint);carriers.push(carrier);
+        }
+        let addresses=std::array::from_fn(|side| *endpoints[side].addr().ip_addrs().find(|addr| addr.is_ipv6()).unwrap());
+        let fault=udp_blackhole::UdpBlackhole::on_input(addresses);
+        let release=tokio::spawn(async move {
+            time::timeout(Duration::from_secs(8),async { while received.load(Relaxed)<4 { time::sleep(Duration::from_millis(5)).await; } }).await.expect("both restricted originals observe their actual IPv6 binding before ordinary data is available");
+            drop(fault);
+        });
+        let identity=Arc::new(AtomicUsize::new(0));
+        let recorded=identity.clone();
+        let contact=MqttTransport::address(&carriers[1].route().unwrap()).unwrap();
+        let options=MemberDialOptions::default().with_restricted_contacts(vec![contact]).with_route_diagnostics(|_,_| ((1,1), |_|{})).with_identity_diagnostics(move |_,_,id| { recorded.store(id,Relaxed); });
+        let deadline=Instant::now()+Duration::from_secs(12);
+        let cancel = CancellationToken::new();
+        let (left,right)=tokio::join!(endpoints[0].connect_with_routes_until(EndpointAddr::new(endpoints[1].id()), options,deadline,&cancel), endpoints[1].accept());
+        let connections=[left.unwrap(),right.unwrap().unwrap()];
+        release.await.unwrap();
+        assert_eq!(connections[0].stable_id(),identity.load(Relaxed),"first business retains its authenticated restricted QUIC original");
+        for connection in &connections {
+            let report=connection.udp_traversal_for_family(iroh_relay::ObservationFamily::Ipv6).expect("enhanced IPv6 qualified the restricted original");
+            assert!(report.physical_released.is_some());
+            let (id,_)=report.validated.unwrap();
+            let winner=report.winner.unwrap();
+            assert!(winner.remote.is_ipv6() && winner.local_addr.is_ipv6());
+            assert!(connection.paths().get(id).is_some_and(|path| path.is_selected() && path.remote_addr()==&TransportAddr::Ip(winner.remote) && path.local_socket_id()==Some(winner.local_socket_id)));
+            assert!(matches!(connection.initial_data_path(),TransportAddr::Ip(addr) if addr.is_ipv6()));
+        }
+        let mut stream=open_flow(&connections[0],&connections[1]).await;
+        exchange(&mut stream,202_001).await;
+        eprintln!("RESTRICTED_ENHANCED_IPV6 original={} first_business=true",identity.load(Relaxed));
+        drop(stream);
+        for endpoint in endpoints { endpoint.close().await; }
+        for node in nodes { node.close().await; }
+        observers.shutdown().await;
+        broker.close().await;
+    }).await.expect("bounded restricted first data through enhanced IPv6");
 }

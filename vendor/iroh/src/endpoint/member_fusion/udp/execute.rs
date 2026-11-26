@@ -13,7 +13,7 @@ use std::{
 use tokio::sync::{mpsc, oneshot};
 
 use super::{
-    ControlExchange, Duration, Instant, MemberUdpPlan, Planning, Recommendation, Reservation,
+    ControlExchange, Duration, FamilyPlanning, Instant, MemberUdpPlan, Recommendation, Reservation,
     Round, RoundTrace, StreamKind, denied, invalid, receive, send, time, wire,
 };
 use crate::{
@@ -98,7 +98,7 @@ impl Execution {
     }
 }
 
-impl Planning {
+impl FamilyPlanning {
     pub(in super::super) fn traversal(&self) -> Option<MemberUdpTraversalReport> {
         Some(
             self.traversal
@@ -307,10 +307,13 @@ impl Planning {
         state.update(|report| report.winner = Some(winner.clone()));
         // READY confirms both the retained raw socket and its scoped response
         // permission before either peer can start QUIC validation.
-        let _mapping = self.connection.retain_nat_mapping(winner.remote, LocalSocketBinding {
-            id: winner.local_socket_id,
-            local_addr: winner.local_addr,
-        });
+        let _mapping = self.connection.retain_nat_mapping(
+            winner.remote,
+            LocalSocketBinding {
+                id: winner.local_socket_id,
+                local_addr: winner.local_addr,
+            },
+        );
         trace.step("winner-ready");
         exchange_phase(stream, &round.message(wire::WINNER_READY)).await?;
         slot.release_physical();
@@ -608,8 +611,7 @@ impl Planning {
         }
         let completed = StdInstant::now();
         let learned = recommendation.as_ref().is_some_and(|recommendation| {
-            self.owner
-                .analyzer
+            self.owner.analyzer[self.index()]
                 .lock()
                 .expect("member UDP analyzer")
                 .report_success(recommendation, completed)

@@ -2,7 +2,7 @@
 
 use std::{
     io,
-    net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     time::Duration,
 };
 
@@ -32,15 +32,21 @@ pub(super) struct Hello {
     network: [u8; 32],
     generation: u64,
     pub budget: Duration,
+    pub family: iroh_relay::ObservationFamily,
 }
 
 impl Hello {
-    pub(super) fn new(scope: &LearningScope, budget: Duration) -> io::Result<Self> {
+    pub(super) fn new(
+        scope: &LearningScope,
+        budget: Duration,
+        family: iroh_relay::ObservationFamily,
+    ) -> io::Result<Self> {
         let budget = Duration::from_millis(u64::from(millis(budget)?));
         Ok(Self {
             network: scope.network,
             generation: scope.secret_generation,
             budget,
+            family,
         })
     }
 
@@ -49,6 +55,9 @@ impl Hello {
         bytes.extend(self.network);
         bytes.extend(self.generation.to_be_bytes());
         bytes.extend((self.budget.as_millis() as u32).to_be_bytes());
+        if self.family == iroh_relay::ObservationFamily::Ipv6 {
+            bytes.push(6);
+        }
         bytes
     }
 
@@ -59,11 +68,20 @@ impl Hello {
         let network = take(&mut bytes)?;
         let generation = u64::from_be_bytes(take(&mut bytes)?);
         let budget = duration(&mut bytes)?;
+        let family = match bytes {
+            [] => iroh_relay::ObservationFamily::Ipv4,
+            [6] => {
+                bytes = &[];
+                iroh_relay::ObservationFamily::Ipv6
+            }
+            _ => return Err(invalid("invalid UDP address family")),
+        };
         end(bytes)?;
         Ok(Self {
             network,
             generation,
             budget,
+            family,
         })
     }
 
@@ -189,41 +207,60 @@ fn read_round(bytes: &mut &[u8], kind: u8) -> io::Result<Round> {
 }
 
 fn write_evidence(bytes: &mut Vec<u8>, snapshot: &SnapshotWire) {
+    let ipv6 = snapshot
+        .mapped
+        .iter()
+        .chain(&snapshot.assisted)
+        .any(SocketAddr::is_ipv6)
+        || snapshot.local_ips.iter().any(IpAddr::is_ipv6);
+    if ipv6 {
+        bytes.push(255);
+    }
+    fn ip(bytes: &mut Vec<u8>, address: IpAddr) {
+        match address {
+            IpAddr::V4(address) => bytes.extend(address.octets()),
+            IpAddr::V6(address) => bytes.extend(address.octets()),
+        }
+    }
     fn addresses(bytes: &mut Vec<u8>, addresses: &[SocketAddr]) {
         bytes.push(addresses.len() as u8);
         for address in addresses {
-            let SocketAddr::V4(address) = address else {
-                unreachable!("validated IPv4 mapping")
-            };
-            bytes.extend(address.ip().octets());
+            ip(bytes, address.ip());
             bytes.extend(address.port().to_be_bytes());
         }
     }
     addresses(bytes, &snapshot.mapped);
     bytes.push(snapshot.local_ips.len() as u8);
-    for ip in &snapshot.local_ips {
-        let IpAddr::V4(ip) = ip else {
-            unreachable!("local mapping uses IPv4")
-        };
-        bytes.extend(ip.octets());
+    for address in &snapshot.local_ips {
+        ip(bytes, *address);
     }
     addresses(bytes, &snapshot.assisted);
 }
 
 fn read_evidence(bytes: &mut &[u8]) -> io::Result<SnapshotWire> {
+    let ipv6 = bytes.first() == Some(&255);
+    if ipv6 {
+        *bytes = &bytes[1..];
+    }
+    fn ip(bytes: &mut &[u8], ipv6: bool) -> io::Result<IpAddr> {
+        Ok(if ipv6 {
+            IpAddr::V6(Ipv6Addr::from(take(bytes)?))
+        } else {
+            IpAddr::V4(Ipv4Addr::from(take(bytes)?))
+        })
+    }
+    let address = |bytes: &mut &[u8]| {
+        let ip = ip(bytes, ipv6)?;
+        let port = u16::from_be_bytes(take(bytes)?);
+        Ok(SocketAddr::new(ip, port))
+    };
     let evidence = SnapshotWire {
         mapped: list(bytes, address)?,
-        local_ips: list(bytes, |bytes| Ok(IpAddr::V4(Ipv4Addr::from(take(bytes)?))))?,
+        local_ips: list(bytes, |bytes| ip(bytes, ipv6))?,
         assisted: list(bytes, address)?,
     };
     evidence.validate()?;
     Ok(evidence)
-}
-
-fn address(bytes: &mut &[u8]) -> io::Result<SocketAddr> {
-    let ip = Ipv4Addr::from(take(bytes)?);
-    let port = u16::from_be_bytes(take(bytes)?);
-    Ok(SocketAddr::V4(SocketAddrV4::new(ip, port)))
 }
 
 fn list<T>(

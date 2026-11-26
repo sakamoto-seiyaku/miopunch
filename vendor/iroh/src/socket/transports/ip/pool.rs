@@ -15,7 +15,7 @@ use std::{
 };
 
 use futures_util::task::AtomicWaker;
-use ipnet::Ipv4Net;
+use ipnet::{Ipv4Net, Ipv6Net};
 use iroh_base::EndpointId;
 
 use super::{Config, IpSender, IpTransport};
@@ -102,7 +102,10 @@ impl PoolSocket {
         }
     }
     pub(crate) fn pin(&self, local: SocketAddr) -> io::Result<()> {
-        if local.port() != self.port || !local.is_ipv4() || local.ip().is_unspecified() {
+        if local.port() != self.port
+            || local.is_ipv6() != self.binding().local_addr.is_ipv6()
+            || local.ip().is_unspecified()
+        {
             return Err(io::Error::other(
                 "winner has invalid physical destination binding",
             ));
@@ -236,7 +239,7 @@ impl SocketPool {
     }
     pub(crate) fn bind_on(
         &self,
-        source: Option<Ipv4Addr>,
+        source: Option<IpAddr>,
         remote: EndpointId,
         connection_id: usize,
         metrics: Arc<SocketMetrics>,
@@ -246,16 +249,22 @@ impl SocketPool {
         if sockets.len() >= Self::MAX_SOCKETS {
             return Err(io::Error::other("Endpoint UDP listener capacity exhausted"));
         }
-        let transport = IpTransport::bind(
-            Config::V4 {
-                ip_net: Ipv4Net::new(source.unwrap_or(Ipv4Addr::UNSPECIFIED), 0)
-                    .expect("IPv4 network"),
+        let config = match source.unwrap_or(Ipv4Addr::UNSPECIFIED.into()) {
+            IpAddr::V4(source) => Config::V4 {
+                ip_net: Ipv4Net::new(source, 0).expect("IPv4 network"),
                 port: 0,
                 is_required: true,
                 is_default: false,
             },
-            metrics,
-        )?;
+            IpAddr::V6(source) => Config::V6 {
+                ip_net: Ipv6Net::new(source, 0).expect("IPv6 network"),
+                scope_id: 0,
+                port: 0,
+                is_required: true,
+                is_default: false,
+            },
+        };
+        let transport = IpTransport::bind(config, metrics)?;
         let port = transport.local_addr.get().port();
         let sender = transport.create_sender();
         #[cfg(feature = "miopunch-test-hooks")]
@@ -273,7 +282,7 @@ impl SocketPool {
             remote,
             connection_id,
             io: Mutex::new(Some(SocketIo { transport, sender })),
-            real_ip: Mutex::new(source.map(IpAddr::V4)),
+            real_ip: Mutex::new(source),
             pinned_ip: Mutex::new(None),
             port,
             retained: AtomicBool::new(false),

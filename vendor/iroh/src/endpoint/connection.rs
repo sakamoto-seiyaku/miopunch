@@ -1066,13 +1066,30 @@ pub struct RemoteEndpointIdError;
 
 impl<T: ConnectionState> Connection<T> {
     #[cfg(not(wasm_browser))]
-    pub(super) fn set_ipv4_nat_traversal_probes_paused(&self, paused: bool) {
-        self.inner.set_ipv4_nat_traversal_probes_paused(paused);
+    pub(super) fn set_nat_traversal_probes_paused(
+        &self,
+        family: iroh_relay::ObservationFamily,
+        paused: bool,
+    ) {
+        self.inner
+            .set_nat_traversal_probes_paused(family == iroh_relay::ObservationFamily::Ipv6, paused);
+    }
+
+    #[cfg(all(not(wasm_browser), feature = "miopunch-test-hooks"))]
+    pub(super) fn nat_traversal_probes_paused(&self, ipv6: bool) -> bool {
+        self.inner.nat_traversal_probes_paused(ipv6)
     }
 
     #[cfg(not(wasm_browser))]
-    pub(super) fn retain_nat_mapping(&self, remote: std::net::SocketAddr, local: crate::socket::transports::LocalSocketBinding) -> noq::RetainedNatMapping {
-        self.inner.retain_nat_mapping(noq::FourTuple::new(remote, Some(local.local_addr.ip())).with_local_socket(local.id.to_noq()))
+    pub(super) fn retain_nat_mapping(
+        &self,
+        remote: std::net::SocketAddr,
+        local: crate::socket::transports::LocalSocketBinding,
+    ) -> noq::RetainedNatMapping {
+        self.inner.retain_nat_mapping(
+            noq::FourTuple::new(remote, Some(local.local_addr.ip()))
+                .with_local_socket(local.id.to_noq()),
+        )
     }
 
     #[cfg(all(not(wasm_browser), feature = "miopunch-test-hooks"))]
@@ -1233,7 +1250,11 @@ impl<T: ConnectionState> Connection<T> {
 
     /// Close and atomically observe whether the transport was already closed.
     #[doc(hidden)]
-    pub fn close_with_previous_reason(&self, error_code: VarInt, reason: &[u8]) -> Option<ConnectionError> {
+    pub fn close_with_previous_reason(
+        &self,
+        error_code: VarInt,
+        reason: &[u8],
+    ) -> Option<ConnectionError> {
         self.inner.close_with_previous_reason(error_code, reason)
     }
 

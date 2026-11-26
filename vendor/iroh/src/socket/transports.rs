@@ -1149,17 +1149,32 @@ impl TransportsSender {
         ttl: u8,
         source: Option<IpAddr>,
     ) -> Poll<io::Result<bool>> {
-        if let Some(sender) = self
-            .ip
-            .v4_iter_mut()
-            .find(|s| s.is_valid_send_addr(source, &remote))
-        {
-            return sender.poll_send_probe_from(cx, remote, data, ttl, source);
+        if remote.is_ipv6() {
+            if let Some(sender) = self
+                .ip
+                .v6_iter_mut()
+                .find(|s| s.is_valid_send_addr(source, &remote))
+            {
+                return sender.poll_send_probe_from(cx, remote, data, ttl, source);
+            }
+            if let Some(sender) = self.ip.v6_default_mut() {
+                return sender.poll_send_probe_from(cx, remote, data, ttl, source);
+            }
+        } else {
+            if let Some(sender) = self
+                .ip
+                .v4_iter_mut()
+                .find(|s| s.is_valid_send_addr(source, &remote))
+            {
+                return sender.poll_send_probe_from(cx, remote, data, ttl, source);
+            }
+            if let Some(sender) = self.ip.v4_default_mut() {
+                return sender.poll_send_probe_from(cx, remote, data, ttl, source);
+            }
         }
-        if let Some(sender) = self.ip.v4_default_mut() {
-            return sender.poll_send_probe_from(cx, remote, data, ttl, source);
-        }
-        Poll::Ready(Err(io::Error::other("no IPv4 traversal transport")))
+        Poll::Ready(Err(io::Error::other(
+            "no traversal transport for address family",
+        )))
     }
 
     pub(crate) fn poll_send(

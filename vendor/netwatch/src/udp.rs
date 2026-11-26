@@ -33,7 +33,7 @@ fn send_with_ttl(
     remote: SocketAddr,
     data: &[u8],
     ttl: u8,
-    source: Option<std::net::Ipv4Addr>,
+    source: Option<IpAddr>,
 ) -> io::Result<()> {
     use std::os::fd::AsRawFd;
     let address = socket2::SockAddr::from(remote);
@@ -56,28 +56,61 @@ fn send_with_ttl(
         let ttl_space = libc::CMSG_SPACE(std::mem::size_of::<libc::c_int>() as _) as usize;
         message.msg_controllen = ttl_space
             + source.map_or(0, |_| {
-                libc::CMSG_SPACE(std::mem::size_of::<libc::in_pktinfo>() as _) as usize
+                libc::CMSG_SPACE(if remote.is_ipv6() {
+                    std::mem::size_of::<libc::in6_pktinfo>()
+                } else {
+                    std::mem::size_of::<libc::in_pktinfo>()
+                } as _) as usize
             });
         let header = libc::CMSG_FIRSTHDR(&message);
-        (*header).cmsg_level = libc::IPPROTO_IP;
-        (*header).cmsg_type = libc::IP_TTL;
+        (*header).cmsg_level = if remote.is_ipv6() {
+            libc::IPPROTO_IPV6
+        } else {
+            libc::IPPROTO_IP
+        };
+        (*header).cmsg_type = if remote.is_ipv6() {
+            libc::IPV6_HOPLIMIT
+        } else {
+            libc::IP_TTL
+        };
         (*header).cmsg_len = libc::CMSG_LEN(std::mem::size_of::<libc::c_int>() as _) as _;
         std::ptr::write(libc::CMSG_DATA(header).cast::<libc::c_int>(), ttl.into());
         if let Some(source) = source {
             let header = libc::CMSG_NXTHDR(&message, header);
-            (*header).cmsg_level = libc::IPPROTO_IP;
-            (*header).cmsg_type = libc::IP_PKTINFO;
-            (*header).cmsg_len = libc::CMSG_LEN(std::mem::size_of::<libc::in_pktinfo>() as _) as _;
-            std::ptr::write(
-                libc::CMSG_DATA(header).cast::<libc::in_pktinfo>(),
-                libc::in_pktinfo {
-                    ipi_ifindex: 0,
-                    ipi_spec_dst: libc::in_addr {
-                        s_addr: u32::from_ne_bytes(source.octets()),
+            if let IpAddr::V6(source) = source {
+                (*header).cmsg_level = libc::IPPROTO_IPV6;
+                (*header).cmsg_type = libc::IPV6_PKTINFO;
+                (*header).cmsg_len =
+                    libc::CMSG_LEN(std::mem::size_of::<libc::in6_pktinfo>() as _) as _;
+                std::ptr::write(
+                    libc::CMSG_DATA(header).cast::<libc::in6_pktinfo>(),
+                    libc::in6_pktinfo {
+                        ipi6_addr: libc::in6_addr {
+                            s6_addr: source.octets(),
+                        },
+                        ipi6_ifindex: if let SocketAddr::V6(remote) = remote {
+                            remote.scope_id()
+                        } else {
+                            0
+                        },
                     },
-                    ipi_addr: libc::in_addr { s_addr: 0 },
-                },
-            );
+                );
+            } else if let IpAddr::V4(source) = source {
+                (*header).cmsg_level = libc::IPPROTO_IP;
+                (*header).cmsg_type = libc::IP_PKTINFO;
+                (*header).cmsg_len =
+                    libc::CMSG_LEN(std::mem::size_of::<libc::in_pktinfo>() as _) as _;
+                std::ptr::write(
+                    libc::CMSG_DATA(header).cast::<libc::in_pktinfo>(),
+                    libc::in_pktinfo {
+                        ipi_ifindex: 0,
+                        ipi_spec_dst: libc::in_addr {
+                            s_addr: u32::from_ne_bytes(source.octets()),
+                        },
+                        ipi_addr: libc::in_addr { s_addr: 0 },
+                    },
+                );
+            }
         }
         loop {
             let result = libc::sendmsg(socket.as_raw_fd(), &message, libc::MSG_DONTWAIT);
@@ -439,17 +472,8 @@ impl UdpSocket {
                 #[cfg(not(feature = "miopunch-test-hooks"))]
                 let ttl_supported = true;
                 #[cfg(any(target_os = "linux", target_os = "android"))]
-                if ttl_supported && ttl > 0 && remote.is_ipv4() {
-                    match send_with_ttl(
-                        socket,
-                        remote,
-                        data,
-                        ttl,
-                        source.and_then(|ip| match ip {
-                            IpAddr::V4(ip) => Some(ip),
-                            _ => None,
-                        }),
-                    ) {
+                if ttl_supported && ttl > 0 {
+                    match send_with_ttl(socket, remote, data, ttl, source) {
                         Ok(()) => return Ok(false),
                         Err(e)
                             if matches!(

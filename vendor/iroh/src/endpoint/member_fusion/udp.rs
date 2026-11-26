@@ -40,7 +40,7 @@ pub use execute::MemberUdpTraversalReport;
 use slot::{Priority, Reservation, Slot};
 use wire::{Hello, Round};
 
-const WRAP: ControlMessageFormat = ControlMessageFormat::LengthPrefixed16 { maximum: 2048 };
+const WRAP: ControlMessageFormat = ControlMessageFormat::LengthPrefixed16 { maximum: 4096 };
 const CONTROL_WAIT: Duration = Duration::from_secs(5);
 
 /// Native resources and ceilings for a single coordinated UDP traversal round.
@@ -190,7 +190,7 @@ impl Drop for RoundTrace {
 
 #[derive(Debug)]
 pub(super) struct Planner {
-    analyzer: Mutex<Analyzer>,
+    analyzer: [Mutex<Analyzer>; 2],
     slot: Arc<Slot>,
     slots: Mutex<std::collections::HashMap<super::physical::Scope, Arc<Slot>>>,
     #[cfg(feature = "miopunch-test-hooks")]
@@ -200,7 +200,7 @@ pub(super) struct Planner {
 impl Default for Planner {
     fn default() -> Self {
         Self {
-            analyzer: Mutex::new(Analyzer::new(StdInstant::now())),
+            analyzer: std::array::from_fn(|_| Mutex::new(Analyzer::new(StdInstant::now()))),
             slot: Arc::default(),
             slots: Mutex::default(),
             #[cfg(feature = "miopunch-test-hooks")]
@@ -239,6 +239,171 @@ impl Planner {
 
 #[derive(Debug)]
 pub(in super::super) struct Planning {
+    families: Vec<Arc<FamilyPlanning>>,
+    path_work: Arc<MemberUdpPathWork>,
+}
+impl Planning {
+    pub(super) fn new(
+        endpoint: &Endpoint,
+        connection: &Connection,
+        owner: Arc<Planner>,
+        retention: super::MemberRetention,
+    ) -> Option<Arc<Self>> {
+        let path_work = Arc::new(MemberUdpPathWork::default());
+        let families = [
+            iroh_relay::ObservationFamily::Ipv4,
+            iroh_relay::ObservationFamily::Ipv6,
+        ]
+        .into_iter()
+        .filter(|family| {
+            endpoint
+                .bound_sockets()
+                .iter()
+                .any(|addr| family.matches(*addr))
+        })
+        .filter_map(|family| {
+            FamilyPlanning::new(
+                endpoint,
+                connection,
+                owner.clone(),
+                retention,
+                family,
+                path_work.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+        (!families.is_empty()).then(|| {
+            Arc::new(Self {
+                families,
+                path_work,
+            })
+        })
+    }
+    fn family(&self, family: iroh_relay::ObservationFamily) -> io::Result<&FamilyPlanning> {
+        self.families
+            .iter()
+            .find(|planning| planning.family == family)
+            .map(Arc::as_ref)
+            .ok_or_else(|| io::ErrorKind::Unsupported.into())
+    }
+    pub(in super::super) fn path_work(&self) -> Option<Arc<MemberUdpPathWork>> {
+        self.families
+            .iter()
+            .any(|planning| planning.can_maintain())
+            .then(|| self.path_work.clone())
+    }
+    pub(super) async fn bootstrap_requested(&self, family: iroh_relay::ObservationFamily) -> bool {
+        match self.family(family) {
+            Ok(planning) => planning.bootstrap_requested().await,
+            Err(_) => false,
+        }
+    }
+    pub(super) async fn bootstrap(
+        &self,
+        family: iroh_relay::ObservationFamily,
+        exchange: ControlExchange,
+        deadline: Instant,
+        cancel: &CancellationToken,
+    ) -> io::Result<PathId> {
+        self.family(family)?
+            .bootstrap(exchange, deadline, cancel)
+            .await
+    }
+    pub(super) fn request_maintenance(&self) {
+        for planning in &self.families {
+            planning.request_maintenance();
+        }
+    }
+    pub(super) async fn maintain(&self, activity: &Activity) {
+        futures_util::future::join_all(
+            self.families
+                .iter()
+                .map(|planning| planning.maintain(activity)),
+        )
+        .await;
+    }
+    pub(super) fn current(&self) -> Option<MemberUdpPlan> {
+        self.families.iter().find_map(|planning| planning.current())
+    }
+    pub(super) fn traversal(&self) -> Option<MemberUdpTraversalReport> {
+        self.families
+            .iter()
+            .filter_map(|planning| planning.traversal())
+            .max_by_key(|report| report.started)
+    }
+    pub(super) async fn initiate(
+        &self,
+        deadline: Instant,
+        cancel: &CancellationToken,
+        kind: StreamKind,
+    ) -> io::Result<MemberUdpPlan> {
+        self.families
+            .first()
+            .ok_or(io::ErrorKind::Unsupported)?
+            .initiate(deadline, cancel, kind)
+            .await
+    }
+    pub(super) async fn initiate_family(
+        &self,
+        family: iroh_relay::ObservationFamily,
+        deadline: Instant,
+        cancel: &CancellationToken,
+        kind: StreamKind,
+    ) -> io::Result<MemberUdpPlan> {
+        self.family(family)?.initiate(deadline, cancel, kind).await
+    }
+    pub(super) fn traversal_family(
+        &self,
+        family: iroh_relay::ObservationFamily,
+    ) -> Option<MemberUdpTraversalReport> {
+        self.family(family).ok()?.traversal()
+    }
+    pub(super) async fn respond(
+        &self,
+        stream: ControlExchange,
+        activity: &Activity,
+        kind: StreamKind,
+    ) {
+        let Some(first) = self.families.first() else {
+            return;
+        };
+        let deadline = Instant::now() + first.config.round_timeout;
+        let result = async {
+            let hello = Hello::decode(
+                &time::timeout_at(
+                    deadline.min(Instant::now() + first.control_timeout()),
+                    receive(&stream),
+                )
+                .await??,
+            )?;
+            self.family(hello.family)?
+                .respond_until(&stream, Some(activity), kind, deadline, Some(hello))
+                .await
+        }
+        .await;
+        if let Err(error) = result {
+            let _ = time::timeout_at(deadline, report_error(&stream, &error)).await;
+        }
+    }
+    pub(in super::super) async fn arm_business(
+        &self,
+        round: [u8; 16],
+        stream: &super::RecvStream,
+    ) -> Option<(noq::StreamReceivePath, tokio::sync::oneshot::Sender<()>)> {
+        for planning in &self.families {
+            if planning
+                .traversal()
+                .is_some_and(|report| report.round == round)
+            {
+                return planning.arm_business(round, stream).await;
+            }
+        }
+        None
+    }
+}
+
+#[derive(Debug)]
+pub(in super::super) struct FamilyPlanning {
     endpoint: Endpoint,
     connection: Connection,
     config: MemberUdpConfig,
@@ -246,18 +411,21 @@ pub(in super::super) struct Planning {
     retention: super::MemberRetention,
     retry_base: Duration,
     path_work: Arc<MemberUdpPathWork>,
+    family: iroh_relay::ObservationFamily,
     maintenance: watch::Sender<Option<Instant>>,
     latest: Mutex<Option<MemberUdpPlan>>,
     last_work: Arc<Mutex<Option<(ObservationValidity, Instant)>>>,
     traversal: Mutex<Option<Arc<execute::Execution>>>,
 }
 
-impl Planning {
+impl FamilyPlanning {
     pub(super) fn new(
         endpoint: &Endpoint,
         connection: &Connection,
         owner: Arc<Planner>,
         retention: super::MemberRetention,
+        family: iroh_relay::ObservationFamily,
+        path_work: Arc<MemberUdpPathWork>,
     ) -> Option<Arc<Self>> {
         let policy = endpoint.inner.static_config.admission.as_ref()?;
         let config = policy.member_udp_config()?.clone();
@@ -268,7 +436,8 @@ impl Planning {
             owner,
             retry_base: policy.member_path_retry_base(),
             retention,
-            path_work: Arc::default(),
+            path_work,
+            family,
             maintenance: watch::Sender::default(),
             latest: Mutex::new(None),
             last_work: Arc::new(Mutex::new(None)),
@@ -276,21 +445,24 @@ impl Planning {
         }))
     }
 
-    pub(in super::super) fn path_work(&self) -> Option<Arc<MemberUdpPathWork>> {
-        self.can_maintain().then(|| self.path_work.clone())
+    fn index(&self) -> usize {
+        usize::from(self.family == iroh_relay::ObservationFamily::Ipv6)
     }
 
     fn can_maintain(&self) -> bool {
-        self.config.enabled && (!self.config.qad.is_empty() || !self.config.stun.is_empty())
+        self.endpoint
+            .bound_sockets()
+            .iter()
+            .any(|addr| self.family.matches(*addr))
+            && self.config.enabled
+            && (!self.config.qad.is_empty() || !self.config.stun.is_empty())
     }
 
     pub(super) async fn bootstrap_requested(&self) -> bool {
         self.can_maintain()
             && self.scope().is_ok()
             && self.sources().is_ok()
-            && self
-                .path_work
-                .needed
+            && self.path_work.needed[self.index()]
                 .subscribe()
                 .wait_for(|needed| *needed)
                 .await
@@ -310,7 +482,8 @@ impl Planning {
             self.initiate_on(deadline, cancel, kind, Some(exchange))
                 .await?;
         } else {
-            self.respond_until(exchange, None, kind, deadline).await?;
+            self.respond_until(&exchange, None, kind, deadline, None)
+                .await?;
         }
         self.traversal()
             .and_then(|report| report.validated.map(|(path, _)| path))
@@ -327,7 +500,7 @@ impl Planning {
         if !self.can_maintain() {
             return pending().await;
         }
-        let mut needed = self.path_work.needed.subscribe();
+        let mut needed = self.path_work.needed[self.index()].subscribe();
         let mut active = activity.subscribe();
         let mut maintenance = self.maintenance.subscribe();
         let mut permitted = activity.path_activity.subscribe();
@@ -459,17 +632,38 @@ impl Planning {
             .ok_or_else(|| denied("current member authorization required for enhanced UDP"))
     }
 
-    async fn round_scope(&self, authorization: LearningScope, deadline: Instant) -> io::Result<RoundScope> {
+    async fn round_scope(
+        &self,
+        authorization: LearningScope,
+        deadline: Instant,
+    ) -> io::Result<RoundScope> {
         let sources = self.sources()?;
-        let observers = sources.stun.iter().cloned().map(|url| (url, 3478)).chain(
-            sources.qad.relays::<Vec<_>>().into_iter().map(|observer| {
-                (observer.url.clone(), observer.quic.as_ref().map_or(7842, |quic| quic.port))
-            }),
-        ).collect::<Vec<_>>();
+        let observers = sources
+            .stun
+            .iter()
+            .cloned()
+            .map(|url| (url, 3478))
+            .chain(sources.qad.relays::<Vec<_>>().into_iter().map(|observer| {
+                (
+                    observer.url.clone(),
+                    observer.quic.as_ref().map_or(7842, |quic| quic.port),
+                )
+            }))
+            .collect::<Vec<_>>();
         let binding = super::physical::observer_binding(
-            &self.endpoint, iroh_relay::ObservationFamily::Ipv4, observers, None, deadline,
-        ).await?;
-        Ok(RoundScope { binding, authorization, generation: self.endpoint.udp_network_generation(), sources })
+            &self.endpoint,
+            self.family,
+            observers,
+            None,
+            deadline,
+        )
+        .await?;
+        Ok(RoundScope {
+            binding,
+            authorization,
+            generation: self.endpoint.udp_network_generation(),
+            sources,
+        })
     }
 
     fn check_scope(&self, scope: &RoundScope) -> io::Result<()> {
@@ -680,28 +874,13 @@ impl Planning {
         CONTROL_WAIT.min(self.config.round_timeout)
     }
 
-    pub(super) async fn respond(
-        &self,
-        stream: ControlExchange,
-        activity: &Activity,
-        kind: StreamKind,
-    ) {
-        let _ = self
-            .respond_until(
-                stream,
-                Some(activity),
-                kind,
-                Instant::now() + self.config.round_timeout,
-            )
-            .await;
-    }
-
     async fn respond_until(
         &self,
-        stream: ControlExchange,
+        stream: &ControlExchange,
         activity: Option<&Activity>,
         kind: StreamKind,
         deadline: Instant,
+        hello: Option<Hello>,
     ) -> io::Result<()> {
         let started = Instant::now();
         let deadline = deadline.min(started + self.config.round_timeout);
@@ -713,13 +892,20 @@ impl Planning {
         };
         let mut trace = RoundTrace::new(&self.connection, "responder", kind);
         let work = async {
-            let hello = Hello::decode(
-                &time::timeout_at(
-                    deadline.min(started + self.control_timeout()),
-                    receive(&stream),
-                )
-                .await??,
-            )?;
+            let hello = if let Some(hello) = hello {
+                hello
+            } else {
+                Hello::decode(
+                    &time::timeout_at(
+                        deadline.min(started + self.control_timeout()),
+                        receive(&stream),
+                    )
+                    .await??,
+                )?
+            };
+            if hello.family != self.family {
+                return Err(invalid("UDP round family changed"));
+            }
             let scope = self.scope()?;
             hello.check(&scope)?;
             let mut deadline = deadline.min(started + hello.budget);
@@ -739,7 +925,7 @@ impl Planning {
             }
             let scope = self.round_scope(scope, deadline).await?;
             if kind.automatically_improves_path()
-                && (!self.can_maintain() || !*self.path_work.needed.borrow())
+                && (!self.can_maintain() || !*self.path_work.needed[self.index()].borrow())
             {
                 return Err(busy());
             }
@@ -831,14 +1017,18 @@ impl Planning {
         // The protected OBSERVE agreement has already committed this round.
         // QNT may clear its request while refreshing candidates or finding TCP;
         // that changes eligibility for a new round, not this round's lifetime.
-        let mut running = self.path_work.running.lock().expect("member UDP path work");
+        let mut running = self.path_work.running[self.index()]
+            .lock()
+            .expect("member UDP path work");
         if *running == 0 {
-            self.connection.set_ipv4_nat_traversal_probes_paused(true);
+            self.connection
+                .set_nat_traversal_probes_paused(self.family, true);
         }
         *running += 1;
         Ok(Some(RunningPath {
             work: &self.path_work,
             connection: &self.connection,
+            family: self.family,
         }))
     }
 
@@ -858,7 +1048,7 @@ impl Planning {
     ) -> io::Result<MemberUdpPlan> {
         send(
             stream,
-            &Hello::new(&scope.authorization, remaining(deadline)?)?.encode(),
+            &Hello::new(&scope.authorization, remaining(deadline)?, self.family)?.encode(),
         )
         .await?;
         let challenge = receive(stream).await?;
@@ -952,7 +1142,9 @@ impl Planning {
         local.check()?;
         self.check_scope(scope)?;
         let (plan, recommendation) = make_plan(
-            &mut self.owner.analyzer.lock().expect("member UDP analyzer"),
+            &mut self.owner.analyzer[self.index()]
+                .lock()
+                .expect("member UDP analyzer"),
             scope.authorization.clone(),
             &local.wire,
             &remote,
@@ -1075,7 +1267,7 @@ impl Planning {
             .observe_udp_mapping_round_for_family(
                 &sources.qad,
                 &sources.stun,
-                iroh_relay::ObservationFamily::Ipv4,
+                self.family,
                 &on_work,
                 qad_submission.as_ref(),
                 self.config.observations.min(MAX_OBSERVATIONS),
@@ -1089,11 +1281,11 @@ impl Planning {
         let (mut wire, observed) = match sequence.as_ref() {
             Some(sequence) => SnapshotWire::from_samples(sequence, 1)?,
             None => (
-                SnapshotWire::existing(endpoint.udp_observation().get())?,
+                SnapshotWire::existing_for_family(endpoint.udp_observation().get(), self.family)?,
                 StdInstant::now(),
             ),
         };
-        wire.assisted = endpoint.udp_local_ipv4_candidates();
+        wire.assisted = endpoint.inner.udp_local_candidates(self.family);
         wire.validate()?;
         trace.samples(sequence.as_ref());
         tracing::debug!(
@@ -1114,14 +1306,19 @@ impl Planning {
 struct RunningPath<'a> {
     work: &'a MemberUdpPathWork,
     connection: &'a Connection,
+    family: iroh_relay::ObservationFamily,
 }
 
 impl Drop for RunningPath<'_> {
     fn drop(&mut self) {
-        let mut running = self.work.running.lock().expect("member UDP path work");
+        let mut running = self.work.running
+            [usize::from(self.family == iroh_relay::ObservationFamily::Ipv6)]
+        .lock()
+        .expect("member UDP path work");
         *running -= 1;
         if *running == 0 {
-            self.connection.set_ipv4_nat_traversal_probes_paused(false);
+            self.connection
+                .set_nat_traversal_probes_paused(self.family, false);
         }
     }
 }

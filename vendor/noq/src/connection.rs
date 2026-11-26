@@ -1202,6 +1202,28 @@ impl Connection {
             .set_ipv4_nat_traversal_probes_paused(paused);
     }
 
+    /// Pause the ordinary probe family while its enhanced round executes.
+    pub fn set_nat_traversal_probes_paused(&self, ipv6: bool, paused: bool) {
+        self.0
+            .lock_and_wake("set_family_nat_probes_paused")
+            .inner
+            .set_nat_traversal_probes_paused(ipv6, paused);
+    }
+    /// Read the current family-specific ordinary probe pause.
+    pub fn nat_traversal_probes_paused(&self, ipv6: bool) -> bool {
+        self.0
+            .lock_without_waking("family_nat_probes_paused")
+            .inner
+            .nat_traversal_probes_paused(ipv6)
+    }
+    /// Read actual queued or scheduled ordinary family probes.
+    pub fn nat_traversal_probes_pending_for_family(&self, ipv6: bool) -> bool {
+        self.0
+            .lock_without_waking("family_nat_probes_pending")
+            .inner
+            .nat_traversal_probes_pending_for_family(ipv6)
+    }
+
     /// Whether off-path IPv4 NAT traversal probe transmission is paused.
     pub fn ipv4_nat_traversal_probes_paused(&self) -> bool {
         self.0
@@ -1212,8 +1234,14 @@ impl Connection {
 
     /// Retain one exact raw bidirectional binding while QUIC validates it.
     pub fn retain_nat_mapping(&self, binding: FourTuple) -> RetainedNatMapping {
-        self.0.lock_and_wake("retain NAT mapping").inner.retain_nat_mapping(binding);
-        RetainedNatMapping { connection: self.0.clone(), binding }
+        self.0
+            .lock_and_wake("retain NAT mapping")
+            .inner
+            .retain_nat_mapping(binding);
+        RetainedNatMapping {
+            connection: self.0.clone(),
+            binding,
+        }
     }
 
     /// Gate native IPv4 mapping work independently of other families.

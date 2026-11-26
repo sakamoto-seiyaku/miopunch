@@ -1,7 +1,11 @@
 //! Physical UDP bindings on the original authenticated QUIC connection.
 #[path = "support/control_handoff.rs"]
 mod handoff;
-use std::{net::Ipv4Addr, sync::Arc, time::Duration};
+use std::{
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    sync::Arc,
+    time::Duration,
+};
 
 use iroh::{
     Endpoint, EndpointAddr,
@@ -58,6 +62,13 @@ impl Pair {
         Self::build_with_selector(pending, Arc::new(IpThenControl)).await
     }
     async fn build_with_selector(pending: bool, selector: Arc<dyn ConnectionPathSelector>) -> Self {
+        Self::build_on(pending, selector, Ipv4Addr::LOCALHOST.into()).await
+    }
+    async fn build_on(
+        pending: bool,
+        selector: Arc<dyn ConnectionPathSelector>,
+        ip: IpAddr,
+    ) -> Self {
         let keys = [SecretKey::generate(), SecretKey::generate()];
         let members = keys
             .iter()
@@ -82,7 +93,7 @@ impl Pair {
                 .secret_key(key)
                 .alpns(vec![CONTROL_ALPN.to_vec()])
                 .clear_ip_transports()
-                .bind_addr((Ipv4Addr::LOCALHOST, 0))
+                .bind_addr((ip, 0))
                 .unwrap()
                 .clear_relay_transports()
                 .add_custom_transport(carrier.clone())
@@ -164,17 +175,27 @@ impl Pair {
 
 #[tokio::test]
 async fn nonprimary_winner_returns_through_its_physical_socket_on_the_original_connection() {
-    winner_connection(Ipv4Addr::LOCALHOST, true).await;
+    winner_connection(Ipv4Addr::LOCALHOST.into(), true).await;
 }
 
 #[tokio::test]
 async fn authenticated_winner_keeps_its_actual_source_ip_despite_packets_to_another_local_ip() {
-    winner_connection(Ipv4Addr::new(127, 0, 0, 2), false).await;
+    winner_connection(Ipv4Addr::new(127, 0, 0, 2).into(), false).await;
 }
 
-async fn winner_connection(receiver_ip: Ipv4Addr, network_change: bool) {
+#[tokio::test]
+async fn ipv6_nonprimary_winner_retains_the_exact_socket_and_original_connection() {
+    winner_connection(Ipv6Addr::LOCALHOST.into(), false).await;
+}
+
+async fn winner_connection(receiver_ip: IpAddr, network_change: bool) {
     tokio::time::timeout(Duration::from_secs(12), async {
-        let pair = Pair::new_pending().await;
+        let primary_ip = if receiver_ip.is_ipv6() {
+            IpAddr::V6(Ipv6Addr::LOCALHOST)
+        } else {
+            IpAddr::V4(Ipv4Addr::LOCALHOST)
+        };
+        let pair = Pair::build_on(true, Arc::new(IpThenControl), primary_ip).await;
         let (c, v) = pair.connect().await;
         let stable = (c.stable_id(), v.stable_id());
         let mut cl = c.register_udp_traversal([61; 16]).await.unwrap();
@@ -184,16 +205,16 @@ async fn winner_connection(receiver_ip: Ipv4Addr, network_change: bool) {
         let cb = cl.local_sockets()[1];
         let vb = vl.local_sockets()[2];
         let ca = (receiver_ip, cb.local_addr.port()).into();
-        let va: std::net::SocketAddr = (Ipv4Addr::LOCALHOST, vb.local_addr.port()).into();
+        let va: std::net::SocketAddr = (primary_ip, vb.local_addr.port()).into();
         vl.sender_for(vb.id)
             .unwrap()
-            .send(ca, b"request", 0)
+            .send(ca, b"request", 7)
             .await
             .unwrap();
         let packet = cl.recv().await.unwrap();
         assert_eq!(packet.local_socket_id, cb.id);
         assert_eq!(packet.local_addr.port(), cb.local_addr.port());
-        assert_eq!(packet.local_addr.ip(), std::net::IpAddr::V4(receiver_ip));
+        assert_eq!(packet.local_addr.ip(), receiver_ip);
         assert_eq!(packet.remote, va);
         cl.sender_for(packet.local_socket_id)
             .unwrap()
@@ -229,11 +250,9 @@ async fn winner_connection(receiver_ip: Ipv4Addr, network_change: bool) {
         }
         drop(cl);
         drop(vl);
-        let unauthenticated = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
-            .await
-            .unwrap();
+        let unauthenticated = tokio::net::UdpSocket::bind((primary_ip, 0)).await.unwrap();
         unauthenticated
-            .send_to(b"\0unrelated", (Ipv4Addr::LOCALHOST, cb.local_addr.port()))
+            .send_to(b"\0unrelated", (primary_ip, cb.local_addr.port()))
             .await
             .unwrap();
         let (cd, vd) = tokio::join!(c.commit_data_path(), v.commit_data_path());
@@ -268,7 +287,7 @@ async fn winner_connection(receiver_ip: Ipv4Addr, network_change: bool) {
         let v_path = v_paths.iter().find(|p| p.is_selected()).unwrap();
         assert_eq!(
             v_path.local_addr(),
-            &iroh::endpoint::LocalTransportAddr::Ip(Some(Ipv4Addr::LOCALHOST.into()))
+            &iroh::endpoint::LocalTransportAddr::Ip(Some(primary_ip))
         );
         let (mut send, mut recv) = vd.connection().open_bi().await.unwrap();
         send.write_all(b"winner-socket-business").await.unwrap();

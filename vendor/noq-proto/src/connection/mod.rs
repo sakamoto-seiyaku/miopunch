@@ -336,6 +336,7 @@ pub struct Connection {
     /// State for n0's (<https://n0.computer>) nat traversal protocol.
     n0_nat_traversal: n0_nat_traversal::State,
     ipv4_nat_traversal_probes_paused: bool,
+    ipv6_nat_traversal_probes_paused: bool,
     nat_traversal_probe_gate: Option<Arc<dyn Fn(SocketAddr) -> bool + Send + Sync>>,
     retained_nat_mappings: FxHashMap<FourTuple, usize>,
     nat_traversal_probes_permitted: bool,
@@ -481,6 +482,7 @@ impl Connection {
 
             n0_nat_traversal: Default::default(),
             ipv4_nat_traversal_probes_paused: false,
+            ipv6_nat_traversal_probes_paused: false,
             nat_traversal_probe_gate: None,
             retained_nat_mappings: FxHashMap::default(),
             nat_traversal_probes_permitted: true,
@@ -2341,9 +2343,13 @@ impl Connection {
                     || self.find_validated_path_on_network_path(*response_path).is_some()
                     || self.nat_traversal_probe_gate.as_ref().is_none_or(|permit| {
                         self.nat_traversal_probes_permitted
-                            && (!self.ipv4_nat_traversal_probes_paused
-                                || response_path.remote.ip().to_canonical().is_ipv6())
-                            && permit(SocketAddr::new(response_path.remote.ip().to_canonical(), response_path.remote.port()))
+                            && !self.nat_traversal_probes_paused(
+                                response_path.remote.ip().to_canonical().is_ipv6(),
+                            )
+                            && permit(SocketAddr::new(
+                                response_path.remote.ip().to_canonical(),
+                                response_path.remote.port(),
+                            ))
                     })
             })?;
         let cid_queue = self.remote_cids.get_mut(&path_id)?;
@@ -2374,8 +2380,7 @@ impl Connection {
             .is_none()
             && self.n0_nat_traversal.client_side().is_ok()
             && self.nat_traversal_probes_permitted
-            && (!self.ipv4_nat_traversal_probes_paused
-                || network_path.remote.ip().to_canonical().is_ipv6())
+            && !self.nat_traversal_probes_paused(network_path.remote.ip().to_canonical().is_ipv6())
         {
             let token = self.rng.random();
             let stats = &mut self.path_stats.get_mut(path_id).frame_tx;
@@ -2420,6 +2425,7 @@ impl Connection {
         }
         let remote = self.n0_nat_traversal.next_probe_addr_permitted(
             self.ipv4_nat_traversal_probes_paused,
+            self.ipv6_nat_traversal_probes_paused,
             self.nat_traversal_probe_gate.as_deref(),
         )?;
 
@@ -2836,10 +2842,17 @@ impl Connection {
                     }
                     ConnTimer::NatTraversalProbeRetry => {
                         if self.nat_traversal_probes_permitted {
-                            self.n0_nat_traversal.queue_retries_permitted(
-                                self.is_ipv6(),
-                                self.nat_traversal_probe_gate.as_deref(),
-                            );
+                            let paused = [
+                                self.ipv4_nat_traversal_probes_paused,
+                                self.ipv6_nat_traversal_probes_paused,
+                            ];
+                            let gate = &self.nat_traversal_probe_gate;
+                            let permit = |remote: SocketAddr| {
+                                !paused[usize::from(remote.is_ipv6())]
+                                    && gate.as_ref().is_none_or(|gate| gate(remote))
+                            };
+                            self.n0_nat_traversal
+                                .queue_retries_permitted(self.is_ipv6(), Some(&permit));
                         }
                         if let Some(delay) =
                             self.n0_nat_traversal.retry_delay(self.config.initial_rtt)
@@ -8022,6 +8035,30 @@ impl Connection {
             self.n0_nat_traversal.discard_pending_ipv4_probes();
         }
         self.ipv4_nat_traversal_probes_paused = paused;
+    }
+
+    /// Pause ordinary probes only in the requested address family.
+    pub fn set_nat_traversal_probes_paused(&mut self, ipv6: bool, paused: bool) {
+        if !ipv6 {
+            self.set_ipv4_nat_traversal_probes_paused(paused);
+            return;
+        }
+        if paused && !self.ipv6_nat_traversal_probes_paused {
+            self.n0_nat_traversal.clear_pending_family(true);
+        }
+        self.ipv6_nat_traversal_probes_paused = paused;
+    }
+    /// Whether the requested family is paused by its enhanced round.
+    pub fn nat_traversal_probes_paused(&self, ipv6: bool) -> bool {
+        if ipv6 {
+            self.ipv6_nat_traversal_probes_paused
+        } else {
+            self.ipv4_nat_traversal_probes_paused
+        }
+    }
+    /// Whether the family has queued or scheduled ordinary probe work.
+    pub fn nat_traversal_probes_pending_for_family(&self, ipv6: bool) -> bool {
+        self.n0_nat_traversal.has_family_probes(ipv6)
     }
 
     /// Whether off-path IPv4 NAT traversal probe transmission is paused.

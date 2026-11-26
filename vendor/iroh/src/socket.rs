@@ -614,7 +614,7 @@ impl UdpTraversalLease {
         }
     }
 
-    /// Bind exactly this many additional OS-selected IPv4 ports (at most 256).
+    /// Bind exactly this many additional OS-selected ports on the round family (at most 256).
     pub async fn listen_random_ports(&mut self, attempts: usize) -> io::Result<UdpListenerReport> {
         self.listen_random_ports_checked(attempts, &|| Ok(())).await
     }
@@ -639,10 +639,7 @@ impl UdpTraversalLease {
             }
             self.listener_report.attempted += 1;
             match self.socket.udp_socket_pool.bind_on(
-                self.primary_binding.and_then(|binding| match binding.ip() {
-                    IpAddr::V4(ip) => Some(ip),
-                    _ => None,
-                }),
+                self.primary_binding.map(|binding| binding.ip()),
                 self.remote,
                 self.connection_id,
                 self.socket.metrics.socket.clone(),
@@ -781,7 +778,7 @@ impl UdpTraversalLease {
 impl UdpTraversalSender {
     /// Reply from the actual receiving interface on this same physical binding.
     pub fn with_source_ip(&self, source: IpAddr) -> io::Result<Self> {
-        if !source.is_ipv4() || source.is_unspecified() {
+        if source.is_unspecified() {
             return Err(io::Error::other("invalid traversal source IP"));
         }
         let mut sender = self.clone();
@@ -824,7 +821,11 @@ impl UdpTraversalSender {
         ttl: u8,
         check: &(dyn Fn() -> io::Result<()> + Sync),
     ) -> io::Result<bool> {
-        if !remote.is_ipv4() || payload.len() > 256 {
+        if self
+            .source_ip
+            .is_some_and(|source| source.is_ipv6() != remote.is_ipv6())
+            || payload.len() > 256
+        {
             return Err(io::Error::other("invalid traversal datagram"));
         }
         self.authorize().await?;
@@ -1549,6 +1550,14 @@ impl EndpointInner {
     /// This intentionally excludes reflected, portmapped and configured addresses.
     #[cfg(not(wasm_browser))]
     pub(crate) fn udp_local_ipv4_candidates(&self) -> Vec<SocketAddr> {
+        self.udp_local_candidates(iroh_relay::ObservationFamily::Ipv4)
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn udp_local_candidates(
+        &self,
+        family: iroh_relay::ObservationFamily,
+    ) -> Vec<SocketAddr> {
         let interfaces = self.local_interfaces_watcher.clone().get();
         let local_ips = if interfaces.local_addresses.regular.is_empty() {
             &interfaces.local_addresses.loopback
@@ -1558,13 +1567,15 @@ impl EndpointInner {
         self.sock
             .ip_local_addrs()
             .into_iter()
-            .filter(|addr| addr.is_ipv4() && addr.port() != 0)
+            .filter(|addr| family.matches(*addr) && addr.port() != 0)
             .flat_map(|addr| {
                 if addr.ip().is_unspecified() {
                     local_ips
                         .iter()
                         .copied()
-                        .filter(IpAddr::is_ipv4)
+                        .filter(|ip| {
+                            ip.is_ipv6() == (family == iroh_relay::ObservationFamily::Ipv6)
+                        })
                         .map(|ip| SocketAddr::new(ip, addr.port()))
                         .collect::<Vec<_>>()
                 } else {
@@ -1960,13 +1971,13 @@ impl EndpointInner {
     ) -> io::Result<Option<crate::endpoint::UdpCandidatePath>> {
         #[cfg(not(wasm_browser))]
         if local.is_some_and(|binding| {
-            !binding.local_addr.is_ipv4()
+            binding.local_addr.is_ipv6() != addr.is_ipv6()
                 || binding.local_addr.ip().is_unspecified()
                 || (binding.id.is_primary()
-                    && !self
-                        .sock
-                        .ip_local_addrs()
-                        .any(|addr| addr.is_ipv4() && addr.port() == binding.local_addr.port()))
+                    && !self.sock.ip_local_addrs().any(|addr| {
+                        addr.is_ipv6() == binding.local_addr.is_ipv6()
+                            && addr.port() == binding.local_addr.port()
+                    }))
         }) {
             return Err(io::Error::other("invalid actual local UDP binding"));
         }
@@ -2031,8 +2042,8 @@ impl EndpointInner {
         conn_id: usize,
         round: [u8; 16],
     ) -> io::Result<UdpTraversalLease> {
-        if !self.sock.ip_bind_addrs.iter().any(SocketAddr::is_ipv4) {
-            return Err(io::Error::other("IPv4 traversal disabled"));
+        if self.sock.ip_bind_addrs.is_empty() {
+            return Err(io::Error::other("UDP traversal disabled"));
         }
         let (tx, rx) = oneshot::channel();
         self.sock
@@ -2073,7 +2084,12 @@ impl EndpointInner {
             listener_report: UdpListenerReport::default(),
             listener_rx: Vec::new(),
             recv_cursor: 0,
-            primary_binding: None,
+            // A legacy raw round without an explicit physical scope still uses
+            // its sole enabled family; member rounds replace this with the
+            // actual routed binding before observation and listener allocation.
+            primary_binding: self.sock.ip_local_addrs().find(|addr| addr.is_ipv6()).filter(|_| {
+                !self.sock.ip_bind_addrs.iter().any(SocketAddr::is_ipv4)
+            }),
         })
     }
 

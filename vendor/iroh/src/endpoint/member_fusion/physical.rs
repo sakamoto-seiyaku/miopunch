@@ -48,6 +48,9 @@ pub(crate) struct Scope {
     tcp: bool,
 }
 impl Scope {
+    pub(crate) fn is_ipv6(&self) -> bool {
+        self.ipv6
+    }
     pub(crate) fn route_binding(
         binding: SocketAddr,
         destination: SocketAddr,
