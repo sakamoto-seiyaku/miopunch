@@ -1003,8 +1003,6 @@ impl RotationRuntime {
             }
         });
         let endpoint = network.endpoint.clone();
-        let relays = network.relays.clone();
-        let routes = network.contact_routes.clone();
         let mut changes = gate.0.lock().unwrap().changes.subscribe();
         self.spawn(async move {
             let delay = Duration::from_millis(policy.path_retry_base_ms);
@@ -1036,7 +1034,7 @@ impl RotationRuntime {
                         last = Some(peer);
                         let deadline = start + budget;
                         let open = async {
-                            let address = target_address(peer, &relays, &routes)?;
+                            let address = gate.service_snapshot()?.address_for(peer)?;
                             let connecting = endpoint.connect_control_with_opts(
                                 address, candidates[&peer],
                                 iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline),

@@ -161,6 +161,7 @@ impl SavedNode {
             rotation: rotation::RotationState::from_portable(
                 &node.native_rotation, node.network, node.generation,
             )?,
+            migration: None,
         };
         saved.verify()?;
         Ok(saved)
@@ -175,6 +176,7 @@ impl BrowserNetwork {
         self.refresh_service_snapshot().await?;
         self.require_device_ready()?;
         self.saved.admissions_open()?;
+        self.saved.require_migration_settled_for_replacement()?;
         let result = async {
             self.disable_files().await?;
             self.stop_runtime().await;

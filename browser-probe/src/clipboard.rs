@@ -371,6 +371,7 @@ impl BrowserNetwork {
             .await
             .map_err(|failure| error(read_failure(failure)))?;
         let (saved, raw, token) = services::installed(&self.gate).await?;
+        self.clipboard.state.current_request(request).map_err(error)?;
         let next = saved.declare_clipboard(current.read && current.write, true)?;
         services::commit_installed(&self.gate, &raw, token, &next).await?;
         self.clipboard.state.enable(current).map_err(error)?;

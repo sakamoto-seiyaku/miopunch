@@ -17,6 +17,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from check_client_onboarding import OnboardingRunner, Host
+from check_native_migration import wait_for
 from host_native_runtime import group_absent, group_snapshot
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -112,16 +113,16 @@ class BrowserControl:
 
 
 class BrowserOnboardingRunner(OnboardingRunner):
-    def native_configuration(self, remote):
-        if self.args.suite not in ["progress", "observation", "receipts", "device-names", "member-management", "departure", "removal-rejoin", "precode-revocation", "rotation"]:
+    def native_configuration(self, remote, relay=None, name="progress-resources.json"):
+        if self.args.suite not in ["progress", "observation", "receipts", "device-names", "member-management", "departure", "removal-rejoin", "precode-revocation", "rotation", "migration"]:
             return super().native_configuration(remote)
         config = dict(defaults=dict(revision=2, resources=[]),
-                      replacement=[dict(url=self.args.relay, uses=["DataRelay"], limitation="onboarding test relay")],
+                      replacement=[dict(url=relay or self.args.relay, uses=["DataRelay"], limitation="onboarding test relay")],
                       disabled=[], disabled_uses=["Observation", "Lookup", "Signaling"],
                       lan_discovery="Disabled", port_mapping="Disabled",
                       maintenance=dict(contact_timeout_ms=10000),
                       udp_direct_disabled=True, tcp_direct_disabled=True)
-        return self.write_private("progress-resources.json", json.dumps(config).encode(), remote)
+        return self.write_private(name, json.dumps(config).encode(), remote)
 
     def progress_configuration(self):
         return dict(CONFIGURATION, relays=[self.args.relay], maintenance=dict(contact_timeout_ms=10000))
@@ -153,6 +154,237 @@ class BrowserOnboardingRunner(OnboardingRunner):
     def member_management(self):
         for browser_issuer in (False, True):
             self.management_propagation(browser_issuer)
+
+    def network_migration(self):
+        self.migrate_browser(lost_genesis=False)
+        self.migrate_browser(lost_genesis=True)
+
+    def migrate_browser(self, lost_genesis):
+        b = self.browser
+        config = self.progress_configuration()
+        config["maintenance"].update(exploration_interval_ms=400)
+        prefix = "migration-lost" if lost_genesis else "migration-ordinary"
+        source = self.creator(False, prefix + "-source")
+        target_label = prefix + "-target"
+        target_relay = self.args.migration_target_relay if not lost_genesis else None
+        if target_relay:
+            # Let the trusted source and destination invitations import their
+            # separate relays, with all compiled public defaults disabled.
+            config.pop("relays")
+            config["disabled"] = [f"https://{region}.relay.n0.iroh.link./"
+                                  for region in ("use1-1", "usw1-1", "euc1-1", "aps1-1")]
+            configuration = self.native_configuration(False, target_relay, target_label + "-resources.json")
+            target = Host(self, target_label, False, "create", self.path(target_label + "-state", False),
+                          configuration=configuration)
+            target.call("export_recovery_card", path=self.private_path(target_label + "-card.json", False))
+            target.call("acknowledge_recovery_saved")
+        else:
+            target = self.creator(False, target_label)
+        target_peer = None
+        if not lost_genesis:
+            target_peer = prefix + "-browser-peer"
+            invite = self.native_invitation(target, target_peer + "-invite", precode=True)
+            b.start(target_peer, "join", invite, dict(config, relays=[target_relay or self.args.relay]))
+            assert b.call(target_peer, "request_join", False) == "Complete"
+            self.close_actor(target_peer)
+        mover = prefix + "-browser"
+        old_network, new_network = (host.call("status")["network"] for host in (source, target))
+        invitation = self.native_invitation(source, prefix + "-source-code", precode=True)
+        b.start(mover, "join", invitation, config)
+        assert b.call(mover, "request_join", False) == "Complete"
+        initial = b.call(mover, "status")
+        node_id = initial["id"]
+
+        def transfer(receiver, phase):
+            name = prefix + "-" + phase + ".bin"
+            if isinstance(receiver, str):
+                b.call(receiver, "enable_files")
+            else:
+                destination = self.output / (receiver.label + "-received")
+                if not destination.exists():
+                    destination.mkdir()
+                    receiver.call("files_enable", directory=str(destination))
+            payload = bytes(index % 251 for index in range(2048))
+            b.call(mover, "file_make", name, len(payload))
+            task = b.call(mover, "file_send_source", self.actor_identity(receiver), name)
+            status = lambda: self.actor_call(receiver, "file_status", "files_status")
+            try:
+                result = wait_for(lambda: next((row["receipt"] for row in status()["tasks"]
+                                                if row["id"] == task and row["state"] == "complete"), None), bool)
+            except AssertionError:
+                b.call(mover, "file_status")
+                b.call(mover, "path_diagnostics")
+                if isinstance(receiver, str):
+                    b.call(receiver, "path_diagnostics")
+                raise
+            if isinstance(receiver, str):
+                assert b.call(receiver, "file_hash", result["saved_name"], False) == b.call(mover, "file_hash", name, True)
+            else:
+                assert (destination / result["saved_name"]).read_bytes() == payload
+
+        def reject_transfer(receiver):
+            name = prefix + "-inactive.bin"
+            b.call(mover, "file_make", name, 64)
+            b.call(mover, "file_send_source", self.actor_identity(receiver), name, ok=False)
+
+        def role(actor):
+            status = self.actor_snapshot(actor)["status"]
+            return next((row["role"] for row in status["members"] if row["node"] == node_id), None)
+
+        def progress(network, predicate):
+            try:
+                snapshot = wait_for(lambda: self.actor_snapshot(mover),
+                                    lambda state: state["network_migration"] is not None and predicate(state["network_migration"]))
+            except AssertionError:
+                b.call(mover, "path_diagnostics")
+                raise
+            assert snapshot["status"]["network"] == network and snapshot["status"]["id"] == node_id
+            return snapshot["network_migration"]
+
+        def reopen_mover():
+            self.close_actor(mover)
+            self.reopen_actor(mover)
+            assert b.call(mover, "id") == node_id
+
+        if lost_genesis:
+            operation = source.call("genesis_propose", action="appoint-administrator", target=node_id)["operation"]["id"]
+            assert source.call("genesis_confirm", operation=operation)["effective_locally"]
+            wait_for(lambda: role(mover), lambda value: value == "admin")
+            source.stop()
+            (Path(source.directory) / "genesis.credential").unlink()
+            Path(self.private_path(prefix + "-source-card.json", False)).unlink()
+            source = self.reopen_actor(source)
+            assert not source.call("device_operations")["holds_genesis"]
+            assert not b.call(mover, "device_operations")["holds_genesis"]
+
+        assert b.call(mover, "migration_progress") is None
+        transfer(source, "original-traffic")
+        b.call(mover, "begin_network_migration", b.call(mover, "invitation") if lost_genesis else self.native_invitation(source, prefix + "-same-network"), ok=False)
+        assert b.call(mover, "migration_progress") is None
+        invitation = self.native_invitation(target, prefix + "-target-invite", precode=not lost_genesis)
+        assert target.call("requests")["requests"] == []
+        cursor = self.actor_snapshot(mover)["cursor"]
+        b.call(mover, "begin_observation", cursor)
+        target.call("migration_control_only", enabled=True)
+        started = b.call(mover, "begin_network_migration", invitation)
+        assert not started["switched"] and started["phase"] == "Preparing"
+        assert started["source_exit"] == {"stage": "NotStarted"}
+        observed = b.call(mover, "finish_observation")
+        if observed["network_migration"] is None:
+            b.call(mover, "begin_observation", observed["cursor"])
+            observed = b.call(mover, "finish_observation")
+        assert observed["status"]["network"] == old_network and observed["network_migration"]
+        request = started["admission"]["request_id"]
+
+        if lost_genesis:
+            waiting = progress(old_network, lambda p: p["admission"]["progress"] == "Delivered")
+            pending, = target.call("requests")["requests"]
+            assert pending["applicant"] == node_id and pending["request_id"] == request
+            assert role(target) is None
+            transfer(source, "waiting-for-approval")
+            reopen_mover()
+            assert b.call(mover, "migration_progress") == waiting
+            assert target.call("requests")["requests"] == [pending]
+
+            b.call(mover, "block_migration_commit", "materials")
+            target.call("approve", **pending)
+            assert b.call(mover, "wait_migration_commit_blocked")
+            authorized = progress(old_network, lambda p: p["phase"] == "PendingMaterials")
+            assert authorized["admission"] == dict(request_id=request, progress="Authorized")
+            transfer(source, "authorization-without-materials")
+            target.stop()
+            reopen_mover()
+            assert b.call(mover, "migration_progress") == authorized
+            transfer(source, "authorization-reopened")
+            b.call(mover, "block_migration_commit", "receipt")
+            target = self.reopen_actor(target)
+            target.call("migration_control_only", enabled=True)
+            assert b.call(mover, "wait_migration_commit_blocked")
+            awaiting, = target.call("admission_history")
+            assert awaiting["request_id"] == request and awaiting["decision"] == "ApprovedAwaitingReceipt"
+            reopen_mover()
+            received = dict(awaiting, decision="ReceiptReceived")
+            wait_for(lambda: target.call("admission_history"), lambda history: history == [received])
+
+        saved = progress(old_network, lambda p: p["phase"] == "MaterialsSaved")
+        assert saved["admission"] == dict(request_id=request, progress="Complete") and not saved["switched"]
+        assert role(target) == "member"
+        transfer(source, "only-restricted-target")
+        reject_transfer(target)
+        reopen_mover()
+        assert b.call(mover, "migration_progress") == saved
+        transfer(source, "only-restricted-target-reopened")
+        if target_relay:
+            self.close_actor(mover)
+            assert b.call(mover, "reopen_page")
+            disabled = config["disabled"] + [target_relay]
+            b.call(mover, "start", "start", json.dumps({"disabled": disabled}), None)
+            target.call("migration_control_only", enabled=False)
+            transfer(source, "target-relay-disabled-on-reopen")
+            assert b.call(mover, "migration_progress") == saved
+            assert target_relay in b.call(mover, "resource_configuration")["disabled"]
+            target.call("migration_control_only", enabled=True)
+            self.close_actor(mover)
+            assert b.call(mover, "reopen_page")
+            b.call(mover, "start", "start", json.dumps({"disabled": config["disabled"]}), None)
+            assert b.call(mover, "migration_progress") == saved
+        b.call(mover, "enable_files")
+        assert b.call(mover, "file_status")["enabled"]
+
+        if lost_genesis:
+            b.call(mover, "block_migration_commit", "switch")
+            target.call("migration_control_only", enabled=False)
+            assert b.call(mover, "wait_migration_commit_blocked")
+            assert b.call(mover, "migration_progress") == saved
+            transfer(source, "switch-commit-failed")
+            b.call(mover, "block_migration_commit", None)
+            switched = progress(new_network, lambda p: p["switched"])
+            assert switched["source_exit"] == {"stage": "GenesisConfirmationRequired"}
+            b.call(mover, "confirm_migration_source_exit", ok=False, expected_error="does not hold the old network genesis credential")
+            reject_transfer(source)
+        else:
+            source.stop()
+            # The browser member was offline for the mover's grant. Let it
+            # obtain the signed record before taking its author offline.
+            b.call(mover, "block_migration_commit", "switch")
+            self.reopen_actor(target_peer)
+            target.call("migration_control_only", enabled=False)
+            b.call(target_peer, "sync_services", target.node)
+            assert role(target_peer) == "member"
+            target.stop()
+            b.call(mover, "block_migration_commit", None)
+            pending = progress(new_network, lambda p: p["source_exit"]["stage"] == "PendingDelivery")
+            assert pending["switched"]
+            if target_relay:
+                relays = b.call(mover, "resource_configuration")["relays"]
+                assert target_relay in relays and self.args.relay not in relays
+            transfer(target_peer, "target-browser-active-before-reopen")
+            reopen_mover()
+            assert b.call(mover, "migration_progress") == pending
+            source = self.reopen_actor(source)
+            switched = progress(new_network, lambda p: p["source_exit"]["stage"] == "Delivered")
+            assert switched["source_exit"] == dict(stage="Delivered", record=pending["source_exit"]["record"], recipient=source.node)
+            target = self.reopen_actor(target)
+            code = self.private_path(prefix + "-target-invite", False)
+            assert target.call("precode_status", path=code)["uses"] == 1
+
+        assert switched["admission"] == saved["admission"]
+        assert not b.call(mover, "file_status")["enabled"]
+        b.call(mover, "enable_files")
+        transfer(target, "target-active")
+        reopen_mover()
+        assert b.call(mover, "migration_progress") == switched
+        assert self.actor_snapshot(mover)["status"]["network"] == new_network
+        target.stop()
+        target = self.reopen_actor(target)
+        transfer(target, "target-active-reopened")
+        source.stop()
+        source = self.reopen_actor(source)
+        assert role(source) == ("admin" if lost_genesis else None)
+        self.record(mover, "migration_qualified", switched)
+        self.close_actor(mover)
+        source.stop()
+        target.stop()
 
     def admission_rotation(self):
         b = self.browser
@@ -2141,6 +2373,8 @@ class BrowserOnboardingRunner(OnboardingRunner):
                 self.precode_revocation()
             elif self.args.suite == "rotation":
                 self.admission_rotation()
+            elif self.args.suite == "migration":
+                self.network_migration()
             else:
                 creator = self.creator(False, "native-provider")
                 if self.args.suite in ["all", "core"]:
@@ -2175,8 +2409,9 @@ def main():
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--build-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts", "device-names", "member-management", "departure", "removal-rejoin", "precode-revocation", "rotation"], default="all")
+    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts", "device-names", "member-management", "departure", "removal-rejoin", "precode-revocation", "rotation", "migration"], default="all")
     parser.add_argument("--relay", default=RELAY, help="explicit relay for suites that take a dedicated relay")
+    parser.add_argument("--migration-target-relay", help="separate target relay for the browser migration suite")
     parser.add_argument("--chromium", type=Path, default=Path("/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome"))
     args = parser.parse_args()
     build = json.loads(args.build_receipt.read_text())

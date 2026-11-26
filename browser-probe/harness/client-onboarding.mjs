@@ -34,6 +34,12 @@ const address = `http://127.0.0.1:${server.address().port}/`;
 await mkdir(privateDirectory, { recursive: true, mode: 0o700 });
 
 async function load(actor) {
+  if (process.env.MIOPUNCH_BROWSER_TEST_PAGE_ERRORS === '1') {
+    actor.page.on('pageerror', error => process.stderr.write(`${error.stack ?? error}\n`));
+    actor.page.on('console', message => {
+      if (message.type() === 'error') process.stderr.write(`${message.text()}\n`);
+    });
+  }
   await actor.page.goto(address, { waitUntil: 'domcontentloaded' });
   await actor.page.evaluate(async entry => {
     window.api = await import('/' + entry);
@@ -142,6 +148,46 @@ async function dispatch(command) {
       };
       return true;
     });
+  }
+  if (op === 'block_migration_commit') {
+    return actor.page.evaluate(checkpoint => {
+      if (!window.migrationCommitHook) {
+        window.migrationCommitHook = true;
+        const put = IDBObjectStore.prototype.put;
+        const complete = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'oncomplete');
+        Object.defineProperty(IDBTransaction.prototype, 'oncomplete', {
+          ...complete,
+          set(callback) {
+            complete.set.call(this, event => {
+              if (this.holdMigrationCompletion) window.migrationCommitBlocked = true;
+              else callback.call(this, event);
+            });
+          },
+        });
+        IDBObjectStore.prototype.put = function (...args) {
+          if (window.migrationCheckpoint && args[1] === 'state') {
+            const migration = JSON.parse(args[0]).migration;
+            const phase = migration?.verified ? 'switch' : migration?.inactive?.secret ? 'materials' : null;
+            if (phase === 'materials' && window.migrationCheckpoint === 'receipt') {
+              this.transaction.holdMigrationCompletion = true;
+            }
+            if (phase === window.migrationCheckpoint) {
+              window.migrationCommitBlocked = true;
+              this.transaction.abort();
+              throw new DOMException('owned migration commit failure', 'QuotaExceededError');
+            }
+          }
+          return put.apply(this, args);
+        };
+      }
+      window.migrationCheckpoint = checkpoint;
+      window.migrationCommitBlocked = false;
+      return true;
+    }, args[0]);
+  }
+  if (op === 'wait_migration_commit_blocked') {
+    await actor.page.waitForFunction(() => window.migrationCommitBlocked, undefined, { timeout: 20000 });
+    return true;
   }
   if (op === 'hold_admission_commit') {
     return actor.page.evaluate(checkpoint => {
@@ -334,7 +380,7 @@ async function dispatch(command) {
     if (['precode_invitation', 'issue_precode'].includes(method)) values = values.map(value => value == null ? value : BigInt(value));
     const result = await window.node[method](...values);
     if (method === 'finish_pairing') { window.node.free(); window.node = result; return JSON.parse(result.status()); }
-    if (['status', 'state_snapshot', 'observe_state', 'admission_requests', 'admission_history', 'admission_material_receipt', 'pairing_status', 'resource_configuration', 'path_diagnostics', 'control_state', 'device_operations', 'rotation_progress', 'begin_admission_rotation', 'confirm_admission_rotation', 'propose_device_operation', 'confirm_device_operation', 'execute_device_operation', 'request_device_confirmation', 'collect_device_result', 'sync_replica', 'file_status'].includes(method)) return JSON.parse(result);
+    if (['status', 'state_snapshot', 'observe_state', 'admission_requests', 'admission_history', 'admission_material_receipt', 'pairing_status', 'resource_configuration', 'path_diagnostics', 'control_state', 'device_operations', 'rotation_progress', 'begin_admission_rotation', 'confirm_admission_rotation', 'migration_progress', 'begin_network_migration', 'confirm_migration_source_exit', 'propose_device_operation', 'confirm_device_operation', 'execute_device_operation', 'request_device_confirmation', 'collect_device_result', 'sync_replica', 'file_status'].includes(method)) return JSON.parse(result);
     return result ?? null;
   }, [op, args]);
 }

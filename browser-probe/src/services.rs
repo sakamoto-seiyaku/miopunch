@@ -129,7 +129,7 @@ impl SavedNode {
         Ok((next, auth, result.policy_error))
     }
 
-    fn member_sync(&self, members: &[(VerifyingKey, Access)], mode: MemberSyncMode) -> MemberSync {
+    pub(super) fn member_sync(&self, members: &[(VerifyingKey, Access)], mode: MemberSyncMode) -> MemberSync {
         MemberSync::new(
             self.service_bundle(),
             self.device_names.for_members(members),
@@ -137,7 +137,7 @@ impl SavedNode {
         )
     }
 
-    fn with_member_sync(
+    pub(super) fn with_member_sync(
         &self,
         incoming: MemberSync,
     ) -> Result<(Self, Vec<(VerifyingKey, Access)>, Option<std::io::Error>), JsValue> {
@@ -179,15 +179,28 @@ pub(super) async fn installed(gate: &BrowserGate) -> Result<(SavedNode, String, 
 }
 
 pub(super) async fn installed_locked(gate: &BrowserGate) -> Result<(SavedNode, String, u32), JsValue> {
-    let (saved, token) = {
+    let (saved, token, migration_owner) = {
         let state = gate.0.lock().unwrap();
         (
             state.saved.clone().ok_or_else(rejected)?,
             state.lease.ok_or_else(rejected)?,
+            state.migration_owner.clone(),
         )
     };
     let raw = serde_json::to_string(&saved).map_err(error)?;
-    if read_node(token).await?.as_string().as_deref() != Some(&raw) {
+    let expected = if let Some(owner) = migration_owner {
+        let owner = owner.upgrade().ok_or_else(rejected)?;
+        let state = owner.lock().unwrap();
+        let active = state.saved.as_ref().ok_or_else(rejected)?;
+        let inactive = &active.migration.as_ref().ok_or_else(rejected)?.inactive;
+        if serde_json::to_string(inactive).map_err(error)? != raw {
+            return Err(error("browser migration context changed"));
+        }
+        serde_json::to_string(active).map_err(error)?
+    } else {
+        raw.clone()
+    };
+    if read_node(token).await?.as_string().as_deref() != Some(&expected) {
         return Err(error("browser service state changed or storage cleared"));
     }
     Ok((saved, raw, token))
@@ -210,10 +223,42 @@ pub(super) async fn commit_admission_material(
     receipt: String,
 ) -> Result<String, JsValue> {
     let _writer = gate.2.lock().await;
+    commit_admission_material_locked(gate, previous, token, next, receipt).await
+}
+
+async fn commit_admission_material_locked(
+    gate: &BrowserGate,
+    previous: &str,
+    token: u32,
+    next: &SavedNode,
+    receipt: String,
+) -> Result<String, JsValue> {
     let raw = encode_saved(next)?;
     save_node_with_receipt(token, JsValue::from_str(previous), raw.clone(), receipt).await?;
     gate.install(next);
     Ok(raw)
+}
+
+/// The writer is held. Complete the strict write before retiring source file
+/// tasks and exposing the new network and its progress on the same gate.
+pub(super) async fn commit_network_switch(
+    gate: &BrowserGate,
+    previous: &str,
+    token: u32,
+    next: &SavedNode,
+    receipt: Option<&str>,
+    files: &Rc<files::BrowserFiles>,
+) -> Result<(), JsValue> {
+    let raw = encode_saved(next)?;
+    let previous = JsValue::from_str(previous);
+    if let Some(receipt) = receipt {
+        save_node_with_receipt(token, previous, raw, receipt.to_owned()).await?;
+    } else {
+        save_node(token, previous, raw).await?;
+    }
+    files.reset_for_network();
+    gate.install(next);
+    Ok(())
 }
 
 #[wasm_bindgen(module = "/src/storage.js")]
@@ -253,6 +298,7 @@ pub(super) async fn commit_locked(
 
 fn encode_saved(next: &SavedNode) -> Result<String, JsValue> {
     next.verify()?;
+    next.validate_migration()?;
     let raw = serde_json::to_string(next).map_err(error)?;
     if raw.len() > 80 * 1024 * 1024 {
         return Err(error("browser state too large"));
@@ -497,8 +543,6 @@ impl BrowserServices {
         let files = network.files.clone();
         let coordinator = network.connection_coordinator();
         let endpoint = network.endpoint.clone();
-        let relays = network.relays.clone();
-        let routes = network.contact_routes.clone();
         let policy = network
             .saved
             .resources
@@ -547,7 +591,7 @@ impl BrowserServices {
                     };
                     peer = Some(target);
                     last = peer;
-                    let address = target_address(target, &relays, &routes)?;
+                    let address = saved.address_for(target)?;
                     let deadline = Instant::now() + budget;
                     if let Some(delivery) = departure {
                         let wire = member_sync_wire(deadline, async {

@@ -507,24 +507,37 @@ impl BrowserNetwork {
 
     /// Public resource choices and route descriptors contain no credentials.
     pub fn resource_configuration(&self) -> Result<String, JsValue> {
-        serde_json::to_string(&self.saved.resources).map_err(error)
+        serde_json::to_string(&self.gate.service_snapshot()?.resources).map_err(error)
     }
 }
 
 impl BrowserNetwork {
     pub(super) fn contact(&self) -> (EndpointAddr, BootstrapContact) {
         let mut address = self.endpoint.addr();
+        let resources = self.gate.service_snapshot().ok().and_then(|saved| saved.resources);
+        let relays = resources.as_ref().and_then(|resources| resources.allowed_relays().ok())
+            .unwrap_or_default();
+        let mqtt: Vec<_> = self.mqtt.iter().map(|(facility, _)| facility).filter(|facility| {
+            resources.as_ref().is_some_and(|resources| resources.mqtt.contains(facility))
+        }).collect();
+        let irc: Vec<_> = self.irc.iter().map(|(entry, _)| &entry.facility).filter(|facility| {
+            resources.as_ref().is_some_and(|resources| resources.irc.iter().any(|entry| &entry.facility == *facility))
+        }).collect();
+        address.addrs.retain(|address| match address {
+            iroh_base::TransportAddr::Relay(relay) => relays.contains(relay),
+            _ => true,
+        });
         address.addrs.extend(
             self.endpoint
                 .custom_addrs()
                 .into_iter()
                 .filter(|address| {
-                    self.mqtt.iter().any(|(facility, _)| {
+                    mqtt.iter().any(|facility| {
                         facility.service_tag().is_ok_and(|tag| {
                             crate::mqtt_datagram::route_from_addr(address, Some(tag)).is_ok()
                         })
-                    }) || self.irc.iter().any(|(entry, _)| {
-                        entry.facility.service_tag().is_ok_and(|tag| {
+                    }) || irc.iter().any(|facility| {
+                        facility.service_tag().is_ok_and(|tag| {
                             crate::irc_datagram::route_from_addr(address, tag).is_ok()
                         })
                     })
@@ -534,17 +547,9 @@ impl BrowserNetwork {
         (
             address,
             BootstrapContact {
-                relays: self.relays.iter().map(ToString::to_string).collect(),
-                mqtt: self
-                    .mqtt
-                    .iter()
-                    .map(|(facility, _)| facility.clone())
-                    .collect(),
-                irc: self
-                    .irc
-                    .iter()
-                    .map(|(entry, _)| entry.facility.clone())
-                    .collect(),
+                relays: relays.iter().map(ToString::to_string).collect(),
+                mqtt: mqtt.into_iter().cloned().collect(),
+                irc: irc.into_iter().cloned().collect(),
                 native_signaling: Vec::new(),
             },
         )

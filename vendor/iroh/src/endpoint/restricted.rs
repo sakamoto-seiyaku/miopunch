@@ -654,6 +654,11 @@ impl RestrictedEndpoint {
         self.inner.set_alpns(alpns);
     }
 
+    /// Add a relay to this endpoint without creating a second node registration.
+    pub async fn insert_relay(&self, relay: crate::RelayUrl, config: Arc<crate::RelayConfig>) {
+        self.inner.insert_relay(relay, config).await;
+    }
+
     /// Build a server configuration for [`RestrictedIncoming::accept_with`].
     ///
     /// Custom TLS configuration does not expose early business handles or bypass

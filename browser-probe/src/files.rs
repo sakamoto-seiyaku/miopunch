@@ -519,6 +519,22 @@ impl BrowserFiles {
         }
     }
 
+    pub(super) fn reset_for_network(self: &Rc<Self>) {
+        self.enabled.set(false);
+        self.generation.set(self.generation.get().wrapping_add(1));
+        self.tasks.cancel_all(false);
+        for connection in self.connections.borrow().iter() {
+            connection.close(1u32.into(), b"browser active network changed");
+        }
+        let partials = std::mem::take(&mut *self.partials.borrow_mut());
+        let files = self.clone();
+        wasm_bindgen_futures::spawn_local(async move {
+            for partial in partials.into_values() {
+                file_transfer::discard_partial(&mut *partial.lock().await, &files.tasks, FileError::Cancelled).await;
+            }
+        });
+    }
+
     pub async fn close(&self) {
         self.cancel.cancel();
         self.tasks.cancel_all(false);
@@ -589,6 +605,9 @@ impl BrowserNetwork {
             return Err(rejected());
         }
         services::update_saved(&self.gate, |saved| {
+            if generation != self.files.generation.get() {
+                return Err(rejected());
+            }
             *saved = saved.declare_files(true)?;
             Ok(())
         })

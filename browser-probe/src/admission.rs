@@ -114,8 +114,6 @@ impl AdmissionService {
     pub(super) fn start_receipts(&self, network: &BrowserNetwork, lease: u32) {
         let gate = network.gate.clone();
         let coordinator = network.connection_coordinator();
-        let relays = network.relays.clone();
-        let routes = network.contact_routes.clone();
         let budget = network.caller_budget;
         let cancel = network.incoming.cancellation();
         let receipt_ready = self.receipt_ready.clone();
@@ -141,7 +139,7 @@ impl AdmissionService {
                             if saved.receipt_material(receipt, contact)?.is_none() {
                                 return Ok("stopped");
                             }
-                            let target = target_address(contact, &relays, &routes)?;
+                            let target = saved.address_for(contact)?;
                             let deadline = n0_future::time::Instant::now() + budget;
                             let attempt = crate::connection_coordinator::AttemptContext::new(
                                 deadline,
@@ -209,7 +207,7 @@ pub(super) async fn settle_receipt(lease: u32, receipt: AdmissionReceipt) -> Res
 }
 
 impl SavedNode {
-    fn receipt_material(
+    pub(super) fn receipt_material(
         &self,
         receipt: AdmissionReceipt,
         contact: iroh_base::EndpointId,
@@ -235,7 +233,7 @@ impl SavedNode {
     }
 }
 
-async fn submit_receipt(
+pub(super) async fn submit_receipt(
     connection: &ControlOwner,
     receipt: AdmissionReceipt,
     scope: &AdmissionScope,

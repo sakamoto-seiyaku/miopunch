@@ -15,7 +15,7 @@ use crate::{
 };
 
 impl SavedNode {
-    fn approved_operation(
+    pub(super) fn approved_operation(
         &self,
         approval: DeviceApproval,
         receipt: Records,
@@ -37,7 +37,7 @@ impl SavedNode {
         }
         Ok(next)
     }
-    fn approval_history(&self, approval: &DeviceApproval) -> Records {
+    pub(super) fn approval_history(&self, approval: &DeviceApproval) -> Records {
         let mut records = self.records.clone();
         if !records
             .iter()
