@@ -13,7 +13,9 @@ use p2panda_core::{Hash, Header, SigningKey, VerifyingKey};
 use thiserror::Error;
 
 use crate::admission_gate::{ADMISSION_REQUEST_ALPN, PRECODE_REQUEST_ALPN, ProtocolScope};
-use crate::admission_progress::ApplicationProgress;
+use crate::admission_progress::{
+    AdmissionReceipt, ApplicationProgress, RECEIPT_DONE, RECEIPT_STOP,
+};
 use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::management_auth::{ManagementAuth, ManagementExtension, NetworkAnchor};
 use crate::management_store::{ManagementRecord, StoreError};
@@ -201,6 +203,89 @@ pub(crate) async fn serve_shared_admission(
     )
     .await
     .unwrap_or(Err(ManualAdmissionError::PathUnavailable))
+}
+
+pub(crate) async fn serve_admission_receipt(
+    node: &tokio::sync::Mutex<NativeNetwork>,
+    connection: &ControlOwner,
+) -> Result<(), ManualAdmissionError> {
+    let deadline = admission_deadline(connection);
+    tokio::time::timeout_at(deadline, async {
+        let exchange = connection
+            .accept_control_exchange()
+            .await
+            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+        let mut wire = [0; 80];
+        read_fixed(&exchange, &mut wire).await?;
+        let receipt = AdmissionReceipt::decode(wire);
+        let response = {
+            let mut node = node.lock().await;
+            node.recover_admission_state().await?;
+            if !node
+                .gate
+                .allows(connection, ProtocolScope::AdmissionRequest)
+                || receipt.genesis != node.anchor.genesis
+            {
+                return Err(ManualAdmissionError::Rejected);
+            }
+            let request = AdmissionRequest {
+                applicant: tls_key(connection.remote_id())?,
+                request_id: receipt.request_id,
+            };
+            let approved = node
+                .store
+                .approved_admission(&request)
+                .await?
+                .filter(|approved| approved.authorization == receipt.authorization)
+                .ok_or(ManualAdmissionError::Rejected)?;
+            if node.valid_approval(&approved).is_err() {
+                RECEIPT_STOP
+            } else {
+                node.store
+                    .advance_admission_delivery(&approved, AdmissionStage::Complete)
+                    .await?;
+                #[cfg(feature = "replica-test-hooks")]
+                node.store
+                    .observe(crate::management_store::RecordCheckpoint::DeliveryComplete);
+                RECEIPT_DONE
+            }
+        };
+        write_fixed(&exchange, response).await?;
+        exchange
+            .finish_send()
+            .await
+            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+        connection.revocation_handle().closed().await;
+        Ok(())
+    })
+    .await
+    .unwrap_or(Err(ManualAdmissionError::TimedOut))
+}
+
+pub(crate) async fn submit_admission_receipt(
+    connection: &ControlOwner,
+    receipt: AdmissionReceipt,
+) -> Result<(), ManualAdmissionError> {
+    tokio::time::timeout_at(admission_deadline(connection), async {
+        let exchange = connection
+            .open_control_exchange()
+            .await
+            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+        write_fixed(&exchange, &receipt.encode()).await?;
+        exchange
+            .finish_send()
+            .await
+            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+        let mut reply = [0; 4];
+        read_fixed(&exchange, &mut reply).await?;
+        if &reply == RECEIPT_DONE || &reply == RECEIPT_STOP {
+            Ok(())
+        } else {
+            Err(ManualAdmissionError::Rejected)
+        }
+    })
+    .await
+    .unwrap_or(Err(ManualAdmissionError::TimedOut))
 }
 
 async fn serve_admission_exchange(
@@ -847,6 +932,13 @@ impl NativeNetwork {
                 if &ack != b"DONE" {
                     return Err(ManualAdmissionError::Rejected);
                 }
+                self.store
+                    .settle_admission_receipt(AdmissionReceipt {
+                        genesis: self.anchor.genesis,
+                        request_id: delivery.request_id,
+                        authorization: delivery.authorization,
+                    })
+                    .await?;
                 Ok(self.admission_stage())
             },
         )

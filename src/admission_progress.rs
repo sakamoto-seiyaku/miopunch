@@ -73,3 +73,34 @@ impl AdmissionHistoryEntry {
 }
 
 pub(crate) const RECENT_ADMISSION_ATTEMPTS: usize = 128;
+
+/// The TLS peer supplies the applicant identity. A receipt names an existing
+/// delivery and carries neither invitation material nor a redemption token.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(crate) struct AdmissionReceipt {
+    pub genesis: Hash,
+    pub request_id: [u8; 16],
+    pub authorization: Hash,
+}
+
+impl AdmissionReceipt {
+    pub fn encode(self) -> [u8; 80] {
+        let mut bytes = [0; 80];
+        bytes[..32].copy_from_slice(self.genesis.as_bytes());
+        bytes[32..48].copy_from_slice(&self.request_id);
+        bytes[48..].copy_from_slice(self.authorization.as_bytes());
+        bytes
+    }
+
+    pub fn decode(bytes: [u8; 80]) -> Self {
+        Self {
+            genesis: Hash::from_bytes(bytes[..32].try_into().unwrap()),
+            request_id: bytes[32..48].try_into().unwrap(),
+            authorization: Hash::from_bytes(bytes[48..].try_into().unwrap()),
+        }
+    }
+}
+
+pub(crate) const RECEIPT_DONE: &[u8; 4] = b"DONE";
+// Only the authenticated original provider can end retry for an invalid grant.
+pub(crate) const RECEIPT_STOP: &[u8; 4] = b"STOP";

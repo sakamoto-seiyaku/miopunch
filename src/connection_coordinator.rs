@@ -25,6 +25,7 @@ use serde_json::{Value, json};
 pub const MEMBER_ALPN: &[u8] = b"miopunch/session/member/1";
 pub const ADMISSION_REQUEST_ALPN: &[u8] = b"miopunch/session/admission/1";
 pub const PRECODE_REQUEST_ALPN: &[u8] = b"miopunch/session/precode/1";
+pub(crate) const ADMISSION_RECEIPT_ALPN: &[u8] = b"miopunch/session/admission-receipt/1";
 /// Restricted control for improvement or repair of an already living ordinary
 /// member session. Both operations use the same binding/probe/commit exchange;
 /// this control session never returns an ordinary handle.
@@ -156,7 +157,9 @@ impl SessionPurpose {
             | crate::service_policy::POLICY_ALPN
             | crate::device_operation::DEVICE_ALPN
             | crate::credential_custody::CUSTODY_ALPN => Some(Self::MemberBusiness),
-            ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN => Some(Self::AdmissionRequest),
+            ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN | ADMISSION_RECEIPT_ALPN => {
+                Some(Self::AdmissionRequest)
+            }
             REPLICA_ALPN => Some(Self::Replica),
             ACTIVE_IMPROVEMENT_ALPN => Some(Self::ActiveImprovement),
             _ => None,

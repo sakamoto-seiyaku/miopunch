@@ -210,6 +210,10 @@ pub enum Command {
     },
     Status,
     StateSnapshot,
+    #[cfg(feature = "replica-test-hooks")]
+    InterruptAdmission {
+        after: String,
+    },
     ObserveState {
         after: String,
     },
@@ -362,6 +366,40 @@ fn admission_request_json(request: &AdmissionRequest) -> Value {
 }
 pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, ClientError> {
     match command {
+        #[cfg(feature = "replica-test-hooks")]
+        Command::InterruptAdmission { after } => {
+            use crate::management_store::RecordCheckpoint;
+            let observer: fn(RecordCheckpoint) = match after.as_str() {
+                "secret_saved" => |checkpoint| {
+                    if checkpoint == RecordCheckpoint::SecretSaved {
+                        std::process::exit(86);
+                    }
+                },
+                "receipt_saved_before_reply" => |checkpoint| {
+                    if checkpoint == RecordCheckpoint::DeliveryComplete {
+                        std::process::exit(86);
+                    }
+                },
+                "observe_receipt_saved" => |checkpoint| {
+                    if checkpoint == RecordCheckpoint::DeliveryComplete {
+                        eprintln!("admission receipt committed");
+                    }
+                },
+                "observe_receipt_settled" => |checkpoint| {
+                    if checkpoint == RecordCheckpoint::AdmissionReceiptSettled {
+                        eprintln!("admission receipt settled");
+                    }
+                },
+                _ => return Err("unknown admission checkpoint".into()),
+            };
+            client
+                .node
+                .lock()
+                .await
+                .store
+                .set_checkpoint_observer(observer);
+            Ok(json!({"armed":true}))
+        }
         Command::TerminalEnable {
             directory,
             distribution,

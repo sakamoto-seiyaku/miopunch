@@ -2,8 +2,11 @@
 //! committed together by the same strict IndexedDB snapshot transaction.
 use super::*;
 use crate::management_action::ManagementAction;
-use crate::admission_progress::{AdmissionHistoryEntry, RECENT_ADMISSION_ATTEMPTS};
+use crate::admission_progress::{
+    AdmissionHistoryEntry, AdmissionReceipt, RECEIPT_DONE, RECEIPT_STOP, RECENT_ADMISSION_ATTEMPTS,
+};
 use p2panda_core::SigningKey;
+use std::rc::Rc;
 
 pub(super) use crate::node_control_backup::{SavedApproval as Approval, SavedCode as Code};
 fn now() -> Result<u64, JsValue> {
@@ -53,6 +56,7 @@ impl SavedNode {
 pub(super) struct AdmissionService {
     manual: tokio::sync::broadcast::Sender<Result<&'static str, String>>,
     precode: tokio::sync::broadcast::Sender<Result<&'static str, String>>,
+    pub(super) receipts: Rc<tokio::sync::Mutex<Option<AdmissionReceipt>>>,
 }
 
 impl AdmissionService {
@@ -87,7 +91,155 @@ impl AdmissionService {
                 },
             );
         }
-        Self { manual, precode }
+        let receipt_gate = gate.clone();
+        incoming.install_active(
+            ADMISSION_RECEIPT_ALPN,
+            4,
+            move || budget,
+            move |accepting, deadline| {
+                let gate = receipt_gate.clone();
+                async move {
+                    let _ = receive_receipt(accepting, deadline, &gate).await;
+                }
+            },
+        );
+        Self {
+            manual,
+            precode,
+            receipts: Default::default(),
+        }
+    }
+
+    pub(super) fn start_receipts(&self, network: &BrowserNetwork) {
+        let gate = network.gate.clone();
+        let settled = self.receipts.clone();
+        let coordinator = network.connection_coordinator();
+        let relays = network.relays.clone();
+        let routes = network.contact_routes.clone();
+        let budget = network.caller_budget;
+        let cancel = network.incoming.cancellation();
+        let mut changes = gate.0.lock().unwrap().changes.subscribe();
+        wasm_bindgen_futures::spawn_local(async move {
+            loop {
+                let work = async {
+                    let mut settled = settled.lock().await;
+                    let saved = gate.service_snapshot()?;
+                    let Some((receipt, contact)) = saved.pending_receipt()? else {
+                        return Ok(());
+                    };
+                    if *settled == Some(receipt) {
+                        return Ok(());
+                    }
+                    let (_, _, lease) = services::installed(&gate).await?;
+                    let previous = read_admission_receipt(lease).await?;
+                    let next = hex::encode(receipt.encode());
+                    if previous.as_string().as_deref() != Some(next.as_str()) {
+                        let target = target_address(contact, &relays, &routes)?;
+                        let deadline = n0_future::time::Instant::now() + budget;
+                        let attempt = crate::connection_coordinator::AttemptContext::new(
+                            deadline,
+                            cancel.clone(),
+                        );
+                        let connection = coordinator
+                            .connect_control_alpn(target, ADMISSION_RECEIPT_ALPN, attempt)
+                            .await
+                            .map_err(error)?;
+                        let _scope = RequestConnection(Some(connection.clone()));
+                        if gate.service_snapshot()?.pending_receipt()? != Some((receipt, contact)) {
+                            return Ok(());
+                        }
+                        until(deadline, async {
+                            let exchange =
+                                connection.open_control_exchange().await.map_err(error)?;
+                            send_fixed(&exchange, &receipt.encode()).await?;
+                            exchange.finish_send().await.map_err(error)?;
+                            match &recv_fixed::<4>(&exchange).await? {
+                                RECEIPT_DONE | RECEIPT_STOP => Ok(()),
+                                _ => Err(rejected()),
+                            }
+                        })
+                        .await?;
+                        save_admission_receipt(lease, previous, next).await?;
+                    }
+                    *settled = Some(receipt);
+                    Ok::<(), JsValue>(())
+                };
+                let result = tokio::select! {
+                    biased;
+                    _ = cancel.cancelled() => break,
+                    result = work => result,
+                };
+                if result.is_err() {
+                    tokio::select! {
+                        biased;
+                        _ = cancel.cancelled() => break,
+                        _ = n0_future::time::sleep(Duration::from_secs(2)) => {}
+                    }
+                } else {
+                    tokio::select! {
+                        biased;
+                        _ = cancel.cancelled() => break,
+                        _ = changes.changed() => {}
+                    }
+                }
+            }
+        });
+    }
+}
+
+#[wasm_bindgen(module = "/src/storage.js")]
+extern "C" {
+    #[wasm_bindgen(catch, js_name = readAdmissionReceipt)]
+    async fn read_admission_receipt(lease: u32) -> Result<JsValue, JsValue>;
+    #[wasm_bindgen(catch, js_name = saveAdmissionReceipt)]
+    async fn save_admission_receipt(
+        lease: u32,
+        previous: JsValue,
+        next: String,
+    ) -> Result<JsValue, JsValue>;
+}
+
+pub(super) async fn settle_receipt(lease: u32, receipt: AdmissionReceipt) -> Result<(), JsValue> {
+    let previous = read_admission_receipt(lease).await?;
+    let next = hex::encode(receipt.encode());
+    if previous.as_string().as_deref() != Some(next.as_str()) {
+        save_admission_receipt(lease, previous, next).await?;
+    }
+    Ok(())
+}
+
+impl SavedNode {
+    pub(super) fn pending_receipt(
+        &self,
+    ) -> Result<Option<(AdmissionReceipt, iroh_base::EndpointId)>, JsValue> {
+        let Some(attempt) = self.admission_attempt() else {
+            return Ok(None);
+        };
+        let Some(authorization) = self.authorization else {
+            return Ok(None);
+        };
+        if attempt.progress != ApplicationProgress::Complete
+            || self.replacement_source.is_some()
+            || self.secret.is_none()
+        {
+            return Ok(None);
+        }
+        let invitation = self.invitation()?;
+        let provider = VerifyingKey::from_bytes(invitation.contact.as_bytes()).map_err(error)?;
+        if !self.verify()?.is_some_and(|auth| {
+            auth.nodes().contains(&(provider, Access::manage()))
+                && auth.membership_authorization_valid(authorization, self.identity())
+        }) {
+            return Ok(None);
+        }
+        Ok(Some((
+            AdmissionReceipt {
+                genesis: invitation.anchor.genesis,
+                request_id: attempt.request_id,
+                authorization,
+            },
+            invitation.contact,
+        )))
     }
 }
 
@@ -443,6 +595,54 @@ async fn until<T>(
     )
     .await
     .map_err(|_| error("admission delivery timed out"))?
+}
+
+async fn receive_receipt(
+    accepting: iroh::endpoint::RestrictedAccepting,
+    deadline: n0_future::time::Instant,
+    gate: &BrowserGate,
+) -> Result<(), JsValue> {
+    until(deadline, async {
+        let connection = Arc::new(
+            accepting
+                .with_caller_deadline(deadline)
+                .into_control()
+                .await
+                .map_err(error)?,
+        )
+        .retain_control();
+        let _scope = RequestConnection(Some(connection.clone()));
+        let exchange = connection.accept_control_exchange().await.map_err(error)?;
+        let receipt = AdmissionReceipt::decode(recv_fixed::<80>(&exchange).await?);
+        let applicant =
+            VerifyingKey::from_bytes(connection.remote_id().as_bytes()).map_err(error)?;
+        let response = services::update_saved(gate, |saved| {
+            if saved.invitation()?.anchor.genesis != receipt.genesis {
+                return Err(rejected());
+            }
+            let index = saved
+                .approval_index(applicant, receipt.request_id)
+                .ok_or_else(rejected)?;
+            if saved.approvals[index].authorization != Some(receipt.authorization) {
+                return Err(rejected());
+            }
+            if saved
+                .verify_delivery(receipt.authorization, applicant)
+                .is_err()
+            {
+                return Ok(RECEIPT_STOP);
+            }
+            saved.approvals[index].complete = true;
+            saved.approvals[index].delivery_phase = Some(3);
+            Ok(RECEIPT_DONE)
+        })
+        .await?;
+        send_fixed(&exchange, response).await?;
+        exchange.finish_send().await.map_err(error)?;
+        connection.revocation_handle().closed().await;
+        Ok(())
+    })
+    .await
 }
 
 async fn receive_admission(

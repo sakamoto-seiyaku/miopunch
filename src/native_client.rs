@@ -22,13 +22,16 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     admission_gate::{ADMISSION_REQUEST_ALPN, PRECODE_REQUEST_ALPN, ProtocolScope},
-    admission_progress::{AdmissionAttempt, AdmissionHistoryEntry, ApplicationProgress},
+    admission_progress::{
+        AdmissionAttempt, AdmissionHistoryEntry, AdmissionReceipt, ApplicationProgress,
+    },
+    connection_coordinator::ADMISSION_RECEIPT_ALPN,
     control_protocol::{AuthenticatedControl, ControlOwner, OwnedControl},
     manual_admission::{AdmissionRequest, AdmissionStage, ManualExchange, ManualInvitation},
     native_member_services::{self, MemberService},
     native_network::{NativeNetwork, NodeStatus},
     precode::Precode,
-    resources::ResourceEndpoint,
+    resources::{ContactClass, ResourceEndpoint},
 };
 
 pub type ClientError = Box<dyn Error + Send + Sync>;
@@ -159,6 +162,8 @@ impl NativeClient {
         node.admission_gate()
             .register_protocol(MEMBER_MESSAGE, ProtocolScope::Member);
         node.admission_gate()
+            .register_protocol(ADMISSION_RECEIPT_ALPN, ProtocolScope::AdmissionRequest);
+        node.admission_gate()
             .register_protocol(crate::web::WEB_ALPN, ProtocolScope::Member);
         node.admission_gate()
             .register_protocol(crate::terminal::TERMINAL_ALPN, ProtocolScope::Member);
@@ -201,6 +206,7 @@ impl NativeClient {
         resources.endpoint().set_alpns(vec![
             ADMISSION_REQUEST_ALPN.to_vec(),
             PRECODE_REQUEST_ALPN.to_vec(),
+            ADMISSION_RECEIPT_ALPN.to_vec(),
             MEMBER_MESSAGE.to_vec(),
             crate::native_network::FUSED_MEMBER_ALPN.to_vec(),
             crate::connection_recovery::CONNECTION_RECOVERY_ALPN.to_vec(),
@@ -288,6 +294,13 @@ impl NativeClient {
             tokio::spawn(async move {
                 let mut handlers = tokio::task::JoinSet::new();
                 let mut member_handlers = tokio::task::JoinSet::new();
+                let mut receipt = tokio::task::JoinSet::new();
+                receipt.spawn(admission_receipts(
+                    node.clone(),
+                    resources.clone(),
+                    recovery_saved.clone(),
+                    replacement_ready.clone(),
+                ));
                 let mut standby = crate::member_standby::MemberStandby::new();
                 let mut expiry = tokio::time::interval(Duration::from_secs(1));
                 loop {
@@ -449,7 +462,12 @@ impl NativeClient {
                                     return;
                                 }
                                 let _ = tokio::time::timeout_at(deadline, async {
-                                    if matches!(alpn.as_slice(), ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN) {
+                                    if alpn == ADMISSION_RECEIPT_ALPN {
+                                        let connection = Arc::new(accepting.into_control().await?).retain_control();
+                                        let result = crate::manual_admission::serve_admission_receipt(&node, &connection).await;
+                                        connection.close(0u32.into(), b"admission receipt ended");
+                                        result.map_err(ClientError::from)
+                                    } else if matches!(alpn.as_slice(), ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN) {
                                         let connection = Arc::new(accepting.into_control().await?);
                                         serve_admission(connection.retain_control(), node, services, files).await
                                     } else {
@@ -471,6 +489,7 @@ impl NativeClient {
                     }
                 }
                 handlers.abort_all();
+                receipt.shutdown().await;
                 standby.stop().await;
                 while handlers.join_next().await.is_some() {}
                 // Drop also reaches this owned listener through its cancel
@@ -916,7 +935,10 @@ impl NativeClient {
             };
             if let ManualExchange::Materials(delivery) = exchange {
                 if save {
-                    node.complete_manual_admission(delivery).await?;
+                    let result = node.complete_manual_admission(delivery).await;
+                    self.files
+                        .update_access(self.services.lock().await.access(&node).await?);
+                    return Ok(result?);
                 }
             }
             self.files
@@ -1150,6 +1172,105 @@ impl NativeClient {
         Ok(())
     }
 }
+async fn pending_admission_receipt(
+    node: &NativeNetwork,
+) -> Result<Option<(AdmissionReceipt, EndpointAddr)>, ClientError> {
+    if node.admission_stage() != AdmissionStage::Complete {
+        return Ok(None);
+    }
+    let Some(binding) = node.join else {
+        return Ok(None);
+    };
+    let Some(invitation) = crate::client_contact::load_invitation(node)? else {
+        return Ok(None);
+    };
+    if invitation.material()? != binding.invitation {
+        return Ok(None);
+    }
+    let request_id = invitation.code()?.map_or(binding.request_id, |code| {
+        code.request_id(binding.request_id)
+    });
+    let Some((attempt, Some(authorization))) = node.store.local_admission_progress().await? else {
+        return Ok(None);
+    };
+    let provider = p2panda_core::VerifyingKey::from_bytes(binding.invitation.contact.as_bytes())?;
+    if attempt.request_id != request_id
+        || !matches!(
+            attempt.progress,
+            ApplicationProgress::Authorized | ApplicationProgress::Complete
+        )
+        || !node.is_admin(provider)
+        || !node
+            .store
+            .membership_authorization_valid(authorization, node.node_key.verifying_key())
+    {
+        return Ok(None);
+    }
+    let receipt = AdmissionReceipt {
+        genesis: node.anchor.genesis,
+        request_id,
+        authorization,
+    };
+    Ok((!node.store.admission_receipt_settled(receipt).await?)
+        .then_some((receipt, invitation.address)))
+}
+
+async fn admission_receipts(
+    node: Arc<Mutex<NativeNetwork>>,
+    resources: Arc<ResourceEndpoint>,
+    recovery_saved: Arc<AtomicBool>,
+    replacement_ready: Arc<AtomicBool>,
+) {
+    let mut changes = node.lock().await.store.changes.subscribe();
+    loop {
+        if recovery_saved.load(Ordering::Acquire)
+            && replacement_ready.load(Ordering::Acquire)
+            && resume_admission_receipt(&node, &resources).await.is_err()
+        {
+            tokio::time::sleep(Duration::from_secs(2)).await;
+        } else if changes.changed().await.is_err() {
+            break;
+        }
+    }
+}
+
+async fn resume_admission_receipt(
+    node: &Mutex<NativeNetwork>,
+    resources: &ResourceEndpoint,
+) -> Result<(), ClientError> {
+    let Some((receipt, address)) = pending_admission_receipt(&*node.lock().await).await? else {
+        return Ok(());
+    };
+    let (connection, attempt) = resources
+        .connect_control_attempt(address, ADMISSION_RECEIPT_ALPN, ContactClass::Background)
+        .await?;
+    if !pending_admission_receipt(&*node.lock().await)
+        .await?
+        .is_some_and(|(current, _)| current == receipt)
+    {
+        connection.close(0u32.into(), b"admission receipt changed");
+        return Ok(());
+    }
+    let result = crate::manual_admission::submit_admission_receipt(&connection, receipt).await;
+    connection.close(0u32.into(), b"admission receipt ended");
+    if let Err(error) = result {
+        attempt.failed(error.to_string());
+        return Err(error.into());
+    }
+    attempt.succeeded();
+    let node = node.lock().await;
+    if pending_admission_receipt(&node)
+        .await?
+        .is_some_and(|(current, _)| current == receipt)
+    {
+        node.store.settle_admission_receipt(receipt).await?;
+        #[cfg(feature = "replica-test-hooks")]
+        node.store
+            .observe(crate::management_store::RecordCheckpoint::AdmissionReceiptSettled);
+    }
+    Ok(())
+}
+
 async fn serve_admission(
     connection: ControlOwner,
     node: Arc<Mutex<NativeNetwork>>,

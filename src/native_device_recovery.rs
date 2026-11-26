@@ -43,7 +43,7 @@ impl NativeClient {
         self.require_ready()?;
         let (connection, attempt) = self
             .resources
-            .connect_recovery_control(contact, MANAGEMENT_RECOVERY_ALPN, ContactClass::Foreground)
+            .connect_control_attempt(contact, MANAGEMENT_RECOVERY_ALPN, ContactClass::Foreground)
             .await?;
         let result = {
             let mut node = self.node.lock().await;

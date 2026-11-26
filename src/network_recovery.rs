@@ -170,7 +170,7 @@ impl NativeNetwork {
             )]);
             resources.remember(target.clone(), ContactClass::Background);
             let Ok((connection, attempt)) = resources
-                .connect_recovery_control(target, RECOVERY_REPLICA_ALPN, ContactClass::Background)
+                .connect_control_attempt(target, RECOVERY_REPLICA_ALPN, ContactClass::Background)
                 .await
             else {
                 continue;

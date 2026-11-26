@@ -20,6 +20,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::admission_progress::{AdmissionAttempt, ApplicationProgress};
 use crate::admission_proof::{AdmissionScope, AdmissionSecret, BootstrapProof};
+use crate::connection_coordinator::ADMISSION_RECEIPT_ALPN;
 use crate::management_auth::{ManagementAuth, NetworkAnchor};
 
 const REPLICA_ALPN: &[u8] = crate::connection_coordinator::REPLICA_ALPN;
@@ -28,6 +29,9 @@ const PRECODE_REQUEST_ALPN: &[u8] = crate::connection_coordinator::PRECODE_REQUE
 fn is_request_alpn(alpn: &[u8]) -> bool {
     crate::connection_coordinator::SessionPurpose::from_alpn(alpn)
         == Some(crate::connection_coordinator::SessionPurpose::AdmissionRequest)
+}
+fn tracks_request_diagnostics(alpn: &[u8]) -> bool {
+    matches!(alpn, REQUEST_ALPN | PRECODE_REQUEST_ALPN)
 }
 fn credential_bound_control(alpn: &[u8]) -> bool {
     // Recovery proves the root on this TLS session. Saving its newly received
@@ -1299,7 +1303,9 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
                 .retain(|stable, _| live.contains(stable));
         }
         if is_request_alpn(connection.alpn()) {
-            if let Some(handshake) = state.request_handshake.as_mut() {
+            if tracks_request_diagnostics(connection.alpn())
+                && let Some(handshake) = state.request_handshake.as_mut()
+            {
                 handshake["coordinator"] = report;
             }
             return;
@@ -1554,7 +1560,7 @@ impl BrowserGate {
             return Err(control_error("IdentityOrAdmissionRejected"));
         };
         let handshake_started = n0_future::time::Instant::now();
-        if is_request_alpn(connection.alpn()) {
+        if tracks_request_diagnostics(connection.alpn()) {
             self.0.lock().unwrap().request_handshake = Some(serde_json::json!({
                 "local_id": hex::encode(saved.identity().as_bytes()),
                 "remote_id": connection.remote_id().to_string(),
@@ -1602,7 +1608,7 @@ impl BrowserGate {
             .lock()
             .unwrap()
             .request_deadline
-            .filter(|_| is_request_alpn(connection.alpn()));
+            .filter(|_| tracks_request_diagnostics(connection.alpn()));
         let agreement_budget = crate::connection_budget::remaining(
             match (connection.caller_deadline(), request_deadline) {
                 (Some(caller), Some(request)) => Some(caller.min(request)),
@@ -1627,7 +1633,7 @@ impl BrowserGate {
             .flatten()
             .is_some();
 
-        if is_request_alpn(connection.alpn()) {
+        if tracks_request_diagnostics(connection.alpn()) {
             let mut state = self.0.lock().unwrap();
             if let Some(report) = state.request_handshake.as_mut() {
                 report["agreement_elapsed_ms"] = serde_json::json!(0);
@@ -1742,7 +1748,7 @@ impl iroh::endpoint::EndpointAdmission for BrowserGate {
             let confirmation = iroh::endpoint::ControlConfirmation::with_control(move |control| {
                 Box::pin(send_wrapper::SendWrapper::new(async move {
                     let result = prepared.confirm(&control.control_handle(), &gate).await;
-                    if is_request_alpn(control.alpn()) {
+                    if tracks_request_diagnostics(control.alpn()) {
                         if let Some(report) = gate.0.lock().unwrap().request_handshake.as_mut() {
                             report["confirmation_elapsed_ms"] =
                                 serde_json::json!(started.elapsed().as_millis());
@@ -1853,11 +1859,34 @@ struct ContactRoute {
     facility: String,
     address: String,
 }
+#[derive(Clone)]
 struct RuntimeContactRoute {
     contact: iroh_base::EndpointId,
     facility: String,
     address: iroh_base::CustomAddr,
 }
+
+fn target_address(
+    target: iroh_base::EndpointId,
+    relays: &[RelayUrl],
+    routes: &[RuntimeContactRoute],
+) -> Result<EndpointAddr, JsValue> {
+    let mut address = EndpointAddr::new(target);
+    address
+        .addrs
+        .extend(relays.iter().cloned().map(iroh_base::TransportAddr::Relay));
+    address.addrs.extend(
+        routes
+            .iter()
+            .filter(|route| route.contact == target)
+            .map(|route| iroh_base::TransportAddr::Custom(route.address.clone())),
+    );
+    if address.addrs.is_empty() {
+        return Err(error("temporarily unreachable: no allowed contact route"));
+    }
+    Ok(address)
+}
+
 impl Default for Configuration {
     fn default() -> Self {
         Self {
@@ -2360,6 +2389,13 @@ impl BrowserNetwork {
                 ));
             }
         }
+        contact_routes.retain(|route| {
+            mqtt.iter()
+                .any(|(facility, _)| facility.logical_id == route.facility)
+                || irc
+                    .iter()
+                    .any(|(entry, _)| entry.facility.logical_id == route.facility)
+        });
         let member_data_transport = configuration
             .member_data
             .as_ref()
@@ -2501,6 +2537,7 @@ impl BrowserNetwork {
                     REPLICA_ALPN.to_vec(),
                     REQUEST_ALPN.to_vec(),
                     PRECODE_REQUEST_ALPN.to_vec(),
+                    ADMISSION_RECEIPT_ALPN.to_vec(),
                 ];
                 if pairing_receiver {
                     alpns.push(crate::invitation_pairing::PAIRING_ALPN.to_vec());
@@ -2718,6 +2755,7 @@ impl BrowserNetwork {
                 address, bootstrap,
             ));
         }
+        network.admission.start_receipts(&network);
         Ok(network)
     }
 }
@@ -2931,6 +2969,8 @@ impl BrowserNetwork {
     }
 
     pub async fn complete_admission(&mut self) -> Result<String, JsValue> {
+        let receipts = self.admission.receipts.clone();
+        let mut settled = receipts.lock().await;
         let delivery = self.delivery.take().ok_or_else(rejected)?;
         let remaining = delivery
             .deadline
@@ -2973,6 +3013,11 @@ impl BrowserNetwork {
                 return Err(rejected());
             }
             self.material_event("DONE-received");
+            if let Some((receipt, _)) = self.saved.pending_receipt()? {
+                admission::settle_receipt(self.lease.as_ref().ok_or_else(rejected)?.0, receipt)
+                    .await?;
+                *settled = Some(receipt);
+            }
             Ok(self.saved.stage().to_string())
         })
         .await
@@ -3161,31 +3206,7 @@ impl BrowserNetwork {
     }
 
     fn target_address(&self, target: iroh_base::EndpointId) -> Result<EndpointAddr, JsValue> {
-        let mut addr = EndpointAddr::new(target);
-        for relay in &self.relays {
-            addr.addrs
-                .insert(iroh_base::TransportAddr::Relay(relay.clone()));
-        }
-        for route in &self.contact_routes {
-            if route.contact == target
-                && self
-                    .mqtt
-                    .iter()
-                    .any(|(facility, _)| facility.logical_id == route.facility)
-                || route.contact == target
-                    && self
-                        .irc
-                        .iter()
-                        .any(|(entry, _)| entry.facility.logical_id == route.facility)
-            {
-                addr.addrs
-                    .insert(iroh_base::TransportAddr::Custom(route.address.clone()));
-            }
-        }
-        if addr.addrs.is_empty() {
-            return Err(error("temporarily unreachable: no allowed contact route"));
-        }
-        Ok(addr)
+        target_address(target, &self.relays, &self.contact_routes)
     }
     async fn request_inner(&mut self) -> Result<String, JsValue> {
         let started = n0_future::time::Instant::now();

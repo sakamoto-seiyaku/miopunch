@@ -113,7 +113,7 @@ class BrowserControl:
 
 class BrowserOnboardingRunner(OnboardingRunner):
     def native_configuration(self, remote):
-        if self.args.suite not in ["progress", "observation"]:
+        if self.args.suite not in ["progress", "observation", "receipts"]:
             return super().native_configuration(remote)
         config = dict(defaults=dict(revision=2, resources=[]),
                       replacement=[dict(url=self.args.relay, uses=["DataRelay"], limitation="onboarding test relay")],
@@ -489,6 +489,128 @@ class BrowserOnboardingRunner(OnboardingRunner):
             originalReadAfterReopen=True, explicitNewRequestAfterRejection=True,
             invalidatedGrantStopsDelivery=True, precodeUsedOnceOnEachProvider=True))
 
+    def admission_receipts(self):
+        b = self.browser
+        browser_provider = "browser-receipt-provider"
+        configuration = self.progress_configuration()
+        b.start(browser_provider, "create", configuration=configuration)
+        b.call(browser_provider, "export_recovery_card")
+        b.call(browser_provider, "acknowledge_recovery_saved")
+
+        def expect_interrupted(host):
+            assert host.process.wait(timeout=10) == 86
+            host.process.stdin.close()
+            host.stderr.close()
+            self.hosts.remove(host)
+            self.record(host.label, "expected_interruption", {"exit": 86})
+
+        def reopen_native(host):
+            reopened = Host(self, host.label + "-after-interruption", False, "open", host.directory)
+            assert reopened.node == host.node
+            return reopened
+
+        def reopen_browser(actor):
+            assert b.call(actor, "reopen_page")
+            return b.call(actor, "start", "start", json.dumps(configuration), None)
+
+        def wait_checkpoint(host, message):
+            deadline = time.monotonic() + 30
+            log = self.output / (host.label + ".stderr")
+            while message not in log.read_text():
+                assert time.monotonic() < deadline and host.process.poll() is None, message
+                time.sleep(0.1)
+            self.record(host.label, "protocol_checkpoint", {"committed": True})
+
+        def native_saved_before_send(label):
+            code = b.call(browser_provider, "precode_invitation", int(time.time()) + 3600, 1)
+            path = self.write_private(label + "-invite.json", code.encode(), False)
+            applicant = self.start(label, False, "join", path)
+            assert applicant.call("request", authorization_only=True)["stage"] == "PendingMaterials"
+            history = b.call(browser_provider, "admission_history")
+            entry = next(item for item in history if item["applicant"] == applicant.node)
+            assert entry["decision"] == "ApprovedAwaitingReceipt" and entry["authorization"]
+            assert applicant.call("interrupt_admission", after="secret_saved")["armed"]
+            try:
+                applicant.call("request")
+            except RuntimeError as interruption:
+                assert "exited before response" in str(interruption)
+            expect_interrupted(applicant)
+            assert b.call(browser_provider, "admission_history") == history
+            assert b.call(browser_provider, "precode_usage", material(code)["precode"]) == 1
+            return applicant, entry, code
+
+        native_applicant, awaiting, code = native_saved_before_send("native-receipt-applicant")
+        browser_records = b.call(browser_provider, "admission_material_receipt")["records"]
+        assert b.call(browser_provider, "close_page")
+        native_applicant = reopen_native(native_applicant)
+        joined = dict(request_id=awaiting["request_id"], progress="Complete")
+        assert native_applicant.ready["status"]["stage"] == "Complete"
+        assert native_applicant.ready["status"]["admission_attempt"] == joined
+        native_applicant.call("request", ok=False)
+        assert native_applicant.call("status")["admission_attempt"] == joined
+        assert native_applicant.call("interrupt_admission", after="observe_receipt_settled")["armed"]
+        reopen_browser(browser_provider)
+        wait_checkpoint(native_applicant, "admission receipt settled")
+        received = dict(awaiting, decision="ReceiptReceived")
+        assert b.call(browser_provider, "admission_history") == [received]
+        assert b.call(browser_provider, "admission_material_receipt")["records"] == browser_records
+        assert b.call(browser_provider, "precode_usage", material(code)["precode"]) == 1
+        assert native_applicant.call("status")["stage"] == "Complete"
+        assert native_applicant.call("status")["admission_attempt"] == joined
+        native_applicant.stop()
+        assert b.call(browser_provider, "close_page")
+        reopen_browser(browser_provider)
+        assert b.call(browser_provider, "admission_history") == [received]
+
+        native_provider = self.creator(False, "native-receipt-provider")
+        browser_applicant = "browser-receipt-applicant"
+        code_name = "browser-receipt-precode.json"
+        native_code = self.native_invitation(native_provider, code_name, precode=True)
+        saved = b.start(browser_applicant, "join", native_code, configuration)
+        assert b.call(browser_applicant, "request_join", True) == "PendingMaterials"
+        approved, = native_provider.call("admission_history")
+        assert approved["applicant"] == saved["id"]
+        assert approved["decision"] == "ApprovedAwaitingReceipt" and approved["authorization"]
+        native_records = native_provider.call("status")["records"]
+        assert native_provider.call("interrupt_admission", after="receipt_saved_before_reply")["armed"]
+        b.call(browser_applicant, "request_join", False, ok=False)
+        expect_interrupted(native_provider)
+        joined = dict(request_id=approved["request_id"], progress="Complete")
+        assert b.call(browser_applicant, "status")["stage"] == "Complete"
+        assert b.call(browser_applicant, "status")["admission_attempt"] == joined
+        assert b.call(browser_applicant, "close_page")
+        native_provider = reopen_native(native_provider)
+        received_native = dict(approved, decision="ReceiptReceived")
+        assert native_provider.call("admission_history") == [received_native]
+        assert native_provider.call("interrupt_admission", after="observe_receipt_saved")["armed"]
+        reopened = reopen_browser(browser_applicant)
+        assert reopened["stage"] == "Complete" and reopened["admission_attempt"] == joined
+        wait_checkpoint(native_provider, "admission receipt committed")
+        assert native_provider.call("requests")["requests"] == []
+        assert native_provider.call("status")["records"] == native_records
+        assert native_provider.call("precode_status", path=self.path(code_name, False))["uses"] == 1
+        native_provider = self.reopen(native_provider)
+        assert native_provider.call("admission_history") == [received_native]
+        assert b.call(browser_applicant, "status")["admission_attempt"] == joined
+
+        stale, old, stale_code = native_saved_before_send("native-receipt-stale")
+        session = b.call(browser_provider, "begin_management_session")
+        b.call(browser_provider, "manage", session, "remove-member", stale.node)
+        b.call(browser_provider, "end_management_session", session)
+        assert b.call(browser_provider, "close_page")
+        stale = reopen_native(stale)
+        assert stale.call("interrupt_admission", after="observe_receipt_settled")["armed"]
+        reopen_browser(browser_provider)
+        wait_checkpoint(stale, "admission receipt settled")
+        assert b.call(browser_provider, "admission_history") == [old, received]
+        assert b.call(browser_provider, "precode_usage", material(stale_code)["precode"]) == 1
+        assert b.call(browser_provider, "admission_requests") == []
+        self.record("receipts", "admission_receipts_qualified", dict(
+            nativeAndWasmBothRoles=True, nativeSavedBeforeSend=True,
+            providerSavedBeforeFinalReply=True, timeoutPreservedLocalAdmission=True,
+            reopenedProvidersRetainOriginalResult=True, invalidGrantStopsReceipt=True,
+            noDuplicateGrantOrRedemption=True))
+
     def native_invitation(self, creator, name, precode=False):
         if precode:
             creator.call("issue_precode", path=self.private_path(name, False), seconds=3600, max_uses=1)
@@ -848,6 +970,8 @@ class BrowserOnboardingRunner(OnboardingRunner):
                 self.admission_progress()
             elif self.args.suite == "observation":
                 self.online_admission_observation()
+            elif self.args.suite == "receipts":
+                self.admission_receipts()
             else:
                 creator = self.creator(False, "native-provider")
                 if self.args.suite in ["all", "core"]:
@@ -882,8 +1006,8 @@ def main():
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--build-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation"], default="all")
-    parser.add_argument("--relay", default=RELAY, help="explicit relay for the progress and observation suites")
+    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts"], default="all")
+    parser.add_argument("--relay", default=RELAY, help="explicit relay for the progress, observation and receipt suites")
     parser.add_argument("--chromium", type=Path, default=Path("/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome"))
     args = parser.parse_args()
     build = json.loads(args.build_receipt.read_text())

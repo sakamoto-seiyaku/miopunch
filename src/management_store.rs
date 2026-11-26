@@ -109,6 +109,7 @@ pub enum RecordCheckpoint {
     SecretFilePublished,
     SecretSaved,
     CompletionSent,
+    AdmissionReceiptSettled,
     BeforePrecodeCommit,
     AfterPrecodeCommit,
     BeforeStorageCommit,
@@ -156,6 +157,14 @@ impl ManagementStore {
                 request_id BLOB NOT NULL,
                 progress INTEGER NOT NULL CHECK (progress BETWEEN 0 AND 4),
                 authorization BLOB
+            )",
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS local_admission_receipt (
+                singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+                settled BLOB NOT NULL
             )",
         )
         .execute(&pool)
@@ -516,6 +525,28 @@ impl ManagementStore {
         sqlx::query("UPDATE local_admission_attempt SET authorization = ? WHERE request_id = ?")
             .bind(authorization.as_bytes().as_slice())
             .bind(request_id.as_slice())
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub(crate) async fn admission_receipt_settled(
+        &self,
+        receipt: crate::admission_progress::AdmissionReceipt,
+    ) -> Result<bool, StoreError> {
+        let settled: Option<Vec<u8>> =
+            sqlx::query_scalar("SELECT settled FROM local_admission_receipt WHERE singleton = 1")
+                .fetch_optional(&self.pool)
+                .await?;
+        Ok(settled.as_deref() == Some(receipt.encode().as_slice()))
+    }
+
+    pub(crate) async fn settle_admission_receipt(
+        &self,
+        receipt: crate::admission_progress::AdmissionReceipt,
+    ) -> Result<(), StoreError> {
+        sqlx::query("INSERT OR REPLACE INTO local_admission_receipt VALUES (1, ?)")
+            .bind(receipt.encode().as_slice())
             .execute(&self.pool)
             .await?;
         Ok(())

@@ -1463,7 +1463,7 @@ impl ResourceEndpoint {
         .await
     }
 
-    pub(crate) async fn connect_recovery_control(
+    pub(crate) async fn connect_control_attempt(
         &self,
         target: iroh::EndpointAddr,
         alpn: &[u8],

@@ -52,12 +52,12 @@ function database() {
   });
 }
 
-export async function readNode(token) {
+export async function readNode(token, key = 'state') {
   if (!leases.has(token)) throw new Error('identity lease ended');
   const db = await database();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction('node', 'readonly');
-    const request = transaction.objectStore('node').get('state');
+    const request = transaction.objectStore('node').get(key);
     transaction.oncomplete = () => { db.close(); resolve(request.result ?? null); };
     transaction.onabort = transaction.onerror = () => { db.close(); reject(new Error('browser storage read failed')); };
   });
@@ -66,24 +66,32 @@ export async function readNode(token) {
 // The comparison and replacement are in one real IndexedDB transaction. Resolve
 // only after oncomplete, never after the put request alone. Stale pages, cleared
 // stores and failed commits cannot acknowledge saved admission material.
-export async function saveNode(token, previous, next) {
+export async function saveNode(token, previous, next, key = 'state') {
   const lease = leases.get(token);
   if (!lease || lease.releasing) throw new Error('identity lease ended');
-  const save = replaceNode(previous, next);
+  const save = replaceNode(previous, next, key);
   lease.saves.add(save);
   try { await save; }
   finally { lease.saves.delete(save); }
 }
 
-async function replaceNode(previous, next) {
+export function readAdmissionReceipt(token) {
+  return readNode(token, 'admission-receipt');
+}
+
+export function saveAdmissionReceipt(token, previous, next) {
+  return saveNode(token, previous, next, 'admission-receipt');
+}
+
+async function replaceNode(previous, next, key) {
   const db = await database();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction('node', 'readwrite', { durability: 'strict' });
     const store = transaction.objectStore('node');
-    const request = store.get('state');
+    const request = store.get(key);
     request.onsuccess = () => {
       if ((request.result ?? null) !== previous) { transaction.abort(); return; }
-      store.put(next, 'state');
+      store.put(next, key);
     };
     transaction.oncomplete = () => { db.close(); resolve(); };
     transaction.onabort = transaction.onerror = () => { db.close(); reject(new Error('browser material commit failed or storage changed')); };
