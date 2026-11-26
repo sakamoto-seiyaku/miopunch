@@ -2,6 +2,7 @@
 //! committed together by the same strict IndexedDB snapshot transaction.
 use super::*;
 use crate::management_action::ManagementAction;
+use crate::admission_progress::{AdmissionHistoryEntry, RECENT_ADMISSION_ATTEMPTS};
 use p2panda_core::SigningKey;
 
 pub(super) use crate::node_control_backup::{SavedApproval as Approval, SavedCode as Code};
@@ -55,6 +56,13 @@ impl BrowserNetwork {
     }
     pub fn admission_requests(&self) -> String {
         serde_json::json!(self.saved.approvals.iter().map(|a|serde_json::json!({"applicant":a.applicant.to_string(),"request":hex::encode(a.request),"approved":a.authorization.is_some(),"rejected":a.rejected,"delivery_confirmed":a.complete})).collect::<Vec<_>>()).to_string()
+    }
+    /// Recent locally handled requests, including historical delivery outcomes.
+    pub fn admission_history(&self) -> String {
+        serde_json::json!(self.saved.approvals.iter().rev().take(RECENT_ADMISSION_ATTEMPTS)
+            .map(|approval| AdmissionHistoryEntry::from_evidence(approval.applicant, approval.request,
+                approval.authorization, approval.rejected, approval.complete).public_json())
+            .collect::<Vec<_>>()).to_string()
     }
     pub async fn approve_admission(
         &mut self,

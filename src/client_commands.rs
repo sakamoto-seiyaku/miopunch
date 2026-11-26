@@ -233,17 +233,18 @@ pub enum Command {
         path: String,
     },
     Request {
-        path: String,
+        path: Option<String>,
         #[serde(default)]
         authorization_only: bool,
     },
     Requests,
+    AdmissionHistory,
     Reject {
         applicant: String,
         request_id: String,
     },
     NewManualAttempt {
-        path: String,
+        path: Option<String>,
     },
     Approve {
         applicant: String,
@@ -324,6 +325,7 @@ pub async fn status(client: &NativeClient) -> Value {
         "genesis":status.node.anchor.genesis.to_string(),
         "stage":if !status.recovery_saved {"AwaitingRecoverySave".into()} else if !status.replacement_ready {"RestoringAuthorization".into()} else if status.membership_ended {"Removed".into()} else if status.manual_rejected {"Rejected".into()} else {format!("{:?}",status.admission)},
         "automatic_retry":!status.manual_rejected,
+        "admission_attempt":status.admission_attempt.map(|attempt| attempt.public_json()),
         "recovery_exported":status.recovery_exported, "recovery_saved":status.recovery_saved,
         "replacement_ready":status.replacement_ready, "records":status.node.applied_count,
         "members":status.node.members.iter().map(|(key,role)| json!({"node":key.to_string(),
@@ -625,11 +627,15 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
             path,
             authorization_only,
         } => {
-            let invitation = read_invitation(&path)?;
-            let result = if authorization_only {
-                client.receive_authorization(&invitation).await
+            let result = if let Some(path) = path {
+                let invitation = read_invitation(&path)?;
+                if authorization_only {
+                    client.receive_authorization(&invitation).await
+                } else {
+                    client.request_admission(&invitation).await
+                }
             } else {
-                client.request_admission(&invitation).await
+                client.continue_admission(authorization_only).await
             };
             if client.status().await.manual_rejected {
                 return Ok(json!({"stage":"Rejected","automatic_retry":false}));
@@ -638,7 +644,11 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
             Ok(json!({"stage":format!("{stage:?}")}))
         }
         Command::NewManualAttempt { path } => {
-            client.new_manual_attempt(&read_invitation(&path)?).await?;
+            if let Some(path) = path {
+                client.new_manual_attempt(&read_invitation(&path)?).await?;
+            } else {
+                client.new_saved_manual_attempt().await?;
+            }
             Ok(json!({"stage":"AwaitingApproval"}))
         }
         Command::Reject {
@@ -658,6 +668,8 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
             json!({"requests":client.requests().await?.iter().map(|request|
             json!({"applicant":request.applicant.to_string(),"request_id":hex::encode(request.request_id)})).collect::<Vec<_>>()}),
         ),
+        Command::AdmissionHistory => Ok(json!(client.admission_history().await?.into_iter()
+            .map(|entry| entry.public_json()).collect::<Vec<_>>())),
         Command::Approve {
             applicant,
             request_id,

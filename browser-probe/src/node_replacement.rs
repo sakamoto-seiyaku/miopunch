@@ -142,6 +142,7 @@ impl SavedNode {
             recovery_exported: node.recovery_exported,
             recovery_saved: node.recovery_saved,
             manual_rejected: false,
+            confirmed_admission: None,
             complete_invitation: node.complete_invitation.clone(),
             services: node.services.clone(),
             guest: node.guest.clone(),

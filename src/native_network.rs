@@ -1202,6 +1202,16 @@ impl NativeNetwork {
         &mut self,
         code: &crate::precode::Precode,
     ) -> Result<(), NodeError> {
+        if let Some(binding) = self.prepare_precode_completion(code).await? {
+            self.persist_join_binding(binding)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn prepare_precode_completion(
+        &mut self,
+        code: &crate::precode::Precode,
+    ) -> Result<Option<JoinBinding>, NodeError> {
         self.store.apply_ready().await?;
         self.refresh_authorization();
         self.store.ensure_admissions_open().await?;
@@ -1211,19 +1221,18 @@ impl NativeNetwork {
             return Err(NodeError::InvalidData);
         }
         if previous.invitation == invitation {
-            return Ok(());
+            return Ok(None);
         }
         if self.admission_stage() == crate::manual_admission::AdmissionStage::Complete {
             return Err(NodeError::InvalidData);
         }
-        let binding = JoinBinding {
+        Ok(Some(JoinBinding {
             invitation,
             request_id: previous.request_id,
-        };
-        self.persist_join_binding(binding)
+        }))
     }
 
-    fn persist_join_binding(&mut self, binding: JoinBinding) -> Result<(), NodeError> {
+    pub(crate) fn persist_join_binding(&mut self, binding: JoinBinding) -> Result<(), NodeError> {
         let temporary = self
             .directory
             .join(format!(".join-binding-{:032x}", rand::random::<u128>()));

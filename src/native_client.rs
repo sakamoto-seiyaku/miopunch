@@ -22,6 +22,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     admission_gate::{ADMISSION_REQUEST_ALPN, PRECODE_REQUEST_ALPN, ProtocolScope},
+    admission_progress::{AdmissionAttempt, AdmissionHistoryEntry, ApplicationProgress},
     control_protocol::{AuthenticatedControl, ControlOwner, OwnedControl},
     manual_admission::{AdmissionRequest, AdmissionStage, ManualExchange, ManualInvitation},
     native_member_services::{self, MemberService},
@@ -50,6 +51,7 @@ impl ClientInvitation {
 pub struct ClientStatus {
     pub node: NodeStatus,
     pub admission: AdmissionStage,
+    pub admission_attempt: Option<AdmissionAttempt>,
     /// Recorded recovery-card export progress. `None` means the record could not be read or verified.
     pub recovery_exported: Option<bool>,
     pub recovery_saved: bool,
@@ -79,7 +81,7 @@ pub struct NativeClient {
     listener: JoinHandle<()>,
     recovery_saved: Arc<AtomicBool>,
     pub(crate) replacement_ready: Arc<AtomicBool>,
-    manual_rejected: AtomicBool,
+    admission_operation: Mutex<()>,
 }
 impl NativeClient {
     pub async fn create(path: impl AsRef<Path>, bind: Ipv4Addr) -> Result<Self, ClientError> {
@@ -106,13 +108,12 @@ impl NativeClient {
         let code = invitation
             .code()?
             .ok_or("continuation requires a precode")?;
+        Self::remember_existing_admission(&node).await?;
         let config = crate::client_contact::import_contact(
             node.resource_configuration()?,
             invitation.bootstrap(),
         )?;
-        node.begin_precode_completion(&code).await?;
-        node.save_resource_configuration(&config)?;
-        crate::client_contact::save_invitation(&node, invitation)?;
+        Self::select_precode(&mut node, &code, invitation, Some(&config)).await?;
         Self::start(node, bind).await
     }
     pub async fn join(
@@ -138,7 +139,7 @@ impl NativeClient {
         Self::start(NativeNetwork::open(path).await?, bind).await
     }
     pub(crate) async fn start(node: NativeNetwork, bind: Ipv4Addr) -> Result<Self, ClientError> {
-        let manual_rejected = AtomicBool::new(node.manual_request_declined().await?);
+        Self::remember_existing_admission(&node).await?;
         let recovery_saved = Arc::new(AtomicBool::new(
             recovery_state(&node)?.is_none_or(|state| state.saved),
         ));
@@ -490,22 +491,90 @@ impl NativeClient {
             listener,
             recovery_saved,
             replacement_ready,
-            manual_rejected,
+            admission_operation: Mutex::new(()),
         })
     }
     pub async fn status(&self) -> ClientStatus {
         let node = self.node.lock().await;
+        let admission_attempt = Self::read_admission_attempt(&node).await.ok().flatten();
+        let manual_rejected = if let Some(attempt) = admission_attempt {
+            attempt.progress == ApplicationProgress::Rejected
+        } else {
+            node.manual_request_declined().await.unwrap_or(false)
+        };
         ClientStatus {
             node: node.status(),
             admission: node.admission_stage(),
+            admission_attempt,
             recovery_exported: read_recovery_state(&node)
                 .map(|state| state.is_some_and(|state| state.exported))
                 .ok(),
             recovery_saved: self.recovery_saved.load(Ordering::Acquire),
-            manual_rejected: self.manual_rejected.load(Ordering::Acquire),
+            manual_rejected,
             membership_ended: node.store.known_removed(node.status().node_id),
             replacement_ready: self.replacement_ready.load(Ordering::Acquire),
         }
+    }
+
+    /// Durable progress of the selected local admission. An unavailable path
+    /// leaves this state intact and is reported by the admission operation.
+    pub async fn admission_attempt(&self) -> Result<Option<AdmissionAttempt>, ClientError> {
+        Self::read_admission_attempt(&*self.node.lock().await).await
+    }
+
+    async fn remember_existing_admission(node: &NativeNetwork) -> Result<(), ClientError> {
+        if node.join.is_some()
+            && node.store.local_admission_progress().await?.is_none()
+            && let Ok(Some(attempt)) = Self::read_admission_attempt(node).await
+        {
+            node.store.save_local_admission_progress(attempt.request_id, attempt.progress).await?;
+        }
+        Ok(())
+    }
+
+    async fn read_admission_attempt(
+        node: &NativeNetwork,
+    ) -> Result<Option<AdmissionAttempt>, ClientError> {
+        let Some(binding) = node.join else { return Ok(None) };
+        let Some(invitation) = crate::client_contact::load_invitation(node)? else {
+            return Ok(None);
+        };
+        if invitation.material()? != binding.invitation {
+            return Err("saved invitation does not match the local request".into());
+        }
+        let code = invitation.code()?;
+        let request_id = code.map_or(binding.request_id, |code| code.request_id(binding.request_id));
+        let stage = node.admission_stage();
+        let progress = match node.store.local_admission_progress().await? {
+            Some((attempt, authorization)) if attempt.request_id == request_id => {
+                if attempt.progress == ApplicationProgress::Delivered
+                    && authorization.is_some_and(|id| {
+                        node.store.membership_authorization_valid(id, node.node_key.verifying_key())
+                    })
+                    && p2panda_core::VerifyingKey::from_bytes(binding.invitation.contact.as_bytes())
+                        .is_ok_and(|provider| node.is_admin(provider))
+                {
+                    ApplicationProgress::Authorized
+                } else {
+                    attempt.progress
+                }
+            }
+            Some(_) => ApplicationProgress::Created,
+            None => match stage {
+                // Upgraded stores already have verified material from the
+                // original request, even if the progress marker is absent.
+                AdmissionStage::Complete => ApplicationProgress::Complete,
+                AdmissionStage::PendingMaterials => ApplicationProgress::Authorized,
+                _ => ApplicationProgress::Created,
+            },
+        };
+        let progress = match (progress, stage) {
+            _ if code.is_none() && node.manual_request_declined().await? => ApplicationProgress::Rejected,
+            (ApplicationProgress::Authorized, AdmissionStage::Complete) => ApplicationProgress::Complete,
+            (ApplicationProgress::Complete, AdmissionStage::PendingMaterials) => ApplicationProgress::Authorized,
+            _ => progress,
+        };
+        Ok(Some(AdmissionAttempt { request_id, progress }))
     }
     pub fn address(&self) -> EndpointAddr {
         self.resources.addr()
@@ -629,6 +698,15 @@ impl NativeClient {
         }
         Ok(pending)
     }
+
+    /// The latest locally handled attempts, including historical delivery
+    /// outcomes whose original membership authorization no longer applies.
+    pub async fn admission_history(&self) -> Result<Vec<AdmissionHistoryEntry>, ClientError> {
+        self.require_ready()?;
+        let mut node = self.node.lock().await;
+        node.recover_admission_state().await?;
+        Ok(node.store.admission_history().await?)
+    }
     pub async fn reject(&self, request: &AdmissionRequest) -> Result<(), ClientError> {
         self.require_ready()?;
         Ok(self
@@ -643,15 +721,32 @@ impl NativeClient {
         &self,
         invitation: &ClientInvitation,
     ) -> Result<(), ClientError> {
+        let _operation = self.admission_operation.lock().await;
+        self.begin_new_manual_attempt(invitation).await
+    }
+
+    async fn begin_new_manual_attempt(
+        &self,
+        invitation: &ClientInvitation,
+    ) -> Result<(), ClientError> {
         let mut node = self.node.lock().await;
         if !node.manual_request_declined().await? || invitation.code()?.is_some() {
             return Err("no declined manual request".into());
         }
-        node.begin_rejoin(invitation.material()?).await?;
+        let material = invitation.material()?;
+        if material.anchor != node.anchor {
+            return Err("invitation belongs to another network".into());
+        }
+        crate::client_contact::stage_invitation(&node, invitation)?;
+        node.begin_rejoin(material).await?;
         self.files
             .update_access(self.services.lock().await.access(&node).await?);
-        self.manual_rejected.store(false, Ordering::Release);
         Ok(())
+    }
+
+    pub async fn new_saved_manual_attempt(&self) -> Result<(), ClientError> {
+        let _operation = self.admission_operation.lock().await;
+        self.begin_new_manual_attempt(&self.saved_admission_invitation().await?).await
     }
     pub async fn approve(&self, request: &AdmissionRequest) -> Result<AdmissionStage, ClientError> {
         self.require_ready()?;
@@ -667,6 +762,7 @@ impl NativeClient {
         &self,
         invitation: &ClientInvitation,
     ) -> Result<AdmissionStage, ClientError> {
+        let _operation = self.admission_operation.lock().await;
         self.receive_admission(invitation, true).await
     }
     /// Receive the verified authorization without finishing secret delivery.
@@ -676,7 +772,53 @@ impl NativeClient {
         &self,
         invitation: &ClientInvitation,
     ) -> Result<AdmissionStage, ClientError> {
+        let _operation = self.admission_operation.lock().await;
         self.receive_admission(invitation, false).await
+    }
+
+    /// Continue the selected request using the full invitation already saved
+    /// by this client, including after closing and reopening the node.
+    pub async fn continue_admission(
+        &self,
+        authorization_only: bool,
+    ) -> Result<AdmissionStage, ClientError> {
+        let _operation = self.admission_operation.lock().await;
+        self.receive_admission(&self.saved_admission_invitation().await?, !authorization_only)
+            .await
+    }
+
+    async fn saved_admission_invitation(&self) -> Result<ClientInvitation, ClientError> {
+        let node = self.node.lock().await;
+        crate::client_contact::load_invitation(&node)?.ok_or_else(|| "no saved admission invitation".into())
+    }
+
+    async fn select_precode(
+        node: &mut NativeNetwork,
+        code: &Precode,
+        invitation: &ClientInvitation,
+        configuration: Option<&crate::resources::ResourceConfig>,
+    ) -> Result<(), ClientError> {
+        let binding = node.prepare_precode_completion(code).await?;
+        if let Some(configuration) = configuration {
+            node.save_resource_configuration(configuration)?;
+        }
+        if let Some(binding) = binding {
+            crate::client_contact::stage_invitation(node, invitation)?;
+            node.persist_join_binding(binding)?;
+        } else {
+            Self::save_selected_invitation(node, invitation)?;
+        }
+        Ok(())
+    }
+
+    fn save_selected_invitation(node: &NativeNetwork, invitation: &ClientInvitation) -> Result<(), ClientError> {
+        let saved = crate::client_contact::load_invitation(node)?;
+        if saved.as_ref().map(ClientInvitation::encode).transpose()?.as_deref()
+            != Some(invitation.encode()?.as_slice())
+        {
+            crate::client_contact::save_invitation(node, invitation)?;
+        }
+        Ok(())
     }
     async fn receive_admission(
         &self,
@@ -684,14 +826,21 @@ impl NativeClient {
         save: bool,
     ) -> Result<AdmissionStage, ClientError> {
         let code = invitation.code()?;
-        if code.is_none() && self.manual_rejected.load(Ordering::Acquire) {
-            return Err("request declined; explicit new attempt required".into());
-        }
         if let Some(code) = &code {
             let mut node = self.node.lock().await;
-            node.begin_precode_completion(code).await?;
+            Self::select_precode(&mut node, code, invitation, None).await?;
             self.files
                 .update_access(self.services.lock().await.access(&node).await?);
+        } else {
+            let node = self.node.lock().await;
+            if node.manual_request_declined().await? {
+                return Err(crate::manual_admission::ManualAdmissionError::RequestDeclined.into());
+            }
+            let binding = node.join.ok_or("no saved admission attempt")?;
+            if invitation.material()? != binding.invitation {
+                return Err("invitation does not match the local request".into());
+            }
+            Self::save_selected_invitation(&node, invitation)?;
         }
         let connection = self
             .resources
@@ -709,13 +858,7 @@ impl NativeClient {
             let exchange = if let Some(code) = &code {
                 node.request_precode_admission(&connection, code).await?
             } else {
-                match node.request_manual_admission(&connection).await {
-                    Err(crate::manual_admission::ManualAdmissionError::RequestDeclined) => {
-                        self.manual_rejected.store(true, Ordering::Release);
-                        return Err("request declined; explicit new attempt required".into());
-                    }
-                    result => result?,
-                }
+                node.request_manual_admission(&connection).await?
             };
             if let ManualExchange::Materials(delivery) = exchange {
                 if save {
@@ -728,9 +871,6 @@ impl NativeClient {
         }
         .await;
         connection.close(0u32.into(), b"client admission ended");
-        if code.is_some() && result.is_ok() {
-            self.manual_rejected.store(false, Ordering::Release);
-        }
         result
     }
     /// Finite member business exchange through configured SDK admission and
@@ -988,6 +1128,46 @@ mod tests {
     use super::*;
     use crate::resources::ResourceConfig;
     use std::net::Ipv6Addr;
+
+    #[tokio::test]
+    async fn recent_admission_history_leaves_older_pending_requests_actionable() {
+        let work = tempfile::tempdir().unwrap();
+        let path = work.path().join("provider");
+        let resources = ResourceConfig {
+            replacement: Some(Vec::new()),
+            ..Default::default()
+        };
+        let provider = NativeClient::create_with_resources(&path, Ipv4Addr::LOCALHOST, resources)
+            .await
+            .unwrap();
+        provider.export_recovery_card(None).await.unwrap();
+        provider.acknowledge_recovery_saved().await.unwrap();
+        let applicant = p2panda_core::SigningKey::generate().verifying_key();
+        let attempts: Vec<_> = (0..130)
+            .map(|number| AdmissionRequest { applicant, request_id: u128::to_be_bytes(number) })
+            .collect();
+        // The fixture populates the provider's authenticated-receipt ledger.
+        // The browser suite also exercises actual provider/applicant exchanges.
+        {
+            let node = provider.node.lock().await;
+            for request in &attempts {
+                node.store.record_admission_request(request).await.unwrap();
+            }
+            node.store.record_admission_request(&attempts[0]).await.unwrap();
+        }
+        provider.close().await.unwrap();
+        let provider = NativeClient::open(&path, Ipv4Addr::LOCALHOST).await.unwrap();
+        let history = provider.admission_history().await.unwrap();
+        assert_eq!(history.len(), 128);
+        assert_eq!(history.first().unwrap().request_id, attempts[129].request_id);
+        assert_eq!(history.last().unwrap().request_id, attempts[2].request_id);
+        assert_eq!(provider.requests().await.unwrap(), attempts);
+        provider.reject(&attempts[0]).await.unwrap();
+        assert!(provider.approve(&attempts[0]).await.is_err());
+        assert_eq!(provider.approve(&attempts[1]).await.unwrap(), AdmissionStage::Approved);
+        assert_eq!(provider.requests().await.unwrap(), attempts[2..]);
+        provider.close().await.unwrap();
+    }
 
     #[cfg(feature = "nat-lab-test-hooks")]
     #[tokio::test]

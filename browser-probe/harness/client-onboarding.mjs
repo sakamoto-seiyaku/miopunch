@@ -47,8 +47,11 @@ async function dispatch(command) {
     const cleanup = [];
     for (const [name, actor] of actors) {
       try {
-        await actor.page.evaluate(async () => { await window.node?.close(); });
-        await actor.context.close();
+        try {
+          await actor.page.evaluate(async () => { await window.node?.close(); });
+        } finally {
+          await actor.context.close();
+        }
         cleanup.push({ actor: name, closed: true });
       } catch { cleanup.push({ actor: name, closed: false }); }
     }
@@ -83,6 +86,16 @@ async function dispatch(command) {
     await load(actor);
     return true;
   }
+  if (op === 'block_relay') {
+    if (actor.relayBlocked === undefined) {
+      await actor.context.routeWebSocket('**/*', socket => {
+        if (actor.relayBlocked) return socket.close();
+        socket.connectToServer();
+      });
+    }
+    actor.relayBlocked = args[0];
+    return true;
+  }
   if (op === 'api') {
     return actor.page.evaluate(() => ({
       create: typeof window.api.BrowserNetwork.create === 'function',
@@ -109,6 +122,24 @@ async function dispatch(command) {
       };
       return true;
     });
+  }
+  if (op === 'serve_progress_admission') {
+    return actor.page.evaluate(([id, precode]) => {
+      const original = IDBObjectStore.prototype.get;
+      IDBObjectStore.prototype.get = function (...args) {
+        IDBObjectStore.prototype.get = original;
+        this.transaction.addEventListener('complete', () => {
+          // Let the SDK resume from its store check and register the accept.
+          setTimeout(() => { window.admissionReadReady = id; }, 0);
+        }, { once: true });
+        return original.apply(this, args);
+      };
+      return window.node.serve_admission(precode);
+    }, [command.id, args[0]]);
+  }
+  if (op === 'wait_progress_admission') {
+    await actor.page.waitForFunction(id => window.admissionReadReady === id, args[0], { polling: 10, timeout: 5000 });
+    return true;
   }
   if (op === 'member_accept') {
     return actor.page.evaluate(async caller => {
@@ -261,7 +292,7 @@ async function dispatch(command) {
     if (['precode_invitation', 'issue_precode'].includes(method)) values = values.map(value => value == null ? value : BigInt(value));
     const result = await window.node[method](...values);
     if (method === 'finish_pairing') { window.node.free(); window.node = result; return JSON.parse(result.status()); }
-    if (['status', 'admission_requests', 'admission_material_receipt', 'pairing_status', 'resource_configuration', 'path_diagnostics', 'control_state', 'sync_replica', 'file_status'].includes(method)) return JSON.parse(result);
+    if (['status', 'admission_requests', 'admission_history', 'admission_material_receipt', 'pairing_status', 'resource_configuration', 'path_diagnostics', 'control_state', 'sync_replica', 'file_status'].includes(method)) return JSON.parse(result);
     return result ?? null;
   }, [op, args]);
 }

@@ -66,10 +66,11 @@ impl SavedNode {
                 "changing an ordinary request requires a fresh explicit attempt",
             ));
         }
+        let old_request = self.admission_request_id();
         self.invitation = Some(material.to_vec());
         self.precode = precode.map(|bytes| bytes[96..].try_into().unwrap());
-        if self.precode.is_some() {
-            self.manual_rejected = false;
+        if old_request != self.admission_request_id() {
+            self.reset_admission_progress();
         }
         self.complete_invitation = Some(full);
         self.verify()?;
@@ -294,20 +295,22 @@ impl BrowserNetwork {
         if self.pairing.is_some() {
             return Err(error("finish pairing before requesting admission"));
         }
-        let full = self
-            .saved
-            .complete_invitation
-            .clone()
-            .ok_or_else(|| error("no complete invitation selected"))?;
-        if self.saved.stage() == "Complete" {
+        let attempt = self.saved.admission_attempt();
+        if self.saved.complete_invitation.is_none() && attempt.is_none() {
+            return Err(error("no saved invitation selected"));
+        }
+        if self.saved.stage() == "Complete"
+            && attempt.is_none_or(|attempt| attempt.progress == ApplicationProgress::Complete)
+        {
             self.check_store().await?;
             return Ok("Complete".into());
         }
-        let stage = if let Some(code) = full.precode_bytes().map_err(error)? {
-            self.request_precode(hex::encode(code)).await?
+        let mut wire = self.saved.invitation.clone().ok_or_else(rejected)?;
+        let stage = if let Some(token) = self.saved.precode {
+            wire.extend_from_slice(&token);
+            self.request_precode(hex::encode(wire)).await?
         } else {
-            self.request_admission(hex::encode(full.material_bytes().map_err(error)?))
-                .await?
+            self.request_admission(hex::encode(wire)).await?
         };
         if self.delivery.is_some() {
             if authorization_only {
@@ -333,6 +336,7 @@ impl BrowserNetwork {
         let mut next = self.saved.clone();
         next.request = rand::random();
         next.manual_rejected = false;
+        next.reset_admission_progress();
         self.commit(next).await
     }
 

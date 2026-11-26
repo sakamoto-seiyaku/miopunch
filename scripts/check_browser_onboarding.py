@@ -10,6 +10,7 @@ import base64
 import hashlib
 import json
 from pathlib import Path
+import os
 import subprocess
 import threading
 import time
@@ -56,7 +57,7 @@ class BrowserControl:
         self.process.stdin.flush()
         return identifier, actor, operation
 
-    def wait(self, pending, ok=True):
+    def wait(self, pending, ok=True, expected_error=None):
         identifier, actor, operation = pending
         deadline = time.monotonic() + 75
         with self.condition:
@@ -75,10 +76,12 @@ class BrowserControl:
             with (self.runner.output / "private-browser-errors.jsonl").open("a") as out:
                 out.write(json.dumps(dict(actor=actor, operation=operation, **response)) + "\n")
         assert response["ok"] == ok, dict(actor=actor, operation=operation, failureClass=response.get("failureClass"))
+        if expected_error is not None:
+            assert expected_error in response.get("privateError", ""), public
         return response.get("result")
 
-    def call(self, actor, operation, *args, ok=True):
-        return self.wait(self.send(actor, operation, *args), ok=ok)
+    def call(self, actor, operation, *args, ok=True, expected_error=None):
+        return self.wait(self.send(actor, operation, *args), ok=ok, expected_error=expected_error)
 
     def start(self, actor, action, invitation=None, configuration=None):
         self.call(actor, "open")
@@ -108,6 +111,232 @@ class BrowserControl:
 
 
 class BrowserOnboardingRunner(OnboardingRunner):
+    def native_configuration(self, remote):
+        if self.args.suite != "progress":
+            return super().native_configuration(remote)
+        config = dict(defaults=dict(revision=2, resources=[]),
+                      replacement=[dict(url=self.args.relay, uses=["DataRelay"], limitation="onboarding test relay")],
+                      disabled=[], disabled_uses=["Observation", "Lookup", "Signaling"],
+                      lan_discovery="Disabled", port_mapping="Disabled",
+                      maintenance=dict(contact_timeout_ms=10000),
+                      udp_direct_disabled=True, tcp_direct_disabled=True)
+        return self.write_private("progress-resources.json", json.dumps(config).encode(), remote)
+
+    def progress_configuration(self):
+        return dict(CONFIGURATION, relays=[self.args.relay], maintenance=dict(contact_timeout_ms=10000))
+
+    def serve_progress_admission(self, actor, precode):
+        pending = self.browser.send(actor, "serve_progress_admission", precode)
+        self.browser.call(actor, "wait_progress_admission", pending[0])
+        return pending
+
+    def browser_admission_progress(self):
+        provider = self.creator(False, "native-progress-provider")
+        invitation = self.native_invitation(provider, "browser-progress-invitation")
+        name = "browser-progress-applicant"
+        b = self.browser
+        initial = b.start(name, "join", invitation, self.progress_configuration())
+        assert initial["admission_attempt"]["progress"] == "Created"
+        assert provider.call("requests")["requests"] == []
+        assert b.call(name, "request_join", False) == "AwaitingApproval"
+        sent = b.reopen(name)["admission_attempt"]
+        first, = provider.call("requests")["requests"]
+        assert sent == dict(request_id=first["request_id"], progress="Delivered")
+        assert first["applicant"] == initial["id"]
+        assert sent["request_id"] == initial["admission_attempt"]["request_id"]
+        assert b.call(name, "request_join", False) == "AwaitingApproval"
+        assert provider.call("requests")["requests"] == [first]
+        provider.stop()
+        b.call(name, "request_join", False, ok=False, expected_error="timed out")
+        b.call(name, "block_relay", True)
+        assert b.reopen(name)["admission_attempt"] == sent
+        assert b.call(name, "path_diagnostics")["relayHome"]["connectedCount"] == 0
+        b.call(name, "reload")
+        offline = b.call(name, "start", "start", json.dumps({"relays": []}), None)
+        assert offline["admission_attempt"] == sent
+        b.call(name, "block_relay", False)
+        b.call(name, "reload")
+        restarted = b.call(name, "start", "start", json.dumps(self.progress_configuration()), None)
+        assert restarted["admission_attempt"] == sent
+        provider = Host(self, "native-progress-provider-reopened", False, "open", provider.directory)
+        assert provider.call("admission_history") == [dict(first, decision="AwaitingApproval", authorization=None)]
+        provider.call("reject", **first)
+        assert b.call(name, "request_join", False) == "Rejected"
+        assert b.reopen(name)["admission_attempt"] == dict(sent, progress="Rejected")
+        assert b.call(name, "request_join", False) == "Rejected"
+        assert provider.call("requests")["requests"] == []
+
+        b.call(name, "new_manual_attempt")
+        retry = b.call(name, "status")
+        assert retry["id"] == initial["id"] and retry["admission_attempt"]["progress"] == "Created"
+        assert b.call(name, "request_join", False) == "AwaitingApproval"
+        second, = provider.call("requests")["requests"]
+        assert second["applicant"] == first["applicant"] and second["request_id"] != first["request_id"]
+        assert second["request_id"] == retry["admission_attempt"]["request_id"]
+        provider.call("approve", **second)
+        assert b.call(name, "request_join", True) == "PendingMaterials"
+        assert b.reopen(name)["admission_attempt"] == dict(request_id=second["request_id"], progress="Authorized")
+        history = provider.call("admission_history")
+        assert len(history) == 2
+        authorization = history[0]["authorization"]
+        assert authorization
+        assert history == [dict(second, decision="ApprovedAwaitingReceipt", authorization=authorization),
+                           dict(first, decision="Rejected", authorization=None)]
+        assert provider.call("requests")["requests"] == []
+
+        assert b.call(name, "request_join", False) == "Complete"
+        assert b.reopen(name)["admission_attempt"] == dict(request_id=second["request_id"], progress="Complete")
+        assert b.call(name, "request_admission", material(invitation)["invitation"]) == "Complete"
+        assert b.call(name, "status")["secret_saved"] is True
+        assert b.call(name, "complete_admission") == "Complete"
+        history[0]["decision"] = "ReceiptReceived"
+        provider = self.reopen(provider)
+        assert provider.call("admission_history") == history
+        operation = provider.call("genesis_propose", action="remove-member", target=second["applicant"])["operation"]["id"]
+        assert provider.call("device_execute", operation=operation)["effective_locally"]
+        b.call(name, "request_admission", material(invitation)["invitation"], ok=False)
+        provider = self.reopen(provider)
+        assert provider.call("admission_history") == history
+        assert provider.call("requests")["requests"] == []
+        b.call(name, "close")
+        return provider
+
+    def native_admission_progress(self):
+        b = self.browser
+        creator = "browser-progress-provider"
+        b.start(creator, "create", configuration=self.progress_configuration())
+        b.call(creator, "export_recovery_card")
+        b.call(creator, "acknowledge_recovery_saved")
+        invitation = b.call(creator, "invitation")
+        path = self.write_private("native-progress-invitation", invitation.encode(), False)
+        applicant = self.start("native-progress-applicant", False, "join", path)
+        Path(path).unlink()
+        created = applicant.call("status")["admission_attempt"]
+        assert created["progress"] == "Created"
+        assert b.call(creator, "admission_history") == []
+
+        b.call(creator, "fail_next_save")
+        serving = self.serve_progress_admission(creator, False)
+        applicant.call("request", ok=False)
+        b.wait(serving, ok=False)
+        assert applicant.call("status")["admission_attempt"] == created
+        b.reopen(creator)
+        assert b.call(creator, "admission_history") == []
+        serving = self.serve_progress_admission(creator, False)
+        assert applicant.call("request")["stage"] == "AwaitingApproval"
+        assert b.wait(serving) == "AwaitingApproval"
+        sent = dict(created, progress="Delivered")
+        applicant = self.reopen(applicant)
+        assert applicant.call("status")["admission_attempt"] == sent
+        first = dict(applicant=applicant.node, request_id=created["request_id"], authorization=None,
+                     decision="AwaitingApproval")
+        b.reopen(creator)
+        assert b.call(creator, "admission_history") == [first]
+        applicant.call("request", ok=False)
+        applicant = self.reopen(applicant)
+        assert applicant.call("status")["admission_attempt"] == sent
+        b.call(creator, "reject_admission", applicant.node, created["request_id"])
+        serving = self.serve_progress_admission(creator, False)
+        assert applicant.call("request")["stage"] == "Rejected"
+        assert b.wait(serving) == "Rejected"
+        applicant = self.reopen(applicant)
+        assert applicant.call("status")["admission_attempt"] == dict(created, progress="Rejected")
+        assert applicant.call("request")["stage"] == "Rejected"
+        directory = Path(applicant.directory)
+        mode = directory.stat().st_mode
+        directory.chmod(0o500)
+        try:
+            if not os.access(directory, os.W_OK):
+                applicant.call("new_manual_attempt", ok=False)
+        finally:
+            directory.chmod(mode)
+        assert applicant.call("status")["admission_attempt"] == dict(created, progress="Rejected")
+        applicant.call("new_manual_attempt")
+        retry = applicant.call("status")["admission_attempt"]
+        assert retry["request_id"] != created["request_id"] and retry["progress"] == "Created"
+
+        serving = self.serve_progress_admission(creator, False)
+        assert applicant.call("request")["stage"] == "AwaitingApproval"
+        assert b.wait(serving) == "AwaitingApproval"
+        second = dict(applicant=applicant.node, request_id=retry["request_id"], authorization=None,
+                      decision="AwaitingApproval")
+        first["decision"] = "Rejected"
+        assert b.call(creator, "admission_history") == [second, first]
+        second["authorization"] = b.call(creator, "approve_admission", applicant.node, retry["request_id"])
+        second["decision"] = "ApprovedAwaitingReceipt"
+        serving = self.serve_progress_admission(creator, False)
+        assert applicant.call("request", authorization_only=True)["stage"] == "PendingMaterials"
+        b.wait(serving, ok=False)
+        applicant = self.reopen(applicant)
+        assert applicant.call("status")["admission_attempt"] == dict(retry, progress="Authorized")
+        assert b.call(creator, "admission_history") == [second, first]
+        serving = self.serve_progress_admission(creator, False)
+        assert applicant.call("request")["stage"] == "Complete"
+        assert b.wait(serving) == "Complete"
+        applicant = self.reopen(applicant)
+        assert applicant.call("status")["admission_attempt"] == dict(retry, progress="Complete")
+        b.reopen(creator)
+        second["decision"] = "ReceiptReceived"
+        assert b.call(creator, "admission_history") == [second, first]
+
+        session = b.call(creator, "begin_management_session")
+        b.call(creator, "manage", session, "remove-member", applicant.node)
+        b.call(creator, "end_management_session", session)
+        serving = self.serve_progress_admission(creator, False)
+        applicant.call("request", ok=False)
+        b.wait(serving, ok=False)
+        b.reopen(creator)
+        assert b.call(creator, "admission_history") == [second, first]
+        applicant.stop()
+        return creator
+
+    def admission_progress(self):
+        native = self.browser_admission_progress()
+        browser = self.native_admission_progress()
+        b = self.browser
+        invitation = self.native_invitation(native, "browser-progress-precode", precode=True)
+        name = "browser-progress-precode-applicant"
+        b.start(name, "join", invitation, self.progress_configuration())
+        assert b.call(name, "request_join", True) == "PendingMaterials"
+        authorized = b.reopen(name)["admission_attempt"]
+        assert authorized["progress"] == "Authorized"
+        assert b.call(name, "request_join", False) == "Complete"
+        assert b.call(name, "status")["admission_attempt"] == dict(authorized, progress="Complete")
+        assert native.call("precode_status", path=self.path("browser-progress-precode", False))["uses"] == 1
+
+        invitation = b.call(browser, "precode_invitation", int(time.time()) + 3600, 1)
+        path = self.write_private("native-progress-precode", invitation.encode(), False)
+        applicant = self.start("native-progress-precode-applicant", False, "join", path)
+        Path(path).unlink()
+        serving = self.serve_progress_admission(browser, True)
+        assert applicant.call("request", authorization_only=True)["stage"] == "PendingMaterials"
+        b.wait(serving, ok=False)
+        applicant = self.reopen(applicant)
+        authorized = applicant.call("status")["admission_attempt"]
+        assert authorized["progress"] == "Authorized"
+        serving = self.serve_progress_admission(browser, True)
+        assert applicant.call("request")["stage"] == "Complete"
+        assert b.wait(serving) == "Complete"
+        assert applicant.call("status")["admission_attempt"] == dict(authorized, progress="Complete")
+        assert b.call(browser, "precode_usage", material(invitation)["precode"]) == 1
+
+        name = "browser-progress-raw-applicant"
+        invitation = material(self.native_invitation(native, "browser-progress-raw-invitation"))["invitation"]
+        b.start(name, "start", configuration=self.progress_configuration())
+        assert b.call(name, "request_admission", invitation) == "AwaitingApproval"
+        sent = b.reopen(name)["admission_attempt"]
+        assert sent["progress"] == "Delivered"
+        pending, = native.call("requests")["requests"]
+        assert pending["request_id"] == sent["request_id"]
+        native.call("approve", **pending)
+        assert b.call(name, "request_join", True) == "PendingMaterials"
+        assert b.reopen(name)["admission_attempt"] == dict(sent, progress="Authorized")
+        assert b.call(name, "request_join", False) == "Complete"
+        self.record("progress", "admission_progress_qualified", dict(
+            nativeAndWasmBothRoles=True, durableDeliveryBeforeConfirmation=True,
+            originalReadAfterReopen=True, explicitNewRequestAfterRejection=True,
+            invalidatedGrantStopsDelivery=True, precodeUsedOnceOnEachProvider=True))
+
     def native_invitation(self, creator, name, precode=False):
         if precode:
             creator.call("issue_precode", path=self.private_path(name, False), seconds=3600, max_uses=1)
@@ -463,6 +692,8 @@ class BrowserOnboardingRunner(OnboardingRunner):
             if self.args.suite == "recovery":
                 self.recovery(False, "native-creator").stop()
                 self.browser_creator("browser-creator")
+            elif self.args.suite == "progress":
+                self.admission_progress()
             else:
                 creator = self.creator(False, "native-provider")
                 if self.args.suite in ["all", "core"]:
@@ -497,7 +728,8 @@ def main():
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--build-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery"], default="all")
+    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress"], default="all")
+    parser.add_argument("--relay", default=RELAY, help="explicit relay for the progress suite")
     parser.add_argument("--chromium", type=Path, default=Path("/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome"))
     args = parser.parse_args()
     build = json.loads(args.build_receipt.read_text())

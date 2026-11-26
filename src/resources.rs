@@ -1489,13 +1489,22 @@ impl ResourceEndpoint {
         ),
         ResourceContactError,
     > {
+        use crate::connection_coordinator::{AttemptContext, ConnectError, SessionPurpose};
+        let purpose = SessionPurpose::from_alpn(alpn);
         let (deadline, attempt) = self.begin_contact_attempt(target.id, class)?;
         tokio::time::timeout(
                 deadline.saturating_duration_since(n0_future::time::Instant::now()),
                 self.merge_contact_hints(&mut target),
             )
             .await
-            .map_err(|_| attempt.failed("bounded contact attempt timed out".into()))?
+            .map_err(|_| {
+                let failure = attempt.failed("bounded contact attempt timed out".into());
+                if purpose == Some(SessionPurpose::AdmissionRequest) {
+                    ResourceContactError::PathBudget(ConnectError::DeadlineExceeded)
+                } else {
+                    failure
+                }
+            })?
             .map_err(|error| attempt.failed(error.to_string()))?;
         target.addrs.retain(|addr| match addr {
             iroh::TransportAddr::Relay(url) => {
@@ -1504,8 +1513,6 @@ impl ResourceEndpoint {
             iroh::TransportAddr::Custom(addr) => self.config.allows_custom(addr),
             _ => true,
         });
-        use crate::connection_coordinator::{AttemptContext, ConnectError, SessionPurpose};
-        let purpose = SessionPurpose::from_alpn(alpn);
         let race_relays = purpose == Some(SessionPurpose::MemberBusiness) && !control_only;
         // The member business coordinator gives the peer's addresses a head
         // start over locally configured rendezvous hints.
@@ -1543,6 +1550,10 @@ impl ResourceEndpoint {
                 Err(
                     error @ (ConnectError::PathDeferred { .. } | ConnectError::LocalNatBudget(_)),
                 ) => Err(ResourceContactError::PathBudget(error)),
+                Err(error @ ConnectError::DeadlineExceeded) if purpose == Some(SessionPurpose::AdmissionRequest) => {
+                    attempt.failed(error.to_string());
+                    Err(ResourceContactError::PathBudget(error))
+                }
                 Err(error) => Err(attempt.failed(error.to_string())),
             };
         }

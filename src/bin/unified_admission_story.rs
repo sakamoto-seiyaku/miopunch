@@ -850,6 +850,7 @@ mod enabled {
                                     miopunch_native_probe::manual_admission::ManualAdmissionError::RequestDeclined => "RequestDeclined",
                                     miopunch_native_probe::manual_admission::ManualAdmissionError::Rejected => "Rejected",
                                     miopunch_native_probe::manual_admission::ManualAdmissionError::PathUnavailable => "PathUnavailable",
+                                    miopunch_native_probe::manual_admission::ManualAdmissionError::TimedOut => "TimedOut",
                                     miopunch_native_probe::manual_admission::ManualAdmissionError::Store(_) => "Store",
                                     miopunch_native_probe::manual_admission::ManualAdmissionError::Node(_) => "Node",
                                 }),

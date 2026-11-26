@@ -6,6 +6,8 @@ use crate::{
 };
 use std::{collections::BTreeSet, io};
 
+const SAVED_INVITATION: &str = "client.invitation";
+
 pub(crate) fn import_contact(
     mut local: ResourceConfig,
     contact: &BootstrapContact,
@@ -89,7 +91,46 @@ pub(crate) fn save_invitation(
     invitation: &ClientInvitation,
 ) -> io::Result<()> {
     crate::native_files::write_private_atomic(
-        &node.directory.join("client.invitation"),
+        &node.directory.join(SAVED_INVITATION),
         &invitation.encode()?,
     )
+}
+
+pub(crate) fn load_invitation(node: &NativeNetwork) -> io::Result<Option<ClientInvitation>> {
+    let bytes = match std::fs::read(node.directory.join(SAVED_INVITATION)) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    if !bytes.starts_with(b"[") {
+        return ClientInvitation::decode(&bytes).map(Some);
+    }
+    let [previous, next]: [ClientInvitation; 2] = serde_json::from_slice(&bytes)?;
+    let binding = node.join.ok_or_else(|| io::Error::other("no saved request binding"))?;
+    for invitation in [previous, next] {
+        invitation.encode()?;
+        if invitation.material_bytes()? == binding.invitation.encode() {
+            return Ok(Some(invitation));
+        }
+    }
+    Err(io::Error::other("saved invitations do not match the local request"))
+}
+
+/// Stage a replacement contact before changing the durable request binding.
+/// The current binding selects its invitation on either side of an interruption.
+pub(crate) fn stage_invitation(node: &NativeNetwork, next: &ClientInvitation) -> io::Result<()> {
+    if let (Some(previous), Some(binding)) = (load_invitation(node)?, node.join) {
+        let previous_material = previous.material_bytes()?;
+        if previous_material == binding.invitation.encode()
+            && previous_material != next.material_bytes()?
+        {
+            next.encode()?;
+            let bytes = serde_json::to_vec(&[&previous, next])?;
+            return crate::native_files::write_private_atomic(
+                &node.directory.join(SAVED_INVITATION),
+                &bytes,
+            );
+        }
+    }
+    save_invitation(node, next)
 }

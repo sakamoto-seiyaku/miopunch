@@ -83,6 +83,34 @@ async fn restricted_admission_delivery_uses_original_incoming_deadline() {
     admin.close().await;
 }
 
+#[tokio::test]
+async fn applicant_distinguishes_the_delivery_deadline_from_a_decision() {
+    let dir = tempfile::tempdir().unwrap();
+    let admin = NativeNetwork::create(dir.path().join("admin")).await.unwrap();
+    let mut joining = NativeNetwork::join(dir.path().join("joining"), admin.manual_invitation().unwrap())
+        .await.unwrap();
+    let ae = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
+    let je = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
+    let target = EndpointAddr::new(ae.id()).with_ip_addr(*ae.addr().ip_addrs().next().unwrap());
+    let deadline = n0_future::time::Instant::now() + Duration::from_secs(2);
+    let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
+    let (client, server) = tokio::join!(
+        async { je.connect_control_with_opts(target, ADMISSION_REQUEST_ALPN, options).await.unwrap().await.unwrap() },
+        async { ae.accept().await.unwrap().accept_control().unwrap().await.unwrap() }
+    );
+    let client = Arc::new(client);
+    // Keep the authenticated connection open without returning a decision.
+    let result = tokio::time::timeout(Duration::from_secs(3), joining.request_manual_admission(&client)).await;
+    assert!(matches!(result, Ok(Err(ManualAdmissionError::TimedOut))));
+    assert_eq!(joining.admission_stage(), AdmissionStage::AwaitingApproval);
+    assert!(admin.manual_requests().await.unwrap().is_empty());
+    server.close(0u32.into(), b"deadline fixture ended");
+    je.close().await;
+    ae.close().await;
+    joining.close().await;
+    admin.close().await;
+}
+
 async fn connect(
     client: &RestrictedEndpoint,
     server: &RestrictedEndpoint,

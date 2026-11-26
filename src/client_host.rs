@@ -160,6 +160,12 @@ impl ClientHost {
         };
         match result {
             Ok(value) => json!({"id":request.id,"ok":true,"result":value}),
+            Err(error) if matches!(error.downcast_ref::<crate::manual_admission::ManualAdmissionError>(),
+                Some(crate::manual_admission::ManualAdmissionError::TimedOut))
+                || matches!(error.downcast_ref::<crate::resources::ResourceContactError>(),
+                Some(crate::resources::ResourceContactError::PathBudget(crate::connection_coordinator::ConnectError::DeadlineExceeded))) => {
+                json!({"id":request.id,"ok":false,"error":"admission_timeout"})
+            }
             Err(_) => json!({"id":request.id,"ok":false,"error":"operation_failed"}),
         }
     }

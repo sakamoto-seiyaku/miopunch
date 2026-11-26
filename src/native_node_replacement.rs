@@ -107,11 +107,7 @@ async fn export_paused(source: &Path, destination: &Path) -> Result<Value, Clien
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => json!({"exported":false,"saved":false}),
             Err(e) => return Err(e.into()),
         };
-        let invitation = match std::fs::read(node.directory.join("client.invitation")) {
-            Ok(bytes) => Some(crate::client_invitation::ClientInvitation::decode(&bytes)?),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-            Err(e) => return Err(e.into()),
-        };
+        let invitation = crate::client_contact::load_invitation(&node)?;
         let operations = read_or_default(&node.directory.join("device.operations"))?;
         let custody = read_or_default(&node.directory.join("credential.custody"))?;
         let recoveries=node.store.export_recovery_evidence().await?;

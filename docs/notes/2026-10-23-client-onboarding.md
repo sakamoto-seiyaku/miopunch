@@ -127,17 +127,43 @@ Connection progress is also reported by the bounded operation and connection
 diagnostics. A completed local admission does not claim globally latest history
 or that every member is reachable.
 
-The native `request_admission(fullInvitation)` and browser
-`request_join(authorizationOnly)` continue the saved attempt. Authorization-only
-returns before secret completion and is useful when a host must stop/reopen.
+For an invited device, both public status APIs expose `admission_attempt` with
+the same `request_id` the provider sees and the applicant's durable `progress`.
+`Created` means the request exists locally. `Delivered` follows the authenticated
+provider's reply after it saves the request. `Authorized` means the applicant has
+verified and saved the signed authorization. `Complete` means it has also saved
+the current admission secret. `Rejected` stops retries of that request.
+Timeout is an operation error and preserves the last confirmed progress. The
+native host reports `admission_timeout` for a timed-out attempt.
+
+After reopen, call `NativeClient::continue_admission(authorization_only)`, the
+native host's `request` without a path, or `BrowserNetwork.request_join(authorizationOnly)`.
+The SDK uses the original saved invitation and request. Authorization-only
+returns before secret completion so a host can stop and reopen. A reopened
+browser applicant with confirmed progress can read it while contact is offline.
+The native `request_admission(fullInvitation)` and `receive_authorization` methods
+still accept explicit invitations.
 The browser also retains its old raw request and explicit completion APIs.
 Retries reuse the request or redemption result rather than issuing another grant
 or consuming another use. Closing/disconnecting preserves saved membership.
 
 Rejection is durable for the authenticated `(applicant, request)` pair. It cannot
 be revived by approving that old request. The explicit
-`new_manual_attempt` operation creates a fresh request while retaining device
-identity. Receiving another valid precode is a separate attempt namespace.
+`new_saved_manual_attempt` on NativeClient and `new_manual_attempt` in the
+native host or browser create a fresh request with the same device identity.
+The native host accepts the original path argument and can also use the saved
+invitation when no path is supplied. Receiving another valid precode uses a
+separate attempt namespace.
+
+Both provider SDKs expose `admission_history()` (native host `admission_history`).
+Each recent entry includes the applicant, original request ID, available signed
+authorization ID, and the latest decision (`AwaitingApproval`, `Rejected`,
+`ApprovedAwaitingReceipt`, or `ReceiptReceived`). The newest-first view is
+bounded. The provider's protocol ledger retains the facts needed to reject
+replays, avoid another precode charge and continue a valid older delivery.
+When an authorization loses effect, its delivery stops and the recorded
+outcome remains visible in the recent window. The native `requests` operation
+continues to return only pending approvals, including older pending requests.
 
 If the original delivery node is unavailable, close and reopen the pending native
 client with `NativeClient::resume(path, newFullPrecode, bind)` (CLI `resume`), or

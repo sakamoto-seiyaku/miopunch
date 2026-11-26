@@ -94,6 +94,7 @@ pub mod management_record;
 mod replica_snapshot;
 
 mod admission_request_id;
+pub mod admission_progress;
 
 mod management_action;
 

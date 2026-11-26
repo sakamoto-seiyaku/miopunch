@@ -13,6 +13,7 @@ use p2panda_core::{Hash, Header, SigningKey, VerifyingKey};
 use thiserror::Error;
 
 use crate::admission_gate::{ADMISSION_REQUEST_ALPN, PRECODE_REQUEST_ALPN, ProtocolScope};
+use crate::admission_progress::ApplicationProgress;
 use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::management_auth::{ManagementAuth, ManagementExtension, NetworkAnchor};
 use crate::management_store::{ManagementRecord, StoreError};
@@ -123,6 +124,7 @@ pub struct AdmissionDelivery {
     exchange: ControlExchange,
     local: VerifyingKey,
     binding: JoinBinding,
+    request_id: [u8; 16],
     authorization: Hash,
     generation: u64,
 }
@@ -135,6 +137,8 @@ pub enum ManualAdmissionError {
     Rejected,
     #[error("current admission path unavailable; durable progress is retained")]
     PathUnavailable,
+    #[error("admission attempt timed out; durable progress is retained")]
+    TimedOut,
     #[error("manual admission storage failed: {0}")]
     Store(#[from] StoreError),
     #[error("manual admission node persistence failed: {0}")]
@@ -224,9 +228,6 @@ impl NativeNetwork {
     }
 
     pub async fn manual_request_declined(&self) -> Result<bool, ManualAdmissionError> {
-        if self.is_member(self.node_key.verifying_key()) {
-            return Ok(false);
-        }
         let Some(binding) = self.join else {
             return Ok(false);
         };
@@ -550,7 +551,7 @@ impl NativeNetwork {
             self.request_admission_inner(connection, None, deadline),
         )
         .await
-        .unwrap_or(Err(ManualAdmissionError::PathUnavailable));
+        .unwrap_or(Err(ManualAdmissionError::TimedOut));
         if result.is_err() {
             connection.close(0u32.into(), b"manual admission ended");
         }
@@ -600,6 +601,11 @@ impl NativeNetwork {
         read_fixed(&exchange, &mut status)
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+        if matches!(status, [0] | [1]) {
+            // The authenticated provider sends these replies after it commits
+            // the request or redemption. This survives loss of later frames.
+            self.store.save_local_admission_progress(wire_binding.request_id, ApplicationProgress::Delivered).await?;
+        }
         if status == [0] {
             exchange
                 .finish_send()
@@ -656,6 +662,11 @@ impl NativeNetwork {
         self.store
             .save_expected_admission_generation(binding.request_id, generation)
             .await?;
+        // Bind the exact signed grant before applying it. On reopen, the grant
+        // counts only if the local store actually committed its authority.
+        self.store
+            .save_local_admission_authorization(wire_binding.request_id, authorization)
+            .await?;
         if generation > self.scope.secret_generation() {
             self.gate.suspend_secret();
             self.secret = None;
@@ -677,6 +688,7 @@ impl NativeNetwork {
         {
             return Err(ManualAdmissionError::Rejected);
         }
+        self.store.save_local_admission_progress(wire_binding.request_id, ApplicationProgress::Authorized).await?;
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::AuthorizationSaved);
@@ -686,6 +698,7 @@ impl NativeNetwork {
             exchange,
             local,
             binding,
+            request_id: wire_binding.request_id,
             authorization,
             generation,
         }))
@@ -737,6 +750,7 @@ impl NativeNetwork {
                 }
                 let secret = AdmissionSecret::from_saved(bytes[8..].try_into().unwrap());
                 self.save_admission_material(scope, secret).await?;
+                self.store.save_local_admission_progress(delivery.request_id, ApplicationProgress::Complete).await?;
                 #[cfg(feature = "replica-test-hooks")]
                 self.store
                     .observe(crate::management_store::RecordCheckpoint::SecretSaved);
@@ -763,7 +777,7 @@ impl NativeNetwork {
             },
         )
         .await
-        .unwrap_or(Err(ManualAdmissionError::PathUnavailable));
+        .unwrap_or(Err(ManualAdmissionError::TimedOut));
         if result.is_err() {
             delivery
                 .connection

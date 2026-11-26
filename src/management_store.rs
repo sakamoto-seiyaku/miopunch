@@ -13,11 +13,26 @@ use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, S
 use sqlx::{Row, SqlitePool};
 use thiserror::Error;
 
+use crate::admission_progress::{
+    AdmissionAttempt, AdmissionHistoryEntry, ApplicationProgress, RECENT_ADMISSION_ATTEMPTS,
+};
 use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::management_auth::{AuthError, ManagementAuth, NetworkAnchor, decode_complete};
 use crate::manual_admission::{AdmissionRequest, AdmissionStage, ApprovedAdmission};
 
 pub use crate::management_record::ManagementRecord;
+
+fn decode_admission_request(row: &sqlx::sqlite::SqliteRow) -> Result<AdmissionRequest, StoreError> {
+    let applicant = row.try_get::<Vec<u8>, _>("applicant")?.try_into()
+        .map_err(|_| StoreError::Corrupt("admission applicant"))?;
+    let request_id = row.try_get::<Vec<u8>, _>("request_id")?.try_into()
+        .map_err(|_| StoreError::Corrupt("admission request id"))?;
+    Ok(AdmissionRequest {
+        applicant: VerifyingKey::from_bytes(&applicant)
+            .map_err(|_| StoreError::Corrupt("admission applicant"))?,
+        request_id,
+    })
+}
 
 #[derive(Debug, Error)]
 pub enum StoreError {
@@ -130,6 +145,16 @@ impl ManagementStore {
                 authorization BLOB,
                 phase INTEGER NOT NULL DEFAULT 0 CHECK (phase BETWEEN 0 AND 3),
                 PRIMARY KEY (applicant, request_id)
+            )",
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS local_admission_attempt (
+                singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+                request_id BLOB NOT NULL,
+                progress INTEGER NOT NULL CHECK (progress BETWEEN 0 AND 4),
+                authorization BLOB
             )",
         )
         .execute(&pool)
@@ -411,13 +436,78 @@ impl ManagementStore {
         &self,
         request: &AdmissionRequest,
     ) -> Result<(), StoreError> {
-        sqlx::query(
-            "INSERT OR IGNORE INTO admission_deliveries (applicant, request_id) VALUES (?, ?)",
-        )
-        .bind(request.applicant.as_bytes().as_slice())
-        .bind(request.request_id.as_slice())
-        .execute(&self.pool)
-        .await?;
+        sqlx::query("INSERT OR IGNORE INTO admission_deliveries (applicant, request_id) VALUES (?, ?)")
+            .bind(request.applicant.as_bytes().as_slice())
+            .bind(request.request_id.as_slice())
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub(crate) async fn admission_history(&self) -> Result<Vec<AdmissionHistoryEntry>, StoreError> {
+        let rows = sqlx::query("SELECT d.applicant, d.request_id, d.authorization, d.phase,
+                EXISTS (SELECT 1 FROM admission_rejections r WHERE r.applicant = d.applicant AND r.request_id = d.request_id) AS rejected
+            FROM admission_deliveries d ORDER BY d.rowid DESC LIMIT ?")
+            .bind(RECENT_ADMISSION_ATTEMPTS as i64)
+            .fetch_all(&self.pool)
+            .await?;
+        rows.into_iter().map(|row| {
+            let request = decode_admission_request(&row)?;
+            let authorization = row.try_get::<Option<Vec<u8>>, _>("authorization")?
+                .map(|value| value.try_into().map(Hash::from_bytes).map_err(|_| StoreError::Corrupt("admission authorization")))
+                .transpose()?;
+            Ok(AdmissionHistoryEntry::from_evidence(request.applicant, request.request_id,
+                authorization, row.try_get("rejected")?, row.try_get::<i64, _>("phase")? == 3))
+        }).collect()
+    }
+
+    pub(crate) async fn local_admission_progress(
+        &self,
+    ) -> Result<Option<(AdmissionAttempt, Option<Hash>)>, StoreError> {
+        let Some(row) = sqlx::query("SELECT request_id, progress, authorization FROM local_admission_attempt WHERE singleton = 1")
+            .fetch_optional(&self.pool).await? else { return Ok(None) };
+        let request = row.try_get::<Vec<u8>, _>("request_id")?.try_into()
+            .map_err(|_| StoreError::Corrupt("local admission request id"))?;
+        let progress = match row.try_get::<i64, _>("progress")? {
+            0 => ApplicationProgress::Created,
+            1 => ApplicationProgress::Delivered,
+            2 => ApplicationProgress::Authorized,
+            3 => ApplicationProgress::Complete,
+            4 => ApplicationProgress::Rejected,
+            _ => return Err(StoreError::Corrupt("local admission progress")),
+        };
+        let authorization = row.try_get::<Option<Vec<u8>>, _>("authorization")?
+            .map(|bytes| bytes.try_into().map(Hash::from_bytes).map_err(|_| StoreError::Corrupt("local admission authorization")))
+            .transpose()?;
+        Ok(Some((AdmissionAttempt { request_id: request, progress }, authorization)))
+    }
+
+    pub(crate) async fn save_local_admission_progress(
+        &self,
+        request_id: [u8; 16],
+        progress: ApplicationProgress,
+    ) -> Result<(), StoreError> {
+        sqlx::query("INSERT INTO local_admission_attempt (singleton, request_id, progress) VALUES (1, ?, ?)
+            ON CONFLICT(singleton) DO UPDATE SET request_id = excluded.request_id, progress = excluded.progress,
+                authorization = CASE WHEN request_id = excluded.request_id THEN authorization ELSE NULL END
+            WHERE request_id != excluded.request_id OR progress < excluded.progress")
+            .bind(request_id.as_slice())
+            .bind(progress as i64)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub(crate) async fn save_local_admission_authorization(
+        &self,
+        request_id: [u8; 16],
+        authorization: Hash,
+    ) -> Result<(), StoreError> {
+        sqlx::query("UPDATE local_admission_attempt SET authorization = ? WHERE request_id = ?")
+            .bind(authorization.as_bytes().as_slice())
+            .bind(request_id.as_slice())
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -426,23 +516,7 @@ impl ManagementStore {
             sqlx::query("SELECT applicant, request_id FROM admission_deliveries ORDER BY rowid")
                 .fetch_all(&self.pool)
                 .await?;
-        rows.into_iter()
-            .map(|row| {
-                let applicant: Vec<u8> = row.try_get("applicant")?;
-                let request: Vec<u8> = row.try_get("request_id")?;
-                Ok(AdmissionRequest {
-                    applicant: VerifyingKey::from_bytes(
-                        &applicant
-                            .try_into()
-                            .map_err(|_| StoreError::Corrupt("admission applicant"))?,
-                    )
-                    .map_err(|_| StoreError::Corrupt("admission applicant"))?,
-                    request_id: request
-                        .try_into()
-                        .map_err(|_| StoreError::Corrupt("admission request id"))?,
-                })
-            })
-            .collect()
+        rows.iter().map(decode_admission_request).collect()
     }
 
     pub(crate) async fn admission_rejected(

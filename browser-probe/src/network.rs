@@ -18,6 +18,7 @@ use p2panda_core::{Hash, SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
+use crate::admission_progress::{AdmissionAttempt, ApplicationProgress};
 use crate::admission_proof::{AdmissionScope, AdmissionSecret, BootstrapProof};
 use crate::management_auth::{ManagementAuth, NetworkAnchor};
 
@@ -58,6 +59,9 @@ fn error(value: impl std::fmt::Display) -> JsValue {
 fn rejected() -> JsValue {
     error("admission rejected or materials incomplete")
 }
+fn admission_timeout() -> JsValue {
+    error("admission attempt timed out; durable progress retained")
+}
 
 struct Lease(u32);
 impl Drop for Lease {
@@ -96,6 +100,8 @@ struct SavedNode {
     recovery_saved: bool,
     #[serde(default)]
     manual_rejected: bool,
+    #[serde(default)]
+    confirmed_admission: Option<AdmissionAttempt>,
     #[serde(default)]
     complete_invitation: Option<crate::client_invitation::ClientInvitation>,
     #[serde(default)]
@@ -146,6 +152,50 @@ impl Invitation {
 }
 
 impl SavedNode {
+    fn admission_request_id(&self) -> [u8; 16] {
+        self.precode.map_or(self.request, |token| {
+            crate::admission_request_id::precode_request_id(self.request, token)
+        })
+    }
+
+    fn admission_attempt(&self) -> Option<AdmissionAttempt> {
+        if self.invitation.is_none() || self.creator_seed.is_some() || self.guest.is_some()
+            || self.recovery.is_some() || self.restored.is_some()
+        {
+            return None;
+        }
+        let request_id = self.admission_request_id();
+        let progress = if self.manual_retry_stopped() {
+            ApplicationProgress::Rejected
+        } else {
+            match self.confirmed_admission {
+                Some(attempt) if attempt.request_id == request_id => attempt.progress,
+                Some(_) => ApplicationProgress::Created,
+                None if self.secret.is_some() => ApplicationProgress::Complete,
+                None if self.authorization.is_some() => ApplicationProgress::Authorized,
+                None => ApplicationProgress::Created,
+            }
+        };
+        Some(AdmissionAttempt { request_id, progress })
+    }
+
+    fn record_admission_progress(&mut self, progress: ApplicationProgress) {
+        let request_id = self.admission_request_id();
+        let progress = self.admission_attempt().map_or(progress, |old| old.progress.max(progress));
+        self.confirmed_admission = Some(AdmissionAttempt { request_id, progress });
+    }
+
+    fn reset_admission_progress(&mut self) {
+        self.confirmed_admission = Some(AdmissionAttempt {
+            request_id: self.admission_request_id(),
+            progress: ApplicationProgress::Created,
+        });
+    }
+
+    fn manual_retry_stopped(&self) -> bool {
+        self.precode.is_none() && self.manual_rejected
+    }
+
     fn identity(&self) -> VerifyingKey {
         p2panda_core::SigningKey::from_bytes(&self.key).verifying_key()
     }
@@ -255,7 +305,7 @@ impl SavedNode {
         }
         if self.creator_seed.is_some() && !self.recovery_saved {
             "AwaitingRecoverySave"
-        } else if self.authorization.is_none() && self.manual_rejected {
+        } else if self.authorization.is_none() && self.manual_retry_stopped() {
             "Rejected"
         } else if self.authorization.is_none() {
             "AwaitingApproval"
@@ -2052,6 +2102,7 @@ impl BrowserNetwork {
                 recovery_exported: false,
                 recovery_saved: false,
                 manual_rejected: false,
+                confirmed_admission: None,
                 complete_invitation: None,
                 services: Vec::new(),
                 guest: None,
@@ -2112,6 +2163,11 @@ impl BrowserNetwork {
             configuration.maintenance = maintenance;
         }
         let pairing_receiver = matches!(startup, Startup::Pairing);
+        let reopening_application = if matches!(&startup, Startup::Existing) && caller_override.is_none() {
+            saved.admission_attempt()
+        } else {
+            None
+        };
         match startup {
             Startup::Recovery(card, contact) => saved.prepare_device_recovery(card, contact)?,
             Startup::Restore(backup) => {
@@ -2316,7 +2372,12 @@ impl BrowserNetwork {
         if raw.as_string().as_deref() != Some(&committed) {
             save_node(lease.0, previous, committed.clone()).await?;
         }
-        if relays.is_empty() && mqtt.is_empty() && irc.is_empty() {
+        let has_carriers = !(relays.is_empty() && mqtt.is_empty() && irc.is_empty());
+        // Reopened applicants can read saved progress while paths reconnect.
+        let resume_offline = reopening_application.is_some_and(|attempt| {
+            has_carriers || attempt.progress != ApplicationProgress::Created
+        });
+        if !has_carriers && !resume_offline {
             return Err(error(
                 "temporarily unreachable: no allowed browser relay or MQTT carrier",
             ));
@@ -2441,7 +2502,7 @@ impl BrowserNetwork {
             .bind()
             .await
             .map_err(error)?;
-        if n0_future::time::timeout(
+        if !resume_offline && n0_future::time::timeout(
             caller_budget.saturating_sub(carrier_started.elapsed()),
             async {
                 use futures_util::{FutureExt, future::select_all};
@@ -2648,7 +2709,8 @@ impl BrowserNetwork {
             "network": anchor.map(|a| a.root.to_string()), "genesis": anchor.map(|a| a.genesis.to_string()),
             "recovery_exported": saved.recovery_exported,
             "recovery_saved": saved.creator_seed.is_none() || saved.recovery_saved,
-            "automatic_retry": !saved.manual_rejected, "authorization_saved": saved.authorization.is_some(),
+            "admission_attempt": if self.pairing.is_some() { None } else { saved.admission_attempt().map(|attempt| attempt.public_json()) },
+            "automatic_retry": !saved.manual_retry_stopped(), "authorization_saved": saved.authorization.is_some(),
             "secret_saved": saved.secret.is_some(), "running": self.lease.is_some()
         }).to_string()
     }
@@ -2659,7 +2721,7 @@ impl BrowserNetwork {
         self.saved.verify()?;
         let invitation = self.saved.invitation()?;
         Ok(serde_json::json!({"id":self.id(),"contact":invitation.contact.to_string(),"stage":self.saved.stage(),
-            "request":hex::encode(self.saved.precode.map_or(self.saved.request,|token|crate::admission_request_id::precode_request_id(self.saved.request,token))),
+            "request":hex::encode(self.saved.admission_request_id()),
             "authorization":self.saved.authorization.map(|id|id.to_string()),"generation":self.saved.generation,
             "authorization_saved":self.saved.authorization.is_some(),"secret_saved":self.saved.secret.is_some(),
             "records":self.saved.records.iter().map(|(header,_)|Hash::digest(header).to_string()).collect::<Vec<_>>()}).to_string())
@@ -2720,6 +2782,9 @@ impl BrowserNetwork {
         let mut next = self.saved.clone();
         next.invitation = Some(bytes);
         next.precode = None;
+        if self.saved.admission_request_id() != next.admission_request_id() {
+            next.reset_admission_progress();
+        }
         if next.complete_invitation.as_ref().is_some_and(|full| {
             full.material_bytes()
                 .ok()
@@ -2741,7 +2806,7 @@ impl BrowserNetwork {
         if let Some(report) = self.last_request.as_mut() {
             report["attempt_elapsed_ms"] = serde_json::json!(started.elapsed().as_millis());
         }
-        result.map_err(|_| error("temporarily unreachable; durable admission progress retained"))?
+        result.map_err(|_| admission_timeout())?
     }
 
     /// Public protocol diagnostics contain identities and counters only.
@@ -2794,6 +2859,9 @@ impl BrowserNetwork {
         let mut next = self.saved.clone();
         next.invitation = Some(bytes[..96].to_vec());
         next.precode = Some(bytes[96..].try_into().unwrap());
+        if self.saved.admission_request_id() != next.admission_request_id() {
+            next.reset_admission_progress();
+        }
         if next.complete_invitation.as_ref().is_some_and(|full| {
             full.precode_bytes()
                 .ok()
@@ -2813,7 +2881,7 @@ impl BrowserNetwork {
             },
         )
         .await
-        .map_err(|_| error("precode contact unavailable; progress retained"))?
+        .map_err(|_| admission_timeout())?
     }
 
     pub async fn complete_admission(&mut self) -> Result<String, JsValue> {
@@ -2822,9 +2890,7 @@ impl BrowserNetwork {
             .deadline
             .saturating_duration_since(n0_future::time::Instant::now());
         if remaining.is_zero() {
-            return Err(error(
-                "delivery caller deadline expired; committed materials retained",
-            ));
+            return Err(admission_timeout());
         }
         if let Some(report) = self.last_request.as_mut() {
             report["completion_remaining_ms"] = serde_json::json!(remaining.as_millis());
@@ -2847,12 +2913,11 @@ impl BrowserNetwork {
             self.material_event("secret-received-generation-verified");
             let mut next = self.saved.clone();
             next.secret = Some(material[8..].try_into().unwrap());
+            next.record_admission_progress(ApplicationProgress::Complete);
             self.commit(next).await?;
             self.material_event("secret-committed");
             if delivery.deadline <= n0_future::time::Instant::now() {
-                return Err(error(
-                    "delivery caller deadline expired; committed materials retained",
-                ));
+                return Err(admission_timeout());
             }
             send_fixed(&delivery.exchange, b"SAVE").await?;
             self.material_event("SAVE-sent");
@@ -2865,7 +2930,7 @@ impl BrowserNetwork {
             Ok(self.saved.stage().to_string())
         })
         .await
-        .map_err(|_| error("delivery interrupted; committed materials retained"))?;
+        .map_err(|_| admission_timeout())?;
         result
     }
 
@@ -3063,7 +3128,11 @@ impl BrowserNetwork {
                     ),
                 )
                 .await
-                .map_err(error);
+                .map_err(|failure| match failure {
+                    crate::connection_coordinator::ConnectError::DeadlineExceeded
+                        if is_request_alpn(alpn) => admission_timeout(),
+                    _ => error(failure),
+                });
         }
         Err(error("unsupported browser control purpose"))
     }
@@ -3113,9 +3182,7 @@ impl BrowserNetwork {
         let result = async {
             let exchange = connection.open_control_exchange().await.map_err(error)?;
             let mut wire = self.saved.invitation.clone().ok_or_else(rejected)?;
-            let request = self.saved.precode.map_or(self.saved.request, |token| {
-                crate::admission_request_id::precode_request_id(self.saved.request, token)
-            });
+            let request = self.saved.admission_request_id();
             wire.extend_from_slice(&request);
             wire.extend_from_slice(self.saved.identity().as_bytes());
             if let Some(token) = self.saved.precode {
@@ -3123,6 +3190,13 @@ impl BrowserNetwork {
             }
             send_fixed(&exchange, &wire).await?;
             let status = recv_fixed::<1>(&exchange).await?;
+            if matches!(status, [0] | [1]) {
+                let mut next = self.saved.clone();
+                next.record_admission_progress(ApplicationProgress::Delivered);
+                if next.confirmed_admission != self.saved.confirmed_admission {
+                    self.commit(next).await?;
+                }
+            }
             if status == [0] {
                 exchange.finish_send().await.map_err(error)?;
                 return Ok("AwaitingApproval".to_string());
@@ -3130,6 +3204,7 @@ impl BrowserNetwork {
             if status == [2] && self.saved.precode.is_none() {
                 let mut next = self.saved.clone();
                 next.manual_rejected = true;
+                next.record_admission_progress(ApplicationProgress::Rejected);
                 self.commit(next).await?;
                 exchange.finish_send().await.map_err(error)?;
                 return Ok("Rejected".into());
@@ -3155,11 +3230,10 @@ impl BrowserNetwork {
             let mut next = self.saved.clone();
             next = next.merge_records(records)?;
             next.authorization = Some(authorization);
-            next.manual_rejected = false;
             next.generation = generation;
-            // A newly received grant is never completed by a previously saved
-            // secret, even when the identity is retained across a rejoin.
-            next.secret = None;
+            if self.saved.authorization != next.authorization || self.saved.generation != generation {
+                next.secret = None;
+            }
             let auth = next.verify()?.ok_or_else(rejected)?;
             let provider =
                 VerifyingKey::from_bytes(next.invitation()?.contact.as_bytes()).map_err(error)?;
@@ -3168,6 +3242,10 @@ impl BrowserNetwork {
             {
                 return Err(rejected());
             }
+            next.confirmed_admission = Some(AdmissionAttempt {
+                request_id: request,
+                progress: if next.secret.is_some() { ApplicationProgress::Complete } else { ApplicationProgress::Authorized },
+            });
             self.commit(next).await?;
             self.delivery = Some(Delivery {
                 connection: connection.clone(),

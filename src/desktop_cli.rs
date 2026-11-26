@@ -187,6 +187,7 @@ fn error_code(error: &(dyn Error + Send + Sync + 'static)) -> &'static str {
         return match error {
             ManualAdmissionError::Rejected => "admission_rejected",
             ManualAdmissionError::PathUnavailable => "delivery_incomplete",
+            ManualAdmissionError::TimedOut => "admission_timeout",
             ManualAdmissionError::Store(StoreError::AdmissionPaused) => "admission_paused",
             _ => "storage_or_verification_failed",
         };

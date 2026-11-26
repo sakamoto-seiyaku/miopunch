@@ -23,6 +23,10 @@ impl Precode {
         self.invitation
     }
 
+    pub(crate) fn request_id(&self, local_request: [u8; 16]) -> [u8; 16] {
+        crate::admission_request_id::precode_request_id(local_request, self.token)
+    }
+
     /// Pass these bearer-capability bytes only through a trusted channel.
     pub fn encode(&self) -> [u8; 128] {
         let mut bytes = [0; 128];
@@ -267,7 +271,7 @@ impl NativeNetwork {
             self.request_admission_inner(connection, Some(code.token), deadline),
         )
         .await
-        .unwrap_or(Err(ManualAdmissionError::PathUnavailable));
+        .unwrap_or(Err(ManualAdmissionError::TimedOut));
         if result.is_err() {
             connection.close(0u32.into(), b"precode admission ended");
         }

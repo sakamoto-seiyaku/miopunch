@@ -162,6 +162,8 @@ mod replica_snapshot;
 
 #[path = "../../src/admission_request_id.rs"]
 mod admission_request_id;
+#[path = "../../src/admission_progress.rs"]
+pub mod admission_progress;
 
 #[path = "../../src/management_action.rs"]
 mod management_action;
