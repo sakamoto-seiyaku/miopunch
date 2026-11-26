@@ -1218,7 +1218,7 @@ impl Connection {
             .set_nat_traversal_probes_permitted(permitted);
     }
 
-    /// Retire queued probes while retaining responses and established paths.
+    /// Retire queued probes and correlations for a completed or cancelled round.
     pub fn stop_nat_traversal_probes(&self) {
         self.0.lock_and_wake("stop_nat_traversal_probes").inner.stop_nat_traversal_probes();
     }

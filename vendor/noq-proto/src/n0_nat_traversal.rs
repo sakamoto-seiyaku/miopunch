@@ -349,15 +349,22 @@ impl State {
 
     pub(crate) fn stop_probes(&mut self) {
         match self {
-            Self::NotNegotiated => {},
+            Self::NotNegotiated => {}
             Self::ClientSide(state) => {
                 state.pending_probes.clear();
-                for (_, probe) in state.remote_addresses.values_mut() { *probe = ProbeState::Inactive; }
-            },
+                state.sent_challenges.clear();
+                state.paths_to_be_opened.clear();
+                for (_, probe) in state.remote_addresses.values_mut() {
+                    *probe = ProbeState::Inactive;
+                }
+            }
             Self::ServerSide(state) => {
                 state.pending_probes.clear();
-                for probe in state.remotes.values_mut() { *probe = ProbeState::Inactive; }
-            },
+                state.sent_challenges.clear();
+                for probe in state.remotes.values_mut() {
+                    *probe = ProbeState::Inactive;
+                }
+            }
         }
     }
 
@@ -1059,6 +1066,28 @@ mod tests {
     use testresult::TestResult;
 
     use super::*;
+
+    #[test]
+    fn stopping_probes_retires_late_responses_and_unopened_paths() {
+        let remote: SocketAddr = "127.0.0.2:4242".parse().unwrap();
+        let binding = FourTuple {
+            local_socket: None,
+            remote,
+            local_ip: Some("127.0.0.1".parse().unwrap()),
+        };
+        for side in [Side::Client, Side::Server] {
+            let mut state = State::new(8, 8, side);
+            state.mark_probe_sent((remote.ip(), remote.port()), 11);
+            state.mark_probe_sent((remote.ip(), remote.port()), 12);
+            assert!(state.handle_path_response(binding, 11));
+            state.stop_probes();
+            assert!(!state.handle_path_response(binding, 12));
+            assert!(!state.has_probes());
+            if let State::ClientSide(client) = &mut state {
+                assert!(client.pop_pending_path_open().is_none());
+            }
+        }
+    }
 
     #[test]
     fn a_paused_full_family_leaves_room_for_late_family_candidates() -> TestResult {

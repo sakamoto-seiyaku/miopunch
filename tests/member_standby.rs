@@ -91,7 +91,7 @@ async fn standby(
 
 async fn five_idle_peers(
     policy: miopunch_native_probe::network_maintenance::MaintenancePolicy,
-    legacy: bool,
+    legacy: Option<usize>,
 ) {
     let relay = relay().await;
     let root = tempfile::tempdir().unwrap();
@@ -132,7 +132,7 @@ async fn five_idle_peers(
     }
     let hub_id = hub.address().id;
     hub.close().await.unwrap();
-    if legacy {
+    if let Some(legacy_limit) = legacy {
         let path = hub_path.join("resources.json");
         let mut saved: serde_json::Value =
             serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
@@ -140,7 +140,7 @@ async fn five_idle_peers(
         maintenance.remove("standby_member_limit");
         maintenance.insert(
             "max_standby_member_connections".into(),
-            if limit == 1 { 1.into() } else { 4.into() },
+            legacy_limit.into(),
         );
         std::fs::write(path, serde_json::to_vec(&saved).unwrap()).unwrap();
     }
@@ -270,7 +270,7 @@ async fn five_idle_peers(
         "business completion returns every healthy original to standby"
     );
     eprintln!(
-        "FIVE_STANDBY_READY peers=5 relay_only=5 budget={limit} max_pending={max_pending} legacy={legacy}"
+        "FIVE_STANDBY_READY peers=5 relay_only=5 budget={limit} max_pending={max_pending} legacy={legacy:?}"
     );
     for (_, peer) in online {
         peer.close().await.unwrap();
@@ -283,7 +283,7 @@ async fn five_idle_peers(
 async fn conservative_node_retains_five_idle_peers() {
     five_idle_peers(
         miopunch_native_probe::network_maintenance::MaintenancePolicy::conservative(),
-        false,
+        None,
     )
     .await;
 }
@@ -292,7 +292,7 @@ async fn conservative_node_retains_five_idle_peers() {
 async fn active_node_retains_five_idle_peers() {
     five_idle_peers(
         miopunch_native_probe::network_maintenance::MaintenancePolicy::active(),
-        false,
+        None,
     )
     .await;
 }
@@ -301,7 +301,7 @@ async fn active_node_retains_five_idle_peers() {
 async fn old_conservative_default_retains_five_idle_peers_after_reopen() {
     five_idle_peers(
         miopunch_native_probe::network_maintenance::MaintenancePolicy::conservative(),
-        true,
+        Some(1),
     )
     .await;
 }
@@ -310,7 +310,7 @@ async fn old_conservative_default_retains_five_idle_peers_after_reopen() {
 async fn old_active_default_retains_five_idle_peers_after_reopen() {
     five_idle_peers(
         miopunch_native_probe::network_maintenance::MaintenancePolicy::active(),
-        true,
+        Some(4),
     )
     .await;
 }

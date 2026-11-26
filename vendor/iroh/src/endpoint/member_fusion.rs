@@ -499,6 +499,13 @@ impl MemberFusionEndpoint {
         self.inner.endpoint.id()
     }
 
+    /// Active construction peers in this endpoint's shared budget.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_building_peers(&self) -> Vec<EndpointId> {
+        self.inner.fusion.building.active_peers()
+    }
+
     /// Watch the owner's QAD results from its configured native UDP bindings.
     pub fn udp_observation(
         &self,

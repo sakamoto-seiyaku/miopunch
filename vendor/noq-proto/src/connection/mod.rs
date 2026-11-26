@@ -8011,7 +8011,7 @@ impl Connection {
     }
 
     /// Retire active off-path probes after member work completes or is cancelled.
-    /// Responses to already sent challenges remain valid.
+    /// Late probe responses cannot reopen work from the retired round.
     pub fn stop_nat_traversal_probes(&mut self) {
         self.n0_nat_traversal.stop_probes();
     }

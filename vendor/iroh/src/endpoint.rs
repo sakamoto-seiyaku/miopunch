@@ -97,8 +97,8 @@ mod connection;
 pub(crate) mod hooks;
 #[cfg(not(wasm_browser))]
 pub(crate) mod member_fusion;
-#[cfg(not(wasm_browser))]
-pub use member_fusion::building::MEMBER_BUILD_LIMIT;
+/// Maximum different peers actively constructing member paths on one endpoint.
+pub const MEMBER_BUILD_LIMIT: usize = 8;
 #[cfg(not(wasm_browser))]
 #[doc(hidden)]
 pub mod nat_execution;

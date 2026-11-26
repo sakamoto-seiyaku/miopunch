@@ -255,8 +255,13 @@ struct MemberPaths {
     #[cfg(not(wasm_browser))]
     building: Option<crate::endpoint::member_fusion::building::BuildPermit>,
     #[cfg(not(wasm_browser))]
+    building_events: tokio_util::sync::CancellationToken,
+    #[cfg(not(wasm_browser))]
+    building_subscribed: bool,
+    #[cfg(not(wasm_browser))]
     restricted_contact: Option<Arc<AtomicBool>>,
     known_probes: FxHashMap<SocketAddr, Instant>,
+    response_deadlines: FxHashMap<SocketAddr, Instant>,
     // One extra target for the current period of concurrent business.
     additional_direct: Option<SocketAddr>,
     last_exchange: [Option<HolepunchAttempt>; 2],
@@ -273,8 +278,13 @@ impl MemberPaths {
             #[cfg(not(wasm_browser))]
             building: None,
             #[cfg(not(wasm_browser))]
+            building_events: Default::default(),
+            #[cfg(not(wasm_browser))]
+            building_subscribed: false,
+            #[cfg(not(wasm_browser))]
             restricted_contact: None,
             known_probes: FxHashMap::default(),
+            response_deadlines: FxHashMap::default(),
             additional_direct: None,
             last_exchange: [None, None],
             candidate_cursor: 0,
@@ -282,6 +292,28 @@ impl MemberPaths {
             network_changed_at: None,
             new_path_probes: FxHashMap::default(),
         }
+    }
+
+    #[cfg(not(wasm_browser))]
+    fn subscribe_building(
+        &mut self,
+        id: ConnId,
+    ) -> Option<Pin<Box<dyn Stream<Item = ConnId> + Send + Sync>>> {
+        let building = self.policy.building.as_ref()?;
+        if self.building_subscribed {
+            return None;
+        }
+        self.building_subscribed = true;
+        let events = n0_future::stream::unfold(
+            (building.subscribe(), self.building_events.clone()),
+            move |(mut changed, cancelled)| async move {
+                tokio::select! { biased;
+                    _ = cancelled.cancelled() => None,
+                    result = changed.changed() => { result.ok()?; Some((id, (changed, cancelled))) },
+                }
+            },
+        );
+        Some(Box::pin(events))
     }
 
     fn allow_probes(&mut self, conn: &noq::Connection, peer: EndpointId) -> bool {
@@ -302,6 +334,13 @@ impl MemberPaths {
             self.network_changed_at
                 .is_none_or(|changed| Instant::from(ack.sent_at) > changed)
         })
+    }
+}
+
+#[cfg(not(wasm_browser))]
+impl Drop for MemberPaths {
+    fn drop(&mut self) {
+        self.building_events.cancel();
     }
 }
 
@@ -1272,15 +1311,11 @@ impl RemoteStateActor {
                         && packet_policy.permits(address)
                 })
         });
-        if let Some(building) = &policy.building {
-            conn.set_nat_traversal_probes_permitted(false);
-            let events = n0_future::stream::unfold(building.subscribe(), move |mut changed| async move {
-                changed.changed().await.ok()?;
-                Some((conn_id, changed))
-            });
-            self.member_activity.push(Box::pin(events));
-        }
         let mut paths = MemberPaths::new(policy);
+        if let Some(events) = paths.subscribe_building(conn_id) {
+            conn.set_nat_traversal_probes_permitted(false);
+            self.member_activity.push(events);
+        }
         paths.restricted_contact = Some(restricted_contact);
         state.member_paths = Some(paths);
         self.update_member_udp(conn_id, false);
@@ -1384,18 +1419,6 @@ impl RemoteStateActor {
                 });
                 self.member_activity.push(Box::pin(events));
             }
-            #[cfg(not(wasm_browser))]
-            if let Some(building) = &policy.building {
-                conn.set_nat_traversal_probes_permitted(false);
-                let events = n0_future::stream::unfold(
-                    building.subscribe(),
-                    move |mut changed| async move {
-                        changed.changed().await.ok()?;
-                        Some((conn_id, changed))
-                    },
-                );
-                self.member_activity.push(Box::pin(events));
-            }
             if let Some(paths) = &mut state.member_paths {
                 paths.policy = policy;
                 #[cfg(not(wasm_browser))]
@@ -1404,6 +1427,15 @@ impl RemoteStateActor {
                 }
             } else {
                 state.member_paths = Some(MemberPaths::new(policy));
+            }
+            #[cfg(not(wasm_browser))]
+            if let Some(events) = state
+                .member_paths
+                .as_mut()
+                .and_then(|paths| paths.subscribe_building(conn_id))
+            {
+                conn.set_nat_traversal_probes_permitted(false);
+                self.member_activity.push(events);
             }
         }
         state.allowed_data_custom_ids = allowed;
@@ -1453,6 +1485,7 @@ impl RemoteStateActor {
             for state in self.connections.values_mut() {
                 if let Some(member) = &mut state.member_paths {
                     member.known_probes.clear();
+                    member.response_deadlines.clear();
                     member.additional_direct = None;
                     member.last_exchange = [None, None];
                     member.network_changed_at = Some(now);
@@ -1502,11 +1535,11 @@ impl RemoteStateActor {
         if !active && !enhanced {
             #[cfg(not(wasm_browser))]
             if let Some(member) = &mut state.member_paths {
-                member.building = None;
                 if let Some(conn) = state.handle.upgrade() {
                     if member.policy.building.is_some() { conn.stop_nat_traversal_probes(); }
                     conn.set_nat_traversal_probes_permitted(member.policy.building.is_none());
                 }
+                member.building = None;
             }
             return;
         }
@@ -1558,15 +1591,43 @@ impl RemoteStateActor {
             .expect("checked member connection");
         #[cfg(not(wasm_browser))]
         if member.policy.building.is_some() {
-            let waiting_for_peer = member
-                .last_exchange
-                .iter()
-                .flatten()
-                .any(|last| now - last.when < LOCAL_PROBE_GRACE);
-            if !conn.nat_traversal_probes_pending() && !waiting_for_peer {
+            member
+                .response_deadlines
+                .retain(|remote, deadline| now < *deadline && !verified.contains(remote));
+            let waiting_for_peer = !member.response_deadlines.is_empty()
+                || member.last_exchange.iter().flatten().any(|last| {
+                    last.remote_candidates.is_empty()
+                        && now - last.when < HOLEPUNCH_ATTEMPTS_INTERVAL
+                });
+            for (_, network) in conn.network_paths() {
+                if let Some(binding) = self.state.mapped_addrs.to_transport_tuple(&network)
+                    && let transports::Addr::Ip(remote) = binding.remote()
+                {
+                    member.response_deadlines.remove(&remote);
+                }
+            }
+            let validating = member
+                .new_path_probes
+                .values()
+                .any(|(deadline, _)| now < *deadline)
+                || conn.network_paths().iter().any(|(path_id, network)| {
+                    !state.paths.contains_key(path_id)
+                        && conn
+                            .path(*path_id)
+                            .is_some_and(|path| path.status().is_ok())
+                        && self
+                            .state
+                            .mapped_addrs
+                            .to_transport_tuple(network)
+                            .is_some_and(|binding| binding.is_ip())
+                });
+            let in_flight = conn.nat_traversal_probes_pending() || waiting_for_peer || validating;
+            if !in_flight && member.building.is_some() {
+                conn.stop_nat_traversal_probes();
+                conn.set_nat_traversal_probes_permitted(false);
                 member.building = None;
             }
-            if conn.nat_traversal_probes_pending() {
+            if in_flight {
                 member.allow_probes(&conn, self.state.endpoint_id);
             }
             conn.set_nat_traversal_probes_permitted(member.building.is_some());
@@ -1586,9 +1647,11 @@ impl RemoteStateActor {
             if ready_direct != 1 || concurrent != Some(true) {
                 #[cfg(not(wasm_browser))]
                 {
-                    member.building = None;
-                    if member.policy.building.is_some() { conn.stop_nat_traversal_probes(); }
+                    if member.policy.building.is_some() {
+                        conn.stop_nat_traversal_probes();
+                    }
                     conn.set_nat_traversal_probes_permitted(member.policy.building.is_none());
+                    member.building = None;
                 }
                 return;
             }
@@ -1723,6 +1786,9 @@ impl RemoteStateActor {
                     );
                 }
                 member.known_probes.insert(*remote, now);
+                member
+                    .response_deadlines
+                    .insert(*remote, now + HOLEPUNCH_ATTEMPTS_INTERVAL);
                 if balancing {
                     member.additional_direct = Some(*remote);
                 }
@@ -2022,6 +2088,20 @@ impl RemoteStateActor {
                 self.select_path();
             }
             NoqPathEvent::Abandoned { id, reason, .. } => {
+                if let Some(member) = &mut conn_state.member_paths {
+                    for (path_id, network) in conn
+                        .network_paths()
+                        .into_iter()
+                        .filter(|(path_id, _)| *path_id == id)
+                    {
+                        let _ = path_id;
+                        if let Some(binding) = self.state.mapped_addrs.to_transport_tuple(&network)
+                            && let transports::Addr::Ip(remote) = binding.remote()
+                        {
+                            member.response_deadlines.remove(&remote);
+                        }
+                    }
+                }
                 // Remove abandoned path from the conn state.
                 let Some(network_path) = conn_state.remove_path(&id, &conn) else {
                     debug!(%id, "path not in path_id_map");

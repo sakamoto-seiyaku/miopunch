@@ -6,8 +6,7 @@ use std::{
 };
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, watch};
 
-/// Maximum different peers actively constructing member paths on one endpoint.
-pub const MEMBER_BUILD_LIMIT: usize = 8;
+use super::super::MEMBER_BUILD_LIMIT;
 
 #[derive(Debug)]
 pub(crate) struct Building {
@@ -25,7 +24,9 @@ impl Default for Building {
     }
 }
 #[derive(Clone, Debug)]
-pub(crate) struct BuildPermit(Arc<Position>);
+pub(crate) struct BuildPermit {
+    _position: Arc<Position>,
+}
 #[derive(Debug)]
 struct Position {
     _permit: OwnedSemaphorePermit,
@@ -37,6 +38,16 @@ impl Drop for Position {
     }
 }
 impl Building {
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(crate) fn active_peers(&self) -> Vec<EndpointId> {
+        self.peers
+            .lock()
+            .expect("building peers")
+            .iter()
+            .filter_map(|(peer, permit)| (permit.strong_count() != 0).then_some(*peer))
+            .collect()
+    }
+
     pub(crate) fn subscribe(&self) -> watch::Receiver<()> {
         self.changed.subscribe()
     }
@@ -46,12 +57,16 @@ impl Building {
             .expect("building peers")
             .get(&peer)
             .and_then(Weak::upgrade)
-            .map(BuildPermit)
+            .map(|position| BuildPermit {
+                _position: position,
+            })
     }
     fn install(&self, peer: EndpointId, permit: OwnedSemaphorePermit) -> BuildPermit {
         let mut peers = self.peers.lock().expect("building peers");
         if let Some(existing) = peers.get(&peer).and_then(Weak::upgrade) {
-            return BuildPermit(existing);
+            return BuildPermit {
+                _position: existing,
+            };
         }
         peers.retain(|_, position| position.strong_count() != 0);
         let position = Arc::new(Position {
@@ -60,7 +75,9 @@ impl Building {
         });
         peers.insert(peer, Arc::downgrade(&position));
         self.changed.send_modify(|_| {});
-        BuildPermit(position)
+        BuildPermit {
+            _position: position,
+        }
     }
     pub(crate) fn try_acquire(&self, peer: EndpointId) -> Option<BuildPermit> {
         self.existing(peer).or_else(|| {
