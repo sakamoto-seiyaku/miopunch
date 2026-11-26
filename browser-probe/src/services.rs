@@ -4,7 +4,7 @@ use super::*;
 use crate::service_policy::{
     GuestInvitation, Service, ServiceAccess, ServiceAction, ServiceLedger, ServiceRule,
 };
-use crate::service_protocol::{GuestRequest, ServiceBundle, read_guest, write_guest};
+use crate::service_protocol::{GuestRequest, MemberSync, ServiceBundle, read_guest, write_guest};
 use futures_util::FutureExt;
 use std::{
     cell::{Cell, RefCell},
@@ -105,6 +105,14 @@ impl SavedNode {
         &self,
         incoming: &ServiceBundle,
     ) -> Result<(Self, Option<std::io::Error>), JsValue> {
+        let (next, _, policy_error) = self.reconcile_service_bundle(incoming)?;
+        Ok((next, policy_error))
+    }
+
+    fn reconcile_service_bundle(
+        &self,
+        incoming: &ServiceBundle,
+    ) -> Result<(Self, Option<ManagementAuth>, Option<std::io::Error>), JsValue> {
         let result = self
             .service_bundle()
             .reconcile(self.invitation()?.anchor, incoming)
@@ -112,8 +120,27 @@ impl SavedNode {
         let mut next = self.clone();
         next.records = result.bundle.management;
         next.services = result.bundle.services;
-        next.verify()?;
-        Ok((next, result.policy_error))
+        let auth = next.verify()?;
+        Ok((next, auth, result.policy_error))
+    }
+
+    fn member_sync(&self, members: &[(VerifyingKey, Access)]) -> MemberSync {
+        MemberSync {
+            bundle: self.service_bundle(),
+            device_names: self.device_names.for_members(members),
+        }
+    }
+
+    fn with_member_sync(
+        &self,
+        incoming: MemberSync,
+    ) -> Result<(Self, Vec<(VerifyingKey, Access)>, Option<std::io::Error>), JsValue> {
+        let (mut next, auth, policy_error) = self.reconcile_service_bundle(&incoming.bundle)?;
+        let members = auth.ok_or_else(rejected)?.nodes();
+        if policy_error.is_none() {
+            next.device_names.merge_members(&members, incoming.device_names);
+        }
+        Ok((next, members, policy_error))
     }
     pub(super) fn declare_files(&self, enabled: bool) -> Result<Self, JsValue> {
         if self.guest.is_some() || self.invitation.is_none() {
@@ -403,13 +430,13 @@ impl BrowserServices {
         let mut stream = crate::data_stream::DataStream::accept(connection)
             .await
             .map_err(error)?;
-        let incoming = ServiceBundle::read(&mut stream).await.map_err(error)?;
+        let incoming = MemberSync::read(&mut stream).await.map_err(error)?;
         let (response, policy_error) = update_saved(gate, |saved| {
             if self.cancel.is_cancelled() {
                 return Err(rejected());
             }
-            let (next, policy_error) = saved.with_service_bundle(&incoming)?;
-            let response = next.service_bundle();
+            let (next, members, policy_error) = saved.with_member_sync(incoming)?;
+            let response = next.member_sync(&members);
             *saved = next;
             Ok((response, policy_error))
         })
@@ -613,15 +640,15 @@ impl BrowserNetwork {
         let mut stream = crate::data_stream::DataStream::open(&connection)
             .await
             .map_err(error)?;
-        self.gate
-            .service_snapshot()?
-            .service_bundle()
+        let saved = self.gate.service_snapshot()?;
+        let members = saved.verify()?.ok_or_else(rejected)?.nodes();
+        saved.member_sync(&members)
             .write(&mut stream)
             .await
             .map_err(error)?;
-        let incoming = ServiceBundle::read(&mut stream).await.map_err(error)?;
+        let incoming = MemberSync::read(&mut stream).await.map_err(error)?;
         let policy_error = update_saved(&self.gate, |saved| {
-            let (next, policy_error) = saved.with_service_bundle(&incoming)?;
+            let (next, _, policy_error) = saved.with_member_sync(incoming)?;
             *saved = next;
             Ok(policy_error)
         })

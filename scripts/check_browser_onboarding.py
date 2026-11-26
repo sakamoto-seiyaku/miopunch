@@ -22,7 +22,7 @@ from host_native_runtime import group_absent, group_snapshot
 ROOT = Path(__file__).resolve().parents[1]
 RELAY = "https://aps1-1.relay.n0.iroh.link./"
 CONFIGURATION = {"rtc_enabled": False, "relays": [RELAY]}
-PRIVATE_OPERATIONS = {"invitation", "precode_invitation", "pairing_information", "export_recovery_card", "member_call", "begin_management_session", "issue_guest"}
+PRIVATE_OPERATIONS = {"invitation", "precode_invitation", "pairing_information", "export_recovery_card", "member_call", "begin_management_session", "issue_guest", "prepare_node_replacement"}
 
 
 def material(invitation):
@@ -113,7 +113,7 @@ class BrowserControl:
 
 class BrowserOnboardingRunner(OnboardingRunner):
     def native_configuration(self, remote):
-        if self.args.suite not in ["progress", "observation", "receipts"]:
+        if self.args.suite not in ["progress", "observation", "receipts", "device-names"]:
             return super().native_configuration(remote)
         config = dict(defaults=dict(revision=2, resources=[]),
                       replacement=[dict(url=self.args.relay, uses=["DataRelay"], limitation="onboarding test relay")],
@@ -125,6 +125,196 @@ class BrowserOnboardingRunner(OnboardingRunner):
 
     def progress_configuration(self):
         return dict(CONFIGURATION, relays=[self.args.relay], maintenance=dict(contact_timeout_ms=10000))
+
+    def device_names(self):
+        self.browser_applicant_display_name()
+        self.native_applicant_display_name()
+        self.record("device-names", "display_names_qualified", dict(
+            nativeAndWasmDefaults=True, sameRequestAfterOfflineRename=True,
+            matchingNamesDistinctIdentities=True, admittedPeersCommunicate=True,
+            independentReaderAfterOriginClosed=True, idOnlyDataReopens=True,
+            sameIdentityReplacementRetainsName=True, idOnlyBackupRestores=True))
+
+    @staticmethod
+    def member_by_id(snapshot, node):
+        return next(member for member in snapshot["status"]["members"] if member["node"] == node)
+
+    def browser_applicant_display_name(self):
+        b, actor, reader = self.browser, "browser-named-applicant", "browser-name-reader"
+        provider = self.creator(False, "native-name-provider")
+        assert provider.call("status")["display_name"] == os.uname().nodename
+        invitation = self.native_invitation(provider, "name-invitation")
+        config = self.progress_configuration()
+        started = b.start(actor, "join", invitation, dict(config, host_device_name="Browser host"))
+        assert started.get("display_name") == "Browser host"
+        b.call(actor, "set_device_display_name", "Blue Cube")
+        assert b.call(actor, "request_join", False) == "AwaitingApproval"
+        request, = provider.call("state_snapshot")["pending_admissions"]
+        assert request["applicant"] == started["id"] and request["display_name"] == "Blue Cube"
+        assert provider.call("requests")["requests"] == [request]
+        original = b.call(actor, "status")["admission_attempt"]
+
+        provider.stop()
+        b.call(actor, "set_device_display_name", "Common Cube")
+        b.call(actor, "reload")
+        after = b.call(actor, "start", "start", json.dumps(dict(config, host_device_name="Changed host")), None)
+        assert after["display_name"] == "Common Cube" and after["admission_attempt"] == original
+        provider = Host(self, "native-name-provider-pending", False, "open", provider.directory)
+        before = provider.call("state_snapshot")
+        assert before["pending_admissions"] == [request]
+        with ThreadPoolExecutor(max_workers=1) as waiter:
+            observing = waiter.submit(provider.call, "observe_state", after=before["cursor"])
+            assert b.call(actor, "request_join", False) == "AwaitingApproval"
+            renamed = observing.result(timeout=15)
+        assert renamed["pending_admissions"] == [dict(request, display_name="Common Cube")]
+        history, = provider.call("admission_history")
+        assert history["request_id"] == request["request_id"] and history["display_name"] == "Common Cube"
+        assert b.call(actor, "status")["admission_attempt"] == original
+        provider.call("approve", applicant=started["id"], request_id=request["request_id"])
+        assert b.call(actor, "request_join", False) == "Complete"
+        assert self.member_by_id(provider.call("state_snapshot"), started["id"]) == {
+            "node": started["id"], "role": "member", "display_name": "Common Cube"}
+
+        # This browser has no host-supplied name and sends the original ID-only request.
+        reader_id = b.start(reader, "join", invitation, config)["id"]
+        assert b.call(reader, "request_join", False) == "AwaitingApproval"
+        unnamed, = provider.call("requests")["requests"]
+        assert unnamed == {"applicant": reader_id, "request_id": unnamed["request_id"]}
+        assert reader_id != started["id"]
+        provider.call("approve", applicant=reader_id, request_id=request["request_id"], ok=False)
+        provider.call("approve", **unnamed)
+        assert b.call(reader, "request_join", False) == "Complete"
+        provider = self.reopen(provider)
+        assert "display_name" not in self.member_by_id(provider.call("state_snapshot"), reader_id)
+        assert "display_name" not in b.reopen(reader)
+        b.call(reader, "set_device_display_name", "Common Cube")
+        b.call(reader, "sync_services", provider.node)
+        b.call(actor, "sync_services", provider.node)
+        snapshot = provider.call("state_snapshot")
+        assert {entry["node"] for entry in snapshot["status"]["members"]
+                if entry.get("display_name") == "Common Cube"} == {reader_id, started["id"]}
+        accepting = b.send(reader, "member_accept", 10000)
+        b.call(actor, "member_connect", reader_id)
+        b.wait(accepting)
+        reading = b.send(reader, "member_call", "serve_exchange", [])
+        assert b.call(actor, "member_call", "exchange", ["Two Common Cubes"]) == b.wait(reading) == "Two Common Cubes"
+        b.call(actor, "member_call", "close", [])
+        b.call(reader, "member_call", "close", [])
+
+        # The origin can save offline, then the reader learns from a different
+        # member after the origin closes again.
+        provider.stop()
+        b.call(reader, "close_page")
+        b.call(actor, "set_device_display_name", "Desk Cube")
+        assert b.reopen(actor)["display_name"] == "Desk Cube"
+        provider = Host(self, "native-name-provider-relay", False, "open", provider.directory)
+        assert self.member_by_id(provider.call("state_snapshot"), started["id"])["display_name"] == "Common Cube"
+        b.call(actor, "sync_services", provider.node)
+        b.call(actor, "close_page")
+        provider = self.reopen(provider)
+        b.call(reader, "reopen_page")
+        b.call(reader, "start", "start", "{}", None)
+        assert self.member_by_id(b.call(reader, "state_snapshot"), started["id"])["display_name"] == "Common Cube"
+        b.call(reader, "sync_services", provider.node)
+        b.reopen(reader)
+        assert self.member_by_id(b.call(reader, "state_snapshot"), started["id"]) == {
+            "node": started["id"], "role": "member", "display_name": "Desk Cube"}
+        b.call(actor, "reopen_page")
+        b.call(actor, "start", "start", "{}", None)
+        capsule = b.call(actor, "prepare_node_replacement")
+        backup = self.write_private("browser-named-backup", capsule.encode(), False)
+        restored = Host(self, "native-restored-browser-name", False, "restore",
+                        self.path("restored-browser-name-state", False), backup)
+        assert restored.node == started["id"]
+        assert restored.ready["status"]["stage"] == "RestoringAuthorization"
+        assert self.reopen(restored).call("status")["display_name"] == "Desk Cube"
+
+    def native_applicant_display_name(self):
+        b, provider = self.browser, "browser-name-provider"
+        provider_id = b.start(provider, "create", configuration=dict(
+            self.progress_configuration(), host_device_name="Browser provider"))["id"]
+        b.call(provider, "export_recovery_card")
+        b.call(provider, "acknowledge_recovery_saved")
+        invitation = b.call(provider, "invitation")
+        path = self.write_private("native-name-invitation", invitation.encode(), False)
+        origin = self.start("native-named-applicant", False, "join", path)
+        assert origin.call("status")["display_name"] == os.uname().nodename
+        origin.call("set_device_display_name", display_name="Native Cube")
+        assert origin.call("request")["stage"] == "AwaitingApproval"
+        request, = b.call(provider, "state_snapshot")["pending_admissions"]
+        assert request["applicant"] == origin.node and request["display_name"] == "Native Cube"
+        b.call(provider, "close_page")
+        origin.call("set_device_display_name", display_name="Other Cube")
+        origin = self.reopen(origin)
+        assert origin.call("status")["display_name"] == "Other Cube"
+        b.call(provider, "reopen_page")
+        b.call(provider, "start", "start", "{}", None)
+        before = b.call(provider, "state_snapshot")
+        assert before["pending_admissions"] == [request]
+        observing = b.send(provider, "observe_state", before["cursor"])
+        assert origin.call("request")["stage"] == "AwaitingApproval"
+        assert b.wait(observing)["pending_admissions"] == [dict(request, display_name="Other Cube")]
+        history, = b.call(provider, "admission_history")
+        assert history["request_id"] == request["request_id"] and history["display_name"] == "Other Cube"
+        b.call(provider, "approve_admission", origin.node, request["request_id"])
+        assert origin.call("request")["stage"] == "Complete"
+        assert self.member_by_id(b.call(provider, "state_snapshot"), origin.node) == {
+            "node": origin.node, "role": "member", "display_name": "Other Cube"}
+
+        reader = self.start("native-name-reader", False, "join", path)
+        reader.call("set_device_display_name", display_name="Other Cube")
+        assert reader.call("request")["stage"] == "AwaitingApproval"
+        pending, = b.call(provider, "state_snapshot")["pending_admissions"]
+        assert pending["applicant"] == reader.node != origin.node
+        b.call(provider, "approve_admission", reader.node, pending["request_id"])
+        assert reader.call("request")["stage"] == "Complete"
+        assert {entry["node"] for entry in b.call(provider, "state_snapshot")["status"]["members"]
+                if entry.get("display_name") == "Other Cube"} == {reader.node, origin.node}
+        provider_address = dict(id=provider_id, addrs=[{"Relay": self.args.relay}])
+        origin.call("service_sync", address=provider_address)
+        reader.call("service_sync", address=provider_address)
+        self.exchange(origin, reader)
+
+        b.call(provider, "close_page")
+        reader.stop()
+        origin.call("set_device_display_name", display_name="Travel Cube")
+        origin = self.reopen(origin)
+        b.call(provider, "reopen_page")
+        b.call(provider, "start", "start", "{}", None)
+        origin.call("service_sync", address=provider_address)
+        origin.stop()
+        b.reopen(provider)
+        reader = Host(self, "native-name-reader-reopened", False, "open", reader.directory)
+        assert self.member_by_id(reader.call("state_snapshot"), origin.node)["display_name"] == "Other Cube"
+        reader.call("service_sync", address=provider_address)
+        reader = self.reopen(reader)
+        assert self.member_by_id(reader.call("state_snapshot"), origin.node) == {
+            "node": origin.node, "role": "member", "display_name": "Travel Cube"}
+        origin = Host(self, "native-name-replacement-source", False, "open", origin.directory)
+        backup = self.private_path("native-named-backup", False)
+        prepared = origin.call("replacement_prepare", path=backup)
+        assert prepared["saved"] and prepared["source_stopped"]
+        origin.process.stdin.close()
+        assert origin.process.wait(timeout=20) == 0
+        origin.stderr.close()
+        capsule = json.loads(Path(backup).read_text())
+        legacy = dict(capsule, node={key: value for key, value in capsule["node"].items() if key != "device_names"})
+        legacy_actor = "browser-id-only-replacement"
+        restored = b.start(legacy_actor, "restore_node_replacement", json.dumps(legacy), {})
+        assert restored["id"] == origin.node and "display_name" not in restored
+        b.call(legacy_actor, "close_page")
+
+        target = "browser-named-replacement"
+        restored = b.start(target, "restore_node_replacement", json.dumps(capsule), {
+            "host_device_name": "Different host"})
+        assert restored["id"] == origin.node and restored["display_name"] == "Travel Cube"
+        completed = json.loads(b.call(target, "complete_node_replacement", reader.node))
+        assert completed["ready"] and b.reopen(target)["display_name"] == "Travel Cube"
+        receipt = self.write_private("named-replacement-receipt", json.dumps(completed["receipt"]).encode(), False)
+        finalize = subprocess.run([str(self.linux), "finalize-replacement", origin.directory, receipt],
+                                  capture_output=True, text=True, timeout=30, check=True)
+        retired = json.loads(finalize.stdout)
+        assert retired["source_retired"] and "device-names.json" in retired["removed_material_files"]
 
     def serve_progress_admission(self, actor, precode):
         pending = self.browser.send(actor, "serve_progress_admission", precode)
@@ -158,7 +348,7 @@ class BrowserOnboardingRunner(OnboardingRunner):
         assert {entry["applicant"] for entry in observed["pending_admissions"]} == {first.node, second.node}
         assert {first.node: "AwaitingApproval", second.node: "AwaitingApproval", granted.node: "ReceiptReceived"} == {
             entry["applicant"]: entry["decision"] for entry in observed["admission_history"]}
-        assert {"node": granted.node, "role": "admin"} in observed["status"]["members"]
+        assert self.member_by_id(observed, granted.node)["role"] == "admin"
         assert any(item["id"] == granted.node and item["administrator"] for item in b.call(creator, "control_state")["members"])
         assert observed["device_operations"] == b.call(creator, "device_operations")
         authorization = next(entry["authorization"] for entry in observed["admission_history"] if entry["applicant"] == granted.node)
@@ -261,7 +451,7 @@ class BrowserOnboardingRunner(OnboardingRunner):
         assert observed["admission_history"] == provider.call("admission_history")
         assert {ids[0]: "AwaitingApproval", ids[1]: "AwaitingApproval", ids[2]: "ReceiptReceived"} == {
             entry["applicant"]: entry["decision"] for entry in observed["admission_history"]}
-        assert {"node": ids[2], "role": "admin"} in observed["status"]["members"]
+        assert self.member_by_id(observed, ids[2])["role"] == "admin"
         assert observed["device_operations"] == provider.call("device_operations")
 
         # Observe one more admission over a running NativeClient. The incoming
@@ -378,7 +568,7 @@ class BrowserOnboardingRunner(OnboardingRunner):
         applicant = self.reopen(applicant)
         assert applicant.call("status")["admission_attempt"] == sent
         first = dict(applicant=applicant.node, request_id=created["request_id"], authorization=None,
-                     decision="AwaitingApproval")
+                     decision="AwaitingApproval", display_name=applicant.call("status")["display_name"])
         b.reopen(creator)
         assert b.call(creator, "admission_history") == [first]
         b.call(creator, "close_page")
@@ -411,7 +601,7 @@ class BrowserOnboardingRunner(OnboardingRunner):
         assert applicant.call("request")["stage"] == "AwaitingApproval"
         assert b.wait(serving) == "AwaitingApproval"
         second = dict(applicant=applicant.node, request_id=retry["request_id"], authorization=None,
-                      decision="AwaitingApproval")
+                      decision="AwaitingApproval", display_name=applicant.call("status")["display_name"])
         first["decision"] = "Rejected"
         assert b.call(creator, "admission_history") == [second, first]
         second["authorization"] = b.call(creator, "approve_admission", applicant.node, retry["request_id"])
@@ -1007,6 +1197,8 @@ class BrowserOnboardingRunner(OnboardingRunner):
                 self.online_admission_observation()
             elif self.args.suite == "receipts":
                 self.admission_receipts()
+            elif self.args.suite == "device-names":
+                self.device_names()
             else:
                 creator = self.creator(False, "native-provider")
                 if self.args.suite in ["all", "core"]:
@@ -1041,7 +1233,7 @@ def main():
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--build-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts"], default="all")
+    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts", "device-names"], default="all")
     parser.add_argument("--relay", default=RELAY, help="explicit relay for the progress, observation and receipt suites")
     parser.add_argument("--chromium", type=Path, default=Path("/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome"))
     args = parser.parse_args()

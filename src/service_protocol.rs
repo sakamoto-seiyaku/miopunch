@@ -2,6 +2,7 @@
 //! invitation bearer or business file content is included in this history.
 use crate::{
     data_stream::DataStream,
+    device_name::DeviceNames,
     management_auth::{ManagementAuth, NetworkAnchor},
     service_policy::{MAX_RECORDS, ServiceLedger},
 };
@@ -49,6 +50,26 @@ pub async fn read_guest<T: serde::de::DeserializeOwned>(
 pub struct ServiceBundle {
     pub management: ManagementRecords,
     pub services: Vec<Vec<u8>>,
+}
+
+/// Private to the admitted policy exchange. Restricted guest and recovery
+/// operations still exchange the narrower ServiceBundle.
+#[derive(Serialize, Deserialize)]
+pub(crate) struct MemberSync {
+    #[serde(flatten)]
+    pub(crate) bundle: ServiceBundle,
+    #[serde(default, skip_serializing_if = "DeviceNames::is_empty")]
+    pub(crate) device_names: DeviceNames,
+}
+
+impl MemberSync {
+    pub(crate) async fn write(&self, stream: &mut DataStream) -> io::Result<()> {
+        write_bundle(self, stream).await
+    }
+
+    pub(crate) async fn read(stream: &mut DataStream) -> io::Result<Self> {
+        read_bundle(stream).await
+    }
 }
 /// Verified management is publishable even when accompanying service changes
 /// are rejected. Adapters commit this bundle before returning policy_error.
@@ -117,29 +138,37 @@ impl ServiceBundle {
         Ok((auth, ledger))
     }
     pub async fn write(&self, stream: &mut DataStream) -> io::Result<()> {
-        let bytes = serde_json::to_vec(self)?;
-        if bytes.len() > 16 * 1024 * 1024 {
-            return Err(rejected());
-        }
-        for chunk in bytes.chunks(crate::data_stream::CHUNK_BYTES) {
-            stream.write_chunk(chunk).await?;
-        }
-        stream.write_chunk(&[]).await
+        write_bundle(self, stream).await
     }
     pub async fn read(stream: &mut DataStream) -> io::Result<Self> {
-        let mut bytes = Vec::new();
-        loop {
-            let chunk = stream.read_chunk().await?;
-            if chunk.is_empty() {
-                break;
-            }
-            if bytes.len() + chunk.len() > 16 * 1024 * 1024 {
-                return Err(rejected());
-            }
-            bytes.extend_from_slice(&chunk);
-        }
-        Ok(serde_json::from_slice(&bytes)?)
+        read_bundle(stream).await
     }
+}
+
+async fn write_bundle(bundle: &impl Serialize, stream: &mut DataStream) -> io::Result<()> {
+    let bytes = serde_json::to_vec(bundle)?;
+    if bytes.len() > 16 * 1024 * 1024 {
+        return Err(rejected());
+    }
+    for chunk in bytes.chunks(crate::data_stream::CHUNK_BYTES) {
+        stream.write_chunk(chunk).await?;
+    }
+    stream.write_chunk(&[]).await
+}
+
+async fn read_bundle<T: serde::de::DeserializeOwned>(stream: &mut DataStream) -> io::Result<T> {
+    let mut bytes = Vec::new();
+    loop {
+        let chunk = stream.read_chunk().await?;
+        if chunk.is_empty() {
+            break;
+        }
+        if bytes.len() + chunk.len() > 16 * 1024 * 1024 {
+            return Err(rejected());
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    Ok(serde_json::from_slice(&bytes)?)
 }
 fn rejected() -> io::Error {
     io::Error::new(io::ErrorKind::PermissionDenied, "invalid service history")

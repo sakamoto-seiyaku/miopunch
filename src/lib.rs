@@ -83,6 +83,8 @@ pub mod precode;
 pub mod resources;
 pub mod service_policy;
 pub mod service_protocol;
+mod admission_request_wire;
+mod device_name;
 mod tcp_observation;
 mod tcp_punch;
 pub mod tcp_transport;

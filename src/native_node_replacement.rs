@@ -122,6 +122,7 @@ async fn export_paused(source: &Path, destination: &Path) -> Result<Value, Clien
             key: *node.node_key.as_bytes(), network: node.anchor, records: bundle.management,pending_records,
             authorization: auth.authorization_origin_at(node.status().node_id, &auth.tips(), false),
             generation: node.scope.secret_generation(), secret: node.secret.as_ref().map(|s| *s.saved_bytes()),
+            device_names: node.device_names.clone(),
             genesis_seed: root, recovery_exported: recovery["exported"].as_bool().unwrap_or(false),
             recovery_saved: recovery["saved"].as_bool().unwrap_or(false), complete_invitation: invitation,
             services: bundle.services, guest: services.guest, operations, custody,
@@ -379,6 +380,7 @@ fn owned_node_file(name: &str) -> bool {
             | "client.invitation"
             | "client.recovery-save"
             | "device.operations"
+            | crate::native_network::DEVICE_NAMES
             | "credential.custody"
             | "credential.custody-check"
             | "replacement.package"
@@ -569,6 +571,9 @@ async fn import_native(backup: &NodeBackup, target: &Path) -> Result<NativeNetwo
         write("resources.json", &serde_json::to_vec(&native_configuration(&n.settings)?)?)?;
         write(SETTINGS, &serde_json::to_vec(&n.settings)?)?;
         write("services.records", &serde_json::to_vec(&n.services)?)?;
+        if !n.device_names.is_empty() {
+            write(crate::native_network::DEVICE_NAMES, &serde_json::to_vec(&n.device_names)?)?;
+        }
         if let Some(guest)=&n.guest { write("services.guest-invitation",&guest.encode()?)?; }
         if let Some(invitation)=&n.complete_invitation { write("client.invitation",&invitation.encode()?)?; }
         write("client.recovery-save",&serde_json::to_vec(&json!({"genesis":n.network.genesis,"exported":n.recovery_exported,"saved":n.recovery_saved}))?)?;

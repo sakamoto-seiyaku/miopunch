@@ -36,6 +36,10 @@ mod rtc_capability;
 pub mod service_policy;
 #[path = "../../src/service_protocol.rs"]
 pub mod service_protocol;
+#[path = "../../src/admission_request_wire.rs"]
+mod admission_request_wire;
+#[path = "../../src/device_name.rs"]
+mod device_name;
 use iroh::{Endpoint, EndpointAddr, RelayMode, endpoint::presets};
 use iroh_base::{PublicKey, RelayUrl, SecretKey};
 use p2panda_core::SigningKey;

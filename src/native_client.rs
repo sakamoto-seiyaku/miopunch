@@ -4,6 +4,7 @@
 //! its directory. Invitations are capabilities: pass them through a trusted
 //! channel and never include them in diagnostic output.
 use std::{
+    collections::BTreeMap,
     error::Error,
     net::Ipv4Addr,
     path::Path,
@@ -15,6 +16,7 @@ use std::{
 };
 
 use iroh::{EndpointAddr, endpoint::Connection};
+use p2panda_core::VerifyingKey;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::{sync::Mutex, task::JoinHandle};
@@ -37,6 +39,21 @@ use crate::{
 pub type ClientError = Box<dyn Error + Send + Sync>;
 pub(crate) const MEMBER_MESSAGE: &[u8] = b"miopunch/client-message/1";
 
+fn host_device_name() -> Option<String> {
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    return std::fs::read_to_string("/proc/sys/kernel/hostname").ok();
+    #[cfg(windows)]
+    return std::env::var("COMPUTERNAME").ok();
+    #[cfg(all(unix, not(any(target_os = "linux", target_os = "android"))))]
+    {
+        let output = std::process::Command::new("hostname").output().ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        String::from_utf8(output.stdout).ok()
+    }
+}
+
 pub use crate::client_invitation::ClientInvitation;
 impl ClientInvitation {
     fn material(&self) -> Result<ManualInvitation, ClientError> {
@@ -53,6 +70,8 @@ impl ClientInvitation {
 /// Secret-free local state, obtained after verifying the durable SDK records.
 pub struct ClientStatus {
     pub node: NodeStatus,
+    pub display_name: Option<String>,
+    pub member_display_names: BTreeMap<VerifyingKey, String>,
     pub admission: AdmissionStage,
     pub admission_attempt: Option<AdmissionAttempt>,
     /// Recorded recovery-card export progress. `None` means the record could not be read or verified.
@@ -69,6 +88,7 @@ pub struct ClientStateSnapshot {
     pub cursor: u64,
     pub status: ClientStatus,
     pub pending_admissions: Vec<AdmissionRequest>,
+    pub admission_display_names: BTreeMap<VerifyingKey, String>,
     pub admission_history: Vec<AdmissionHistoryEntry>,
     pub device_operations: Value,
 }
@@ -151,7 +171,16 @@ impl NativeClient {
     pub async fn open(path: impl AsRef<Path>, bind: Ipv4Addr) -> Result<Self, ClientError> {
         Self::start(NativeNetwork::open(path).await?, bind).await
     }
-    pub(crate) async fn start(node: NativeNetwork, bind: Ipv4Addr) -> Result<Self, ClientError> {
+    pub(crate) async fn start(mut node: NativeNetwork, bind: Ipv4Addr) -> Result<Self, ClientError> {
+        if node.device_names.name(node.node_key.verifying_key()).is_none()
+            && let Some(name) = host_device_name()
+        {
+            let key = node.node_key.clone();
+            node.update_device_names(|names| {
+                names.seed_local(&key, &name);
+                Ok(())
+            })?;
+        }
         Self::remember_existing_admission(&node).await?;
         let recovery_saved = Arc::new(AtomicBool::new(
             recovery_state(&node)?.is_none_or(|state| state.saved),
@@ -538,8 +567,13 @@ impl NativeClient {
         } else {
             node.manual_request_declined().await.unwrap_or(false)
         };
+        let status = node.status();
+        let membership_ended = node.store.known_removed(status.node_id);
+        let member_display_names = node.device_names.display_names(status.members.iter().map(|(id, _)| *id));
         ClientStatus {
-            node: node.status(),
+            display_name: node.device_names.name(status.node_id).map(str::to_owned),
+            member_display_names,
+            node: status,
             admission: node.admission_stage(),
             admission_attempt,
             recovery_exported: read_recovery_state(node)
@@ -547,18 +581,35 @@ impl NativeClient {
                 .ok(),
             recovery_saved: self.recovery_saved.load(Ordering::Acquire),
             manual_rejected,
-            membership_ended: node.store.known_removed(node.status().node_id),
+            membership_ended,
             replacement_ready: self.replacement_ready.load(Ordering::Acquire),
         }
+    }
+
+    /// Persist this device's display name, including while its peers are offline.
+    pub async fn set_device_display_name(&self, display_name: &str) -> Result<(), ClientError> {
+        let mut node = self.node.lock().await;
+        let key = node.node_key.clone();
+        node.update_device_names(|names| names.set_local(&key, display_name))?;
+        Ok(())
     }
 
     pub async fn state_snapshot(&self) -> Result<ClientStateSnapshot, ClientError> {
         let mut node = self.node.lock().await;
         node.recover_admission_state().await?;
+        let pending_admissions = Self::pending_admissions(&node).await?;
+        let admission_history = node.store.admission_history().await?;
+        let admission_display_names = node.device_names.display_names(
+            pending_admissions
+                .iter()
+                .map(|request| request.applicant)
+                .chain(admission_history.iter().map(|entry| entry.applicant)),
+        );
         Ok(ClientStateSnapshot {
             status: self.status_of(&node).await,
-            pending_admissions: Self::pending_admissions(&node).await?,
-            admission_history: node.store.admission_history().await?,
+            pending_admissions,
+            admission_display_names,
+            admission_history,
             device_operations: crate::native_device_management::operation_state(&node)?,
             cursor: node.store.changes.cursor(),
         })
@@ -752,6 +803,22 @@ impl NativeClient {
         Self::pending_admissions(&node).await
     }
 
+    /// Pending requests paired with the latest authenticated display name.
+    pub async fn requests_with_display_names(
+        &self,
+    ) -> Result<Vec<(AdmissionRequest, Option<String>)>, ClientError> {
+        let mut node = self.node.lock().await;
+        node.recover_admission_state().await?;
+        Ok(Self::pending_admissions(&node)
+            .await?
+            .into_iter()
+            .map(|request| {
+                let name = node.device_names.name(request.applicant).map(str::to_owned);
+                (request, name)
+            })
+            .collect())
+    }
+
     async fn pending_admissions(
         node: &NativeNetwork,
     ) -> Result<Vec<AdmissionRequest>, ClientError> {
@@ -773,6 +840,21 @@ impl NativeClient {
         let mut node = self.node.lock().await;
         node.recover_admission_state().await?;
         Ok(node.store.admission_history().await?)
+    }
+
+    pub(crate) async fn admission_history_with_display_names(
+        &self,
+    ) -> Result<Vec<(AdmissionHistoryEntry, Option<String>)>, ClientError> {
+        self.require_ready()?;
+        let mut node = self.node.lock().await;
+        node.recover_admission_state().await?;
+        Ok(node.store.admission_history().await?
+            .into_iter()
+            .map(|entry| {
+                let name = node.device_names.name(entry.applicant).map(str::to_owned);
+                (entry, name)
+            })
+            .collect())
     }
     pub async fn reject(&self, request: &AdmissionRequest) -> Result<(), ClientError> {
         self.require_ready()?;

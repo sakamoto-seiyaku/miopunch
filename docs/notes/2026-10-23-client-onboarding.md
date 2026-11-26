@@ -181,6 +181,31 @@ Retry stops when the grant is known to be invalid or the provider settles the
 receipt. Local successes saved by older SDKs remain usable. They lack the
 outstanding receipt record written by the new material-save transaction.
 
+## Device display names
+
+NativeClient seeds the local display name from the system name when available.
+A browser host can supply `host_device_name` in the startup configuration.
+Call `set_device_display_name` to persist a custom name on either platform.
+The saved name takes precedence over a later startup default, and changing it
+requires no connection.
+
+Pending requests and recent admission history include `display_name` when
+known. Native Rust callers can use `requests_with_display_names` or read the
+names and request IDs from `state_snapshot`. An applicant sends its current name
+on each admission contact, so the next successful contact updates the same
+request ID. Approve or reject using the complete device ID and request ID.
+
+After approval, the member view shows the most recent signed display name for
+each known device. The existing admitted `sync_services` exchange carries
+these updates between members, including names relayed by another member. A
+snapshot omits `display_name` for a device known only by ID. Equal names appear
+as separate entries keyed by their complete device IDs. Complete-node
+replacement carries the saved names with the identity. Older backups can still
+restore the same IDs when display names are absent.
+
+An updated approval endpoint accepts the original ID-only request format.
+The name-bearing request format requires an updated approval endpoint.
+
 ## Observing local admission and management state
 
 Read `NativeClient::state_snapshot()` or `BrowserNetwork.state_snapshot()`

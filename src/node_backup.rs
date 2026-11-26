@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     client_invitation::{BootstrapContact, ClientInvitation},
     credential_custody::CustodyJournal,
+    device_name::DeviceNames,
     device_operation::OperationJournal,
     management_auth::NetworkAnchor,
     service_policy::GuestInvitation,
@@ -71,6 +72,8 @@ pub struct PortableNode {
     pub authorization: Option<Hash>,
     pub generation: u64,
     pub secret: Option<[u8; 32]>,
+    #[serde(default, skip_serializing_if = "DeviceNames::is_empty")]
+    pub(crate) device_names: DeviceNames,
     pub genesis_seed: Option<[u8; 32]>,
     pub recovery_exported: bool,
     pub recovery_saved: bool,
@@ -109,6 +112,9 @@ impl PortableNode {
             return Err(invalid());
         }
         if self.records.len() + self.pending_records.len() > 4096 {
+            return Err(invalid());
+        }
+        if !self.device_names.is_valid() {
             return Err(invalid());
         }
         for (header, body) in &self.pending_records {

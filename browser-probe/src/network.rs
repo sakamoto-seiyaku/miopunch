@@ -21,6 +21,7 @@ use wasm_bindgen::prelude::*;
 use crate::admission_progress::{AdmissionAttempt, AdmissionReceipt, ApplicationProgress};
 use crate::admission_proof::{AdmissionScope, AdmissionSecret, BootstrapProof};
 use crate::connection_coordinator::ADMISSION_RECEIPT_ALPN;
+use crate::device_name::{DeviceNames, with_display_name};
 use crate::management_auth::{ManagementAuth, NetworkAnchor};
 
 const REPLICA_ALPN: &[u8] = crate::connection_coordinator::REPLICA_ALPN;
@@ -86,6 +87,8 @@ struct SavedNode {
     authorization: Option<Hash>,
     generation: u64,
     secret: Option<[u8; 32]>,
+    #[serde(default, skip_serializing_if = "DeviceNames::is_empty")]
+    device_names: DeviceNames,
     #[serde(default)]
     resources: Option<Configuration>,
     #[serde(default)]
@@ -331,7 +334,7 @@ impl SavedNode {
         } else {
             self.stage()
         };
-        serde_json::json!({
+        with_display_name(serde_json::json!({
             "id": self.identity().to_string(), "stage": stage,
             "network": anchor.map(|a| a.root.to_string()), "genesis": anchor.map(|a| a.genesis.to_string()),
             "recovery_exported": self.recovery_exported,
@@ -339,7 +342,7 @@ impl SavedNode {
             "admission_attempt": if pairing { None } else { self.admission_attempt().map(|attempt| attempt.public_json()) },
             "automatic_retry": !self.manual_retry_stopped(), "authorization_saved": self.authorization.is_some(),
             "secret_saved": self.secret.is_some(), "running": running
-        })
+        }), self.device_names.name(self.identity()))
     }
 }
 
@@ -476,9 +479,10 @@ impl BrowserGate {
         let mut members = auth.as_ref().map(ManagementAuth::nodes).unwrap_or_default();
         members.sort_by_key(|(id, _)| *id.as_bytes());
         status["records"] = serde_json::json!(saved.records.len());
-        status["members"] = serde_json::json!(members.iter().map(|(id, access)| serde_json::json!({
-            "node":id.to_string(),"role":if *access == Access::manage() {"admin"} else {"member"}
-        })).collect::<Vec<_>>());
+        status["members"] = serde_json::json!(members.iter().map(|(id, access)| with_display_name(
+            serde_json::json!({"node":id.to_string(),"role":if *access == Access::manage() {"admin"} else {"member"}}),
+            saved.device_names.name(*id),
+        )).collect::<Vec<_>>());
         Ok(serde_json::json!({"cursor":cursor.to_string(),"status":status,
             "pending_admissions":saved.pending_admissions(),"admission_history":saved.admission_history(),
             "device_operations":auth.as_ref().map(|auth| saved.operation_state(auth))}).to_string())
@@ -1918,6 +1922,7 @@ impl Default for Configuration {
 }
 #[derive(Deserialize)]
 struct ConfigurationInput {
+    host_device_name: Option<String>,
     member_data: Option<MemberDataConfiguration>,
     path_selection: Option<crate::path_selection::PathSelectionPolicy>,
     congestion_control: Option<CongestionControl>,
@@ -2157,6 +2162,7 @@ impl BrowserNetwork {
                 authorization: None,
                 generation: 0,
                 secret: None,
+                device_names: DeviceNames::default(),
                 resources: None,
                 pending: Vec::new(),
                 precode: None,
@@ -2183,6 +2189,9 @@ impl BrowserNetwork {
             }
         };
         saved.verify()?;
+        if !saved.device_names.is_valid() {
+            return Err(error("browser device display names are invalid"));
+        }
         if saved.replacement_source.is_some() {
             return Err(error(
                 "source paused for node replacement; explicitly finalize or abort the replacement",
@@ -2257,6 +2266,11 @@ impl BrowserNetwork {
                 return Err(error("a network is already selected"));
             }
             Startup::Existing | Startup::Pairing => {}
+        }
+        if let Some(name) = input.host_device_name {
+            saved
+                .device_names
+                .seed_local(&SigningKey::from_bytes(&saved.key), &name);
         }
         configuration.maintenance.validate().map_err(error)?;
         let caller_budget = caller_override.unwrap_or_else(|| {
@@ -2786,6 +2800,16 @@ impl BrowserNetwork {
             .state_snapshot(self.pairing.is_some(), self.lease.is_some())
     }
 
+    /// Persist this device's display name without contacting other members.
+    pub async fn set_device_display_name(&mut self, display_name: String) -> Result<(), JsValue> {
+        services::update_saved(&self.gate, |saved| {
+            let key = SigningKey::from_bytes(&saved.key);
+            saved.device_names.set_local(&key, &display_name).map_err(error)
+        })
+        .await?;
+        self.refresh_service_snapshot().await
+    }
+
     /// The promise owns its subscription, leaving the node available for other
     /// operations while the host waits for its next applied snapshot.
     pub fn observe_state(&self, after: String) -> Result<js_sys::Promise, JsValue> {
@@ -3253,14 +3277,20 @@ impl BrowserNetwork {
         );
         let result = async {
             let exchange = connection.open_control_exchange().await.map_err(error)?;
-            let mut wire = self.saved.invitation.clone().ok_or_else(rejected)?;
+            let mut binding = self.saved.invitation.clone().ok_or_else(rejected)?;
             let request = self.saved.admission_request_id();
-            wire.extend_from_slice(&request);
-            wire.extend_from_slice(self.saved.identity().as_bytes());
-            if let Some(token) = self.saved.precode {
-                wire.extend_from_slice(&token);
-            }
-            send_fixed(&exchange, &wire).await?;
+            binding.extend_from_slice(&request);
+            let binding = binding.try_into().map_err(|_| rejected())?;
+            let local = self.saved.identity();
+            crate::admission_request_wire::write(
+                &exchange,
+                &binding,
+                local,
+                self.saved.precode,
+                self.saved.device_names.record(local),
+            )
+            .await
+            .map_err(error)?;
             let status = recv_fixed::<1>(&exchange).await?;
             if matches!(status, [0] | [1]) {
                 let mut next = self.saved.clone();

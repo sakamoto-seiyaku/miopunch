@@ -21,6 +21,7 @@ use thiserror::Error;
 
 use crate::admission_gate::AdmissionGate;
 use crate::admission_proof::{AdmissionScope, AdmissionSecret};
+use crate::device_name::DeviceNames;
 use crate::genesis_recovery::GenesisCredential;
 use crate::management_auth::{ManagementExtension, NetworkAnchor};
 use crate::management_recovery::RecoveryBinding;
@@ -44,6 +45,7 @@ const ADMISSION_MATERIAL: &str = "admission.material";
 const RECOVERY_BINDING: &str = "recovery.binding";
 const RESOURCE_CONFIGURATION: &str = "resources.json";
 const MAINTENANCE_CONTACTS: &str = "maintenance.contacts.json";
+pub(crate) const DEVICE_NAMES: &str = "device-names.json";
 
 fn network_protocols() -> Vec<Vec<u8>> {
     vec![
@@ -174,6 +176,7 @@ pub struct NativeNetwork {
     pub(crate) recovery: Option<RecoveryBinding>,
     pub(crate) management_instance: [u8; 16],
     pub(crate) directory: PathBuf,
+    pub(crate) device_names: DeviceNames,
     udp: Arc<NatConnector>,
 }
 
@@ -543,6 +546,14 @@ impl NativeNetwork {
         {
             udp = configured;
         }
+        let device_names = match fs::read(path.join(DEVICE_NAMES)) {
+            Ok(raw) => serde_json::from_slice(&raw).map_err(|_| NodeError::InvalidData)?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => DeviceNames::default(),
+            Err(error) => return Err(error.into()),
+        };
+        if !device_names.is_valid() {
+            return Err(NodeError::InvalidData);
+        }
         let mut node = Self {
             node_key,
             anchor,
@@ -554,6 +565,7 @@ impl NativeNetwork {
             recovery,
             management_instance: rand::random(),
             directory: path.to_path_buf(),
+            device_names,
             udp: Arc::new(udp),
         };
         node.restore_rotation_gate().await?;
@@ -590,6 +602,23 @@ impl NativeNetwork {
             members,
             applied_count: self.store.applied_count(),
         }
+    }
+
+    pub(crate) fn update_device_names(
+        &mut self,
+        edit: impl FnOnce(&mut DeviceNames) -> std::io::Result<()>,
+    ) -> std::io::Result<()> {
+        let mut names = self.device_names.clone();
+        edit(&mut names)?;
+        if names != self.device_names {
+            crate::native_files::write_private_atomic(
+                &self.directory.join(DEVICE_NAMES),
+                &serde_json::to_vec(&names)?,
+            )?;
+            self.device_names = names;
+            self.store.changes.publish();
+        }
+        Ok(())
     }
 
     /// Bind only after loading the durable device key; the endpoint can never
@@ -1397,6 +1426,7 @@ async fn copy_node_backup(source: &Path, target: &Path, restoring: bool) -> Resu
             RECOVERY_BINDING,
             RESOURCE_CONFIGURATION,
             MAINTENANCE_CONTACTS,
+            DEVICE_NAMES,
             "services.records",
             "services.guest-invitation",
             "client.invitation",

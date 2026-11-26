@@ -338,27 +338,17 @@ async fn serve_admission_exchange(
         .accept_control_exchange()
         .await
         .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-    let mut wire = [0; 144];
-    read_fixed(&exchange, &mut wire)
+    let wire = crate::admission_request_wire::read(&exchange, connection.remote_id(), precode)
         .await
-        .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-    let binding = JoinBinding::decode(&wire[..112].try_into().unwrap())?;
-    let claimed = VerifyingKey::from_bytes(&wire[112..].try_into().unwrap())
-        .map_err(|_| ManualAdmissionError::Rejected)?;
-    if claimed != tls_key(connection.remote_id())? {
-        return Err(ManualAdmissionError::Rejected);
-    }
-    let token = if precode {
-        let mut token = [0; 32];
-        read_fixed(&exchange, &mut token)
-            .await
-            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        Some(token)
-    } else {
-        None
-    };
+        .map_err(|error| match error.kind() {
+            std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::InvalidData => {
+                ManualAdmissionError::Rejected
+            }
+            _ => ManualAdmissionError::PathUnavailable,
+        })?;
+    let binding = JoinBinding::decode(&wire.binding)?;
     let request = AdmissionRequest {
-        applicant: claimed,
+        applicant: wire.applicant,
         request_id: binding.request_id,
     };
     let (approved, history, generation) = {
@@ -370,12 +360,19 @@ async fn serve_admission_exchange(
         if binding.invitation != node.manual_invitation()? {
             return Err(ManualAdmissionError::Rejected);
         }
-        let approved = if let Some(token) = token {
+        let approved = if let Some(token) = wire.token {
             Some(node.redeem_precode(token, &request).await?)
         } else {
             node.store.record_admission_request(&request).await?;
             node.store.approved_admission(&request).await?
         };
+        if let Some(name) = wire.name {
+            node.update_device_names(|names| {
+                names.remember(name);
+                Ok(())
+            })
+            .map_err(NodeError::from)?;
+        }
         let Some(approved) = approved else {
             let rejected = node.store.admission_rejected(&request).await?;
             drop(node);
@@ -788,14 +785,16 @@ impl NativeNetwork {
             wire_binding.request_id =
                 crate::admission_request_id::precode_request_id(binding.request_id, token);
         }
-        let mut wire = wire_binding.encode().to_vec();
-        wire.extend_from_slice(self.node_key.verifying_key().as_bytes());
-        if let Some(token) = token {
-            wire.extend_from_slice(&token);
-        }
-        write_fixed(&exchange, &wire)
-            .await
-            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+        let local = self.node_key.verifying_key();
+        crate::admission_request_wire::write(
+            &exchange,
+            &wire_binding.encode(),
+            local,
+            token,
+            self.device_names.record(local),
+        )
+        .await
+        .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         let mut status = [0];
         read_fixed(&exchange, &mut status)
             .await

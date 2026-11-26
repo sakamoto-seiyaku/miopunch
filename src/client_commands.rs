@@ -210,6 +210,9 @@ pub enum Command {
     },
     Status,
     StateSnapshot,
+    SetDeviceDisplayName {
+        display_name: String,
+    },
     #[cfg(feature = "replica-test-hooks")]
     InterruptAdmission {
         after: String,
@@ -342,8 +345,10 @@ fn status_json(status: ClientStatus, guest: Option<Value>) -> Value {
         "admission_attempt":status.admission_attempt.map(|attempt| attempt.public_json()),
         "recovery_exported":status.recovery_exported, "recovery_saved":status.recovery_saved,
         "replacement_ready":status.replacement_ready, "records":status.node.applied_count,
-        "members":status.node.members.iter().map(|(key,role)| json!({"node":key.to_string(),
-            "role":if *role == p2panda_auth::Access::manage() {"admin"} else {"member"}})).collect::<Vec<_>>()});
+        "members":status.node.members.iter().map(|(key,role)| crate::device_name::with_display_name(
+            json!({"node":key.to_string(),"role":if *role == p2panda_auth::Access::manage() {"admin"} else {"member"}}),
+            status.member_display_names.get(key).map(String::as_str),
+        )).collect::<Vec<_>>()});
     if let Some(guest) = guest {
         if status.replacement_ready && status.recovery_saved {
             result["stage"] = guest["stage"].clone();
@@ -351,18 +356,25 @@ fn status_json(status: ClientStatus, guest: Option<Value>) -> Value {
         result["guest"] = guest;
         result["members"] = json!([]);
     }
-    result
+    crate::device_name::with_display_name(result, status.display_name.as_deref())
 }
 
 fn state_snapshot_json(snapshot: ClientStateSnapshot) -> Value {
     json!({"cursor":snapshot.cursor.to_string(),"status":status_json(snapshot.status, None),
-        "pending_admissions":snapshot.pending_admissions.iter().map(admission_request_json).collect::<Vec<_>>(),
-        "admission_history":snapshot.admission_history.iter().map(|entry| entry.public_json()).collect::<Vec<_>>(),
+        "pending_admissions":snapshot.pending_admissions.iter().map(|request| admission_request_json(
+            request, snapshot.admission_display_names.get(&request.applicant).map(String::as_str),
+        )).collect::<Vec<_>>(),
+        "admission_history":snapshot.admission_history.iter().map(|entry| crate::device_name::with_display_name(
+            entry.public_json(), snapshot.admission_display_names.get(&entry.applicant).map(String::as_str),
+        )).collect::<Vec<_>>(),
         "device_operations":snapshot.device_operations})
 }
 
-fn admission_request_json(request: &AdmissionRequest) -> Value {
-    json!({"applicant":request.applicant.to_string(),"request_id":hex::encode(request.request_id)})
+fn admission_request_json(request: &AdmissionRequest, name: Option<&str>) -> Value {
+    crate::device_name::with_display_name(
+        json!({"applicant":request.applicant.to_string(),"request_id":hex::encode(request.request_id)}),
+        name,
+    )
 }
 pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, ClientError> {
     match command {
@@ -650,6 +662,10 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
         }
         Command::Status => Ok(status(client).await),
         Command::StateSnapshot => Ok(state_snapshot_json(client.state_snapshot().await?)),
+        Command::SetDeviceDisplayName { display_name } => {
+            client.set_device_display_name(&display_name).await?;
+            Ok(json!({"saved":true}))
+        }
         Command::ObserveState { after } => Ok(state_snapshot_json(
             client.observe_state(after.parse()?).await?,
         )),
@@ -733,10 +749,12 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
             Ok(json!({"rejected":true}))
         }
         Command::Requests => Ok(
-            json!({"requests":client.requests().await?.iter().map(admission_request_json).collect::<Vec<_>>()}),
+            json!({"requests":client.requests_with_display_names().await?.iter()
+                .map(|(request, name)| admission_request_json(request, name.as_deref())).collect::<Vec<_>>()}),
         ),
-        Command::AdmissionHistory => Ok(json!(client.admission_history().await?.into_iter()
-            .map(|entry| entry.public_json()).collect::<Vec<_>>())),
+        Command::AdmissionHistory => Ok(json!(client.admission_history_with_display_names().await?.iter()
+            .map(|(entry, name)| crate::device_name::with_display_name(entry.public_json(), name.as_deref()))
+            .collect::<Vec<_>>())),
         Command::Approve {
             applicant,
             request_id,

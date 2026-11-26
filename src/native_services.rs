@@ -7,7 +7,7 @@ use crate::{
     service_policy::{
         GuestInvitation, GuestStatus, Service, ServiceAccess, ServiceAction, ServiceRule,
     },
-    service_protocol::ServiceBundle,
+    service_protocol::{MemberSync, ServiceBundle},
 };
 use p2panda_core::{Hash, VerifyingKey};
 use serde_json::{Value, json};
@@ -110,6 +110,28 @@ impl NativeServices {
             services: self.records.clone(),
         })
     }
+
+    async fn member_sync(&self, node: &NativeNetwork) -> Result<MemberSync, ClientError> {
+        Ok(MemberSync {
+            bundle: self.snapshot(node).await?,
+            device_names: node.device_names.for_members(&node.store.nodes()),
+        })
+    }
+
+    async fn merge_member_sync(
+        &mut self,
+        node: &mut NativeNetwork,
+        files: &Arc<NativeFiles>,
+        sync: MemberSync,
+    ) -> Result<(), ClientError> {
+        self.merge(node, files, sync.bundle).await?;
+        let members = node.store.nodes();
+        node.update_device_names(|names| {
+            names.merge_members(&members, sync.device_names);
+            Ok(())
+        })?;
+        Ok(())
+    }
     pub async fn access(&self, node: &NativeNetwork) -> Result<ServiceAccess, ClientError> {
         let (auth, ledger) = self.snapshot(node).await?.verify(node.anchor)?;
         Ok(ServiceAccess {
@@ -193,12 +215,12 @@ pub(crate) async fn serve_policy(
 ) -> Result<(), ClientError> {
     let result = async {
         let mut stream = crate::data_stream::DataStream::accept(&connection).await?;
-        let remote = ServiceBundle::read(&mut stream).await?;
+        let remote = MemberSync::read(&mut stream).await?;
         let response = {
             let mut node = node.lock().await;
             let mut services = services.lock().await;
-            services.merge(&mut node, &files, remote).await?;
-            services.snapshot(&node).await?
+            services.merge_member_sync(&mut node, &files, remote).await?;
+            services.member_sync(&node).await?
         };
         response.write(&mut stream).await?;
         stream.finish()?;
@@ -583,7 +605,7 @@ impl crate::native_client::NativeClient {
         self.require_ready()?;
         let snapshot = {
             let node = self.node.lock().await;
-            self.services.lock().await.snapshot(&node).await?
+            self.services.lock().await.member_sync(&node).await?
         };
         let connection = self
             .resources
@@ -592,12 +614,12 @@ impl crate::native_client::NativeClient {
         let result = async {
             let mut stream = crate::data_stream::DataStream::open(&connection).await?;
             snapshot.write(&mut stream).await?;
-            let remote = ServiceBundle::read(&mut stream).await?;
+            let remote = MemberSync::read(&mut stream).await?;
             let mut node = self.node.lock().await;
             self.services
                 .lock()
                 .await
-                .merge(&mut node, &self.files, remote)
+                .merge_member_sync(&mut node, &self.files, remote)
                 .await?;
             Ok::<_, ClientError>(json!({"saved_locally":true}))
         }

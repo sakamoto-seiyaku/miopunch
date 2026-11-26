@@ -1,6 +1,7 @@
 //! Browser administrator adapter. Approval, signed grant and precode count are
 //! committed together by the same strict IndexedDB snapshot transaction.
 use super::*;
+use crate::admission_request_wire::AdmissionRequestWire;
 use crate::admission_progress::{
     AdmissionHistoryEntry, AdmissionReceipt, RECEIPT_DONE, RECEIPT_PROVE, RECEIPT_STOP,
     RECENT_ADMISSION_ATTEMPTS,
@@ -430,15 +431,19 @@ fn parse_request(applicant: &str, request: &str) -> Result<(VerifyingKey, [u8; 1
 
 impl SavedNode {
     pub(super) fn admission_requests(&self) -> serde_json::Value {
-        serde_json::json!(self.approvals.iter().map(|a| serde_json::json!({
-            "applicant":a.applicant.to_string(),"request":hex::encode(a.request),
-            "approved":a.authorization.is_some(),"rejected":a.rejected,"delivery_confirmed":a.complete
-        })).collect::<Vec<_>>())
+        serde_json::json!(self.approvals.iter().map(|a| with_display_name(
+            serde_json::json!({"applicant":a.applicant.to_string(),"request":hex::encode(a.request),
+                "approved":a.authorization.is_some(),"rejected":a.rejected,"delivery_confirmed":a.complete}),
+            self.device_names.name(a.applicant),
+        )).collect::<Vec<_>>())
     }
 
     pub(super) fn pending_admissions(&self) -> serde_json::Value {
         serde_json::json!(self.approvals.iter().filter(|a| a.authorization.is_none() && !a.rejected)
-            .map(|a| serde_json::json!({"applicant":a.applicant.to_string(),"request_id":hex::encode(a.request)}))
+            .map(|a| with_display_name(
+                serde_json::json!({"applicant":a.applicant.to_string(),"request_id":hex::encode(a.request)}),
+                self.device_names.name(a.applicant),
+            ))
             .collect::<Vec<_>>())
     }
 
@@ -448,14 +453,13 @@ impl SavedNode {
                 .iter()
                 .rev()
                 .take(RECENT_ADMISSION_ATTEMPTS)
-                .map(|approval| AdmissionHistoryEntry::from_evidence(
-                    approval.applicant,
-                    approval.request,
-                    approval.authorization,
-                    approval.rejected,
-                    approval.complete
-                )
-                .public_json())
+                .map(|approval| {
+                    let entry = AdmissionHistoryEntry::from_evidence(
+                        approval.applicant, approval.request, approval.authorization,
+                        approval.rejected, approval.complete,
+                    );
+                    with_display_name(entry.public_json(), self.device_names.name(approval.applicant))
+                })
                 .collect::<Vec<_>>()
         )
     }
@@ -528,17 +532,14 @@ impl SavedNode {
         Ok(id)
     }
 
-    fn receive_request(
-        &mut self,
-        wire: &[u8; 144],
-        applicant: VerifyingKey,
-        request: [u8; 16],
-        token: Option<[u8; 32]>,
-    ) -> Result<Approval, JsValue> {
+    fn receive_request(&mut self, wire: AdmissionRequestWire) -> Result<Approval, JsValue> {
         let auth = self.administrator()?;
-        if wire[..96] != self.own_invitation()? {
+        if wire.binding[..96] != self.own_invitation()? {
             return Err(rejected());
         }
+        let applicant = wire.applicant;
+        let request = wire.binding[96..].try_into().unwrap();
+        let token = wire.token;
         let index = if let Some(index) = self.approval_index(applicant, request) {
             if self.approvals[index].code != token {
                 return Err(rejected());
@@ -564,6 +565,9 @@ impl SavedNode {
         };
         if token.is_some() {
             self.approve(index, auth)?;
+        }
+        if let Some(name) = wire.name {
+            self.device_names.remember(name);
         }
         Ok(self.approvals[index].clone())
     }
@@ -721,28 +725,18 @@ async fn receive_admission(
     .await?;
     let connection = Arc::new(connection).retain_control();
     let _scope = RequestConnection(Some(connection.clone()));
-    let (exchange, wire, applicant, request, token) = until(deadline, async {
+    let (exchange, wire) = until(deadline, async {
         let exchange = connection.accept_control_exchange().await.map_err(error)?;
-        let wire = recv_fixed::<144>(&exchange).await?;
-        if wire[112..] != connection.remote_id().as_bytes()[..] {
-            return Err(rejected());
-        }
-        let applicant =
-            VerifyingKey::from_bytes(&wire[112..].try_into().unwrap()).map_err(error)?;
-        let request: [u8; 16] = wire[96..112].try_into().unwrap();
-        let token = if connection.alpn() == PRECODE_REQUEST_ALPN {
-            Some(recv_fixed::<32>(&exchange).await?)
-        } else {
-            None
-        };
-        Ok((exchange, wire, applicant, request, token))
+        let wire = crate::admission_request_wire::read(
+            &exchange, connection.remote_id(), connection.alpn() == PRECODE_REQUEST_ALPN,
+        ).await.map_err(error)?;
+        Ok((exchange, wire))
     })
     .await?;
 
-    let approval = services::update_saved(gate, |saved| {
-        saved.receive_request(&wire, applicant, request, token)
-    })
-    .await?;
+    let applicant = wire.applicant;
+    let request = wire.binding[96..].try_into().unwrap();
+    let approval = services::update_saved(gate, |saved| saved.receive_request(wire)).await?;
     files.enforce_access();
     let result = if let Some(authorization) = approval.authorization {
         let (saved, _, _) = services::installed(gate).await?;
