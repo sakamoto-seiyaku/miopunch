@@ -119,6 +119,7 @@ class BrowserOnboardingRunner(OnboardingRunner):
         b = self.browser
         original = b.start(name, "create")
         assert original["stage"] == "AwaitingRecoverySave"
+        assert original["recovery_exported"] is False and original["recovery_saved"] is False
         assert b.call(name, "duplicate_start") == dict(rejected=True)
         b.call(name, "invitation", ok=False)
         b.call(name, "begin_management_session", ok=False)
@@ -127,7 +128,13 @@ class BrowserOnboardingRunner(OnboardingRunner):
         b.call(name, "export_recovery_card", ok=False)
         b.call(name, "acknowledge_recovery_saved", ok=False)
         assert b.call(name, "status") == original
+        assert b.reopen(name) == original
+        b.call(name, "acknowledge_recovery_saved", ok=False)
         plain = b.call(name, "export_recovery_card")
+        exported = dict(original, recovery_exported=True)
+        assert b.reopen(name) == exported
+        b.call(name, "invitation", ok=False)
+        assert b.call(name, "export_recovery_card") == plain
         encrypted = b.call(name, "export_recovery_card", "M113 owned recovery test")
         expected = {key: original[key] for key in ["network", "genesis"]}
         assert b.call(name, "inspect_recovery_card", plain) == expected
@@ -139,17 +146,32 @@ class BrowserOnboardingRunner(OnboardingRunner):
         assert len(credential) == 64 and credential[32:].hex() == original["genesis"]
         self.browser_credentials = getattr(self, "browser_credentials", {})
         self.browser_credentials[name] = (credential[:32].hex(), original["genesis"])
-        assert b.reopen(name) == original
-        b.call(name, "invitation", ok=False)
+        assert b.reopen(name) == exported
         b.call(name, "acknowledge_recovery_saved")
         b.call(name, "acknowledge_recovery_saved")
         saved = b.call(name, "status")
         assert saved["stage"] == "Complete" and saved["id"] == original["id"]
+        assert saved["recovery_exported"] is True and saved["recovery_saved"] is True
         assert saved["network"] == original["network"] and saved["genesis"] == original["genesis"]
         assert b.reopen(name) == saved
+        applicant = name + "-recovery-ordinary-applicant"
+        pending = b.start(applicant, "join", b.call(name, "invitation"))
+        assert pending["stage"] == "AwaitingApproval"
+        assert pending["recovery_exported"] is False and pending["recovery_saved"] is True
+        assert b.reopen(applicant) == pending
+        b.call(applicant, "close")
+        direct = name + "-recovery-direct"
+        b.start(direct, "create")
+        b.call(direct, "export_recovery_card")
+        assert b.reopen(direct)["recovery_exported"] is True
+        b.call(direct, "acknowledge_recovery_saved")
+        assert b.call(direct, "status")["stage"] == "Complete"
+        b.call(direct, "close")
         self.record(name, "browser_recovery_qualified", dict(actualIndexedDB=True, independentCreator=True,
                     optionalEncryption=True, failedSaveNotAcknowledged=True, originalCredentialRoundtrip=True,
-                    wrongPasswordAndTamperRejected=True, explicitSavedGateDurable=True))
+                    wrongPasswordAndTamperRejected=True, explicitSavedGateDurable=True,
+                    allStagesReopened=True, reexportSameCredential=True,
+                    ordinaryApplicantUnaffected=True))
         return saved
 
     def browser_applicant(self, creator, name, *, precode=False):
@@ -438,20 +460,24 @@ class BrowserOnboardingRunner(OnboardingRunner):
         passed, browser_cleanup = False, None
         try:
             self.browser = BrowserControl(self, self.args)
-            creator = self.creator(False, "native-provider")
-            if self.args.suite in ["all", "core"]:
-                self.browser_applicant(creator, "browser-manual")
-                self.browser_applicant(creator, "browser-precode", precode=True)
-            self.browser_creator("browser-creator")
-            if self.args.suite in ["all", "core"]:
-                self.native_applicant("browser-creator", "native-manual")
-                self.native_applicant("browser-creator", "native-precode", precode=True)
-                self.resources(creator)
-            if self.args.suite in ["all", "pairing"]:
-                self.pairing(creator, "browser-creator")
-            self.browser_exchange("browser-creator")
-            if self.args.suite in ["all", "continuation"]:
-                self.new_admin_continuation("browser-creator")
+            if self.args.suite == "recovery":
+                self.recovery(False, "native-creator").stop()
+                self.browser_creator("browser-creator")
+            else:
+                creator = self.creator(False, "native-provider")
+                if self.args.suite in ["all", "core"]:
+                    self.browser_applicant(creator, "browser-manual")
+                    self.browser_applicant(creator, "browser-precode", precode=True)
+                self.browser_creator("browser-creator")
+                if self.args.suite in ["all", "core"]:
+                    self.native_applicant("browser-creator", "native-manual")
+                    self.native_applicant("browser-creator", "native-precode", precode=True)
+                    self.resources(creator)
+                if self.args.suite in ["all", "pairing"]:
+                    self.pairing(creator, "browser-creator")
+                self.browser_exchange("browser-creator")
+                if self.args.suite in ["all", "continuation"]:
+                    self.new_admin_continuation("browser-creator")
             passed = True
         finally:
             if hasattr(self, "browser"):
@@ -471,7 +497,7 @@ def main():
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--build-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation"], default="all")
+    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery"], default="all")
     parser.add_argument("--chromium", type=Path, default=Path("/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome"))
     args = parser.parse_args()
     build = json.loads(args.build_receipt.read_text())
@@ -480,7 +506,8 @@ def main():
               for p in args.package.rglob("*") if p.is_file()}
     assert actual == build["artifacts"]
     args.windows = args.windows_sha = None
-    args.local_only, args.failure_only, args.focus = True, False, "all"
+    args.local_only, args.failure_only = True, False
+    args.focus = "recovery" if args.suite == "recovery" else "all"
     runner = BrowserOnboardingRunner(args)
     runner.args = args
     runner.record("runner", "browser_package", dict(package=str(args.package),

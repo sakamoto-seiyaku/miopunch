@@ -34,13 +34,18 @@ pub(crate) fn write_private_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> 
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
+    // Opening the directory can fail even when renaming within it is allowed.
+    #[cfg(not(windows))]
+    let directory = File::open(parent)?;
     let temporary = parent.join(format!(".mio-{:032x}", rand::random::<u128>()));
     let file = create_private_file(&temporary)?;
     let result = (|| {
         // Drop the file before MoveFileExW on Windows.
         write_private_contents(file, bytes)?;
         replace_file(&temporary, path)?;
-        sync_directory(parent)
+        #[cfg(not(windows))]
+        directory.sync_all()?;
+        Ok(())
     })();
     let _ = std::fs::remove_file(temporary);
     result

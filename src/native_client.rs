@@ -50,6 +50,8 @@ impl ClientInvitation {
 pub struct ClientStatus {
     pub node: NodeStatus,
     pub admission: AdmissionStage,
+    /// Recorded recovery-card export progress. `None` means the record could not be read or verified.
+    pub recovery_exported: Option<bool>,
     pub recovery_saved: bool,
     pub manual_rejected: bool,
     pub membership_ended: bool,
@@ -496,6 +498,9 @@ impl NativeClient {
         ClientStatus {
             node: node.status(),
             admission: node.admission_stage(),
+            recovery_exported: read_recovery_state(&node)
+                .map(|state| state.is_some_and(|state| state.exported))
+                .ok(),
             recovery_saved: self.recovery_saved.load(Ordering::Acquire),
             manual_rejected: self.manual_rejected.load(Ordering::Acquire),
             membership_ended: node.store.known_removed(node.status().node_id),
@@ -808,23 +813,27 @@ struct RecoverySave {
     exported: bool,
     saved: bool,
 }
-fn recovery_state(node: &NativeNetwork) -> Result<Option<RecoverySave>, ClientError> {
-    if !node.directory.join("genesis.credential").exists() {
-        return Ok(None);
-    }
+
+fn read_recovery_state(node: &NativeNetwork) -> Result<Option<RecoverySave>, ClientError> {
     let state = match std::fs::read(node.directory.join("client.recovery-save")) {
         Ok(bytes) => serde_json::from_slice::<RecoverySave>(&bytes)?,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => RecoverySave {
-            genesis: node.anchor.genesis,
-            exported: false,
-            saved: false,
-        },
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(error.into()),
     };
     if state.genesis != node.anchor.genesis || state.saved && !state.exported {
         return Err("invalid recovery acknowledgment".into());
     }
     Ok(Some(state))
+}
+fn recovery_state(node: &NativeNetwork) -> Result<Option<RecoverySave>, ClientError> {
+    if !node.directory.join("genesis.credential").exists() {
+        return Ok(None);
+    }
+    Ok(Some(read_recovery_state(node)?.unwrap_or(RecoverySave {
+        genesis: node.anchor.genesis,
+        exported: false,
+        saved: false,
+    })))
 }
 fn save_recovery_state(node: &NativeNetwork, state: &RecoverySave) -> Result<(), ClientError> {
     crate::native_files::write_private_atomic(

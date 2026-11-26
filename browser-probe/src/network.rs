@@ -2643,7 +2643,14 @@ impl BrowserNetwork {
         } else {
             saved.stage()
         };
-        serde_json::json!({"id":self.id(), "stage":stage, "network":anchor.map(|a|a.root.to_string()),"genesis":anchor.map(|a|a.genesis.to_string()),"recovery_saved":saved.creator_seed.is_none()||saved.recovery_saved,"automatic_retry":!saved.manual_rejected,"authorization_saved":saved.authorization.is_some(), "secret_saved":saved.secret.is_some(), "running":self.lease.is_some()}).to_string()
+        serde_json::json!({
+            "id": self.id(), "stage": stage,
+            "network": anchor.map(|a| a.root.to_string()), "genesis": anchor.map(|a| a.genesis.to_string()),
+            "recovery_exported": saved.recovery_exported,
+            "recovery_saved": saved.creator_seed.is_none() || saved.recovery_saved,
+            "automatic_retry": !saved.manual_rejected, "authorization_saved": saved.authorization.is_some(),
+            "secret_saved": saved.secret.is_some(), "running": self.lease.is_some()
+        }).to_string()
     }
 
     /// Redacted loaded material receipt, checked against the actual leased store.

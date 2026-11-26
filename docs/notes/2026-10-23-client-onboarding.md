@@ -25,6 +25,17 @@ enable acknowledgment. Hosts returning a secret directly can use
 Export and saved acknowledgment are separate durable operations. Repeating the
 acknowledgment does not generate another network or credential.
 
+Read `recovery_exported` and `recovery_saved` from `NativeClient::status`, the
+native host `status` command, or `BrowserNetwork.status()` after creation or
+reopen. The first-run gate stays at `AwaitingRecoverySave` until acknowledgment.
+While gated, `recovery_exported: false` prompts for export and
+`recovery_exported: true` lets the user confirm their external save or export the
+same credential again. After acknowledgment, both fields are true. An ordinary
+invited device starts with `recovery_exported: false` and `recovery_saved: true`
+because it has no first-run recovery-card step. Native status reports `None`
+(`null` in the host `status` command) when the recovery record cannot be read or
+verified.
+
 The version-one recovery encoding is an engineering format, following ADRs
 [0008](../adr/0008-genesis-recovery-credential-pins-create.md) and
 [0013](../adr/0013-genesis-recovery-card-without-mandatory-password.md):

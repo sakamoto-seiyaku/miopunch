@@ -8,6 +8,7 @@ driver never compiles; receipts contain only secret-free responses and outcomes.
 import argparse
 import base64
 import json
+import os
 from pathlib import Path
 import time
 
@@ -35,21 +36,54 @@ class OnboardingRunner(Runner):
         self.transfer(name, remote, False)
         return (self.output / name).read_bytes()
 
+    def native_configuration(self, remote):
+        if self.focus != "recovery":
+            return None
+        # This suite needs a valid invitation, independent of the host's interface count.
+        config = dict(defaults=dict(revision=2, resources=[]), replacement=[], disabled=[],
+                      disabled_uses=["Observation", "Lookup", "Signaling"],
+                      lan_discovery="Disabled", port_mapping="Disabled",
+                      udp_direct_disabled=True, tcp_direct_disabled=True)
+        return self.write_private("recovery-resources.json", json.dumps(config).encode(), remote)
+
     def recovery(self, remote, prefix):
         creator = self.start(prefix, remote)
         original = creator.call("status")
         assert original["stage"] == "AwaitingRecoverySave"
-        creator.call("invite", ok=False, path=self.private_path(prefix + "-invite.json", remote))
+        assert original["recovery_exported"] is False and original["recovery_saved"] is False
+        invitation = self.private_path(prefix + "-invite.json", remote)
+        creator.call("invite", ok=False, path=invitation)
         creator.call("acknowledge_recovery_saved", ok=False)
         creator.call("export_recovery_card", ok=False, path=self.remote_root if remote else str(self.output))
+        if not remote:
+            directory = Path(creator.directory)
+            mode = directory.stat().st_mode
+            directory.chmod(0o300)  # Keep write/search permission but deny opening the directory for sync.
+            try:
+                if not os.access(directory, os.R_OK):
+                    destination = self.private_path(prefix + "-failed-progress-card.json", remote)
+                    creator.call("export_recovery_card", ok=False, path=destination)
+            finally:
+                directory.chmod(mode)
         creator.call("acknowledge_recovery_saved", ok=False)
         assert creator.call("status") == original
+        creator = self.reopen(creator)
+        creator.call("acknowledge_recovery_saved", ok=False)
         plain_name, encrypted_name = prefix + "-card.json", prefix + "-encrypted-card.json"
         plain = self.private_path(plain_name, remote)
         encrypted = self.private_path(encrypted_name, remote)
         password = self.write_private(prefix + "-password.json", b"M113 private test passphrase", remote)
         wrong = self.write_private(prefix + "-wrong-password.json", b"different test passphrase", remote)
         creator.call("export_recovery_card", path=plain)
+        exported = dict(original, recovery_exported=True)
+        assert creator.call("status") == exported
+        creator = self.reopen(creator)
+        assert creator.call("status") == exported
+        creator.call("invite", ok=False, path=invitation)
+        retry_name = prefix + "-reexported-card.json"
+        creator.call("export_recovery_card", path=self.private_path(retry_name, remote))
+        raw = self.read_private(plain_name, remote).decode()
+        assert self.read_private(retry_name, remote).decode() == raw
         creator.call("export_recovery_card", path=encrypted, password_path=password)
         expected = {key: original[key] for key in ["network", "genesis"]}
         assert creator.call("inspect_recovery_card", path=plain) == expected
@@ -61,23 +95,37 @@ class OnboardingRunner(Runner):
         creator.call("inspect_recovery_card", ok=False, path=tampered, password_path=password)
         # External credential format: 32-byte root seed plus the original Create
         # pin. Never publish these bytes or the private backup's digest.
-        raw = self.read_private(plain_name, remote).decode()
         assert raw.startswith("miopunch-recovery:1:")
         credential = base64.urlsafe_b64decode(raw.split(":1:", 1)[1] + "==")
         assert len(credential) == 64 and credential[32:].hex() == original["genesis"]
-        assert creator.call("status") == original
+        assert creator.call("status") == exported
         creator = self.reopen(creator)
-        creator.call("invite", ok=False, path=self.private_path(prefix + "-invite.json", remote))
         creator.call("acknowledge_recovery_saved")
         creator.call("acknowledge_recovery_saved")
         saved = creator.call("status")
-        assert saved["stage"] == "Complete" and saved["recovery_saved"]
+        assert saved["stage"] == "Complete" and saved["recovery_exported"] and saved["recovery_saved"]
         assert all(saved[key] == original[key] for key in ["node", "network", "genesis", "records"])
         creator = self.reopen(creator)
         assert creator.call("status") == saved
+        creator.call("invite", path=invitation)
+        applicant = self.start(prefix + "-recovery-ordinary-applicant", remote, "join", invitation)
+        pending = applicant.call("status")
+        assert pending["stage"] == "AwaitingApproval"
+        assert pending["recovery_exported"] is False and pending["recovery_saved"] is True
+        self.reopen(applicant).stop()
+        direct = self.start(prefix + "-recovery-direct", remote)
+        card = self.private_path(prefix + "-direct-card.json", remote)
+        direct.call("export_recovery_card", path=card)
+        direct = self.reopen(direct)
+        assert direct.call("status")["recovery_exported"] is True
+        direct.call("acknowledge_recovery_saved")
+        assert direct.call("status")["stage"] == "Complete"
+        direct.stop()
         self.record(prefix, "recovery_qualified", dict(plain=True, optional_encryption=True,
                     wrong_password_rejected=True, ciphertext_change_rejected=True,
-                    canonical_create_roundtrip=True, explicit_save_durable=True))
+                    canonical_create_roundtrip=True, explicit_save_durable=True,
+                    all_stages_reopened=True, reexport_same_credential=True,
+                    ordinary_applicant_unaffected=True))
         return creator
 
     def creator(self, remote, prefix):

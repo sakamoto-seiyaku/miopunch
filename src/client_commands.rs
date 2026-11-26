@@ -324,7 +324,8 @@ pub async fn status(client: &NativeClient) -> Value {
         "genesis":status.node.anchor.genesis.to_string(),
         "stage":if !status.recovery_saved {"AwaitingRecoverySave".into()} else if !status.replacement_ready {"RestoringAuthorization".into()} else if status.membership_ended {"Removed".into()} else if status.manual_rejected {"Rejected".into()} else {format!("{:?}",status.admission)},
         "automatic_retry":!status.manual_rejected,
-        "recovery_saved":status.recovery_saved, "replacement_ready":status.replacement_ready, "records":status.node.applied_count,
+        "recovery_exported":status.recovery_exported, "recovery_saved":status.recovery_saved,
+        "replacement_ready":status.replacement_ready, "records":status.node.applied_count,
         "members":status.node.members.iter().map(|(key,role)| json!({"node":key.to_string(),
             "role":if *role == p2panda_auth::Access::manage() {"admin"} else {"member"}})).collect::<Vec<_>>()});
     if let Some(guest) = guest {
