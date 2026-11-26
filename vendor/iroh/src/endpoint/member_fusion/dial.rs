@@ -79,7 +79,7 @@ impl MemberDialOptions {
         self
     }
 
-    /// Look up additional IP contacts after the initial routes when direct
+    /// Look up additional IP contacts alongside initial routes when direct
     /// UDP is currently allowed. Discovered routes are cold hints.
     pub fn with_ip_discovery(mut self) -> Self {
         self.discover_ip = true;
@@ -252,62 +252,74 @@ impl Dial<'_> {
             authenticated: AtomicBool::new(false),
         };
         let id = target.id;
-        let mut first = None;
-        let has_race = !recent_direct.is_empty() || !relays.is_empty() || !restricted.is_empty();
-        let has_cold = !cold.is_empty() || lookup.is_some();
-        if !active.is_empty() {
-            let stages = 1 + u32::from(has_race) + u32::from(has_cold) + u32::from(combined);
-            let end = split_deadline(self.deadline, stages);
-            match self.ordered(id, active, end, &progress).await {
-                Err(error) if !stops_dial(&error) => first = Some(error),
-                result => return result,
+        let routes = async {
+            let mut first = None;
+            let has_race =
+                !recent_direct.is_empty() || !relays.is_empty() || !restricted.is_empty();
+            let has_cold = !cold.is_empty();
+            if !active.is_empty() {
+                let stages = 1 + u32::from(has_race) + u32::from(has_cold) + u32::from(combined);
+                let end = split_deadline(self.deadline, stages);
+                match self.ordered(id, active, end, &progress).await {
+                    Err(error) if !stops_dial(&error) => first = Some(error),
+                    result => return result,
+                }
             }
-        }
-        if has_race {
-            let next_stage = split_deadline(self.deadline, 1 + u32::from(has_cold));
-            // Fallback shares the original deadline with the live relay lanes.
-            let end = if combined { self.deadline } else { next_stage };
-            let alternative = async {
-                if relays.is_empty() {
-                    self.contact(id, restricted, end, &progress, contact_budget)
-                        .await
-                } else if combined {
-                    self.relays_with_contact(id, relays, restricted, &progress, contact_budget)
-                        .await
-                } else {
-                    let (clock, _) = watch::channel(None);
-                    self.relays(id, relays, end, &progress, &clock, false).await
-                }
-            };
-            let primary = async {
-                if recent_direct.is_empty() {
-                    alternative.await
-                } else {
-                    race(
-                        self.parallel(id, recent_direct, end, &progress),
-                        alternative,
-                    )
-                    .await
-                }
-            };
-            tokio::pin!(primary);
-            let result = if combined && has_cold {
-                tokio::select! { biased;
-                    result = &mut primary => result,
-                    _ = time::sleep_until(next_stage) => {
-                        return race(primary, self.cold(id, cold, lookup, known_ips, &progress, first)).await;
+            if has_race {
+                let next_stage = split_deadline(self.deadline, 1 + u32::from(has_cold));
+                // Fallback shares the original deadline with the live relay lanes.
+                let end = if combined { self.deadline } else { next_stage };
+                let alternative = async {
+                    if relays.is_empty() {
+                        self.contact(id, restricted, end, &progress, contact_budget)
+                            .await
+                    } else if combined {
+                        self.relays_with_contact(id, relays, restricted, &progress, contact_budget)
+                            .await
+                    } else {
+                        let (clock, _) = watch::channel(None);
+                        self.relays(id, relays, end, &progress, &clock, false).await
                     }
+                };
+                let primary = async {
+                    if recent_direct.is_empty() {
+                        alternative.await
+                    } else {
+                        race(
+                            self.parallel(id, recent_direct, end, &progress),
+                            alternative,
+                        )
+                        .await
+                    }
+                };
+                tokio::pin!(primary);
+                let result = if combined && has_cold {
+                    tokio::select! { biased;
+                        result = &mut primary => result,
+                        _ = time::sleep_until(next_stage) => {
+                            return race(primary, self.cold(id, cold, &progress, first)).await;
+                        }
+                    }
+                } else {
+                    primary.await
+                };
+                match result {
+                    Err(error) if !stops_dial(&error) => first = Some(prefer_error(first, error)),
+                    result => return result,
                 }
-            } else {
-                primary.await
-            };
-            match result {
-                Err(error) if !stops_dial(&error) => first = Some(prefer_error(first, error)),
-                result => return result,
             }
+            self.cold(id, cold, &progress, first).await
+        };
+        match lookup {
+            Some(lookup) => {
+                race(
+                    routes,
+                    self.discover(id, lookup, known_ips, &progress, None),
+                )
+                .await
+            }
+            None => routes.await,
         }
-        self.cold(id, cold, lookup, known_ips, &progress, first)
-            .await
     }
 
     async fn relays_with_contact(
@@ -351,20 +363,14 @@ impl Dial<'_> {
         &self,
         id: EndpointId,
         cold: Vec<TransportAddr>,
-        lookup: Option<&AddressLookupServices>,
-        known_ips: BTreeSet<TransportAddr>,
         progress: &RouteProgress<'_>,
         mut first: Option<io::Error>,
     ) -> io::Result<()> {
         if !cold.is_empty() {
-            let end = split_deadline(self.deadline, 1 + u32::from(lookup.is_some()));
-            match self.ordered(id, cold, end, progress).await {
+            match self.ordered(id, cold, self.deadline, progress).await {
                 Err(error) if !stops_dial(&error) => first = Some(prefer_error(first, error)),
                 result => return result,
             }
-        }
-        if let Some(lookup) = lookup {
-            return self.discover(id, lookup, known_ips, progress, first).await;
         }
         Err(first.unwrap_or_else(|| io::ErrorKind::NotConnected.into()))
     }
@@ -425,21 +431,23 @@ impl Dial<'_> {
     ) -> io::Result<()> {
         let contacts = lookup.resolve(id);
         tokio::pin!(contacts);
-        while let Some(contact) = contacts.next().await {
-            let Ok(Ok(contact)) = contact else { continue };
-            let routes = contact
-                .into_endpoint_addr()
-                .addrs
-                .into_iter()
-                .filter(|route| route.is_ip() && seen.insert(route.clone()))
-                .collect::<Vec<_>>();
-            if !routes.is_empty() {
-                match self.ordered(id, routes, self.deadline, progress).await {
-                    Err(error) if !stops_dial(&error) => {
-                        failure = Some(prefer_error(failure, error))
+        let mut flying = FuturesUnordered::new();
+        let mut finished = false;
+        while !finished || !flying.is_empty() {
+            tokio::select! {
+                contact = contacts.next(), if !finished => {
+                    let Some(contact) = contact else { finished = true; continue };
+                    let Ok(Ok(contact)) = contact else { continue };
+                    for route in contact.into_endpoint_addr().addrs {
+                        if route.is_ip() && seen.insert(route.clone()) {
+                            flying.push(self.route(id, route, self.deadline, progress, None, None));
+                        }
                     }
-                    result => return result,
                 }
+                Some(result) = flying.next(), if !flying.is_empty() => match result {
+                    Err(error) if !stops_dial(&error) => failure = Some(prefer_error(failure, error)),
+                    result => return result,
+                },
             }
         }
         Err(failure.unwrap_or_else(|| io::ErrorKind::NotConnected.into()))

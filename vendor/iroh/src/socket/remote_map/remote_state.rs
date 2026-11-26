@@ -1289,6 +1289,31 @@ impl RemoteStateActor {
             None => false,
         });
         if let Some(policy) = member {
+            // A wildcard first dial learns its source IP during the handshake.
+            // Complete that initial binding before exact member-path checks.
+            for (id, binding) in &mut state.paths {
+                if !matches!(
+                    binding.address,
+                    transports::FourTuple::Ip { local: None, .. }
+                ) {
+                    continue;
+                }
+                let Some(path) = conn.path(*id) else { continue };
+                let Some(actual) = path
+                    .network_path()
+                    .ok()
+                    .and_then(|live| self.state.mapped_addrs.to_transport_tuple(&live))
+                else {
+                    continue;
+                };
+                if actual.remote() == binding.remote()
+                    && actual.local_socket == binding.local_socket
+                    && actual != *binding
+                {
+                    *binding = actual.clone();
+                    state.path_state.record_opened(path.weak_handle(), actual);
+                }
+            }
             // The admitted member planner decides which newly advertised
             // addresses to probe, even if a bootstrap round is still retrying.
             conn.defer_probes_for_new_nat_addresses();

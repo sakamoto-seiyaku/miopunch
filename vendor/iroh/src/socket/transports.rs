@@ -722,25 +722,25 @@ impl Default for Addr {
     }
 }
 
+pub(crate) fn canonical_socket_addr(addr: SocketAddr) -> SocketAddr {
+    match addr {
+        SocketAddr::V6(addr) => match addr.ip().to_ipv4_mapped() {
+            Some(ip) => SocketAddr::new(ip.into(), addr.port()),
+            None => SocketAddr::V6(addr),
+        },
+        addr => addr,
+    }
+}
+
 impl From<SocketAddr> for Addr {
     fn from(value: SocketAddr) -> Self {
-        match value {
-            SocketAddr::V4(_) => Self::Ip(value),
-            SocketAddr::V6(addr) => {
-                Self::Ip(SocketAddr::new(addr.ip().to_canonical(), addr.port()))
-            }
-        }
+        Self::Ip(canonical_socket_addr(value))
     }
 }
 
 impl From<&SocketAddr> for Addr {
     fn from(value: &SocketAddr) -> Self {
-        match value {
-            SocketAddr::V4(_) => Self::Ip(*value),
-            SocketAddr::V6(addr) => {
-                Self::Ip(SocketAddr::new(addr.ip().to_canonical(), addr.port()))
-            }
-        }
+        Self::Ip(canonical_socket_addr(*value))
     }
 }
 
@@ -1593,8 +1593,7 @@ impl noq::UdpSender for Sender {
             }
             MultipathMappedAddr::Ip(socket_addr) => {
                 // Ensure IPv6 mapped addresses are converted back
-                let socket_addr =
-                    SocketAddr::new(socket_addr.ip().to_canonical(), socket_addr.port());
+                let socket_addr = canonical_socket_addr(socket_addr);
                 FourTuple::Ip {
                     remote: socket_addr,
                     local: noq_transmit.src_ip,
