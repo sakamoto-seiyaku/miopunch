@@ -300,6 +300,10 @@ impl OperationEntry {
             && self.operation.description.initiator == local
     }
 
+    pub(crate) fn departure_recipient(&self) -> Option<VerifyingKey> {
+        self.first_delivery_recipient
+    }
+
     pub(crate) fn view(&self, local: VerifyingKey, auth: &ManagementAuth) -> serde_json::Value {
         use serde_json::json;
         let mut view = json!({

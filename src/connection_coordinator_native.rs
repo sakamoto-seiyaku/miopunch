@@ -582,6 +582,12 @@ impl NativeAdmission {
         }
     }
 
+    fn for_gate(&self, gate: AdmissionGate) -> Self {
+        let mut coordinator = self.coordinator.clone();
+        coordinator.gate = gate.clone();
+        Self::new(gate, coordinator, self.tcp.clone())
+    }
+
     async fn admit_registered_member(
         &self,
         connection: &iroh::endpoint::ControlConnection,
@@ -861,8 +867,8 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
         }
     }
 }
-impl iroh::endpoint::EndpointAdmission for NativeAdmission {
-    async fn admit(
+impl NativeAdmission {
+    async fn admit_connection(
         &self,
         connection: &iroh::endpoint::ControlConnection,
     ) -> io::Result<iroh::endpoint::AdmissionOutcome> {
@@ -959,13 +965,56 @@ impl iroh::endpoint::EndpointAdmission for NativeAdmission {
             None => iroh::endpoint::AdmissionOutcome::ControlOnlyWithConfirmation(confirmation),
         })
     }
+}
+
+/// One outgoing operation in the other network uses the current endpoint's
+/// physical sockets and relay registration while authenticating in its own scope.
+#[derive(Debug)]
+pub(crate) struct MigrationWireContext {
+    peer: iroh::EndpointId,
+    alpn: &'static [u8],
+    gate: AdmissionGate,
+}
+
+impl MigrationWireContext {
+    pub(crate) fn new(peer: iroh::EndpointId, alpn: &'static [u8], gate: &AdmissionGate) -> Self {
+        Self {
+            peer,
+            alpn,
+            gate: gate.with_request_coordinator().with_message_bootstrap(),
+        }
+    }
+
+    fn matches(&self, peer: iroh::EndpointId, alpn: &[u8]) -> bool {
+        self.peer == peer && self.alpn == alpn
+    }
+}
+
+impl iroh::endpoint::EndpointAdmission for NativeAdmission {
+    async fn admit(
+        &self,
+        connection: &iroh::endpoint::ControlConnection,
+    ) -> io::Result<iroh::endpoint::AdmissionOutcome> {
+        if let Some(context) = connection.application_context::<MigrationWireContext>() {
+            if !connection.side().is_client() || !context.matches(connection.remote_id(), connection.alpn()) {
+                return Err(control_error("IdentityOrAdmissionRejected"));
+            }
+            return self.for_gate(context.gate.clone()).admit_connection(connection).await;
+        }
+        self.admit_connection(connection).await
+    }
+
     fn is_current(&self, connection: &iroh::endpoint::ControlConnection) -> bool {
-        self.gate.authenticated_control_current(connection)
+        let gate = connection.application_context::<MigrationWireContext>()
+            .map_or(&self.gate, |context| &context.gate);
+        gate.authenticated_control_current(connection)
     }
     fn business_released(&self, connection: &Connection) {
-        self.gate.publish_business(connection);
+        let gate = connection.application_context::<MigrationWireContext>()
+            .map_or(&self.gate, |context| &context.gate);
+        gate.publish_business(connection);
         if connection.alpn() == super::MEMBER_ALPN {
-            self.gate.maintenance().register(connection);
+            gate.maintenance().register(connection);
         }
     }
 }
@@ -981,5 +1030,20 @@ impl iroh::endpoint::EndpointHooks for AdmissionBeforeConnect {
         alpn: &[u8],
     ) -> iroh::endpoint::BeforeConnectOutcome {
         self.0.before_connect(remote, alpn)
+    }
+
+    async fn before_connect_with_context(
+        &self,
+        remote: &iroh::EndpointAddr,
+        alpn: &[u8],
+        context: Option<&(dyn std::any::Any + Send + Sync)>,
+    ) -> iroh::endpoint::BeforeConnectOutcome {
+        let Some(context) = context.and_then(|context| context.downcast_ref::<MigrationWireContext>()) else {
+            return self.0.before_connect(remote, alpn);
+        };
+        if !context.matches(remote.id, alpn) {
+            return iroh::endpoint::BeforeConnectOutcome::Reject;
+        }
+        context.gate.before_connect(remote, alpn)
     }
 }

@@ -2,6 +2,7 @@ use tokio::sync::watch;
 
 /// A runtime-scoped cursor. A fresh starting point also makes a cursor from
 /// a previously closed instance immediately eligible for a new snapshot.
+#[derive(Clone)]
 pub(crate) struct StateChanges(watch::Sender<u64>);
 
 impl Default for StateChanges {

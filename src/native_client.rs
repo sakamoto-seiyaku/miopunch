@@ -10,7 +10,7 @@ use std::{
     path::Path,
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::Duration,
 };
@@ -33,6 +33,7 @@ use crate::{
     manual_admission::{AdmissionRequest, AdmissionStage, ManualExchange, ManualInvitation},
     native_admission_rotation::{self, RotationConfirmation},
     native_member_services::{self, MemberService},
+    native_migration::MigrationDriver,
     native_network::{NativeNetwork, NodeStatus},
     precode::Precode,
     resources::{ContactClass, ResourceEndpoint},
@@ -40,6 +41,11 @@ use crate::{
 
 pub type ClientError = Box<dyn Error + Send + Sync>;
 pub(crate) const MEMBER_MESSAGE: &[u8] = b"miopunch/client-message/1";
+
+pub(crate) fn allocate_service_handle(ids: &AtomicU64) -> Result<u64, ClientError> {
+    ids.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
+        .map_err(|_| "native service identifier exhausted".into())
+}
 
 fn host_device_name() -> Option<String> {
     #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -57,11 +63,12 @@ fn host_device_name() -> Option<String> {
 }
 
 pub use crate::client_invitation::ClientInvitation;
+pub use crate::native_migration::{NativeMigrationProgress, SourceExit};
 impl ClientInvitation {
-    fn material(&self) -> Result<ManualInvitation, ClientError> {
+    pub(crate) fn material(&self) -> Result<ManualInvitation, ClientError> {
         Ok(ManualInvitation::decode(&self.material_bytes()?)?)
     }
-    fn code(&self) -> Result<Option<Precode>, ClientError> {
+    pub(crate) fn code(&self) -> Result<Option<Precode>, ClientError> {
         self.precode_bytes()?
             .as_ref()
             .map(|bytes| Ok(Precode::decode(bytes)?))
@@ -93,12 +100,20 @@ pub struct ClientStateSnapshot {
     pub admission_display_names: BTreeMap<VerifyingKey, String>,
     pub admission_history: Vec<AdmissionHistoryEntry>,
     pub admission_rotation: Option<RotationProgress>,
+    pub network_migration: Option<NativeMigrationProgress>,
     pub device_operations: Value,
 }
 
 /// A bounded native host. Incoming admission and member exchanges run while the
 /// caller controls the client; there is no UI, alternate transport or SSH path.
 pub struct NativeClient {
+    pub(crate) migration: Arc<MigrationDriver>,
+    _migration_cancel: tokio_util::sync::DropGuard,
+}
+
+/// The services bound to one native network.
+pub(crate) struct NativeClientRuntime {
+    pub(crate) service_handles: Arc<AtomicU64>,
     pub(crate) node: Arc<Mutex<NativeNetwork>>,
     pub(crate) resources: Arc<ResourceEndpoint>,
     pub(crate) files: Arc<crate::native_file_transfer::NativeFiles>,
@@ -114,7 +129,7 @@ pub struct NativeClient {
     _file_owner: crate::native_file_transfer::FileOwner,
     cancel: CancellationToken,
     _drop_cancel: tokio_util::sync::DropGuard,
-    listener: JoinHandle<()>,
+    listener: Mutex<Option<JoinHandle<()>>>,
     pub(crate) removal_commits: tokio_util::task::TaskTracker,
     recovery_saved: Arc<AtomicBool>,
     pub(crate) replacement_ready: Arc<AtomicBool>,
@@ -146,12 +161,12 @@ impl NativeClient {
         let code = invitation
             .code()?
             .ok_or("continuation requires a precode")?;
-        Self::remember_existing_admission(&node).await?;
+        NativeClientRuntime::remember_existing_admission(&node).await?;
         let config = crate::client_contact::import_contact(
             node.resource_configuration()?,
             invitation.bootstrap(),
         )?;
-        Self::select_precode(&mut node, &code, invitation, Some(&config)).await?;
+        NativeClientRuntime::select_precode(&mut node, &code, invitation, Some(&config)).await?;
         Self::start(node, bind).await
     }
     pub async fn join(
@@ -174,9 +189,64 @@ impl NativeClient {
         Self::start(node, bind).await
     }
     pub async fn open(path: impl AsRef<Path>, bind: Ipv4Addr) -> Result<Self, ClientError> {
+        let path = path.as_ref();
+        if let Some(invitation) = crate::network_migration::client_invitation(path)? {
+            return MigrationDriver::reopen(path, bind, invitation).await;
+        }
         Self::start(NativeNetwork::open(path).await?, bind).await
     }
-    pub(crate) async fn start(mut node: NativeNetwork, bind: Ipv4Addr) -> Result<Self, ClientError> {
+
+    pub(crate) async fn start(node: NativeNetwork, bind: Ipv4Addr) -> Result<Self, ClientError> {
+        let changes = node.store.changes.clone();
+        let runtime = NativeClientRuntime::start(Arc::new(Mutex::new(node)), bind, Arc::new(AtomicU64::new(1))).await?;
+        let migration = Arc::new(MigrationDriver::new(changes, bind, runtime));
+        let migration_cancel = migration.cancel.clone().drop_guard();
+        Ok(Self { migration, _migration_cancel: migration_cancel })
+    }
+
+    pub(crate) fn runtime(&self) -> Arc<NativeClientRuntime> {
+        self.migration.completed_runtime()
+    }
+
+    pub async fn state_snapshot(&self) -> Result<ClientStateSnapshot, ClientError> {
+        let _transition = self.migration.transition.lock().await;
+        let mut snapshot = self.runtime().runtime_snapshot().await?;
+        snapshot.network_migration = self.migration.progress();
+        Ok(snapshot)
+    }
+
+    /// Wait without polling across changes to either active network or migration.
+    pub async fn observe_state(&self, after: u64) -> Result<ClientStateSnapshot, ClientError> {
+        let mut updates = self.migration.changes.subscribe();
+        tokio::select! {
+            biased;
+            _ = self.migration.cancel.cancelled() => return Err("client closed".into()),
+            changed = updates.wait_for(|cursor| *cursor != after) => { changed?; }
+        }
+        self.state_snapshot().await
+    }
+
+    pub async fn close(self) -> Result<(), ClientError> {
+        self.migration.stop().await?;
+        let migration = Arc::try_unwrap(self.migration).map_err(|_| "client migration still owned")?;
+        Arc::try_unwrap(migration.into_runtime())
+            .map_err(|_| "client runtime still owned")?
+            .close().await
+    }
+}
+
+impl NativeClientRuntime {
+    pub(crate) async fn start(shared_node: Arc<Mutex<NativeNetwork>>, bind: Ipv4Addr, service_handles: Arc<AtomicU64>) -> Result<Self, ClientError> {
+        Self::start_with_bind_handoff(shared_node, bind, service_handles, async { Ok(()) }).await
+    }
+
+    pub(crate) async fn start_with_bind_handoff(
+        shared_node: Arc<Mutex<NativeNetwork>>,
+        bind: Ipv4Addr,
+        service_handles: Arc<AtomicU64>,
+        before_bind: impl Future<Output = Result<(), ClientError>>,
+    ) -> Result<Self, ClientError> {
+        let mut node = shared_node.lock().await;
         crate::native_device_management::recover_saved_departure(&mut node).await?;
         if node.device_names.name(node.node_key.verifying_key()).is_none()
             && let Some(name) = host_device_name()
@@ -239,37 +309,6 @@ impl NativeClient {
             crate::invitation_pairing::PAIRING_ALPN,
             ProtocolScope::AdmissionRequest,
         );
-        let resources = Arc::new(node.bind_application_endpoint(bind).await?);
-        let (fusion, gate) = resources
-            .member_fusion
-            .as_ref()
-            .expect("native client member owner")
-            .clone();
-        resources.install_member_repair();
-        resources.endpoint().set_alpns(vec![
-            ADMISSION_REQUEST_ALPN.to_vec(),
-            PRECODE_REQUEST_ALPN.to_vec(),
-            ADMISSION_RECEIPT_ALPN.to_vec(),
-            ADMISSION_ROTATION_ALPN.to_vec(),
-            ROTATION_DELIVERY_ALPN.to_vec(),
-            MEMBER_MESSAGE.to_vec(),
-            crate::native_network::FUSED_MEMBER_ALPN.to_vec(),
-            crate::connection_recovery::CONNECTION_RECOVERY_ALPN.to_vec(),
-            crate::web::WEB_ALPN.to_vec(),
-            crate::terminal::TERMINAL_ALPN.to_vec(),
-            crate::forwarding::TCP_ALPN.to_vec(),
-            crate::forwarding::UDP_ALPN.to_vec(),
-            crate::clipboard::CLIPBOARD_ALPN.to_vec(),
-            crate::file_transfer::FILE_ALPN.to_vec(),
-            crate::service_policy::POLICY_ALPN.to_vec(),
-            crate::device_operation::DEVICE_ALPN.to_vec(),
-            crate::credential_custody::CUSTODY_ALPN.to_vec(),
-            crate::device_operation::DEVICE_RESULT_ALPN.to_vec(),
-            crate::device_protocol::DEPARTURE_ALPN.to_vec(),
-            crate::device_protocol::REMOVAL_ALPN.to_vec(),
-            crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
-            crate::service_policy::GUEST_ALPN.to_vec(),
-        ]);
         let files = Arc::new(crate::native_file_transfer::NativeFiles::new(
             node.admission_gate().clone(),
         ));
@@ -304,19 +343,57 @@ impl NativeClient {
             crate::native_clipboard::NativeClipboard::new(node.admission_gate().clone());
         clipboard.enforce_access(&services.lock().await.access(&node).await?);
         services.lock().await.clipboard = Some(Arc::downgrade(&clipboard));
-        let forwarding = crate::native_forwarding::NativeForwarding::new(node.admission_gate().clone(), node.resource_configuration()?.business_channel)?;
+        let resources_config = node.resource_configuration()?;
+        resources_config.validate_contact_facilities()?;
+        ResourceEndpoint::validate_contact_timeout(Duration::from_millis(resources_config.maintenance.contact_timeout_ms))?;
+        let forwarding = crate::native_forwarding::NativeForwarding::new(node.admission_gate().clone(), resources_config.business_channel, service_handles.clone())?;
         forwarding.enforce_access(&services.lock().await.access(&node).await?);
         services.lock().await.forwarding = Some(Arc::downgrade(&forwarding));
-        let web = crate::native_web::NativeWeb::new(node.admission_gate().clone());
+        let web = crate::native_web::NativeWeb::new(node.admission_gate().clone(), service_handles.clone());
         web.enforce_access(&services.lock().await.access(&node).await?);
         services.lock().await.web = Some(Arc::downgrade(&web));
         let terminal = crate::native_terminal::NativeTerminal::new(
             node.admission_gate().clone(),
             forwarding.channel_budget.clone(),
+            service_handles.clone(),
         );
         terminal.enforce_access(&services.lock().await.access(&node).await?);
         services.lock().await.terminal = Some(Arc::downgrade(&terminal));
-        let node = Arc::new(Mutex::new(node));
+        before_bind.await?;
+        let resources = Arc::new(node.bind_application_endpoint(bind).await?);
+        let (fusion, gate) = resources
+            .member_fusion
+            .as_ref()
+            .expect("native client member owner")
+            .clone();
+        resources.install_member_repair();
+        resources.endpoint().set_alpns(vec![
+            ADMISSION_REQUEST_ALPN.to_vec(),
+            PRECODE_REQUEST_ALPN.to_vec(),
+            ADMISSION_RECEIPT_ALPN.to_vec(),
+            ADMISSION_ROTATION_ALPN.to_vec(),
+            ROTATION_DELIVERY_ALPN.to_vec(),
+            MEMBER_MESSAGE.to_vec(),
+            crate::connection_coordinator::MEMBER_ALPN.to_vec(),
+            crate::native_network::FUSED_MEMBER_ALPN.to_vec(),
+            crate::connection_recovery::CONNECTION_RECOVERY_ALPN.to_vec(),
+            crate::web::WEB_ALPN.to_vec(),
+            crate::terminal::TERMINAL_ALPN.to_vec(),
+            crate::forwarding::TCP_ALPN.to_vec(),
+            crate::forwarding::UDP_ALPN.to_vec(),
+            crate::clipboard::CLIPBOARD_ALPN.to_vec(),
+            crate::file_transfer::FILE_ALPN.to_vec(),
+            crate::service_policy::POLICY_ALPN.to_vec(),
+            crate::device_operation::DEVICE_ALPN.to_vec(),
+            crate::credential_custody::CUSTODY_ALPN.to_vec(),
+            crate::device_operation::DEVICE_RESULT_ALPN.to_vec(),
+            crate::device_protocol::DEPARTURE_ALPN.to_vec(),
+            crate::device_protocol::REMOVAL_ALPN.to_vec(),
+            crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
+            crate::service_policy::GUEST_ALPN.to_vec(),
+        ]);
+        drop(node);
+        let node = shared_node;
         let cancel = CancellationToken::new();
         let rotation_confirmation = Arc::new(RotationConfirmation::default());
         let removal_commits = tokio_util::task::TaskTracker::new();
@@ -597,6 +674,7 @@ impl NativeClient {
         };
         let drop_cancel = cancel.clone().drop_guard();
         Ok(Self {
+            service_handles,
             node,
             resources,
             _file_owner: crate::native_file_transfer::FileOwner(files.clone()),
@@ -612,7 +690,7 @@ impl NativeClient {
             terminal,
             cancel,
             _drop_cancel: drop_cancel,
-            listener,
+            listener: Mutex::new(Some(listener)),
             removal_commits,
             recovery_saved,
             replacement_ready,
@@ -620,11 +698,18 @@ impl NativeClient {
             rotation_confirmation,
         })
     }
+}
+
+impl NativeClient {
     pub async fn status(&self) -> ClientStatus {
-        let node = self.node.lock().await;
-        self.status_of(&node).await
+        let client_runtime = self.runtime();
+        let node = client_runtime.node.lock().await;
+        client_runtime.status_of(&node).await
     }
 
+}
+
+impl NativeClientRuntime {
     async fn status_of(&self, node: &NativeNetwork) -> ClientStatus {
         let admission_attempt = Self::read_admission_attempt(node).await.ok().flatten();
         let manual_rejected = if let Some(attempt) = admission_attempt {
@@ -651,15 +736,22 @@ impl NativeClient {
         }
     }
 
+}
+
+impl NativeClient {
     /// Persist this device's display name, including while its peers are offline.
     pub async fn set_device_display_name(&self, display_name: &str) -> Result<(), ClientError> {
-        let mut node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        let mut node = client_runtime.node.lock().await;
         let key = node.node_key.clone();
         node.update_device_names(|names| names.set_local(&key, display_name))?;
         Ok(())
     }
 
-    pub async fn state_snapshot(&self) -> Result<ClientStateSnapshot, ClientError> {
+}
+
+impl NativeClientRuntime {
+    async fn runtime_snapshot(&self) -> Result<ClientStateSnapshot, ClientError> {
         let mut node = self.node.lock().await;
         node.recover_admission_state().await?;
         let pending_admissions = Self::pending_admissions(&node).await?;
@@ -676,29 +768,25 @@ impl NativeClient {
             admission_display_names,
             admission_history,
             admission_rotation: node.rotation_progress().await?,
+            network_migration: None,
             device_operations: crate::native_device_management::operation_state(&node)?,
             cursor: node.store.changes.cursor(),
         })
     }
 
-    /// Wait without polling. Changes between a previous read and this call
-    /// are retained by the cursor, and concurrent changes may coalesce.
-    pub async fn observe_state(&self, after: u64) -> Result<ClientStateSnapshot, ClientError> {
-        let mut updates = self.node.lock().await.store.changes.subscribe();
-        tokio::select! {
-            biased;
-            _ = self.cancel.cancelled() => return Err("client closed".into()),
-            changed = updates.wait_for(|cursor| *cursor != after) => { changed?; }
-        }
-        self.state_snapshot().await
-    }
+}
 
+impl NativeClient {
     /// Durable progress of the selected local admission. An unavailable path
     /// leaves this state intact and is reported by the admission operation.
     pub async fn admission_attempt(&self) -> Result<Option<AdmissionAttempt>, ClientError> {
-        Self::read_admission_attempt(&*self.node.lock().await).await
+        let client_runtime = self.runtime();
+        NativeClientRuntime::read_admission_attempt(&*client_runtime.node.lock().await).await
     }
 
+}
+
+impl NativeClientRuntime {
     async fn remember_existing_admission(node: &NativeNetwork) -> Result<(), ClientError> {
         if node.join.is_some()
             && node.store.local_admission_progress().await?.is_none()
@@ -709,7 +797,7 @@ impl NativeClient {
         Ok(())
     }
 
-    async fn read_admission_attempt(
+    pub(crate) async fn read_admission_attempt(
         node: &NativeNetwork,
     ) -> Result<Option<AdmissionAttempt>, ClientError> {
         let Some(binding) = node.join else { return Ok(None) };
@@ -753,32 +841,40 @@ impl NativeClient {
         };
         Ok(Some(AdmissionAttempt { request_id, progress }))
     }
+}
+
+impl NativeClient {
     pub fn address(&self) -> EndpointAddr {
-        self.resources.addr()
+        let client_runtime = self.runtime();
+        client_runtime.resources.addr()
     }
     /// Explicit local opt-in. Membership alone never starts the receiver.
     pub async fn enable_files(&self, directory: impl AsRef<Path>) -> Result<(), ClientError> {
-        self.require_ready()?;
-        let node = self.node.lock().await;
-        let access = self.services.lock().await.access(&node).await?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let node = client_runtime.node.lock().await;
+        let access = client_runtime.services.lock().await.access(&node).await?;
         if node.admission_stage() != AdmissionStage::Complete && access.guest_pairs().is_empty() {
             return Err("membership required".into());
         }
-        self.files.update_access(access);
-        self.files.enable(directory.as_ref()).await?;
-        if let Err(error) = self
+        client_runtime.files.update_access(access);
+        client_runtime.files.enable(directory.as_ref()).await?;
+        if let Err(error) = client_runtime
             .services
             .lock()
             .await
-            .declare_files(&node, &self.files, true)
+            .declare_files(&node, &client_runtime.files, true)
             .await
         {
-            self.files.disable().await;
+            client_runtime.files.disable().await;
             return Err(error);
         }
         Ok(())
     }
-    pub async fn disable_files(&self) -> Result<(), ClientError> {
+}
+
+impl NativeClientRuntime {
+    async fn disable_files(&self) -> Result<(), ClientError> {
         self.files.disable().await;
         let node = self.node.lock().await;
         self.services
@@ -787,47 +883,61 @@ impl NativeClient {
             .declare_files(&node, &self.files, false)
             .await
     }
+}
+
+impl NativeClient {
+    pub async fn disable_files(&self) -> Result<(), ClientError> {
+        self.runtime().disable_files().await
+    }
     pub fn files_enabled(&self) -> bool {
-        self.files.enabled()
+        let client_runtime = self.runtime();
+        client_runtime.files.enabled()
     }
     pub async fn send_file(
         &self,
         address: EndpointAddr,
         path: impl AsRef<Path>,
     ) -> Result<String, ClientError> {
-        self.require_ready()?;
-        let node = self.node.lock().await;
-        let access = self.services.lock().await.access(&node).await?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let node = client_runtime.node.lock().await;
+        let access = client_runtime.services.lock().await.access(&node).await?;
         if node.admission_stage() != AdmissionStage::Complete && access.guest_pairs().is_empty() {
             return Err("membership required".into());
         }
-        self.files.update_access(access);
+        client_runtime.files.update_access(access);
         drop(node);
-        Ok(self
+        Ok(client_runtime
             .files
-            .send(self.resources.clone(), address, path.as_ref().to_owned())
+            .send(client_runtime.resources.clone(), address, path.as_ref().to_owned())
             .await?)
     }
     pub fn file_tasks(&self) -> Vec<crate::file_transfer::FileTaskStatus> {
-        self.files.tasks.status()
+        let client_runtime = self.runtime();
+        client_runtime.files.tasks.status()
     }
     pub fn cancel_file(&self, id: &str) -> Result<bool, ClientError> {
-        Ok(self.files.cancel(id)?)
+        let client_runtime = self.runtime();
+        Ok(client_runtime.files.cancel(id)?)
     }
     pub fn disconnect_file(&self, id: &str) -> Result<(), ClientError> {
-        Ok(self.files.tasks.disconnect(id)?)
+        let client_runtime = self.runtime();
+        Ok(client_runtime.files.tasks.disconnect(id)?)
     }
     pub fn approve_file(&self, id: &str) -> Result<bool, ClientError> {
-        Ok(self.files.tasks.decide_file(id, true)?)
+        let client_runtime = self.runtime();
+        Ok(client_runtime.files.tasks.decide_file(id, true)?)
     }
     pub fn reject_file(&self, id: &str) -> Result<bool, ClientError> {
-        Ok(self.files.tasks.decide_file(id, false)?)
+        let client_runtime = self.runtime();
+        Ok(client_runtime.files.tasks.decide_file(id, false)?)
     }
     pub async fn invitation(&self) -> Result<ClientInvitation, ClientError> {
-        self.require_ready()?;
-        let (address, bootstrap) = self.resources.invitation_contact()?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let (address, bootstrap) = client_runtime.resources.invitation_contact()?;
         Ok(ClientInvitation::new(
-            self.node.lock().await.manual_invitation()?.encode(),
+            client_runtime.node.lock().await.manual_invitation()?.encode(),
             address,
             None,
             bootstrap,
@@ -838,14 +948,15 @@ impl NativeClient {
         expires: u64,
         max_uses: Option<u64>,
     ) -> Result<ClientInvitation, ClientError> {
-        self.require_ready()?;
-        let code = self
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let code = client_runtime
             .node
             .lock()
             .await
             .issue_precode(expires, max_uses)
             .await?;
-        let (address, bootstrap) = self.resources.invitation_contact()?;
+        let (address, bootstrap) = client_runtime.resources.invitation_contact()?;
         Ok(ClientInvitation::new(
             code.invitation().encode(),
             address,
@@ -856,13 +967,15 @@ impl NativeClient {
     /// Revoke future redemptions of this node's precode using the issued invitation.
     /// Existing membership and committed admissions remain independent of the code.
     pub async fn revoke_precode(&self, invitation: &ClientInvitation) -> Result<(), ClientError> {
-        self.require_ready()?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
         let code = invitation.code()?.ok_or("not a precode")?;
-        Ok(self.node.lock().await.revoke_precode(&code).await?)
+        Ok(client_runtime.node.lock().await.revoke_precode(&code).await?)
     }
     pub async fn precode_uses(&self, invitation: &ClientInvitation) -> Result<u64, ClientError> {
+        let client_runtime = self.runtime();
         let code = invitation.code()?.ok_or("not a precode")?;
-        let status = self.node.lock().await.precode_usage_status(&code).await?;
+        let status = client_runtime.node.lock().await.precode_usage_status(&code).await?;
         if !status.count_trusted {
             return Err("untrusted precode count".into());
         }
@@ -871,18 +984,20 @@ impl NativeClient {
             .ok_or_else(|| "precode count unavailable".into())
     }
     pub async fn requests(&self) -> Result<Vec<AdmissionRequest>, ClientError> {
-        let mut node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        let mut node = client_runtime.node.lock().await;
         node.recover_admission_state().await?;
-        Self::pending_admissions(&node).await
+        NativeClientRuntime::pending_admissions(&node).await
     }
 
     /// Pending requests paired with the latest authenticated display name.
     pub async fn requests_with_display_names(
         &self,
     ) -> Result<Vec<(AdmissionRequest, Option<String>)>, ClientError> {
-        let mut node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        let mut node = client_runtime.node.lock().await;
         node.recover_admission_state().await?;
-        Ok(Self::pending_admissions(&node)
+        Ok(NativeClientRuntime::pending_admissions(&node)
             .await?
             .into_iter()
             .map(|request| {
@@ -892,6 +1007,9 @@ impl NativeClient {
             .collect())
     }
 
+}
+
+impl NativeClientRuntime {
     async fn pending_admissions(
         node: &NativeNetwork,
     ) -> Result<Vec<AdmissionRequest>, ClientError> {
@@ -906,11 +1024,15 @@ impl NativeClient {
         Ok(pending)
     }
 
+}
+
+impl NativeClient {
     /// The latest locally handled attempts, including historical delivery
     /// outcomes whose original membership authorization no longer applies.
     pub async fn admission_history(&self) -> Result<Vec<AdmissionHistoryEntry>, ClientError> {
-        self.require_ready()?;
-        let mut node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let mut node = client_runtime.node.lock().await;
         node.recover_admission_state().await?;
         Ok(node.store.admission_history().await?)
     }
@@ -918,8 +1040,9 @@ impl NativeClient {
     pub(crate) async fn admission_history_with_display_names(
         &self,
     ) -> Result<Vec<(AdmissionHistoryEntry, Option<String>)>, ClientError> {
-        self.require_ready()?;
-        let mut node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let mut node = client_runtime.node.lock().await;
         node.recover_admission_state().await?;
         Ok(node.store.admission_history().await?
             .into_iter()
@@ -930,8 +1053,9 @@ impl NativeClient {
             .collect())
     }
     pub async fn reject(&self, request: &AdmissionRequest) -> Result<(), ClientError> {
-        self.require_ready()?;
-        Ok(self
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        Ok(client_runtime
             .node
             .lock()
             .await
@@ -943,16 +1067,18 @@ impl NativeClient {
         &self,
         invitation: &ClientInvitation,
     ) -> Result<(), ClientError> {
-        let _operation = self.admission_operation.lock().await;
-        self.begin_new_manual_attempt(invitation).await
+        let client_runtime = self.runtime();
+        let _operation = client_runtime.admission_operation.lock().await;
+        client_runtime.begin_new_manual_attempt(invitation).await
     }
 
     /// Explicitly start a fresh request under this device identity. The full
     /// invitation may be an ordinary invitation or a new precode. Newly
     /// imported contact facilities take effect the next time the SDK opens.
     pub async fn new_rejoin_attempt(&self, invitation: &ClientInvitation) -> Result<(), ClientError> {
-        let _operation = self.admission_operation.lock().await;
-        let mut node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        let _operation = client_runtime.admission_operation.lock().await;
+        let mut node = client_runtime.node.lock().await;
         if !node.store.known_removed(node.node_key.verifying_key()) {
             return Err("no ended membership to rejoin".into());
         }
@@ -966,9 +1092,12 @@ impl NativeClient {
                 return Err("rejoining with a precode requires a new code".into());
             }
         }
-        self.start_admission_attempt(&mut node, invitation).await
+        client_runtime.start_admission_attempt(&mut node, invitation).await
     }
 
+}
+
+impl NativeClientRuntime {
     async fn begin_new_manual_attempt(
         &self,
         invitation: &ClientInvitation,
@@ -1000,16 +1129,21 @@ impl NativeClient {
         Ok(())
     }
 
+}
+
+impl NativeClient {
     pub async fn new_saved_manual_attempt(&self) -> Result<(), ClientError> {
-        let _operation = self.admission_operation.lock().await;
-        self.begin_new_manual_attempt(&self.saved_admission_invitation().await?).await
+        let client_runtime = self.runtime();
+        let _operation = client_runtime.admission_operation.lock().await;
+        client_runtime.begin_new_manual_attempt(&client_runtime.saved_admission_invitation().await?).await
     }
     pub async fn approve(&self, request: &AdmissionRequest) -> Result<AdmissionStage, ClientError> {
-        self.require_ready()?;
-        let mut node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let mut node = client_runtime.node.lock().await;
         let stage = node.approve_manual_admission(request).await?.stage;
-        self.files
-            .update_access(self.services.lock().await.access(&node).await?);
+        client_runtime.files
+            .update_access(client_runtime.services.lock().await.access(&node).await?);
         Ok(stage)
     }
     /// Resume the same durable SDK attempt. Complete is returned only after
@@ -1018,8 +1152,9 @@ impl NativeClient {
         &self,
         invitation: &ClientInvitation,
     ) -> Result<AdmissionStage, ClientError> {
-        let _operation = self.admission_operation.lock().await;
-        self.receive_admission(invitation, true).await
+        let client_runtime = self.runtime();
+        let _operation = client_runtime.admission_operation.lock().await;
+        client_runtime.receive_admission(invitation, true).await
     }
     /// Receive the verified authorization without finishing secret delivery.
     /// Hosts can stop here and resume `request_admission` after reopening. This
@@ -1028,8 +1163,9 @@ impl NativeClient {
         &self,
         invitation: &ClientInvitation,
     ) -> Result<AdmissionStage, ClientError> {
-        let _operation = self.admission_operation.lock().await;
-        self.receive_admission(invitation, false).await
+        let client_runtime = self.runtime();
+        let _operation = client_runtime.admission_operation.lock().await;
+        client_runtime.receive_admission(invitation, false).await
     }
 
     /// Continue the selected request using the full invitation already saved
@@ -1038,17 +1174,21 @@ impl NativeClient {
         &self,
         authorization_only: bool,
     ) -> Result<AdmissionStage, ClientError> {
-        let _operation = self.admission_operation.lock().await;
-        self.receive_admission(&self.saved_admission_invitation().await?, !authorization_only)
+        let client_runtime = self.runtime();
+        let _operation = client_runtime.admission_operation.lock().await;
+        client_runtime.receive_admission(&client_runtime.saved_admission_invitation().await?, !authorization_only)
             .await
     }
 
+}
+
+impl NativeClientRuntime {
     async fn saved_admission_invitation(&self) -> Result<ClientInvitation, ClientError> {
         let node = self.node.lock().await;
         crate::client_contact::load_invitation(&node)?.ok_or_else(|| "no saved admission invitation".into())
     }
 
-    async fn select_precode(
+    pub(crate) async fn select_precode(
         node: &mut NativeNetwork,
         code: &Precode,
         invitation: &ClientInvitation,
@@ -1145,12 +1285,16 @@ impl NativeClient {
         result
     }
 
+}
+
+impl NativeClient {
     /// Finite member business exchange through configured SDK admission and
     /// route selection. Diagnostics report the actual selected connection path.
     pub async fn ping(&self, address: EndpointAddr) -> Result<Value, ClientError> {
-        self.require_ready()?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
         let queued = tokio::time::Instant::now();
-        let contact = self.resources.dial_service(address, MemberService::Ping).await?;
+        let contact = client_runtime.resources.dial_service(address, MemberService::Ping).await?;
         let result = tokio::time::timeout(Duration::from_secs(5), async {
             let transport = contact.open(MemberService::Ping).await?;
             let (mut send, mut recv) = transport.stream_halves(true).await?;
@@ -1172,7 +1316,8 @@ impl NativeClient {
     #[cfg(feature = "nat-lab-test-hooks")]
     #[doc(hidden)]
     pub async fn test_member_connection(&self, peer: iroh::EndpointId) -> Result<iroh::endpoint::MemberConnection, ClientError> {
-        let (fusion, _) = self.resources.member_fusion.as_ref().ok_or("member owner absent")?;
+        let client_runtime = self.runtime();
+        let (fusion, _) = client_runtime.resources.member_fusion.as_ref().ok_or("member owner absent")?;
         fusion.reuse_until(peer, tokio::time::Instant::now() + Duration::from_secs(1)).await?
             .ok_or_else(|| "member connection absent".into())
     }
@@ -1180,12 +1325,41 @@ impl NativeClient {
     #[cfg(feature = "nat-lab-test-hooks")]
     #[doc(hidden)]
     pub fn test_member_dial_pending(&self, peer: iroh::EndpointId) -> bool {
-        self.resources.member_fusion.as_ref().is_some_and(|(owner, _)| owner.test_member_dial_pending(peer))
+        let client_runtime = self.runtime();
+        client_runtime.resources.member_fusion.as_ref().is_some_and(|(owner, _)| owner.test_member_dial_pending(peer))
     }
 
+}
+
+impl NativeClientRuntime {
     /// Stop this host's listener and handlers, close endpoint resources, then
     /// close the durable store. Identity and authorization remain on disk.
-    pub async fn close(self) -> Result<(), ClientError> {
+    pub(crate) async fn stop_transport(&self) -> Result<(), ClientError> {
+        self.cancel.cancel();
+        if let Some(listener) = self.listener.lock().await.take() {
+            listener.await?;
+        }
+        self.resources.stop_contact().await;
+        self.removal_commits.close();
+        self.removal_commits.wait().await;
+        Ok(())
+    }
+
+    pub(crate) async fn retire_for_migration(&self) -> Result<(), ClientError> {
+        let terminal = self.terminal.close().await;
+        let web = self.web.close().await;
+        let forwarding = self.forwarding.close().await;
+        self.clipboard.close().await;
+        self.files.close().await;
+        let transport = self.stop_transport().await;
+        terminal.and(web).and(forwarding).and(transport)
+    }
+
+    pub(crate) fn transport_stopped(&self) -> bool {
+        self.cancel.is_cancelled()
+    }
+
+    async fn close(self) -> Result<(), ClientError> {
         let terminal_stop = self.terminal.close().await;
         let web_stop = self.web.close().await;
         let forwarding_stop = self.forwarding.close().await;
@@ -1197,10 +1371,7 @@ impl NativeClient {
         } else {
             Ok(())
         };
-        self.cancel.cancel();
-        self.listener.await?;
-        self.removal_commits.close();
-        self.removal_commits.wait().await;
+        self.stop_transport().await?;
         self.files.close().await;
         Arc::try_unwrap(self.resources)
             .map_err(|_| "client resources still owned")?
@@ -1274,11 +1445,12 @@ impl NativeClient {
         pairing: &crate::invitation_pairing::PairingInfo,
         invitation: &ClientInvitation,
     ) -> Result<(), ClientError> {
-        self.require_ready()?;
-        if invitation.material_bytes()? != self.node.lock().await.manual_invitation()?.encode() {
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        if invitation.material_bytes()? != client_runtime.node.lock().await.manual_invitation()?.encode() {
             return Err("invitation belongs to another network or contact".into());
         }
-        let connection = self
+        let connection = client_runtime
             .resources
             .connect_control(
                 pairing.address().clone(),
@@ -1289,7 +1461,7 @@ impl NativeClient {
             Duration::from_secs(30),
             crate::invitation_pairing::deliver(
                 &connection,
-                self.resources.endpoint().id(),
+                client_runtime.resources.endpoint().id(),
                 pairing,
                 invitation,
             ),
@@ -1299,7 +1471,13 @@ impl NativeClient {
         result??;
         Ok(())
     }
+}
+
+impl NativeClientRuntime {
     pub(crate) fn require_ready(&self) -> Result<(), ClientError> {
+        if self.cancel.is_cancelled() {
+            return Err("client network is no longer active".into());
+        }
         if !self.recovery_saved.load(Ordering::Acquire) {
             return Err("recovery card save confirmation required".into());
         }
@@ -1310,6 +1488,9 @@ impl NativeClient {
         }
         Ok(())
     }
+}
+
+impl NativeClient {
     /// Explicit secret-bearing return for a private save/print operation.
     /// Export does not acknowledge that the user saved the card.
     pub async fn export_recovery_card(
@@ -1334,7 +1515,8 @@ impl NativeClient {
         password: Option<&str>,
         destination: Option<&Path>,
     ) -> Result<String, ClientError> {
-        let node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        let node = client_runtime.node.lock().await;
         let credential = node.saved_genesis_credential()?;
         let mut state = recovery_state(&node)?.ok_or("no genesis credential")?;
         let card = crate::recovery_card::RecoveryCard::new(
@@ -1358,14 +1540,15 @@ impl NativeClient {
     /// User confirmation only. No password or read-back test is required.
     /// Retrying this confirmation does not create a new network or credential.
     pub async fn acknowledge_recovery_saved(&self) -> Result<(), ClientError> {
-        let node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        let node = client_runtime.node.lock().await;
         let mut state = recovery_state(&node)?.ok_or("not a network creator")?;
         if !state.exported {
             return Err("export the recovery card first".into());
         }
         state.saved = true;
         save_recovery_state(&node, &state)?;
-        self.recovery_saved.store(true, Ordering::Release);
+        client_runtime.recovery_saved.store(true, Ordering::Release);
         node.store.changes.publish();
         Ok(())
     }
@@ -1614,7 +1797,8 @@ mod tests {
         // The fixture populates the provider's authenticated-receipt ledger.
         // The browser suite also exercises actual provider/applicant exchanges.
         {
-            let node = provider.node.lock().await;
+            let runtime = provider.runtime();
+            let node = runtime.node.lock().await;
             for request in &attempts {
                 node.store.record_admission_request(request).await.unwrap();
             }
@@ -1741,7 +1925,7 @@ mod tests {
         let addresses: Vec<_> = clients
             .iter()
             .map(|client| {
-                let bound = client
+                let bound = client.runtime()
                     .resources
                     .endpoint()
                     .bound_sockets()
@@ -1752,7 +1936,7 @@ mod tests {
             })
             .collect();
         for (side, client) in clients.iter().enumerate() {
-            client
+            client.runtime()
                 .resources
                 .member_fusion
                 .as_ref()
@@ -1830,7 +2014,7 @@ mod tests {
         let consumer = NativeClient::open(&path, Ipv4Addr::LOCALHOST)
             .await
             .unwrap();
-        let bound = provider
+        let bound = provider.runtime()
             .resources
             .endpoint()
             .bound_sockets()

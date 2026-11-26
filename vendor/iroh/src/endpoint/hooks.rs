@@ -84,6 +84,17 @@ pub trait EndpointHooks: std::fmt::Debug + Send + Sync {
         async { BeforeConnectOutcome::Accept }
     }
 
+    /// Intercept an outgoing attempt using its local application context.
+    /// Existing hooks still run their standard check when not specialized.
+    fn before_connect_with_context<'a>(
+        &'a self,
+        remote_addr: &'a EndpointAddr,
+        alpn: &'a [u8],
+        _context: Option<&'a (dyn std::any::Any + Send + Sync)>,
+    ) -> impl Future<Output = BeforeConnectOutcome> + Send + 'a {
+        self.before_connect(remote_addr, alpn)
+    }
+
     /// Intercept both incoming and outgoing connections once the TLS handshake has completed.
     ///
     /// At this point in time, we know the remote's endpoint id and ALPN. If any hook returns
@@ -112,6 +123,7 @@ pub(crate) trait DynEndpointHooks: std::fmt::Debug + Send + Sync {
         &'a self,
         remote_addr: &'a EndpointAddr,
         alpn: &'a [u8],
+        context: Option<&'a (dyn std::any::Any + Send + Sync)>,
     ) -> BoxFuture<'a, BeforeConnectOutcome>;
     fn after_handshake<'a>(&'a self, conn: &'a Connection) -> BoxFuture<'a, AfterHandshakeOutcome>;
 }
@@ -121,8 +133,9 @@ impl<T: EndpointHooks> DynEndpointHooks for T {
         &'a self,
         remote_addr: &'a EndpointAddr,
         alpn: &'a [u8],
+        context: Option<&'a (dyn std::any::Any + Send + Sync)>,
     ) -> BoxFuture<'a, BeforeConnectOutcome> {
-        Box::pin(EndpointHooks::before_connect(self, remote_addr, alpn))
+        Box::pin(EndpointHooks::before_connect_with_context(self, remote_addr, alpn, context))
     }
 
     fn after_handshake<'a>(&'a self, conn: &'a Connection) -> BoxFuture<'a, AfterHandshakeOutcome> {
@@ -145,9 +158,10 @@ impl EndpointHooksList {
         &self,
         remote_addr: &EndpointAddr,
         alpn: &[u8],
+        context: Option<&(dyn std::any::Any + Send + Sync)>,
     ) -> BeforeConnectOutcome {
         for hook in self.inner.iter() {
-            match hook.before_connect(remote_addr, alpn).await {
+            match hook.before_connect(remote_addr, alpn, context).await {
                 BeforeConnectOutcome::Accept => continue,
                 reject @ BeforeConnectOutcome::Reject => {
                     return reject;

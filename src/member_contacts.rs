@@ -303,9 +303,19 @@ impl MemberContacts {
         if !self.gate.member_contact_allowed(target.id) {
             return Ok(Vec::new());
         }
+        Ok(self.merge_saved(target))
+    }
+
+    pub(crate) fn merge_departure(&self, target: &mut EndpointAddr) {
+        if self.gate.departure_contact_allowed(target.id) {
+            self.merge_saved(target);
+        }
+    }
+
+    fn merge_saved(&self, target: &mut EndpointAddr) -> Vec<TransportAddr> {
         let saved = self.saved.lock().unwrap();
         let Some(entry) = saved.get(&target.id) else {
-            return Ok(Vec::new());
+            return Vec::new();
         };
         let now = crate::service_policy::now();
         let mut preferred = Vec::new();
@@ -326,10 +336,10 @@ impl MemberContacts {
                 std::cmp::Reverse(route.observed_at),
             )
         });
-        Ok(preferred
+        preferred
             .into_iter()
             .map(|route| route.address.clone())
-            .collect())
+            .collect()
     }
 }
 

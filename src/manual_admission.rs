@@ -742,12 +742,7 @@ impl NativeNetwork {
         connection: &(impl OwnedControl + ?Sized),
     ) -> Result<ManualExchange, ManualAdmissionError> {
         let deadline = admission_deadline(connection);
-        let result = tokio::time::timeout(
-            deadline.saturating_duration_since(n0_future::time::Instant::now()),
-            self.request_admission_inner(connection, None, deadline),
-        )
-        .await
-        .unwrap_or(Err(ManualAdmissionError::TimedOut));
+        let result = self.request_admission_inner(connection, None, deadline).await;
         if result.is_err() {
             connection.close(0u32.into(), b"manual admission ended");
         }
@@ -772,10 +767,6 @@ impl NativeNetwork {
         {
             return Err(ManualAdmissionError::Rejected);
         }
-        let exchange = connection
-            .open_control_exchange()
-            .await
-            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         // A fresh code is a distinct redemption even when this joining node
         // retains its stable persisted admission attempt. Manual requests keep
         // their original namespace. The opaque delivery handle retains the
@@ -786,29 +777,35 @@ impl NativeNetwork {
                 crate::admission_request_id::precode_request_id(binding.request_id, token);
         }
         let local = self.node_key.verifying_key();
-        crate::admission_request_wire::write(
-            &exchange,
-            &wire_binding.encode(),
-            local,
-            token,
-            self.device_names.record(local),
-        )
-        .await
-        .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        let mut status = [0];
-        read_fixed(&exchange, &mut status)
+        let (exchange, status) = admission_io(deadline, async {
+            let exchange = connection
+                .open_control_exchange()
+                .await
+                .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+            crate::admission_request_wire::write(
+                &exchange,
+                &wire_binding.encode(),
+                local,
+                token,
+                self.device_names.record(local),
+            )
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+            let mut status = [0];
+            read_fixed(&exchange, &mut status)
+                .await
+                .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+            Ok((exchange, status))
+        }).await?;
         if matches!(status, [0] | [1]) {
             // The authenticated provider sends these replies after it commits
             // the request or redemption. This survives loss of later frames.
             self.store.save_local_admission_progress(wire_binding.request_id, ApplicationProgress::Delivered).await?;
         }
         if status == [0] {
-            exchange
-                .finish_send()
-                .await
-                .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+            admission_io(deadline, async {
+                exchange.finish_send().await.map_err(|_| ManualAdmissionError::PathUnavailable)
+            }).await?;
             return Ok(ManualExchange::AwaitingApproval);
         }
         if status == [2] && token.is_none() {
@@ -823,15 +820,17 @@ impl NativeNetwork {
         if status != [1] {
             return Err(ManualAdmissionError::Rejected);
         }
-        let mut generation = [0; 8];
-        read_fixed(&exchange, &mut generation)
-            .await
-            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        let generation = u64::from_be_bytes(generation);
-        if generation > i64::MAX as u64 || generation < self.scope.secret_generation() {
-            return Err(ManualAdmissionError::Rejected);
-        }
-        let history = read_frame(&exchange).await?;
+        let (generation, history) = admission_io(deadline, async {
+            let mut generation = [0; 8];
+            read_fixed(&exchange, &mut generation)
+                .await
+                .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+            let generation = u64::from_be_bytes(generation);
+            if generation > i64::MAX as u64 || generation < self.scope.secret_generation() {
+                return Err(ManualAdmissionError::Rejected);
+            }
+            Ok((generation, read_frame(&exchange).await?))
+        }).await?;
         let (authorization, raw): (Hash, Vec<(Vec<u8>, Option<Vec<u8>>)>) =
             p2panda_core::cbor::decode_cbor(history.as_slice())
                 .map_err(|_| ManualAdmissionError::Rejected)?;

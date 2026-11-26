@@ -1,7 +1,7 @@
 //! Provider-side HTTP(S), using the existing identity and single service ACL.
 use crate::{
     data_stream::DataStream,
-    native_client::{ClientError, NativeClient},
+    native_client::{ClientError, NativeClient, NativeClientRuntime, allocate_service_handle},
     native_member_services::{MemberService, PeerStreamEnd, ServiceTransport},
     service_policy::{Service, ServiceAccess},
     web::{self, RequestHead, ResponseHead, WebRequest, WebResponse},
@@ -45,13 +45,13 @@ struct State {
     sockets: BTreeMap<u64, Arc<socket::SocketSlot>>,
     requests: BTreeMap<u64, Arc<RequestSlot>>,
     flows: BTreeMap<u64, Flow>,
-    next: u64,
     closed: bool,
     completed: u64,
     failed: u64,
     last_failure_phase: Option<&'static str>,
 }
 pub(crate) struct NativeWeb {
+    handles: Arc<std::sync::atomic::AtomicU64>,
     state: Mutex<State>,
     gate: crate::admission_gate::AdmissionGate,
     tasks: tokio::sync::Mutex<JoinSet<()>>,
@@ -118,8 +118,9 @@ fn forward_header(name: &str) -> bool {
     )
 }
 impl NativeWeb {
-    pub fn new(gate: crate::admission_gate::AdmissionGate) -> Arc<Self> {
+    pub fn new(gate: crate::admission_gate::AdmissionGate, handles: Arc<std::sync::atomic::AtomicU64>) -> Arc<Self> {
         Arc::new(Self {
+            handles,
             state: Default::default(),
             gate,
             tasks: Default::default(),
@@ -179,11 +180,7 @@ impl NativeWeb {
         {
             return Err("Web service unavailable or busy".into());
         }
-        state.next = state
-            .next
-            .checked_add(1)
-            .ok_or("Web identifier exhausted")?;
-        let id = state.next;
+        let id = allocate_service_handle(&self.handles)?;
         let cancel = flow.cancel.clone();
         state.flows.insert(id, flow);
         Ok(FlowOwner {
@@ -440,61 +437,65 @@ impl NativeClient {
         targets: Vec<String>,
         trust_roots_pem: Vec<String>,
     ) -> Result<Value, ClientError> {
-        self.require_ready()?;
-        let node = self.node.lock().await;
-        let mut services = self.services.lock().await;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let node = client_runtime.node.lock().await;
+        let mut services = client_runtime.services.lock().await;
         let access = services.access(&node).await?;
         if !access.member(access.local) {
             return Err("only members provide Web".into());
         }
-        self.web.configure(targets, trust_roots_pem)?;
+        client_runtime.web.configure(targets, trust_roots_pem)?;
         if let Some(change) = access.declaration_change(Service::Web, true, true) {
-            services.apply(&node, &self.files, change).await?;
+            services.apply(&node, &client_runtime.files, change).await?;
         }
-        self.web.enforce_access(&services.access(&node).await?);
-        Ok(self.web.status())
+        client_runtime.web.enforce_access(&services.access(&node).await?);
+        Ok(client_runtime.web.status())
     }
     pub async fn disable_web(&self) -> Result<Value, ClientError> {
+        let client_runtime = self.runtime();
         {
-            let mut state = self.web.state.lock().unwrap();
+            let mut state = client_runtime.web.state.lock().unwrap();
             state.client = None;
             state.tls = None;
             state.origins.clear();
         }
-        self.web.cancel_all();
-        let node = self.node.lock().await;
-        let mut services = self.services.lock().await;
+        client_runtime.web.cancel_all();
+        let node = client_runtime.node.lock().await;
+        let mut services = client_runtime.services.lock().await;
         let access = services.access(&node).await?;
         if let Some(change) = access.declaration_change(Service::Web, true, false) {
-            services.apply(&node, &self.files, change).await?;
+            services.apply(&node, &client_runtime.files, change).await?;
         }
-        Ok(self.web.status())
+        Ok(client_runtime.web.status())
     }
     pub fn web_status(&self) -> Value {
-        self.web.status()
+        let client_runtime = self.runtime();
+        client_runtime.web.status()
     }
     pub async fn request_web(
         &self,
         address: EndpointAddr,
         request: WebRequest,
     ) -> Result<WebResponse, ClientError> {
-        let owner = self.prepare_web_request(&address, &request).await?;
-        NativeWeb::exchange(self.web.clone(), self.resources.clone(), owner, address, request).await
+        let client_runtime = self.runtime();
+        let owner = Self::prepare_web_request(&client_runtime, &address, &request).await?;
+        NativeWeb::exchange(client_runtime.web.clone(), client_runtime.resources.clone(), owner, address, request).await
     }
     async fn prepare_web_request(
-        &self,
+        client_runtime: &NativeClientRuntime,
         address: &EndpointAddr,
         request: &WebRequest,
     ) -> Result<FlowOwner, ClientError> {
-        self.require_ready()?;
+        client_runtime.require_ready()?;
         origin(&request.url)?;
         let peer = VerifyingKey::from_bytes(address.id.as_bytes())?;
         let access = {
-            let node = self.node.lock().await;
-            self.services.lock().await.access(&node).await?
+            let node = client_runtime.node.lock().await;
+            client_runtime.services.lock().await.access(&node).await?
         };
-        self.web.enforce_access(&access);
-        self.web.claim(peer, false)
+        client_runtime.web.enforce_access(&access);
+        client_runtime.web.claim(peer, false)
     }
     /// Start a bounded HTTP operation without blocking the host control loop.
     /// Results occupy a slot until read or cancelled, including completed work.
@@ -503,23 +504,24 @@ impl NativeClient {
         address: EndpointAddr,
         request: WebRequest,
     ) -> Result<Value, ClientError> {
-        let mut tasks = self.web.tasks.lock().await;
+        let client_runtime = self.runtime();
+        let mut tasks = client_runtime.web.tasks.lock().await;
         while tasks.try_join_next().is_some() {}
-        let owner = self.prepare_web_request(&address, &request).await?;
+        let owner = Self::prepare_web_request(&client_runtime, &address, &request).await?;
         let id = owner.id;
         let slot = Arc::new(RequestSlot {
             cancel: owner.cancel.clone(), result: Mutex::new(None),
             done: AtomicBool::new(false), joined: Default::default(),
         });
         {
-            let mut state = self.web.state.lock().unwrap();
+            let mut state = client_runtime.web.state.lock().unwrap();
             if state.closed || state.requests.len() >= MAX_FLOWS {
                 return Err("Web request handle limit reached".into());
             }
             state.requests.insert(id, slot.clone());
         }
-        let runtime = self.web.clone();
-        let resources = self.resources.clone();
+        let runtime = client_runtime.web.clone();
+        let resources = client_runtime.resources.clone();
         tasks.spawn(async move {
             let result = NativeWeb::exchange(runtime, resources, owner, address, request).await;
             *slot.result.lock().unwrap() = Some(result.map_err(|_| "Web request failed".to_string()));
@@ -530,9 +532,10 @@ impl NativeClient {
     }
     /// Consume a completed response, or report that its owner is still running.
     pub fn web_request_result(&self, id: &str) -> Result<Value, ClientError> {
+        let client_runtime = self.runtime();
         let id = id.parse::<u64>()?;
         let slot = {
-            let mut state = self.web.state.lock().unwrap();
+            let mut state = client_runtime.web.state.lock().unwrap();
             let std::collections::btree_map::Entry::Occupied(entry) = state.requests.entry(id) else {
                 return Err("unknown Web request handle".into());
             };
@@ -548,7 +551,8 @@ impl NativeClient {
         }
     }
     pub async fn cancel_web_request(&self, id: &str) -> Result<Value, ClientError> {
-        let slot = self.web.state.lock().unwrap().requests.remove(&id.parse::<u64>()?)
+        let client_runtime = self.runtime();
+        let slot = client_runtime.web.state.lock().unwrap().requests.remove(&id.parse::<u64>()?)
             .ok_or("unknown Web request handle")?;
         slot.cancel.cancel();
         tokio::time::timeout(Duration::from_secs(5), async {

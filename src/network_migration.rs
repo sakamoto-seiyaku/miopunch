@@ -40,6 +40,52 @@ pub enum MigrationPhase {
     SourceExited,
 }
 
+pub(crate) fn client_invitation(
+    directory: &Path,
+) -> Result<Option<crate::client_invitation::ClientInvitation>, NodeError> {
+    let bytes = match std::fs::read(directory.join(INVITATION)) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.into()),
+    };
+    if bytes.len() == 96 {
+        // The low-level coordinator stores the fixed-width ManualInvitation.
+        return Ok(None);
+    }
+    Ok(Some(crate::client_invitation::ClientInvitation::decode(&bytes)?))
+}
+
+pub(crate) fn confirm_client_invitation(
+    directory: &Path,
+    invitation: &crate::client_invitation::ClientInvitation,
+) -> Result<(), NodeError> {
+    publish(directory, INVITATION, &invitation.encode()?)
+}
+
+pub(crate) fn target_directory(source: &Path) -> PathBuf {
+    source.join(TARGET)
+}
+
+pub(crate) fn target_validated(source: &Path) -> Result<bool, NodeError> {
+    marker(source, VALIDATED)
+}
+
+pub(crate) fn mark_target_validated(source: &Path) -> Result<(), NodeError> {
+    publish(source, VALIDATED, b"1")
+}
+
+pub(crate) fn committed_switch(source: &Path) -> Result<bool, NodeError> {
+    let switched = marker(source, SWITCHED)?;
+    if switched && !target_validated(source)? {
+        return Err(NodeError::InvalidData);
+    }
+    Ok(switched)
+}
+
+pub(crate) fn mark_switched(source: &Path) -> Result<(), NodeError> {
+    publish(source, SWITCHED, b"1")
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum MigrationError {
     #[error("migration is not at the required stage")]
@@ -105,7 +151,7 @@ impl NetworkMigration {
         if invitation.anchor == source.anchor {
             return Err(MigrationError::Stage);
         }
-        let path = directory.join(TARGET);
+        let path = target_directory(&directory);
         let target = if path.exists() {
             NativeNetwork::open_migration_context(&path).await?
         } else {
@@ -328,7 +374,7 @@ impl NetworkMigration {
             if !outcome.complete() || !self.target.gate.allows(&connection, ProtocolScope::Member) {
                 return Err(MigrationError::Path);
             }
-            publish(&self.directory, VALIDATED, b"1")?;
+            mark_target_validated(&self.directory)?;
             #[cfg(feature = "replica-test-hooks")]
             self.source
                 .store
@@ -373,7 +419,7 @@ impl NetworkMigration {
         {
             return Err(ManagementError::ElevationRequired.into());
         }
-        let published = publish(&self.directory, SWITCHED, b"1");
+        let published = mark_switched(&self.directory);
         // Publication may succeed before directory flushing reports an error.
         // Honor a possibly committed switch in this process too; never keep
         // serving the source while restart would select the destination.

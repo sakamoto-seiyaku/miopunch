@@ -254,27 +254,28 @@ impl NativeClient {
         url: String,
         headers: Vec<(String, String)>,
     ) -> Result<Value, ClientError> {
-        self.require_ready()?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
         http_origin(&url)?;
         let peer = VerifyingKey::from_bytes(address.id.as_bytes())?;
         let access = {
-            let node = self.node.lock().await;
-            self.services.lock().await.access(&node).await?
+            let node = client_runtime.node.lock().await;
+            client_runtime.services.lock().await.access(&node).await?
         };
-        self.web.enforce_access(&access);
-        if self.web.state.lock().unwrap().sockets.len() >= MAX_FLOWS {
+        client_runtime.web.enforce_access(&access);
+        if client_runtime.web.state.lock().unwrap().sockets.len() >= MAX_FLOWS {
             return Err("WebSocket handle limit reached".into());
         }
-        let owner = self.web.claim(peer, false)?;
+        let owner = client_runtime.web.claim(peer, false)?;
         let (connection, stream, ready) = tokio::select! {
             biased;
             _ = owner.cancel.cancelled() => return Err("WebSocket opening cancelled".into()),
             result = async {
                 let connection = {
-                    let _contact = self.web.connecting.lock().await;
-                    self.resources.connect_service(address, MemberService::Web).await?
+                    let _contact = client_runtime.web.connecting.lock().await;
+                    client_runtime.resources.connect_service(address, MemberService::Web).await?
                 };
-                self.web.attach(&owner, connection.clone())?;
+                client_runtime.web.attach(&owner, connection.clone())?;
                 let (stream, ready) = web::open_socket_on_stream(connection.stream(true).await?, url, headers).await?;
                 Ok::<_, ClientError>((connection, stream, ready))
             } => result?,
@@ -289,16 +290,16 @@ impl NativeClient {
             cancel: owner.cancel.clone(),
             outcome: outcome.clone(),
         });
-        let mut tasks = self.web.tasks.lock().await;
+        let mut tasks = client_runtime.web.tasks.lock().await;
         while tasks.try_join_next().is_some() {}
         {
-            let mut state = self.web.state.lock().unwrap();
+            let mut state = client_runtime.web.state.lock().unwrap();
             if state.closed || state.sockets.len() >= MAX_FLOWS || owner.cancel.is_cancelled() {
                 return Err("WebSocket opening cancelled".into());
             }
             state.sockets.insert(id, slot);
         }
-        let runtime = self.web.clone();
+        let runtime = client_runtime.web.clone();
         tasks.spawn(async move {
             let result = tokio::select! {
                 biased;
@@ -320,10 +321,11 @@ impl NativeClient {
         id: &str,
         message: WebSocketMessage,
     ) -> Result<(), ClientError> {
+        let client_runtime = self.runtime();
         // Validate close codes before enqueueing, so an invalid caller value
         // cannot panic the upstream WebSocket library or end another flow.
         validate_target_message(&message)?;
-        let slot = self.web.socket(id)?;
+        let slot = client_runtime.web.socket(id)?;
         tokio::select! {
             biased;
             _ = slot.cancel.cancelled() => Err("WebSocket ended".into()),
@@ -331,10 +333,11 @@ impl NativeClient {
         }
     }
     pub async fn read_web_socket(&self, id: &str, timeout: Duration) -> Result<Value, ClientError> {
+        let client_runtime = self.runtime();
         if timeout > Duration::from_secs(5) {
             return Err("WebSocket read wait too long".into());
         }
-        let slot = self.web.socket(id)?;
+        let slot = client_runtime.web.socket(id)?;
         let mut reader = slot.incoming.lock().await;
         match tokio::time::timeout(timeout, reader.recv()).await {
             Err(_) => Ok(json!({"pending":true,"closed":false})),
@@ -347,7 +350,8 @@ impl NativeClient {
         }
     }
     pub async fn close_web_socket(&self, id: &str) -> Result<Value, ClientError> {
-        let slot = self.web.socket(id)?;
+        let client_runtime = self.runtime();
+        let slot = client_runtime.web.socket(id)?;
         let identifier = id.parse::<u64>()?;
         let _close_owner = slot.cancel.clone().drop_guard();
         // The protocol budget includes waiting for outgoing queue capacity.
@@ -364,15 +368,15 @@ impl NativeClient {
                     )
                     .await;
             }
-            self.web.socket_joined(identifier).await;
+            client_runtime.web.socket_joined(identifier).await;
         })
         .await;
         if protocol.is_err() {
             slot.cancel.cancel();
         }
         let joined =
-            tokio::time::timeout(Duration::from_secs(1), self.web.socket_joined(identifier)).await;
-        self.web.state.lock().unwrap().sockets.remove(&identifier);
+            tokio::time::timeout(Duration::from_secs(1), client_runtime.web.socket_joined(identifier)).await;
+        client_runtime.web.state.lock().unwrap().sockets.remove(&identifier);
         if joined.is_err() {
             return Err("WebSocket cancelled owner did not finish".into());
         }

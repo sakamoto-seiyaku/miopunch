@@ -463,9 +463,11 @@ impl crate::native_client::NativeClient {
         )?;
         Self::start(node, bind).await
     }
+
     pub async fn guest_status(&self) -> Result<Option<Value>, ClientError> {
-        let node = self.node.lock().await;
-        let state = self.services.lock().await;
+        let client_runtime = self.runtime();
+        let node = client_runtime.node.lock().await;
+        let state = client_runtime.services.lock().await;
         let Some(invitation) = &state.guest else {
             return Ok(None);
         };
@@ -486,7 +488,8 @@ impl crate::native_client::NativeClient {
         service: Service,
         expires: u64,
     ) -> Result<GuestInvitation, ClientError> {
-        self.require_ready()?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
         if !service.guest_supported() {
             return Err("service guest adapter unavailable".into());
         }
@@ -494,8 +497,8 @@ impl crate::native_client::NativeClient {
         if expires <= created {
             return Err("guest deadline must be in the future".into());
         }
-        let node = self.node.lock().await;
-        let mut state = self.services.lock().await;
+        let node = client_runtime.node.lock().await;
+        let mut state = client_runtime.services.lock().await;
         let access = state.access(&node).await?;
         let provider_id = VerifyingKey::from_bytes(provider.id.as_bytes())?;
         if !access.ledger.rule(provider_id, service).rule.guests {
@@ -505,7 +508,7 @@ impl crate::native_client::NativeClient {
         let id = state
             .apply(
                 &node,
-                &self.files,
+                &client_runtime.files,
                 ServiceAction::InviteGuest {
                     provider: provider_id,
                     service,
@@ -521,7 +524,7 @@ impl crate::native_client::NativeClient {
             .find(|r| Hash::digest(r) == id)
             .ok_or("guest record was not saved")?
             .clone();
-        let (issuer, bootstrap) = self.resources.invitation_contact()?;
+        let (issuer, bootstrap) = client_runtime.resources.invitation_contact()?;
         let invitation = GuestInvitation {
             anchor: node.anchor,
             issuer,
@@ -534,14 +537,15 @@ impl crate::native_client::NativeClient {
         Ok(invitation)
     }
     pub async fn redeem_guest(&self) -> Result<Value, ClientError> {
-        let invitation = self
+        let client_runtime = self.runtime();
+        let invitation = client_runtime
             .services
             .lock()
             .await
             .guest
             .clone()
             .ok_or("not a guest invitation")?;
-        let connection = self
+        let connection = client_runtime
             .resources
             .connect_control(invitation.issuer.clone(), crate::service_policy::GUEST_ALPN)
             .await?;
@@ -557,9 +561,9 @@ impl crate::native_client::NativeClient {
             .await?;
             exchange.finish_send().await?;
             let bundle: ServiceBundle = crate::service_protocol::read_guest(&exchange).await?;
-            let mut node = self.node.lock().await;
-            let mut state = self.services.lock().await;
-            state.merge(&mut node, &self.files, bundle).await?;
+            let mut node = client_runtime.node.lock().await;
+            let mut state = client_runtime.services.lock().await;
+            state.merge(&mut node, &client_runtime.files, bundle).await?;
             let access = state.access(&node).await?;
             if !access.ledger.guest_access(
                 VerifyingKey::from_bytes(invitation.provider.id.as_bytes())?,
@@ -580,7 +584,8 @@ impl crate::native_client::NativeClient {
             .ok_or_else(|| "guest state missing".into())
     }
     pub async fn end_guest(&self) -> Result<Value, ClientError> {
-        let invitation = self
+        let client_runtime = self.runtime();
+        let invitation = client_runtime
             .services
             .lock()
             .await
@@ -588,8 +593,8 @@ impl crate::native_client::NativeClient {
             .clone()
             .ok_or("not a guest")?;
         let record = {
-            let node = self.node.lock().await;
-            let mut state = self.services.lock().await;
+            let node = client_runtime.node.lock().await;
+            let mut state = client_runtime.services.lock().await;
             let access = state.access(&node).await?;
             let ended = access
                 .ledger
@@ -601,7 +606,7 @@ impl crate::native_client::NativeClient {
                 state
                     .apply(
                         &node,
-                        &self.files,
+                        &client_runtime.files,
                         ServiceAction::EndGuest {
                             invitation: invitation.id(),
                         },
@@ -622,7 +627,7 @@ impl crate::native_client::NativeClient {
         }
         for address in targets {
             let result = async {
-                let connection = self
+                let connection = client_runtime
                     .resources
                     .connect_control(address.clone(), crate::service_policy::GUEST_ALPN)
                     .await?;
@@ -652,13 +657,14 @@ impl crate::native_client::NativeClient {
         Ok(json!({"ended_locally":true,"delivery":delivered}))
     }
     pub async fn service_status(&self) -> Result<Value, ClientError> {
+        let client_runtime = self.runtime();
         let clipboard_capability = crate::system_clipboard::current_capability().await;
-        self.clipboard
+        client_runtime.clipboard
             .state
             .capability(clipboard_capability.clone());
-        let clipboard = self.clipboard.state.status();
-        let node = self.node.lock().await;
-        let state = self.services.lock().await;
+        let clipboard = client_runtime.clipboard.state.status();
+        let node = client_runtime.node.lock().await;
+        let state = client_runtime.services.lock().await;
         let access = state.access(&node).await?;
         let clipboard_guest = state
             .guest
@@ -678,7 +684,7 @@ impl crate::native_client::NativeClient {
             if terminal_guest { false } else if clipboard_guest {
                 clipboard.enabled
             } else {
-                self.files_enabled()
+                client_runtime.files.enabled()
             },
         )?;
         if state.guest.is_none() {
@@ -692,11 +698,11 @@ impl crate::native_client::NativeClient {
                 ));
             for protocol in [crate::forwarding::Protocol::Tcp, crate::forwarding::Protocol::Udp] {
                 status["services"].as_array_mut().ok_or("invalid service status")?.push(access.local_service_status(
-                    protocol.service(), true, self.forwarding_enabled(protocol)));
+                    protocol.service(), true, client_runtime.forwarding.provider_enabled(protocol)));
             }
             status["services"].as_array_mut().ok_or("invalid service status")?.push(
-                access.local_service_status(Service::Web, true, self.web.status()["enabled"] == true));
-            let terminal = self.terminal.status();
+                access.local_service_status(Service::Web, true, client_runtime.web.status()["enabled"] == true));
+            let terminal = client_runtime.terminal.status();
             status["services"].as_array_mut().ok_or("invalid service status")?.push(
                 access.local_service_status(Service::Terminal, terminal["capable"] == true, terminal["enabled"] == true));
         }
@@ -709,14 +715,15 @@ impl crate::native_client::NativeClient {
         previous: Option<Hash>,
         rule: ServiceRule,
     ) -> Result<Hash, ClientError> {
-        self.require_ready()?;
-        let node = self.node.lock().await;
-        self.services
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let node = client_runtime.node.lock().await;
+        client_runtime.services
             .lock()
             .await
             .apply(
                 &node,
-                &self.files,
+                &client_runtime.files,
                 ServiceAction::SetRule {
                     provider,
                     service,
@@ -727,19 +734,21 @@ impl crate::native_client::NativeClient {
             .await
     }
     pub async fn revoke_guest(&self, invitation: Hash) -> Result<Hash, ClientError> {
-        self.require_ready()?;
-        let node = self.node.lock().await;
-        self.services
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let node = client_runtime.node.lock().await;
+        client_runtime.services
             .lock()
             .await
-            .apply(&node, &self.files, ServiceAction::EndGuest { invitation })
+            .apply(&node, &client_runtime.files, ServiceAction::EndGuest { invitation })
             .await
     }
     pub async fn sync_services(&self, address: iroh::EndpointAddr) -> Result<Value, ClientError> {
+        let client_runtime = self.runtime();
         use crate::resources::ContactClass;
-        self.require_ready()?;
-        let deadline = self.resources.contact_deadline();
-        let (connection, attempt) = self
+        client_runtime.require_ready()?;
+        let deadline = client_runtime.resources.contact_deadline();
+        let (connection, attempt) = client_runtime
             .resources
             .connect_data_attempt(
                 address,
@@ -751,9 +760,9 @@ impl crate::native_client::NativeClient {
         attempt.succeeded();
         let result = sync_member(
             &connection,
-            &self.node,
-            &self.services,
-            &self.files,
+            &client_runtime.node,
+            &client_runtime.services,
+            &client_runtime.files,
             MemberSyncMode::Full,
             deadline.into(),
         )

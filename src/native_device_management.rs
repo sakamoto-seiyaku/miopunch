@@ -20,6 +20,7 @@ use crate::{
     },
     native_client::{ClientError, NativeClient},
     native_file_transfer::NativeFiles,
+    native_migration::SourceExit,
     native_network::NativeNetwork,
     native_services::NativeServices,
     recovery_card::RecoveryCard,
@@ -94,9 +95,10 @@ impl NativeClient {
         action: DeviceAction,
         target: VerifyingKey,
     ) -> Result<Value, ClientError> {
-        self.require_ready()?;
-        let node = self.node.lock().await;
-        let auth = self.services.lock().await.access(&node).await?.auth;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let node = client_runtime.node.lock().await;
+        let auth = client_runtime.services.lock().await.access(&node).await?.auth;
         let operation =
             DeviceOperation::propose(node.anchor, &auth, node.status().node_id, action, target)?;
         let mut journal = load(&node)?;
@@ -108,8 +110,9 @@ impl NativeClient {
     }
 
     pub async fn device_operations(&self) -> Result<Value, ClientError> {
-        self.require_ready()?;
-        let node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let node = client_runtime.node.lock().await;
         operation_state(&node)
     }
 
@@ -134,9 +137,10 @@ impl NativeClient {
         id: Hash,
         card: Option<&RecoveryCard>,
     ) -> Result<Value, ClientError> {
-        self.require_ready()?;
-        let mut node = self.node.lock().await;
-        let services = self.services.lock().await;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let mut node = client_runtime.node.lock().await;
+        let services = client_runtime.services.lock().await;
         let access = services.access(&node).await?;
         let mut journal = load(&node)?;
         let entry = journal.get(id)?;
@@ -158,7 +162,7 @@ impl NativeClient {
         // resumes the same record rather than authoring a second decision.
         journal.approve(approval.clone(), receipt_history(&node, &approval).await?)?;
         save(&node, &journal)?;
-        install(&mut node, &services, &self.files, &approval).await?;
+        install(&mut node, &services, &client_runtime.files, &approval).await?;
         Ok(journal
             .get(id)?
             .view(node.node_key.verifying_key(), node.store.authorization()))
@@ -167,9 +171,10 @@ impl NativeClient {
     /// Daily administrator removal or explicitly confirmed ordinary departure.
     /// It does not read the genesis credential, even on its custodian.
     pub async fn execute_device_operation(&self, id: Hash) -> Result<Value, ClientError> {
-        self.require_ready()?;
-        let mut node = self.node.lock().await;
-        let services = self.services.lock().await;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let mut node = client_runtime.node.lock().await;
+        let services = client_runtime.services.lock().await;
         let access = services.access(&node).await?;
         let mut journal = load(&node)?;
         let entry = journal.get(id)?;
@@ -186,7 +191,7 @@ impl NativeClient {
         };
         journal.approve(approval.clone(), receipt_history(&node, &approval).await?)?;
         save(&node, &journal)?;
-        install(&mut node, &services, &self.files, &approval).await?;
+        install(&mut node, &services, &client_runtime.files, &approval).await?;
         Ok(journal
             .get(id)?
             .view(node.node_key.verifying_key(), node.store.authorization()))
@@ -199,18 +204,19 @@ impl NativeClient {
         id: Hash,
         custodian: EndpointAddr,
     ) -> Result<Value, ClientError> {
-        self.require_ready()?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
         let (operation, history) = {
-            let node = self.node.lock().await;
+            let node = client_runtime.node.lock().await;
             let operation = load(&node)?.get(id)?.operation.clone();
             if operation.description.initiator != node.status().node_id
                 || !operation.requires_genesis()
             {
                 return Err("only the initiating node can request this confirmation".into());
             }
-            (operation, self.services.lock().await.snapshot(&node).await?)
+            (operation, client_runtime.services.lock().await.snapshot(&node).await?)
         };
-        let connection = self.resources.connect(custodian, DEVICE_ALPN).await?;
+        let connection = client_runtime.resources.connect(custodian, DEVICE_ALPN).await?;
         let result = tokio::time::timeout(Duration::from_secs(60), async {
             let mut stream = DataStream::open(&connection).await?;
             write_exchange(
@@ -223,15 +229,15 @@ impl NativeClient {
             .await?;
             let reply: DeviceReply = read_message(&mut stream).await?;
             let history = ServiceBundle::read(&mut stream).await?;
-            let mut node = self.node.lock().await;
-            let mut services = self.services.lock().await;
-            services.merge(&mut node, &self.files, history).await?;
+            let mut node = client_runtime.node.lock().await;
+            let mut services = client_runtime.services.lock().await;
+            services.merge(&mut node, &client_runtime.files, history).await?;
             let mut journal = load(&node)?;
             if let Some(approval) = reply.approval {
                 approval.verify(&operation, node.anchor)?;
                 journal.approve(approval.clone(), receipt_history(&node, &approval).await?)?;
                 save(&node, &journal)?;
-                install(&mut node, &services, &self.files, &approval).await?;
+                install(&mut node, &services, &client_runtime.files, &approval).await?;
             }
             stream.finish()?;
             Ok::<_, ClientError>(
@@ -252,16 +258,17 @@ impl NativeClient {
         id: Hash,
         custodian: EndpointAddr,
     ) -> Result<Value, ClientError> {
-        self.require_ready()?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
         let operation = {
-            let node = self.node.lock().await;
+            let node = client_runtime.node.lock().await;
             let operation = load(&node)?.get(id)?.operation.clone();
             if operation.description.initiator != node.status().node_id {
                 return Err("only the initiator can collect this result".into());
             }
             operation
         };
-        let connection = self
+        let connection = client_runtime
             .resources
             .connect_control(custodian, DEVICE_RESULT_ALPN)
             .await?;
@@ -271,17 +278,17 @@ impl NativeClient {
             crate::service_protocol::write_guest(&exchange, &ResultRequest { operation: id })
                 .await?;
             let reply: ResultReply = crate::service_protocol::read_guest(&exchange).await?;
-            let mut node = self.node.lock().await;
-            let mut services = self.services.lock().await;
+            let mut node = client_runtime.node.lock().await;
+            let mut services = client_runtime.services.lock().await;
             let mut journal = load(&node)?;
             if let Some(approval) = reply.approval {
                 approval.verify(&operation, node.anchor)?;
                 journal.approve(approval.clone(), reply.history.management.clone())?;
                 save(&node, &journal)?;
                 services
-                    .merge(&mut node, &self.files, reply.history)
+                    .merge(&mut node, &client_runtime.files, reply.history)
                     .await?;
-                install(&mut node, &services, &self.files, &approval).await?;
+                install(&mut node, &services, &client_runtime.files, &approval).await?;
             } else if !reply.history.management.is_empty() || !reply.history.services.is_empty() {
                 return Err("pending result must not disclose history".into());
             }
@@ -417,12 +424,78 @@ pub(crate) async fn recover_saved_departure(node: &mut NativeNetwork) -> Result<
     Ok(())
 }
 
+pub(crate) fn migration_departure(node: &NativeNetwork) -> Result<SourceExit, ClientError> {
+    let local = node.status().node_id;
+    let auth = node.store.authorization();
+    for entry in load(node)?.entries.into_iter().rev().filter(|entry| entry.is_local_leave(local)) {
+        if let Some(approval) = &entry.approval
+            && approval.effect_current(auth)
+        {
+            let record = approval.record_id();
+            return Ok(match entry.departure_recipient() {
+                Some(recipient) => SourceExit::Delivered { record, recipient },
+                None => SourceExit::PendingDelivery { record },
+            });
+        }
+    }
+    Ok(match auth.nodes().into_iter().find(|(id, _)| *id == local) {
+        Some((_, role)) if role == p2panda_auth::Access::manage() => SourceExit::GenesisConfirmationRequired,
+        Some(_) => SourceExit::NotStarted,
+        None => SourceExit::MembershipAlreadyEnded,
+    })
+}
+
+pub(crate) async fn commit_migration_departure(
+    node: &mut NativeNetwork,
+    genesis: Option<&SigningKey>,
+) -> Result<(), ClientError> {
+    recover_saved_departure(node).await?;
+    let result = migration_departure(node)?;
+    let signer = match (result, genesis) {
+        (SourceExit::NotStarted, _) => &node.node_key,
+        (SourceExit::GenesisConfirmationRequired, Some(root)) => root,
+        _ => return Ok(()),
+    };
+    let auth = node.store.authorization();
+    let local = node.status().node_id;
+    let mut journal = load(node)?;
+    let operation = match journal.entries.iter().rev().find(|entry| {
+        entry.is_local_leave(local) && entry.operation.check_current(node.anchor, auth).is_ok()
+    }) {
+        Some(entry) => entry.operation.clone(),
+        None => DeviceOperation::propose(node.anchor, auth, local, DeviceAction::Leave, local)?,
+    };
+    let approval = operation.approve(node.anchor, auth, signer)?;
+    journal.retain(operation)?;
+    journal.approve(approval.clone(), receipt_history(node, &approval).await?)?;
+    save(node, &journal)?;
+    node.ingest_management_record(&approval.record, None).await?;
+    Ok(())
+}
+
 pub(crate) async fn deliver_departure(
     node: &Mutex<NativeNetwork>,
     resources: &ResourceEndpoint,
     last: &mut Option<iroh::EndpointId>,
 ) -> Result<(), ClientError> {
-    let (delivery, target) = {
+    deliver_departure_in_scope(node, resources, last, false).await
+}
+
+pub(crate) async fn deliver_migration_departure(
+    node: &Mutex<NativeNetwork>,
+    resources: &ResourceEndpoint,
+    last: &mut Option<iroh::EndpointId>,
+) -> Result<(), ClientError> {
+    deliver_departure_in_scope(node, resources, last, true).await
+}
+
+async fn deliver_departure_in_scope(
+    node: &Mutex<NativeNetwork>,
+    resources: &ResourceEndpoint,
+    last: &mut Option<iroh::EndpointId>,
+    migration: bool,
+) -> Result<(), ClientError> {
+    let (delivery, address, source_gate) = {
         let node = node.lock().await;
         let local = node.node_key.verifying_key();
         if !node.store.known_removed(local) {
@@ -442,16 +515,28 @@ pub(crate) async fn deliver_departure(
             return Ok(());
         };
         *last = Some(target);
-        (DepartureDelivery::new(entry)?, target)
+        let mut address = EndpointAddr::new(target);
+        let source_gate = if migration {
+            let config = node.resource_configuration()?;
+            let contacts = crate::member_contacts::MemberContacts::open(
+                node.directory.clone(), node.gate.clone(), config,
+            )?;
+            contacts.merge_departure(&mut address);
+            Some(node.gate.clone())
+        } else {
+            None
+        };
+        (DepartureDelivery::new(entry)?, address, source_gate)
     };
+    let target = address.id;
     let deadline = resources.contact_deadline();
-    let (connection, attempt) = resources
-        .connect_control_attempt(
-            EndpointAddr::new(target),
-            DEPARTURE_ALPN,
-            ContactClass::Background,
-        )
-        .await?;
+    let (connection, attempt) = if let Some(gate) = source_gate {
+        let (delivery, attempt) = resources.connect_migration(address, DEPARTURE_ALPN, &gate, true).await?;
+        let control = delivery.control().map_err(|error| attempt.failed(error.to_string()))?;
+        (control, attempt)
+    } else {
+        resources.connect_control_attempt(address, DEPARTURE_ALPN, ContactClass::Background).await?
+    };
     let receipt = tokio::time::timeout_at(deadline.into(), delivery.send(&connection)).await;
     connection.close(0u32.into(), b"departure delivery ended");
     let record = match receipt {
@@ -623,10 +708,11 @@ impl NativeClient {
     /// Retrieve a signed decision concerning this device's current grant.
     /// A contact failure leaves the saved grant unchanged.
     pub async fn check_membership_removal(&self, address: EndpointAddr) -> Result<bool, ClientError> {
-        self.require_ready()?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
         receive_removal_notice(
-            self.node.clone(), self.services.clone(), self.files.clone(), &self.resources,
-            address, ContactClass::Foreground, &self.removal_commits,
+            client_runtime.node.clone(), client_runtime.services.clone(), client_runtime.files.clone(), &client_runtime.resources,
+            address, ContactClass::Foreground, &client_runtime.removal_commits,
         ).await
     }
 }

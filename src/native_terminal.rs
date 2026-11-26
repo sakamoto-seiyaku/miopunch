@@ -3,7 +3,7 @@ use crate::{
     business_channel::{BusinessChannel, ChannelBudget, ChannelError, RecoveryExpired},
     data_stream::DataStream,
     forwarding::{ChannelOrigin, ChannelRequest},
-    native_client::{ClientError, NativeClient},
+    native_client::{ClientError, NativeClient, NativeClientRuntime, allocate_service_handle},
     native_member_services::{MemberService, ServiceTransport},
     service_policy::{Service, ServiceAccess},
     terminal::{self, TerminalInput, TerminalOutput, TerminalProvider, TerminalRequest},
@@ -53,7 +53,6 @@ struct State {
     backend: Option<Arc<Tmux>>,
     enabled: bool,
     closed: bool,
-    next: u64,
     active: BTreeMap<u64, Flow>,
     attachments: BTreeMap<u64, Arc<Attachment>>,
     channels: BTreeMap<String, RetainedTerminal>,
@@ -61,6 +60,7 @@ struct State {
     failed: u64,
 }
 pub(crate) struct NativeTerminal {
+    handles: Arc<std::sync::atomic::AtomicU64>,
     state: Mutex<State>,
     gate: crate::admission_gate::AdmissionGate,
     tasks: AsyncMutex<JoinSet<()>>,
@@ -118,8 +118,10 @@ impl NativeTerminal {
     pub fn new(
         gate: crate::admission_gate::AdmissionGate,
         budget: Arc<ChannelBudget>,
+        handles: Arc<std::sync::atomic::AtomicU64>,
     ) -> Arc<Self> {
         Arc::new(Self {
+            handles,
             state: Default::default(),
             budget,
             #[cfg(feature = "nat-lab-test-hooks")]
@@ -186,11 +188,7 @@ impl NativeTerminal {
         {
             return Err("Terminal unavailable, unauthorized or busy".into());
         }
-        state.next = state
-            .next
-            .checked_add(1)
-            .ok_or("Terminal identifier exhausted")?;
-        let id = state.next;
+        let id = allocate_service_handle(&self.handles)?;
         let cancel = flow.cancel.clone();
         state.active.insert(id, flow);
         Ok(Operation {
@@ -731,17 +729,20 @@ impl NativeTerminal {
 impl NativeClient {
     #[cfg(feature = "nat-lab-test-hooks")]
     pub fn test_pause_terminal_ready(&self, paused: bool) {
-        self.terminal.ready_paused.store(paused, Ordering::SeqCst);
-        self.terminal.ready_changed.notify_waiters();
+        let client_runtime = self.runtime();
+        client_runtime.terminal.ready_paused.store(paused, Ordering::SeqCst);
+        client_runtime.terminal.ready_changed.notify_waiters();
     }
     #[cfg(feature = "nat-lab-test-hooks")]
     pub fn test_pause_terminal_input(&self, paused: bool) {
-        self.terminal.input_paused.store(paused, Ordering::SeqCst);
-        self.terminal.ready_changed.notify_waiters();
+        let client_runtime = self.runtime();
+        client_runtime.terminal.input_paused.store(paused, Ordering::SeqCst);
+        client_runtime.terminal.ready_changed.notify_waiters();
     }
     #[cfg(feature = "nat-lab-test-hooks")]
     pub fn test_terminal_input_waiting(&self) -> bool {
-        self.terminal.input_waiting.load(Ordering::SeqCst)
+        let client_runtime = self.runtime();
+        client_runtime.terminal.input_waiting.load(Ordering::SeqCst)
     }
     pub async fn terminal_environments(&self) -> Result<Value, ClientError> {
         Tmux::environments().await
@@ -750,17 +751,18 @@ impl NativeClient {
         &self,
         configuration: TerminalProvider,
     ) -> Result<Value, ClientError> {
-        self.require_ready()?;
-        let _configuring = self.terminal.configuring.lock().await;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let _configuring = client_runtime.terminal.configuring.lock().await;
         let owner = {
-            let node = self.node.lock().await;
-            let access = self.services.lock().await.access(&node).await?;
+            let node = client_runtime.node.lock().await;
+            let access = client_runtime.services.lock().await.access(&node).await?;
             if !access.member(access.local) {
                 return Err("only members provide terminals".into());
             }
             format!("{}:{}", node.anchor.genesis, access.local)
         };
-        let existing = self.terminal.state.lock().unwrap().backend.clone();
+        let existing = client_runtime.terminal.state.lock().unwrap().backend.clone();
         let backend = if let Some(backend) = existing {
             if backend.configuration != configuration {
                 return Err("terminal provider environment already configured".into());
@@ -769,14 +771,14 @@ impl NativeClient {
         } else {
             Tmux::configure(configuration, owner).await?
         };
-        let node = self.node.lock().await;
-        let mut services = self.services.lock().await;
+        let node = client_runtime.node.lock().await;
+        let mut services = client_runtime.services.lock().await;
         let access = services.access(&node).await?;
         if !access.member(access.local) {
             return Err("terminal provider membership ended".into());
         }
         {
-            let mut state = self.terminal.state.lock().unwrap();
+            let mut state = client_runtime.terminal.state.lock().unwrap();
             if state.closed {
                 return Err("terminal host closed".into());
             }
@@ -784,43 +786,46 @@ impl NativeClient {
             state.enabled = true;
         }
         if let Some(change) = access.declaration_change(Service::Terminal, true, true) {
-            if let Err(failure) = services.apply(&node, &self.files, change).await {
-                self.terminal.state.lock().unwrap().enabled = false;
+            if let Err(failure) = services.apply(&node, &client_runtime.files, change).await {
+                client_runtime.terminal.state.lock().unwrap().enabled = false;
                 return Err(failure);
             }
         }
-        self.terminal.enforce_access(&services.access(&node).await?);
-        Ok(self.terminal.status())
+        client_runtime.terminal.enforce_access(&services.access(&node).await?);
+        Ok(client_runtime.terminal.status())
     }
     pub async fn disable_terminal(&self) -> Result<Value, ClientError> {
-        self.terminal.state.lock().unwrap().enabled = false;
-        let node = self.node.lock().await;
-        let mut services = self.services.lock().await;
+        let client_runtime = self.runtime();
+        client_runtime.terminal.state.lock().unwrap().enabled = false;
+        let node = client_runtime.node.lock().await;
+        let mut services = client_runtime.services.lock().await;
         let access = services.access(&node).await?;
-        self.terminal.enforce_access(&access);
-        let capable = self.terminal.state.lock().unwrap().backend.is_some();
+        client_runtime.terminal.enforce_access(&access);
+        let capable = client_runtime.terminal.state.lock().unwrap().backend.is_some();
         if let Some(change) = access.declaration_change(Service::Terminal, capable, false) {
-            services.apply(&node, &self.files, change).await?;
+            services.apply(&node, &client_runtime.files, change).await?;
         }
-        Ok(self.terminal.status())
+        Ok(client_runtime.terminal.status())
     }
     pub fn terminal_status(&self) -> Value {
-        self.terminal.status()
+        let client_runtime = self.runtime();
+        client_runtime.terminal.status()
     }
 
-    async fn terminal_operation(&self, address: EndpointAddr) -> Result<Operation, ClientError> {
-        self.require_ready()?;
+    async fn terminal_operation(client_runtime: &NativeClientRuntime, address: EndpointAddr) -> Result<Operation, ClientError> {
+        client_runtime.require_ready()?;
         let peer = VerifyingKey::from_bytes(address.id.as_bytes())?;
-        let node = self.node.lock().await;
-        let access = self.services.lock().await.access(&node).await?;
-        self.terminal.enforce_access(&access);
-        self.terminal.claim(peer, false)
+        let node = client_runtime.node.lock().await;
+        let access = client_runtime.services.lock().await.access(&node).await?;
+        client_runtime.terminal.enforce_access(&access);
+        client_runtime.terminal.claim(peer, false)
     }
     pub async fn request_terminal(
         &self,
         address: EndpointAddr,
         request: TerminalRequest,
     ) -> Result<Value, ClientError> {
+        let client_runtime = self.runtime();
         if matches!(
             request,
             TerminalRequest::Attach { .. } | TerminalRequest::AttachChannel { .. }
@@ -828,12 +833,12 @@ impl NativeClient {
             return Err("use attach_terminal for attachment ownership".into());
         }
         request.validate()?;
-        let mut owner = self.terminal_operation(address.clone()).await?;
+        let mut owner = Self::terminal_operation(&client_runtime, address.clone()).await?;
         let result = tokio::select! { biased;
             _ = owner.cancel.cancelled() => Err("terminal request cancelled".into()),
             result = async {
-                let connection = { let _contact = self.terminal.connecting.lock().await; self.resources.connect_service(address, MemberService::Terminal).await? };
-                self.terminal.attach_connection(&owner, connection.clone())?;
+                let connection = { let _contact = client_runtime.terminal.connecting.lock().await; client_runtime.resources.connect_service(address, MemberService::Terminal).await? };
+                client_runtime.terminal.attach_connection(&owner, connection.clone())?;
                 let (mut stream, response) = terminal::open_on_stream(connection.stream(true).await?, &request).await?;
                 if connection.is_member() {
                     stream.write_chunk(&[]).await?;
@@ -852,21 +857,22 @@ impl NativeClient {
         columns: u16,
         rows: u16,
     ) -> Result<Value, ClientError> {
+        let client_runtime = self.runtime();
         let request = TerminalRequest::Attach {
             workspace: workspace.clone(),
             columns,
             rows,
         };
         request.validate()?;
-        if self.terminal.state.lock().unwrap().attachments.len() >= MAX_OPERATIONS {
+        if client_runtime.terminal.state.lock().unwrap().attachments.len() >= MAX_OPERATIONS {
             return Err("terminal attachment limit reached".into());
         }
-        let owner = self.terminal_operation(address.clone()).await?;
+        let owner = Self::terminal_operation(&client_runtime, address.clone()).await?;
         let (connection, stream, ready, channel_request, initial_deadline) = tokio::select! { biased;
             _ = owner.cancel.cancelled() => return Err("terminal attach cancelled".into()),
             result = async {
-                let connection = { let _contact = self.terminal.connecting.lock().await; self.resources.connect_service(address.clone(), MemberService::Terminal).await? };
-                self.terminal.attach_connection(&owner, connection.clone())?;
+                let connection = { let _contact = client_runtime.terminal.connecting.lock().await; client_runtime.resources.connect_service(address.clone(), MemberService::Terminal).await? };
+                client_runtime.terminal.attach_connection(&owner, connection.clone())?;
                 let stream = connection.stream(true).await?;
                 let origin = terminal_origin(&connection, stream.stream_id().ok_or("terminal stream missing")?)?;
                 let mut channel = ChannelRequest::new(origin);
@@ -874,15 +880,15 @@ impl NativeClient {
                 match terminal::open_on_stream(stream, &wire).await {
                     Ok((stream,ready))=>Ok::<_,ClientError>((connection,stream,ready,channel,None)),
                     Err(_) if connection.network_interrupted()=> {
-                        let at=tokio::time::Instant::now()+Duration::from_millis(self.terminal.budget.policy.recovery_ms);
-                        let (connection,stream,ready)=self.terminal.reopen(&owner,&self.resources,&address,&workspace,columns,rows,&mut channel,at).await?;
+                        let at=tokio::time::Instant::now()+Duration::from_millis(client_runtime.terminal.budget.policy.recovery_ms);
+                        let (connection,stream,ready)=client_runtime.terminal.reopen(&owner,&client_runtime.resources,&address,&workspace,columns,rows,&mut channel,at).await?;
                         Ok((connection,stream,ready,channel,Some(at)))
                     }
                     Err(error)=>Err(error.into()),
                 }
             } => result?,
         };
-        self.terminal
+        client_runtime.terminal
             .state
             .lock()
             .unwrap()
@@ -901,10 +907,10 @@ impl NativeClient {
             cancel: owner.cancel.clone(),
             outcome: outcome.clone(),
         });
-        let mut tasks = self.terminal.tasks.lock().await;
+        let mut tasks = client_runtime.terminal.tasks.lock().await;
         while tasks.try_join_next().is_some() {}
         {
-            let mut state = self.terminal.state.lock().unwrap();
+            let mut state = client_runtime.terminal.state.lock().unwrap();
             if state.closed
                 || owner.cancel.is_cancelled()
                 || state.attachments.len() >= MAX_OPERATIONS
@@ -913,8 +919,8 @@ impl NativeClient {
             }
             state.attachments.insert(id, slot);
         }
-        let runtime = self.terminal.clone();
-        let resources = self.resources.clone();
+        let runtime = client_runtime.terminal.clone();
+        let resources = client_runtime.resources.clone();
         tasks.spawn(async move {
             let (logical, read, write) = DataStream::local(terminal::MAX_BYTES);
             let channel = BusinessChannel::new(runtime.budget.clone());
@@ -942,19 +948,25 @@ impl NativeClient {
         )
     }
     pub async fn send_terminal(&self, id: &str, message: TerminalInput) -> Result<(), ClientError> {
+        let client_runtime = self.runtime();
         message.validate()?;
-        let slot = self.terminal.attachment(id)?;
+        let slot = client_runtime.terminal.attachment(id)?;
+        Self::send_to_terminal(&slot, message).await
+    }
+
+    async fn send_to_terminal(slot: &Attachment, message: TerminalInput) -> Result<(), ClientError> {
         tokio::select! { biased;
             _ = slot.cancel.cancelled() => Err("terminal attachment ended".into()),
             result = slot.outgoing.send(message) => result.map_err(|_| "terminal attachment ended".into()),
         }
     }
     pub async fn read_terminal(&self, id: &str, timeout: Duration) -> Result<Value, ClientError> {
+        let client_runtime = self.runtime();
         if timeout > Duration::from_secs(5) {
             return Err("terminal read wait too long".into());
         }
-        let slot = self.terminal.attachment(id)?;
-        if !self
+        let slot = client_runtime.terminal.attachment(id)?;
+        if !client_runtime
             .terminal
             .state
             .lock()
@@ -977,18 +989,19 @@ impl NativeClient {
         }
     }
     pub async fn detach_terminal(&self, id: &str) -> Result<Value, ClientError> {
-        let slot = self.terminal.attachment(id)?;
+        let client_runtime = self.runtime();
+        let slot = client_runtime.terminal.attachment(id)?;
         let identifier = id.parse::<u64>()?;
         let _close = slot.cancel.clone().drop_guard();
         let protocol = tokio::time::timeout(Duration::from_secs(5), async {
             if !slot.cancel.is_cancelled() {
-                let _ = self.send_terminal(id, TerminalInput::Detach).await;
+                let _ = Self::send_to_terminal(&slot, TerminalInput::Detach).await;
             }
             let mut output=slot.incoming.lock().await;
             loop {
                 tokio::select! {
-                    _=self.terminal.joined(Some(identifier))=>break,
-                    message=output.recv()=>if message.is_none() {self.terminal.joined(Some(identifier)).await;break;},
+                    _=client_runtime.terminal.joined(Some(identifier))=>break,
+                    message=output.recv()=>if message.is_none() {client_runtime.terminal.joined(Some(identifier)).await;break;},
                 }
             }
         })
@@ -998,10 +1011,10 @@ impl NativeClient {
         }
         let joined = tokio::time::timeout(
             Duration::from_secs(1),
-            self.terminal.joined(Some(identifier)),
+            client_runtime.terminal.joined(Some(identifier)),
         )
         .await;
-        self.terminal
+        client_runtime.terminal
             .state
             .lock()
             .unwrap()
@@ -1018,16 +1031,17 @@ impl NativeClient {
         )
     }
     pub async fn cancel_terminal(&self, id: &str) -> Result<Value, ClientError> {
-        let slot = self.terminal.attachment(id)?;
+        let client_runtime = self.runtime();
+        let slot = client_runtime.terminal.attachment(id)?;
         let identifier = id.parse::<u64>()?;
         slot.cancel.cancel();
         tokio::time::timeout(
             Duration::from_secs(1),
-            self.terminal.joined(Some(identifier)),
+            client_runtime.terminal.joined(Some(identifier)),
         )
         .await
         .map_err(|_| "terminal cancelled owner did not settle")?;
-        self.terminal
+        client_runtime.terminal
             .state
             .lock()
             .unwrap()

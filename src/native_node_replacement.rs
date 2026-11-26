@@ -1,7 +1,7 @@
 //! Stop/export/import/qualify/finalize a complete logical node. An imported
 //! snapshot cannot start ordinary service until a current peer exchange has
 //! verified its effective authorization. Source resumption is always explicit.
-use std::{collections::BTreeSet, net::Ipv4Addr, path::Path, sync::atomic::Ordering};
+use std::{collections::BTreeSet, net::Ipv4Addr, path::{Path, PathBuf}, sync::atomic::Ordering};
 
 use iroh::EndpointAddr;
 use p2panda_core::{Hash, SigningKey};
@@ -157,11 +157,19 @@ impl NativeClient {
     ) -> Result<Value, ClientError> {
         let destination = destination.as_ref();
         let prepared = async {
-            self.require_ready()?;
+            let _transition = self.migration.transition.lock().await;
+            if self.migration_progress().is_some_and(|progress| {
+                !progress.switched || matches!(progress.source_exit,
+                    crate::native_client::SourceExit::NotStarted | crate::native_client::SourceExit::PendingDelivery { .. })
+            }) {
+                return Err("network migration still requires this client".into());
+            }
+            let client_runtime = self.runtime();
+            client_runtime.require_ready()?;
             if destination.symlink_metadata().is_ok() {
                 return Err("backup destination already exists".into());
             }
-            let node = self.node.lock().await;
+            let node = client_runtime.node.lock().await;
             node.store.ensure_admissions_open().await?;
             let mut settings: PortableSettings =
                 read_or_default::<Option<PortableSettings>>(&node.directory.join(SETTINGS))?
@@ -176,7 +184,7 @@ impl NativeClient {
             let config = node.resource_configuration()?;
             settings.source = crate::node_backup::SourceRuntime::Native;
             settings.native = Some(serde_json::to_value(&config)?);
-            settings.contact = self.resources.invitation_contact()?.1;
+            settings.contact = client_runtime.resources.invitation_contact()?.1;
             settings.path_selection = config.path_selection.clone();
             settings.maintenance = serde_json::to_value(&config.maintenance)?;
             let pause = SourcePause {
@@ -206,7 +214,7 @@ impl NativeClient {
         source: impl AsRef<Path>,
         destination: impl AsRef<Path>,
     ) -> Result<Value, ClientError> {
-        export_paused(source.as_ref(), destination.as_ref()).await
+        export_paused(&replacement_source_directory(source.as_ref())?, destination.as_ref()).await
     }
 
     pub async fn restore_node_replacement(
@@ -219,40 +227,42 @@ impl NativeClient {
         Self::start(node, bind).await
     }
 
+
     /// Complete only after an ordinary current peer has supplied/verified the
     /// current authorization view. A revoked old snapshot stays blocked.
     pub async fn complete_node_replacement(
         &self,
         contact: EndpointAddr,
     ) -> Result<Value, ClientError> {
+        let client_runtime = self.runtime();
         let state = {
-            let node = self.node.lock().await;
+            let node = client_runtime.node.lock().await;
             restored(&node)?.ok_or("not a restored replacement")?
         };
         if let Some(receipt) = state.receipt {
             return Ok(json!({"ready":true,"receipt":receipt,"reused":true}));
         }
-        let guest = self.services.lock().await.guest.is_some();
+        let guest = client_runtime.services.lock().await.guest.is_some();
         if guest {
             self.redeem_guest().await?;
         } else {
-            let connection = self
+            let connection = client_runtime
                 .resources
                 .connect(contact, crate::service_policy::POLICY_ALPN)
                 .await?;
             let result = async {
                 let mut stream = DataStream::open(&connection).await?;
                 let snapshot = {
-                    let node = self.node.lock().await;
-                    self.services.lock().await.snapshot(&node).await?
+                    let node = client_runtime.node.lock().await;
+                    client_runtime.services.lock().await.snapshot(&node).await?
                 };
                 snapshot.write(&mut stream).await?;
                 let remote = ServiceBundle::read(&mut stream).await?;
-                let mut node = self.node.lock().await;
-                self.services
+                let mut node = client_runtime.node.lock().await;
+                client_runtime.services
                     .lock()
                     .await
-                    .merge(&mut node, &self.files, remote)
+                    .merge(&mut node, &client_runtime.files, remote)
                     .await?;
                 stream.finish()?;
                 Ok::<_, ClientError>(())
@@ -261,8 +271,8 @@ impl NativeClient {
             connection.close(0u32.into(), b"replacement authorization check ended");
             result?;
         }
-        let node = self.node.lock().await;
-        let access = self.services.lock().await.access(&node).await?;
+        let node = client_runtime.node.lock().await;
+        let access = client_runtime.services.lock().await.access(&node).await?;
         if !guest && !access.member(access.local) {
             return Err("restored membership is no longer valid".into());
         }
@@ -278,16 +288,17 @@ impl NativeClient {
             &node.directory.join(RESTORED),
             &serde_json::to_vec(&state)?,
         )?;
-        self.replacement_ready.store(true, Ordering::Release);
+        client_runtime.replacement_ready.store(true, Ordering::Release);
         node.store.changes.publish();
         Ok(json!({"ready":true,"receipt":receipt,"reused":false,
             "scope":"verified and saved from this contact; no global latest-state or physical single-instance claim"}))
     }
 
     pub async fn node_replacement_status(&self) -> Result<Value, ClientError> {
-        let node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        let node = client_runtime.node.lock().await;
         Ok(
-            json!({"restoration":restored(&node)?,"ready":self.replacement_ready.load(Ordering::Acquire),
+            json!({"restoration":restored(&node)?,"ready":client_runtime.replacement_ready.load(Ordering::Acquire),
             "scope":"local state; a restored snapshot requires a current authorized peer before ordinary use"}),
         )
     }
@@ -298,7 +309,8 @@ impl NativeClient {
         source: impl AsRef<Path>,
         receipt: &ReplacementReceipt,
     ) -> Result<Value, ClientError> {
-        let source = source.as_ref();
+        let source_directory = replacement_source_directory(source.as_ref())?;
+        let source = source_directory.as_path();
         let mut already_finalized = false;
         if let Ok(bytes) = std::fs::read(source.join(RETIRED)) {
             let prior: ReplacementReceipt = serde_json::from_slice(&bytes)?;
@@ -346,7 +358,8 @@ impl NativeClient {
         package: Hash,
         target_not_activated: bool,
     ) -> Result<(), ClientError> {
-        let source = source.as_ref();
+        let source_directory = replacement_source_directory(source.as_ref())?;
+        let source = source_directory.as_path();
         if !target_not_activated || source.join(RETIRED).exists() {
             return Err("target activation must be ruled out before source resumption".into());
         }
@@ -599,4 +612,12 @@ async fn import_native(backup: &NodeBackup, target: &Path) -> Result<NativeNetwo
     }
     result?;
     Ok(NativeNetwork::open(target).await?)
+}
+fn replacement_source_directory(path: &Path) -> Result<PathBuf, ClientError> {
+    if crate::network_migration::client_invitation(path)?.is_some()
+        && crate::network_migration::committed_switch(path)?
+    {
+        return Ok(crate::network_migration::target_directory(path));
+    }
+    Ok(path.to_path_buf())
 }

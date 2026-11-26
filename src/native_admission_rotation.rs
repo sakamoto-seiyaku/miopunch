@@ -35,7 +35,8 @@ pub(crate) struct RotationConfirmation {
 
 impl NativeClient {
     pub async fn rotation_progress(&self) -> Result<Option<RotationProgress>, RotationError> {
-        self.node.lock().await.rotation_progress().await
+        let client_runtime = self.runtime();
+        client_runtime.node.lock().await.rotation_progress().await
     }
 
     /// Start a rotation explicitly confirmed for this network. With no recovery
@@ -44,12 +45,13 @@ impl NativeClient {
         &self,
         card: Option<&RecoveryCard>,
     ) -> Result<RotationProgress, ClientError> {
-        self.require_ready()?;
-        let mut node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let mut node = client_runtime.node.lock().await;
         let mut session = confirmed_session(&node, card)?;
         let progress = node.begin_admission_rotation(&mut session).await?;
-        *self.rotation_confirmation.pending.lock().await = Some((progress.id, session));
-        self.rotation_confirmation.wake.notify_one();
+        *client_runtime.rotation_confirmation.pending.lock().await = Some((progress.id, session));
+        client_runtime.rotation_confirmation.wake.notify_one();
         Ok(progress)
     }
 
@@ -60,8 +62,9 @@ impl NativeClient {
         id: [u8; 16],
         card: Option<&RecoveryCard>,
     ) -> Result<RotationProgress, ClientError> {
-        self.require_ready()?;
-        let node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let node = client_runtime.node.lock().await;
         let progress = node
             .rotation_progress()
             .await?
@@ -71,8 +74,8 @@ impl NativeClient {
         }
         if progress.stage == RotationStage::Distributing {
             let session = confirmed_session(&node, card)?;
-            *self.rotation_confirmation.pending.lock().await = Some((id, session));
-            self.rotation_confirmation.wake.notify_one();
+            *client_runtime.rotation_confirmation.pending.lock().await = Some((id, session));
+            client_runtime.rotation_confirmation.wake.notify_one();
         }
         Ok(progress)
     }

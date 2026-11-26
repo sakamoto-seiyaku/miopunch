@@ -77,6 +77,8 @@ mod native_node_replacement;
 mod native_path_adapter;
 mod native_services;
 pub mod network_migration;
+#[cfg(not(target_arch = "wasm32"))]
+mod native_migration;
 pub mod node_backup;
 pub mod node_control_backup;
 pub mod offline_replica;

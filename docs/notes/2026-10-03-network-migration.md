@@ -6,7 +6,23 @@ resource-aware iroh endpoint, signed management history and real LogSync entry
 points. Product UI and additional platform runtime qualification are not part
 of this delivery. The behavior follows MIOPUNCH-14 §11, MIOPUNCH-54, and ADR0006.
 
-## Lifecycle entry
+## Current NativeClient entry
+
+`begin_network_migration` confirms this device's participation and saves the
+complete destination invitation. Normal `NativeClient::open` resumes the
+same request. `migration_progress` and the client state snapshot expose the
+destination admission, local switch and old network departure separately.
+The SDK validates a member data exchange and starts the destination runtime
+before publishing the switch.
+
+An ordinary member's old-network departure is signed and delivered through
+the existing departure protocol. Its progress identifies the signed record
+and the first recipient that confirmed durable receipt. A former source
+administrator can use the destination while the old network still recognizes
+its role. `confirm_migration_source_exit` uses the old genesis credential for
+that specific departure if a credential remains available.
+
+## Low-level lifecycle entry
 
 Call `NetworkMigration::prepare(source, trusted_invitation)` once on the device
 that confirms migration. The consumed source remains accessible through

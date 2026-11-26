@@ -63,9 +63,10 @@ impl NativeClient {
         &self,
         recipient: VerifyingKey,
     ) -> Result<Value, ClientError> {
-        self.require_ready()?;
-        let node = self.node.lock().await;
-        let auth = self.services.lock().await.access(&node).await?.auth;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let node = client_runtime.node.lock().await;
+        let auth = client_runtime.services.lock().await.access(&node).await?.auth;
         let credential = node.saved_genesis_credential()?;
         let offer = CustodyOffer::new(
             node.anchor,
@@ -81,8 +82,9 @@ impl NativeClient {
     }
 
     pub async fn credential_custody(&self) -> Result<Value, ClientError> {
-        self.require_ready()?;
-        let node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let node = client_runtime.node.lock().await;
         Ok(
             json!({"holds_genesis":node.directory.join("genesis.credential").exists(),
             "offers":load(&node)?.entries.iter().map(view).collect::<Vec<_>>(),
@@ -91,9 +93,10 @@ impl NativeClient {
     }
 
     pub async fn accept_credential_custody(&self, offer: Hash) -> Result<Value, ClientError> {
-        self.require_ready()?;
-        let node = self.node.lock().await;
-        let auth = self.services.lock().await.access(&node).await?.auth;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let node = client_runtime.node.lock().await;
+        let auth = client_runtime.services.lock().await.access(&node).await?.auth;
         let mut journal = load(&node)?;
         let entry = journal.get_mut(offer)?;
         if entry.offer.description.recipient != node.status().node_id {
@@ -112,9 +115,10 @@ impl NativeClient {
         id: Hash,
         recipient: EndpointAddr,
     ) -> Result<Value, ClientError> {
-        self.require_ready()?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
         let offer = {
-            let node = self.node.lock().await;
+            let node = client_runtime.node.lock().await;
             let journal = load(&node)?;
             let offer = journal.get(id)?.offer.clone();
             if offer.description.source != node.status().node_id
@@ -134,8 +138,8 @@ impl NativeClient {
             .await?;
         if reply.accepted && reply.receipt.is_none() {
             let seed = {
-                let node = self.node.lock().await;
-                let auth = self.services.lock().await.access(&node).await?.auth;
+                let node = client_runtime.node.lock().await;
+                let auth = client_runtime.services.lock().await.access(&node).await?.auth;
                 offer.check_current(node.anchor, &auth)?;
                 *node.saved_genesis_credential()?.root.as_bytes()
             };
@@ -152,12 +156,13 @@ impl NativeClient {
         } else {
             self.retain_custody_reply(id, reply).await?;
         }
-        let node = self.node.lock().await;
+        let node = client_runtime.node.lock().await;
         Ok(view(load(&node)?.get(id)?))
     }
 
     async fn retain_custody_reply(&self, id: Hash, reply: CustodyReply) -> Result<(), ClientError> {
-        let node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        let node = client_runtime.node.lock().await;
         let mut journal = load(&node)?;
         let entry = journal.get_mut(id)?;
         if let Some(receipt) = reply.receipt {
@@ -179,21 +184,22 @@ impl NativeClient {
         target: EndpointAddr,
         request: CustodyRequest,
     ) -> Result<CustodyReply, ClientError> {
+        let client_runtime = self.runtime();
         let history = {
-            let node = self.node.lock().await;
-            self.services.lock().await.snapshot(&node).await?
+            let node = client_runtime.node.lock().await;
+            client_runtime.services.lock().await.snapshot(&node).await?
         };
-        let connection = self.resources.connect(target, CUSTODY_ALPN).await?;
+        let connection = client_runtime.resources.connect(target, CUSTODY_ALPN).await?;
         let result = tokio::time::timeout(Duration::from_secs(60), async {
             let mut stream = DataStream::open(&connection).await?;
             write_exchange(&mut stream, &request, &history).await?;
             let reply: CustodyReply = read_message(&mut stream).await?;
             let history = ServiceBundle::read(&mut stream).await?;
-            let mut node = self.node.lock().await;
-            self.services
+            let mut node = client_runtime.node.lock().await;
+            client_runtime.services
                 .lock()
                 .await
-                .merge(&mut node, &self.files, history)
+                .merge(&mut node, &client_runtime.files, history)
                 .await?;
             stream.finish()?;
             Ok::<_, ClientError>(reply)
@@ -209,16 +215,17 @@ impl NativeClient {
         &self,
         addresses: Vec<EndpointAddr>,
     ) -> Result<Value, ClientError> {
-        self.require_ready()?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
         let (network, local, members, auth) = {
-            let node = self.node.lock().await;
+            let node = client_runtime.node.lock().await;
             // A recipient may stop pending custody before its first save.
             // Possession by other members is still checked in the same way.
             (
                 node.anchor,
                 node.status().node_id,
                 node.status().members,
-                self.services.lock().await.access(&node).await?.auth,
+                client_runtime.services.lock().await.access(&node).await?.auth,
             )
         };
         let hints: BTreeMap<_, _> = addresses.into_iter().map(|a| (a.id, a)).collect();
@@ -270,7 +277,7 @@ impl NativeClient {
             proofs,
             observations,
         };
-        let node = self.node.lock().await;
+        let node = client_runtime.node.lock().await;
         crate::native_files::write_private_atomic(
             &node.directory.join(CHECK),
             &serde_json::to_vec(&check)?,
@@ -286,8 +293,9 @@ impl NativeClient {
         check_id: Hash,
         force_without_confirmed_copy: bool,
     ) -> Result<Value, ClientError> {
-        self.require_ready()?;
-        let node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let node = client_runtime.node.lock().await;
         let check: CustodyCheck =
             serde_json::from_slice(&std::fs::read(node.directory.join(CHECK))?)?;
         if check.id != check_id
@@ -297,7 +305,7 @@ impl NativeClient {
             return Err("custody check belongs to another operation".into());
         }
         let now = crate::service_policy::now();
-        let auth = self.services.lock().await.access(&node).await?.auth;
+        let auth = client_runtime.services.lock().await.access(&node).await?.auth;
         let recent = now >= check.checked_at && now - check.checked_at <= CHECK_SECONDS;
         let confirmed = recent
             && check.proofs.iter().any(|proof| {

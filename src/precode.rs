@@ -279,12 +279,7 @@ impl NativeNetwork {
             return Err(ManualAdmissionError::Rejected);
         }
         let deadline = crate::manual_admission::admission_deadline(connection);
-        let result = tokio::time::timeout(
-            deadline.saturating_duration_since(n0_future::time::Instant::now()),
-            self.request_admission_inner(connection, Some(code.token), deadline),
-        )
-        .await
-        .unwrap_or(Err(ManualAdmissionError::TimedOut));
+        let result = self.request_admission_inner(connection, Some(code.token), deadline).await;
         if result.is_err() {
             connection.close(0u32.into(), b"precode admission ended");
         }

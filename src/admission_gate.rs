@@ -559,6 +559,12 @@ impl AdmissionGate {
         state.policy.member_contact_allowed(peer.as_bytes())
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn departure_contact_allowed(&self, peer: EndpointId) -> bool {
+        let state = self.state.lock().expect("admission policy lock");
+        state.policy.departure_contact_allowed(peer.as_bytes(), true)
+    }
+
     /// A complete frame can outlive the connection that delivered it. Recheck
     /// current authority against the proof captured on that exact member wire.
     #[cfg(not(target_arch = "wasm32"))]

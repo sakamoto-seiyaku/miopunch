@@ -4,7 +4,7 @@ use crate::{
         self, ClipboardClaim, ClipboardError, ClipboardHost, ClipboardLease,
         ClipboardRequest, ClipboardState,
     },
-    native_client::{ClientError, NativeClient},
+    native_client::{ClientError, NativeClient, NativeClientRuntime},
     native_member_services::{MemberService, ServiceTransport},
     native_network::NativeNetwork,
     native_services::NativeServices,
@@ -278,20 +278,21 @@ impl NativeClient {
     /// Discover and opt into the real clipboard service. This does not select
     /// a peer or start synchronization. No capability starts business by itself.
     pub async fn enable_clipboard(&self) -> Result<serde_json::Value, ClientError> {
-        self.require_ready()?;
-        let request = self.clipboard.state.request();
-        let _setup = self.clipboard.setup.lock().await;
-        self.clipboard.state.current_request(request)?;
-        if self.clipboard.state.status().enabled && self.clipboard.state.status().capability.read {
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let request = client_runtime.clipboard.state.request();
+        let _setup = client_runtime.clipboard.setup.lock().await;
+        client_runtime.clipboard.state.current_request(request)?;
+        if client_runtime.clipboard.state.status().enabled && client_runtime.clipboard.state.status().capability.read {
             return self.clipboard_status().await;
         }
-        if self.clipboard.state.status().peer.is_some() {
+        if client_runtime.clipboard.state.status().peer.is_some() {
             return Err(ClipboardError::Busy.into());
         }
         let discovered = match SystemClipboard::detect() {
             Ok(platform) => Arc::new(platform),
             Err(failure) => {
-                self.clipboard.state.capability(
+                client_runtime.clipboard.state.capability(
                     crate::clipboard::ClipboardCapability::unavailable(
                         "native",
                         failure.to_string(),
@@ -303,7 +304,7 @@ impl NativeClient {
         // Keep the existing foreground selection owner across disable/enable.
         // Replacing an otherwise usable X11/Wayland adapter would clear the
         // received system selection when its old child is dropped.
-        let platform = self
+        let platform = client_runtime
             .clipboard
             .platform
             .lock()
@@ -313,7 +314,7 @@ impl NativeClient {
             .unwrap_or(discovered);
         // Exercise actual current read permission, without publishing the value.
         if let Err(failure) = platform.read().await {
-            self.clipboard
+            client_runtime.clipboard
                 .state
                 .capability(crate::clipboard::ClipboardCapability::unavailable(
                     platform.capability().backend,
@@ -322,17 +323,55 @@ impl NativeClient {
             return Err(failure.into());
         }
         let capability = platform.capability();
-        let node = self.node.lock().await;
-        self.services
+        let node = client_runtime.node.lock().await;
+        client_runtime.services
             .lock()
             .await
-            .declare_clipboard(&node, &self.files, true, true)
+            .declare_clipboard(&node, &client_runtime.files, true, true)
             .await?;
-        *self.clipboard.platform.lock().await = Some(platform);
-        self.clipboard.state.enable(capability)?;
+        *client_runtime.clipboard.platform.lock().await = Some(platform);
+        client_runtime.clipboard.state.enable(capability)?;
         self.clipboard_status().await
     }
     pub async fn disable_clipboard(&self) -> Result<(), ClientError> {
+        self.runtime().disable_clipboard().await
+    }
+    /// Select one peer whose enabled service accepts the effective ACL. The
+    /// peer begins the same duplex pair; neither endpoint broadcasts changes.
+    pub async fn start_clipboard(
+        &self,
+        address: EndpointAddr,
+    ) -> Result<serde_json::Value, ClientError> {
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        client_runtime.clipboard
+            .dial(
+                address,
+                client_runtime.node.clone(),
+                client_runtime.services.clone(),
+                &client_runtime.resources,
+            )
+            .await?;
+        self.clipboard_status().await
+    }
+    pub async fn stop_clipboard(&self) {
+        let client_runtime = self.runtime();
+        client_runtime.clipboard.stop(false).await;
+    }
+    pub async fn clipboard_status(&self) -> Result<serde_json::Value, ClientError> {
+        let client_runtime = self.runtime();
+        client_runtime.clipboard
+            .state
+            .capability(crate::system_clipboard::current_capability().await);
+        if let Some(connection) = client_runtime.clipboard.connection.lock().unwrap().as_ref() {
+            client_runtime.clipboard.state.transport_status(connection.status());
+        }
+        Ok(serde_json::to_value(client_runtime.clipboard.state.status())?)
+    }
+}
+
+impl NativeClientRuntime {
+    pub(crate) async fn disable_clipboard(&self) -> Result<(), ClientError> {
         self.clipboard.stop_now(true);
         let _setup = self.clipboard.setup.lock().await;
         self.clipboard.stop_now(true);
@@ -348,34 +387,5 @@ impl NativeClient {
                 false,
             )
             .await
-    }
-    /// Select one peer whose enabled service accepts the effective ACL. The
-    /// peer begins the same duplex pair; neither endpoint broadcasts changes.
-    pub async fn start_clipboard(
-        &self,
-        address: EndpointAddr,
-    ) -> Result<serde_json::Value, ClientError> {
-        self.require_ready()?;
-        self.clipboard
-            .dial(
-                address,
-                self.node.clone(),
-                self.services.clone(),
-                &self.resources,
-            )
-            .await?;
-        self.clipboard_status().await
-    }
-    pub async fn stop_clipboard(&self) {
-        self.clipboard.stop(false).await;
-    }
-    pub async fn clipboard_status(&self) -> Result<serde_json::Value, ClientError> {
-        self.clipboard
-            .state
-            .capability(crate::system_clipboard::current_capability().await);
-        if let Some(connection) = self.clipboard.connection.lock().unwrap().as_ref() {
-            self.clipboard.state.transport_status(connection.status());
-        }
-        Ok(serde_json::to_value(self.clipboard.state.status())?)
     }
 }

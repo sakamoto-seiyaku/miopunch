@@ -170,6 +170,14 @@ pub enum Command {
         password_path: Option<String>,
     },
     RotationProgress,
+    BeginNetworkMigration {
+        invitation_path: String,
+    },
+    MigrationProgress,
+    ConfirmMigrationSourceExit {
+        card_path: Option<String>,
+        password_path: Option<String>,
+    },
     CustodyPropose {
         recipient: p2panda_core::VerifyingKey,
     },
@@ -227,6 +235,12 @@ pub enum Command {
     #[cfg(feature = "replica-test-hooks")]
     InterruptAdmission {
         after: String,
+    },
+    #[cfg(feature = "replica-test-hooks")]
+    InterruptMigrationAfterAuthorization,
+    #[cfg(feature = "replica-test-hooks")]
+    MigrationControlOnly {
+        enabled: bool,
     },
     ObserveState {
         after: String,
@@ -388,6 +402,7 @@ fn state_snapshot_json(snapshot: ClientStateSnapshot) -> Value {
             entry.public_json(), snapshot.admission_display_names.get(&entry.applicant).map(String::as_str),
         )).collect::<Vec<_>>(),
         "admission_rotation":snapshot.admission_rotation.map(rotation_progress_json),
+        "network_migration":snapshot.network_migration.map(|progress| progress.public_json()),
         "device_operations":snapshot.device_operations})
 }
 
@@ -452,12 +467,31 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
                 _ => return Err("unknown admission checkpoint".into()),
             };
             client
+                .runtime()
                 .node
                 .lock()
                 .await
                 .store
                 .set_checkpoint_observer(observer);
             Ok(json!({"armed":true}))
+        }
+        #[cfg(feature = "replica-test-hooks")]
+        Command::InterruptMigrationAfterAuthorization => {
+            use crate::management_store::RecordCheckpoint;
+            client.migration_checkpoint(|checkpoint| {
+                if checkpoint == RecordCheckpoint::AuthorizationSaved {
+                    std::process::exit(86);
+                }
+            });
+            Ok(json!({"armed":true}))
+        }
+        #[cfg(feature = "replica-test-hooks")]
+        Command::MigrationControlOnly { enabled } => {
+            use crate::{admission_gate::{ADMISSION_REQUEST_ALPN, PRECODE_REQUEST_ALPN}, connection_coordinator::ADMISSION_RECEIPT_ALPN};
+            client.runtime().node.lock().await.gate.restrict_lifecycle(enabled.then(|| [
+                ADMISSION_REQUEST_ALPN.to_vec(), PRECODE_REQUEST_ALPN.to_vec(), ADMISSION_RECEIPT_ALPN.to_vec(),
+            ].into_iter().collect()));
+            Ok(json!({"enabled":enabled}))
         }
         Command::TerminalEnable {
             directory,
@@ -706,6 +740,15 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
             )
         }
         Command::Status => Ok(status(client).await),
+        Command::BeginNetworkMigration { invitation_path } => Ok(client
+            .begin_network_migration(&read_invitation(&invitation_path)?)
+            .await?
+            .public_json()),
+        Command::MigrationProgress => Ok(json!(client.migration_progress().map(|progress| progress.public_json()))),
+        Command::ConfirmMigrationSourceExit { card_path, password_path } => {
+            let card = read_optional_recovery_card(card_path, password_path)?;
+            Ok(client.confirm_migration_source_exit(card.as_ref()).await?.public_json())
+        }
         Command::StateSnapshot => Ok(state_snapshot_json(client.state_snapshot().await?)),
         Command::SetDeviceDisplayName { display_name } => {
             client.set_device_display_name(&display_name).await?;

@@ -1643,7 +1643,7 @@ impl Endpoint {
         Span::current().record("remote", tracing::field::display(endpoint_id.fmt_short()));
 
         if let BeforeConnectOutcome::Reject =
-            self.inner.hooks.before_connect(&endpoint_addr, alpn).await
+            self.inner.hooks.before_connect(&endpoint_addr, alpn, options.attempt.application_context.as_deref()).await
         {
             return Err(e!(ConnectWithOptsError::LocallyRejected));
         }
@@ -2472,6 +2472,16 @@ impl ConnectOptions {
     /// the caller still bounds TLS/setup and each hook uses remaining time.
     pub fn with_caller_deadline(mut self, deadline: n0_future::time::Instant) -> Self {
         self.attempt.caller_deadline = Some(deadline);
+        self
+    }
+
+    /// Attach application metadata scoped to this outgoing TLS connection.
+    /// It is visible to local hooks and is never transmitted to the remote.
+    pub fn with_application_context(
+        mut self,
+        context: std::sync::Arc<dyn std::any::Any + Send + Sync>,
+    ) -> Self {
+        self.attempt.application_context = Some(context);
         self
     }
 

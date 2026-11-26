@@ -1197,15 +1197,20 @@ impl ResourceEndpoint {
 
     /// A bounded contact attempt, independent of the resource startup snapshot.
     pub fn with_contact_timeout(mut self, timeout: Duration) -> Result<Self, std::io::Error> {
+        Self::validate_contact_timeout(timeout)?;
+        self.endpoint = self.endpoint.clone().with_admission_timeout(timeout)?;
+        self.timeout = timeout;
+        Ok(self)
+    }
+
+    pub(crate) fn validate_contact_timeout(timeout: Duration) -> Result<(), std::io::Error> {
         if timeout.is_zero() || timeout > crate::connection_budget::MAX {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "contact timeout must be greater than zero and at most 60 seconds",
             ));
         }
-        self.endpoint = self.endpoint.clone().with_admission_timeout(timeout)?;
-        self.timeout = timeout;
-        Ok(self)
+        Ok(())
     }
 
     pub async fn connect(
@@ -1233,7 +1238,7 @@ impl ResourceEndpoint {
         deadline: n0_future::time::Instant,
     ) -> Result<(iroh::endpoint::Connection, ContactAttempt), ResourceContactError> {
         let (delivery, attempt) = self
-            .connect_attempt(target, alpn, class, false, deadline)
+            .connect_attempt(target, alpn, class, false, deadline, None)
             .await?;
         let connection = delivery
             .business()
@@ -1456,6 +1461,7 @@ impl ResourceEndpoint {
                 ContactClass::Foreground,
                 true,
                 self.contact_deadline(),
+                None,
             )
             .await?;
         let connection = delivery
@@ -1485,6 +1491,7 @@ impl ResourceEndpoint {
             class,
             alpn == crate::network_recovery::RECOVERY_REPLICA_ALPN,
             self.contact_deadline(),
+            None,
         )
         .await
     }
@@ -1496,12 +1503,62 @@ impl ResourceEndpoint {
         class: ContactClass,
     ) -> Result<(crate::control_protocol::ControlOwner, ContactAttempt), ResourceContactError> {
         let (delivery, attempt) = self
-            .connect_attempt(target, alpn, class, true, self.contact_deadline())
+            .connect_attempt(target, alpn, class, true, self.contact_deadline(), None)
             .await?;
         let control = delivery
             .control()
             .map_err(|error| attempt.failed(error.to_string()))?;
         Ok((control, attempt))
+    }
+
+    pub(crate) async fn connect_migration(
+        &self,
+        target: iroh::EndpointAddr,
+        alpn: &'static [u8],
+        gate: &crate::admission_gate::AdmissionGate,
+        control_only: bool,
+    ) -> Result<
+        (
+            crate::connection_coordinator::ConnectionDelivery,
+            ContactAttempt,
+        ),
+        ResourceContactError,
+    > {
+        let context = std::sync::Arc::new(crate::connection_coordinator::MigrationWireContext::new(
+            target.id, alpn, gate,
+        ));
+        self.connect_attempt(target, alpn, ContactClass::Background, control_only, self.contact_deadline(), Some(context)).await
+    }
+
+    /// An invitation may introduce facilities that the active endpoint does
+    /// not own. An outbound-only preparation endpoint may use those origins,
+    /// but must never register this identity on an active relay or broker.
+    pub(crate) fn additional_migration_facilities(&self, mut target: ResourceConfig) -> Option<ResourceConfig> {
+        let active = self.config.replacement.as_ref().unwrap_or(&self.config.defaults.resources);
+        let facilities: Vec<_> = target.replacement.as_ref().unwrap_or(&target.defaults.resources)
+            .iter().filter_map(|resource| {
+                let mut additional = resource.clone();
+                additional.uses.retain(|usage| {
+                    matches!(usage, ResourceUse::DataRelay | ResourceUse::Signaling)
+                        && target.allows(&resource.url, *usage)
+                        && !active.iter().any(|saved| {
+                            same_contact_origin(&saved.url, &resource.url)
+                                && self.config.allows(&saved.url, *usage)
+                        })
+                });
+                (!additional.uses.is_empty()).then_some(additional)
+            }).collect();
+        if facilities.is_empty() {
+            return None;
+        }
+        target.replacement = Some(facilities);
+        target.lan_discovery = LanDiscovery::Disabled;
+        target.port_mapping = PortMapping::Disabled;
+        // Direct paths can be reached from destination-only signaling without
+        // competing for the active application's explicit TCP listen port.
+        target.tcp_listen = None;
+        target.member_data_relay_disabled = true;
+        Some(target)
     }
 
     async fn connect_attempt(
@@ -1511,6 +1568,7 @@ impl ResourceEndpoint {
         class: ContactClass,
         control_only: bool,
         deadline: n0_future::time::Instant,
+        migration: Option<std::sync::Arc<crate::connection_coordinator::MigrationWireContext>>,
     ) -> Result<
         (
             crate::connection_coordinator::ConnectionDelivery,
@@ -1549,7 +1607,7 @@ impl ResourceEndpoint {
             self.add_configured_relays(&mut target)?;
         }
         if purpose.is_some() {
-            let mut coordinator = self.coordinator();
+            let mut coordinator = self.coordinator().with_migration(migration);
             if race_relays {
                 use n0_watcher::Watcher;
                 let current = self.endpoint.home_relay_status().get();
@@ -1586,7 +1644,10 @@ impl ResourceEndpoint {
                 Err(error) => Err(attempt.failed(error.to_string())),
             };
         }
-        let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
+        let mut options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
+        if let Some(context) = migration {
+            options = options.with_application_context(context);
+        }
         let cause = match tokio::time::timeout(
             deadline.saturating_duration_since(n0_future::time::Instant::now()),
             async {
@@ -1769,10 +1830,14 @@ impl ResourceEndpoint {
             })
     }
 
-    pub async fn close(self) {
+    pub(crate) async fn stop_contact(&self) {
         if let Some(listener) = &self.contact_listener {
             let _ = listener.shutdown().await;
         }
+    }
+
+    pub async fn close(self) {
+        self.stop_contact().await;
         self.endpoint.close().await;
     }
 }

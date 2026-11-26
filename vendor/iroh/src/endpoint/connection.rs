@@ -141,6 +141,7 @@ pub(super) struct AttemptOptions {
     pub(super) incoming_received_at: Option<Instant>,
     pub(super) cancellation: Option<tokio_util::sync::CancellationToken>,
     pub(super) diagnostic_dial: Option<(usize, usize)>,
+    pub(super) application_context: Option<std::sync::Arc<dyn std::any::Any + Send + Sync>>,
 }
 
 /// An incoming connection for which the server has not yet begun its parts of the
@@ -1411,6 +1412,11 @@ impl Connection<HandshakeCompleted> {
     #[doc(hidden)]
     pub fn diagnostic_dial(&self) -> Option<(usize, usize)> {
         self.data.attempt.diagnostic_dial
+    }
+
+    /// Returns the local application context for this outgoing connection.
+    pub fn application_context<T: std::any::Any + Send + Sync>(&self) -> Option<&T> {
+        self.data.attempt.application_context.as_deref()?.downcast_ref()
     }
 
     /// Cancellation for this individual original attempt, when supplied.

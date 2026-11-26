@@ -881,6 +881,8 @@ pub struct ConnectionCoordinator {
     member_relay_fallbacks: Option<Vec<TransportAddr>>,
     background_relay_race: Option<BackgroundRelayRace>,
     #[cfg(not(target_arch = "wasm32"))]
+    migration: Option<std::sync::Arc<MigrationWireContext>>,
+    #[cfg(not(target_arch = "wasm32"))]
     member_contacts: Option<std::sync::Arc<crate::member_contacts::MemberContacts>>,
 }
 impl ConnectionCoordinator {
@@ -905,6 +907,8 @@ impl ConnectionCoordinator {
             member_relay_fallbacks: None,
             background_relay_race: None,
             #[cfg(not(target_arch = "wasm32"))]
+            migration: None,
+            #[cfg(not(target_arch = "wasm32"))]
             member_contacts: None,
         }
     }
@@ -922,6 +926,8 @@ impl ConnectionCoordinator {
             member_relay_fallbacks: None,
             background_relay_race: None,
             #[cfg(not(target_arch = "wasm32"))]
+            migration: None,
+            #[cfg(not(target_arch = "wasm32"))]
             member_contacts: None,
         }
     }
@@ -931,6 +937,12 @@ impl ConnectionCoordinator {
         contacts: Option<std::sync::Arc<crate::member_contacts::MemberContacts>>,
     ) -> Self {
         self.member_contacts = contacts;
+        self
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn with_migration(mut self, context: Option<std::sync::Arc<MigrationWireContext>>) -> Self {
+        self.migration = context;
         self
     }
 
@@ -1018,6 +1030,10 @@ impl ConnectionCoordinator {
             .with_caller_deadline(attempt.deadline)
             .with_attempt_cancellation(attempt.cancellation.clone())
             .with_diagnostic_dial(log.local_id, phase.id());
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(context) = &self.migration {
+            options = options.with_application_context(context.clone());
+        }
         if let Some(route) = target.addrs.iter().next()
             && target.addrs.len() == 1
         {
@@ -3012,7 +3028,7 @@ mod active_wire_tests {
 mod native;
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) use native::{
-    AdmissionBeforeConnect, CoordinatorHook, NativeAdmission, NativeControlAdapter,
+    AdmissionBeforeConnect, CoordinatorHook, MigrationWireContext, NativeAdmission, NativeControlAdapter,
 };
 
 #[cfg(all(test, not(target_arch = "wasm32")))]

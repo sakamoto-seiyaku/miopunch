@@ -3,7 +3,7 @@ use crate::{
     business_channel::{BusinessChannel, ChannelBudget, ChannelError, RecoveryExpired},
     data_stream::DataStream,
     forwarding::{self, ChannelOrigin, ChannelReady, ChannelRequest, Protocol},
-    native_client::{ClientError, NativeClient},
+    native_client::{ClientError, NativeClient, allocate_service_handle},
     native_member_services::ServiceTransport,
     service_policy::ServiceAccess,
 };
@@ -107,10 +107,10 @@ struct State {
     flows: BTreeMap<u64, Flow>,
     receivers: BTreeMap<u64, Receiver>,
     channels: BTreeMap<String, ChannelAttachment>,
-    next: u64,
     closed: bool,
 }
 pub(crate) struct NativeForwarding {
+    handles: Arc<std::sync::atomic::AtomicU64>,
     #[cfg(feature = "nat-lab-test-hooks")]
     channel_hooks: Arc<crate::business_channel::TestHooks>,
     #[cfg(feature = "nat-lab-test-hooks")]
@@ -182,8 +182,9 @@ impl Drop for ReceiverOwner {
     }
 }
 impl NativeForwarding {
-    pub fn new(gate: crate::admission_gate::AdmissionGate, policy: forwarding::ChannelPolicy) -> Result<Arc<Self>, std::io::Error> {
+    pub fn new(gate: crate::admission_gate::AdmissionGate, policy: forwarding::ChannelPolicy, handles: Arc<std::sync::atomic::AtomicU64>) -> Result<Arc<Self>, std::io::Error> {
         Ok(Arc::new(Self {
+            handles,
             channel_budget: ChannelBudget::new(policy)?,
             #[cfg(feature = "nat-lab-test-hooks")]
             channel_hooks: Default::default(),
@@ -276,11 +277,7 @@ impl NativeForwarding {
                 connection.abort(1, b"forward receiver unavailable");
                 return Err("forward receiver unavailable".into());
             }
-            state.next = state
-                .next
-                .checked_add(1)
-                .ok_or("forward identifier exhausted")?;
-            let id = state.next;
+            let id = allocate_service_handle(&self.handles)?;
             let cancel = CancellationToken::new();
             state.receivers.insert(
                 id,
@@ -334,11 +331,7 @@ impl NativeForwarding {
         {
             return Err("forward unavailable or denied".into());
         }
-        state.next = state
-            .next
-            .checked_add(1)
-            .ok_or("forward identifier exhausted")?;
-        let id = state.next;
+        let id = allocate_service_handle(&self.handles)?;
         state.flows.insert(id, flow);
         Ok(FlowOwner {
             runtime: self.clone(),
@@ -841,25 +834,29 @@ async fn udp_consumer(
 impl NativeClient {
     #[cfg(feature = "nat-lab-test-hooks")]
     pub fn test_pause_forward_ready(&self, paused: bool) {
-        self.forwarding.ready_hook.paused.store(paused, std::sync::atomic::Ordering::SeqCst);
-        self.forwarding.ready_hook.changed.notify_waiters();
+        let client_runtime = self.runtime();
+        client_runtime.forwarding.ready_hook.paused.store(paused, std::sync::atomic::Ordering::SeqCst);
+        client_runtime.forwarding.ready_hook.changed.notify_waiters();
     }
     #[cfg(feature = "nat-lab-test-hooks")]
     pub fn test_pause_channel_progress(&self, paused: bool) -> u64 {
+        let client_runtime = self.runtime();
         use std::sync::atomic::Ordering;
-        self.forwarding.channel_hooks.paused.store(paused, Ordering::SeqCst);
-        self.forwarding.channel_hooks.suppressed.load(Ordering::SeqCst)
+        client_runtime.forwarding.channel_hooks.paused.store(paused, Ordering::SeqCst);
+        client_runtime.forwarding.channel_hooks.suppressed.load(Ordering::SeqCst)
     }
 
     #[cfg(feature = "nat-lab-test-hooks")]
     pub fn test_limit_channel_delivery(&self, bytes: u64) {
-        self.forwarding.channel_hooks.delivery_limit.store(bytes, std::sync::atomic::Ordering::SeqCst);
-        self.forwarding.channel_budget.notify();
+        let client_runtime = self.runtime();
+        client_runtime.forwarding.channel_hooks.delivery_limit.store(bytes, std::sync::atomic::Ordering::SeqCst);
+        client_runtime.forwarding.channel_budget.notify();
     }
 
     #[cfg(feature = "nat-lab-test-hooks")]
     pub fn test_forget_forward_open(&self, id: &str) {
-        self.forwarding.state.lock().unwrap().channels.remove(id);
+        let client_runtime = self.runtime();
+        client_runtime.forwarding.state.lock().unwrap().channels.remove(id);
     }
 
     /// One bounded request/response, using the same provider and wire as the
@@ -872,20 +869,21 @@ impl NativeClient {
         payload: &[u8],
         response_bytes: usize,
     ) -> Result<Vec<u8>, ClientError> {
-        self.require_ready()?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
         if payload.len() > forwarding::MAX_EXCHANGE || response_bytes > forwarding::MAX_EXCHANGE {
             return Err("forward exchange too large".into());
         }
         let peer = VerifyingKey::from_bytes(address.id.as_bytes())?;
         let owner =
-            self.forwarding
+            client_runtime.forwarding
                 .claim(peer, protocol, target, false, CancellationToken::new())?;
         tokio::select! {
             biased;
             _ = owner.cancel.cancelled() => Err("forward stopped".into()),
             result = async {
-                let connection = self.resources.connect_service(address, protocol.into()).await?;
-                self.forwarding.attach(&owner, connection.clone())?;
+                let connection = client_runtime.resources.connect_service(address, protocol.into()).await?;
+                client_runtime.forwarding.attach(&owner, connection.clone())?;
                 let stream = forwarding::open_on_stream(connection.stream(true).await?, target).await?;
                 Ok(forwarding::exchange(stream, protocol, payload, response_bytes).await?)
             } => result,
@@ -894,9 +892,10 @@ impl NativeClient {
     /// Cancel a concrete flow observed through forwarding_status and await its
     /// owner, including a transport setup which has actually returned Pending.
     pub async fn cancel_forwarding_flow(&self, id: &str) -> Result<(), ClientError> {
+        let client_runtime = self.runtime();
         let id: u64 = id.parse()?;
         let (cancel, connection) = {
-            let state = self.forwarding.state.lock().unwrap();
+            let state = client_runtime.forwarding.state.lock().unwrap();
             let flow = state.flows.get(&id).ok_or("unknown forward flow")?;
             (flow.cancel.clone(), flow.connection.clone())
         };
@@ -906,8 +905,8 @@ impl NativeClient {
         }
         tokio::time::timeout(Duration::from_secs(5), async {
             loop {
-                let done = self.forwarding.joined.notified();
-                if !self
+                let done = client_runtime.forwarding.joined.notified();
+                if !client_runtime
                     .forwarding
                     .state
                     .lock()
@@ -923,15 +922,13 @@ impl NativeClient {
         .await?;
         Ok(())
     }
-    pub(crate) fn forwarding_enabled(&self, protocol: Protocol) -> bool {
-        self.forwarding.provider_enabled(protocol)
-    }
     pub async fn enable_forwarding(
         &self,
         protocol: Protocol,
         targets: Vec<SocketAddr>,
     ) -> Result<Value, ClientError> {
-        self.require_ready()?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
         if targets.is_empty()
             || targets.len() > 32
             || targets
@@ -940,51 +937,54 @@ impl NativeClient {
         {
             return Err("invalid forwarding targets".into());
         }
-        let _setup = self.forwarding.setup.lock().await;
-        let node = self.node.lock().await;
-        let mut services = self.services.lock().await;
+        let _setup = client_runtime.forwarding.setup.lock().await;
+        let node = client_runtime.node.lock().await;
+        let mut services = client_runtime.services.lock().await;
         let access = services.access(&node).await?;
         if !access.member(access.local) {
             return Err("forward provider requires membership".into());
         }
         if let Some(change) = access.declaration_change(protocol.service(), true, true) {
-            services.apply(&node, &self.files, change).await?;
+            services.apply(&node, &client_runtime.files, change).await?;
         }
-        self.forwarding
+        client_runtime.forwarding
             .state
             .lock()
             .unwrap()
             .scopes
             .insert(protocol, targets.into_iter().collect());
-        self.forwarding
+        client_runtime.forwarding
             .enforce_access(&services.access(&node).await?);
-        self.forwarding.join_retired(protocol).await?;
-        Ok(self.forwarding.status())
+        client_runtime.forwarding.join_retired(protocol).await?;
+        Ok(client_runtime.forwarding.status())
     }
     pub async fn disable_forwarding(&self, protocol: Protocol) -> Result<Value, ClientError> {
-        let _setup = self.forwarding.setup.lock().await;
-        self.forwarding
+        let client_runtime = self.runtime();
+        let _setup = client_runtime.forwarding.setup.lock().await;
+        client_runtime.forwarding
             .state
             .lock()
             .unwrap()
             .scopes
             .remove(&protocol);
-        let node = self.node.lock().await;
-        let mut services = self.services.lock().await;
+        let node = client_runtime.node.lock().await;
+        let mut services = client_runtime.services.lock().await;
         let access = services.access(&node).await?;
-        self.forwarding.enforce_access(&access);
+        client_runtime.forwarding.enforce_access(&access);
         if let Some(change) = access.declaration_change(protocol.service(), true, false) {
-            services.apply(&node, &self.files, change).await?;
+            services.apply(&node, &client_runtime.files, change).await?;
         }
-        self.forwarding.join_retired(protocol).await?;
-        Ok(self.forwarding.status())
+        client_runtime.forwarding.join_retired(protocol).await?;
+        Ok(client_runtime.forwarding.status())
     }
     pub fn forwarding_status(&self) -> Value {
-        self.forwarding.status()
+        let client_runtime = self.runtime();
+        client_runtime.forwarding.status()
     }
     pub async fn stop_forwarding(&self, id: &str) -> Result<Value, ClientError> {
-        let _setup = self.forwarding.setup.lock().await;
-        let listener = self
+        let client_runtime = self.runtime();
+        let _setup = client_runtime.forwarding.setup.lock().await;
+        let listener = client_runtime
             .forwarding
             .state
             .lock()
@@ -994,7 +994,7 @@ impl NativeClient {
             .ok_or("unknown forward")?;
         listener.cancel.cancel();
         listener.join.await?;
-        Ok(self.forwarding.status())
+        Ok(client_runtime.forwarding.status())
     }
     pub async fn start_forwarding(
         &self,
@@ -1003,14 +1003,15 @@ impl NativeClient {
         target: SocketAddr,
         bind: SocketAddr,
     ) -> Result<Value, ClientError> {
-        self.require_ready()?;
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
         if !bind.ip().is_loopback() {
             return Err("forward listener must use loopback".into());
         }
-        let _setup = self.forwarding.setup.lock().await;
+        let _setup = client_runtime.forwarding.setup.lock().await;
         let peer = VerifyingKey::from_bytes(address.id.as_bytes())?;
         {
-            let state = self.forwarding.state.lock().unwrap();
+            let state = client_runtime.forwarding.state.lock().unwrap();
             if state.closed
                 || state.listeners.len() >= MAX_LISTENERS
                 || !state
@@ -1027,8 +1028,8 @@ impl NativeClient {
             Protocol::Udp => BoundSocket::Udp(Arc::new(UdpSocket::bind(bind).await?)),
         };
         let listen = socket.local_addr()?;
-        let resources = self.resources.clone();
-        let runtime = self.forwarding.clone();
+        let resources = client_runtime.resources.clone();
+        let runtime = client_runtime.forwarding.clone();
         let child_cancel = cancel.clone();
         let counters = Arc::new(Mutex::new(ListenerCounters::default()));
         let worker_counters = counters.clone();
@@ -1120,12 +1121,8 @@ impl NativeClient {
             child_cancel.cancel();
             while tasks.join_next().await.is_some() {}
         });
-        let mut state = self.forwarding.state.lock().unwrap();
-        state.next = state
-            .next
-            .checked_add(1)
-            .ok_or("forward identifier exhausted")?;
-        let id = state.next;
+        let mut state = client_runtime.forwarding.state.lock().unwrap();
+        let id = allocate_service_handle(&client_runtime.forwarding.handles)?;
         state.listeners.insert(
             id,
             Listener {

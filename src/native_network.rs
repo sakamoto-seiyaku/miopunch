@@ -422,9 +422,7 @@ impl NativeNetwork {
 
     pub async fn open(path: impl AsRef<Path>) -> Result<Self, NodeError> {
         let path = path.as_ref();
-        if path.join("replacement.source").exists() || path.join("replacement.retired").exists() {
-            return Err(NodeError::ReplacementPaused);
-        }
+        Self::check_replacement_open(path)?;
         if path.join("migration.invitation").exists() || path.join("migration.managed").exists() {
             return Err(NodeError::MigrationManaged);
         }
@@ -435,6 +433,13 @@ impl NativeNetwork {
             .await
             .map_err(|_| NodeError::InvalidData)?;
         Ok(node)
+    }
+
+    pub(crate) fn check_replacement_open(path: &Path) -> Result<(), NodeError> {
+        if path.join("replacement.source").exists() || path.join("replacement.retired").exists() {
+            return Err(NodeError::ReplacementPaused);
+        }
+        Ok(())
     }
 
     pub(crate) async fn join_migration(
@@ -1069,6 +1074,39 @@ impl NativeNetwork {
         member_fusion: bool,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
         let config = self.resource_configuration()?;
+        self.bind_endpoint_using_config(
+            builder, config,
+            #[cfg(feature = "rtc-probe")]
+            rtc,
+            contact_override, member_fusion,
+        ).await
+    }
+
+    pub(crate) async fn bind_migration_facilities(
+        &self,
+        bind: Ipv4Addr,
+        config: crate::resources::ResourceConfig,
+    ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
+        let timeout = std::time::Duration::from_millis(config.maintenance.contact_timeout_ms);
+        Ok(self.bind_endpoint_using_config(
+            Endpoint::builder(presets::Minimal)
+                .bind_addr(SocketAddr::from((bind, 0)))
+                .map_err(|_| NodeError::InvalidData)?,
+            config,
+            #[cfg(feature = "rtc-probe")]
+            None,
+            None, false,
+        ).await?.with_contact_timeout(timeout)?)
+    }
+
+    async fn bind_endpoint_using_config(
+        &self,
+        builder: Builder,
+        config: crate::resources::ResourceConfig,
+        #[cfg(feature = "rtc-probe")] rtc: Option<crate::rtc_transport::RtcTransport>,
+        contact_override: Option<Arc<crate::mqtt_transport::MqttTransport>>,
+        member_fusion: bool,
+    ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
         let (endpoint, tcp, mqtt, contact_listener, native, fusion) = self
             .bind_endpoint_with_resources(
                 builder

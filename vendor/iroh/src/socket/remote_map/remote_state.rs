@@ -777,7 +777,7 @@ impl RemoteStateActor {
                     return;
                 }
                 #[cfg(not(wasm_browser))]
-                println!(
+                eprintln!(
                     "[DEBUG-udp-handoff] actor-open-request stable_id={} local={local:?} remote={remote}",
                     conn_id
                 );
@@ -839,7 +839,7 @@ impl RemoteStateActor {
                 } else {
                     Err("connection not registered")
                 };
-                println!(
+                eprintln!(
                     "[DEBUG-udp-handoff] actor-open-result stable_id={} result={:?}",
                     conn_id,
                     result
@@ -1832,7 +1832,7 @@ impl RemoteStateActor {
                 | NoqPathEvent::Abandoned { .. }
                 | NoqPathEvent::Discarded { .. }
         ) {
-            println!(
+            eprintln!(
                 "[DEBUG-udp-handoff] actor-path-event stable_id={} event={event:?}",
                 conn_id.0
             );
@@ -2795,7 +2795,7 @@ impl State {
         match fut.path_id() {
             Some(path_id) => {
                 if explicit_request {
-                    println!(
+                    eprintln!(
                         "[DEBUG-udp-handoff] actor-path-created stable_id={} path_id={} binding={open_4tuple:?} status={path_status:?}",
                         conn_id.0, path_id
                     );
@@ -2823,7 +2823,7 @@ impl State {
                     Some(Err(error @ PathError::RemoteCidsExhausted))
                     | Some(Err(error @ PathError::MaxPathIdReached)) => {
                         if explicit_request {
-                            println!(
+                            eprintln!(
                                 "[DEBUG-udp-handoff] actor-path-resource-blocked stable_id={} binding={open_4tuple:?} reason={error:?}",
                                 conn_id.0
                             );

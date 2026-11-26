@@ -35,18 +35,20 @@ impl NativeClient {
         Self::start(node, bind).await
     }
 
+
     /// Retries retain the durable recovery attempt and exact signed grant.
     pub async fn restore_management_authority(
         &self,
         contact: EndpointAddr,
     ) -> Result<Value, ClientError> {
-        self.require_ready()?;
-        let (connection, attempt) = self
+        let client_runtime = self.runtime();
+        client_runtime.require_ready()?;
+        let (connection, attempt) = client_runtime
             .resources
             .connect_control_attempt(contact, MANAGEMENT_RECOVERY_ALPN, ContactClass::Foreground)
             .await?;
         let result = {
-            let mut node = self.node.lock().await;
+            let mut node = client_runtime.node.lock().await;
             let result = node.restore_management(&connection).await;
             match &result {
                 Ok(progress) if progress.stage == RecoveryStage::Complete => attempt.succeeded(),
@@ -55,8 +57,8 @@ impl NativeClient {
                     attempt.failed(error.to_string());
                 }
             }
-            self.files
-                .update_access(self.services.lock().await.access(&node).await?);
+            client_runtime.files
+                .update_access(client_runtime.services.lock().await.access(&node).await?);
             result.map(|progress| {
                 json!({"stage":format!("{:?}", progress.stage),
                 "authorization":progress.authorization,"node":node.status().node_id,
@@ -70,7 +72,8 @@ impl NativeClient {
     }
 
     pub async fn management_recovery_status(&self) -> Result<Value, ClientError> {
-        let node = self.node.lock().await;
+        let client_runtime = self.runtime();
+        let node = client_runtime.node.lock().await;
         let progress = node.recovery_progress().await?;
         Ok(
             json!({"stage":format!("{:?}",progress.stage),"authorization":progress.authorization,

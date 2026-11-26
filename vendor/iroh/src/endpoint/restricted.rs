@@ -1385,6 +1385,11 @@ impl ControlHandle {
         self.connection.diagnostic_dial()
     }
 
+    /// Returns the local application context for this outgoing connection.
+    pub fn application_context<T: std::any::Any + Send + Sync>(&self) -> Option<&T> {
+        self.connection.application_context()
+    }
+
     /// The individual attempt's cancellation token, if supplied by the caller.
     pub fn attempt_cancellation(&self) -> Option<tokio_util::sync::CancellationToken> {
         self.connection.attempt_cancellation()
