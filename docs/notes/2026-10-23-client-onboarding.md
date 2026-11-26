@@ -181,6 +181,22 @@ Retry stops when the grant is known to be invalid or the provider settles the
 receipt. Local successes saved by older SDKs remain usable. They lack the
 outstanding receipt record written by the new material-save transaction.
 
+## Voluntary departure
+
+An ordinary member proposes `leave` for its own device and executes that exact
+operation. An administrator confirms its `leave` operation with a genesis
+credential. After the node saves and applies the signed decision, its local
+status is `Removed` and its member sessions close.
+
+In `device_operations`, the departing node can read `effective_locally` and
+`first_delivery` for the signed operation. `first_delivery.stage` starts at
+`pending`. The SDK retries the same record after reopen while delivery is
+pending. It changes to `confirmed` with the `recipient` device ID after an
+authenticated current member verifies and saves the record and the departing
+node saves that member's receipt. The recipient and other remaining members
+propagate the record in regular member synchronization. Hosts can read the
+result through `state_snapshot` or wait for changes through `observe_state`.
+
 ## Device display names
 
 NativeClient seeds the local display name from the system name when available.

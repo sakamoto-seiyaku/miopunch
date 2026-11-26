@@ -370,6 +370,7 @@ impl BrowserServices {
             crate::service_policy::GUEST_ALPN,
             crate::device_operation::DEVICE_ALPN,
             crate::device_operation::DEVICE_RESULT_ALPN,
+            DEPARTURE_ALPN,
             crate::credential_custody::CUSTODY_ALPN,
             device_recovery::RECOVERY_ALPN,
         ]) {
@@ -396,6 +397,7 @@ impl BrowserServices {
                         alpn,
                         crate::service_policy::GUEST_ALPN
                             | crate::device_operation::DEVICE_RESULT_ALPN
+                            | DEPARTURE_ALPN
                             | device_recovery::RECOVERY_ALPN
                     ) {
                         if let Ok(Ok(control)) = n0_future::time::timeout(
@@ -412,6 +414,8 @@ impl BrowserServices {
                             let _close = RequestConnection(Some(control.clone()));
                             if alpn == crate::device_operation::DEVICE_RESULT_ALPN {
                                 let _ = device_management::serve_result(&control, &gate).await;
+                            } else if alpn == DEPARTURE_ALPN {
+                                let _ = device_management::serve_departure(&control, &gate, &files, deadline).await;
                             } else if alpn == device_recovery::RECOVERY_ALPN {
                                 let _ =
                                     device_recovery::serve_recovery(&control, &gate, &files).await;
@@ -488,6 +492,7 @@ impl BrowserServices {
         let gate = network.gate.clone();
         let files = network.files.clone();
         let coordinator = network.connection_coordinator();
+        let endpoint = network.endpoint.clone();
         let relays = network.relays.clone();
         let routes = network.contact_routes.clone();
         let policy = network
@@ -510,10 +515,19 @@ impl BrowserServices {
                 let mut peer = None;
                 let attempt = async {
                     let saved = gate.service_snapshot()?;
-                    if saved.stage() != "Complete" {
+                    let stage = saved.stage();
+                    if !matches!(stage, "Complete" | "Removed") {
                         return Ok(());
                     }
                     let auth = saved.verify()?.ok_or_else(rejected)?;
+                    let departure = if stage == "Removed" {
+                        let Some(entry) = saved.operations.pending_departure(saved.identity(), &auth) else {
+                            return Ok(());
+                        };
+                        Some(crate::device_protocol::DepartureDelivery::new(entry).map_err(error)?)
+                    } else {
+                        None
+                    };
                     let peers = auth
                         .nodes()
                         .into_iter()
@@ -527,6 +541,28 @@ impl BrowserServices {
                     last = peer;
                     let address = target_address(target, &relays, &routes)?;
                     let deadline = Instant::now() + budget;
+                    if let Some(delivery) = departure {
+                        let wire = member_sync_wire(deadline, async {
+                            let options = iroh::endpoint::ConnectOptions::new()
+                                .with_caller_deadline(deadline);
+                            let control = endpoint.connect_control_with_opts(address, DEPARTURE_ALPN, options)
+                                .await.map_err(error)?.await.map_err(error)?;
+                            let control = Arc::new(control).retain_control();
+                            let _close = RequestConnection(Some(control.clone()));
+                            delivery.send(&control).await.map_err(error)
+                        });
+                        let record = tokio::select! {
+                            biased;
+                            _ = service.cancel.cancelled() => return Ok(()),
+                            record = wire => record?,
+                        };
+                        return update_saved(&gate, |current| {
+                            let recipient = VerifyingKey::from_bytes(target.as_bytes()).map_err(error)?;
+                            current.operations.confirm_departure_delivery(
+                                saved.identity(), delivery.approval.operation.id, record, recipient,
+                            ).map_err(error)
+                        }).await;
+                    }
                     let connection = coordinator
                         .connect_alpn(
                             address,

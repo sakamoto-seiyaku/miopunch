@@ -161,7 +161,7 @@ async function dispatch(command) {
     });
   }
   if (op === 'wait_admission_commit') {
-    await actor.page.waitForFunction(() => window.admissionCommitHeld, undefined, { timeout: 5000 });
+    await actor.page.waitForFunction(() => window.admissionCommitHeld, undefined, { timeout: args[0] ?? 5000 });
     return true;
   }
   if (op === 'release_admission_commit') {
@@ -329,7 +329,7 @@ async function dispatch(command) {
     if (['precode_invitation', 'issue_precode'].includes(method)) values = values.map(value => value == null ? value : BigInt(value));
     const result = await window.node[method](...values);
     if (method === 'finish_pairing') { window.node.free(); window.node = result; return JSON.parse(result.status()); }
-    if (['status', 'state_snapshot', 'observe_state', 'admission_requests', 'admission_history', 'admission_material_receipt', 'pairing_status', 'resource_configuration', 'path_diagnostics', 'control_state', 'device_operations', 'propose_device_operation', 'confirm_device_operation', 'request_device_confirmation', 'collect_device_result', 'sync_replica', 'file_status'].includes(method)) return JSON.parse(result);
+    if (['status', 'state_snapshot', 'observe_state', 'admission_requests', 'admission_history', 'admission_material_receipt', 'pairing_status', 'resource_configuration', 'path_diagnostics', 'control_state', 'device_operations', 'propose_device_operation', 'confirm_device_operation', 'execute_device_operation', 'request_device_confirmation', 'collect_device_result', 'sync_replica', 'file_status'].includes(method)) return JSON.parse(result);
     return result ?? null;
   }, [op, args]);
 }

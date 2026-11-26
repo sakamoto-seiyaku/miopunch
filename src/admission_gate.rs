@@ -70,6 +70,9 @@ impl Session {
         if !self.connection.is_open() {
             return false;
         }
+        if self.alpn == crate::device_protocol::DEPARTURE_ALPN {
+            return policy.departure_contact_allowed(&self.peer, self.client);
+        }
         if let Some(service) = policy.services.get(self.alpn.as_slice()) {
             if !self.client && service.denied.contains(&self.peer) {
                 return false;
@@ -124,6 +127,15 @@ struct ScopedService {
     denied: HashSet<[u8; 32]>,
 }
 impl Policy {
+    fn departure_contact_allowed(&self, peer: &[u8; 32], client: bool) -> bool {
+        self.secret.is_some()
+            && if client {
+                self.removed.contains(&self.local_id) && self.members.contains(peer)
+            } else {
+                self.members.contains(&self.local_id)
+            }
+    }
+
     fn member_contact_allowed(&self, peer: &[u8; 32]) -> bool {
         self.secret.is_some()
             && self.members.contains(&self.local_id)
@@ -428,15 +440,15 @@ impl AdmissionGate {
                 .expect("authorization epoch exhausted");
         }
         state.policy.members = members;
-        // Close every existing session affected by a newly effective removal,
-        // including restricted requests. Fresh requests remain possible, but
-        // can only obtain a separately approved, currently valid grant.
+        // The one-way departure receiver still owes its receipt after applying
+        // the sender's removal. Other sessions lose access immediately.
         let newly_removed: HashSet<_> =
             removed.difference(&state.policy.removed).copied().collect();
         let local_removed = newly_removed.contains(&state.policy.local_id);
-        state
-            .sessions
-            .retain(|_, session| !local_removed && !newly_removed.contains(&session.peer));
+        state.sessions.retain(|_, session| {
+            !local_removed && (!newly_removed.contains(&session.peer)
+                || !session.client && session.alpn == crate::device_protocol::DEPARTURE_ALPN)
+        });
         state.policy.removed = removed;
         let policy = state.policy.clone();
         state.sessions.retain(|_, session| session.valid(&policy));
@@ -786,6 +798,11 @@ impl AdmissionGate {
         };
 
         if protocol != ProtocolScope::AdmissionRequest && policy.removed.contains(&peer) {
+            return Err(ErrorKind::PermissionDenied);
+        }
+        if connection.alpn() == crate::device_protocol::DEPARTURE_ALPN
+            && !policy.departure_contact_allowed(&peer, connection.side().is_client())
+        {
             return Err(ErrorKind::PermissionDenied);
         }
         // An unregistered custom carrier cannot start a member protocol.

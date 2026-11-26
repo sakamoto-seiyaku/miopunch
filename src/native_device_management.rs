@@ -8,21 +8,23 @@ use serde_json::{Value, json};
 use tokio::sync::Mutex;
 
 use crate::{
-    control_protocol::AuthenticatedControl,
+    control_protocol::{AuthenticatedControl, ControlOwner},
     data_stream::DataStream,
     device_operation::{
         DEVICE_ALPN, DEVICE_RESULT_ALPN, DeviceAction, DeviceApproval, DeviceOperation,
         OperationJournal,
     },
     device_protocol::{
-        DeviceReply, DeviceRequest, ResultReply, ResultRequest, read_message, write_exchange,
+        DEPARTURE_ALPN, DepartureDelivery, DeviceReply, DeviceRequest, ResultReply, ResultRequest,
+        read_message, write_exchange,
     },
     native_client::{ClientError, NativeClient},
     native_file_transfer::NativeFiles,
     native_network::NativeNetwork,
     native_services::NativeServices,
     recovery_card::RecoveryCard,
-    service_protocol::ServiceBundle,
+    resources::{ContactClass, ResourceEndpoint},
+    service_protocol::{ServiceBundle, next_member_sync_peer, read_guest, write_guest},
 };
 
 const JOURNAL: &str = "device.operations";
@@ -65,22 +67,11 @@ fn save(node: &NativeNetwork, journal: &OperationJournal) -> Result<(), ClientEr
     node.store.changes.publish();
     Ok(())
 }
-fn view(
-    entry: &crate::device_operation::OperationEntry,
-    auth: &crate::management_auth::ManagementAuth,
-) -> Value {
-    json!({"operation": entry.operation, "impact": entry.operation.impact(),
-        "requires_genesis": entry.operation.requires_genesis(),
-        "stage": if entry.approval.is_some() {"confirmed"} else {"awaiting_confirmation"},
-        "record": entry.approval.as_ref().map(DeviceApproval::record_id),
-        "effective_locally": entry.approval.as_ref().is_some_and(|a| a.effect_current(auth)),
-        "scope":"local verified state; other nodes apply after receipt"})
-}
-
 pub(crate) fn operation_state(node: &NativeNetwork) -> Result<Value, ClientError> {
     let auth = node.store.authorization();
+    let local = node.node_key.verifying_key();
     Ok(
-        json!({"operations":load(node)?.entries.iter().map(|entry| view(entry, auth)).collect::<Vec<_>>(),
+        json!({"operations":load(node)?.entries.iter().map(|entry| entry.view(local, auth)).collect::<Vec<_>>(),
         "holds_genesis":node.directory.join("genesis.credential").exists()}),
     )
 }
@@ -111,7 +102,9 @@ impl NativeClient {
         let mut journal = load(&node)?;
         journal.retain(operation.clone())?;
         save(&node, &journal)?;
-        Ok(view(journal.get(operation.id)?, &auth))
+        Ok(journal
+            .get(operation.id)?
+            .view(node.node_key.verifying_key(), &auth))
     }
 
     pub async fn device_operations(&self) -> Result<Value, ClientError> {
@@ -166,7 +159,9 @@ impl NativeClient {
         journal.approve(approval.clone(), receipt_history(&node, &approval).await?)?;
         save(&node, &journal)?;
         install(&mut node, &services, &self.files, &approval).await?;
-        Ok(view(journal.get(id)?, &services.access(&node).await?.auth))
+        Ok(journal
+            .get(id)?
+            .view(node.node_key.verifying_key(), node.store.authorization()))
     }
 
     /// Daily administrator removal or explicitly confirmed ordinary departure.
@@ -192,7 +187,9 @@ impl NativeClient {
         journal.approve(approval.clone(), receipt_history(&node, &approval).await?)?;
         save(&node, &journal)?;
         install(&mut node, &services, &self.files, &approval).await?;
-        Ok(view(journal.get(id)?, &services.access(&node).await?.auth))
+        Ok(journal
+            .get(id)?
+            .view(node.node_key.verifying_key(), node.store.authorization()))
     }
 
     /// Send/resume this one operation at a known custodian. It returns pending
@@ -237,7 +234,11 @@ impl NativeClient {
                 install(&mut node, &services, &self.files, &approval).await?;
             }
             stream.finish()?;
-            Ok::<_, ClientError>(view(journal.get(id)?, &services.access(&node).await?.auth))
+            Ok::<_, ClientError>(
+                journal
+                    .get(id)?
+                    .view(node.node_key.verifying_key(), node.store.authorization()),
+            )
         })
         .await;
         connection.close(0u32.into(), b"device confirmation exchange ended");
@@ -284,7 +285,11 @@ impl NativeClient {
             } else if !reply.history.management.is_empty() || !reply.history.services.is_empty() {
                 return Err("pending result must not disclose history".into());
             }
-            Ok::<_, ClientError>(view(journal.get(id)?, &services.access(&node).await?.auth))
+            Ok::<_, ClientError>(
+                journal
+                    .get(id)?
+                    .view(node.node_key.verifying_key(), node.store.authorization()),
+            )
         })
         .await;
         connection.close(0u32.into(), b"device result exchange ended");
@@ -389,4 +394,127 @@ pub(crate) fn validate_saved_operations(
     debug_assert_eq!(directory, node.directory);
     load(node)?;
     Ok(())
+}
+
+pub(crate) async fn recover_saved_departure(node: &mut NativeNetwork) -> Result<(), ClientError> {
+    let journal = load(node)?;
+    let local = node.node_key.verifying_key();
+    // The journal is saved before management application. Finish an
+    // interrupted local commit before opening an endpoint or reporting state.
+    let pending = journal.entries.into_iter().rev().find(|entry| {
+        let auth = node.store.authorization();
+        entry.is_local_leave(local)
+            && entry
+                .approval
+                .as_ref()
+                .is_some_and(|approval| !auth.contains_operation(approval.record_id()))
+            && entry.operation.check_current(node.anchor, auth).is_ok()
+    });
+    if let Some(entry) = pending {
+        node.store.apply_batch(&entry.receipt_history).await?;
+        node.refresh_authorization();
+    }
+    Ok(())
+}
+
+pub(crate) async fn deliver_departure(
+    node: &Mutex<NativeNetwork>,
+    resources: &ResourceEndpoint,
+    last: &mut Option<iroh::EndpointId>,
+) -> Result<(), ClientError> {
+    let (delivery, target) = {
+        let node = node.lock().await;
+        let local = node.node_key.verifying_key();
+        if !node.store.known_removed(local) {
+            return Ok(());
+        }
+        let journal = load(&node)?;
+        let auth = node.store.authorization();
+        let Some(entry) = journal.pending_departure(local, auth) else {
+            return Ok(());
+        };
+        let peers = auth
+            .nodes()
+            .into_iter()
+            .filter_map(|(id, _)| iroh::EndpointId::from_bytes(id.as_bytes()).ok())
+            .filter(|peer| resources.contact_ready(*peer, ContactClass::Background));
+        let Some(target) = next_member_sync_peer(peers, *last) else {
+            return Ok(());
+        };
+        *last = Some(target);
+        (DepartureDelivery::new(entry)?, target)
+    };
+    let deadline = resources.contact_deadline();
+    let (connection, attempt) = resources
+        .connect_control_attempt(
+            EndpointAddr::new(target),
+            DEPARTURE_ALPN,
+            ContactClass::Background,
+        )
+        .await?;
+    let receipt = tokio::time::timeout_at(deadline.into(), delivery.send(&connection)).await;
+    connection.close(0u32.into(), b"departure delivery ended");
+    let record = match receipt {
+        Ok(Ok(record)) => record,
+        Ok(Err(error)) => return Err(attempt.failed(error.to_string()).into()),
+        Err(error) => return Err(attempt.failed(error.to_string()).into()),
+    };
+    let node = node.lock().await;
+    let mut journal = load(&node)?;
+    journal.confirm_departure_delivery(
+        node.node_key.verifying_key(),
+        delivery.approval.operation.id,
+        record,
+        VerifyingKey::from_bytes(target.as_bytes())?,
+    )?;
+    save(&node, &journal)?;
+    attempt.succeeded();
+    Ok(())
+}
+
+pub(crate) async fn serve_departure(
+    connection: ControlOwner,
+    node: &Mutex<NativeNetwork>,
+    services: &Mutex<NativeServices>,
+    files: &Arc<NativeFiles>,
+    deadline: tokio::time::Instant,
+) -> Result<(), ClientError> {
+    let result = async {
+        let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())?;
+        let (exchange, delivery) = tokio::time::timeout_at(deadline, async {
+            let exchange = connection.accept_control_exchange().await?;
+            let delivery: DepartureDelivery = read_guest(&exchange).await?;
+            Ok::<_, ClientError>((exchange, delivery))
+        })
+        .await??;
+        {
+            let mut node = node.lock().await;
+            if node.secret.is_none() {
+                return Err("completed local admission is required for departure delivery".into());
+            }
+            if let Some(records) = delivery.verify(
+                node.anchor,
+                node.store.authorization(),
+                node.node_key.verifying_key(),
+                peer,
+            )? {
+                node.store.apply_batch(&records).await?;
+                node.refresh_authorization();
+                let services = services.lock().await;
+                services.publish_access(files, services.access(&node).await?);
+                if !delivery.approval.effect_current(node.store.authorization()) {
+                    return Err("departure decision did not apply".into());
+                }
+            }
+        }
+        tokio::time::timeout_at(deadline, async {
+            write_guest(&exchange, &delivery.approval.record_id()).await?;
+            connection.revocation_handle().closed().await;
+            Ok::<_, ClientError>(())
+        })
+        .await?
+    }
+    .await;
+    connection.close(0u32.into(), b"departure delivery ended");
+    result
 }

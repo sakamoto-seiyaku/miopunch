@@ -7,23 +7,12 @@ use crate::{
         DEVICE_ALPN, DEVICE_RESULT_ALPN, DeviceAction, DeviceApproval, DeviceOperation,
     },
     device_protocol::{
-        DeviceReply, DeviceRequest, ResultReply, ResultRequest, read_message, write_exchange,
+        DepartureDelivery, DeviceReply, DeviceRequest, ResultReply, ResultRequest, read_message,
+        write_exchange,
     },
     recovery_card::RecoveryCard,
     service_protocol::{ServiceBundle, read_guest, write_guest},
 };
-
-fn view(
-    entry: &crate::device_operation::OperationEntry,
-    auth: &ManagementAuth,
-) -> serde_json::Value {
-    serde_json::json!({"operation":entry.operation,"impact":entry.operation.impact(),
-        "requires_genesis":entry.operation.requires_genesis(),
-        "stage":if entry.approval.is_some() {"confirmed"} else {"awaiting_confirmation"},
-        "record":entry.approval.as_ref().map(DeviceApproval::record_id),
-        "effective_locally":entry.approval.as_ref().is_some_and(|a| a.effect_current(auth)),
-        "scope":"local verified state; other nodes apply after receipt"})
-}
 
 impl SavedNode {
     fn approved_operation(
@@ -164,7 +153,12 @@ impl BrowserNetwork {
             .map_err(error)?;
             let id = operation.id;
             saved.operations.retain(operation).map_err(error)?;
-            Ok(view(saved.operations.get(id).map_err(error)?, &auth).to_string())
+            Ok(saved
+                .operations
+                .get(id)
+                .map_err(error)?
+                .view(saved.identity(), &auth)
+                .to_string())
         })
         .await
     }
@@ -321,13 +315,66 @@ impl BrowserNetwork {
 impl SavedNode {
     fn operation_view(&self, id: Hash) -> Result<String, JsValue> {
         let auth = self.verify()?.ok_or_else(rejected)?;
-        Ok(view(self.operations.get(id).map_err(error)?, &auth).to_string())
+        Ok(self
+            .operations
+            .get(id)
+            .map_err(error)?
+            .view(self.identity(), &auth)
+            .to_string())
     }
 
     pub(super) fn operation_state(&self, auth: &ManagementAuth) -> serde_json::Value {
-        serde_json::json!({"operations":self.operations.entries.iter().map(|e| view(e,auth)).collect::<Vec<_>>(),
+        serde_json::json!({"operations":self.operations.entries.iter().map(|e| e.view(self.identity(), auth)).collect::<Vec<_>>(),
             "holds_genesis":self.creator_seed.is_some()})
     }
+}
+
+pub(super) async fn serve_departure(
+    connection: &ControlOwner,
+    gate: &BrowserGate,
+    files: &std::rc::Rc<files::BrowserFiles>,
+    deadline: n0_future::time::Instant,
+) -> Result<(), JsValue> {
+    use n0_future::time::{Instant, timeout};
+    let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes()).map_err(error)?;
+    let (exchange, delivery) = timeout(deadline.saturating_duration_since(Instant::now()), async {
+        let exchange = connection.accept_control_exchange().await.map_err(error)?;
+        let delivery: DepartureDelivery = read_guest(&exchange).await.map_err(error)?;
+        Ok::<_, JsValue>((exchange, delivery))
+    })
+    .await
+    .map_err(error)??;
+    services::update_saved(gate, |saved| {
+        if saved.stage() != "Complete" {
+            return Err(rejected());
+        }
+        let auth = saved.verify()?.ok_or_else(rejected)?;
+        if let Some(management) = delivery
+            .verify(saved.invitation()?.anchor, &auth, saved.identity(), peer)
+            .map_err(error)?
+        {
+            let (next, policy_error) = saved.with_service_bundle(&ServiceBundle {
+                management,
+                services: Vec::new(),
+            })?;
+            if let Some(policy_error) = policy_error {
+                return Err(error(policy_error));
+            }
+            *saved = next;
+        }
+        Ok(())
+    })
+    .await?;
+    files.enforce_access();
+    timeout(deadline.saturating_duration_since(Instant::now()), async {
+        write_guest(&exchange, &delivery.approval.record_id())
+            .await
+            .map_err(error)?;
+        connection.revocation_handle().closed().await;
+        Ok::<_, JsValue>(())
+    })
+    .await
+    .map_err(error)?
 }
 
 pub(super) async fn serve_device(

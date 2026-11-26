@@ -21,6 +21,7 @@ use wasm_bindgen::prelude::*;
 use crate::admission_progress::{AdmissionAttempt, AdmissionReceipt, ApplicationProgress};
 use crate::admission_proof::{AdmissionScope, AdmissionSecret, BootstrapProof};
 use crate::connection_coordinator::ADMISSION_RECEIPT_ALPN;
+use crate::device_protocol::DEPARTURE_ALPN;
 use crate::device_name::{DeviceNames, with_display_name};
 use crate::management_auth::{ManagementAuth, NetworkAnchor};
 
@@ -397,7 +398,9 @@ impl BrowserControlSession {
         if !self.connection.is_open() {
             return false;
         }
-        if self.alpn == crate::service_policy::GUEST_ALPN && !self.client {
+        if matches!(self.alpn.as_slice(), crate::service_policy::GUEST_ALPN | DEPARTURE_ALPN)
+            && !self.client
+        {
             return saved.stage() == "Complete";
         }
         if is_request_alpn(&self.alpn) && !self.client {
@@ -711,6 +714,11 @@ impl BrowserGate {
         }
         if alpn == crate::device_operation::DEVICE_RESULT_ALPN {
             return true;
+        }
+        if alpn == DEPARTURE_ALPN {
+            return saved.stage() == "Removed" && saved.verify().ok().flatten().is_some_and(|auth| {
+                auth.nodes().iter().any(|(id, _)| id.as_bytes() == target.as_bytes())
+            });
         }
         if alpn == device_recovery::RECOVERY_ALPN {
             return saved.recovery.as_ref().is_some_and(|r| r.contact == target)
@@ -1550,7 +1558,7 @@ impl BrowserGate {
         let saved = self.0.lock().unwrap().saved.clone();
 
         let Some(saved) = saved.filter(|saved| {
-            let permits = if connection.alpn() == crate::service_policy::GUEST_ALPN
+            let permits = if matches!(connection.alpn(), crate::service_policy::GUEST_ALPN | DEPARTURE_ALPN)
                 && !connection.side().is_client()
             {
                 saved.stage() == "Complete"
@@ -1586,6 +1594,7 @@ impl BrowserGate {
         let proof = if !is_request_alpn(connection.alpn())
             && connection.alpn() != crate::service_policy::GUEST_ALPN
             && connection.alpn() != crate::device_operation::DEVICE_RESULT_ALPN
+            && connection.alpn() != DEPARTURE_ALPN
             && connection.alpn() != device_recovery::RECOVERY_ALPN
             && !(saved.guest_pair(connection.remote_id(), connection.alpn()))
         {
@@ -1799,6 +1808,7 @@ impl iroh::endpoint::EndpointAdmission for BrowserGate {
                     && (is_request_alpn(connection.alpn())
                         || connection.alpn() == crate::service_policy::GUEST_ALPN
                         || connection.alpn() == crate::device_operation::DEVICE_RESULT_ALPN
+                        || connection.alpn() == DEPARTURE_ALPN
                         || connection.alpn() == device_recovery::RECOVERY_ALPN
                         || Self::proved_member_current(&state, saved, connection))
             })
@@ -2549,6 +2559,7 @@ impl BrowserNetwork {
                     crate::service_policy::GUEST_ALPN.to_vec(),
                     crate::device_operation::DEVICE_ALPN.to_vec(),
                     crate::device_operation::DEVICE_RESULT_ALPN.to_vec(),
+                    DEPARTURE_ALPN.to_vec(),
                     crate::credential_custody::CUSTODY_ALPN.to_vec(),
                     device_recovery::RECOVERY_ALPN.to_vec(),
                     crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN.to_vec(),

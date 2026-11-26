@@ -56,6 +56,8 @@ pub enum StoreError {
     PrecodeStopped,
     #[error("durable management state is inconsistent: {0}")]
     Corrupt(&'static str),
+    #[error("management history exceeds the supported record limit")]
+    HistoryLimit,
     #[error("simulated process interruption")]
     Interrupted,
 }
@@ -745,26 +747,111 @@ impl ManagementStore {
         let header = decode_complete(record.header(), record.body(), self.anchor)?;
         let id = header.hash();
         let mut tx = self.pool.begin().await?;
-        let inserted = sqlx::query(
-            "INSERT OR IGNORE INTO management_records (id, header, body) VALUES (?, ?, ?)",
-        )
-        .bind(id.as_bytes().as_slice())
-        .bind(record.header())
-        .bind(record.body())
-        .execute(&mut *tx)
-        .await?;
+        let inserted = Self::insert_record(&mut tx, id, record.header(), record.body()).await?;
         #[cfg(feature = "replica-test-hooks")]
-        if inserted.rows_affected() != 0 {
+        if inserted {
             self.observe(RecordCheckpoint::BeforeStorageCommit);
         }
         tx.commit().await?;
         #[cfg(feature = "replica-test-hooks")]
-        if inserted.rows_affected() != 0 {
+        if inserted {
             self.observe(RecordCheckpoint::AfterStorageCommit);
         }
         #[cfg(not(feature = "replica-test-hooks"))]
         let _ = inserted;
         Ok(id)
+    }
+
+    /// Apply complete ordered history as one durable view update. A
+    /// departure's prerequisites cannot make a grant visible on their own.
+    pub(crate) async fn apply_batch(
+        &mut self,
+        records: &crate::service_protocol::ManagementRecords,
+    ) -> Result<(), StoreError> {
+        let mut next = self.auth.clone();
+        let mut additions = Vec::new();
+        for (header, body) in records {
+            if !next.contains_operation(Hash::digest(header)) {
+                let id = next.accept_record(header, body.as_deref())?;
+                additions.push((id, header, body));
+            }
+        }
+        if additions.is_empty() {
+            return Ok(());
+        }
+        if next.headers().len() > crate::service_policy::MAX_RECORDS {
+            return Err(StoreError::HistoryLimit);
+        }
+        let mut tx = self.pool.begin().await?;
+        let mut next_count = self.applied_count;
+        for (id, header, body) in additions {
+            Self::insert_record(&mut tx, id, header, body.as_deref()).await?;
+            next_count += 1;
+            Self::mark_record_applied(&mut tx, id.as_bytes(), next_count).await?;
+        }
+        self.save_view(&mut tx, next_count, &next).await?;
+        tx.commit().await?;
+        self.auth = next;
+        self.applied_count = next_count;
+        self.changes.publish();
+        Ok(())
+    }
+
+    async fn insert_record(
+        connection: &mut sqlx::SqliteConnection,
+        id: Hash,
+        header: &[u8],
+        body: Option<&[u8]>,
+    ) -> Result<bool, StoreError> {
+        let inserted = sqlx::query(
+            "INSERT OR IGNORE INTO management_records (id, header, body) VALUES (?, ?, ?)",
+        )
+        .bind(id.as_bytes().as_slice())
+        .bind(header)
+        .bind(body)
+        .execute(connection)
+        .await?;
+        Ok(inserted.rows_affected() != 0)
+    }
+
+    async fn mark_record_applied(
+        connection: &mut sqlx::SqliteConnection,
+        id: &[u8],
+        order: i64,
+    ) -> Result<(), StoreError> {
+        let updated = sqlx::query(
+            "UPDATE management_records SET applied_order = ?
+             WHERE id = ? AND applied_order IS NULL AND rejected_reason IS NULL",
+        )
+        .bind(order)
+        .bind(id)
+        .execute(connection)
+        .await?;
+        if updated.rows_affected() != 1 {
+            return Err(StoreError::Corrupt("record changed while applying"));
+        }
+        Ok(())
+    }
+
+    async fn save_view(
+        &self,
+        connection: &mut sqlx::SqliteConnection,
+        count: i64,
+        auth: &ManagementAuth,
+    ) -> Result<(), StoreError> {
+        let updated = sqlx::query(
+            "UPDATE management_view SET applied_count = ?, state = ?
+             WHERE singleton = 1 AND applied_count = ?",
+        )
+        .bind(count)
+        .bind(auth.state_bytes()?)
+        .bind(self.applied_count)
+        .execute(connection)
+        .await?;
+        if updated.rows_affected() != 1 {
+            return Err(StoreError::Corrupt("view changed while applying"));
+        }
+        Ok(())
     }
 
     /// Apply every ready record. A dependency or same-log predecessor can arrive later.
@@ -840,31 +927,9 @@ impl ManagementStore {
                 continue;
             }
             let next_count = self.applied_count + 1;
-            let state = next.state_bytes()?;
             let mut tx = self.pool.begin().await?;
-            let updated = sqlx::query(
-                "UPDATE management_records SET applied_order = ?
-                 WHERE id = ? AND applied_order IS NULL",
-            )
-            .bind(next_count)
-            .bind(&id)
-            .execute(&mut *tx)
-            .await?;
-            if updated.rows_affected() != 1 {
-                return Err(StoreError::Corrupt("record changed while applying"));
-            }
-            let updated = sqlx::query(
-                "UPDATE management_view SET applied_count = ?, state = ?
-                 WHERE singleton = 1 AND applied_count = ?",
-            )
-            .bind(next_count)
-            .bind(state)
-            .bind(self.applied_count)
-            .execute(&mut *tx)
-            .await?;
-            if updated.rows_affected() != 1 {
-                return Err(StoreError::Corrupt("view changed while applying"));
-            }
+            Self::mark_record_applied(&mut tx, &id, next_count).await?;
+            self.save_view(&mut tx, next_count, &next).await?;
             if interrupted(Checkpoint::BeforeGroupsCommit) {
                 return Err(StoreError::Interrupted);
             }

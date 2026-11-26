@@ -113,7 +113,7 @@ class BrowserControl:
 
 class BrowserOnboardingRunner(OnboardingRunner):
     def native_configuration(self, remote):
-        if self.args.suite not in ["progress", "observation", "receipts", "device-names", "member-management"]:
+        if self.args.suite not in ["progress", "observation", "receipts", "device-names", "member-management", "departure"]:
             return super().native_configuration(remote)
         config = dict(defaults=dict(revision=2, resources=[]),
                       replacement=[dict(url=self.args.relay, uses=["DataRelay"], limitation="onboarding test relay")],
@@ -126,25 +126,204 @@ class BrowserOnboardingRunner(OnboardingRunner):
     def progress_configuration(self):
         return dict(CONFIGURATION, relays=[self.args.relay], maintenance=dict(contact_timeout_ms=10000))
 
+    def actor_call(self, actor, wasm, native, *args, ok=True, **fields):
+        if isinstance(actor, str):
+            return self.browser.call(actor, wasm, *args, ok=ok)
+        return actor.call(native, ok=ok, **fields)
+
+    def actor_identity(self, actor):
+        return self.browser.call(actor, "id") if isinstance(actor, str) else actor.node
+
+    def actor_snapshot(self, actor):
+        return self.actor_call(actor, "state_snapshot", "state_snapshot")
+
+    def close_actor(self, actor):
+        if isinstance(actor, str):
+            assert self.browser.call(actor, "close_page")
+        else:
+            actor.stop()
+
+    def reopen_actor(self, actor):
+        if isinstance(actor, str):
+            assert self.browser.call(actor, "reopen_page")
+            self.browser.call(actor, "start", "start", "{}", None)
+            return actor
+        return Host(self, actor.label + "-reopen", False, "open", actor.directory)
+
     def member_management(self):
         for browser_issuer in (False, True):
             self.management_propagation(browser_issuer)
+
+    def departures(self):
+        browser = self.browser
+        config = self.progress_configuration()
+
+        call, identity, snapshot = self.actor_call, self.actor_identity, self.actor_snapshot
+        close, reopen = self.close_actor, self.reopen_actor
+
+        def members(actor):
+            return {row["node"]: row["role"] for row in snapshot(actor)["status"]["members"]}
+
+        def wait_for(read, predicate):
+            deadline = time.monotonic() + 60
+            while True:
+                current = read()
+                if predicate(current):
+                    return current
+                assert time.monotonic() < deadline, current
+                time.sleep(0.5)
+
+        def admit(creator, name, wasm):
+            invite = (browser.call(creator, "invitation") if isinstance(creator, str)
+                      else self.native_invitation(creator, name + "-invite"))
+            if wasm:
+                browser.start(name, "join", invite, config)
+                actor = name
+            else:
+                path = self.write_private(name + "-join", invite.encode(), False)
+                actor = self.start(name, False, "join", path)
+            stage = lambda: (browser.call(actor, "request_join", False)
+                             if wasm else actor.call("request")["stage"])
+            assert stage() == "AwaitingApproval"
+            node = identity(actor)
+            entry = next(row for row in snapshot(creator)["pending_admissions"] if row["applicant"] == node)
+            call(creator, "approve_admission", "approve", node, entry["request_id"],
+                 applicant=node, request_id=entry["request_id"])
+            assert stage() == "Complete"
+            return actor
+
+        for browser_leaves in (True, False):
+            prefix = "departure-browser" if browser_leaves else "departure-native"
+            creator = self.creator(False, prefix)
+            leaving = admit(creator, prefix + "-leaving", browser_leaves)
+            holder = admit(creator, prefix + "-holder", not browser_leaves)
+            late = admit(creator, prefix + "-late", False)
+            leaving_id, holder_id, late_id = map(identity, (leaving, holder, late))
+            wait_for(lambda: members(leaving), lambda state: holder_id in state and late_id in state)
+            wait_for(lambda: members(holder), lambda state: leaving_id in state and late_id in state)
+            wait_for(lambda: members(late), lambda state: leaving_id in state and holder_id in state)
+            holder_address = dict(id=holder_id, addrs=[{"Relay": self.args.relay}])
+            call(leaving, "sync_services", "service_sync", holder_id, address=holder_address)
+            close(late)
+            close(holder)
+            if browser_leaves:
+                # Only A can obtain this predecessor before it leaves. The
+                # first Native recipient and late Native peer start without it.
+                proposed = creator.call("genesis_propose", action="appoint-administrator", target=late_id)
+                assert creator.call("genesis_confirm", operation=proposed["operation"]["id"])["effective_locally"]
+                wait_for(lambda: members(leaving), lambda state: state.get(late_id) == "admin")
+            close(creator)
+
+            proposed = call(leaving, "propose_device_operation", "genesis_propose", "leave", leaving_id,
+                            action="leave", target=leaving_id)
+            assert not proposed["requires_genesis"] and not proposed["effective_locally"]
+            operation = proposed["operation"]["id"]
+            applied = call(leaving, "execute_device_operation", "device_execute", operation, operation=operation)
+            assert applied["effective_locally"] and applied["record"]
+            assert applied["first_delivery"] == {"stage": "pending"}
+            record = applied["record"]
+
+            def departure():
+                state = snapshot(leaving)
+                assert leaving_id not in {row["node"] for row in state["status"]["members"]}
+                assert state["status"]["stage"] == "Removed"
+                entry = next(row for row in state["device_operations"]["operations"] if row["operation"]["id"] == operation)
+                assert entry["record"] == record and entry["effective_locally"]
+                return entry["first_delivery"]
+
+            assert departure() == {"stage": "pending"}
+            close(leaving)
+            leaving = reopen(leaving)
+            assert identity(leaving) == leaving_id and departure() == {"stage": "pending"}
+
+            if not browser_leaves:
+                # The receiver has the upload, but its real IndexedDB
+                # transaction is still outstanding. Disconnect before it
+                # sends the receipt, then require a duplicate to confirm it.
+                close(leaving)
+                holder = reopen(holder)
+                assert browser.call(holder, "hold_admission_commit")
+                leaving = reopen(leaving)
+                assert browser.call(holder, "wait_admission_commit", 45000)
+                assert departure() == {"stage": "pending"}
+                close(leaving)
+                assert browser.call(holder, "release_admission_commit")
+                wait_for(lambda: members(holder), lambda state: leaving_id not in state)
+                close(holder)
+                leaving = reopen(leaving)
+                assert departure() == {"stage": "pending"}
+                holder = reopen(holder)
+            else:
+                holder = reopen(holder)
+            assert wait_for(departure, lambda delivery: delivery["stage"] == "confirmed") == {
+                "stage": "confirmed", "recipient": holder_id,
+            }
+            assert leaving_id not in members(holder)
+            if browser_leaves:
+                assert members(holder)[late_id] == "admin"
+            call(leaving, "sync_services", "service_sync", holder_id, ok=False, address=holder_address)
+            close(leaving)
+            close(holder)
+            leaving = reopen(leaving)
+            assert departure() == {"stage": "confirmed", "recipient": holder_id}
+            close(leaving)
+            holder = reopen(holder)
+            assert identity(holder) == holder_id and leaving_id not in members(holder)
+            late = reopen(late)
+            assert identity(late) == late_id
+            wait_for(lambda: members(late), lambda state: leaving_id not in state)
+            close(late)
+            late = reopen(late)
+            assert leaving_id not in members(late) and members(late)[holder_id] == "member"
+            if browser_leaves:
+                assert members(late)[late_id] == "admin"
+            close(holder)
+            close(late)
+            self.record(prefix, "departure_delivery", dict(localExit=True, pendingAfterReopen=True,
+                sameRecordConfirmed=True, memberConnectionDenied=True, holderReopened=True,
+                lostReceiptRetried=not browser_leaves, confirmationDurable=True,
+                departingNodeOffline=True, lateMemberReopened=True))
+
+        administrator = "departure-administrator"
+        browser.start(administrator, "create", configuration=config)
+        browser.call(administrator, "export_recovery_card")
+        browser.call(administrator, "acknowledge_recovery_saved")
+        peer = admit(administrator, administrator + "-peer", True)
+        administrator_id, peer_id = map(identity, (administrator, peer))
+        accepted = browser.send(peer, "member_accept", 10000)
+        browser.call(administrator, "member_connect", peer_id)
+        browser.wait(accepted)
+        reading = browser.send(peer, "data_accept")
+        browser.call(administrator, "data_open")
+        browser.call(administrator, "data_write", 1, 7)
+        browser.wait(reading)
+        assert browser.call(peer, "data_read", 7) == dict(length=1, matches=True)
+        proposed = browser.call(administrator, "propose_device_operation", "leave", administrator_id)
+        assert proposed["requires_genesis"] and not proposed["effective_locally"]
+        operation = proposed["operation"]["id"]
+        browser.call(administrator, "execute_device_operation", operation, ok=False)
+        assert snapshot(administrator)["status"]["stage"] == "Complete"
+        approved = browser.call(administrator, "confirm_device_operation", operation)
+        assert approved["effective_locally"] and approved["first_delivery"] == {"stage": "pending"}
+        assert browser.call(administrator, "member_call", "is_closed", [])
+        browser.call(administrator, "member_connect", peer_id, ok=False)
+        wait_for(lambda: members(peer), lambda state: administrator_id not in state)
+        assert wait_for(
+            lambda: snapshot(administrator)["device_operations"]["operations"][0]["first_delivery"],
+            lambda delivery: delivery["stage"] == "confirmed",
+        ) == {"stage": "confirmed", "recipient": peer_id}
+        close(administrator)
+        close(peer)
+        self.record("departure-administrator", "genesis_departure", dict(
+            requiresPerActionGenesis=True, activeMemberSessionClosed=True, newMemberConnectionDenied=True))
 
     def management_propagation(self, browser_issuer):
         browser = self.browser
         prefix = "management-" + ("browser-issuer" if browser_issuer else "native-issuer")
         config = self.progress_configuration()
 
-        def call(actor, wasm, native, *args, ok=True, **fields):
-            if isinstance(actor, str):
-                return browser.call(actor, wasm, *args, ok=ok)
-            return actor.call(native, ok=ok, **fields)
-
-        def identity(actor):
-            return browser.call(actor, "id") if isinstance(actor, str) else actor.node
-
-        def snapshot(actor):
-            return call(actor, "state_snapshot", "state_snapshot")
+        call, identity, snapshot = self.actor_call, self.actor_identity, self.actor_snapshot
+        close, reopen = self.close_actor, self.reopen_actor
 
         def roles(actor):
             return {entry["node"]: entry["role"] for entry in snapshot(actor)["status"]["members"]}
@@ -187,19 +366,6 @@ class BrowserOnboardingRunner(OnboardingRunner):
             approve(provider, entry)
             assert request_stage(actor) == "Complete"
             return actor
-
-        def close(actor):
-            if isinstance(actor, str):
-                assert browser.call(actor, "close_page")
-            else:
-                actor.stop()
-
-        def reopen(actor):
-            if isinstance(actor, str):
-                assert browser.call(actor, "reopen_page")
-                browser.call(actor, "start", "start", "{}", None)
-                return actor
-            return Host(self, actor.label + "-reopen", False, "open", actor.directory)
 
         def signed(action, target):
             proposed = call(issuer, "propose_device_operation", "genesis_propose", action, target,
@@ -1399,6 +1565,8 @@ class BrowserOnboardingRunner(OnboardingRunner):
                 self.device_names()
             elif self.args.suite == "member-management":
                 self.member_management()
+            elif self.args.suite == "departure":
+                self.departures()
             else:
                 creator = self.creator(False, "native-provider")
                 if self.args.suite in ["all", "core"]:
@@ -1433,7 +1601,7 @@ def main():
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--build-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts", "device-names", "member-management"], default="all")
+    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts", "device-names", "member-management", "departure"], default="all")
     parser.add_argument("--relay", default=RELAY, help="explicit relay for the progress, observation and receipt suites")
     parser.add_argument("--chromium", type=Path, default=Path("/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome"))
     args = parser.parse_args()

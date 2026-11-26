@@ -172,6 +172,7 @@ impl NativeClient {
         Self::start(NativeNetwork::open(path).await?, bind).await
     }
     pub(crate) async fn start(mut node: NativeNetwork, bind: Ipv4Addr) -> Result<Self, ClientError> {
+        crate::native_device_management::recover_saved_departure(&mut node).await?;
         if node.device_names.name(node.node_key.verifying_key()).is_none()
             && let Some(name) = host_device_name()
         {
@@ -216,6 +217,10 @@ impl NativeClient {
             ProtocolScope::AdmissionRequest,
         );
         node.admission_gate().register_protocol(
+            crate::device_protocol::DEPARTURE_ALPN,
+            ProtocolScope::AdmissionRequest,
+        );
+        node.admission_gate().register_protocol(
             crate::service_policy::GUEST_ALPN,
             ProtocolScope::AdmissionRequest,
         );
@@ -249,13 +254,13 @@ impl NativeClient {
             crate::device_operation::DEVICE_ALPN.to_vec(),
             crate::credential_custody::CUSTODY_ALPN.to_vec(),
             crate::device_operation::DEVICE_RESULT_ALPN.to_vec(),
+            crate::device_protocol::DEPARTURE_ALPN.to_vec(),
             crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
             crate::service_policy::GUEST_ALPN.to_vec(),
         ]);
         let files = Arc::new(crate::native_file_transfer::NativeFiles::new(
             node.admission_gate().clone(),
         ));
-        crate::native_device_management::validate_saved_operations(&node.directory, &node)?;
         crate::native_custody::validate(&node)?;
         let mut services = crate::native_services::NativeServices::load(&node).await?;
         services.declare_files(&node, &files, false).await?;
@@ -477,6 +482,15 @@ impl NativeClient {
                                         let connection = Arc::new(accepting.into_control().await?);
                                         crate::native_device_management::serve_result(connection.retain_control(), node).await
                                     }).await;
+                                    return;
+                                }
+                                if alpn == crate::device_protocol::DEPARTURE_ALPN {
+                                    if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting.into_control()).await {
+                                        let control = Arc::new(connection).retain_control();
+                                        let _ = crate::native_device_management::serve_departure(
+                                            control, &node, &services, &files, deadline,
+                                        ).await;
+                                    }
                                     return;
                                 }
                                 if alpn == crate::management_recovery::MANAGEMENT_RECOVERY_ALPN {
@@ -1284,9 +1298,14 @@ async fn sync_member_management(
         if !recovery_saved.load(Ordering::Acquire) || !replacement_ready.load(Ordering::Acquire) {
             continue;
         }
-        let peers = gate
-            .member_contact_peers()
-            .into_iter()
+        let peers = gate.member_contact_peers();
+        if peers.is_empty() {
+            let _ = crate::native_device_management::deliver_departure(
+                &members.node, &resources, &mut last,
+            ).await;
+            continue;
+        }
+        let peers = peers.into_iter()
             .filter(|peer| resources.contact_ready(*peer, ContactClass::Background));
         let Some(peer) = next_member_sync_peer(peers, last) else {
             continue;

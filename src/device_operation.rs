@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     management_action::ManagementAction,
     management_auth::{ManagementAuth, ManagementExtension, NetworkAnchor},
+    service_protocol::ManagementRecords,
 };
 
 pub const DEVICE_ALPN: &[u8] = b"miopunch/device-management/1";
@@ -289,9 +290,36 @@ pub struct OperationEntry {
     pub operation: DeviceOperation,
     pub approval: Option<DeviceApproval>,
     #[serde(default)]
-    pub receipt_history: Vec<(Vec<u8>, Option<Vec<u8>>)>,
+    pub receipt_history: ManagementRecords,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    first_delivery_recipient: Option<VerifyingKey>,
 }
 impl OperationEntry {
+    pub(crate) fn is_local_leave(&self, local: VerifyingKey) -> bool {
+        self.operation.description.action == DeviceAction::Leave
+            && self.operation.description.initiator == local
+    }
+
+    pub(crate) fn view(&self, local: VerifyingKey, auth: &ManagementAuth) -> serde_json::Value {
+        use serde_json::json;
+        let mut view = json!({
+            "operation": self.operation,
+            "impact": self.operation.impact(),
+            "requires_genesis": self.operation.requires_genesis(),
+            "stage": if self.approval.is_some() {"confirmed"} else {"awaiting_confirmation"},
+            "record": self.approval.as_ref().map(DeviceApproval::record_id),
+            "effective_locally": self.approval.as_ref().is_some_and(|a| a.effect_current(auth)),
+            "scope": "local verified state; other nodes apply after receipt"
+        });
+        if self.is_local_leave(local) && self.approval.is_some() {
+            view["first_delivery"] = match self.first_delivery_recipient {
+                Some(recipient) => json!({"stage": "confirmed", "recipient": recipient}),
+                None => json!({"stage": "pending"}),
+            };
+        }
+        view
+    }
+
     /// Queries of an existing result are valid for both ordinary and genesis
     /// actions. Only a new genesis decision belongs on the confirm interface.
     pub fn confirmation(&self) -> io::Result<Option<&DeviceApproval>> {
@@ -351,13 +379,14 @@ impl OperationJournal {
             operation,
             approval: None,
             receipt_history: Vec::new(),
+            first_delivery_recipient: None,
         });
         Ok(())
     }
     pub fn approve(
         &mut self,
         approval: DeviceApproval,
-        history: Vec<(Vec<u8>, Option<Vec<u8>>)>,
+        history: ManagementRecords,
     ) -> io::Result<()> {
         let entry = self
             .entries
@@ -380,6 +409,42 @@ impl OperationJournal {
         }
         entry.receipt_history = history;
         entry.approval = Some(approval);
+        Ok(())
+    }
+
+    pub(crate) fn pending_departure(
+        &self,
+        local: VerifyingKey,
+        auth: &ManagementAuth,
+    ) -> Option<&OperationEntry> {
+        self.entries.iter().rev().find(|entry| {
+            entry.is_local_leave(local)
+                && entry.first_delivery_recipient.is_none()
+                && entry
+                    .approval
+                    .as_ref()
+                    .is_some_and(|approval| approval.effect_current(auth))
+        })
+    }
+
+    pub(crate) fn confirm_departure_delivery(
+        &mut self,
+        local: VerifyingKey,
+        operation: Hash,
+        record: Hash,
+        recipient: VerifyingKey,
+    ) -> io::Result<()> {
+        let entry = self
+            .entries
+            .iter_mut()
+            .find(|entry| entry.operation.id == operation)
+            .ok_or_else(rejected)?;
+        if !entry.is_local_leave(local)
+            || entry.approval.as_ref().map(DeviceApproval::record_id) != Some(record)
+        {
+            return Err(rejected());
+        }
+        entry.first_delivery_recipient.get_or_insert(recipient);
         Ok(())
     }
 }
