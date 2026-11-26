@@ -10,7 +10,6 @@ use std::io;
 pub struct BrowserMemberConnection {
     pub(super) connection: Connection,
     pub(super) gate: BrowserGate,
-    lease: u32,
     #[cfg(feature = "rtc-probe")]
     pub(super) rtc_active: Arc<std::sync::atomic::AtomicBool>,
     #[cfg(feature = "rtc-probe")]
@@ -27,37 +26,11 @@ pub struct BrowserMemberConnection {
 }
 impl BrowserMemberConnection {
     pub(super) async fn qualified_snapshot(&self) -> Result<SavedNode, JsValue> {
-        if self.is_closed() {
-            return Err(rejected());
-        }
-        let saved = self
-            .gate
-            .0
-            .lock()
-            .unwrap()
-            .saved
-            .clone()
-            .ok_or_else(rejected)?;
-        let current = serde_json::to_string(&saved).map_err(error)?;
-        let scope = AdmissionScope::new(
-            *saved.invitation()?.anchor.root.as_bytes(),
-            saved.generation,
-        );
-        if read_node(self.lease).await?.as_string().as_deref() != Some(&current)
-            || !BrowserGate::permits(&saved, self.connection.remote_id(), BUSINESS_ALPN)
-            || !self
-                .gate
-                .0
-                .lock()
-                .unwrap()
-                .proofs
-                .iter()
-                .any(|proof| proof.applies_to(&self.connection, &scope))
-        {
+        let result = self.gate.qualified_snapshot(&self.connection).await;
+        if result.is_err() {
             self.close();
-            return Err(rejected());
         }
-        Ok(saved)
+        result
     }
     #[cfg(feature = "rtc-probe")]
     pub(super) fn rtc_qualification(
@@ -531,15 +504,13 @@ impl BrowserNetwork {
                 "member caller budget must fit the original browser budget",
             ));
         }
-        if self.saved.stage() != "Complete" {
+        if self.lease.is_none() || self.gate.service_snapshot()?.stage() != "Complete" {
             return Err(rejected());
         }
         Ok(BrowserMemberAcceptAttempt {
             endpoint: self.endpoint.clone(),
             gate: self.gate.clone(),
             incoming: self.incoming.clone(),
-            lease: self.lease.as_ref().ok_or_else(rejected)?.0,
-            saved: self.committed.clone(),
             deadline: n0_future::time::Instant::now() + Duration::from_millis(u64::from(caller_ms)),
             cancel: tokio_util::sync::CancellationToken::new(),
             started: std::sync::atomic::AtomicBool::new(false),
@@ -570,14 +541,14 @@ impl BrowserNetwork {
             ));
         }
         let target = target.parse().map_err(error)?;
-        if !BrowserGate::permits(&self.saved, target, BUSINESS_ALPN) {
+        if self.lease.is_none()
+            || !BrowserGate::permits(&self.gate.service_snapshot()?, target, BUSINESS_ALPN)
+        {
             return Err(rejected());
         }
         Ok(BrowserMemberAttempt {
             endpoint: self.endpoint.clone(),
             gate: self.gate.clone(),
-            lease: self.lease.as_ref().ok_or_else(rejected)?.0,
-            saved: self.committed.clone(),
             address: self.target_address(target)?,
             deadline: n0_future::time::Instant::now() + Duration::from_millis(u64::from(caller_ms)),
             cancel: tokio_util::sync::CancellationToken::new(),
@@ -593,8 +564,6 @@ pub struct BrowserMemberAcceptAttempt {
     endpoint: RestrictedEndpoint,
     gate: BrowserGate,
     incoming: std::rc::Rc<super::incoming::IncomingDispatcher>,
-    lease: u32,
-    saved: String,
     deadline: n0_future::time::Instant,
     cancel: tokio_util::sync::CancellationToken,
     started: std::sync::atomic::AtomicBool,
@@ -620,8 +589,9 @@ impl BrowserMemberAcceptAttempt {
             return Err(error("member attempt already started"));
         }
         let work = async {
-            if read_node(self.lease).await?.as_string().as_deref() != Some(&self.saved) {
-                return Err(error("browser materials changed during member attempt"));
+            let (saved, _, _) = services::installed(&self.gate).await?;
+            if saved.stage() != "Complete" {
+                return Err(rejected());
             }
             use crate::connection_coordinator::{
                 AttemptContext, AttemptRole, MemberPathAdapter, RepairFailure, SessionPurpose,
@@ -643,7 +613,6 @@ impl BrowserMemberAcceptAttempt {
                 repair_contact: EndpointAddr::new(connection.remote_id()),
                 connection,
                 gate: self.gate.clone(),
-                lease: self.lease,
                 endpoint: self.endpoint.clone(),
                 improvement_cancel: Mutex::new(None),
                 repair_cancel: Mutex::new(None),
@@ -682,8 +651,6 @@ impl BrowserMemberAcceptAttempt {
 pub struct BrowserMemberAttempt {
     pub(super) endpoint: RestrictedEndpoint,
     pub(super) gate: BrowserGate,
-    pub(super) lease: u32,
-    pub(super) saved: String,
     pub(super) address: EndpointAddr,
     pub(super) deadline: n0_future::time::Instant,
     pub(super) cancel: tokio_util::sync::CancellationToken,
@@ -711,8 +678,9 @@ impl BrowserMemberAttempt {
             return Err(error("member attempt already started"));
         }
         let work = async {
-            if read_node(self.lease).await?.as_string().as_deref() != Some(&self.saved) {
-                return Err(error("browser materials changed during member attempt"));
+            let (saved, _, _) = services::installed(&self.gate).await?;
+            if !BrowserGate::permits(&saved, self.address.id, BUSINESS_ALPN) {
+                return Err(rejected());
             }
             use crate::connection_coordinator::MemberPathAdapter;
             let caps = self
@@ -763,7 +731,6 @@ impl BrowserMemberAttempt {
         Ok(BrowserMemberConnection {
             connection,
             gate: self.gate.clone(),
-            lease: self.lease,
             #[cfg(feature = "rtc-probe")]
             rtc_active: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             #[cfg(feature = "rtc-probe")]

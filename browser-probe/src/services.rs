@@ -141,6 +141,11 @@ impl BrowserGate {
 }
 
 pub(super) async fn installed(gate: &BrowserGate) -> Result<(SavedNode, String, u32), JsValue> {
+    let _writer = gate.2.lock().await;
+    installed_locked(gate).await
+}
+
+async fn installed_locked(gate: &BrowserGate) -> Result<(SavedNode, String, u32), JsValue> {
     let (saved, token) = {
         let state = gate.0.lock().unwrap();
         (
@@ -148,7 +153,6 @@ pub(super) async fn installed(gate: &BrowserGate) -> Result<(SavedNode, String, 
             state.lease.ok_or_else(rejected)?,
         )
     };
-    saved.verify()?;
     let raw = serde_json::to_string(&saved).map_err(error)?;
     if read_node(token).await?.as_string().as_deref() != Some(&raw) {
         return Err(error("browser service state changed or storage cleared"));
@@ -160,15 +164,54 @@ pub(super) async fn commit_installed(
     previous: &str,
     token: u32,
     next: &SavedNode,
-) -> Result<(), JsValue> {
+) -> Result<String, JsValue> {
+    let _writer = gate.2.lock().await;
+    commit_locked(gate, previous, token, next).await
+}
+
+pub(super) async fn update_saved<T>(
+    gate: &BrowserGate,
+    edit: impl FnOnce(&mut SavedNode) -> Result<T, JsValue>,
+) -> Result<T, JsValue> {
+    let _writer = gate.2.lock().await;
+    let (mut saved, previous, token) = installed_locked(gate).await?;
+    let result = edit(&mut saved)?;
+    let raw = encode_saved(&saved)?;
+    if raw != previous {
+        persist_saved(gate, &previous, token, raw, &saved).await?;
+    }
+    Ok(result)
+}
+
+async fn commit_locked(
+    gate: &BrowserGate,
+    previous: &str,
+    token: u32,
+    next: &SavedNode,
+) -> Result<String, JsValue> {
+    let raw = encode_saved(next)?;
+    persist_saved(gate, previous, token, raw, next).await
+}
+
+fn encode_saved(next: &SavedNode) -> Result<String, JsValue> {
     next.verify()?;
     let raw = serde_json::to_string(next).map_err(error)?;
     if raw.len() > 80 * 1024 * 1024 {
         return Err(error("browser state too large"));
     }
-    save_node(token, JsValue::from_str(previous), raw).await?;
-    gate.install(next);
-    Ok(())
+    Ok(raw)
+}
+
+async fn persist_saved(
+    gate: &BrowserGate,
+    previous: &str,
+    token: u32,
+    raw: String,
+    saved: &SavedNode,
+) -> Result<String, JsValue> {
+    save_node(token, JsValue::from_str(previous), raw.clone()).await?;
+    gate.install(saved);
+    Ok(raw)
 }
 
 pub(super) struct BrowserServices {
@@ -336,21 +379,22 @@ impl BrowserServices {
             .await
             .map_err(error)?;
         let incoming = ServiceBundle::read(&mut stream).await.map_err(error)?;
-        let (saved, raw, token) = installed(gate).await?;
-        let (next, policy_error) = saved.with_service_bundle(&incoming)?;
-        if self.cancel.is_cancelled() {
-            return Err(rejected());
-        }
-        commit_installed(gate, &raw, token, &next).await?;
+        let (response, policy_error) = update_saved(gate, |saved| {
+            if self.cancel.is_cancelled() {
+                return Err(rejected());
+            }
+            let (next, policy_error) = saved.with_service_bundle(&incoming)?;
+            let response = next.service_bundle();
+            *saved = next;
+            Ok((response, policy_error))
+        })
+        .await?;
         files.enforce_access();
         self.clipboard.enforce_access().await;
         if let Some(policy_error) = policy_error {
             return Err(error(policy_error));
         }
-        next.service_bundle()
-            .write(&mut stream)
-            .await
-            .map_err(error)?;
+        response.write(&mut stream).await.map_err(error)?;
         stream.finish().map_err(error)?;
         let _ = n0_future::time::timeout(Duration::from_secs(5), connection.closed()).await;
         Ok(())
@@ -515,21 +559,24 @@ impl BrowserNetwork {
         previous: Option<String>,
         rule: String,
     ) -> Result<String, JsValue> {
-        self.refresh_service_snapshot().await?;
         self.require_device_ready()?;
-        let (next, record) = self.saved.with_service_action(ServiceAction::SetRule {
+        let action = ServiceAction::SetRule {
             provider: provider.parse().map_err(error)?,
             service: serde_json::from_value(serde_json::Value::String(service)).map_err(error)?,
             previous: previous.map(|id| id.parse()).transpose().map_err(error)?,
             rule: serde_json::from_str::<ServiceRule>(&rule).map_err(error)?,
-        })?;
-        self.commit(next).await?;
+        };
+        let record = update_saved(&self.gate, |saved| {
+            let (next, record) = saved.with_service_action(action)?;
+            *saved = next;
+            Ok(record)
+        })
+        .await?;
         self.files.enforce_access();
         self.clipboard.enforce_access().await;
         Ok(Hash::digest(record).to_string())
     }
     pub async fn sync_services(&mut self, target: String) -> Result<String, JsValue> {
-        self.refresh_service_snapshot().await?;
         self.require_device_ready()?;
         let connection = self
             .connect_target(
@@ -541,15 +588,19 @@ impl BrowserNetwork {
         let mut stream = crate::data_stream::DataStream::open(&connection)
             .await
             .map_err(error)?;
-        self.saved
+        self.gate
+            .service_snapshot()?
             .service_bundle()
             .write(&mut stream)
             .await
             .map_err(error)?;
         let incoming = ServiceBundle::read(&mut stream).await.map_err(error)?;
-        self.refresh_service_snapshot().await?;
-        let (next, policy_error) = self.saved.with_service_bundle(&incoming)?;
-        self.commit(next).await?;
+        let policy_error = update_saved(&self.gate, |saved| {
+            let (next, policy_error) = saved.with_service_bundle(&incoming)?;
+            *saved = next;
+            Ok(policy_error)
+        })
+        .await?;
         self.files.enforce_access();
         self.clipboard.enforce_access().await;
         if let Some(policy_error) = policy_error {
@@ -571,7 +622,6 @@ impl BrowserNetwork {
         service: String,
         expires_unix_seconds: u64,
     ) -> Result<String, JsValue> {
-        self.refresh_service_snapshot().await?;
         self.require_device_ready()?;
         let service: Service =
             serde_json::from_value(serde_json::Value::String(service)).map_err(error)?;
@@ -584,30 +634,33 @@ impl BrowserNetwork {
         }
         let provider: EndpointAddr = serde_json::from_str(&provider_address).map_err(error)?;
         let provider_id = VerifyingKey::from_bytes(provider.id.as_bytes()).map_err(error)?;
-        let access = self.saved.service_access()?;
-        if !access.ledger.rule(provider_id, service).rule.guests {
-            return Err(rejected());
-        }
-        let token: [u8; 32] = rand::random();
-        let (next, record) = self.saved.with_service_action(ServiceAction::InviteGuest {
-            provider: provider_id,
-            service,
-            token_hash: Hash::digest(token),
-            created,
-            expires: expires_unix_seconds,
-        })?;
         let (issuer, bootstrap) = self.contact();
-        let invitation = GuestInvitation {
-            anchor: self.saved.invitation()?.anchor,
-            issuer,
-            provider,
-            bootstrap,
-            record,
-            token,
-        };
-        let text = invitation.text().map_err(error)?;
-        self.commit(next).await?;
-        Ok(text)
+        update_saved(&self.gate, |saved| {
+            let access = saved.service_access()?;
+            if !access.ledger.rule(provider_id, service).rule.guests {
+                return Err(rejected());
+            }
+            let token: [u8; 32] = rand::random();
+            let (next, record) = saved.with_service_action(ServiceAction::InviteGuest {
+                provider: provider_id,
+                service,
+                token_hash: Hash::digest(token),
+                created,
+                expires: expires_unix_seconds,
+            })?;
+            let invitation = GuestInvitation {
+                anchor: saved.invitation()?.anchor,
+                issuer,
+                provider,
+                bootstrap,
+                record,
+                token,
+            };
+            let text = invitation.text().map_err(error)?;
+            *saved = next;
+            Ok(text)
+        })
+        .await
     }
     pub async fn redeem_guest(&mut self) -> Result<String, JsValue> {
         self.refresh_service_snapshot().await?;
@@ -646,12 +699,15 @@ impl BrowserNetwork {
         self.guest_status()
     }
     pub async fn revoke_guest(&mut self, invitation: String) -> Result<String, JsValue> {
-        self.refresh_service_snapshot().await?;
         self.require_device_ready()?;
-        let (next, record) = self.saved.with_service_action(ServiceAction::EndGuest {
-            invitation: invitation.parse().map_err(error)?,
-        })?;
-        self.commit(next).await?;
+        let invitation = invitation.parse().map_err(error)?;
+        let record = update_saved(&self.gate, |saved| {
+            let (next, record) =
+                saved.with_service_action(ServiceAction::EndGuest { invitation })?;
+            *saved = next;
+            Ok(record)
+        })
+        .await?;
         self.files.enforce_access();
         self.clipboard.enforce_access().await;
         Ok(Hash::digest(record).to_string())

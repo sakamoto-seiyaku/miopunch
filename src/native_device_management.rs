@@ -62,6 +62,7 @@ fn save(node: &NativeNetwork, journal: &OperationJournal) -> Result<(), ClientEr
         &node.directory.join(JOURNAL),
         &serde_json::to_vec(journal)?,
     )?;
+    node.store.changes.publish();
     Ok(())
 }
 fn view(
@@ -74,6 +75,14 @@ fn view(
         "record": entry.approval.as_ref().map(DeviceApproval::record_id),
         "effective_locally": entry.approval.as_ref().is_some_and(|a| a.effect_current(auth)),
         "scope":"local verified state; other nodes apply after receipt"})
+}
+
+pub(crate) fn operation_state(node: &NativeNetwork) -> Result<Value, ClientError> {
+    let auth = node.store.authorization();
+    Ok(
+        json!({"operations":load(node)?.entries.iter().map(|entry| view(entry, auth)).collect::<Vec<_>>(),
+        "holds_genesis":node.directory.join("genesis.credential").exists()}),
+    )
 }
 async fn install(
     node: &mut NativeNetwork,
@@ -108,11 +117,7 @@ impl NativeClient {
     pub async fn device_operations(&self) -> Result<Value, ClientError> {
         self.require_ready()?;
         let node = self.node.lock().await;
-        let auth = self.services.lock().await.access(&node).await?.auth;
-        Ok(
-            json!({"operations":load(&node)?.entries.iter().map(|e| view(e, &auth)).collect::<Vec<_>>(),
-            "holds_genesis":node.directory.join("genesis.credential").exists()}),
-        )
+        operation_state(&node)
     }
 
     /// Confirm exactly this descriptor with this host's retained credential.

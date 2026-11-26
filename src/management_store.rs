@@ -67,6 +67,7 @@ pub struct ManagementStore {
     anchor: NetworkAnchor,
     auth: ManagementAuth,
     applied_count: i64,
+    pub(crate) changes: crate::state_observation::StateChanges,
     #[cfg(feature = "replica-test-hooks")]
     checkpoint_observer: Option<fn(RecordCheckpoint)>,
 }
@@ -310,6 +311,7 @@ impl ManagementStore {
             anchor,
             auth,
             applied_count,
+            changes: Default::default(),
             #[cfg(feature = "replica-test-hooks")]
             checkpoint_observer: None,
         })
@@ -436,11 +438,16 @@ impl ManagementStore {
         &self,
         request: &AdmissionRequest,
     ) -> Result<(), StoreError> {
-        sqlx::query("INSERT OR IGNORE INTO admission_deliveries (applicant, request_id) VALUES (?, ?)")
-            .bind(request.applicant.as_bytes().as_slice())
-            .bind(request.request_id.as_slice())
-            .execute(&self.pool)
-            .await?;
+        let result = sqlx::query(
+            "INSERT OR IGNORE INTO admission_deliveries (applicant, request_id) VALUES (?, ?)",
+        )
+        .bind(request.applicant.as_bytes().as_slice())
+        .bind(request.request_id.as_slice())
+        .execute(&self.pool)
+        .await?;
+        if result.rows_affected() != 0 {
+            self.changes.publish();
+        }
         Ok(())
     }
 
@@ -487,7 +494,7 @@ impl ManagementStore {
         request_id: [u8; 16],
         progress: ApplicationProgress,
     ) -> Result<(), StoreError> {
-        sqlx::query("INSERT INTO local_admission_attempt (singleton, request_id, progress) VALUES (1, ?, ?)
+        let result = sqlx::query("INSERT INTO local_admission_attempt (singleton, request_id, progress) VALUES (1, ?, ?)
             ON CONFLICT(singleton) DO UPDATE SET request_id = excluded.request_id, progress = excluded.progress,
                 authorization = CASE WHEN request_id = excluded.request_id THEN authorization ELSE NULL END
             WHERE request_id != excluded.request_id OR progress < excluded.progress")
@@ -495,6 +502,9 @@ impl ManagementStore {
             .bind(progress as i64)
             .execute(&self.pool)
             .await?;
+        if result.rows_affected() != 0 {
+            self.changes.publish();
+        }
         Ok(())
     }
 
@@ -539,13 +549,16 @@ impl ManagementStore {
         &self,
         request: &AdmissionRequest,
     ) -> Result<(), StoreError> {
-        sqlx::query(
+        let result = sqlx::query(
             "INSERT OR IGNORE INTO admission_rejections (applicant, request_id) VALUES (?, ?)",
         )
         .bind(request.applicant.as_bytes().as_slice())
         .bind(request.request_id.as_slice())
         .execute(&self.pool)
         .await?;
+        if result.rows_affected() != 0 {
+            self.changes.publish();
+        }
         Ok(())
     }
 
@@ -606,6 +619,7 @@ impl ManagementStore {
             .execute(&mut *tx)
             .await?;
         tx.commit().await?;
+        self.changes.publish();
         Ok(())
     }
 
@@ -622,12 +636,21 @@ impl ManagementStore {
                 return Err(StoreError::Corrupt("cannot undo admission approval"));
             }
         };
-        let changed = sqlx::query("UPDATE admission_deliveries SET phase = max(phase, ?) WHERE applicant = ? AND request_id = ? AND authorization = ?")
+        let changed = sqlx::query("UPDATE admission_deliveries SET phase = ? WHERE applicant = ? AND request_id = ? AND authorization = ? AND phase < ?")
             .bind(phase).bind(approved.request.applicant.as_bytes().as_slice())
             .bind(approved.request.request_id.as_slice()).bind(approved.authorization.as_bytes().as_slice())
+            .bind(phase)
             .execute(&self.pool).await?;
-        if changed.rows_affected() != 1 {
+        if changed.rows_affected() == 0
+            && self
+                .approved_admission(&approved.request)
+                .await?
+                .is_none_or(|current| current.authorization != approved.authorization)
+        {
             return Err(StoreError::Corrupt("delivery result changed"));
+        }
+        if changed.rows_affected() != 0 && stage == AdmissionStage::Complete {
+            self.changes.publish();
         }
         Ok(())
     }
@@ -770,6 +793,7 @@ impl ManagementStore {
             }
             self.auth = next;
             self.applied_count = next_count;
+            self.changes.publish();
             applied += 1;
         }
         Ok(applied)
@@ -777,6 +801,10 @@ impl ManagementStore {
 
     pub fn nodes(&self) -> Vec<(VerifyingKey, Access)> {
         self.auth.nodes()
+    }
+
+    pub(crate) fn authorization(&self) -> &ManagementAuth {
+        &self.auth
     }
 
     pub fn known_removed(&self, target: VerifyingKey) -> bool {

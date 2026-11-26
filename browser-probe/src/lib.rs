@@ -167,6 +167,8 @@ pub mod admission_progress;
 
 #[path = "../../src/management_action.rs"]
 mod management_action;
+#[path = "../../src/state_observation.rs"]
+mod state_observation;
 
 #[path = "../../src/precode_policy.rs"]
 mod precode_policy;

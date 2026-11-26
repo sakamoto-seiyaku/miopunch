@@ -13,6 +13,15 @@ use tokio_util::codec::{FramedRead, FramedWrite};
 const MAX_RECORDS: usize = 4096;
 const MAX_BYTES: usize = 16 * 1024 * 1024;
 
+impl SavedNode {
+    fn control_state(&self) -> Result<serde_json::Value, JsValue> {
+        let auth = self.verify()?.ok_or_else(rejected)?;
+        Ok(
+            serde_json::json!({"records":self.records.len(),"pending":self.pending.len(),"members":auth.nodes().iter().map(|(id,access)|serde_json::json!({"id":id.to_string(),"administrator":*access==Access::manage()})).collect::<Vec<_>>() }),
+        )
+    }
+}
+
 #[wasm_bindgen]
 impl BrowserNetwork {
     pub async fn ingest_management_record(
@@ -25,8 +34,8 @@ impl BrowserNetwork {
         Ok(self.ingest_record(header, body).await?.to_string())
     }
     pub fn control_record(&self, id: String) -> Result<String, JsValue> {
-        let record = self
-            .saved
+        let saved = self.gate.service_snapshot()?;
+        let record = saved
             .records
             .iter()
             .find(|(header, _)| Hash::digest(header).to_string() == id)
@@ -34,8 +43,7 @@ impl BrowserNetwork {
         Ok(serde_json::json!({"header":hex::encode(&record.0),"body":record.1.as_ref().map(hex::encode)}).to_string())
     }
     pub fn control_state(&self) -> Result<String, JsValue> {
-        let auth = self.saved.verify()?.ok_or_else(rejected)?;
-        Ok(serde_json::json!({"records":self.saved.records.len(),"pending":self.saved.pending.len(),"members":auth.nodes().iter().map(|(id,access)|serde_json::json!({"id":id.to_string(),"administrator":*access==Access::manage()})).collect::<Vec<_>>()}).to_string())
+        Ok(self.gate.service_snapshot()?.control_state()?.to_string())
     }
     pub async fn sync_replica(&mut self, target: String) -> Result<String, JsValue> {
         let started = n0_future::time::Instant::now();
@@ -44,7 +52,7 @@ impl BrowserNetwork {
         let target = n0_future::time::timeout(
             deadline.saturating_duration_since(n0_future::time::Instant::now()),
             async {
-                self.check_store().await?;
+                self.refresh_service_snapshot().await?;
                 let target = target.parse().map_err(error)?;
                 if !BrowserGate::permits(&self.saved, target, REPLICA_ALPN) {
                     return Err(rejected());
@@ -100,7 +108,8 @@ impl BrowserNetwork {
         let _scope = RequestConnection(Some(connection.clone()));
         self.check_store().await?;
         let records: Vec<_> = self
-            .saved
+            .gate
+            .service_snapshot()?
             .records
             .iter()
             .map(|(header, body)| ManagementRecord::new(header.clone(), body.as_deref()))
@@ -193,12 +202,16 @@ impl BrowserNetwork {
         if header.len() + body.as_ref().map_or(0, Vec::len) > MAX_BYTES {
             return Err(rejected());
         }
-        let anchor = self.saved.invitation()?.anchor;
-        let id = decode_complete(&header, body.as_deref(), anchor)
-            .map_err(error)?
-            .hash();
-        let next = self.saved.merge_records(vec![(header, body)])?;
-        self.commit(next).await?;
+        let id = services::update_saved(&self.gate, |saved| {
+            let anchor = saved.invitation()?.anchor;
+            let id = decode_complete(&header, body.as_deref(), anchor)
+                .map_err(error)?
+                .hash();
+            *saved = saved.merge_records(vec![(header, body)])?;
+            Ok(id)
+        })
+        .await?;
+        self.refresh_service_snapshot().await?;
         Ok(id)
     }
     async fn receive_replica(

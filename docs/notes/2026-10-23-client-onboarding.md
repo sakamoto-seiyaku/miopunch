@@ -111,8 +111,12 @@ retirement use the same comparison; legacy wire keys stay unchanged.
 `admission_requests/approve_admission/reject_admission` expose existing durable
 manual admission. Browser `admission_requests` retains its ledger-view contract:
 hosts show a pending prompt only for entries with neither `approved` nor
-`rejected`. Browser hosts explicitly drive `serve_admission(precode)` while
-online; the included technical host is not a production background runtime.
+`rejected`. A running administrator accepts manual requests and precode
+redemptions concurrently. The administrator still chooses whether to approve
+each manual request. The browser's legacy `serve_admission(precode)` can wait
+for an exchange result. The node accepts requests independently of that call.
+Closing the browser page takes the node offline. Reopening restores its saved
+approval ledger and starts accepting again.
 
 | State | Meaning |
 | --- | --- |
@@ -164,6 +168,18 @@ replays, avoid another precode charge and continue a valid older delivery.
 When an authorization loses effect, its delivery stops and the recorded
 outcome remains visible in the recent window. The native `requests` operation
 continues to return only pending approvals, including older pending requests.
+
+## Observing local admission and management state
+
+Read `NativeClient::state_snapshot()` or `BrowserNetwork.state_snapshot()`
+when starting or resuming the host. Each snapshot includes the node's admission
+status and locally applied membership roles, all pending approvals, recent
+admission history, and the local device-operation view. Browser and native
+JSON hosts return the cursor as a string. Pass the returned cursor to
+`observe_state(cursor)` and use the returned snapshot and cursor for the next
+wait. An update between the first read and starting the wait is returned
+immediately. Changes can coalesce in a snapshot. Closing the runtime ends a
+pending wait. A cursor from the previous runtime can read the reopened state.
 
 If the original delivery node is unavailable, close and reopen the pending native
 client with `NativeClient::resume(path, newFullPrecode, bind)` (CLI `resume`), or

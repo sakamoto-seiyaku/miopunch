@@ -345,7 +345,10 @@ impl NativeClient {
             }
         }
         match std::fs::remove_file(node.directory.join("genesis.credential")) {
-            Ok(()) => crate::native_files::sync_directory(&node.directory)?,
+            Ok(()) => {
+                crate::native_files::sync_directory(&node.directory)?;
+                node.store.changes.publish();
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
             Err(e) => return Err(e.into()),
         }
@@ -446,6 +449,7 @@ pub(crate) async fn serve_custody(
                             &node.directory.join("genesis.credential"),
                             &material,
                         )?;
+                        node.store.changes.publish();
                         let saved = node.saved_genesis_credential()?;
                         let receipt = CustodyReceipt::saved(&offer, &saved.root, &node.node_key)?;
                         if entry.receipt.as_ref().is_some_and(|old| old != &receipt) {

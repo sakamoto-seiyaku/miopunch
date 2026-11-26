@@ -62,10 +62,11 @@ impl SavedNode {
 
 impl BrowserNetwork {
     pub(super) fn require_device_ready(&self) -> Result<(), JsValue> {
+        let saved = self.gate.service_snapshot()?;
         if self.lease.is_none()
-            || self.saved.invitation.is_none()
+            || saved.invitation.is_none()
             || matches!(
-                self.saved.stage(),
+                saved.stage(),
                 "AwaitingRecoverySave"
                     | "ReplacementPaused"
                     | "RestoringAuthorization"
@@ -104,42 +105,39 @@ impl BrowserNetwork {
         id: Hash,
         card: Option<&RecoveryCard>,
     ) -> Result<String, JsValue> {
-        self.refresh_service_snapshot().await?;
         self.require_device_ready()?;
-        let auth = self.saved.verify()?.ok_or_else(rejected)?;
-        let entry = self.saved.operations.get(id).map_err(error)?;
-        let approval = if let Some(approval) = entry.confirmation().map_err(error)? {
-            approval.clone()
-        } else {
-            let seed = if let Some(card) = card {
-                if card.anchor() != self.saved.invitation()?.anchor {
-                    return Err(error("card belongs to another network"));
-                }
-                card.credential().0
+        let result = services::update_saved(&self.gate, |saved| {
+            let auth = saved.verify()?.ok_or_else(rejected)?;
+            let entry = saved.operations.get(id).map_err(error)?;
+            let approval = if let Some(approval) = entry.confirmation().map_err(error)? {
+                approval.clone()
             } else {
-                self.saved
-                    .creator_seed
-                    .ok_or_else(|| error("this node does not hold the genesis credential"))?
+                let seed = if let Some(card) = card {
+                    if card.anchor() != saved.invitation()?.anchor {
+                        return Err(error("card belongs to another network"));
+                    }
+                    card.credential().0
+                } else {
+                    saved
+                        .creator_seed
+                        .ok_or_else(|| error("this node does not hold the genesis credential"))?
+                };
+                entry
+                    .operation
+                    .approve(
+                        saved.invitation()?.anchor,
+                        &auth,
+                        &SigningKey::from_bytes(&seed),
+                    )
+                    .map_err(error)?
             };
-            entry
-                .operation
-                .approve(
-                    self.saved.invitation()?.anchor,
-                    &auth,
-                    &SigningKey::from_bytes(&seed),
-                )
-                .map_err(error)?
-        };
-        let next = self
-            .saved
-            .approved_operation(approval.clone(), self.saved.approval_history(&approval))?;
-        self.commit(next).await?;
+            *saved =
+                saved.approved_operation(approval.clone(), saved.approval_history(&approval))?;
+            saved.operation_view(id)
+        })
+        .await?;
         self.files.enforce_access();
-        Ok(view(
-            self.saved.operations.get(id).map_err(error)?,
-            &self.saved.verify()?.ok_or_else(rejected)?,
-        )
-        .to_string())
+        Ok(result)
     }
 }
 
@@ -150,27 +148,25 @@ impl BrowserNetwork {
         action: String,
         target: String,
     ) -> Result<String, JsValue> {
-        self.refresh_service_snapshot().await?;
         self.require_device_ready()?;
         let action: DeviceAction =
             serde_json::from_value(serde_json::Value::String(action)).map_err(error)?;
-        let auth = self.saved.verify()?.ok_or_else(rejected)?;
-        let operation = DeviceOperation::propose(
-            self.saved.invitation()?.anchor,
-            &auth,
-            self.saved.identity(),
-            action,
-            target.parse().map_err(error)?,
-        )
-        .map_err(error)?;
-        let mut next = self.saved.clone();
-        next.operations.retain(operation.clone()).map_err(error)?;
-        self.commit(next).await?;
-        Ok(view(
-            self.saved.operations.get(operation.id).map_err(error)?,
-            &auth,
-        )
-        .to_string())
+        let target = target.parse().map_err(error)?;
+        services::update_saved(&self.gate, |saved| {
+            let auth = saved.verify()?.ok_or_else(rejected)?;
+            let operation = DeviceOperation::propose(
+                saved.invitation()?.anchor,
+                &auth,
+                saved.identity(),
+                action,
+                target,
+            )
+            .map_err(error)?;
+            let id = operation.id;
+            saved.operations.retain(operation).map_err(error)?;
+            Ok(view(saved.operations.get(id).map_err(error)?, &auth).to_string())
+        })
+        .await
     }
     pub fn device_operations(&self) -> Result<String, JsValue> {
         if self.lease.is_none() {
@@ -178,8 +174,7 @@ impl BrowserNetwork {
         }
         let saved = self.gate.service_snapshot()?;
         let auth = saved.verify()?.ok_or_else(rejected)?;
-        Ok(serde_json::json!({"operations":saved.operations.entries.iter().map(|e| view(e,&auth)).collect::<Vec<_>>(),
-            "holds_genesis":saved.creator_seed.is_some()}).to_string())
+        Ok(saved.operation_state(&auth).to_string())
     }
     pub async fn confirm_device_operation(&mut self, operation: String) -> Result<String, JsValue> {
         self.confirm_operation(operation.parse().map_err(error)?, None)
@@ -196,37 +191,34 @@ impl BrowserNetwork {
             .await
     }
     pub async fn execute_device_operation(&mut self, operation: String) -> Result<String, JsValue> {
-        self.refresh_service_snapshot().await?;
         self.require_device_ready()?;
         let id = operation.parse().map_err(error)?;
-        let auth = self.saved.verify()?.ok_or_else(rejected)?;
-        let entry = self.saved.operations.get(id).map_err(error)?;
-        if entry.operation.description.initiator != self.saved.identity()
-            || entry.operation.requires_genesis()
-        {
-            return Err(error("this action requires its own genesis confirmation"));
-        }
-        let approval = match &entry.approval {
-            Some(a) => a.clone(),
-            None => entry
-                .operation
-                .approve(
-                    self.saved.invitation()?.anchor,
-                    &auth,
-                    &SigningKey::from_bytes(&self.saved.key),
-                )
-                .map_err(error)?,
-        };
-        let next = self
-            .saved
-            .approved_operation(approval.clone(), self.saved.approval_history(&approval))?;
-        self.commit(next).await?;
+        let result = services::update_saved(&self.gate, |saved| {
+            let auth = saved.verify()?.ok_or_else(rejected)?;
+            let entry = saved.operations.get(id).map_err(error)?;
+            if entry.operation.description.initiator != saved.identity()
+                || entry.operation.requires_genesis()
+            {
+                return Err(error("this action requires its own genesis confirmation"));
+            }
+            let approval = match &entry.approval {
+                Some(approval) => approval.clone(),
+                None => entry
+                    .operation
+                    .approve(
+                        saved.invitation()?.anchor,
+                        &auth,
+                        &SigningKey::from_bytes(&saved.key),
+                    )
+                    .map_err(error)?,
+            };
+            *saved =
+                saved.approved_operation(approval.clone(), saved.approval_history(&approval))?;
+            saved.operation_view(id)
+        })
+        .await?;
         self.files.enforce_access();
-        Ok(view(
-            self.saved.operations.get(id).map_err(error)?,
-            &self.saved.verify()?.ok_or_else(rejected)?,
-        )
-        .to_string())
+        Ok(result)
     }
     pub async fn request_device_confirmation(
         &mut self,
@@ -263,26 +255,25 @@ impl BrowserNetwork {
         .map_err(error)?;
         let reply: DeviceReply = read_message(&mut stream).await.map_err(error)?;
         let history = ServiceBundle::read(&mut stream).await.map_err(error)?;
-        self.refresh_service_snapshot().await?;
-        let (mut next, policy_error) = self.saved.with_service_bundle(&history)?;
-        if let Some(approval) = reply.approval {
-            approval
-                .verify(&operation, next.invitation()?.anchor)
-                .map_err(error)?;
-            let receipt = next.approval_history(&approval);
-            next = next.approved_operation(approval, receipt)?;
-        }
-        self.commit(next).await?;
+        let policy_error = services::update_saved(&self.gate, |saved| {
+            let (mut next, policy_error) = saved.with_service_bundle(&history)?;
+            if let Some(approval) = reply.approval {
+                approval
+                    .verify(&operation, next.invitation()?.anchor)
+                    .map_err(error)?;
+                let receipt = next.approval_history(&approval);
+                next = next.approved_operation(approval, receipt)?;
+            }
+            *saved = next;
+            Ok(policy_error)
+        })
+        .await?;
         self.files.enforce_access();
         if let Some(policy_error) = policy_error {
             return Err(error(policy_error));
         }
         stream.finish().map_err(error)?;
-        Ok(view(
-            self.saved.operations.get(id).map_err(error)?,
-            &self.saved.verify()?.ok_or_else(rejected)?,
-        )
-        .to_string())
+        self.gate.service_snapshot()?.operation_view(id)
     }
     pub async fn collect_device_result(
         &mut self,
@@ -310,24 +301,32 @@ impl BrowserNetwork {
             .await
             .map_err(error)?;
         let reply: ResultReply = read_guest(&exchange).await.map_err(error)?;
-        self.refresh_service_snapshot().await?;
         if let Some(approval) = reply.approval {
-            approval
-                .verify(&operation, self.saved.invitation()?.anchor)
-                .map_err(error)?;
-            let next = self
-                .saved
-                .approved_operation(approval, reply.history.management)?;
-            self.commit(next).await?;
+            services::update_saved(&self.gate, |saved| {
+                approval
+                    .verify(&operation, saved.invitation()?.anchor)
+                    .map_err(error)?;
+                *saved = saved.approved_operation(approval, reply.history.management)?;
+                Ok(())
+            })
+            .await?;
             self.files.enforce_access();
         } else if !reply.history.management.is_empty() || !reply.history.services.is_empty() {
             return Err(rejected());
         }
-        Ok(view(
-            self.saved.operations.get(id).map_err(error)?,
-            &self.saved.verify()?.ok_or_else(rejected)?,
-        )
-        .to_string())
+        self.gate.service_snapshot()?.operation_view(id)
+    }
+}
+
+impl SavedNode {
+    fn operation_view(&self, id: Hash) -> Result<String, JsValue> {
+        let auth = self.verify()?.ok_or_else(rejected)?;
+        Ok(view(self.operations.get(id).map_err(error)?, &auth).to_string())
+    }
+
+    pub(super) fn operation_state(&self, auth: &ManagementAuth) -> serde_json::Value {
+        serde_json::json!({"operations":self.operations.entries.iter().map(|e| view(e,auth)).collect::<Vec<_>>(),
+            "holds_genesis":self.creator_seed.is_some()})
     }
 }
 
@@ -341,52 +340,51 @@ pub(super) async fn serve_device(
     let mut stream = DataStream::accept(connection).await.map_err(error)?;
     let request: DeviceRequest = read_message(&mut stream).await.map_err(error)?;
     let history = ServiceBundle::read(&mut stream).await.map_err(error)?;
-    let (saved, raw, token) = services::installed(gate).await?;
-    let (next, policy_error) = saved.with_service_bundle(&history)?;
-    services::commit_installed(gate, &raw, token, &next).await?;
+    let policy_error = services::update_saved(gate, |saved| {
+        let (next, policy_error) = saved.with_service_bundle(&history)?;
+        *saved = next;
+        Ok(policy_error)
+    })
+    .await?;
     files.enforce_access();
     if let Some(policy_error) = policy_error {
         return Err(error(policy_error));
     }
-    let (mut next, raw, token) = services::installed(gate).await?;
-    let reply = match request {
-        DeviceRequest::Confirm { operation } => {
-            let auth = next.verify()?.ok_or_else(rejected)?;
-            if operation.description.initiator != peer
-                || !operation.requires_genesis()
-                || !auth.nodes().iter().any(|(id, _)| *id == peer)
-            {
-                return Err(rejected());
-            }
-            match next.operations.get(operation.id) {
-                Ok(entry) if entry.operation != operation => return Err(rejected()),
-                Ok(_) => {}
-                Err(_) => {
-                    operation
-                        .check_current(next.invitation()?.anchor, &auth)
-                        .map_err(error)?;
-                    if next.creator_seed.is_none() {
-                        return Err(error("this node does not hold the genesis credential"));
-                    }
-                    next.operations.retain(operation.clone()).map_err(error)?;
-                }
-            }
-            let approval = next
-                .operations
-                .get(operation.id)
-                .map_err(error)?
-                .approval
-                .clone();
-            if let Some(approval) = &approval {
-                let receipt = next.approval_history(approval);
-                next = next.approved_operation(approval.clone(), receipt)?;
-            }
-            DeviceReply { approval }
+    let (reply, history) = services::update_saved(gate, |next| {
+        let DeviceRequest::Confirm { operation } = request;
+        let auth = next.verify()?.ok_or_else(rejected)?;
+        if operation.description.initiator != peer
+            || !operation.requires_genesis()
+            || !auth.nodes().iter().any(|(id, _)| *id == peer)
+        {
+            return Err(rejected());
         }
-    };
-    services::commit_installed(gate, &raw, token, &next).await?;
+        match next.operations.get(operation.id) {
+            Ok(entry) if entry.operation != operation => return Err(rejected()),
+            Ok(_) => {}
+            Err(_) => {
+                operation.check_current(next.invitation()?.anchor, &auth).map_err(error)?;
+                if next.creator_seed.is_none() {
+                    return Err(error("this node does not hold the genesis credential"));
+                }
+                next.operations.retain(operation.clone()).map_err(error)?;
+            }
+        }
+        let approval = next
+            .operations
+            .get(operation.id)
+            .map_err(error)?
+            .approval
+            .clone();
+        if let Some(approval) = &approval {
+            let receipt = next.approval_history(approval);
+            *next = next.approved_operation(approval.clone(), receipt)?;
+        }
+        Ok((DeviceReply { approval }, next.service_bundle()))
+    })
+    .await?;
     files.enforce_access();
-    write_exchange(&mut stream, &reply, &next.service_bundle())
+    write_exchange(&mut stream, &reply, &history)
         .await
         .map_err(error)?;
     stream.finish().map_err(error)?;

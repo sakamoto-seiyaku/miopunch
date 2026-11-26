@@ -1245,6 +1245,7 @@ impl NativeNetwork {
         let _ = fs::remove_file(&temporary);
         result?;
         self.join = Some(binding);
+        self.store.changes.publish();
         Ok(())
     }
 
@@ -1308,6 +1309,7 @@ impl NativeNetwork {
         self.scope = scope;
         self.secret = Some(secret);
         self.refresh_authorization();
+        self.store.changes.publish();
         Ok(())
     }
 

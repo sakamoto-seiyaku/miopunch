@@ -327,6 +327,7 @@ impl ManagementStore {
         tx.commit().await?;
         #[cfg(feature = "replica-test-hooks")]
         self.observe(crate::management_store::RecordCheckpoint::AfterPrecodeCommit);
+        self.changes.publish();
         Ok(())
     }
 }

@@ -236,18 +236,17 @@ impl BrowserNetwork {
         &mut self,
         password: Option<String>,
     ) -> Result<String, JsValue> {
-        self.check_store().await?;
-        let seed = self
-            .saved
-            .creator_seed
-            .ok_or_else(|| error("no genesis credential"))?;
-        let card =
-            crate::recovery_card::RecoveryCard::new(seed, self.saved.invitation()?.anchor.genesis);
-        let text = card.export(password.as_deref()).map_err(error)?;
-        let mut next = self.saved.clone();
-        next.recovery_exported = true;
-        self.commit(next).await?;
-        Ok(text)
+        services::update_saved(&self.gate, |saved| {
+            let seed = saved
+                .creator_seed
+                .ok_or_else(|| error("no genesis credential"))?;
+            let card =
+                crate::recovery_card::RecoveryCard::new(seed, saved.invitation()?.anchor.genesis);
+            let text = card.export(password.as_deref()).map_err(error)?;
+            saved.recovery_exported = true;
+            Ok(text)
+        })
+        .await
     }
 
     pub fn inspect_recovery_card(
@@ -262,13 +261,15 @@ impl BrowserNetwork {
 
     /// Explicit user acknowledgment; no forced password or read-back step.
     pub async fn acknowledge_recovery_saved(&mut self) -> Result<(), JsValue> {
-        self.check_store().await?;
-        if self.saved.creator_seed.is_none() || !self.saved.recovery_exported {
-            return Err(error("export the recovery card first"));
-        }
-        let mut next = self.saved.clone();
-        next.recovery_saved = true;
-        self.commit(next).await
+        services::update_saved(&self.gate, |saved| {
+            if saved.creator_seed.is_none() || !saved.recovery_exported {
+                return Err(error("export the recovery card first"));
+            }
+            saved.recovery_saved = true;
+            Ok(())
+        })
+        .await?;
+        self.refresh_service_snapshot().await
     }
 
     pub fn invitation(&self) -> Result<String, JsValue> {

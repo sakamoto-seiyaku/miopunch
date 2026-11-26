@@ -149,6 +149,227 @@ fn tls_key(id: EndpointId) -> Result<VerifyingKey, ManualAdmissionError> {
     VerifyingKey::from_bytes(id.as_bytes()).map_err(|_| ManualAdmissionError::Rejected)
 }
 
+// One admission wire implementation for standalone networks and the running SDK.
+// Only the running SDK shares its node with other requests and observers.
+enum AdmissionNode<'a> {
+    Direct(&'a mut NativeNetwork),
+    Shared(&'a tokio::sync::Mutex<NativeNetwork>),
+}
+
+enum AdmissionNodeGuard<'a> {
+    Direct(&'a mut NativeNetwork),
+    Shared(tokio::sync::MutexGuard<'a, NativeNetwork>),
+}
+
+impl AdmissionNode<'_> {
+    async fn lock(&mut self) -> AdmissionNodeGuard<'_> {
+        match self {
+            Self::Direct(node) => AdmissionNodeGuard::Direct(node),
+            Self::Shared(node) => AdmissionNodeGuard::Shared(node.lock().await),
+        }
+    }
+}
+
+impl std::ops::Deref for AdmissionNodeGuard<'_> {
+    type Target = NativeNetwork;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Direct(node) => node,
+            Self::Shared(node) => node,
+        }
+    }
+}
+
+impl std::ops::DerefMut for AdmissionNodeGuard<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            Self::Direct(node) => node,
+            Self::Shared(node) => node,
+        }
+    }
+}
+
+pub(crate) async fn serve_shared_admission(
+    node: &tokio::sync::Mutex<NativeNetwork>,
+    connection: &(impl OwnedControl + ?Sized),
+    precode: bool,
+) -> Result<AdmissionStage, ManualAdmissionError> {
+    let deadline = admission_deadline(connection);
+    tokio::time::timeout(
+        deadline.saturating_duration_since(n0_future::time::Instant::now()),
+        serve_admission_exchange(AdmissionNode::Shared(node), connection, precode),
+    )
+    .await
+    .unwrap_or(Err(ManualAdmissionError::PathUnavailable))
+}
+
+async fn serve_admission_exchange(
+    mut owner: AdmissionNode<'_>,
+    connection: &(impl OwnedControl + ?Sized),
+    precode: bool,
+) -> Result<AdmissionStage, ManualAdmissionError> {
+    owner.lock().await.restricted_connection(connection)?;
+    let exchange = connection
+        .accept_control_exchange()
+        .await
+        .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+    let mut wire = [0; 144];
+    read_fixed(&exchange, &mut wire)
+        .await
+        .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+    let binding = JoinBinding::decode(&wire[..112].try_into().unwrap())?;
+    let claimed = VerifyingKey::from_bytes(&wire[112..].try_into().unwrap())
+        .map_err(|_| ManualAdmissionError::Rejected)?;
+    if claimed != tls_key(connection.remote_id())? {
+        return Err(ManualAdmissionError::Rejected);
+    }
+    let token = if precode {
+        let mut token = [0; 32];
+        read_fixed(&exchange, &mut token)
+            .await
+            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+        Some(token)
+    } else {
+        None
+    };
+    let request = AdmissionRequest {
+        applicant: claimed,
+        request_id: binding.request_id,
+    };
+    let (approved, history, generation) = {
+        let mut node = owner.lock().await;
+        node.restricted_connection(connection)?;
+        node.recover_admission_state().await?;
+        node.store.ensure_admissions_open().await?;
+        node.restricted_connection(connection)?;
+        if binding.invitation != node.manual_invitation()? {
+            return Err(ManualAdmissionError::Rejected);
+        }
+        let approved = if let Some(token) = token {
+            Some(node.redeem_precode(token, &request).await?)
+        } else {
+            node.store.record_admission_request(&request).await?;
+            node.store.approved_admission(&request).await?
+        };
+        let Some(approved) = approved else {
+            let rejected = node.store.admission_rejected(&request).await?;
+            drop(node);
+            write_fixed(&exchange, &[if rejected { 2 } else { 0 }])
+                .await
+                .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+            exchange
+                .finish_send()
+                .await
+                .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+            return Ok(AdmissionStage::AwaitingApproval);
+        };
+        node.store.apply_ready().await?;
+        node.refresh_authorization();
+        node.valid_approval(&approved)?;
+        let records = node.store.applied_records().await?;
+        if records.is_empty() || records.len() > MAX_RECORDS {
+            return Err(ManualAdmissionError::Rejected);
+        }
+        let raw: Vec<_> = records
+            .iter()
+            .map(|record| (record.header(), record.body()))
+            .collect();
+        node.store.ensure_admissions_open().await?;
+        let history = p2panda_core::cbor::encode_cbor(&(approved.authorization, raw))
+            .map_err(|_| ManualAdmissionError::Rejected)?;
+        if history.len() > MAX_HISTORY_BYTES {
+            return Err(ManualAdmissionError::Rejected);
+        }
+        #[cfg(feature = "replica-test-hooks")]
+        node.store
+            .observe(crate::management_store::RecordCheckpoint::AuthorizationPrepared);
+        (approved, history, node.scope.secret_generation())
+    };
+    write_fixed(&exchange, &[1])
+        .await
+        .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+    write_fixed(&exchange, &generation.to_be_bytes())
+        .await
+        .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+    write_frame(&exchange, &history).await?;
+    #[cfg(feature = "replica-test-hooks")]
+    owner
+        .lock()
+        .await
+        .store
+        .observe(crate::management_store::RecordCheckpoint::AuthorizationSent);
+    let mut ack = [0; 4];
+    read_fixed(&exchange, &mut ack)
+        .await
+        .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+    if &ack != b"AUTH" {
+        return Err(ManualAdmissionError::Rejected);
+    }
+
+    {
+        let node = owner.lock().await;
+        node.store
+            .advance_admission_delivery(&approved, AdmissionStage::PendingMaterials)
+            .await?;
+        #[cfg(feature = "replica-test-hooks")]
+        node.store
+            .observe(crate::management_store::RecordCheckpoint::AuthorizationAcknowledged);
+        // Keep authorization and credential through their short release, but
+        // relinquish the node while awaiting the applicant's durable receipt.
+        node.restricted_connection(connection)?;
+        node.store.ensure_admissions_open().await?;
+        node.valid_approval(&approved)?;
+        let secret = node.secret.as_ref().ok_or(ManualAdmissionError::Rejected)?;
+        if node.scope.secret_generation() != generation
+            || !node
+                .store
+                .current_admission_matches(&node.scope, &secret.fingerprint(&node.scope))
+                .await?
+        {
+            return Err(ManualAdmissionError::Rejected);
+        }
+        #[cfg(feature = "replica-test-hooks")]
+        node.store
+            .observe(crate::management_store::RecordCheckpoint::SecretPrepared);
+        write_fixed(&exchange, &generation.to_be_bytes())
+            .await
+            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+        write_fixed(&exchange, secret.saved_bytes())
+            .await
+            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+        #[cfg(feature = "replica-test-hooks")]
+        node.store
+            .observe(crate::management_store::RecordCheckpoint::SecretSent);
+    }
+    read_fixed(&exchange, &mut ack)
+        .await
+        .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+    if &ack != b"SAVE" {
+        return Err(ManualAdmissionError::Rejected);
+    }
+    {
+        let node = owner.lock().await;
+        node.valid_approval(&approved)?;
+        #[cfg(feature = "replica-test-hooks")]
+        node.store
+            .observe(crate::management_store::RecordCheckpoint::CompletionAcknowledged);
+        node.store
+            .advance_admission_delivery(&approved, AdmissionStage::Complete)
+            .await?;
+        #[cfg(feature = "replica-test-hooks")]
+        node.store
+            .observe(crate::management_store::RecordCheckpoint::DeliveryComplete);
+    }
+    write_fixed(&exchange, b"DONE")
+        .await
+        .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+    exchange
+        .finish_send()
+        .await
+        .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+    Ok(AdmissionStage::Complete)
+}
+
 impl NativeNetwork {
     pub(crate) async fn recover_admission_state(&mut self) -> Result<(), ManualAdmissionError> {
         self.store.apply_ready().await?;
@@ -388,154 +609,7 @@ impl NativeNetwork {
         connection: &(impl OwnedControl + ?Sized),
         precode: bool,
     ) -> Result<AdmissionStage, ManualAdmissionError> {
-        self.restricted_connection(connection)?;
-        self.recover_admission_state().await?;
-        self.store.ensure_admissions_open().await?;
-        self.restricted_connection(connection)?;
-        if !self.is_admin(self.node_key.verifying_key()) {
-            return Err(ManualAdmissionError::Rejected);
-        }
-        let exchange = connection
-            .accept_control_exchange()
-            .await
-            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        let mut wire = [0; 144];
-        read_fixed(&exchange, &mut wire)
-            .await
-            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        let binding = JoinBinding::decode(&wire[..112].try_into().unwrap())?;
-        let claimed = VerifyingKey::from_bytes(&wire[112..].try_into().unwrap())
-            .map_err(|_| ManualAdmissionError::Rejected)?;
-        if binding.invitation != self.manual_invitation()?
-            || claimed != tls_key(connection.remote_id())?
-        {
-            return Err(ManualAdmissionError::Rejected);
-        }
-        let request = AdmissionRequest {
-            applicant: claimed,
-            request_id: binding.request_id,
-        };
-        let approved = if precode {
-            let mut token = [0; 32];
-            read_fixed(&exchange, &mut token)
-                .await
-                .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-            self.redeem_precode(token, &request).await?
-        } else {
-            self.store.record_admission_request(&request).await?;
-            if self.store.admission_rejected(&request).await? {
-                write_fixed(&exchange, &[2])
-                    .await
-                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-                exchange
-                    .finish_send()
-                    .await
-                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-                return Ok(AdmissionStage::AwaitingApproval);
-            }
-            let Some(approved) = self.store.approved_admission(&request).await? else {
-                write_fixed(&exchange, &[0])
-                    .await
-                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-                exchange
-                    .finish_send()
-                    .await
-                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-                return Ok(AdmissionStage::AwaitingApproval);
-            };
-            approved
-        };
-        self.store.apply_ready().await?;
-        self.refresh_authorization();
-        self.valid_approval(&approved)?;
-        let records = self.store.applied_records().await?;
-        if records.is_empty() || records.len() > MAX_RECORDS {
-            return Err(ManualAdmissionError::Rejected);
-        }
-        let raw: Vec<_> = records
-            .iter()
-            .map(|record| (record.header(), record.body()))
-            .collect();
-        self.store.ensure_admissions_open().await?;
-        let history = p2panda_core::cbor::encode_cbor(&(approved.authorization, raw))
-            .map_err(|_| ManualAdmissionError::Rejected)?;
-        if history.len() > MAX_HISTORY_BYTES {
-            return Err(ManualAdmissionError::Rejected);
-        }
-        #[cfg(feature = "replica-test-hooks")]
-        self.store
-            .observe(crate::management_store::RecordCheckpoint::AuthorizationPrepared);
-        write_fixed(&exchange, &[1])
-            .await
-            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        write_fixed(&exchange, &self.scope.secret_generation().to_be_bytes())
-            .await
-            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        write_frame(&exchange, &history).await?;
-        #[cfg(feature = "replica-test-hooks")]
-        self.store
-            .observe(crate::management_store::RecordCheckpoint::AuthorizationSent);
-        let mut ack = [0; 4];
-        read_fixed(&exchange, &mut ack)
-            .await
-            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        if &ack != b"AUTH" {
-            return Err(ManualAdmissionError::Rejected);
-        }
-        self.store
-            .advance_admission_delivery(&approved, AdmissionStage::PendingMaterials)
-            .await?;
-        #[cfg(feature = "replica-test-hooks")]
-        self.store
-            .observe(crate::management_store::RecordCheckpoint::AuthorizationAcknowledged);
-        // The current credential and authorization are rechecked at release,
-        // not inferred from an earlier approval or sender receipt.
-        self.restricted_connection(connection)?;
-        self.store.ensure_admissions_open().await?;
-        self.valid_approval(&approved)?;
-        let secret = self.secret.as_ref().ok_or(ManualAdmissionError::Rejected)?;
-        if !self
-            .store
-            .current_admission_matches(&self.scope, &secret.fingerprint(&self.scope))
-            .await?
-        {
-            return Err(ManualAdmissionError::Rejected);
-        }
-        #[cfg(feature = "replica-test-hooks")]
-        self.store
-            .observe(crate::management_store::RecordCheckpoint::SecretPrepared);
-        write_fixed(&exchange, &self.scope.secret_generation().to_be_bytes())
-            .await
-            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        write_fixed(&exchange, secret.saved_bytes())
-            .await
-            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        #[cfg(feature = "replica-test-hooks")]
-        self.store
-            .observe(crate::management_store::RecordCheckpoint::SecretSent);
-        read_fixed(&exchange, &mut ack)
-            .await
-            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        if &ack != b"SAVE" {
-            return Err(ManualAdmissionError::Rejected);
-        }
-        #[cfg(feature = "replica-test-hooks")]
-        self.store
-            .observe(crate::management_store::RecordCheckpoint::CompletionAcknowledged);
-        self.store
-            .advance_admission_delivery(&approved, AdmissionStage::Complete)
-            .await?;
-        #[cfg(feature = "replica-test-hooks")]
-        self.store
-            .observe(crate::management_store::RecordCheckpoint::DeliveryComplete);
-        write_fixed(&exchange, b"DONE")
-            .await
-            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        exchange
-            .finish_send()
-            .await
-            .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-        Ok(AdmissionStage::Complete)
+        serve_admission_exchange(AdmissionNode::Direct(self), connection, precode).await
     }
 
     /// Receive and save verified authorization, leaving secret delivery as a

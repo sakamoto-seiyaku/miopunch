@@ -48,7 +48,7 @@ async function dispatch(command) {
     for (const [name, actor] of actors) {
       try {
         try {
-          await actor.page.evaluate(async () => { await window.node?.close(); });
+          if (!actor.page.isClosed()) await actor.page.evaluate(async () => { await window.node?.close(); });
         } finally {
           await actor.context.close();
         }
@@ -85,6 +85,26 @@ async function dispatch(command) {
     await actor.page.evaluate(async () => { await window.node?.close(); });
     await load(actor);
     return true;
+  }
+  if (op === 'close_page') {
+    actor.idlePage = await actor.context.newPage();
+    await actor.page.close();
+    return true;
+  }
+  if (op === 'reopen_page') {
+    actor.page = actor.idlePage;
+    delete actor.idlePage;
+    await load(actor);
+    return true;
+  }
+  if (op === 'begin_observation') {
+    return actor.page.evaluate(cursor => {
+      window.pendingObservation = window.node.observe_state(cursor);
+      return true;
+    }, args[0]);
+  }
+  if (op === 'finish_observation') {
+    return actor.page.evaluate(async () => JSON.parse(await window.pendingObservation));
   }
   if (op === 'block_relay') {
     if (actor.relayBlocked === undefined) {
@@ -123,18 +143,35 @@ async function dispatch(command) {
       return true;
     });
   }
+  if (op === 'hold_admission_commit') {
+    return actor.page.evaluate(() => {
+      const prototype = IDBObjectStore.prototype;
+      const put = prototype.put;
+      prototype.put = function (...args) {
+        prototype.put = put;
+        const write = put.apply(this, args);
+        window.admissionCommitHeld = true;
+        const hold = () => {
+          if (window.admissionCommitHeld) this.get(args[1]).onsuccess = hold;
+        };
+        hold();
+        return write;
+      };
+      return true;
+    });
+  }
+  if (op === 'wait_admission_commit') {
+    await actor.page.waitForFunction(() => window.admissionCommitHeld, undefined, { timeout: 5000 });
+    return true;
+  }
+  if (op === 'release_admission_commit') {
+    return actor.page.evaluate(() => { window.admissionCommitHeld = false; return true; });
+  }
   if (op === 'serve_progress_admission') {
     return actor.page.evaluate(([id, precode]) => {
-      const original = IDBObjectStore.prototype.get;
-      IDBObjectStore.prototype.get = function (...args) {
-        IDBObjectStore.prototype.get = original;
-        this.transaction.addEventListener('complete', () => {
-          // Let the SDK resume from its store check and register the accept.
-          setTimeout(() => { window.admissionReadReady = id; }, 0);
-        }, { once: true });
-        return original.apply(this, args);
-      };
-      return window.node.serve_admission(precode);
+      const exchange = window.node.serve_admission(precode);
+      window.admissionReadReady = id;
+      return exchange;
     }, [command.id, args[0]]);
   }
   if (op === 'wait_progress_admission') {
@@ -292,7 +329,7 @@ async function dispatch(command) {
     if (['precode_invitation', 'issue_precode'].includes(method)) values = values.map(value => value == null ? value : BigInt(value));
     const result = await window.node[method](...values);
     if (method === 'finish_pairing') { window.node.free(); window.node = result; return JSON.parse(result.status()); }
-    if (['status', 'admission_requests', 'admission_history', 'admission_material_receipt', 'pairing_status', 'resource_configuration', 'path_diagnostics', 'control_state', 'sync_replica', 'file_status'].includes(method)) return JSON.parse(result);
+    if (['status', 'state_snapshot', 'observe_state', 'admission_requests', 'admission_history', 'admission_material_receipt', 'pairing_status', 'resource_configuration', 'path_diagnostics', 'control_state', 'device_operations', 'propose_device_operation', 'confirm_device_operation', 'request_device_confirmation', 'collect_device_result', 'sync_replica', 'file_status'].includes(method)) return JSON.parse(result);
     return result ?? null;
   }, [op, args]);
 }

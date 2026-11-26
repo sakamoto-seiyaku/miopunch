@@ -278,6 +278,7 @@ impl NativeClient {
             &serde_json::to_vec(&state)?,
         )?;
         self.replacement_ready.store(true, Ordering::Release);
+        node.store.changes.publish();
         Ok(json!({"ready":true,"receipt":receipt,"reused":false,
             "scope":"verified and saved from this contact; no global latest-state or physical single-instance claim"}))
     }

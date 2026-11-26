@@ -14,6 +14,7 @@ import os
 import subprocess
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from check_client_onboarding import OnboardingRunner, Host
 from host_native_runtime import group_absent, group_snapshot
@@ -112,7 +113,7 @@ class BrowserControl:
 
 class BrowserOnboardingRunner(OnboardingRunner):
     def native_configuration(self, remote):
-        if self.args.suite != "progress":
+        if self.args.suite not in ["progress", "observation"]:
             return super().native_configuration(remote)
         config = dict(defaults=dict(revision=2, resources=[]),
                       replacement=[dict(url=self.args.relay, uses=["DataRelay"], limitation="onboarding test relay")],
@@ -129,6 +130,154 @@ class BrowserOnboardingRunner(OnboardingRunner):
         pending = self.browser.send(actor, "serve_progress_admission", precode)
         self.browser.call(actor, "wait_progress_admission", pending[0])
         return pending
+
+    def online_admission_observation(self):
+        b = self.browser
+        creator = "browser-online-provider"
+        b.start(creator, "create", configuration=self.progress_configuration())
+        b.call(creator, "export_recovery_card")
+        b.call(creator, "acknowledge_recovery_saved")
+        invitation = b.call(creator, "invitation")
+        code = b.call(creator, "precode_invitation", int(time.time()) + 3600, 1)
+        manual_path = self.write_private("online-manual-invitation", invitation.encode(), False)
+        code_path = self.write_private("online-precode-invitation", code.encode(), False)
+        first = self.start("native-online-first", False, "join", manual_path)
+        second = self.start("native-online-second", False, "join", manual_path)
+        granted = self.start("native-online-precode", False, "join", code_path)
+        initial = b.call(creator, "state_snapshot")
+        assert initial["pending_admissions"] == initial["admission_history"] == []
+        with ThreadPoolExecutor(max_workers=3) as peers:
+            manual = [peers.submit(node.call, "request") for node in (first, second)]
+            redeem = peers.submit(granted.call, "request")
+            assert redeem.result()["stage"] == "Complete"
+            operation = b.call(creator, "propose_device_operation", "appoint-administrator", granted.node)["operation"]["id"]
+            assert b.call(creator, "confirm_device_operation", operation)["effective_locally"]
+            assert [work.result()["stage"] for work in manual] == ["AwaitingApproval"] * 2
+        observed = b.call(creator, "observe_state", initial["cursor"])
+        assert observed == b.call(creator, "state_snapshot")
+        assert {entry["applicant"] for entry in observed["pending_admissions"]} == {first.node, second.node}
+        assert {first.node: "AwaitingApproval", second.node: "AwaitingApproval", granted.node: "ReceiptReceived"} == {
+            entry["applicant"]: entry["decision"] for entry in observed["admission_history"]}
+        assert {"node": granted.node, "role": "admin"} in observed["status"]["members"]
+        assert any(item["id"] == granted.node and item["administrator"] for item in b.call(creator, "control_state")["members"])
+        assert observed["device_operations"] == b.call(creator, "device_operations")
+        authorization = next(entry["authorization"] for entry in observed["admission_history"] if entry["applicant"] == granted.node)
+        assert authorization in b.call(creator, "admission_material_receipt")["records"]
+        assert b.call(creator, "precode_usage", material(code)["precode"]) == 1
+
+        # Only a rejection changes this snapshot. It must wake an already
+        # pending observation without another request, receipt or role change.
+        assert b.call(creator, "begin_observation", observed["cursor"])
+        first_request = next(entry for entry in observed["pending_admissions"] if entry["applicant"] == first.node)
+        b.call(creator, "reject_admission", first.node, first_request["request_id"])
+        rejected = b.call(creator, "finish_observation")
+        assert [entry["applicant"] for entry in rejected["pending_admissions"]] == [second.node]
+        assert next(entry["decision"] for entry in rejected["admission_history"] if entry["applicant"] == first.node) == "Rejected"
+
+        offline = self.start("native-online-offline", False, "join", manual_path)
+        changing = self.start("native-online-code-change", False, "join", code_path)
+        fresh_code = b.call(creator, "precode_invitation", int(time.time()) + 3600, 1)
+        fresh_path = self.write_private("online-precode-fresh", fresh_code.encode(), False)
+        assert b.call(creator, "close_page")
+        before_code_change = changing.call("state_snapshot")
+        with ThreadPoolExecutor(max_workers=2) as requests:
+            failure = requests.submit(changing.call, "request", ok=False, path=fresh_path)
+            offline.call("request", ok=False)
+            failure.result()
+        changed = changing.call("observe_state", after=before_code_change["cursor"])
+        assert changed["status"]["admission_attempt"]["progress"] == "Created"
+        assert changed["status"]["admission_attempt"]["request_id"] != before_code_change["status"]["admission_attempt"]["request_id"]
+        assert offline.call("status")["admission_attempt"]["progress"] == "Created"
+        # Reopen the same saved attempt independently of the caller's relay
+        # cooldown for the now-finished offline exchange.
+        offline = self.reopen(offline)
+        assert b.call(creator, "reopen_page")
+        b.call(creator, "start", "start", json.dumps(self.progress_configuration()), None)
+        reopened = b.call(creator, "state_snapshot")
+        assert reopened["cursor"] != rejected["cursor"]
+        assert {key: value for key, value in reopened.items() if key != "cursor"} == {
+            key: value for key, value in rejected.items() if key != "cursor"}
+        waiting = b.send(creator, "observe_state", reopened["cursor"])
+        assert offline.call("request")["stage"] == "AwaitingApproval"
+        assert {entry["applicant"] for entry in b.wait(waiting)["pending_admissions"]} == {second.node, offline.node}
+
+        member = "wasm-online-member"
+        member_id = b.start(member, "join", invitation, self.progress_configuration())["id"]
+        assert b.call(member, "request_join", False) == "AwaitingApproval"
+        entry = next(item for item in b.call(creator, "state_snapshot")["pending_admissions"] if item["applicant"] == member_id)
+        b.call(creator, "approve_admission", member_id, entry["request_id"])
+        assert b.call(member, "request_join", False) == "Complete"
+        accept = b.send(creator, "member_accept", 10000)
+        b.call(member, "member_connect", b.call(creator, "id"))
+        b.wait(accept)
+        message = "MioCube online admission"
+        reading = b.send(creator, "member_call", "serve_exchange", [])
+        assert b.call(member, "member_call", "exchange", [message]) == b.wait(reading) == message
+        for actor in [creator, member]:
+            b.call(actor, "member_call", "close", [])
+        remote = b.call(member, "propose_device_operation", "appoint-administrator", member_id)["operation"]["id"]
+        creator_id = b.call(creator, "id")
+        assert b.call(member, "request_device_confirmation", remote, creator_id)["stage"] == "awaiting_confirmation"
+        assert any(item["operation"]["id"] == remote for item in b.call(creator, "device_operations")["operations"])
+        assert b.call(creator, "confirm_device_operation", remote)["effective_locally"]
+        assert b.call(member, "collect_device_result", remote, creator_id)["effective_locally"]
+
+        draining = self.start("native-online-draining", False, "join", manual_path)
+        assert b.call(creator, "hold_admission_commit")
+        with ThreadPoolExecutor(max_workers=1) as peer:
+            request = peer.submit(draining.call, "request", ok=False)
+            assert b.call(creator, "wait_admission_commit")
+            closing = b.send(creator, "close")
+            try:
+                request.result(timeout=15)
+                # The dispatcher closed the exchange, but the write it started
+                # is still active. Another owner must not obtain the lease yet.
+                assert b.call(creator, "duplicate_start") == {"rejected": True}
+            finally:
+                b.call(creator, "release_admission_commit")
+            b.wait(closing)
+        b.call(creator, "reload")
+        b.call(creator, "start", "start", json.dumps(self.progress_configuration()), None)
+        durable = b.call(creator, "state_snapshot")
+        assert any(item["applicant"] == draining.node for item in durable["pending_admissions"])
+
+        provider = self.creator(False, "native-online-provider")
+        invite = self.native_invitation(provider, "browser-online-invitation")
+        code = self.native_invitation(provider, "browser-online-precode", precode=True)
+        browser_first, browser_second, browser_granted = "wasm-online-first", "wasm-online-second", "wasm-online-granted"
+        for name, received in [(browser_first, invite), (browser_second, invite), (browser_granted, code)]:
+            b.start(name, "join", received, self.progress_configuration())
+        initial = provider.call("state_snapshot")
+        assert initial["pending_admissions"] == initial["admission_history"] == []
+        requests = [b.send(name, "request_join", False) for name in (browser_first, browser_second, browser_granted)]
+        assert [b.wait(request) for request in requests] == ["AwaitingApproval", "AwaitingApproval", "Complete"]
+        ids = [b.call(name, "id") for name in (browser_first, browser_second, browser_granted)]
+        op = provider.call("genesis_propose", action="appoint-administrator", target=ids[2])["operation"]["id"]
+        assert provider.call("genesis_confirm", operation=op)["effective_locally"]
+        observed = provider.call("observe_state", after=initial["cursor"])
+        assert observed == provider.call("state_snapshot")
+        assert {entry["applicant"] for entry in observed["pending_admissions"]} == set(ids[:2])
+        assert observed["pending_admissions"] == provider.call("requests")["requests"]
+        assert observed["admission_history"] == provider.call("admission_history")
+        assert {ids[0]: "AwaitingApproval", ids[1]: "AwaitingApproval", ids[2]: "ReceiptReceived"} == {
+            entry["applicant"]: entry["decision"] for entry in observed["admission_history"]}
+        assert {"node": ids[2], "role": "admin"} in observed["status"]["members"]
+        assert observed["device_operations"] == provider.call("device_operations")
+
+        # Observe one more admission over a running NativeClient. The incoming
+        # exchange is the only operation that can advance the snapshot.
+        browser_late = "wasm-online-late"
+        late_id = b.start(browser_late, "join", invite, self.progress_configuration())["id"]
+        with ThreadPoolExecutor(max_workers=1) as waiter:
+            waiting = waiter.submit(provider.call, "observe_state", after=observed["cursor"])
+            assert b.call(browser_late, "request_join", False) == "AwaitingApproval"
+            arrived = waiting.result(timeout=15)
+        assert {entry["applicant"] for entry in arrived["pending_admissions"]} == set(ids[:2] + [late_id])
+        provider = self.reopen(provider)
+        assert provider.call("observe_state", after=arrived["cursor"]) == provider.call("state_snapshot")
+        self.record("observation", "online_admission_qualified", dict(nativeAndWasmProviders=True,
+                    concurrentManualAndPrecode=True, lateAndWaitingObservers=True, roleAndOperationState=True,
+                    singleChangeDelivered=True, pageClosedOffline=True, durableReopen=True, joinedStoreClose=True))
 
     def browser_admission_progress(self):
         provider = self.creator(False, "native-progress-provider")
@@ -232,9 +381,12 @@ class BrowserOnboardingRunner(OnboardingRunner):
                      decision="AwaitingApproval")
         b.reopen(creator)
         assert b.call(creator, "admission_history") == [first]
+        b.call(creator, "close_page")
         applicant.call("request", ok=False)
         applicant = self.reopen(applicant)
         assert applicant.call("status")["admission_attempt"] == sent
+        b.call(creator, "reopen_page")
+        b.call(creator, "start", "start", json.dumps(self.progress_configuration()), None)
         b.call(creator, "reject_admission", applicant.node, created["request_id"])
         serving = self.serve_progress_admission(creator, False)
         assert applicant.call("request")["stage"] == "Rejected"
@@ -694,6 +846,8 @@ class BrowserOnboardingRunner(OnboardingRunner):
                 self.browser_creator("browser-creator")
             elif self.args.suite == "progress":
                 self.admission_progress()
+            elif self.args.suite == "observation":
+                self.online_admission_observation()
             else:
                 creator = self.creator(False, "native-provider")
                 if self.args.suite in ["all", "core"]:
@@ -728,8 +882,8 @@ def main():
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--build-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress"], default="all")
-    parser.add_argument("--relay", default=RELAY, help="explicit relay for the progress suite")
+    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation"], default="all")
+    parser.add_argument("--relay", default=RELAY, help="explicit relay for the progress and observation suites")
     parser.add_argument("--chromium", type=Path, default=Path("/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome"))
     args = parser.parse_args()
     build = json.loads(args.build_receipt.read_text())

@@ -62,6 +62,7 @@ pub mod client_commands;
 pub mod client_host;
 #[cfg(target_os = "linux")]
 pub mod headless_host;
+mod state_observation;
 mod native_control_backup;
 mod native_custody;
 mod native_device_management;

@@ -60,6 +60,16 @@ pub struct ClientStatus {
     pub replacement_ready: bool,
 }
 
+/// The locally applied membership, this device's admission, and the provider
+/// ledger read together. Use `cursor` to await another snapshot from this client.
+pub struct ClientStateSnapshot {
+    pub cursor: u64,
+    pub status: ClientStatus,
+    pub pending_admissions: Vec<AdmissionRequest>,
+    pub admission_history: Vec<AdmissionHistoryEntry>,
+    pub device_operations: Value,
+}
+
 /// A bounded native host. Incoming admission and member exchanges run while the
 /// caller controls the client; there is no UI, alternate transport or SSH path.
 pub struct NativeClient {
@@ -496,7 +506,11 @@ impl NativeClient {
     }
     pub async fn status(&self) -> ClientStatus {
         let node = self.node.lock().await;
-        let admission_attempt = Self::read_admission_attempt(&node).await.ok().flatten();
+        self.status_of(&node).await
+    }
+
+    async fn status_of(&self, node: &NativeNetwork) -> ClientStatus {
+        let admission_attempt = Self::read_admission_attempt(node).await.ok().flatten();
         let manual_rejected = if let Some(attempt) = admission_attempt {
             attempt.progress == ApplicationProgress::Rejected
         } else {
@@ -506,7 +520,7 @@ impl NativeClient {
             node: node.status(),
             admission: node.admission_stage(),
             admission_attempt,
-            recovery_exported: read_recovery_state(&node)
+            recovery_exported: read_recovery_state(node)
                 .map(|state| state.is_some_and(|state| state.exported))
                 .ok(),
             recovery_saved: self.recovery_saved.load(Ordering::Acquire),
@@ -514,6 +528,30 @@ impl NativeClient {
             membership_ended: node.store.known_removed(node.status().node_id),
             replacement_ready: self.replacement_ready.load(Ordering::Acquire),
         }
+    }
+
+    pub async fn state_snapshot(&self) -> Result<ClientStateSnapshot, ClientError> {
+        let mut node = self.node.lock().await;
+        node.recover_admission_state().await?;
+        Ok(ClientStateSnapshot {
+            status: self.status_of(&node).await,
+            pending_admissions: Self::pending_admissions(&node).await?,
+            admission_history: node.store.admission_history().await?,
+            device_operations: crate::native_device_management::operation_state(&node)?,
+            cursor: node.store.changes.cursor(),
+        })
+    }
+
+    /// Wait without polling. Changes between a previous read and this call
+    /// are retained by the cursor, and concurrent changes may coalesce.
+    pub async fn observe_state(&self, after: u64) -> Result<ClientStateSnapshot, ClientError> {
+        let mut updates = self.node.lock().await.store.changes.subscribe();
+        tokio::select! {
+            biased;
+            _ = self.cancel.cancelled() => return Err("client closed".into()),
+            changed = updates.wait_for(|cursor| *cursor != after) => { changed?; }
+        }
+        self.state_snapshot().await
     }
 
     /// Durable progress of the selected local admission. An unavailable path
@@ -688,6 +726,13 @@ impl NativeClient {
     }
     pub async fn requests(&self) -> Result<Vec<AdmissionRequest>, ClientError> {
         let mut node = self.node.lock().await;
+        node.recover_admission_state().await?;
+        Self::pending_admissions(&node).await
+    }
+
+    async fn pending_admissions(
+        node: &NativeNetwork,
+    ) -> Result<Vec<AdmissionRequest>, ClientError> {
         let mut pending = Vec::new();
         for request in node.manual_requests().await? {
             if !node.store.admission_rejected(&request).await?
@@ -816,7 +861,16 @@ impl NativeClient {
         if saved.as_ref().map(ClientInvitation::encode).transpose()?.as_deref()
             != Some(invitation.encode()?.as_slice())
         {
+            let attempt_changed = saved
+                .as_ref()
+                .map(ClientInvitation::code)
+                .transpose()?
+                .flatten()
+                != invitation.code()?;
             crate::client_contact::save_invitation(node, invitation)?;
+            if attempt_changed {
+                node.store.changes.publish();
+            }
         }
         Ok(())
     }
@@ -990,7 +1044,9 @@ pub(crate) fn record_received_credential(node: &NativeNetwork) -> Result<(), Cli
             exported: true,
             saved: true,
         },
-    )
+    )?;
+    node.store.changes.publish();
+    Ok(())
 }
 impl NativeClient {
     pub async fn deliver_invitation(
@@ -1076,6 +1132,7 @@ impl NativeClient {
         }
         state.exported = true;
         save_recovery_state(&node, &state)?;
+        node.store.changes.publish();
         Ok(text)
     }
     /// User confirmation only. No password or read-back test is required.
@@ -1089,6 +1146,7 @@ impl NativeClient {
         state.saved = true;
         save_recovery_state(&node, &state)?;
         self.recovery_saved.store(true, Ordering::Release);
+        node.store.changes.publish();
         Ok(())
     }
 }
@@ -1098,14 +1156,11 @@ async fn serve_admission(
     services: Arc<Mutex<crate::native_services::NativeServices>>,
     files: Arc<crate::native_file_transfer::NativeFiles>,
 ) -> Result<(), ClientError> {
-    let mut node = node.lock().await;
-    let result = match connection.alpn() {
-        PRECODE_REQUEST_ALPN => node.serve_precode_admission(&connection).await,
-        ADMISSION_REQUEST_ALPN => node.serve_manual_admission(&connection).await,
-        _ => return Err("unsupported admission operation".into()),
-    };
+    let precode = connection.alpn() == PRECODE_REQUEST_ALPN;
+    let result = crate::manual_admission::serve_shared_admission(&node, &connection, precode).await;
     // Admission can save membership before secret delivery ends. Publish that
     // same verified view to an already enabled service on either outcome.
+    let node = node.lock().await;
     files.update_access(services.lock().await.access(&node).await?);
     drop(node);
     if let Err(error) = result {

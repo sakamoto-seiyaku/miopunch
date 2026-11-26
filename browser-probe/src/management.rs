@@ -14,7 +14,8 @@ pub(super) struct Session {
 #[wasm_bindgen]
 impl BrowserNetwork {
     pub fn begin_management_session(&mut self) -> Result<String, JsValue> {
-        if self.lease.is_none() || self.saved.creator_seed.is_some() && !self.saved.recovery_saved {
+        let saved = self.gate.service_snapshot()?;
+        if self.lease.is_none() || saved.creator_seed.is_some() && !saved.recovery_saved {
             return Err(rejected());
         }
         let id = hex::encode(rand::random::<[u8; 16]>());
@@ -51,7 +52,6 @@ impl BrowserNetwork {
         action: String,
         target: String,
     ) -> Result<String, JsValue> {
-        self.check_store().await?;
         let target: VerifyingKey = target.parse().map_err(error)?;
         let action = match action.as_str() {
             "add-member" => ManagementAction::AddMember(target),
@@ -60,24 +60,25 @@ impl BrowserNetwork {
             "demote-administrator" => ManagementAction::DemoteAdministrator(target),
             _ => return Err(error("unknown management action")),
         };
-        let auth = self.saved.verify()?.ok_or_else(rejected)?;
-        let current = auth
-            .nodes()
-            .into_iter()
-            .find(|(id, _)| *id == target)
-            .map(|(_, access)| access);
         self.session(&session)?;
         self.require_device_ready()?;
-        if action.requires_genesis(current) {
-            return Err(error("this action requires its own genesis confirmation"));
-        }
-        let header = self.author_action(
-            &auth,
-            &SigningKey::from_bytes(&self.saved.key),
-            action,
-            None,
-        )?;
-        let record = self.ingest_record(header, None).await?;
+        let record = services::update_saved(&self.gate, |saved| {
+            let auth = saved.verify()?.ok_or_else(rejected)?;
+            let current = auth
+                .nodes()
+                .into_iter()
+                .find(|(id, _)| *id == target)
+                .map(|(_, access)| access);
+            if action.requires_genesis(current) {
+                return Err(error("this action requires its own genesis confirmation"));
+            }
+            let header =
+                saved.author_action(&auth, &SigningKey::from_bytes(&saved.key), action, None)?;
+            let id = Hash::digest(&header);
+            *saved = saved.merge_records(vec![(header, None)])?;
+            Ok(id)
+        })
+        .await?;
         Ok(record.to_string())
     }
     pub async fn leave(&mut self, session: String) -> Result<String, JsValue> {
@@ -96,6 +97,9 @@ impl BrowserNetwork {
             .filter(|session| session.id == id)
             .ok_or_else(|| error("management session ended or replaced"))
     }
+}
+
+impl SavedNode {
     pub(super) fn author_action(
         &self,
         auth: &ManagementAuth,
@@ -119,7 +123,7 @@ impl BrowserNetwork {
             version: 1,
             log_id,
             group: GroupsExtensionArgs {
-                group_id: self.saved.invitation()?.anchor.root,
+                group_id: self.invitation()?.anchor.root,
                 action: action.group_action(current),
                 dependencies: auth.tips(),
             },

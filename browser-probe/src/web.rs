@@ -462,12 +462,6 @@ impl BrowserNetwork {
         let address = self.target_address(peer)?;
         let coordinator = self.connection_coordinator();
         let budget = self.caller_budget;
-        let token = self
-            .lease
-            .as_ref()
-            .ok_or_else(|| error("browser node disconnected"))?
-            .0;
-        let committed = self.committed.clone();
         let gate = self.gate.clone();
         let runtime = self.web.clone();
         let mut owner = runtime.claim()?;
@@ -480,21 +474,7 @@ impl BrowserNetwork {
                     let _contact = runtime.connecting.lock().await;
                     // Recheck the same current store after queued contact work,
                     // without borrowing the JS node while this owner is running.
-                    let installed = gate
-                        .0
-                        .lock()
-                        .unwrap()
-                        .saved
-                        .as_ref()
-                        .map(serde_json::to_string)
-                        .transpose()
-                        .map_err(error)?;
-                    let actual = read_node(token).await?.as_string();
-                    if actual.as_deref() != Some(&committed) && actual != installed {
-                        return Err(error(
-                            "browser materials cleared or changed; restore or rejoin",
-                        ));
-                    }
+                    services::installed(&gate).await?;
                     coordinator
                         .connect_alpn(
                             address,

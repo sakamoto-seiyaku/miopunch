@@ -47,7 +47,7 @@ struct DeliveredIncoming {
 struct ClassifiedIncoming {
     alpn: Vec<u8>,
     accepting: iroh::endpoint::RestrictedAccepting,
-    active_deadline: Option<n0_future::time::Instant>,
+    active_deadlines: Vec<(Vec<u8>, n0_future::time::Instant)>,
     received_at: n0_future::time::Instant,
 }
 
@@ -60,7 +60,7 @@ struct State {
     stopped: std::cell::Cell<bool>,
     changed: Notify,
     joined: Notify,
-    active: RefCell<Option<ActiveRoute>>,
+    active: RefCell<Vec<ActiveRoute>>,
     active_in_flight: Cell<usize>,
 }
 
@@ -68,6 +68,8 @@ struct State {
 struct ActiveRoute {
     alpn: Vec<u8>,
     budget: Rc<dyn Fn() -> Duration>,
+    limit: usize,
+    in_flight: Rc<Cell<usize>>,
     handler: Rc<
         dyn Fn(
             iroh::endpoint::RestrictedAccepting,
@@ -92,10 +94,13 @@ struct Registration {
     id: u64,
 }
 
-struct ActiveHandler(Rc<State>);
+struct ActiveHandler(Rc<State>, Rc<Cell<usize>>);
 impl Drop for ActiveHandler {
     fn drop(&mut self) {
-        self.0.active_in_flight.set(0);
+        self.0
+            .active_in_flight
+            .set(self.0.active_in_flight.get() - 1);
+        self.1.set(self.1.get() - 1);
         self.0.changed.notify_one();
     }
 }
@@ -134,25 +139,25 @@ impl IncomingDispatcher {
                     .borrow_mut()
                     .retain(|waiter| !waiter.sender.is_closed() && waiter.clock.current(now));
                 let waiting = state.waiters.borrow().len();
-                let active_route = state.active.borrow().is_some();
+                let active_capacity = state
+                    .active
+                    .borrow()
+                    .iter()
+                    .map(|route| route.limit - route.in_flight.get())
+                    .sum::<usize>();
                 // An installed active route owns incoming classification even
                 // while no foreground operation is waiting. Retiring the
                 // pending TLS futures here would drop an active-control C
                 // that has already reached this one dispatcher.
-                if waiting == 0 && !active_route {
+                if waiting == 0 && state.active.borrow().is_empty() {
                     classifications.clear();
                 }
                 state.pending_tls.set(classifications.len());
                 let event = {
                     let changed = state.changed.notified().fuse();
                     let stopped = cancel.cancelled().fuse();
-                    // Keep one active-control classification/handler owned by
-                    // this dispatcher. Foreground callers still contribute
-                    // one bounded classification each, but an installed
-                    // route cannot turn endpoint.accept() into an unbounded
-                    // queue when no foreground waiter exists.
-                    let active_capacity =
-                        usize::from(active_route && state.active_in_flight.get() == 0);
+                    // Foreground waiters and active routes each contribute
+                    // bounded capacity to the one classification queue.
                     let accept_more =
                         classifications.len() < waiting.saturating_add(active_capacity);
                     let accepting = async {
@@ -186,7 +191,7 @@ impl IncomingDispatcher {
                         if let Some(Ok(ClassifiedIncoming {
                             alpn,
                             accepting,
-                            active_deadline,
+                            active_deadlines,
                             received_at,
                         })) = item
                         {
@@ -207,20 +212,25 @@ impl IncomingDispatcher {
                             } else if let Some(route) = state
                                 .active
                                 .borrow()
-                                .as_ref()
-                                .filter(|route| route.alpn == alpn)
+                                .iter()
+                                .find(|route| route.alpn == alpn)
                                 .cloned()
                             {
-                                if state.active_in_flight.get() != 0 {
+                                if route.in_flight.get() == route.limit {
                                     state.rejected.set(state.rejected.get() + 1);
                                     continue;
                                 }
-                                let Some(deadline) = active_deadline else {
+                                let Some((_, deadline)) = active_deadlines
+                                    .into_iter()
+                                    .find(|(protocol, _)| *protocol == alpn)
+                                else {
                                     state.rejected.set(state.rejected.get() + 1);
                                     continue;
                                 };
-                                state.active_in_flight.set(1);
-                                let route_owner = ActiveHandler(state.clone());
+                                state.active_in_flight.set(state.active_in_flight.get() + 1);
+                                route.in_flight.set(route.in_flight.get() + 1);
+                                let route_owner =
+                                    ActiveHandler(state.clone(), route.in_flight.clone());
                                 let route_cancel = cancel.clone();
                                 wasm_bindgen_futures::spawn_local(async move {
                                     // Declared before work: its Drop publishes completion only
@@ -254,19 +264,20 @@ impl IncomingDispatcher {
                             .iter()
                             .map(|waiter| waiter.clock.deadline(received_at))
                             .max();
-                        let active_deadline = state
+                        let active_deadlines: Vec<_> = state
                             .active
                             .borrow()
-                            .as_ref()
-                            .map(|route| incoming.received_at() + (route.budget)());
+                            .iter()
+                            .map(|route| (route.alpn.clone(), received_at + (route.budget)()))
+                            .collect();
                         let deadline = deadline
                             .into_iter()
-                            .chain(active_deadline)
+                            .chain(active_deadlines.iter().map(|(_, deadline)| *deadline))
                             .max()
                             .unwrap_or_else(|| {
                                 n0_future::time::Instant::now() + crate::connection_budget::DEFAULT
                             });
-                        if state.active.borrow().is_some() || waiting > 0 {
+                        if !active_deadlines.is_empty() || waiting > 0 {
                             classifications.push(async move {
                                 let mut accepting = incoming
                                     .accept()
@@ -283,7 +294,7 @@ impl IncomingDispatcher {
                                 Ok::<_, JsValue>(ClassifiedIncoming {
                                     alpn,
                                     accepting,
-                                    active_deadline,
+                                    active_deadlines,
                                     received_at,
                                 })
                             });
@@ -396,7 +407,11 @@ impl IncomingDispatcher {
         self.cancel.cancel();
     }
 
-    pub(super) fn install_active<B, F, Fut>(&self, alpn: &[u8], budget: B, handler: F)
+    pub(super) fn cancellation(&self) -> tokio_util::sync::CancellationToken {
+        self.cancel.clone()
+    }
+
+    pub(super) fn install_active<B, F, Fut>(&self, alpn: &[u8], limit: usize, budget: B, handler: F)
     where
         B: Fn() -> Duration + 'static,
         F: Fn(iroh::endpoint::RestrictedAccepting, n0_future::time::Instant) -> Fut + 'static,
@@ -405,9 +420,11 @@ impl IncomingDispatcher {
         let route = ActiveRoute {
             alpn: alpn.to_vec(),
             budget: Rc::new(budget),
+            limit,
+            in_flight: Default::default(),
             handler: Rc::new(move |accepting, deadline| Box::pin(handler(accepting, deadline))),
         };
-        *self.state.active.borrow_mut() = Some(route);
+        self.state.active.borrow_mut().push(route);
         self.state.changed.notify_one();
     }
 

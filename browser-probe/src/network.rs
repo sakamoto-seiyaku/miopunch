@@ -319,6 +319,24 @@ impl SavedNode {
             "Complete"
         }
     }
+
+    fn public_status(&self, pairing: bool, running: bool) -> serde_json::Value {
+        let anchor = self.invitation().ok().map(|i| i.anchor);
+        let stage = if pairing && self.complete_invitation.is_none() {
+            "Pairing"
+        } else {
+            self.stage()
+        };
+        serde_json::json!({
+            "id": self.identity().to_string(), "stage": stage,
+            "network": anchor.map(|a| a.root.to_string()), "genesis": anchor.map(|a| a.genesis.to_string()),
+            "recovery_exported": self.recovery_exported,
+            "recovery_saved": self.creator_seed.is_none() || self.recovery_saved,
+            "admission_attempt": if pairing { None } else { self.admission_attempt().map(|attempt| attempt.public_json()) },
+            "automatic_retry": !self.manual_retry_stopped(), "authorization_saved": self.authorization.is_some(),
+            "secret_saved": self.secret.is_some(), "running": running
+        })
+    }
 }
 
 struct RelayCheckAttempt {
@@ -338,6 +356,7 @@ struct GateState {
     control_sessions: std::collections::BTreeMap<usize, BrowserControlSession>,
     qualification_revision: Arc<std::sync::atomic::AtomicU64>,
     qualification_updates: Option<n0_watcher::Watchable<u64>>,
+    changes: crate::state_observation::StateChanges,
     snapshot_hash: Option<[u8; 32]>,
     request_handshake: Option<serde_json::Value>,
     request_deadline: Option<n0_future::time::Instant>,
@@ -422,12 +441,14 @@ impl Drop for RtcQualificationSource {
 struct BrowserGate(
     Arc<Mutex<GateState>>,
     crate::session_maintenance::SessionMaintenance,
+    Arc<tokio::sync::Mutex<()>>,
 );
 impl Default for BrowserGate {
     fn default() -> Self {
         Self(
             Arc::new(Mutex::new(GateState::default())),
             crate::session_maintenance::SessionMaintenance::default(),
+            Default::default(),
         )
     }
 }
@@ -437,6 +458,27 @@ impl std::fmt::Debug for BrowserGate {
     }
 }
 impl BrowserGate {
+    fn state_snapshot(&self, pairing: bool, running: bool) -> Result<String, JsValue> {
+        let (saved, cursor) = {
+            let state = self.0.lock().unwrap();
+            (
+                state.saved.clone().ok_or_else(rejected)?,
+                state.changes.cursor(),
+            )
+        };
+        let auth = saved.verify()?;
+        let mut status = saved.public_status(pairing, running);
+        let mut members = auth.as_ref().map(ManagementAuth::nodes).unwrap_or_default();
+        members.sort_by_key(|(id, _)| *id.as_bytes());
+        status["records"] = serde_json::json!(saved.records.len());
+        status["members"] = serde_json::json!(members.iter().map(|(id, access)| serde_json::json!({
+            "node":id.to_string(),"role":if *access == Access::manage() {"admin"} else {"member"}
+        })).collect::<Vec<_>>());
+        Ok(serde_json::json!({"cursor":cursor.to_string(),"status":status,
+            "pending_admissions":saved.pending_admissions(),"admission_history":saved.admission_history(),
+            "device_operations":auth.as_ref().map(|auth| saved.operation_state(auth))}).to_string())
+    }
+
     fn maintenance(&self) -> crate::session_maintenance::SessionMaintenance {
         self.1.clone()
     }
@@ -551,7 +593,8 @@ impl BrowserGate {
         let snapshot_hash =
             *blake3::hash(&serde_json::to_vec(saved).expect("serializable browser snapshot"))
                 .as_bytes();
-        if gate.snapshot_hash != Some(snapshot_hash) {
+        let changed = gate.snapshot_hash != Some(snapshot_hash);
+        if changed {
             gate.qualification_revision
                 .fetch_update(
                     std::sync::atomic::Ordering::AcqRel,
@@ -636,6 +679,9 @@ impl BrowserGate {
             allowed
         });
         gate.saved = Some(saved.clone());
+        if changed {
+            gate.changes.publish();
+        }
     }
     fn permits(saved: &SavedNode, target: iroh_base::EndpointId, alpn: &[u8]) -> bool {
         let Ok(invitation) = saved.invitation() else {
@@ -746,13 +792,7 @@ impl BrowserGate {
         &self,
         connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<SavedNode, JsValue> {
-        let (saved, lease) = {
-            let gate = self.0.lock().unwrap();
-            (
-                gate.saved.clone().ok_or_else(rejected)?,
-                gate.lease.ok_or_else(rejected)?,
-            )
-        };
+        let (saved, _, _) = services::installed(self).await?;
         let auth = saved.verify()?;
         let permitted = if connection.side().is_client() {
             saved.invitation()?.contact == connection.remote_id()
@@ -765,8 +805,6 @@ impl BrowserGate {
         if !is_request_alpn(connection.alpn())
             || connection.close_reason().is_some()
             || !permitted
-            || read_node(lease).await?.as_string().as_deref()
-                != Some(&serde_json::to_string(&saved).map_err(error)?)
         {
             return Err(rejected());
         }
@@ -777,20 +815,12 @@ impl BrowserGate {
         &self,
         connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<SavedNode, JsValue> {
-        let (saved, lease) = {
-            let gate = self.0.lock().unwrap();
-            (
-                gate.saved.clone().ok_or_else(rejected)?,
-                gate.lease.ok_or_else(rejected)?,
-            )
-        };
+        let (saved, _, _) = services::installed(self).await?;
         let scope = AdmissionScope::new(
             *saved.invitation()?.anchor.root.as_bytes(),
             saved.generation,
         );
         if connection.close_reason().is_some()
-            || read_node(lease).await?.as_string().as_deref()
-                != Some(&serde_json::to_string(&saved).map_err(error)?)
             || !Self::permits(&saved, connection.remote_id(), connection.alpn())
             || !Self::proved_member_current(&self.0.lock().unwrap(), &saved, connection)
         {
@@ -1929,6 +1959,7 @@ impl Drop for Delivery {
 pub struct BrowserNetwork {
     endpoint: RestrictedEndpoint,
     incoming: std::rc::Rc<incoming::IncomingDispatcher>,
+    admission: admission::AdmissionService,
     files: std::rc::Rc<files::BrowserFiles>,
     _file_owner: files::FileOwner,
     clipboard: std::rc::Rc<clipboard_host::BrowserClipboard>,
@@ -2561,6 +2592,7 @@ impl BrowserNetwork {
             let budget_gate = gate.clone();
             incoming.install_active(
                 crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN,
+                1,
                 move || budget_gate.active_control_timeout(),
                 move |accepting, responder_deadline| {
                     let endpoint = active_endpoint.clone();
@@ -2624,6 +2656,7 @@ impl BrowserNetwork {
             caller_budget,
         );
         let file_owner = files::FileOwner(files.clone());
+        let admission = admission::AdmissionService::start(&incoming, &gate, &files, caller_budget);
         let clipboard = clipboard_host::BrowserClipboard::start(
             endpoint.clone(),
             gate.clone(),
@@ -2645,6 +2678,7 @@ impl BrowserNetwork {
         let mut network = Self {
             endpoint,
             incoming,
+            admission,
             files,
             _file_owner: file_owner,
             clipboard,
@@ -2698,33 +2732,45 @@ impl BrowserNetwork {
             .gate
             .service_snapshot()
             .unwrap_or_else(|_| self.saved.clone());
-        let anchor = saved.invitation().ok().map(|i| i.anchor);
-        let stage = if self.pairing.is_some() && saved.complete_invitation.is_none() {
-            "Pairing"
-        } else {
-            saved.stage()
-        };
-        serde_json::json!({
-            "id": self.id(), "stage": stage,
-            "network": anchor.map(|a| a.root.to_string()), "genesis": anchor.map(|a| a.genesis.to_string()),
-            "recovery_exported": saved.recovery_exported,
-            "recovery_saved": saved.creator_seed.is_none() || saved.recovery_saved,
-            "admission_attempt": if self.pairing.is_some() { None } else { saved.admission_attempt().map(|attempt| attempt.public_json()) },
-            "automatic_retry": !saved.manual_retry_stopped(), "authorization_saved": saved.authorization.is_some(),
-            "secret_saved": saved.secret.is_some(), "running": self.lease.is_some()
-        }).to_string()
+        saved
+            .public_status(self.pairing.is_some(), self.lease.is_some())
+            .to_string()
+    }
+
+    pub fn state_snapshot(&self) -> Result<String, JsValue> {
+        self.gate
+            .state_snapshot(self.pairing.is_some(), self.lease.is_some())
+    }
+
+    /// The promise owns its subscription, leaving the node available for other
+    /// operations while the host waits for its next applied snapshot.
+    pub fn observe_state(&self, after: String) -> Result<js_sys::Promise, JsValue> {
+        let after = after.parse::<u64>().map_err(error)?;
+        let mut updates = self.gate.0.lock().unwrap().changes.subscribe();
+        let gate = self.gate.clone();
+        let pairing = self.pairing.is_some();
+        let cancellation = self.incoming.cancellation();
+        Ok(wasm_bindgen_futures::future_to_promise(async move {
+            tokio::select! {
+                biased;
+                _ = cancellation.cancelled() => Err(error("browser node disconnected")),
+                changed = updates.wait_for(|cursor| *cursor != after) => {
+                    changed.map_err(error)?;
+                    gate.state_snapshot(pairing, true).map(|snapshot| JsValue::from_str(&snapshot))
+                }
+            }
+        }))
     }
 
     /// Redacted loaded material receipt, checked against the actual leased store.
     pub async fn admission_material_receipt(&self) -> Result<String, JsValue> {
-        self.check_store().await?;
-        self.saved.verify()?;
-        let invitation = self.saved.invitation()?;
-        Ok(serde_json::json!({"id":self.id(),"contact":invitation.contact.to_string(),"stage":self.saved.stage(),
-            "request":hex::encode(self.saved.admission_request_id()),
-            "authorization":self.saved.authorization.map(|id|id.to_string()),"generation":self.saved.generation,
-            "authorization_saved":self.saved.authorization.is_some(),"secret_saved":self.saved.secret.is_some(),
-            "records":self.saved.records.iter().map(|(header,_)|Hash::digest(header).to_string()).collect::<Vec<_>>()}).to_string())
+        let (saved, _, _) = services::installed(&self.gate).await?;
+        let invitation = saved.invitation()?;
+        Ok(serde_json::json!({"id":self.id(),"contact":invitation.contact.to_string(),"stage":saved.stage(),
+            "request":hex::encode(saved.admission_request_id()),
+            "authorization":saved.authorization.map(|id|id.to_string()),"generation":saved.generation,
+            "authorization_saved":saved.authorization.is_some(),"secret_saved":saved.secret.is_some(),
+            "records":saved.records.iter().map(|(header,_)|Hash::digest(header).to_string()).collect::<Vec<_>>()}).to_string())
     }
 
     /// Owned identity-binding diagnostic over a genuine restricted TLS A.
@@ -2998,40 +3044,17 @@ impl BrowserNetwork {
         }
     }
     async fn check_store(&self) -> Result<(), JsValue> {
-        let token = self
-            .lease
+        self.lease
             .as_ref()
-            .ok_or_else(|| error("browser node disconnected"))?
-            .0;
-        let installed = self
-            .gate
-            .0
-            .lock()
-            .unwrap()
-            .saved
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()
-            .map_err(error)?;
-        let actual = read_node(token).await?.as_string();
-        if actual.as_deref() != Some(&self.committed) && actual != installed {
-            return Err(error(
-                "browser materials cleared or changed; restore or rejoin",
-            ));
-        }
+            .ok_or_else(|| error("browser node disconnected"))?;
+        services::installed(&self.gate).await?;
         Ok(())
     }
     async fn commit(&mut self, next: SavedNode) -> Result<(), JsValue> {
-        next.verify()?;
         let token = self.lease.as_ref().ok_or_else(rejected)?.0;
-        let raw = serde_json::to_string(&next).map_err(error)?;
-        if raw.len() > 80 * 1024 * 1024 {
-            return Err(error("browser state too large"));
-        }
-        save_node(token, JsValue::from_str(&self.committed), raw.clone()).await?;
+        let raw = services::commit_installed(&self.gate, &self.committed, token, &next).await?;
         self.saved = next;
         self.committed = raw;
-        self.gate.install(&self.saved);
         Ok(())
     }
     async fn connect(&self, alpn: &[u8]) -> Result<Connection, JsValue> {

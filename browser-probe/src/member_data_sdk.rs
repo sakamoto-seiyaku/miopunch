@@ -202,7 +202,8 @@ impl BrowserNetwork {
             ));
         }
         let target: iroh::EndpointId = target.parse().map_err(error)?;
-        if !BrowserGate::permits(&self.saved, target, BUSINESS_ALPN) {
+        let saved = self.gate.service_snapshot()?;
+        if self.lease.is_none() || !BrowserGate::permits(&saved, target, BUSINESS_ALPN) {
             return Err(rejected());
         }
         if dynamic_route.len() != 96 {
@@ -223,8 +224,6 @@ impl BrowserNetwork {
         Ok(BrowserMemberAttempt {
             endpoint: self.endpoint.clone(),
             gate: self.gate.clone(),
-            lease: self.lease.as_ref().ok_or_else(rejected)?.0,
-            saved: self.committed.clone(),
             address: EndpointAddr::new(target).with_addrs([iroh::TransportAddr::Custom(route)]),
             deadline: n0_future::time::Instant::now() + Duration::from_millis(caller_ms.into()),
             cancel: tokio_util::sync::CancellationToken::new(),
@@ -236,23 +235,17 @@ impl BrowserNetwork {
     /// Disable is durable and terminal for this generation; only MID1 retires.
     /// A later explicit enabled startup creates a fresh token, never revives it.
     pub async fn disable_member_data(&mut self) -> Result<String, JsValue> {
-        let mut saved = self.saved.clone();
-        let entry = saved
-            .resources
-            .as_mut()
-            .and_then(|resources| resources.member_data.as_mut())
-            .ok_or_else(rejected)?;
-        entry.disabled = true;
-        let next = serde_json::to_string(&saved).map_err(error)?;
-        save_node(
-            self.lease.as_ref().ok_or_else(rejected)?.0,
-            JsValue::from_str(&self.committed),
-            next.clone(),
-        )
+        services::update_saved(&self.gate, |saved| {
+            let entry = saved
+                .resources
+                .as_mut()
+                .and_then(|resources| resources.member_data.as_mut())
+                .ok_or_else(rejected)?;
+            entry.disabled = true;
+            Ok(())
+        })
         .await?;
-        self.saved = saved;
-        self.committed = next;
-        self.gate.install(&self.saved);
+        self.refresh_service_snapshot().await?;
         if let Some(mut lease) = self.member_data_lease.take() {
             let _ = lease.close().await;
         }

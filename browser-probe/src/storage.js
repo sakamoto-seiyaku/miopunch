@@ -12,22 +12,34 @@ export async function acquireNode() {
     navigator.locks.request('miopunch-browser-network-v1', { ifAvailable: true }, async lock => {
       if (!lock) { reject(new Error('identity already active in another page')); return; }
       const token = nextLease++;
-      await new Promise(release => { leases.set(token, { release, closed }); resolve(token); });
+      await new Promise(release => {
+        leases.set(token, { release, closed, saves: new Set(), releasing: false });
+        resolve(token);
+      });
       leases.delete(token);
     }).then(released, reject);
   });
 }
 
-export function releaseNode(token) { leases.get(token)?.release(); }
+function releaseLease(token) {
+  const lease = leases.get(token);
+  if (!lease) return;
+  if (!lease.releasing) {
+    lease.releasing = true;
+    // A dropped Rust future cannot cancel an IndexedDB transaction. The next
+    // owner must open only after any save already started by this lease settles.
+    Promise.allSettled(lease.saves).then(lease.release);
+  }
+  return lease.closed;
+}
+
+export function releaseNode(token) { void releaseLease(token); }
 
 // Explicit close/rebind waits for the Web Locks request promise, which resolves
 // after the browser has released the lock, rather than merely resolving the
 // callback's release promise. Drop still has the non-blocking release above.
 export async function releaseNodeAndWait(token) {
-  const lease = leases.get(token);
-  if (!lease) return;
-  lease.release();
-  await lease.closed;
+  await releaseLease(token);
 }
 
 function database() {
@@ -55,7 +67,15 @@ export async function readNode(token) {
 // only after oncomplete, never after the put request alone. Stale pages, cleared
 // stores and failed commits cannot acknowledge saved admission material.
 export async function saveNode(token, previous, next) {
-  if (!leases.has(token)) throw new Error('identity lease ended');
+  const lease = leases.get(token);
+  if (!lease || lease.releasing) throw new Error('identity lease ended');
+  const save = replaceNode(previous, next);
+  lease.saves.add(save);
+  try { await save; }
+  finally { lease.saves.delete(save); }
+}
+
+async function replaceNode(previous, next) {
   const db = await database();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction('node', 'readwrite', { durability: 'strict' });

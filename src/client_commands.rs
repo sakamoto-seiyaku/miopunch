@@ -1,7 +1,9 @@
 //! Shared trusted host operations; lifecycle ownership stays with the caller.
 use crate::{
     manual_admission::AdmissionRequest,
-    native_client::{ClientError, ClientInvitation, NativeClient},
+    native_client::{
+        ClientError, ClientInvitation, ClientStateSnapshot, ClientStatus, NativeClient,
+    },
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -207,6 +209,10 @@ pub enum Command {
         password_path: Option<String>,
     },
     Status,
+    StateSnapshot,
+    ObserveState {
+        after: String,
+    },
     Address,
     Invite {
         path: String,
@@ -321,6 +327,10 @@ pub fn save_private(path: &str, bytes: &[u8]) -> Result<Value, ClientError> {
 pub async fn status(client: &NativeClient) -> Value {
     let status = client.status().await;
     let guest = client.guest_status().await.ok().flatten();
+    status_json(status, guest)
+}
+
+fn status_json(status: ClientStatus, guest: Option<Value>) -> Value {
     let mut result = json!({"node":status.node.node_id.to_string(), "network":status.node.anchor.root.to_string(),
         "genesis":status.node.anchor.genesis.to_string(),
         "stage":if !status.recovery_saved {"AwaitingRecoverySave".into()} else if !status.replacement_ready {"RestoringAuthorization".into()} else if status.membership_ended {"Removed".into()} else if status.manual_rejected {"Rejected".into()} else {format!("{:?}",status.admission)},
@@ -338,6 +348,17 @@ pub async fn status(client: &NativeClient) -> Value {
         result["members"] = json!([]);
     }
     result
+}
+
+fn state_snapshot_json(snapshot: ClientStateSnapshot) -> Value {
+    json!({"cursor":snapshot.cursor.to_string(),"status":status_json(snapshot.status, None),
+        "pending_admissions":snapshot.pending_admissions.iter().map(admission_request_json).collect::<Vec<_>>(),
+        "admission_history":snapshot.admission_history.iter().map(|entry| entry.public_json()).collect::<Vec<_>>(),
+        "device_operations":snapshot.device_operations})
+}
+
+fn admission_request_json(request: &AdmissionRequest) -> Value {
+    json!({"applicant":request.applicant.to_string(),"request_id":hex::encode(request.request_id)})
 }
 pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, ClientError> {
     match command {
@@ -585,6 +606,10 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
             )
         }
         Command::Status => Ok(status(client).await),
+        Command::StateSnapshot => Ok(state_snapshot_json(client.state_snapshot().await?)),
+        Command::ObserveState { after } => Ok(state_snapshot_json(
+            client.observe_state(after.parse()?).await?,
+        )),
         Command::Address => Ok(json!({"address":client.address()})),
         Command::Invite { path, text } => {
             let invitation = client.invitation().await?;
@@ -665,8 +690,7 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
             Ok(json!({"rejected":true}))
         }
         Command::Requests => Ok(
-            json!({"requests":client.requests().await?.iter().map(|request|
-            json!({"applicant":request.applicant.to_string(),"request_id":hex::encode(request.request_id)})).collect::<Vec<_>>()}),
+            json!({"requests":client.requests().await?.iter().map(admission_request_json).collect::<Vec<_>>()}),
         ),
         Command::AdmissionHistory => Ok(json!(client.admission_history().await?.into_iter()
             .map(|entry| entry.public_json()).collect::<Vec<_>>())),

@@ -588,8 +588,11 @@ impl BrowserNetwork {
         {
             return Err(rejected());
         }
-        let next = self.saved.declare_files(true)?;
-        self.commit(next).await?;
+        services::update_saved(&self.gate, |saved| {
+            *saved = saved.declare_files(true)?;
+            Ok(())
+        })
+        .await?;
         self.files
             .generation
             .set(self.files.generation.get().wrapping_add(1));
@@ -598,9 +601,11 @@ impl BrowserNetwork {
     }
     pub async fn disable_files(&mut self) -> Result<(), JsValue> {
         self.files.disable().await;
-        self.refresh_service_snapshot().await?;
-        let next = self.saved.declare_files(false)?;
-        self.commit(next).await
+        services::update_saved(&self.gate, |saved| {
+            *saved = saved.declare_files(false)?;
+            Ok(())
+        })
+        .await
     }
     pub fn file_status(&self) -> String {
         serde_json::json!({"enabled":self.files.enabled.get(), "tasks":self.files.tasks.status(),
