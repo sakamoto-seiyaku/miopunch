@@ -197,6 +197,11 @@ pub(crate) trait DynEndpointAdmission: std::fmt::Debug + Send + Sync {
         None
     }
     #[cfg(not(wasm_browser))]
+    fn member_direct_bindings(&self) -> Vec<std::net::SocketAddr> {
+        self.member_direct_binding().into_iter().collect()
+    }
+
+    #[cfg(not(wasm_browser))]
     fn member_direct_observers(&self) -> Vec<crate::RelayUrl> {
         Vec::new()
     }

@@ -126,6 +126,11 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
         None
     }
 
+    /// Actual TCP listeners available to independent address-family attempts.
+    fn member_direct_bindings(&self) -> Vec<std::net::SocketAddr> {
+        self.member_direct_binding().into_iter().collect()
+    }
+
     /// Observation destinations used by the coordinated TCP binding.
     fn member_direct_observers(&self) -> Vec<crate::RelayUrl> {
         Vec::new()
@@ -347,6 +352,10 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
     /// Actual local TCP binding used for observation and coordinated dialing.
     fn member_direct_binding(&self) -> Option<std::net::SocketAddr> {
         self.inner.member_direct_binding()
+    }
+
+    fn member_direct_bindings(&self) -> Vec<std::net::SocketAddr> {
+        self.inner.member_direct_bindings()
     }
 
     fn member_direct_observers(&self) -> Vec<crate::RelayUrl> {
@@ -2223,6 +2232,7 @@ enum StreamKind {
     UdpImprovement,
     UdpMaintenance,
     DirectTraversal,
+    DirectTraversalIpv6,
 }
 
 impl StreamKind {
@@ -2281,9 +2291,9 @@ fn watch_streams(
                     let original = paths.as_ref().map(|_| connection.clone());
                     pending.push(async move {
                         let Ok(kind) = read_stream_kind(&mut recv).await else { return; };
-                        if kind == StreamKind::DirectTraversal as u8 {
+                        if kind == StreamKind::DirectTraversal as u8 || kind == StreamKind::DirectTraversalIpv6 as u8 {
                             if let Some((paths, original)) = paths.zip(original) {
-                                paths.respond(&original, ControlExchange::from_streams(send, recv)).await;
+                                paths.respond(&original, ControlExchange::from_streams(send, recv), kind == StreamKind::DirectTraversalIpv6 as u8).await;
                             }
                         } else if let Some(kind) = StreamKind::udp_kind(kind) {
                             if let Some(udp) = udp {

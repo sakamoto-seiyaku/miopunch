@@ -49,7 +49,7 @@ pub(in crate::endpoint) struct PathCandidates {
     learned: Mutex<(ObservationValidity, BTreeSet<TransportAddr>)>,
     traversal: Option<(Duration, Duration)>,
     activity: Arc<super::Activity>,
-    last_traversal: Mutex<Option<(ObservationValidity, time::Instant)>>,
+    last_traversal: Mutex<[Option<(ObservationValidity, time::Instant)>; 2]>,
     healthy_direct: watch::Receiver<bool>,
     data_failed: Option<watch::Receiver<bool>>,
 }
@@ -145,12 +145,38 @@ impl PathCandidates {
     }
 
     async fn initiate(&self, connection: &Connection) -> io::Result<()> {
-        self.run_traversal(connection, None).await
+        let policy = self
+            .endpoint
+            .inner
+            .static_config
+            .admission
+            .as_ref()
+            .expect("member policy");
+        let mut families = policy
+            .member_direct_bindings()
+            .into_iter()
+            .map(|binding| binding.is_ipv6())
+            .collect::<BTreeSet<_>>();
+        if families.is_empty() {
+            families.insert(false);
+        }
+        let mut attempts = families
+            .into_iter()
+            .map(|ipv6| self.run_traversal(connection, None, ipv6))
+            .collect::<FuturesUnordered<_>>();
+        let mut error = io::ErrorKind::Unsupported.into();
+        while let Some(result) = attempts.next().await {
+            match result {
+                Ok(()) => return Ok(()),
+                Err(failed) => error = failed,
+            }
+        }
+        Err(error)
     }
 
-    pub(super) async fn respond(&self, connection: &Connection, exchange: ControlExchange) {
+    pub(super) async fn respond(&self, connection: &Connection, exchange: ControlExchange, ipv6: bool) {
         if !self.dialer {
-            let _ = self.run_traversal(connection, Some(exchange)).await;
+            let _ = self.run_traversal(connection, Some(exchange), ipv6).await;
         }
     }
 
@@ -159,6 +185,7 @@ impl PathCandidates {
         connection: &Connection,
         wait: bool,
         deadline: time::Instant,
+        ipv6: bool,
     ) -> io::Result<Option<super::physical::MemberPunching>> {
         let policy = self
             .endpoint
@@ -167,13 +194,27 @@ impl PathCandidates {
             .admission
             .as_ref()
             .expect("member policy");
-        let Some(configured) = policy.member_direct_binding() else {
-            return Ok(Some(super::physical::MemberPunching::untracked()));
+        let bindings = policy.member_direct_bindings();
+        let Some(configured) = bindings.iter().copied().find(|binding| binding.is_ipv6() == ipv6) else {
+            return Ok(bindings.is_empty().then(super::physical::MemberPunching::untracked));
         };
         let observers = policy.member_direct_observers();
-        if observers.is_empty() { return Ok(Some(super::physical::MemberPunching::untracked())); }
-        let family = if configured.is_ipv6() { iroh_relay::ObservationFamily::Ipv6 } else { iroh_relay::ObservationFamily::Ipv4 };
-        let binding = super::physical::observer_binding(&self.endpoint, family, observers.into_iter().map(|url| (url, 3478)), Some(configured), deadline).await?;
+        if observers.is_empty() {
+            return Ok(Some(super::physical::MemberPunching::untracked()));
+        }
+        let family = if ipv6 {
+            iroh_relay::ObservationFamily::Ipv6
+        } else {
+            iroh_relay::ObservationFamily::Ipv4
+        };
+        let binding = super::physical::observer_binding(
+            &self.endpoint,
+            family,
+            observers.into_iter().map(|url| (url, 3478)),
+            Some(configured),
+            deadline,
+        )
+        .await?;
         let scope = self.endpoint.inner.punching_scope(binding, true)?;
         let pool = &policy
             .member_fusion()
@@ -184,10 +225,13 @@ impl PathCandidates {
             Ok(Some(
                 time::timeout_at(deadline, pool.acquire(scope, connection.remote_id()))
                     .await
-                    .map_err(|_| io::ErrorKind::TimedOut)?,
+                    .map_err(|_| io::ErrorKind::TimedOut)?
+                    .with_binding(binding),
             ))
         } else {
-            Ok(pool.try_acquire(scope, connection.remote_id()))
+            Ok(pool
+                .try_acquire(scope, connection.remote_id())
+                .map(|permit| permit.with_binding(binding)))
         }
     }
 
@@ -195,6 +239,7 @@ impl PathCandidates {
         &self,
         connection: &Connection,
         incoming: Option<ControlExchange>,
+        ipv6: bool,
     ) -> io::Result<()> {
         let (budget, interval) = self.traversal.ok_or(io::ErrorKind::Unsupported)?;
         let deadline = time::Instant::now() + budget;
@@ -222,17 +267,13 @@ impl PathCandidates {
             // a stream. An incoming attempt never waits while its peer holds
             // that peer's slot, so crossed work cannot deadlock.
             let physical = self
-                .physical_tcp(connection, incoming.is_none(), deadline)
+                .physical_tcp(connection, incoming.is_none(), deadline, ipv6)
                 .await?;
             time::timeout_at(deadline, async {
-                let paced = self
-                    .last_traversal
-                    .lock()
-                    .expect("direct traversal")
-                    .as_ref()
-                    .is_some_and(|(scope, started)| {
-                        scope.is_current() && started.elapsed() < interval
-                    });
+                let paced = self.last_traversal.lock().expect("direct traversal")
+                    [usize::from(ipv6)]
+                .as_ref()
+                .is_some_and(|(scope, started)| scope.is_current() && started.elapsed() < interval);
                 if physical.is_none() || paced {
                     if let Some(exchange) = incoming {
                         exchange.send_message(TRAVERSAL_STATUS, &[0]).await?;
@@ -245,7 +286,7 @@ impl PathCandidates {
                     exchange
                 } else {
                     let (mut send, recv) = connection.open_bi().await.map_err(io::Error::other)?;
-                    send.write_all(&[StreamKind::DirectTraversal as u8])
+                    send.write_all(&[if ipv6 { StreamKind::DirectTraversalIpv6 } else { StreamKind::DirectTraversal } as u8])
                         .await
                         .map_err(io::Error::other)?;
                     let exchange = ControlExchange::from_streams(send, recv);
@@ -279,7 +320,7 @@ impl PathCandidates {
                     .as_ref()
                     .is_err_and(|error| error.kind() == io::ErrorKind::WouldBlock)
                 {
-                    *self.last_traversal.lock().expect("direct traversal") =
+                    self.last_traversal.lock().expect("direct traversal")[usize::from(ipv6)] =
                         Some((generation.clone(), started));
                 }
                 result.map(|_| ())
@@ -313,7 +354,18 @@ impl PathCandidates {
         let generation = self.endpoint.udp_network_generation();
         let work = async {
             let physical = self
-                .physical_tcp(connection, true, deadline)
+                .physical_tcp(
+                    connection,
+                    true,
+                    deadline,
+                    self.endpoint
+                        .inner
+                        .static_config
+                        .admission
+                        .as_ref()
+                        .and_then(|policy| policy.member_direct_binding())
+                        .is_some_and(|binding| binding.is_ipv6()),
+                )
                 .await?
                 .ok_or(io::ErrorKind::WouldBlock)?;
             let fusion = self
@@ -669,7 +721,8 @@ async fn watch(
                         match result {
                             Ok(()) => {
                                 traversal_failures = 0;
-                                previously_qualified = true;
+                                next_traversal = None;
+                                previously_qualified = candidates.has_qualified_direct();
                             }
                             Err(error) => {
                                 let mut delay = traversal_interval.expect("running TCP traversal interval");

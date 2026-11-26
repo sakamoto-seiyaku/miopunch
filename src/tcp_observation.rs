@@ -96,7 +96,11 @@ pub(crate) async fn observe_from(
         endpoint,
         transport,
         observer,
-        iroh::endpoint::ObservationFamily::Ipv4,
+        if source.is_ipv6() {
+            iroh::endpoint::ObservationFamily::Ipv6
+        } else {
+            iroh::endpoint::ObservationFamily::Ipv4
+        },
         Some(source),
     )
     .await

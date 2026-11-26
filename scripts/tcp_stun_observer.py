@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Owned IPv4 STUN-over-TCP Binding service; address comes from the real socket."""
+"""Owned dual-stack STUN-over-TCP Binding service; address comes from the real socket."""
 import asyncio
+import argparse
 import ipaddress
 import struct
 
@@ -12,8 +13,12 @@ async def binding(reader, writer):
         if (kind, length, cookie) != (1, 0, 0x2112A442):
             return
         address, port = writer.get_extra_info("peername")[:2]
-        value = struct.pack("!BBHI", 0, 1, port ^ 0x2112, int(ipaddress.IPv4Address(address)) ^ cookie)
-        response = struct.pack("!HHI", 0x0101, 12, cookie) + header[8:] + struct.pack("!HH", 0x0020, 8) + value
+        ip = ipaddress.ip_address(address)
+        mask = header[4:20]
+        encoded = bytes(byte ^ mask[index] for index, byte in enumerate(ip.packed))
+        value = struct.pack("!BBH", 0, 1 if ip.version == 4 else 2, port ^ 0x2112) + encoded
+        attribute = struct.pack("!HH", 0x0020, len(value)) + value
+        response = struct.pack("!HHI", 0x0101, len(attribute), cookie) + header[8:] + attribute
         writer.write(response)
         await writer.drain()
         print(f"STUN_TCP_OBSERVED candidate={address}:{port}", flush=True)
@@ -26,7 +31,10 @@ async def binding(reader, writer):
 
 
 async def main():
-    server = await asyncio.start_server(binding, "100.64.27.1", 3478)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--host", default="100.64.27.1")
+    args = parser.parse_args()
+    server = await asyncio.start_server(binding, args.host, 3478)
     print("STUN_TCP_READY actual_socket_observer=true", flush=True)
     async with server:
         await server.serve_forever()

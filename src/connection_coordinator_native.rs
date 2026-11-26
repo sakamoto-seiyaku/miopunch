@@ -995,6 +995,14 @@ impl iroh::endpoint::EndpointAdmission for NativeAdmission {
         &self,
         connection: &iroh::endpoint::ControlConnection,
     ) -> io::Result<iroh::endpoint::AdmissionOutcome> {
+        #[cfg(feature = "nat-lab-test-hooks")]
+        eprintln!("NATIVE_CONTROL_IDENTITY {}", json!({
+            "alpn": String::from_utf8_lossy(connection.alpn()),
+            "side": format!("{:?}", connection.side()),
+            "local": connection.id().to_string(),
+            "peer": connection.remote_id().to_string(),
+            "stable": connection.stable_id(),
+        }));
         if let Some(context) = connection.application_context::<MigrationWireContext>() {
             if !connection.side().is_client() || !context.matches(connection.remote_id(), connection.alpn()) {
                 return Err(control_error("IdentityOrAdmissionRejected"));

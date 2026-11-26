@@ -1,12 +1,12 @@
 //! Public node lifecycle, real admission and durable LogSync; no mocked peers.
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[path = "support/member_fusion_arbitration.rs"]
+mod member_fusion_arbitration;
 #[path = "support/native_connections.rs"]
 mod native_connections;
 #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
 #[path = "support/path_contention_baseline.rs"]
 mod path_contention_baseline;
-#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
-#[path = "support/member_fusion_arbitration.rs"]
-mod member_fusion_arbitration;
 #[cfg(target_os = "linux")]
 #[path = "support/tcp_binding_observer.rs"]
 mod tcp_binding_observer;
@@ -26,6 +26,12 @@ use std::{collections::BTreeSet, net::Ipv4Addr, sync::Arc, time::Duration};
 #[tokio::test]
 async fn observed_tcp_moves_the_application_members_original_stream_after_fresh_ack() {
     observed_tcp_on_application_members(TcpRound::Commit).await;
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn observed_ipv6_tcp_moves_the_application_members_original_stream_after_fresh_ack() {
+    observed_tcp_on_application_members_family(TcpRound::Commit, true).await;
 }
 
 #[cfg(target_os = "linux")]
@@ -72,6 +78,11 @@ enum TcpRound {
 
 #[cfg(target_os = "linux")]
 async fn observed_tcp_on_application_members(scenario: TcpRound) {
+    observed_tcp_on_application_members_family(scenario, false).await;
+}
+
+#[cfg(target_os = "linux")]
+async fn observed_tcp_on_application_members_family(scenario: TcpRound, ipv6: bool) {
     use iroh::{
         EndpointAddr, TransportAddr,
         endpoint::{BeforeConnectOutcome, EndpointHooks, MemberConnection, MemberStream},
@@ -129,8 +140,13 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
     let requalify = matches!(scenario, TcpRound::Requalify);
     let retry = cooldown_retry || matches!(scenario, TcpRound::RetryAfterNetworkChange);
     let retry_interval = Duration::from_millis(600);
+    let loopback: std::net::IpAddr = if ipv6 {
+        std::net::Ipv6Addr::LOCALHOST.into()
+    } else {
+        Ipv4Addr::LOCALHOST.into()
+    };
     let (observer, listener, mut sources) =
-        tcp_binding_observer::tcp_binding_observer_with_sources(None, usize::from(retry) * 2).await;
+        tcp_binding_observer::tcp_binding_observer_on(loopback, None, usize::from(retry) * 2).await;
     for node in [&consumer, &provider] {
         let mut config = node.resource_configuration().unwrap();
         config.replacement = Some(vec![
@@ -145,15 +161,29 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
                 limitation: "owned TCP observer of the retained port".into(),
             },
         ]);
-        if matches!(scenario, TcpRound::Commit) {
-            config.replacement.as_mut().unwrap().insert(0, Resource {
-                url: "stun+tcp://[::1]:9/".into(),
-                uses: [ResourceUse::Observation].into(),
-                limitation: "an unusable first observer leaves IPv4 alternatives eligible".into(),
-            });
+        if matches!(scenario, TcpRound::Commit) && !ipv6 {
+            config.replacement.as_mut().unwrap().insert(
+                0,
+                Resource {
+                    url: "stun+tcp://[::1]:9/".into(),
+                    uses: [ResourceUse::Observation].into(),
+                    limitation: "an unusable first observer leaves IPv4 alternatives eligible"
+                        .into(),
+                },
+            );
         }
         config.udp_direct_disabled = true;
-        config.tcp_listen = Some((Ipv4Addr::UNSPECIFIED, 0).into());
+        config.tcp_listen = Some(
+            (
+                if ipv6 {
+                    std::net::IpAddr::V6(std::net::Ipv6Addr::UNSPECIFIED)
+                } else {
+                    Ipv4Addr::UNSPECIFIED.into()
+                },
+                0,
+            )
+                .into(),
+        );
         config.path_selection.preference = PathPreference::PreferDirect;
         config.maintenance.quality_interval_ms = 250;
         if cooldown_retry || requalify {
@@ -171,11 +201,17 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
     }
     let dials = [Dials::default(), Dials::default()];
     let consumer = consumer
-        .maintain_application_network(Ipv4Addr::LOCALHOST, |b| b.hooks(dials[0].clone()).test_suppress_member_direct_announcements())
+        .maintain_application_network(Ipv4Addr::LOCALHOST, |b| {
+            b.hooks(dials[0].clone())
+                .test_suppress_member_direct_announcements()
+        })
         .await
         .unwrap();
     let provider = provider
-        .maintain_application_network(Ipv4Addr::LOCALHOST, |b| b.hooks(dials[1].clone()).test_suppress_member_direct_announcements())
+        .maintain_application_network(Ipv4Addr::LOCALHOST, |b| {
+            b.hooks(dials[1].clone())
+                .test_suppress_member_direct_announcements()
+        })
         .await
         .unwrap();
     let announced = [&consumer, &provider].map(|node| {
@@ -192,7 +228,7 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
         announced.iter().all(|addr| !addr.ip().is_unspecified()),
         "{announced:?}"
     );
-    let observed = announced.map(|addr| std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, addr.port())));
+    let observed = announced.map(|addr| std::net::SocketAddr::from((loopback, addr.port())));
     let relay_path = TransportAddr::Relay(relay_url.clone());
     let (out, entrance) = tokio::join!(
         consumer

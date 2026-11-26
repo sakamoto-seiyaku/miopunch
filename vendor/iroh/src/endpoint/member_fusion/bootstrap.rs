@@ -20,6 +20,7 @@ pub(super) async fn qualify(
     let tcp_exchange = exchange(&control, 1).await?;
     let udp_exchange = exchange(&control, 2).await?;
     let udp6_exchange = exchange(&control, 3).await?;
+    let tcp6_exchange = exchange(&control, 4).await?;
     let deadline = control
         .caller_deadline()
         .expect("restricted admission deadline");
@@ -27,8 +28,24 @@ pub(super) async fn qualify(
     let generation = control.udp_network_generation();
     let (completed, mut results) = tokio::sync::mpsc::unbounded_channel();
     tokio::spawn(async move {
-        let tcp = async {
-            let result = tcp(&control, tcp_exchange, custom.clone()).await;
+        let tcp4 = async {
+            let result = tcp(
+                &control,
+                tcp_exchange,
+                custom.clone(),
+                iroh_relay::ObservationFamily::Ipv4,
+            )
+            .await;
+            let _ = completed.send(result);
+        };
+        let tcp6 = async {
+            let result = tcp(
+                &control,
+                tcp6_exchange,
+                custom.clone(),
+                iroh_relay::ObservationFamily::Ipv6,
+            )
+            .await;
             let _ = completed.send(result);
         };
         let udp4 = async {
@@ -56,7 +73,7 @@ pub(super) async fn qualify(
             _ = cancel.cancelled() => {},
             _ = control.endpoint.inner.wait_network_generation_change(&generation) => {},
             _ = time::sleep_until(deadline.into()) => {},
-            _ = async { tokio::join!(tcp, udp4, udp6); } => {},
+            _ = async { tokio::join!(tcp4, tcp6, udp4, udp6); } => {},
         }
     });
     while let Some(result) = results.recv().await {
@@ -92,6 +109,7 @@ async fn tcp(
     control: &ControlHandle,
     exchange: ControlExchange,
     custom: Vec<u64>,
+    family: iroh_relay::ObservationFamily,
 ) -> io::Result<DataPathPermit> {
     let policy = control
         .endpoint
@@ -100,7 +118,12 @@ async fn tcp(
         .admission
         .as_ref()
         .expect("member policy");
+    let configured = policy
+        .member_direct_bindings()
+        .into_iter()
+        .find(|binding| family.matches(*binding));
     let supported = policy.member_direct_traversal().is_some()
+        && configured.is_some()
         && policy
             .member_direct_transport()
             .is_some_and(|id| custom.contains(&id));
@@ -114,14 +137,11 @@ async fn tcp(
     let deadline = control.caller_deadline().expect("restricted admission deadline").into();
     let building = &policy.member_fusion().expect("member fusion").building;
     let observers = policy.member_direct_observers();
-    let binding = if let Some(configured) = policy
-        .member_direct_binding()
-        .filter(|_| !observers.is_empty())
-    {
+    let binding = if let Some(configured) = configured.filter(|_| !observers.is_empty()) {
         Some(
             super::physical::observer_binding(
                 &control.endpoint,
-                iroh_relay::ObservationFamily::Ipv4,
+                family,
                 observers.into_iter().map(|url| (url, 3478)),
                 Some(configured),
                 deadline,

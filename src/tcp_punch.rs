@@ -34,7 +34,7 @@ pub(crate) struct TcpPunch {
     pub(crate) transport: TcpTransport,
     pub(crate) observers: Vec<iroh::RelayUrl>,
     pub(crate) resources: crate::resources::ResourceConfig,
-    attempts: Arc<Mutex<HashMap<(iroh::EndpointId, Vec<u8>), PeerAttempt>>>,
+    attempts: Arc<Mutex<HashMap<(iroh::EndpointId, Vec<u8>, bool), PeerAttempt>>>,
 }
 
 #[derive(Debug)]
@@ -46,8 +46,8 @@ struct PeerAttempt {
 }
 
 struct AttemptClaim {
-    attempts: Arc<Mutex<HashMap<(iroh::EndpointId, Vec<u8>), PeerAttempt>>>,
-    key: (iroh::EndpointId, Vec<u8>),
+    attempts: Arc<Mutex<HashMap<(iroh::EndpointId, Vec<u8>, bool), PeerAttempt>>>,
+    key: (iroh::EndpointId, Vec<u8>, bool),
     token: [u8; 16],
 }
 
@@ -188,7 +188,14 @@ impl TcpPunch {
         &self,
         connection: &ControlHandle,
     ) -> io::Result<()> {
-        let claim = self.claim(connection).await?;
+        let claim = self
+            .claim(
+                connection,
+                self.transport
+                    .bound_socket_addr()
+                    .is_some_and(|addr| addr.is_ipv6()),
+            )
+            .await?;
         let routes: Vec<_> = connection
             .paths()
             .iter()
@@ -255,8 +262,8 @@ impl TcpPunch {
         Ok(())
     }
 
-    async fn claim(&self, connection: &ControlHandle) -> io::Result<AttemptClaim> {
-        let key = (connection.remote_id(), connection.alpn().to_vec());
+    async fn claim(&self, connection: &ControlHandle, ipv6: bool) -> io::Result<AttemptClaim> {
+        let key = (connection.remote_id(), connection.alpn().to_vec(), ipv6);
         let preferred = connection.side().is_client() == (connection.id() < connection.remote_id());
         let mut token = [0; 16];
         connection
@@ -391,19 +398,29 @@ impl TcpPunch {
             }
         };
         check()?;
+        let mut physical = match &preparation {
+            Preparation::Fused { physical, .. } => physical.clone(),
+            _ => None,
+        };
+        let binding = physical
+            .as_ref()
+            .and_then(|permit| permit.binding())
+            .or_else(|| self.transport.bound_socket_addr());
+        let ipv6 = binding.is_some_and(|addr| addr.is_ipv6());
+        let family = if ipv6 {
+            iroh::endpoint::ObservationFamily::Ipv6
+        } else {
+            iroh::endpoint::ObservationFamily::Ipv4
+        };
         // Active work already holds the exact M's reservation. Initial
         // contact deduplication must never replace or pin another living M.
         let claim = if initial {
-            Some(self.claim(connection).await?)
+            Some(self.claim(connection, ipv6).await?)
         } else {
             None
         };
         check()?;
         let generation = connection.udp_network_generation();
-        let mut physical = match &preparation {
-            Preparation::Fused { physical, .. } => physical.clone(),
-            _ => None,
-        };
         let physical_required = physical.is_some();
         let mut observation = None;
         // Both peers consume the protected TCP phase even when only one can
@@ -413,31 +430,38 @@ impl TcpPunch {
             for (index, observer) in self.observers.iter().enumerate() {
                 check()?;
                 let phase = log.phase("observation", json!({"method":"tcp","observerIndex":index}));
-                let sample = async { if physical_required {
-                    let destination = connection
-                        .resolve_observation_addr(
+                let sample = async {
+                    if physical_required {
+                        let destination = connection
+                            .resolve_observation_addr(observer, family, 3478)
+                            .await?;
+                        let listener = self.transport.bound_socket_addr_for(destination)?;
+                        if let Some(previous) = physical.take() {
+                            previous.finish();
+                        }
+                        let permit = connection.try_member_punching(listener, destination, true)?;
+                        let source = permit.binding().expect("TCP physical source");
+                        physical = Some(permit);
+                        crate::tcp_observation::observe_from(
+                            connection,
+                            &self.transport,
                             observer,
-                            iroh::endpoint::ObservationFamily::Ipv4,
-                            3478,
+                            source,
                         )
-                        .await?;
-                    let listener = self.transport.bound_socket_addr_for(destination)?;
-                    if let Some(previous) = physical.take() { previous.finish(); }
-                    let permit = connection.try_member_punching(listener, destination, true)?;
-                    let source = permit.binding().expect("TCP physical source");
-                    physical = Some(permit);
-                    crate::tcp_observation::observe_from(
-                        connection,
-                        &self.transport,
-                        observer,
-                        source,
-                    )
-                    .await
-                } else {
-                    crate::tcp_observation::observe(connection, &self.transport, observer).await
-                } }.await;
+                        .await
+                    } else {
+                        crate::tcp_observation::observe_for_family(
+                            connection,
+                            &self.transport,
+                            observer,
+                            family,
+                        )
+                        .await
+                    }
+                }
+                .await;
                 match sample {
-                    Ok(result) if result.is_fresh() && result.mapped.is_ipv4() => {
+                    Ok(result) if result.is_fresh() && family.matches(result.mapped) => {
                         phase.finish("succeeded");
                         observation = Some(result);
                         break;
@@ -473,27 +497,25 @@ impl TcpPunch {
         };
         // Keep both peers in the TCP phase even when only one observer fails.
         // The retained observation socket lives through the path decision.
-        let mut candidate = b"MIOTCP01".to_vec();
+        let preface: &[u8; 8] = if ipv6 { b"MIOTCP02" } else { b"MIOTCP01" };
+        let length = if ipv6 { 27 } else { 15 };
+        let mut candidate = preface.to_vec();
         if let Some(result) = &observation
             && result.is_fresh()
-            && let SocketAddr::V4(local) = result.mapped
         {
             candidate.push(1);
-            candidate.extend(local.ip().octets());
-            candidate.extend(local.port().to_be_bytes());
+            match result.mapped.ip() {
+                std::net::IpAddr::V4(ip) => candidate.extend(ip.octets()),
+                std::net::IpAddr::V6(ip) => candidate.extend(ip.octets()),
+            }
+            candidate.extend(result.mapped.port().to_be_bytes());
         } else {
-            candidate.extend([0; 7]);
+            candidate.resize(length, 0);
         }
-        exchange
-            .send_message(
-                iroh::endpoint::ControlMessageFormat::Fixed { length: 15 },
-                &candidate,
-            )
-            .await?;
-        let received = exchange
-            .recv_message(iroh::endpoint::ControlMessageFormat::Fixed { length: 15 })
-            .await?;
-        if received[..8] != *b"MIOTCP01" || received[8] > 1 {
+        let format = ControlMessageFormat::Fixed { length };
+        exchange.send_message(format, &candidate).await?;
+        let received = exchange.recv_message(format).await?;
+        if received[..8] != *preface || received[8] > 1 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "invalid protected TCP candidate",
@@ -503,10 +525,19 @@ impl TcpPunch {
             exchange.finish_send().await?;
             return Err(io::Error::other("TCP observation unavailable at a peer"));
         }
-        let remote = SocketAddr::from((
-            std::net::Ipv4Addr::from(<[u8; 4]>::try_from(&received[9..13]).unwrap()),
-            u16::from_be_bytes(received[13..].try_into().unwrap()),
-        ));
+        let ip = if ipv6 {
+            std::net::IpAddr::V6(std::net::Ipv6Addr::from(
+                <[u8; 16]>::try_from(&received[9..25]).unwrap(),
+            ))
+        } else {
+            std::net::IpAddr::V4(std::net::Ipv4Addr::from(
+                <[u8; 4]>::try_from(&received[9..13]).unwrap(),
+            ))
+        };
+        let remote = SocketAddr::new(
+            ip,
+            u16::from_be_bytes(received[length - 2..].try_into().unwrap()),
+        );
         let route = TcpTransport::address(remote);
         let allowed = self.resources.allows_custom(&route)
             && !remote.ip().is_unspecified()
@@ -562,6 +593,7 @@ impl TcpPunch {
         }
         check()?;
         let mut circuit = None;
+        let mut physical_finished = false;
         let validation = log
             .phase(
                 "punch",
@@ -594,9 +626,25 @@ impl TcpPunch {
                         check()?;
                         if !generation.is_current()
                             || connection.is_closed()
-                            || if physical.is_some() && active.as_ref().and_then(|active| active.circuit.as_ref()).or(circuit.as_ref()).is_some_and(|circuit| circuit.handshake_ready()) {
-                                !observation.as_ref().is_some_and(|result| active.as_ref().and_then(|active| active.circuit.as_ref()).or(circuit.as_ref()).is_some_and(|circuit| circuit.binding_is_live(result.local_addr)))
-                            } else { !observation.as_ref().is_some_and(|result| result.is_fresh()) }
+                            || if physical.is_some()
+                                && active
+                                    .as_ref()
+                                    .and_then(|active| active.circuit.as_ref())
+                                    .or(circuit.as_ref())
+                                    .is_some_and(|circuit| circuit.handshake_ready())
+                            {
+                                !observation.as_ref().is_some_and(|result| {
+                                    active
+                                        .as_ref()
+                                        .and_then(|active| active.circuit.as_ref())
+                                        .or(circuit.as_ref())
+                                        .is_some_and(|circuit| {
+                                            circuit.binding_is_live(result.local_addr)
+                                        })
+                                })
+                            } else {
+                                !observation.as_ref().is_some_and(|result| result.is_fresh())
+                            }
                         {
                             return Err(io::Error::other(
                                 "TCP observation invalidated during punching",
@@ -626,8 +674,16 @@ impl TcpPunch {
                             .and_then(|active| active.circuit.as_ref())
                             .or(circuit.as_ref())
                             .is_some_and(|circuit| circuit.handshake_ready());
-                        if handshake_ready {
-                            if let Some(physical) = &physical { physical.finish(); }
+                        if handshake_ready && !physical_finished {
+                            if let Some(physical) = &physical {
+                                physical.finish();
+                            }
+                            physical_finished = true;
+                            println!(
+                                "TCP_PHYSICAL_RELEASED stable_id={} source={} remote={remote}",
+                                connection.stable_id(),
+                                observation.as_ref().expect("TCP observation").local_addr
+                            );
                         }
                         if handshake_ready && connection.paths().iter().any(
                     |path| matches!(path.remote_addr(),TransportAddr::Custom(addr) if addr==&route),

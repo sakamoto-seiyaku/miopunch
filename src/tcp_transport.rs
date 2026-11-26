@@ -149,13 +149,14 @@ impl TcpTransport {
     }
 
     pub(crate) fn with_punching(mut self) -> Self {
-        self.punching =
-            cfg!(any(target_os = "linux", target_os = "windows")) && self.bind_addr.is_ipv4();
-        self.reuse_local_port = cfg!(any(
+        self.punching = cfg!(any(
             target_os = "linux",
             target_os = "android",
-            target_os = "windows"
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "ios"
         ));
+        self.reuse_local_port = self.punching;
         self
     }
 
@@ -238,7 +239,7 @@ impl TcpTransport {
             .unwrap()
             .upgrade()
             .ok_or_else(|| io::Error::other("TCP endpoint unavailable"))?;
-        if !shared.punching || !peer.is_ipv4() {
+        if !shared.punching {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
                 "TCP punching unavailable",
@@ -266,7 +267,7 @@ impl TcpTransport {
             .unwrap()
             .upgrade()
             .ok_or_else(|| io::Error::other("TCP endpoint unavailable"))?;
-        if !shared.punching || !peer.is_ipv4() {
+        if !shared.punching {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
                 "TCP punching unavailable",
@@ -386,6 +387,14 @@ impl TcpTransport {
         }
     }
 
+    pub(crate) fn bound_socket_addrs(&self) -> Vec<SocketAddr> {
+        self.shared
+            .lock()
+            .unwrap()
+            .upgrade()
+            .map_or_else(Vec::new, |shared| shared.locals.clone())
+    }
+
     pub fn bound_socket_addr(&self) -> Option<SocketAddr> {
         *self.bound_addr.lock().unwrap()
     }
@@ -475,10 +484,24 @@ struct Channel {
     pending_queue: Option<mpsc::Receiver<QueuedPacket>>,
     active: bool,
     local_addr: Option<SocketAddr>,
+    handshakes: Vec<Weak<TcpHandshake>>,
     dial_cancel: tokio::sync::watch::Sender<bool>,
     cancel: tokio::sync::watch::Sender<bool>,
     owners: usize,
     established_data: bool,
+}
+
+#[derive(Debug)]
+struct TcpHandshake {
+    local_addr: SocketAddr,
+}
+
+impl Channel {
+    fn retain_handshake(&mut self, handshake: &Arc<TcpHandshake>) {
+        self.handshakes
+            .retain(|handshake| handshake.strong_count() != 0);
+        self.handshakes.push(Arc::downgrade(handshake));
+    }
 }
 
 /// A connection attempt owns its share of the real peer circuit. Cancelling
@@ -492,11 +515,22 @@ pub(crate) struct TcpCircuitLease {
 impl TcpCircuitLease {
     pub(crate) fn handshake_ready(&self) -> bool {
         let channel = self.channel.lock().unwrap();
-        channel.active && !channel.sender.is_closed()
+        !channel.sender.is_closed()
+            && (channel.active
+                || channel
+                    .handshakes
+                    .iter()
+                    .any(|handshake| handshake.strong_count() != 0))
     }
     pub(crate) fn binding_is_live(&self, source: SocketAddr) -> bool {
         let channel = self.channel.lock().unwrap();
-        channel.active && !channel.sender.is_closed() && channel.local_addr == Some(source)
+        !channel.sender.is_closed()
+            && ((channel.active && channel.local_addr == Some(source))
+                || channel.handshakes.iter().any(|handshake| {
+                    handshake
+                        .upgrade()
+                        .is_some_and(|handshake| handshake.local_addr == source)
+                }))
     }
 }
 
@@ -585,6 +619,7 @@ fn channel(
         pending_queue: Some(queue),
         active: false,
         local_addr: None,
+        handshakes: Vec::new(),
         dial_cancel,
         cancel,
         owners: 0,
@@ -761,7 +796,12 @@ fn bind_listener(address: SocketAddr, reuse: bool) -> io::Result<TcpListener> {
     }
     if reuse {
         socket.set_reuse_address(true)?;
-        #[cfg(any(target_os = "linux", target_os = "android"))]
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "ios"
+        ))]
         socket.set_reuse_port(true)?;
     }
     socket.bind(&address.into())?;
@@ -1085,10 +1125,24 @@ async fn connect_from_listener(local: SocketAddr, target: SocketAddr) -> io::Res
         TcpSocket::new_v6()?
     };
     socket.set_reuseaddr(true)?;
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "ios"
+    ))]
     socket.set_reuseport(true)?;
     socket.bind(local)?;
-    socket.connect(target).await
+    #[cfg(feature = "nat-lab-test-hooks")]
+    eprintln!("TCP_DIAL_START local={local} target={target}");
+    let stream = socket.connect(target).await?;
+    #[cfg(feature = "nat-lab-test-hooks")]
+    eprintln!(
+        "TCP_DIAL_CONNECTED local={} remote={}",
+        stream.local_addr()?,
+        stream.peer_addr()?
+    );
+    Ok(stream)
 }
 
 fn ensure_channel(shared: &Arc<Shared>, target: SocketAddr) -> io::Result<Arc<Mutex<Channel>>> {
@@ -1119,7 +1173,7 @@ fn ensure_channel_from(
                 let mut shutdown=shared.shutdown.subscribe();
                 tokio::spawn(async move {
                     let connecting=tokio::time::timeout(std::time::Duration::from_secs(5), async {
-                        if shared.reuse_local_port && target.is_ipv4() {
+                        if shared.reuse_local_port {
                             connect_from_listener(source.unwrap_or(shared.local_for(target)?), target).await
                         } else {
                             TcpStream::connect(target).await
@@ -1211,6 +1265,26 @@ async fn run_stream(shared: Arc<Shared>, mut stream: TcpStream, outbound: Option
         }
         if early_cancel.as_ref().is_some_and(|cancel|*cancel.borrow()) {return Err(io::Error::new(io::ErrorKind::Interrupted,"TCP attempt canceled"));}
         let socket_local = stream.local_addr()?;
+        // This guard follows the real connected socket while its carrier
+        // preface is still pending. A tentative lease may release physical
+        // punching now without exposing the circuit for QUIC packets.
+        let handshake = Arc::new(TcpHandshake {
+            local_addr: socket_local,
+        });
+        let early_channel = outbound
+            .as_ref()
+            .map(|circuit| circuit.channel.clone())
+            .or_else(|| {
+                shared
+                    .channels
+                    .lock()
+                    .unwrap()
+                    .get(&stream.peer_addr().ok()?)
+                    .cloned()
+            });
+        if let Some(channel) = &early_channel {
+            channel.lock().unwrap().retain_handshake(&handshake);
+        }
         let local = shared.local_for(socket_local)?;
         let advertised = SocketAddr::new(socket_local.ip(), local.port());
         let mut preface = vec![0; if local.is_ipv4() { 6 } else { 18 }];
@@ -1441,6 +1515,42 @@ mod tests {
             Ok(0) => {}
             Err(err) if err.kind() == io::ErrorKind::ConnectionReset => {}
             other => panic!("unexpected TCP close after endpoint drop: {other:?}"),
+        }
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    #[tokio::test]
+    async fn completed_tcp_handshake_is_retained_before_the_peer_preface() {
+        use std::{net::IpAddr, time::Duration};
+        for ip in [
+            IpAddr::V4(Ipv4Addr::LOCALHOST),
+            IpAddr::V6(Ipv6Addr::LOCALHOST),
+        ] {
+            let transport = TcpTransport::listen((ip, 0).into(), Arc::new(Traffic::default()))
+                .with_punching();
+            let endpoint = transport.bind().unwrap();
+            let listener = TcpListener::bind((ip, 0)).await.unwrap();
+            let lease = transport.prime(listener.local_addr().unwrap()).unwrap();
+            let (stream, source) = listener.accept().await.unwrap();
+            assert_eq!(source, transport.bound_socket_addr().unwrap());
+            tokio::time::timeout(Duration::from_secs(1), async {
+                while !lease.handshake_ready() {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .expect("a retained TCP handshake releases punching before carrier bytes arrive");
+            assert!(lease.binding_is_live(source));
+            assert!(!lease.channel.lock().unwrap().active);
+            drop(stream);
+            tokio::time::timeout(Duration::from_secs(1), async {
+                while lease.handshake_ready() {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .expect("closing the real handshake invalidates its tentative binding");
+            drop((lease, endpoint));
         }
     }
 

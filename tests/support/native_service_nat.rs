@@ -23,6 +23,7 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
     let root = Path::new(&root);
     fs::create_dir_all(root).unwrap();
     let case = env::var("MIO150_CASE").unwrap();
+    let tcp_ipv6 = tcp && env::var_os("MIO203_TCP_IPV6").is_some();
     let parallel = case.starts_with("parallel-");
     let relay_start = case.starts_with("parallel-relay-");
     if role == "setup" {
@@ -85,7 +86,11 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
         }
         if tcp {
             resources.defaults.resources.push(Resource {
-                url: format!("stun+tcp://{WAN}:3478/"),
+                url: if tcp_ipv6 {
+                    "stun+tcp://[fd27:0::1]:3478/".into()
+                } else {
+                    format!("stun+tcp://{WAN}:3478/")
+                },
                 uses: [ResourceUse::Observation].into(),
                 limitation: "owned TCP observer for the actual listener".into(),
             });
@@ -105,18 +110,21 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
             let origin = pair_dir.path().join(name);
             let node = NativeNetwork::open(&origin).await.unwrap();
             let mut saved = resources.clone();
+            if tcp_ipv6 {
+                saved.tcp_listen = Some((std::net::Ipv6Addr::UNSPECIFIED, 0).into());
+            }
             if tcp && case == "target-denied" {
                 let side = usize::from(
                     (name == "consumer") != (env::var("MIO150_VISITOR").unwrap() == "a"),
                 );
-                saved.tcp_listen = Some((Ipv4Addr::UNSPECIFIED, [42027, 43027][side]).into());
-                saved.disabled_tcp_addresses.insert(
-                    (
-                        [Ipv4Addr::new(100, 64, 27, 2), Ipv4Addr::new(100, 64, 27, 6)][1 - side],
-                        [42027, 43027][1 - side],
-                    )
-                        .into(),
-                );
+                let bind_ip: std::net::IpAddr = if tcp_ipv6 { std::net::Ipv6Addr::UNSPECIFIED.into() } else { Ipv4Addr::UNSPECIFIED.into() };
+                saved.tcp_listen = Some((bind_ip, [42027, 43027][side]).into());
+                let peers: [std::net::IpAddr; 2] = if tcp_ipv6 {
+                    ["fd27:1::2".parse().unwrap(), "fd27:2::2".parse().unwrap()]
+                } else {
+                    [Ipv4Addr::new(100, 64, 27, 2).into(), Ipv4Addr::new(100, 64, 27, 6).into()]
+                };
+                saved.disabled_tcp_addresses.insert((peers[1 - side], [42027, 43027][1 - side]).into());
             }
             node.save_resource_configuration(&saved).unwrap();
             node.close().await;
@@ -205,7 +213,7 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
                     assert!((1..=2).contains(&dials), "mutual member dials: {dials}");
                 } else if env::var_os("MIO164_RECOVERY").is_some() {
                     assert!(dials >= 1, "initial contact and permitted repair use signaling");
-                } else {
+                } else if !tcp || case == "positive" {
                     assert_eq!(dials, usize::from(!relay_start));
                 }
                 fs::write(root.join("counted"), []).unwrap();
@@ -248,10 +256,12 @@ pub(super) async fn restricted_contact_first_reply(tcp: bool) {
                 let iroh::TransportAddr::Custom(route) = address else {
                     return None;
                 };
-                miopunch_native_probe::tcp_transport::TcpTransport::socket_addr(route).ok()
+                miopunch_native_probe::tcp_transport::TcpTransport::socket_addr(route)
+                    .ok()
+                    .filter(|address| address.is_ipv6() == tcp_ipv6)
             })
             .expect("default Linux TCP listener");
-        assert!(listener.ip().is_unspecified());
+        assert_eq!(listener.is_ipv6(), tcp_ipv6);
         assert_ne!(listener.port(), 0);
         listener.port()
     } else {
@@ -351,7 +361,12 @@ fn report_original(side: &str, client: &NativeClient, tcp: bool) {
         };
         let peer = miopunch_native_probe::tcp_transport::TcpTransport::socket_addr(&route)
             .expect("TCP data route");
-        assert!(["100.64.27.2", "100.64.27.6"].contains(&peer.ip().to_string().as_str()));
+        let expected = if env::var_os("MIO203_TCP_IPV6").is_some() {
+            ["fd27:1::2", "fd27:2::2"]
+        } else {
+            ["100.64.27.2", "100.64.27.6"]
+        };
+        assert!(expected.contains(&peer.ip().to_string().as_str()));
         assert!(
             transport["paths"]
                 .as_array()

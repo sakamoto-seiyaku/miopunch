@@ -358,6 +358,12 @@ impl MemberFusionAdmission for Authorization {
         self.tcp.as_ref()?.transport.bound_socket_addr()
     }
 
+    fn member_direct_bindings(&self) -> Vec<std::net::SocketAddr> {
+        self.tcp
+            .as_ref()
+            .map_or_else(Vec::new, |tcp| tcp.transport.bound_socket_addrs())
+    }
+
     fn member_direct_traversal(&self) -> Option<(Duration, Duration)> {
         self.tcp
             .as_ref()

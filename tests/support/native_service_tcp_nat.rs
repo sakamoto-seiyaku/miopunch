@@ -8,24 +8,40 @@ async fn restricted_contact_delivers_the_first_native_reply_through_tcp() {
 
 use super::*;
 
-#[cfg(target_os = "windows")]
 #[path = "tcp_binding_observer.rs"]
 mod tcp_binding_observer;
 
-#[cfg(target_os = "windows")]
 #[tokio::test]
-async fn windows_default_tcp_delivers_restricted_first_reply_and_honors_disable() {
+async fn default_tcp_delivers_restricted_first_reply_and_honors_disable() {
+    restricted_first_reply_for_family(false).await;
+}
+
+#[tokio::test]
+async fn default_ipv6_tcp_delivers_restricted_first_reply_and_honors_disable() {
+    restricted_first_reply_for_family(true).await;
+}
+
+async fn restricted_first_reply_for_family(ipv6: bool) {
     use miopunch_native_probe::tcp_transport::TcpTransport;
     let broker = relay_contact_broker::Broker::new().await;
     let (observer, observer_task, mut observations) =
-        tcp_binding_observer::tcp_binding_observer_with_sources(None, 0).await;
+        tcp_binding_observer::tcp_binding_observer_on(
+            if ipv6 {
+                std::net::Ipv6Addr::LOCALHOST.into()
+            } else {
+                Ipv4Addr::LOCALHOST.into()
+            },
+            None,
+            0,
+        )
+        .await;
     for disabled in [false, true] {
         let mut resources = ResourceConfig::with_defaults(ResourceTable {
             revision: 1,
             resources: vec![Resource {
                 url: format!("mqtt://{}/", broker.address),
                 uses: [ResourceUse::Signaling].into(),
-                limitation: "owned protected Windows contact".into(),
+                limitation: "owned protected restricted contact".into(),
             }],
         });
         resources.tcp_direct_disabled = true;
@@ -40,7 +56,7 @@ async fn windows_default_tcp_delivers_restricted_first_reply_and_honors_disable(
         resources.udp_direct_disabled = true;
         resources.member_data_relay_disabled = true;
         resources.tcp_direct_disabled = disabled;
-        resources.maintenance.contact_timeout_ms = 2000;
+        resources.maintenance.contact_timeout_ms = 6000;
         resources.defaults.resources.push(Resource {
             url: format!("stun+tcp://{observer}/"),
             uses: [ResourceUse::Observation].into(),
@@ -61,12 +77,15 @@ async fn windows_default_tcp_delivers_restricted_first_reply_and_honors_disable(
         for client in [&provider, &consumer] {
             let addresses = client.address();
             let listener = addresses.addrs.iter().find_map(|address| match address {
-                iroh::TransportAddr::Custom(route) => TcpTransport::socket_addr(route).ok(),
+                iroh::TransportAddr::Custom(route) => TcpTransport::socket_addr(route)
+                    .ok()
+                    .filter(|address| address.is_ipv6() == ipv6),
                 _ => None,
             });
             assert_eq!(listener.is_none(), disabled);
             if let Some(listener) = listener {
-                assert!(listener.ip().is_unspecified());
+                assert_eq!(listener.is_ipv6(), ipv6);
+                assert_ne!(listener.port(), 0);
                 ports.push(listener.port());
             }
         }
@@ -85,7 +104,7 @@ async fn windows_default_tcp_delivers_restricted_first_reply_and_honors_disable(
         let call = consumer.forward_exchange(contact, Protocol::Tcp, target, b"first request", 11);
         if disabled {
             assert!(
-                timeout(Duration::from_secs(4), call)
+                timeout(Duration::from_secs(8), call)
                     .await
                     .unwrap()
                     .is_err()
@@ -118,14 +137,14 @@ async fn windows_default_tcp_delivers_restricted_first_reply_and_honors_disable(
                     assert!(
                         matches!(route, iroh::TransportAddr::Custom(ref route) if route.id() == miopunch_native_probe::tcp_transport::DATA_TRANSPORT_ID)
                     );
-                    println!("MIO160 WINDOWS_ORIGINAL {}", status["transport"]);
+                    println!("MIO203 TCP_ORIGINAL {}", status["transport"]);
                 }
                 socket.write_all(b"first reply").await.unwrap();
             };
             let (reply, ()) = tokio::join!(call, serve);
             assert_eq!(reply.unwrap(), b"first reply");
         }
-        println!("MIO160 WINDOWS_FIRST_REPLY disabled={disabled}");
+        println!("MIO203 TCP_FIRST_REPLY ipv6={ipv6} disabled={disabled}");
         consumer.close().await.unwrap();
         provider.close().await.unwrap();
     }

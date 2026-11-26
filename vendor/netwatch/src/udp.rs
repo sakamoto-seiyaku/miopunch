@@ -89,7 +89,7 @@ fn send_with_ttl(
                             s6_addr: source.octets(),
                         },
                         ipi6_ifindex: if let SocketAddr::V6(remote) = remote {
-                            remote.scope_id()
+                            remote.scope_id() as _
                         } else {
                             0
                         },
