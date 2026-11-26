@@ -242,6 +242,9 @@ pub enum Command {
         seconds: u64,
         max_uses: Option<u64>,
     },
+    RevokePrecode {
+        path: String,
+    },
     PrecodeStatus {
         path: String,
     },
@@ -709,6 +712,10 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
                 .checked_add(seconds)
                 .ok_or("invalid expiry")?;
             save_invitation(&path, &client.issue_precode(expires, max_uses).await?)
+        }
+        Command::RevokePrecode { path } => {
+            client.revoke_precode(&read_invitation(&path)?).await?;
+            Ok(json!({"revoked":true}))
         }
         Command::PrecodeStatus { path } => {
             Ok(json!({"uses":client.precode_uses(&read_invitation(&path)?).await?}))

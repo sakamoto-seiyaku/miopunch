@@ -113,7 +113,7 @@ class BrowserControl:
 
 class BrowserOnboardingRunner(OnboardingRunner):
     def native_configuration(self, remote):
-        if self.args.suite not in ["progress", "observation", "receipts", "device-names", "member-management", "departure", "removal-rejoin"]:
+        if self.args.suite not in ["progress", "observation", "receipts", "device-names", "member-management", "departure", "removal-rejoin", "precode-revocation"]:
             return super().native_configuration(remote)
         config = dict(defaults=dict(revision=2, resources=[]),
                       replacement=[dict(url=self.args.relay, uses=["DataRelay"], limitation="onboarding test relay")],
@@ -153,6 +153,107 @@ class BrowserOnboardingRunner(OnboardingRunner):
     def member_management(self):
         for browser_issuer in (False, True):
             self.management_propagation(browser_issuer)
+
+    def precode_revocation(self):
+        browser = self.browser
+        config = self.progress_configuration()
+        issuer = self.creator(False, "revoke-precode-issuer")
+
+        def issue(name, seconds, uses):
+            path = self.private_path(name, False)
+            issuer.call("issue_precode", path=path, seconds=seconds, max_uses=uses)
+            return path
+
+        def applicant(name, path):
+            invitation = Path(path).read_text()
+            return browser.start(name, "join", invitation, config)["id"]
+
+        def uses(path):
+            return issuer.call("precode_status", path=path)["uses"]
+
+        def history(node):
+            return [row for row in issuer.call("admission_history") if row["applicant"] == node]
+
+        def reject(name, path):
+            node = applicant(name, path)
+            browser.call(name, "request_join", False, ok=False, expected_error="by peer")
+            state = browser.call(name, "status")
+            assert state["stage"] == "AwaitingApproval" and state["admission_attempt"]["progress"] == "Created"
+            assert history(node) == []
+            self.close_actor(name)
+
+        revoked = issue("revocable-precode.json", 3600, None)
+        retained = issue("retained-precode.json", 3600, 1)
+        ordinary = self.private_path("revoke-precode-ordinary.json", False)
+        issuer.call("invite", path=ordinary)
+        issuer.call("revoke_precode", ok=False, path=ordinary)
+        other = self.start("revoke-precode-other-admin", False, "join", ordinary)
+        assert other.call("request")["stage"] == "AwaitingApproval"
+        request, = issuer.call("requests")["requests"]
+        assert request["applicant"] == other.node
+        issuer.call("approve", **request)
+        assert other.call("request")["stage"] == "Complete"
+        proposed = issuer.call("genesis_propose", action="appoint-administrator", target=other.node)
+        assert issuer.call("genesis_confirm", operation=proposed["operation"]["id"])["effective_locally"]
+        other.call("service_sync", address=issuer.address)
+        status = other.call("status")
+        assert status["network"] == issuer.call("status")["network"]
+        assert any(row["node"] == other.node and row["role"] == "admin" for row in status["members"])
+        other.call("revoke_precode", ok=False, path=revoked)
+        other.stop()
+        member = "revoke-precode-member"
+        member_id = applicant(member, revoked)
+        assert browser.call(member, "request_join", False) == "Complete"
+        admitted, = history(member_id)
+        assert admitted["decision"] == "ReceiptReceived"
+        self.close_actor(member)
+
+        waiting = "revoke-precode-pending"
+        waiting_id = applicant(waiting, revoked)
+        assert browser.call(waiting, "request_join", True) == "PendingMaterials"
+        pending, = history(waiting_id)
+        assert pending["decision"] == "ApprovedAwaitingReceipt" and pending["authorization"]
+        assert browser.call(waiting, "status")["admission_attempt"] == {
+            "request_id": pending["request_id"], "progress": "Authorized"}
+        self.close_actor(waiting)
+        assert uses(revoked) == 2 and uses(retained) == 0
+
+        # A separate uncapped code makes expiry independent of exhausted quota.
+        lifetime = 20
+        expiring = issue("short-lived-precode.json", lifetime, None)
+        expiry = time.monotonic() + lifetime
+        assert issuer.call("revoke_precode", path=revoked) == {"revoked": True}
+        issuer = self.reopen(issuer)
+        applicant("retained-precode-before-expiry", expiring)
+        assert browser.call("retained-precode-before-expiry", "request_join", False) == "Complete"
+        reject("revoke-precode-fresh", revoked)
+        assert uses(revoked) == 2 and history(waiting_id) == [pending]
+
+        self.reopen_actor(member)
+        assert browser.call(member, "id") == member_id
+        assert browser.call(member, "status")["stage"] == "Complete"
+        browser.call(member, "sync_services", issuer.node)
+        assert history(member_id) == [admitted]
+        self.reopen_actor(waiting)
+        assert browser.call(waiting, "id") == waiting_id
+        assert browser.call(waiting, "request_join", False) == "Complete"
+        assert browser.call(waiting, "status")["admission_attempt"] == {
+            "request_id": pending["request_id"], "progress": "Complete"}
+        assert history(waiting_id) == [dict(pending, decision="ReceiptReceived")]
+        assert uses(revoked) == 2
+
+        applicant("retained-precode-member", retained)
+        assert browser.call("retained-precode-member", "request_join", False) == "Complete"
+        reject("retained-precode-quota", retained)
+        assert uses(retained) == 1
+
+        time.sleep(max(0, expiry - time.monotonic()))
+        reject("retained-precode-expiry", expiring)
+        assert uses(expiring) == 1
+        self.record("precode-revocation", "precode_revocation_qualified", dict(
+            designatedNodeOnly=True, freshRedemptionDeniedAfterReopen=True,
+            existingMembershipUsable=True, sameDeliveryContinuedWithoutExtraUse=True,
+            otherCodeUsableUntilQuota=True, otherTimeOnlyCodeUsableUntilExpiry=True, manualApprovalStillRequired=True))
 
     def removal_rejoin(self, browser_removed):
         browser = self.browser
@@ -1848,6 +1949,8 @@ class BrowserOnboardingRunner(OnboardingRunner):
             elif self.args.suite == "removal-rejoin":
                 for browser_removed in (True, False):
                     self.removal_rejoin(browser_removed)
+            elif self.args.suite == "precode-revocation":
+                self.precode_revocation()
             else:
                 creator = self.creator(False, "native-provider")
                 if self.args.suite in ["all", "core"]:
@@ -1882,8 +1985,8 @@ def main():
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--build-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts", "device-names", "member-management", "departure", "removal-rejoin"], default="all")
-    parser.add_argument("--relay", default=RELAY, help="explicit relay for the progress, observation and receipt suites")
+    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts", "device-names", "member-management", "departure", "removal-rejoin", "precode-revocation"], default="all")
+    parser.add_argument("--relay", default=RELAY, help="explicit relay for suites that take a dedicated relay")
     parser.add_argument("--chromium", type=Path, default=Path("/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome"))
     args = parser.parse_args()
     build = json.loads(args.build_receipt.read_text())

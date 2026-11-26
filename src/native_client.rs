@@ -826,6 +826,13 @@ impl NativeClient {
             bootstrap,
         )?)
     }
+    /// Revoke future redemptions of this node's precode using the issued invitation.
+    /// Existing membership and committed admissions remain independent of the code.
+    pub async fn revoke_precode(&self, invitation: &ClientInvitation) -> Result<(), ClientError> {
+        self.require_ready()?;
+        let code = invitation.code()?.ok_or("not a precode")?;
+        Ok(self.node.lock().await.revoke_precode(&code).await?)
+    }
     pub async fn precode_uses(&self, invitation: &ClientInvitation) -> Result<u64, ClientError> {
         let code = invitation.code()?.ok_or("not a precode")?;
         let status = self.node.lock().await.precode_usage_status(&code).await?;
