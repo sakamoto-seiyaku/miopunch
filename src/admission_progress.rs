@@ -102,5 +102,6 @@ impl AdmissionReceipt {
 }
 
 pub(crate) const RECEIPT_DONE: &[u8; 4] = b"DONE";
+pub(crate) const RECEIPT_PROVE: &[u8; 4] = b"AUTH";
 // Only the authenticated original provider can end retry for an invalid grant.
 pub(crate) const RECEIPT_STOP: &[u8; 4] = b"STOP";

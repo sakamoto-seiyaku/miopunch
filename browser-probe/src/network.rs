@@ -18,7 +18,7 @@ use p2panda_core::{Hash, SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use crate::admission_progress::{AdmissionAttempt, ApplicationProgress};
+use crate::admission_progress::{AdmissionAttempt, AdmissionReceipt, ApplicationProgress};
 use crate::admission_proof::{AdmissionScope, AdmissionSecret, BootstrapProof};
 use crate::connection_coordinator::ADMISSION_RECEIPT_ALPN;
 use crate::management_auth::{ManagementAuth, NetworkAnchor};
@@ -363,6 +363,7 @@ struct GateState {
     changes: crate::state_observation::StateChanges,
     snapshot_hash: Option<[u8; 32]>,
     request_handshake: Option<serde_json::Value>,
+    receipt_delivery: Option<serde_json::Value>,
     request_deadline: Option<n0_future::time::Instant>,
     pairing_receiver: bool,
     pairing_peer: Option<iroh_base::EndpointId>,
@@ -715,6 +716,9 @@ impl BrowserGate {
                             && a.nodes().iter().any(|(id, _)| *id == saved.identity())
                     });
         }
+        if alpn == ADMISSION_RECEIPT_ALPN {
+            return saved.secret.is_some();
+        }
         if is_request_alpn(alpn) {
             return target == invitation.contact;
         }
@@ -799,7 +803,7 @@ impl BrowserGate {
         let (saved, _, _) = services::installed(self).await?;
         let auth = saved.verify()?;
         let permitted = if connection.side().is_client() {
-            saved.invitation()?.contact == connection.remote_id()
+            Self::permits(&saved, connection.remote_id(), connection.alpn())
         } else {
             saved.stage() == "Complete"
                 && auth.is_some_and(|auth| {
@@ -2755,7 +2759,9 @@ impl BrowserNetwork {
                 address, bootstrap,
             ));
         }
-        network.admission.start_receipts(&network);
+        network
+            .admission
+            .start_receipts(&network, network.lease.as_ref().unwrap().0);
         Ok(network)
     }
 }
@@ -2904,7 +2910,7 @@ impl BrowserNetwork {
         });
         let gate = self.gate.0.lock().unwrap();
         let bootstraps = serde_json::json!(gate.member_reports);
-        serde_json::json!({"incoming":self.incoming.diagnostics(),"relayHome":relay_home,"rtcCapability":gate.rtc_capability,"relayChecks":gate.relay_checks.iter().flat_map(|attempt| attempt.checks.iter()).collect::<Vec<_>>(),"request":self.last_request,"gate":gate.request_handshake,"memberBootstraps":bootstraps,"carriers":self.mqtt.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap()).chain(self.irc.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap())).collect::<Vec<_>>()}).to_string()
+        serde_json::json!({"incoming":self.incoming.diagnostics(),"relayHome":relay_home,"rtcCapability":gate.rtc_capability,"relayChecks":gate.relay_checks.iter().flat_map(|attempt| attempt.checks.iter()).collect::<Vec<_>>(),"request":self.last_request,"gate":gate.request_handshake,"admissionReceipt":gate.receipt_delivery,"memberBootstraps":bootstraps,"carriers":self.mqtt.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap()).chain(self.irc.iter().map(|(_,transport)|serde_json::from_str::<serde_json::Value>(&transport.diagnostics()).unwrap())).collect::<Vec<_>>()}).to_string()
     }
 
     /// A separate handle can cancel while WASM owns the mutable request future.
@@ -2969,8 +2975,6 @@ impl BrowserNetwork {
     }
 
     pub async fn complete_admission(&mut self) -> Result<String, JsValue> {
-        let receipts = self.admission.receipts.clone();
-        let mut settled = receipts.lock().await;
         let delivery = self.delivery.take().ok_or_else(rejected)?;
         let remaining = delivery
             .deadline
@@ -3000,7 +3004,26 @@ impl BrowserNetwork {
             let mut next = self.saved.clone();
             next.secret = Some(material[8..].try_into().unwrap());
             next.record_admission_progress(ApplicationProgress::Complete);
-            self.commit(next).await?;
+            let invitation = next.invitation()?;
+            let receipt = AdmissionReceipt {
+                genesis: invitation.anchor.genesis,
+                request_id: next.admission_request_id(),
+                authorization: next.authorization.ok_or_else(rejected)?,
+            };
+            let lease = self.lease.as_ref().ok_or_else(rejected)?.0;
+            let pending =
+                serde_json::to_string(&(hex::encode(receipt.encode()), invitation.contact))
+                    .map_err(error)?;
+            let raw = services::commit_admission_material(
+                &self.gate,
+                &self.committed,
+                lease,
+                &next,
+                pending,
+            )
+            .await?;
+            self.saved = next;
+            self.committed = raw;
             self.material_event("secret-committed");
             if delivery.deadline <= n0_future::time::Instant::now() {
                 return Err(admission_timeout());
@@ -3013,11 +3036,7 @@ impl BrowserNetwork {
                 return Err(rejected());
             }
             self.material_event("DONE-received");
-            if let Some((receipt, _)) = self.saved.pending_receipt()? {
-                admission::settle_receipt(self.lease.as_ref().ok_or_else(rejected)?.0, receipt)
-                    .await?;
-                *settled = Some(receipt);
-            }
+            admission::settle_receipt(lease, receipt).await?;
             Ok(self.saved.stage().to_string())
         })
         .await

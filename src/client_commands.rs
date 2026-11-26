@@ -390,6 +390,11 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
                         eprintln!("admission receipt settled");
                     }
                 },
+                "observe_receipt_timeout" => |checkpoint| {
+                    if checkpoint == RecordCheckpoint::AdmissionReceiptTimedOut {
+                        eprintln!("admission receipt timed out");
+                    }
+                },
                 _ => return Err("unknown admission checkpoint".into()),
             };
             client

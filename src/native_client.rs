@@ -1172,49 +1172,6 @@ impl NativeClient {
         Ok(())
     }
 }
-async fn pending_admission_receipt(
-    node: &NativeNetwork,
-) -> Result<Option<(AdmissionReceipt, EndpointAddr)>, ClientError> {
-    if node.admission_stage() != AdmissionStage::Complete {
-        return Ok(None);
-    }
-    let Some(binding) = node.join else {
-        return Ok(None);
-    };
-    let Some(invitation) = crate::client_contact::load_invitation(node)? else {
-        return Ok(None);
-    };
-    if invitation.material()? != binding.invitation {
-        return Ok(None);
-    }
-    let request_id = invitation.code()?.map_or(binding.request_id, |code| {
-        code.request_id(binding.request_id)
-    });
-    let Some((attempt, Some(authorization))) = node.store.local_admission_progress().await? else {
-        return Ok(None);
-    };
-    let provider = p2panda_core::VerifyingKey::from_bytes(binding.invitation.contact.as_bytes())?;
-    if attempt.request_id != request_id
-        || !matches!(
-            attempt.progress,
-            ApplicationProgress::Authorized | ApplicationProgress::Complete
-        )
-        || !node.is_admin(provider)
-        || !node
-            .store
-            .membership_authorization_valid(authorization, node.node_key.verifying_key())
-    {
-        return Ok(None);
-    }
-    let receipt = AdmissionReceipt {
-        genesis: node.anchor.genesis,
-        request_id,
-        authorization,
-    };
-    Ok((!node.store.admission_receipt_settled(receipt).await?)
-        .then_some((receipt, invitation.address)))
-}
-
 async fn admission_receipts(
     node: Arc<Mutex<NativeNetwork>>,
     resources: Arc<ResourceEndpoint>,
@@ -1223,10 +1180,21 @@ async fn admission_receipts(
 ) {
     let mut changes = node.lock().await.store.changes.subscribe();
     loop {
-        if recovery_saved.load(Ordering::Acquire)
-            && replacement_ready.load(Ordering::Acquire)
-            && resume_admission_receipt(&node, &resources).await.is_err()
-        {
+        let mut retry = false;
+        if recovery_saved.load(Ordering::Acquire) && replacement_ready.load(Ordering::Acquire) {
+            let pending = node.lock().await.store.pending_admission_receipts().await;
+            match pending {
+                Ok(pending) => {
+                    for (receipt, contact) in pending {
+                        retry |= resume_admission_receipt(&node, &resources, receipt, contact)
+                            .await
+                            .is_err();
+                    }
+                }
+                Err(_) => retry = true,
+            }
+        }
+        if retry {
             tokio::time::sleep(Duration::from_secs(2)).await;
         } else if changes.changed().await.is_err() {
             break;
@@ -1234,40 +1202,86 @@ async fn admission_receipts(
     }
 }
 
+async fn receipt_material(
+    node: &Mutex<NativeNetwork>,
+    receipt: AdmissionReceipt,
+    contact: iroh::EndpointId,
+) -> Result<
+    Option<(
+        crate::admission_proof::AdmissionScope,
+        crate::admission_proof::AdmissionSecret,
+    )>,
+    ClientError,
+> {
+    let node = node.lock().await;
+    let provider = p2panda_core::VerifyingKey::from_bytes(contact.as_bytes())?;
+    if !node.is_admin(provider)
+        || !node
+            .store
+            .membership_authorization_valid(receipt.authorization, node.node_key.verifying_key())
+    {
+        node.store.settle_admission_receipt(receipt).await?;
+        return Ok(None);
+    }
+    let secret = node.secret.clone().ok_or("awaiting admission credential")?;
+    Ok(Some((node.scope.clone(), secret)))
+}
+
 async fn resume_admission_receipt(
     node: &Mutex<NativeNetwork>,
     resources: &ResourceEndpoint,
+    receipt: AdmissionReceipt,
+    address: EndpointAddr,
 ) -> Result<(), ClientError> {
-    let Some((receipt, address)) = pending_admission_receipt(&*node.lock().await).await? else {
-        return Ok(());
-    };
-    let (connection, attempt) = resources
-        .connect_control_attempt(address, ADMISSION_RECEIPT_ALPN, ContactClass::Background)
-        .await?;
-    if !pending_admission_receipt(&*node.lock().await)
-        .await?
-        .is_some_and(|(current, _)| current == receipt)
-    {
-        connection.close(0u32.into(), b"admission receipt changed");
+    if receipt_material(node, receipt, address.id).await?.is_none() {
         return Ok(());
     }
-    let result = crate::manual_admission::submit_admission_receipt(&connection, receipt).await;
+    let provider = address.id;
+    let (connection, attempt) = match resources
+        .connect_control_attempt(address, ADMISSION_RECEIPT_ALPN, ContactClass::Background)
+        .await
+    {
+        Ok(contact) => contact,
+        Err(error) => {
+            #[cfg(feature = "replica-test-hooks")]
+            if matches!(
+                error,
+                crate::resources::ResourceContactError::PathBudget(
+                    crate::connection_coordinator::ConnectError::DeadlineExceeded
+                )
+            ) {
+                node.lock()
+                    .await
+                    .store
+                    .observe(crate::management_store::RecordCheckpoint::AdmissionReceiptTimedOut);
+            }
+            return Err(error.into());
+        }
+    };
+    let material = receipt_material(node, receipt, provider).await;
+    let result = match material {
+        Ok(Some((scope, secret))) => {
+            crate::manual_admission::submit_admission_receipt(&connection, receipt, &scope, &secret)
+                .await
+                .map_err(ClientError::from)
+        }
+        Ok(None) => {
+            connection.close(0u32.into(), b"admission authorization changed");
+            return Ok(());
+        }
+        Err(error) => Err(error),
+    };
     connection.close(0u32.into(), b"admission receipt ended");
     if let Err(error) = result {
         attempt.failed(error.to_string());
-        return Err(error.into());
+        return Err(error);
     }
     attempt.succeeded();
     let node = node.lock().await;
-    if pending_admission_receipt(&node)
-        .await?
-        .is_some_and(|(current, _)| current == receipt)
-    {
-        node.store.settle_admission_receipt(receipt).await?;
-        #[cfg(feature = "replica-test-hooks")]
-        node.store
-            .observe(crate::management_store::RecordCheckpoint::AdmissionReceiptSettled);
-    }
+    node.store.settle_admission_receipt(receipt).await?;
+    #[cfg(feature = "replica-test-hooks")]
+    node.store
+        .observe(crate::management_store::RecordCheckpoint::AdmissionReceiptSettled);
     Ok(())
 }
 

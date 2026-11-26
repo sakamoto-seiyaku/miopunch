@@ -546,8 +546,14 @@ class BrowserOnboardingRunner(OnboardingRunner):
         joined = dict(request_id=awaiting["request_id"], progress="Complete")
         assert native_applicant.ready["status"]["stage"] == "Complete"
         assert native_applicant.ready["status"]["admission_attempt"] == joined
-        native_applicant.call("request", ok=False)
+        assert native_applicant.call("interrupt_admission", after="observe_receipt_timeout")["armed"]
+        wait_checkpoint(native_applicant, "admission receipt timed out")
         assert native_applicant.call("status")["admission_attempt"] == joined
+        native_applicant.stop()
+        reopen_browser(browser_provider)
+        assert b.call(browser_provider, "admission_history") == [awaiting]
+        assert b.call(browser_provider, "close_page")
+        native_applicant = reopen_native(native_applicant)
         assert native_applicant.call("interrupt_admission", after="observe_receipt_settled")["armed"]
         reopen_browser(browser_provider)
         wait_checkpoint(native_applicant, "admission receipt settled")
@@ -586,6 +592,14 @@ class BrowserOnboardingRunner(OnboardingRunner):
         reopened = reopen_browser(browser_applicant)
         assert reopened["stage"] == "Complete" and reopened["admission_attempt"] == joined
         wait_checkpoint(native_provider, "admission receipt committed")
+        deadline = time.monotonic() + 10
+        while True:
+            receipt = b.call(browser_applicant, "path_diagnostics")["admissionReceipt"]
+            if receipt is not None:
+                assert receipt == dict(request_id=approved["request_id"], status="confirmed")
+                break
+            assert time.monotonic() < deadline
+            time.sleep(0.1)
         assert native_provider.call("requests")["requests"] == []
         assert native_provider.call("status")["records"] == native_records
         assert native_provider.call("precode_status", path=self.path(code_name, False))["uses"] == 1
@@ -604,7 +618,7 @@ class BrowserOnboardingRunner(OnboardingRunner):
         wait_checkpoint(stale, "admission receipt settled")
         assert b.call(browser_provider, "admission_history") == [old, received]
         assert b.call(browser_provider, "precode_usage", material(stale_code)["precode"]) == 1
-        assert b.call(browser_provider, "admission_requests") == []
+        assert b.call(browser_provider, "state_snapshot")["pending_admissions"] == []
         self.record("receipts", "admission_receipts_qualified", dict(
             nativeAndWasmBothRoles=True, nativeSavedBeforeSend=True,
             providerSavedBeforeFinalReply=True, timeoutPreservedLocalAdmission=True,

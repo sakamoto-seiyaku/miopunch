@@ -169,6 +169,31 @@ pub(super) async fn commit_installed(
     commit_locked(gate, previous, token, next).await
 }
 
+pub(super) async fn commit_admission_material(
+    gate: &BrowserGate,
+    previous: &str,
+    token: u32,
+    next: &SavedNode,
+    receipt: String,
+) -> Result<String, JsValue> {
+    let _writer = gate.2.lock().await;
+    let raw = encode_saved(next)?;
+    save_node_with_receipt(token, JsValue::from_str(previous), raw.clone(), receipt).await?;
+    gate.install(next);
+    Ok(raw)
+}
+
+#[wasm_bindgen(module = "/src/storage.js")]
+extern "C" {
+    #[wasm_bindgen(catch, js_name = saveNode)]
+    async fn save_node_with_receipt(
+        token: u32,
+        previous: JsValue,
+        next: String,
+        receipt: String,
+    ) -> Result<JsValue, JsValue>;
+}
+
 pub(super) async fn update_saved<T>(
     gate: &BrowserGate,
     edit: impl FnOnce(&mut SavedNode) -> Result<T, JsValue>,

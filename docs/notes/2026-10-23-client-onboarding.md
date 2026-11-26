@@ -172,12 +172,14 @@ continues to return only pending approvals, including older pending requests.
 After local admission is saved, the running SDK retries an outstanding save
 receipt with the original provider, including after reopening. The receipt is
 bound to the authenticated device, the original request, and its exact signed
-authorization. The provider confirms after committing the receipt and can
+authorization. The provider checks that the original attempt reached material
+delivery and that the applicant proves possession of the admission credential.
+The provider confirms after committing the receipt and can
 confirm a duplicate without creating a new request, grant, or redemption.
 A path failure leaves local admission and the last provider decision intact.
 Retry stops when the grant is known to be invalid or the provider settles the
-receipt. Pre-existing local successes without exact authorization evidence
-remain usable and have no receipt to reconstruct.
+receipt. Local successes saved by older SDKs remain usable. They lack the
+outstanding receipt record written by the new material-save transaction.
 
 ## Observing local admission and management state
 

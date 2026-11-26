@@ -66,33 +66,54 @@ export async function readNode(token, key = 'state') {
 // The comparison and replacement are in one real IndexedDB transaction. Resolve
 // only after oncomplete, never after the put request alone. Stale pages, cleared
 // stores and failed commits cannot acknowledge saved admission material.
-export async function saveNode(token, previous, next, key = 'state') {
+async function trackSave(token, write) {
   const lease = leases.get(token);
   if (!lease || lease.releasing) throw new Error('identity lease ended');
-  const save = replaceNode(previous, next, key);
+  const save = write();
   lease.saves.add(save);
   try { await save; }
   finally { lease.saves.delete(save); }
 }
 
-export function readAdmissionReceipt(token) {
-  return readNode(token, 'admission-receipt');
+const receiptKey = 'admission-receipts';
+export async function readAdmissionReceipts(token) {
+  return JSON.stringify(await readNode(token, receiptKey) ?? {});
 }
 
-export function saveAdmissionReceipt(token, previous, next) {
-  return saveNode(token, previous, next, 'admission-receipt');
+export function settleAdmissionReceipt(token, wire) {
+  return trackSave(token, () => writeNode(store => {
+    updateReceipts(store, receipts => { delete receipts[wire]; });
+  }));
 }
 
-async function replaceNode(previous, next, key) {
+function updateReceipts(store, update) {
+  const request = store.get(receiptKey);
+  request.onsuccess = () => {
+    const receipts = request.result ?? {};
+    update(receipts);
+    store.put(receipts, receiptKey);
+  };
+}
+
+export function saveNode(token, previous, next, receipt) {
+  return trackSave(token, () => writeNode(store => {
+    const request = store.get('state');
+    request.onsuccess = () => {
+      if ((request.result ?? null) !== previous) { store.transaction.abort(); return; }
+      store.put(next, 'state');
+      if (receipt) {
+        const [wire, contact] = JSON.parse(receipt);
+        updateReceipts(store, receipts => { receipts[wire] = contact; });
+      }
+    };
+  }));
+}
+
+async function writeNode(write) {
   const db = await database();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction('node', 'readwrite', { durability: 'strict' });
-    const store = transaction.objectStore('node');
-    const request = store.get(key);
-    request.onsuccess = () => {
-      if ((request.result ?? null) !== previous) { transaction.abort(); return; }
-      store.put(next, key);
-    };
+    write(transaction.objectStore('node'));
     transaction.oncomplete = () => { db.close(); resolve(); };
     transaction.onabort = transaction.onerror = () => { db.close(); reject(new Error('browser material commit failed or storage changed')); };
   });

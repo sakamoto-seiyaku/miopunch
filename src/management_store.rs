@@ -110,6 +110,7 @@ pub enum RecordCheckpoint {
     SecretSaved,
     CompletionSent,
     AdmissionReceiptSettled,
+    AdmissionReceiptTimedOut,
     BeforePrecodeCommit,
     AfterPrecodeCommit,
     BeforeStorageCommit,
@@ -162,9 +163,9 @@ impl ManagementStore {
         .execute(&pool)
         .await?;
         sqlx::query(
-            "CREATE TABLE IF NOT EXISTS local_admission_receipt (
-                singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-                settled BLOB NOT NULL
+            "CREATE TABLE IF NOT EXISTS pending_admission_receipts (
+                receipt BLOB PRIMARY KEY,
+                contact TEXT NOT NULL
             )",
         )
         .execute(&pool)
@@ -346,6 +347,18 @@ impl ManagementStore {
         scope: &AdmissionScope,
         secret: &AdmissionSecret,
     ) -> Result<(), StoreError> {
+        self.commit_admission_material(scope, secret, None).await
+    }
+
+    pub(crate) async fn commit_admission_material(
+        &self,
+        scope: &AdmissionScope,
+        secret: &AdmissionSecret,
+        delivery: Option<(
+            crate::admission_progress::AdmissionReceipt,
+            &iroh::EndpointAddr,
+        )>,
+    ) -> Result<(), StoreError> {
         if scope.network_id() != self.anchor.root.as_bytes() {
             return Err(StoreError::WrongAnchor);
         }
@@ -381,6 +394,30 @@ impl ManagementStore {
                     .execute(&mut *tx)
                     .await?;
             }
+        }
+        if let Some((receipt, contact)) = delivery {
+            let changed = sqlx::query(
+                "UPDATE local_admission_attempt SET progress = 3
+                WHERE request_id = ? AND authorization = ? AND progress IN (2, 3)",
+            )
+            .bind(receipt.request_id.as_slice())
+            .bind(receipt.authorization.as_bytes().as_slice())
+            .execute(&mut *tx)
+            .await?;
+            if changed.rows_affected() != 1 {
+                return Err(StoreError::Corrupt(
+                    "saved admission does not match the active delivery",
+                ));
+            }
+            let contact = serde_json::to_string(contact)
+                .map_err(|_| StoreError::Corrupt("admission receipt contact"))?;
+            sqlx::query(
+                "INSERT OR IGNORE INTO pending_admission_receipts (receipt, contact) VALUES (?, ?)",
+            )
+            .bind(receipt.encode().as_slice())
+            .bind(contact)
+            .execute(&mut *tx)
+            .await?;
         }
         tx.commit().await?;
         Ok(())
@@ -530,22 +567,39 @@ impl ManagementStore {
         Ok(())
     }
 
-    pub(crate) async fn admission_receipt_settled(
+    pub(crate) async fn pending_admission_receipts(
         &self,
-        receipt: crate::admission_progress::AdmissionReceipt,
-    ) -> Result<bool, StoreError> {
-        let settled: Option<Vec<u8>> =
-            sqlx::query_scalar("SELECT settled FROM local_admission_receipt WHERE singleton = 1")
-                .fetch_optional(&self.pool)
-                .await?;
-        Ok(settled.as_deref() == Some(receipt.encode().as_slice()))
+    ) -> Result<
+        Vec<(
+            crate::admission_progress::AdmissionReceipt,
+            iroh::EndpointAddr,
+        )>,
+        StoreError,
+    > {
+        let rows: Vec<(Vec<u8>, String)> = sqlx::query_as(
+            "SELECT receipt, contact FROM pending_admission_receipts ORDER BY rowid",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|(bytes, contact)| {
+                let receipt = crate::admission_progress::AdmissionReceipt::decode(
+                    bytes
+                        .try_into()
+                        .map_err(|_| StoreError::Corrupt("admission receipt"))?,
+                );
+                let contact = serde_json::from_str(&contact)
+                    .map_err(|_| StoreError::Corrupt("admission receipt contact"))?;
+                Ok((receipt, contact))
+            })
+            .collect()
     }
 
     pub(crate) async fn settle_admission_receipt(
         &self,
         receipt: crate::admission_progress::AdmissionReceipt,
     ) -> Result<(), StoreError> {
-        sqlx::query("INSERT OR REPLACE INTO local_admission_receipt VALUES (1, ?)")
+        sqlx::query("DELETE FROM pending_admission_receipts WHERE receipt = ?")
             .bind(receipt.encode().as_slice())
             .execute(&self.pool)
             .await?;

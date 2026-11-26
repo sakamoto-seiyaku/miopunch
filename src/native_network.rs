@@ -1254,6 +1254,18 @@ impl NativeNetwork {
         scope: AdmissionScope,
         secret: AdmissionSecret,
     ) -> Result<(), NodeError> {
+        self.commit_admission_material(scope, secret, None).await
+    }
+
+    pub(crate) async fn commit_admission_material(
+        &mut self,
+        scope: AdmissionScope,
+        secret: AdmissionSecret,
+        delivery: Option<(
+            crate::admission_progress::AdmissionReceipt,
+            &iroh::EndpointAddr,
+        )>,
+    ) -> Result<(), NodeError> {
         self.store.ensure_admissions_open().await?;
         let mut bytes = [0; 40];
         bytes[..8].copy_from_slice(&scope.secret_generation().to_be_bytes());
@@ -1304,7 +1316,9 @@ impl NativeNetwork {
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::SecretFilePublished);
-        self.store.set_current_admission(&scope, &secret).await?;
+        self.store
+            .commit_admission_material(&scope, &secret, delivery)
+            .await?;
         self.gate.rotate_secret(scope.clone(), secret.clone());
         self.scope = scope;
         self.secret = Some(secret);
