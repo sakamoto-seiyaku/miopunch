@@ -253,7 +253,7 @@ pub fn socket_v6() -> Result<UdpSocket, SocketError> {
 pub struct Sockets {
     v4: Option<Arc<UdpSocket>>,
     v6: Option<Arc<UdpSocket>>,
-    interfaces_v6: Arc<RwLock<Vec<u32>>>,
+    interfaces_v6: Arc<RwLock<Option<Vec<u32>>>>,
     interface_sockets_v4: Arc<RwLock<HashMap<Ipv4Addr, Arc<UdpSocket>>>>,
 }
 
@@ -412,16 +412,17 @@ impl Sockets {
     pub fn set_ipv6_interfaces(&self, interfaces: &[u32]) {
         let mut current = self.interfaces_v6.write().unwrap();
         if let Some(socket) = &self.v6 {
-            for index in current.iter().filter(|index| !interfaces.contains(index)) {
+            let previous = current.as_deref().unwrap_or_default();
+            for index in previous.iter().filter(|index| !interfaces.contains(index)) {
                 let _ = socket.leave_multicast_v6(&MDNS_IPV6, *index);
             }
-            for index in interfaces.iter().filter(|index| !current.contains(index)) {
+            for index in interfaces.iter().filter(|index| !previous.contains(index)) {
                 if let Err(error) = socket.join_multicast_v6(&MDNS_IPV6, *index) {
                     tracing::debug!(index, "IPv6 multicast membership unavailable: {error}");
                 }
             }
         }
-        *current = interfaces.to_vec();
+        *current = Some(interfaces.to_vec());
     }
 
     pub async fn send_msg(&self, msg: &Message, mode: Mode) {
@@ -432,8 +433,9 @@ impl Sockets {
                 return;
             }
         };
+        let multi_v4 = !self.interface_sockets_v4.read().unwrap().is_empty();
         if matches!(mode, Mode::V4 | Mode::Any) {
-            if !self.interface_sockets_v4.read().unwrap().is_empty() {
+            if multi_v4 {
                 self.send_msg_multi_interface_v4(&bytes, msg).await;
             } else if let Some(socket) = &self.v4 {
                 if let Err(error) = socket.send_to(&bytes, (MDNS_IPV4, MDNS_PORT)).await {
@@ -444,11 +446,24 @@ impl Sockets {
         if matches!(mode, Mode::V6 | Mode::Any) {
             if let Some(socket) = &self.v6 {
                 let interfaces = self.interfaces_v6.read().unwrap().clone();
-                for index in interfaces {
-                    let destination = std::net::SocketAddrV6::new(MDNS_IPV6, MDNS_PORT, 0, index);
-                    if let Err(error) = socket.send_to(&bytes, destination).await {
-                        tracing::debug!(index, "IPv6 multicast send failed: {error}");
+                match interfaces {
+                    Some(interfaces) => {
+                        for index in interfaces {
+                            let destination =
+                                std::net::SocketAddrV6::new(MDNS_IPV6, MDNS_PORT, 0, index);
+                            if let Err(error) = socket.send_to(&bytes, destination).await {
+                                tracing::debug!(index, "IPv6 multicast send failed: {error}");
+                            }
+                        }
                     }
+                    None if matches!(mode, Mode::V6) || self.v4.is_none() || multi_v4 => {
+                        // Unconfigured library consumers retain their original
+                        // default-interface multicast behavior.
+                        if let Err(error) = socket.send_to(&bytes, (MDNS_IPV6, MDNS_PORT)).await {
+                            tracing::debug!("default IPv6 multicast send failed: {error}");
+                        }
+                    }
+                    None => {}
                 }
             }
         }

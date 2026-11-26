@@ -18,8 +18,9 @@ interfaces deliberately have different indices.
 The final run is `/tmp/miopunch-196-runtime-final` and the immutable executable
 is `.artifacts/miopunch-196-lan-final.test-bin`. Its build receipt is
 `/tmp/miopunch-196-final-native/receipt.json`, with 462 Fresh artifacts and
-7 rebuilt artifacts. Subsequent source edits only removed unrelated formatting
-changes before the regression build.
+7 rebuilt artifacts. The later compatibility correction preserves this explicit-interface branch and
+restores default-interface sending for unchanged library consumers. Native
+checking passed at `/tmp/miopunch-196-default-compat-check/receipt.json`.
 
 | LAN | Client | Server | Selected paths |
 | --- | --- | --- | --- |
@@ -66,3 +67,28 @@ other operating systems were not exercised in this run.
 - Final member admission completes an initially unknown wildcard source IP from
   the same live QUIC path. Remote address, socket ownership and exact binding
   qualification remain enforced.
+
+## Regression and review
+
+The selected native library, resources, member contacts and unified-connection
+suites were built once at `/tmp/miopunch-196-regression-build/receipt.json`
+(463 Fresh, 9 rebuilt). The full selected set recorded 132 passed, 9 failed and
+17 ignored. Results and logs are in `/tmp/miopunch-196-regression-runtime`.
+The two enhanced-UDP failures passed unchanged when run individually from the
+same immutable current executable, with the original assertions retained.
+Those results are in `/tmp/miopunch-196-enhanced-focused/results.json`.
+
+The remaining seven failures also reproduce on baseline `c1a9a3a8`, under the
+same host permissions and serial execution. Baseline comparison used the same
+source paths and shared Cargo cache, restored the six explicit source/manifest
+files before runtime, and preserved the user documents and compatibility patch.
+Its results, logs and build receipt are in `/tmp/miopunch-196-baseline`.
+The reproduced failures concern legacy coordinator path snapshots and warmup,
+legacy fallback error classification, interrupted enhanced observation, and
+p2panda high-level publication. These checks are independently obstructed on
+this host, so this evidence does not claim a green selected regression set.
+
+The first independent Standards/Spec review found one default-consumer
+compatibility issue and zero Spec issues. The default-consumer issue was
+corrected, typechecked, and resolved by focused read-only Standards review.
+No further review finding remains.
