@@ -1078,6 +1078,15 @@ pub(crate) struct TransportsSender {
 }
 
 impl TransportsSender {
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn ip_binding_for(
+        &self,
+        source: Option<IpAddr>,
+        remote: SocketAddr,
+    ) -> Option<SocketAddr> {
+        self.ip.local_addr_for(source, remote)
+    }
+
     pub(crate) fn poll_send_on_socket(
         self: Pin<&mut Self>,
         cx: &mut Context,
@@ -1176,6 +1185,14 @@ impl TransportsSender {
         transmit: &Transmit<'_>,
         #[cfg(not(wasm_browser))] qad: Option<&QadSubmission>,
     ) -> Poll<io::Result<()>> {
+        #[cfg(not(wasm_browser))]
+        if let (Some(binding), FourTuple::Ip { remote, local }) =
+            (qad.and_then(|qad| qad.binding), network_path)
+        {
+            if self.ip.local_addr_for(*local, *remote) != Some(binding) {
+                return Poll::Ready(Err(io::Error::other("QAD observation binding changed")));
+            }
+        }
         match network_path {
             #[cfg(wasm_browser)]
             FourTuple::Ip { .. } => {
@@ -1424,18 +1441,28 @@ pub(crate) struct ExactRelayBootstrap {
 /// One real IPv4 datagram submission across the QAD connections in a round.
 #[cfg(not(wasm_browser))]
 #[derive(Clone, derive_more::Debug)]
-pub(crate) struct QadSubmission(
-    #[debug(skip)] Arc<std::sync::Mutex<Option<Box<dyn FnOnce() + Send>>>>,
-);
+pub(crate) struct QadSubmission {
+    #[debug(skip)]
+    on_work: Arc<std::sync::Mutex<Option<Box<dyn FnOnce() + Send>>>>,
+    binding: Option<SocketAddr>,
+}
 
 #[cfg(not(wasm_browser))]
 impl QadSubmission {
     pub(crate) fn new(on_work: impl FnOnce() + Send + 'static) -> Self {
-        Self(Arc::new(std::sync::Mutex::new(Some(Box::new(on_work)))))
+        Self {
+            on_work: Arc::new(std::sync::Mutex::new(Some(Box::new(on_work)))),
+            binding: None,
+        }
+    }
+
+    pub(crate) fn for_binding(mut self, binding: SocketAddr) -> Self {
+        self.binding = Some(binding);
+        self
     }
 
     fn submitted(&self) {
-        let on_work = self.0.lock().expect("QAD submission").take();
+        let on_work = self.on_work.lock().expect("QAD submission").take();
         if let Some(on_work) = on_work {
             on_work();
         }
@@ -1600,9 +1627,17 @@ impl noq::UdpSender for Sender {
             MultipathMappedAddr::Ip(socket_addr) => {
                 // Ensure IPv6 mapped addresses are converted back
                 let socket_addr = canonical_socket_addr(socket_addr);
+                let local = noq_transmit.src_ip;
+                #[cfg(not(wasm_browser))]
+                let local = self
+                    .qad
+                    .as_ref()
+                    .and_then(|qad| qad.binding)
+                    .and_then(|binding| (!binding.ip().is_unspecified()).then_some(binding.ip()))
+                    .or(local);
                 FourTuple::Ip {
                     remote: socket_addr,
-                    local: noq_transmit.src_ip,
+                    local,
                 }
             }
         };

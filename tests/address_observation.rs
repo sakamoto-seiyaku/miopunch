@@ -138,7 +138,33 @@ async fn native_stun_uses_each_actual_binding_and_refills_to_the_fifth_station()
     );
     node.save_resource_configuration(&config).unwrap();
     assert!(config.udp_stun_resources().len() >= 5);
-    let endpoint = node.bind_configured_endpoint_with(builder()).await.unwrap();
+    let endpoint = node
+        .bind_configured_endpoint_with(
+            Endpoint::builder(presets::Minimal)
+                .clear_ip_transports()
+                .bind_addr_with_opts(
+                    (Ipv4Addr::new(127, 0, 0, 2), 0),
+                    iroh::endpoint::BindOpts::default()
+                        .set_is_default_route(false)
+                        .set_prefix_len(32),
+                )
+                .unwrap()
+                .bind_addr((Ipv4Addr::LOCALHOST, 0))
+                .unwrap()
+                .bind_addr((Ipv6Addr::LOCALHOST, 0))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        endpoint
+            .endpoint()
+            .bound_sockets()
+            .iter()
+            .filter(|address| address.is_ipv4())
+            .count(),
+        2
+    );
     let raw = endpoint.endpoint();
     // Both requests coexist. An observation of the other family must not supersede either result.
     let (v4_result, v6_result) = tokio::join!(
@@ -169,10 +195,15 @@ async fn native_stun_uses_each_actual_binding_and_refills_to_the_fifth_station()
     .unwrap()
     .unwrap();
     assert!(started.elapsed() < Duration::from_secs(3));
-    for socket in &silent_stations { assert!(socket.try_recv_from(&mut [0; 1500]).is_ok()); }
+    for socket in &silent_stations {
+        assert!(socket.try_recv_from(&mut [0; 1500]).is_ok());
+    }
     assert_eq!(sequence.samples.len(), 1);
     assert_eq!(sequence.samples[0].destination, v4);
-    assert_eq!(sequence.samples[0].mapped, v4_result.mapped);
+    assert_eq!(
+        sequence.samples[0].mapped,
+        received_v4.recv().await.unwrap()
+    );
     assert!(count_v4.load(Ordering::Relaxed) > before);
     let before = count_v4.load(Ordering::Relaxed);
     let dedup = raw
@@ -315,6 +346,35 @@ async fn configured_qad_keeps_hostname_verification_and_the_actual_family_bindin
             resource("https://wrong.invalid/".into()),
         ]);
         config.tcp_direct_disabled = true;
+        // The reachable localhost station sorts after five real failed destinations.
+        for index in 0..5 {
+            let failed = format!("https://a{index}.invalid/");
+            config
+                .replacement
+                .as_mut()
+                .unwrap()
+                .push(resource(failed.clone()));
+            let addresses = match family {
+                ObservationFamily::Ipv4 => ObservationDialAddresses {
+                    ipv4: Some(Ipv4Addr::new(127, 0, 0, index + 2)),
+                    ipv6: None,
+                },
+                ObservationFamily::Ipv6 => ObservationDialAddresses {
+                    ipv4: None,
+                    ipv6: Some(Ipv6Addr::new(
+                        0x2001,
+                        0xdb8,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        u16::from(index) + 2,
+                    )),
+                },
+            };
+            config.observation_addresses.insert(failed, addresses);
+        }
         let dial = match family {
             ObservationFamily::Ipv4 => ObservationDialAddresses {
                 ipv4: Some(Ipv4Addr::LOCALHOST),
@@ -336,7 +396,7 @@ async fn configured_qad_keeps_hostname_verification_and_the_actual_family_bindin
             .clear_ip_transports()
             .bind_addr((bind.ip(), 0))
             .unwrap()
-            .ca_tls_config(CaTlsConfig::custom_roots(certs));
+            .ca_tls_config(CaTlsConfig::custom_roots(certs.clone()));
         let endpoint = node.bind_configured_endpoint_with(builder).await.unwrap();
         eprintln!(
             "QAD_CONFIG {:?} bind={bind} locals={:?}",
@@ -397,6 +457,40 @@ async fn configured_qad_keeps_hostname_verification_and_the_actual_family_bindin
             sequence.samples
         );
         endpoint.close().await;
+        let reserved = UdpSocket::bind((bind.ip(), 0)).await.unwrap();
+        let fusion_binding = reserved.local_addr().unwrap();
+        drop(reserved);
+        let fusion = node
+            .bind_member_fusion_endpoint_with(
+                Endpoint::builder(presets::Minimal)
+                    .clear_ip_transports()
+                    .bind_addr(fusion_binding)
+                    .unwrap()
+                    .ca_tls_config(CaTlsConfig::custom_roots(certs)),
+                Duration::from_secs(12),
+            )
+            .await
+            .unwrap();
+        let mut ordinary = fusion.udp_observation();
+        let reflected = tokio::time::timeout(Duration::from_secs(12), async {
+            loop {
+                let state = ordinary.get();
+                if state.is_fresh() {
+                    break state;
+                }
+                ordinary.updated().await.unwrap();
+            }
+        })
+        .await
+        .unwrap();
+        let iroh::endpoint::UdpObservation::Fresh { addresses, .. } = &reflected else {
+            panic!("{reflected:?}")
+        };
+        assert!(addresses.contains(&fusion_binding));
+        eprintln!(
+            "NATIVE_FUSION_QAD sixth_station=true family={family:?} binding={fusion_binding} result={reflected:?}"
+        );
+        fusion.close().await;
         node.close().await;
         server.shutdown().await.unwrap();
     }

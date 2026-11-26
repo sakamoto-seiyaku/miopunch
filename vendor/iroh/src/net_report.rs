@@ -36,7 +36,6 @@ use n0_future::{
     time::{self, Duration, Instant},
 };
 use n0_watcher::{Watchable, Watcher};
-use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 use tracing::{Level, debug, event, trace, warn};
 
@@ -441,8 +440,6 @@ impl Client {
         do_full: bool,
         shutdown_token: CancellationToken,
     ) -> Vec<ProbeReport> {
-        use tracing::{Instrument, info_span};
-
         let Some(ref quic_client) = self.socket_state.quic_client else {
             return Vec::new();
         };
@@ -487,146 +484,118 @@ impl Client {
 
         trace!("spawning QAD probes");
 
-        // TODO: randomize choice?
+        // A bounded window permits later approved stations to replace failed
+        // ones without extending this periodic observation opportunity.
         const MAX_RELAYS: usize = 5;
-
-        let mut v4_buf = JoinSet::new();
-        let mut v6_buf = JoinSet::new();
-
-        let relays = self.relay_map.relays::<Vec<_>>();
-        for relay in relays.into_iter().take(MAX_RELAYS) {
+        let mut jobs = Vec::new();
+        for relay in self.relay_map.relays::<Vec<_>>() {
             if if_state.have_v4 && needs_v4_probe {
-                trace!(?relay.url, "v4 QAD probe starting");
-                let relay = relay.clone();
-                let dns_resolver = self.socket_state.dns_resolver.clone();
-                let quic_client = quic_client.clone();
-                let relay_url = relay.url.clone();
-                let inner_token = shutdown_token.child_token();
-                v4_buf.spawn(
-                    shutdown_token
-                        .child_token()
-                        .run_until_cancelled_owned(time::timeout(
-                            QAD_PROBE_TIMEOUT,
-                            run_probe_v4(relay, quic_client, dns_resolver, inner_token, None),
-                        ))
-                        .instrument(info_span!("QADv4", %relay_url)),
-                );
+                jobs.push((relay.clone(), iroh_relay::ObservationFamily::Ipv4));
             }
             if if_state.have_v6 && needs_v6_probe {
-                trace!(?relay.url, "v6 QAD probe starting");
-                let relay = relay.clone();
-                let dns_resolver = self.socket_state.dns_resolver.clone();
-                let quic_client = quic_client.clone();
-                let relay_url = relay.url.clone();
-                let inner_token = shutdown_token.child_token();
-                v6_buf.spawn(
-                    shutdown_token
-                        .child_token()
-                        .run_until_cancelled_owned(time::timeout(
-                            QAD_PROBE_TIMEOUT,
-                            run_probe_v6(relay, quic_client, dns_resolver, inner_token),
-                        ))
-                        .instrument(info_span!("QADv6", %relay_url)),
-                );
+                jobs.push((relay, iroh_relay::ObservationFamily::Ipv6));
             }
         }
-
-        // Collect all started QAD probes within their shared per-probe budget.
-        // A later observation can still reveal a different NAT mapping.
-        while !v4_buf.is_empty() || !v6_buf.is_empty() {
-            tokio::select! {
+        let mut v4_jobs = Vec::new();
+        let mut v6_jobs = Vec::new();
+        for job in jobs {
+            if job.1 == iroh_relay::ObservationFamily::Ipv4 {
+                v4_jobs.push(job);
+            } else {
+                v6_jobs.push(job);
+            }
+        }
+        let counts = [v4_jobs.len(), v6_jobs.len()];
+        let destinations: [_; 2] = std::array::from_fn(|_| {
+            ObservationDestinations::new(crate::endpoint::nat_plan::MAX_OBSERVATIONS)
+        });
+        let deadline = Instant::now() + QAD_PROBE_TIMEOUT;
+        let probe = |(relay, family)| {
+            let index = usize::from(family == iroh_relay::ObservationFamily::Ipv6);
+            let waves = counts[index]
+                .min(crate::endpoint::nat_plan::MAX_OBSERVATIONS)
+                .div_ceil(MAX_RELAYS)
+                .max(1) as u32;
+            let probe_budget = QAD_PROBE_TIMEOUT / waves;
+            let client = quic_client.clone();
+            let dns = self.socket_state.dns_resolver.clone();
+            let cancel = shutdown_token.child_token();
+            let destinations = &destinations[index];
+            async move {
+                let operation = async {
+                    let (relay, destination) =
+                        resolve_mapping_observer(relay, &dns, family).await?;
+                    if !destinations.admit(destination) {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::AlreadyExists,
+                            "duplicate or over-budget periodic observer",
+                        ));
+                    }
+                    match family {
+                        iroh_relay::ObservationFamily::Ipv4 => {
+                            run_probe_v4(relay, client, dns, cancel, None)
+                                .await
+                                .map_err(std::io::Error::other)
+                        }
+                        iroh_relay::ObservationFamily::Ipv6 => {
+                            run_probe_v6(relay, client, dns, cancel, None)
+                                .await
+                                .map_err(std::io::Error::other)
+                        }
+                    }
+                };
+                let result = time::timeout(
+                    deadline
+                        .saturating_duration_since(Instant::now())
+                        .min(probe_budget),
+                    operation,
+                )
+                .await;
+                (family, result)
+            }
+        };
+        let v4 = futures_util::StreamExt::buffer_unordered(
+            futures_util::stream::iter(v4_jobs).map(&probe),
+            MAX_RELAYS,
+        );
+        let v6 = futures_util::StreamExt::buffer_unordered(
+            futures_util::stream::iter(v6_jobs).map(&probe),
+            MAX_RELAYS,
+        );
+        let mut probes = futures_util::stream::select(v4, v6);
+        loop {
+            let result = tokio::select! {
                 biased;
-
-                _ = shutdown_token.cancelled() => {
-                    trace!("qad report cancelled");
-                    break;
-                }
-
-                val = v4_buf.join_next(), if !v4_buf.is_empty() => {
-                    let span = info_span!("QADv4");
-                    let _guard = span.enter();
-                    match val {
-                        Some(Ok(Some(Ok(res)))) => {
-                            match res {
-                                Ok((r, conn)) => {
-                                    debug!(?r, "probe report");
-                                    let url = r.relay.clone();
-                                    reports.push(ProbeReport::QadIpv4(r));
-                                    if self.qad_conns.v4.is_none() {
-                                        self.qad_conns.v4.replace((url, conn));
-                                    } else {
-                                        conn.conn.close(QUIC_ADDR_DISC_CLOSE_CODE, QUIC_ADDR_DISC_CLOSE_REASON);
-                                    }
-                                }
-                                Err(err) => {
-                                    debug!("probe failed: {err:#}");
-                                }
-                            }
+                _ = shutdown_token.cancelled() => break,
+                result = futures_util::StreamExt::next(&mut probes) => result,
+            };
+            let Some((family, result)) = result else {
+                break;
+            };
+            match result {
+                Ok(Ok((report, conn))) => {
+                    let url = report.relay.clone();
+                    let slot = match family {
+                        iroh_relay::ObservationFamily::Ipv4 => {
+                            reports.push(ProbeReport::QadIpv4(report));
+                            &mut self.qad_conns.v4
                         }
-                        Some(Err(err)) => {
-                            if err.is_panic() {
-                                panic!("probe panicked: {err:#}");
-                            }
-                            warn!("probe failed: {err:#}");
+                        iroh_relay::ObservationFamily::Ipv6 => {
+                            reports.push(ProbeReport::QadIpv6(report));
+                            &mut self.qad_conns.v6
                         }
-                        Some(Ok(None)) => {
-                            debug!("probe canceled");
-                        }
-                        Some(Ok(Some(Err(time::Elapsed { .. })))) => {
-                            debug!("probe timed out");
-                        }
-                        None => {
-                            trace!("report canceled");
-                        }
+                    };
+                    if slot.is_none() {
+                        *slot = Some((url, conn));
+                    } else {
+                        conn.conn
+                            .close(QUIC_ADDR_DISC_CLOSE_CODE, QUIC_ADDR_DISC_CLOSE_REASON);
                     }
                 }
-                val = v6_buf.join_next(), if !v6_buf.is_empty() => {
-                    let span = info_span!("QADv6");
-                    let _guard = span.enter();
-                    match val {
-                        Some(Ok(Some(Ok(res)))) => {
-                            match res {
-                                Ok((r, conn)) => {
-                                    debug!(?r, "probe report");
-                                    let url = r.relay.clone();
-                                    reports.push(ProbeReport::QadIpv6(r));
-                                    if self.qad_conns.v6.is_none() {
-                                        self.qad_conns.v6.replace((url, conn));
-                                    } else {
-                                        conn.conn.close(QUIC_ADDR_DISC_CLOSE_CODE, QUIC_ADDR_DISC_CLOSE_REASON);
-                                    }
-                                }
-                                Err(err) => {
-                                    debug!("probe failed: {err:#}");
-                                }
-                            }
-                        }
-                        Some(Err(err)) => {
-                            if err.is_panic() {
-                                panic!("probe panicked: {err:#}");
-                            }
-                            warn!("probe failed: {err:#}");
-                        }
-                        Some(Ok(None)) => {
-                            debug!("probe canceled");
-                        }
-                        Some(Ok(Some(Err(time::Elapsed { .. })))) => {
-                            debug!("probe timed out");
-                        }
-                        None => {
-                            trace!("report canceled");
-                        }
-                    }
-                }
-                else => {
-                    break;
-                }
+                Ok(Err(error)) => debug!(?family, "QAD station failed: {error:#}"),
+                Err(_) => debug!(?family, "QAD station time slice expired"),
             }
         }
-
-        // make sure to cancel all outstanding reports
-        v4_buf.abort_all();
-        v6_buf.abort_all();
 
         reports
     }
@@ -796,6 +765,53 @@ impl Client {
     }
 }
 
+/// One physical-observation budget, shared by QAD and STUN before submission.
+#[cfg(not(wasm_browser))]
+pub(crate) struct ObservationDestinations {
+    limit: usize,
+    destinations: std::sync::Mutex<std::collections::HashSet<SocketAddr>>,
+}
+
+#[cfg(not(wasm_browser))]
+impl ObservationDestinations {
+    pub(crate) fn new(limit: usize) -> Self {
+        Self {
+            limit,
+            destinations: Default::default(),
+        }
+    }
+
+    pub(crate) fn admit(&self, destination: SocketAddr) -> bool {
+        let mut destinations = self.destinations.lock().expect("observation destinations");
+        destinations.len() < self.limit && destinations.insert(destination)
+    }
+}
+
+#[cfg(not(wasm_browser))]
+async fn resolve_mapping_observer(
+    relay: Arc<RelayConfig>,
+    dns: &DnsResolver,
+    family: iroh_relay::ObservationFamily,
+) -> std::io::Result<(Arc<RelayConfig>, SocketAddr)> {
+    let destination = match family {
+        iroh_relay::ObservationFamily::Ipv4 => reportgen::get_relay_addr_ipv4(dns, &relay)
+            .await
+            .map(SocketAddr::V4),
+        iroh_relay::ObservationFamily::Ipv6 => reportgen::get_relay_addr_ipv6(dns, &relay)
+            .await
+            .map(SocketAddr::V6),
+    }
+    .map_err(std::io::Error::other)?;
+    let mut relay = (*relay).clone();
+    if let Some(quic) = &mut relay.quic {
+        match destination.ip() {
+            std::net::IpAddr::V4(ip) => quic.dial_addresses.ipv4 = Some(ip),
+            std::net::IpAddr::V6(ip) => quic.dial_addresses.ipv6 = Some(ip),
+        }
+    }
+    Ok((Arc::new(relay), destination))
+}
+
 /// A single, ordered QAD result from the same noq endpoint as application QUIC.
 #[cfg(not(wasm_browser))]
 pub(crate) struct MappingProbeSample {
@@ -813,44 +829,24 @@ pub(crate) async fn observe_mapping_sample(
     cancel: CancellationToken,
     qad: Option<&QadSubmission>,
     family: iroh_relay::ObservationFamily,
-    destinations: Option<
-        &std::sync::Arc<std::sync::Mutex<(usize, std::collections::HashSet<SocketAddr>)>>,
-    >,
+    destinations: Option<&ObservationDestinations>,
 ) -> std::io::Result<MappingProbeSample> {
-    let destination = match family {
-        iroh_relay::ObservationFamily::Ipv4 => reportgen::get_relay_addr_ipv4(&dns, &relay)
-            .await
-            .map(SocketAddr::V4),
-        iroh_relay::ObservationFamily::Ipv6 => reportgen::get_relay_addr_ipv6(&dns, &relay)
-            .await
-            .map(SocketAddr::V6),
+    let (relay, destination) = resolve_mapping_observer(relay, &dns, family).await?;
+    if destinations.is_some_and(|destinations| !destinations.admit(destination)) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            "duplicate or over-budget observation destination",
+        ));
     }
-    .map_err(std::io::Error::other)?;
-    if let Some(destinations) = destinations {
-        let mut destinations = destinations.lock().expect("mapping destinations");
-        if destinations.1.len() >= destinations.0 || !destinations.1.insert(destination) {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::AlreadyExists,
-                "duplicate observation destination",
-            ));
-        }
-    }
-    // Reuse the resolved destination for the request while preserving TLS identity.
-    let mut relay = (*relay).clone();
-    if let Some(quic) = &mut relay.quic {
-        match destination.ip() {
-            std::net::IpAddr::V4(ip) => quic.dial_addresses.ipv4 = Some(ip),
-            std::net::IpAddr::V6(ip) => quic.dial_addresses.ipv6 = Some(ip),
-        }
-    }
-    let relay = Arc::new(relay);
     let observer = relay.url.to_string();
     let (report, conn) = time::timeout(QAD_PROBE_TIMEOUT, async {
         match family {
             iroh_relay::ObservationFamily::Ipv4 => {
                 run_probe_v4(relay, client, dns, cancel, qad).await
             }
-            iroh_relay::ObservationFamily::Ipv6 => run_probe_v6(relay, client, dns, cancel).await,
+            iroh_relay::ObservationFamily::Ipv6 => {
+                run_probe_v6(relay, client, dns, cancel, qad).await
+            }
         }
     })
     .await
@@ -1038,6 +1034,7 @@ async fn run_probe_v6(
     quic_client: QuicClient,
     dns_resolver: DnsResolver,
     shutdown_token: CancellationToken,
+    qad: Option<&QadSubmission>,
 ) -> n0_error::Result<(QadProbeReport, QadConn), QadProbeError> {
     use noq_proto::PathId;
 
@@ -1050,8 +1047,9 @@ async fn run_probe_v6(
         .url
         .host_str()
         .ok_or_else(|| e!(QadProbeError::MissingHost))?;
+    let context: &(dyn std::any::Any + Sync) = qad.map_or(&(), |qad| qad);
     let conn = quic_client
-        .create_conn(relay_addr.into(), host)
+        .create_conn_with_sender_context(relay_addr.into(), host, context)
         .await
         .map_err(|source| e!(QadProbeError::Quic { source }))?;
 

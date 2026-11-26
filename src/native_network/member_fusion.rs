@@ -76,6 +76,7 @@ impl NativeNetwork {
             .secret_key(SecretKey::from_bytes(self.node_key.as_bytes()))
             .portmapper_config(PortmapperConfig::Disabled)
             .relay_mode(RelayMode::Custom(relays))
+            .observation_servers(resources.relay_map(ResourceUse::Observation)?)
             .relay_resource_policy(
                 RelayResourcePolicy::new(move |url, usage| {
                     let use_ = match usage {

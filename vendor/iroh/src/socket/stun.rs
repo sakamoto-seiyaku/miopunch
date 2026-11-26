@@ -252,6 +252,7 @@ impl EndpointInner {
             self.begin_udp_stun_observation(family),
             &|| {},
             None,
+            None,
         )
         .await
     }
@@ -301,19 +302,35 @@ impl EndpointInner {
     ) -> io::Result<UdpMappingSequence> {
         // Both request types use the requested family of the endpoint transport. A single binding
         // makes that physical socket unambiguous even for wildcard addresses.
-        let mut bindings = self
+        let configured = self
             .sock
             .ip_local_addrs()
-            .filter(|addr| family.matches(*addr));
-        let binding = bindings
-            .next()
-            .filter(|_| bindings.next().is_none())
+            .filter(|addr| family.matches(*addr))
+            .min_by_key(|addr| addr.ip().is_unspecified())
             .ok_or_else(|| {
                 io::Error::new(
                     io::ErrorKind::Unsupported,
-                    "mixed observation requires one binding for the requested family",
+                    "no binding for requested observation family",
                 )
             })?;
+        let source = (!configured.ip().is_unspecified()).then_some(configured.ip());
+        let binding = self
+            .sock
+            .udp_probe_sender
+            .lock()
+            .await
+            .ip_binding_for(source, configured)
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    "no sender for observation binding",
+                )
+            })?;
+        let source = (!binding.ip().is_unspecified()).then_some(binding.ip());
+        let qad_binding = qad_submission
+            .cloned()
+            .unwrap_or_else(|| transports::QadSubmission::new(|| {}))
+            .for_binding(binding);
         let network_validity = self.udp_network_generation();
         let validity = self.udp_observation_generation();
         let closed = self.sock.shutdown.at_close_start.child_token();
@@ -354,7 +371,7 @@ impl EndpointInner {
             Ok(())
         };
         check()?;
-        let destinations = Arc::new(Mutex::new((observation_limit, HashSet::new())));
+        let destinations = net_report::ObservationDestinations::new(observation_limit);
         let mut pending_probes = Vec::new();
         for relay in &relays {
             let probe = net_report::observe_mapping_sample(
@@ -362,7 +379,7 @@ impl EndpointInner {
                 self.qad_client.clone(),
                 self.sock.dns_resolver.clone(),
                 closed.child_token(),
-                qad_submission,
+                Some(&qad_binding),
                 family,
                 Some(&destinations),
             );
@@ -389,6 +406,7 @@ impl EndpointInner {
                 round_validity.clone(),
                 on_work,
                 Some(&destinations),
+                source,
             );
             pending_probes.push(
                 async move {
@@ -412,17 +430,27 @@ impl EndpointInner {
                 .boxed(),
             );
         }
-        let waves = pending_probes.len().div_ceil(4).max(1) as u32;
+        let waves = pending_probes
+            .len()
+            .min(observation_limit)
+            .div_ceil(4)
+            .max(1) as u32;
         let probe_budget = deadline.saturating_duration_since(tokio::time::Instant::now()) / waves;
         let mut pending_probes = pending_probes.into_iter().map(|probe| async move {
-            tokio::time::timeout(probe_budget, probe)
-                .await
-                .map_err(|_| {
-                    io::Error::new(
-                        io::ErrorKind::TimedOut,
-                        "observation station time slice expired",
-                    )
-                })?
+            if tokio::time::Instant::now() >= deadline {
+                return Err(io::ErrorKind::TimedOut.into());
+            }
+            tokio::time::timeout_at(
+                deadline.min(tokio::time::Instant::now() + probe_budget),
+                probe,
+            )
+            .await
+            .map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "observation station time slice expired",
+                )
+            })?
         });
         let mut probes = FuturesUnordered::new();
         for probe in pending_probes.by_ref().take(4) {
@@ -514,6 +542,7 @@ impl EndpointInner {
                     validity.clone(),
                     on_work,
                     None,
+                    None,
                 )
                 .await
             {
@@ -580,7 +609,8 @@ impl EndpointInner {
         family: ObservationFamily,
         validity: ObservationValidity,
         on_work: &(impl Fn() + Sync),
-        destinations: Option<&Arc<Mutex<(usize, HashSet<SocketAddr>)>>>,
+        destinations: Option<&net_report::ObservationDestinations>,
+        source: Option<IpAddr>,
     ) -> io::Result<UdpStunObservation> {
         if observer.scheme() != "stun"
             || observer.username() != ""
@@ -613,14 +643,11 @@ impl EndpointInner {
             let destination = self
                 .resolve_observation_addr(observer, family, 3478)
                 .await?;
-            if let Some(destinations) = destinations {
-                let mut destinations = destinations.lock().expect("mapping destinations");
-                if destinations.1.len() >= destinations.0 || !destinations.1.insert(destination) {
-                    return Err(io::Error::new(
-                        io::ErrorKind::AlreadyExists,
-                        "duplicate observation destination",
-                    ));
-                }
+            if destinations.is_some_and(|destinations| !destinations.admit(destination)) {
+                return Err(io::Error::new(
+                    io::ErrorKind::AlreadyExists,
+                    "duplicate or over-budget observation destination",
+                ));
             }
             let transaction: Transaction = rand::random();
             let (sender, mut receiver) = mpsc::channel(8);
@@ -654,7 +681,7 @@ impl EndpointInner {
                     _ = retransmit.tick(), if sends < 3 => {
                         if !network_validity.is_current() || !validity.is_current() { return Err(io::Error::other("network or observation changed during STUN")); }
                         let mut sender = self.sock.udp_probe_sender.lock().await;
-                        let path = transports::FourTuple::Ip { remote: destination, local: None };
+                        let path = transports::FourTuple::Ip { remote: destination, local: source };
                         let packet = transports::Transmit { ecn: None, contents: &request, segment_size: None };
                         std::future::poll_fn(|cx| std::pin::Pin::new(&mut *sender).poll_send(cx, &path, &packet)).await?;
                         if sends == 0 { on_work(); }

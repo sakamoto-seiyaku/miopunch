@@ -498,6 +498,13 @@ impl MemberFusionEndpoint {
         self.inner.endpoint.id()
     }
 
+    /// Watch the owner's QAD results from its configured native UDP bindings.
+    pub fn udp_observation(
+        &self,
+    ) -> impl n0_watcher::Watcher<Value = super::UdpObservation> + use<> {
+        self.inner.endpoint.udp_observation()
+    }
+
     /// Current endpoint addresses that can be announced to an admitted peer.
     pub fn addr(&self) -> EndpointAddr {
         let endpoint = &self.inner.endpoint.inner;

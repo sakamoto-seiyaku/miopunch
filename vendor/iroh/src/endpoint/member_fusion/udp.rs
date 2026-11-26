@@ -987,29 +987,6 @@ impl Planning {
             .await
         {
             Ok(sequence) => Some(sequence),
-            Err(error) if error.kind() == io::ErrorKind::Unsupported => {
-                let ordered_qad = async {
-                    if sources.qad.len() < 2 {
-                        return Ok(None);
-                    }
-                    ordered(
-                        endpoint
-                            .inner
-                            .observe_udp_mapping_sequence(&sources.qad, qad_submission.as_ref())
-                            .await,
-                    )
-                };
-                match ordered_qad.await? {
-                    Some(sequence) => Some(sequence),
-                    None if !sources.stun.is_empty() => ordered(
-                        endpoint
-                            .inner
-                            .observe_udp_stun_mapping_sequence(&sources.stun, &on_work)
-                            .await,
-                    )?,
-                    None => None,
-                }
-            }
             Err(error) => ordered(Err(error))?,
         };
         let (mut wire, observed) = match sequence.as_ref() {

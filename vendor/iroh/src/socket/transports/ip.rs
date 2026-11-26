@@ -414,6 +414,27 @@ pub(super) struct IpTransportsSender {
 }
 
 impl IpTransportsSender {
+    pub(super) fn local_addr_for(
+        &self,
+        source: Option<IpAddr>,
+        remote: SocketAddr,
+    ) -> Option<SocketAddr> {
+        let (senders, default) = if remote.is_ipv4() {
+            (&self.v4, self.default_v4_index)
+        } else {
+            (&self.v6, self.default_v6_index)
+        };
+        senders
+            .iter()
+            .find(|sender| sender.is_valid_send_addr(source, &remote))
+            .or_else(|| {
+                default
+                    .and_then(|index| senders.get(index))
+                    .filter(|sender| sender.is_valid_default_addr(source, &remote))
+            })
+            .and_then(|sender| sender.socket.local_addr().ok())
+    }
+
     pub(super) fn v4_iter_mut(&mut self) -> impl Iterator<Item = &mut IpSender> {
         self.v4.iter_mut()
     }
