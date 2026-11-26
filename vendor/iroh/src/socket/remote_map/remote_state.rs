@@ -114,6 +114,8 @@ pub(crate) struct MemberPathPolicy {
     repair: Option<watch::Sender<bool>>,
     direct_health: Option<watch::Sender<bool>>,
     #[cfg(not(wasm_browser))]
+    building: Option<Arc<crate::endpoint::member_fusion::building::Building>>,
+    #[cfg(not(wasm_browser))]
     enhanced: Option<Arc<MemberUdpPathWork>>,
     #[debug(skip)]
     permit: Arc<dyn Fn(&TransportAddr) -> bool + Send + Sync>,
@@ -133,6 +135,8 @@ impl MemberPathPolicy {
             ack_native_relay: false,
             repair: None,
             direct_health: None,
+            #[cfg(not(wasm_browser))]
+            building: None,
             enhanced: None,
             permit: Arc::new(permit),
         }
@@ -175,6 +179,15 @@ impl MemberPathPolicy {
     #[cfg(not(wasm_browser))]
     pub(crate) fn with_enhanced_udp(mut self, work: Option<Arc<MemberUdpPathWork>>) -> Self {
         self.enhanced = work;
+        self
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn with_building(
+        mut self,
+        building: Option<Arc<crate::endpoint::member_fusion::building::Building>>,
+    ) -> Self {
+        self.building = building;
         self
     }
 
@@ -240,6 +253,8 @@ pub(crate) struct MemberUdpPathWork {
 struct MemberPaths {
     policy: MemberPathPolicy,
     #[cfg(not(wasm_browser))]
+    building: Option<crate::endpoint::member_fusion::building::BuildPermit>,
+    #[cfg(not(wasm_browser))]
     restricted_contact: Option<Arc<AtomicBool>>,
     known_probes: FxHashMap<SocketAddr, Instant>,
     // One extra target for the current period of concurrent business.
@@ -256,6 +271,8 @@ impl MemberPaths {
         Self {
             policy,
             #[cfg(not(wasm_browser))]
+            building: None,
+            #[cfg(not(wasm_browser))]
             restricted_contact: None,
             known_probes: FxHashMap::default(),
             additional_direct: None,
@@ -265,6 +282,19 @@ impl MemberPaths {
             network_changed_at: None,
             new_path_probes: FxHashMap::default(),
         }
+    }
+
+    fn allow_probes(&mut self, conn: &noq::Connection, peer: EndpointId) -> bool {
+        #[cfg(not(wasm_browser))]
+        if let Some(building) = &self.policy.building {
+            if self.building.is_none() {
+                self.building = building.try_acquire(peer);
+            }
+            conn.set_nat_traversal_probes_permitted(self.building.is_some());
+            return self.building.is_some();
+        }
+        let _ = (conn, peer);
+        true
     }
 
     fn has_current_ack(&self, stats: &PathStats) -> bool {
@@ -1242,6 +1272,14 @@ impl RemoteStateActor {
                         && packet_policy.permits(address)
                 })
         });
+        if let Some(building) = &policy.building {
+            conn.set_nat_traversal_probes_permitted(false);
+            let events = n0_future::stream::unfold(building.subscribe(), move |mut changed| async move {
+                changed.changed().await.ok()?;
+                Some((conn_id, changed))
+            });
+            self.member_activity.push(Box::pin(events));
+        }
         let mut paths = MemberPaths::new(policy);
         paths.restricted_contact = Some(restricted_contact);
         state.member_paths = Some(paths);
@@ -1344,6 +1382,18 @@ impl RemoteStateActor {
                     activity.changed().await.ok()?;
                     Some((conn_id, activity))
                 });
+                self.member_activity.push(Box::pin(events));
+            }
+            #[cfg(not(wasm_browser))]
+            if let Some(building) = &policy.building {
+                conn.set_nat_traversal_probes_permitted(false);
+                let events = n0_future::stream::unfold(
+                    building.subscribe(),
+                    move |mut changed| async move {
+                        changed.changed().await.ok()?;
+                        Some((conn_id, changed))
+                    },
+                );
                 self.member_activity.push(Box::pin(events));
             }
             if let Some(paths) = &mut state.member_paths {
@@ -1450,6 +1500,14 @@ impl RemoteStateActor {
             );
         }
         if !active && !enhanced {
+            #[cfg(not(wasm_browser))]
+            if let Some(member) = &mut state.member_paths {
+                member.building = None;
+                if let Some(conn) = state.handle.upgrade() {
+                    if member.policy.building.is_some() { conn.stop_nat_traversal_probes(); }
+                    conn.set_nat_traversal_probes_permitted(member.policy.building.is_none());
+                }
+            }
             return;
         }
         let Some(conn) = state
@@ -1498,6 +1556,21 @@ impl RemoteStateActor {
             .member_paths
             .as_mut()
             .expect("checked member connection");
+        #[cfg(not(wasm_browser))]
+        if member.policy.building.is_some() {
+            let waiting_for_peer = member
+                .last_exchange
+                .iter()
+                .flatten()
+                .any(|last| now - last.when < LOCAL_PROBE_GRACE);
+            if !conn.nat_traversal_probes_pending() && !waiting_for_peer {
+                member.building = None;
+            }
+            if conn.nat_traversal_probes_pending() {
+                member.allow_probes(&conn, self.state.endpoint_id);
+            }
+            conn.set_nat_traversal_probes_permitted(member.building.is_some());
+        }
         let ready_direct = healthy_direct.len();
         let concurrent = member
             .policy
@@ -1511,6 +1584,12 @@ impl RemoteStateActor {
         if ready_direct != 0 && (!member.policy.business_active() || balancing) {
             member.policy.needs_enhanced_udp(false);
             if ready_direct != 1 || concurrent != Some(true) {
+                #[cfg(not(wasm_browser))]
+                {
+                    member.building = None;
+                    if member.policy.building.is_some() { conn.stop_nat_traversal_probes(); }
+                    conn.set_nat_traversal_probes_permitted(member.policy.building.is_none());
+                }
                 return;
             }
         }
@@ -1634,6 +1713,7 @@ impl RemoteStateActor {
                 .known_probes
                 .get(remote)
                 .is_none_or(|last| may_retry && now - *last >= HOLEPUNCH_ATTEMPTS_INTERVAL)
+                && member.allow_probes(&conn, self.state.endpoint_id)
                 && conn.probe_known_nat_traversal_address(*remote).is_ok()
             {
                 if trace_ipv6 {
@@ -1734,6 +1814,9 @@ impl RemoteStateActor {
                     && remote.is_subset(&last.remote_candidates)
                     && (good_direct || now - last.when < HOLEPUNCH_ATTEMPTS_INTERVAL)
             }) {
+                continue;
+            }
+            if !member.allow_probes(&conn, self.state.endpoint_id) {
                 continue;
             }
             let exchange = conn.initiate_nat_traversal_round_for_family(ipv6, |addr| {

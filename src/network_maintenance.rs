@@ -635,7 +635,7 @@ impl Coordinator {
         if !self.standby_at.is_some_and(|at| at <= Instant::now()) {
             return;
         }
-        self.standby.schedule(&self.resources, &self.node.gate, self.policy.max_concurrent_contacts);
+        self.standby.schedule(&self.resources, &self.node.gate, crate::maintenance_policy::MEMBER_BUILD_LIMIT);
         self.status.max_in_flight = self.status.max_in_flight.max(self.standby.len());
         self.standby_at = Some(Instant::now() + self.floor());
     }
@@ -1174,7 +1174,7 @@ impl Coordinator {
             .map(|(id, peer)| (*id, peer.connection.clone()))
             .collect::<Vec<_>>();
         for (id, connection) in due {
-            if self.standby.len() >= self.policy.max_concurrent_contacts {
+            if self.standby.len() >= crate::maintenance_policy::MEMBER_BUILD_LIMIT {
                 break;
             }
             if self.activity.is_active() {
@@ -1227,12 +1227,11 @@ impl Coordinator {
         // coverage. That bounded exchange closes after sync; it does not add
         // another permanent neighbor or turn partial connectivity into a mesh.
         let contact_limit = if self.neighbors.len() < self.policy.max_neighbors {
-            self.policy
-                .max_concurrent_contacts
+            crate::maintenance_policy::MEMBER_BUILD_LIMIT
                 .min(self.policy.max_neighbors - self.neighbors.len())
         } else {
             1
-        }.min(self.policy.max_concurrent_contacts.saturating_sub(self.standby.len()));
+        }.min(crate::maintenance_policy::MEMBER_BUILD_LIMIT.saturating_sub(self.standby.len()));
         {
             for _ in 0..self.candidates.len().saturating_mul(2) {
                 if chosen.len() >= contact_limit {
@@ -1652,7 +1651,7 @@ impl NativeNetwork {
             resources: resources.clone(),
             gate: self.gate.clone(),
             permits: Arc::new(Semaphore::new(
-                policy.max_neighbors + policy.max_concurrent_contacts,
+                policy.max_neighbors + crate::maintenance_policy::MEMBER_BUILD_LIMIT,
             )),
         };
         let router = Router::builder(resources.endpoint().clone())

@@ -23,6 +23,7 @@ use super::{
 };
 
 mod bootstrap;
+pub(crate) mod building;
 mod dial;
 mod direct;
 mod standby;
@@ -814,6 +815,7 @@ impl MemberFusionEndpoint {
                 let endpoint = owner.endpoint.clone();
                 let alpn = owner.alpn.clone();
                 let peer = peer.clone();
+                let building = owner.fusion.building.clone();
                 tokio::spawn(async move {
                     let work = dial::Dial {
                         endpoint: &endpoint,
@@ -824,7 +826,10 @@ impl MemberFusionEndpoint {
                     let result = tokio::select! { biased;
                         _ = dial.cancel.cancelled() => Err(io::ErrorKind::Interrupted.into()),
                         _ = time::sleep_until(deadline) => Err(io::ErrorKind::TimedOut.into()),
-                        result = work.run(target, routes) => result,
+                        result = async {
+                            let _position = building.acquire(target.id).await;
+                            work.run(target, routes).await
+                        } => result,
                     };
                     let mut state = peer.state.lock().expect("member peer lock");
                     dial.state.lock().expect("member dial lock").result =
@@ -949,6 +954,7 @@ async fn accept_connections(
 
 #[derive(Debug, Default)]
 pub(super) struct Fusion {
+    pub(crate) building: Arc<building::Building>,
     peers: Mutex<HashMap<EndpointId, Weak<Peer>>>,
     shutdown: CancellationToken,
     retention: std::sync::OnceLock<MemberRetention>,

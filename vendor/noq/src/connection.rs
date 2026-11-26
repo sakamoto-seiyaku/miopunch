@@ -799,7 +799,11 @@ impl Connection {
     /// Close with the same semantics as `close`, returning any reason already
     /// set before this call acquired the connection lock.
     #[doc(hidden)]
-    pub fn close_with_previous_reason(&self, error_code: VarInt, reason: &[u8]) -> Option<ConnectionError> {
+    pub fn close_with_previous_reason(
+        &self,
+        error_code: VarInt,
+        reason: &[u8],
+    ) -> Option<ConnectionError> {
         let conn = &mut *self.0.lock_without_waking("close");
         let previous = conn.error.clone();
         conn.close(error_code, Bytes::copy_from_slice(reason), &self.0.shared);
@@ -1204,6 +1208,27 @@ impl Connection {
             .lock_without_waking("ipv4_nat_traversal_probes_paused")
             .inner
             .ipv4_nat_traversal_probes_paused()
+    }
+
+    /// Permit active off-path probing while preserving normal receive traffic.
+    pub fn set_nat_traversal_probes_permitted(&self, permitted: bool) {
+        self.0
+            .lock_and_wake("set_nat_traversal_probes_permitted")
+            .inner
+            .set_nat_traversal_probes_permitted(permitted);
+    }
+
+    /// Retire queued probes while retaining responses and established paths.
+    pub fn stop_nat_traversal_probes(&self) {
+        self.0.lock_and_wake("stop_nat_traversal_probes").inner.stop_nat_traversal_probes();
+    }
+
+    /// Whether off-path probes remain in this round.
+    pub fn nat_traversal_probes_pending(&self) -> bool {
+        self.0
+            .lock_without_waking("nat_traversal_probes_pending")
+            .inner
+            .nat_traversal_probes_pending()
     }
 
     /// Initiates a new nat traversal round

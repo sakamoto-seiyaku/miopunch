@@ -336,6 +336,7 @@ pub struct Connection {
     /// State for n0's (<https://n0.computer>) nat traversal protocol.
     n0_nat_traversal: n0_nat_traversal::State,
     ipv4_nat_traversal_probes_paused: bool,
+    nat_traversal_probes_permitted: bool,
     qlog: QlogSink,
 }
 
@@ -478,6 +479,7 @@ impl Connection {
 
             n0_nat_traversal: Default::default(),
             ipv4_nat_traversal_probes_paused: false,
+            nat_traversal_probes_permitted: true,
             qlog,
         };
         if path_validated {
@@ -2352,6 +2354,7 @@ impl Connection {
             .find_validated_path_on_network_path(network_path)
             .is_none()
             && self.n0_nat_traversal.client_side().is_ok()
+            && self.nat_traversal_probes_permitted
             && (!self.ipv4_nat_traversal_probes_paused
                 || network_path.remote.ip().to_canonical().is_ipv6())
         {
@@ -2393,6 +2396,9 @@ impl Connection {
         buf: &mut Vec<u8>,
         path_id: PathId,
     ) -> Option<Transmit> {
+        if !self.nat_traversal_probes_permitted {
+            return None;
+        }
         let remote = self
             .n0_nat_traversal
             .next_probe_addr(self.ipv4_nat_traversal_probes_paused)?;
@@ -2808,7 +2814,9 @@ impl Connection {
                         }
                     }
                     ConnTimer::NatTraversalProbeRetry => {
-                        self.n0_nat_traversal.queue_retries(self.is_ipv6());
+                        if self.nat_traversal_probes_permitted {
+                            self.n0_nat_traversal.queue_retries(self.is_ipv6());
+                        }
                         if let Some(delay) =
                             self.n0_nat_traversal.retry_delay(self.config.initial_rtt)
                         {
@@ -3117,10 +3125,13 @@ impl Connection {
         // A connection-scoped carrier must not be recreated by a validation
         // packet encoded before its candidate was retired. New paths on this
         // or another connection still own their own live binding.
-        if self.application_path_ack_required.as_ref().is_some_and(|required|
-            required(network_path))
-            && !self.paths.iter().any(|(id, path)|
-                !self.abandoned_paths.contains(id) && path.data.network_path == network_path)
+        if self
+            .application_path_ack_required
+            .as_ref()
+            .is_some_and(|required| required(network_path))
+            && !self.paths.iter().any(|(id, path)| {
+                !self.abandoned_paths.contains(id) && path.data.network_path == network_path
+            })
         {
             return false;
         }
@@ -7992,6 +8003,22 @@ impl Connection {
     /// Whether off-path IPv4 NAT traversal probe transmission is paused.
     pub fn ipv4_nat_traversal_probes_paused(&self) -> bool {
         self.ipv4_nat_traversal_probes_paused
+    }
+
+    /// Gate active off-path probing while retaining incoming responses and data.
+    pub fn set_nat_traversal_probes_permitted(&mut self, permitted: bool) {
+        self.nat_traversal_probes_permitted = permitted;
+    }
+
+    /// Retire active off-path probes after member work completes or is cancelled.
+    /// Responses to already sent challenges remain valid.
+    pub fn stop_nat_traversal_probes(&mut self) {
+        self.n0_nat_traversal.stop_probes();
+    }
+
+    /// Whether this round still has off-path probes queued or scheduled.
+    pub fn nat_traversal_probes_pending(&self) -> bool {
+        self.n0_nat_traversal.has_probes()
     }
 
     /// Initiates a new nat traversal round

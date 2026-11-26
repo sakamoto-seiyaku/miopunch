@@ -181,6 +181,7 @@ impl PathCandidates {
             }
         };
         let work = async {
+            // Physical serialization and pacing happen before the member position.
             // Outgoing work waits for the existing node owner before opening
             // a stream. An incoming attempt never waits while its peer holds
             // that peer's slot, so crossed work cannot deadlock.
@@ -226,6 +227,15 @@ impl PathCandidates {
                 };
                 *self.last_traversal.lock().expect("direct traversal") =
                     Some((generation.clone(), time::Instant::now()));
+                let fusion = self
+                    .endpoint
+                    .inner
+                    .static_config
+                    .admission
+                    .as_ref()
+                    .and_then(|policy| policy.member_fusion())
+                    .expect("member fusion");
+                let _position = fusion.building.acquire(connection.remote_id()).await;
                 self.traverse(connection, exchange).await.map(|_| ())
             })
             .await?
@@ -257,6 +267,8 @@ impl PathCandidates {
         let generation = self.endpoint.udp_network_generation();
         let work = async {
             let _slot = self.node_traversal_slot.lock().await;
+            let fusion = self.endpoint.inner.static_config.admission.as_ref().and_then(|policy| policy.member_fusion()).expect("member fusion");
+            let _position = fusion.building.acquire(connection.remote_id()).await;
             self.traverse(connection, exchange).await
         };
         tokio::select! { biased;
@@ -654,6 +666,15 @@ async fn process_candidate(
     generation: ObservationValidity,
 ) {
     if candidates.dialer {
+        let fusion = candidates
+            .endpoint
+            .inner
+            .static_config
+            .admission
+            .as_ref()
+            .and_then(|policy| policy.member_fusion())
+            .expect("member fusion");
+        let _position = fusion.building.acquire(connection.remote_id()).await;
         let _ = time::timeout(
             VALIDATION_LIMIT,
             validate(candidates, connection, address, generation),

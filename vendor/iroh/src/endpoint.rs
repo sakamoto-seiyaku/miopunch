@@ -96,7 +96,9 @@ mod bind;
 mod connection;
 pub(crate) mod hooks;
 #[cfg(not(wasm_browser))]
-mod member_fusion;
+pub(crate) mod member_fusion;
+#[cfg(not(wasm_browser))]
+pub use member_fusion::building::MEMBER_BUILD_LIMIT;
 #[cfg(not(wasm_browser))]
 #[doc(hidden)]
 pub mod nat_execution;

@@ -466,7 +466,7 @@ impl NativeClientRuntime {
                         _ = member_handlers.join_next(), if !member_handlers.is_empty() => {},
                         _ = expiry.tick() => {
                             if recovery_saved.load(Ordering::Acquire) && replacement_ready.load(Ordering::Acquire) {
-                                standby.schedule(&resources, &gate, resources.maintenance_policy().max_concurrent_contacts);
+                                standby.schedule(&resources, &gate, crate::maintenance_policy::MEMBER_BUILD_LIMIT);
                             }
                             if let Some(contacts) = &member_contacts
                                 && let Err(error) = contacts.refresh_async().await

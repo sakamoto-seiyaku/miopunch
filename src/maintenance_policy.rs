@@ -1,11 +1,16 @@
 use serde::{Deserialize, Serialize};
 
+/// Active construction positions shared by the native member endpoint.
+pub use iroh::endpoint::MEMBER_BUILD_LIMIT;
+
 /// This node's local effort, independent of membership or resource permission.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(from = "SavedPolicy")]
 pub struct MaintenancePolicy {
     pub exploration_interval_ms: u64,
     pub discovery_interval_ms: u64,
+    /// Legacy setting retained for source compatibility. Construction uses the fixed endpoint limit.
+    #[serde(skip_serializing)]
     pub max_concurrent_contacts: usize,
     pub max_neighbors: usize,
     pub quality_interval_ms: u64,
@@ -28,7 +33,7 @@ impl MaintenancePolicy {
             enhanced_udp_cooldown_ms: 160_000,
             path_retry_base_ms: 5_000,
             discovery_interval_ms: 15_000,
-            max_concurrent_contacts: 1,
+            max_concurrent_contacts: MEMBER_BUILD_LIMIT,
             max_neighbors: 1,
             quality_interval_ms: 5_000,
             contact_timeout_ms: crate::connection_budget::DEFAULT_MS,
@@ -41,7 +46,7 @@ impl MaintenancePolicy {
             enhanced_udp_cooldown_ms: 32_000,
             path_retry_base_ms: 1_000,
             discovery_interval_ms: 5_000,
-            max_concurrent_contacts: 4,
+            max_concurrent_contacts: MEMBER_BUILD_LIMIT,
             max_neighbors: 4,
             quality_interval_ms: 1_000,
             contact_timeout_ms: crate::connection_budget::DEFAULT_MS,
@@ -50,7 +55,6 @@ impl MaintenancePolicy {
     pub(crate) fn validate(&self) -> std::io::Result<()> {
         if !(250..=60_000).contains(&self.exploration_interval_ms)
             || !(1_000..=120_000).contains(&self.discovery_interval_ms)
-            || !(1..=8).contains(&self.max_concurrent_contacts)
             || !(1..=8).contains(&self.max_neighbors)
             || self.enhanced_udp_cooldown_ms == 0
             || self.enhanced_udp_cooldown_ms > 1_920_000
@@ -105,7 +109,7 @@ impl From<SavedPolicy> for MaintenancePolicy {
     fn from(saved: SavedPolicy) -> Self {
         let active = Self::active();
         let profile = if saved.discovery_interval_ms == active.discovery_interval_ms
-            && saved.max_concurrent_contacts == active.max_concurrent_contacts
+            && matches!(saved.max_concurrent_contacts, 4 | 8)
             && saved.max_neighbors == active.max_neighbors
             && saved.quality_interval_ms == active.quality_interval_ms
             && saved.contact_timeout_ms == active.contact_timeout_ms
@@ -117,7 +121,7 @@ impl From<SavedPolicy> for MaintenancePolicy {
         Self {
             exploration_interval_ms: saved.exploration_interval_ms,
             discovery_interval_ms: saved.discovery_interval_ms,
-            max_concurrent_contacts: saved.max_concurrent_contacts,
+            max_concurrent_contacts: MEMBER_BUILD_LIMIT,
             max_neighbors: saved.max_neighbors,
             quality_interval_ms: saved.quality_interval_ms,
             contact_timeout_ms: saved.contact_timeout_ms,
@@ -203,7 +207,7 @@ mod tests {
             let migrated: MaintenancePolicy = serde_json::from_value(saved).unwrap();
             assert_eq!(migrated.standby_member_limit, None);
             assert_eq!(migrated.exploration_interval_ms, 30_000);
-            assert_eq!(migrated.max_concurrent_contacts, 2);
+            assert_eq!(migrated.max_concurrent_contacts, 8);
             assert_eq!(migrated.enhanced_udp_cooldown_ms, 725);
         }
         for limit in [0, 2, 8] {

@@ -1153,6 +1153,7 @@ impl ControlHandle {
             .clone()
             .expect("member policy");
         let direct = policy.member_direct_transport();
+        let building = policy.member_fusion().map(|fusion| fusion.building.clone());
         self.endpoint
             .inner
             .prepare_member_udp(
@@ -1163,7 +1164,8 @@ impl ControlHandle {
                             if direct == Some(remote.id()) && policy.permits_direct_candidate(&remote)))
                 })
                 .with_required_path_acks([direct, None], false)
-                .with_enhanced_udp(self.member_udp.as_ref().and_then(|udp| udp.path_work())),
+                .with_enhanced_udp(self.member_udp.as_ref().and_then(|udp| udp.path_work()))
+                .with_building(building),
             )
             .await
     }
@@ -2108,7 +2110,8 @@ pub(super) async fn finish_admission(
             .with_required_path_acks([direct_transport, member_relay], started_on_member_relay)
             .with_enhanced_udp(udp.as_ref().and_then(|udp| udp.path_work()))
             .with_repair_health(repair.as_ref().map(|repair| repair.health.clone()))
-            .with_direct_health(direct_health);
+            .with_direct_health(direct_health)
+            .with_building(Some(fusion.building.clone()));
             endpoint
                 .inner
                 .authorize_candidates(

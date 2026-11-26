@@ -554,6 +554,15 @@ impl Planning {
         )?;
         let mut trace = RoundTrace::new(&self.connection, "initiator", kind);
         let work = async {
+            let fusion = self
+                .endpoint
+                .inner
+                .static_config
+                .admission
+                .as_ref()
+                .and_then(|policy| policy.member_fusion())
+                .expect("member fusion");
+            let _position = fusion.building.acquire(self.connection.remote_id()).await;
             let mut running = None;
             #[cfg(feature = "miopunch-test-hooks")]
             {
@@ -617,6 +626,7 @@ impl Planning {
         };
         let result = tokio::select! { biased;
             _ = cancel.cancelled() => Err(io::ErrorKind::Interrupted.into()),
+            _ = time::sleep_until(deadline) => Err(io::ErrorKind::TimedOut.into()),
             _ = slot.yielded().cancelled() => Err(busy()),
             result = work => result,
         };
@@ -700,6 +710,15 @@ impl Planning {
                 traverse,
             )?;
             let work = async {
+                let fusion = self
+                    .endpoint
+                    .inner
+                    .static_config
+                    .admission
+                    .as_ref()
+                    .and_then(|policy| policy.member_fusion())
+                    .expect("member fusion");
+                let _position = fusion.building.acquire(self.connection.remote_id()).await;
                 let mut running = None;
                 let (plan, recommendation) = self
                     .guarded(
@@ -724,6 +743,7 @@ impl Planning {
                 Ok(())
             };
             tokio::select! { biased;
+                _ = time::sleep_until(deadline) => Err(io::ErrorKind::TimedOut.into()),
                 _ = slot.yielded().cancelled() => Err(busy()),
                 result = work => result,
             }

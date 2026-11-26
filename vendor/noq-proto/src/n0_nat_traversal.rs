@@ -347,6 +347,37 @@ impl State {
         }
     }
 
+    pub(crate) fn stop_probes(&mut self) {
+        match self {
+            Self::NotNegotiated => {},
+            Self::ClientSide(state) => {
+                state.pending_probes.clear();
+                for (_, probe) in state.remote_addresses.values_mut() { *probe = ProbeState::Inactive; }
+            },
+            Self::ServerSide(state) => {
+                state.pending_probes.clear();
+                for probe in state.remotes.values_mut() { *probe = ProbeState::Inactive; }
+            },
+        }
+    }
+
+    pub(crate) fn has_probes(&self) -> bool {
+        match self {
+            Self::NotNegotiated => false,
+            Self::ClientSide(state) => {
+                !state.pending_probes.is_empty()
+                    || state
+                        .remote_addresses
+                        .values()
+                        .any(|(_, state)| state.remaining() > 0)
+            }
+            Self::ServerSide(state) => {
+                !state.pending_probes.is_empty()
+                    || state.remotes.values().any(|state| state.remaining() > 0)
+            }
+        }
+    }
+
     /// Returns the delay to arm the `NatTraversalProbeRetry` timer.
     ///
     /// `initial_rtt` must be [`TransportConfig::initial_rtt`] so retries are scaled to this
