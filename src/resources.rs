@@ -1212,14 +1212,32 @@ impl ResourceEndpoint {
         target: iroh::EndpointAddr,
         alpn: &[u8],
     ) -> Result<iroh::endpoint::Connection, ResourceContactError> {
+        let (connection, attempt) = self
+            .connect_data_attempt(
+                target,
+                alpn,
+                ContactClass::Foreground,
+                self.contact_deadline(),
+            )
+            .await?;
+        attempt.succeeded();
+        Ok(connection)
+    }
+
+    pub(crate) async fn connect_data_attempt(
+        &self,
+        target: iroh::EndpointAddr,
+        alpn: &[u8],
+        class: ContactClass,
+        deadline: n0_future::time::Instant,
+    ) -> Result<(iroh::endpoint::Connection, ContactAttempt), ResourceContactError> {
         let (delivery, attempt) = self
-            .connect_attempt(target, alpn, ContactClass::Foreground, false)
+            .connect_attempt(target, alpn, class, false, deadline)
             .await?;
         let connection = delivery
             .business()
             .map_err(|error| attempt.failed(error.to_string()))?;
-        attempt.succeeded();
-        Ok(connection)
+        Ok((connection, attempt))
     }
 
     pub(crate) fn connect_member(
@@ -1431,7 +1449,13 @@ impl ResourceEndpoint {
         alpn: &[u8],
     ) -> Result<crate::control_protocol::ControlOwner, ResourceContactError> {
         let (delivery, attempt) = self
-            .connect_attempt(target, alpn, ContactClass::Foreground, true)
+            .connect_attempt(
+                target,
+                alpn,
+                ContactClass::Foreground,
+                true,
+                self.contact_deadline(),
+            )
             .await?;
         let connection = delivery
             .control()
@@ -1459,6 +1483,7 @@ impl ResourceEndpoint {
             alpn,
             class,
             alpn == crate::network_recovery::RECOVERY_REPLICA_ALPN,
+            self.contact_deadline(),
         )
         .await
     }
@@ -1469,7 +1494,9 @@ impl ResourceEndpoint {
         alpn: &[u8],
         class: ContactClass,
     ) -> Result<(crate::control_protocol::ControlOwner, ContactAttempt), ResourceContactError> {
-        let (delivery, attempt) = self.connect_attempt(target, alpn, class, true).await?;
+        let (delivery, attempt) = self
+            .connect_attempt(target, alpn, class, true, self.contact_deadline())
+            .await?;
         let control = delivery
             .control()
             .map_err(|error| attempt.failed(error.to_string()))?;
@@ -1482,6 +1509,7 @@ impl ResourceEndpoint {
         alpn: &[u8],
         class: ContactClass,
         control_only: bool,
+        deadline: n0_future::time::Instant,
     ) -> Result<
         (
             crate::connection_coordinator::ConnectionDelivery,
@@ -1491,7 +1519,7 @@ impl ResourceEndpoint {
     > {
         use crate::connection_coordinator::{AttemptContext, ConnectError, SessionPurpose};
         let purpose = SessionPurpose::from_alpn(alpn);
-        let (deadline, attempt) = self.begin_contact_attempt(target.id, class)?;
+        let attempt = self.begin_contact_attempt_until(target.id, class, deadline)?;
         tokio::time::timeout(
                 deadline.saturating_duration_since(n0_future::time::Instant::now()),
                 self.merge_contact_hints(&mut target),

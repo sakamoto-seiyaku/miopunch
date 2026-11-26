@@ -124,6 +124,14 @@ struct ScopedService {
     denied: HashSet<[u8; 32]>,
 }
 impl Policy {
+    fn member_contact_allowed(&self, peer: &[u8; 32]) -> bool {
+        self.secret.is_some()
+            && self.members.contains(&self.local_id)
+            && self.members.contains(peer)
+            && !self.removed.contains(&self.local_id)
+            && !self.removed.contains(peer)
+    }
+
     fn service_guest(&self, alpn: &[u8], peer: &[u8; 32]) -> bool {
         !self.removed.contains(peer)
             && !self.removed.contains(&self.local_id)
@@ -523,11 +531,24 @@ impl AdmissionGate {
 
     pub(crate) fn member_contact_allowed(&self, peer: EndpointId) -> bool {
         let state = self.state.lock().expect("admission policy lock");
-        state.policy.secret.is_some()
-            && state.policy.members.contains(&state.policy.local_id)
-            && state.policy.members.contains(peer.as_bytes())
-            && !state.policy.removed.contains(&state.policy.local_id)
-            && !state.policy.removed.contains(peer.as_bytes())
+        state.policy.member_contact_allowed(peer.as_bytes())
+    }
+
+    /// A complete frame can outlive the connection that delivered it. Recheck
+    /// current authority against the proof captured on that exact member wire.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn accepts_member_history(&self, proof: &BootstrapProof) -> bool {
+        let state = self.state.lock().expect("admission policy lock");
+        let policy = &state.policy;
+        state
+            .lifecycle_protocols
+            .as_ref()
+            .is_none_or(|protocols| protocols.contains(crate::service_policy::POLICY_ALPN))
+            && policy.member_contact_allowed(proof.peer().as_bytes())
+            && proof.scope() == &policy.scope
+            && policy.secret.as_ref().is_some_and(|secret| {
+                proof.credential_fingerprint() == &secret.fingerprint(&policy.scope)
+            })
     }
 
     #[cfg(not(target_arch = "wasm32"))]

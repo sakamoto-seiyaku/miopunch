@@ -4,13 +4,18 @@ use super::*;
 use crate::service_policy::{
     GuestInvitation, Service, ServiceAccess, ServiceAction, ServiceLedger, ServiceRule,
 };
-use crate::service_protocol::{GuestRequest, MemberSync, ServiceBundle, read_guest, write_guest};
+use crate::service_protocol::{
+    GuestRequest, MemberSync, MemberSyncMembership, MemberSyncMode, ServiceBundle,
+    next_member_sync_peer, read_guest, write_guest,
+};
 use futures_util::FutureExt;
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
 };
 use tokio::sync::Notify;
+
+const POLICY_WORKERS: usize = 4;
 
 impl SavedNode {
     pub(super) fn declare_clipboard(&self, capable: bool, enabled: bool) -> Result<Self, JsValue> {
@@ -124,11 +129,12 @@ impl SavedNode {
         Ok((next, auth, result.policy_error))
     }
 
-    fn member_sync(&self, members: &[(VerifyingKey, Access)]) -> MemberSync {
-        MemberSync {
-            bundle: self.service_bundle(),
-            device_names: self.device_names.for_members(members),
-        }
+    fn member_sync(&self, members: &[(VerifyingKey, Access)], mode: MemberSyncMode) -> MemberSync {
+        MemberSync::new(
+            self.service_bundle(),
+            self.device_names.for_members(members),
+            mode,
+        )
     }
 
     fn with_member_sync(
@@ -137,7 +143,7 @@ impl SavedNode {
     ) -> Result<(Self, Vec<(VerifyingKey, Access)>, Option<std::io::Error>), JsValue> {
         let (mut next, auth, policy_error) = self.reconcile_service_bundle(&incoming.bundle)?;
         let members = auth.ok_or_else(rejected)?.nodes();
-        if policy_error.is_none() {
+        if policy_error.is_none() && incoming.mode() == MemberSyncMode::Full {
             next.device_names.merge_members(&members, incoming.device_names);
         }
         Ok((next, members, policy_error))
@@ -254,6 +260,55 @@ fn encode_saved(next: &SavedNode) -> Result<String, JsValue> {
     Ok(raw)
 }
 
+struct MemberSyncAdmission {
+    anchor: NetworkAnchor,
+    generation: u64,
+    secret: [u8; 32],
+    membership: MemberSyncMembership,
+}
+
+impl MemberSyncAdmission {
+    fn capture(
+        saved: &SavedNode,
+        auth: &ManagementAuth,
+        connection: &Connection,
+    ) -> Result<Self, JsValue> {
+        Ok(Self {
+            anchor: saved.invitation()?.anchor,
+            generation: saved.generation,
+            secret: saved.secret.ok_or_else(rejected)?,
+            membership: MemberSyncMembership::capture(
+                auth,
+                saved.identity(),
+                connection.remote_id(),
+            )
+            .ok_or_else(rejected)?,
+        })
+    }
+
+    fn is_current(&self, saved: &SavedNode, connection: &Connection) -> Result<bool, JsValue> {
+        Ok(saved.generation == self.generation
+            && saved.secret == Some(self.secret)
+            && saved.invitation()?.anchor == self.anchor
+            && BrowserGate::permits(saved, connection.remote_id(), connection.alpn())
+            && saved
+                .verify()?
+                .is_some_and(|auth| self.membership.is_current(&auth, saved.identity())))
+    }
+}
+
+async fn member_sync_wire<T>(
+    deadline: n0_future::time::Instant,
+    work: impl std::future::Future<Output = Result<T, JsValue>>,
+) -> Result<T, JsValue> {
+    n0_future::time::timeout(
+        deadline.saturating_duration_since(n0_future::time::Instant::now()),
+        work,
+    )
+    .await
+    .map_err(|_| error("member synchronization timed out"))?
+}
+
 async fn persist_saved(
     gate: &BrowserGate,
     previous: &str,
@@ -308,14 +363,16 @@ impl BrowserServices {
             running: Cell::new(0),
             joined: Notify::new(),
         });
-        for alpn in [
-            crate::service_policy::POLICY_ALPN,
+        // An admitted background exchange can occupy one receiver while an
+        // explicit sync arrives. Keep multiple bounded policy receivers.
+        let policy = std::iter::repeat_n(crate::service_policy::POLICY_ALPN, POLICY_WORKERS);
+        for alpn in policy.chain([
             crate::service_policy::GUEST_ALPN,
             crate::device_operation::DEVICE_ALPN,
             crate::device_operation::DEVICE_RESULT_ALPN,
             crate::credential_custody::CUSTODY_ALPN,
             device_recovery::RECOVERY_ALPN,
-        ] {
+        ]) {
             let owner = Running::new(&service);
             let endpoint = endpoint.clone();
             let gate = gate.clone();
@@ -391,7 +448,9 @@ impl BrowserServices {
                                 let _ =
                                     device_custody::serve_custody(&connection, &gate, &files).await;
                             } else {
-                                let _ = service.serve_policy(&connection, &gate, &files).await;
+                                let _ = service
+                                    .serve_policy(&connection, &gate, &files, deadline)
+                                    .await;
                             }
                         }
                     }
@@ -420,23 +479,114 @@ impl BrowserServices {
         });
         service
     }
+
+    pub(super) fn start_member_sync(self: &Rc<Self>, network: &BrowserNetwork) {
+        use crate::connection_coordinator::AttemptContext;
+        use n0_future::time::{Instant, sleep};
+
+        let owner = Running::new(self);
+        let gate = network.gate.clone();
+        let files = network.files.clone();
+        let coordinator = network.connection_coordinator();
+        let relays = network.relays.clone();
+        let routes = network.contact_routes.clone();
+        let policy = network
+            .saved
+            .resources
+            .as_ref()
+            .map(|resources| resources.maintenance.clone())
+            .unwrap_or_default();
+        let interval = Duration::from_millis(policy.exploration_interval_ms);
+        let budget = Duration::from_millis(policy.contact_timeout_ms);
+        let retry_delay = Duration::from_millis(policy.path_retry_base_ms);
+        wasm_bindgen_futures::spawn_local(async move {
+            let service = &owner.0;
+            let mut last = None;
+            let mut retry_at = std::collections::BTreeMap::new();
+            while !service.cancel.is_cancelled() {
+                let now = Instant::now();
+                let next = now + interval;
+                retry_at.retain(|_, due| *due > now);
+                let mut peer = None;
+                let attempt = async {
+                    let saved = gate.service_snapshot()?;
+                    if saved.stage() != "Complete" {
+                        return Ok(());
+                    }
+                    let auth = saved.verify()?.ok_or_else(rejected)?;
+                    let peers = auth
+                        .nodes()
+                        .into_iter()
+                        .filter(|(id, _)| *id != saved.identity())
+                        .filter_map(|(id, _)| iroh_base::EndpointId::from_bytes(id.as_bytes()).ok())
+                        .filter(|id| !retry_at.contains_key(id));
+                    let Some(target) = next_member_sync_peer(peers, last) else {
+                        return Ok(());
+                    };
+                    peer = Some(target);
+                    last = peer;
+                    let address = target_address(target, &relays, &routes)?;
+                    let deadline = Instant::now() + budget;
+                    let connection = coordinator
+                        .connect_alpn(
+                            address,
+                            crate::service_policy::POLICY_ALPN,
+                            AttemptContext::new(deadline, service.cancel.clone()),
+                        )
+                        .await
+                        .map_err(error)?;
+                    let _close = RequestConnection(Some(connection.clone()));
+                    service
+                        .sync_member(
+                            &connection,
+                            &gate,
+                            &files,
+                            MemberSyncMode::Management,
+                            deadline,
+                        )
+                        .await
+                };
+                if attempt.await.is_err()
+                    && let Some(peer) = peer
+                {
+                    retry_at.insert(peer, Instant::now() + retry_delay);
+                }
+                tokio::select! {
+                    biased;
+                    _ = service.cancel.cancelled() => break,
+                    _ = sleep(next.saturating_duration_since(Instant::now())) => {}
+                }
+            }
+        });
+    }
+
     async fn serve_policy(
         &self,
         connection: &Connection,
         gate: &BrowserGate,
         files: &Rc<files::BrowserFiles>,
+        deadline: n0_future::time::Instant,
     ) -> Result<(), JsValue> {
-        gate.qualified_snapshot(connection).await?;
-        let mut stream = crate::data_stream::DataStream::accept(connection)
-            .await
-            .map_err(error)?;
-        let incoming = MemberSync::read(&mut stream).await.map_err(error)?;
+        let admitted = {
+            let saved = gate.qualified_snapshot(connection).await?;
+            let auth = saved.verify()?.ok_or_else(rejected)?;
+            MemberSyncAdmission::capture(&saved, &auth, connection)?
+        };
+        let (mut stream, incoming) = member_sync_wire(deadline, async {
+            let mut stream = crate::data_stream::DataStream::accept(connection)
+                .await
+                .map_err(error)?;
+            let incoming = MemberSync::read(&mut stream).await.map_err(error)?;
+            Ok((stream, incoming))
+        })
+        .await?;
+        let mode = incoming.mode();
         let (response, policy_error) = update_saved(gate, |saved| {
-            if self.cancel.is_cancelled() {
+            if self.cancel.is_cancelled() || !admitted.is_current(saved, connection)? {
                 return Err(rejected());
             }
             let (next, members, policy_error) = saved.with_member_sync(incoming)?;
-            let response = next.member_sync(&members);
+            let response = next.member_sync(&members, mode);
             *saved = next;
             Ok((response, policy_error))
         })
@@ -446,9 +596,53 @@ impl BrowserServices {
         if let Some(policy_error) = policy_error {
             return Err(error(policy_error));
         }
-        response.write(&mut stream).await.map_err(error)?;
-        stream.finish().map_err(error)?;
+        member_sync_wire(deadline, async {
+            response.write(&mut stream).await.map_err(error)?;
+            stream.finish().map_err(error)
+        })
+        .await?;
         let _ = n0_future::time::timeout(Duration::from_secs(5), connection.closed()).await;
+        Ok(())
+    }
+
+    async fn sync_member(
+        &self,
+        connection: &Connection,
+        gate: &BrowserGate,
+        files: &Rc<files::BrowserFiles>,
+        mode: MemberSyncMode,
+        deadline: n0_future::time::Instant,
+    ) -> Result<(), JsValue> {
+        let (snapshot, admitted) = {
+            let saved = gate.qualified_snapshot(connection).await?;
+            let auth = saved.verify()?.ok_or_else(rejected)?;
+            (
+                saved.member_sync(&auth.nodes(), mode),
+                MemberSyncAdmission::capture(&saved, &auth, connection)?,
+            )
+        };
+        let transfer = member_sync_wire(deadline, async {
+            snapshot.exchange(connection).await.map_err(error)
+        });
+        let incoming = tokio::select! {
+            biased;
+            _ = self.cancel.cancelled() => return Err(rejected()),
+            incoming = transfer => incoming?,
+        };
+        let policy_error = update_saved(gate, |saved| {
+            if self.cancel.is_cancelled() || !admitted.is_current(saved, connection)? {
+                return Err(rejected());
+            }
+            let (next, _, policy_error) = saved.with_member_sync(incoming)?;
+            *saved = next;
+            Ok(policy_error)
+        })
+        .await?;
+        files.enforce_access();
+        self.clipboard.enforce_access().await;
+        if let Some(policy_error) = policy_error {
+            return Err(error(policy_error));
+        }
         Ok(())
     }
     async fn serve_guest(
@@ -630,34 +824,24 @@ impl BrowserNetwork {
     }
     pub async fn sync_services(&mut self, target: String) -> Result<String, JsValue> {
         self.require_device_ready()?;
+        let deadline = n0_future::time::Instant::now() + self.caller_budget;
         let connection = self
-            .connect_target(
+            .connect_target_until(
                 target.parse().map_err(error)?,
                 crate::service_policy::POLICY_ALPN,
+                deadline,
             )
             .await?;
         let _close = RequestConnection(Some(connection.clone()));
-        let mut stream = crate::data_stream::DataStream::open(&connection)
-            .await
-            .map_err(error)?;
-        let saved = self.gate.service_snapshot()?;
-        let members = saved.verify()?.ok_or_else(rejected)?.nodes();
-        saved.member_sync(&members)
-            .write(&mut stream)
-            .await
-            .map_err(error)?;
-        let incoming = MemberSync::read(&mut stream).await.map_err(error)?;
-        let policy_error = update_saved(&self.gate, |saved| {
-            let (next, _, policy_error) = saved.with_member_sync(incoming)?;
-            *saved = next;
-            Ok(policy_error)
-        })
-        .await?;
-        self.files.enforce_access();
-        self.clipboard.enforce_access().await;
-        if let Some(policy_error) = policy_error {
-            return Err(error(policy_error));
-        }
+        self.services
+            .sync_member(
+                &connection,
+                &self.gate,
+                &self.files,
+                MemberSyncMode::Full,
+                deadline,
+            )
+            .await?;
         Ok("{\"saved_locally\":true}".into())
     }
     pub async fn issue_guest(

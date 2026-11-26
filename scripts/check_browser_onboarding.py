@@ -113,7 +113,7 @@ class BrowserControl:
 
 class BrowserOnboardingRunner(OnboardingRunner):
     def native_configuration(self, remote):
-        if self.args.suite not in ["progress", "observation", "receipts", "device-names"]:
+        if self.args.suite not in ["progress", "observation", "receipts", "device-names", "member-management"]:
             return super().native_configuration(remote)
         config = dict(defaults=dict(revision=2, resources=[]),
                       replacement=[dict(url=self.args.relay, uses=["DataRelay"], limitation="onboarding test relay")],
@@ -125,6 +125,204 @@ class BrowserOnboardingRunner(OnboardingRunner):
 
     def progress_configuration(self):
         return dict(CONFIGURATION, relays=[self.args.relay], maintenance=dict(contact_timeout_ms=10000))
+
+    def member_management(self):
+        for browser_issuer in (False, True):
+            self.management_propagation(browser_issuer)
+
+    def management_propagation(self, browser_issuer):
+        browser = self.browser
+        prefix = "management-" + ("browser-issuer" if browser_issuer else "native-issuer")
+        config = self.progress_configuration()
+
+        def call(actor, wasm, native, *args, ok=True, **fields):
+            if isinstance(actor, str):
+                return browser.call(actor, wasm, *args, ok=ok)
+            return actor.call(native, ok=ok, **fields)
+
+        def identity(actor):
+            return browser.call(actor, "id") if isinstance(actor, str) else actor.node
+
+        def snapshot(actor):
+            return call(actor, "state_snapshot", "state_snapshot")
+
+        def roles(actor):
+            return {entry["node"]: entry["role"] for entry in snapshot(actor)["status"]["members"]}
+
+        def expect_roles(actor, expected):
+            deadline = time.monotonic() + 55
+            while True:
+                actual = roles(actor)
+                if all(actual.get(node) == role for node, role in expected.items()):
+                    return
+                assert time.monotonic() < deadline, (expected, actual)
+                time.sleep(0.5)
+
+        def request(provider, suffix, wasm):
+            name = prefix + "-" + suffix
+            if isinstance(provider, str):
+                invitation = browser.call(provider, "invitation")
+            else:
+                invitation = self.native_invitation(provider, name + "-invite")
+            if wasm:
+                browser.start(name, "join", invitation, config)
+                actor = name
+            else:
+                path = self.write_private(name + "-join", invitation.encode(), False)
+                actor = self.start(name, False, "join", path)
+            assert request_stage(actor) == "AwaitingApproval"
+            entry = next(row for row in snapshot(provider)["pending_admissions"] if row["applicant"] == identity(actor))
+            return actor, entry
+
+        def request_stage(actor):
+            return browser.call(actor, "request_join", False) if isinstance(actor, str) else actor.call("request")["stage"]
+
+        def approve(provider, entry, ok=True):
+            applicant, request_id = entry["applicant"], entry["request_id"]
+            call(provider, "approve_admission", "approve", applicant, request_id,
+                 ok=ok, applicant=applicant, request_id=request_id)
+
+        def admit(provider, suffix, wasm):
+            actor, entry = request(provider, suffix, wasm)
+            approve(provider, entry)
+            assert request_stage(actor) == "Complete"
+            return actor
+
+        def close(actor):
+            if isinstance(actor, str):
+                assert browser.call(actor, "close_page")
+            else:
+                actor.stop()
+
+        def reopen(actor):
+            if isinstance(actor, str):
+                assert browser.call(actor, "reopen_page")
+                browser.call(actor, "start", "start", "{}", None)
+                return actor
+            return Host(self, actor.label + "-reopen", False, "open", actor.directory)
+
+        def signed(action, target):
+            proposed = call(issuer, "propose_device_operation", "genesis_propose", action, target,
+                            action=action, target=target)
+            assert proposed["requires_genesis"] and not proposed["effective_locally"]
+            op = proposed["operation"]["id"]
+            result = call(issuer, "confirm_device_operation", "genesis_confirm", op, operation=op)
+            assert result["effective_locally"] and result["record"]
+
+        def browser_link(left, right):
+            pending = browser.send(left, "member_accept", 10000)
+            browser.call(right, "member_connect", identity(left))
+            browser.wait(pending)
+
+        def communicate(left, right):
+            if not isinstance(left, str):
+                self.exchange(left, right)
+                return
+            browser_link(left, right)
+            pending = browser.send(left, "member_call", "serve_exchange", [])
+            message = "MioCube management propagation"
+            assert browser.call(right, "member_call", "exchange", [message]) == browser.wait(pending) == message
+            for actor in (left, right):
+                browser.call(actor, "member_call", "close", [])
+
+        if browser_issuer:
+            issuer = prefix
+            browser.start(issuer, "create", configuration=config)
+            browser.call(issuer, "export_recovery_card")
+            browser.call(issuer, "acknowledge_recovery_saved")
+        else:
+            issuer = self.creator(False, prefix)
+        holder = admit(issuer, "holder", not browser_issuer)
+        late = admit(issuer, "late", not browser_issuer)
+        removed = admit(issuer, "removed", not browser_issuer)
+        holder_id, late_id, removed_id = map(identity, (holder, late, removed))
+        expect_roles(holder, {late_id: "member", removed_id: "member"})
+        expect_roles(late, {holder_id: "member", removed_id: "member"})
+
+        signed("appoint-administrator", holder_id)
+        expect_roles(holder, {holder_id: "admin"})
+        approved = admit(holder, "approved-by-appointed", not browser_issuer)
+        approved_id = identity(approved)
+        # Anchor the grant before demotion so the unrelated positive control
+        # does not depend on a concurrent, deauthorized administrator grant.
+        expect_roles(issuer, {approved_id: "member"})
+        pending, entry = request(holder, "pending-before-demotion", browser_issuer)
+        signed("demote-administrator", holder_id)
+        expect_roles(holder, {holder_id: "member"})
+        approve(holder, entry, ok=False)
+        assert snapshot(pending)["status"]["stage"] == "AwaitingApproval"
+        close(pending)
+        communicate(holder, late)
+
+        expect_roles(late, {holder_id: "member"})
+        close(late)
+        if isinstance(holder, str):
+            browser_link(holder, removed)
+            opening = browser.send(holder, "data_accept")
+            browser.call(removed, "data_open")
+            browser.call(removed, "data_write", 1, 7)
+            browser.wait(opening)
+            assert browser.call(holder, "data_read", 7) == dict(length=1, matches=True)
+            reading = browser.send(holder, "data_read", 7)
+        else:
+            holder.call("terminal_enable", directory=self.path(prefix + "-terminal", False))
+            workspace = removed.call("terminal_create", address=holder.address)["workspace"]
+            attachment = removed.call("terminal_attach", address=holder.address, workspace=workspace)["id"]
+            command = b"stty -echo; printf 'MIO187_'; printf 'OPEN\\n'\n"
+            removed.call("terminal_send", attachment=attachment, message=dict(type="bytes", data=list(command)))
+            output = bytearray()
+            deadline = time.monotonic() + 10
+            while b"MIO187_OPEN" not in output:
+                assert time.monotonic() < deadline, output
+                event = removed.call("terminal_read", attachment=attachment, timeout_ms=500)
+                output.extend(event.get("message", {}).get("data", []))
+
+        # The offline peer lacks both the preceding grant and the removal that
+        # needs it. The issuer then grants the late peer an administrator role.
+        signed("appoint-administrator", removed_id)
+        signed("remove-member", removed_id)
+        signed("appoint-administrator", late_id)
+        expected = {holder_id: "member", late_id: "admin", removed_id: None}
+        expect_roles(holder, expected)
+        if isinstance(holder, str):
+            browser.wait(reading, ok=False)
+            assert browser.call(holder, "member_call", "is_closed", [])
+            browser.call(removed, "member_connect", holder_id, ok=False)
+        else:
+            deadline = time.monotonic() + 10
+            while holder.call("terminal_status")["attachment_process_owners"]:
+                assert time.monotonic() < deadline
+                time.sleep(0.1)
+            # The old handle can still deliver output buffered before removal.
+            deadline = time.monotonic() + 10
+            while True:
+                end = removed.call("terminal_read", attachment=attachment, timeout_ms=500)
+                if not end["attached"]:
+                    break
+                assert time.monotonic() < deadline, end
+            assert not end["attached"] and end.get("failed"), end
+            removed.call("ping", address=holder.address, ok=False)
+        close(removed)
+        assert roles(holder)[approved_id] == "member"
+        communicate(holder, approved)
+        close(approved)
+
+        close(issuer)
+        close(holder)
+        holder = reopen(holder)
+        assert all(roles(holder).get(node) == role for node, role in expected.items())
+        late = reopen(late)
+        expect_roles(late, expected)
+        communicate(holder, late)
+        close(holder)
+        close(late)
+        late = reopen(late)
+        assert all(roles(late).get(node) == role for node, role in expected.items())
+        close(late)
+        self.record(prefix, "automatic_member_management", dict(appointmentAllowedApproval=True,
+            demotionDeniedApproval=True, ordinaryCommunicationRetained=True, openStreamRevoked=True,
+            freshMemberConnectionRejected=True, ordinaryHolderReopened=True, signerUnavailable=True,
+            dependentRecordsAppliedByLatePeer=True, durableAfterReopen=True))
 
     def device_names(self):
         self.browser_applicant_display_name()
@@ -1199,6 +1397,8 @@ class BrowserOnboardingRunner(OnboardingRunner):
                 self.admission_receipts()
             elif self.args.suite == "device-names":
                 self.device_names()
+            elif self.args.suite == "member-management":
+                self.member_management()
             else:
                 creator = self.creator(False, "native-provider")
                 if self.args.suite in ["all", "core"]:
@@ -1233,7 +1433,7 @@ def main():
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--build-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts", "device-names"], default="all")
+    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts", "device-names", "member-management"], default="all")
     parser.add_argument("--relay", default=RELAY, help="explicit relay for the progress, observation and receipt suites")
     parser.add_argument("--chromium", type=Path, default=Path("/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome"))
     args = parser.parse_args()

@@ -6,6 +6,7 @@ use crate::{
     management_auth::{ManagementAuth, NetworkAnchor},
     service_policy::{MAX_RECORDS, ServiceLedger},
 };
+use p2panda_core::{Hash, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use std::io;
 
@@ -52,24 +53,112 @@ pub struct ServiceBundle {
     pub services: Vec<Vec<u8>>,
 }
 
-/// Private to the admitted policy exchange. Restricted guest and recovery
-/// operations still exchange the narrower ServiceBundle.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(crate) enum MemberSyncMode {
+    Full,
+    Management,
+}
+
+pub(crate) struct MemberSyncMembership {
+    local: (VerifyingKey, Hash),
+    peer: (VerifyingKey, Hash),
+}
+
+impl MemberSyncMembership {
+    pub(crate) fn capture(
+        auth: &ManagementAuth,
+        local: VerifyingKey,
+        peer: iroh_base::EndpointId,
+    ) -> Option<Self> {
+        let peer = VerifyingKey::from_bytes(peer.as_bytes()).ok()?;
+        let tips = auth.tips();
+        Some(Self {
+            local: (local, auth.authorization_origin_at(local, &tips, false)?),
+            peer: (peer, auth.authorization_origin_at(peer, &tips, false)?),
+        })
+    }
+
+    pub(crate) fn is_current(&self, auth: &ManagementAuth, local: VerifyingKey) -> bool {
+        self.local.0 == local
+            && [self.local, self.peer]
+                .into_iter()
+                .all(|(id, grant)| auth.membership_authorization_valid(grant, id))
+    }
+}
+
+/// The admitted member exchange carries management history in either mode.
+/// Explicit service synchronization also shares service policies and names.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct MemberSync {
     #[serde(flatten)]
     pub(crate) bundle: ServiceBundle,
     #[serde(default, skip_serializing_if = "DeviceNames::is_empty")]
     pub(crate) device_names: DeviceNames,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    management_only: bool,
 }
 
 impl MemberSync {
+    pub(crate) fn new(
+        bundle: ServiceBundle,
+        device_names: DeviceNames,
+        mode: MemberSyncMode,
+    ) -> Self {
+        let mut sync = Self {
+            bundle,
+            device_names,
+            management_only: false,
+        };
+        sync.restrict(mode);
+        sync
+    }
+
+    pub(crate) fn mode(&self) -> MemberSyncMode {
+        if self.management_only {
+            MemberSyncMode::Management
+        } else {
+            MemberSyncMode::Full
+        }
+    }
+
+    fn restrict(&mut self, mode: MemberSyncMode) {
+        if mode == MemberSyncMode::Management {
+            self.management_only = true;
+            self.bundle.services.clear();
+            self.device_names = DeviceNames::default();
+        }
+    }
+
+    pub(crate) async fn exchange(
+        &self,
+        connection: &iroh::endpoint::Connection,
+    ) -> io::Result<Self> {
+        let mut stream = DataStream::open(connection).await?;
+        self.write(&mut stream).await?;
+        let mut reply = Self::read(&mut stream).await?;
+        // Older responders return the full bundle regardless of the flag.
+        reply.restrict(self.mode());
+        Ok(reply)
+    }
+
     pub(crate) async fn write(&self, stream: &mut DataStream) -> io::Result<()> {
         write_bundle(self, stream).await
     }
 
     pub(crate) async fn read(stream: &mut DataStream) -> io::Result<Self> {
-        read_bundle(stream).await
+        let mut sync: Self = read_bundle(stream).await?;
+        sync.restrict(sync.mode());
+        Ok(sync)
     }
+}
+
+pub(crate) fn next_member_sync_peer(
+    peers: impl IntoIterator<Item = iroh_base::EndpointId>,
+    after: Option<iroh_base::EndpointId>,
+) -> Option<iroh_base::EndpointId> {
+    peers
+        .into_iter()
+        .min_by_key(|peer| (after.is_some_and(|id| *peer <= id), *peer))
 }
 /// Verified management is publishable even when accompanying service changes
 /// are rejected. Adapters commit this bundle before returning policy_error.

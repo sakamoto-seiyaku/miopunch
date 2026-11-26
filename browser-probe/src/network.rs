@@ -2776,6 +2776,7 @@ impl BrowserNetwork {
         network
             .admission
             .start_receipts(&network, network.lease.as_ref().unwrap().0);
+        network.services.start_member_sync(&network);
         Ok(network)
     }
 }

@@ -7,7 +7,7 @@ use crate::{
     service_policy::{
         GuestInvitation, GuestStatus, Service, ServiceAccess, ServiceAction, ServiceRule,
     },
-    service_protocol::{MemberSync, ServiceBundle},
+    service_protocol::{MemberSync, MemberSyncMembership, MemberSyncMode, ServiceBundle},
 };
 use p2panda_core::{Hash, VerifyingKey};
 use serde_json::{Value, json};
@@ -111,11 +111,16 @@ impl NativeServices {
         })
     }
 
-    async fn member_sync(&self, node: &NativeNetwork) -> Result<MemberSync, ClientError> {
-        Ok(MemberSync {
-            bundle: self.snapshot(node).await?,
-            device_names: node.device_names.for_members(&node.store.nodes()),
-        })
+    async fn member_sync(
+        &self,
+        node: &NativeNetwork,
+        mode: MemberSyncMode,
+    ) -> Result<MemberSync, ClientError> {
+        Ok(MemberSync::new(
+            self.snapshot(node).await?,
+            node.device_names.for_members(&node.store.nodes()),
+            mode,
+        ))
     }
 
     async fn merge_member_sync(
@@ -124,7 +129,11 @@ impl NativeServices {
         files: &Arc<NativeFiles>,
         sync: MemberSync,
     ) -> Result<(), ClientError> {
+        let mode = sync.mode();
         self.merge(node, files, sync.bundle).await?;
+        if mode == MemberSyncMode::Management {
+            return Ok(());
+        }
         let members = node.store.nodes();
         node.update_device_names(|names| {
             names.merge_members(&members, sync.device_names);
@@ -178,20 +187,26 @@ impl NativeServices {
     ) -> Result<(), ClientError> {
         // A rejected accompanying service head must never withhold a valid
         // management correction. Service changes themselves remain atomic.
-        let result = self.snapshot(node).await?.reconcile(node.anchor, &bundle)?;
+        let current = self.snapshot(node).await?;
+        let result = current.reconcile(node.anchor, &bundle)?;
         let (auth, ledger) = result.bundle.verify(node.anchor)?;
-        for (header, body) in bundle.management {
-            node.ingest_management_record(&header, body.as_deref())
+        let additions = &result.bundle.management[current.management.len()..];
+        for (header, body) in additions {
+            node.ingest_management_record(header, body.as_deref())
                 .await?;
         }
         // This authority change is already durable even if publishing the
         // separate service file fails. Enforce it with the old saved policy.
-        self.publish_access(files, self.access(node).await?);
-        crate::native_files::write_private_atomic(
-            &self.path,
-            &serde_json::to_vec(ledger.records())?,
-        )?;
-        self.records = ledger.records().to_vec();
+        if self.records != ledger.records() {
+            if !additions.is_empty() {
+                self.publish_access(files, self.access(node).await?);
+            }
+            crate::native_files::write_private_atomic(
+                &self.path,
+                &serde_json::to_vec(ledger.records())?,
+            )?;
+            self.records = ledger.records().to_vec();
+        }
         self.publish_access(
             files,
             ServiceAccess {
@@ -212,24 +227,103 @@ pub(crate) async fn serve_policy(
     node: Arc<Mutex<NativeNetwork>>,
     services: Arc<Mutex<NativeServices>>,
     files: Arc<NativeFiles>,
+    deadline: tokio::time::Instant,
 ) -> Result<(), ClientError> {
     let result = async {
-        let mut stream = crate::data_stream::DataStream::accept(&connection).await?;
-        let remote = MemberSync::read(&mut stream).await?;
+        let admitted = {
+            let node = node.lock().await;
+            member_sync_admission(&node, &connection)?
+        };
+        let (mut stream, remote) = tokio::time::timeout_at(deadline, async {
+            let mut stream = crate::data_stream::DataStream::accept(&connection).await?;
+            let remote = MemberSync::read(&mut stream).await?;
+            Ok::<_, std::io::Error>((stream, remote))
+        })
+        .await??;
+        let mode = remote.mode();
         let response = {
             let mut node = node.lock().await;
+            require_current_member_sync_access(&node, &admitted)?;
             let mut services = services.lock().await;
             services.merge_member_sync(&mut node, &files, remote).await?;
-            services.member_sync(&node).await?
+            services.member_sync(&node, mode).await?
         };
-        response.write(&mut stream).await?;
-        stream.finish()?;
+        tokio::time::timeout_at(deadline, async {
+            response.write(&mut stream).await?;
+            stream.finish()
+        })
+        .await??;
         let _ = tokio::time::timeout(std::time::Duration::from_secs(5), connection.closed()).await;
         Ok(())
     }
     .await;
     connection.close(0u32.into(), b"service policy exchange ended");
     result
+}
+
+struct MemberSyncAdmission {
+    proof: Arc<crate::admission_proof::BootstrapProof>,
+    membership: MemberSyncMembership,
+}
+
+fn member_sync_admission(
+    node: &NativeNetwork,
+    connection: &iroh::endpoint::Connection,
+) -> Result<MemberSyncAdmission, ClientError> {
+    let proof = node
+        .admission_gate()
+        .proof_for(connection)
+        .ok_or("member synchronization access revoked")?;
+    let membership = MemberSyncMembership::capture(
+        node.store.authorization(),
+        node.node_key.verifying_key(),
+        connection.remote_id(),
+    )
+    .ok_or("member synchronization access revoked")?;
+    Ok(MemberSyncAdmission { proof, membership })
+}
+
+fn require_current_member_sync_access(
+    node: &NativeNetwork,
+    admitted: &MemberSyncAdmission,
+) -> Result<(), ClientError> {
+    if node
+        .admission_gate()
+        .accepts_member_history(&admitted.proof)
+        && admitted
+            .membership
+            .is_current(node.store.authorization(), node.node_key.verifying_key())
+    {
+        Ok(())
+    } else {
+        Err("member synchronization access revoked".into())
+    }
+}
+
+pub(crate) async fn sync_member(
+    connection: &iroh::endpoint::Connection,
+    node: &Mutex<NativeNetwork>,
+    services: &Mutex<NativeServices>,
+    files: &Arc<NativeFiles>,
+    mode: MemberSyncMode,
+    deadline: tokio::time::Instant,
+) -> Result<(), ClientError> {
+    let (snapshot, admitted) = {
+        let node = node.lock().await;
+        let admitted = member_sync_admission(&node, connection)?;
+        (
+            services.lock().await.member_sync(&node, mode).await?,
+            admitted,
+        )
+    };
+    let remote = tokio::time::timeout_at(deadline, snapshot.exchange(connection)).await??;
+    let mut node = node.lock().await;
+    require_current_member_sync_access(&node, &admitted)?;
+    services
+        .lock()
+        .await
+        .merge_member_sync(&mut node, files, remote)
+        .await
 }
 
 pub(crate) async fn serve_guest(
@@ -602,29 +696,30 @@ impl crate::native_client::NativeClient {
             .await
     }
     pub async fn sync_services(&self, address: iroh::EndpointAddr) -> Result<Value, ClientError> {
+        use crate::resources::ContactClass;
         self.require_ready()?;
-        let snapshot = {
-            let node = self.node.lock().await;
-            self.services.lock().await.member_sync(&node).await?
-        };
-        let connection = self
+        let deadline = self.resources.contact_deadline();
+        let (connection, attempt) = self
             .resources
-            .connect(address, crate::service_policy::POLICY_ALPN)
+            .connect_data_attempt(
+                address,
+                crate::service_policy::POLICY_ALPN,
+                ContactClass::Foreground,
+                deadline,
+            )
             .await?;
-        let result = async {
-            let mut stream = crate::data_stream::DataStream::open(&connection).await?;
-            snapshot.write(&mut stream).await?;
-            let remote = MemberSync::read(&mut stream).await?;
-            let mut node = self.node.lock().await;
-            self.services
-                .lock()
-                .await
-                .merge_member_sync(&mut node, &self.files, remote)
-                .await?;
-            Ok::<_, ClientError>(json!({"saved_locally":true}))
-        }
+        attempt.succeeded();
+        let result = sync_member(
+            &connection,
+            &self.node,
+            &self.services,
+            &self.files,
+            MemberSyncMode::Full,
+            deadline.into(),
+        )
         .await;
         connection.close(0u32.into(), b"service policy exchange ended");
-        result
+        result?;
+        Ok(json!({"saved_locally":true}))
     }
 }

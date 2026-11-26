@@ -323,10 +323,17 @@ impl NativeClient {
             tokio::spawn(async move {
                 let mut handlers = tokio::task::JoinSet::new();
                 let mut member_handlers = tokio::task::JoinSet::new();
-                let mut receipt = tokio::task::JoinSet::new();
-                receipt.spawn(admission_receipts(
+                let mut background = tokio::task::JoinSet::new();
+                background.spawn(admission_receipts(
                     node.clone(),
                     resources.clone(),
+                    recovery_saved.clone(),
+                    replacement_ready.clone(),
+                ));
+                background.spawn(sync_member_management(
+                    members.clone(),
+                    resources.clone(),
+                    gate.clone(),
                     recovery_saved.clone(),
                     replacement_ready.clone(),
                 ));
@@ -449,7 +456,7 @@ impl NativeClient {
                                 }
                                 if alpn == crate::service_policy::POLICY_ALPN {
                                     if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
-                                        let _ = tokio::time::timeout_at(deadline, crate::native_services::serve_policy(connection, node, services, files)).await;
+                                        let _ = crate::native_services::serve_policy(connection, node, services, files, deadline).await;
                                     }
                                     return;
                                 }
@@ -521,7 +528,7 @@ impl NativeClient {
                     }
                 }
                 handlers.abort_all();
-                receipt.shutdown().await;
+                background.shutdown().await;
                 standby.stop().await;
                 while handlers.join_next().await.is_some() {}
                 // Drop also reaches this owned listener through its cancel
@@ -1257,6 +1264,66 @@ impl NativeClient {
         Ok(())
     }
 }
+async fn sync_member_management(
+    members: native_member_services::MemberServices,
+    resources: Arc<crate::resources::ResourceEndpoint>,
+    gate: crate::admission_gate::AdmissionGate,
+    recovery_saved: Arc<AtomicBool>,
+    replacement_ready: Arc<AtomicBool>,
+) {
+    use crate::{
+        resources::ContactClass,
+        service_protocol::{MemberSyncMode, next_member_sync_peer},
+    };
+    let interval = Duration::from_millis(resources.maintenance_policy().exploration_interval_ms);
+    let mut ticks = tokio::time::interval(interval);
+    ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut last = None;
+    loop {
+        ticks.tick().await;
+        if !recovery_saved.load(Ordering::Acquire) || !replacement_ready.load(Ordering::Acquire) {
+            continue;
+        }
+        let peers = gate
+            .member_contact_peers()
+            .into_iter()
+            .filter(|peer| resources.contact_ready(*peer, ContactClass::Background));
+        let Some(peer) = next_member_sync_peer(peers, last) else {
+            continue;
+        };
+        last = Some(peer);
+        let deadline = resources.contact_deadline();
+        let Ok((connection, attempt)) = resources
+            .connect_data_attempt(
+                iroh::EndpointAddr::new(peer),
+                crate::service_policy::POLICY_ALPN,
+                ContactClass::Background,
+                deadline,
+            )
+            .await
+        else {
+            continue;
+        };
+        // Keep transport expiry outside the durable management transaction.
+        let result = crate::native_services::sync_member(
+            &connection,
+            &members.node,
+            &members.policies,
+            &members.files,
+            MemberSyncMode::Management,
+            deadline.into(),
+        )
+        .await;
+        connection.close(0u32.into(), b"member management exchange ended");
+        match result {
+            Ok(()) => attempt.succeeded(),
+            Err(error) => {
+                attempt.failed(error.to_string());
+            }
+        }
+    }
+}
+
 async fn admission_receipts(
     node: Arc<Mutex<NativeNetwork>>,
     resources: Arc<ResourceEndpoint>,
