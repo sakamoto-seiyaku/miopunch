@@ -66,6 +66,172 @@ async fn application_standby_tcp_retry_is_independent_of_sync() {
     }
 }
 
+#[tokio::test]
+async fn live_member_repairs_over_its_original_control_and_keeps_the_stream() {
+    use iroh::endpoint::{BeforeConnectOutcome, EndpointHooks};
+    use iroh::{EndpointAddr, TransportAddr};
+    use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+    #[derive(Clone, Debug, Default)]
+    struct Dials(Arc<AtomicUsize>);
+    impl EndpointHooks for Dials {
+        async fn before_connect(&self, _: &EndpointAddr, _: &[u8]) -> BeforeConnectOutcome {
+            self.0.fetch_add(1, Relaxed);
+            BeforeConnectOutcome::Accept
+        }
+    }
+    let directory = tempfile::tempdir().unwrap();
+    let mut provider = NativeNetwork::create(directory.path().join("provider"))
+        .await
+        .unwrap();
+    let consumer = join(&mut provider, &directory.path().join("consumer")).await;
+    let mut config = iroh_relay::server::ServerConfig::default();
+    config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let relay = iroh_relay::server::Server::spawn(config).await.unwrap();
+    let url = relay.http_url().unwrap();
+    for node in [&provider, &consumer] {
+        let mut config = node.resource_configuration().unwrap();
+        config.replacement = Some(vec![Resource {
+            url: url.to_string(),
+            uses: [ResourceUse::DataRelay].into(),
+            limitation: "owned original control path".into(),
+        }]);
+        config.tcp_direct_disabled = true;
+        config.udp_direct_disabled = true;
+        config.member_data_relay_disabled = true;
+        node.save_resource_configuration(&config).unwrap();
+    }
+    let dials = [Dials::default(), Dials::default()];
+    let provider = provider
+        .maintain_application_network(Ipv4Addr::LOCALHOST, |builder| {
+            builder.hooks(dials[0].clone())
+        })
+        .await
+        .unwrap();
+    let consumer = consumer
+        .maintain_application_network(Ipv4Addr::LOCALHOST, |builder| {
+            builder.hooks(dials[1].clone())
+        })
+        .await
+        .unwrap();
+    let (out, incoming) = tokio::join!(
+        consumer.connect_member(
+            EndpointAddr::new(provider.endpoint().id()).with_relay_url(url.clone())
+        ),
+        provider.accept_member()
+    );
+    let originals = [out.unwrap(), incoming.unwrap().unwrap()];
+    let ids = originals.each_ref().map(|original| original.stable_id());
+    let (a, b) = tokio::join!(originals[0].open_bi(), originals[1].accept_bi());
+    let (mut a, mut b) = (a.unwrap(), b.unwrap());
+    a.streams().0.write_all(b"before").await.unwrap();
+    b.streams().1.read_exact(&mut [0; 6]).await.unwrap();
+    let before = dials.each_ref().map(|dial| dial.0.load(Relaxed));
+    let stream = originals[0].test_open_repair_exchange().await.unwrap();
+    let mut binding = [0; 32];
+    originals[0]
+        .export_keying_material(
+            &mut binding,
+            b"miopunch-existing-connection-path-recovery/1",
+            &[],
+        )
+        .unwrap();
+    let request = serde_json::json!({"binding":binding, "offer":EndpointAddr::new(consumer.endpoint().id()),
+        "require_confirmation":true,"batched":true,"budget_ms":120});
+    let format = iroh::endpoint::ControlMessageFormat::LengthPrefixed16 { maximum: 4096 };
+    let started = tokio::time::Instant::now();
+    stream
+        .send_message(format, &serde_json::to_vec(&request).unwrap())
+        .await
+        .unwrap();
+    let response: serde_json::Value =
+        serde_json::from_slice(&stream.recv_message(format).await.unwrap()).unwrap();
+    assert_eq!(response["batched"], true);
+    tokio::time::timeout(Duration::from_millis(600),async {
+        while stream.recv_message(format).await.is_ok() {}
+    }).await.expect("the responder must release the original repair after the advertised 120ms while the requester keeps its stream");
+    assert!(started.elapsed() < Duration::from_millis(600));
+    assert!(
+        originals
+            .iter()
+            .all(|original| original.close_reason().is_none())
+    );
+    let cancelled = tokio_util::sync::CancellationToken::new();
+    cancelled.cancel();
+    let failure = originals[0]
+        .repair_path_until(
+            tokio::time::Instant::now() + Duration::from_secs(2),
+            cancelled,
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(failure.kind(), std::io::ErrorKind::Interrupted);
+    let (path, _) = originals[0]
+        .repair_path_until(
+            tokio::time::Instant::now() + Duration::from_secs(2),
+            tokio_util::sync::CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert!(matches!(path, TransportAddr::Relay(_)));
+    assert_eq!(
+        dials.each_ref().map(|dial| dial.0.load(Relaxed)),
+        before,
+        "available original control must avoid another connection"
+    );
+    a.streams().0.write_all(b"after").await.unwrap();
+    let mut bytes = [0; 5];
+    b.streams().1.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"after");
+    b.streams().0.write_all(b"there").await.unwrap();
+    a.streams().1.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"there");
+    assert_eq!(
+        originals.each_ref().map(|original| original.stable_id()),
+        ids
+    );
+    originals[0].test_close(0, b"original lifetime completed");
+    tokio::time::timeout(Duration::from_secs(1), originals[1].closed())
+        .await
+        .unwrap();
+    let terminal = originals[0]
+        .repair_path_until(
+            tokio::time::Instant::now() + Duration::from_secs(2),
+            tokio_util::sync::CancellationToken::new(),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(terminal.kind(), std::io::ErrorKind::NotConnected);
+    assert!(a.streams().0.write_all(b"old").await.is_err());
+    let (out, incoming) = tokio::join!(
+        consumer.connect_member(EndpointAddr::new(provider.endpoint().id()).with_relay_url(url)),
+        provider.accept_member()
+    );
+    let replacements = [out.unwrap(), incoming.unwrap().unwrap()];
+    for (replacement, old) in replacements.iter().zip(&ids) {
+        assert_ne!(replacement.stable_id(), *old);
+    }
+    let (a, b) = tokio::join!(replacements[0].open_bi(), replacements[1].accept_bi());
+    let (mut a, mut b) = (a.unwrap(), b.unwrap());
+    a.streams().0.write_all(b"new").await.unwrap();
+    let mut bytes = [0; 3];
+    b.streams().1.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"new");
+    b.streams().0.write_all(b"yes").await.unwrap();
+    a.streams().1.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"yes");
+    eprintln!(
+        "MIO204_TERMINAL_RECONTACT old={ids:?} new={:?}",
+        replacements
+            .each_ref()
+            .map(|replacement| replacement.stable_id())
+    );
+    tokio::join!(consumer.close(), provider.close());
+    relay.shutdown().await.unwrap();
+}
+
 #[cfg(target_os = "linux")]
 enum TcpRound {
     Commit,

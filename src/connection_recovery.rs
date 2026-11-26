@@ -18,7 +18,7 @@ use tokio_util::sync::CancellationToken;
 
 pub(crate) use crate::connection_recovery_core::binding;
 use crate::connection_recovery_core::{
-    self as core, MAX_CANDIDATES, MAX_MESSAGE, REPAIR_TIMEOUT, RepairRequest, encode_message,
+    self as core, MAX_MESSAGE, REPAIR_TIMEOUT, RepairRequest, encode_message,
 };
 pub use crate::connection_recovery_core::{
     CONNECTION_RECOVERY_ALPN, ConnectionPathRecovery, ConnectionPathRecoveryError,
@@ -27,14 +27,14 @@ pub use crate::connection_recovery_core::{
 fn data_offer(endpoint: &ResourceEndpoint) -> EndpointAddr {
     let mut offer = endpoint.addr();
     offer.addrs.retain(|path| endpoint.allows_data_path(path));
-    offer.addrs = offer.addrs.into_iter().take(MAX_CANDIDATES).collect();
     offer
 }
 
 impl NativeNetwork {
     /// Coordinate permitted candidates over a new protected control contact,
-    /// then validate a carrier on the original Connection. The three-second
-    /// attempt is also cancelled by the original noq connection's actual close.
+    /// then validate a carrier on the original Connection. This convenience
+    /// entry gives the complete operation three seconds. The explicit deadline
+    /// entry can give slow signaling the caller's remaining lifetime.
     /// This is an explicit maintenance operation, not an application redial or
     /// a second background scheduling loop.
     pub async fn recover_connection_path(
@@ -64,8 +64,8 @@ impl NativeNetwork {
             .await
     }
 
-    /// Opt into the finite original-path confirmation extension. Legacy repair
-    /// callers continue sending the unchanged two-field request.
+    /// Require a peer-confirmed replacement path. Non-negotiating v1 peers keep
+    /// their bounded single offer and optional confirmation exchange.
     pub async fn recover_connection_path_confirmed_until(
         &self,
         endpoint: &ResourceEndpoint,
@@ -85,7 +85,6 @@ impl NativeNetwork {
         deadline: n0_future::time::Instant,
         confirm: bool,
     ) -> Result<ConnectionPathRecovery, ConnectionPathRecoveryError> {
-        let deadline = deadline.min(n0_future::time::Instant::now() + REPAIR_TIMEOUT);
         if contact.id != original.remote_id() || !self.gate.allows(original, ProtocolScope::Member)
         {
             return Err(core::failed(
@@ -297,9 +296,13 @@ pub(crate) async fn recover_member_path(
                     }
                     Ok(())
                 };
+                let route_deadline = core::contact_deadline(&contact, deadline);
                 let contact_endpoint = FusedRecovery {
                     endpoint: endpoint.endpoint(),
-                    contact: Some((TransportAddr::Custom(route.clone()), reach_by)),
+                    contact: Some((
+                        TransportAddr::Custom(route.clone()),
+                        reach_by.min(route_deadline),
+                    )),
                 };
                 if endpoint
                     .member_fusion
@@ -312,7 +315,7 @@ pub(crate) async fn recover_member_path(
                         &contact_endpoint,
                         original,
                         contact.clone(),
-                        deadline,
+                        route_deadline,
                         cancel.clone(),
                         || lease.seal_outgoing_hello(),
                     )
@@ -384,9 +387,15 @@ async fn recover_member_tcp(
                     },
                     &encode_message(&RepairRequest {
                         binding: binding(original)?,
-                        offer: data_offer(endpoint),
+                        offer: EndpointAddr::new(endpoint.endpoint().id()),
                         require_confirmation: true,
                         traverse_tcp: true,
+                        batched: false,
+                        budget_ms: Some(
+                            deadline
+                                .saturating_duration_since(n0_future::time::Instant::now())
+                                .as_millis() as u64,
+                        ),
                     })?,
                 )
                 .await?;
@@ -439,8 +448,16 @@ pub(crate) async fn serve_path_recovery(
     control: &(impl AuthenticatedControl + ?Sized),
     fused: bool,
 ) -> io::Result<()> {
-    let deadline = n0_future::time::Instant::now() + REPAIR_TIMEOUT;
-    let attempt = AttemptContext::new(deadline, CancellationToken::new());
+    let started = n0_future::time::Instant::now();
+    let contact = EndpointAddr::new(control.remote_id()).with_addrs(
+        control
+            .paths()
+            .iter()
+            .filter(|path| path.is_selected())
+            .map(|path| path.remote_addr().clone()),
+    );
+    let maximum = core::contact_deadline(&contact, endpoint.contact_deadline());
+    let mut deadline = maximum;
     let network = endpoint.endpoint().udp_network_generation();
     let serve = async {
         let restricted_carrier = || {
@@ -467,154 +484,228 @@ pub(crate) async fn serve_path_recovery(
         let request: RepairRequest = serde_json::from_slice(&bytes).map_err(|_| {
             io::Error::new(io::ErrorKind::InvalidData, "invalid path repair request")
         })?;
-        if request.offer.id != control.remote_id() || request.offer.addrs.len() > MAX_CANDIDATES {
+        if request.offer.id != control.remote_id() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "invalid requester data offer",
             ));
         }
-        let original = gate
-            .member_connection_for_binding(control.remote_id(), &request.binding)
-            .filter(|original| {
-                !fused
-                    || (original.alpn() == crate::native_network::FUSED_MEMBER_ALPN
-                        && request.require_confirmation)
+        let requested = request
+            .budget_ms
+            .map(|ms| {
+                started
+                    + std::time::Duration::from_millis(ms)
+                        .min(maximum.saturating_duration_since(started))
             })
-            .ok_or_else(|| {
-                io::Error::new(
-                    io::ErrorKind::NotConnected,
-                    "original member connection is closed or unknown",
-                )
-            })?;
-        let check =
-            |original: &Connection, control: &_| check_repair_membership(gate, original, control);
-        let permits = |path: &TransportAddr| {
-            endpoint.allows_data_path(path) && (!fused || network.is_current())
-        };
-        check(&original, control)?;
-        let registry = gate.maintenance();
-        let reservation_error =
-            |cause| io::Error::other(format!("incoming repair reservation: {cause:?}"));
-        let lease = if fused {
-            match registry
-                .acquire_incoming(&original, &attempt)
-                .map_err(reservation_error)?
-            {
-                Reservation::Owned(lease) => lease,
-                Reservation::Pending(wait) => {
-                    wait.wait().await.map_err(reservation_error)?;
-                    registry
-                        .acquire(&original, &attempt, ())
-                        .map_err(reservation_error)?
-                }
-            }
-        } else {
-            registry
-                .acquire(&original, &attempt, ())
-                .map_err(reservation_error)?
-        };
-        let fused_endpoint = FusedRecovery {
-            endpoint: endpoint.endpoint(),
-            contact: None,
-        };
-        let validate = |candidate| async {
-            if fused {
-                core::validate_candidates(
-                    &fused_endpoint,
-                    &original,
-                    control,
-                    candidate,
-                    &permits,
-                    &check,
-                )
-                .await
-            } else {
-                core::validate_candidates(
-                    endpoint.endpoint(),
-                    &original,
-                    control,
-                    candidate,
-                    &permits,
-                    &check,
-                )
-                .await
-            }
-        };
-        if fused && request.traverse_tcp {
-            let (fusion, _) = endpoint
-                .member_fusion
-                .as_ref()
-                .ok_or(io::ErrorKind::Unsupported)?;
-            let supported =
-                request.require_confirmation && fusion.supports_direct_repair(&original);
-            exchange
-                .send_message(
-                    ControlMessageFormat::Fixed { length: 1 },
-                    &[u8::from(supported)],
-                )
-                .await?;
-            if !supported {
-                return Err(io::ErrorKind::Unsupported.into());
-            }
-            lease
-                .run(async {
-                    let traversal = control.accept_control_exchange().await?;
-                    fusion
-                        .repair_direct_until(&original, traversal, deadline, &attempt.cancellation)
-                        .await?;
-                    check(&original, control)?;
-                    // The requester retires this control only after consuming
-                    // our final Ready, just like the existing repair exchange.
-                    let _ = control.revocation_handle().closed().await;
-                    Ok::<_, io::Error>(())
+            .unwrap_or(started + REPAIR_TIMEOUT);
+        deadline = maximum.min(requested);
+        let attempt = AttemptContext::new(deadline, CancellationToken::new());
+        let operation = async {
+            let original = gate
+                .member_connection_for_binding(control.remote_id(), &request.binding)
+                .filter(|original| {
+                    !fused
+                        || (original.alpn() == crate::native_network::FUSED_MEMBER_ALPN
+                            && request.require_confirmation)
                 })
-                .await
-                .map_err(|cause| io::Error::other(format!("incoming TCP repair: {cause:?}")))??;
-            return Ok(());
-        }
-        lease
-            .run(async {
-                if !fused && original.side().is_client() {
-                    validate(request.offer.clone()).await?;
+                .ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::NotConnected,
+                        "original member connection is closed or unknown",
+                    )
+                })?;
+            let check = |original: &Connection, control: &_| {
+                check_repair_membership(gate, original, control)
+            };
+            let permits = |path: &TransportAddr| {
+                endpoint.allows_data_path(path) && (!fused || network.is_current())
+            };
+            check(&original, control)?;
+            let registry = gate.maintenance();
+            let reservation_error =
+                |cause| io::Error::other(format!("incoming repair reservation: {cause:?}"));
+            let lease = if fused {
+                match registry
+                    .acquire_incoming(&original, &attempt)
+                    .map_err(reservation_error)?
+                {
+                    Reservation::Owned(lease) => lease,
+                    Reservation::Pending(wait) => {
+                        wait.wait().await.map_err(reservation_error)?;
+                        registry
+                            .acquire(&original, &attempt, ())
+                            .map_err(reservation_error)?
+                    }
                 }
-                let bytes = encode_message(&data_offer(endpoint))?;
+            } else {
+                registry
+                    .acquire(&original, &attempt, ())
+                    .map_err(reservation_error)?
+            };
+            let fused_endpoint = FusedRecovery {
+                endpoint: endpoint.endpoint(),
+                contact: None,
+            };
+            let validate = |candidate| async {
+                if fused {
+                    core::validate_candidates(
+                        &fused_endpoint,
+                        &original,
+                        control,
+                        candidate,
+                        &permits,
+                        &check,
+                    )
+                    .await
+                } else {
+                    core::validate_candidates(
+                        endpoint.endpoint(),
+                        &original,
+                        control,
+                        candidate,
+                        &permits,
+                        &check,
+                    )
+                    .await
+                }
+            };
+            if fused && request.traverse_tcp {
+                let (fusion, _) = endpoint
+                    .member_fusion
+                    .as_ref()
+                    .ok_or(io::ErrorKind::Unsupported)?;
+                let supported =
+                    request.require_confirmation && fusion.supports_direct_repair(&original);
+                exchange
+                    .send_message(
+                        ControlMessageFormat::Fixed { length: 1 },
+                        &[u8::from(supported)],
+                    )
+                    .await?;
+                if !supported {
+                    return Err(io::ErrorKind::Unsupported.into());
+                }
+                lease
+                    .run(async {
+                        let traversal = control.accept_control_exchange().await?;
+                        fusion
+                            .repair_direct_until(
+                                &original,
+                                traversal,
+                                deadline,
+                                &attempt.cancellation,
+                            )
+                            .await?;
+                        check(&original, control)?;
+                        // The requester retires this control only after consuming
+                        // our final Ready, just like the existing repair exchange.
+                        let _ = control.revocation_handle().closed().await;
+                        Ok::<_, io::Error>(())
+                    })
+                    .await
+                    .map_err(|cause| {
+                        io::Error::other(format!("incoming TCP repair: {cause:?}"))
+                    })??;
+                return Ok(());
+            }
+            if request.batched {
+                let response = core::batches::Offer {
+                    offer: EndpointAddr::new(endpoint.endpoint().id()),
+                    batched: true,
+                };
                 exchange
                     .send_message(
                         ControlMessageFormat::EndTerminated {
                             maximum: MAX_MESSAGE,
                         },
-                        &bytes,
+                        &encode_message(&response)?,
                     )
                     .await?;
-                if request.require_confirmation {
-                    let mut path = validate(request.offer).await?;
-                    check(&original, control)?;
-                    // A real authenticated replacement-path ACK precedes retirement
-                    // of the old carrier; closing a sole path cannot kill repair.
-                    endpoint.retire_replaced_rtc(&original);
-                    let confirmation = control.open_control_exchange().await?;
-                    confirmation
+                let frames = control.accept_control_exchange().await?;
+                let result = tokio::time::timeout_at(
+                    deadline,
+                    lease.run(async {
+                        if fused {
+                            core::batches::exchange(
+                                &fused_endpoint,
+                                &original,
+                                control,
+                                &frames,
+                                data_offer(endpoint),
+                                request.offer,
+                                &permits,
+                                &check,
+                                &|original| check_original(gate, original),
+                            )
+                            .await
+                        } else {
+                            core::batches::exchange(
+                                endpoint.endpoint(),
+                                &original,
+                                control,
+                                &frames,
+                                data_offer(endpoint),
+                                request.offer,
+                                &permits,
+                                &check,
+                                &|original| check_original(gate, original),
+                            )
+                            .await
+                        }
+                    }),
+                )
+                .await
+                .map_err(|_| io::ErrorKind::TimedOut)?
+                .map_err(|cause| io::Error::other(format!("incoming repair: {cause:?}")))??;
+                let _ = result;
+                return Ok(());
+            }
+            lease
+                .run(async {
+                    if !fused && original.side().is_client() {
+                        let mut path = validate(request.offer.clone()).await?;
+                        path.retain_candidate()?;
+                    }
+                    // A peer without the batch extension still consumes the
+                    // historical single bounded offer. Negotiated peers receive all.
+                    let offer = core::batches::offers(&data_offer(endpoint))?.remove(0);
+                    let bytes = encode_message(&offer)?;
+                    exchange
                         .send_message(
                             ControlMessageFormat::EndTerminated {
                                 maximum: MAX_MESSAGE,
                             },
-                            &encode_message(&core::RepairConfirmation {
-                                path: path.address.clone(),
-                                fresh_ack: true,
-                                probe_watermark: path.watermark,
-                            })?,
+                            &bytes,
                         )
                         .await?;
-                    let confirmed = confirmation
-                        .recv_message(ControlMessageFormat::Fixed { length: 1 })
-                        .await?;
-                    if confirmed != [1] {
-                        return Err(io::Error::new(
-                            io::ErrorKind::InvalidData,
-                            "repair confirmation refused",
-                        ));
-                    }
-                    if fused {
+                    if request.require_confirmation {
+                        let mut path = validate(request.offer).await?;
+                        check(&original, control)?;
+                        // A real authenticated replacement-path ACK precedes retirement
+                        // of the old carrier; closing a sole path cannot kill repair.
+                        endpoint.retire_replaced_rtc(&original);
+                        let confirmation = control.open_control_exchange().await?;
+                        confirmation
+                            .send_message(
+                                ControlMessageFormat::EndTerminated {
+                                    maximum: MAX_MESSAGE,
+                                },
+                                &encode_message(&core::RepairConfirmation {
+                                    path: path.address.clone(),
+                                    fresh_ack: true,
+                                    probe_watermark: path.watermark,
+                                })?,
+                            )
+                            .await?;
+                        let confirmed = confirmation
+                            .recv_message(ControlMessageFormat::Fixed { length: 1 })
+                            .await?;
+                        if confirmed != [1] {
+                            return Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                "repair confirmation refused",
+                            ));
+                        }
                         check(&original, control)?;
                         if !permits(&path.address) {
                             return Err(io::Error::new(
@@ -624,16 +715,133 @@ pub(crate) async fn serve_path_recovery(
                         }
                         path.retain_candidate()?;
                     }
-                }
-                // Keep responder authentication until the requester finishes its
-                // original-path validation and closes the private exchange.
-                let _ = control.revocation_handle().closed().await;
-                Ok(())
-            })
+                    // Keep responder authentication until the requester finishes its
+                    // original-path validation and closes the private exchange.
+                    let _ = control.revocation_handle().closed().await;
+                    Ok(())
+                })
+                .await
+                .map_err(|cause| io::Error::other(format!("incoming repair: {cause:?}")))?
+        };
+        tokio::time::timeout_at(deadline, operation)
             .await
-            .map_err(|cause| io::Error::other(format!("incoming repair: {cause:?}")))?
+            .map_err(|_| io::ErrorKind::TimedOut)?
     };
-    tokio::time::timeout_at(deadline, serve)
+    tokio::time::timeout_at(maximum, serve)
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "path recovery control timed out"))?
+}
+
+/// The member owner dispatches this exchange directly from the existing session.
+pub(crate) async fn recover_original_exchange(
+    gate: &AdmissionGate,
+    endpoint: &ResourceEndpoint,
+    original: &Connection,
+    exchange: &iroh::endpoint::ControlExchange,
+    initiator: bool,
+    deadline: n0_future::time::Instant,
+    cancel: CancellationToken,
+) -> io::Result<ConnectionPathRecovery> {
+    let work = async {
+        check_original(gate, original)?;
+        let offer = data_offer(endpoint);
+        let started = n0_future::time::Instant::now();
+        let mut exchange_deadline = deadline;
+        let first = if initiator {
+            let request = RepairRequest {
+                binding: binding(original)?,
+                offer: EndpointAddr::new(offer.id),
+                require_confirmation: true,
+                traverse_tcp: false,
+                batched: true,
+                budget_ms: Some(
+                    deadline
+                        .saturating_duration_since(n0_future::time::Instant::now())
+                        .as_millis() as u64,
+                ),
+            };
+            exchange
+                .send_message(core::batches::FORMAT, &encode_message(&request)?)
+                .await?;
+            let response: core::batches::Offer =
+                serde_json::from_slice(&exchange.recv_message(core::batches::FORMAT).await?)
+                    .map_err(io::Error::other)?;
+            if !response.batched {
+                return Err(io::ErrorKind::Unsupported.into());
+            }
+            response.offer
+        } else {
+            let request: RepairRequest =
+                serde_json::from_slice(&exchange.recv_message(core::batches::FORMAT).await?)
+                    .map_err(io::Error::other)?;
+            if request.binding != binding(original)?
+                || request.offer.id != original.remote_id()
+                || !request.batched
+                || !request.require_confirmation
+                || request.traverse_tcp
+            {
+                return Err(io::ErrorKind::PermissionDenied.into());
+            }
+            let remaining = request.budget_ms.ok_or(io::ErrorKind::InvalidData)?;
+            exchange_deadline = deadline.min(
+                started
+                    + std::time::Duration::from_millis(remaining)
+                        .min(deadline.saturating_duration_since(started)),
+            );
+            exchange
+                .send_message(
+                    core::batches::FORMAT,
+                    &encode_message(&core::batches::Offer {
+                        offer: EndpointAddr::new(offer.id),
+                        batched: true,
+                    })?,
+                )
+                .await?;
+            request.offer
+        };
+        let attempt = AttemptContext::new(exchange_deadline, cancel.clone());
+        let registry = gate.maintenance();
+        let reservation = if initiator {
+            Reservation::Owned(registry.acquire_outgoing(original, &attempt, ()).map_err(
+                |cause| io::Error::other(format!("original repair reservation: {cause:?}")),
+            )?)
+        } else {
+            registry
+                .acquire_incoming(original, &attempt)
+                .map_err(|cause| {
+                    io::Error::other(format!("original repair reservation: {cause:?}"))
+                })?
+        };
+        let lease = match reservation {
+            Reservation::Owned(lease) => lease,
+            Reservation::Pending(_) => return Err(io::ErrorKind::WouldBlock.into()),
+        };
+        lease.seal_outgoing_hello()?;
+        let adapter = FusedRecovery {
+            endpoint: endpoint.endpoint(),
+            contact: None,
+        };
+        tokio::time::timeout_at(
+            exchange_deadline,
+            lease.run(core::batches::exchange(
+                &adapter,
+                original,
+                original,
+                exchange,
+                offer,
+                first,
+                &|address| endpoint.allows_data_path(address),
+                &|original, _| check_original(gate, original),
+                &|original| check_original(gate, original),
+            )),
+        )
+        .await
+        .map_err(|_| io::ErrorKind::TimedOut)?
+        .map_err(|cause| io::Error::other(format!("original repair: {cause:?}")))?
+    };
+    tokio::select! { biased;
+        _ = original.closed() => Err(io::ErrorKind::NotConnected.into()),
+        _ = cancel.cancelled() => Err(io::ErrorKind::Interrupted.into()),
+        result = tokio::time::timeout_at(deadline, work) => result.map_err(|_| io::ErrorKind::TimedOut)?,
+    }
 }

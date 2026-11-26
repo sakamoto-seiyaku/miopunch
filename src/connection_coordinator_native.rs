@@ -220,7 +220,6 @@ impl CoordinatorHook {
         }
         if caller_deadline <= started
             || contact.id != original.remote_id()
-            || contact.addrs.len() > recovery::MAX_CANDIDATES
             || !self.gate.allows_member_path_upgrade(original)
         {
             return Err(recovery::failed(
@@ -228,7 +227,7 @@ impl CoordinatorHook {
                 "repair caller/peer/current member scope differs",
             ));
         }
-        let deadline = caller_deadline.min(started + recovery::REPAIR_TIMEOUT);
+        let deadline = caller_deadline;
         let _cancel = CancelRepair(cancel.clone());
         let attempt = AttemptContext::new(deadline, cancel);
         let phase = log.phase(
@@ -269,22 +268,47 @@ impl CoordinatorHook {
             original
                 .paths()
                 .iter()
-                .map(|path| path.remote_addr().clone())
-                .take(8),
+                .map(|path| path.remote_addr().clone()),
         );
         if let Some(known) = resources.contacts.get_endpoint_info(original.remote_id()) {
             contact.addrs.extend(known.into_endpoint_addr().addrs);
         }
         let result = lease
-            .run_ref(self.improve_logged(
-                resources.endpoint(),
-                original,
-                contact,
-                attempt.clone(),
-                log,
-                None,
-                || Ok(()),
-            ))
+            .run_ref(async {
+                let mut failure = io::ErrorKind::NotConnected.into();
+                for target in recovery::contact_targets(&contact) {
+                    let end = recovery::contact_deadline(&target, deadline);
+                    let context = AttemptContext::new(end, attempt.cancellation.child_token());
+                    let _cancel = CancelRepair(context.cancellation.clone());
+                    match self
+                        .improve_logged(
+                            resources.endpoint(),
+                            original,
+                            target,
+                            context,
+                            log,
+                            None,
+                            || Ok(()),
+                        )
+                        .await
+                    {
+                        Ok(path) => return Ok(path),
+                        Err(error)
+                            if matches!(
+                                error.kind(),
+                                io::ErrorKind::PermissionDenied | io::ErrorKind::Interrupted
+                            ) =>
+                        {
+                            return Err(error);
+                        }
+                        Err(error) => failure = error,
+                    }
+                    if n0_future::time::Instant::now() >= deadline {
+                        break;
+                    }
+                }
+                Err(failure)
+            })
             .await
             .map_err(|cause| io::Error::other(format!("repair attempt: {cause:?}")))
             .and_then(|result| result);

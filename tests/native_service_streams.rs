@@ -1512,6 +1512,10 @@ fn selected_path(transport: &serde_json::Value) -> Option<&serde_json::Value> {
 
 #[tokio::test]
 async fn restricted_contact_repairs_the_live_native_forwarding_stream() {
+    #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+    if native_cut_namespace("restricted_contact_repairs_the_live_native_forwarding_stream") {
+        return;
+    }
     native_forwarding_repair(0).await;
 }
 
@@ -1641,16 +1645,39 @@ async fn native_forwarding_repair(contact_side: usize) {
         cut.learn_contact(0).await;
     }
     #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
-    let reverse_fault = (contact_side == 1).then(|| cut.block_direct_tcp());
+    let mut direct_fault = Some(cut.block_direct_tcp());
     let started = Instant::now();
     cut.proxy.cancel();
     if contact_side == 0 {
+        #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+        let iroh::TransportAddr::Custom(route) = cut.contact[contact_side].addrs.first().unwrap()
+        else {
+            unreachable!("fixture uses an MQTT contact");
+        };
+        #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+        let release = async {
+            let direct = direct_fault.take().expect("controlled TCP fault");
+            wait_until(|| cut.broker.initial_dials_to(route) > dials_before).await;
+            assert!(
+                direct.iter().any(|filter| filter.dropped() > 0),
+                "the original and direct TCP paths must actually be blocked"
+            );
+            drop(direct);
+        };
+        #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+        tokio::join!(
+            sequence_reply(&mut cut.sender, &mut cut.receiver, 2),
+            release
+        );
+        #[cfg(not(all(target_os = "linux", feature = "nat-lab-test-hooks")))]
         sequence_reply(&mut cut.sender, &mut cut.receiver, 2).await;
     }
     #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
-    if let Some(direct) = reverse_fault {
+    if contact_side == 1 {
+        let direct = direct_fault.take().expect("controlled TCP fault");
         cut.register_repair_contacts(contact_side, None).await;
-        let iroh::TransportAddr::Custom(route) = cut.contact[contact_side].addrs.first().unwrap() else {
+        let iroh::TransportAddr::Custom(route) = cut.contact[contact_side].addrs.first().unwrap()
+        else {
             unreachable!("fixture uses an MQTT contact");
         };
         tokio::join!(
@@ -1893,6 +1920,37 @@ async fn ended_tcp_target_is_never_opened_again_after_member_replacement() {
     cut.broker.close().await;
 }
 
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+fn native_cut_namespace(case: &str) -> bool {
+    const CHILD: &str = "MIOPUNCH_NATIVE_CUT_NETNS";
+    if std::env::var_os(CHILD).is_some() {
+        return false;
+    }
+    let output = std::process::Command::new("unshare")
+        .args([
+            "-Urn",
+            "--fork",
+            "sh",
+            "-c",
+            "ip link set lo up && exec \"$@\"",
+            "native-cut-fixture",
+        ])
+        .arg(std::env::current_exe().unwrap())
+        .args([case, "--exact", "--nocapture"])
+        .env(CHILD, "1")
+        .output()
+        .expect("disposable native path fault namespace");
+    assert!(
+        output.status.success(),
+        "isolated {case} failed\n{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    print!("{}", String::from_utf8_lossy(&output.stdout));
+    eprint!("{}", String::from_utf8_lossy(&output.stderr));
+    true
+}
+
 #[cfg(target_os = "linux")]
 struct PortBlackhole(String, &'static str);
 
@@ -1993,13 +2051,26 @@ async fn cancelling_the_last_native_flow_stops_independent_repair() {
 
 #[tokio::test]
 async fn membership_revocation_closes_the_original_even_when_path_repair_has_started() {
+    #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+    if native_cut_namespace(
+        "membership_revocation_closes_the_original_even_when_path_repair_has_started",
+    ) {
+        return;
+    }
     let mut cut = NativeStreamCut::new().await;
     cut.learn_contact(0).await;
     cut.broker.mute_datagrams();
     let initial = cut.broker.datagram_publishes();
+    #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+    let direct = cut.block_direct_tcp();
     cut.proxy.cancel();
     cut.sender.write_all(&2u64.to_be_bytes()).await.unwrap();
     wait_until(|| cut.broker.datagram_publishes() > initial).await;
+    #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+    assert!(
+        direct.iter().any(|filter| filter.dropped() > 0),
+        "revocation must happen during a genuine blocked-path repair"
+    );
     let proposal = cut
         .pair
         .provider

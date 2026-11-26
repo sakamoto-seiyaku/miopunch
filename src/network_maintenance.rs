@@ -149,7 +149,8 @@ impl MaintainedNetwork {
     }
     /// Repair the exact member Connection kept by this caller. Existing Node
     /// contact quota, original-M lease, Router and active protocol are shared;
-    /// the caller remainder and historical three-second cap bound the operation.
+    /// each fast contact is capped at three seconds inside the caller remainder;
+    /// MQTT and IRC signaling can use that remaining caller time.
     /// A failed repair terminates this M if no permitted data path is still open.
     pub async fn repair_member_connection_until(
         &self,

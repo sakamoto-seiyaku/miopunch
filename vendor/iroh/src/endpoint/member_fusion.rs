@@ -76,6 +76,52 @@ struct RepairContact {
     >,
 }
 
+#[derive(Clone, derive_more::Debug)]
+struct RepairExchange {
+    #[debug(skip)]
+    run: Arc<
+        dyn Fn(
+                Connection,
+                ControlExchange,
+                bool,
+                Instant,
+                CancellationToken,
+            ) -> BoxFuture<'static, io::Result<(TransportAddr, u64)>>
+            + Send
+            + Sync,
+    >,
+}
+
+async fn repair_original(
+    original: &Connection,
+    exchange: &RepairExchange,
+    deadline: Instant,
+    cancel: CancellationToken,
+) -> io::Result<(TransportAddr, u64)> {
+    let work = async {
+        let stream = open_repair_exchange(original).await?;
+        (exchange.run)(
+            original.clone(),
+            stream,
+            true,
+            deadline,
+            cancel.clone(),
+        )
+        .await
+    };
+    tokio::select! { biased;
+        _ = original.closed() => Err(io::ErrorKind::NotConnected.into()),
+        _ = cancel.cancelled() => Err(io::ErrorKind::Interrupted.into()),
+        result = time::timeout_at(deadline, work) => result.map_err(|_| io::ErrorKind::TimedOut)?,
+    }
+}
+
+async fn open_repair_exchange(original: &Connection) -> io::Result<ControlExchange> {
+    let (mut send, recv) = original.open_bi().await.map_err(io::Error::other)?;
+    send.write_all(&[StreamKind::PathRepair as u8]).await.map_err(io::Error::other)?;
+    Ok(ControlExchange::from_streams(send, recv))
+}
+
 /// Application authorization for the native member ALPN.
 pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
     /// Authenticate the peer as a member of this network. The confirmation
@@ -671,6 +717,25 @@ impl MemberFusionEndpoint {
             .expect("member repair contact already installed");
     }
 
+    /// Install bounded path-repair messages carried by the admitted original.
+    pub fn set_repair_exchange<F, Fut>(&self, exchange: F)
+    where
+        F: Fn(Connection, ControlExchange, bool, Instant, CancellationToken) -> Fut
+            + Send
+            + Sync
+            + 'static,
+        Fut: Future<Output = io::Result<(TransportAddr, u64)>> + Send + 'static,
+    {
+        self.inner
+            .fusion
+            .repair_exchange
+            .set(RepairExchange {
+                run: Arc::new(move |original, stream, initiator, deadline, cancel| {
+                    Box::pin(exchange(original, stream, initiator, deadline, cancel))
+                }),
+            })
+            .expect("member original repair already installed");
+    }
     /// Whether this exact selected original supports protected TCP repair.
     pub fn supports_direct_repair(&self, original: &Connection) -> bool {
         self.inner.fusion.selected(original.remote_id()).is_some_and(|live| {
@@ -1055,6 +1120,7 @@ pub(super) struct Fusion {
     handoff_timeout: std::sync::OnceLock<Duration>,
     selected: Option<mpsc::UnboundedSender<IncomingResult>>,
     repair_contact: std::sync::OnceLock<RepairContact>,
+    repair_exchange: std::sync::OnceLock<RepairExchange>,
     udp_planner: Arc<udp::Planner>,
     #[cfg(feature = "miopunch-test-hooks")]
     qualification_gate: std::sync::OnceLock<Arc<QualificationGate>>,
@@ -1105,7 +1171,8 @@ impl Fusion {
         repair: Option<RepairPath>,
         udp: Option<Arc<udp::Planning>>,
     ) {
-        let incoming = (udp.is_some()
+        let repair_exchange = self.repair_exchange.get().cloned();
+        let incoming = (repair_exchange.is_some() || udp.is_some()
             || path_candidates
                 .as_ref()
                 .is_some_and(|paths| paths.supports_traversal()))
@@ -1115,6 +1182,8 @@ impl Fusion {
                 activity.clone(),
                 udp.clone(),
                 path_candidates.clone(),
+                repair_exchange.clone(),
+                *self.handoff_timeout.get().expect("member timeout"),
             )
         });
         let live = selection.publish(
@@ -1125,6 +1194,7 @@ impl Fusion {
             repair,
             udp,
             incoming,
+            repair_exchange,
         );
         if let Some(selected) = &self.selected {
             let _ = selected.send(Ok(live));
@@ -1148,6 +1218,8 @@ impl Fusion {
             learned,
             self.shutdown.clone(),
             contact,
+            self.repair_exchange.get().cloned(),
+            *self.handoff_timeout.get().expect("member timeout"),
         ));
         Some(RepairPath { health, addresses })
     }
@@ -1220,7 +1292,7 @@ impl MemberRepairContacts {
             if routes.is_empty() {
                 break;
             }
-            let share = dial::split_deadline(deadline, routes.len() as u32);
+            let share = deadline;
             let route = routes.remove(0);
             let target = EndpointAddr::new(peer).with_addrs([TransportAddr::Custom(route.clone())]);
             let result = tokio::select! { biased;
@@ -1248,28 +1320,43 @@ async fn repair_path(
     mut learned: watch::Receiver<Vec<iroh_base::CustomAddr>>,
     shutdown: CancellationToken,
     contact: RepairContact,
+    in_band: Option<RepairExchange>,
+    budget: Duration,
 ) {
     let repair = async {
         loop {
-            let routes = learned.borrow_and_update().clone();
+            learned.mark_unchanged();
             if *failed.borrow_and_update() && *active.borrow_and_update() {
-                if routes
-                    .iter()
-                    .any(|route| endpoint.inner.permits_custom_bootstrap(route))
                 {
-                    let end = Instant::now() + REPAIR_LIMIT;
-                    let contacts = MemberRepairContacts {
-                        endpoint: endpoint.clone(),
-                        peer: original.remote_id(),
-                        failed: failed.clone(),
-                        routes,
-                        deadline: end,
+                    let end = Instant::now() + budget;
+                    let in_band_repaired = if let Some(exchange) = &in_band {
+                        let cancel = shutdown.child_token();
+                        let _guard = cancel.clone().drop_guard();
+                        let result = tokio::select! { biased;
+                            _ = active.wait_for(|active| !*active) => Err(io::ErrorKind::Interrupted.into()),
+                            result = repair_original(&original, exchange, end.min(Instant::now() + REPAIR_LIMIT), cancel) => result,
+                        };
+                        result.is_ok()
+                    } else {
+                        false
                     };
-                    let cancel = shutdown.child_token();
-                    let _guard = cancel.clone().drop_guard();
-                    tokio::select! { biased;
-                        _ = active.wait_for(|active| !*active) => {},
-                        _ = (contact.exchange)(original.clone(), contacts, end, cancel) => {},
+                    if !in_band_repaired {
+                        // Contacts can arrive while original control is tried.
+                        // Consume the current set within the same original clock.
+                        let routes = learned.borrow_and_update().clone();
+                        let contacts = MemberRepairContacts {
+                            endpoint: endpoint.clone(),
+                            peer: original.remote_id(),
+                            failed: failed.clone(),
+                            routes,
+                            deadline: end,
+                        };
+                        let cancel = shutdown.child_token();
+                        let _guard = cancel.clone().drop_guard();
+                        tokio::select! { biased;
+                            _ = active.wait_for(|active| !*active) => {},
+                            _ = (contact.exchange)(original.clone(), contacts, end, cancel) => {},
+                        }
                     }
                 }
             }
@@ -1817,6 +1904,7 @@ impl Selection {
         repair: Option<RepairPath>,
         udp: Option<Arc<udp::Planning>>,
         incoming: Option<mpsc::Receiver<IncomingMemberStream>>,
+        repair_exchange: Option<RepairExchange>,
     ) -> Weak<Live> {
         let live = MemberConnection(Arc::new(Live {
             connection,
@@ -1824,6 +1912,7 @@ impl Selection {
             activity,
             path_candidates,
             repair: repair.map(|repair| repair.addresses),
+            repair_exchange,
             udp,
             incoming: incoming.map(tokio::sync::Mutex::new),
         }));
@@ -1902,6 +1991,26 @@ impl MemberConnection {
     /// Observe the most recent still-current coordinated UDP plan on this original.
     pub fn udp_plan(&self) -> Option<MemberUdpPlan> {
         self.0.udp.as_ref()?.current()
+    }
+
+    /// Repair current candidates on this same admitted session and caller clock.
+    pub async fn repair_path_until(
+        &self,
+        deadline: Instant,
+        cancel: CancellationToken,
+    ) -> io::Result<(TransportAddr, u64)> {
+        let exchange = self
+            .0
+            .repair_exchange
+            .as_ref()
+            .ok_or(io::ErrorKind::Unsupported)?;
+        repair_original(&self.0.connection, exchange, deadline, cancel).await
+    }
+    /// Exercise a delayed peer at the actual original-session repair boundary.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub async fn test_open_repair_exchange(&self) -> io::Result<ControlExchange> {
+        open_repair_exchange(&self.0.connection).await
     }
 
     /// Coordinate and execute one enhanced UDP round on this admitted original.
@@ -2233,6 +2342,7 @@ enum StreamKind {
     UdpMaintenance,
     DirectTraversal,
     DirectTraversalIpv6,
+    PathRepair,
 }
 
 impl StreamKind {
@@ -2273,6 +2383,8 @@ fn watch_streams(
     activity: Arc<Activity>,
     udp: Option<Arc<udp::Planning>>,
     paths: Option<Arc<PathCandidates>>,
+    repair: Option<RepairExchange>,
+    repair_budget: Duration,
 ) -> mpsc::Receiver<IncomingMemberStream> {
     const MAX_PENDING: usize = 100;
     let (outgoing, incoming) = mpsc::channel(MAX_PENDING);
@@ -2288,10 +2400,20 @@ fn watch_streams(
                     let activity = activity.clone();
                     let udp = udp.clone();
                     let paths = paths.clone();
-                    let original = paths.as_ref().map(|_| connection.clone());
+                    let original = Some(connection.clone());
+                    let repair = repair.clone();
                     pending.push(async move {
                         let Ok(kind) = read_stream_kind(&mut recv).await else { return; };
-                        if kind == StreamKind::DirectTraversal as u8 || kind == StreamKind::DirectTraversalIpv6 as u8 {
+                        if kind == StreamKind::PathRepair as u8 {
+                            if let Some((repair, original)) = repair.zip(original) {
+                                let end = Instant::now() + repair_budget;
+                                let work = (repair.run)(original.clone(), ControlExchange::from_streams(send, recv), false, end, CancellationToken::new());
+                                tokio::select! {
+                                    _ = original.closed() => {},
+                                    _ = time::timeout_at(end, work) => {},
+                                }
+                            }
+                        } else if kind == StreamKind::DirectTraversal as u8 || kind == StreamKind::DirectTraversalIpv6 as u8 {
                             if let Some((paths, original)) = paths.zip(original) {
                                 paths.respond(&original, ControlExchange::from_streams(send, recv), kind == StreamKind::DirectTraversalIpv6 as u8).await;
                             }
@@ -2359,6 +2481,7 @@ struct Live {
     activity: Arc<Activity>,
     path_candidates: Option<Arc<PathCandidates>>,
     repair: Option<watch::Sender<Vec<iroh_base::CustomAddr>>>,
+    repair_exchange: Option<RepairExchange>,
     udp: Option<Arc<udp::Planning>>,
     incoming: Option<tokio::sync::Mutex<mpsc::Receiver<IncomingMemberStream>>>,
 }

@@ -143,6 +143,22 @@ impl crate::resources::ResourceEndpoint {
     pub(crate) fn install_member_repair(self: &Arc<Self>) {
         let (fusion, gate) = self.member_fusion.as_ref().expect("fused endpoint").clone();
         let weak_resources = Arc::downgrade(self);
+        let original_resources = weak_resources.clone();
+        let original_gate = gate.clone();
+        fusion.set_repair_exchange(move |original, stream, initiator, deadline, cancel| {
+            let resources = original_resources.clone();
+            let gate = original_gate.clone();
+            async move {
+                let resources = resources
+                    .upgrade()
+                    .ok_or(std::io::ErrorKind::NotConnected)?;
+                let result = crate::connection_recovery::recover_original_exchange(
+                    &gate, &resources, &original, &stream, initiator, deadline, cancel,
+                )
+                .await?;
+                Ok((result.path, result.probe_watermark))
+            }
+        });
         fusion.set_repair_contact(move |original, contact, deadline, cancel| {
             let resources = weak_resources.clone();
             let gate = gate.clone();

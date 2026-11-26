@@ -18,6 +18,328 @@ const REPAIR_MESSAGE: ControlMessageFormat = ControlMessageFormat::EndTerminated
 const BUSINESS: &[u8] = b"miopunch/path-maintenance/1";
 
 #[tokio::test]
+async fn repair_uses_the_ninth_candidate_on_the_original_stream() {
+    use miopunch_native_probe::connection_recovery::CONNECTION_RECOVERY_ALPN;
+    let mut pair = Pair::new(true).await;
+    let (client, server) = pair.business().await;
+    let ids = (client.stable_id(), server.stable_id());
+    let (mut send, mut recv) = client.open_bi().await.unwrap();
+    send.write_all(b"before").await.unwrap();
+    let (mut reply, mut request) = server.accept_bi().await.unwrap();
+    request.read_exact(&mut [0; 6]).await.unwrap();
+    let good = TransportAddr::Ip(pair.server.endpoint().bound_sockets()[0]);
+    let mut offer = EndpointAddr::new(pair.server.endpoint().id());
+    for port in 1..=8 {
+        offer
+            .addrs
+            .insert(TransportAddr::Ip(([127, 0, 0, 1], port).into()));
+    }
+    offer.addrs.insert(good.clone());
+    assert_eq!(
+        offer.addrs.iter().position(|address| address == &good),
+        Some(8)
+    );
+    pair.server
+        .endpoint()
+        .set_alpns(vec![BUSINESS.to_vec(), CONNECTION_RECOVERY_ALPN.to_vec()]);
+    let serve = async {
+        let control = pair
+            .server
+            .endpoint()
+            .accept()
+            .await
+            .unwrap()
+            .accept_control()
+            .unwrap()
+            .await
+            .unwrap();
+        let exchange = control.accept_control_exchange().await.unwrap();
+        exchange.recv_message(REPAIR_MESSAGE).await.unwrap();
+        exchange
+            .send_message(REPAIR_MESSAGE, &serde_json::to_vec(&offer).unwrap())
+            .await
+            .unwrap();
+        control.closed().await;
+    };
+    let (recovered, ()) = tokio::join!(
+        pair.joining.recover_connection_path_until(
+            &pair.client,
+            &client,
+            tcp_target(&pair.server),
+            n0_future::time::Instant::now() + Duration::from_secs(2)
+        ),
+        serve
+    );
+    let recovered =
+        recovered.expect("the ninth offered address must repair the existing member connection");
+    assert_eq!(recovered.path, good);
+    let path_id = client
+        .paths()
+        .iter()
+        .find(|path| path.remote_addr() == &good)
+        .unwrap()
+        .id();
+    let before_frames = [&client, &server].map(|original| {
+        original
+            .paths()
+            .get(path_id)
+            .unwrap()
+            .stats()
+            .frame_rx
+            .stream
+    });
+    for original in [&client, &server] {
+        for path in original.paths().iter().filter(|path| path.id() != path_id) {
+            path.close().unwrap();
+        }
+    }
+    send.write_all(b"after").await.unwrap();
+    let mut bytes = [0; 5];
+    request.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"after");
+    reply.write_all(b"there").await.unwrap();
+    recv.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"there");
+    for (original, before) in [&client, &server].into_iter().zip(before_frames) {
+        assert!(
+            original
+                .paths()
+                .get(path_id)
+                .unwrap()
+                .stats()
+                .frame_rx
+                .stream
+                > before,
+            "both old stream directions must really use the ninth candidate after other paths retire"
+        );
+    }
+    assert_eq!((client.stable_id(), server.stable_id()), ids);
+    pair.close().await;
+}
+
+#[path = "support/relay_contact_broker.rs"]
+#[allow(dead_code)]
+mod batch_broker;
+
+#[tokio::test]
+async fn slow_signaling_repairs_from_a_second_batch_after_three_seconds() {
+    delayed_second_batch(BatchTiming::Slow).await;
+}
+
+#[tokio::test]
+async fn fast_contact_yields_to_slow_signaling_without_restarting_the_repair_clock() {
+    delayed_second_batch(BatchTiming::FastThenSlow).await;
+}
+
+#[tokio::test]
+async fn repair_validates_a_usable_first_batch_before_the_delayed_second_batch() {
+    delayed_second_batch(BatchTiming::UsableFirst).await;
+}
+
+enum BatchTiming {
+    Slow,
+    FastThenSlow,
+    UsableFirst,
+}
+
+async fn delayed_second_batch(timing: BatchTiming) {
+    let fast_first = matches!(timing, BatchTiming::FastThenSlow);
+    let usable_first = matches!(timing, BatchTiming::UsableFirst);
+    use miopunch_native_probe::{
+        connection_recovery::CONNECTION_RECOVERY_ALPN,
+        mqtt_transport::TRANSPORT_ID,
+        resources::{Resource, ResourceUse},
+    };
+    let broker = batch_broker::Broker::new().await;
+    let mut pair = Pair::new(true).await;
+    pair.reconfigure(vec![Resource {
+        url: format!("mqtt://{}", broker.address),
+        uses: [ResourceUse::Signaling].into(),
+        limitation: "owned delayed candidate signaling".into(),
+    }])
+    .await;
+    let (client, server) = pair.business().await;
+    let ids = (client.stable_id(), server.stable_id());
+    let (mut send, mut recv) = client.open_bi().await.unwrap();
+    send.write_all(b"before").await.unwrap();
+    let (mut reply, mut request) = server.accept_bi().await.unwrap();
+    request.read_exact(&mut [0; 6]).await.unwrap();
+    pair.server
+        .endpoint()
+        .set_alpns(vec![BUSINESS.to_vec(), CONNECTION_RECOVERY_ALPN.to_vec()]);
+    let route = pair
+        .server
+        .endpoint()
+        .custom_addrs()
+        .into_iter()
+        .find(|route| route.id() == TRANSPORT_ID)
+        .unwrap();
+    let mut contact =
+        EndpointAddr::new(pair.server.endpoint().id()).with_addrs([TransportAddr::Custom(route)]);
+    if fast_first {
+        contact.addrs.extend(tcp_target(&pair.server).addrs);
+    }
+    let good = TransportAddr::Ip(pair.server.endpoint().bound_sockets()[0]);
+    let started = tokio::time::Instant::now();
+    let frame = ControlMessageFormat::LengthPrefixed16 { maximum: 4096 };
+    let serve = async {
+        if fast_first {
+            let silent = pair
+                .server
+                .endpoint()
+                .accept()
+                .await
+                .unwrap()
+                .accept_control()
+                .unwrap()
+                .await
+                .unwrap();
+            let header = silent.accept_control_exchange().await.unwrap();
+            header.recv_message(REPAIR_MESSAGE).await.unwrap();
+            tokio::time::timeout(Duration::from_millis(3400), silent.closed())
+                .await
+                .expect("fast contact must end within three seconds");
+            assert!(started.elapsed() >= Duration::from_millis(2800));
+        }
+        let control = pair
+            .server
+            .endpoint()
+            .accept()
+            .await
+            .unwrap()
+            .accept_control()
+            .unwrap()
+            .await
+            .unwrap();
+        let slow_started = tokio::time::Instant::now();
+        let header = control.accept_control_exchange().await.unwrap();
+        let wire: serde_json::Value =
+            serde_json::from_slice(&header.recv_message(REPAIR_MESSAGE).await.unwrap()).unwrap();
+        assert_eq!(wire["batched"], true);
+        assert!(wire["budget_ms"].as_u64().unwrap() > 3000);
+        header
+            .send_message(
+                REPAIR_MESSAGE,
+                &serde_json::to_vec(&serde_json::json!({
+                    "id":pair.server.endpoint().id(),"addrs":[],"batched":true
+                }))
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        let frames = control.accept_control_exchange().await.unwrap();
+        let first = if usable_first {
+            EndpointAddr::new(pair.server.endpoint().id()).with_addrs([good.clone()])
+        } else {
+            EndpointAddr::new(pair.server.endpoint().id())
+                .with_addrs((1..=8).map(|port| TransportAddr::Ip(([127, 0, 0, 1], port).into())))
+        };
+        frames
+            .send_message(
+                frame,
+                &serde_json::to_vec(&serde_json::json!({"Candidates":first})).unwrap(),
+            )
+            .await
+            .unwrap();
+        let receive_ready = async {
+            loop {
+                let value: serde_json::Value =
+                    serde_json::from_slice(&frames.recv_message(frame).await.unwrap()).unwrap();
+                if value.get("Ready").is_some() {
+                    break;
+                }
+            }
+        };
+        tokio::pin!(receive_ready);
+        if usable_first {
+            tokio::time::timeout(Duration::from_secs(1), &mut receive_ready)
+                .await
+                .expect("first usable batch validates before the second batch is sent");
+        }
+        tokio::time::sleep_until(slow_started + Duration::from_millis(3300)).await;
+        assert!(client.close_reason().is_none() && server.close_reason().is_none());
+        let second = EndpointAddr::new(pair.server.endpoint().id()).with_addrs([good.clone()]);
+        frames
+            .send_message(
+                frame,
+                &serde_json::to_vec(&serde_json::json!({"Candidates":second})).unwrap(),
+            )
+            .await
+            .unwrap();
+        if !usable_first {
+            receive_ready.await;
+        }
+        let remote = TransportAddr::Ip(pair.client.endpoint().bound_sockets()[0]);
+        let probe = server
+            .paths()
+            .iter()
+            .find(|path| path.remote_addr() == &remote)
+            .unwrap()
+            .start_return_path_probe()
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while !probe.is_acknowledged().unwrap() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        frames
+            .send_message(
+                frame,
+                &serde_json::to_vec(&serde_json::json!({"Ready":{
+                    "path":remote,"fresh_ack":true,"probe_watermark":probe.watermark()
+                }}))
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        let committed: serde_json::Value =
+            serde_json::from_slice(&frames.recv_message(frame).await.unwrap()).unwrap();
+        assert_eq!(committed, "Committed");
+        frames.send_message(frame, b"\"Committed\"").await.unwrap();
+        frames.finish_send_confirmed().await.unwrap();
+        control.closed().await;
+    };
+    let (result, ()) = tokio::time::timeout(Duration::from_secs(8), async {
+        tokio::join!(
+            pair.joining.recover_connection_path_confirmed_until(
+                &pair.client,
+                &client,
+                contact,
+                n0_future::time::Instant::now() + Duration::from_secs(7)
+            ),
+            serve
+        )
+    })
+    .await
+    .unwrap();
+    let result = result.unwrap();
+    let minimum = if fast_first { 6100 } else { 3300 };
+    assert!(started.elapsed() >= Duration::from_millis(minimum));
+    assert!(
+        started.elapsed() < Duration::from_secs(7),
+        "all contacts and batches share the original seven-second clock"
+    );
+    assert_eq!(result.path, good);
+    assert_eq!(result.stable_id, ids.0);
+    eprintln!(
+        "MIO204_BATCH_RECOVERY fast_first={fast_first} elapsed_ms={} stable_ids={ids:?} path={good:?}",
+        started.elapsed().as_millis()
+    );
+    send.write_all(b"after").await.unwrap();
+    let mut bytes = [0; 5];
+    request.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"after");
+    reply.write_all(b"there").await.unwrap();
+    recv.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"there");
+    assert_eq!((client.stable_id(), server.stable_id()), ids);
+    pair.close().await;
+    broker.close().await;
+}
+
+#[tokio::test]
 async fn candidate_specific_refusal_does_not_block_another_permitted_original_path() {
     use miopunch_native_probe::connection_recovery::CONNECTION_RECOVERY_ALPN;
     let mut pair = Pair::new(true).await;
@@ -124,6 +446,38 @@ async fn candidate_specific_refusal_does_not_block_another_permitted_original_pa
 async fn old_literal_repair_request_is_accepted_on_protected_original_member() {
     use miopunch_native_probe::connection_recovery::CONNECTION_RECOVERY_ALPN;
     let mut pair = Pair::new(true).await;
+    let sockets: Vec<_> = (0..9)
+        .map(|_| std::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap())
+        .collect();
+    let addresses: Vec<_> = sockets
+        .iter()
+        .map(|socket| socket.local_addr().unwrap())
+        .collect();
+    let mut builder =
+        iroh::Endpoint::builder(iroh::endpoint::presets::Minimal).clear_ip_transports();
+    for (index, address) in addresses.iter().enumerate() {
+        builder = builder
+            .bind_addr_with_opts(
+                *address,
+                iroh::endpoint::BindOpts::default()
+                    .set_is_default_route(index + 1 == addresses.len()),
+            )
+            .unwrap();
+    }
+    drop(sockets);
+    let replacement = pair
+        .admin
+        .bind_configured_endpoint_with(builder)
+        .await
+        .unwrap();
+    replacement.endpoint().set_alpns(vec![BUSINESS.to_vec()]);
+    std::mem::replace(&mut pair.server, replacement)
+        .close()
+        .await;
+    assert!(
+        pair.server.addr().addrs.len() > 8,
+        "legacy peer must face a current set larger than eight"
+    );
     let (client, server) = pair.business().await;
     pair.server
         .endpoint()
@@ -168,6 +522,16 @@ async fn old_literal_repair_request_is_accepted_on_protected_original_member() {
         let offer: EndpointAddr =
             serde_json::from_slice(&exchange.recv_message(REPAIR_MESSAGE).await.unwrap()).unwrap();
         assert_eq!(offer.id, pair.server.endpoint().id());
+        assert!(
+            offer.addrs.len() <= 8,
+            "an old requester retains its historical bounded single offer"
+        );
+        assert!(
+            offer
+                .addrs
+                .iter()
+                .any(|address| matches!(address,TransportAddr::Ip(ip) if addresses.contains(ip)))
+        );
         control.close(0u32.into(), b"legacy request completed");
     };
     let (_, served) = tokio::join!(
@@ -187,7 +551,7 @@ async fn old_literal_repair_request_is_accepted_on_protected_original_member() {
 }
 
 #[tokio::test]
-async fn default_repair_api_omits_confirmation_field_on_actual_protected_wire() {
+async fn default_repair_api_preserves_optional_confirmation_on_actual_protected_wire() {
     use miopunch_native_probe::{
         connection_coordinator::ACTIVE_IMPROVEMENT_ALPN,
         connection_recovery::CONNECTION_RECOVERY_ALPN,
@@ -232,7 +596,9 @@ async fn default_repair_api_omits_confirmation_field_on_actual_protected_wire() 
         let exchange = control.accept_control_exchange().await.unwrap();
         let wire: serde_json::Value =
             serde_json::from_slice(&exchange.recv_message(REPAIR_MESSAGE).await.unwrap()).unwrap();
-        assert_eq!(wire.as_object().unwrap().len(), 2);
+        assert_eq!(wire.as_object().unwrap().len(), 4);
+        assert_eq!(wire["batched"], true);
+        assert!(wire["budget_ms"].as_u64().is_some());
         assert!(wire.get("binding").is_some() && wire.get("offer").is_some());
         assert!(wire.get("require_confirmation").is_none());
         let binding: [u8; 32] = serde_json::from_value(wire["binding"].clone()).unwrap();
@@ -2686,4 +3052,241 @@ async fn control_paths_do_not_report_stale_same_address_as_recovered() {
         "MIO47_SAME_ADDRESS_FINAL original={old} close={reason:?} retryable_then_terminal=true false_success=false"
     );
     pair.close().await;
+}
+
+#[tokio::test]
+async fn a_second_fast_contact_gets_its_attempt_inside_the_original_caller_window() {
+    use miopunch_native_probe::connection_recovery::CONNECTION_RECOVERY_ALPN;
+    let mut pair = Pair::new(true).await;
+    let (client, server) = pair.business().await;
+    let ids = (client.stable_id(), server.stable_id());
+    let (mut send, mut recv) = client.open_bi().await.unwrap();
+    send.write_all(b"before").await.unwrap();
+    let (mut reply, mut request) = server.accept_bi().await.unwrap();
+    request.read_exact(&mut [0; 6]).await.unwrap();
+    let mut contact = tcp_target(&pair.server);
+    let TransportAddr::Custom(route) = contact.addrs.first().unwrap() else {
+        unreachable!()
+    };
+    let proxy = TcpProxy::new(
+        miopunch_native_probe::tcp_transport::TcpTransport::socket_addr(route).unwrap(),
+        0,
+    )
+    .await;
+    contact.addrs.insert(TransportAddr::Custom(proxy.custom()));
+    assert_eq!(contact.addrs.len(), 2);
+    pair.server
+        .endpoint()
+        .set_alpns(vec![BUSINESS.to_vec(), CONNECTION_RECOVERY_ALPN.to_vec()]);
+    let started = tokio::time::Instant::now();
+    let serve = async {
+        let first = pair
+            .server
+            .endpoint()
+            .accept()
+            .await
+            .unwrap()
+            .accept_control()
+            .unwrap()
+            .await
+            .unwrap();
+        let exchange = first.accept_control_exchange().await.unwrap();
+        exchange.recv_message(REPAIR_MESSAGE).await.unwrap();
+        tokio::time::timeout(Duration::from_millis(3400), first.closed())
+            .await
+            .expect("each fast attempt is capped at three seconds");
+        assert!(started.elapsed() >= Duration::from_millis(2800));
+        let second = pair
+            .server
+            .endpoint()
+            .accept()
+            .await
+            .unwrap()
+            .accept_control()
+            .unwrap()
+            .await
+            .unwrap();
+        let exchange = second.accept_control_exchange().await.unwrap();
+        exchange.recv_message(REPAIR_MESSAGE).await.unwrap();
+        exchange
+            .send_message(
+                REPAIR_MESSAGE,
+                &serde_json::to_vec(&pair.server.addr()).unwrap(),
+            )
+            .await
+            .unwrap();
+        second.closed().await;
+    };
+    let (result, ()) = tokio::time::timeout(Duration::from_secs(8), async {
+        tokio::join!(
+            pair.joining.recover_connection_path_until(
+                &pair.client,
+                &client,
+                contact,
+                n0_future::time::Instant::now() + Duration::from_secs(7)
+            ),
+            serve
+        )
+    })
+    .await
+    .unwrap();
+    assert_eq!(result.unwrap().stable_id, ids.0);
+    assert!(
+        started.elapsed() >= Duration::from_millis(3000)
+            && started.elapsed() < Duration::from_secs(7)
+    );
+    send.write_all(b"after").await.unwrap();
+    let mut bytes = [0; 5];
+    request.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"after");
+    reply.write_all(b"there").await.unwrap();
+    recv.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"there");
+    assert_eq!((client.stable_id(), server.stable_id()), ids);
+    proxy.close().await;
+    pair.close().await;
+}
+
+#[tokio::test]
+async fn slow_repair_responder_accepts_requester_candidates_after_three_seconds() {
+    use miopunch_native_probe::{
+        connection_recovery::CONNECTION_RECOVERY_ALPN,
+        mqtt_transport::TRANSPORT_ID,
+        resources::{Resource, ResourceUse},
+    };
+    let broker = batch_broker::Broker::new().await;
+    let mut pair = Pair::new(true).await;
+    pair.reconfigure(vec![Resource {
+        url: format!("mqtt://{}", broker.address),
+        uses: [ResourceUse::Signaling].into(),
+        limitation: "owned delayed requester candidate signaling".into(),
+    }])
+    .await;
+    let (client, server) = pair.business().await;
+    let ids = (client.stable_id(), server.stable_id());
+    let (mut send, mut recv) = client.open_bi().await.unwrap();
+    send.write_all(b"before").await.unwrap();
+    let (mut reply, mut request) = server.accept_bi().await.unwrap();
+    request.read_exact(&mut [0; 6]).await.unwrap();
+    pair.server
+        .endpoint()
+        .set_alpns(vec![BUSINESS.to_vec(), CONNECTION_RECOVERY_ALPN.to_vec()]);
+    let route = pair
+        .server
+        .endpoint()
+        .custom_addrs()
+        .into_iter()
+        .find(|route| route.id() == TRANSPORT_ID)
+        .unwrap();
+    let contact =
+        EndpointAddr::new(pair.server.endpoint().id()).with_addrs([TransportAddr::Custom(route)]);
+    let (out, incoming) = connect_control(
+        &pair.client,
+        &pair.server,
+        contact,
+        CONNECTION_RECOVERY_ALPN,
+    )
+    .await;
+    let started = tokio::time::Instant::now();
+    let frame = ControlMessageFormat::LengthPrefixed16 { maximum: 4096 };
+    let requester = async {
+        let header = out.open_control_exchange().await.unwrap();
+        let mut binding = [0; 32];
+        client
+            .export_keying_material(
+                &mut binding,
+                b"miopunch-existing-connection-path-recovery/1",
+                &[],
+            )
+            .unwrap();
+        let initial = EndpointAddr::new(pair.client.endpoint().id())
+            .with_addrs((1..=8).map(|port| TransportAddr::Ip(([127, 0, 0, 1], port).into())));
+        let wire = serde_json::json!({"binding":binding,"offer":initial,"batched":true,"require_confirmation":true,"budget_ms":7000});
+        header
+            .send_message(REPAIR_MESSAGE, &serde_json::to_vec(&wire).unwrap())
+            .await
+            .unwrap();
+        let response: serde_json::Value =
+            serde_json::from_slice(&header.recv_message(REPAIR_MESSAGE).await.unwrap()).unwrap();
+        assert_eq!(response["batched"], true);
+        let frames = out.open_control_exchange().await.unwrap();
+        // QUIC announces the new stream only when its opener writes. Start
+        // the real first candidate batch before awaiting the peer's offer.
+        frames
+            .send_message(
+                frame,
+                &serde_json::to_vec(&serde_json::json!({"Candidates":initial})).unwrap(),
+            )
+            .await
+            .unwrap();
+        let offered: serde_json::Value =
+            serde_json::from_slice(&frames.recv_message(frame).await.unwrap()).unwrap();
+        let offered: EndpointAddr = serde_json::from_value(offered["Candidates"].clone()).unwrap();
+        let good = TransportAddr::Ip(pair.server.endpoint().bound_sockets()[0]);
+        assert!(offered.addrs.contains(&good));
+        pair.client
+            .endpoint()
+            .open_data_transport_path(&client, good.clone())
+            .await
+            .unwrap();
+        let probe = client
+            .paths()
+            .iter()
+            .find(|path| path.remote_addr() == &good)
+            .unwrap()
+            .start_probe()
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while !probe.is_acknowledged().unwrap() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        tokio::time::sleep_until(started + Duration::from_millis(3300)).await;
+        let own = EndpointAddr::new(pair.client.endpoint().id())
+            .with_addrs([TransportAddr::Ip(pair.client.endpoint().bound_sockets()[0])]);
+        frames
+            .send_message(
+                frame,
+                &serde_json::to_vec(&serde_json::json!({"Candidates":own})).unwrap(),
+            )
+            .await
+            .unwrap();
+        frames.send_message(frame,&serde_json::to_vec(&serde_json::json!({"Ready":{"path":good,"fresh_ack":true,"probe_watermark":probe.watermark()}})).unwrap()).await.unwrap();
+        let ready: serde_json::Value =
+            serde_json::from_slice(&frames.recv_message(frame).await.unwrap()).unwrap();
+        assert_eq!(ready["Ready"]["fresh_ack"], true);
+        frames.send_message(frame, b"\"Committed\"").await.unwrap();
+        let committed: serde_json::Value =
+            serde_json::from_slice(&frames.recv_message(frame).await.unwrap()).unwrap();
+        assert_eq!(committed, "Committed");
+        frames.finish_send_confirmed().await.unwrap();
+    };
+    let ((), served) = tokio::time::timeout(Duration::from_secs(8), async {
+        tokio::join!(
+            requester,
+            pair.admin
+                .serve_connection_path_recovery(&pair.server, &incoming)
+        )
+    })
+    .await
+    .unwrap();
+    served.unwrap();
+    assert!(
+        started.elapsed() >= Duration::from_millis(3300)
+            && started.elapsed() < Duration::from_secs(7)
+    );
+    send.write_all(b"after").await.unwrap();
+    let mut bytes = [0; 5];
+    request.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"after");
+    reply.write_all(b"there").await.unwrap();
+    recv.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"there");
+    assert_eq!((client.stable_id(), server.stable_id()), ids);
+    out.close(0u32.into(), b"fixture complete");
+    incoming.close(0u32.into(), b"fixture complete");
+    pair.close().await;
+    broker.close().await;
 }

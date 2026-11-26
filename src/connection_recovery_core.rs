@@ -12,6 +12,9 @@ use std::{io, time::Duration};
 
 use crate::control_protocol::AuthenticatedControl;
 
+#[path = "connection_recovery_core/batches.rs"]
+pub(crate) mod batches;
+
 /// Actual platform owners share the repair algorithm without widening a
 /// restricted endpoint or the control capability it returns.
 pub(crate) trait RecoveryEndpoint: Sync {
@@ -29,10 +32,7 @@ pub(crate) trait RecoveryEndpoint: Sync {
         address: TransportAddr,
     ) -> impl Future<Output = io::Result<Option<DataCandidatePath>>> + Send {
         let control = self.original_control(original);
-        async move {
-            control.open_data_transport_path(address).await?;
-            Ok(None)
-        }
+        async move { control.open_data_transport_candidate(address).await }
     }
 }
 impl RecoveryEndpoint for Endpoint {
@@ -122,11 +122,15 @@ pub(crate) struct RepairRequest {
     pub require_confirmation: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     pub traverse_tcp: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub batched: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub budget_ms: Option<u64>,
 }
 fn is_false(value: &bool) -> bool {
     !value
 }
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub(crate) struct RepairConfirmation {
     pub path: TransportAddr,
     pub fresh_ack: bool,
@@ -203,25 +207,44 @@ pub(crate) async fn validate_candidates<
     permits: &impl Fn(&TransportAddr) -> bool,
     check: &impl Fn(&Connection, &C) -> io::Result<()>,
 ) -> io::Result<ValidatedPath> {
-    if candidate.id != original.remote_id() || candidate.addrs.len() > MAX_CANDIDATES {
+    let (_updates, receiver) = tokio::sync::watch::channel(candidate);
+    validate_updates(endpoint, original, control, receiver, permits, check).await
+}
+
+pub(crate) async fn validate_updates<
+    C: AuthenticatedControl + ?Sized,
+    E: RecoveryEndpoint + ?Sized,
+>(
+    endpoint: &E,
+    original: &Connection,
+    control: &C,
+    updates: tokio::sync::watch::Receiver<EndpointAddr>,
+    permits: &impl Fn(&TransportAddr) -> bool,
+    check: &impl Fn(&Connection, &C) -> io::Result<()>,
+) -> io::Result<ValidatedPath> {
+    let candidate = updates.borrow().clone();
+    if candidate.id != original.remote_id() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "invalid data path offer",
         ));
     }
-    let paths: Vec<_> = candidate.addrs.into_iter().filter(permits).collect();
-    if paths.is_empty() {
-        return Err(io::Error::other("no mutually permitted data candidate"));
-    }
+    let mut paths = std::collections::BTreeSet::new();
     let mut candidates = Vec::new();
-    let mut pending = if original.side().is_client() {
-        paths.clone()
-    } else {
-        Vec::new()
-    };
+    let mut pending = Vec::new();
     let mut probes = Vec::new();
     loop {
         check(original, control)?;
+        for address in updates
+            .borrow()
+            .addrs
+            .iter()
+            .filter(|address| permits(address))
+        {
+            if paths.insert(address.clone()) && original.side().is_client() {
+                pending.push(address.clone());
+            }
+        }
         // Path ID pressure can defer a route while a candidate already open
         // collects its first ACK. Give both a chance within the same deadline.
         for address in std::mem::take(&mut pending) {
@@ -285,9 +308,78 @@ pub(crate) async fn validate_candidates<
     }
 }
 
-/// One existing coordinator operation: protected contact, original-M path probe,
-/// and cleanup all share the caller clock, with the historical three-second cap.
+/// Protected contacts and original-session validation share one caller clock.
 pub(crate) async fn recover<E: RecoveryEndpoint>(
+    endpoint: &E,
+    original: &Connection,
+    contact: EndpointAddr,
+    offer: EndpointAddr,
+    caller_deadline: Instant,
+    cancel: tokio_util::sync::CancellationToken,
+    require_confirmation: bool,
+    permits: impl Fn(&TransportAddr) -> bool,
+    check_original: impl Fn(&Connection) -> io::Result<()>,
+    check: impl Fn(&Connection, &E::Control) -> io::Result<()>,
+    begin_validation: impl FnOnce() -> io::Result<()>,
+) -> io::Result<ConnectionPathRecovery> {
+    let _cancel = CancelContact(cancel.clone());
+    let targets = contact_targets(&contact);
+    let mut begin = Some(begin_validation);
+    let mut failure = io::ErrorKind::NotConnected.into();
+    for target in targets {
+        check_original(original)?;
+        if cancel.is_cancelled() {
+            return Err(io::ErrorKind::Interrupted.into());
+        }
+        if Instant::now() >= caller_deadline {
+            return Err(io::ErrorKind::TimedOut.into());
+        }
+        let result = recover_contact(
+            endpoint,
+            original,
+            target,
+            offer.clone(),
+            caller_deadline,
+            cancel.child_token(),
+            require_confirmation,
+            &permits,
+            &check_original,
+            &check,
+            || match begin.take() {
+                Some(begin) => begin(),
+                None => Ok(()),
+            },
+        )
+        .await;
+        match result {
+            Ok(path) => return Ok(path),
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::PermissionDenied | io::ErrorKind::Interrupted
+                ) =>
+            {
+                return Err(error);
+            }
+            Err(error) => failure = error,
+        }
+    }
+    Err(failure)
+}
+
+/// Each carrier owns its own bounded attempt inside the same caller lifetime.
+pub(crate) fn contact_targets(contact: &EndpointAddr) -> Vec<EndpointAddr> {
+    if contact.addrs.is_empty() {
+        return vec![contact.clone()];
+    }
+    contact
+        .addrs
+        .iter()
+        .map(|address| EndpointAddr::new(contact.id).with_addrs([address.clone()]))
+        .collect()
+}
+
+async fn recover_contact<E: RecoveryEndpoint>(
     endpoint: &E,
     original: &Connection,
     contact: EndpointAddr,
@@ -313,17 +405,27 @@ pub(crate) async fn recover<E: RecoveryEndpoint>(
         ));
     }
     check_original(original)?;
-    let deadline = caller_deadline.min(Instant::now() + REPAIR_TIMEOUT);
+    let deadline = contact_deadline(&contact, caller_deadline);
     let _cancel = CancelContact(cancel.clone());
     offer.addrs.retain(&permits);
-    offer.addrs = offer.addrs.into_iter().take(MAX_CANDIDATES).collect();
+    let first = batches::offers(&offer)?.remove(0);
+
     let work = async {
-        let request = RepairRequest {
+        let mut request = RepairRequest {
             binding: binding(original)?,
-            offer,
+            offer: first,
             require_confirmation,
             traverse_tcp: false,
+            batched: true,
+            budget_ms: Some(
+                deadline
+                    .saturating_duration_since(Instant::now())
+                    .as_millis() as u64,
+            ),
         };
+        while encode_message(&request).is_err() && !request.offer.addrs.is_empty() {
+            request.offer.addrs.pop_last();
+        }
         let options = ConnectOptions::default()
             .with_caller_deadline(deadline)
             .with_attempt_cancellation(cancel.clone());
@@ -331,8 +433,26 @@ pub(crate) async fn recover<E: RecoveryEndpoint>(
         check(original, &control.0)?;
         let exchange = control.0.open_control_exchange().await?;
         send_message(&exchange, &request).await?;
-        let candidate = recv_message(&exchange).await?;
+        let candidate: batches::Offer = recv_message(&exchange).await?;
         begin_validation()?;
+        if candidate.batched {
+            let frames = control.0.open_control_exchange().await?;
+            let mut result = batches::exchange(
+                endpoint,
+                original,
+                &control.0,
+                &frames,
+                offer,
+                candidate.offer,
+                &permits,
+                &check,
+                &check_original,
+            )
+            .await?;
+            result.peer_confirmed = require_confirmation;
+            return Ok(result);
+        }
+        let candidate = candidate.offer;
         let mut path =
             validate_candidates(endpoint, original, &control.0, candidate, &permits, &check)
                 .await?;
@@ -394,4 +514,15 @@ pub(crate) async fn recover<E: RecoveryEndpoint>(
         ));
     }
     result
+}
+
+/// A fast data carrier gets a bounded attempt inside the caller's clock.
+/// Restricted signaling can use all of that same remaining clock.
+pub(crate) fn contact_deadline(contact: &EndpointAddr, deadline: Instant) -> Instant {
+    if contact.addrs.iter().any(|address| matches!(address, TransportAddr::Custom(route)
+        if route.id() == crate::mqtt_datagram::TRANSPORT_ID || route.id() == crate::irc_datagram::TRANSPORT_ID)) {
+        deadline
+    } else {
+        deadline.min(Instant::now() + REPAIR_TIMEOUT)
+    }
 }
