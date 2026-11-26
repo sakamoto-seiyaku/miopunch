@@ -15,8 +15,8 @@ use crate::{
         OperationJournal,
     },
     device_protocol::{
-        DEPARTURE_ALPN, DepartureDelivery, DeviceReply, DeviceRequest, ResultReply, ResultRequest,
-        read_message, write_exchange,
+        DEPARTURE_ALPN, DepartureDelivery, DeviceReply, DeviceRequest, REMOVAL_ALPN, RemovalNotice,
+        ResultReply, ResultRequest, read_message, write_exchange,
     },
     native_client::{ClientError, NativeClient},
     native_file_transfer::NativeFiles,
@@ -517,4 +517,116 @@ pub(crate) async fn serve_departure(
     .await;
     connection.close(0u32.into(), b"departure delivery ended");
     result
+}
+
+pub(crate) async fn serve_removal_notice(
+    connection: ControlOwner,
+    node: &Mutex<NativeNetwork>,
+    deadline: tokio::time::Instant,
+) -> Result<(), ClientError> {
+    let result = tokio::time::timeout_at(deadline, async {
+        let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())?;
+        let exchange = connection.accept_control_exchange().await?;
+        let grant: Hash = read_guest(&exchange).await?;
+        let notice = {
+            let node = node.lock().await;
+            if node.admission_stage() != crate::manual_admission::AdmissionStage::Complete {
+                return Err("current membership required to serve a removal notice".into());
+            }
+            if let Some(decision) = node.store.authorization().removal_decision(grant, peer) {
+                let records = node.store.applied_records().await?.iter()
+                    .map(|record| (record.header().to_vec(), record.body().map(Vec::from)))
+                    .collect();
+                Some(RemovalNotice::new(decision, &records)?)
+            } else {
+                None
+            }
+        };
+        write_guest(&exchange, &notice).await?;
+        connection.revocation_handle().closed().await;
+        Ok::<_, ClientError>(())
+    }).await;
+    connection.close(0u32.into(), b"removal notice exchange ended");
+    result?
+}
+
+pub(crate) async fn receive_removal_notice(
+    node: Arc<Mutex<NativeNetwork>>,
+    services: Arc<Mutex<NativeServices>>,
+    files: Arc<NativeFiles>,
+    resources: &ResourceEndpoint,
+    address: EndpointAddr,
+    class: ContactClass,
+    commits: &tokio_util::task::TaskTracker,
+) -> Result<bool, ClientError> {
+    let holder = VerifyingKey::from_bytes(address.id.as_bytes())?;
+    let (local, grant) = {
+        let node = node.lock().await;
+        let auth = node.store.authorization();
+        let local = node.node_key.verifying_key();
+        if node.admission_stage() != crate::manual_admission::AdmissionStage::Complete
+            || auth.known_removed(holder)
+        {
+            return Err("current membership required to request a removal notice".into());
+        }
+        (local, auth.authorization_origin_at(local, &auth.tips(), false)
+            .ok_or("local membership grant unavailable")?)
+    };
+    let deadline = resources.contact_deadline();
+    let timed_out = || std::io::Error::new(
+        std::io::ErrorKind::TimedOut, "removal notice peer temporarily unreachable",
+    );
+    let contact = tokio::time::timeout_at(
+        deadline.into(), resources.connect_control_attempt(address, REMOVAL_ALPN, class),
+    ).await;
+    let (connection, attempt) = match contact {
+        Ok(Ok(contact)) => contact,
+        Ok(Err(error)) if n0_future::time::Instant::now() < deadline => return Err(error.into()),
+        _ => return Err(timed_out().into()),
+    };
+    let wire = tokio::time::timeout_at(deadline.into(), RemovalNotice::request(&connection, grant)).await;
+    connection.close(0u32.into(), b"removal notice exchange ended");
+    let notice = match wire {
+        Ok(Ok(notice)) => notice,
+        Ok(Err(error)) => return Err(attempt.failed(error.to_string()).into()),
+        Err(error) => {
+            attempt.failed(error.to_string());
+            return Err(timed_out().into());
+        }
+    };
+    attempt.succeeded();
+    let Some(notice) = notice else { return Ok(false) };
+    // Once a proof arrives, shutdown and wire expiry cannot interrupt the
+    // local transaction between durable commit and gate installation.
+    commits.spawn(async move {
+        let mut node = node.lock().await;
+        if node.store.known_removed(local) {
+            return Ok(true);
+        }
+        if node.admission_stage() != crate::manual_admission::AdmissionStage::Complete {
+            return Ok(false);
+        }
+        let auth = node.store.authorization();
+        if auth.authorization_origin_at(local, &auth.tips(), false) != Some(grant) {
+            return Ok(false);
+        }
+        let records = notice.verify(auth, grant, local, holder)?;
+        node.store.apply_batch(&records).await?;
+        node.refresh_authorization();
+        let services = services.lock().await;
+        services.publish_access(&files, services.access(&node).await?);
+        Ok(true)
+    }).await?
+}
+
+impl NativeClient {
+    /// Retrieve a signed decision concerning this device's current grant.
+    /// A contact failure leaves the saved grant unchanged.
+    pub async fn check_membership_removal(&self, address: EndpointAddr) -> Result<bool, ClientError> {
+        self.require_ready()?;
+        receive_removal_notice(
+            self.node.clone(), self.services.clone(), self.files.clone(), &self.resources,
+            address, ContactClass::Foreground, &self.removal_commits,
+        ).await
+    }
 }

@@ -21,7 +21,7 @@ use wasm_bindgen::prelude::*;
 use crate::admission_progress::{AdmissionAttempt, AdmissionReceipt, ApplicationProgress};
 use crate::admission_proof::{AdmissionScope, AdmissionSecret, BootstrapProof};
 use crate::connection_coordinator::ADMISSION_RECEIPT_ALPN;
-use crate::device_protocol::DEPARTURE_ALPN;
+use crate::device_protocol::{DEPARTURE_ALPN, REMOVAL_ALPN};
 use crate::device_name::{DeviceNames, with_display_name};
 use crate::management_auth::{ManagementAuth, NetworkAnchor};
 
@@ -34,6 +34,17 @@ fn is_request_alpn(alpn: &[u8]) -> bool {
 }
 fn tracks_request_diagnostics(alpn: &[u8]) -> bool {
     matches!(alpn, REQUEST_ALPN | PRECODE_REQUEST_ALPN)
+}
+fn requires_member_proof(alpn: &[u8]) -> bool {
+    !is_request_alpn(alpn)
+        && !matches!(
+            alpn,
+            crate::service_policy::GUEST_ALPN
+                | crate::device_operation::DEVICE_RESULT_ALPN
+                | DEPARTURE_ALPN
+                | REMOVAL_ALPN
+                | device_recovery::RECOVERY_ALPN
+        )
 }
 fn credential_bound_control(alpn: &[u8]) -> bool {
     // Recovery proves the root on this TLS session. Saving its newly received
@@ -167,8 +178,8 @@ impl SavedNode {
     }
 
     fn admission_attempt(&self) -> Option<AdmissionAttempt> {
-        if self.invitation.is_none() || self.creator_seed.is_some() || self.guest.is_some()
-            || self.recovery.is_some() || self.restored.is_some()
+        if self.invitation.is_none() || self.guest.is_some() || (self.confirmed_admission.is_none()
+            && (self.creator_seed.is_some() || self.recovery.is_some() || self.restored.is_some()))
         {
             return None;
         }
@@ -341,7 +352,7 @@ impl SavedNode {
             "recovery_exported": self.recovery_exported,
             "recovery_saved": self.creator_seed.is_none() || self.recovery_saved,
             "admission_attempt": if pairing { None } else { self.admission_attempt().map(|attempt| attempt.public_json()) },
-            "automatic_retry": !self.manual_retry_stopped(), "authorization_saved": self.authorization.is_some(),
+            "automatic_retry": !self.manual_retry_stopped() && stage != "Removed", "authorization_saved": self.authorization.is_some(),
             "secret_saved": self.secret.is_some(), "running": running
         }), self.device_names.name(self.identity()))
     }
@@ -397,6 +408,9 @@ impl BrowserControlSession {
     fn permitted(&self, saved: &SavedNode) -> bool {
         if !self.connection.is_open() {
             return false;
+        }
+        if self.alpn == REMOVAL_ALPN {
+            return BrowserGate::removal_contact_allowed(saved, self.peer, self.client);
         }
         if matches!(self.alpn.as_slice(), crate::service_policy::GUEST_ALPN | DEPARTURE_ALPN)
             && !self.client
@@ -695,6 +709,15 @@ impl BrowserGate {
             gate.changes.publish();
         }
     }
+    fn removal_contact_allowed(saved: &SavedNode, peer: iroh_base::EndpointId, client: bool) -> bool {
+        saved.stage() == "Complete"
+            && saved.verify().ok().flatten().is_some_and(|auth| {
+                VerifyingKey::from_bytes(peer.as_bytes()).is_ok_and(|peer| {
+                    if client { !auth.known_removed(peer) } else { auth.known_removed(peer) }
+                })
+            })
+    }
+
     fn permits(saved: &SavedNode, target: iroh_base::EndpointId, alpn: &[u8]) -> bool {
         let Ok(invitation) = saved.invitation() else {
             return false;
@@ -719,6 +742,9 @@ impl BrowserGate {
             return saved.stage() == "Removed" && saved.verify().ok().flatten().is_some_and(|auth| {
                 auth.nodes().iter().any(|(id, _)| id.as_bytes() == target.as_bytes())
             });
+        }
+        if alpn == REMOVAL_ALPN {
+            return Self::removal_contact_allowed(saved, target, true);
         }
         if alpn == device_recovery::RECOVERY_ALPN {
             return saved.recovery.as_ref().is_some_and(|r| r.contact == target)
@@ -1558,7 +1584,9 @@ impl BrowserGate {
         let saved = self.0.lock().unwrap().saved.clone();
 
         let Some(saved) = saved.filter(|saved| {
-            let permits = if matches!(connection.alpn(), crate::service_policy::GUEST_ALPN | DEPARTURE_ALPN)
+            let permits = if connection.alpn() == REMOVAL_ALPN {
+                Self::removal_contact_allowed(saved, connection.remote_id(), connection.side().is_client())
+            } else if matches!(connection.alpn(), crate::service_policy::GUEST_ALPN | DEPARTURE_ALPN)
                 && !connection.side().is_client()
             {
                 saved.stage() == "Complete"
@@ -1591,11 +1619,7 @@ impl BrowserGate {
         }
         // No 0-RTT API is exposed. Members retain mutual proof and stage
         // agreement; requests wait for the shared restricted nonce confirmation.
-        let proof = if !is_request_alpn(connection.alpn())
-            && connection.alpn() != crate::service_policy::GUEST_ALPN
-            && connection.alpn() != crate::device_operation::DEVICE_RESULT_ALPN
-            && connection.alpn() != DEPARTURE_ALPN
-            && connection.alpn() != device_recovery::RECOVERY_ALPN
+        let proof = if requires_member_proof(connection.alpn())
             && !(saved.guest_pair(connection.remote_id(), connection.alpn()))
         {
             let Ok(invitation) = saved.invitation() else {
@@ -1805,11 +1829,7 @@ impl iroh::endpoint::EndpointAdmission for BrowserGate {
                 session.peer == connection.remote_id()
                     && session.alpn == connection.alpn()
                     && session.permitted(saved)
-                    && (is_request_alpn(connection.alpn())
-                        || connection.alpn() == crate::service_policy::GUEST_ALPN
-                        || connection.alpn() == crate::device_operation::DEVICE_RESULT_ALPN
-                        || connection.alpn() == DEPARTURE_ALPN
-                        || connection.alpn() == device_recovery::RECOVERY_ALPN
+                    && (!requires_member_proof(connection.alpn())
                         || Self::proved_member_current(&state, saved, connection))
             })
     }
@@ -2560,6 +2580,7 @@ impl BrowserNetwork {
                     crate::device_operation::DEVICE_ALPN.to_vec(),
                     crate::device_operation::DEVICE_RESULT_ALPN.to_vec(),
                     DEPARTURE_ALPN.to_vec(),
+                    REMOVAL_ALPN.to_vec(),
                     crate::credential_custody::CUSTODY_ALPN.to_vec(),
                     device_recovery::RECOVERY_ALPN.to_vec(),
                     crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN.to_vec(),
@@ -2884,6 +2905,9 @@ impl BrowserNetwork {
     }
 
     pub async fn request_admission(&mut self, invitation: String) -> Result<String, JsValue> {
+        if self.gate.service_snapshot()?.stage() == "Removed" {
+            return Err(error("membership ended; start a new rejoin attempt"));
+        }
         if self.saved.manual_rejected {
             return Ok("Rejected".into());
         }
@@ -2970,6 +2994,9 @@ impl BrowserNetwork {
     /// Redeem through the designated node. A new code changes the request
     /// namespace, preserving this device and original durable attempt.
     pub async fn request_precode(&mut self, code: String) -> Result<String, JsValue> {
+        if self.gate.service_snapshot()?.stage() == "Removed" {
+            return Err(error("membership ended; start a new rejoin attempt"));
+        }
         let started = n0_future::time::Instant::now();
         self.attempt_started = Some(started);
         self.gate.0.lock().unwrap().request_deadline = Some(started + self.caller_budget);

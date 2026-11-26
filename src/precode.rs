@@ -195,6 +195,19 @@ impl NativeNetwork {
             .bind(token.as_slice()).bind(request.applicant.as_bytes().as_slice()).bind(request.request_id.as_slice())
             .fetch_one(&self.store.pool).await.map_err(StoreError::from)?;
         if exists == 0 {
+            if self.store.known_removed(request.applicant) {
+                let previously_redeemed = sqlx::query_scalar::<_, bool>(
+                    "SELECT EXISTS(SELECT 1 FROM precode_redemptions WHERE token=? AND applicant=?)",
+                )
+                .bind(token.as_slice())
+                .bind(request.applicant.as_bytes().as_slice())
+                .fetch_one(&self.store.pool)
+                .await
+                .map_err(StoreError::from)?;
+                if previously_redeemed {
+                    return Err(ManualAdmissionError::Rejected);
+                }
+            }
             let row = sqlx::query("SELECT origin,expires,max_uses,used,stopped,revoked, used=(SELECT count(*) FROM precode_redemptions r WHERE r.token=precodes.token) AND NOT EXISTS (SELECT 1 FROM precode_redemptions r LEFT JOIN admission_deliveries d ON d.applicant=r.applicant AND d.request_id=r.request_id WHERE r.token=precodes.token AND (d.authorization IS NULL OR d.phase<1)) AS consistent FROM precodes WHERE token=?")
                 .bind(token.as_slice()).fetch_optional(&self.store.pool).await.map_err(StoreError::from)?
                 .ok_or(ManualAdmissionError::Rejected)?;

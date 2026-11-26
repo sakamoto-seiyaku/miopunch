@@ -7,8 +7,8 @@ use crate::{
         DEVICE_ALPN, DEVICE_RESULT_ALPN, DeviceAction, DeviceApproval, DeviceOperation,
     },
     device_protocol::{
-        DepartureDelivery, DeviceReply, DeviceRequest, ResultReply, ResultRequest, read_message,
-        write_exchange,
+        DepartureDelivery, DeviceReply, DeviceRequest, RemovalNotice, ResultReply, ResultRequest,
+        read_message, write_exchange,
     },
     recovery_card::RecoveryCard,
     service_protocol::{ServiceBundle, read_guest, write_guest},
@@ -375,6 +375,29 @@ pub(super) async fn serve_departure(
     })
     .await
     .map_err(error)?
+}
+
+pub(super) async fn serve_removal_notice(
+    connection: &ControlOwner,
+    gate: &BrowserGate,
+    deadline: n0_future::time::Instant,
+) -> Result<(), JsValue> {
+    use n0_future::time::{Instant, timeout};
+    timeout(deadline.saturating_duration_since(Instant::now()), async {
+        let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes()).map_err(error)?;
+        let exchange = connection.accept_control_exchange().await.map_err(error)?;
+        let grant: Hash = read_guest(&exchange).await.map_err(error)?;
+        let saved = gate.service_snapshot()?;
+        if saved.stage() != "Complete" {
+            return Err(rejected());
+        }
+        let auth = saved.verify()?.ok_or_else(rejected)?;
+        let notice = auth.removal_decision(grant, peer)
+            .map(|decision| RemovalNotice::new(decision, &saved.records)).transpose().map_err(error)?;
+        write_guest(&exchange, &notice).await.map_err(error)?;
+        connection.revocation_handle().closed().await;
+        Ok(())
+    }).await.map_err(error)?
 }
 
 pub(super) async fn serve_device(

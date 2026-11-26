@@ -113,7 +113,7 @@ class BrowserControl:
 
 class BrowserOnboardingRunner(OnboardingRunner):
     def native_configuration(self, remote):
-        if self.args.suite not in ["progress", "observation", "receipts", "device-names", "member-management", "departure"]:
+        if self.args.suite not in ["progress", "observation", "receipts", "device-names", "member-management", "departure", "removal-rejoin"]:
             return super().native_configuration(remote)
         config = dict(defaults=dict(revision=2, resources=[]),
                       replacement=[dict(url=self.args.relay, uses=["DataRelay"], limitation="onboarding test relay")],
@@ -126,9 +126,9 @@ class BrowserOnboardingRunner(OnboardingRunner):
     def progress_configuration(self):
         return dict(CONFIGURATION, relays=[self.args.relay], maintenance=dict(contact_timeout_ms=10000))
 
-    def actor_call(self, actor, wasm, native, *args, ok=True, **fields):
+    def actor_call(self, actor, wasm, native, *args, ok=True, expected_error=None, **fields):
         if isinstance(actor, str):
-            return self.browser.call(actor, wasm, *args, ok=ok)
+            return self.browser.call(actor, wasm, *args, ok=ok, expected_error=expected_error)
         return actor.call(native, ok=ok, **fields)
 
     def actor_identity(self, actor):
@@ -153,6 +153,284 @@ class BrowserOnboardingRunner(OnboardingRunner):
     def member_management(self):
         for browser_issuer in (False, True):
             self.management_propagation(browser_issuer)
+
+    def removal_rejoin(self, browser_removed):
+        browser = self.browser
+        prefix = "removal-browser" if browser_removed else "removal-native"
+        call, identity, snapshot = self.actor_call, self.actor_identity, self.actor_snapshot
+        close, reopen = self.close_actor, self.reopen_actor
+
+        def request(actor, authorization_only=False, ok=True, expected_error=None):
+            if isinstance(actor, str):
+                return browser.call(actor, "request_join", authorization_only, ok=ok, expected_error=expected_error)
+            result = actor.call("request", authorization_only=authorization_only, ok=ok)
+            return result["stage"] if ok else None
+
+        def join(creator, suffix, wasm):
+            name = prefix + "-" + suffix
+            invitation = (browser.call(creator, "invitation") if isinstance(creator, str)
+                          else self.native_invitation(creator, name + "-invite"))
+            if wasm:
+                config = self.progress_configuration()
+                if browser_removed:
+                    config["maintenance"]["exploration_interval_ms"] = 60000
+                browser.start(name, "join", invitation, config)
+                actor = name
+            else:
+                path = self.write_private(name + "-join", invitation.encode(), False)
+                actor = self.start(name, False, "join", path)
+            assert request(actor) == "AwaitingApproval"
+            node = identity(actor)
+            entry = next(row for row in snapshot(creator)["pending_admissions"] if row["applicant"] == node)
+            approve(creator, node, entry["request_id"])
+            assert request(actor) == "Complete"
+            return actor
+
+        def wait_for(read, predicate):
+            deadline = time.monotonic() + 55
+            while True:
+                actual = read()
+                if predicate(actual):
+                    return actual
+                assert time.monotonic() < deadline, actual
+                time.sleep(0.5)
+
+        def roles(actor):
+            return {row["node"]: row["role"] for row in snapshot(actor)["status"]["members"]}
+
+        def sign(action, target):
+            proposed = call(creator, "propose_device_operation", "genesis_propose", action, target,
+                            action=action, target=target)
+            operation = proposed["operation"]["id"]
+            if proposed["requires_genesis"]:
+                applied = call(creator, "confirm_device_operation", "genesis_confirm", operation, operation=operation)
+            else:
+                applied = call(creator, "execute_device_operation", "device_execute", operation, operation=operation)
+            assert applied["effective_locally"]
+
+        def approve(provider, node, request_id):
+            call(provider, "approve_admission", "approve", node, request_id,
+                 applicant=node, request_id=request_id)
+
+        def code(name, seconds, uses):
+            if isinstance(creator, str):
+                return browser.call(creator, "precode_invitation", int(time.time()) + seconds, uses)
+            creator.call("issue_precode", path=self.private_path(name, False), seconds=seconds, max_uses=uses)
+            return self.read_private(name, False).decode()
+
+        def code_uses(invitation, name):
+            if isinstance(creator, str):
+                return browser.call(creator, "precode_usage", material(invitation)["precode"])
+            return creator.call("precode_status", path=self.private_path(name, False))["uses"]
+
+        def reject_precode():
+            if isinstance(creator, str):
+                received = browser.send(creator, "serve_progress_admission", True)
+                assert browser.call(creator, "wait_progress_admission", received[0])
+                request(removed, ok=False)
+                browser.wait(received, ok=False, expected_error="admission rejected or materials incomplete")
+            else:
+                request(removed, ok=False, expected_error="by peer")
+
+        def status(actor):
+            return snapshot(actor)["status"]
+
+        def history(request_id):
+            return next((row for row in snapshot(creator)["admission_history"]
+                         if row["applicant"] == removed_id and row["request_id"] == request_id), None)
+
+        def select_rejoin(invitation, name):
+            path = None if isinstance(removed, str) else self.write_private(
+                prefix + "-" + name, invitation.encode(), False)
+            call(removed, "new_rejoin_attempt", "new_rejoin_attempt", invitation, path=path)
+
+        def holder_operation(wasm, native, ok=True, expected_error=None):
+            return call(removed, wasm, native, holder_id, ok=ok, expected_error=expected_error,
+                        address=dict(id=holder_id, addrs=[{"Relay": self.args.relay}]))
+
+        def member_file():
+            name = "rejoined.bin"
+            payload = bytes(index % 251 for index in range(2048))
+            if isinstance(removed, str):
+                destination = self.output / (prefix + "-received")
+                destination.mkdir()
+                holder.call("files_enable", directory=str(destination))
+                browser.call(removed, "file_make", name, len(payload))
+                task = browser.call(removed, "file_send_source", holder_id, name)
+            else:
+                browser.call(holder, "enable_files")
+                path = self.write_private(name, payload, False)
+                address = dict(id=holder_id, addrs=[{"Relay": self.args.relay}])
+                task = removed.call("file_send", address=address, path=path)["task"]
+
+            def receipt():
+                status = call(holder, "file_status", "files_status")
+                return next((row["receipt"] for row in status["tasks"]
+                             if row["id"] == task and row["state"] == "complete"), None)
+
+            result = wait_for(receipt, bool)
+            assert result["size"] == len(payload)
+            if isinstance(holder, str):
+                assert result["saved_name"] in browser.call(holder, "file_list")
+            else:
+                assert (destination / result["saved_name"]).read_bytes() == payload
+
+        if browser_removed:
+            creator = self.creator(False, prefix)
+        else:
+            creator = prefix + "-creator"
+            browser.start(creator, "create", configuration=self.progress_configuration())
+            browser.call(creator, "export_recovery_card")
+            browser.call(creator, "acknowledge_recovery_saved")
+        removed = join(creator, "removed", browser_removed)
+        holder = join(creator, "holder", not browser_removed)
+        removed_id, holder_id = map(identity, (removed, holder))
+        wait_for(lambda: roles(removed), lambda state: state.get(holder_id) == "member")
+        initial = status(removed)
+        old_attempt = initial["admission_attempt"]
+        assert history(old_attempt["request_id"])["decision"] == "ReceiptReceived"
+        holder_operation("sync_services", "service_sync")
+        holder_operation("check_membership_removal", "check_membership_removal", ok=False)
+        close(removed)
+        sign("appoint-administrator", holder_id)
+        sign("demote-administrator", holder_id)
+        sign("remove-member", removed_id)
+        later = join(creator, "after-removal", False)
+        later_id = identity(later)
+        if not browser_removed:
+            # Make the post-removal record available before shutting A down.
+            browser.call(holder, "sync_services", identity(creator))
+        wait_for(lambda: roles(holder), lambda state: state.get(holder_id) == "member" and
+                 removed_id not in state and later_id in state)
+        close(later)
+        close(creator)
+        close(holder)
+
+        removed = reopen(removed)
+        assert identity(removed) == removed_id
+        if browser_removed:
+            holder_operation("check_membership_removal", "check_membership_removal", ok=False,
+                             expected_error="temporarily unreachable")
+        else:
+            assert holder_operation("check_membership_removal", "check_membership_removal") == {
+                "stage": "TemporarilyUnreachable"}
+        offline = status(removed)
+        assert offline["stage"] == "Complete" and offline["admission_attempt"] == old_attempt
+        holder = reopen(holder)
+        if browser_removed:
+            holder_operation("sync_services", "service_sync", ok=False)
+            assert status(removed)["stage"] == "Complete"
+            assert holder_operation("check_membership_removal", "check_membership_removal") is True
+        wait_for(lambda: status(removed)["stage"], lambda stage: stage == "Removed")
+        ended = status(removed)
+        assert not ended["automatic_retry"] and ended["admission_attempt"] == old_attempt
+        assert ended["records"] == initial["records"] + 3
+        assert removed_id not in roles(removed) and later_id not in roles(removed)
+        holder_operation("sync_services", "service_sync", ok=False)
+        request(removed, ok=False)
+        close(removed)
+        removed = reopen(removed)
+        assert status(removed)["stage"] == "Removed"
+
+        call(removed, "new_manual_attempt", "new_manual_attempt")
+        created = status(removed)["admission_attempt"]
+        new_id = created["request_id"]
+        assert created["progress"] == "Created" and new_id != old_attempt["request_id"]
+        request(removed, ok=False)
+        close(removed)
+        removed = reopen(removed)
+        assert identity(removed) == removed_id and status(removed)["admission_attempt"] == created
+        assert status(removed)["stage"] == "AwaitingApproval"
+        creator = reopen(creator)
+        assert request(removed) == "AwaitingApproval"
+        old = history(old_attempt["request_id"])
+        assert old["decision"] == "ReceiptReceived" and old["authorization"]
+        assert history(new_id)["decision"] == "AwaitingApproval"
+        approve(creator, removed_id, new_id)
+        assert request(removed, authorization_only=True) == "PendingMaterials"
+        close(removed)
+        removed = reopen(removed)
+        assert status(removed)["stage"] == "PendingMaterials"
+        assert status(removed)["admission_attempt"] == dict(request_id=new_id, progress="Authorized")
+        assert request(removed) == "Complete"
+        assert status(removed)["admission_attempt"] == dict(request_id=new_id, progress="Complete")
+        joined = history(new_id)
+        assert joined["decision"] == "ReceiptReceived" and joined["authorization"] != old["authorization"]
+        assert history(old_attempt["request_id"]) == old
+
+        wait_for(lambda: roles(holder), lambda state: state.get(removed_id) == "member")
+        close(removed)
+        if browser_removed:
+            # C never saw this ordinary holder's Add. It has to learn B's
+            # membership from the same signed proof, with its old B offline.
+            close(holder)
+            holder = join(creator, "unknown-holder", False)
+            holder_id = identity(holder)
+        sign("remove-member", removed_id)
+        valid_name = prefix + "-new-precode"
+        valid = code(valid_name, 3600, 2)
+        expired_by = time.time() + 4
+        expired_name = prefix + "-expired-precode"
+        expired = code(expired_name, 3, 1)
+        wait_for(lambda: roles(holder), lambda state: removed_id not in state)
+        close(creator)
+        removed = reopen(removed)
+        if browser_removed:
+            assert holder_id not in roles(removed)
+            assert holder_operation("check_membership_removal", "check_membership_removal") is True
+            assert roles(removed)[holder_id] == "member"
+        wait_for(lambda: status(removed)["stage"], lambda stage: stage == "Removed")
+        creator = reopen(creator)
+        time.sleep(max(0, expired_by - time.time()))
+        select_rejoin(expired, "try-expired")
+        reject_precode()
+        expired_attempt = status(removed)["admission_attempt"]
+        assert status(removed)["stage"] == "AwaitingApproval" and expired_attempt["progress"] == "Created"
+        assert history(expired_attempt["request_id"]) is None and code_uses(expired, expired_name) == 0
+        select_rejoin(valid, "try-valid")
+        precode_id = status(removed)["admission_attempt"]["request_id"]
+        assert precode_id not in (new_id, expired_attempt["request_id"])
+        close(removed)
+        removed = reopen(removed)
+        assert status(removed)["admission_attempt"] == dict(request_id=precode_id, progress="Created")
+        assert request(removed, authorization_only=True) == "PendingMaterials"
+        close(removed)
+        removed = reopen(removed)
+        assert identity(removed) == removed_id and status(removed)["stage"] == "PendingMaterials"
+        assert status(removed)["admission_attempt"] == dict(request_id=precode_id, progress="Authorized")
+        assert request(removed) == "Complete"
+        assert code_uses(valid, valid_name) == 1
+        assert history(precode_id)["decision"] == "ReceiptReceived" and history(new_id) == joined
+        wait_for(lambda: roles(holder), lambda state: state.get(removed_id) == "member")
+        call(removed, "set_device_display_name", "set_device_display_name", "Rejoined", display_name="Rejoined")
+        holder_operation("sync_services", "service_sync")
+        assert next(row.get("display_name") for row in status(holder)["members"] if row["node"] == removed_id) == "Rejoined"
+        member_file()
+        close(removed)
+        sign("remove-member", removed_id)
+        wait_for(lambda: roles(holder), lambda state: removed_id not in state)
+        close(creator)
+        removed = reopen(removed)
+        if browser_removed:
+            assert holder_operation("check_membership_removal", "check_membership_removal") is True
+        wait_for(lambda: status(removed)["stage"], lambda stage: stage == "Removed")
+        creator = reopen(creator)
+        select_rejoin(expired, "new-selection")
+        select_rejoin(valid, "old-precode-replay")
+        replay_id = status(removed)["admission_attempt"]["request_id"]
+        reject_precode()
+        assert code_uses(valid, valid_name) == 1 and status(removed)["stage"] == "AwaitingApproval"
+        assert history(replay_id) is None
+        assert removed_id not in roles(creator)
+        close(creator)
+        close(removed)
+        close(holder)
+        self.record(prefix, "removal_rejoin", dict(
+            holderWasOrdinary=True, unavailableRetainedGrant=True, onlyCausalHistory=True,
+            oldMemberSessionDenied=True, bothRejoinsDurable=True, sameIdentityNewRequests=True,
+            providerKeptOlderReceipts=True, expiredCodeDenied=True, freshCodeUsedOnce=True,
+            oldCodeCannotRejoinAgain=True, unknownHolderVerified=browser_removed,
+            fullSyncAndMemberFileAfterRejoin=True))
 
     def departures(self):
         browser = self.browser
@@ -1567,6 +1845,9 @@ class BrowserOnboardingRunner(OnboardingRunner):
                 self.member_management()
             elif self.args.suite == "departure":
                 self.departures()
+            elif self.args.suite == "removal-rejoin":
+                for browser_removed in (True, False):
+                    self.removal_rejoin(browser_removed)
             else:
                 creator = self.creator(False, "native-provider")
                 if self.args.suite in ["all", "core"]:
@@ -1601,7 +1882,7 @@ def main():
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--build-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts", "device-names", "member-management", "departure"], default="all")
+    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts", "device-names", "member-management", "departure", "removal-rejoin"], default="all")
     parser.add_argument("--relay", default=RELAY, help="explicit relay for the progress, observation and receipt suites")
     parser.add_argument("--chromium", type=Path, default=Path("/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome"))
     args = parser.parse_args()

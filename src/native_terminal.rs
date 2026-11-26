@@ -248,6 +248,11 @@ impl NativeTerminal {
             .connection = Some(connection);
         Ok(())
     }
+    pub(crate) fn provider_capability(&self) -> (bool, bool) {
+        let state = self.state.lock().unwrap();
+        (state.backend.is_some(), state.enabled)
+    }
+
     pub fn status(&self) -> Value {
         let state = self.state.lock().unwrap();
         let processes = state

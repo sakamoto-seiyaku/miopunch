@@ -112,6 +112,7 @@ pub struct NativeClient {
     cancel: CancellationToken,
     _drop_cancel: tokio_util::sync::DropGuard,
     listener: JoinHandle<()>,
+    pub(crate) removal_commits: tokio_util::task::TaskTracker,
     recovery_saved: Arc<AtomicBool>,
     pub(crate) replacement_ready: Arc<AtomicBool>,
     admission_operation: Mutex<()>,
@@ -221,6 +222,10 @@ impl NativeClient {
             ProtocolScope::AdmissionRequest,
         );
         node.admission_gate().register_protocol(
+            crate::device_protocol::REMOVAL_ALPN,
+            ProtocolScope::AdmissionRequest,
+        );
+        node.admission_gate().register_protocol(
             crate::service_policy::GUEST_ALPN,
             ProtocolScope::AdmissionRequest,
         );
@@ -255,6 +260,7 @@ impl NativeClient {
             crate::credential_custody::CUSTODY_ALPN.to_vec(),
             crate::device_operation::DEVICE_RESULT_ALPN.to_vec(),
             crate::device_protocol::DEPARTURE_ALPN.to_vec(),
+            crate::device_protocol::REMOVAL_ALPN.to_vec(),
             crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
             crate::service_policy::GUEST_ALPN.to_vec(),
         ]);
@@ -306,11 +312,13 @@ impl NativeClient {
         services.lock().await.terminal = Some(Arc::downgrade(&terminal));
         let node = Arc::new(Mutex::new(node));
         let cancel = CancellationToken::new();
+        let removal_commits = tokio_util::task::TaskTracker::new();
         let listener = {
             let endpoint = resources.endpoint().clone();
             let resources = resources.clone();
             let node = node.clone();
             let cancel = cancel.clone();
+            let removal_commits = removal_commits.clone();
             let recovery_saved = recovery_saved.clone();
             let replacement_ready = replacement_ready.clone();
             let files = files.clone();
@@ -341,6 +349,7 @@ impl NativeClient {
                     gate.clone(),
                     recovery_saved.clone(),
                     replacement_ready.clone(),
+                    removal_commits,
                 ));
                 let mut standby = crate::member_standby::MemberStandby::new();
                 let mut expiry = tokio::time::interval(Duration::from_secs(1));
@@ -493,6 +502,14 @@ impl NativeClient {
                                     }
                                     return;
                                 }
+                                if alpn == crate::device_protocol::REMOVAL_ALPN {
+                                    if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting.into_control()).await {
+                                        let _ = crate::native_device_management::serve_removal_notice(
+                                            Arc::new(connection).retain_control(), &node, deadline,
+                                        ).await;
+                                    }
+                                    return;
+                                }
                                 if alpn == crate::management_recovery::MANAGEMENT_RECOVERY_ALPN {
                                     let _ = tokio::time::timeout_at(deadline, async {
                                         let connection = Arc::new(accepting.into_control().await?);
@@ -571,6 +588,7 @@ impl NativeClient {
             cancel,
             _drop_cancel: drop_cancel,
             listener,
+            removal_commits,
             recovery_saved,
             replacement_ready,
             admission_operation: Mutex::new(()),
@@ -589,7 +607,7 @@ impl NativeClient {
             node.manual_request_declined().await.unwrap_or(false)
         };
         let status = node.status();
-        let membership_ended = node.store.known_removed(status.node_id);
+        let membership_ended = node.membership_ended();
         let member_display_names = node.device_names.display_names(status.members.iter().map(|(id, _)| *id));
         ClientStatus {
             display_name: node.device_names.name(status.node_id).map(str::to_owned),
@@ -886,7 +904,7 @@ impl NativeClient {
             .reject_manual_admission(request)
             .await?)
     }
-    /// Only an explicit user action can start another attempt after rejection.
+    /// Explicitly start another ordinary request after rejection or removal.
     pub async fn new_manual_attempt(
         &self,
         invitation: &ClientInvitation,
@@ -895,22 +913,56 @@ impl NativeClient {
         self.begin_new_manual_attempt(invitation).await
     }
 
+    /// Explicitly start a fresh request under this device identity. The full
+    /// invitation may be an ordinary invitation or a new precode. Newly
+    /// imported contact facilities take effect the next time the SDK opens.
+    pub async fn new_rejoin_attempt(&self, invitation: &ClientInvitation) -> Result<(), ClientError> {
+        let _operation = self.admission_operation.lock().await;
+        let mut node = self.node.lock().await;
+        if !node.store.known_removed(node.node_key.verifying_key()) {
+            return Err("no ended membership to rejoin".into());
+        }
+        let code = invitation.code()?;
+        if let Some(saved) = crate::client_contact::load_invitation(&node)? {
+            let same_code = code == saved.code()?;
+            if node.rejoin_pending && same_code && invitation.material()? == saved.material()? {
+                return Ok(());
+            }
+            if code.is_some() && same_code {
+                return Err("rejoining with a precode requires a new code".into());
+            }
+        }
+        self.start_admission_attempt(&mut node, invitation).await
+    }
+
     async fn begin_new_manual_attempt(
         &self,
         invitation: &ClientInvitation,
     ) -> Result<(), ClientError> {
         let mut node = self.node.lock().await;
-        if !node.manual_request_declined().await? || invitation.code()?.is_some() {
-            return Err("no declined manual request".into());
+        let removed = node.membership_ended();
+        if invitation.code()?.is_some() || (!removed && !node.manual_request_declined().await?) {
+            return Err("no declined manual request or ended membership".into());
         }
+        self.start_admission_attempt(&mut node, invitation).await
+    }
+
+    async fn start_admission_attempt(
+        &self,
+        node: &mut NativeNetwork,
+        invitation: &ClientInvitation,
+    ) -> Result<(), ClientError> {
         let material = invitation.material()?;
         if material.anchor != node.anchor {
             return Err("invitation belongs to another network".into());
         }
-        crate::client_contact::stage_invitation(&node, invitation)?;
-        node.begin_rejoin(material).await?;
+        let config = crate::client_contact::import_contact(
+            node.resource_configuration()?, invitation.bootstrap(),
+        )?;
+        node.save_resource_configuration(&config)?;
+        node.begin_rejoin_with_contact(material, Some(invitation)).await?;
         self.files
-            .update_access(self.services.lock().await.access(&node).await?);
+            .update_access(self.services.lock().await.access(node).await?);
         Ok(())
     }
 
@@ -1012,6 +1064,9 @@ impl NativeClient {
                 .update_access(self.services.lock().await.access(&node).await?);
         } else {
             let node = self.node.lock().await;
+            if node.membership_ended() {
+                return Err("membership ended; start a new rejoin attempt".into());
+            }
             if node.manual_request_declined().await? {
                 return Err(crate::manual_admission::ManualAdmissionError::RequestDeclined.into());
             }
@@ -1055,6 +1110,7 @@ impl NativeClient {
         connection.close(0u32.into(), b"client admission ended");
         result
     }
+
     /// Finite member business exchange through configured SDK admission and
     /// route selection. Diagnostics report the actual selected connection path.
     pub async fn ping(&self, address: EndpointAddr) -> Result<Value, ClientError> {
@@ -1109,6 +1165,8 @@ impl NativeClient {
         };
         self.cancel.cancel();
         self.listener.await?;
+        self.removal_commits.close();
+        self.removal_commits.wait().await;
         self.files.close().await;
         Arc::try_unwrap(self.resources)
             .map_err(|_| "client resources still owned")?
@@ -1284,6 +1342,7 @@ async fn sync_member_management(
     gate: crate::admission_gate::AdmissionGate,
     recovery_saved: Arc<AtomicBool>,
     replacement_ready: Arc<AtomicBool>,
+    removal_commits: tokio_util::task::TaskTracker,
 ) {
     use crate::{
         resources::ContactClass,
@@ -1293,6 +1352,7 @@ async fn sync_member_management(
     let mut ticks = tokio::time::interval(interval);
     ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut last = None;
+    let mut check_removal = std::collections::BTreeSet::new();
     loop {
         ticks.tick().await;
         if !recovery_saved.load(Ordering::Acquire) || !replacement_ready.load(Ordering::Acquire) {
@@ -1305,12 +1365,20 @@ async fn sync_member_management(
             ).await;
             continue;
         }
+        check_removal.retain(|peer| peers.contains(peer));
         let peers = peers.into_iter()
             .filter(|peer| resources.contact_ready(*peer, ContactClass::Background));
         let Some(peer) = next_member_sync_peer(peers, last) else {
             continue;
         };
         last = Some(peer);
+        if check_removal.remove(&peer) {
+            let _ = crate::native_device_management::receive_removal_notice(
+                members.node.clone(), members.policies.clone(), members.files.clone(), &resources,
+                iroh::EndpointAddr::new(peer), ContactClass::Background, &removal_commits,
+            ).await;
+            continue;
+        }
         let deadline = resources.contact_deadline();
         let Ok((connection, attempt)) = resources
             .connect_data_attempt(
@@ -1321,6 +1389,7 @@ async fn sync_member_management(
             )
             .await
         else {
+            check_removal.insert(peer);
             continue;
         };
         // Keep transport expiry outside the durable management transaction.
@@ -1338,6 +1407,7 @@ async fn sync_member_management(
             Ok(()) => attempt.succeeded(),
             Err(error) => {
                 attempt.failed(error.to_string());
+                check_removal.insert(peer);
             }
         }
     }

@@ -392,6 +392,11 @@ impl NativeWeb {
         state.tls = Some(Arc::new(tls));
         Ok(())
     }
+    pub(crate) fn provider_enabled(&self) -> bool {
+        let state = self.state.lock().unwrap();
+        state.client.is_some() && !state.closed
+    }
+
     pub fn status(&self) -> Value {
         let state = self.state.lock().unwrap();
         json!({"provider":true,"enabled":state.client.is_some() && !state.closed,"origins":state.origins,

@@ -316,6 +316,35 @@ impl ServiceAccess {
             enabled,
         })
     }
+    pub(crate) fn refresh_declaration(
+        &self,
+        service: Service,
+        capable: bool,
+        enabled: bool,
+    ) -> Option<ServiceAction> {
+        let previous = self.ledger.declaration(self.local, service)?;
+        (self.member(self.local) && !self.declaration_is_current(&previous)).then_some(
+            ServiceAction::Declare {
+                provider: self.local,
+                service,
+                previous: Some(previous.revision),
+                capable,
+                enabled,
+            },
+        )
+    }
+    pub(crate) fn has_stale_local_declarations(&self) -> bool {
+        self.member(self.local)
+            && self.ledger.declarations.values().any(|declaration| {
+                declaration.provider == self.local && !self.declaration_is_current(declaration)
+            })
+    }
+    fn declaration_is_current(&self, declaration: &ServiceDeclaration) -> bool {
+        self.ledger.management.get(&declaration.revision).is_some_and(|dependencies| {
+            self.auth.authorization_origin_at(self.local, dependencies, false)
+                .is_some_and(|grant| self.auth.membership_authorization_valid(grant, self.local))
+        })
+    }
     pub fn local_service_status(
         &self,
         service: Service,

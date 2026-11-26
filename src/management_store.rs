@@ -74,6 +74,12 @@ pub struct ManagementStore {
     checkpoint_observer: Option<fn(RecordCheckpoint)>,
 }
 
+pub(crate) struct LocalAdmissionDelivery<'a> {
+    pub(crate) receipt: crate::admission_progress::AdmissionReceipt,
+    pub(crate) contact: &'a iroh::EndpointAddr,
+    pub(crate) base_request_id: [u8; 16],
+}
+
 /// Real durability boundaries available only to explicit fault-injection
 /// builds. Observers can terminate the test process without altering storage.
 #[cfg(feature = "replica-test-hooks")]
@@ -265,6 +271,9 @@ impl ManagementStore {
         )
         .execute(&pool)
         .await?;
+        sqlx::query("CREATE TABLE IF NOT EXISTS pending_rejoin_material (request_id BLOB PRIMARY KEY)")
+            .execute(&pool)
+            .await?;
 
         sqlx::query("INSERT OR IGNORE INTO management_anchor VALUES (1, ?, ?)")
             .bind(anchor.root.as_bytes().as_slice())
@@ -356,10 +365,7 @@ impl ManagementStore {
         &self,
         scope: &AdmissionScope,
         secret: &AdmissionSecret,
-        delivery: Option<(
-            crate::admission_progress::AdmissionReceipt,
-            &iroh::EndpointAddr,
-        )>,
+        delivery: Option<LocalAdmissionDelivery<'_>>,
     ) -> Result<(), StoreError> {
         if scope.network_id() != self.anchor.root.as_bytes() {
             return Err(StoreError::WrongAnchor);
@@ -397,7 +403,7 @@ impl ManagementStore {
                     .await?;
             }
         }
-        if let Some((receipt, contact)) = delivery {
+        if let Some(LocalAdmissionDelivery { receipt, contact, base_request_id }) = delivery {
             let changed = sqlx::query(
                 "UPDATE local_admission_attempt SET progress = 3
                 WHERE request_id = ? AND authorization = ? AND progress IN (2, 3)",
@@ -406,6 +412,10 @@ impl ManagementStore {
             .bind(receipt.authorization.as_bytes().as_slice())
             .execute(&mut *tx)
             .await?;
+            sqlx::query("DELETE FROM pending_rejoin_material WHERE request_id = ?")
+                .bind(base_request_id.as_slice())
+                .execute(&mut *tx)
+                .await?;
             if changed.rows_affected() != 1 {
                 return Err(StoreError::Corrupt(
                     "saved admission does not match the active delivery",
@@ -458,6 +468,31 @@ impl ManagementStore {
                     .map_err(|_| StoreError::InvalidAdmission)
             })
             .transpose()
+    }
+
+    pub(crate) async fn pending_rejoin_material(&self, request_id: [u8; 16]) -> Result<bool, StoreError> {
+        Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pending_rejoin_material WHERE request_id = ?)")
+            .bind(request_id.as_slice())
+            .fetch_one(&self.pool)
+            .await?)
+    }
+
+    pub(crate) async fn mark_pending_rejoin(
+        &self,
+        request_id: [u8; 16],
+        previous: Option<[u8; 16]>,
+    ) -> Result<(), StoreError> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query("DELETE FROM pending_rejoin_material WHERE request_id IS NOT ?")
+            .bind(previous.as_ref().map(|id| id.as_slice()))
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("INSERT INTO pending_rejoin_material VALUES (?)")
+            .bind(request_id.as_slice())
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(())
     }
 
     pub(crate) async fn save_expected_admission_generation(

@@ -371,6 +371,7 @@ impl BrowserServices {
             crate::device_operation::DEVICE_ALPN,
             crate::device_operation::DEVICE_RESULT_ALPN,
             DEPARTURE_ALPN,
+            REMOVAL_ALPN,
             crate::credential_custody::CUSTODY_ALPN,
             device_recovery::RECOVERY_ALPN,
         ]) {
@@ -398,6 +399,7 @@ impl BrowserServices {
                         crate::service_policy::GUEST_ALPN
                             | crate::device_operation::DEVICE_RESULT_ALPN
                             | DEPARTURE_ALPN
+                            | REMOVAL_ALPN
                             | device_recovery::RECOVERY_ALPN
                     ) {
                         if let Ok(Ok(control)) = n0_future::time::timeout(
@@ -416,6 +418,8 @@ impl BrowserServices {
                                 let _ = device_management::serve_result(&control, &gate).await;
                             } else if alpn == DEPARTURE_ALPN {
                                 let _ = device_management::serve_departure(&control, &gate, &files, deadline).await;
+                            } else if alpn == REMOVAL_ALPN {
+                                let _ = device_management::serve_removal_notice(&control, &gate, deadline).await;
                             } else if alpn == device_recovery::RECOVERY_ALPN {
                                 let _ =
                                     device_recovery::serve_recovery(&control, &gate, &files).await;
@@ -508,6 +512,7 @@ impl BrowserServices {
             let service = &owner.0;
             let mut last = None;
             let mut retry_at = std::collections::BTreeMap::new();
+            let mut check_removal = std::collections::BTreeSet::new();
             while !service.cancel.is_cancelled() {
                 let now = Instant::now();
                 let next = now + interval;
@@ -520,6 +525,9 @@ impl BrowserServices {
                         return Ok(());
                     }
                     let auth = saved.verify()?.ok_or_else(rejected)?;
+                    check_removal.retain(|peer: &iroh_base::EndpointId| {
+                        auth.nodes().iter().any(|(id, _)| id.as_bytes() == peer.as_bytes())
+                    });
                     let departure = if stage == "Removed" {
                         let Some(entry) = saved.operations.pending_departure(saved.identity(), &auth) else {
                             return Ok(());
@@ -563,6 +571,12 @@ impl BrowserServices {
                             ).map_err(error)
                         }).await;
                     }
+                    if check_removal.remove(&target) {
+                        service.receive_removal_notice(&endpoint, address, &gate, &files, deadline)
+                            .await?;
+                        return Ok(());
+                    }
+                    check_removal.insert(target);
                     let connection = coordinator
                         .connect_alpn(
                             address,
@@ -580,7 +594,9 @@ impl BrowserServices {
                             MemberSyncMode::Management,
                             deadline,
                         )
-                        .await
+                        .await?;
+                    check_removal.remove(&target);
+                    Ok(())
                 };
                 if attempt.await.is_err()
                     && let Some(peer) = peer
@@ -594,6 +610,103 @@ impl BrowserServices {
                 }
             }
         });
+    }
+
+    async fn receive_removal_notice(
+        &self,
+        endpoint: &RestrictedEndpoint,
+        address: EndpointAddr,
+        gate: &BrowserGate,
+        files: &Rc<files::BrowserFiles>,
+        deadline: n0_future::time::Instant,
+    ) -> Result<bool, JsValue> {
+        use crate::device_protocol::RemovalNotice;
+        use iroh::endpoint::{ConnectWithOptsError, ConnectingError};
+        use n0_future::time::{Instant, timeout};
+
+        let saved = gate.service_snapshot()?;
+        if !BrowserGate::permits(&saved, address.id, REMOVAL_ALPN) {
+            return Err(error("current membership required to request a removal notice"));
+        }
+        let holder = VerifyingKey::from_bytes(address.id.as_bytes()).map_err(error)?;
+        let grant = saved.authorization.ok_or_else(rejected)?;
+        let unreachable = || error("removal notice peer temporarily unreachable");
+        let wire = timeout(deadline.saturating_duration_since(Instant::now()), async {
+            let options = iroh::endpoint::ConnectOptions::new().with_caller_deadline(deadline);
+            let control = endpoint.connect_control_with_opts(address, REMOVAL_ALPN, options)
+                .await.map_err(|cause| match cause {
+                    ConnectWithOptsError::AttemptTimedOut { .. } => unreachable(),
+                    _ => error(cause),
+                })?
+                .await.map_err(|cause| match cause {
+                    ConnectingError::AttemptTimedOut { .. } => unreachable(),
+                    _ => error(cause),
+                })?;
+            let control = Arc::new(control).retain_control();
+            let _close = RequestConnection(Some(control.clone()));
+            RemovalNotice::request(&control, grant).await.map_err(error)
+        });
+        let notice = tokio::select! {
+            biased;
+            _ = self.cancel.cancelled() => return Err(error("browser node disconnected")),
+            result = wire => result.map_err(|_| unreachable())??,
+        };
+        let Some(notice) = notice else { return Ok(false) };
+        let removed = update_saved(gate, |saved| {
+            if saved.authorization != Some(grant) {
+                return Ok(false);
+            }
+            if saved.stage() == "Removed" {
+                return Ok(true);
+            }
+            if saved.stage() != "Complete" {
+                return Ok(false);
+            }
+            let auth = saved.verify()?.ok_or_else(rejected)?;
+            let management = notice.verify(&auth, grant, saved.identity(), holder).map_err(error)?;
+            let (next, policy_error) = saved.with_service_bundle(&ServiceBundle {
+                management,
+                services: Vec::new(),
+            })?;
+            if let Some(policy_error) = policy_error {
+                return Err(error(policy_error));
+            }
+            *saved = next;
+            Ok(true)
+        }).await?;
+        files.enforce_access();
+        self.clipboard.enforce_access().await;
+        Ok(removed)
+    }
+
+    async fn refresh_local_declarations(
+        &self,
+        gate: &BrowserGate,
+        files: &Rc<files::BrowserFiles>,
+    ) -> Result<bool, JsValue> {
+        if !gate.service_snapshot()?.service_access()?.has_stale_local_declarations() {
+            return Ok(false);
+        }
+        let clipboard = clipboard_host::capability().await;
+        let clipboard_capable = clipboard.read && clipboard.write;
+        let files_capable = files::capable();
+        let declarations = [
+            (Service::Files, files_capable, files_capable && files.enabled.get()),
+            (Service::Clipboard, clipboard_capable, clipboard_capable && self.clipboard.state.status().enabled),
+        ];
+        update_saved(gate, |saved| {
+            let mut refreshed = false;
+            if saved.stage() == "Complete" {
+                let access = saved.service_access()?;
+                for (service, capable, enabled) in declarations {
+                    if let Some(change) = access.refresh_declaration(service, capable, enabled) {
+                        *saved = saved.with_service_action(change)?.0;
+                        refreshed = true;
+                    }
+                }
+            }
+            Ok(refreshed)
+        }).await
     }
 
     async fn serve_policy(
@@ -617,7 +730,7 @@ impl BrowserServices {
         })
         .await?;
         let mode = incoming.mode();
-        let (response, policy_error) = update_saved(gate, |saved| {
+        let (mut response, policy_error) = update_saved(gate, |saved| {
             if self.cancel.is_cancelled() || !admitted.is_current(saved, connection)? {
                 return Err(rejected());
             }
@@ -631,6 +744,11 @@ impl BrowserServices {
         self.clipboard.enforce_access().await;
         if let Some(policy_error) = policy_error {
             return Err(error(policy_error));
+        }
+        if mode == MemberSyncMode::Full && self.refresh_local_declarations(gate, files).await? {
+            let saved = gate.qualified_snapshot(connection).await?;
+            let auth = saved.verify()?.ok_or_else(rejected)?;
+            response = saved.member_sync(&auth.nodes(), mode);
         }
         member_sync_wire(deadline, async {
             response.write(&mut stream).await.map_err(error)?;
@@ -649,6 +767,9 @@ impl BrowserServices {
         mode: MemberSyncMode,
         deadline: n0_future::time::Instant,
     ) -> Result<(), JsValue> {
+        if mode == MemberSyncMode::Full {
+            self.refresh_local_declarations(gate, files).await?;
+        }
         let (snapshot, admitted) = {
             let saved = gate.qualified_snapshot(connection).await?;
             let auth = saved.verify()?.ok_or_else(rejected)?;
@@ -879,6 +1000,14 @@ impl BrowserNetwork {
             )
             .await?;
         Ok("{\"saved_locally\":true}".into())
+    }
+    /// A path failure leaves the previously saved membership grant intact.
+    pub async fn check_membership_removal(&mut self, target: String) -> Result<bool, JsValue> {
+        self.require_device_ready()?;
+        self.services.receive_removal_notice(
+            &self.endpoint, self.target_address(target.parse().map_err(error)?)?,
+            &self.gate, &self.files, n0_future::time::Instant::now() + self.caller_budget,
+        ).await
     }
     pub async fn issue_guest(
         &mut self,

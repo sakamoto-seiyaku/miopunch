@@ -953,7 +953,12 @@ impl NativeNetwork {
                 .filter(|invitation| invitation.contact() == delivery.binding.invitation.contact)
                 .map(|invitation| invitation.address)
                 .unwrap_or_else(|| iroh::EndpointAddr::new(delivery.binding.invitation.contact));
-            self.commit_admission_material(scope, secret, Some((receipt, &contact)))
+            let saved = crate::management_store::LocalAdmissionDelivery {
+                receipt,
+                contact: &contact,
+                base_request_id: delivery.binding.request_id,
+            };
+            self.commit_admission_material(scope, secret, Some(saved))
                 .await?;
             #[cfg(feature = "replica-test-hooks")]
             self.store

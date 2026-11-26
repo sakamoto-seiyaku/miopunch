@@ -7,6 +7,7 @@ use crate::{
 use std::{collections::BTreeSet, io};
 
 const SAVED_INVITATION: &str = "client.invitation";
+type RejoinInvitations = ([u8; 16], Option<ClientInvitation>, ClientInvitation);
 
 pub(crate) fn import_contact(
     mut local: ResourceConfig,
@@ -105,6 +106,17 @@ pub(crate) fn load_invitation(node: &NativeNetwork) -> io::Result<Option<ClientI
     if !bytes.starts_with(b"[") {
         return ClientInvitation::decode(&bytes).map(Some);
     }
+    if let Ok((request, previous, next)) = serde_json::from_slice::<RejoinInvitations>(&bytes) {
+        let invitation = if node.join.is_some_and(|binding| binding.request_id == request) {
+            Some(next)
+        } else {
+            previous
+        };
+        if let Some(invitation) = &invitation {
+            invitation.encode()?;
+        }
+        return Ok(invitation);
+    }
     let [previous, next]: [ClientInvitation; 2] = serde_json::from_slice(&bytes)?;
     let binding = node.join.ok_or_else(|| io::Error::other("no saved request binding"))?;
     for invitation in [previous, next] {
@@ -114,6 +126,18 @@ pub(crate) fn load_invitation(node: &NativeNetwork) -> io::Result<Option<ClientI
         }
     }
     Err(io::Error::other("saved invitations do not match the local request"))
+}
+
+/// A new code can have the same contact and network as the prior invitation.
+/// The durable request ID selects the full invitation on either side of publish.
+pub(crate) fn stage_rejoin_invitation(
+    node: &NativeNetwork,
+    next: &ClientInvitation,
+    request_id: [u8; 16],
+) -> io::Result<()> {
+    next.encode()?;
+    let bytes = serde_json::to_vec(&(request_id, load_invitation(node)?, next))?;
+    crate::native_files::write_private_atomic(&node.directory.join(SAVED_INVITATION), &bytes)
 }
 
 /// Stage a replacement contact before changing the durable request binding.

@@ -392,6 +392,31 @@ impl ManagementAuth {
         self.state.inner.ignore.contains(&id)
     }
 
+    pub(crate) fn removal_applies_to(
+        &self,
+        decision: Hash,
+        grant: Hash,
+        target: VerifyingKey,
+    ) -> bool {
+        let Some(grant) = self.state.inner.operations.get(&grant) else {
+            return false;
+        };
+        grants_membership(&grant.action, target)
+            && !self.filtered_operation(decision)
+            && self.state.inner.operations.get(&decision).is_some_and(|operation| {
+                matches!(operation.action, GroupAction::Remove { member: GroupMember::Individual(node) } if node == target)
+            })
+            && !has_ancestor(decision, &grant.dependencies, &self.state)
+    }
+
+    pub(crate) fn removal_decision(&self, grant: Hash, target: VerifyingKey) -> Option<Hash> {
+        if !self.known_removed(target) {
+            return None;
+        }
+        self.headers.iter().rev().map(Hash::digest)
+            .find(|decision| self.removal_applies_to(*decision, grant, target))
+    }
+
     /// A reusable admission result must refer to this identity's still-valid
     /// membership episode. Current membership alone would let an old result
     /// resume after a valid removal and a later, separately authorized rejoin.
@@ -403,14 +428,7 @@ impl ManagementAuth {
         let Some(grant) = self.state.inner.operations.get(&id) else {
             return false;
         };
-        let grants_target = match &grant.action {
-            GroupAction::Add { member, .. } => *member == GroupMember::Individual(target),
-            GroupAction::Create { initial_members } => initial_members
-                .iter()
-                .any(|(member, _)| *member == GroupMember::Individual(target)),
-            _ => false,
-        };
-        grants_target && !self.state.inner.operations.values().any(|operation| {
+        grants_membership(&grant.action, target) && !self.state.inner.operations.values().any(|operation| {
             !self.filtered_operation(operation.id)
                 && matches!(operation.action, GroupAction::Remove { member: GroupMember::Individual(node) } if node == target)
                 && has_ancestor(id, &operation.dependencies, &self.state)
@@ -504,6 +522,16 @@ pub(crate) fn decode_complete(
     };
     validate_operation(&operation)?;
     Ok(header)
+}
+
+fn grants_membership(action: &GroupAction<VerifyingKey>, target: VerifyingKey) -> bool {
+    match action {
+        GroupAction::Add { member, .. } => *member == GroupMember::Individual(target),
+        GroupAction::Create { initial_members } => initial_members
+            .iter()
+            .any(|(member, _)| *member == GroupMember::Individual(target)),
+        _ => false,
+    }
 }
 
 fn has_ancestor(target: Hash, dependencies: &[Hash], state: &State) -> bool {

@@ -13,6 +13,7 @@ use crate::{
 };
 
 pub(crate) const DEPARTURE_ALPN: &[u8] = b"miopunch/device-departure/1";
+pub(crate) const REMOVAL_ALPN: &[u8] = b"miopunch/device-removal/1";
 
 /// Carries one self-departure and only its signed causal predecessors.
 #[derive(Serialize, Deserialize)]
@@ -25,7 +26,7 @@ impl DepartureDelivery {
     pub(crate) fn new(entry: &OperationEntry) -> io::Result<Self> {
         let approval = entry.approval.as_ref().ok_or_else(invalid_departure)?;
         Ok(Self {
-            dependencies: departure_dependencies(approval, &entry.receipt_history)?,
+            dependencies: causal_dependencies(&approval.record, &entry.receipt_history)?,
             approval: approval.clone(),
         })
     }
@@ -49,7 +50,7 @@ impl DepartureDelivery {
             return Err(invalid_departure());
         }
         self.approval.verify(operation, anchor)?;
-        if departure_dependencies(&self.approval, &self.dependencies)?.len()
+        if causal_dependencies(&self.approval.record, &self.dependencies)?.len()
             != self.dependencies.len()
         {
             return Err(invalid_departure());
@@ -100,12 +101,8 @@ impl DepartureDelivery {
     }
 }
 
-fn departure_dependencies(
-    approval: &DeviceApproval,
-    records: &ManagementRecords,
-) -> io::Result<ManagementRecords> {
-    let decision =
-        Header::<ManagementExtension>::decode(&approval.record).map_err(io::Error::other)?;
+fn causal_dependencies(decision: &[u8], records: &ManagementRecords) -> io::Result<ManagementRecords> {
+    let decision = Header::<ManagementExtension>::decode(decision).map_err(io::Error::other)?;
     let mut needed: HashSet<_> = decision.extensions.group.dependencies.into_iter().collect();
     let mut dependencies = Vec::new();
     for (bytes, body) in records.iter().rev() {
@@ -116,10 +113,75 @@ fn departure_dependencies(
         }
     }
     if !needed.is_empty() {
-        return Err(invalid_departure());
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "missing decision dependencies"));
     }
     dependencies.reverse();
     Ok(dependencies)
+}
+
+/// The requested membership grant belongs to the authenticated requester.
+/// The reply contains exactly one decision and its signed causal predecessors.
+#[derive(Serialize, Deserialize)]
+pub(crate) struct RemovalNotice {
+    decision: Vec<u8>,
+    dependencies: ManagementRecords,
+}
+
+impl RemovalNotice {
+    pub(crate) fn new(decision: Hash, records: &ManagementRecords) -> io::Result<Self> {
+        let (decision, _) = records.iter()
+            .find(|(header, _)| Hash::digest(header) == decision)
+            .ok_or_else(invalid_removal)?;
+        Ok(Self {
+            decision: decision.clone(),
+            dependencies: causal_dependencies(decision, records)?,
+        })
+    }
+
+    pub(crate) fn verify(
+        mut self,
+        current: &ManagementAuth,
+        grant: Hash,
+        local: VerifyingKey,
+        holder: VerifyingKey,
+    ) -> io::Result<ManagementRecords> {
+        if self.dependencies.len() >= crate::service_policy::MAX_RECORDS
+            || !current.membership_authorization_valid(grant, local)
+            || current.known_removed(holder)
+            || causal_dependencies(&self.decision, &self.dependencies)?.len() != self.dependencies.len()
+        {
+            return Err(invalid_removal());
+        }
+        let mut preview = current.clone();
+        for (header, body) in &self.dependencies {
+            if !preview.contains_operation(Hash::digest(header)) {
+                preview.accept_record(header, body.as_deref()).map_err(io::Error::other)?;
+            }
+        }
+        let decision = preview.accept(&self.decision).map_err(io::Error::other)?;
+        if !preview.removal_applies_to(decision, grant, local)
+            || !preview.known_removed(local)
+            || !preview.nodes().iter().any(|(id, _)| *id == holder)
+        {
+            return Err(invalid_removal());
+        }
+        self.dependencies.push((self.decision, None));
+        Ok(self.dependencies)
+    }
+
+    pub(crate) async fn request(
+        connection: &impl AuthenticatedControl,
+        grant: Hash,
+    ) -> io::Result<Option<Self>> {
+        let exchange = connection.open_control_exchange().await?;
+        write_guest(&exchange, &grant).await?;
+        exchange.finish_send().await.map_err(io::Error::other)?;
+        read_guest(&exchange).await
+    }
+}
+
+fn invalid_removal() -> io::Error {
+    io::Error::new(io::ErrorKind::PermissionDenied, "invalid membership removal notice")
 }
 
 fn invalid_departure() -> io::Error {

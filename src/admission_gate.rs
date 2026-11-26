@@ -73,6 +73,9 @@ impl Session {
         if self.alpn == crate::device_protocol::DEPARTURE_ALPN {
             return policy.departure_contact_allowed(&self.peer, self.client);
         }
+        if self.alpn == crate::device_protocol::REMOVAL_ALPN {
+            return policy.removal_contact_allowed(&self.peer, self.client);
+        }
         if let Some(service) = policy.services.get(self.alpn.as_slice()) {
             if !self.client && service.denied.contains(&self.peer) {
                 return false;
@@ -142,6 +145,16 @@ impl Policy {
             && self.members.contains(peer)
             && !self.removed.contains(&self.local_id)
             && !self.removed.contains(peer)
+    }
+
+    fn removal_contact_allowed(&self, peer: &[u8; 32], client: bool) -> bool {
+        self.secret.is_some()
+            && self.members.contains(&self.local_id)
+            && if client {
+                !self.removed.contains(peer)
+            } else {
+                self.removed.contains(peer)
+            }
     }
 
     fn service_guest(&self, alpn: &[u8], peer: &[u8; 32]) -> bool {
@@ -802,6 +815,11 @@ impl AdmissionGate {
         }
         if connection.alpn() == crate::device_protocol::DEPARTURE_ALPN
             && !policy.departure_contact_allowed(&peer, connection.side().is_client())
+        {
+            return Err(ErrorKind::PermissionDenied);
+        }
+        if connection.alpn() == crate::device_protocol::REMOVAL_ALPN
+            && !policy.removal_contact_allowed(&peer, connection.side().is_client())
         {
             return Err(ErrorKind::PermissionDenied);
         }

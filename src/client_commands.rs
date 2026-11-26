@@ -259,6 +259,9 @@ pub enum Command {
     NewManualAttempt {
         path: Option<String>,
     },
+    NewRejoinAttempt {
+        path: String,
+    },
     Approve {
         applicant: String,
         request_id: String,
@@ -279,6 +282,9 @@ pub enum Command {
         rule: crate::service_policy::ServiceRule,
     },
     ServiceSync {
+        address: iroh::EndpointAddr,
+    },
+    CheckMembershipRemoval {
         address: iroh::EndpointAddr,
     },
     GuestIssue {
@@ -341,7 +347,7 @@ fn status_json(status: ClientStatus, guest: Option<Value>) -> Value {
     let mut result = json!({"node":status.node.node_id.to_string(), "network":status.node.anchor.root.to_string(),
         "genesis":status.node.anchor.genesis.to_string(),
         "stage":if !status.recovery_saved {"AwaitingRecoverySave".into()} else if !status.replacement_ready {"RestoringAuthorization".into()} else if status.membership_ended {"Removed".into()} else if status.manual_rejected {"Rejected".into()} else {format!("{:?}",status.admission)},
-        "automatic_retry":!status.manual_rejected,
+        "automatic_retry":!status.manual_rejected && !status.membership_ended,
         "admission_attempt":status.admission_attempt.map(|attempt| attempt.public_json()),
         "recovery_exported":status.recovery_exported, "recovery_saved":status.recovery_saved,
         "replacement_ready":status.replacement_ready, "records":status.node.applied_count,
@@ -735,6 +741,10 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
             }
             Ok(json!({"stage":"AwaitingApproval"}))
         }
+        Command::NewRejoinAttempt { path } => {
+            client.new_rejoin_attempt(&read_invitation(&path)?).await?;
+            Ok(json!({"stage":"AwaitingApproval"}))
+        }
         Command::Reject {
             applicant,
             request_id,
@@ -792,6 +802,16 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
             json!({"revision":client.set_service_rule(provider, service, previous, rule).await?,"saved_locally":true}),
         ),
         Command::ServiceSync { address } => client.sync_services(address).await,
+        Command::CheckMembershipRemoval { address } => {
+            let stage = match client.check_membership_removal(address).await {
+                Ok(true) => "Removed",
+                Ok(false) => "NoNotice",
+                Err(error) if error.downcast_ref::<std::io::Error>()
+                    .is_some_and(|error| error.kind() == std::io::ErrorKind::TimedOut) => "TemporarilyUnreachable",
+                Err(error) => return Err(error),
+            };
+            Ok(json!({"stage": stage}))
+        }
         Command::GuestIssue {
             service,
             path,

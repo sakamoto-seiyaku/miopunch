@@ -424,6 +424,9 @@ impl NativeForwarding {
                 "target":l.target,"listen":l.listen,"running":!l.join.is_finished() && !l.cancel.is_cancelled(),
                 "counters":*l.counters.lock().unwrap()})).collect::<Vec<_>>()})
     }
+    pub(crate) fn provider_enabled(&self, protocol: Protocol) -> bool {
+        self.state.lock().unwrap().scopes.contains_key(&protocol)
+    }
     async fn serve(
         self: &Arc<Self>,
         connection: ServiceTransport,
@@ -921,12 +924,7 @@ impl NativeClient {
         Ok(())
     }
     pub(crate) fn forwarding_enabled(&self, protocol: Protocol) -> bool {
-        self.forwarding
-            .state
-            .lock()
-            .unwrap()
-            .scopes
-            .contains_key(&protocol)
+        self.forwarding.provider_enabled(protocol)
     }
     pub async fn enable_forwarding(
         &self,

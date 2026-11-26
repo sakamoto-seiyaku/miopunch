@@ -66,6 +66,12 @@ impl SavedNode {
                 "changing an ordinary request requires a fresh explicit attempt",
             ));
         }
+        self.set_invitation(full, material, precode);
+        self.verify()?;
+        Ok(())
+    }
+
+    fn set_invitation(&mut self, full: ClientInvitation, material: [u8; 96], precode: Option<[u8; 128]>) {
         let old_request = self.admission_request_id();
         self.invitation = Some(material.to_vec());
         self.precode = precode.map(|bytes| bytes[96..].try_into().unwrap());
@@ -73,8 +79,6 @@ impl SavedNode {
             self.reset_admission_progress();
         }
         self.complete_invitation = Some(full);
-        self.verify()?;
-        Ok(())
     }
 }
 
@@ -296,6 +300,10 @@ impl BrowserNetwork {
         if self.pairing.is_some() {
             return Err(error("finish pairing before requesting admission"));
         }
+        self.refresh_service_snapshot().await?;
+        if self.saved.stage() == "Removed" {
+            return Err(error("membership ended; start a new rejoin attempt"));
+        }
         let attempt = self.saved.admission_attempt();
         if self.saved.complete_invitation.is_none() && attempt.is_none() {
             return Err(error("no saved invitation selected"));
@@ -323,10 +331,13 @@ impl BrowserNetwork {
         Ok(stage)
     }
 
-    /// Rejection ends only that request. A user action creates a new durable
-    /// request ID while retaining the independent node and selected network.
+    /// Explicitly make a new ordinary request using the saved invitation.
     pub async fn new_manual_attempt(&mut self) -> Result<(), JsValue> {
-        self.check_store().await?;
+        self.refresh_service_snapshot().await?;
+        if self.saved.stage() == "Removed" && self.saved.precode.is_none() {
+            let invitation = self.saved.complete_invitation.clone().ok_or_else(rejected)?;
+            return self.begin_rejoin_attempt(invitation).await;
+        }
         if !self.saved.manual_rejected
             || self.saved.precode.is_some()
             || self.saved.authorization.is_some()
@@ -338,6 +349,47 @@ impl BrowserNetwork {
         next.request = rand::random();
         next.manual_rejected = false;
         next.reset_admission_progress();
+        self.commit(next).await
+    }
+
+    /// Start rejoining after a verified removal with an ordinary invitation
+    /// or a fresh precode, keeping the existing device key and network.
+    /// Newly imported contact facilities take effect on the next start.
+    pub async fn new_rejoin_attempt(&mut self, invitation: String) -> Result<(), JsValue> {
+        self.refresh_service_snapshot().await?;
+        self.begin_rejoin_attempt(ClientInvitation::decode(invitation.as_bytes()).map_err(error)?).await
+    }
+
+    async fn begin_rejoin_attempt(&mut self, invitation: ClientInvitation) -> Result<(), JsValue> {
+        let current = self.saved.stage();
+        if !matches!(current, "Removed" | "AwaitingApproval" | "Rejected")
+            || !self.saved.verify()?.is_some_and(|auth| auth.known_removed(self.saved.identity()))
+        {
+            return Err(error("no ended membership to rejoin"));
+        }
+        let material = invitation.material_bytes().map_err(error)?;
+        if Invitation::decode(&material)?.anchor != self.saved.invitation()?.anchor {
+            return Err(error("invitation belongs to another network"));
+        }
+        let precode = invitation.precode_bytes().map_err(error)?;
+        let same_code = precode.as_ref().map(|code| &code[96..]) == self.saved.precode.as_ref().map(|code| code.as_slice());
+        if current == "AwaitingApproval" && same_code && self.saved.invitation.as_deref() == Some(&material) {
+            return Ok(());
+        }
+        if precode.is_some() && same_code {
+            return Err(error("rejoining with a precode requires a new code"));
+        }
+        let mut next = self.saved.clone();
+        let mut resources = next.resources.clone().ok_or_else(rejected)?;
+        resources.import_contact(&invitation)?;
+        next.resources = Some(resources);
+        next.authorization = None;
+        next.secret = None;
+        next.request = rand::random();
+        next.manual_rejected = false;
+        next.set_invitation(invitation, material, precode);
+        next.reset_admission_progress();
+        self.delivery = None;
         self.commit(next).await
     }
 

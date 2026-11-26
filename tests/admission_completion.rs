@@ -315,7 +315,8 @@ async fn interruption(checkpoint: &str, sender_crashes: bool) {
             );
         let child = command.spawn().unwrap();
         let serve = async {
-            let c = ae.accept().await.unwrap().await.unwrap();
+            let incoming = ae.accept().await.unwrap();
+            let c = std::sync::Arc::new(incoming.accept_control().unwrap().await.unwrap());
             let _ = admin.serve_precode_admission(&c).await;
         };
         let (_, exited) = tokio::join!(

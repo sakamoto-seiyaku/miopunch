@@ -123,6 +123,42 @@ impl NativeServices {
         ))
     }
 
+    async fn refresh_local_declarations(
+        &mut self,
+        node: &NativeNetwork,
+        files: &Arc<NativeFiles>,
+    ) -> Result<(), ClientError> {
+        use crate::forwarding::Protocol;
+        use std::sync::Weak;
+
+        let access = self.access(node).await?;
+        if !access.has_stale_local_declarations() {
+            return Ok(());
+        }
+        let clipboard_capable = crate::system_clipboard::current_capability().await.read;
+        let clipboard_enabled = clipboard_capable && self.clipboard.as_ref().and_then(Weak::upgrade)
+            .is_some_and(|clipboard| clipboard.state.status().enabled);
+        let forwarding = self.forwarding.as_ref().and_then(Weak::upgrade);
+        let web_enabled = self.web.as_ref().and_then(Weak::upgrade)
+            .is_some_and(|web| web.provider_enabled());
+        let (terminal_capable, terminal_enabled) = self.terminal.as_ref().and_then(Weak::upgrade)
+            .map_or((false, false), |terminal| terminal.provider_capability());
+        let declarations = [
+            (Service::Files, true, files.enabled()),
+            (Service::Clipboard, clipboard_capable, clipboard_enabled),
+            (Service::TcpForward, true, forwarding.as_ref().is_some_and(|host| host.provider_enabled(Protocol::Tcp))),
+            (Service::UdpForward, true, forwarding.as_ref().is_some_and(|host| host.provider_enabled(Protocol::Udp))),
+            (Service::Web, true, web_enabled),
+            (Service::Terminal, terminal_capable, terminal_enabled),
+        ];
+        for (service, capable, enabled) in declarations {
+            if let Some(change) = access.refresh_declaration(service, capable, enabled) {
+                self.apply(node, files, change).await?;
+            }
+        }
+        Ok(())
+    }
+
     async fn merge_member_sync(
         &mut self,
         node: &mut NativeNetwork,
@@ -246,6 +282,9 @@ pub(crate) async fn serve_policy(
             require_current_member_sync_access(&node, &admitted)?;
             let mut services = services.lock().await;
             services.merge_member_sync(&mut node, &files, remote).await?;
+            if mode == MemberSyncMode::Full {
+                services.refresh_local_declarations(&node, &files).await?;
+            }
             services.member_sync(&node, mode).await?
         };
         tokio::time::timeout_at(deadline, async {
@@ -311,10 +350,11 @@ pub(crate) async fn sync_member(
     let (snapshot, admitted) = {
         let node = node.lock().await;
         let admitted = member_sync_admission(&node, connection)?;
-        (
-            services.lock().await.member_sync(&node, mode).await?,
-            admitted,
-        )
+        let mut services = services.lock().await;
+        if mode == MemberSyncMode::Full {
+            services.refresh_local_declarations(&node, files).await?;
+        }
+        (services.member_sync(&node, mode).await?, admitted)
     };
     let remote = tokio::time::timeout_at(deadline, snapshot.exchange(connection)).await??;
     let mut node = node.lock().await;

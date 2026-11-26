@@ -173,6 +173,7 @@ pub struct NativeNetwork {
     pub(crate) scope: AdmissionScope,
     pub(crate) secret: Option<AdmissionSecret>,
     pub(crate) join: Option<JoinBinding>,
+    pub(crate) rejoin_pending: bool,
     pub(crate) recovery: Option<RecoveryBinding>,
     pub(crate) management_instance: [u8; 16],
     pub(crate) directory: PathBuf,
@@ -518,8 +519,10 @@ impl NativeNetwork {
                 secret = None;
             }
         }
+        let mut rejoin_pending = false;
         if let Some(binding) = join {
-            if store
+            rejoin_pending = store.pending_rejoin_material(binding.request_id).await?;
+            if rejoin_pending || store
                 .expected_admission_generation(binding.request_id)
                 .await?
                 .is_some_and(|generation| generation > scope.secret_generation())
@@ -562,6 +565,7 @@ impl NativeNetwork {
             scope,
             secret,
             join,
+            rejoin_pending,
             recovery,
             management_instance: rand::random(),
             directory: path.to_path_buf(),
@@ -1180,10 +1184,22 @@ impl NativeNetwork {
         );
     }
 
+    pub(crate) fn membership_ended(&self) -> bool {
+        !self.rejoin_pending && self.store.known_removed(self.node_key.verifying_key())
+    }
+
     /// Start a fresh approval attempt after effective departure/removal while
     /// preserving this device key, network anchor and all verified history.
     /// An old request keeps its old invalidated result; it is never repurposed.
     pub async fn begin_rejoin(&mut self, invitation: ManualInvitation) -> Result<(), NodeError> {
+        self.begin_rejoin_with_contact(invitation, None).await
+    }
+
+    pub(crate) async fn begin_rejoin_with_contact(
+        &mut self,
+        invitation: ManualInvitation,
+        contact: Option<&crate::client_invitation::ClientInvitation>,
+    ) -> Result<(), NodeError> {
         self.store.ensure_admissions_open().await?;
         self.store.apply_ready().await?;
         self.refresh_authorization();
@@ -1212,7 +1228,19 @@ impl NativeNetwork {
             invitation,
             request_id: rand::random(),
         };
+        let rejoin_pending = self.store.known_removed(self.node_key.verifying_key());
+        if rejoin_pending {
+            self.store.mark_pending_rejoin(binding.request_id, self.join.map(|previous| previous.request_id)).await?;
+        }
+        if let Some(contact) = contact {
+            crate::client_contact::stage_rejoin_invitation(self, contact, binding.request_id)?;
+        }
         self.persist_join_binding(binding)?;
+        self.rejoin_pending = rejoin_pending;
+        if rejoin_pending {
+            self.gate.suspend_secret();
+            self.secret = None;
+        }
         #[cfg(feature = "replica-test-hooks")]
         if self.recovery.is_some() {
             self.store
@@ -1231,6 +1259,15 @@ impl NativeNetwork {
         &mut self,
         code: &crate::precode::Precode,
     ) -> Result<(), NodeError> {
+        if self.membership_ended() {
+            let previous = self.join.ok_or(NodeError::InvalidData)?;
+            if self.store.local_admission_progress().await?.is_some_and(|(attempt, _)| {
+                attempt.request_id == code.request_id(previous.request_id)
+            }) {
+                return Err(NodeError::InvalidData);
+            }
+            return self.begin_rejoin(code.invitation()).await;
+        }
         if let Some(binding) = self.prepare_precode_completion(code).await? {
             self.persist_join_binding(binding)?;
         }
@@ -1244,6 +1281,9 @@ impl NativeNetwork {
         self.store.apply_ready().await?;
         self.refresh_authorization();
         self.store.ensure_admissions_open().await?;
+        if self.membership_ended() {
+            return Err(NodeError::InvalidData);
+        }
         let previous = self.join.ok_or(NodeError::InvalidData)?;
         let invitation = code.invitation();
         if invitation.anchor != self.anchor {
@@ -1290,10 +1330,7 @@ impl NativeNetwork {
         &mut self,
         scope: AdmissionScope,
         secret: AdmissionSecret,
-        delivery: Option<(
-            crate::admission_progress::AdmissionReceipt,
-            &iroh::EndpointAddr,
-        )>,
+        delivery: Option<crate::management_store::LocalAdmissionDelivery<'_>>,
     ) -> Result<(), NodeError> {
         self.store.ensure_admissions_open().await?;
         let mut bytes = [0; 40];
@@ -1345,9 +1382,13 @@ impl NativeNetwork {
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::SecretFilePublished);
+        let admission_completed = delivery.is_some();
         self.store
             .commit_admission_material(&scope, &secret, delivery)
             .await?;
+        if admission_completed {
+            self.rejoin_pending = false;
+        }
         self.gate.rotate_secret(scope.clone(), secret.clone());
         self.scope = scope;
         self.secret = Some(secret);

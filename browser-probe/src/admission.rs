@@ -550,6 +550,15 @@ impl SavedNode {
                 return Err(rejected());
             }
             if let Some(token) = token {
+                if auth.known_removed(applicant)
+                    && self.approvals.iter().any(|approval| {
+                        approval.applicant == applicant
+                            && approval.code == Some(token)
+                            && approval.authorization.is_some()
+                    })
+                {
+                    return Err(rejected());
+                }
                 self.redeem_code(token, &auth)?;
             }
             self.approvals.push(Approval {
