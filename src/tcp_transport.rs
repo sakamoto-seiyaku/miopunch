@@ -149,11 +149,13 @@ impl TcpTransport {
     }
 
     pub(crate) fn with_punching(mut self) -> Self {
-        self.punching = cfg!(any(target_os = "linux", target_os = "windows"))
-            && self.bind_addr.is_ipv4();
-        self.reuse_local_port =
-            cfg!(any(target_os = "linux", target_os = "android", target_os = "windows"))
-                && self.bind_addr.is_ipv4();
+        self.punching =
+            cfg!(any(target_os = "linux", target_os = "windows")) && self.bind_addr.is_ipv4();
+        self.reuse_local_port = cfg!(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "windows"
+        ));
         self
     }
 
@@ -191,6 +193,15 @@ impl TcpTransport {
         Ok(())
     }
 
+    pub(crate) fn bound_socket_addr_for(&self, remote: SocketAddr) -> io::Result<SocketAddr> {
+        self.shared
+            .lock()
+            .unwrap()
+            .upgrade()
+            .ok_or_else(|| io::Error::other("TCP endpoint unavailable"))?
+            .local_for(remote)
+    }
+
     pub(crate) async fn observe(
         &self,
         observer: SocketAddr,
@@ -204,7 +215,7 @@ impl TcpTransport {
         if !shared.reuse_local_port {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
-                "TCP observation requires retained IPv4 transport port reuse",
+                "TCP observation requires retained transport port reuse",
             ));
         }
         let stream = connect_from_listener(shared.local_for(observer)?, observer).await?;
@@ -744,7 +755,7 @@ impl CustomTransport for TcpTransport {
         let mut listeners = Vec::new();
         let mut last_error = None;
         for address in requested {
-            match bind_listener(address, self.reuse_local_port && address.is_ipv4()) {
+            match bind_listener(address, self.reuse_local_port) {
                 Ok(listener) => listeners.push(listener),
                 Err(error) if self.dual_stack && unavailable_family(&error) => {
                     last_error = Some(error);

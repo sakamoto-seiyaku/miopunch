@@ -34,7 +34,11 @@ impl TcpSocketObservation {
 
 pub(crate) trait ObservationEndpoint: Sync {
     fn udp_network_generation(&self) -> iroh::endpoint::ObservationValidity;
-    fn dns_resolver(&self) -> Result<&iroh::dns::DnsResolver, iroh::endpoint::EndpointError>;
+    fn resolve_observation_addr(
+        &self,
+        observer: &iroh::RelayUrl,
+        family: iroh::endpoint::ObservationFamily,
+    ) -> impl std::future::Future<Output = io::Result<SocketAddr>> + Send;
     fn is_closed(&self) -> bool;
 }
 macro_rules! observation_endpoint {
@@ -43,10 +47,12 @@ macro_rules! observation_endpoint {
             fn udp_network_generation(&self) -> iroh::endpoint::ObservationValidity {
                 <$ty>::udp_network_generation(self)
             }
-            fn dns_resolver(
+            async fn resolve_observation_addr(
                 &self,
-            ) -> Result<&iroh::dns::DnsResolver, iroh::endpoint::EndpointError> {
-                <$ty>::dns_resolver(self)
+                observer: &iroh::RelayUrl,
+                family: iroh::endpoint::ObservationFamily,
+            ) -> io::Result<SocketAddr> {
+                <$ty>::resolve_observation_addr(self, observer, family, 3478).await
             }
             fn is_closed(&self) -> bool {
                 <$ty>::is_closed(self)
@@ -64,37 +70,32 @@ pub(crate) async fn observe(
     transport: &crate::tcp_transport::TcpTransport,
     observer: &iroh::RelayUrl,
 ) -> io::Result<TcpSocketObservation> {
+    let family = if matches!(observer.host(), Some(url::Host::Ipv6(_))) {
+        iroh::endpoint::ObservationFamily::Ipv6
+    } else {
+        iroh::endpoint::ObservationFamily::Ipv4
+    };
+    observe_for_family(endpoint, transport, observer, family).await
+}
+
+pub(crate) async fn observe_for_family(
+    endpoint: &(impl ObservationEndpoint + ?Sized),
+    transport: &crate::tcp_transport::TcpTransport,
+    observer: &iroh::RelayUrl,
+    family: iroh::endpoint::ObservationFamily,
+) -> io::Result<TcpSocketObservation> {
     use std::time::{Duration, Instant};
     let origin = crate::resources::resource_origin(observer.as_str())
         .ok_or_else(|| io::Error::other("invalid TCP STUN origin"))?;
+    let origin = format!("{origin}/{family:?}");
     let request = transport.begin_observation(&origin);
     // A dropped future cannot later publish a result. Successful callers retain
     // the token/socket and explicitly recheck freshness before candidate use.
     let cancel_on_drop = request.clone().drop_guard();
     let generation = endpoint.udp_network_generation();
     let operation = async {
-        let host = observer
-            .host_str()
-            .ok_or_else(|| io::Error::other("missing STUN host"))?;
-        let ip = if let Ok(ip) = host.parse::<Ipv4Addr>() {
-            IpAddr::V4(ip)
-        } else {
-            endpoint
-                .dns_resolver()
-                .map_err(io::Error::other)?
-                .lookup_ipv4(host.to_owned(), Duration::from_secs(2))
-                .await
-                .map_err(io::Error::other)?
-                .next()
-                .ok_or_else(|| io::Error::other("STUN has no IPv4 address"))?
-        };
-        let destination = SocketAddr::new(ip, observer.port().unwrap_or(3478));
-        if destination.port() == 0 {
-            return Err(io::Error::other("invalid STUN port"));
-        }
-        let listener = transport
-            .bound_socket_addr()
-            .ok_or_else(|| io::Error::other("TCP transport not bound"))?;
+        let destination = endpoint.resolve_observation_addr(observer, family).await?;
+        let listener = transport.bound_socket_addr_for(destination)?;
         let (mapped, stream) = transport.observe(destination).await?;
         let local_addr = stream.local_addr()?;
         if stream.peer_addr()? != destination

@@ -2,12 +2,13 @@
 use std::{
     collections::{HashMap, HashSet},
     io,
-    net::{Ipv4Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
 use iroh_base::RelayUrl;
+use iroh_relay::ObservationFamily;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -30,7 +31,7 @@ struct Pending {
 #[derive(Debug, Default)]
 pub(super) struct Transactions {
     pending: Arc<Mutex<HashMap<Transaction, Pending>>>,
-    generation: Arc<Mutex<u64>>,
+    generation: [Arc<Mutex<u64>>; 2],
 }
 
 struct Registration {
@@ -124,14 +125,28 @@ fn parse(bytes: &[u8], transaction: Transaction) -> io::Result<SocketAddr> {
         let value = &bytes[offset + 4..end];
         match kind {
             0x0020 => {
-                if mapped.is_some() || size != 8 || value[..2] != [0, 1] {
+                if mapped.is_some() || size < 4 || value[0] != 0 {
                     return Err(invalid());
                 }
                 let port = u16::from_be_bytes(value[2..4].try_into().unwrap()) ^ 0x2112;
-                let ip = Ipv4Addr::from(
-                    u32::from_be_bytes(value[4..8].try_into().unwrap()) ^ 0x2112a442,
-                );
-                if port == 0 || ip.is_unspecified() || ip.is_multicast() || ip.is_broadcast() {
+                let ip = match (value[1], size) {
+                    (1, 8) => IpAddr::V4(Ipv4Addr::from(
+                        u32::from_be_bytes(value[4..8].try_into().unwrap()) ^ 0x2112a442,
+                    )),
+                    (2, 20) => {
+                        let mut ip = [0; 16];
+                        for index in 0..16 {
+                            ip[index] = value[index + 4] ^ bytes[index + 4];
+                        }
+                        IpAddr::V6(Ipv6Addr::from(ip))
+                    }
+                    _ => return Err(invalid()),
+                };
+                if port == 0
+                    || ip.is_unspecified()
+                    || ip.is_multicast()
+                    || matches!(ip, IpAddr::V4(ip) if ip.is_broadcast())
+                {
                     return Err(invalid());
                 }
                 mapped = Some(SocketAddr::from((ip, port)));
@@ -163,21 +178,96 @@ fn parse(bytes: &[u8], transaction: Transaction) -> io::Result<SocketAddr> {
 }
 
 impl EndpointInner {
-    fn begin_udp_stun_observation(&self) -> ObservationValidity {
-        let mut generation = self.sock.stun.generation.lock().expect("STUN generation");
+    fn begin_udp_stun_observation(&self, family: ObservationFamily) -> ObservationValidity {
+        let state = &self.sock.stun.generation[usize::from(family == ObservationFamily::Ipv6)];
+        let mut generation = state.lock().expect("STUN generation");
         *generation = generation.wrapping_add(1);
         ObservationValidity {
-            generation: self.sock.stun.generation.clone(),
+            generation: state.clone(),
             observed_generation: *generation,
         }
+    }
+
+    pub(crate) async fn resolve_observation_addr(
+        &self,
+        observer: &RelayUrl,
+        family: ObservationFamily,
+        default_port: u16,
+    ) -> io::Result<SocketAddr> {
+        let addresses = self
+            .static_config
+            .relay_resource_policy
+            .observation_addresses(observer);
+        let explicit = match family {
+            ObservationFamily::Ipv4 => addresses.ipv4.map(IpAddr::V4),
+            ObservationFamily::Ipv6 => addresses.ipv6.map(IpAddr::V6),
+        };
+        let ip = match explicit {
+            Some(ip) => ip,
+            None => match observer.host() {
+                Some(url::Host::Ipv4(ip)) if family == ObservationFamily::Ipv4 => IpAddr::V4(ip),
+                Some(url::Host::Ipv6(ip)) if family == ObservationFamily::Ipv6 => IpAddr::V6(ip),
+                Some(url::Host::Domain(host)) => match family {
+                    ObservationFamily::Ipv4 => self
+                        .sock
+                        .dns_resolver
+                        .lookup_ipv4(host.to_owned(), Duration::from_secs(2))
+                        .await
+                        .map(|mut ips| ips.next()),
+                    ObservationFamily::Ipv6 => self
+                        .sock
+                        .dns_resolver
+                        .lookup_ipv6(host.to_owned(), Duration::from_secs(2))
+                        .await
+                        .map(|mut ips| ips.next()),
+                }
+                .map_err(io::Error::other)?
+                .ok_or_else(|| io::Error::other("observer has no address for family"))?,
+                _ => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::AddrNotAvailable,
+                        "observer has no address for family",
+                    ));
+                }
+            },
+        };
+        let destination = SocketAddr::new(ip, observer.port().unwrap_or(default_port));
+        if destination.port() == 0 || ip.is_unspecified() || ip.is_multicast() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid observer destination",
+            ));
+        }
+        Ok(destination)
+    }
+
+    pub(crate) async fn observe_udp_stun_for_family(
+        &self,
+        observer: &RelayUrl,
+        family: ObservationFamily,
+    ) -> io::Result<UdpStunObservation> {
+        self.observe_udp_stun_in_sequence(
+            observer,
+            family,
+            self.begin_udp_stun_observation(family),
+            &|| {},
+            None,
+        )
+        .await
     }
 
     pub(crate) async fn observe_udp_stun(
         &self,
         observer: &RelayUrl,
     ) -> io::Result<UdpStunObservation> {
-        self.observe_udp_stun_in_sequence(observer, self.begin_udp_stun_observation(), &|| {})
-            .await
+        let family = if matches!(observer.host(), Some(url::Host::Ipv6(_)))
+            || !self.sock.ip_bind_addrs.iter().any(SocketAddr::is_ipv4)
+        {
+            ObservationFamily::Ipv6
+        } else {
+            ObservationFamily::Ipv4
+        };
+        self.observe_udp_stun_for_family(observer, family).await
     }
 
     pub(crate) async fn observe_udp_mapping_round(
@@ -187,16 +277,41 @@ impl EndpointInner {
         on_work: &(impl Fn() + Sync),
         qad_submission: Option<&super::transports::QadSubmission>,
     ) -> io::Result<UdpMappingSequence> {
-        // Both request types use the endpoint IPv4 transport. A single binding
+        self.observe_udp_mapping_round_for_family(
+            qad,
+            stun,
+            ObservationFamily::Ipv4,
+            on_work,
+            qad_submission,
+            crate::endpoint::nat_plan::MAX_OBSERVATIONS,
+            tokio::time::Instant::now() + Duration::from_secs(8),
+        )
+        .await
+    }
+
+    pub(crate) async fn observe_udp_mapping_round_for_family(
+        &self,
+        qad: &iroh_relay::RelayMap,
+        stun: &[RelayUrl],
+        family: ObservationFamily,
+        on_work: &(impl Fn() + Sync),
+        qad_submission: Option<&super::transports::QadSubmission>,
+        observation_limit: usize,
+        deadline: tokio::time::Instant,
+    ) -> io::Result<UdpMappingSequence> {
+        // Both request types use the requested family of the endpoint transport. A single binding
         // makes that physical socket unambiguous even for wildcard addresses.
-        let mut bindings = self.sock.ip_local_addrs().filter(SocketAddr::is_ipv4);
+        let mut bindings = self
+            .sock
+            .ip_local_addrs()
+            .filter(|addr| family.matches(*addr));
         let binding = bindings
             .next()
             .filter(|_| bindings.next().is_none())
             .ok_or_else(|| {
                 io::Error::new(
                     io::ErrorKind::Unsupported,
-                    "mixed observation requires one IPv4 binding",
+                    "mixed observation requires one binding for the requested family",
                 )
             })?;
         let network_validity = self.udp_network_generation();
@@ -213,19 +328,13 @@ impl EndpointInner {
             .filter(|r| allowed(&r.url))
             .collect();
         let stun: Vec<_> = stun.iter().filter(|url| allowed(url)).collect();
-        if stun.len() > 4 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "at most four STUN origins per round",
-            ));
-        }
         if relays.is_empty() && stun.is_empty() {
             return Err(io::Error::new(
                 io::ErrorKind::NotFound,
                 "no available mapping observers",
             ));
         }
-        let round_validity = self.begin_udp_stun_observation();
+        let round_validity = self.begin_udp_stun_observation(family);
         let check = || -> io::Result<()> {
             if closed.is_cancelled()
                 || !network_validity.is_current()
@@ -245,7 +354,8 @@ impl EndpointInner {
             Ok(())
         };
         check()?;
-        let mut probes = FuturesUnordered::new();
+        let destinations = Arc::new(Mutex::new((observation_limit, HashSet::new())));
+        let mut pending_probes = Vec::new();
         for relay in &relays {
             let probe = net_report::observe_mapping_sample(
                 relay.clone(),
@@ -253,8 +363,10 @@ impl EndpointInner {
                 self.sock.dns_resolver.clone(),
                 closed.child_token(),
                 qad_submission,
+                family,
+                Some(&destinations),
             );
-            probes.push(
+            pending_probes.push(
                 async move {
                     let sample = probe.await?;
                     Ok((
@@ -271,9 +383,14 @@ impl EndpointInner {
             );
         }
         for observer in &stun {
-            let probe =
-                self.observe_udp_stun_in_sequence(observer, round_validity.clone(), on_work);
-            probes.push(
+            let probe = self.observe_udp_stun_in_sequence(
+                observer,
+                family,
+                round_validity.clone(),
+                on_work,
+                Some(&destinations),
+            );
+            pending_probes.push(
                 async move {
                     let sample = probe.await?;
                     if sample.local_addr.port() != binding.port()
@@ -295,6 +412,22 @@ impl EndpointInner {
                 .boxed(),
             );
         }
+        let waves = pending_probes.len().div_ceil(4).max(1) as u32;
+        let probe_budget = deadline.saturating_duration_since(tokio::time::Instant::now()) / waves;
+        let mut pending_probes = pending_probes.into_iter().map(|probe| async move {
+            tokio::time::timeout(probe_budget, probe)
+                .await
+                .map_err(|_| {
+                    io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        "observation station time slice expired",
+                    )
+                })?
+        });
+        let mut probes = FuturesUnordered::new();
+        for probe in pending_probes.by_ref().take(4) {
+            probes.push(probe);
+        }
         let mut samples: Vec<(UdpMappingSample, Option<n0_future::time::Instant>)> =
             Vec::with_capacity(2);
         let mut recheck = tokio::time::interval(Duration::from_millis(10));
@@ -306,7 +439,7 @@ impl EndpointInner {
                 result = probes.next() => {
                     check()?;
                     match result {
-                        Some(Ok((sample, expiry))) if sample.mapped.is_ipv4()
+                        Some(Ok((sample, expiry))) if family.matches(sample.mapped)
                             && sample.mapped.port() != 0 && !sample.mapped.ip().is_unspecified()
                             && !samples.iter().any(|(s, _)| s.destination == sample.destination) =>
                         {
@@ -318,6 +451,7 @@ impl EndpointInner {
                         Some(Err(error)) if error.kind() == io::ErrorKind::PermissionDenied => return Err(error),
                         _ => {}
                     }
+                    if let Some(probe) = pending_probes.next() { probes.push(probe); }
                 }
             }
         }
@@ -358,13 +492,7 @@ impl EndpointInner {
         observers: &[RelayUrl],
         on_work: &(impl Fn() + Sync),
     ) -> io::Result<UdpMappingSequence> {
-        if observers.len() > 4 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "at most four STUN origins per sequence",
-            ));
-        }
-        let validity = self.begin_udp_stun_observation();
+        let validity = self.begin_udp_stun_observation(ObservationFamily::Ipv4);
         let network_validity = self.udp_network_generation();
         let mut destinations = HashSet::new();
         let mut samples = Vec::new();
@@ -380,7 +508,13 @@ impl EndpointInner {
                 ));
             }
             match self
-                .observe_udp_stun_in_sequence(observer, validity.clone(), on_work)
+                .observe_udp_stun_in_sequence(
+                    observer,
+                    ObservationFamily::Ipv4,
+                    validity.clone(),
+                    on_work,
+                    None,
+                )
                 .await
             {
                 Ok(result) => {
@@ -443,8 +577,10 @@ impl EndpointInner {
     async fn observe_udp_stun_in_sequence(
         &self,
         observer: &RelayUrl,
+        family: ObservationFamily,
         validity: ObservationValidity,
         on_work: &(impl Fn() + Sync),
+        destinations: Option<&Arc<Mutex<(usize, HashSet<SocketAddr>)>>>,
     ) -> io::Result<UdpStunObservation> {
         if observer.scheme() != "stun"
             || observer.username() != ""
@@ -459,33 +595,32 @@ impl EndpointInner {
                 "STUN observation resource denied",
             ));
         }
-        if !self.sock.ip_bind_addrs.iter().any(SocketAddr::is_ipv4) {
+        if !self
+            .sock
+            .ip_bind_addrs
+            .iter()
+            .any(|addr| family.matches(*addr))
+        {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
-                "endpoint has no IPv4 UDP transport for STUN",
+                "endpoint has no UDP transport for the observer family",
             ));
         }
         let network_validity = self.udp_network_generation();
         let closed = self.sock.shutdown.at_close_start.child_token();
         let mut sends = 0;
         let operation = async {
-            let host = observer
-                .host_str()
-                .ok_or_else(|| io::Error::other("missing STUN host"))?;
-            let ip = if let Ok(ip) = host.parse::<Ipv4Addr>() {
-                std::net::IpAddr::V4(ip)
-            } else {
-                self.sock
-                    .dns_resolver
-                    .lookup_ipv4(host.to_owned(), Duration::from_secs(2))
-                    .await
-                    .map_err(io::Error::other)?
-                    .next()
-                    .ok_or_else(|| io::Error::other("STUN has no IPv4 address"))?
-            };
-            let destination = SocketAddr::from((ip, observer.port().unwrap_or(3478)));
-            if destination.port() == 0 {
-                return Err(io::Error::other("invalid STUN port"));
+            let destination = self
+                .resolve_observation_addr(observer, family, 3478)
+                .await?;
+            if let Some(destinations) = destinations {
+                let mut destinations = destinations.lock().expect("mapping destinations");
+                if destinations.1.len() >= destinations.0 || !destinations.1.insert(destination) {
+                    return Err(io::Error::new(
+                        io::ErrorKind::AlreadyExists,
+                        "duplicate observation destination",
+                    ));
+                }
             }
             let transaction: Transaction = rand::random();
             let (sender, mut receiver) = mpsc::channel(8);
@@ -525,11 +660,12 @@ impl EndpointInner {
                         if sends == 0 { on_work(); }
                         sends += 1;
                         eprintln!("STUN_UDP_SEND destination={destination} endpoint_binding={:?} attempt={sends} sent_to_kernel=true",
-                            self.sock.ip_local_addrs().find(SocketAddr::is_ipv4));
+                            self.sock.ip_local_addrs().find(|addr| family.matches(*addr)));
                     },
                     packet = receiver.recv() => {
                         let (local_addr, bytes) = packet.ok_or_else(|| io::Error::other("STUN receiver stopped"))?;
                         let mapped = parse(&bytes, transaction)?;
+                        if !family.matches(mapped) { return Err(io::Error::other("STUN mapping family mismatch")); }
                         let observed_at = Instant::now();
                         let result = UdpStunObservation { observer: observer.clone(), destination, local_addr, mapped,
                             observed_at, valid_until: observed_at + Duration::from_secs(40), validity: validity.clone(),

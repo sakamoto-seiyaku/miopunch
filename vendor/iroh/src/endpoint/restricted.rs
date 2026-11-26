@@ -558,6 +558,19 @@ impl RestrictedEndpoint {
         self.inner.network_change().await
     }
 
+    /// Resolve the requested observer family under the endpoint's dial configuration.
+    #[cfg(not(wasm_browser))]
+    pub async fn resolve_observation_addr(
+        &self,
+        observer: &crate::RelayUrl,
+        family: super::ObservationFamily,
+        default_port: u16,
+    ) -> io::Result<std::net::SocketAddr> {
+        self.inner
+            .resolve_observation_addr(observer, family, default_port)
+            .await
+    }
+
     /// Observe an authorized UDP STUN facility using the endpoint's actual socket.
     #[cfg(not(wasm_browser))]
     pub async fn observe_udp_stun(
@@ -565,6 +578,45 @@ impl RestrictedEndpoint {
         observer: &crate::RelayUrl,
     ) -> io::Result<super::UdpStunObservation> {
         self.inner.observe_udp_stun(observer).await
+    }
+
+    /// Observe STUN on the selected actual UDP binding.
+    #[cfg(not(wasm_browser))]
+    pub async fn observe_udp_stun_for_family(
+        &self,
+        observer: &crate::RelayUrl,
+        family: super::ObservationFamily,
+    ) -> io::Result<super::UdpStunObservation> {
+        self.inner
+            .observe_udp_stun_for_family(observer, family)
+            .await
+    }
+
+    /// Collect per-family QAD/STUN mapping evidence on the actual UDP binding.
+    #[cfg(not(wasm_browser))]
+    pub async fn observe_udp_mapping_round_for_family(
+        &self,
+        qad: &crate::RelayMap,
+        stun: &[crate::RelayUrl],
+        family: super::ObservationFamily,
+    ) -> io::Result<super::UdpMappingSequence> {
+        self.inner
+            .observe_udp_mapping_round_for_family(qad, stun, family)
+            .await
+    }
+
+    /// Share the caller's absolute mapping deadline across observer stations.
+    #[cfg(not(wasm_browser))]
+    pub async fn observe_udp_mapping_round_for_family_until(
+        &self,
+        qad: &crate::RelayMap,
+        stun: &[crate::RelayUrl],
+        family: super::ObservationFamily,
+        deadline: tokio::time::Instant,
+    ) -> io::Result<super::UdpMappingSequence> {
+        self.inner
+            .observe_udp_mapping_round_for_family_until(qad, stun, family, deadline)
+            .await
     }
 
     /// Locally installed custom contact addresses; no connection is released.
@@ -1243,6 +1295,19 @@ impl ControlHandle {
     ) -> impl n0_watcher::Watcher<Value = super::UdpObservation> + use<> {
         self.endpoint.udp_observation()
     }
+    /// Resolve the requested observer family under the endpoint's dial configuration.
+    #[cfg(not(wasm_browser))]
+    pub async fn resolve_observation_addr(
+        &self,
+        observer: &crate::RelayUrl,
+        family: super::ObservationFamily,
+        default_port: u16,
+    ) -> io::Result<std::net::SocketAddr> {
+        self.endpoint
+            .resolve_observation_addr(observer, family, default_port)
+            .await
+    }
+
     /// Resolve observation facilities using this endpoint's configured resolver.
     #[cfg(not(wasm_browser))]
     pub fn dns_resolver(&self) -> Result<&crate::dns::DnsResolver, super::EndpointError> {
@@ -2036,7 +2101,10 @@ pub(super) async fn finish_admission(
                         }
                 },
             )
-            .with_business_activity(activity.subscribe(), activity.concurrent_business.subscribe())
+            .with_business_activity(
+                activity.subscribe(),
+                activity.concurrent_business.subscribe(),
+            )
             .with_required_path_acks([direct_transport, member_relay], started_on_member_relay)
             .with_enhanced_udp(udp.as_ref().and_then(|udp| udp.path_work()))
             .with_repair_health(repair.as_ref().map(|repair| repair.health.clone()))

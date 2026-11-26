@@ -99,10 +99,10 @@ pub(crate) mod hooks;
 mod member_fusion;
 #[cfg(not(wasm_browser))]
 #[doc(hidden)]
-pub mod nat_plan;
+pub mod nat_execution;
 #[cfg(not(wasm_browser))]
 #[doc(hidden)]
-pub mod nat_execution;
+pub mod nat_plan;
 #[cfg(not(wasm_browser))]
 #[doc(hidden)]
 pub mod nat_selector;
@@ -120,9 +120,9 @@ pub use member_fusion::{
     MemberRepairContacts, MemberRetention, MemberStream, MemberStreamLease, MemberUdpConfig,
     MemberUdpPlan, MemberUdpTraversalReport,
 };
+pub use noq::PathProbe;
 #[cfg(not(wasm_browser))]
 pub use noq::StreamControl;
-pub use noq::PathProbe;
 pub use restricted::{
     AdmissionOutcome, ControlAccepting, ControlConfirmation, ControlConnecting, ControlConnection,
     ControlExchange, ControlHandle, ControlMessageFormat, DataCandidatePath, DataPathPermit,
@@ -232,11 +232,15 @@ pub enum RelayResourceUse {
 
 /// Startup policy. It is deliberately independent of RelayMap, which lists
 /// preferred relays rather than restricting routes learned from peers.
+pub use iroh_relay::{ObservationDialAddresses, ObservationFamily};
+
+/// Startup permissions and observation destinations for an endpoint.
 #[derive(Clone)]
 pub struct RelayResourcePolicy {
     filter: Arc<dyn Fn(&RelayUrl, RelayResourceUse) -> bool + Send + Sync>,
     custom_filter: Arc<dyn Fn(&iroh_base::CustomAddr) -> bool + Send + Sync>,
     pub(crate) independent_uses: bool,
+    observation_addresses: Arc<dyn Fn(&RelayUrl) -> ObservationDialAddresses + Send + Sync>,
 }
 
 impl std::fmt::Debug for RelayResourcePolicy {
@@ -251,6 +255,7 @@ impl Default for RelayResourcePolicy {
             filter: Arc::new(|_, _| true),
             custom_filter: Arc::new(|_| true),
             independent_uses: false,
+            observation_addresses: Arc::new(|_| Default::default()),
         }
     }
 }
@@ -264,7 +269,22 @@ impl RelayResourcePolicy {
             filter: Arc::new(policy),
             custom_filter: Arc::new(|_| true),
             independent_uses: true,
+            observation_addresses: Arc::new(|_| Default::default()),
         }
+    }
+
+    /// Per-family dial destinations for observations only. Empty values use DNS.
+    pub fn with_observation_addresses(
+        mut self,
+        addresses: impl Fn(&RelayUrl) -> ObservationDialAddresses + Send + Sync + 'static,
+    ) -> Self {
+        self.observation_addresses = Arc::new(addresses);
+        self
+    }
+
+    /// Configured per-family destinations for this observation origin.
+    pub fn observation_addresses(&self, url: &RelayUrl) -> ObservationDialAddresses {
+        (self.observation_addresses)(url)
     }
 
     pub(crate) fn allows(&self, url: &RelayUrl, usage: RelayResourceUse) -> bool {
@@ -1656,8 +1676,15 @@ impl Endpoint {
 
         Span::current().record("remote", tracing::field::display(endpoint_id.fmt_short()));
 
-        if let BeforeConnectOutcome::Reject =
-            self.inner.hooks.before_connect(&endpoint_addr, alpn, options.attempt.application_context.as_deref()).await
+        if let BeforeConnectOutcome::Reject = self
+            .inner
+            .hooks
+            .before_connect(
+                &endpoint_addr,
+                alpn,
+                options.attempt.application_context.as_deref(),
+            )
+            .await
         {
             return Err(e!(ConnectWithOptsError::LocallyRejected));
         }
@@ -2048,6 +2075,71 @@ impl Endpoint {
         observer: &RelayUrl,
     ) -> std::io::Result<UdpStunObservation> {
         self.inner.observe_udp_stun(observer).await
+    }
+
+    /// Resolve an observer using its configured family IP or that family's DNS.
+    #[cfg(not(wasm_browser))]
+    pub async fn resolve_observation_addr(
+        &self,
+        observer: &RelayUrl,
+        family: ObservationFamily,
+        default_port: u16,
+    ) -> std::io::Result<std::net::SocketAddr> {
+        self.inner
+            .resolve_observation_addr(observer, family, default_port)
+            .await
+    }
+
+    /// Observe the actual UDP binding of the selected family.
+    #[cfg(not(wasm_browser))]
+    pub async fn observe_udp_stun_for_family(
+        &self,
+        observer: &RelayUrl,
+        family: ObservationFamily,
+    ) -> std::io::Result<UdpStunObservation> {
+        self.inner
+            .observe_udp_stun_for_family(observer, family)
+            .await
+    }
+
+    /// Collect two independent samples, or one basic candidate, from this family's
+    /// actual binding. Per-query limits and the caller's absolute deadline apply.
+    #[cfg(not(wasm_browser))]
+    pub async fn observe_udp_mapping_round_for_family(
+        &self,
+        qad: &RelayMap,
+        stun: &[RelayUrl],
+        family: ObservationFamily,
+    ) -> std::io::Result<UdpMappingSequence> {
+        self.observe_udp_mapping_round_for_family_until(
+            qad,
+            stun,
+            family,
+            tokio::time::Instant::now() + std::time::Duration::from_secs(8),
+        )
+        .await
+    }
+
+    /// Share the caller's unchanged absolute deadline across observer stations.
+    #[cfg(not(wasm_browser))]
+    pub async fn observe_udp_mapping_round_for_family_until(
+        &self,
+        qad: &RelayMap,
+        stun: &[RelayUrl],
+        family: ObservationFamily,
+        deadline: tokio::time::Instant,
+    ) -> std::io::Result<UdpMappingSequence> {
+        self.inner
+            .observe_udp_mapping_round_for_family(
+                qad,
+                stun,
+                family,
+                &|| {},
+                None,
+                crate::endpoint::nat_plan::MAX_OBSERVATIONS,
+                deadline,
+            )
+            .await
     }
 
     /// Acquire ordered STUN reflections from distinct resolved destinations,

@@ -63,6 +63,9 @@ pub struct ResourceConfig {
     /// Native TCP listener override. The default listens on each available IP family.
     #[serde(default)]
     pub tcp_listen: Option<std::net::SocketAddr>,
+    /// Observation origin to optional per-family dial IPs. Omitted families use DNS.
+    #[serde(default)]
+    pub observation_addresses: BTreeMap<String, iroh::endpoint::ObservationDialAddresses>,
     #[serde(default)]
     pub udp_direct_disabled: bool,
     /// Direct peer TCP is independent of auxiliary relay permission.
@@ -203,7 +206,7 @@ impl ResourceConfig {
                 origins.insert(resource_origin(&resource.url).unwrap(), url);
             }
         }
-        origins.into_values().take(4).collect()
+        origins.into_values().collect()
     }
     pub(crate) fn validate_mqtt_facilities(&self) -> std::io::Result<()> {
         if self.mqtt_facilities.len() > 4 {
@@ -296,6 +299,7 @@ impl ResourceConfig {
             lan_discovery: LanDiscovery::Disabled,
             port_mapping: PortMapping::Disabled,
             tcp_listen: None,
+            observation_addresses: BTreeMap::new(),
             udp_direct_disabled: false,
             tcp_direct_disabled: false,
             member_data_relay_disabled: false,
@@ -330,6 +334,16 @@ impl ResourceConfig {
                 })
     }
 
+    pub(crate) fn observation_dial_addresses(
+        &self,
+        url: &RelayUrl,
+    ) -> iroh::endpoint::ObservationDialAddresses {
+        resource_origin(url.as_str())
+            .and_then(|origin| self.observation_addresses.get(&origin))
+            .cloned()
+            .unwrap_or_default()
+    }
+
     pub fn relay_map(&self, usage: ResourceUse) -> Result<RelayMap, std::io::Error> {
         self.replacement
             .as_ref()
@@ -346,7 +360,15 @@ impl ResourceConfig {
                 resource
                     .url
                     .parse::<RelayUrl>()
-                    .map(RelayConfig::from)
+                    .map(|url| {
+                        let mut relay = RelayConfig::from(url);
+                        if usage == ResourceUse::Observation {
+                            if let Some(quic) = &mut relay.quic {
+                                quic.dial_addresses = self.observation_dial_addresses(&relay.url);
+                            }
+                        }
+                        relay
+                    })
                     .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidInput, err))
             })
             .collect::<Result<Vec<_>, _>>()
@@ -493,6 +515,7 @@ impl ResourceConfig {
             PortMapping::Disabled => iroh::endpoint::PortmapperConfig::Disabled,
             PortMapping::NatPmp => iroh::endpoint::PortmapperConfig::NatPmp,
         });
+        let observation_config = self.clone();
         let custom_config = self.clone();
         Ok((
             builder.relay_resource_policy(
@@ -509,7 +532,10 @@ impl ResourceConfig {
                         },
                     )
                 })
-                .with_custom_addresses(move |addr| custom_config.allows_custom(addr)),
+                .with_custom_addresses(move |addr| custom_config.allows_custom(addr))
+                .with_observation_addresses(move |url| {
+                    observation_config.observation_dial_addresses(url)
+                }),
             ),
             tcp,
         ))
@@ -654,7 +680,12 @@ impl ContactAttempt {
 
     pub(crate) fn succeeded(&self) {
         let mut states = self.states.lock().expect("contact budget");
-        for class in [ContactClass::Foreground, ContactClass::Background, ContactClass::Rotation, ContactClass::Standby] {
+        for class in [
+            ContactClass::Foreground,
+            ContactClass::Background,
+            ContactClass::Rotation,
+            ContactClass::Standby,
+        ] {
             if let Some(state) = states.get_mut(&(self.id, class)) {
                 state.reset();
             }
@@ -725,7 +756,10 @@ pub struct ResourceEndpoint {
     backoff: ContactStates,
     pub(crate) contacts: iroh::address_lookup::memory::MemoryLookup,
     pub(crate) member_contacts: Option<std::sync::Arc<crate::member_contacts::MemberContacts>>,
-    pub(crate) member_fusion: Option<(iroh::endpoint::MemberFusionEndpoint, crate::admission_gate::AdmissionGate)>,
+    pub(crate) member_fusion: Option<(
+        iroh::endpoint::MemberFusionEndpoint,
+        crate::admission_gate::AdmissionGate,
+    )>,
     responders: std::sync::Mutex<Vec<(String, crate::mqtt_discovery::LiveResponder)>>,
     tcp: Option<crate::tcp_transport::TcpTransport>,
     native: Option<crate::native_path_adapter::NativePathAdapter>,
@@ -1152,6 +1186,20 @@ impl ResourceEndpoint {
         &self,
         observer: &iroh::RelayUrl,
     ) -> std::io::Result<TcpStunObservation> {
+        let family = if matches!(observer.host(), Some(url::Host::Ipv6(_))) {
+            iroh::endpoint::ObservationFamily::Ipv6
+        } else {
+            iroh::endpoint::ObservationFamily::Ipv4
+        };
+        self.observe_tcp_stun_for_family(observer, family).await
+    }
+
+    /// Observe the configured observer on the TCP listener of the selected family.
+    pub async fn observe_tcp_stun_for_family(
+        &self,
+        observer: &iroh::RelayUrl,
+        family: iroh::endpoint::ObservationFamily,
+    ) -> std::io::Result<TcpStunObservation> {
         use std::io;
         if observer.scheme() != "stun+tcp"
             || !self
@@ -1168,7 +1216,9 @@ impl ResourceEndpoint {
         let transport = self.tcp.as_ref().ok_or_else(|| {
             io::Error::new(io::ErrorKind::Unsupported, "no configured TCP transport")
         })?;
-        let result = crate::tcp_observation::observe(&self.endpoint, transport, observer).await?;
+        let result =
+            crate::tcp_observation::observe_for_family(&self.endpoint, transport, observer, family)
+                .await?;
         let stream = std::sync::Arc::new(result.stream);
         let observation = TcpStunObservation {
             observer: observer.clone(),
@@ -1189,7 +1239,7 @@ impl ResourceEndpoint {
                 "TCP STUN query superseded",
             ));
         }
-        transport.retain_observation(&origin, &result.request, stream)?;
+        transport.retain_observation(&format!("{origin}/{family:?}"), &result.request, stream)?;
         Ok(observation)
     }
 
@@ -1434,8 +1484,11 @@ impl ResourceEndpoint {
             });
         let routes = if class == ContactClass::Foreground {
             routes.with_contact_budget(move |peer, deadline| {
-                let attempt = ContactAttempt::begin(&backoff, peer, ContactClass::Foreground, deadline)
-                    .map_err(|error| std::io::Error::new(std::io::ErrorKind::WouldBlock, error))?;
+                let attempt =
+                    ContactAttempt::begin(&backoff, peer, ContactClass::Foreground, deadline)
+                        .map_err(|error| {
+                            std::io::Error::new(std::io::ErrorKind::WouldBlock, error)
+                        })?;
                 Ok(move |result: &std::io::Result<()>| match result {
                     Ok(()) => attempt.succeeded(),
                     Err(error) => { attempt.failed(error.to_string()); }
@@ -1482,9 +1535,18 @@ impl ResourceEndpoint {
     }
 
     fn add_configured_relays(&self, target: &mut iroh::EndpointAddr) -> std::io::Result<()> {
-        if !target.addrs.iter().any(|addr| matches!(addr, iroh::TransportAddr::Relay(_))) {
-            target.addrs.extend(self.config.relay_map(ResourceUse::DataRelay)?.urls::<Vec<_>>()
-                .into_iter().map(iroh::TransportAddr::Relay));
+        if !target
+            .addrs
+            .iter()
+            .any(|addr| matches!(addr, iroh::TransportAddr::Relay(_)))
+        {
+            target.addrs.extend(
+                self.config
+                    .relay_map(ResourceUse::DataRelay)?
+                    .urls::<Vec<_>>()
+                    .into_iter()
+                    .map(iroh::TransportAddr::Relay),
+            );
         }
         Ok(())
     }
@@ -1565,19 +1627,38 @@ impl ResourceEndpoint {
         ),
         ResourceContactError,
     > {
-        let context = std::sync::Arc::new(crate::connection_coordinator::MigrationWireContext::new(
-            target.id, alpn, gate,
-        ));
-        self.connect_attempt(target, alpn, ContactClass::Background, control_only, self.contact_deadline(), Some(context)).await
+        let context = std::sync::Arc::new(
+            crate::connection_coordinator::MigrationWireContext::new(target.id, alpn, gate),
+        );
+        self.connect_attempt(
+            target,
+            alpn,
+            ContactClass::Background,
+            control_only,
+            self.contact_deadline(),
+            Some(context),
+        )
+        .await
     }
 
     /// An invitation may introduce facilities that the active endpoint does
     /// not own. An outbound-only preparation endpoint may use those origins,
     /// but must never register this identity on an active relay or broker.
-    pub(crate) fn additional_migration_facilities(&self, mut target: ResourceConfig) -> Option<ResourceConfig> {
-        let active = self.config.replacement.as_ref().unwrap_or(&self.config.defaults.resources);
-        let facilities: Vec<_> = target.replacement.as_ref().unwrap_or(&target.defaults.resources)
-            .iter().filter_map(|resource| {
+    pub(crate) fn additional_migration_facilities(
+        &self,
+        mut target: ResourceConfig,
+    ) -> Option<ResourceConfig> {
+        let active = self
+            .config
+            .replacement
+            .as_ref()
+            .unwrap_or(&self.config.defaults.resources);
+        let facilities: Vec<_> = target
+            .replacement
+            .as_ref()
+            .unwrap_or(&target.defaults.resources)
+            .iter()
+            .filter_map(|resource| {
                 let mut additional = resource.clone();
                 additional.uses.retain(|usage| {
                     matches!(usage, ResourceUse::DataRelay | ResourceUse::Signaling)

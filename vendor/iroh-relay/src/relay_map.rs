@@ -283,6 +283,34 @@ fn quic_config() -> Option<RelayQuicConfig> {
     Some(RelayQuicConfig::default())
 }
 
+/// Optional per-family observer destinations. The resource URL remains the
+/// authority for permission and TLS server-name verification.
+#[derive(Debug, Default, Deserialize, Serialize, Clone, Eq, PartialEq, PartialOrd, Ord)]
+pub struct ObservationDialAddresses {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Explicit IPv4 destination, or system DNS when absent.
+    pub ipv4: Option<std::net::Ipv4Addr>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Explicit IPv6 destination, or system DNS when absent.
+    pub ipv6: Option<std::net::Ipv6Addr>,
+}
+
+/// The address family of one observation on an actual local binding.
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum ObservationFamily {
+    /// IPv4 observation on the IPv4 binding.
+    Ipv4,
+    /// IPv6 observation on the IPv6 binding.
+    Ipv6,
+}
+
+impl ObservationFamily {
+    /// Whether an address belongs to this family.
+    pub fn matches(self, address: std::net::SocketAddr) -> bool {
+        address.is_ipv6() == matches!(self, Self::Ipv6)
+    }
+}
+
 /// Configuration for speaking to the QUIC endpoint on the relay
 /// server to do QUIC address discovery.
 ///
@@ -292,12 +320,18 @@ fn quic_config() -> Option<RelayQuicConfig> {
 pub struct RelayQuicConfig {
     /// The port on which the connection should be bound to.
     pub port: u16,
+    #[serde(default)]
+    /// Per-family QUIC observation destinations, preserving URL TLS identity.
+    pub dial_addresses: ObservationDialAddresses,
 }
 
 impl RelayQuicConfig {
     /// Creates a new QUIC address discovery configuration with the given port.
     pub fn new(port: u16) -> Self {
-        Self { port }
+        Self {
+            port,
+            dial_addresses: Default::default(),
+        }
     }
 }
 
@@ -305,6 +339,7 @@ impl Default for RelayQuicConfig {
     fn default() -> Self {
         Self {
             port: DEFAULT_RELAY_QUIC_PORT,
+            dial_addresses: Default::default(),
         }
     }
 }

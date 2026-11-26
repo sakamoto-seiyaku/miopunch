@@ -705,6 +705,13 @@ async fn relay_lookup_ipv4_staggered(
     relay: &RelayConfig,
     port: u16,
 ) -> Result<SocketAddrV4, GetRelayAddrError> {
+    if let Some(ip) = relay
+        .quic
+        .as_ref()
+        .and_then(|quic| quic.dial_addresses.ipv4)
+    {
+        return Ok(SocketAddrV4::new(ip, port));
+    }
     match relay.url.host() {
         Some(url::Host::Domain(hostname)) => {
             trace!(%hostname, "Performing DNS A lookup for relay addr");
@@ -746,6 +753,13 @@ async fn relay_lookup_ipv6_staggered(
     relay: &RelayConfig,
     port: u16,
 ) -> Result<SocketAddrV6, GetRelayAddrError> {
+    if let Some(ip) = relay
+        .quic
+        .as_ref()
+        .and_then(|quic| quic.dial_addresses.ipv6)
+    {
+        return Ok(SocketAddrV6::new(ip, port, 0, 0));
+    }
     match relay.url.host() {
         Some(url::Host::Domain(hostname)) => {
             trace!(%hostname, "Performing DNS AAAA lookup for relay addr");

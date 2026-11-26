@@ -70,6 +70,7 @@ impl NativeNetwork {
         });
         let relay_resources = resources.clone();
         let custom_resources = resources.clone();
+        let observation_resources = resources.clone();
         let udp_config = self.udp.fusion_config(&resources)?;
         let endpoint = builder
             .secret_key(SecretKey::from_bytes(self.node_key.as_bytes()))
@@ -85,7 +86,10 @@ impl NativeNetwork {
                     };
                     relay_resources.allows(url.as_str(), use_)
                 })
-                .with_custom_addresses(move |address| custom_resources.allows_custom(address)),
+                .with_custom_addresses(move |address| custom_resources.allows_custom(address))
+                .with_observation_addresses(move |url| {
+                    observation_resources.observation_dial_addresses(url)
+                }),
             )
             .member_fusion(
                 FUSED_MEMBER_ALPN,

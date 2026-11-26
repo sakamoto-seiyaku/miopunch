@@ -812,12 +812,47 @@ pub(crate) async fn observe_mapping_sample(
     dns: DnsResolver,
     cancel: CancellationToken,
     qad: Option<&QadSubmission>,
+    family: iroh_relay::ObservationFamily,
+    destinations: Option<
+        &std::sync::Arc<std::sync::Mutex<(usize, std::collections::HashSet<SocketAddr>)>>,
+    >,
 ) -> std::io::Result<MappingProbeSample> {
+    let destination = match family {
+        iroh_relay::ObservationFamily::Ipv4 => reportgen::get_relay_addr_ipv4(&dns, &relay)
+            .await
+            .map(SocketAddr::V4),
+        iroh_relay::ObservationFamily::Ipv6 => reportgen::get_relay_addr_ipv6(&dns, &relay)
+            .await
+            .map(SocketAddr::V6),
+    }
+    .map_err(std::io::Error::other)?;
+    if let Some(destinations) = destinations {
+        let mut destinations = destinations.lock().expect("mapping destinations");
+        if destinations.1.len() >= destinations.0 || !destinations.1.insert(destination) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                "duplicate observation destination",
+            ));
+        }
+    }
+    // Reuse the resolved destination for the request while preserving TLS identity.
+    let mut relay = (*relay).clone();
+    if let Some(quic) = &mut relay.quic {
+        match destination.ip() {
+            std::net::IpAddr::V4(ip) => quic.dial_addresses.ipv4 = Some(ip),
+            std::net::IpAddr::V6(ip) => quic.dial_addresses.ipv6 = Some(ip),
+        }
+    }
+    let relay = Arc::new(relay);
     let observer = relay.url.to_string();
-    let (report, conn) = time::timeout(
-        QAD_PROBE_TIMEOUT,
-        run_probe_v4(relay, client, dns, cancel, qad),
-    )
+    let (report, conn) = time::timeout(QAD_PROBE_TIMEOUT, async {
+        match family {
+            iroh_relay::ObservationFamily::Ipv4 => {
+                run_probe_v4(relay, client, dns, cancel, qad).await
+            }
+            iroh_relay::ObservationFamily::Ipv6 => run_probe_v6(relay, client, dns, cancel).await,
+        }
+    })
     .await
     .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "QAD timed out"))?
     .map_err(|error| std::io::Error::other(format!("QAD mapping observation: {error:#}")))?;

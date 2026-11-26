@@ -784,7 +784,7 @@ impl Planning {
         trace.step("observation");
         let (local, proposal) = tokio::try_join!(
             async {
-                let local = self.observe(scope, traverse, slot, trace).await?;
+                let local = self.observe(scope, traverse, slot, trace, deadline).await?;
                 trace.step("peer-plan");
                 local.check()?;
                 self.check_scope(scope)?;
@@ -854,7 +854,7 @@ impl Planning {
         // Dropping or cancelling the visitor's stream stops even a pending observation.
         let (local, remote) = tokio::try_join!(
             async {
-                let local = self.observe(scope, traverse, slot, trace).await?;
+                let local = self.observe(scope, traverse, slot, trace, deadline).await?;
                 trace.step("peer-samples");
                 Ok::<_, io::Error>(local)
             },
@@ -931,6 +931,7 @@ impl Planning {
     }
 
     fn sources(&self) -> io::Result<Sources> {
+        let limit = self.config.observations.min(MAX_OBSERVATIONS);
         let qad = RelayMap::from_iter(
             self.config
                 .qad
@@ -949,8 +950,7 @@ impl Planning {
         if count == 0 && (!self.config.qad.is_empty() || !self.config.stun.is_empty()) {
             return Err(denied("no configured UDP observation source is permitted"));
         }
-        if count > self.config.observations.min(MAX_OBSERVATIONS) || self.config.peer_datagrams == 0
-        {
+        if limit == 0 || self.config.peer_datagrams == 0 {
             return Err(busy());
         }
         Ok(Sources { qad, stun })
@@ -962,6 +962,7 @@ impl Planning {
         traverse: bool,
         slot: &Reservation<'_>,
         trace: &RoundTrace,
+        deadline: Instant,
     ) -> io::Result<Evidence> {
         let sources = &scope.sources;
         let on_work = || {
@@ -974,11 +975,14 @@ impl Planning {
         let endpoint = &self.endpoint;
         let sequence = match endpoint
             .inner
-            .observe_udp_mapping_round(
+            .observe_udp_mapping_round_for_family(
                 &sources.qad,
                 &sources.stun,
+                iroh_relay::ObservationFamily::Ipv4,
                 &on_work,
                 qad_submission.as_ref(),
+                self.config.observations.min(MAX_OBSERVATIONS),
+                deadline,
             )
             .await
         {
