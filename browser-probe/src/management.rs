@@ -107,6 +107,9 @@ impl SavedNode {
         action: ManagementAction,
         deadline: Option<Instant>,
     ) -> Result<Vec<u8>, JsValue> {
+        if matches!(action, ManagementAction::AddMember(_)) {
+            self.admissions_open()?;
+        }
         let target = action.target();
         let current = auth
             .nodes()

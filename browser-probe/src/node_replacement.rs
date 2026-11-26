@@ -88,7 +88,7 @@ impl SavedNode {
                 recovery: self.recovery.clone(),
                 recoveries: self.served_recoveries.clone(),
                 admission,
-                native_rotation: self.native_rotation.clone(),
+                native_rotation: self.portable_rotation()?,
                 settings: source.settings.clone(),
             },
         };
@@ -158,6 +158,9 @@ impl SavedNode {
             portable_settings: Some(node.settings.clone()),
             material_generations: admission.material_generations,
             native_rotation: node.native_rotation.clone(),
+            rotation: rotation::RotationState::from_portable(
+                &node.native_rotation, node.network, node.generation,
+            )?,
         };
         saved.verify()?;
         Ok(saved)
@@ -171,10 +174,12 @@ impl BrowserNetwork {
     pub async fn prepare_node_replacement(&mut self) -> Result<String, JsValue> {
         self.refresh_service_snapshot().await?;
         self.require_device_ready()?;
+        self.saved.admissions_open()?;
         let result = async {
             self.disable_files().await?;
             self.stop_runtime().await;
             self.refresh_service_snapshot().await?;
+            self.saved.admissions_open()?;
             let mut settings = self
                 .saved
                 .portable_settings

@@ -295,6 +295,7 @@ impl BrowserNetwork {
     ) -> Result<String, JsValue> {
         let (applicant, request) = parse_request(&applicant, &request)?;
         let id = services::update_saved(&self.gate, |saved| {
+            saved.admissions_open()?;
             let index = saved
                 .approval_index(applicant, request)
                 .ok_or_else(rejected)?;
@@ -334,6 +335,7 @@ impl BrowserNetwork {
         max_uses: Option<u64>,
     ) -> Result<String, JsValue> {
         services::update_saved(&self.gate, |saved| {
+            saved.admissions_open()?;
             let auth = saved.administrator()?;
             if !crate::precode_policy::valid_limits(expires_unix_seconds, max_uses, now()?)
                 || saved.codes.len() >= 4096
@@ -533,6 +535,7 @@ impl SavedNode {
     }
 
     fn receive_request(&mut self, wire: AdmissionRequestWire) -> Result<Approval, JsValue> {
+        self.admissions_open()?;
         let auth = self.administrator()?;
         if wire.binding[..96] != self.own_invitation()? {
             return Err(rejected());
@@ -750,6 +753,7 @@ async fn receive_admission(
     let result = if let Some(authorization) = approval.authorization {
         let (saved, _, _) = services::installed(gate).await?;
         saved.verify_delivery(authorization, applicant)?;
+        saved.admissions_open()?;
         let history =
             p2panda_core::cbor::encode_cbor(&(authorization, &saved.records)).map_err(error)?;
         if history.len() > MAX_HISTORY {
@@ -773,30 +777,29 @@ async fn receive_admission(
             Ok(())
         })
         .await?;
-        let (generation, secret) = services::update_saved(gate, |current| {
+        {
+            let _writer = gate.2.lock().await;
+            let (mut current, raw, lease) = services::installed_locked(gate).await?;
+            current.admissions_open()?;
             current.verify_delivery(authorization, applicant)?;
             if current.generation != saved.generation {
                 return Err(rejected());
             }
-            let index = current
-                .approval_index(applicant, request)
-                .ok_or_else(rejected)?;
+            let index = current.approval_index(applicant, request).ok_or_else(rejected)?;
             let approval = &mut current.approvals[index];
-            if !approval.complete {
+            if !approval.complete && approval.delivery_phase != Some(2) {
                 approval.delivery_phase = Some(2);
+                services::commit_locked(gate, &raw, lease, &current).await?;
             }
-            Ok((current.generation, current.secret.ok_or_else(rejected)?))
-        })
-        .await?;
-        until(deadline, async {
-            send_fixed(&exchange, &generation.to_be_bytes()).await?;
-            send_fixed(&exchange, &secret).await?;
-            if &recv_fixed::<4>(&exchange).await? != b"SAVE" {
-                return Err(rejected());
-            }
-            Ok(())
-        })
-        .await?;
+            let secret = current.secret.ok_or_else(rejected)?;
+            until(deadline, async {
+                send_fixed(&exchange, &current.generation.to_be_bytes()).await?;
+                send_fixed(&exchange, &secret).await
+            }).await?;
+        }
+        if &until(deadline, recv_fixed::<4>(&exchange)).await? != b"SAVE" {
+            return Err(rejected());
+        }
         services::update_saved(gate, |saved| {
             saved.verify_delivery(authorization, applicant)?;
             let index = saved

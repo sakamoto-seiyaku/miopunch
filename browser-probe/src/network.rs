@@ -20,6 +20,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::admission_progress::{AdmissionAttempt, AdmissionReceipt, ApplicationProgress};
 use crate::admission_proof::{AdmissionScope, AdmissionSecret, BootstrapProof};
+use crate::admission_rotation_wire::{ADMISSION_ROTATION_ALPN, ROTATION_DELIVERY_ALPN};
 use crate::connection_coordinator::ADMISSION_RECEIPT_ALPN;
 use crate::device_protocol::{DEPARTURE_ALPN, REMOVAL_ALPN};
 use crate::device_name::{DeviceNames, with_display_name};
@@ -44,12 +45,15 @@ fn requires_member_proof(alpn: &[u8]) -> bool {
                 | DEPARTURE_ALPN
                 | REMOVAL_ALPN
                 | device_recovery::RECOVERY_ALPN
+                | ROTATION_DELIVERY_ALPN
         )
 }
 fn credential_bound_control(alpn: &[u8]) -> bool {
     // Recovery proves the root on this TLS session. Saving its newly received
     // admission secret must not close the session before SAVE/DONE completes.
-    !is_request_alpn(alpn) && alpn != crate::management_recovery_wire::RECOVERY_ALPN
+    !is_request_alpn(alpn) && !matches!(
+        alpn, crate::management_recovery_wire::RECOVERY_ALPN | ADMISSION_ROTATION_ALPN | ROTATION_DELIVERY_ALPN
+    )
 }
 const BUSINESS_ALPN: &[u8] = crate::connection_coordinator::MEMBER_ALPN;
 const TIMEOUT: Duration = Duration::from_secs(12);
@@ -147,6 +151,8 @@ struct SavedNode {
     material_generations: Vec<crate::node_control_backup::MaterialGeneration>,
     #[serde(default)]
     native_rotation: crate::node_control_backup::NativeRotationState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rotation: Option<rotation::RotationState>,
 }
 
 #[derive(Clone, Copy)]
@@ -409,22 +415,7 @@ impl BrowserControlSession {
         if !self.connection.is_open() {
             return false;
         }
-        if self.alpn == REMOVAL_ALPN {
-            return BrowserGate::removal_contact_allowed(saved, self.peer, self.client);
-        }
-        if matches!(self.alpn.as_slice(), crate::service_policy::GUEST_ALPN | DEPARTURE_ALPN)
-            && !self.client
-        {
-            return saved.stage() == "Complete";
-        }
-        if is_request_alpn(&self.alpn) && !self.client {
-            saved.stage() == "Complete"
-                && saved.verify().ok().flatten().is_some_and(|auth| {
-                    auth.nodes().contains(&(saved.identity(), Access::manage()))
-                })
-        } else {
-            BrowserGate::permits(saved, self.peer, &self.alpn)
-        }
+        BrowserGate::control_permitted(saved, self.peer, &self.alpn, self.client)
     }
 }
 
@@ -502,6 +493,7 @@ impl BrowserGate {
         )).collect::<Vec<_>>());
         Ok(serde_json::json!({"cursor":cursor.to_string(),"status":status,
             "pending_admissions":saved.pending_admissions(),"admission_history":saved.admission_history(),
+            "admission_rotation":saved.rotation_progress()?.map(|progress| progress.public_json()),
             "device_operations":auth.as_ref().map(|auth| saved.operation_state(auth))}).to_string())
     }
 
@@ -696,19 +688,43 @@ impl BrowserGate {
             }
             true
         });
-        gate.control_sessions.retain(|_, session| {
+        let mut sessions = std::mem::take(&mut gate.control_sessions);
+        sessions.retain(|stable, session| {
             let allowed = session.permitted(saved)
+                && (session.alpn != ADMISSION_ROTATION_ALPN || Self::proved_id_current(
+                    &gate, saved, *stable, session.peer, &session.alpn,
+                ))
                 && !(credential_changed && credential_bound_control(&session.alpn));
             if !allowed {
                 session.connection.close(0u32.into(), b"membership revoked");
             }
             allowed
         });
+        gate.control_sessions = sessions;
         gate.saved = Some(saved.clone());
         if changed {
             gate.changes.publish();
         }
     }
+    fn control_permitted(saved: &SavedNode, peer: iroh_base::EndpointId, alpn: &[u8], client: bool) -> bool {
+        if matches!(alpn, ADMISSION_ROTATION_ALPN | ROTATION_DELIVERY_ALPN) {
+            return saved.rotation_contact(peer, alpn, client);
+        }
+        if alpn == REMOVAL_ALPN {
+            return Self::removal_contact_allowed(saved, peer, client);
+        }
+        if matches!(alpn, crate::service_policy::GUEST_ALPN | DEPARTURE_ALPN) && !client {
+            return saved.stage() == "Complete";
+        }
+        if is_request_alpn(alpn) && !client {
+            return saved.stage() == "Complete"
+                && saved.verify().ok().flatten().is_some_and(|auth| {
+                    auth.nodes().contains(&(saved.identity(), Access::manage()))
+                });
+        }
+        Self::permits(saved, peer, alpn)
+    }
+
     fn removal_contact_allowed(saved: &SavedNode, peer: iroh_base::EndpointId, client: bool) -> bool {
         saved.stage() == "Complete"
             && saved.verify().ok().flatten().is_some_and(|auth| {
@@ -719,6 +735,9 @@ impl BrowserGate {
     }
 
     fn permits(saved: &SavedNode, target: iroh_base::EndpointId, alpn: &[u8]) -> bool {
+        if matches!(alpn, ADMISSION_ROTATION_ALPN | ROTATION_DELIVERY_ALPN) {
+            return saved.rotation_contact(target, alpn, true);
+        }
         let Ok(invitation) = saved.invitation() else {
             return false;
         };
@@ -1224,6 +1243,15 @@ impl BrowserGate {
                     .get(&stable)
                     .is_some_and(|s| s.peer == peer && s.alpn == alpn && s.connection.is_open());
         }
+        if alpn == ADMISSION_ROTATION_ALPN {
+            return saved.rotation_contact(peer, alpn, false)
+                && gate.proofs.iter().any(|proof| {
+                    saved.rotation_credential(proof.scope().secret_generation()).is_some_and(|(scope, secret)| {
+                        proof.applies_to_id(stable, &scope)
+                            && proof.credential_fingerprint() == &secret.fingerprint(&scope)
+                    })
+                });
+        }
         let (Ok(invitation), Some(secret)) = (saved.invitation(), saved.secret) else {
             return false;
         };
@@ -1584,22 +1612,7 @@ impl BrowserGate {
         let saved = self.0.lock().unwrap().saved.clone();
 
         let Some(saved) = saved.filter(|saved| {
-            let permits = if connection.alpn() == REMOVAL_ALPN {
-                Self::removal_contact_allowed(saved, connection.remote_id(), connection.side().is_client())
-            } else if matches!(connection.alpn(), crate::service_policy::GUEST_ALPN | DEPARTURE_ALPN)
-                && !connection.side().is_client()
-            {
-                saved.stage() == "Complete"
-            } else if is_request_alpn(connection.alpn()) && !connection.side().is_client() {
-                saved.stage() == "Complete"
-                    && saved.verify().ok().flatten().is_some_and(|auth| {
-                        auth.nodes().contains(&(saved.identity(), Access::manage()))
-                    })
-            } else {
-                Self::permits(saved, connection.remote_id(), connection.alpn())
-            };
-
-            permits
+            Self::control_permitted(saved, connection.remote_id(), connection.alpn(), connection.side().is_client())
         }) else {
             return Err(control_error("IdentityOrAdmissionRejected"));
         };
@@ -1622,14 +1635,15 @@ impl BrowserGate {
         let proof = if requires_member_proof(connection.alpn())
             && !(saved.guest_pair(connection.remote_id(), connection.alpn()))
         {
-            let Ok(invitation) = saved.invitation() else {
+            let generation = if connection.alpn() == ADMISSION_ROTATION_ALPN {
+                crate::admission_rotation_wire::negotiate_generation(connection, saved.generation)
+                    .await.map_err(|_| control_error("IdentityOrAdmissionRejected"))?
+            } else {
+                saved.generation
+            };
+            let Some((scope, secret)) = saved.rotation_credential(generation) else {
                 return Err(control_error("IdentityOrAdmissionRejected"));
             };
-            let scope = AdmissionScope::new(*invitation.anchor.root.as_bytes(), saved.generation);
-            let Some(secret) = saved.secret else {
-                return Err(control_error("IdentityOrAdmissionRejected"));
-            };
-            let secret = AdmissionSecret::from_saved(secret);
             let result = if connection.side().is_client() {
                 crate::admission_proof::prove_client(connection, &scope, &secret).await
             } else {
@@ -1690,9 +1704,13 @@ impl BrowserGate {
         if let Some(proof) = proof {
             let mut gate = self.0.lock().unwrap();
             if !gate.saved.as_ref().is_some_and(|current| {
-                current.generation == saved.generation
-                    && current.secret == saved.secret
-                    && Self::permits(current, connection.remote_id(), connection.alpn())
+                Self::control_permitted(current, connection.remote_id(), connection.alpn(), connection.side().is_client())
+                    && (connection.alpn() == ADMISSION_ROTATION_ALPN || current.generation == saved.generation)
+                    && current.rotation_credential(proof.scope().secret_generation())
+                        .is_some_and(|(scope, secret)| {
+                            proof.applies_to(connection, &scope)
+                                && proof.credential_fingerprint() == &secret.fingerprint(&scope)
+                        })
             }) {
                 return Err(control_error("IdentityOrAdmissionRejected"));
             }
@@ -2028,6 +2046,7 @@ pub struct BrowserNetwork {
     endpoint: RestrictedEndpoint,
     incoming: std::rc::Rc<incoming::IncomingDispatcher>,
     admission: admission::AdmissionService,
+    rotation: rotation::RotationRuntime,
     files: std::rc::Rc<files::BrowserFiles>,
     _file_owner: files::FileOwner,
     clipboard: std::rc::Rc<clipboard_host::BrowserClipboard>,
@@ -2216,9 +2235,11 @@ impl BrowserNetwork {
                 portable_settings: None,
                 material_generations: Vec::new(),
                 native_rotation: Default::default(),
+                rotation: None,
             }
         };
         saved.verify()?;
+        saved.validate_rotation()?;
         if !saved.device_names.is_valid() {
             return Err(error("browser device display names are invalid"));
         }
@@ -2491,7 +2512,7 @@ impl BrowserNetwork {
         // Reopened applicants can read saved progress while paths reconnect.
         let resume_offline = reopening_application.is_some_and(|attempt| {
             has_carriers || attempt.progress != ApplicationProgress::Created
-        });
+        }) || saved.rotation.is_some();
         if !has_carriers && !resume_offline {
             return Err(error(
                 "temporarily unreachable: no allowed browser relay or MQTT carrier",
@@ -2588,6 +2609,8 @@ impl BrowserNetwork {
                     REQUEST_ALPN.to_vec(),
                     PRECODE_REQUEST_ALPN.to_vec(),
                     ADMISSION_RECEIPT_ALPN.to_vec(),
+                    ADMISSION_ROTATION_ALPN.to_vec(),
+                    ROTATION_DELIVERY_ALPN.to_vec(),
                 ];
                 if pairing_receiver {
                     alpns.push(crate::invitation_pairing::PAIRING_ALPN.to_vec());
@@ -2766,6 +2789,7 @@ impl BrowserNetwork {
             endpoint,
             incoming,
             admission,
+            rotation: Default::default(),
             files,
             _file_owner: file_owner,
             clipboard,
@@ -2809,6 +2833,7 @@ impl BrowserNetwork {
             .admission
             .start_receipts(&network, network.lease.as_ref().unwrap().0);
         network.services.start_member_sync(&network);
+        network.rotation.start(&network);
         Ok(network)
     }
 }
@@ -3038,6 +3063,7 @@ impl BrowserNetwork {
     }
 
     pub async fn complete_admission(&mut self) -> Result<String, JsValue> {
+        self.gate.service_snapshot()?.admissions_open()?;
         let delivery = self.delivery.take().ok_or_else(rejected)?;
         let remaining = delivery
             .deadline
@@ -3165,6 +3191,7 @@ impl BrowserNetwork {
         }
         self.incoming.close();
         self.incoming.stopped().await;
+        self.rotation.stopped().await;
         self.endpoint.close().await;
     }
 }
@@ -3497,6 +3524,9 @@ mod rtc_member;
 #[path = "member_data_sdk.rs"]
 mod member_data_sdk;
 use member_data_sdk::{MemberDataConfiguration, MemberDataQualificationSource};
+
+#[path = "admission_rotation.rs"]
+mod rotation;
 
 #[path = "onboarding.rs"]
 mod onboarding;

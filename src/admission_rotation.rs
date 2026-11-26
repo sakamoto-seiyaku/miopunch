@@ -5,39 +5,29 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
-use std::time::Duration;
 
 use crate::control_protocol::AuthenticatedControl;
-use iroh::endpoint::{ControlExchange, ControlMessageFormat};
+#[cfg(feature = "replica-test-hooks")]
+use crate::admission_rotation_wire::{ACK_DOMAIN, Acknowledgement};
 use p2panda_core::{Hash, Signature, SigningKey, VerifyingKey};
-use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use thiserror::Error;
 use tokio::sync::{Mutex, MutexGuard};
 use tokio::time::{Instant, timeout_at};
 
 use crate::admission_gate::ProtocolScope;
+pub use crate::admission_rotation_wire::{
+    ADMISSION_ROTATION_ALPN, ROTATION_DELIVERY_ALPN, RotationProgress, RotationStage,
+};
+use crate::admission_rotation_wire::{
+    COMMIT_DOMAIN, Completion, HistoryFrame, MAX_MEMBERS, PROPOSAL_DOMAIN,
+    Proposal, RotationExchange, SavedRotation, Signed, WireError, decode, encode, keys,
+    rotation_deadline, verify_ack, verify_completion, verify_proposal, wire_io,
+};
 use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::daily_management::{ManagementAction, ManagementError, ManagementSession};
 use crate::management_store::{ManagementRecord, ManagementStore, StoreError};
 use crate::native_network::{NativeNetwork, NodeError, write_private};
-
-pub const ADMISSION_ROTATION_ALPN: &[u8] = b"miopunch/admission-rotation/1";
-/// Existing approved-material delivery exception, limited to a current
-/// durable pending grant and this root-authorized retained replacement.
-pub const ROTATION_DELIVERY_ALPN: &[u8] = b"miopunch/admission-rotation-delivery/1";
-const MAX_FRAME: usize = 16 * 1024 * 1024;
-const MAX_MEMBERS: usize = 4096;
-const TIMEOUT: Duration = Duration::from_secs(15);
-const PROPOSAL_DOMAIN: &[u8] = b"miopunch/admission-rotation/proposal/1\0";
-const ACK_DOMAIN: &[u8] = b"miopunch/admission-rotation/durable-ack/1\0";
-const COMMIT_DOMAIN: &[u8] = b"miopunch/admission-rotation/commit/1\0";
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RotationStage {
-    Distributing,
-    Complete,
-}
 
 /// Wire-only mutations after genuine durable receipt. Available exclusively
 /// to explicit fault builds; signing, transport and storage remain real.
@@ -53,17 +43,6 @@ enum ReceiptMode {
     Normal,
     #[cfg(feature = "replica-test-hooks")]
     Fault(RotationAckFault),
-}
-
-/// Local durable progress, not a claim of global propagation or convergence.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RotationProgress {
-    pub id: [u8; 16],
-    pub generation: u64,
-    pub initiator: VerifyingKey,
-    pub retained: Vec<VerifyingKey>,
-    pub acknowledged: Vec<VerifyingKey>,
-    pub stage: RotationStage,
 }
 
 #[derive(Debug, Error)]
@@ -84,94 +63,11 @@ pub enum RotationError {
     Node(#[from] NodeError),
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-struct Signed {
-    statement: Vec<u8>,
-    signature: Vec<u8>,
-}
-
-fn encode<T: Serialize>(value: &T) -> Result<Vec<u8>, RotationError> {
-    p2panda_core::cbor::encode_cbor(value).map_err(|_| RotationError::Rejected)
-}
-
-fn decode<T: for<'de> Deserialize<'de>>(value: &[u8]) -> Result<T, RotationError> {
-    p2panda_core::cbor::decode_cbor(value).map_err(|_| RotationError::Rejected)
-}
-
-impl Signed {
-    fn sign<T: Serialize>(
-        domain: &[u8],
-        value: &T,
-        key: &SigningKey,
-    ) -> Result<Self, RotationError> {
-        let mut statement = domain.to_vec();
-        statement.extend(encode(value)?);
-        Ok(Self {
-            signature: key.sign(&statement).to_bytes().to_vec(),
-            statement,
-        })
-    }
-
-    fn verify<T: for<'de> Deserialize<'de>>(
-        &self,
-        domain: &[u8],
-        key: VerifyingKey,
-    ) -> Result<T, RotationError> {
-        let signature = Signature::from_bytes(
-            &self
-                .signature
-                .as_slice()
-                .try_into()
-                .map_err(|_| RotationError::Rejected)?,
-        );
-        if !self.statement.starts_with(domain) || !key.verify(&self.statement, &signature) {
-            return Err(RotationError::Rejected);
-        }
-        decode(&self.statement[domain.len()..])
-    }
-
-    fn hash(&self) -> Result<Hash, RotationError> {
-        Ok(Hash::digest(encode(self)?))
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-struct Proposal {
-    network: [u8; 32],
-    genesis: [u8; 32],
-    id: [u8; 16],
-    initiator: [u8; 32],
-    previous_generation: u64,
-    generation: u64,
-    retained: Vec<[u8; 32]>,
-    fingerprint: [u8; 32],
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-struct Acknowledgement {
-    proposal: [u8; 32],
-    member: [u8; 32],
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-struct Completion {
-    proposal: [u8; 32],
-    retained: Vec<[u8; 32]>,
-    acknowledgements: Vec<Signed>,
-}
-
-struct SavedRotation {
-    signed: Signed,
-    proposal: Proposal,
-    completion: Option<Signed>,
-}
-
-impl SavedRotation {
-    fn stage(&self) -> RotationStage {
-        if self.completion.is_some() {
-            RotationStage::Complete
-        } else {
-            RotationStage::Distributing
+impl From<WireError> for RotationError {
+    fn from(value: WireError) -> Self {
+        match value {
+            WireError::Rejected => Self::Rejected,
+            WireError::PathUnavailable => Self::PathUnavailable,
         }
     }
 }
@@ -220,81 +116,6 @@ impl DerefMut for RotationAccess<'_> {
     }
 }
 
-fn keys(values: &[[u8; 32]]) -> Result<Vec<VerifyingKey>, RotationError> {
-    values
-        .iter()
-        .map(|bytes| VerifyingKey::from_bytes(bytes).map_err(|_| RotationError::Rejected))
-        .collect()
-}
-
-fn ordered_members(values: &[[u8; 32]]) -> bool {
-    !values.is_empty()
-        && values.len() <= MAX_MEMBERS
-        && values.windows(2).all(|pair| pair[0] < pair[1])
-}
-
-fn verify_proposal(store: &ManagementStore, signed: &Signed) -> Result<Proposal, RotationError> {
-    let proposal: Proposal = signed.verify(PROPOSAL_DOMAIN, store.anchor().root)?;
-    if proposal.network != *store.anchor().root.as_bytes()
-        || proposal.genesis != *store.anchor().genesis.as_bytes()
-        || proposal.previous_generation.checked_add(1) != Some(proposal.generation)
-        || proposal.generation > i64::MAX as u64
-        || !ordered_members(&proposal.retained)
-        || proposal.retained.contains(store.anchor().root.as_bytes())
-        || !proposal.retained.contains(&proposal.initiator)
-    {
-        return Err(RotationError::Rejected);
-    }
-    keys(&proposal.retained)?;
-    Ok(proposal)
-}
-
-fn verify_ack(signed: &Signed, rotation: &SavedRotation) -> Result<[u8; 32], RotationError> {
-    // Decode only to identify the signature key; no fact is counted until the
-    // actual Ed25519 signature and exact durable proposal binding verify.
-    if !signed.statement.starts_with(ACK_DOMAIN) {
-        return Err(RotationError::Rejected);
-    }
-    let claimed: Acknowledgement = decode(&signed.statement[ACK_DOMAIN.len()..])?;
-    let key = VerifyingKey::from_bytes(&claimed.member).map_err(|_| RotationError::Rejected)?;
-    let ack: Acknowledgement = signed.verify(ACK_DOMAIN, key)?;
-    if ack.proposal != *rotation.signed.hash()?.as_bytes()
-        || !rotation.proposal.retained.contains(&ack.member)
-    {
-        return Err(RotationError::Rejected);
-    }
-    Ok(ack.member)
-}
-
-fn verify_completion(
-    rotation: &SavedRotation,
-    root: VerifyingKey,
-    signed: &Signed,
-) -> Result<Completion, RotationError> {
-    let completion: Completion = signed.verify(COMMIT_DOMAIN, root)?;
-    if completion.proposal != *rotation.signed.hash()?.as_bytes()
-        || !ordered_members(&completion.retained)
-        || !completion.retained.contains(&rotation.proposal.initiator)
-        || completion
-            .retained
-            .iter()
-            .any(|member| !rotation.proposal.retained.contains(member))
-        || completion.acknowledgements.len() != completion.retained.len()
-    {
-        return Err(RotationError::Rejected);
-    }
-    let mut acknowledged = completion
-        .acknowledgements
-        .iter()
-        .map(|ack| verify_ack(ack, rotation))
-        .collect::<Result<Vec<_>, _>>()?;
-    acknowledged.sort();
-    if acknowledged != completion.retained {
-        return Err(RotationError::Rejected);
-    }
-    Ok(completion)
-}
-
 impl ManagementStore {
     pub(crate) async fn ensure_admissions_open(&self) -> Result<(), StoreError> {
         let pending: i64 =
@@ -314,16 +135,12 @@ impl ManagementStore {
         let bytes: Vec<u8> = row.try_get("proposal").map_err(StoreError::from)?;
         let completion: Option<Vec<u8>> = row.try_get("completion").map_err(StoreError::from)?;
         let signed = decode(&bytes)?;
-        let proposal = verify_proposal(self, &signed)?;
+        let proposal = verify_proposal(self.anchor(), &signed)?;
         let generation: i64 = row.try_get("generation").map_err(StoreError::from)?;
         if generation < 0 || generation as u64 != proposal.generation {
             return Err(RotationError::Rejected);
         }
-        let result = SavedRotation {
-            signed,
-            proposal,
-            completion: completion.as_deref().map(decode).transpose()?,
-        };
+        let result = SavedRotation::new(signed, proposal, completion.as_deref().map(decode).transpose()?)?;
         if let Some(signed) = &result.completion {
             verify_completion(&result, self.anchor().root, signed)?;
         }
@@ -340,22 +157,18 @@ impl ManagementStore {
         let proposal: Vec<u8> = row.try_get("proposal").map_err(StoreError::from)?;
         let completion: Vec<u8> = row.try_get("completion").map_err(StoreError::from)?;
         let signed = decode(&proposal)?;
-        let proposal = verify_proposal(self, &signed)?;
+        let proposal = verify_proposal(self.anchor(), &signed)?;
         if proposal.generation != generation {
             return Err(RotationError::Rejected);
         }
         let completed: Signed = decode(&completion)?;
-        let rotation = SavedRotation {
-            signed: signed.clone(),
-            proposal,
-            completion: Some(completed.clone()),
-        };
+        let rotation = SavedRotation::new(signed.clone(), proposal, Some(completed.clone()))?;
         verify_completion(&rotation, self.anchor().root, &completed)?;
         Ok(Some((signed, completed)))
     }
 
     async fn save_rotation(&self, signed: &Signed) -> Result<(), RotationError> {
-        let proposal = verify_proposal(self, signed)?;
+        let proposal = verify_proposal(self.anchor(), signed)?;
         if let Some(current) = self.saved_rotation().await? {
             if current.proposal.generation == proposal.generation {
                 return if encode(&current.signed)? == encode(signed)? {
@@ -740,14 +553,7 @@ impl NativeNetwork {
 
     fn durable_rotation_ack(&self, rotation: &SavedRotation) -> Result<Signed, RotationError> {
         staged_material(&self.directory, rotation)?;
-        Signed::sign(
-            ACK_DOMAIN,
-            &Acknowledgement {
-                proposal: *rotation.signed.hash()?.as_bytes(),
-                member: *self.node_key.verifying_key().as_bytes(),
-            },
-            &self.node_key,
-        )
+        Ok(rotation.sign_ack(&self.node_key)?)
     }
 
     fn rotation_connection(
@@ -934,7 +740,7 @@ impl NativeNetwork {
                 return Err(RotationError::Waiting);
             }
             let completion = Completion {
-                proposal: *rotation.signed.hash()?.as_bytes(),
+                proposal: rotation.proposal_hash,
                 retained,
                 acknowledgements: acks,
             };
@@ -1284,13 +1090,7 @@ impl NativeNetwork {
         } else {
             None
         };
-        type WireHistory = Vec<(Vec<u8>, Option<Vec<u8>>)>;
-        let (signed, completion, history, predecessor): (
-            Signed,
-            Option<Signed>,
-            WireHistory,
-            Option<(Signed, Signed)>,
-        ) = decode(&exchange.read_frame().await?)?;
+        let (signed, completion, history, predecessor): HistoryFrame = decode(&exchange.read_frame().await?)?;
         let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())
             .map_err(|_| RotationError::Rejected)?;
         let pending = {
@@ -1299,7 +1099,7 @@ impl NativeNetwork {
             if let Some(profile) = profile {
                 state.check_original_rotation_provider(profile, connection.remote_id())?;
             }
-            let proposal = verify_proposal(&state.store, &signed)?;
+            let proposal = verify_proposal(state.anchor, &signed)?;
             if !proposal
                 .retained
                 .contains(connection.remote_id().as_bytes())
@@ -1452,7 +1252,7 @@ impl NativeNetwork {
                     ReceiptMode::Fault(RotationAckFault::WrongIdentity(key)) => Signed::sign(
                         ACK_DOMAIN,
                         &Acknowledgement {
-                            proposal: *rotation.signed.hash()?.as_bytes(),
+                            proposal: rotation.proposal_hash,
                             member: *key.verifying_key().as_bytes(),
                         },
                         &key,
@@ -1462,18 +1262,14 @@ impl NativeNetwork {
                         let previous: Vec<u8> = sqlx::query_scalar("SELECT proposal FROM admission_rotations WHERE generation<? ORDER BY generation DESC LIMIT 1")
                         .bind(rotation.proposal.generation as i64).fetch_one(&state.store.pool).await.map_err(StoreError::from)?;
                         let signed: Signed = decode(&previous)?;
-                        let proposal = verify_proposal(&state.store, &signed)?;
+                        let proposal = verify_proposal(state.anchor, &signed)?;
                         let saved: Vec<u8> = sqlx::query_scalar("SELECT acknowledgement FROM admission_rotation_acks WHERE rotation=? AND member=?")
                         .bind(proposal.id.as_slice()).bind(state.node_key.verifying_key().as_bytes().as_slice())
                         .fetch_one(&state.store.pool).await.map_err(StoreError::from)?;
                         let stale: Signed = decode(&saved)?;
                         verify_ack(
                             &stale,
-                            &SavedRotation {
-                                signed,
-                                proposal,
-                                completion: None,
-                            },
+                            &SavedRotation::new(signed, proposal, None)?,
                         )?;
                         stale
                     }
@@ -1574,63 +1370,5 @@ impl NativeNetwork {
             return Err(RotationError::Rejected);
         }
         Ok(())
-    }
-}
-
-fn rotation_deadline(connection: &(impl AuthenticatedControl + ?Sized)) -> Instant {
-    let local = Instant::now() + TIMEOUT;
-    connection
-        .caller_deadline()
-        .map_or(local, |deadline| local.min(deadline.into()))
-}
-async fn wire_io<T>(
-    deadline: Instant,
-    operation: impl Future<Output = std::io::Result<T>>,
-) -> Result<T, RotationError> {
-    if deadline <= Instant::now() {
-        return Err(RotationError::PathUnavailable);
-    }
-    timeout_at(deadline, operation)
-        .await
-        .map_err(|_| RotationError::PathUnavailable)?
-        .map_err(|error| match error.kind() {
-            std::io::ErrorKind::InvalidData => RotationError::Rejected,
-            _ => RotationError::PathUnavailable,
-        })
-}
-struct RotationExchange {
-    control: ControlExchange,
-    deadline: Instant,
-}
-impl RotationExchange {
-    async fn write_fixed(&self, bytes: &[u8]) -> Result<(), RotationError> {
-        let format = ControlMessageFormat::Fixed {
-            length: bytes.len(),
-        };
-        wire_io(self.deadline, self.control.send_message(format, bytes)).await
-    }
-
-    async fn read_fixed<const N: usize>(&self, bytes: &mut [u8; N]) -> Result<(), RotationError> {
-        let format = ControlMessageFormat::Fixed { length: N };
-        let message = wire_io(self.deadline, self.control.recv_message(format)).await?;
-        bytes.copy_from_slice(&message);
-        Ok(())
-    }
-
-    async fn write_frame(&self, bytes: &[u8]) -> Result<(), RotationError> {
-        if bytes.len() > MAX_FRAME {
-            return Err(RotationError::Rejected);
-        }
-        let format = ControlMessageFormat::LengthPrefixed32 { maximum: MAX_FRAME };
-        wire_io(self.deadline, self.control.send_message(format, bytes)).await
-    }
-
-    async fn read_frame(&self) -> Result<Vec<u8>, RotationError> {
-        let format = ControlMessageFormat::LengthPrefixed32 { maximum: MAX_FRAME };
-        wire_io(self.deadline, self.control.recv_message(format)).await
-    }
-
-    async fn finish_send(&self) -> Result<(), RotationError> {
-        wire_io(self.deadline, self.control.finish_send()).await
     }
 }

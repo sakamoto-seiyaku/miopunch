@@ -840,43 +840,20 @@ impl AdmissionGate {
                 // the one permitted SCRAM attempt. This never repeats SASL on
                 // an existing session or promotes a staged proof to business.
                 let selected = if protocol == ProtocolScope::Rotation {
-                    let result = tokio::time::timeout(
-                        crate::connection_budget::remaining(connection.caller_deadline()),
-                        async {
-                            let exchange = if connection.side().is_client() {
-                                connection.open_control_exchange().await.ok()?
-                            } else {
-                                connection.accept_control_exchange().await.ok()?
-                            };
-                            let format = ControlMessageFormat::Fixed { length: 8 };
-                            let generation = if connection.side().is_client() {
-                                exchange
-                                    .send_message(
-                                        format,
-                                        &policy.scope.secret_generation().to_be_bytes(),
-                                    )
-                                    .await
-                                    .ok()?;
-                                policy.scope.secret_generation()
-                            } else {
-                                let bytes = exchange.recv_message(format).await.ok()?;
-                                u64::from_be_bytes(bytes.try_into().ok()?)
-                            };
-                            exchange.finish_send().await.ok()?;
-                            if generation == policy.scope.secret_generation() {
-                                Some((policy.scope.clone(), policy.secret.clone()?))
-                            } else {
-                                policy
-                                    .staged
-                                    .clone()
-                                    .filter(|(scope, _)| scope.secret_generation() == generation)
-                            }
-                        },
+                    let generation = crate::admission_rotation_wire::negotiate_generation(
+                        connection,
+                        policy.scope.secret_generation(),
                     )
                     .await
-                    .ok()
-                    .flatten();
-                    result
+                    .map_err(|_| ErrorKind::InvalidInput)?;
+                    if generation == policy.scope.secret_generation() {
+                        policy.secret.clone().map(|secret| (policy.scope.clone(), secret))
+                    } else {
+                        policy
+                            .staged
+                            .clone()
+                            .filter(|(scope, _)| scope.secret_generation() == generation)
+                    }
                 } else {
                     policy
                         .secret

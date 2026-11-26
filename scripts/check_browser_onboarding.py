@@ -113,7 +113,7 @@ class BrowserControl:
 
 class BrowserOnboardingRunner(OnboardingRunner):
     def native_configuration(self, remote):
-        if self.args.suite not in ["progress", "observation", "receipts", "device-names", "member-management", "departure", "removal-rejoin", "precode-revocation"]:
+        if self.args.suite not in ["progress", "observation", "receipts", "device-names", "member-management", "departure", "removal-rejoin", "precode-revocation", "rotation"]:
             return super().native_configuration(remote)
         config = dict(defaults=dict(revision=2, resources=[]),
                       replacement=[dict(url=self.args.relay, uses=["DataRelay"], limitation="onboarding test relay")],
@@ -153,6 +153,194 @@ class BrowserOnboardingRunner(OnboardingRunner):
     def member_management(self):
         for browser_issuer in (False, True):
             self.management_propagation(browser_issuer)
+
+    def admission_rotation(self):
+        b = self.browser
+        config = self.progress_configuration()
+        config["maintenance"].update(exploration_interval_ms=300, contact_timeout_ms=5000)
+
+        def wait(read, predicate):
+            deadline = time.monotonic() + 40
+            while True:
+                result = read()
+                if predicate(result):
+                    return result
+                assert time.monotonic() < deadline, result
+                time.sleep(0.25)
+
+        def progress(actor):
+            return self.actor_call(actor, "rotation_progress", "rotation_progress")
+
+        def verify_completed(native, browser, initial, rotation, replace_browser=False):
+            bid = initial[1]["id"]
+            expected = {native.node, bid}
+            for actor in (native, browser):
+                current = wait(lambda: progress(actor), lambda row: row and row["stage"] == "Complete")
+                assert current["id"] == rotation and current["generation"] == 1
+                assert set(current["acknowledged"]) == set(current["retained"]) == expected
+                assert current["waiting"] == []
+            for actor in (native, browser):
+                self.close_actor(actor)
+            native = self.reopen_actor(native)
+            self.reopen_actor(browser)
+            for actor, original, id_field in zip((native, browser), initial, ("node", "id")):
+                state = self.actor_snapshot(actor)
+                assert state["admission_rotation"] == progress(actor)
+                assert state["admission_rotation"]["id"] == rotation
+                assert state["admission_rotation"]["stage"] == "Complete"
+                assert state["status"]["stage"] == "Complete"
+                assert {row["node"] for row in state["status"]["members"]} == expected
+                assert all(state["status"][key] == original[key] for key in (id_field, "network", "genesis"))
+            assert b.call(browser, "admission_material_receipt")["generation"] == 1
+            # NativeClient and WASM both expose the same authenticated file
+            # service. The native receiver independently reads the saved bytes.
+            destination = self.output / (browser + "-received")
+            destination.mkdir()
+            native.call("files_enable", directory=str(destination))
+            name = "after-rotation.bin"
+            payload = bytes(index % 251 for index in range(2048))
+            b.call(browser, "file_make", name, len(payload))
+            task = b.call(browser, "file_send_source", native.node, name)
+
+            def receipt():
+                return next((row["receipt"] for row in native.call("files_status")["tasks"]
+                             if row["id"] == task and row["state"] == "complete"), None)
+
+            result = wait(receipt, bool)
+            assert result["size"] == len(payload)
+            assert (destination / result["saved_name"]).read_bytes() == payload
+            if replace_browser:
+                backup = b.call(browser, "prepare_node_replacement")
+                path = self.write_private("rotation-replacement-backup", backup.encode(), False)
+                replacement = Host(self, "rotation-native-replacement", False, "restore",
+                                   self.path("rotation-replacement-state", False), path)
+                assert replacement.node == bid
+                assert replacement.ready["status"]["stage"] == "RestoringAuthorization"
+                receipt_path = self.private_path("rotation-replacement-receipt", False)
+                assert replacement.call("replacement_complete", address=native.address,
+                                        receipt_path=receipt_path)["ready"]
+                restored = progress(replacement)
+                assert restored["id"] == rotation and restored["stage"] == "Complete"
+                assert {row["node"] for row in replacement.call("status")["members"]} == expected
+                assert replacement.call("ping", address=native.address)["reply"] == "PONG"
+                replacement.stop()
+            self.close_actor(browser)
+            native.stop()
+
+        native = self.creator(False, "rotate-native")
+        native_card = self.read_private("rotate-native-card.json", False).decode()
+        browser = "rotate-browser-member"
+        invitation = self.native_invitation(native, "rotate-native-code", precode=True)
+        b.start(browser, "join", invitation, config)
+        assert b.call(browser, "request_join", False) == "Complete"
+        initial = (native.call("status"), b.call(browser, "status"))
+        bid = initial[1]["id"]
+        b.call(browser, "begin_admission_rotation", ok=False)
+        assert progress(native) is None and progress(browser) is None
+        path = self.private_path("rotate-native-waiting-invite", False)
+        native.call("invite", path=path)
+        candidate = self.start("rotate-native-waiting", False, "join", path)
+        assert candidate.call("request")["stage"] == "AwaitingApproval"
+        request, = native.call("requests")["requests"]
+        assert request["applicant"] == candidate.node
+
+        b.call(browser, "hold_admission_commit", "rotation-material")
+        started = native.call("begin_admission_rotation")
+        rotation = started["id"]
+        assert started["stage"] == "Distributing" and started["waiting"] == [bid]
+        assert b.call(browser, "wait_admission_commit", 10000)
+        staged = progress(browser)
+        assert staged["id"] == rotation and staged["stage"] == "Distributing"
+        assert bid in staged["waiting"]
+        assert progress(native) == started
+        native.call("approve", ok=False, **request)
+        assert native.call("requests")["requests"] == [request]
+        self.close_actor(browser)
+        assert progress(native) == started and bid in progress(native)["retained"]
+        b.call(browser, "block_relay", True)
+        self.reopen_actor(browser)
+        assert progress(browser) == staged
+        assert b.call(browser, "admission_material_receipt")["generation"] == 0
+        b.call(browser, "block_relay", False)
+        verify_completed(native, browser, initial, rotation)
+        candidate.stop()
+        self.record("rotation", "native_initiated", dict(
+            rotation=rotation, waitedForIndexedDB=True, interruptedWriteAbsentAfterReopen=True,
+            nativeApprovalPaused=True, retainedOfflineBrowser=True, independentReopenAndFileTransfer=True))
+
+        browser = "rotate-browser-creator"
+        assert b.start(browser, "create", configuration=config)["stage"] == "AwaitingRecoverySave"
+        b.call(browser, "begin_admission_rotation", ok=False)
+        b.call(browser, "export_recovery_card")
+        b.call(browser, "acknowledge_recovery_saved")
+        invitation = b.call(browser, "precode_invitation", int(time.time()) + 3600, 1)
+        path = self.write_private("rotate-browser-native-code", invitation.encode(), False)
+        native = self.start("rotate-browser-native-member", False, "join", path)
+        assert native.call("request")["stage"] == "Complete"
+        initial = (native.call("status"), b.call(browser, "status"))
+        native.call("begin_admission_rotation", ok=False)
+
+        invitation = b.call(browser, "invitation")
+        path = self.write_private("rotate-browser-waiting-invite", invitation.encode(), False)
+        candidate = self.start("rotate-browser-waiting", False, "join", path)
+        assert candidate.call("request")["stage"] == "AwaitingApproval"
+        request, = self.actor_snapshot(browser)["pending_admissions"]
+        assert request["applicant"] == candidate.node
+        native.stop()
+        b.call(browser, "begin_admission_rotation", native_card.strip(), ok=False)
+        assert progress(browser) is None
+        before = self.actor_snapshot(browser)
+        assert b.call(browser, "begin_observation", before["cursor"])
+        started = b.call(browser, "begin_admission_rotation")
+        rotation = started["id"]
+        assert started["stage"] == "Distributing" and started["waiting"] == [native.node]
+        observed = b.call(browser, "finish_observation")["admission_rotation"]
+        assert observed == started
+        b.call(browser, "approve_admission", candidate.node, request["request_id"],
+               ok=False, expected_error="paused for secret rotation")
+        assert self.actor_snapshot(browser)["pending_admissions"] == [request]
+        candidate.call("request", ok=False)
+        self.close_actor(browser)
+        self.reopen_actor(browser)
+        assert self.actor_snapshot(browser)["admission_rotation"] == started
+        b.call(browser, "begin_admission_rotation", ok=False, expected_error="confirm the pending rotation")
+        b.call(browser, "confirm_admission_rotation", "00" * 16, ok=False)
+        b.call(browser, "confirm_admission_rotation", rotation, native_card.strip(), ok=False)
+        native = self.reopen_actor(native)
+        ready = wait(lambda: progress(browser), lambda row: row and not row["waiting"])
+        assert ready["id"] == rotation and ready["stage"] == "Distributing"
+        assert len(ready["acknowledged"]) == 2
+        native_progress = progress(native)
+        assert native_progress["id"] == rotation and native_progress["stage"] == "Distributing"
+        assert native.node in native_progress["acknowledged"]
+        assert b.call(browser, "admission_material_receipt")["generation"] == 0
+        assert b.call(browser, "confirm_admission_rotation", rotation) == ready
+        verify_completed(native, browser, initial, rotation, replace_browser=True)
+        candidate.stop()
+        self.record("rotation", "browser_initiated", dict(
+            rotation=rotation, browserApprovalPaused=True, rejectedCrossNetworkGenesisCard=True,
+            retainedOfflineNative=True, sameDurableProgressAfterReopen=True,
+            explicitIdConfirmationRequired=True, independentReopenAndFileTransfer=True,
+            completedDecisionSurvivedPortableReplacement=True))
+
+        native = self.creator(False, "rotate-pending-provider")
+        browser = "rotate-approved-unfetched-browser"
+        invitation = self.native_invitation(native, "rotate-pending-invite")
+        b.start(browser, "join", invitation, config)
+        assert b.call(browser, "request_join", False) == "AwaitingApproval"
+        initial = (native.call("status"), b.call(browser, "status"))
+        assert not initial[1]["authorization_saved"]
+        self.close_actor(browser)
+        request, = native.call("requests")["requests"]
+        native.call("approve", **request)
+        started = native.call("begin_admission_rotation")
+        assert started["waiting"] == [initial[1]["id"]]
+        self.reopen_actor(browser)
+        verify_completed(native, browser, initial, started["id"])
+        assert initial[1]["admission_attempt"]["progress"] == "Delivered"
+        self.record("rotation", "approved_unfetched_member", dict(
+            rotation=started["id"], acceptedThroughOriginalProvider=True,
+            noOrdinaryMaterialDuringPause=True, independentReopenAndFileTransfer=True))
 
     def precode_revocation(self):
         browser = self.browser
@@ -1951,6 +2139,8 @@ class BrowserOnboardingRunner(OnboardingRunner):
                     self.removal_rejoin(browser_removed)
             elif self.args.suite == "precode-revocation":
                 self.precode_revocation()
+            elif self.args.suite == "rotation":
+                self.admission_rotation()
             else:
                 creator = self.creator(False, "native-provider")
                 if self.args.suite in ["all", "core"]:
@@ -1985,7 +2175,7 @@ def main():
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--build-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts", "device-names", "member-management", "departure", "removal-rejoin", "precode-revocation"], default="all")
+    parser.add_argument("--suite", choices=["all", "core", "pairing", "continuation", "recovery", "progress", "observation", "receipts", "device-names", "member-management", "departure", "removal-rejoin", "precode-revocation", "rotation"], default="all")
     parser.add_argument("--relay", default=RELAY, help="explicit relay for suites that take a dedicated relay")
     parser.add_argument("--chromium", type=Path, default=Path("/home/js/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome"))
     args = parser.parse_args()

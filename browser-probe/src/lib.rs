@@ -46,6 +46,8 @@ use p2panda_core::SigningKey;
 use wasm_bindgen::prelude::*;
 
 // Use the native verifier and admission proof unchanged on the browser platform.
+#[path = "../../src/admission_rotation_wire.rs"]
+mod admission_rotation_wire;
 #[path = "../../src/admission_proof.rs"]
 #[allow(dead_code)] // The browser uses the client qualification from this shared module.
 pub mod admission_proof;

@@ -178,7 +178,7 @@ pub(super) async fn installed(gate: &BrowserGate) -> Result<(SavedNode, String, 
     installed_locked(gate).await
 }
 
-async fn installed_locked(gate: &BrowserGate) -> Result<(SavedNode, String, u32), JsValue> {
+pub(super) async fn installed_locked(gate: &BrowserGate) -> Result<(SavedNode, String, u32), JsValue> {
     let (saved, token) = {
         let state = gate.0.lock().unwrap();
         (
@@ -241,7 +241,7 @@ pub(super) async fn update_saved<T>(
     Ok(result)
 }
 
-async fn commit_locked(
+pub(super) async fn commit_locked(
     gate: &BrowserGate,
     previous: &str,
     token: u32,

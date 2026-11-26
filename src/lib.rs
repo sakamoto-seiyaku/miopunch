@@ -3,6 +3,7 @@ pub mod admission_gate;
 extern crate self as miopunch_native_probe;
 pub mod admission_proof;
 pub mod admission_rotation;
+mod admission_rotation_wire;
 #[cfg(target_os = "android")]
 #[path = "desktop_cli.rs"]
 mod android_desktop_cli;

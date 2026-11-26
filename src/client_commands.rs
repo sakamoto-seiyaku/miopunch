@@ -392,12 +392,7 @@ fn state_snapshot_json(snapshot: ClientStateSnapshot) -> Value {
 }
 
 fn rotation_progress_json(progress: RotationProgress) -> Value {
-    json!({"id":hex::encode(progress.id), "generation":progress.generation,
-        "initiator":progress.initiator.to_string(), "stage":format!("{:?}",progress.stage),
-        "retained":progress.retained.iter().map(ToString::to_string).collect::<Vec<_>>(),
-        "acknowledged":progress.acknowledged.iter().map(ToString::to_string).collect::<Vec<_>>(),
-        "waiting":progress.retained.iter().filter(|peer| !progress.acknowledged.contains(peer))
-            .map(ToString::to_string).collect::<Vec<_>>()})
+    progress.public_json()
 }
 
 fn read_optional_recovery_card(
