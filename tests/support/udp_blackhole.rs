@@ -6,6 +6,7 @@ struct Rule {
     from: SocketAddr,
     to: SocketAddr,
     padded_only: bool,
+    match_ips: bool,
 }
 
 impl UdpBlackhole {
@@ -32,11 +33,27 @@ impl UdpBlackhole {
         filter
     }
 
+    pub fn at_addresses([left, right]: [SocketAddr; 2]) -> Self {
+        let mut filter = Self(Vec::new());
+        for (from, to) in [(left, right), (right, left)] {
+            let rule = Rule {
+                from,
+                to,
+                padded_only: false,
+                match_ips: true,
+            };
+            assert!(rule.run("-I"), "install address-specific UDP fault");
+            filter.0.push(rule);
+        }
+        filter
+    }
+
     fn add(&mut self, from: SocketAddr, to: SocketAddr, padded_only: bool) {
         let rule = Rule {
             from,
             to,
             padded_only,
+            match_ips: false,
         };
         assert!(rule.run("-I"), "install UDP fault inside the lab namespace");
         self.0.push(rule);
@@ -64,6 +81,14 @@ impl Rule {
             "--dport",
             &self.to.port().to_string(),
         ]);
+        if self.match_ips {
+            command.args([
+                "-s",
+                &self.from.ip().to_string(),
+                "-d",
+                &self.to.ip().to_string(),
+            ]);
+        }
         if self.padded_only {
             command.args(["-m", "length", "--length", padded_length]);
         }

@@ -7018,19 +7018,6 @@ impl Connection {
                 .should_report(&self.peer_params.address_discovery_role);
         }
 
-        // ADD_ADDRESS
-        while space_id == SpaceId::Data
-            && !scheduling_info.is_abandoned
-            && scheduling_info.may_send_data
-            && frame::AddAddress::SIZE_BOUND <= builder.frame_space_remaining()
-        {
-            if let Some(added_address) = space.pending.add_address.pop_last() {
-                builder.write_frame(added_address, stats);
-            } else {
-                break;
-            }
-        }
-
         // REMOVE_ADDRESS
         while space_id == SpaceId::Data
             && !scheduling_info.is_abandoned
@@ -7039,6 +7026,19 @@ impl Connection {
         {
             if let Some(removed_address) = space.pending.remove_address.pop_last() {
                 builder.write_frame(removed_address, stats);
+            } else {
+                break;
+            }
+        }
+
+        // ADD_ADDRESS
+        while space_id == SpaceId::Data
+            && !scheduling_info.is_abandoned
+            && scheduling_info.may_send_data
+            && frame::AddAddress::SIZE_BOUND <= builder.frame_space_remaining()
+        {
+            if let Some(added_address) = space.pending.add_address.pop_last() {
+                builder.write_frame(added_address, stats);
             } else {
                 break;
             }
@@ -7931,6 +7931,11 @@ impl Connection {
         Ok(())
     }
 
+    /// Negotiated capacity for local QNT candidate advertisements.
+    pub fn local_nat_traversal_address_limit(&self) -> Result<usize, n0_nat_traversal::Error> {
+        self.n0_nat_traversal.local_address_limit()
+    }
+
     /// Get the current local nat traversal addresses
     pub fn get_local_nat_traversal_addresses(
         &self,
@@ -8014,14 +8019,35 @@ impl Connection {
         now: Instant,
         should_probe: impl Fn(SocketAddr) -> bool,
     ) -> Result<Vec<SocketAddr>, n0_nat_traversal::Error> {
+        self.initiate_nat_traversal_round_scoped(now, None, should_probe)
+    }
+
+    /// Start a round for one address family, retaining the other family's probes.
+    pub fn initiate_nat_traversal_round_for_family(
+        &mut self,
+        now: Instant,
+        ipv6: bool,
+        should_probe: impl Fn(SocketAddr) -> bool,
+    ) -> Result<Vec<SocketAddr>, n0_nat_traversal::Error> {
+        self.initiate_nat_traversal_round_scoped(now, Some(ipv6), should_probe)
+    }
+
+    fn initiate_nat_traversal_round_scoped(
+        &mut self,
+        now: Instant,
+        family: Option<bool>,
+        should_probe: impl Fn(SocketAddr) -> bool,
+    ) -> Result<Vec<SocketAddr>, n0_nat_traversal::Error> {
         if self.state.is_closed() {
             return Err(n0_nat_traversal::Error::Closed);
         }
 
         let ipv6 = self.is_ipv6();
         let client_state = self.n0_nat_traversal.client_side_mut()?;
-        let (mut reach_out_frames, probed_addrs) =
-            client_state.initiate_nat_traversal_round(ipv6, should_probe)?;
+        let (mut reach_out_frames, probed_addrs) = match family {
+            Some(family) => client_state.initiate_round(ipv6, Some(family), should_probe)?,
+            None => client_state.initiate_nat_traversal_round(ipv6, should_probe)?,
+        };
         if let Some(delay) = self.n0_nat_traversal.retry_delay(self.config.initial_rtt) {
             self.timers.set(
                 Timer::Conn(ConnTimer::NatTraversalProbeRetry),

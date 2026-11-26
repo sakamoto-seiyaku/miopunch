@@ -367,7 +367,7 @@ impl Dial<'_> {
         mut first: Option<io::Error>,
     ) -> io::Result<()> {
         if !cold.is_empty() {
-            match self.ordered(id, cold, self.deadline, progress).await {
+            match self.parallel(id, cold, self.deadline, progress).await {
                 Err(error) if !stops_dial(&error) => first = Some(prefer_error(first, error)),
                 result => return result,
             }

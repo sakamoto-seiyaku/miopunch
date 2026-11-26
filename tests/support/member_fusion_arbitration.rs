@@ -533,12 +533,17 @@ async fn standby_udp_uses_the_round_budget_without_a_ping() {
         .await
         .expect("the second physical round follows the configured cooldown in both profiles");
         if interval == 30_000 {
-            tokio::join!(pair.endpoints[0].network_change(), pair.endpoints[1].network_change());
+            tokio::join!(
+                pair.endpoints[0].network_change(),
+                pair.endpoints[1].network_change()
+            );
             time::timeout(Duration::from_secs(4), async {
                 while !pair.requests().into_iter().all(|samples| samples >= 6) {
                     time::sleep(Duration::from_millis(20)).await;
                 }
-            }).await.expect("a real network change wakes standby before the previous six-second cooldown");
+            })
+            .await
+            .expect("a real network change wakes standby before the previous six-second cooldown");
         }
         let mut flow = open_flow(a, b).await;
         exchange(&mut flow, 7).await;
@@ -656,7 +661,7 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
             ..MaintenancePolicy::active()
         },
         true,
-        |builder| builder.bind_addr((Ipv6Addr::LOCALHOST, 0)).unwrap(),
+        |builder| builder.bind_addr((Ipv6Addr::UNSPECIFIED, 0)).unwrap(),
         Some(&[resource]),
         true,
     )
@@ -719,13 +724,34 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
         "both address families remain unavailable while the original relay carries enhanced control"
     );
 
+    let old_addresses = pair.endpoints.each_ref().map(|endpoint| {
+        *endpoint
+            .addr()
+            .ip_addrs()
+            .find(|addr| addr.is_ipv6())
+            .unwrap()
+    });
+    let _old_candidates_blocked = udp_blackhole::UdpBlackhole::at_addresses(old_addresses);
     drop(pair.ipv6_blackhole.take());
+    let late_ip: Ipv6Addr = "fd00:197::1".parse().unwrap();
+    assert!(
+        std::process::Command::new("ip")
+            .args(["-6", "addr", "add", "fd00:197::1/128", "dev", "lo"])
+            .status()
+            .unwrap()
+            .success()
+    );
+    for (endpoint, old) in pair.endpoints.iter().zip(old_addresses) {
+        endpoint
+            .test_add_external_addr(SocketAddr::from((late_ip, old.port())))
+            .await;
+    }
 
     let addresses = pair.endpoints.each_ref().map(|endpoint| {
         *endpoint
             .addr()
             .ip_addrs()
-            .find(|addr| addr.ip() == Ipv6Addr::LOCALHOST)
+            .find(|addr| addr.ip() == late_ip)
             .unwrap()
     });
     let mut probe = [0; 1200];
@@ -750,12 +776,12 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
             .iter()
             .all(MemberConnection::test_ipv4_nat_traversal_probes_paused)
     );
-    assert_eq!(
+    assert!(
         pair.connections
-            .each_ref()
-            .map(|connection| connection.stats().frame_tx.reach_out),
-        reach_out,
-        "IPv6 announced on the original must not replace the paused IPv4 QNT round"
+            .iter()
+            .enumerate()
+            .any(|(side, connection)| { connection.stats().frame_tx.reach_out > reach_out[side] }),
+        "the late IPv6 candidate must start its own QNT exchange while IPv4 stays paused"
     );
     assert_eq!(
         pair.connections
@@ -805,8 +831,14 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
     exchange(&mut stream, 1000).await;
     assert_eq!([a.stable_id(), b.stable_id()], ids);
     pair.close().await;
+    assert!(
+        std::process::Command::new("ip")
+            .args(["-6", "addr", "del", "fd00:197::1/128", "dev", "lo"])
+            .status()
+            .unwrap()
+            .success()
+    );
 }
-
 
 #[tokio::test]
 async fn a_live_direct_original_keeps_irohs_path_policy_without_enhanced_observation() {

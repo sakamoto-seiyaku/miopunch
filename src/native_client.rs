@@ -2039,3 +2039,7 @@ mod tests {
         provider.close().await.unwrap();
     }
 }
+
+#[cfg(all(test, feature = "nat-lab-test-hooks"))]
+#[path = "native_client_dual_stack_tests.rs"]
+mod dual_stack_tests;

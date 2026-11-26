@@ -253,6 +253,14 @@ impl State {
         }
     }
 
+    pub(crate) fn local_address_limit(&self) -> Result<usize, Error> {
+        match self {
+            Self::ClientSide(state) => Ok(state.max_local_addresses),
+            Self::ServerSide(state) => Ok(state.max_local_addresses),
+            Self::NotNegotiated => Err(Error::ExtensionNotNegotiated),
+        }
+    }
+
     /// Returns the next ready probe's address.
     ///
     /// If this is actually sent you must call [`Self::mark_probe_sent`].
@@ -289,8 +297,10 @@ impl State {
 
     /// Keep new peer announcements out of an already scheduled round.
     pub(crate) fn defer_probes_for_new_addresses(&mut self) {
-        if let Self::ClientSide(state) = self {
-            state.new_addresses_join_round = false;
+        match self {
+            Self::ClientSide(state) => state.new_addresses_join_round = false,
+            Self::ServerSide(state) => state.independent_families = true,
+            Self::NotNegotiated => {}
         }
     }
 
@@ -394,6 +404,7 @@ pub(crate) struct ClientState {
     /// This is set by the remote endpoint.
     max_local_addresses: usize,
     new_addresses_join_round: bool,
+    retired_remote_before: VarInt,
     /// Candidate addresses the remote endpoint advertises.
     ///
     /// These are addresses on which the server is potentially reachable, to use for NAT
@@ -447,6 +458,7 @@ impl ClientState {
             max_remote_addresses,
             max_local_addresses,
             new_addresses_join_round: true,
+            retired_remote_before: VarInt::from_u32(0),
             remote_addresses: Default::default(),
             local_addresses: Default::default(),
             round: Default::default(),
@@ -500,19 +512,32 @@ impl ClientState {
         ipv6: bool,
         should_probe: impl Fn(SocketAddr) -> bool,
     ) -> Result<(PendingReachOutFrames, Vec<SocketAddr>), Error> {
-        if self.local_addresses.is_empty() {
+        self.initiate_round(ipv6, None, should_probe)
+    }
+
+    pub(crate) fn initiate_round(
+        &mut self,
+        ipv6: bool,
+        family: Option<bool>,
+        should_probe: impl Fn(SocketAddr) -> bool,
+    ) -> Result<(PendingReachOutFrames, Vec<SocketAddr>), Error> {
+        let in_family = |ip: IpAddr| family.is_none_or(|v6| ip.to_canonical().is_ipv6() == v6);
+        if !self.local_addresses.iter().any(|addr| in_family(addr.ip())) {
             return Err(Error::NotEnoughAddresses);
         }
 
         self.round = self.round.saturating_add(1u8);
         self.attempt = 0;
-        self.sent_challenges.clear();
-        self.pending_probes.clear();
+        self.sent_challenges.retain(|_, (ip, _)| !in_family(*ip));
+        self.pending_probes.retain(|(ip, _)| !in_family(*ip));
 
         // Enqueue the NAT probes to known remote addresses.
         self.remote_addresses
             .values_mut()
             .for_each(|(ip_port, state)| {
+                if !in_family(ip_port.ip()) {
+                    return;
+                }
                 if !should_probe(ip_port.as_canonical_addr()) {
                     *state = ProbeState::Inactive;
                 } else if let Some(ip_port) = ip_port.as_local_socket_family(ipv6) {
@@ -534,6 +559,7 @@ impl ClientState {
         let reach_out_frames: PendingReachOutFrames = self
             .local_addresses
             .iter()
+            .filter(|addr| in_family(addr.ip()))
             .map(|ip_port| ReachOut {
                 round: self.round,
                 ip: ip_port.ip(),
@@ -603,6 +629,24 @@ impl ClientState {
     ) -> Result<Option<SocketAddr>, Error> {
         let AddAddress { seq_no, ip, port } = add_addr;
         let address = CanonicalIpPort::from((ip, port));
+        if !self.new_addresses_join_round {
+            // A full advertisement window can be replaced while REMOVE_ADDRESS
+            // is reordered behind a newer ADD_ADDRESS. Keep the negotiated bound
+            // and remember evicted sequence IDs so retransmission cannot revive them.
+            if seq_no < self.retired_remote_before {
+                return Ok(None);
+            }
+            if self.remote_addresses.len() >= self.max_remote_addresses
+                && !self.remote_addresses.contains_key(&seq_no)
+                && let Some(oldest) = self.remote_addresses.keys().copied().min()
+            {
+                if seq_no <= oldest {
+                    return Ok(None);
+                }
+                self.remote_addresses.remove(&oldest);
+                self.retired_remote_before = oldest.saturating_add(1u8);
+            }
+        }
         let allow_new = self.remote_addresses.len() < self.max_remote_addresses;
         let probe = if self.new_addresses_join_round {
             ProbeState::Active(MAX_NAT_PROBE_ATTEMPTS)
@@ -762,6 +806,8 @@ pub(crate) struct ServerState {
     /// Servers keep track of the client's most recent round and cancel probing related to previous
     /// rounds.
     round: VarInt,
+    family_rounds: [VarInt; 2],
+    independent_families: bool,
     /// The probing attempt in the round.
     ///
     /// Probes are sent to all remotes at the same time in a round, at intervals from
@@ -795,6 +841,8 @@ impl ServerState {
             local_addresses: Default::default(),
             next_local_addr_id: Default::default(),
             round: Default::default(),
+            family_rounds: Default::default(),
+            independent_families: false,
             attempt: 0,
             remotes: Default::default(),
             sent_challenges: Default::default(),
@@ -842,7 +890,13 @@ impl ServerState {
     ) -> Result<(), Error> {
         let ReachOut { round, ip, port } = reach_out;
 
-        if round < self.round {
+        let family = usize::from(ip.to_canonical().is_ipv6());
+        let previous = if self.independent_families {
+            self.family_rounds[family]
+        } else {
+            self.round
+        };
+        if round < previous {
             trace!(current_round=%self.round, "ignoring REACH_OUT for previous round");
             return Ok(());
         }
@@ -851,16 +905,25 @@ impl ServerState {
             return Ok(());
         };
 
-        if round > self.round {
-            self.round = round;
+        if round > previous {
+            self.round = self.round.max(round);
+            self.family_rounds[family] = round;
             self.attempt = 0;
-            self.remotes.clear();
-            self.sent_challenges.clear();
-            self.pending_probes.clear();
+            let keep = |ip: IpAddr| {
+                self.independent_families && usize::from(ip.to_canonical().is_ipv6()) != family
+            };
+            self.remotes.retain(|(ip, _), _| keep(*ip));
+            self.sent_challenges.retain(|_, (ip, _)| keep(*ip));
+            self.pending_probes.retain(|(ip, _)| keep(*ip));
         } else if self.remotes.contains_key(&(ip, port)) {
             // Retransmitted frame.
             return Ok(());
         } else if self.remotes.len() >= self.max_remote_addresses {
+            if self.independent_families {
+                // The other family's replacement can arrive in a later packet.
+                // Keep its in-flight work; this family can retry the skipped hint.
+                return Ok(());
+            }
             return Err(Error::TooManyAddresses);
         }
         self.remotes

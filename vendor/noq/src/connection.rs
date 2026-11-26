@@ -1143,6 +1143,14 @@ impl Connection {
         conn.inner.remove_nat_traversal_address(address)
     }
 
+    /// Negotiated capacity for local QNT candidate advertisements.
+    pub fn local_nat_traversal_address_limit(&self) -> Result<usize, n0_nat_traversal::Error> {
+        self.0
+            .lock_without_waking("local_nat_traversal_address_limit")
+            .inner
+            .local_nat_traversal_address_limit()
+    }
+
     /// Get the current local nat traversal addresses
     pub fn get_local_nat_traversal_addresses(
         &self,
@@ -1221,6 +1229,20 @@ impl Connection {
         let now = conn.runtime.now();
         conn.inner
             .initiate_nat_traversal_round_filtered(now, should_probe)
+    }
+
+    /// Start a round for one family without cancelling the other family's probes.
+    pub fn initiate_nat_traversal_round_for_family(
+        &self,
+        ipv6: bool,
+        should_probe: impl Fn(SocketAddr) -> bool,
+    ) -> Result<Vec<SocketAddr>, n0_nat_traversal::Error> {
+        let mut conn = self
+            .0
+            .lock_and_wake("initiate_nat_traversal_round_for_family");
+        let now = conn.runtime.now();
+        conn.inner
+            .initiate_nat_traversal_round_for_family(now, ipv6, should_probe)
     }
 }
 
