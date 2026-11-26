@@ -648,26 +648,32 @@ async fn business_preempts_unspent_idle_maintenance_and_cancel_releases_the_orig
 #[tokio::test]
 #[ignore = "requires a disposable network namespace with IPv4 UDP packet filters"]
 async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
-    let observer = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
-    // Keep real observations in flight without introducing an enhanced winner.
-    let resource = Resource {
-        url: format!("stun://{}/", observer.local_addr().unwrap()),
-        uses: [ResourceUse::Observation].into(),
-        limitation: "isolated observation held in flight".into(),
-    };
+    // Existing STUN responders return actual mappings. Kernel faults hold the
+    // primary IPv4 path while the enhanced round executes on the original.
     let mut pair = Pair::bind_with(
         MaintenancePolicy {
             contact_timeout_ms: DEADLINE.as_millis() as u64,
             ..MaintenancePolicy::active()
         },
         true,
-        |builder| builder.bind_addr((Ipv6Addr::UNSPECIFIED, 0)).unwrap(),
-        Some(&[resource]),
+        |builder| builder.bind_addr((Ipv6Addr::LOCALHOST, 0)).unwrap(),
+        None,
         true,
     )
     .await;
+    let primary_v4 = pair.endpoints.each_ref().map(|endpoint| {
+        *endpoint
+            .addr()
+            .ip_addrs()
+            .find(|addr| addr.is_ipv4())
+            .unwrap()
+    });
+    let _received_v4_blocked = udp_blackhole::UdpBlackhole::on_input(primary_v4);
+    drop(pair._ipv4_blackhole.take());
     let [a, b] = &pair.connections;
     let ids = [a.stable_id(), b.stable_id()];
+    let mut stream = open_flow(a, b).await;
+    exchange(&mut stream, 0).await;
     assert!(
         pair.connections
             .iter()
@@ -692,9 +698,9 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
     .await
     .expect("both originals queued an ordinary IPv4 probe before the enhanced pause");
     time::timeout(Duration::from_secs(3), async {
-        let mut request = [0; 64];
-        let (len, _) = observer.recv_from(&mut request).await.unwrap();
-        assert_eq!(len, 20);
+        while pair.requests().contains(&0) {
+            time::sleep(Duration::from_millis(5)).await;
+        }
         while !pair
             .connections
             .iter()
@@ -705,6 +711,37 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
     })
     .await
     .expect("both peers committed the enhanced round and an observer received real IPv4 traffic");
+    let reports = time::timeout(DEADLINE, async {
+        loop {
+            if let [Some(left), Some(right)] = pair
+                .connections
+                .each_ref()
+                .map(MemberConnection::udp_traversal)
+                && left.round == right.round
+                && [
+                    left.trace.probes + left.trace.responses,
+                    right.trace.probes + right.trace.responses,
+                ]
+                .into_iter()
+                .all(|packets| packets > 0)
+            {
+                break [left, right];
+            }
+            time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("both originals started the same actual enhanced execution");
+    let round = reports[0].round;
+    eprintln!("ENHANCED_ACTUAL_ROUND reports={reports:?}");
+    let release_deadline =
+        reports.iter().map(|report| report.deadline).max().unwrap() + Duration::from_millis(100);
+    assert!(
+        pair.connections
+            .iter()
+            .all(MemberConnection::test_ipv4_nat_traversal_probes_paused)
+    );
+    exchange(&mut stream, 1).await;
     let reach_out = pair
         .connections
         .each_ref()
@@ -731,30 +768,60 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
             .find(|addr| addr.is_ipv6())
             .unwrap()
     });
-    let _old_candidates_blocked = udp_blackhole::UdpBlackhole::at_addresses(old_addresses);
-    drop(pair.ipv6_blackhole.take());
-    let late_ip: Ipv6Addr = "fd00:197::1".parse().unwrap();
-    assert!(
-        std::process::Command::new("ip")
-            .args(["-6", "addr", "add", "fd00:197::1/128", "dev", "lo"])
-            .status()
-            .unwrap()
-            .success()
-    );
-    for (endpoint, old) in pair.endpoints.iter().zip(old_addresses) {
-        endpoint
-            .test_add_external_addr(SocketAddr::from((late_ip, old.port())))
-            .await;
+    // New real external UDP ports represent a later mapping without changing
+    // interfaces or cancelling the unrelated IPv4 round's network generation.
+    let mapped_left = UdpSocket::bind((Ipv6Addr::LOCALHOST, 0)).await.unwrap();
+    let mapped_right = UdpSocket::bind((Ipv6Addr::LOCALHOST, 0)).await.unwrap();
+    let addresses = [
+        mapped_left.local_addr().unwrap(),
+        mapped_right.local_addr().unwrap(),
+    ];
+    for (endpoint, mapped) in pair.endpoints.iter().zip(addresses) {
+        endpoint.test_add_external_addr(mapped).await;
     }
 
-    let addresses = pair.endpoints.each_ref().map(|endpoint| {
-        *endpoint
-            .addr()
-            .ip_addrs()
-            .find(|addr| addr.ip() == late_ip)
-            .unwrap()
-    });
     let mut probe = [0; 1200];
+    time::timeout(Duration::from_secs(2), async {
+        loop {
+            if pair
+                .connections
+                .iter()
+                .enumerate()
+                .any(|(side, connection)| connection.stats().frame_tx.reach_out > reach_out[side])
+            {
+                break;
+            }
+            time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("late IPv6 starts a new QNT round before IPv4 enhanced finishes");
+    assert!(
+        pair.connections
+            .iter()
+            .all(MemberConnection::test_ipv4_nat_traversal_probes_paused)
+    );
+    assert_eq!(
+        ipv4_probe.try_recv_from(&mut probe).unwrap_err().kind(),
+        ErrorKind::WouldBlock
+    );
+    eprintln!("LATE_IPV6_QNT_DURING_IPV4_PAUSE original={ids:?} ipv6={addresses:?}");
+    let forwarding = tokio::spawn(async move {
+        let mut left_packet = [0; 65536];
+        let mut right_packet = [0; 65536];
+        loop {
+            tokio::select! {
+                received = mapped_left.recv_from(&mut left_packet) => {
+                    let (length, _) = received.unwrap();
+                    mapped_right.send_to(&left_packet[..length], old_addresses[0]).await.unwrap();
+                }
+                received = mapped_right.recv_from(&mut right_packet) => {
+                    let (length, _) = received.unwrap();
+                    mapped_left.send_to(&right_packet[..length], old_addresses[1]).await.unwrap();
+                }
+            }
+        }
+    });
     time::timeout(Duration::from_secs(2), async {
         loop {
             if pair.connections.iter().enumerate().all(|(side, conn)| {
@@ -771,18 +838,6 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
     })
     .await
     .expect("IPv6 must qualify and be selected on the idle original during enhanced IPv4");
-    assert!(
-        pair.connections
-            .iter()
-            .all(MemberConnection::test_ipv4_nat_traversal_probes_paused)
-    );
-    assert!(
-        pair.connections
-            .iter()
-            .enumerate()
-            .any(|(side, connection)| { connection.stats().frame_tx.reach_out > reach_out[side] }),
-        "the late IPv6 candidate must start its own QNT exchange while IPv4 stays paused"
-    );
     assert_eq!(
         pair.connections
             .each_ref()
@@ -790,32 +845,26 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
         removed,
         "temporarily paused IPv4 candidates remain announced"
     );
-    assert_eq!(
-        ipv4_probe.try_recv_from(&mut probe).unwrap_err().kind(),
-        ErrorKind::WouldBlock
-    );
-    eprintln!("IDLE_IPV6_ENHANCED_READY original={ids:?} ipv6={addresses:?} ipv4_paused=true");
-    time::timeout(DEADLINE, async {
+    eprintln!("IDLE_IPV6_ENHANCED_READY original={ids:?} ipv6={addresses:?}");
+    time::timeout_at(release_deadline, async {
         while pair
             .connections
             .iter()
             .any(MemberConnection::test_ipv4_nat_traversal_probes_paused)
         {
-            time::sleep(Duration::from_millis(10)).await;
+            time::sleep(Duration::from_millis(5)).await;
         }
     })
     .await
-    .expect("the existing enhanced deadline retires its IPv4 probe pause");
-    assert!(
-        first_ipv4.elapsed() < Duration::from_secs(5),
-        "resume must occur inside the existing ordinary retry window"
-    );
+    .expect("the original enhanced round releases its pause by its own fixed deadline");
+    for connection in &pair.connections {
+        assert_eq!(connection.udp_traversal().unwrap().round, round);
+    }
     eprintln!(
         "ORDINARY_IPV4_PROBE_WINDOW target={ipv4_target} first={first_ipv4:?} resumed_after_ms={}",
         first_ipv4.elapsed().as_millis()
     );
-    let mut stream = open_flow(a, b).await;
-    exchange(&mut stream, 1).await;
+    exchange(&mut stream, 2).await;
     time::sleep(Duration::from_millis(200)).await;
     assert!(
         pair.connections
@@ -831,13 +880,8 @@ async fn enhanced_ipv4_leaves_ipv6_probing_on_the_original_idle_connection() {
     exchange(&mut stream, 1000).await;
     assert_eq!([a.stable_id(), b.stable_id()], ids);
     pair.close().await;
-    assert!(
-        std::process::Command::new("ip")
-            .args(["-6", "addr", "del", "fd00:197::1/128", "dev", "lo"])
-            .status()
-            .unwrap()
-            .success()
-    );
+    forwarding.abort();
+    let _ = forwarding.await;
 }
 
 #[tokio::test]

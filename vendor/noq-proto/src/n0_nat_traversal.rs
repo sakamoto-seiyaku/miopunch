@@ -918,13 +918,32 @@ impl ServerState {
         } else if self.remotes.contains_key(&(ip, port)) {
             // Retransmitted frame.
             return Ok(());
-        } else if self.remotes.len() >= self.max_remote_addresses {
-            if self.independent_families {
-                // The other family's replacement can arrive in a later packet.
-                // Keep its in-flight work; this family can retry the skipped hint.
+        }
+        if self.remotes.len() >= self.max_remote_addresses {
+            if !self.independent_families {
+                return Err(Error::TooManyAddresses);
+            }
+            // A paused family may still own a full previous window. Give the
+            // arriving family up to half the negotiated slots, retiring exhausted
+            // probes first and preserving the other family's remaining work.
+            let family_count = self
+                .remotes
+                .keys()
+                .filter(|(ip, _)| usize::from(ip.to_canonical().is_ipv6()) == family)
+                .count();
+            if family_count >= self.max_remote_addresses.div_ceil(2) {
                 return Ok(());
             }
-            return Err(Error::TooManyAddresses);
+            let victim = self
+                .remotes
+                .iter()
+                .filter(|((ip, _), _)| usize::from(ip.to_canonical().is_ipv6()) != family)
+                .min_by_key(|(remote, state)| (state.remaining(), **remote))
+                .map(|(remote, _)| *remote);
+            let Some(victim) = victim else { return Ok(()) };
+            self.remotes.remove(&victim);
+            self.pending_probes.remove(&victim);
+            self.sent_challenges.retain(|_, remote| *remote != victim);
         }
         self.remotes
             .entry((ip, port))
@@ -1009,6 +1028,89 @@ mod tests {
     use testresult::TestResult;
 
     use super::*;
+
+    #[test]
+    fn a_paused_full_family_leaves_room_for_late_family_candidates() -> TestResult {
+        let mut state = State::ServerSide(ServerState::new(4, 4));
+        state.defer_probes_for_new_addresses();
+        for port in 1..=4 {
+            state.server_side_mut()?.handle_reach_out(
+                ReachOut {
+                    round: 1u8.into(),
+                    ip: "192.0.2.1".parse()?,
+                    port,
+                },
+                true,
+            )?;
+        }
+        state.discard_pending_ipv4_probes();
+        for port in 1..=2 {
+            state.server_side_mut()?.handle_reach_out(
+                ReachOut {
+                    round: 2u8.into(),
+                    ip: "2001:db8::1".parse()?,
+                    port,
+                },
+                true,
+            )?;
+        }
+        let server = state.server_side_mut()?;
+        assert_eq!(
+            server.remotes.len(),
+            4,
+            "the negotiated limit applies to new rounds too"
+        );
+        assert_eq!(
+            server
+                .remotes
+                .keys()
+                .filter(|(ip, _)| ip.to_canonical().is_ipv4())
+                .count(),
+            2
+        );
+        let mut targets = Vec::new();
+        while let Some(target) = state.next_probe_addr(true) {
+            targets.push(target);
+            state.mark_probe_sent(target, targets.len() as u64);
+        }
+        assert_eq!(
+            targets.len(),
+            2,
+            "both late IPv6 candidates can be probed during IPv4 pause"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn member_advertisement_replacement_tolerates_reordering_without_resurrection() -> TestResult {
+        let mut state = State::ClientSide(ClientState::new(2, 2));
+        state.defer_probes_for_new_addresses();
+        let client = state.client_side_mut()?;
+        let addr = |seq: u8| {
+            AddAddress::new(
+                ("2001:db8::1".parse().unwrap(), 4000 + u16::from(seq)),
+                seq.into(),
+            )
+        };
+        client.add_remote_address(addr(1))?;
+        client.add_remote_address(addr(2))?;
+        client.add_remote_address(addr(3))?;
+        assert_eq!(client.get_remote_nat_traversal_addresses().len(), 2);
+        client.add_remote_address(addr(1))?;
+        client.remove_remote_address(RemoveAddress::new(1u8.into()));
+        let current = client.get_remote_nat_traversal_addresses();
+        assert_eq!(current.len(), 2);
+        assert!(current.iter().any(|addr| addr.port() == 4003));
+        assert!(!current.iter().any(|addr| addr.port() == 4001));
+        let mut ordinary = ClientState::new(2, 2);
+        ordinary.add_remote_address(addr(1))?;
+        ordinary.add_remote_address(addr(2))?;
+        assert!(matches!(
+            ordinary.add_remote_address(addr(3)),
+            Err(Error::TooManyAddresses)
+        ));
+        Ok(())
+    }
 
     #[test]
     fn test_basic_server_state() {

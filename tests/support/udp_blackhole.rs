@@ -6,7 +6,7 @@ struct Rule {
     from: SocketAddr,
     to: SocketAddr,
     padded_only: bool,
-    match_ips: bool,
+    input: bool,
 }
 
 impl UdpBlackhole {
@@ -24,6 +24,22 @@ impl UdpBlackhole {
         filter
     }
 
+    /// Drop a primary datagram after it leaves the sending socket.
+    pub fn on_input([left, right]: [SocketAddr; 2]) -> Self {
+        let mut filter = Self(Vec::new());
+        for (from, to) in [(left, right), (right, left)] {
+            let rule = Rule {
+                from,
+                to,
+                padded_only: false,
+                input: true,
+            };
+            assert!(rule.run("-I"), "install receive-side primary UDP fault");
+            filter.0.push(rule);
+        }
+        filter
+    }
+
     /// Keep the short outbound QNT challenge and the inbound matching response.
     /// Block the padded QUIC 1200-byte validation packet that follows the probe.
     #[allow(dead_code)]
@@ -33,27 +49,12 @@ impl UdpBlackhole {
         filter
     }
 
-    pub fn at_addresses([left, right]: [SocketAddr; 2]) -> Self {
-        let mut filter = Self(Vec::new());
-        for (from, to) in [(left, right), (right, left)] {
-            let rule = Rule {
-                from,
-                to,
-                padded_only: false,
-                match_ips: true,
-            };
-            assert!(rule.run("-I"), "install address-specific UDP fault");
-            filter.0.push(rule);
-        }
-        filter
-    }
-
     fn add(&mut self, from: SocketAddr, to: SocketAddr, padded_only: bool) {
         let rule = Rule {
             from,
             to,
             padded_only,
-            match_ips: false,
+            input: false,
         };
         assert!(rule.run("-I"), "install UDP fault inside the lab namespace");
         self.0.push(rule);
@@ -71,8 +72,8 @@ impl Rule {
         command.args([
             "-w",
             action,
-            "OUTPUT",
-            "-o",
+            if self.input { "INPUT" } else { "OUTPUT" },
+            if self.input { "-i" } else { "-o" },
             "lo",
             "-p",
             "udp",
@@ -81,7 +82,7 @@ impl Rule {
             "--dport",
             &self.to.port().to_string(),
         ]);
-        if self.match_ips {
+        if self.input {
             command.args([
                 "-s",
                 &self.from.ip().to_string(),
