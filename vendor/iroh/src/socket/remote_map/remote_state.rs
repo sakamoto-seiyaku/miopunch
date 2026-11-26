@@ -116,6 +116,8 @@ pub(crate) struct MemberPathPolicy {
     #[cfg(not(wasm_browser))]
     building: Option<Arc<crate::endpoint::member_fusion::building::Building>>,
     #[cfg(not(wasm_browser))]
+    physical_endpoint: std::sync::Weak<crate::socket::EndpointInner>,
+    #[cfg(not(wasm_browser))]
     enhanced: Option<Arc<MemberUdpPathWork>>,
     #[debug(skip)]
     permit: Arc<dyn Fn(&TransportAddr) -> bool + Send + Sync>,
@@ -137,6 +139,7 @@ impl MemberPathPolicy {
             direct_health: None,
             #[cfg(not(wasm_browser))]
             building: None,
+            physical_endpoint: Default::default(),
             enhanced: None,
             permit: Arc::new(permit),
         }
@@ -188,6 +191,15 @@ impl MemberPathPolicy {
         building: Option<Arc<crate::endpoint::member_fusion::building::Building>>,
     ) -> Self {
         self.building = building;
+        self
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn with_physical_endpoint(
+        mut self,
+        endpoint: std::sync::Weak<crate::socket::EndpointInner>,
+    ) -> Self {
+        self.physical_endpoint = endpoint;
         self
     }
 
@@ -255,6 +267,15 @@ struct MemberPaths {
     #[cfg(not(wasm_browser))]
     building: Option<crate::endpoint::member_fusion::building::BuildPermit>,
     #[cfg(not(wasm_browser))]
+    physical: Arc<
+        std::sync::Mutex<
+            std::collections::HashMap<
+                crate::endpoint::member_fusion::physical::Scope,
+                crate::endpoint::member_fusion::physical::MemberPunching,
+            >,
+        >,
+    >,
+    #[cfg(not(wasm_browser))]
     building_events: tokio_util::sync::CancellationToken,
     #[cfg(not(wasm_browser))]
     building_subscribed: bool,
@@ -277,6 +298,8 @@ impl MemberPaths {
             policy,
             #[cfg(not(wasm_browser))]
             building: None,
+            #[cfg(not(wasm_browser))]
+            physical: Default::default(),
             #[cfg(not(wasm_browser))]
             building_events: Default::default(),
             #[cfg(not(wasm_browser))]
@@ -322,11 +345,41 @@ impl MemberPaths {
             if self.building.is_none() {
                 self.building = building.try_acquire(peer);
             }
+            self.gate_physical_probes(conn, peer);
             conn.set_nat_traversal_probes_permitted(self.building.is_some());
             return self.building.is_some();
         }
         let _ = (conn, peer);
         true
+    }
+
+    #[cfg(not(wasm_browser))]
+    fn gate_physical_probes(&self, conn: &noq::Connection, peer: EndpointId) {
+        let Some(building) = &self.policy.building else { return; };
+            let endpoint = self.policy.physical_endpoint.clone();
+            let physical = self.physical.clone();
+            let building = building.clone();
+            conn.set_nat_traversal_probe_gate(Some(Arc::new(move |remote| {
+                if remote.is_ipv6() {
+                    return true;
+                }
+                let Some(endpoint) = endpoint.upgrade() else {
+                    return false;
+                };
+                let Ok(scope) = endpoint.udp_punching_scope_for(remote) else {
+                    return false;
+                };
+                let mut leases = physical.lock().expect("ordinary probe physical leases");
+                if leases.contains_key(&scope) {
+                    return true;
+                }
+                if let Some(permit) = building.physical.try_acquire(scope.clone(), peer) {
+                    leases.insert(scope, permit);
+                    true
+                } else {
+                    false
+                }
+            })));
     }
 
     fn has_current_ack(&self, stats: &PathStats) -> bool {
@@ -341,6 +394,10 @@ impl MemberPaths {
 impl Drop for MemberPaths {
     fn drop(&mut self) {
         self.building_events.cancel();
+        self.physical
+            .lock()
+            .expect("ordinary physical leases")
+            .clear();
     }
 }
 
@@ -1312,6 +1369,7 @@ impl RemoteStateActor {
                 })
         });
         let mut paths = MemberPaths::new(policy);
+        paths.gate_physical_probes(&conn, self.state.endpoint_id);
         if let Some(events) = paths.subscribe_building(conn_id) {
             conn.set_nat_traversal_probes_permitted(false);
             self.member_activity.push(events);
@@ -1429,6 +1487,10 @@ impl RemoteStateActor {
                 state.member_paths = Some(MemberPaths::new(policy));
             }
             #[cfg(not(wasm_browser))]
+            if let Some(paths) = &state.member_paths {
+                paths.gate_physical_probes(&conn, self.state.endpoint_id);
+            }
+            #[cfg(not(wasm_browser))]
             if let Some(events) = state
                 .member_paths
                 .as_mut()
@@ -1540,6 +1602,11 @@ impl RemoteStateActor {
                     conn.set_nat_traversal_probes_permitted(member.policy.building.is_none());
                 }
                 member.building = None;
+                member
+                    .physical
+                    .lock()
+                    .expect("ordinary physical leases")
+                    .clear();
             }
             return;
         }
@@ -1621,13 +1688,26 @@ impl RemoteStateActor {
                             .to_transport_tuple(network)
                             .is_some_and(|binding| binding.is_ip())
                 });
+            if conn.ipv4_nat_traversal_probes_paused() || !conn.ipv4_nat_traversal_probes_pending()
+            {
+                member
+                    .physical
+                    .lock()
+                    .expect("ordinary physical leases")
+                    .clear();
+            }
             let in_flight = conn.nat_traversal_probes_pending() || waiting_for_peer || validating;
             if !in_flight && member.building.is_some() {
                 conn.stop_nat_traversal_probes();
                 conn.set_nat_traversal_probes_permitted(false);
                 member.building = None;
+                member
+                    .physical
+                    .lock()
+                    .expect("ordinary physical leases")
+                    .clear();
             }
-            if in_flight {
+            if in_flight && !validating {
                 member.allow_probes(&conn, self.state.endpoint_id);
             }
             conn.set_nat_traversal_probes_permitted(member.building.is_some());
@@ -1652,6 +1732,11 @@ impl RemoteStateActor {
                     }
                     conn.set_nat_traversal_probes_permitted(member.policy.building.is_none());
                     member.building = None;
+                    member
+                        .physical
+                        .lock()
+                        .expect("ordinary physical leases")
+                        .clear();
                 }
                 return;
             }

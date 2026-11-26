@@ -1456,6 +1456,10 @@ impl QadSubmission {
         }
     }
 
+    pub(crate) fn binding(&self) -> Option<SocketAddr> {
+        self.binding
+    }
+
     pub(crate) fn for_binding(mut self, binding: SocketAddr) -> Self {
         self.binding = Some(binding);
         self

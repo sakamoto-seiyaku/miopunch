@@ -224,12 +224,13 @@ impl Authorization {
         original: &ControlHandle,
         exchange: &ControlExchange,
         bootstrap: bool,
+        physical: Option<iroh::endpoint::MemberPunching>,
     ) -> io::Result<MemberDirectCandidate> {
         let tcp = self.tcp.as_ref().ok_or(io::ErrorKind::Unsupported)?;
         let mut log = AttemptLog::new(AttemptRole::initial(original), "member_fusion_tcp");
         log.original = Some(original.stable_id());
         let mut candidate = tcp
-            .prepare_fused(original, exchange, &self.gate, log, bootstrap)
+            .prepare_fused(original, exchange, &self.gate, log, bootstrap, physical)
             .await?;
         let remote = candidate.route().clone();
         let original = original.clone();
@@ -347,6 +348,16 @@ impl MemberFusionAdmission for Authorization {
         (!self.resources.tcp_direct_disabled).then_some(crate::tcp_transport::DATA_TRANSPORT_ID)
     }
 
+    fn member_direct_observers(&self) -> Vec<iroh::RelayUrl> {
+        self.tcp
+            .as_ref()
+            .map_or_else(Vec::new, |tcp| tcp.observers.clone())
+    }
+
+    fn member_direct_binding(&self) -> Option<std::net::SocketAddr> {
+        self.tcp.as_ref()?.transport.bound_socket_addr()
+    }
+
     fn member_direct_traversal(&self) -> Option<(Duration, Duration)> {
         self.tcp
             .as_ref()
@@ -365,7 +376,18 @@ impl MemberFusionAdmission for Authorization {
         original: &ControlHandle,
         exchange: &ControlExchange,
     ) -> io::Result<MemberDirectCandidate> {
-        self.prepare_tcp_candidate(original, exchange, false).await
+        self.prepare_tcp_candidate(original, exchange, false, None)
+            .await
+    }
+
+    async fn prepare_member_direct_reserved(
+        &self,
+        original: &ControlHandle,
+        exchange: &ControlExchange,
+        physical: iroh::endpoint::MemberPunching,
+    ) -> io::Result<MemberDirectCandidate> {
+        self.prepare_tcp_candidate(original, exchange, false, Some(physical))
+            .await
     }
 
     async fn prepare_member_bootstrap_direct(
@@ -373,7 +395,18 @@ impl MemberFusionAdmission for Authorization {
         original: &ControlHandle,
         exchange: &ControlExchange,
     ) -> io::Result<MemberDirectCandidate> {
-        self.prepare_tcp_candidate(original, exchange, true).await
+        self.prepare_tcp_candidate(original, exchange, true, None)
+            .await
+    }
+
+    async fn prepare_member_bootstrap_direct_reserved(
+        &self,
+        original: &ControlHandle,
+        exchange: &ControlExchange,
+        physical: iroh::endpoint::MemberPunching,
+    ) -> io::Result<MemberDirectCandidate> {
+        self.prepare_tcp_candidate(original, exchange, true, Some(physical))
+            .await
     }
 
     fn member_relay_transport(&self) -> Option<u64> {

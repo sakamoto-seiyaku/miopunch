@@ -48,7 +48,6 @@ pub(in crate::endpoint) struct PathCandidates {
     sender: mpsc::UnboundedSender<Hint>,
     learned: Mutex<(ObservationValidity, BTreeSet<TransportAddr>)>,
     traversal: Option<(Duration, Duration)>,
-    node_traversal_slot: Arc<tokio::sync::Mutex<()>>,
     activity: Arc<super::Activity>,
     last_traversal: Mutex<Option<(ObservationValidity, time::Instant)>>,
     healthy_direct: watch::Receiver<bool>,
@@ -155,6 +154,43 @@ impl PathCandidates {
         }
     }
 
+    async fn physical_tcp(
+        &self,
+        connection: &Connection,
+        wait: bool,
+        deadline: time::Instant,
+    ) -> io::Result<Option<super::physical::MemberPunching>> {
+        let policy = self
+            .endpoint
+            .inner
+            .static_config
+            .admission
+            .as_ref()
+            .expect("member policy");
+        let Some(configured) = policy.member_direct_binding() else {
+            return Ok(Some(super::physical::MemberPunching::untracked()));
+        };
+        let observers = policy.member_direct_observers();
+        if observers.is_empty() { return Ok(Some(super::physical::MemberPunching::untracked())); }
+        let family = if configured.is_ipv6() { iroh_relay::ObservationFamily::Ipv6 } else { iroh_relay::ObservationFamily::Ipv4 };
+        let binding = super::physical::observer_binding(&self.endpoint, family, observers.into_iter().map(|url| (url, 3478)), Some(configured), deadline).await?;
+        let scope = self.endpoint.inner.punching_scope(binding, true)?;
+        let pool = &policy
+            .member_fusion()
+            .expect("member fusion")
+            .building
+            .physical;
+        if wait {
+            Ok(Some(
+                time::timeout_at(deadline, pool.acquire(scope, connection.remote_id()))
+                    .await
+                    .map_err(|_| io::ErrorKind::TimedOut)?,
+            ))
+        } else {
+            Ok(pool.try_acquire(scope, connection.remote_id()))
+        }
+    }
+
     async fn run_traversal(
         &self,
         connection: &Connection,
@@ -185,15 +221,9 @@ impl PathCandidates {
             // Outgoing work waits for the existing node owner before opening
             // a stream. An incoming attempt never waits while its peer holds
             // that peer's slot, so crossed work cannot deadlock.
-            let node = if incoming.is_some() {
-                self.node_traversal_slot.try_lock().ok()
-            } else {
-                Some(
-                    time::timeout_at(deadline, self.node_traversal_slot.lock())
-                        .await
-                        .map_err(|_| io::ErrorKind::WouldBlock)?,
-                )
-            };
+            let physical = self
+                .physical_tcp(connection, incoming.is_none(), deadline)
+                .await?;
             time::timeout_at(deadline, async {
                 let paced = self
                     .last_traversal
@@ -203,7 +233,7 @@ impl PathCandidates {
                     .is_some_and(|(scope, started)| {
                         scope.is_current() && started.elapsed() < interval
                     });
-                if node.is_none() || paced {
+                if physical.is_none() || paced {
                     if let Some(exchange) = incoming {
                         exchange.send_message(TRAVERSAL_STATUS, &[0]).await?;
                         exchange.finish_send().await?;
@@ -225,8 +255,6 @@ impl PathCandidates {
                         _ => return Err(io::ErrorKind::InvalidData.into()),
                     }
                 };
-                *self.last_traversal.lock().expect("direct traversal") =
-                    Some((generation.clone(), time::Instant::now()));
                 let fusion = self
                     .endpoint
                     .inner
@@ -235,8 +263,26 @@ impl PathCandidates {
                     .as_ref()
                     .and_then(|policy| policy.member_fusion())
                     .expect("member fusion");
-                let _position = fusion.building.acquire(connection.remote_id()).await;
-                self.traverse(connection, exchange).await.map(|_| ())
+                let _position = fusion
+                    .building
+                    .try_acquire(connection.remote_id())
+                    .ok_or(io::ErrorKind::WouldBlock)?;
+                let started = time::Instant::now();
+                let result = self
+                    .traverse(
+                        connection,
+                        exchange,
+                        physical.expect("physical TCP reservation"),
+                    )
+                    .await;
+                if !result
+                    .as_ref()
+                    .is_err_and(|error| error.kind() == io::ErrorKind::WouldBlock)
+                {
+                    *self.last_traversal.lock().expect("direct traversal") =
+                        Some((generation.clone(), started));
+                }
+                result.map(|_| ())
             })
             .await?
         };
@@ -266,10 +312,23 @@ impl PathCandidates {
         let deadline = deadline.min(time::Instant::now() + budget);
         let generation = self.endpoint.udp_network_generation();
         let work = async {
-            let _slot = self.node_traversal_slot.lock().await;
-            let fusion = self.endpoint.inner.static_config.admission.as_ref().and_then(|policy| policy.member_fusion()).expect("member fusion");
-            let _position = fusion.building.acquire(connection.remote_id()).await;
-            self.traverse(connection, exchange).await
+            let physical = self
+                .physical_tcp(connection, true, deadline)
+                .await?
+                .ok_or(io::ErrorKind::WouldBlock)?;
+            let fusion = self
+                .endpoint
+                .inner
+                .static_config
+                .admission
+                .as_ref()
+                .and_then(|policy| policy.member_fusion())
+                .expect("member fusion");
+            let _position = fusion
+                .building
+                .try_acquire(connection.remote_id())
+                .ok_or(io::ErrorKind::WouldBlock)?;
+            self.traverse(connection, exchange, physical).await
         };
         tokio::select! { biased;
             _ = cancel.cancelled() => Err(io::ErrorKind::Interrupted.into()),
@@ -284,6 +343,7 @@ impl PathCandidates {
         &self,
         connection: &Connection,
         exchange: ControlExchange,
+        physical: super::physical::MemberPunching,
     ) -> io::Result<(TransportAddr, u64)> {
         let peer = exchange.send_control().await?;
         let control = ControlHandle::narrow(&self.endpoint, connection);
@@ -295,7 +355,9 @@ impl PathCandidates {
             .as_ref()
             .expect("member policy");
         let qualify = async {
-            let prepared = policy.prepare_member_direct(&control, &exchange).await?;
+            let prepared = policy
+                .prepare_member_direct_reserved(&control, &exchange, physical)
+                .await?;
             verify_direct(&control, prepared).await
         };
         let verified = tokio::select! { biased;
@@ -403,7 +465,6 @@ pub(in crate::endpoint) fn watch_path_candidates(
     direct: Option<u64>,
     member_relay: Option<u64>,
     native_relay: bool,
-    node_traversal_slot: Arc<tokio::sync::Mutex<()>>,
     healthy_direct: watch::Receiver<bool>,
     data_failed: Option<watch::Receiver<bool>>,
 ) -> Option<Arc<PathCandidates>> {
@@ -431,7 +492,6 @@ pub(in crate::endpoint) fn watch_path_candidates(
         sender,
         learned: Mutex::new((generation, BTreeSet::new())),
         traversal,
-        node_traversal_slot,
         activity: activity.clone(),
         last_traversal: Default::default(),
         healthy_direct,

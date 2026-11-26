@@ -10,16 +10,19 @@ use super::super::MEMBER_BUILD_LIMIT;
 
 #[derive(Debug)]
 pub(crate) struct Building {
+    pub(crate) physical: super::physical::Pool,
     positions: Arc<Semaphore>,
     peers: Mutex<HashMap<EndpointId, Weak<Position>>>,
     changed: watch::Sender<()>,
 }
 impl Default for Building {
     fn default() -> Self {
+        let changed = watch::Sender::default();
         Self {
+            physical: super::physical::Pool::new(changed.clone()),
             positions: Arc::new(Semaphore::new(MEMBER_BUILD_LIMIT)),
             peers: Mutex::default(),
-            changed: watch::Sender::default(),
+            changed,
         }
     }
 }

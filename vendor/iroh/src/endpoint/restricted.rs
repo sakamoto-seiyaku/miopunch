@@ -193,6 +193,15 @@ pub(crate) trait DynEndpointAdmission: std::fmt::Debug + Send + Sync {
         None
     }
     #[cfg(not(wasm_browser))]
+    fn member_direct_binding(&self) -> Option<std::net::SocketAddr> {
+        None
+    }
+    #[cfg(not(wasm_browser))]
+    fn member_direct_observers(&self) -> Vec<crate::RelayUrl> {
+        Vec::new()
+    }
+
+    #[cfg(not(wasm_browser))]
     fn member_direct_traversal(&self) -> Option<(Duration, Duration)> {
         None
     }
@@ -205,12 +214,41 @@ pub(crate) trait DynEndpointAdmission: std::fmt::Debug + Send + Sync {
         Box::pin(async { Err(io::ErrorKind::Unsupported.into()) })
     }
     #[cfg(not(wasm_browser))]
+    fn prepare_member_direct_reserved<'a>(
+        &'a self,
+        connection: &'a ControlHandle,
+        exchange: &'a ControlExchange,
+        physical: super::member_fusion::MemberPunching,
+    ) -> BoxFuture<'a, io::Result<super::MemberDirectCandidate>> {
+        Box::pin(async move {
+            let candidate = self.prepare_member_direct(connection, exchange).await?;
+            physical.finish();
+            Ok(candidate)
+        })
+    }
+    #[cfg(not(wasm_browser))]
     fn prepare_member_bootstrap_direct<'a>(
         &'a self,
         _connection: &'a ControlHandle,
         _exchange: &'a ControlExchange,
     ) -> BoxFuture<'a, io::Result<super::member_fusion::MemberDirectCandidate>> {
         Box::pin(async { Err(io::ErrorKind::Unsupported.into()) })
+    }
+
+    #[cfg(not(wasm_browser))]
+    fn prepare_member_bootstrap_direct_reserved<'a>(
+        &'a self,
+        connection: &'a ControlHandle,
+        exchange: &'a ControlExchange,
+        physical: super::member_fusion::MemberPunching,
+    ) -> BoxFuture<'a, io::Result<super::MemberDirectCandidate>> {
+        Box::pin(async move {
+            let candidate = self
+                .prepare_member_bootstrap_direct(connection, exchange)
+                .await?;
+            physical.finish();
+            Ok(candidate)
+        })
     }
 
     #[cfg(not(wasm_browser))]
@@ -1135,6 +1173,32 @@ impl Drop for ControlConnection {
 }
 
 impl ControlHandle {
+    /// Try mapping work on the interface actually routing this binding to the destination.
+    #[cfg(not(wasm_browser))]
+    pub fn try_member_punching(
+        &self,
+        binding: std::net::SocketAddr,
+        destination: std::net::SocketAddr,
+        tcp: bool,
+    ) -> io::Result<super::member_fusion::MemberPunching> {
+        let binding = super::member_fusion::physical::Scope::route_binding(binding, destination)?;
+        let scope = self.endpoint.inner.punching_scope(binding, tcp)?;
+        let owner = self
+            .endpoint
+            .inner
+            .static_config
+            .admission
+            .as_ref()
+            .and_then(|policy| policy.member_fusion())
+            .ok_or(io::ErrorKind::Unsupported)?;
+        owner
+            .building
+            .physical
+            .try_acquire(scope, self.remote_id())
+            .map(|permit| permit.with_binding(binding))
+            .ok_or_else(|| io::Error::new(io::ErrorKind::WouldBlock, "physical exit is busy"))
+    }
+
     #[cfg(not(wasm_browser))]
     pub(super) fn member_bootstrap_handle(&self) -> Self {
         Self {
@@ -1165,7 +1229,8 @@ impl ControlHandle {
                 })
                 .with_required_path_acks([direct, None], false)
                 .with_enhanced_udp(self.member_udp.as_ref().and_then(|udp| udp.path_work()))
-                .with_building(building),
+                .with_building(building)
+                .with_physical_endpoint(Arc::downgrade(&self.endpoint.inner)),
             )
             .await
     }
@@ -2111,7 +2176,8 @@ pub(super) async fn finish_admission(
             .with_enhanced_udp(udp.as_ref().and_then(|udp| udp.path_work()))
             .with_repair_health(repair.as_ref().map(|repair| repair.health.clone()))
             .with_direct_health(direct_health)
-            .with_building(Some(fusion.building.clone()));
+            .with_building(Some(fusion.building.clone()))
+            .with_physical_endpoint(Arc::downgrade(&endpoint.inner));
             endpoint
                 .inner
                 .authorize_candidates(
@@ -2137,7 +2203,6 @@ pub(super) async fn finish_admission(
                 direct,
                 member_relay,
                 true,
-                fusion.direct_traversal_slot.clone(),
                 healthy_direct,
                 repair.as_ref().map(|repair| repair.health.subscribe()),
             );

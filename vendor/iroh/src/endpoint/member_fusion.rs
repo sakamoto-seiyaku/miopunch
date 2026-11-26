@@ -24,6 +24,8 @@ use super::{
 
 mod bootstrap;
 pub(crate) mod building;
+pub(crate) mod physical;
+pub use physical::MemberPunching;
 mod dial;
 mod direct;
 mod standby;
@@ -119,6 +121,17 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
     }
 
     /// Original caller budget and minimum interval for coordinated direct attempts.
+    /// Actual local TCP binding used for observation and coordinated dialing.
+    fn member_direct_binding(&self) -> Option<std::net::SocketAddr> {
+        None
+    }
+
+    /// Observation destinations used by the coordinated TCP binding.
+    fn member_direct_observers(&self) -> Vec<crate::RelayUrl> {
+        Vec::new()
+    }
+
+    /// Limits for one coordinated direct TCP attempt.
     fn member_direct_traversal(&self) -> Option<(Duration, Duration)> {
         None
     }
@@ -131,6 +144,36 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
         _exchange: &'a ControlExchange,
     ) -> impl Future<Output = io::Result<MemberDirectCandidate>> + Send + 'a {
         async { Err(io::ErrorKind::Unsupported.into()) }
+    }
+
+    /// Prepare under a physical reservation that can finish before QUIC validation.
+    fn prepare_member_direct_reserved<'a>(
+        &'a self,
+        connection: &'a ControlHandle,
+        exchange: &'a ControlExchange,
+        physical: MemberPunching,
+    ) -> impl Future<Output = io::Result<MemberDirectCandidate>> + Send + 'a {
+        async move {
+            let candidate = self.prepare_member_direct(connection, exchange).await?;
+            physical.finish();
+            Ok(candidate)
+        }
+    }
+
+    /// Prepare a bootstrap TCP candidate under an existing physical reservation.
+    fn prepare_member_bootstrap_direct_reserved<'a>(
+        &'a self,
+        connection: &'a ControlHandle,
+        exchange: &'a ControlExchange,
+        physical: MemberPunching,
+    ) -> impl Future<Output = io::Result<MemberDirectCandidate>> + Send + 'a {
+        async move {
+            let candidate = self
+                .prepare_member_bootstrap_direct(connection, exchange)
+                .await?;
+            physical.finish();
+            Ok(candidate)
+        }
     }
 
     /// Prepare a direct carrier while this member is still control-only.
@@ -301,6 +344,16 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
         self.inner.member_direct_transport()
     }
 
+    /// Actual local TCP binding used for observation and coordinated dialing.
+    fn member_direct_binding(&self) -> Option<std::net::SocketAddr> {
+        self.inner.member_direct_binding()
+    }
+
+    fn member_direct_observers(&self) -> Vec<crate::RelayUrl> {
+        self.inner.member_direct_observers()
+    }
+
+    /// Limits for one coordinated direct TCP attempt.
     fn member_direct_traversal(&self) -> Option<(Duration, Duration)> {
         self.inner.member_direct_traversal()
     }
@@ -313,6 +366,18 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
         Box::pin(self.inner.prepare_member_direct(connection, exchange))
     }
 
+    fn prepare_member_direct_reserved<'a>(
+        &'a self,
+        connection: &'a ControlHandle,
+        exchange: &'a ControlExchange,
+        physical: MemberPunching,
+    ) -> BoxFuture<'a, io::Result<MemberDirectCandidate>> {
+        Box::pin(
+            self.inner
+                .prepare_member_direct_reserved(connection, exchange, physical),
+        )
+    }
+
     fn prepare_member_bootstrap_direct<'a>(
         &'a self,
         connection: &'a ControlHandle,
@@ -321,6 +386,18 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
         Box::pin(
             self.inner
                 .prepare_member_bootstrap_direct(connection, exchange),
+        )
+    }
+
+    fn prepare_member_bootstrap_direct_reserved<'a>(
+        &'a self,
+        connection: &'a ControlHandle,
+        exchange: &'a ControlExchange,
+        physical: MemberPunching,
+    ) -> BoxFuture<'a, io::Result<MemberDirectCandidate>> {
+        Box::pin(
+            self.inner
+                .prepare_member_bootstrap_direct_reserved(connection, exchange, physical),
         )
     }
 
@@ -970,7 +1047,6 @@ pub(super) struct Fusion {
     selected: Option<mpsc::UnboundedSender<IncomingResult>>,
     repair_contact: std::sync::OnceLock<RepairContact>,
     udp_planner: Arc<udp::Planner>,
-    pub(super) direct_traversal_slot: Arc<tokio::sync::Mutex<()>>,
     #[cfg(feature = "miopunch-test-hooks")]
     qualification_gate: std::sync::OnceLock<Arc<QualificationGate>>,
 }

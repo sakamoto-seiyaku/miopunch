@@ -1070,6 +1070,11 @@ impl<T: ConnectionState> Connection<T> {
         self.inner.set_ipv4_nat_traversal_probes_paused(paused);
     }
 
+    #[cfg(not(wasm_browser))]
+    pub(super) fn retain_nat_mapping(&self, remote: std::net::SocketAddr, local: crate::socket::transports::LocalSocketBinding) -> noq::RetainedNatMapping {
+        self.inner.retain_nat_mapping(noq::FourTuple::new(remote, Some(local.local_addr.ip())).with_local_socket(local.id.to_noq()))
+    }
+
     #[cfg(all(not(wasm_browser), feature = "miopunch-test-hooks"))]
     pub(super) fn ipv4_nat_traversal_probes_paused(&self) -> bool {
         self.inner.ipv4_nat_traversal_probes_paused()

@@ -88,17 +88,57 @@ async fn tcp(
             .member_direct_transport()
             .is_some_and(|id| custom.contains(&id));
     let format = ControlMessageFormat::Fixed { length: 1 };
-    exchange
-        .send_message(format, &[u8::from(supported)])
-        .await?;
+    exchange.send_message(format, &[u8::from(supported)]).await?;
     match exchange.recv_message(format).await?.as_slice() {
-        [1] if supported => {}
+        [1] if supported => {},
         [0] | [1] => return Err(io::ErrorKind::Unsupported.into()),
         _ => return Err(io::ErrorKind::InvalidData.into()),
     }
-    let prepared = policy
-        .prepare_member_bootstrap_direct(control, &exchange)
-        .await?;
+    let deadline = control.caller_deadline().expect("restricted admission deadline").into();
+    let building = &policy.member_fusion().expect("member fusion").building;
+    let observers = policy.member_direct_observers();
+    let binding = if let Some(configured) = policy.member_direct_binding().filter(|_| !observers.is_empty()) {
+        Some(super::physical::observer_binding(
+            &control.endpoint, iroh_relay::ObservationFamily::Ipv4,
+            observers.into_iter().map(|url| (url, 3478)), Some(configured), deadline,
+        ).await?)
+    } else { None };
+    let physical = loop {
+        let mut changed = building.subscribe();
+        let permit = match binding {
+            Some(binding) => {
+                let scope = control.endpoint.inner.punching_scope(binding, true)?;
+                building.physical.try_acquire(scope, control.remote_id()).map(|permit| permit.with_binding(binding))
+            },
+            None => Some(super::physical::MemberPunching::untracked()),
+        };
+        let ready = permit.is_some();
+        exchange.send_message(format, &[u8::from(ready)]).await?;
+        let peer_ready = match exchange.recv_message(format).await?.as_slice() {
+            [1] => true,
+            [0] => false,
+            _ => return Err(io::ErrorKind::InvalidData.into()),
+        };
+        if ready && peer_ready { break permit; }
+        // Neither peer has sampled. Release the ready side while the busy
+        // side waits for its existing owner, then rendezvous before retrying.
+        drop(permit);
+        if !ready { changed.changed().await.map_err(|_| io::ErrorKind::NotConnected)?; }
+        exchange.send_message(format, &[1]).await?;
+        if exchange.recv_message(format).await? != [1] { return Err(io::ErrorKind::InvalidData.into()); }
+    };
+    let prepared = match physical {
+        Some(physical) => {
+            policy
+                .prepare_member_bootstrap_direct_reserved(control, &exchange, physical)
+                .await?
+        }
+        None => {
+            policy
+                .prepare_member_bootstrap_direct(control, &exchange)
+                .await?
+        }
+    };
     let remote = direct::verify_direct(control, prepared)
         .await?
         .commit(control, &exchange)

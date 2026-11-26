@@ -1,12 +1,11 @@
-//! The node's one enhanced UDP slot. A protected offer may yield before it does work.
+//! One interface's enhanced UDP slot. A protected offer may yield before it does work.
 
 use std::{
     io,
     sync::{Arc, Mutex},
 };
 
-use super::{CancellationToken, Duration, Instant, busy, remaining};
-use crate::{endpoint::ObservationValidity, socket::transports::QadSubmission};
+use super::{CancellationToken, Instant, busy, remaining};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum Priority {
@@ -20,7 +19,6 @@ pub(super) struct Slot(Arc<Mutex<State>>, tokio::sync::watch::Sender<bool>);
 #[derive(Debug, Default)]
 struct State {
     active: Option<Active>,
-    cooldown: Option<(ObservationValidity, Instant)>,
     business: usize,
 }
 
@@ -37,22 +35,12 @@ struct Holder {
     connection: usize,
     outgoing: bool,
     priority: Priority,
-    reserved: Instant,
     yielded: CancellationToken,
 }
 
-impl Holder {
-    fn spend(&self, state: &mut State, generation: &ObservationValidity, interval: Duration) {
-        let until = self.reserved + interval;
-        if state.cooldown.as_ref().is_none_or(|(_, due)| *due != until) {
-            tracing::debug!(stable_id = self.connection, ?until, "member UDP slot spent");
-            state.cooldown = Some((generation.clone(), until));
-        }
-    }
-}
-
-pub(super) struct Reservation<'a> {
-    slot: &'a Slot,
+pub(super) struct Reservation {
+    slot: Arc<Slot>,
+    physical: super::super::physical::MemberPunching,
     holder: Arc<Holder>,
 }
 
@@ -81,6 +69,15 @@ impl Slot {
         });
     }
 
+    pub(super) fn preempt_unspent(&self) {
+        let mut state = self.0.lock().expect("member UDP slot");
+        if state.active.as_ref().is_some_and(|active| {
+            !active.committed && active.holder.priority == Priority::Maintenance
+        }) {
+            Self::yield_active(&mut state);
+        }
+    }
+
     fn yield_active(state: &mut State) {
         let old = state.active.take().expect("active UDP reservation");
         tracing::debug!(
@@ -92,38 +89,17 @@ impl Slot {
         old.holder.yielded.cancel();
     }
 
-    pub(super) fn next_physical_round(&self) -> Instant {
-        let state = self.0.lock().expect("member UDP slot");
-        state
-            .cooldown
-            .as_ref()
-            .filter(|(generation, _)| generation.is_current())
-            .map_or_else(Instant::now, |(_, due)| *due)
-    }
-
     pub(super) fn reserve(
-        &self,
+        self: &Arc<Self>,
+        physical: super::super::physical::MemberPunching,
         scope: &super::LearningScope,
         connection: usize,
         outgoing: bool,
         priority: Priority,
         deadline: Instant,
-        traverse: bool,
-    ) -> io::Result<Reservation<'_>> {
+    ) -> io::Result<Reservation> {
         let mut state = self.0.lock().expect("member UDP slot");
         remaining(deadline)?;
-        let now = Instant::now();
-        if traverse
-            && let Some((generation, until)) = &state.cooldown
-            && generation.is_current()
-            && now < *until
-        {
-            tracing::debug!(stable_id = connection, due_in = ?(*until - now), "member UDP slot cooling down");
-            return Err(io::Error::new(
-                io::ErrorKind::WouldBlock,
-                "member UDP round cooling down",
-            ));
-        }
         if priority == Priority::Maintenance && state.business != 0 {
             return Err(busy());
         }
@@ -152,7 +128,6 @@ impl Slot {
             connection,
             outgoing,
             priority,
-            reserved: now,
             yielded: CancellationToken::new(),
         });
         tracing::debug!(stable_id = connection, peer = ?scope.remote, outgoing, ?priority, "member UDP slot reserved");
@@ -160,11 +135,27 @@ impl Slot {
             holder: holder.clone(),
             committed: false,
         });
-        Ok(Reservation { slot: self, holder })
+        Ok(Reservation {
+            slot: self.clone(),
+            physical,
+            holder,
+        })
     }
 }
 
-impl Reservation<'_> {
+impl Reservation {
+    pub(super) fn release_physical(&self) {
+        let mut state = self.slot.0.lock().expect("member UDP slot");
+        if state
+            .active
+            .as_ref()
+            .is_some_and(|active| Arc::ptr_eq(&active.holder, &self.holder))
+        {
+            state.active = None;
+        }
+        drop(state);
+        self.physical.finish();
+    }
     pub(super) fn yielded(&self) -> &CancellationToken {
         &self.holder.yielded
     }
@@ -179,33 +170,9 @@ impl Reservation<'_> {
         active.committed = true;
         Ok(())
     }
-
-    pub(super) fn spend(&self, generation: &ObservationValidity, interval: Duration) {
-        let mut state = self.slot.0.lock().expect("member UDP slot");
-        self.holder.spend(&mut state, generation, interval);
-    }
-
-    pub(super) fn qad_submission(
-        &self,
-        generation: ObservationValidity,
-        interval: Duration,
-    ) -> QadSubmission {
-        let slot = self.slot.0.clone();
-        let holder = self.holder.clone();
-        QadSubmission::new(move || {
-            let mut state = slot.lock().expect("member UDP slot");
-            if state
-                .active
-                .as_ref()
-                .is_some_and(|active| Arc::ptr_eq(&active.holder, &holder))
-            {
-                holder.spend(&mut state, &generation, interval);
-            }
-        })
-    }
 }
 
-impl Drop for Reservation<'_> {
+impl Drop for Reservation {
     fn drop(&mut self) {
         let mut state = self.slot.0.lock().expect("member UDP slot");
         if state

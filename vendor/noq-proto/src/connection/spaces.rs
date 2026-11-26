@@ -141,13 +141,13 @@ impl PacketSpace {
     ///
     /// [`Connection::can_send_1rtt`]: super::Connection::can_send_1rtt
     /// [`Connection::space_can_send`]: super::Connection::space_can_send
-    pub(super) fn can_send(&self, path_id: PathId, streams: &StreamsState) -> SendableFrames {
+    pub(super) fn can_send(&self, path_id: PathId, network_path: FourTuple, streams: &StreamsState) -> SendableFrames {
         let acks = self
             .number_spaces
             .values()
             .any(|pns| pns.pending_acks.can_send());
         let space_specific = self.number_spaces.get(&path_id).is_some_and(|s| {
-            s.pending_ping || s.pending_immediate_ack || !s.pending_path_responses.is_empty()
+            s.pending_ping || s.pending_immediate_ack || s.pending_path_responses.has_pending_on_path(network_path)
         });
         let other = !self.pending.is_empty(streams);
         SendableFrames {

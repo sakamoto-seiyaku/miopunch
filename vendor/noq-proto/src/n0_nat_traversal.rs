@@ -272,6 +272,22 @@ impl State {
         }
     }
 
+    pub(crate) fn next_probe_addr_permitted(
+        &self,
+        ipv4_paused: bool,
+        permit: Option<&(dyn Fn(SocketAddr) -> bool + Send + Sync)>,
+    ) -> Option<IpPort> {
+        let pending = match self {
+            Self::NotNegotiated => return None,
+            Self::ClientSide(state) => &state.pending_probes,
+            Self::ServerSide(state) => &state.pending_probes,
+        };
+        pending.iter().copied().find(|(ip, port)| {
+            (!ipv4_paused || ip.to_canonical().is_ipv6())
+                && permit.is_none_or(|permit| permit(SocketAddr::new(ip.to_canonical(), *port)))
+        })
+    }
+
     /// Queue a locally known address in the existing traversal engine. Either
     /// role can send a probe, while only the client opens a multipath path.
     pub(crate) fn probe_known_address(
@@ -324,6 +340,18 @@ impl State {
         };
     }
 
+    pub(crate) fn queue_retries_permitted(
+        &mut self,
+        ipv6: bool,
+        permit: Option<&(dyn Fn(SocketAddr) -> bool + Send + Sync)>,
+    ) {
+        match self {
+            Self::NotNegotiated => (),
+            Self::ClientSide(state) => state.queue_retries_with(ipv6, permit),
+            Self::ServerSide(state) => state.queue_retries_with(permit),
+        }
+    }
+
     /// Discard ready IPv4 probes, leaving IPv6, retry timers and sent challenges intact.
     pub(crate) fn discard_pending_ipv4_probes(&mut self) {
         let pending = match self {
@@ -364,6 +392,30 @@ impl State {
                 for probe in state.remotes.values_mut() {
                     *probe = ProbeState::Inactive;
                 }
+            }
+        }
+    }
+
+    pub(crate) fn has_ipv4_probes(&self) -> bool {
+        match self {
+            Self::NotNegotiated => false,
+            Self::ClientSide(state) => {
+                state
+                    .pending_probes
+                    .iter()
+                    .any(|(ip, _)| ip.to_canonical().is_ipv4())
+                    || state.remote_addresses.values().any(|(addr, probe)| {
+                        addr.as_canonical_addr().is_ipv4() && probe.remaining() > 0
+                    })
+            }
+            Self::ServerSide(state) => {
+                state
+                    .pending_probes
+                    .iter()
+                    .any(|(ip, _)| ip.to_canonical().is_ipv4())
+                    || state.remotes.iter().any(|((ip, _), probe)| {
+                        ip.to_canonical().is_ipv4() && probe.remaining() > 0
+                    })
             }
         }
     }
@@ -621,11 +673,22 @@ impl ClientState {
     ///
     /// `ipv6` as for [`Self::initiate_nat_traversal_round`].
     pub(crate) fn queue_retries(&mut self, ipv6: bool) {
+        self.queue_retries_with(ipv6, None);
+    }
+    fn queue_retries_with(
+        &mut self,
+        ipv6: bool,
+        permit: Option<&(dyn Fn(SocketAddr) -> bool + Send + Sync)>,
+    ) {
         self.attempt += 1;
         self.remote_addresses
             .values_mut()
             .for_each(|(ip_port, state)| match state {
                 ProbeState::Active(remaining) if *remaining > 0 => {
+                    let canonical = ip_port.as_canonical_addr();
+                    if permit.is_some_and(|permit| !permit(canonical)) {
+                        return;
+                    }
                     *remaining -= 1;
                     if let Some(ip_port) = ip_port.as_local_socket_family(ipv6) {
                         self.pending_probes.insert(ip_port);
@@ -995,11 +1058,19 @@ impl ServerState {
     /// Returns whether any probes are now queued to send. In this case the
     /// `NatTraversalProbeRetry` timer needs to be reset.
     pub(crate) fn queue_retries(&mut self) {
+        self.queue_retries_with(None);
+    }
+    fn queue_retries_with(&mut self, permit: Option<&(dyn Fn(SocketAddr) -> bool + Send + Sync)>) {
         self.attempt += 1;
         self.remotes
             .iter_mut()
             .for_each(|(remote, state)| match state {
                 ProbeState::Active(remaining) if *remaining > 0 => {
+                    if permit.is_some_and(|permit| {
+                        !permit(SocketAddr::new(remote.0.to_canonical(), remote.1))
+                    }) {
+                        return;
+                    }
                     *remaining -= 1;
                     self.pending_probes.insert(*remote);
                 }

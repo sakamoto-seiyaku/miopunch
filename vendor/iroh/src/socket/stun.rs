@@ -207,6 +207,15 @@ impl EndpointInner {
             None => match observer.host() {
                 Some(url::Host::Ipv4(ip)) if family == ObservationFamily::Ipv4 => IpAddr::V4(ip),
                 Some(url::Host::Ipv6(ip)) if family == ObservationFamily::Ipv6 => IpAddr::V6(ip),
+                // Non-special URL schemes, including stun, retain numeric
+                // hosts as domains. They are already resolved addresses.
+                Some(url::Host::Domain(host)) if host.parse::<IpAddr>().is_ok() => {
+                    match (host.parse::<IpAddr>().expect("numeric observer"), family) {
+                        (ip @ IpAddr::V4(_), ObservationFamily::Ipv4)
+                        | (ip @ IpAddr::V6(_), ObservationFamily::Ipv6) => ip,
+                        _ => return Err(io::ErrorKind::AddrNotAvailable.into()),
+                    }
+                }
                 Some(url::Host::Domain(host)) => match family {
                     ObservationFamily::Ipv4 => self
                         .sock
@@ -313,6 +322,9 @@ impl EndpointInner {
                     "no binding for requested observation family",
                 )
             })?;
+        let configured = qad_submission
+            .and_then(|submission| submission.binding())
+            .unwrap_or(configured);
         let source = (!configured.ip().is_unspecified()).then_some(configured.ip());
         let binding = self
             .sock

@@ -17,6 +17,7 @@ enum Preparation<'a> {
     Fused {
         exchange: &'a ControlExchange,
         admission: bool,
+        physical: Option<iroh::endpoint::MemberPunching>,
     },
 }
 use serde_json::json;
@@ -62,6 +63,7 @@ pub(crate) struct PreparedTcpPath {
     route: iroh_base::CustomAddr,
     original: WeakControlConnection,
     connection_id: usize,
+    physical_complete: bool,
 }
 
 pub(crate) struct ActiveTcpPath {
@@ -115,7 +117,16 @@ impl PreparedTcpPath {
             || !gate.allows_member_path_upgrade(connection)
             || !self.generation.is_current()
             || connection.is_closed()
-            || !self.observation.is_fresh()
+            || if self.physical_complete {
+                !self
+                    .active
+                    .as_ref()
+                    .and_then(|active| active.circuit.as_ref())
+                    .or(self.circuit.as_ref())
+                    .is_some_and(|circuit| circuit.binding_is_live(self.observation.local_addr))
+            } else {
+                !self.observation.is_fresh()
+            }
             || !self.punch.resources.allows_custom(&self.route)
         {
             return Err(io::Error::new(
@@ -332,6 +343,7 @@ impl TcpPunch {
         gate: &AdmissionGate,
         log: AttemptLog,
         admission: bool,
+        physical: Option<iroh::endpoint::MemberPunching>,
     ) -> io::Result<PreparedTcpPath> {
         self.prepare_with_exchange(
             original,
@@ -340,6 +352,7 @@ impl TcpPunch {
             Preparation::Fused {
                 exchange,
                 admission,
+                physical,
             },
         )
         .await
@@ -387,6 +400,11 @@ impl TcpPunch {
         };
         check()?;
         let generation = connection.udp_network_generation();
+        let mut physical = match &preparation {
+            Preparation::Fused { physical, .. } => physical.clone(),
+            _ => None,
+        };
+        let physical_required = physical.is_some();
         let mut observation = None;
         // Both peers consume the protected TCP phase even when only one can
         // punch. Unsupported platforms neither query observers nor prime a
@@ -395,7 +413,30 @@ impl TcpPunch {
             for (index, observer) in self.observers.iter().enumerate() {
                 check()?;
                 let phase = log.phase("observation", json!({"method":"tcp","observerIndex":index}));
-                match crate::tcp_observation::observe(connection, &self.transport, observer).await {
+                let sample = async { if physical_required {
+                    let destination = connection
+                        .resolve_observation_addr(
+                            observer,
+                            iroh::endpoint::ObservationFamily::Ipv4,
+                            3478,
+                        )
+                        .await?;
+                    let listener = self.transport.bound_socket_addr_for(destination)?;
+                    if let Some(previous) = physical.take() { previous.finish(); }
+                    let permit = connection.try_member_punching(listener, destination, true)?;
+                    let source = permit.binding().expect("TCP physical source");
+                    physical = Some(permit);
+                    crate::tcp_observation::observe_from(
+                        connection,
+                        &self.transport,
+                        observer,
+                        source,
+                    )
+                    .await
+                } else {
+                    crate::tcp_observation::observe(connection, &self.transport, observer).await
+                } }.await;
+                match sample {
                     Ok(result) if result.is_fresh() && result.mapped.is_ipv4() => {
                         phase.finish("succeeded");
                         observation = Some(result);
@@ -527,7 +568,12 @@ impl TcpPunch {
                 json!({"routeKind":"tcp","validationBudgetMs":6000}),
             )
             .run(async {
-                let primed = self.transport.prime(remote)?;
+                let primed = match &observation {
+                    Some(observation) => {
+                        self.transport.prime_from(remote, observation.local_addr)?
+                    }
+                    None => self.transport.prime(remote)?,
+                };
                 if let Some(active) = &mut active {
                     active.circuit = Some(primed);
                 } else {
@@ -548,7 +594,9 @@ impl TcpPunch {
                         check()?;
                         if !generation.is_current()
                             || connection.is_closed()
-                            || !observation.as_ref().is_some_and(|result| result.is_fresh())
+                            || if physical.is_some() && active.as_ref().and_then(|active| active.circuit.as_ref()).or(circuit.as_ref()).is_some_and(|circuit| circuit.handshake_ready()) {
+                                !observation.as_ref().is_some_and(|result| active.as_ref().and_then(|active| active.circuit.as_ref()).or(circuit.as_ref()).is_some_and(|circuit| circuit.binding_is_live(result.local_addr)))
+                            } else { !observation.as_ref().is_some_and(|result| result.is_fresh()) }
                         {
                             return Err(io::Error::other(
                                 "TCP observation invalidated during punching",
@@ -573,7 +621,15 @@ impl TcpPunch {
                                 Err(error) => return Err(error),
                             }
                         }
-                        if connection.paths().iter().any(
+                        let handshake_ready = active
+                            .as_ref()
+                            .and_then(|active| active.circuit.as_ref())
+                            .or(circuit.as_ref())
+                            .is_some_and(|circuit| circuit.handshake_ready());
+                        if handshake_ready {
+                            if let Some(physical) = &physical { physical.finish(); }
+                        }
+                        if handshake_ready && connection.paths().iter().any(
                     |path| matches!(path.remote_addr(),TransportAddr::Custom(addr) if addr==&route),
                 ) {
                     println!(
@@ -626,7 +682,19 @@ impl TcpPunch {
         }
         if !generation.is_current()
             || connection.is_closed()
-            || !observation.as_ref().is_some_and(|result| result.is_fresh())
+            || if physical.is_some() {
+                !active
+                    .as_ref()
+                    .and_then(|active| active.circuit.as_ref())
+                    .or(circuit.as_ref())
+                    .is_some_and(|circuit| {
+                        observation
+                            .as_ref()
+                            .is_some_and(|result| circuit.binding_is_live(result.local_addr))
+                    })
+            } else {
+                !observation.as_ref().is_some_and(|result| result.is_fresh())
+            }
         {
             if initial {
                 let _ = connection.retire_control_path(route).await;
@@ -645,6 +713,7 @@ impl TcpPunch {
             route,
             original: connection.weak_handle(),
             connection_id: connection.stable_id(),
+            physical_complete: physical.is_some(),
         })
     }
 }

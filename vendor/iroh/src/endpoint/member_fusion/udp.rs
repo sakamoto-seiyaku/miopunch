@@ -191,8 +191,8 @@ impl Drop for RoundTrace {
 #[derive(Debug)]
 pub(super) struct Planner {
     analyzer: Mutex<Analyzer>,
-    slot: Slot,
-    standby_turn: tokio::sync::Mutex<()>,
+    slot: Arc<Slot>,
+    slots: Mutex<std::collections::HashMap<super::physical::Scope, Arc<Slot>>>,
     #[cfg(feature = "miopunch-test-hooks")]
     reservation_barrier: Mutex<Option<(Arc<tokio::sync::Barrier>, Arc<AtomicBool>)>>,
 }
@@ -201,8 +201,8 @@ impl Default for Planner {
     fn default() -> Self {
         Self {
             analyzer: Mutex::new(Analyzer::new(StdInstant::now())),
-            slot: Slot::default(),
-            standby_turn: Default::default(),
+            slot: Arc::default(),
+            slots: Mutex::default(),
             #[cfg(feature = "miopunch-test-hooks")]
             reservation_barrier: Mutex::default(),
         }
@@ -216,6 +216,11 @@ impl Planner {
 
     pub(super) fn business_changed(&self, active: bool) {
         self.slot.business_changed(active);
+        if active {
+            for slot in self.slots.lock().expect("UDP interface slots").values() {
+                slot.preempt_unspent();
+            }
+        }
     }
 
     #[cfg(feature = "miopunch-test-hooks")]
@@ -243,6 +248,7 @@ pub(in super::super) struct Planning {
     path_work: Arc<MemberUdpPathWork>,
     maintenance: watch::Sender<Option<Instant>>,
     latest: Mutex<Option<MemberUdpPlan>>,
+    last_work: Arc<Mutex<Option<(ObservationValidity, Instant)>>>,
     traversal: Mutex<Option<Arc<execute::Execution>>>,
 }
 
@@ -265,6 +271,7 @@ impl Planning {
             path_work: Arc::default(),
             maintenance: watch::Sender::default(),
             latest: Mutex::new(None),
+            last_work: Arc::new(Mutex::new(None)),
             traversal: Mutex::new(None),
         }))
     }
@@ -388,18 +395,6 @@ impl Planning {
                     maintenance_at = Instant::now() + interval;
                     last_check = request;
                     let result = if standby {
-                        let turn = async {
-                            let turn = self.owner.standby_turn.lock().await;
-                            time::sleep_until(self.owner.slot.next_physical_round()).await;
-                            turn
-                        };
-                        let _turn = tokio::select! { biased;
-                            _ = active.wait_for(|yes| *yes) => continue,
-                            _ = permitted.wait_for(|yes| !*yes) => continue,
-                            _ = needed.wait_for(|yes| !*yes) => continue,
-                            _ = self.endpoint.inner.wait_network_generation_change(&generation) => continue,
-                            turn = turn => turn,
-                        };
                         self.initiate(Instant::now() + self.config.round_timeout, &cancel, kind)
                             .await
                     } else {
@@ -464,12 +459,17 @@ impl Planning {
             .ok_or_else(|| denied("current member authorization required for enhanced UDP"))
     }
 
-    fn round_scope(&self, authorization: LearningScope) -> io::Result<RoundScope> {
-        Ok(RoundScope {
-            authorization,
-            generation: self.endpoint.udp_network_generation(),
-            sources: self.sources()?,
-        })
+    async fn round_scope(&self, authorization: LearningScope, deadline: Instant) -> io::Result<RoundScope> {
+        let sources = self.sources()?;
+        let observers = sources.stun.iter().cloned().map(|url| (url, 3478)).chain(
+            sources.qad.relays::<Vec<_>>().into_iter().map(|observer| {
+                (observer.url.clone(), observer.quic.as_ref().map_or(7842, |quic| quic.port))
+            }),
+        ).collect::<Vec<_>>();
+        let binding = super::physical::observer_binding(
+            &self.endpoint, iroh_relay::ObservationFamily::Ipv4, observers, None, deadline,
+        ).await?;
+        Ok(RoundScope { binding, authorization, generation: self.endpoint.udp_network_generation(), sources })
     }
 
     fn check_scope(&self, scope: &RoundScope) -> io::Result<()> {
@@ -533,9 +533,25 @@ impl Planning {
         kind: StreamKind,
         exchange: Option<ControlExchange>,
     ) -> io::Result<MemberUdpPlan> {
-        let scope = self.round_scope(self.scope()?)?;
         let deadline = deadline.min(Instant::now() + self.config.round_timeout);
+        let scope = self.round_scope(self.scope()?, deadline).await?;
         let traverse = kind != StreamKind::UdpPlan;
+        if traverse
+            && self
+                .last_work
+                .lock()
+                .expect("peer UDP pacing")
+                .as_ref()
+                .is_some_and(|(generation, started)| {
+                    generation.is_current() && started.elapsed() < self.config.round_interval
+                })
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::WouldBlock,
+                "member UDP round cooling down",
+            ));
+        }
+
         let priority = if kind == StreamKind::UdpMaintenance {
             Priority::Maintenance
         } else {
@@ -544,13 +560,36 @@ impl Planning {
         if cancel.is_cancelled() {
             return Err(io::ErrorKind::Interrupted.into());
         }
-        let slot = self.owner.slot.reserve(
+        let fusion = self
+            .endpoint
+            .inner
+            .static_config
+            .admission
+            .as_ref()
+            .and_then(|policy| policy.member_fusion())
+            .expect("member fusion");
+        let binding = scope.binding;
+        let exit = self.endpoint.inner.punching_scope(binding, false)?;
+        let physical = fusion
+            .building
+            .physical
+            .try_acquire(exit.clone(), self.connection.remote_id())
+            .ok_or_else(busy)?;
+        let slot_owner = self
+            .owner
+            .slots
+            .lock()
+            .expect("UDP interface slots")
+            .entry(exit)
+            .or_default()
+            .clone();
+        let slot = slot_owner.reserve(
+            physical,
             &scope.authorization,
             self.connection.stable_id(),
             true,
             priority,
             deadline,
-            traverse,
         )?;
         let mut trace = RoundTrace::new(&self.connection, "initiator", kind);
         let work = async {
@@ -562,7 +601,10 @@ impl Planning {
                 .as_ref()
                 .and_then(|policy| policy.member_fusion())
                 .expect("member fusion");
-            let _position = fusion.building.acquire(self.connection.remote_id()).await;
+            let _position = fusion
+                .building
+                .try_acquire(self.connection.remote_id())
+                .ok_or_else(busy)?;
             let mut running = None;
             #[cfg(feature = "miopunch-test-hooks")]
             {
@@ -680,7 +722,6 @@ impl Planning {
             )?;
             let scope = self.scope()?;
             hello.check(&scope)?;
-            let scope = self.round_scope(scope)?;
             let mut deadline = deadline.min(started + hello.budget);
             if priority == Priority::Maintenance {
                 let since = activity.and_then(Activity::idle_since).ok_or_else(busy)?;
@@ -696,18 +737,42 @@ impl Planning {
                     _ => {}
                 }
             }
+            let scope = self.round_scope(scope, deadline).await?;
             if kind.automatically_improves_path()
                 && (!self.can_maintain() || !*self.path_work.needed.borrow())
             {
                 return Err(busy());
             }
-            let slot = self.owner.slot.reserve(
+            let fusion = self
+                .endpoint
+                .inner
+                .static_config
+                .admission
+                .as_ref()
+                .and_then(|policy| policy.member_fusion())
+                .expect("member fusion");
+            let binding = scope.binding;
+            let exit = self.endpoint.inner.punching_scope(binding, false)?;
+            let physical = fusion
+                .building
+                .physical
+                .try_acquire(exit.clone(), self.connection.remote_id())
+                .ok_or_else(busy)?;
+            let slot_owner = self
+                .owner
+                .slots
+                .lock()
+                .expect("UDP interface slots")
+                .entry(exit)
+                .or_default()
+                .clone();
+            let slot = slot_owner.reserve(
+                physical,
                 &scope.authorization,
                 self.connection.stable_id(),
                 false,
                 priority,
                 deadline,
-                traverse,
             )?;
             let work = async {
                 let fusion = self
@@ -718,7 +783,10 @@ impl Planning {
                     .as_ref()
                     .and_then(|policy| policy.member_fusion())
                     .expect("member fusion");
-                let _position = fusion.building.acquire(self.connection.remote_id()).await;
+                let _position = fusion
+                    .building
+                    .try_acquire(self.connection.remote_id())
+                    .ok_or_else(busy)?;
                 let mut running = None;
                 let (plan, recommendation) = self
                     .guarded(
@@ -784,7 +852,7 @@ impl Planning {
         scope: &RoundScope,
         deadline: Instant,
         kind: StreamKind,
-        slot: &Reservation<'_>,
+        slot: &Reservation,
         running: &mut Option<RunningPath<'a>>,
         trace: &mut RoundTrace,
     ) -> io::Result<MemberUdpPlan> {
@@ -804,7 +872,7 @@ impl Planning {
         trace.step("observation");
         let (local, proposal) = tokio::try_join!(
             async {
-                let local = self.observe(scope, traverse, slot, trace, deadline).await?;
+                let local = self.observe(scope, traverse, trace, deadline).await?;
                 trace.step("peer-plan");
                 local.check()?;
                 self.check_scope(scope)?;
@@ -858,7 +926,7 @@ impl Planning {
         scope: &RoundScope,
         deadline: Instant,
         kind: StreamKind,
-        slot: &Reservation<'_>,
+        slot: &Reservation,
         running: &mut Option<RunningPath<'a>>,
         trace: &mut RoundTrace,
     ) -> io::Result<(MemberUdpPlan, Option<Recommendation>)> {
@@ -874,7 +942,7 @@ impl Planning {
         // Dropping or cancelling the visitor's stream stops even a pending observation.
         let (local, remote) = tokio::try_join!(
             async {
-                let local = self.observe(scope, traverse, slot, trace, deadline).await?;
+                let local = self.observe(scope, traverse, trace, deadline).await?;
                 trace.step("peer-samples");
                 Ok::<_, io::Error>(local)
             },
@@ -980,18 +1048,27 @@ impl Planning {
         &self,
         scope: &RoundScope,
         traverse: bool,
-        slot: &Reservation<'_>,
         trace: &RoundTrace,
         deadline: Instant,
     ) -> io::Result<Evidence> {
         let sources = &scope.sources;
         let on_work = || {
             if traverse {
-                slot.spend(&scope.generation, self.config.round_interval);
+                *self.last_work.lock().expect("peer UDP pacing") =
+                    Some((scope.generation.clone(), Instant::now()));
             }
         };
-        let qad_submission = (traverse && !sources.qad.is_empty())
-            .then(|| slot.qad_submission(scope.generation.clone(), self.config.round_interval));
+        let last_work = self.last_work.clone();
+        let generation = scope.generation.clone();
+        let qad_submission = Some(
+            crate::socket::transports::QadSubmission::new(move || {
+                if traverse {
+                    *last_work.lock().expect("peer UDP pacing") =
+                        Some((generation, Instant::now()));
+                }
+            })
+            .for_binding(scope.binding),
+        );
         let endpoint = &self.endpoint;
         let sequence = match endpoint
             .inner
@@ -1067,6 +1144,7 @@ fn ordered(result: io::Result<UdpMappingSequence>) -> io::Result<Option<UdpMappi
 #[derive(Debug, Clone)]
 struct RoundScope {
     authorization: LearningScope,
+    binding: std::net::SocketAddr,
     generation: ObservationValidity,
     sources: Sources,
 }

@@ -906,3 +906,143 @@ async fn a_live_direct_original_keeps_irohs_path_policy_without_enhanced_observa
     );
     pair.close().await;
 }
+
+#[tokio::test]
+#[ignore = "requires an isolated network namespace for a receive-side UDP fault"]
+async fn busy_peer_releases_the_unsampled_exit_for_another_member() {
+    time::timeout(Duration::from_secs(25), async {
+        let root = tempfile::tempdir().unwrap();
+        let mut a = NativeNetwork::create(root.path().join("a")).await.unwrap();
+        let mut b = join(&mut a, &root.path().join("b")).await;
+        let mut c = join(&mut a, &root.path().join("c")).await;
+        let mut d = join(&mut a, &root.path().join("d")).await;
+        for node in [&mut b, &mut c, &mut d] {
+            for record in a.management_history().await.unwrap() {
+                node.ingest_management_record(record.header(), record.body()).await.unwrap();
+            }
+        }
+        let nodes = [a,b,c,d];
+        let mut relay_config = iroh_relay::server::ServerConfig::default();
+        relay_config.relay = Some(iroh_relay::server::RelayConfig::new((Ipv4Addr::LOCALHOST, 0)));
+        let relay = iroh_relay::server::Server::spawn(relay_config).await.unwrap();
+        let url = relay.http_url().unwrap();
+        let counts: [Arc<AtomicUsize>; 4] = std::array::from_fn(|_| Arc::default());
+        let mut observers = JoinSet::new();
+        let mut endpoints = Vec::new();
+        for (node, count) in nodes.iter().zip(&counts) {
+            let mut config = node.resource_configuration().unwrap();
+            let mut resources = observe_stun(&mut observers, count).await;
+            resources.insert(0, Resource { url: "stun://[::1]:9/".into(), uses: [ResourceUse::Observation].into(), limitation: "wrong-family first observer must not suppress usable IPv4 observers".into() });
+            resources.push(Resource { url: url.to_string(), uses: [ResourceUse::DataRelay].into(), limitation: "owned per-interface physical occupancy witness".into() });
+            config.replacement = Some(resources);
+            config.tcp_direct_disabled = true;
+            config.maintenance.quality_interval_ms = 30_000;
+            config.maintenance.contact_timeout_ms = 5_000;
+            node.save_resource_configuration(&config).unwrap();
+            endpoints.push(node.bind_member_fusion_endpoint_with(Endpoint::builder(presets::Minimal).clear_ip_transports().bind_addr((Ipv4Addr::LOCALHOST,0)).unwrap(), Duration::from_secs(5)).await.unwrap());
+        }
+        async fn connect(left: &MemberFusionEndpoint, right: &MemberFusionEndpoint, url: &iroh::RelayUrl) -> [MemberConnection;2] {
+            let (a,b) = tokio::join!(left.connect(EndpointAddr::new(right.id()).with_relay_url(url.clone())), right.accept());
+            [a.unwrap(), b.unwrap().unwrap()]
+        }
+        let ab = connect(&endpoints[0], &endpoints[1], &url).await;
+        let bc = connect(&endpoints[1], &endpoints[2], &url).await;
+        let ad = connect(&endpoints[0], &endpoints[3], &url).await;
+        while endpoints.iter().any(|endpoint| !endpoint.test_building_peers().is_empty()) {
+            time::sleep(Duration::from_millis(5)).await;
+        }
+        let barrier = Arc::new(Barrier::new(2));
+        let reserved = endpoints[1].test_coordinate_udp_reservation(barrier);
+        let cancel = CancellationToken::new();
+        let mut held = tokio::spawn({ let connection = bc[0].clone(); let cancel=cancel.clone(); async move { connection.coordinate_udp_plan(Instant::now()+Duration::from_secs(8), &cancel).await } });
+        tokio::select! {
+            result = &mut held => panic!("B-C exited before the reservation barrier: {result:?}"),
+            result = time::timeout(Duration::from_secs(3), async {
+                while !reserved.load(std::sync::atomic::Ordering::Acquire) { time::sleep(Duration::from_millis(5)).await; }
+            }) => result.expect("B-C reaches the unsampled reservation barrier"),
+        }
+        let before: Vec<_> = counts.iter().map(|count| count.load(Relaxed)).collect();
+        let blocked = ab[0].coordinate_udp_plan(Instant::now()+Duration::from_secs(2), &CancellationToken::new()).await.unwrap_err();
+        assert_eq!(blocked.kind(), ErrorKind::WouldBlock);
+        assert_eq!(counts[0].load(Relaxed),before[0]);
+        assert_eq!(counts[1].load(Relaxed),before[1]);
+        let started = Instant::now();
+        let plan = ad[0].coordinate_udp_plan(Instant::now()+Duration::from_secs(3), &CancellationToken::new()).await.unwrap();
+        assert_eq!(plan.local_samples().len(),2);
+        assert_eq!(counts[0].load(Relaxed)-before[0],2);
+        assert_eq!(counts[3].load(Relaxed)-before[3],2);
+        assert!(started.elapsed()<Duration::from_secs(3));
+        cancel.cancel();
+        assert_eq!(held.await.unwrap().unwrap_err().kind(),ErrorKind::Interrupted);
+        let addresses=[&endpoints[0],&endpoints[3]].map(|endpoint| *endpoint.addr().ip_addrs().find(|address| address.is_ipv4()).unwrap());
+        let raw_blocked=udp_blackhole::UdpBlackhole::on_input(addresses);
+        let next_paths = ad.each_ref().map(|connection| connection.paths().iter().map(|path| path.id()).max().unwrap_or(noq_proto::PathId::ZERO).saturating_add(1u8));
+        for (endpoint, connection) in [&endpoints[0], &endpoints[3]].into_iter().zip(&ad) {
+            endpoint.test_limit_transport_paths(connection, vec![connection.initial_data_path().clone(), TransportAddr::Ip(addresses[0]), TransportAddr::Ip(addresses[1])]).await.unwrap();
+            for path in connection.paths().iter().filter(|path| !path.is_relay()) { path.close().unwrap(); }
+        }
+        while !ad.iter().all(|connection| connection.paths().iter().any(|path| path.is_relay() && path.is_selected())) {
+            time::sleep(Duration::from_millis(5)).await;
+        }
+        let mut stream=open_flow(&ad[0],&ad[1]).await;
+        exchange(&mut stream,201).await;
+        while endpoints.iter().any(|endpoint| !endpoint.test_building_peers().is_empty()) {
+            time::sleep(Duration::from_millis(5)).await;
+        }
+        let originals = ad.each_ref().map(MemberConnection::stable_id);
+        let suppressed = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        for (connection, next) in ad.iter().zip(next_paths) {
+            connection.test_suppress_path_acks(next, suppressed.clone());
+        }
+        let mut traversal = tokio::spawn({ let connection=ad[0].clone(); async move { connection.coordinate_udp_traversal(Instant::now()+Duration::from_secs(6),&CancellationToken::new()).await } });
+        tokio::select! {
+            result = &mut traversal => panic!("A-D traversal ended before raw probes: {result:?}"),
+            result = time::timeout(Duration::from_secs(2), async {
+                while !ad.iter().all(|connection| connection.udp_traversal().is_some_and(|report| report.trace.probes>0 && report.physical_released.is_none())) { time::sleep(Duration::from_millis(5)).await; }
+            }) => result.expect("both peers sampled and started real raw probes on the retained interface"),
+        }
+        let samples_while_running=counts[0].load(Relaxed);
+        let waiting=ab[0].coordinate_udp_plan(Instant::now()+Duration::from_secs(1),&CancellationToken::new()).await.unwrap_err();
+        assert_eq!(waiting.kind(),ErrorKind::WouldBlock);
+        assert_eq!(counts[0].load(Relaxed),samples_while_running);
+        drop(raw_blocked);
+        time::timeout(Duration::from_secs(3),async {
+            while !ad.iter().all(|connection| connection.udp_traversal().is_some_and(|report| report.physical_released.is_some())) { time::sleep(Duration::from_millis(5)).await; }
+        }).await.expect("both peers retain a raw bidirectional winner before QUIC acknowledgment");
+        assert!(ad.iter().all(|connection| connection.udp_traversal().unwrap().validated.is_none()));
+        let sampled_before = counts[0].load(Relaxed);
+        let next = ab[0].coordinate_udp_plan(Instant::now()+Duration::from_secs(2),&CancellationToken::new()).await.unwrap();
+        assert_eq!(next.local_samples().len(),2);
+        assert_eq!(counts[0].load(Relaxed)-sampled_before,2);
+        assert!(ad.iter().all(|connection| connection.udp_traversal().unwrap().validated.is_none()));
+        suppressed.store(false,std::sync::atomic::Ordering::Release);
+        time::timeout(Duration::from_secs(3),async {
+            while !ad.iter().all(|connection| connection.udp_traversal().is_some_and(|report| report.validated.is_some())) { time::sleep(Duration::from_millis(5)).await; }
+        }).await.expect("original QUIC validates the retained winner after the next peer started");
+        time::timeout(Duration::from_secs(2),async {
+            while !ad.iter().all(|connection| {
+                let report=connection.udp_traversal().unwrap();
+                connection.paths().iter().any(|path| Some(path.id()) == report.validated.map(|(id,_)| id) && path.is_selected())
+            }) { time::sleep(Duration::from_millis(5)).await; }
+        }).await.expect("both original QUICs select the exact acknowledged winner before business confirmation");
+        let round=ad[0].udp_traversal().unwrap().round;
+        let left=&ad[0]; let right=&ad[1];
+        let (a,b)=tokio::join!(
+            left.confirm_udp_business(round,&mut stream.0,async |stream| {
+                let (send,recv)=stream.streams(); send.write_all(b"after201").await.map_err(std::io::Error::other)?;
+                let mut bytes=[0;8]; recv.read_exact(&mut bytes).await.map_err(std::io::Error::other)?; assert_eq!(&bytes,b"back-201"); Ok(())
+            }),
+            right.confirm_udp_business(round,&mut stream.1,async |stream| {
+                let (send,recv)=stream.streams(); let mut bytes=[0;8]; recv.read_exact(&mut bytes).await.map_err(std::io::Error::other)?; assert_eq!(&bytes,b"after201"); send.write_all(b"back-201").await.map_err(std::io::Error::other)?; Ok(())
+            })
+        ); a.unwrap();b.unwrap();
+        traversal.await.unwrap().unwrap();
+        assert_eq!(ad.each_ref().map(MemberConnection::stable_id),originals);
+        eprintln!("PHYSICAL_BUSY_YIELDED originals={originals:?} another_peer_sampled=true samples=2 next_sampled_before_quic_ack=true original_stream_continues=true");
+        drop(stream);
+        for endpoint in endpoints { endpoint.close().await; }
+        for node in nodes { node.close().await; }
+        observers.shutdown().await;
+        relay.shutdown().await.unwrap();
+    }).await.expect("busy unsampled peer leaves the interface available to a ready member");
+}

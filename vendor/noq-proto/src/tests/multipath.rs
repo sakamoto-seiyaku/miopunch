@@ -2310,6 +2310,17 @@ fn test_simple_nat_traversal_challenge_with_response() -> TestResult {
     // Client sends probe (blocked) + REACH_OUT, server send probe. Both firewalls open.
     pair.step();
 
+    // An occupied physical exit holds the off-path response itself, not just
+    // its reciprocal challenge. Releasing it preserves the queued response.
+    pair.conn_mut(Client)
+        .set_nat_traversal_probe_gate(Some(Arc::new(|_| false)));
+    let occupied = pair.stats(Client);
+    pair.step();
+    let blocked = pair.stats(Client);
+    assert_eq!(blocked.frame_tx.path_response, occupied.frame_tx.path_response);
+    assert_eq!(blocked.frame_tx.path_challenge, occupied.frame_tx.path_challenge);
+    pair.conn_mut(Client).set_nat_traversal_probe_gate(None);
+
     // Client receives probe, includes its own challenge with the response.
     let stats0 = pair.stats(Client);
     pair.step();

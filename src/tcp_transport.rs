@@ -206,6 +206,15 @@ impl TcpTransport {
         &self,
         observer: SocketAddr,
     ) -> io::Result<(SocketAddr, TcpStream)> {
+        self.observe_from(observer, self.bound_socket_addr_for(observer)?)
+            .await
+    }
+
+    pub(crate) async fn observe_from(
+        &self,
+        observer: SocketAddr,
+        source: SocketAddr,
+    ) -> io::Result<(SocketAddr, TcpStream)> {
         let shared = self
             .shared
             .lock()
@@ -218,7 +227,7 @@ impl TcpTransport {
                 "TCP observation requires retained transport port reuse",
             ));
         }
-        let stream = connect_from_listener(shared.local_for(observer)?, observer).await?;
+        let stream = connect_from_listener(source, observer).await?;
         crate::tcp_observation::binding(stream).await
     }
 
@@ -236,6 +245,34 @@ impl TcpTransport {
             ));
         }
         let channel = ensure_channel(&shared, peer)?;
+        channel.lock().unwrap().owners += 1;
+        Ok(TcpCircuitLease {
+            shared,
+            peer,
+            channel,
+        })
+    }
+
+    /// Validate this TCP path without selecting it for application data before
+    /// the active protocol commits it on the original.
+    pub(crate) fn prime_from(
+        &self,
+        peer: SocketAddr,
+        source: SocketAddr,
+    ) -> io::Result<TcpCircuitLease> {
+        let shared = self
+            .shared
+            .lock()
+            .unwrap()
+            .upgrade()
+            .ok_or_else(|| io::Error::other("TCP endpoint unavailable"))?;
+        if !shared.punching || !peer.is_ipv4() {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "TCP punching unavailable",
+            ));
+        }
+        let channel = ensure_channel_from(&shared, peer, Some(source))?;
         channel.lock().unwrap().owners += 1;
         Ok(TcpCircuitLease {
             shared,
@@ -437,6 +474,7 @@ struct Channel {
     sender: mpsc::Sender<QueuedPacket>,
     pending_queue: Option<mpsc::Receiver<QueuedPacket>>,
     active: bool,
+    local_addr: Option<SocketAddr>,
     dial_cancel: tokio::sync::watch::Sender<bool>,
     cancel: tokio::sync::watch::Sender<bool>,
     owners: usize,
@@ -449,6 +487,17 @@ pub(crate) struct TcpCircuitLease {
     shared: Arc<Shared>,
     peer: SocketAddr,
     channel: Arc<Mutex<Channel>>,
+}
+
+impl TcpCircuitLease {
+    pub(crate) fn handshake_ready(&self) -> bool {
+        let channel = self.channel.lock().unwrap();
+        channel.active && !channel.sender.is_closed()
+    }
+    pub(crate) fn binding_is_live(&self, source: SocketAddr) -> bool {
+        let channel = self.channel.lock().unwrap();
+        channel.active && !channel.sender.is_closed() && channel.local_addr == Some(source)
+    }
 }
 
 pub(crate) struct PendingTcpPath {
@@ -535,6 +584,7 @@ fn channel(
         sender,
         pending_queue: Some(queue),
         active: false,
+        local_addr: None,
         dial_cancel,
         cancel,
         owners: 0,
@@ -1042,6 +1092,13 @@ async fn connect_from_listener(local: SocketAddr, target: SocketAddr) -> io::Res
 }
 
 fn ensure_channel(shared: &Arc<Shared>, target: SocketAddr) -> io::Result<Arc<Mutex<Channel>>> {
+    ensure_channel_from(shared, target, None)
+}
+fn ensure_channel_from(
+    shared: &Arc<Shared>,
+    target: SocketAddr,
+    source: Option<SocketAddr>,
+) -> io::Result<Arc<Mutex<Channel>>> {
     let channel = {
         let mut channels = shared.channels.lock().unwrap();
         if !channels.contains_key(&target) && channels.len() >= MAX_CIRCUITS {
@@ -1063,7 +1120,7 @@ fn ensure_channel(shared: &Arc<Shared>, target: SocketAddr) -> io::Result<Arc<Mu
                 tokio::spawn(async move {
                     let connecting=tokio::time::timeout(std::time::Duration::from_secs(5), async {
                         if shared.reuse_local_port && target.is_ipv4() {
-                            connect_from_listener(shared.local_for(target)?, target).await
+                            connect_from_listener(source.unwrap_or(shared.local_for(target)?), target).await
                         } else {
                             TcpStream::connect(target).await
                         }
@@ -1196,6 +1253,7 @@ async fn run_stream(shared: Arc<Shared>, mut stream: TcpStream, outbound: Option
             if *channel.cancel.borrow() {return Err(io::Error::new(io::ErrorKind::Interrupted,"TCP attempt canceled"));}
             let queue=channel.pending_queue.take().ok_or_else(||io::Error::new(io::ErrorKind::AlreadyExists,"TCP circuit already active"))?;
             channel.active=true;
+            channel.local_addr=Some(socket_local);
             channel.dial_cancel.send_replace(true);
             queue
         };

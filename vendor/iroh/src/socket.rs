@@ -467,6 +467,7 @@ pub struct UdpTraversalLease {
     listener_report: UdpListenerReport,
     listener_rx: Vec<mpsc::Receiver<UdpTraversalPacket>>,
     recv_cursor: usize,
+    primary_binding: Option<SocketAddr>,
 }
 
 #[cfg(not(wasm_browser))]
@@ -596,6 +597,10 @@ impl UdpTraversalLease {
         })
         .await
     }
+    pub(crate) fn use_primary_binding(&mut self, binding: SocketAddr) {
+        self.primary_binding = Some(binding);
+    }
+
     /// Obtain a sender; sends fail after the lease is dropped.
     pub fn sender(&self) -> UdpTraversalSender {
         UdpTraversalSender {
@@ -605,7 +610,7 @@ impl UdpTraversalLease {
             round: self.round,
             live: self.live.clone(),
             local_socket_id: transports::LocalSocketId::PRIMARY,
-            source_ip: None,
+            source_ip: self.primary_binding.map(|binding| binding.ip()),
         }
     }
 
@@ -633,7 +638,11 @@ impl UdpTraversalLease {
                 return Err(io::Error::other("traversal round closed"));
             }
             self.listener_report.attempted += 1;
-            match self.socket.udp_socket_pool.bind(
+            match self.socket.udp_socket_pool.bind_on(
+                self.primary_binding.and_then(|binding| match binding.ip() {
+                    IpAddr::V4(ip) => Some(ip),
+                    _ => None,
+                }),
                 self.remote,
                 self.connection_id,
                 self.socket.metrics.socket.clone(),
@@ -675,9 +684,8 @@ impl UdpTraversalLease {
     /// Physical bindings owned by this round. Primary remains owned by Endpoint.
     pub fn local_sockets(&self) -> Vec<transports::LocalSocketBinding> {
         let mut bindings = self
-            .socket
-            .ip_local_addrs()
-            .find(|a| a.is_ipv4())
+            .primary_binding
+            .or_else(|| self.socket.ip_local_addrs().find(|a| a.is_ipv4()))
             .map(|addr| transports::LocalSocketBinding {
                 id: transports::LocalSocketId::PRIMARY,
                 local_addr: addr,
@@ -1456,6 +1464,51 @@ pub enum BindError {
 }
 
 impl EndpointInner {
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn udp_punching_scope_for(
+        &self,
+        remote: SocketAddr,
+    ) -> io::Result<crate::endpoint::member_fusion::physical::Scope> {
+        let sender = self
+            .sock
+            .udp_probe_sender
+            .try_lock()
+            .map_err(|_| io::ErrorKind::WouldBlock)?;
+        let configured = sender
+            .ip_binding_for(None, remote)
+            .ok_or(io::ErrorKind::AddrNotAvailable)?;
+        let routed =
+            crate::endpoint::member_fusion::physical::Scope::route_binding(configured, remote)?;
+        self.punching_scope(routed, false)
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) async fn udp_punching_binding_for(
+        &self,
+        remote: SocketAddr,
+    ) -> io::Result<SocketAddr> {
+        let configured = self
+            .sock
+            .udp_probe_sender
+            .lock()
+            .await
+            .ip_binding_for(None, remote)
+            .ok_or(io::ErrorKind::AddrNotAvailable)?;
+        crate::endpoint::member_fusion::physical::Scope::route_binding(configured, remote)
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn punching_scope(
+        &self,
+        binding: SocketAddr,
+        tcp: bool,
+    ) -> io::Result<crate::endpoint::member_fusion::physical::Scope> {
+        crate::endpoint::member_fusion::physical::Scope::for_binding(
+            binding,
+            tcp,
+            &self.local_interfaces_watcher.clone().get(),
+        )
+    }
     /// Recheck the live carrier permission, independently of an earlier probe.
     pub(crate) async fn qualifies_admission_data_path(
         &self,
@@ -2020,6 +2073,7 @@ impl EndpointInner {
             listener_report: UdpListenerReport::default(),
             listener_rx: Vec::new(),
             recv_cursor: 0,
+            primary_binding: None,
         })
     }
 

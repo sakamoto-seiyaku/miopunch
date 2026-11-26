@@ -336,6 +336,8 @@ pub struct Connection {
     /// State for n0's (<https://n0.computer>) nat traversal protocol.
     n0_nat_traversal: n0_nat_traversal::State,
     ipv4_nat_traversal_probes_paused: bool,
+    nat_traversal_probe_gate: Option<Arc<dyn Fn(SocketAddr) -> bool + Send + Sync>>,
+    retained_nat_mappings: FxHashMap<FourTuple, usize>,
     nat_traversal_probes_permitted: bool,
     qlog: QlogSink,
 }
@@ -479,6 +481,8 @@ impl Connection {
 
             n0_nat_traversal: Default::default(),
             ipv4_nat_traversal_probes_paused: false,
+            nat_traversal_probe_gate: None,
+            retained_nat_mappings: FxHashMap::default(),
             nat_traversal_probes_permitted: true,
             qlog,
         };
@@ -2327,9 +2331,24 @@ impl Connection {
             .paths
             .get_mut(&path_id)
             .map(|state| state.data.network_path)?;
+        let (_, network_path) = self.spaces[SpaceKind::Data]
+            .path_space(path_id)?
+            .pending_path_responses
+            .off_path_responses(network_path)
+            .rev()
+            .find(|(_, response_path)| {
+                self.retained_nat_mappings.contains_key(&Self::canonical_nat_mapping(*response_path))
+                    || self.find_validated_path_on_network_path(*response_path).is_some()
+                    || self.nat_traversal_probe_gate.as_ref().is_none_or(|permit| {
+                        self.nat_traversal_probes_permitted
+                            && (!self.ipv4_nat_traversal_probes_paused
+                                || response_path.remote.ip().to_canonical().is_ipv6())
+                            && permit(SocketAddr::new(response_path.remote.ip().to_canonical(), response_path.remote.port()))
+                    })
+            })?;
         let cid_queue = self.remote_cids.get_mut(&path_id)?;
         let pns = self.spaces[SpaceKind::Data].for_path(path_id);
-        let (token, network_path) = pns.pending_path_responses.pop_off_path(network_path)?;
+        let token = pns.pending_path_responses.pop_on_path(network_path)?;
 
         // TODO: make off-path probes unlinkable.
         let cid = cid_queue.active();
@@ -2399,9 +2418,10 @@ impl Connection {
         if !self.nat_traversal_probes_permitted {
             return None;
         }
-        let remote = self
-            .n0_nat_traversal
-            .next_probe_addr(self.ipv4_nat_traversal_probes_paused)?;
+        let remote = self.n0_nat_traversal.next_probe_addr_permitted(
+            self.ipv4_nat_traversal_probes_paused,
+            self.nat_traversal_probe_gate.as_deref(),
+        )?;
 
         if !self.paths.get(&path_id)?.data.validated {
             // Path is not usable for probing
@@ -2488,7 +2508,8 @@ impl Connection {
             return SendableFrames::empty();
         }
 
-        let mut can_send = space.can_send(path_id, &self.streams);
+        let network_path = self.paths.get(&path_id).expect("send path exists").data.network_path;
+        let mut can_send = space.can_send(path_id, network_path, &self.streams);
         // ACK-only paths must not steal another carrier's pending ACK. Use
         // exactly the same ownership predicate as frame emission below.
         can_send.acks = space.number_spaces.iter().any(|(ack_path, pn)| {
@@ -2815,7 +2836,10 @@ impl Connection {
                     }
                     ConnTimer::NatTraversalProbeRetry => {
                         if self.nat_traversal_probes_permitted {
-                            self.n0_nat_traversal.queue_retries(self.is_ipv6());
+                            self.n0_nat_traversal.queue_retries_permitted(
+                                self.is_ipv6(),
+                                self.nat_traversal_probe_gate.as_deref(),
+                            );
                         }
                         if let Some(delay) =
                             self.n0_nat_traversal.retry_delay(self.config.initial_rtt)
@@ -8003,6 +8027,43 @@ impl Connection {
     /// Whether off-path IPv4 NAT traversal probe transmission is paused.
     pub fn ipv4_nat_traversal_probes_paused(&self) -> bool {
         self.ipv4_nat_traversal_probes_paused
+    }
+
+    fn canonical_nat_mapping(binding: FourTuple) -> FourTuple {
+        let remote = match binding.remote() {
+            SocketAddr::V6(addr) if addr.ip().to_ipv4_mapped().is_some() => {
+                SocketAddr::new(std::net::IpAddr::V6(*addr.ip()).to_canonical(), addr.port())
+            }
+            remote => remote,
+        };
+        FourTuple::new(remote, binding.local_ip().map(|ip| ip.to_canonical()))
+            .with_local_socket(binding.local_socket_id())
+    }
+
+    /// Keep QUIC validation responses on an independently retained bidirectional binding.
+    pub fn retain_nat_mapping(&mut self, binding: FourTuple) {
+        *self.retained_nat_mappings.entry(Self::canonical_nat_mapping(binding)).or_default() += 1;
+    }
+
+    /// Release one retention of this exact binding after validation or cancellation.
+    pub fn release_nat_mapping(&mut self, binding: FourTuple) {
+        let binding = Self::canonical_nat_mapping(binding);
+        if let Some(count) = self.retained_nat_mappings.get_mut(&binding) {
+            *count -= 1;
+            if *count == 0 { self.retained_nat_mappings.remove(&binding); }
+        }
+    }
+
+    /// Permit ordinary IPv4 mapping work on the member's current interface.
+    pub fn set_nat_traversal_probe_gate(
+        &mut self,
+        gate: Option<Arc<dyn Fn(SocketAddr) -> bool + Send + Sync>>,
+    ) {
+        self.nat_traversal_probe_gate = gate;
+    }
+    /// Whether this IPv4 short-probe round is still in progress.
+    pub fn ipv4_nat_traversal_probes_pending(&self) -> bool {
+        self.n0_nat_traversal.has_ipv4_probes()
     }
 
     /// Gate active off-path probing while retaining incoming responses and data.

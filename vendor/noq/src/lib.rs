@@ -79,7 +79,7 @@ pub use udp;
 
 pub use crate::connection::{
     AcceptBi, AcceptUni, Closed, Connecting, Connection, OnClosed, OpenBi, OpenUni,
-    PathFilterStats, ReadDatagram, ReadManyDatagrams, SendDatagram, SendDatagramError,
+    PathFilterStats, ReadDatagram, ReadManyDatagrams, RetainedNatMapping, SendDatagram, SendDatagramError,
     WeakConnectionHandle, ZeroRttAccepted,
 };
 pub use crate::endpoint::{Accept, Endpoint, EndpointStats};

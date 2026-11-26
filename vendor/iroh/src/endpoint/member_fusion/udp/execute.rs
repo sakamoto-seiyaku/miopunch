@@ -40,6 +40,8 @@ pub struct MemberUdpTraversalReport {
     pub trace: ExecutionTrace,
     /// The first authenticated match on an actual receiving socket.
     pub first_match: Option<(Winner, StdInstant)>,
+    /// Both peers retained their raw winner and released physical mapping exclusivity.
+    pub physical_released: Option<StdInstant>,
     /// Actual extra listeners bound by this round, including the winner if temporary.
     pub listeners: Vec<LocalSocketBinding>,
     /// Physical winner actually retained provisionally for the original.
@@ -112,7 +114,7 @@ impl Planning {
         stream: &ControlExchange,
         plan: &MemberUdpPlan,
         recommendation: Option<Recommendation>,
-        slot: &Reservation<'_>,
+        slot: &Reservation,
         kind: StreamKind,
         trace: &mut RoundTrace,
     ) -> io::Result<()> {
@@ -135,6 +137,7 @@ impl Planning {
                 deadline: plan.deadline,
                 trace: ExecutionTrace::default(),
                 first_match: None,
+                physical_released: None,
                 listeners: Vec::new(),
                 winner: None,
                 validated: None,
@@ -175,7 +178,7 @@ impl Planning {
         stream: &ControlExchange,
         plan: &MemberUdpPlan,
         recommendation: Option<Recommendation>,
-        slot: &Reservation<'_>,
+        slot: &Reservation,
         kind: StreamKind,
         state: &Execution,
         mut incoming: mpsc::Receiver<Business>,
@@ -191,7 +194,15 @@ impl Planning {
         let peer = stream.send_control().await?;
         let check = || {
             self.check_scope(&plan.scope)?;
-            plan.evidence.check()?;
+            if state
+                .report
+                .lock()
+                .expect("member UDP report")
+                .physical_released
+                .is_none()
+            {
+                plan.evidence.check()?;
+            }
             super::remaining(plan.deadline)?;
             Ok(())
         };
@@ -213,6 +224,7 @@ impl Planning {
                 .register_udp_traversal(&self.connection, plan.round),
         )
         .await?;
+        lease.use_primary_binding(plan.scope.binding);
         let check_listener = || {
             if peer.stop_code().is_some() {
                 return Err(peer_stopped());
@@ -271,7 +283,6 @@ impl Planning {
                     receiver_wait: false,
                     event: &|event, _| match event {
                         PhaseEvent::FirstSend { .. } => {
-                            slot.spend(&plan.scope.generation, self.config.round_interval);
                             trace.log("first-send", format_args!(""));
                         }
                         PhaseEvent::FirstMatch { winner, at } => {
@@ -294,8 +305,16 @@ impl Planning {
         .await?;
         drop(lease);
         state.update(|report| report.winner = Some(winner.clone()));
+        // READY confirms both the retained raw socket and its scoped response
+        // permission before either peer can start QUIC validation.
+        let _mapping = self.connection.retain_nat_mapping(winner.remote, LocalSocketBinding {
+            id: winner.local_socket_id,
+            local_addr: winner.local_addr,
+        });
         trace.step("winner-ready");
         exchange_phase(stream, &round.message(wire::WINNER_READY)).await?;
+        slot.release_physical();
+        state.update(|report| report.physical_released = Some(StdInstant::now()));
         trace.step("local-path");
         let (path, ack, probe, candidate) =
             while_peer_receives(&peer, self.validate(&winner, trace)).await?;
@@ -537,7 +556,15 @@ impl Planning {
         let round = Round(plan.round);
         let selected = || {
             self.check_scope(&plan.scope)?;
-            plan.evidence.check()?;
+            if state
+                .report
+                .lock()
+                .expect("member UDP report")
+                .physical_released
+                .is_none()
+            {
+                plan.evidence.check()?;
+            }
             super::remaining(plan.deadline)?;
             self.permits_winner(winner)?;
             if self.on_winner(winner, |candidate| {

@@ -232,6 +232,15 @@ impl SocketPool {
         connection_id: usize,
         metrics: Arc<SocketMetrics>,
     ) -> io::Result<Arc<PoolSocket>> {
+        self.bind_on(None, remote, connection_id, metrics)
+    }
+    pub(crate) fn bind_on(
+        &self,
+        source: Option<Ipv4Addr>,
+        remote: EndpointId,
+        connection_id: usize,
+        metrics: Arc<SocketMetrics>,
+    ) -> io::Result<Arc<PoolSocket>> {
         let mut sockets = self.sockets.lock().expect("socket pool");
         sockets.retain(|_, socket| socket.upgrade().is_some_and(|s| s.is_live()));
         if sockets.len() >= Self::MAX_SOCKETS {
@@ -239,7 +248,8 @@ impl SocketPool {
         }
         let transport = IpTransport::bind(
             Config::V4 {
-                ip_net: Ipv4Net::new(Ipv4Addr::UNSPECIFIED, 0).expect("IPv4 network"),
+                ip_net: Ipv4Net::new(source.unwrap_or(Ipv4Addr::UNSPECIFIED), 0)
+                    .expect("IPv4 network"),
                 port: 0,
                 is_required: true,
                 is_default: false,
@@ -263,7 +273,7 @@ impl SocketPool {
             remote,
             connection_id,
             io: Mutex::new(Some(SocketIo { transport, sender })),
-            real_ip: Mutex::new(None),
+            real_ip: Mutex::new(source.map(IpAddr::V4)),
             pinned_ip: Mutex::new(None),
             port,
             retained: AtomicBool::new(false),

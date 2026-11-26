@@ -119,7 +119,7 @@ pub use hooks::{AfterHandshakeOutcome, BeforeConnectOutcome, EndpointHooks};
 pub use member_fusion::{
     IncomingMemberStream, MemberConnection, MemberDialOptions, MemberDirectCandidate,
     MemberFusionAdmission, MemberFusionBuilder, MemberFusionEndpoint, MemberFusionEvent,
-    MemberRepairContacts, MemberRetention, MemberStream, MemberStreamLease, MemberUdpConfig,
+    MemberPunching, MemberRepairContacts, MemberRetention, MemberStream, MemberStreamLease, MemberUdpConfig,
     MemberUdpPlan, MemberUdpTraversalReport,
 };
 pub use noq::PathProbe;

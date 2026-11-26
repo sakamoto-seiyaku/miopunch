@@ -84,6 +84,30 @@ pub(crate) async fn observe_for_family(
     observer: &iroh::RelayUrl,
     family: iroh::endpoint::ObservationFamily,
 ) -> io::Result<TcpSocketObservation> {
+    observe_with_source(endpoint, transport, observer, family, None).await
+}
+pub(crate) async fn observe_from(
+    endpoint: &(impl ObservationEndpoint + ?Sized),
+    transport: &crate::tcp_transport::TcpTransport,
+    observer: &iroh::RelayUrl,
+    source: SocketAddr,
+) -> io::Result<TcpSocketObservation> {
+    observe_with_source(
+        endpoint,
+        transport,
+        observer,
+        iroh::endpoint::ObservationFamily::Ipv4,
+        Some(source),
+    )
+    .await
+}
+async fn observe_with_source(
+    endpoint: &(impl ObservationEndpoint + ?Sized),
+    transport: &crate::tcp_transport::TcpTransport,
+    observer: &iroh::RelayUrl,
+    family: iroh::endpoint::ObservationFamily,
+    source: Option<SocketAddr>,
+) -> io::Result<TcpSocketObservation> {
     use std::time::{Duration, Instant};
     let origin = crate::resources::resource_origin(observer.as_str())
         .ok_or_else(|| io::Error::other("invalid TCP STUN origin"))?;
@@ -96,7 +120,10 @@ pub(crate) async fn observe_for_family(
     let operation = async {
         let destination = endpoint.resolve_observation_addr(observer, family).await?;
         let listener = transport.bound_socket_addr_for(destination)?;
-        let (mapped, stream) = transport.observe(destination).await?;
+        let (mapped, stream) = match source {
+            Some(source) => transport.observe_from(destination, source).await?,
+            None => transport.observe(destination).await?,
+        };
         let local_addr = stream.local_addr()?;
         if stream.peer_addr()? != destination
             || local_addr.port() != listener.port()

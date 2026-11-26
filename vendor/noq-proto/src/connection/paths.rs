@@ -946,38 +946,21 @@ impl PathResponses {
         }
     }
 
-    pub(crate) fn pop_off_path(&mut self, network_path: FourTuple) -> Option<(u64, FourTuple)> {
-        let response = *self.pending.last()?;
-        // We use an exact comparison here, because once we've received for the first time,
-        // we really should either already have a local_ip, or we will never get one
-        // (because our OS doesn't support it). And even if we get it wrong we are only
-        // slightly less efficient and would not include other on-path data in the packet.
-        if response.network_path == network_path {
-            // We don't bother searching further because we expect that the on-path response will
-            // get drained in the immediate future by a call to `pop_on_path`
-            return None;
-        }
-        self.pending.pop();
-        Some((response.token, response.network_path))
+    pub(crate) fn off_path_responses(&self, network_path: FourTuple) -> impl DoubleEndedIterator<Item = (u64, FourTuple)> + '_ {
+        // A blocked off-path response must not hide responses for another
+        // physical exit or address family in this bounded queue.
+        self.pending.iter().filter(move |response| response.network_path != network_path)
+            .map(|response| (response.token, response.network_path))
     }
 
     pub(crate) fn pop_on_path(&mut self, network_path: FourTuple) -> Option<u64> {
-        let response = *self.pending.last()?;
-        // Using an exact comparison. See explanation in `pop_off_path`.
-        if response.network_path != network_path {
-            // We don't bother searching further because we expect that the off-path response will
-            // get drained in the immediate future by a call to `pop_off_path`
-            return None;
-        }
-        self.pending.pop();
-        Some(response.token)
+        let index = self.pending.iter().rposition(|response| response.network_path == network_path)?;
+        Some(self.pending.remove(index).token)
     }
 
     /// Whether the next [`Self::pop_on_path`] will return something to send.
     pub(crate) fn has_pending_on_path(&self, network_path: FourTuple) -> bool {
-        self.pending
-            .last()
-            .is_some_and(|response| response.network_path == network_path)
+        self.pending.iter().any(|response| response.network_path == network_path)
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -1252,6 +1235,26 @@ impl std::ops::BitOrAssign for PathRetransmits {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn blocked_off_path_tail_preserves_on_path_and_other_family_responses() {
+        let healthy = FourTuple::from_remote("192.0.2.1:42000".parse().unwrap());
+        let ipv6 = FourTuple::from_remote("[2001:db8::1]:42000".parse().unwrap());
+        let blocked = FourTuple::from_remote("192.0.2.2:42000".parse().unwrap());
+        let mut responses = PathResponses::default();
+        responses.push(1, 11, healthy);
+        responses.push(2, 22, ipv6);
+        responses.push(3, 33, blocked);
+        assert!(responses.has_pending_on_path(healthy));
+        assert_eq!(responses.pop_on_path(healthy), Some(11));
+        let allowed = responses.off_path_responses(healthy).rev()
+            .find(|(_, tuple)| tuple.remote.ip().is_ipv6()).unwrap();
+        assert_eq!(allowed, (22, ipv6));
+        assert_eq!(responses.pop_on_path(allowed.1), Some(22));
+        assert_eq!(responses.off_path_responses(healthy).collect::<Vec<_>>(), [(33, blocked)]);
+        assert_eq!(responses.pop_on_path(blocked), Some(33));
+        assert!(responses.is_empty());
+    }
 
     #[test]
     fn test_path_id_saturating_add() {

@@ -145,6 +145,13 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
                 limitation: "owned TCP observer of the retained port".into(),
             },
         ]);
+        if matches!(scenario, TcpRound::Commit) {
+            config.replacement.as_mut().unwrap().insert(0, Resource {
+                url: "stun+tcp://[::1]:9/".into(),
+                uses: [ResourceUse::Observation].into(),
+                limitation: "an unusable first observer leaves IPv4 alternatives eligible".into(),
+            });
+        }
         config.udp_direct_disabled = true;
         config.tcp_listen = Some((Ipv4Addr::UNSPECIFIED, 0).into());
         config.path_selection.preference = PathPreference::PreferDirect;

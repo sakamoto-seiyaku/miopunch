@@ -1210,6 +1210,30 @@ impl Connection {
             .ipv4_nat_traversal_probes_paused()
     }
 
+    /// Retain one exact raw bidirectional binding while QUIC validates it.
+    pub fn retain_nat_mapping(&self, binding: FourTuple) -> RetainedNatMapping {
+        self.0.lock_and_wake("retain NAT mapping").inner.retain_nat_mapping(binding);
+        RetainedNatMapping { connection: self.0.clone(), binding }
+    }
+
+    /// Gate native IPv4 mapping work independently of other families.
+    pub fn set_nat_traversal_probe_gate(
+        &self,
+        gate: Option<Arc<dyn Fn(SocketAddr) -> bool + Send + Sync>>,
+    ) {
+        self.0
+            .lock_and_wake("physical reservation")
+            .inner
+            .set_nat_traversal_probe_gate(gate);
+    }
+    /// Whether native IPv4 short-probe work remains active.
+    pub fn ipv4_nat_traversal_probes_pending(&self) -> bool {
+        self.0
+            .lock_without_waking("IPv4 probes pending")
+            .inner
+            .ipv4_nat_traversal_probes_pending()
+    }
+
     /// Permit active off-path probing while preserving normal receive traffic.
     pub fn set_nat_traversal_probes_permitted(&self, permitted: bool) {
         self.0
@@ -1646,6 +1670,20 @@ impl Future for OnClosed {
         Pin::new(&mut this.rx)
             .poll(cx)
             .map(|x| x.expect("on_close sender is never dropped before sending"))
+    }
+}
+
+/// A retained raw binding whose QUIC validation responses may continue during probing pauses.
+#[derive(Debug)]
+#[must_use]
+pub struct RetainedNatMapping {
+    connection: ConnectionRef,
+    binding: FourTuple,
+}
+
+impl Drop for RetainedNatMapping {
+    fn drop(&mut self) {
+        self.connection.lock_and_wake("release NAT mapping").inner.release_nat_mapping(self.binding);
     }
 }
 
