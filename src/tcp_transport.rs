@@ -562,6 +562,7 @@ impl Drop for QueuedPacket {
 #[derive(Debug)]
 struct Shared {
     locals: Vec<SocketAddr>,
+    network_changed: Arc<tokio::sync::Notify>,
     channels: Mutex<HashMap<SocketAddr, Arc<Mutex<Channel>>>>,
     pending_paths: Mutex<HashMap<usize, ActiveTcpRoutes>>,
     incoming: tokio::sync::mpsc::Sender<Packet>,
@@ -764,6 +765,7 @@ impl CustomTransport for TcpTransport {
         let (shutdown, _) = tokio::sync::watch::channel(false);
         let shared = Arc::new(Shared {
             locals: locals.clone(),
+            network_changed: Arc::new(tokio::sync::Notify::new()),
             channels: Mutex::new(HashMap::new()),
             pending_paths: Mutex::new(HashMap::new()),
             incoming,
@@ -833,6 +835,7 @@ impl CustomTransport for TcpTransport {
             .as_ref()
             .map(|mapping| mapping.0.watch_external_address());
         let announced = addresses.clone();
+        let network_changed = shared.network_changed.clone();
         let address_task = tokio::spawn(async move {
             use n0_watcher::Watcher;
             let monitor = match netwatch::netmon::Monitor::new().await {
@@ -879,6 +882,7 @@ impl CustomTransport for TcpTransport {
                 announced.set(candidates.into_iter().collect()).ok();
                 tokio::select! {
                     _ = interfaces.updated() => {},
+                    _ = network_changed.notified() => { let _ = monitor.network_change().await; },
                     _ = async { match external.as_mut() { Some(watch) => { let _ = watch.changed().await; }, None => std::future::pending().await } } => {},
                 }
             }
@@ -950,6 +954,10 @@ impl CustomEndpoint for TcpEndpoint {
 struct TcpSender(Arc<Shared>);
 
 impl CustomSender for TcpSender {
+    fn network_changed(&self) {
+        self.0.network_changed.notify_one();
+    }
+
     fn is_valid_send_addr(&self, addr: &CustomAddr) -> bool {
         decode_custom(addr).is_ok_and(|addr| self.0.local_for(addr).is_ok())
     }

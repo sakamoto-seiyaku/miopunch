@@ -767,6 +767,52 @@ impl TcpStunObservation {
     }
 }
 
+/// Choose bounded bootstrap hints while retaining contact and both direct families.
+/// Full ordinary candidate exchange belongs to the admitted member connection.
+pub(crate) fn bounded_contact_hint(
+    mut address: iroh::EndpointAddr,
+    limit: usize,
+) -> iroh::EndpointAddr {
+    if address.addrs.len() > limit {
+        // Contact material contains bounded bootstrap hints. Reserve opportunities
+        // for contact/relay and each direct family; the member session later
+        // carries the complete TCP candidate set.
+        let mut groups: [Vec<_>; 6] = std::array::from_fn(|_| Vec::new());
+        for route in std::mem::take(&mut address.addrs) {
+            let group = match &route {
+                iroh::TransportAddr::Relay(_) => 0,
+                iroh::TransportAddr::Custom(custom) => {
+                    match crate::tcp_transport::TcpTransport::socket_addr(custom) {
+                        Ok(addr) if addr.is_ipv4() => 2,
+                        Ok(_) => 3,
+                        Err(_) => 1,
+                    }
+                }
+                iroh::TransportAddr::Ip(addr) if addr.is_ipv4() => 4,
+                _ => 5,
+            };
+            groups[group].push(route);
+        }
+        let mut groups = groups.map(Vec::into_iter);
+        while address.addrs.len() < limit {
+            let mut added = false;
+            for group in &mut groups {
+                if let Some(route) = group.next() {
+                    address.addrs.insert(route);
+                    added = true;
+                    if address.addrs.len() == limit {
+                        break;
+                    }
+                }
+            }
+            if !added {
+                break;
+            }
+        }
+    }
+    address
+}
+
 impl ResourceEndpoint {
     pub(crate) fn invitation_contact(
         &self,
@@ -826,37 +872,7 @@ impl ResourceEndpoint {
                 })
                 .map(iroh::TransportAddr::Custom),
         );
-        if address.addrs.len() > crate::client_invitation::MAX_CONTACT_ADDRESSES {
-            // Invitations contain bounded bootstrap hints. Reserve opportunities
-            // for contact/relay and each direct family; the member session later
-            // carries the complete TCP candidate set.
-            let mut groups: [Vec<_>; 6] = std::array::from_fn(|_| Vec::new());
-            for route in std::mem::take(&mut address.addrs) {
-                let group = match &route {
-                    iroh::TransportAddr::Relay(_) => 0,
-                    iroh::TransportAddr::Custom(custom) => match crate::tcp_transport::TcpTransport::socket_addr(custom) {
-                        Ok(addr) if addr.is_ipv4() => 2,
-                        Ok(_) => 3,
-                        Err(_) => 1,
-                    },
-                    iroh::TransportAddr::Ip(addr) if addr.is_ipv4() => 4,
-                    _ => 5,
-                };
-                groups[group].push(route);
-            }
-            let mut groups = groups.map(Vec::into_iter);
-            while address.addrs.len() < crate::client_invitation::MAX_CONTACT_ADDRESSES {
-                let mut added = false;
-                for group in &mut groups {
-                    if let Some(route) = group.next() {
-                        address.addrs.insert(route);
-                        added = true;
-                        if address.addrs.len() == crate::client_invitation::MAX_CONTACT_ADDRESSES { break; }
-                    }
-                }
-                if !added { break; }
-            }
-        }
+        let address = bounded_contact_hint(address, crate::client_invitation::MAX_CONTACT_ADDRESSES);
         bootstrap.validate()?;
         Ok((address, bootstrap))
     }

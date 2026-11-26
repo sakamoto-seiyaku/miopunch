@@ -248,6 +248,8 @@ impl Drop for EndpointInner {
 /// Configuration for a [`noq::Endpoint`] that cannot be changed at runtime.
 #[derive(derive_more::Debug)]
 pub(crate) struct StaticConfig {
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(crate) suppress_member_direct_announcements: bool,
     pub(crate) relay_resource_policy: crate::endpoint::RelayResourcePolicy,
     pub(crate) admission: Option<Arc<dyn crate::endpoint::restricted::DynEndpointAdmission>>,
     pub(crate) tls_config: tls::TlsConfig,
@@ -3082,6 +3084,7 @@ impl Actor {
     /// interfaces, assigned IP addresses and routes.
     fn handle_network_change(&mut self, is_major: bool) {
         debug!(is_major, "link change detected");
+        self.transports_network_change.refresh_custom_addresses();
         {
             let mut generation = self.sock.network_generation.lock().expect("network epoch");
             *generation = generation.wrapping_add(1);
@@ -3814,6 +3817,8 @@ mod tests {
             crypto_provider.clone(),
         );
         let static_config = StaticConfig {
+            #[cfg(feature = "miopunch-test-hooks")]
+            suppress_member_direct_announcements: false,
             relay_resource_policy: Default::default(),
             admission: None,
             server_config: tls_config.make_server_config(false).unwrap(),
@@ -4237,6 +4242,8 @@ mod tests {
         );
         let keylog = true;
         let static_config = StaticConfig {
+            #[cfg(feature = "miopunch-test-hooks")]
+            suppress_member_direct_announcements: false,
             relay_resource_policy: Default::default(),
             admission: None,
             server_config: tls_config.make_server_config(keylog).unwrap(),

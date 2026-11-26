@@ -201,9 +201,7 @@ impl MaintainedNetwork {
     }
     /// A route hint never grants membership. Identical hints do not reset pacing.
     pub async fn offer_contact(&self, hint: EndpointAddr) -> Result<(), NodeError> {
-        if hint.addrs.len() > 8 {
-            return Err(NodeError::InvalidData);
-        }
+        let hint = crate::resources::bounded_contact_hint(hint, 8);
         self.commands
             .send(Command::Contact(hint))
             .await

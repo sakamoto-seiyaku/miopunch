@@ -529,6 +529,7 @@ impl Transports {
     /// Handles potential changes to the underlying network conditions.
     pub(crate) fn create_network_change_sender(&self) -> NetworkChangeSender {
         NetworkChangeSender {
+            custom: self.custom.iter().map(|transport| transport.create_sender()).collect(),
             #[cfg(not(wasm_browser))]
             ip: self
                 .ip
@@ -546,12 +547,17 @@ impl Transports {
 
 #[derive(Debug)]
 pub(crate) struct NetworkChangeSender {
+    custom: Vec<Arc<dyn custom::CustomSender>>,
     #[cfg(not(wasm_browser))]
     ip: Vec<IpNetworkChangeSender>,
     relay: Vec<RelayNetworkChangeSender>,
 }
 
 impl NetworkChangeSender {
+    pub(crate) fn refresh_custom_addresses(&self) {
+        for sender in &self.custom { sender.network_changed(); }
+    }
+
     pub(crate) fn on_network_change(&self, report: &Report) {
         #[cfg(not(wasm_browser))]
         for ip in &self.ip {

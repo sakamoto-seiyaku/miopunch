@@ -92,6 +92,10 @@ struct ResourceBoundSender {
 }
 
 impl CustomSender for ResourceBoundSender {
+    fn network_changed(&self) {
+        self.inner.network_changed();
+    }
+
     fn is_valid_send_addr(&self, addr: &CustomAddr) -> bool {
         self.policy.allows_custom(addr) && self.inner.is_valid_send_addr(addr)
     }
@@ -206,6 +210,10 @@ impl std::fmt::Display for Box<dyn CustomEndpoint> {
 /// only be called with addresses for which [CustomSender::is_valid_send_addr]
 /// returns true.
 pub trait CustomSender: std::fmt::Debug + Send + Sync + 'static {
+    /// Notify a carrier that local interfaces may have changed. Default custom
+    /// transports retain their existing lifecycle and need no explicit refresh.
+    fn network_changed(&self) {}
+
     /// True if this sender can send to the given address.
     fn is_valid_send_addr(&self, addr: &CustomAddr) -> bool;
     /// Whether this address can carry unauthenticated initial packets for a new

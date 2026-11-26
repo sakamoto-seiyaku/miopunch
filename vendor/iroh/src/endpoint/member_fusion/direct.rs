@@ -462,18 +462,21 @@ async fn watch(
                 .local_addresses(candidates.direct)
                 .filter(|address| candidates.permits(&TransportAddr::Custom(address.clone())))
                 .collect();
+            #[cfg(feature = "miopunch-test-hooks")]
+            let current = if candidates.endpoint.inner.static_config.suppress_member_direct_announcements {
+                BTreeSet::new()
+            } else { current };
             let added: Vec<_> = current.difference(&previous).cloned().collect();
             if !added.is_empty() || previous.is_empty() {
-                time::timeout(
-                    EXCHANGE_LIMIT,
-                    send_offer(
-                        &connection,
-                        added,
-                        MAX_DIRECT_ADDRESS,
-                        candidates.supports_traversal(),
-                    ),
+                // Stream credit backpressure must not retire the complete
+                // candidate set or the watcher for later updates.
+                send_offer(
+                    &connection,
+                    added,
+                    MAX_DIRECT_ADDRESS,
+                    candidates.supports_traversal(),
                 )
-                .await??;
+                .await?;
             }
             previous = current;
             addresses.updated().await.map_err(io::Error::other)?;

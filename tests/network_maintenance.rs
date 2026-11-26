@@ -164,14 +164,14 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
     }
     let dials = [Dials::default(), Dials::default()];
     let consumer = consumer
-        .maintain_application_network(Ipv4Addr::LOCALHOST, |b| b.hooks(dials[0].clone()))
+        .maintain_application_network(Ipv4Addr::LOCALHOST, |b| b.hooks(dials[0].clone()).test_suppress_member_direct_announcements())
         .await
         .unwrap();
     let provider = provider
-        .maintain_application_network(Ipv4Addr::LOCALHOST, |b| b.hooks(dials[1].clone()))
+        .maintain_application_network(Ipv4Addr::LOCALHOST, |b| b.hooks(dials[1].clone()).test_suppress_member_direct_announcements())
         .await
         .unwrap();
-    let bound = [&consumer, &provider].map(|node| {
+    let announced = [&consumer, &provider].map(|node| {
         node.addr()
             .addrs
             .iter()
@@ -182,10 +182,10 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
             .unwrap()
     });
     assert!(
-        bound.iter().all(|addr| addr.ip().is_unspecified()),
-        "{bound:?}"
+        announced.iter().all(|addr| !addr.ip().is_unspecified()),
+        "{announced:?}"
     );
-    let observed = bound.map(|addr| std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, addr.port())));
+    let observed = announced.map(|addr| std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, addr.port())));
     let relay_path = TransportAddr::Relay(relay_url.clone());
     let (out, entrance) = tokio::join!(
         consumer
@@ -398,7 +398,7 @@ async fn observed_tcp_on_application_members(scenario: TcpRound) {
             eprintln!(
                 "MIO155 TCP side={side} stable={} stream={stream} binding={} observed={} path={path_id} ack_ms={}",
                 ids[side],
-                bound[side],
+                announced[side],
                 observed[side],
                 path.stats()
                     .acknowledgment

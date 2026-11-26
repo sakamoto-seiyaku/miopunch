@@ -438,6 +438,10 @@ async fn tcp_later_batches_and_updates_improve_the_original_relay() {
                     .unwrap()
                     .success()
             );
+            // Installed hosts can explicitly report changes on platforms that
+            // do not provide an automatic interface event monitor.
+            clients[0].runtime().resources.endpoint().network_change().await;
+            clients[1].runtime().resources.endpoint().network_change().await;
         }
         timeout(Duration::from_secs(28), async {
             while !original.paths().iter().any(|path| {
@@ -587,6 +591,12 @@ async fn many_tcp_interfaces_preserve_bounded_invitation_bootstrap() {
     assert!(
         crate::client_invitation::ClientInvitation::decode(&invitation.encode().unwrap()).is_ok()
     );
+    let guest = clients[0].issue_service_guest(
+        clients[0].address(), crate::service_policy::Service::Files,
+        crate::service_policy::now() + 300,
+    ).await.unwrap();
+    assert_eq!(guest.provider.addrs.len(), 32);
+    assert!(crate::service_policy::GuestInvitation::decode(&guest.encode().unwrap()).is_ok());
     println!(
         "TCP_INVITATION_BOUND full={} invitation={}",
         clients[0].address().addrs.len(),

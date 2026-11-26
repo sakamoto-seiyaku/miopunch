@@ -70,11 +70,18 @@ impl Pair {
         let carriers = traffic
             .each_ref()
             .map(|traffic| TcpTransport::new(bind, traffic.clone()));
+        // The product also installs its configured TCP listener. These fault
+        // tests own TcpFixture, so exclude both extra listeners from both peers.
+        let reserved = [(); 2].map(|_| std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap());
+        let defaults = reserved.each_ref().map(|socket| socket.local_addr().unwrap());
+        drop(reserved);
         for (side, node) in nodes.iter().enumerate() {
             let mut config = node.resource_configuration().unwrap();
             config.replacement = Some(vec![resource(&url)]);
             config.udp_direct_disabled = true;
             config.tcp_direct_disabled = disabled[side];
+            config.tcp_listen = Some(defaults[side]);
+            config.disabled_tcp_addresses.extend(defaults);
             node.save_resource_configuration(&config).unwrap();
         }
         let builder = |side: usize| {
@@ -84,6 +91,7 @@ impl Pair {
                     real: carriers[side].clone(),
                     advertised: if side == 1 { unreachable } else { None },
                     discarded: if side == 0 { discarded.clone() } else { None },
+                    offers: bind.is_unspecified().then(|| Watchable::new(Vec::new())),
                 }))
         };
         let client = nodes[0]
@@ -392,6 +400,7 @@ async fn keep_relay(pair: &Pair, scenario: &str, during: Duration) {
 struct TcpFixture {
     real: TcpTransport,
     advertised: Option<SocketAddr>,
+    offers: Option<Watchable<Vec<CustomAddr>>>,
     discarded: Option<Arc<AtomicUsize>>,
 }
 
@@ -399,9 +408,10 @@ impl CustomTransport for TcpFixture {
     fn bind(&self) -> io::Result<Box<dyn CustomEndpoint>> {
         Ok(Box::new(TcpFixtureEndpoint {
             real: self.real.bind()?,
-            advertised: self
-                .advertised
-                .map(|addr| Watchable::new(vec![TcpTransport::address(addr)])),
+            advertised: self.offers.clone().or_else(|| {
+                self.advertised
+                    .map(|addr| Watchable::new(vec![TcpTransport::address(addr)]))
+            }),
             discarded: self.discarded.clone(),
         }))
     }
@@ -445,4 +455,123 @@ impl CustomEndpoint for TcpFixtureEndpoint {
         }
         result
     }
+}
+
+#[derive(Debug)]
+struct TcpAnnouncementAdmission(iroh::EndpointId);
+
+impl iroh::endpoint::MemberFusionAdmission for TcpAnnouncementAdmission {
+    async fn authorize(
+        &self,
+        connection: &iroh::endpoint::ControlConnection,
+    ) -> io::Result<iroh::endpoint::ControlConfirmation> {
+        if !self.is_current(connection) {
+            return Err(io::ErrorKind::PermissionDenied.into());
+        }
+        Ok(iroh::endpoint::ControlConfirmation::with_control(|_| {
+            Box::pin(async { Ok(()) })
+        }))
+    }
+    fn is_current(&self, connection: &iroh::endpoint::ControlConnection) -> bool {
+        connection.remote_id() == self.0
+    }
+    fn permits_data_path(&self, path: &TransportAddr) -> bool {
+        path.is_ip()
+            || matches!(path, TransportAddr::Custom(addr) if addr.id() == DATA_TRANSPORT_ID)
+    }
+    fn custom_data_transports(&self) -> Vec<u64> {
+        vec![DATA_TRANSPORT_ID]
+    }
+    fn member_direct_transport(&self) -> Option<u64> {
+        Some(DATA_TRANSPORT_ID)
+    }
+    fn permits_direct_candidate(&self, address: &CustomAddr) -> bool {
+        TcpTransport::socket_addr(address).is_ok()
+    }
+}
+
+#[tokio::test]
+async fn stream_credit_backpressure_keeps_later_tcp_announcements_live() {
+    const ALPN: &[u8] = b"miopunch/tcp-announcement-backpressure/1";
+    let secrets = [iroh::SecretKey::generate(), iroh::SecretKey::generate()];
+    let announced = Watchable::new(Vec::new());
+    let real = TcpTransport::new(Ipv4Addr::LOCALHOST, Arc::new(Traffic::default()));
+    let mut endpoints = Vec::new();
+    for side in 0..2 {
+        let mut builder = Endpoint::builder(presets::Minimal)
+            .clear_ip_transports()
+            .bind_addr((Ipv4Addr::LOCALHOST, 0))
+            .unwrap()
+            .secret_key(secrets[side].clone())
+            .transport_config(
+                iroh::endpoint::QuicTransportConfig::builder()
+                    .max_concurrent_uni_streams(1u32.into())
+                    .build(),
+            );
+        builder = if side == 1 {
+            builder.add_custom_transport(Arc::new(TcpFixture {
+                real: real.clone(),
+                advertised: None,
+                discarded: None,
+                offers: Some(announced.clone()),
+            }))
+        } else {
+            builder.add_custom_transport(Arc::new(TcpTransport::new(
+                Ipv4Addr::LOCALHOST,
+                Arc::new(Traffic::default()),
+            )))
+        };
+        endpoints.push(
+            builder
+                .member_fusion(ALPN, TcpAnnouncementAdmission(secrets[1 - side].public()))
+                .bind(Duration::from_secs(90))
+                .await
+                .unwrap(),
+        );
+    }
+    let remote = endpoints[1].addr();
+    let (client, server) = tokio::join!(endpoints[0].connect(remote), async {
+        endpoints[1].accept().await.unwrap()
+    });
+    let connections = [client.unwrap(), server.unwrap()];
+    let ids = connections.each_ref().map(MemberConnection::stable_id);
+    let mut flow = OriginalStream::open(&connections[0], &connections[1], 0).await;
+    let fake: Vec<_> = (1..=16)
+        .map(|port| TcpTransport::address((Ipv4Addr::LOCALHOST, port)))
+        .collect();
+    let started = Instant::now();
+    announced.set(fake).unwrap();
+    // Keep the original stream useful while one stream credit and the receiver's
+    // bounded validation queue exert backpressure beyond the old whole-set limit.
+    for sequence in 1..=14 {
+        flow.round_trip(sequence).await;
+        time::sleep(Duration::from_millis(500)).await;
+    }
+    let blocked = connections[1].stats().frame_tx.streams_blocked_uni;
+    assert!(blocked > 0, "actual unidirectional stream credit backpressure");
+    let target = TcpTransport::address(real.bound_socket_addr().unwrap());
+    announced.set(vec![target.clone()]).unwrap();
+    time::timeout(Duration::from_secs(60), async {
+        let mut sequence = 15;
+        loop {
+            flow.round_trip(sequence).await;
+            sequence += 1;
+            if connections[0].paths().iter().any(|path| {
+                path.remote_addr() == &TransportAddr::Custom(target.clone())
+                    && path.stats().acknowledgment.is_some()
+            }) {
+                break;
+            }
+            time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("later update survives whole-set backpressure");
+    flow.round_trip(999).await;
+    assert_eq!(connections.each_ref().map(MemberConnection::stable_id), ids);
+    println!(
+        "TCP_BACKPRESSURE_DATA blocked_uni={blocked} elapsed_ms={} originals={ids:?}",
+        started.elapsed().as_millis()
+    );
+    tokio::join!(endpoints[0].close(), endpoints[1].close());
 }

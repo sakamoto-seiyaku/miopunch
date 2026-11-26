@@ -171,6 +171,8 @@ pub struct Builder {
     alpn_protocols: Vec<Vec<u8>>,
     admission: Option<Arc<dyn restricted::DynEndpointAdmission>>,
     restricted_data_custom_transports: Option<Vec<u64>>,
+    #[cfg(feature = "miopunch-test-hooks")]
+    suppress_member_direct_announcements: bool,
     transport_config: QuicTransportConfig,
     keylog: bool,
     address_lookup: Vec<Box<dyn DynAddressLookupBuilder>>,
@@ -323,6 +325,8 @@ impl Builder {
             alpn_protocols: Default::default(),
             admission: None,
             restricted_data_custom_transports: None,
+            #[cfg(feature = "miopunch-test-hooks")]
+            suppress_member_direct_announcements: false,
             transport_config: QuicTransportConfig::default(),
             keylog: Default::default(),
             address_lookup: Default::default(),
@@ -370,6 +374,8 @@ impl Builder {
             crypto_provider.clone(),
         );
         let static_config = StaticConfig {
+            #[cfg(feature = "miopunch-test-hooks")]
+            suppress_member_direct_announcements: self.suppress_member_direct_announcements,
             relay_resource_policy: self.relay_resource_policy,
             server_config: tls_config
                 .make_server_config_with_early_data(self.keylog, self.admission.is_none())?,
@@ -1053,6 +1059,14 @@ impl Builder {
     #[cfg(feature = "unstable-custom-transports")]
     pub fn add_custom_transport(mut self, factory: Arc<dyn CustomTransport>) -> Self {
         self.transports.push(TransportConfig::Custom(factory));
+        self
+    }
+
+    /// Isolate enhanced direct traversal while retaining the ordinary offer's
+    /// capability bit and the actual TCP listener and observation binding.
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub fn test_suppress_member_direct_announcements(mut self) -> Self {
+        self.suppress_member_direct_announcements = true;
         self
     }
 

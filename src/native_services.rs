@@ -488,6 +488,9 @@ impl crate::native_client::NativeClient {
         service: Service,
         expires: u64,
     ) -> Result<GuestInvitation, ClientError> {
+        let provider = crate::resources::bounded_contact_hint(
+            provider, crate::client_invitation::MAX_CONTACT_ADDRESSES,
+        );
         let client_runtime = self.runtime();
         client_runtime.require_ready()?;
         if !service.guest_supported() {
