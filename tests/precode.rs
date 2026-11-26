@@ -515,7 +515,16 @@ async fn precode_commit_crash_child() {
         address.to_string(),
     )
     .unwrap();
-    let connection = endpoint.accept().await.unwrap().await.unwrap();
+    let connection = std::sync::Arc::new(
+        endpoint
+            .accept()
+            .await
+            .unwrap()
+            .accept_control()
+            .unwrap()
+            .await
+            .unwrap(),
+    );
     node.serve_precode_admission(&connection).await.unwrap();
     panic!("checkpoint did not terminate the real server");
 }
