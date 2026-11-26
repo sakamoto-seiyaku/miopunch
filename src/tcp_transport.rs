@@ -84,6 +84,7 @@ impl Traffic {
 #[derive(Debug, Clone)]
 pub struct TcpTransport {
     bind_addr: SocketAddr,
+    dual_stack: bool,
     traffic: Arc<Traffic>,
     bound_addr: Arc<Mutex<Option<SocketAddr>>>,
     nat_pmp_mapping: bool,
@@ -121,6 +122,7 @@ impl TcpTransport {
     pub fn listen(bind_addr: SocketAddr, traffic: Arc<Traffic>) -> Self {
         Self {
             bind_addr,
+            dual_stack: false,
             traffic,
             bound_addr: Arc::new(Mutex::new(None)),
             nat_pmp_mapping: false,
@@ -130,6 +132,13 @@ impl TcpTransport {
             shared: Arc::new(Mutex::new(Weak::new())),
             observations: Default::default(),
         }
+    }
+
+    /// Bind each available IP family independently for the installed client.
+    pub(crate) fn dual_stack(traffic: Arc<Traffic>) -> Self {
+        let mut transport = Self::new(Ipv4Addr::UNSPECIFIED, traffic);
+        transport.dual_stack = true;
+        transport
     }
 
     /// Explicit local gateway consent. Each bound IPv4 listener owns a TCP
@@ -198,7 +207,7 @@ impl TcpTransport {
                 "TCP observation requires retained IPv4 transport port reuse",
             ));
         }
-        let stream = connect_from_listener(shared.local, observer).await?;
+        let stream = connect_from_listener(shared.local_for(observer)?, observer).await?;
         crate::tcp_observation::binding(stream).await
     }
 
@@ -386,16 +395,18 @@ fn decode_custom(addr: &CustomAddr) -> io::Result<SocketAddr> {
 #[derive(Debug)]
 struct Packet {
     source: SocketAddr,
+    local: SocketAddr,
     bytes: Vec<u8>,
     traffic: Arc<Traffic>,
 }
 
 impl Packet {
-    fn new(source: SocketAddr, bytes: Vec<u8>, traffic: Arc<Traffic>) -> Self {
+    fn new(source: SocketAddr, local: SocketAddr, bytes: Vec<u8>, traffic: Arc<Traffic>) -> Self {
         let current = traffic.inbound_outstanding.fetch_add(1, Ordering::Relaxed) + 1;
         traffic.inbound_peak.fetch_max(current, Ordering::Relaxed);
         Self {
             source,
+            local,
             bytes,
             traffic,
         }
@@ -550,7 +561,7 @@ impl Drop for QueuedPacket {
 
 #[derive(Debug)]
 struct Shared {
-    local: SocketAddr,
+    locals: Vec<SocketAddr>,
     channels: Mutex<HashMap<SocketAddr, Arc<Mutex<Channel>>>>,
     pending_paths: Mutex<HashMap<usize, ActiveTcpRoutes>>,
     incoming: tokio::sync::mpsc::Sender<Packet>,
@@ -569,6 +580,19 @@ struct ActiveTcpRoutes {
 }
 
 impl Shared {
+    fn local_for(&self, peer: SocketAddr) -> io::Result<SocketAddr> {
+        self.locals
+            .iter()
+            .copied()
+            .find(|local| local.is_ipv4() == peer.is_ipv4())
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::AddrNotAvailable,
+                    "TCP address family unavailable",
+                )
+            })
+    }
+
     fn data_path_qualified(&self, addr: &CustomAddr, connection_id: usize) -> bool {
         decode_custom(addr).is_ok_and(|peer| {
             self.pending_paths
@@ -585,9 +609,9 @@ struct TcpEndpoint {
     shared: Arc<Shared>,
     receiver: tokio::sync::mpsc::Receiver<Packet>,
     addresses: Watchable<Vec<CustomAddr>>,
-    accept_task: tokio::task::JoinHandle<()>,
+    accept_tasks: Vec<tokio::task::JoinHandle<()>>,
+    address_task: tokio::task::JoinHandle<()>,
     mapping: Option<Arc<TcpMapping>>,
-    mapping_task: Option<tokio::task::JoinHandle<()>>,
 }
 
 #[derive(Debug)]
@@ -622,11 +646,11 @@ impl Drop for TcpEndpoint {
     fn drop(&mut self) {
         self.shared.shutdown.send_replace(true);
         self.shared.observations.slots.lock().unwrap().clear();
-        self.accept_task.abort();
-        self.shared.channels.lock().unwrap().clear();
-        if let Some(task) = &self.mapping_task {
+        for task in &self.accept_tasks {
             task.abort();
         }
+        self.address_task.abort();
+        self.shared.channels.lock().unwrap().clear();
         if let Some(mapping) = self.mapping.take() {
             // Abrupt receiver drop still gives the owned lease a best-effort
             // release; graceful Endpoint::close already awaited this handler.
@@ -640,6 +664,48 @@ impl Drop for TcpEndpoint {
         }
         eprintln!("{}", self.shared.traffic.report());
     }
+}
+
+fn unavailable_family(error: &io::Error) -> bool {
+    if matches!(
+        error.kind(),
+        io::ErrorKind::AddrNotAvailable | io::ErrorKind::Unsupported
+    ) {
+        return true;
+    }
+    #[cfg(unix)]
+    if error.raw_os_error() == Some(rustix::io::Errno::AFNOSUPPORT.raw_os_error()) {
+        return true;
+    }
+    #[cfg(windows)]
+    if error.raw_os_error() == Some(10047) {
+        return true;
+    } // WSAEAFNOSUPPORT
+    false
+}
+
+fn bind_listener(address: SocketAddr, reuse: bool) -> io::Result<TcpListener> {
+    let socket = socket2::Socket::new(
+        if address.is_ipv4() {
+            socket2::Domain::IPV4
+        } else {
+            socket2::Domain::IPV6
+        },
+        socket2::Type::STREAM,
+        Some(socket2::Protocol::TCP),
+    )?;
+    if address.is_ipv6() {
+        socket.set_only_v6(true)?;
+    }
+    if reuse {
+        socket.set_reuse_address(true)?;
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        socket.set_reuse_port(true)?;
+    }
+    socket.bind(&address.into())?;
+    socket.listen(64)?;
+    socket.set_nonblocking(true)?;
+    TcpListener::from_std(socket.into())
 }
 
 impl CustomTransport for TcpTransport {
@@ -666,29 +732,38 @@ impl CustomTransport for TcpTransport {
                 "TCP carrier requires an unscoped, unmapped IPv6 address",
             ));
         }
-        let socket: std::net::TcpListener = if self.reuse_local_port {
-            let socket = socket2::Socket::new(
-                socket2::Domain::IPV4,
-                socket2::Type::STREAM,
-                Some(socket2::Protocol::TCP),
-            )?;
-            socket.set_reuse_address(true)?;
-            #[cfg(any(target_os = "linux", target_os = "android"))]
-            socket.set_reuse_port(true)?;
-            socket.bind(&self.bind_addr.into())?;
-            socket.listen(64)?;
-            socket.into()
+        let requested = if self.dual_stack {
+            vec![
+                SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
+                SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0)),
+            ]
         } else {
-            std::net::TcpListener::bind(self.bind_addr)?
+            vec![self.bind_addr]
         };
-        socket.set_nonblocking(true)?;
-        let local = socket.local_addr()?;
+        let mut listeners = Vec::new();
+        let mut last_error = None;
+        for address in requested {
+            match bind_listener(address, self.reuse_local_port && address.is_ipv4()) {
+                Ok(listener) => listeners.push(listener),
+                Err(error) if self.dual_stack && unavailable_family(&error) => {
+                    last_error = Some(error);
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        if listeners.is_empty() {
+            return Err(last_error.unwrap());
+        }
+        let locals = listeners
+            .iter()
+            .map(TcpListener::local_addr)
+            .collect::<io::Result<Vec<_>>>()?;
+        let local = locals[0];
         *self.bound_addr.lock().unwrap() = Some(local);
-        let listener = TcpListener::from_std(socket)?;
         let (incoming, receiver) = tokio::sync::mpsc::channel(QUEUE_DEPTH);
         let (shutdown, _) = tokio::sync::watch::channel(false);
         let shared = Arc::new(Shared {
-            local,
+            locals: locals.clone(),
             channels: Mutex::new(HashMap::new()),
             pending_paths: Mutex::new(HashMap::new()),
             incoming,
@@ -700,30 +775,35 @@ impl CustomTransport for TcpTransport {
             observations: self.observations.clone(),
         });
         *self.shared.lock().unwrap() = Arc::downgrade(&shared);
-        let weak = Arc::downgrade(&shared);
-        let mut accept_shutdown = shared.shutdown.subscribe();
-        let accept_task = tokio::spawn(async move {
-            loop {
-                let accepted = tokio::select! {
-                    accepted=listener.accept()=>accepted,
-                    _=accept_shutdown.changed()=>break,
-                };
-                let Ok((stream, _)) = accepted else { break };
-                let Some(shared) = weak.upgrade() else { break };
-                if let Ok(permit) = shared.inbound_limit.clone().try_acquire_owned() {
-                    tokio::spawn(async move {
-                        let _permit = permit;
-                        run_stream(shared, stream, None).await;
-                    });
-                } else {
-                    shared
-                        .traffic
-                        .failed_circuits
-                        .fetch_add(1, Ordering::Relaxed);
-                }
-            }
-        });
-        let addresses = Watchable::new(vec![TcpTransport::address(local)]);
+        let accept_tasks = listeners
+            .into_iter()
+            .map(|listener| {
+                let weak = Arc::downgrade(&shared);
+                let mut accept_shutdown = shared.shutdown.subscribe();
+                tokio::spawn(async move {
+                    loop {
+                        let accepted = tokio::select! {
+                            accepted=listener.accept()=>accepted,
+                            _=accept_shutdown.changed()=>break,
+                        };
+                        let Ok((stream, _)) = accepted else { break };
+                        let Some(shared) = weak.upgrade() else { break };
+                        if let Ok(permit) = shared.inbound_limit.clone().try_acquire_owned() {
+                            tokio::spawn(async move {
+                                let _permit = permit;
+                                run_stream(shared, stream, None).await;
+                            });
+                        } else {
+                            shared
+                                .traffic
+                                .failed_circuits
+                                .fetch_add(1, Ordering::Relaxed);
+                        }
+                    }
+                })
+            })
+            .collect();
+        let addresses = Watchable::new(locals.iter().copied().map(TcpTransport::address).collect());
         let mapping = if self.nat_pmp_mapping
             && local.is_ipv4()
             && self
@@ -749,29 +829,67 @@ impl CustomTransport for TcpTransport {
         } else {
             None
         };
-        let mapping_task = mapping.as_ref().map(|mapping| {
-            let mut external = mapping.0.watch_external_address();
-            let addresses = addresses.clone();
-            tokio::spawn(async move {
-                loop {
-                    let mut candidates = vec![TcpTransport::address(local)];
-                    if let Some(mapped) = *external.borrow_and_update() {
-                        candidates.push(TcpTransport::address(mapped));
-                    }
-                    addresses.set(candidates).ok();
-                    if external.changed().await.is_err() {
-                        break;
+        let mut external = mapping
+            .as_ref()
+            .map(|mapping| mapping.0.watch_external_address());
+        let announced = addresses.clone();
+        let address_task = tokio::spawn(async move {
+            use n0_watcher::Watcher;
+            let monitor = match netwatch::netmon::Monitor::new().await {
+                Ok(monitor) => monitor,
+                Err(error) => {
+                    eprintln!("TCP interface monitor unavailable: {error}");
+                    return;
+                }
+            };
+            let mut interfaces = monitor.interface_state();
+            loop {
+                let state = interfaces.get();
+                let mut candidates = BTreeSet::new();
+                for local in &locals {
+                    if local.ip().is_unspecified() {
+                        for interface in state
+                            .interfaces
+                            .values()
+                            .filter(|interface| interface.is_up())
+                        {
+                            for address in interface.addrs() {
+                                let ip = address.addr();
+                                if ip.is_ipv4() == local.is_ipv4()
+                                    && !ip.is_unspecified()
+                                    && !matches!(ip, std::net::IpAddr::V6(ip) if ip.is_unicast_link_local())
+                                {
+                                    candidates.insert(TcpTransport::address(SocketAddr::new(
+                                        ip,
+                                        local.port(),
+                                    )));
+                                }
+                            }
+                        }
+                    } else {
+                        candidates.insert(TcpTransport::address(*local));
                     }
                 }
-            })
+                if let Some(address) = external
+                    .as_mut()
+                    .and_then(|watch| *watch.borrow_and_update())
+                {
+                    candidates.insert(TcpTransport::address(address));
+                }
+                announced.set(candidates.into_iter().collect()).ok();
+                tokio::select! {
+                    _ = interfaces.updated() => {},
+                    _ = async { match external.as_mut() { Some(watch) => { let _ = watch.changed().await; }, None => std::future::pending().await } } => {},
+                }
+            }
         });
         Ok(Box::new(TcpEndpoint {
             shared,
             receiver,
             addresses,
-            accept_task,
+            accept_tasks,
+            address_task,
             mapping,
-            mapping_task,
         }))
     }
 }
@@ -821,7 +939,7 @@ impl CustomEndpoint for TcpEndpoint {
             metas[0].stride = packet.bytes.len();
             infos[0] = RecvInfo::new(
                 TcpTransport::address(packet.source),
-                Some(TcpTransport::address(self.shared.local)),
+                Some(TcpTransport::address(packet.local)),
             );
             return Poll::Ready(Ok(1));
         }
@@ -833,7 +951,7 @@ struct TcpSender(Arc<Shared>);
 
 impl CustomSender for TcpSender {
     fn is_valid_send_addr(&self, addr: &CustomAddr) -> bool {
-        decode_custom(addr).is_ok_and(|addr| addr.is_ipv4() == self.0.local.is_ipv4())
+        decode_custom(addr).is_ok_and(|addr| self.0.local_for(addr).is_ok())
     }
 
     fn guards_application_data(&self, addr: &CustomAddr) -> bool {
@@ -857,7 +975,7 @@ impl CustomSender for TcpSender {
             Ok(addr) => addr,
             Err(err) => return Poll::Ready(Err(err)),
         };
-        if target.is_ipv4() != self.0.local.is_ipv4() {
+        if self.0.local_for(target).is_err() {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "TCP carrier address family mismatch",
@@ -925,8 +1043,8 @@ fn ensure_channel(shared: &Arc<Shared>, target: SocketAddr) -> io::Result<Arc<Mu
                 let mut shutdown=shared.shutdown.subscribe();
                 tokio::spawn(async move {
                     let connecting=tokio::time::timeout(std::time::Duration::from_secs(5), async {
-                        if shared.reuse_local_port {
-                            connect_from_listener(shared.local, target).await
+                        if shared.reuse_local_port && target.is_ipv4() {
+                            connect_from_listener(shared.local_for(target)?, target).await
                         } else {
                             TcpStream::connect(target).await
                         }
@@ -1016,8 +1134,10 @@ async fn run_stream(shared: Arc<Shared>, mut stream: TcpStream, outbound: Option
             return Err(io::Error::new(io::ErrorKind::Interrupted, "TCP endpoint closed"));
         }
         if early_cancel.as_ref().is_some_and(|cancel|*cancel.borrow()) {return Err(io::Error::new(io::ErrorKind::Interrupted,"TCP attempt canceled"));}
-        let advertised = SocketAddr::new(stream.local_addr()?.ip(), shared.local.port());
-        let mut preface = vec![0; if shared.local.is_ipv4() { 6 } else { 18 }];
+        let socket_local = stream.local_addr()?;
+        let local = shared.local_for(socket_local)?;
+        let advertised = SocketAddr::new(socket_local.ip(), local.port());
+        let mut preface = vec![0; if local.is_ipv4() { 6 } else { 18 }];
         tokio::select! {
             result = async {
                 tokio::time::timeout(std::time::Duration::from_secs(5), stream.write_all(&encode(advertised)))
@@ -1150,7 +1270,7 @@ async fn run_stream(shared: Arc<Shared>, mut stream: TcpStream, outbound: Option
                     std::time::Duration::from_secs(5),
                     shared
                         .incoming
-                        .send(Packet::new(peer, bytes, shared.traffic.clone())),
+                        .send(Packet::new(peer, local, bytes, shared.traffic.clone())),
                 )
                 .await
                 {
@@ -1276,9 +1396,13 @@ mod tests {
         let mut bufs = [io::IoSliceMut::new(&mut packet)];
         let mut metas = [noq_udp::RecvMeta::default()];
         let mut infos = [RecvInfo::new(TcpTransport::address(peer_address), None)];
-        let received = tokio::time::timeout(std::time::Duration::from_secs(1),
-            std::future::poll_fn(|cx| endpoint.poll_recv(cx, &mut bufs, &mut metas, &mut infos)))
-            .await.unwrap().unwrap();
+        let received = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            std::future::poll_fn(|cx| endpoint.poll_recv(cx, &mut bufs, &mut metas, &mut infos)),
+        )
+        .await
+        .unwrap()
+        .unwrap();
         assert_eq!(received, 1);
         assert_eq!(metas[0].len, 7);
         assert_eq!(&packet, b"witness");

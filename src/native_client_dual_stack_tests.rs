@@ -7,12 +7,19 @@ use tokio::time::{sleep, timeout};
 mod udp_blackhole;
 
 async fn admitted_pair(root: &Path) -> [NativeClient; 2] {
-    let config = ResourceConfig {
-        replacement: Some(Vec::new()),
-        tcp_direct_disabled: true,
-        lan_discovery: LanDiscovery::Disabled,
-        ..Default::default()
-    };
+    admitted_pair_with_config(
+        root,
+        ResourceConfig {
+            replacement: Some(Vec::new()),
+            tcp_direct_disabled: true,
+            lan_discovery: LanDiscovery::Disabled,
+            ..Default::default()
+        },
+    )
+    .await
+}
+
+async fn admitted_pair_with_config(root: &Path, config: ResourceConfig) -> [NativeClient; 2] {
     let provider = NativeClient::create_with_resources(
         root.join("provider"),
         Ipv4Addr::LOCALHOST,
@@ -228,4 +235,365 @@ async fn ipv6_qnt_crosses_both_unsolicited_inbound_filters_on_the_original_membe
         while !root.join(format!("{other}.done")).exists() { sleep(Duration::from_millis(10)).await; }
         client.close().await.unwrap();
     }).await.unwrap();
+}
+
+#[tokio::test]
+async fn default_tcp_listeners_deliver_both_families_without_udp() {
+    for ipv6 in [false, true] {
+        let root = tempfile::tempdir().unwrap();
+        let clients = admitted_pair_with_config(
+            root.path(),
+            ResourceConfig {
+                replacement: Some(Vec::new()),
+                udp_direct_disabled: true,
+                lan_discovery: LanDiscovery::Disabled,
+                ..Default::default()
+            },
+        )
+        .await;
+        let target = timeout(Duration::from_secs(3), async {
+            loop {
+                let addr = clients[0].address();
+                if let Some(route) = addr.addrs.iter().find(|route| {
+                    matches!(route, iroh::TransportAddr::Custom(custom) if
+                        crate::tcp_transport::TcpTransport::socket_addr(custom)
+                            .is_ok_and(|address| address.is_ipv6() == ipv6 && !address.ip().is_unspecified()))
+                }) {
+                    break EndpointAddr::new(addr.id).with_addrs([route.clone()]);
+                }
+                sleep(Duration::from_millis(10)).await;
+            }
+        }).await.expect("default TCP listener advertises this family's actual addresses");
+        let reply = timeout(Duration::from_secs(6), clients[1].ping(target))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(reply["reply"], "PONG");
+        let original = clients[1]
+            .test_member_connection(clients[0].address().id)
+            .await
+            .unwrap();
+        assert!(
+            matches!(original.initial_data_path(), iroh::TransportAddr::Custom(address)
+            if crate::tcp_transport::TcpTransport::socket_addr(address).unwrap().is_ipv6() == ipv6)
+        );
+        let reverse = clients[0]
+            .ping(EndpointAddr::new(clients[1].address().id))
+            .await
+            .unwrap();
+        assert_eq!(reverse["reply"], "PONG");
+        println!(
+            "TCP_FIRST_DATA ipv6={ipv6} original={} path={:?}",
+            original.stable_id(),
+            original.initial_data_path()
+        );
+        let [a, b] = clients;
+        b.close().await.unwrap();
+        a.close().await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires disposable network namespace and TCP receive filters"]
+async fn tcp_later_batches_and_updates_improve_the_original_relay() {
+    use crate::resources::{Resource, ResourceUse};
+    use crate::tcp_transport::TcpTransport;
+    use std::process::Command;
+    for number in 1..=5 {
+        assert!(
+            Command::new("ip")
+                .args([
+                    "-6",
+                    "addr",
+                    "add",
+                    &format!("fd00:198::{number}/128"),
+                    "dev",
+                    "lo",
+                    "nodad"
+                ])
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    for case in ["third", "later-batch", "update"] {
+        let later_update = case == "update";
+        let mut relay_config = iroh_relay::server::ServerConfig::default();
+        relay_config.relay = Some(iroh_relay::server::RelayConfig::new((
+            Ipv4Addr::LOCALHOST,
+            0,
+        )));
+        let relay = iroh_relay::server::Server::spawn(relay_config)
+            .await
+            .unwrap();
+        let url = relay.http_url().unwrap();
+        let root = tempfile::tempdir().unwrap();
+        let clients = admitted_pair_with_config(
+            root.path(),
+            ResourceConfig {
+                replacement: Some(vec![Resource {
+                    url: url.to_string(),
+                    uses: [ResourceUse::DataRelay].into(),
+                    limitation: "owned TCP advertisement acceptance relay".into(),
+                }]),
+                udp_direct_disabled: true,
+                lan_discovery: LanDiscovery::Disabled,
+                ..Default::default()
+            },
+        )
+        .await;
+        let routes = timeout(Duration::from_secs(3), async {
+            loop {
+                let addresses: Vec<_> = clients[0]
+                    .address()
+                    .addrs
+                    .iter()
+                    .filter_map(|addr| match addr {
+                        iroh::TransportAddr::Custom(addr) => TcpTransport::socket_addr(addr).ok(),
+                        _ => None,
+                    })
+                    .collect();
+                if addresses.iter().filter(|addr| addr.is_ipv6()).count() >= 6 {
+                    break addresses;
+                }
+                sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        let v6_port = routes.iter().find(|addr| addr.is_ipv6()).unwrap().port();
+        let v4_port = routes.iter().find(|addr| addr.is_ipv4()).unwrap().port();
+        let winning_ip: Ipv6Addr = match case {
+            "third" => "fd00:198::1",
+            "later-batch" => "fd00:198::5",
+            _ => "fd00:198::99",
+        }
+        .parse()
+        .unwrap();
+        let expected = SocketAddr::from((winning_ip, v6_port));
+        if !later_update {
+            assert!(routes.iter().position(|addr| *addr == expected).unwrap() >= 2);
+        }
+        // TCP SYN reaches the kernel, then the receiving firewall drops it.
+        assert!(
+            Command::new("iptables")
+                .args([
+                    "-I",
+                    "INPUT",
+                    "-p",
+                    "tcp",
+                    "--dport",
+                    &v4_port.to_string(),
+                    "-j",
+                    "DROP"
+                ])
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert!(
+            Command::new("ip6tables")
+                .args([
+                    "-I",
+                    "INPUT",
+                    "-p",
+                    "tcp",
+                    "--dport",
+                    &v6_port.to_string(),
+                    "!",
+                    "-d",
+                    &winning_ip.to_string(),
+                    "-j",
+                    "DROP"
+                ])
+                .status()
+                .unwrap()
+                .success()
+        );
+        let reply = clients[1]
+            .ping(EndpointAddr::new(clients[0].address().id).with_relay_url(url))
+            .await
+            .unwrap();
+        assert_eq!(reply["reply"], "PONG");
+        let original = clients[1]
+            .test_member_connection(clients[0].address().id)
+            .await
+            .unwrap();
+        assert!(original.initial_data_path().is_relay());
+        let stable = original.stable_id();
+        if later_update {
+            assert!(!routes.contains(&expected));
+            assert!(
+                Command::new("ip")
+                    .args([
+                        "-6",
+                        "addr",
+                        "add",
+                        "fd00:198::99/128",
+                        "dev",
+                        "lo",
+                        "nodad"
+                    ])
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+        timeout(Duration::from_secs(28), async {
+            while !original.paths().iter().any(|path| {
+                path.is_selected()
+                    && path.remote_addr()
+                        == &iroh::TransportAddr::Custom(TcpTransport::address(expected))
+                    && path.stats().acknowledgment.is_some()
+            }) {
+                sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|error| {
+            panic!(
+                "TCP later_update={later_update}: {error}; paths={:?}",
+                original.paths()
+            )
+        });
+        assert_eq!(
+            clients[1]
+                .ping(EndpointAddr::new(clients[0].address().id))
+                .await
+                .unwrap()["reply"],
+            "PONG"
+        );
+        assert_eq!(
+            clients[0]
+                .ping(EndpointAddr::new(clients[1].address().id))
+                .await
+                .unwrap()["reply"],
+            "PONG"
+        );
+        assert_eq!(
+            clients[1]
+                .test_member_connection(clients[0].address().id)
+                .await
+                .unwrap()
+                .stable_id(),
+            stable
+        );
+        println!(
+            "TCP_LATER_DATA case={case} update={later_update} original={stable} expected={expected} advertised={routes:?}"
+        );
+        assert!(
+            Command::new("iptables")
+                .args([
+                    "-D",
+                    "INPUT",
+                    "-p",
+                    "tcp",
+                    "--dport",
+                    &v4_port.to_string(),
+                    "-j",
+                    "DROP"
+                ])
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert!(
+            Command::new("ip6tables")
+                .args([
+                    "-D",
+                    "INPUT",
+                    "-p",
+                    "tcp",
+                    "--dport",
+                    &v6_port.to_string(),
+                    "!",
+                    "-d",
+                    &winning_ip.to_string(),
+                    "-j",
+                    "DROP"
+                ])
+                .status()
+                .unwrap()
+                .success()
+        );
+        let [a, b] = clients;
+        b.close().await.unwrap();
+        a.close().await.unwrap();
+        relay.shutdown().await.unwrap();
+        if later_update {
+            assert!(
+                Command::new("ip")
+                    .args(["-6", "addr", "del", "fd00:198::99/128", "dev", "lo"])
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires disposable namespace for forty real local TCP addresses"]
+async fn many_tcp_interfaces_preserve_bounded_invitation_bootstrap() {
+    use crate::resources::{Resource, ResourceUse};
+    use crate::tcp_transport::TcpTransport;
+    for number in 1..=40 {
+        assert!(
+            std::process::Command::new("ip")
+                .args(["addr", "add", &format!("10.198.0.{number}/32"), "dev", "lo"])
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let mut relay_config = iroh_relay::server::ServerConfig::default();
+    relay_config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let relay = iroh_relay::server::Server::spawn(relay_config)
+        .await
+        .unwrap();
+    let url = relay.http_url().unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let clients = admitted_pair_with_config(
+        root.path(),
+        ResourceConfig {
+            replacement: Some(vec![Resource {
+                url: url.to_string(),
+                uses: [ResourceUse::DataRelay].into(),
+                limitation: "owned many-interface bootstrap relay".into(),
+            }]),
+            udp_direct_disabled: true,
+            lan_discovery: LanDiscovery::Disabled,
+            ..Default::default()
+        },
+    )
+    .await;
+    timeout(Duration::from_secs(3), async {
+        while clients[0].address().addrs.len() <= 32 {
+            sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let invitation = clients[0].invitation().await.unwrap();
+    assert_eq!(invitation.address().addrs.len(), 32);
+    assert!(invitation.address().relay_urls().any(|relay| *relay == url));
+    for ipv6 in [false, true] {
+        assert!(invitation.address().addrs.iter().any(|route| matches!(route,
+            iroh::TransportAddr::Custom(custom) if TcpTransport::socket_addr(custom).is_ok_and(|addr| addr.is_ipv6() == ipv6))));
+    }
+    assert!(
+        crate::client_invitation::ClientInvitation::decode(&invitation.encode().unwrap()).is_ok()
+    );
+    println!(
+        "TCP_INVITATION_BOUND full={} invitation={}",
+        clients[0].address().addrs.len(),
+        invitation.address().addrs.len()
+    );
+    let [a, b] = clients;
+    b.close().await.unwrap();
+    a.close().await.unwrap();
+    relay.shutdown().await.unwrap();
 }

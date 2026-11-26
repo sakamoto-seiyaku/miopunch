@@ -60,7 +60,7 @@ pub struct ResourceConfig {
     pub lan_discovery: LanDiscovery,
     #[serde(default)]
     pub port_mapping: PortMapping,
-    /// Native TCP listener override. Windows and Linux default to an ephemeral IPv4 listener.
+    /// Native TCP listener override. The default listens on each available IP family.
     #[serde(default)]
     pub tcp_listen: Option<std::net::SocketAddr>,
     #[serde(default)]
@@ -470,26 +470,20 @@ impl ResourceConfig {
         } else {
             builder
         };
-        let tcp = self
-            .tcp_listen
-            .or_else(|| {
-                cfg!(any(target_os = "linux", target_os = "windows"))
-                    .then_some((std::net::Ipv4Addr::UNSPECIFIED, 0).into())
-            })
-            .filter(|_| !self.tcp_direct_disabled)
-            .map(|address| {
-                let mut transport = crate::tcp_transport::TcpTransport::listen(
-                    address,
-                    std::sync::Arc::new(crate::tcp_transport::Traffic::default()),
-                );
-                if self.port_mapping == PortMapping::NatPmp {
-                    transport = transport.with_nat_pmp_mapping();
-                }
-                if !self.tcp_stun_resources().is_empty() {
-                    transport = transport.with_punching();
-                }
-                transport
-            });
+        let tcp = (!self.tcp_direct_disabled).then(|| {
+            let traffic = std::sync::Arc::new(crate::tcp_transport::Traffic::default());
+            let mut transport = match self.tcp_listen {
+                Some(address) => crate::tcp_transport::TcpTransport::listen(address, traffic),
+                None => crate::tcp_transport::TcpTransport::dual_stack(traffic),
+            };
+            if self.port_mapping == PortMapping::NatPmp {
+                transport = transport.with_nat_pmp_mapping();
+            }
+            if !self.tcp_stun_resources().is_empty() {
+                transport = transport.with_punching();
+            }
+            transport
+        });
         let builder = if let Some(transport) = &tcp {
             builder.add_custom_transport(std::sync::Arc::new(transport.clone()))
         } else {
@@ -832,6 +826,37 @@ impl ResourceEndpoint {
                 })
                 .map(iroh::TransportAddr::Custom),
         );
+        if address.addrs.len() > crate::client_invitation::MAX_CONTACT_ADDRESSES {
+            // Invitations contain bounded bootstrap hints. Reserve opportunities
+            // for contact/relay and each direct family; the member session later
+            // carries the complete TCP candidate set.
+            let mut groups: [Vec<_>; 6] = std::array::from_fn(|_| Vec::new());
+            for route in std::mem::take(&mut address.addrs) {
+                let group = match &route {
+                    iroh::TransportAddr::Relay(_) => 0,
+                    iroh::TransportAddr::Custom(custom) => match crate::tcp_transport::TcpTransport::socket_addr(custom) {
+                        Ok(addr) if addr.is_ipv4() => 2,
+                        Ok(_) => 3,
+                        Err(_) => 1,
+                    },
+                    iroh::TransportAddr::Ip(addr) if addr.is_ipv4() => 4,
+                    _ => 5,
+                };
+                groups[group].push(route);
+            }
+            let mut groups = groups.map(Vec::into_iter);
+            while address.addrs.len() < crate::client_invitation::MAX_CONTACT_ADDRESSES {
+                let mut added = false;
+                for group in &mut groups {
+                    if let Some(route) = group.next() {
+                        address.addrs.insert(route);
+                        added = true;
+                        if address.addrs.len() == crate::client_invitation::MAX_CONTACT_ADDRESSES { break; }
+                    }
+                }
+                if !added { break; }
+            }
+        }
         bootstrap.validate()?;
         Ok((address, bootstrap))
     }

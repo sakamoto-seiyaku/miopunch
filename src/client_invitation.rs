@@ -12,6 +12,8 @@ use crate::{
     irc_datagram::IrcFacility, management_auth::NetworkAnchor, mqtt_datagram::MqttFacility,
 };
 
+pub(crate) const MAX_CONTACT_ADDRESSES: usize = 32;
+
 pub const MAX_INVITATION_BYTES: usize = 32 * 1024;
 const LINK: &str = "miopunch://invite/";
 
@@ -176,7 +178,7 @@ impl ClientInvitation {
             .map_err(|_| invalid())?;
         if !matches!(self.version, 1 | 2)
             || self.address.id != contact
-            || self.address.addrs.len() > 32
+            || self.address.addrs.len() > MAX_CONTACT_ADDRESSES
             || self
                 .precode_bytes()?
                 .is_some_and(|code| code[..96] != bytes)

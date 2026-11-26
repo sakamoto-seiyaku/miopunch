@@ -346,7 +346,10 @@ impl VerifiedDirect {
         eprintln!(
             "MEMBER_DIRECT_RETAINED stable_id={} path={:?} remote={:?}",
             control.stable_id(),
-            control.paths().iter().find(|path| path.remote_addr() == &self.remote)
+            control
+                .paths()
+                .iter()
+                .find(|path| path.remote_addr() == &self.remote)
                 .map(|path| path.id()),
             self.remote
         );
@@ -443,33 +446,40 @@ async fn watch(
     // control stream until an original-connection validation slot opens.
     let (peer_offers, mut peer_receiver) = mpsc::channel(MAX_CANDIDATES);
     let announce_direct = async {
-        if candidates
-            .local_addresses(candidates.direct)
-            .next()
-            .is_none()
-        {
-            return Ok(());
+        use n0_watcher::Watcher;
+        if candidates.direct.is_none() {
+            return Ok::<(), io::Error>(());
         }
-        // Either side's business can trigger the existing TCP offer.
+        // The transport watcher includes all current TCP interfaces and mappings.
+        let mut addresses = candidates.endpoint.inner.watch_local_addrs();
         tokio::select! {
             _ = direct_offer_received.notified() => {},
             active = offer_activity.wait_for(|active| *active) => { active.map_err(io::Error::other)?; }
         }
-        let routes = candidates
-            .local_addresses(candidates.direct)
-            .filter(|address| candidates.permits(&TransportAddr::Custom(address.clone())))
-            .take(MAX_CANDIDATES)
-            .collect();
-        time::timeout(
-            EXCHANGE_LIMIT,
-            send_offer(
-                &connection,
-                routes,
-                MAX_DIRECT_ADDRESS,
-                candidates.supports_traversal(),
-            ),
-        )
-        .await?
+        let mut previous = BTreeSet::new();
+        loop {
+            let current: BTreeSet<_> = candidates
+                .local_addresses(candidates.direct)
+                .filter(|address| candidates.permits(&TransportAddr::Custom(address.clone())))
+                .collect();
+            let added: Vec<_> = current.difference(&previous).cloned().collect();
+            if !added.is_empty() || previous.is_empty() {
+                time::timeout(
+                    EXCHANGE_LIMIT,
+                    send_offer(
+                        &connection,
+                        added,
+                        MAX_DIRECT_ADDRESS,
+                        candidates.supports_traversal(),
+                    ),
+                )
+                .await??;
+            }
+            previous = current;
+            addresses.updated().await.map_err(io::Error::other)?;
+        }
+        #[allow(unreachable_code)]
+        Ok::<(), io::Error>(())
     };
     let receive = async {
         let mut received_direct = false;
@@ -489,15 +499,11 @@ async fn watch(
                 received_direct = true;
                 direct_offer_received.notify_one();
             }
-            if !candidates.dialer && received_direct {
-                // Member-relay offers only go toward the dialing peer.
-                break;
-            }
             if !candidates.dialer {
                 continue;
             }
             for address in addresses {
-                let accepted = (first_direct && candidates.direct == Some(address.id()))
+                let accepted = (candidates.direct == Some(address.id()))
                     || (candidates.member_relay == Some(address.id())
                         && candidates.local_member_routes(&address).next().is_some());
                 let address = TransportAddr::Custom(address);
@@ -669,18 +675,36 @@ async fn send_offer(
     max_address: usize,
     traversal: bool,
 ) -> io::Result<()> {
-    let mut offer = PREFACE.to_vec();
-    offer.push(u8::from(traversal));
-    for address in addresses {
+    // Keep the established per-message byte boundary and wire shape. The
+    // validation concurrency bound does not truncate the advertised set.
+    let limit = PREFACE.len() + 1 + MAX_CANDIDATES * (1 + MAX_OFFER_ADDRESS);
+    let mut batches = vec![Vec::new()];
+    let mut bytes = PREFACE.len() + 1;
+    for address in addresses.into_iter().collect::<BTreeSet<_>>() {
         let encoded = address.to_vec();
-        if encoded.len() <= max_address {
+        if encoded.len() > max_address {
+            continue;
+        }
+        let batch = batches.last_mut().unwrap();
+        if bytes + 1 + encoded.len() > limit || batch.len() == MAX_CANDIDATES {
+            batches.push(Vec::new());
+            bytes = PREFACE.len() + 1;
+        }
+        bytes += 1 + encoded.len();
+        batches.last_mut().unwrap().push(encoded);
+    }
+    for batch in batches {
+        let mut offer = PREFACE.to_vec();
+        offer.push(u8::from(traversal));
+        for encoded in batch {
             offer.push(encoded.len() as u8);
             offer.extend_from_slice(&encoded);
         }
+        let mut stream = connection.open_uni().await.map_err(io::Error::other)?;
+        stream.write_all(&offer).await.map_err(io::Error::other)?;
+        stream.finish().map_err(io::Error::other)?;
     }
-    let mut stream = connection.open_uni().await.map_err(io::Error::other)?;
-    stream.write_all(&offer).await.map_err(io::Error::other)?;
-    stream.finish().map_err(io::Error::other)
+    Ok(())
 }
 
 async fn read_offer(mut stream: RecvStream) -> io::Result<(Vec<CustomAddr>, bool)> {

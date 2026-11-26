@@ -923,6 +923,10 @@ impl Socket {
         self.local_addrs_watch.clone().get()
     }
 
+    pub(crate) fn watch_local_addrs(&self) -> LocalAddrsWatch {
+        self.local_addrs_watch.clone()
+    }
+
     #[cfg(not(wasm_browser))]
     fn ip_bind_addrs(&self) -> &[SocketAddr] {
         &self.ip_bind_addrs
