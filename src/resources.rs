@@ -607,6 +607,7 @@ struct ContactBackoff {
 pub(crate) enum ContactClass {
     Foreground,
     Background,
+    Rotation,
     Standby,
 }
 
@@ -659,7 +660,7 @@ impl ContactAttempt {
 
     pub(crate) fn succeeded(&self) {
         let mut states = self.states.lock().expect("contact budget");
-        for class in [ContactClass::Foreground, ContactClass::Background, ContactClass::Standby] {
+        for class in [ContactClass::Foreground, ContactClass::Background, ContactClass::Rotation, ContactClass::Standby] {
             if let Some(state) = states.get_mut(&(self.id, class)) {
                 state.reset();
             }

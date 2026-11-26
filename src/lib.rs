@@ -57,6 +57,7 @@ pub mod nat_punch;
 pub mod nat_scheduler;
 pub mod nat_selector;
 pub mod native_client;
+mod native_admission_rotation;
 mod native_member_services;
 pub mod client_commands;
 pub mod client_host;

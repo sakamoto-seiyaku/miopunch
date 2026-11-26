@@ -1,7 +1,9 @@
 //! Durable admission-secret rotation. Signed control statements contain only
 //! identities, generations and credential tags; secret bytes stay in private
 //! files and admitted TLS streams. Staged credentials never grant business.
+use std::collections::BTreeMap;
 use std::fs;
+use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use std::time::Duration;
 
@@ -11,6 +13,8 @@ use p2panda_core::{Hash, Signature, SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use thiserror::Error;
+use tokio::sync::{Mutex, MutexGuard};
+use tokio::time::{Instant, timeout_at};
 
 use crate::admission_gate::ProtocolScope;
 use crate::admission_proof::{AdmissionScope, AdmissionSecret};
@@ -56,6 +60,7 @@ enum ReceiptMode {
 pub struct RotationProgress {
     pub id: [u8; 16],
     pub generation: u64,
+    pub initiator: VerifyingKey,
     pub retained: Vec<VerifyingKey>,
     pub acknowledged: Vec<VerifyingKey>,
     pub stage: RotationStage,
@@ -159,6 +164,60 @@ struct SavedRotation {
     signed: Signed,
     proposal: Proposal,
     completion: Option<Signed>,
+}
+
+impl SavedRotation {
+    fn stage(&self) -> RotationStage {
+        if self.completion.is_some() {
+            RotationStage::Complete
+        } else {
+            RotationStage::Distributing
+        }
+    }
+}
+
+// The low-level API already has exclusive access to the node. The SDK owns a
+// shared node and borrows it only for each authorization or storage phase.
+enum RotationNode<'a> {
+    Exclusive(&'a mut NativeNetwork),
+    Shared(&'a Mutex<NativeNetwork>),
+}
+
+enum RotationAccess<'a> {
+    Exclusive(&'a mut NativeNetwork),
+    Shared(MutexGuard<'a, NativeNetwork>),
+}
+
+impl RotationNode<'_> {
+    async fn access(&mut self, deadline: Instant) -> Result<RotationAccess<'_>, RotationError> {
+        match self {
+            Self::Exclusive(node) => Ok(RotationAccess::Exclusive(node)),
+            Self::Shared(node) => timeout_at(deadline, node.lock())
+                .await
+                .map(RotationAccess::Shared)
+                .map_err(|_| RotationError::PathUnavailable),
+        }
+    }
+}
+
+impl Deref for RotationAccess<'_> {
+    type Target = NativeNetwork;
+
+    fn deref(&self) -> &NativeNetwork {
+        match self {
+            Self::Exclusive(node) => node,
+            Self::Shared(node) => node,
+        }
+    }
+}
+
+impl DerefMut for RotationAccess<'_> {
+    fn deref_mut(&mut self) -> &mut NativeNetwork {
+        match self {
+            Self::Exclusive(node) => node,
+            Self::Shared(node) => node,
+        }
+    }
 }
 
 fn keys(values: &[[u8; 32]]) -> Result<Vec<VerifyingKey>, RotationError> {
@@ -315,6 +374,7 @@ impl ManagementStore {
             .execute(&self.pool)
             .await
             .map_err(StoreError::from)?;
+        self.changes.publish();
         Ok(())
     }
 
@@ -344,13 +404,14 @@ impl ManagementStore {
         let member = verify_ack(signed, rotation)?;
         let bytes = encode(signed)?;
         // SQLite FULL commits before the caller can count this acknowledgement.
-        sqlx::query("INSERT OR IGNORE INTO admission_rotation_acks VALUES (?, ?, ?)")
-            .bind(rotation.proposal.id.as_slice())
-            .bind(member.as_slice())
-            .bind(&bytes)
-            .execute(&self.pool)
-            .await
-            .map_err(StoreError::from)?;
+        let inserted =
+            sqlx::query("INSERT OR IGNORE INTO admission_rotation_acks VALUES (?, ?, ?)")
+                .bind(rotation.proposal.id.as_slice())
+                .bind(member.as_slice())
+                .bind(&bytes)
+                .execute(&self.pool)
+                .await
+                .map_err(StoreError::from)?;
         let saved: Vec<u8> = sqlx::query_scalar(
             "SELECT acknowledgement FROM admission_rotation_acks WHERE rotation=? AND member=?",
         )
@@ -361,6 +422,9 @@ impl ManagementStore {
         .map_err(StoreError::from)?;
         if saved != bytes {
             return Err(RotationError::Rejected);
+        }
+        if inserted.rows_affected() != 0 {
+            self.changes.publish();
         }
         Ok(())
     }
@@ -533,6 +597,10 @@ impl NativeNetwork {
                         ),
                         secret,
                     );
+                    if rotation.proposal.initiator == *self.node_key.verifying_key().as_bytes() {
+                        let ack = self.durable_rotation_ack(&rotation)?;
+                        self.store.save_rotation_ack(&rotation, &ack).await?;
+                    }
                 }
             }
             Ok::<_, RotationError>(())
@@ -545,6 +613,13 @@ impl NativeNetwork {
         let Some(rotation) = self.store.saved_rotation().await? else {
             return Ok(None);
         };
+        Ok(Some(self.progress_of(&rotation).await?))
+    }
+
+    async fn progress_of(
+        &self,
+        rotation: &SavedRotation,
+    ) -> Result<RotationProgress, RotationError> {
         let (retained, acknowledged, stage) = if let Some(signed) = &rotation.completion {
             let complete = verify_completion(&rotation, self.anchor.root, signed)?;
             (
@@ -562,13 +637,15 @@ impl NativeNetwork {
             members.retain(|member| retained.contains(member));
             (retained, members, RotationStage::Distributing)
         };
-        Ok(Some(RotationProgress {
+        Ok(RotationProgress {
             id: rotation.proposal.id,
             generation: rotation.proposal.generation,
+            initiator: VerifyingKey::from_bytes(&rotation.proposal.initiator)
+                .map_err(|_| RotationError::Rejected)?,
             retained: keys(&retained)?,
             acknowledged: keys(&acknowledged)?,
             stage,
-        }))
+        })
     }
 
     pub async fn begin_admission_rotation(
@@ -714,11 +791,89 @@ impl NativeNetwork {
         Err(RotationError::Rejected)
     }
 
+    /// Resume an already signed switch, and select recipients for the current
+    /// proposal. A non-initiator serves only its own pending material grants.
+    pub(crate) async fn rotation_delivery_plan(
+        &mut self,
+    ) -> Result<Option<(RotationProgress, BTreeMap<iroh::EndpointId, &'static [u8]>)>, RotationError>
+    {
+        let Some(rotation) = self.store.saved_rotation().await? else {
+            return Ok(None);
+        };
+        let local = self.node_key.verifying_key();
+        if !self.is_member(local) || !rotation.proposal.retained.contains(local.as_bytes()) {
+            return Ok(None);
+        }
+        if rotation.completion.is_some() {
+            self.activate_rotation(&rotation).await?;
+            if self.scope.secret_generation() != rotation.proposal.generation {
+                return Ok(None);
+            }
+        }
+        let progress = self.progress_of(&rotation).await?;
+        let initiator = local == progress.initiator;
+        let mut recipients = BTreeMap::new();
+        if progress.stage == RotationStage::Distributing
+            && progress.acknowledged.contains(&local)
+            && progress.acknowledged.len() != progress.retained.len()
+        {
+            let pending: Vec<Vec<u8>> = sqlx::query_scalar(
+                "SELECT applicant FROM admission_deliveries WHERE authorization IS NOT NULL AND phase<3 \
+                 UNION SELECT target FROM management_recoveries WHERE authorization IS NOT NULL AND phase<3",
+            )
+            .fetch_all(&self.store.pool)
+            .await
+            .map_err(StoreError::from)?;
+            for bytes in pending {
+                let peer = VerifyingKey::from_bytes(
+                    &bytes.try_into().map_err(|_| RotationError::Rejected)?,
+                )
+                .map_err(|_| RotationError::Rejected)?;
+                if peer != local
+                    && rotation.proposal.retained.contains(peer.as_bytes())
+                    && progress.retained.contains(&peer)
+                    && self.pending_rotation_profile(peer).await.is_ok()
+                {
+                    recipients.insert(peer, ROTATION_DELIVERY_ALPN);
+                }
+            }
+        }
+        if initiator
+            && (progress.stage == RotationStage::Complete
+                || progress.acknowledged.len() != progress.retained.len())
+        {
+            for peer in &progress.retained {
+                if *peer != local
+                    && self.is_member(*peer)
+                    && rotation.proposal.retained.contains(peer.as_bytes())
+                {
+                    recipients.entry(*peer).or_insert(ADMISSION_ROTATION_ALPN);
+                }
+            }
+        }
+        // Retrying an acknowledged restricted recipient cannot yield a new
+        // forwarded receipt: it has yet to acquire its active credential.
+        recipients.retain(|peer, alpn| {
+            *alpn != ROTATION_DELIVERY_ALPN || !progress.acknowledged.contains(peer)
+        });
+        let recipients = recipients
+            .into_iter()
+            .map(|(peer, alpn)| {
+                iroh::EndpointId::from_bytes(peer.as_bytes())
+                    .map(|endpoint| (endpoint, alpn))
+                    .map_err(|_| RotationError::Rejected)
+            })
+            .collect::<Result<_, _>>()?;
+        Ok(Some((progress, recipients)))
+    }
+
     async fn activate_rotation(&mut self, rotation: &SavedRotation) -> Result<(), RotationError> {
         if rotation.completion.is_none() {
             return Err(RotationError::Rejected);
         }
-        if self.scope.secret_generation() > rotation.proposal.generation {
+        // Rejoining can intentionally suspend material in the same generation.
+        // A historical completion cannot restore that credential.
+        if self.scope.secret_generation() >= rotation.proposal.generation {
             return Ok(());
         }
         let secret = staged_material(&self.directory, rotation)?;
@@ -735,6 +890,7 @@ impl NativeNetwork {
         self.scope = scope;
         self.secret = Some(secret);
         self.refresh_authorization();
+        self.store.changes.publish();
         Ok(())
     }
 
@@ -810,112 +966,149 @@ impl NativeNetwork {
         &mut self,
         connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<RotationProgress, RotationError> {
-        let result = tokio::time::timeout(TIMEOUT, self.distribute_rotation_inner(connection))
-            .await
-            .unwrap_or(Err(RotationError::PathUnavailable));
+        Self::distribute_rotation_inner(&mut RotationNode::Exclusive(self), connection, None).await
+    }
+
+    pub(crate) async fn deliver_current_rotation(
+        node: &Mutex<Self>,
+        connection: &(impl AuthenticatedControl + ?Sized),
+        id: [u8; 16],
+        stage: RotationStage,
+    ) -> Result<RotationProgress, RotationError> {
+        Self::distribute_rotation_inner(
+            &mut RotationNode::Shared(node),
+            connection,
+            Some((id, stage)),
+        )
+        .await
+    }
+
+    async fn distribute_rotation_inner(
+        node: &mut RotationNode<'_>,
+        connection: &(impl AuthenticatedControl + ?Sized),
+        expected: Option<([u8; 16], RotationStage)>,
+    ) -> Result<RotationProgress, RotationError> {
+        let result = Self::send_rotation(node, connection, expected).await;
         if result.is_err() {
             connection.close(0u32.into(), b"rotation delivery ended");
         }
         result
     }
 
-    async fn distribute_rotation_inner(
-        &mut self,
+    async fn send_rotation(
+        node: &mut RotationNode<'_>,
         connection: &(impl AuthenticatedControl + ?Sized),
+        expected: Option<([u8; 16], RotationStage)>,
     ) -> Result<RotationProgress, RotationError> {
-        self.rotation_connection(connection)?;
-        self.store.apply_ready().await?;
-        self.refresh_authorization();
-        self.rotation_connection(connection)?;
-        let rotation = self
-            .store
-            .saved_rotation()
-            .await?
-            .ok_or(RotationError::Rejected)?;
-        if !rotation
-            .proposal
-            .retained
-            .contains(self.node_key.verifying_key().as_bytes())
-            || !self.is_member(self.node_key.verifying_key())
-            || !self
-                .retained_members()
-                .contains(connection.remote_id().as_bytes())
-        {
-            return Err(RotationError::Rejected);
-        }
-        if !rotation
-            .proposal
-            .retained
-            .contains(connection.remote_id().as_bytes())
-        {
-            return Err(RotationError::Rejected);
-        }
-        let exchange = connection
-            .open_control_exchange()
-            .await
-            .map_err(|_| RotationError::PathUnavailable)?;
-        let mut _root_session = None;
-        if connection.alpn() == ROTATION_DELIVERY_ALPN {
-            if rotation.completion.is_some() {
+        let deadline = rotation_deadline(connection);
+        let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())
+            .map_err(|_| RotationError::Rejected)?;
+        let (rotation, profile, anchor, local) = {
+            let mut state = node.access(deadline).await?;
+            state.rotation_connection(connection)?;
+            state.store.apply_ready().await?;
+            state.refresh_authorization();
+            let rotation = state
+                .store
+                .saved_rotation()
+                .await?
+                .ok_or(RotationError::Rejected)?;
+            let saved = (rotation.proposal.id, rotation.stage());
+            if expected.is_some_and(|expected| expected != saved) {
                 return Err(RotationError::Rejected);
             }
-            let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())
-                .map_err(|_| RotationError::Rejected)?;
-            let profile = self.pending_rotation_profile(peer).await?;
-            write_fixed(&exchange, &[profile]).await?;
+            state.check_rotation_recipient(connection, peer, &rotation)?;
+            let profile = if connection.alpn() == ROTATION_DELIVERY_ALPN {
+                if rotation.completion.is_some() {
+                    return Err(RotationError::Rejected);
+                }
+                Some(state.pending_rotation_profile(peer).await?)
+            } else {
+                None
+            };
+            let local = iroh_base::SecretKey::from_bytes(state.node_key.as_bytes()).public();
+            (rotation, profile, state.anchor, local)
+        };
+        let exchange = RotationExchange {
+            control: wire_io(deadline, connection.open_control_exchange()).await?,
+            deadline,
+        };
+        let mut _root_session = None;
+        if let Some(profile) = profile {
+            exchange.write_fixed(&[profile]).await?;
             if profile == 2 {
                 _root_session = Some(
                     crate::genesis_recovery::SessionGuard::begin(connection)
                         .map_err(|_| RotationError::Rejected)?,
                 );
-                let local = iroh_base::SecretKey::from_bytes(self.node_key.as_bytes()).public();
                 let statement = crate::genesis_recovery::proof_statement(
                     connection,
-                    self.anchor,
+                    anchor,
                     connection.remote_id(),
                     local,
                 )
                 .map_err(|_| RotationError::Rejected)?;
                 let mut signature = [0; 64];
-                read_fixed(&exchange, &mut signature).await?;
-                let root_valid = self
-                    .anchor
+                exchange.read_fixed(&mut signature).await?;
+                if !anchor
                     .root
-                    .verify(&statement, &Signature::from_bytes(&signature));
-                if !root_valid {
+                    .verify(&statement, &Signature::from_bytes(&signature))
+                {
                     return Err(RotationError::Rejected);
                 }
             }
         }
-        let records = self.store.applied_records().await?;
-        if records.len() > MAX_MEMBERS {
-            return Err(RotationError::Rejected);
-        }
-        let history: Vec<_> = records
-            .into_iter()
-            .map(|r| (r.header().to_vec(), r.body().map(<[u8]>::to_vec)))
-            .collect();
-        write_frame(
-            &exchange,
-            &encode(&(
+        let history_frame = {
+            let state = node.access(deadline).await?;
+            state.check_current_rotation(&rotation).await?;
+            state.check_rotation_recipient(connection, peer, &rotation)?;
+            if let Some(profile) = profile
+                && profile != state.pending_rotation_profile(peer).await?
+            {
+                return Err(RotationError::Rejected);
+            }
+            let records = state.store.applied_records().await?;
+            if records.len() > MAX_MEMBERS {
+                return Err(RotationError::Rejected);
+            }
+            let history: Vec<_> = records
+                .into_iter()
+                .map(|r| (r.header().to_vec(), r.body().map(<[u8]>::to_vec)))
+                .collect();
+            encode(&(
                 rotation.signed.clone(),
                 rotation.completion.clone(),
                 history,
-                self.store
+                state
+                    .store
                     .predecessor_completion(rotation.proposal.previous_generation)
                     .await?,
-            ))?,
-        )
-        .await?;
+            ))?
+        };
+        exchange.write_frame(&history_frame).await?;
         if rotation.completion.is_none() {
-            self.rotation_connection(connection)?;
-            let secret = staged_material(&self.directory, &rotation)?;
-            write_fixed(&exchange, secret.saved_bytes()).await?;
-            let (ack, forwarded): (Signed, Vec<Signed>) = decode(&read_frame(&exchange).await?)?;
+            // The peer may have lost its grant while reading history.
+            // Serialize this last check and short private-material release.
+            let state = node.access(deadline).await?;
+            state.check_current_rotation(&rotation).await?;
+            state.check_rotation_recipient(connection, peer, &rotation)?;
+            if let Some(profile) = profile
+                && profile != state.pending_rotation_profile(peer).await?
+            {
+                return Err(RotationError::Rejected);
+            }
+            let secret = staged_material(&state.directory, &rotation)?;
+            exchange.write_fixed(secret.saved_bytes()).await?;
+        }
+        if rotation.completion.is_none() {
+            let (ack, forwarded): (Signed, Vec<Signed>) = decode(&exchange.read_frame().await?)?;
+            let state = node.access(deadline).await?;
             #[cfg(feature = "replica-test-hooks")]
-            self.store.observe(
+            state.store.observe(
                 crate::management_store::RecordCheckpoint::RotationAcknowledgementReceived,
             );
+            state.check_current_rotation(&rotation).await?;
+            state.check_rotation_recipient(connection, peer, &rotation)?;
             let verified_ack = verify_ack(&ack, &rotation)?;
             if verified_ack != *connection.remote_id().as_bytes() {
                 return Err(RotationError::Rejected);
@@ -923,52 +1116,98 @@ impl NativeNetwork {
             if forwarded.len() > MAX_MEMBERS {
                 return Err(RotationError::Rejected);
             }
-            let retained = self.retained_members();
+            let retained = state.retained_members();
             for relayed in &forwarded {
                 if !retained.contains(&verify_ack(relayed, &rotation)?) {
                     return Err(RotationError::Rejected);
                 }
             }
-            self.rotation_connection(connection)?;
-            self.store.save_rotation_ack(&rotation, &ack).await?;
+            state.rotation_connection(connection)?;
+            state.store.save_rotation_ack(&rotation, &ack).await?;
             // A retained original provider may have delivered to a pending
             // recipient. Its genuine exact-proposal node signature can travel
             // back on the provider's proved session, but is never counted from
             // a claimed identity or before this node commits the ACK itself.
             for relayed in &forwarded {
-                self.store.save_rotation_ack(&rotation, relayed).await?;
+                state.store.save_rotation_ack(&rotation, relayed).await?;
             }
             #[cfg(feature = "replica-test-hooks")]
-            self.store
+            state
+                .store
                 .observe(crate::management_store::RecordCheckpoint::RotationAcknowledgementSaved);
         } else {
             let mut ack = [0; 4];
-            read_fixed(&exchange, &mut ack).await?;
+            exchange.read_fixed(&mut ack).await?;
             if &ack != b"DONE" {
                 return Err(RotationError::Rejected);
             }
         }
-        write_fixed(&exchange, b"SAVE").await?;
-        exchange
-            .finish_send()
-            .await
-            .map_err(|_| RotationError::PathUnavailable)?;
+        exchange.write_fixed(b"SAVE").await?;
+        exchange.finish_send().await?;
         let mut received = [0; 4];
-        read_fixed(&exchange, &mut received).await?;
+        exchange.read_fixed(&mut received).await?;
         if &received != b"RCVD" {
             return Err(RotationError::Rejected);
         }
-        self.rotation_progress()
+        let state = node.access(deadline).await?;
+        state.check_current_rotation(&rotation).await?;
+        state.progress_of(&rotation).await
+    }
+
+    fn check_rotation_recipient(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+        peer: VerifyingKey,
+        rotation: &SavedRotation,
+    ) -> Result<(), RotationError> {
+        self.rotation_connection(connection)?;
+        let local = self.node_key.verifying_key();
+        if !rotation.proposal.retained.contains(local.as_bytes())
+            || !self.is_member(local)
+            || !rotation.proposal.retained.contains(peer.as_bytes())
+            || !self.is_member(peer)
+            || rotation.completion.is_some()
+                && self.scope.secret_generation() != rotation.proposal.generation
+        {
+            return Err(RotationError::Rejected);
+        }
+        Ok(())
+    }
+
+    async fn check_current_rotation(&self, expected: &SavedRotation) -> Result<(), RotationError> {
+        let current = self
+            .store
+            .saved_rotation()
             .await?
-            .ok_or(RotationError::Rejected)
+            .ok_or(RotationError::Rejected)?;
+        if current.proposal.id != expected.proposal.id || current.stage() != expected.stage() {
+            return Err(RotationError::Rejected);
+        }
+        Ok(())
     }
 
     pub async fn receive_admission_rotation(
         &mut self,
         connection: &(impl AuthenticatedControl + ?Sized),
     ) -> Result<RotationProgress, RotationError> {
-        self.receive_rotation_exchange(connection, ReceiptMode::Normal)
-            .await
+        Self::receive_rotation_exchange(
+            &mut RotationNode::Exclusive(self),
+            connection,
+            ReceiptMode::Normal,
+        )
+        .await
+    }
+
+    pub(crate) async fn receive_current_rotation(
+        node: &Mutex<Self>,
+        connection: &(impl AuthenticatedControl + ?Sized),
+    ) -> Result<RotationProgress, RotationError> {
+        Self::receive_rotation_exchange(
+            &mut RotationNode::Shared(node),
+            connection,
+            ReceiptMode::Normal,
+        )
+        .await
     }
 
     #[cfg(feature = "replica-test-hooks")]
@@ -977,18 +1216,20 @@ impl NativeNetwork {
         connection: &(impl AuthenticatedControl + ?Sized),
         fault: RotationAckFault,
     ) -> Result<RotationProgress, RotationError> {
-        self.receive_rotation_exchange(connection, ReceiptMode::Fault(fault))
-            .await
+        Self::receive_rotation_exchange(
+            &mut RotationNode::Exclusive(self),
+            connection,
+            ReceiptMode::Fault(fault),
+        )
+        .await
     }
 
     async fn receive_rotation_exchange(
-        &mut self,
+        node: &mut RotationNode<'_>,
         connection: &(impl AuthenticatedControl + ?Sized),
         mode: ReceiptMode,
     ) -> Result<RotationProgress, RotationError> {
-        let result = tokio::time::timeout(TIMEOUT, self.receive_rotation_inner(connection, mode))
-            .await
-            .unwrap_or(Err(RotationError::PathUnavailable));
+        let result = Self::receive_rotation_inner(node, connection, mode).await;
         if result.is_err() {
             connection.close(0u32.into(), b"rotation receipt ended");
         }
@@ -996,313 +1237,400 @@ impl NativeNetwork {
     }
 
     async fn receive_rotation_inner(
-        &mut self,
+        node: &mut RotationNode<'_>,
         connection: &(impl AuthenticatedControl + ?Sized),
         mode: ReceiptMode,
     ) -> Result<RotationProgress, RotationError> {
-        self.rotation_connection(connection)?;
-        let exchange = connection
-            .accept_control_exchange()
-            .await
-            .map_err(|_| RotationError::PathUnavailable)?;
+        let deadline = rotation_deadline(connection);
+        node.access(deadline)
+            .await?
+            .rotation_connection(connection)?;
+        let exchange = RotationExchange {
+            control: wire_io(deadline, connection.accept_control_exchange()).await?,
+            deadline,
+        };
         let mut _root_session = None;
-        if connection.alpn() == ROTATION_DELIVERY_ALPN {
+        let profile = if connection.alpn() == ROTATION_DELIVERY_ALPN {
             let mut profile = [0];
-            read_fixed(&exchange, &mut profile).await?;
-            match profile[0] {
-                1 if self.join.is_some_and(|binding| {
-                    binding.invitation.contact == connection.remote_id()
-                }) => {}
-                2 if self
-                    .recovery
-                    .is_some_and(|binding| binding.contact == connection.remote_id()) =>
-                {
-                    _root_session = Some(
-                        crate::genesis_recovery::SessionGuard::begin(connection)
-                            .map_err(|_| RotationError::Rejected)?,
-                    );
-                    let credential = self.saved_genesis_credential()?;
-                    let local = iroh_base::SecretKey::from_bytes(self.node_key.as_bytes()).public();
-                    let statement = crate::genesis_recovery::proof_statement(
-                        connection,
-                        self.anchor,
-                        local,
-                        connection.remote_id(),
-                    )
-                    .map_err(|_| RotationError::Rejected)?;
-                    write_fixed(&exchange, &credential.root.sign(&statement).to_bytes()).await?;
+            exchange.read_fixed(&mut profile).await?;
+            let proof = {
+                let state = node.access(deadline).await?;
+                state.check_original_rotation_provider(profile[0], connection.remote_id())?;
+                match profile[0] {
+                    2 => {
+                        _root_session = Some(
+                            crate::genesis_recovery::SessionGuard::begin(connection)
+                                .map_err(|_| RotationError::Rejected)?,
+                        );
+                        let credential = state.saved_genesis_credential()?;
+                        let local =
+                            iroh_base::SecretKey::from_bytes(state.node_key.as_bytes()).public();
+                        let statement = crate::genesis_recovery::proof_statement(
+                            connection,
+                            state.anchor,
+                            local,
+                            connection.remote_id(),
+                        )
+                        .map_err(|_| RotationError::Rejected)?;
+                        Some(credential.root.sign(&statement).to_bytes())
+                    }
+                    _ => None,
                 }
-                _ => return Err(RotationError::Rejected),
+            };
+            if let Some(proof) = proof {
+                exchange.write_fixed(&proof).await?;
             }
-        }
+            Some(profile[0])
+        } else {
+            None
+        };
         type WireHistory = Vec<(Vec<u8>, Option<Vec<u8>>)>;
         let (signed, completion, history, predecessor): (
             Signed,
             Option<Signed>,
             WireHistory,
             Option<(Signed, Signed)>,
-        ) = decode(&read_frame(&exchange).await?)?;
-        let proposal = verify_proposal(&self.store, &signed)?;
-        if !proposal
-            .retained
-            .contains(connection.remote_id().as_bytes())
-            || !proposal
+        ) = decode(&exchange.read_frame().await?)?;
+        let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())
+            .map_err(|_| RotationError::Rejected)?;
+        let pending = {
+            let mut state = node.access(deadline).await?;
+            state.rotation_connection(connection)?;
+            if let Some(profile) = profile {
+                state.check_original_rotation_provider(profile, connection.remote_id())?;
+            }
+            let proposal = verify_proposal(&state.store, &signed)?;
+            if !proposal
                 .retained
-                .contains(self.node_key.verifying_key().as_bytes())
-            || history.len() > MAX_MEMBERS
-        {
-            return Err(RotationError::Rejected);
-        }
-        for (header, body) in history {
-            self.store
-                .ingest(&ManagementRecord::new(header, body.as_deref()))
-                .await?;
-        }
-        self.store.apply_ready().await?;
-        self.refresh_authorization();
-        self.rotation_connection(connection)?;
-        if !self.is_member(self.node_key.verifying_key())
-            || !self.is_member(
-                VerifyingKey::from_bytes(connection.remote_id().as_bytes())
-                    .map_err(|_| RotationError::Rejected)?,
-            )
-        {
-            return Err(RotationError::Rejected);
-        }
-        // An acknowledged predecessor can still be staged at this recipient
-        // after the initiator has begun the next round. Apply only its exact
-        // durable root decision, never infer completion from a later proposal.
-        if self.scope.secret_generation() < proposal.previous_generation
-            && self.store.saved_rotation().await?.is_some_and(|old| {
-                old.completion.is_none() && old.proposal.generation == proposal.previous_generation
-            })
-        {
-            let previous = self
-                .store
-                .saved_rotation()
-                .await?
-                .ok_or(RotationError::Rejected)?;
-            let (previous_signed, previous_completion) =
-                predecessor.ok_or(RotationError::Rejected)?;
-            if previous.proposal.generation != proposal.previous_generation
-                || encode(&previous.signed)? != encode(&previous_signed)?
+                .contains(connection.remote_id().as_bytes())
+                || !proposal
+                    .retained
+                    .contains(state.node_key.verifying_key().as_bytes())
+                || history.len() > MAX_MEMBERS
             {
                 return Err(RotationError::Rejected);
             }
-            verify_completion(&previous, self.anchor.root, &previous_completion)?;
-            self.store
-                .save_rotation_completion(&previous, &previous_completion)
-                .await?;
-            let completed = self
-                .store
-                .saved_rotation()
-                .await?
-                .ok_or(RotationError::Rejected)?;
-            self.activate_rotation(&completed).await?;
-            self.rotation_connection(connection)?;
-        }
-        let existing = self.store.saved_rotation().await?;
-        if completion.is_none() {
-            if connection.alpn() == ADMISSION_ROTATION_ALPN
-                && proposal.previous_generation != self.scope.secret_generation()
-                || connection.alpn() == ROTATION_DELIVERY_ALPN
-                    && proposal.generation <= self.scope.secret_generation()
-            {
-                return Err(RotationError::Rejected);
+            for (header, body) in history {
+                state
+                    .store
+                    .ingest(&ManagementRecord::new(header, body.as_deref()))
+                    .await?;
             }
-            if existing.as_ref().is_some_and(|old| {
-                old.proposal.generation >= proposal.generation
-                    && encode(&old.signed).ok() != encode(&signed).ok()
-            }) {
-                return Err(RotationError::Rejected);
-            }
-            // Persist the non-secret, root-authorized pause before waiting for
-            // replacement bytes. A crash before secret commit reopens paused
-            // with no acknowledgement, rather than resuming admission early.
-            self.store.save_rotation(&signed).await?;
-            let mut bytes = [0; 32];
-            read_fixed(&exchange, &mut bytes).await?;
-            #[cfg(feature = "replica-test-hooks")]
-            self.store
-                .observe(crate::management_store::RecordCheckpoint::RotationSecretReceived);
-            let secret = AdmissionSecret::from_saved(bytes);
-            let scope = AdmissionScope::new(proposal.network, proposal.generation);
-            if secret.fingerprint(&scope) != proposal.fingerprint {
-                return Err(RotationError::Rejected);
-            }
-            save_staged(&self.directory, &proposal, &secret)?;
-            self.store.save_rotation(&signed).await?;
-            self.gate.stage_rotation_secret(scope, secret);
-            #[cfg(feature = "replica-test-hooks")]
-            self.store
-                .observe(crate::management_store::RecordCheckpoint::RotationSecretSaved);
-            let rotation = self
-                .store
-                .saved_rotation()
-                .await?
-                .ok_or(RotationError::Rejected)?;
-            let ack = self.durable_rotation_ack(&rotation)?;
-            self.store.save_rotation_ack(&rotation, &ack).await?;
-            #[cfg(feature = "replica-test-hooks")]
-            let mut tamper_forwarded = false;
-            let wire_ack = match mode {
-                ReceiptMode::Normal => ack,
-                #[cfg(feature = "replica-test-hooks")]
-                ReceiptMode::Fault(RotationAckFault::ForgedForwardedSignature) => {
-                    tamper_forwarded = true;
-                    ack
-                }
-                #[cfg(feature = "replica-test-hooks")]
-                ReceiptMode::Fault(RotationAckFault::ForgedSignature) => {
-                    let mut forged = ack;
-                    forged.signature[0] ^= 1;
-                    forged
-                }
-                #[cfg(feature = "replica-test-hooks")]
-                ReceiptMode::Fault(RotationAckFault::WrongIdentity(key)) => Signed::sign(
-                    ACK_DOMAIN,
-                    &Acknowledgement {
-                        proposal: *rotation.signed.hash()?.as_bytes(),
-                        member: *key.verifying_key().as_bytes(),
-                    },
-                    &key,
-                )?,
-                #[cfg(feature = "replica-test-hooks")]
-                ReceiptMode::Fault(RotationAckFault::PreviousRotation) => {
-                    let previous: Vec<u8> = sqlx::query_scalar("SELECT proposal FROM admission_rotations WHERE generation<? ORDER BY generation DESC LIMIT 1")
-                        .bind(rotation.proposal.generation as i64).fetch_one(&self.store.pool).await.map_err(StoreError::from)?;
-                    let signed: Signed = decode(&previous)?;
-                    let proposal = verify_proposal(&self.store, &signed)?;
-                    let saved: Vec<u8> = sqlx::query_scalar("SELECT acknowledgement FROM admission_rotation_acks WHERE rotation=? AND member=?")
-                        .bind(proposal.id.as_slice()).bind(self.node_key.verifying_key().as_bytes().as_slice())
-                        .fetch_one(&self.store.pool).await.map_err(StoreError::from)?;
-                    let stale: Signed = decode(&saved)?;
-                    verify_ack(
-                        &stale,
-                        &SavedRotation {
-                            signed,
-                            proposal,
-                            completion: None,
-                        },
-                    )?;
-                    stale
-                }
-            };
-            let retained = self.retained_members();
-            let forwarded = self
-                .store
-                .rotation_acks(&rotation)
-                .await?
-                .into_iter()
-                .filter(|ack| {
-                    verify_ack(ack, &rotation).is_ok_and(|member| retained.contains(&member))
+            state.store.apply_ready().await?;
+            state.refresh_authorization();
+            state.check_rotation_sender(connection, peer)?;
+            // An acknowledged predecessor can still be staged at this recipient
+            // after the initiator has begun the next round. Apply only its exact
+            // durable root decision, never infer completion from a later proposal.
+            if state.scope.secret_generation() < proposal.previous_generation
+                && state.store.saved_rotation().await?.is_some_and(|old| {
+                    old.completion.is_none()
+                        && old.proposal.generation == proposal.previous_generation
                 })
-                .collect::<Vec<_>>();
-            #[cfg(feature = "replica-test-hooks")]
-            let forwarded = if tamper_forwarded {
-                let mut mutated = forwarded;
-                let other = mutated
-                    .iter_mut()
-                    .find(|ack| {
-                        verify_ack(ack, &rotation)
-                            .is_ok_and(|member| member != *self.node_key.verifying_key().as_bytes())
-                    })
+            {
+                let previous = state
+                    .store
+                    .saved_rotation()
+                    .await?
                     .ok_or(RotationError::Rejected)?;
-                other.signature[0] ^= 1;
-                mutated
+                let (previous_signed, previous_completion) =
+                    predecessor.ok_or(RotationError::Rejected)?;
+                if previous.proposal.generation != proposal.previous_generation
+                    || encode(&previous.signed)? != encode(&previous_signed)?
+                {
+                    return Err(RotationError::Rejected);
+                }
+                state.verify_local_completion(&previous, &previous_completion)?;
+                state
+                    .store
+                    .save_rotation_completion(&previous, &previous_completion)
+                    .await?;
+                let completed = state
+                    .store
+                    .saved_rotation()
+                    .await?
+                    .ok_or(RotationError::Rejected)?;
+                state.activate_rotation(&completed).await?;
+                state.rotation_connection(connection)?;
+            }
+            let existing = state.store.saved_rotation().await?;
+            if completion.is_none() {
+                if connection.alpn() == ADMISSION_ROTATION_ALPN
+                    && proposal.previous_generation != state.scope.secret_generation()
+                    || connection.alpn() == ROTATION_DELIVERY_ALPN
+                        && proposal.generation <= state.scope.secret_generation()
+                {
+                    return Err(RotationError::Rejected);
+                }
+                if existing.as_ref().is_some_and(|old| {
+                    old.proposal.generation >= proposal.generation
+                        && encode(&old.signed).ok() != encode(&signed).ok()
+                }) {
+                    return Err(RotationError::Rejected);
+                }
+                // Persist the non-secret, root-authorized pause before waiting for
+                // replacement bytes. A crash before secret commit reopens paused
+                // with no acknowledgement, rather than resuming admission early.
+                state.store.save_rotation(&signed).await?;
+                Some(
+                    state
+                        .store
+                        .saved_rotation()
+                        .await?
+                        .ok_or(RotationError::Rejected)?,
+                )
             } else {
-                forwarded
+                let rotation = existing.ok_or(RotationError::Rejected)?;
+                if encode(&rotation.signed)? != encode(&signed)? {
+                    return Err(RotationError::Rejected);
+                }
+                let completion = completion.unwrap();
+                // Membership may have changed after the initiator signed the
+                // decision. Verify the original quorum and our inclusion in it.
+                state.verify_local_completion(&rotation, &completion)?;
+                state
+                    .store
+                    .save_rotation_completion(&rotation, &completion)
+                    .await?;
+                #[cfg(feature = "replica-test-hooks")]
+                state
+                    .store
+                    .observe(crate::management_store::RecordCheckpoint::RotationCommitSaved);
+                let saved = state
+                    .store
+                    .saved_rotation()
+                    .await?
+                    .ok_or(RotationError::Rejected)?;
+                state.activate_rotation(&saved).await?;
+                None
+            }
+        };
+        if let Some(rotation) = pending {
+            let mut bytes = [0; 32];
+            exchange.read_fixed(&mut bytes).await?;
+            let ack_frame = {
+                let state = node.access(deadline).await?;
+                state.check_current_rotation(&rotation).await?;
+                state.check_rotation_sender(connection, peer)?;
+                if let Some(profile) = profile {
+                    state.check_original_rotation_provider(profile, connection.remote_id())?;
+                }
+                #[cfg(feature = "replica-test-hooks")]
+                state
+                    .store
+                    .observe(crate::management_store::RecordCheckpoint::RotationSecretReceived);
+                let secret = AdmissionSecret::from_saved(bytes);
+                let proposal = &rotation.proposal;
+                let scope = AdmissionScope::new(proposal.network, proposal.generation);
+                if secret.fingerprint(&scope) != proposal.fingerprint {
+                    return Err(RotationError::Rejected);
+                }
+                save_staged(&state.directory, proposal, &secret)?;
+                state.gate.stage_rotation_secret(scope, secret);
+                #[cfg(feature = "replica-test-hooks")]
+                state
+                    .store
+                    .observe(crate::management_store::RecordCheckpoint::RotationSecretSaved);
+                let ack = state.durable_rotation_ack(&rotation)?;
+                state.store.save_rotation_ack(&rotation, &ack).await?;
+                #[cfg(feature = "replica-test-hooks")]
+                let mut tamper_forwarded = false;
+                let wire_ack = match mode {
+                    ReceiptMode::Normal => ack,
+                    #[cfg(feature = "replica-test-hooks")]
+                    ReceiptMode::Fault(RotationAckFault::ForgedForwardedSignature) => {
+                        tamper_forwarded = true;
+                        ack
+                    }
+                    #[cfg(feature = "replica-test-hooks")]
+                    ReceiptMode::Fault(RotationAckFault::ForgedSignature) => {
+                        let mut forged = ack;
+                        forged.signature[0] ^= 1;
+                        forged
+                    }
+                    #[cfg(feature = "replica-test-hooks")]
+                    ReceiptMode::Fault(RotationAckFault::WrongIdentity(key)) => Signed::sign(
+                        ACK_DOMAIN,
+                        &Acknowledgement {
+                            proposal: *rotation.signed.hash()?.as_bytes(),
+                            member: *key.verifying_key().as_bytes(),
+                        },
+                        &key,
+                    )?,
+                    #[cfg(feature = "replica-test-hooks")]
+                    ReceiptMode::Fault(RotationAckFault::PreviousRotation) => {
+                        let previous: Vec<u8> = sqlx::query_scalar("SELECT proposal FROM admission_rotations WHERE generation<? ORDER BY generation DESC LIMIT 1")
+                        .bind(rotation.proposal.generation as i64).fetch_one(&state.store.pool).await.map_err(StoreError::from)?;
+                        let signed: Signed = decode(&previous)?;
+                        let proposal = verify_proposal(&state.store, &signed)?;
+                        let saved: Vec<u8> = sqlx::query_scalar("SELECT acknowledgement FROM admission_rotation_acks WHERE rotation=? AND member=?")
+                        .bind(proposal.id.as_slice()).bind(state.node_key.verifying_key().as_bytes().as_slice())
+                        .fetch_one(&state.store.pool).await.map_err(StoreError::from)?;
+                        let stale: Signed = decode(&saved)?;
+                        verify_ack(
+                            &stale,
+                            &SavedRotation {
+                                signed,
+                                proposal,
+                                completion: None,
+                            },
+                        )?;
+                        stale
+                    }
+                };
+                let retained = state.retained_members();
+                let forwarded = state
+                    .store
+                    .rotation_acks(&rotation)
+                    .await?
+                    .into_iter()
+                    .filter(|ack| {
+                        verify_ack(ack, &rotation).is_ok_and(|member| retained.contains(&member))
+                    })
+                    .collect::<Vec<_>>();
+                #[cfg(feature = "replica-test-hooks")]
+                let forwarded = if tamper_forwarded {
+                    let mut mutated = forwarded;
+                    let other = mutated
+                        .iter_mut()
+                        .find(|ack| {
+                            verify_ack(ack, &rotation).is_ok_and(|member| {
+                                member != *state.node_key.verifying_key().as_bytes()
+                            })
+                        })
+                        .ok_or(RotationError::Rejected)?;
+                    other.signature[0] ^= 1;
+                    mutated
+                } else {
+                    forwarded
+                };
+                encode(&(wire_ack, forwarded))?
             };
-            write_frame(&exchange, &encode(&(wire_ack, forwarded))?).await?;
+            exchange.write_frame(&ack_frame).await?;
             #[cfg(feature = "replica-test-hooks")]
-            self.store
+            node.access(deadline)
+                .await?
+                .store
                 .observe(crate::management_store::RecordCheckpoint::RotationAcknowledgementSent);
         } else {
-            let rotation = existing.ok_or(RotationError::Rejected)?;
-            if encode(&rotation.signed)? != encode(&signed)? {
-                return Err(RotationError::Rejected);
-            }
-            let completion = completion.unwrap();
-            let final_state = verify_completion(&rotation, self.anchor.root, &completion)?;
-            if rotation.completion.is_none() && final_state.retained != self.retained_members() {
-                return Err(RotationError::RetainedChanged);
-            }
-            self.store
-                .save_rotation_completion(&rotation, &completion)
-                .await?;
-            #[cfg(feature = "replica-test-hooks")]
-            self.store
-                .observe(crate::management_store::RecordCheckpoint::RotationCommitSaved);
-            let saved = self
-                .store
-                .saved_rotation()
-                .await?
-                .ok_or(RotationError::Rejected)?;
-            self.activate_rotation(&saved).await?;
-            write_fixed(&exchange, b"DONE").await?;
+            exchange.write_fixed(b"DONE").await?;
         }
         let mut saved = [0; 4];
-        read_fixed(&exchange, &mut saved).await?;
+        exchange.read_fixed(&mut saved).await?;
         if &saved != b"SAVE" {
             return Err(RotationError::Rejected);
         }
-        write_fixed(&exchange, b"RCVD").await?;
-        exchange
-            .finish_send()
-            .await
-            .map_err(|_| RotationError::PathUnavailable)?;
+        exchange.write_fixed(b"RCVD").await?;
+        exchange.finish_send().await?;
         if _root_session.is_some() {
-            let _ = connection.revocation_handle().closed().await;
+            let _ = timeout_at(deadline, connection.revocation_handle().closed()).await;
         }
-        self.rotation_progress()
+        node.access(deadline)
+            .await?
+            .rotation_progress()
             .await?
             .ok_or(RotationError::Rejected)
     }
+
+    fn check_rotation_sender(
+        &self,
+        connection: &(impl AuthenticatedControl + ?Sized),
+        peer: VerifyingKey,
+    ) -> Result<(), RotationError> {
+        self.rotation_connection(connection)?;
+        if !self.is_member(self.node_key.verifying_key()) || !self.is_member(peer) {
+            return Err(RotationError::Rejected);
+        }
+        Ok(())
+    }
+
+    fn check_original_rotation_provider(
+        &self,
+        profile: u8,
+        provider: iroh::EndpointId,
+    ) -> Result<(), RotationError> {
+        let original = match profile {
+            1 => self.join.map(|binding| binding.invitation.contact),
+            2 => self.recovery.map(|binding| binding.contact),
+            _ => None,
+        };
+        if original == Some(provider) {
+            Ok(())
+        } else {
+            Err(RotationError::Rejected)
+        }
+    }
+
+    fn verify_local_completion(
+        &self,
+        rotation: &SavedRotation,
+        signed: &Signed,
+    ) -> Result<(), RotationError> {
+        let completed = verify_completion(rotation, self.anchor.root, signed)?;
+        if !completed
+            .retained
+            .contains(self.node_key.verifying_key().as_bytes())
+        {
+            return Err(RotationError::Rejected);
+        }
+        Ok(())
+    }
 }
 
-async fn write_fixed(exchange: &ControlExchange, bytes: &[u8]) -> Result<(), RotationError> {
-    exchange
-        .send_message(
-            ControlMessageFormat::Fixed {
-                length: bytes.len(),
-            },
-            bytes,
-        )
-        .await
-        .map_err(|_| RotationError::PathUnavailable)
+fn rotation_deadline(connection: &(impl AuthenticatedControl + ?Sized)) -> Instant {
+    let local = Instant::now() + TIMEOUT;
+    connection
+        .caller_deadline()
+        .map_or(local, |deadline| local.min(deadline.into()))
 }
-async fn read_fixed<const N: usize>(
-    exchange: &ControlExchange,
-    bytes: &mut [u8; N],
-) -> Result<(), RotationError> {
-    let message = exchange
-        .recv_message(ControlMessageFormat::Fixed { length: N })
-        .await
-        .map_err(|_| RotationError::PathUnavailable)?;
-    bytes.copy_from_slice(&message);
-    Ok(())
-}
-async fn write_frame(exchange: &ControlExchange, bytes: &[u8]) -> Result<(), RotationError> {
-    if bytes.len() > MAX_FRAME {
-        return Err(RotationError::Rejected);
+async fn wire_io<T>(
+    deadline: Instant,
+    operation: impl Future<Output = std::io::Result<T>>,
+) -> Result<T, RotationError> {
+    if deadline <= Instant::now() {
+        return Err(RotationError::PathUnavailable);
     }
-    exchange
-        .send_message(
-            ControlMessageFormat::LengthPrefixed32 { maximum: MAX_FRAME },
-            bytes,
-        )
+    timeout_at(deadline, operation)
         .await
-        .map_err(|_| RotationError::PathUnavailable)
-}
-async fn read_frame(exchange: &ControlExchange) -> Result<Vec<u8>, RotationError> {
-    exchange
-        .recv_message(ControlMessageFormat::LengthPrefixed32 { maximum: MAX_FRAME })
-        .await
-        .map_err(|error| {
-            if error.kind() == std::io::ErrorKind::InvalidData {
-                RotationError::Rejected
-            } else {
-                RotationError::PathUnavailable
-            }
+        .map_err(|_| RotationError::PathUnavailable)?
+        .map_err(|error| match error.kind() {
+            std::io::ErrorKind::InvalidData => RotationError::Rejected,
+            _ => RotationError::PathUnavailable,
         })
+}
+struct RotationExchange {
+    control: ControlExchange,
+    deadline: Instant,
+}
+impl RotationExchange {
+    async fn write_fixed(&self, bytes: &[u8]) -> Result<(), RotationError> {
+        let format = ControlMessageFormat::Fixed {
+            length: bytes.len(),
+        };
+        wire_io(self.deadline, self.control.send_message(format, bytes)).await
+    }
+
+    async fn read_fixed<const N: usize>(&self, bytes: &mut [u8; N]) -> Result<(), RotationError> {
+        let format = ControlMessageFormat::Fixed { length: N };
+        let message = wire_io(self.deadline, self.control.recv_message(format)).await?;
+        bytes.copy_from_slice(&message);
+        Ok(())
+    }
+
+    async fn write_frame(&self, bytes: &[u8]) -> Result<(), RotationError> {
+        if bytes.len() > MAX_FRAME {
+            return Err(RotationError::Rejected);
+        }
+        let format = ControlMessageFormat::LengthPrefixed32 { maximum: MAX_FRAME };
+        wire_io(self.deadline, self.control.send_message(format, bytes)).await
+    }
+
+    async fn read_frame(&self) -> Result<Vec<u8>, RotationError> {
+        let format = ControlMessageFormat::LengthPrefixed32 { maximum: MAX_FRAME };
+        wire_io(self.deadline, self.control.recv_message(format)).await
+    }
+
+    async fn finish_send(&self) -> Result<(), RotationError> {
+        wire_io(self.deadline, self.control.finish_send()).await
+    }
 }

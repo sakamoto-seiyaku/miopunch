@@ -9,6 +9,7 @@ use miopunch_native_probe::admission_gate::ADMISSION_REQUEST_ALPN;
 use miopunch_native_probe::admission_rotation::{ADMISSION_ROTATION_ALPN, RotationStage};
 use miopunch_native_probe::genesis_recovery::GenesisCredential;
 use miopunch_native_probe::manual_admission::ManualExchange;
+use miopunch_native_probe::native_client::NativeClient;
 use miopunch_native_probe::native_network::NativeNetwork;
 use p2panda_core::Hash;
 use std::net::Ipv4Addr;
@@ -76,6 +77,218 @@ async fn distribute(initiator: &mut NativeNetwork, member: &mut NativeNetwork) {
     received.unwrap();
     ie.close().await;
     me.close().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn native_sdk_resumes_the_same_rotation_and_switches_with_fresh_confirmation() {
+    use miopunch_native_probe::{
+        admission_rotation::RotationProgress,
+        manual_admission::AdmissionStage,
+        resources::{Resource, ResourceConfig, ResourceTable, ResourceUse},
+    };
+
+    async fn observe_rotation(
+        client: &NativeClient,
+        checkpoint: &str,
+        ready: impl Fn(&RotationProgress) -> bool,
+    ) -> RotationProgress {
+        tokio::time::timeout(Duration::from_secs(25), async {
+            let mut state = client.state_snapshot().await.unwrap();
+            loop {
+                if let Some(progress) = state.admission_rotation.filter(&ready) {
+                    return progress;
+                }
+                state = client.observe_state(state.cursor).await.unwrap();
+            }
+        })
+        .await
+        .unwrap_or_else(|error| panic!("native SDK did not observe {checkpoint}: {error}"))
+    }
+
+    let mut config = iroh_relay::server::ServerConfig::default();
+    config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let relay = iroh_relay::server::Server::spawn(config).await.unwrap();
+    let url = relay.http_url().unwrap();
+    let mut resources = ResourceConfig::with_defaults(ResourceTable {
+        revision: 2,
+        resources: vec![],
+    });
+    resources.replacement = Some(vec![Resource {
+        url: url.to_string(),
+        uses: [ResourceUse::DataRelay].into(),
+        limitation: "owned rotation relay".into(),
+    }]);
+    resources.disabled_uses = [
+        ResourceUse::Observation,
+        ResourceUse::Lookup,
+        ResourceUse::Signaling,
+    ]
+    .into();
+    resources.udp_direct_disabled = true;
+    resources.tcp_direct_disabled = true;
+    resources.maintenance.exploration_interval_ms = 300;
+    resources.maintenance.contact_timeout_ms = 5000;
+
+    let directory = tempfile::tempdir().unwrap();
+    let creator_path = directory.path().join("creator");
+    let online_path = directory.path().join("online");
+    let offline_path = directory.path().join("offline");
+    let creator =
+        NativeClient::create_with_resources(&creator_path, Ipv4Addr::LOCALHOST, resources.clone())
+            .await
+            .unwrap();
+    creator
+        .export_recovery_card_to(directory.path().join("card"), None)
+        .await
+        .unwrap();
+    creator.acknowledge_recovery_saved().await.unwrap();
+    let invitation = creator.issue_precode(expiry(), Some(2)).await.unwrap();
+    let online = NativeClient::join_with_resources(
+        &online_path,
+        &invitation,
+        Ipv4Addr::LOCALHOST,
+        resources.clone(),
+    )
+    .await
+    .unwrap();
+    let offline = NativeClient::join_with_resources(
+        &offline_path,
+        &invitation,
+        Ipv4Addr::LOCALHOST,
+        resources.clone(),
+    )
+    .await
+    .unwrap();
+    for member in [&online, &offline] {
+        assert_eq!(
+            member.request_admission(&invitation).await.unwrap(),
+            AdmissionStage::Complete
+        );
+    }
+    let creator_status = creator.status().await.node;
+    let online_id = online.status().await.node.node_id;
+    let offline_id = offline.status().await.node.node_id;
+    let ids = [creator_status.node_id, online_id, offline_id];
+    offline.close().await.unwrap();
+
+    assert!(online.begin_admission_rotation(None).await.is_err());
+    let started = creator.begin_admission_rotation(None).await.unwrap();
+    assert_eq!(started.stage, RotationStage::Distributing);
+    assert_eq!(started.acknowledged, vec![creator_status.node_id]);
+    assert!(ids.iter().all(|id| started.retained.contains(id)));
+    let distributed = observe_rotation(&creator, "online receipt", |p| {
+        p.acknowledged.contains(&online_id)
+    })
+    .await;
+    assert_eq!(distributed.id, started.id);
+    assert_eq!(distributed.acknowledged.len(), 2);
+    assert_eq!(
+        online.rotation_progress().await.unwrap().unwrap().id,
+        started.id
+    );
+    creator.close().await.unwrap();
+
+    let creator = NativeClient::open(&creator_path, Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    assert_eq!(
+        creator.rotation_progress().await.unwrap().unwrap(),
+        distributed
+    );
+    let offline = NativeClient::open(&offline_path, Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let all_saved = observe_rotation(&creator, "returning member receipt", |p| {
+        p.acknowledged.len() == 3
+    })
+    .await;
+    assert_eq!(all_saved.id, started.id);
+    assert_eq!(all_saved.stage, RotationStage::Distributing);
+    offline.close().await.unwrap();
+    assert!(
+        online
+            .confirm_admission_rotation(started.id, None)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        creator
+            .confirm_admission_rotation(started.id, None)
+            .await
+            .unwrap(),
+        all_saved
+    );
+    for member in [&creator, &online] {
+        let completed = observe_rotation(member, "initial completion", |p| {
+            p.stage == RotationStage::Complete
+        })
+        .await;
+        assert_eq!(completed.id, started.id);
+        assert_eq!(completed.generation, 1);
+        assert_eq!(completed.acknowledged.len(), 3);
+    }
+    // The commit-time set remains authoritative when a staged device misses
+    // completion and an unrelated applicant joins before it comes back.
+    let next_invitation = creator.issue_precode(expiry(), Some(1)).await.unwrap();
+    let newcomer = NativeClient::join_with_resources(
+        directory.path().join("newcomer"),
+        &next_invitation,
+        Ipv4Addr::LOCALHOST,
+        resources,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        newcomer.request_admission(&next_invitation).await.unwrap(),
+        AdmissionStage::Complete
+    );
+    let newcomer_id = newcomer.status().await.node.node_id;
+    creator.close().await.unwrap();
+    online.close().await.unwrap();
+
+    let creator = NativeClient::open(&creator_path, Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let online = NativeClient::open(&online_path, Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let offline = NativeClient::open(&offline_path, Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let late_completion = observe_rotation(&offline, "late completion", |p| {
+        p.stage == RotationStage::Complete
+    })
+    .await;
+    assert_eq!(late_completion.id, started.id);
+    assert_eq!(late_completion.acknowledged.len(), 3);
+    assert!(!late_completion.retained.contains(&newcomer_id));
+    assert!(
+        offline
+            .status()
+            .await
+            .node
+            .members
+            .iter()
+            .any(|(id, _)| *id == newcomer_id)
+    );
+    for (member, id) in [&creator, &online, &offline].into_iter().zip(ids) {
+        let status = member.status().await.node;
+        assert_eq!(status.node_id, id);
+        assert_eq!(status.anchor, creator_status.anchor);
+        let progress = member.rotation_progress().await.unwrap().unwrap();
+        assert_eq!(progress.stage, RotationStage::Complete);
+        assert_eq!(progress.id, started.id);
+    }
+    let address = EndpointAddr::new(online.address().id).with_relay_url(url);
+    assert_eq!(offline.ping(address).await.unwrap()["reply"], "PONG");
+    creator.close().await.unwrap();
+    online.close().await.unwrap();
+    offline.close().await.unwrap();
+    newcomer.close().await.unwrap();
+    relay.shutdown().await.unwrap();
 }
 
 #[tokio::test]
@@ -156,7 +369,9 @@ fn rotation_checkpoint_worker() {
             endpoint.addr().ip_addrs().next().unwrap()
         );
         std::fs::write(std::env::var("MIO37_PUBLIC_PATH").unwrap(), public).unwrap();
-        let connection = endpoint.accept().await.unwrap().await.unwrap();
+        let connection = std::sync::Arc::new(
+            endpoint.accept().await.unwrap().accept_control().unwrap().await.unwrap(),
+        );
         if std::env::var("MIO37_ROLE").unwrap() == "begin" {
             let mut session = node.begin_management_session();
             node.elevate_genesis(

@@ -27,9 +27,11 @@ use crate::{
     admission_progress::{
         AdmissionAttempt, AdmissionHistoryEntry, AdmissionReceipt, ApplicationProgress,
     },
+    admission_rotation::{ADMISSION_ROTATION_ALPN, ROTATION_DELIVERY_ALPN, RotationProgress},
     connection_coordinator::ADMISSION_RECEIPT_ALPN,
     control_protocol::{AuthenticatedControl, ControlOwner, OwnedControl},
     manual_admission::{AdmissionRequest, AdmissionStage, ManualExchange, ManualInvitation},
+    native_admission_rotation::{self, RotationConfirmation},
     native_member_services::{self, MemberService},
     native_network::{NativeNetwork, NodeStatus},
     precode::Precode,
@@ -90,6 +92,7 @@ pub struct ClientStateSnapshot {
     pub pending_admissions: Vec<AdmissionRequest>,
     pub admission_display_names: BTreeMap<VerifyingKey, String>,
     pub admission_history: Vec<AdmissionHistoryEntry>,
+    pub admission_rotation: Option<RotationProgress>,
     pub device_operations: Value,
 }
 
@@ -116,6 +119,7 @@ pub struct NativeClient {
     recovery_saved: Arc<AtomicBool>,
     pub(crate) replacement_ready: Arc<AtomicBool>,
     admission_operation: Mutex<()>,
+    pub(crate) rotation_confirmation: Arc<RotationConfirmation>,
 }
 impl NativeClient {
     pub async fn create(path: impl AsRef<Path>, bind: Ipv4Addr) -> Result<Self, ClientError> {
@@ -246,6 +250,8 @@ impl NativeClient {
             ADMISSION_REQUEST_ALPN.to_vec(),
             PRECODE_REQUEST_ALPN.to_vec(),
             ADMISSION_RECEIPT_ALPN.to_vec(),
+            ADMISSION_ROTATION_ALPN.to_vec(),
+            ROTATION_DELIVERY_ALPN.to_vec(),
             MEMBER_MESSAGE.to_vec(),
             crate::native_network::FUSED_MEMBER_ALPN.to_vec(),
             crate::connection_recovery::CONNECTION_RECOVERY_ALPN.to_vec(),
@@ -312,6 +318,7 @@ impl NativeClient {
         services.lock().await.terminal = Some(Arc::downgrade(&terminal));
         let node = Arc::new(Mutex::new(node));
         let cancel = CancellationToken::new();
+        let rotation_confirmation = Arc::new(RotationConfirmation::default());
         let removal_commits = tokio_util::task::TaskTracker::new();
         let listener = {
             let endpoint = resources.endpoint().clone();
@@ -321,6 +328,7 @@ impl NativeClient {
             let removal_commits = removal_commits.clone();
             let recovery_saved = recovery_saved.clone();
             let replacement_ready = replacement_ready.clone();
+            let rotation_confirmation = rotation_confirmation.clone();
             let files = files.clone();
             let services = services.clone();
             let clipboard = clipboard.clone();
@@ -342,6 +350,13 @@ impl NativeClient {
                     resources.clone(),
                     recovery_saved.clone(),
                     replacement_ready.clone(),
+                ));
+                background.spawn(native_admission_rotation::maintain(
+                    node.clone(), resources.clone(),
+                    recovery_saved.clone(), replacement_ready.clone(),
+                ));
+                background.spawn(native_admission_rotation::commit_when_ready(
+                    node.clone(), resources.clone(), rotation_confirmation,
                 ));
                 background.spawn(sync_member_management(
                     members.clone(),
@@ -536,6 +551,16 @@ impl NativeClient {
                                     }
                                     return;
                                 }
+                                if matches!(alpn.as_slice(), ADMISSION_ROTATION_ALPN | ROTATION_DELIVERY_ALPN) {
+                                    if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting.into_control()).await {
+                                        let connection = Arc::new(connection).retain_control();
+                                        let result = NativeNetwork::receive_current_rotation(&node, &connection).await;
+                                        if result.is_ok() {
+                                            let _ = tokio::time::timeout_at(deadline, connection.revocation_handle().closed()).await;
+                                        }
+                                    }
+                                    return;
+                                }
                                 let _ = tokio::time::timeout_at(deadline, async {
                                     if matches!(alpn.as_slice(), ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN) {
                                         let connection = Arc::new(accepting.into_control().await?);
@@ -592,6 +617,7 @@ impl NativeClient {
             recovery_saved,
             replacement_ready,
             admission_operation: Mutex::new(()),
+            rotation_confirmation,
         })
     }
     pub async fn status(&self) -> ClientStatus {
@@ -649,6 +675,7 @@ impl NativeClient {
             pending_admissions,
             admission_display_names,
             admission_history,
+            admission_rotation: node.rotation_progress().await?,
             device_operations: crate::native_device_management::operation_state(&node)?,
             cursor: node.store.changes.cursor(),
         })

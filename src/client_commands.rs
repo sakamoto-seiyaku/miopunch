@@ -1,5 +1,6 @@
 //! Shared trusted host operations; lifecycle ownership stays with the caller.
 use crate::{
+    admission_rotation::RotationProgress,
     manual_admission::AdmissionRequest,
     native_client::{
         ClientError, ClientInvitation, ClientStateSnapshot, ClientStatus, NativeClient,
@@ -159,6 +160,16 @@ pub enum Command {
         address: iroh::EndpointAddr,
     },
     ManagementRecoveryStatus,
+    BeginAdmissionRotation {
+        card_path: Option<String>,
+        password_path: Option<String>,
+    },
+    ConfirmAdmissionRotation {
+        rotation: String,
+        card_path: Option<String>,
+        password_path: Option<String>,
+    },
+    RotationProgress,
     CustodyPropose {
         recipient: p2panda_core::VerifyingKey,
     },
@@ -376,7 +387,34 @@ fn state_snapshot_json(snapshot: ClientStateSnapshot) -> Value {
         "admission_history":snapshot.admission_history.iter().map(|entry| crate::device_name::with_display_name(
             entry.public_json(), snapshot.admission_display_names.get(&entry.applicant).map(String::as_str),
         )).collect::<Vec<_>>(),
+        "admission_rotation":snapshot.admission_rotation.map(rotation_progress_json),
         "device_operations":snapshot.device_operations})
+}
+
+fn rotation_progress_json(progress: RotationProgress) -> Value {
+    json!({"id":hex::encode(progress.id), "generation":progress.generation,
+        "initiator":progress.initiator.to_string(), "stage":format!("{:?}",progress.stage),
+        "retained":progress.retained.iter().map(ToString::to_string).collect::<Vec<_>>(),
+        "acknowledged":progress.acknowledged.iter().map(ToString::to_string).collect::<Vec<_>>(),
+        "waiting":progress.retained.iter().filter(|peer| !progress.acknowledged.contains(peer))
+            .map(ToString::to_string).collect::<Vec<_>>()})
+}
+
+fn read_optional_recovery_card(
+    card_path: Option<String>,
+    password_path: Option<String>,
+) -> Result<Option<crate::recovery_card::RecoveryCard>, ClientError> {
+    let Some(path) = card_path else {
+        if password_path.is_some() {
+            return Err("card path required".into());
+        }
+        return Ok(None);
+    };
+    let password = password_path.map(std::fs::read_to_string).transpose()?;
+    Ok(Some(crate::recovery_card::RecoveryCard::import(
+        &std::fs::read_to_string(path)?,
+        password.as_deref(),
+    )?))
 }
 
 fn admission_request_json(request: &AdmissionRequest, name: Option<&str>) -> Value {
@@ -593,6 +631,17 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
             client.restore_management_authority(address).await
         }
         Command::ManagementRecoveryStatus => client.management_recovery_status().await,
+        Command::BeginAdmissionRotation { card_path, password_path } => {
+            let card = read_optional_recovery_card(card_path, password_path)?;
+            Ok(rotation_progress_json(client.begin_admission_rotation(card.as_ref()).await?))
+        }
+        Command::ConfirmAdmissionRotation { rotation, card_path, password_path } => {
+            let mut id = [0; 16];
+            hex::decode_to_slice(rotation, &mut id)?;
+            let card = read_optional_recovery_card(card_path, password_path)?;
+            Ok(rotation_progress_json(client.confirm_admission_rotation(id, card.as_ref()).await?))
+        }
+        Command::RotationProgress => Ok(client.rotation_progress().await?.map_or(Value::Null, rotation_progress_json)),
         Command::CustodyStatus => client.credential_custody().await,
         Command::CustodyPropose { recipient } => client.propose_credential_custody(recipient).await,
         Command::CustodyAccept { offer } => client.accept_credential_custody(offer).await,
@@ -619,19 +668,11 @@ pub async fn dispatch(client: &NativeClient, command: Command) -> Result<Value, 
             card_path,
             password_path,
         } => {
-            if let Some(path) = card_path {
-                let password = password_path.map(std::fs::read_to_string).transpose()?;
-                let card = crate::recovery_card::RecoveryCard::import(
-                    &std::fs::read_to_string(path)?,
-                    password.as_deref(),
-                )?;
+            if let Some(card) = read_optional_recovery_card(card_path, password_path)? {
                 client
                     .confirm_device_operation_offline(operation, &card)
                     .await
             } else {
-                if password_path.is_some() {
-                    return Err("card path required".into());
-                }
                 client.confirm_device_operation(operation).await
             }
         }
