@@ -2986,62 +2986,71 @@ impl BrowserNetwork {
             report["completion_remaining_ms"] = serde_json::json!(remaining.as_millis());
             report["material_events"] = serde_json::json!([]);
         }
-        let result = n0_future::time::timeout(remaining, async {
-            let auth = self.saved.verify()?.ok_or_else(rejected)?;
-            if !auth.membership_authorization_valid(
-                self.saved.authorization.ok_or_else(rejected)?,
-                self.saved.identity(),
-            ) {
-                return Err(rejected());
-            }
+        let auth = self.saved.verify()?.ok_or_else(rejected)?;
+        if !auth.membership_authorization_valid(
+            self.saved.authorization.ok_or_else(rejected)?,
+            self.saved.identity(),
+        ) {
+            return Err(rejected());
+        }
+        let material = n0_future::time::timeout(remaining, async {
             send_fixed(&delivery.exchange, b"AUTH").await?;
             self.material_event("AUTH-sent");
-            let material = recv_fixed::<40>(&delivery.exchange).await?;
-            if u64::from_be_bytes(material[..8].try_into().unwrap()) != self.saved.generation {
-                return Err(rejected());
-            }
-            self.material_event("secret-received-generation-verified");
-            let mut next = self.saved.clone();
-            next.secret = Some(material[8..].try_into().unwrap());
-            next.record_admission_progress(ApplicationProgress::Complete);
-            let invitation = next.invitation()?;
-            let receipt = AdmissionReceipt {
-                genesis: invitation.anchor.genesis,
-                request_id: next.admission_request_id(),
-                authorization: next.authorization.ok_or_else(rejected)?,
-            };
-            let lease = self.lease.as_ref().ok_or_else(rejected)?.0;
-            let pending =
-                serde_json::to_string(&(hex::encode(receipt.encode()), invitation.contact))
-                    .map_err(error)?;
-            let raw = services::commit_admission_material(
-                &self.gate,
-                &self.committed,
-                lease,
-                &next,
-                pending,
-            )
-            .await?;
-            self.saved = next;
-            self.committed = raw;
-            self.material_event("secret-committed");
-            if delivery.deadline <= n0_future::time::Instant::now() {
+            recv_fixed::<40>(&delivery.exchange).await
+        })
+        .await
+        .map_err(|_| admission_timeout())??;
+        if u64::from_be_bytes(material[..8].try_into().unwrap()) != self.saved.generation {
+            return Err(rejected());
+        }
+        self.material_event("secret-received-generation-verified");
+        let mut next = self.saved.clone();
+        next.secret = Some(material[8..].try_into().unwrap());
+        next.record_admission_progress(ApplicationProgress::Complete);
+        let invitation = next.invitation()?;
+        let receipt = AdmissionReceipt {
+            genesis: invitation.anchor.genesis,
+            request_id: next.admission_request_id(),
+            authorization: next.authorization.ok_or_else(rejected)?,
+        };
+        let lease = self.lease.as_ref().ok_or_else(rejected)?.0;
+        let pending = serde_json::to_string(&(hex::encode(receipt.encode()), invitation.contact))
+            .map_err(error)?;
+        // IndexedDB writes that have started can commit after their Rust future
+        // is dropped. Await installation before returning a network timeout.
+        let raw =
+            services::commit_admission_material(&self.gate, &self.committed, lease, &next, pending)
+                .await?;
+        self.saved = next;
+        self.committed = raw;
+        self.material_event("secret-committed");
+        let remaining = delivery
+            .deadline
+            .saturating_duration_since(n0_future::time::Instant::now());
+        let received = async {
+            if remaining.is_zero() {
                 return Err(admission_timeout());
             }
-            send_fixed(&delivery.exchange, b"SAVE").await?;
-            self.material_event("SAVE-sent");
-            delivery.exchange.finish_send().await.map_err(error)?;
-            let reply = recv_fixed::<4>(&delivery.exchange).await?;
+            let reply = n0_future::time::timeout(remaining, async {
+                send_fixed(&delivery.exchange, b"SAVE").await?;
+                self.material_event("SAVE-sent");
+                delivery.exchange.finish_send().await.map_err(error)?;
+                recv_fixed::<4>(&delivery.exchange).await
+            })
+            .await
+            .map_err(|_| admission_timeout())??;
             if &reply != b"DONE" {
                 return Err(rejected());
             }
             self.material_event("DONE-received");
-            admission::settle_receipt(lease, receipt).await?;
-            Ok(self.saved.stage().to_string())
-        })
-        .await
-        .map_err(|_| admission_timeout())?;
-        result
+            admission::settle_receipt(lease, receipt).await
+        }
+        .await;
+        if received.is_err() {
+            self.admission.receipt_ready.notify_one();
+        }
+        received?;
+        Ok(self.saved.stage().to_string())
     }
 
     /// Controlled member protocol, with a fresh native gate qualification.

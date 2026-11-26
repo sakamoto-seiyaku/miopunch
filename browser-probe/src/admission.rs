@@ -56,6 +56,7 @@ impl SavedNode {
 pub(super) struct AdmissionService {
     manual: tokio::sync::broadcast::Sender<Result<&'static str, String>>,
     precode: tokio::sync::broadcast::Sender<Result<&'static str, String>>,
+    pub(super) receipt_ready: std::rc::Rc<tokio::sync::Notify>,
 }
 
 impl AdmissionService {
@@ -102,7 +103,11 @@ impl AdmissionService {
                 }
             },
         );
-        Self { manual, precode }
+        Self {
+            manual,
+            precode,
+            receipt_ready: Default::default(),
+        }
     }
 
     pub(super) fn start_receipts(&self, network: &BrowserNetwork, lease: u32) {
@@ -112,7 +117,7 @@ impl AdmissionService {
         let routes = network.contact_routes.clone();
         let budget = network.caller_budget;
         let cancel = network.incoming.cancellation();
-        let mut changes = gate.0.lock().unwrap().changes.subscribe();
+        let receipt_ready = self.receipt_ready.clone();
         wasm_bindgen_futures::spawn_local(async move {
             loop {
                 let work = async {
@@ -181,7 +186,7 @@ impl AdmissionService {
                     tokio::select! {
                         biased;
                         _ = cancel.cancelled() => break,
-                        _ = changes.changed() => {}
+                        _ = receipt_ready.notified() => {}
                     }
                 }
             }
@@ -616,73 +621,82 @@ async fn receive_receipt(
     deadline: n0_future::time::Instant,
     gate: &BrowserGate,
 ) -> Result<(), JsValue> {
-    until(deadline, async {
-        let connection = Arc::new(
+    let connection = until(deadline, async {
+        Ok(Arc::new(
             accepting
                 .with_caller_deadline(deadline)
                 .into_control()
                 .await
                 .map_err(error)?,
         )
-        .retain_control();
-        let _scope = RequestConnection(Some(connection.clone()));
+        .retain_control())
+    })
+    .await?;
+    let _scope = RequestConnection(Some(connection.clone()));
+    let (exchange, receipt) = until(deadline, async {
         let exchange = connection.accept_control_exchange().await.map_err(error)?;
         let receipt = AdmissionReceipt::decode(recv_fixed::<80>(&exchange).await?);
-        let applicant =
-            VerifyingKey::from_bytes(connection.remote_id().as_bytes()).map_err(error)?;
-        let matching_approval = |saved: &SavedNode| {
-            if saved.invitation()?.anchor.genesis != receipt.genesis {
-                return Err(rejected());
-            }
-            let index = saved
-                .approval_index(applicant, receipt.request_id)
-                .ok_or_else(rejected)?;
-            if saved.approvals[index].authorization != Some(receipt.authorization) {
-                return Err(rejected());
-            }
-            Ok(index)
-        };
-        let saved = services::installed(gate).await?.0;
-        let entry = &saved.approvals[matching_approval(&saved)?];
-        let held_proof;
-        let response = if saved
-            .verify_delivery(receipt.authorization, applicant)
-            .is_ok()
-        {
-            if !entry.complete && entry.delivery_phase.unwrap_or(0) < 2 {
-                return Err(rejected());
-            }
-            let scope = AdmissionScope::new(
-                *saved.invitation()?.anchor.root.as_bytes(),
-                saved.generation,
-            );
-            let secret = AdmissionSecret::from_saved(saved.secret.ok_or_else(rejected)?);
+        Ok((exchange, receipt))
+    })
+    .await?;
+    let applicant = VerifyingKey::from_bytes(connection.remote_id().as_bytes()).map_err(error)?;
+    let matching_approval = |saved: &SavedNode| {
+        if saved.invitation()?.anchor.genesis != receipt.genesis {
+            return Err(rejected());
+        }
+        let index = saved
+            .approval_index(applicant, receipt.request_id)
+            .ok_or_else(rejected)?;
+        if saved.approvals[index].authorization != Some(receipt.authorization) {
+            return Err(rejected());
+        }
+        Ok(index)
+    };
+    let saved = services::installed(gate).await?.0;
+    let entry = &saved.approvals[matching_approval(&saved)?];
+    let held_proof;
+    let response = if saved
+        .verify_delivery(receipt.authorization, applicant)
+        .is_ok()
+    {
+        if !entry.complete && entry.delivery_phase.unwrap_or(0) < 2 {
+            return Err(rejected());
+        }
+        let scope = AdmissionScope::new(
+            *saved.invitation()?.anchor.root.as_bytes(),
+            saved.generation,
+        );
+        let secret = AdmissionSecret::from_saved(saved.secret.ok_or_else(rejected)?);
+        held_proof = until(deadline, async {
             send_fixed(&exchange, RECEIPT_PROVE).await?;
-            held_proof = crate::admission_proof::prove_server(&connection, &scope, &secret)
+            crate::admission_proof::prove_server(&connection, &scope, &secret)
                 .await
-                .map_err(error)?;
-            services::update_saved(gate, |saved| {
-                let index = matching_approval(saved)?;
-                if saved
-                    .verify_delivery(receipt.authorization, applicant)
-                    .is_err()
-                {
-                    return Ok(RECEIPT_STOP);
-                }
-                if saved.generation != scope.secret_generation()
-                    || saved.secret.as_ref() != Some(secret.saved_bytes())
-                    || !held_proof.applies_to(&connection, &scope)
-                {
-                    return Err(rejected());
-                }
-                saved.approvals[index].complete = true;
-                saved.approvals[index].delivery_phase = Some(3);
-                Ok(RECEIPT_DONE)
-            })
-            .await?
-        } else {
-            RECEIPT_STOP
-        };
+                .map_err(error)
+        })
+        .await?;
+        services::update_saved(gate, |saved| {
+            let index = matching_approval(saved)?;
+            if saved
+                .verify_delivery(receipt.authorization, applicant)
+                .is_err()
+            {
+                return Ok(RECEIPT_STOP);
+            }
+            if saved.generation != scope.secret_generation()
+                || saved.secret.as_ref() != Some(secret.saved_bytes())
+                || !held_proof.applies_to(&connection, &scope)
+            {
+                return Err(rejected());
+            }
+            saved.approvals[index].complete = true;
+            saved.approvals[index].delivery_phase = Some(3);
+            Ok(RECEIPT_DONE)
+        })
+        .await?
+    } else {
+        RECEIPT_STOP
+    };
+    until(deadline, async {
         send_fixed(&exchange, response).await?;
         exchange.finish_send().await.map_err(error)?;
         connection.revocation_handle().closed().await;

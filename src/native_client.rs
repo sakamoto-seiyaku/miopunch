@@ -461,13 +461,16 @@ impl NativeClient {
                                     }).await;
                                     return;
                                 }
-                                let _ = tokio::time::timeout_at(deadline, async {
-                                    if alpn == ADMISSION_RECEIPT_ALPN {
-                                        let connection = Arc::new(accepting.into_control().await?).retain_control();
-                                        let result = crate::manual_admission::serve_admission_receipt(&node, &connection).await;
+                                if alpn == ADMISSION_RECEIPT_ALPN {
+                                    if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting.into_control()).await {
+                                        let connection = Arc::new(connection).retain_control();
+                                        let _ = crate::manual_admission::serve_admission_receipt(&node, &connection).await;
                                         connection.close(0u32.into(), b"admission receipt ended");
-                                        result.map_err(ClientError::from)
-                                    } else if matches!(alpn.as_slice(), ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN) {
+                                    }
+                                    return;
+                                }
+                                let _ = tokio::time::timeout_at(deadline, async {
+                                    if matches!(alpn.as_slice(), ADMISSION_REQUEST_ALPN | PRECODE_REQUEST_ALPN) {
                                         let connection = Arc::new(accepting.into_control().await?);
                                         serve_admission(connection.retain_control(), node, services, files).await
                                     } else {

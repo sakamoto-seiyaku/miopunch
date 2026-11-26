@@ -521,6 +521,16 @@ class BrowserOnboardingRunner(OnboardingRunner):
                 time.sleep(0.1)
             self.record(host.label, "protocol_checkpoint", {"committed": True})
 
+        def wait_browser_receipt(actor, request_id):
+            deadline = time.monotonic() + 10
+            while True:
+                receipt = b.call(actor, "path_diagnostics")["admissionReceipt"]
+                if receipt is not None:
+                    assert receipt == dict(request_id=request_id, status="confirmed")
+                    return
+                assert time.monotonic() < deadline
+                time.sleep(0.1)
+
         def native_saved_before_send(label):
             code = b.call(browser_provider, "precode_invitation", int(time.time()) + 3600, 1)
             path = self.write_private(label + "-invite.json", code.encode(), False)
@@ -592,20 +602,31 @@ class BrowserOnboardingRunner(OnboardingRunner):
         reopened = reopen_browser(browser_applicant)
         assert reopened["stage"] == "Complete" and reopened["admission_attempt"] == joined
         wait_checkpoint(native_provider, "admission receipt committed")
-        deadline = time.monotonic() + 10
-        while True:
-            receipt = b.call(browser_applicant, "path_diagnostics")["admissionReceipt"]
-            if receipt is not None:
-                assert receipt == dict(request_id=approved["request_id"], status="confirmed")
-                break
-            assert time.monotonic() < deadline
-            time.sleep(0.1)
+        wait_browser_receipt(browser_applicant, approved["request_id"])
         assert native_provider.call("requests")["requests"] == []
         assert native_provider.call("status")["records"] == native_records
         assert native_provider.call("precode_status", path=self.path(code_name, False))["uses"] == 1
         native_provider = self.reopen(native_provider)
         assert native_provider.call("admission_history") == [received_native]
         assert b.call(browser_applicant, "status")["admission_attempt"] == joined
+
+        # A repeated material save leaves the main snapshot unchanged. Hold its
+        # real IndexedDB commit through the socket deadline, then verify the
+        # same running browser schedules recovery after storage completes.
+        assert b.reopen(browser_applicant)["admission_attempt"] == joined
+        assert b.call(browser_applicant, "path_diagnostics")["admissionReceipt"] is None
+        assert b.call(browser_applicant, "request_precode", material(native_code)["precode"]) == "Complete"
+        assert b.call(browser_applicant, "hold_admission_commit")
+        completion = b.send(browser_applicant, "complete_admission")
+        try:
+            assert b.call(browser_applicant, "wait_admission_commit")
+            time.sleep(configuration["maintenance"]["contact_timeout_ms"] / 1000)
+        finally:
+            b.call(browser_applicant, "release_admission_commit")
+        b.wait(completion, ok=False, expected_error="timed out")
+        assert b.call(browser_applicant, "status")["admission_attempt"] == joined
+        wait_browser_receipt(browser_applicant, approved["request_id"])
+        assert native_provider.call("admission_history") == [received_native]
 
         stale, old, stale_code = native_saved_before_send("native-receipt-stale")
         session = b.call(browser_provider, "begin_management_session")
@@ -623,7 +644,7 @@ class BrowserOnboardingRunner(OnboardingRunner):
             nativeAndWasmBothRoles=True, nativeSavedBeforeSend=True,
             providerSavedBeforeFinalReply=True, timeoutPreservedLocalAdmission=True,
             reopenedProvidersRetainOriginalResult=True, invalidGrantStopsReceipt=True,
-            noDuplicateGrantOrRedemption=True))
+            noDuplicateGrantOrRedemption=True, inFlightBrowserSaveSurvivesDeadline=True))
 
     def native_invitation(self, creator, name, precode=False):
         if precode:

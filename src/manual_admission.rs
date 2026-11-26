@@ -209,70 +209,77 @@ pub(crate) async fn serve_admission_receipt(
     node: &tokio::sync::Mutex<NativeNetwork>,
     connection: &ControlOwner,
 ) -> Result<(), ManualAdmissionError> {
-    tokio::time::timeout_at(admission_deadline(connection), async {
+    let deadline = admission_deadline(connection);
+    let (exchange, receipt) = admission_io(deadline, async {
         let exchange = connection
             .accept_control_exchange()
             .await
             .map_err(|_| ManualAdmissionError::PathUnavailable)?;
         let mut wire = [0; 80];
         read_fixed(&exchange, &mut wire).await?;
-        let receipt = AdmissionReceipt::decode(wire);
-        let (approved, material) = {
-            let mut node = node.lock().await;
-            node.recover_admission_state().await?;
-            if !node
-                .gate
-                .allows(connection, ProtocolScope::AdmissionRequest)
-                || receipt.genesis != node.anchor.genesis
-            {
+        Ok((exchange, AdmissionReceipt::decode(wire)))
+    })
+    .await?;
+    let (approved, material) = {
+        let mut node = node.lock().await;
+        node.recover_admission_state().await?;
+        if !node
+            .gate
+            .allows(connection, ProtocolScope::AdmissionRequest)
+            || receipt.genesis != node.anchor.genesis
+        {
+            return Err(ManualAdmissionError::Rejected);
+        }
+        let request = AdmissionRequest {
+            applicant: tls_key(connection.remote_id())?,
+            request_id: receipt.request_id,
+        };
+        let approved = node
+            .store
+            .approved_admission(&request)
+            .await?
+            .filter(|approved| approved.authorization == receipt.authorization)
+            .ok_or(ManualAdmissionError::Rejected)?;
+        let material = match node.valid_approval(&approved) {
+            Err(_) => None,
+            Ok(()) if approved.stage == AdmissionStage::Approved => {
                 return Err(ManualAdmissionError::Rejected);
             }
-            let request = AdmissionRequest {
-                applicant: tls_key(connection.remote_id())?,
-                request_id: receipt.request_id,
-            };
-            let approved = node
-                .store
-                .approved_admission(&request)
-                .await?
-                .filter(|approved| approved.authorization == receipt.authorization)
-                .ok_or(ManualAdmissionError::Rejected)?;
-            let material = match node.valid_approval(&approved) {
-                Err(_) => None,
-                Ok(()) if approved.stage == AdmissionStage::Approved => {
-                    return Err(ManualAdmissionError::Rejected);
-                }
-                Ok(()) => Some((
-                    node.scope.clone(),
-                    node.secret.clone().ok_or(ManualAdmissionError::Rejected)?,
-                )),
-            };
-            (approved, material)
+            Ok(()) => Some((
+                node.scope.clone(),
+                node.secret.clone().ok_or(ManualAdmissionError::Rejected)?,
+            )),
         };
-        let held_proof;
-        let response = if let Some((scope, secret)) = material {
+        (approved, material)
+    };
+    let held_proof;
+    let response = if let Some((scope, secret)) = material {
+        held_proof = admission_io(deadline, async {
             write_fixed(&exchange, RECEIPT_PROVE).await?;
-            held_proof = crate::admission_proof::prove_server(connection, &scope, &secret)
+            crate::admission_proof::prove_server(connection, &scope, &secret)
                 .await
-                .map_err(|_| ManualAdmissionError::Rejected)?;
-            let node = node.lock().await;
-            if !held_proof.applies_to(connection, &node.scope) {
-                return Err(ManualAdmissionError::Rejected);
-            }
-            if node.valid_approval(&approved).is_err() {
-                RECEIPT_STOP
-            } else {
-                node.store
-                    .advance_admission_delivery(&approved, AdmissionStage::Complete)
-                    .await?;
-                #[cfg(feature = "replica-test-hooks")]
-                node.store
-                    .observe(crate::management_store::RecordCheckpoint::DeliveryComplete);
-                RECEIPT_DONE
-            }
-        } else {
+                .map_err(|_| ManualAdmissionError::Rejected)
+        })
+        .await?;
+        let node = node.lock().await;
+        if !held_proof.applies_to(connection, &node.scope) {
+            return Err(ManualAdmissionError::Rejected);
+        }
+        if node.valid_approval(&approved).is_err() {
             RECEIPT_STOP
-        };
+        } else {
+            node.store
+                .advance_admission_delivery(&approved, AdmissionStage::Complete)
+                .await?;
+            #[cfg(feature = "replica-test-hooks")]
+            node.store
+                .observe(crate::management_store::RecordCheckpoint::DeliveryComplete);
+            RECEIPT_DONE
+        }
+    } else {
+        RECEIPT_STOP
+    };
+    admission_io(deadline, async {
         write_fixed(&exchange, response).await?;
         exchange
             .finish_send()
@@ -282,7 +289,6 @@ pub(crate) async fn serve_admission_receipt(
         Ok(())
     })
     .await
-    .unwrap_or(Err(ManualAdmissionError::TimedOut))
 }
 
 pub(crate) async fn submit_admission_receipt(
@@ -904,64 +910,57 @@ impl NativeNetwork {
         &mut self,
         delivery: AdmissionDelivery,
     ) -> Result<AdmissionStage, ManualAdmissionError> {
-        let result = tokio::time::timeout(
-            delivery
-                .deadline
-                .saturating_duration_since(n0_future::time::Instant::now()),
-            async {
-                self.recover_admission_state().await?;
-                self.store.ensure_admissions_open().await?;
-                self.restricted_connection(&delivery.connection)?;
-                if self.node_key.verifying_key() != delivery.local
-                    || self.join.map(|binding| binding.encode()) != Some(delivery.binding.encode())
-                    || self.anchor != delivery.binding.invitation.anchor
-                    || delivery.connection.remote_id() != delivery.binding.invitation.contact
-                    || !self.is_member(delivery.local)
-                    || !self.is_admin(tls_key(delivery.connection.remote_id())?)
-                    || !self
-                        .store
-                        .membership_authorization_valid(delivery.authorization, delivery.local)
-                {
-                    return Err(ManualAdmissionError::Rejected);
-                }
-                write_fixed(&delivery.exchange, b"AUTH")
-                    .await
-                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
+        let result = async {
+            self.recover_admission_state().await?;
+            self.store.ensure_admissions_open().await?;
+            self.restricted_connection(&delivery.connection)?;
+            if self.node_key.verifying_key() != delivery.local
+                || self.join.map(|binding| binding.encode()) != Some(delivery.binding.encode())
+                || self.anchor != delivery.binding.invitation.anchor
+                || delivery.connection.remote_id() != delivery.binding.invitation.contact
+                || !self.is_member(delivery.local)
+                || !self.is_admin(tls_key(delivery.connection.remote_id())?)
+                || !self
+                    .store
+                    .membership_authorization_valid(delivery.authorization, delivery.local)
+            {
+                return Err(ManualAdmissionError::Rejected);
+            }
+            let bytes = admission_io(delivery.deadline, async {
+                write_fixed(&delivery.exchange, b"AUTH").await?;
                 let mut bytes = [0; 40];
-                read_fixed(&delivery.exchange, &mut bytes)
-                    .await
-                    .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-                #[cfg(feature = "replica-test-hooks")]
-                self.store
-                    .observe(crate::management_store::RecordCheckpoint::SecretReceived);
-                let scope = AdmissionScope::new(
-                    *self.anchor.root.as_bytes(),
-                    u64::from_be_bytes(bytes[..8].try_into().unwrap()),
-                );
-                if scope.secret_generation() != delivery.generation {
-                    return Err(ManualAdmissionError::Rejected);
-                }
-                let secret = AdmissionSecret::from_saved(bytes[8..].try_into().unwrap());
-                let receipt = AdmissionReceipt {
-                    genesis: self.anchor.genesis,
-                    request_id: delivery.request_id,
-                    authorization: delivery.authorization,
-                };
-                let contact = crate::client_contact::load_invitation(self)
-                    .map_err(NodeError::from)?
-                    .filter(|invitation| {
-                        invitation.contact() == delivery.binding.invitation.contact
-                    })
-                    .map(|invitation| invitation.address)
-                    .unwrap_or_else(|| {
-                        iroh::EndpointAddr::new(delivery.binding.invitation.contact)
-                    });
-                self.commit_admission_material(scope, secret, Some((receipt, &contact)))
-                    .await?;
-                #[cfg(feature = "replica-test-hooks")]
-                self.store
-                    .observe(crate::management_store::RecordCheckpoint::SecretSaved);
+                read_fixed(&delivery.exchange, &mut bytes).await?;
+                Ok(bytes)
+            })
+            .await?;
+            #[cfg(feature = "replica-test-hooks")]
+            self.store
+                .observe(crate::management_store::RecordCheckpoint::SecretReceived);
+            let scope = AdmissionScope::new(
+                *self.anchor.root.as_bytes(),
+                u64::from_be_bytes(bytes[..8].try_into().unwrap()),
+            );
+            if scope.secret_generation() != delivery.generation {
+                return Err(ManualAdmissionError::Rejected);
+            }
+            let secret = AdmissionSecret::from_saved(bytes[8..].try_into().unwrap());
+            let receipt = AdmissionReceipt {
+                genesis: self.anchor.genesis,
+                request_id: delivery.request_id,
+                authorization: delivery.authorization,
+            };
+            let contact = crate::client_contact::load_invitation(self)
+                .map_err(NodeError::from)?
+                .filter(|invitation| invitation.contact() == delivery.binding.invitation.contact)
+                .map(|invitation| invitation.address)
+                .unwrap_or_else(|| iroh::EndpointAddr::new(delivery.binding.invitation.contact));
+            self.commit_admission_material(scope, secret, Some((receipt, &contact)))
+                .await?;
+            #[cfg(feature = "replica-test-hooks")]
+            self.store
+                .observe(crate::management_store::RecordCheckpoint::SecretSaved);
 
+            admission_io(delivery.deadline, async {
                 write_fixed(&delivery.exchange, b"SAVE")
                     .await
                     .map_err(|_| ManualAdmissionError::PathUnavailable)?;
@@ -980,12 +979,13 @@ impl NativeNetwork {
                 if &ack != b"DONE" {
                     return Err(ManualAdmissionError::Rejected);
                 }
-                self.store.settle_admission_receipt(receipt).await?;
-                Ok(self.admission_stage())
-            },
-        )
-        .await
-        .unwrap_or(Err(ManualAdmissionError::TimedOut));
+                Ok(())
+            })
+            .await?;
+            self.store.settle_admission_receipt(receipt).await?;
+            Ok(self.admission_stage())
+        }
+        .await;
         if result.is_err() {
             delivery
                 .connection
@@ -993,6 +993,18 @@ impl NativeNetwork {
         }
         result
     }
+}
+
+async fn admission_io<T>(
+    deadline: n0_future::time::Instant,
+    work: impl Future<Output = Result<T, ManualAdmissionError>>,
+) -> Result<T, ManualAdmissionError> {
+    if deadline <= n0_future::time::Instant::now() {
+        return Err(ManualAdmissionError::TimedOut);
+    }
+    tokio::time::timeout_at(deadline, work)
+        .await
+        .unwrap_or(Err(ManualAdmissionError::TimedOut))
 }
 
 async fn write_fixed(exchange: &ControlExchange, bytes: &[u8]) -> Result<(), ManualAdmissionError> {
