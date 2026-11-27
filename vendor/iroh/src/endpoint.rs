@@ -2198,6 +2198,24 @@ impl Endpoint {
         self.inner.udp_network_generation()
     }
 
+    /// Lifetime of work using this actual local interface and source address.
+    #[cfg(not(wasm_browser))]
+    pub fn binding_network_generation(&self, binding: SocketAddr) -> std::io::Result<ObservationValidity> {
+        self.inner.binding_network_generation(binding)
+    }
+
+    /// Lifetime of the actual source and the route to its observation destination.
+    #[cfg(not(wasm_browser))]
+    pub fn binding_route_generation(&self, binding: std::net::SocketAddr, destination: std::net::SocketAddr) -> std::io::Result<ObservationValidity> {
+        self.inner.binding_route_generation(binding, destination)
+    }
+
+    /// Wait for a network notification while this binding remains current.
+    #[cfg(not(wasm_browser))]
+    pub async fn wait_network_generation_change(&self, observed: &ObservationValidity) {
+        self.inner.wait_network_generation_change(observed).await;
+    }
+
     /// Bounded actual local IPv4 candidates on the primary UDP sockets.
     /// Reflected and configured external addresses are not local candidates.
     #[cfg(not(wasm_browser))]

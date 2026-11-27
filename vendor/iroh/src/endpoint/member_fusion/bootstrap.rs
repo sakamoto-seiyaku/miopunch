@@ -25,7 +25,6 @@ pub(super) async fn qualify(
         .caller_deadline()
         .expect("restricted admission deadline");
     let cancel = control.attempt_cancellation().unwrap_or_default();
-    let generation = control.udp_network_generation();
     let (completed, mut results) = tokio::sync::mpsc::unbounded_channel();
     tokio::spawn(async move {
         let tcp4 = async {
@@ -71,7 +70,6 @@ pub(super) async fn qualify(
         tokio::select! { biased;
             _ = control.closed() => {},
             _ = cancel.cancelled() => {},
-            _ = control.endpoint.inner.wait_network_generation_change(&generation) => {},
             _ = time::sleep_until(deadline.into()) => {},
             _ = async { tokio::join!(tcp4, tcp6, udp4, udp6); } => {},
         }
@@ -146,7 +144,7 @@ async fn tcp(
                 Some(configured),
                 deadline,
             )
-            .await?,
+            .await?.0,
         )
     } else {
         None

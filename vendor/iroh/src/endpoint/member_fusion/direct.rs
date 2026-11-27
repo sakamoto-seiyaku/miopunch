@@ -26,10 +26,8 @@ const MAX_OFFER_ADDRESS: usize = 64;
 const EXCHANGE_LIMIT: Duration = Duration::from_secs(6);
 const VALIDATION_LIMIT: Duration = Duration::from_secs(6);
 const TRAVERSAL_STATUS: ControlMessageFormat = ControlMessageFormat::Fixed { length: 1 };
-type Hint = (ObservationValidity, TransportAddr);
-
 enum PeerOffer {
-    Candidate(Hint),
+    Candidate(TransportAddr),
     Traversal,
 }
 
@@ -45,7 +43,7 @@ pub(in crate::endpoint) struct PathCandidates {
     member_relay: Option<u64>,
     native_relay: bool,
     dialer: bool,
-    sender: mpsc::UnboundedSender<Hint>,
+    sender: mpsc::UnboundedSender<TransportAddr>,
     learned: Mutex<(ObservationValidity, BTreeSet<TransportAddr>)>,
     traversal: Option<(Duration, Duration)>,
     activity: Arc<super::Activity>,
@@ -84,7 +82,7 @@ impl PathCandidates {
             *learned = (now.clone(), BTreeSet::new());
         }
         if learned.1.insert(address.clone()) {
-            let _ = self.sender.send((now, address));
+            let _ = self.sender.send(address);
         }
     }
 
@@ -207,7 +205,7 @@ impl PathCandidates {
         } else {
             iroh_relay::ObservationFamily::Ipv4
         };
-        let binding = super::physical::observer_binding(
+        let (binding, _) = super::physical::observer_binding(
             &self.endpoint,
             family,
             observers.into_iter().map(|url| (url, 3478)),
@@ -243,7 +241,7 @@ impl PathCandidates {
     ) -> io::Result<()> {
         let (budget, interval) = self.traversal.ok_or(io::ErrorKind::Unsupported)?;
         let deadline = time::Instant::now() + budget;
-        let generation = self.endpoint.udp_network_generation();
+        let generation = self.endpoint.inner.family_network_generation(ipv6);
         let yield_standby = async {
             if self.activity.standby.is_none() {
                 return std::future::pending().await;
@@ -336,7 +334,6 @@ impl PathCandidates {
         };
         tokio::select! { biased;
             _ = unavailable => Err(io::ErrorKind::NotConnected.into()),
-            _ = self.endpoint.inner.wait_network_generation_change(&generation) => Err(io::ErrorKind::Interrupted.into()),
             _ = yield_standby => Err(io::ErrorKind::WouldBlock.into()),
             result = work => result,
         }
@@ -351,7 +348,6 @@ impl PathCandidates {
     ) -> io::Result<(TransportAddr, u64)> {
         let (budget, _) = self.traversal.ok_or(io::ErrorKind::Unsupported)?;
         let deadline = deadline.min(time::Instant::now() + budget);
-        let generation = self.endpoint.udp_network_generation();
         let work = async {
             let physical = self
                 .physical_tcp(
@@ -385,7 +381,6 @@ impl PathCandidates {
         tokio::select! { biased;
             _ = cancel.cancelled() => Err(io::ErrorKind::Interrupted.into()),
             _ = connection.closed() => Err(io::ErrorKind::NotConnected.into()),
-            _ = self.endpoint.inner.wait_network_generation_change(&generation) => Err(io::ErrorKind::Interrupted.into()),
             _ = time::sleep_until(deadline) => Err(io::ErrorKind::TimedOut.into()),
             result = work => result,
         }
@@ -489,7 +484,7 @@ pub(super) async fn verify_direct(
     prepared: super::MemberDirectCandidate,
 ) -> io::Result<VerifiedDirect> {
     let remote = TransportAddr::Custom(prepared.remote.clone());
-    let generation = control.udp_network_generation();
+    let generation = prepared.network_validity.clone().unwrap_or_else(|| control.udp_network_generation());
     let probe = control
         .paths()
         .iter()
@@ -562,7 +557,7 @@ async fn watch(
     connection: Connection,
     mut activity: watch::Receiver<bool>,
     candidates: Arc<PathCandidates>,
-    receiver: mpsc::UnboundedReceiver<Hint>,
+    receiver: mpsc::UnboundedReceiver<TransportAddr>,
 ) {
     let direct_offer_received = Notify::new();
     let mut offer_activity = activity.clone();
@@ -611,7 +606,6 @@ async fn watch(
     let receive = async {
         let mut received_direct = false;
         while let Ok(stream) = connection.accept_uni().await {
-            let generation = candidates.endpoint.udp_network_generation();
             let Ok(Ok((addresses, traversal))) =
                 time::timeout(EXCHANGE_LIMIT, read_offer(stream)).await
             else {
@@ -635,10 +629,9 @@ async fn watch(
                         && candidates.local_member_routes(&address).next().is_some());
                 let address = TransportAddr::Custom(address);
                 if accepted
-                    && generation.is_current()
                     && candidates.permits(&address)
                     && peer_offers
-                        .send(PeerOffer::Candidate((generation.clone(), address)))
+                        .send(PeerOffer::Candidate(address))
                         .await
                         .is_err()
                 {
@@ -741,7 +734,7 @@ async fn watch(
                 _ = async { time::sleep_until(wake_at.expect("scheduled direct traversal")).await }, if wake_at.is_some() => continue,
                 else => break,
             };
-            let (observed, address) = match offer {
+            let address = match offer {
                 PeerOffer::Candidate(hint) => hint,
                 PeerOffer::Traversal => {
                     traversal_interval = candidates.traversal.map(|(_, interval)| interval);
@@ -749,16 +742,13 @@ async fn watch(
                     continue;
                 }
             };
-            if !observed.is_current() {
-                continue;
-            }
             if candidates.permits(&address) && attempted.insert(address.clone()) {
                 if traversal_interval.is_some() {
                     next_traversal.get_or_insert(now);
                 }
                 in_flight.push(
                     async {
-                        process_candidate(&connection, &candidates, address, observed).await;
+                        process_candidate(&connection, &candidates, address).await;
                         CandidateCompletion::Address
                     }
                     .boxed(),
@@ -776,7 +766,6 @@ async fn process_candidate(
     connection: &Connection,
     candidates: &PathCandidates,
     address: TransportAddr,
-    generation: ObservationValidity,
 ) {
     if candidates.dialer {
         let fusion = candidates
@@ -790,7 +779,7 @@ async fn process_candidate(
         let _position = fusion.building.acquire(connection.remote_id()).await;
         let _ = time::timeout(
             VALIDATION_LIMIT,
-            validate(candidates, connection, address, generation),
+            validate(candidates, connection, address),
         )
         .await;
     } else if let TransportAddr::Custom(local) = address
@@ -875,7 +864,6 @@ async fn validate(
     candidates: &PathCandidates,
     connection: &Connection,
     remote: TransportAddr,
-    generation: ObservationValidity,
 ) -> io::Result<()> {
     let endpoint = &candidates.endpoint;
     let Some(candidate) = endpoint
@@ -901,17 +889,13 @@ async fn validate(
         }
     };
     while !probe.is_acknowledged().map_err(io::Error::other)? {
-        if !generation.is_current() {
-            return Err(io::ErrorKind::Interrupted.into());
-        }
         time::sleep(Duration::from_millis(15)).await;
     }
     let custom = match &remote {
         TransportAddr::Custom(address) => Some(address.id()),
         _ => None,
     };
-    if generation.is_current()
-        && candidates.permits(&remote)
+    if candidates.permits(&remote)
         && endpoint
             .inner
             .qualifies_admission_data_path(
@@ -921,7 +905,6 @@ async fn validate(
                 custom.as_slice(),
             )
             .await
-        && generation.is_current()
     {
         candidate.retain();
     }

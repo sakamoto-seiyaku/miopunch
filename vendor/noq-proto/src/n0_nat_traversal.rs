@@ -132,10 +132,10 @@ pub enum Error {
     Closed,
 }
 
-/// Event emitted when the client receives ADD_ADDRESS or REMOVE_ADDRESS frames.
+/// Event emitted when authenticated traversal frames add or remove peer addresses.
 #[derive(Debug, Clone)]
 pub enum Event {
-    /// An ADD_ADDRESS frame was received.
+    /// An ADD_ADDRESS or a new REACH_OUT address was accepted.
     AddressAdded(SocketAddr),
     /// A REMOVE_ADDRESS frame was received.
     AddressRemoved(SocketAddr),
@@ -1007,7 +1007,7 @@ impl ServerState {
         &mut self,
         reach_out: ReachOut,
         ipv6: bool,
-    ) -> Result<(), Error> {
+    ) -> Result<Option<SocketAddr>, Error> {
         let ReachOut { round, ip, port } = reach_out;
 
         let family = usize::from(ip.to_canonical().is_ipv6());
@@ -1018,11 +1018,11 @@ impl ServerState {
         };
         if round < previous {
             trace!(current_round=%self.round, "ignoring REACH_OUT for previous round");
-            return Ok(());
+            return Ok(None);
         }
         let Some(ip) = map_to_local_socket_family(ip, ipv6) else {
             trace!("Ignoring IPv6 REACH_OUT frame due to not supporting IPv6 locally");
-            return Ok(());
+            return Ok(None);
         };
 
         if round > previous {
@@ -1037,7 +1037,7 @@ impl ServerState {
             self.pending_probes.retain(|(ip, _)| keep(*ip));
         } else if self.remotes.contains_key(&(ip, port)) {
             // Retransmitted frame.
-            return Ok(());
+            return Ok(None);
         }
         if self.remotes.len() >= self.max_remote_addresses {
             if !self.independent_families {
@@ -1052,7 +1052,7 @@ impl ServerState {
                 .filter(|(ip, _)| usize::from(ip.to_canonical().is_ipv6()) == family)
                 .count();
             if family_count >= self.max_remote_addresses.div_ceil(2) {
-                return Ok(());
+                return Ok(None);
             }
             let victim = self
                 .remotes
@@ -1060,7 +1060,7 @@ impl ServerState {
                 .filter(|((ip, _), _)| usize::from(ip.to_canonical().is_ipv6()) != family)
                 .min_by_key(|(remote, state)| (state.remaining(), **remote))
                 .map(|(remote, _)| *remote);
-            let Some(victim) = victim else { return Ok(()) };
+            let Some(victim) = victim else { return Ok(None) };
             self.remotes.remove(&victim);
             self.pending_probes.remove(&victim);
             self.sent_challenges.retain(|_, remote| *remote != victim);
@@ -1069,7 +1069,7 @@ impl ServerState {
             .entry((ip, port))
             .or_insert(ProbeState::Active(MAX_NAT_PROBE_ATTEMPTS - 1));
         self.pending_probes.insert((ip, port));
-        Ok(())
+        Ok(Some(SocketAddr::new(ip.to_canonical(), port)))
     }
 
     /// Re-queues probes that have not yet succeeded or reached [`MAX_NAT_PROBE_ATTEMPTS`].

@@ -937,6 +937,7 @@ impl CustomTransport for TcpTransport {
             .map(|mapping| mapping.0.watch_external_address());
         let announced = addresses.clone();
         let network_changed = shared.network_changed.clone();
+        let network_shared = shared.clone();
         let address_task = tokio::spawn(async move {
             use n0_watcher::Watcher;
             let monitor = match netwatch::netmon::Monitor::new().await {
@@ -949,6 +950,19 @@ impl CustomTransport for TcpTransport {
             let mut interfaces = monitor.interface_state();
             loop {
                 let state = interfaces.get();
+                let source_exists = |source: std::net::IpAddr| state.interfaces.values().any(|interface| {
+                    interface.is_up() && interface.addrs().any(|address| {
+                        address.addr() == source || (source.is_loopback() && matches!((address, source),
+                            (netwatch::interfaces::IpNet::V4(network), std::net::IpAddr::V4(ip)) if network.contains(&ip)))
+                    })
+                });
+                let channels = network_shared.channels.lock().unwrap().values().cloned().collect::<Vec<_>>();
+                for channel in channels {
+                    let channel = channel.lock().unwrap();
+                    if channel.local_addr.is_some_and(|local| !source_exists(local.ip())) {
+                        channel.cancel.send_replace(true);
+                    }
+                }
                 let mut candidates = BTreeSet::new();
                 for local in &locals {
                     if local.ip().is_unspecified() {
@@ -970,7 +984,7 @@ impl CustomTransport for TcpTransport {
                                 }
                             }
                         }
-                    } else {
+                    } else if source_exists(local.ip()) {
                         candidates.insert(TcpTransport::address(*local));
                     }
                 }
@@ -1057,6 +1071,11 @@ struct TcpSender(Arc<Shared>);
 impl CustomSender for TcpSender {
     fn network_changed(&self) {
         self.0.network_changed.notify_one();
+    }
+
+    fn network_path_is_current(&self, address: &CustomAddr, local_ips: &std::collections::HashSet<std::net::IpAddr>) -> bool {
+        decode_custom(address).ok().and_then(|peer| self.0.channels.lock().unwrap().get(&peer).cloned())
+            .is_some_and(|channel| channel.lock().unwrap().local_addr.is_some_and(|local| local_ips.contains(&local.ip())))
     }
 
     fn is_valid_send_addr(&self, addr: &CustomAddr) -> bool {

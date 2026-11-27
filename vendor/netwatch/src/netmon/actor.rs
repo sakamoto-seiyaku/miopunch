@@ -40,6 +40,7 @@ const ACTOR_CHAN_CAPACITY: usize = 16;
 pub(super) struct Actor {
     /// Latest known interface state.
     interface_state: Watchable<State>,
+    network_activity: Watchable<u64>,
     /// Latest observed wall time.
     wall_time: Instant,
     /// OS specific monitor.
@@ -51,7 +52,7 @@ pub(super) struct Actor {
 }
 
 pub(super) enum ActorMessage {
-    NetworkChange,
+    NetworkChange(tokio::sync::oneshot::Sender<()>),
 }
 
 impl Actor {
@@ -65,6 +66,7 @@ impl Actor {
 
         Ok(Actor {
             interface_state: Watchable::new(interface_state),
+            network_activity: Watchable::new(0),
             wall_time,
             route_monitor,
             mon_receiver,
@@ -75,6 +77,10 @@ impl Actor {
 
     pub(super) fn state(&self) -> &Watchable<State> {
         &self.interface_state
+    }
+
+    pub(super) fn network_activity(&self) -> &Watchable<u64> {
+        &self.network_activity
     }
 
     pub(super) fn subscribe(&self) -> mpsc::Sender<ActorMessage> {
@@ -119,10 +125,11 @@ impl Actor {
                 }
                 msg = self.actor_receiver.recv() => {
                     match msg {
-                        Some(ActorMessage::NetworkChange) => {
+                        Some(ActorMessage::NetworkChange(reply)) => {
                             trace!("external network activity detected");
-                            pending_change = true;
-                            debounce.as_mut().reset(Instant::now() + DEBOUNCE);
+                            self.handle_potential_change(false).await;
+                            pending_change = false;
+                            let _ = reply.send(());
                         }
                         None => {
                             debug!("shutting down, actor receiver gone");
@@ -143,8 +150,11 @@ impl Actor {
         if time_jumped {
             new_state.last_unsuspend.replace(Instant::now());
         } else if old_state == &new_state {
-            // No major changes, continue on
-            debug!("no changes detected");
+            // Known destinations can select another source without an interface change.
+            self.network_activity
+                .set(self.network_activity.get().wrapping_add(1))
+                .ok();
+            debug!("no interface changes detected");
             return;
         }
 

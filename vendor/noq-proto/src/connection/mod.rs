@@ -6289,11 +6289,9 @@ impl Connection {
 
                     let round_before = server_state.current_round();
 
-                    if let Err(err) = server_state.handle_reach_out(reach_out, ipv6) {
-                        return Err(TransportError::PROTOCOL_VIOLATION(format!(
-                            "Nat traversal(REACH_OUT): {err}"
-                        )));
-                    }
+                    let added = server_state.handle_reach_out(reach_out, ipv6).map_err(|err| {
+                        TransportError::PROTOCOL_VIOLATION(format!("Nat traversal(REACH_OUT): {err}"))
+                    })?;
 
                     if server_state.current_round() > round_before {
                         // A new round was started, reset the NAT probe retry timer.
@@ -6306,6 +6304,11 @@ impl Connection {
                                 self.qlog.with_time(now),
                             );
                         }
+                    }
+                    if let Some(address) = added {
+                        self.events.push_back(Event::NatTraversal(
+                            n0_nat_traversal::Event::AddressAdded(address),
+                        ));
                     }
                 }
             }
@@ -6647,6 +6650,7 @@ impl Connection {
         }
         if self.highest_space < SpaceKind::Data {
             for path in self.paths.values_mut() {
+                if hint.is_some_and(|hint| !hint.is_path_affected(path.data.network_path)) { continue; }
                 // Clear the local address for it to be obtained from the socket again.
                 let local_ip = hint.and_then(|h| h.local_ip_for_recovery(path.data.network_path));
                 path.data.set_local_ip(local_ip);
@@ -6677,6 +6681,10 @@ impl Connection {
             // Read the network path BEFORE clearing local_ip, so the hint can
             // check which interface the path was using.
             let network_path = path.data.network_path;
+
+            if hint.is_some_and(|hint| !hint.is_path_affected(network_path)) {
+                continue;
+            }
 
             // Clear the local address for it to be obtained from the socket again. This applies to
             // all paths, regardless of being considered recoverable or not
@@ -8248,6 +8256,8 @@ impl AbandonedPaths {
 
 /// Hints when the caller identifies a network change.
 pub trait NetworkChangeHint: fmt::Debug + 'static {
+    /// Whether this particular physical path needs network-change recovery.
+    fn is_path_affected(&self, _network_path: FourTuple) -> bool { true }
     /// Preserve a still-valid socket's real local IP while rechecking liveness.
     /// Ordinary interface IPs default to rediscovery from receive metadata.
     fn local_ip_for_recovery(&self, _network_path: FourTuple) -> Option<std::net::IpAddr> {

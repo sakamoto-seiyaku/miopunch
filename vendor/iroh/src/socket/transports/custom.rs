@@ -100,6 +100,10 @@ impl CustomSender for ResourceBoundSender {
         self.policy.allows_custom(addr) && self.inner.is_valid_send_addr(addr)
     }
 
+    fn network_path_is_current(&self, addr: &CustomAddr, local_ips: &std::collections::HashSet<std::net::IpAddr>) -> bool {
+        self.inner.network_path_is_current(addr, local_ips)
+    }
+
     fn can_bootstrap_connection(&self, addr: &CustomAddr) -> bool {
         self.is_valid_send_addr(addr) && self.inner.can_bootstrap_connection(addr)
     }
@@ -227,6 +231,9 @@ pub trait CustomSender: std::fmt::Debug + Send + Sync + 'static {
     fn is_valid_connection_addr(&self, addr: &CustomAddr, _connection_id: usize) -> bool {
         self.is_valid_send_addr(addr)
     }
+    /// Report whether this carrier's actual source survived an interface update.
+    /// Carriers with transparent reconnection keep their current path.
+    fn network_path_is_current(&self, _addr: &CustomAddr, _local_ips: &std::collections::HashSet<std::net::IpAddr>) -> bool { true }
     /// Opt in to validation-only QUIC scheduling before ordinary-data
     /// qualification. Legacy transports retain their existing packet/lifetime
     /// behavior; a connection-owned RTC bridge must return true for its ID.

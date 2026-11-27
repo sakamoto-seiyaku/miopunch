@@ -1,11 +1,8 @@
-use std::{
-    collections::{HashMap, HashSet},
-    net::IpAddr,
-};
+use std::net::IpAddr;
 
 use libc::{
     RTNLGRP_IPV4_IFADDR, RTNLGRP_IPV4_ROUTE, RTNLGRP_IPV4_RULE, RTNLGRP_IPV6_IFADDR,
-    RTNLGRP_IPV6_ROUTE, RTNLGRP_IPV6_RULE,
+    RTNLGRP_IPV6_ROUTE, RTNLGRP_IPV6_RULE, RTNLGRP_LINK,
 };
 use n0_error::stack_error;
 use n0_future::{
@@ -14,7 +11,7 @@ use n0_future::{
     time::{self, Duration},
 };
 use netlink_packet_core::{NetlinkMessage, NetlinkPayload};
-use netlink_packet_route::{RouteNetlinkMessage, address, route};
+use netlink_packet_route::{RouteNetlinkMessage, route};
 use netlink_sys::{AsyncSocket, SocketAddr};
 use tokio::sync::mpsc;
 use tracing::{trace, warn};
@@ -59,7 +56,8 @@ fn setup_netlink() -> std::io::Result<(
     let (mut conn, _handle, messages) =
         netlink_proto::new_connection::<RouteNetlinkMessage>(NETLINK_ROUTE)?;
 
-    let groups = nl_mgrp(RTNLGRP_IPV4_IFADDR)
+    let groups = nl_mgrp(RTNLGRP_LINK)
+        | nl_mgrp(RTNLGRP_IPV4_IFADDR)
         | nl_mgrp(RTNLGRP_IPV6_IFADDR)
         | nl_mgrp(RTNLGRP_IPV4_ROUTE)
         | nl_mgrp(RTNLGRP_IPV6_ROUTE)
@@ -80,8 +78,6 @@ async fn process_messages(
     sender: &mpsc::Sender<NetworkMessage>,
     messages: &mut (impl Stream<Item = (NetlinkMessage<RouteNetlinkMessage>, SocketAddr)> + Unpin),
 ) -> bool {
-    let mut addr_cache: HashMap<u32, HashSet<IpAddr>> = HashMap::new();
-
     while let Some((message, _)) = messages.next().await {
         match message.payload {
             NetlinkPayload::Error(err) => {
@@ -92,26 +88,8 @@ async fn process_messages(
                 return true;
             }
             NetlinkPayload::InnerMessage(msg) => match msg {
-                RouteNetlinkMessage::NewAddress(msg) => {
-                    trace!("NEWADDR: {:?}", msg);
-                    let addrs = addr_cache.entry(msg.header.index).or_default();
-                    if let Some(addr) = get_nla!(msg, address::AddressAttribute::Address) {
-                        if addrs.contains(addr) {
-                            continue;
-                        } else {
-                            addrs.insert(*addr);
-                            if sender.send(NetworkMessage::Change).await.is_err() {
-                                return false;
-                            }
-                        }
-                    }
-                }
-                RouteNetlinkMessage::DelAddress(msg) => {
-                    trace!("DELADDR: {:?}", msg);
-                    let addrs = addr_cache.entry(msg.header.index).or_default();
-                    if let Some(addr) = get_nla!(msg, address::AddressAttribute::Address) {
-                        addrs.remove(addr);
-                    }
+                RouteNetlinkMessage::NewAddress(msg) | RouteNetlinkMessage::DelAddress(msg) => {
+                    trace!(?msg, "address changed");
                     if sender.send(NetworkMessage::Change).await.is_err() {
                         return false;
                     }
@@ -157,11 +135,11 @@ async fn process_messages(
                         return false;
                     }
                 }
-                RouteNetlinkMessage::NewLink(msg) => {
-                    trace!("NEWLINK: {:?}", msg);
-                }
-                RouteNetlinkMessage::DelLink(msg) => {
-                    trace!("DELLINK: {:?}", msg);
+                RouteNetlinkMessage::NewLink(msg) | RouteNetlinkMessage::DelLink(msg) => {
+                    trace!(?msg, "interface changed");
+                    if sender.send(NetworkMessage::Change).await.is_err() {
+                        return false;
+                    }
                 }
                 msg => {
                     trace!("unhandled: {:?}", msg);

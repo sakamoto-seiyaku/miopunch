@@ -241,7 +241,7 @@ impl Interface {
 
 /// Intended to store the state of the machine's network interfaces, routing table, and
 /// other network configuration. For now it's pretty basic.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Eq, Clone)]
 pub struct State {
     /// Maps from an interface name to the interface.
     pub interfaces: HashMap<String, Interface>,
@@ -268,6 +268,21 @@ pub struct State {
 
     /// Monotonic timestamp, when an unsuspend was detected.
     pub last_unsuspend: Option<Instant>,
+}
+
+impl PartialEq for State {
+    fn eq(&self, other: &Self) -> bool {
+        self.interfaces == other.interfaces
+            && self.interfaces.iter().all(|(name, interface)| {
+                other.interfaces.get(name).is_some_and(|other| interface.addrs().eq(other.addrs()))
+            })
+            && self.local_addresses == other.local_addresses
+            && self.have_v6 == other.have_v6
+            && self.have_v4 == other.have_v4
+            && self.is_expensive == other.is_expensive
+            && self.default_route_interface == other.default_route_interface
+            && self.last_unsuspend == other.last_unsuspend
+    }
 }
 
 impl fmt::Display for State {

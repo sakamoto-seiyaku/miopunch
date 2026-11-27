@@ -247,6 +247,41 @@ async fn maintenance(from: &MemberConnection, to: &MemberConnection, sequence: u
 }
 
 #[tokio::test]
+#[ignore = "requires a disposable network namespace for actual interface changes"]
+async fn ipv6_prefix_change_preserves_ipv4_observation_and_original_stream() {
+    use std::process::Command;
+    fn ip(arguments: &[&str]) {
+        assert!(Command::new("ip").args(arguments).status().unwrap().success());
+    }
+    ip(&["link", "add", "mio205", "type", "dummy"]);
+    ip(&["link", "set", "mio205", "up"]);
+    ip(&["-6", "addr", "add", "fd00:205::1/64", "dev", "mio205", "nodad"]);
+    let pair = Pair::bind_with(
+        MaintenancePolicy { quality_interval_ms: 30_000, ..MaintenancePolicy::active() },
+        false,
+        |builder| builder.bind_addr((Ipv6Addr::UNSPECIFIED, 0)).unwrap(),
+        None,
+        false,
+    ).await;
+    let ids = pair.connections.each_ref().map(MemberConnection::stable_id);
+    let mut stream = open_flow(&pair.connections[0], &pair.connections[1]).await;
+    exchange(&mut stream, 205).await;
+    let plan = pair.connections[0].coordinate_udp_plan(
+        Instant::now() + Duration::from_secs(8), &CancellationToken::new(),
+    ).await.unwrap();
+    assert!(plan.local_samples().iter().all(|sample| sample.mapped.is_ipv4()));
+    ip(&["-6", "addr", "del", "fd00:205::1/64", "dev", "mio205"]);
+    ip(&["-6", "addr", "add", "fd00:205:1::1/64", "dev", "mio205", "nodad"]);
+    tokio::join!(pair.endpoints[0].network_change(), pair.endpoints[1].network_change());
+    time::sleep(Duration::from_millis(400)).await;
+    assert_eq!(pair.connections[0].udp_plan().map(|plan| plan.round), Some(plan.round),
+        "the actual IPv4 binding and its observation survive an IPv6-only prefix change");
+    exchange(&mut stream, 206).await;
+    assert_eq!(pair.connections.each_ref().map(MemberConnection::stable_id), ids);
+    pair.close().await;
+}
+
+#[tokio::test]
 async fn one_standby_slot_preserves_business_across_background_contacts() {
     let dir = tempfile::tempdir().unwrap();
     let mut admin = NativeNetwork::create(dir.path().join("owner"))
@@ -333,39 +368,50 @@ async fn crossed_fused_offers_share_one_physical_round_and_preserve_both_busines
     )
     .await;
     let [left, right] = &pair.connections;
-    let mut a = open_flow(left, right).await;
-    let mut b = open_flow(right, left).await;
-    tokio::join!(exchange(&mut a, 1), exchange(&mut b, 1));
-    assert_eq!(pair.requests(), [0, 0]);
     let originals = pair.connections.each_ref().map(MemberConnection::stable_id);
-    let streams = [
-        u64::from(a.0.streams().0.id()),
-        u64::from(b.0.streams().0.id()),
-    ];
-    assert_ne!(streams[0], streams[1]);
     let leader = usize::from(pair.endpoints[0].id() > pair.endpoints[1].id());
     let dry = CancellationToken::new();
     let dry_deadline = Instant::now() + DEADLINE;
     let winner = &pair.connections[leader];
     let yielder = &pair.connections[1 - leader];
-    let barrier = Arc::new(Barrier::new(2));
-    for endpoint in &pair.endpoints {
-        endpoint.test_coordinate_udp_reservation(barrier.clone());
-    }
-    let (dry_cancelled, dry_yielded) = time::timeout_at(dry_deadline, async {
+    let barrier = Arc::new(Barrier::new(3));
+    let reserved = pair.endpoints.each_ref().map(|endpoint| {
+        endpoint.test_coordinate_udp_reservation(barrier.clone())
+    });
+    let (dry_cancelled, dry_yielded, (mut a, mut b)) = time::timeout_at(dry_deadline, async {
         let conflicting = CancellationToken::new();
-        let (winner, yielder) =
-            tokio::join!(winner.coordinate_udp_traversal(dry_deadline, &dry), async {
+        let (winner, yielder, flows) = tokio::join!(
+            winner.coordinate_udp_traversal(dry_deadline, &dry),
+            async {
                 let result = yielder
                     .coordinate_udp_traversal(dry_deadline, &conflicting)
                     .await;
                 dry.cancel();
                 result
-            },);
-        (winner.unwrap_err().kind(), yielder.unwrap_err().kind())
+            },
+            async {
+                // Hold the actual manual reservations before business activity can
+                // start an automatic improvement round on the same originals.
+                while !reserved.iter().all(|reached| reached.load(Relaxed)) {
+                    time::sleep(Duration::from_millis(5)).await;
+                }
+                let mut a = open_flow(left, right).await;
+                let mut b = open_flow(right, left).await;
+                tokio::join!(exchange(&mut a, 1), exchange(&mut b, 1));
+                assert_eq!(pair.requests(), [0, 0]);
+                barrier.wait().await;
+                (a, b)
+            },
+        );
+        (winner.unwrap_err().kind(), yielder.unwrap_err().kind(), flows)
     })
     .await
     .unwrap();
+    let streams = [
+        u64::from(a.0.streams().0.id()),
+        u64::from(b.0.streams().0.id()),
+    ];
+    assert_ne!(streams[0], streams[1]);
     assert_eq!(dry_cancelled, ErrorKind::Interrupted);
     assert_eq!(dry_yielded, ErrorKind::WouldBlock);
     let dry_requests = pair.requests();

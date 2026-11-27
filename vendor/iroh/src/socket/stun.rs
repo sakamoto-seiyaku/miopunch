@@ -322,9 +322,27 @@ impl EndpointInner {
                     "no binding for requested observation family",
                 )
             })?;
-        let configured = qad_submission
+        let mut configured = qad_submission
             .and_then(|submission| submission.binding())
             .unwrap_or(configured);
+        let mut route_destination = None;
+        if configured.ip().is_unspecified() {
+            let observers = stun.iter().map(|url| (url.clone(), 3478)).chain(
+                qad.relays::<Vec<_>>().into_iter().map(|relay| {
+                    (relay.url.clone(), relay.quic.as_ref().map_or(7842, |quic| quic.port))
+                }),
+            );
+            for (observer, port) in observers {
+                if let Ok(Ok(destination)) = tokio::time::timeout_at(deadline,
+                    self.resolve_observation_addr(&observer, family, port)).await
+                    && let Ok(binding) = crate::endpoint::member_fusion::physical::Scope::route_binding(configured, destination)
+                {
+                    configured = binding;
+                    route_destination = Some(destination);
+                    break;
+                }
+            }
+        }
         let source = (!configured.ip().is_unspecified()).then_some(configured.ip());
         let binding = self
             .sock
@@ -338,12 +356,16 @@ impl EndpointInner {
                     "no sender for observation binding",
                 )
             })?;
-        let source = (!binding.ip().is_unspecified()).then_some(binding.ip());
+        let source = source.or_else(|| (!binding.ip().is_unspecified()).then_some(binding.ip()));
         let qad_binding = qad_submission
             .cloned()
             .unwrap_or_else(|| transports::QadSubmission::new(|| {}))
             .for_binding(binding);
-        let network_validity = self.udp_network_generation();
+        let network_validity = if let Some(destination) = route_destination {
+            self.binding_route_generation(SocketAddr::new(source.expect("routed observation source"), binding.port()), destination)?
+        } else if binding.ip().is_unspecified() {
+            self.family_network_generation(binding.is_ipv6())
+        } else { self.binding_network_generation(binding)? };
         let validity = self.udp_observation_generation();
         let closed = self.sock.shutdown.at_close_start.child_token();
         let allowed = |url: &RelayUrl| {
@@ -648,7 +670,10 @@ impl EndpointInner {
                 "endpoint has no UDP transport for the observer family",
             ));
         }
-        let network_validity = self.udp_network_generation();
+        let network_validity = match source {
+            Some(source) => self.binding_network_generation(SocketAddr::new(source, 0))?,
+            None => self.udp_network_generation(),
+        };
         let closed = self.sock.shutdown.at_close_start.child_token();
         let mut sends = 0;
         let operation = async {

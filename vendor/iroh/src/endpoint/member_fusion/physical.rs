@@ -15,7 +15,7 @@ pub(crate) async fn observer_binding(
     observers: impl IntoIterator<Item = (crate::RelayUrl, u16)>,
     configured: Option<SocketAddr>,
     deadline: Instant,
-) -> io::Result<SocketAddr> {
+) -> io::Result<(SocketAddr, SocketAddr)> {
     let mut last_error = io::Error::from(io::ErrorKind::AddrNotAvailable);
     for (observer, port) in observers {
         let result = time::timeout_at(deadline, async {
@@ -29,7 +29,7 @@ pub(crate) async fn observer_binding(
             endpoint
                 .inner
                 .punching_scope(binding, configured.is_some())?;
-            Ok(binding)
+            Ok((binding, destination))
         })
         .await
         .map_err(|_| io::ErrorKind::TimedOut)?;

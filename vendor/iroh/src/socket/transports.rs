@@ -579,11 +579,12 @@ impl NetworkChangeSender {
     }
 
     /// Rebinds underlying connections, if necessary.
-    pub(crate) fn rebind(&self) -> std::io::Result<()> {
+    pub(crate) fn rebind_families(&self, changed: [bool; 2]) -> std::io::Result<()> {
         let mut res = Ok(());
 
         #[cfg(not(wasm_browser))]
         for transport in &self.ip {
+            if !changed[usize::from(transport.is_ipv6())] { continue; }
             if let Err(err) = transport.rebind() {
                 warn!("failed to rebind {:?}", err);
                 res = Err(err);

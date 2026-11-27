@@ -323,7 +323,7 @@ impl SocketPool {
     }
     /// Close pending rounds on a network change and retired interface bindings.
     /// A retained winner remains usable when its actual interface still exists.
-    pub(crate) fn on_network_change(&self, actual_ips: &std::collections::HashSet<IpAddr>) {
+    pub(crate) fn on_network_change(&self, actual_ips: &std::collections::HashSet<IpAddr>, forced: bool) {
         let sockets = self
             .sockets
             .lock()
@@ -332,7 +332,7 @@ impl SocketPool {
             .filter_map(Weak::upgrade)
             .collect::<Vec<_>>();
         for socket in sockets {
-            if !socket.retained.load(Ordering::Acquire)
+            if (forced && !socket.retained.load(Ordering::Acquire))
                 || !actual_ips.contains(&socket.binding().local_addr.ip())
             {
                 socket.close();

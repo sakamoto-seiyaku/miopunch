@@ -273,10 +273,12 @@ struct MemberPaths {
         std::sync::Mutex<
             std::collections::HashMap<
                 crate::endpoint::member_fusion::physical::Scope,
-                crate::endpoint::member_fusion::physical::MemberPunching,
+                (crate::endpoint::member_fusion::physical::MemberPunching, crate::socket::ObservationValidity),
             >,
         >,
     >,
+    #[cfg(not(wasm_browser))]
+    probe_generations: Arc<std::sync::Mutex<std::collections::HashMap<SocketAddr, crate::socket::ObservationValidity>>>,
     #[cfg(not(wasm_browser))]
     building_events: tokio_util::sync::CancellationToken,
     #[cfg(not(wasm_browser))]
@@ -290,7 +292,9 @@ struct MemberPaths {
     last_exchange: [Option<HolepunchAttempt>; 2],
     candidate_cursor: usize,
     candidate_rotated_at: Option<Instant>,
-    network_changed_at: Option<Instant>,
+    network_changed_at: FxHashMap<PathId, Instant>,
+    network_refresh: [bool; 2],
+    refresh_peers: [BTreeSet<SocketAddr>; 2],
     new_path_probes: FxHashMap<PathId, (Instant, noq::PathProbe)>,
 }
 
@@ -303,6 +307,8 @@ impl MemberPaths {
             #[cfg(not(wasm_browser))]
             physical: Default::default(),
             #[cfg(not(wasm_browser))]
+            probe_generations: Default::default(),
+            #[cfg(not(wasm_browser))]
             building_events: Default::default(),
             #[cfg(not(wasm_browser))]
             building_subscribed: false,
@@ -314,7 +320,9 @@ impl MemberPaths {
             last_exchange: [None, None],
             candidate_cursor: 0,
             candidate_rotated_at: None,
-            network_changed_at: None,
+            network_changed_at: FxHashMap::default(),
+            network_refresh: [false; 2],
+            refresh_peers: Default::default(),
             new_path_probes: FxHashMap::default(),
         }
     }
@@ -362,20 +370,21 @@ impl MemberPaths {
         };
         let endpoint = self.policy.physical_endpoint.clone();
         let physical = self.physical.clone();
+        let generations = self.probe_generations.clone();
         let building = building.clone();
         conn.set_nat_traversal_probe_gate(Some(Arc::new(move |remote| {
             let Some(endpoint) = endpoint.upgrade() else {
                 return false;
             };
-            let Ok(scope) = endpoint.udp_punching_scope_for(remote) else {
+            let Ok((scope, validity)) = endpoint.udp_punching_scope_for(remote) else {
                 return false;
             };
             let mut leases = physical.lock().expect("ordinary probe physical leases");
-            if leases.contains_key(&scope) {
-                return true;
-            }
+            generations.lock().expect("ordinary probe generations").insert(remote, validity.clone());
+            if leases.get(&scope).is_some_and(|(_, validity)| validity.is_current()) { return true; }
+            leases.remove(&scope);
             if let Some(permit) = building.physical.try_acquire(scope.clone(), peer) {
-                leases.insert(scope, permit);
+                leases.insert(scope, (permit, validity));
                 true
             } else {
                 false
@@ -383,10 +392,10 @@ impl MemberPaths {
         })));
     }
 
-    fn has_current_ack(&self, stats: &PathStats) -> bool {
+    fn has_current_ack(&self, id: PathId, stats: &PathStats) -> bool {
         stats.acknowledgment.is_some_and(|ack| {
-            self.network_changed_at
-                .is_none_or(|changed| Instant::from(ack.sent_at) > changed)
+            self.network_changed_at.get(&id)
+                .is_none_or(|changed| Instant::from(ack.sent_at) > *changed)
         })
     }
 }
@@ -635,6 +644,40 @@ impl RemoteStateActor {
                 }
                 Some((id, evt)) = self.state.addr_events.next() => {
                     trace!(?id, ?evt, "remote addrs updated, triggering holepunching");
+                    let server_added = matches!(&evt, Ok(n0_nat_traversal::Event::AddressAdded(_)))
+                        && self.connections.get(&id).and_then(|state| state.handle.upgrade())
+                            .is_some_and(|conn| conn.side().is_server());
+                    let mut refresh_marked = false;
+                    if let Ok(n0_nat_traversal::Event::AddressAdded(address)) = &evt
+                        && let Some(state) = self.connections.get_mut(&id)
+                    {
+                        let healthy = state.purpose == ConnectionPurpose::Ordinary
+                            && state.custom_data_policy
+                            && state.handle.upgrade().is_some_and(|conn| {
+                            state.paths.iter().any(|(id, path)| {
+                                !path.is_relay()
+                                    && state.path_is_qualified(*id, &conn)
+                                    && state.member_paths.as_ref().is_some_and(|member| {
+                                        conn.path_stats(*id).is_some_and(|stats| member.has_current_ack(*id, &stats))
+                                    })
+                            })
+                        });
+                        if healthy
+                            && let Some(member) = &mut state.member_paths
+                            && member.policy.permits(transports::Addr::Ip(*address))
+                        {
+                            let family = usize::from(address.is_ipv6());
+                            member.network_refresh[family] = true;
+                            member.refresh_peers[family].insert(*address);
+                            refresh_marked = true;
+                        }
+                    }
+                    // REACH_OUT already drives a bootstrap server's own round.
+                    // Wake the admitted planner only for a healthy original that
+                    // must validate this newly announced peer binding.
+                    if server_added && !refresh_marked {
+                        continue;
+                    }
                     if self.connections.get(&id).is_some_and(|state| state.member_paths.is_some()) {
                         self.update_member_udp(id, true);
                     } else {
@@ -1144,8 +1187,8 @@ impl RemoteStateActor {
                 };
                 tx.send(info).ok();
             }
-            RemoteStateMessage::NetworkChange { is_major } => {
-                self.handle_msg_network_change(is_major);
+            RemoteStateMessage::NetworkChange { is_major, families, unaffected_ips } => {
+                self.handle_msg_network_change(is_major, families, unaffected_ips);
             }
         }
     }
@@ -1528,7 +1571,7 @@ impl RemoteStateActor {
     }
 
     /// Handles [`RemoteStateMessage::NetworkChange`].
-    fn handle_msg_network_change(&mut self, is_major: bool) {
+    fn handle_msg_network_change(&mut self, is_major: bool, families: [bool; 2], unaffected_ips: Option<Arc<std::collections::HashSet<std::net::IpAddr>>>) {
         // Ping all the paths so loss-detection starts ASAP.
         for conn in self.connections.values() {
             if let Some(noq_conn) = conn.handle.upgrade() {
@@ -1543,16 +1586,42 @@ impl RemoteStateActor {
             }
         }
 
-        if is_major {
+        if is_major || families.iter().any(|changed| *changed) {
             let now = Instant::now();
             for state in self.connections.values_mut() {
                 if let Some(member) = &mut state.member_paths {
-                    member.known_probes.clear();
-                    member.response_deadlines.clear();
-                    member.additional_direct = None;
-                    member.last_exchange = [None, None];
-                    member.network_changed_at = Some(now);
-                    member.new_path_probes.clear();
+                    #[cfg(not(wasm_browser))]
+                    let valid_probes: std::collections::HashSet<_> = {
+                        member.physical.lock().expect("ordinary physical leases").retain(|_, (_, validity)| validity.is_current());
+                        let mut generations = member.probe_generations.lock().expect("ordinary probe generations");
+                        generations.retain(|_, validity| validity.is_current());
+                        generations.keys().copied().collect()
+                    };
+                    #[cfg(wasm_browser)]
+                    let valid_probes = std::collections::HashSet::<SocketAddr>::new();
+                    member.known_probes.retain(|address, _| valid_probes.contains(address) || !families[usize::from(address.is_ipv6())]);
+                    member.response_deadlines.retain(|address, _| valid_probes.contains(address) || !families[usize::from(address.is_ipv6())]);
+                    if member.additional_direct.is_some_and(|address| families[usize::from(address.is_ipv6())]) { member.additional_direct = None; }
+                    for (family, changed) in families.iter().enumerate() {
+                        if *changed {
+                            member.last_exchange[family] = None;
+                            member.network_refresh[family] = true;
+                        }
+                    }
+                    let mut affected_paths = HashSet::new();
+                    if let Some(conn) = state.handle.upgrade() {
+                        for (id, path) in conn.network_paths() {
+                            #[cfg(not(wasm_browser))]
+                            let affected = crate::socket::network::path_is_affected(&self.state.mapped_addrs, path, unaffected_ips.as_deref());
+                            #[cfg(wasm_browser)]
+                            let affected = true;
+                            if affected {
+                                member.network_changed_at.insert(id, now);
+                                affected_paths.insert(id);
+                            }
+                        }
+                    }
+                    member.new_path_probes.retain(|id, _| !affected_paths.contains(id));
                 }
             }
             self.trigger_holepunching();
@@ -1639,7 +1708,7 @@ impl RemoteStateActor {
             let Some(stats) = conn.path_stats(*path_id) else {
                 continue;
             };
-            if !member.has_current_ack(&stats) {
+            if !member.has_current_ack(*path_id, &stats) {
                 continue;
             }
             let healthy = !state.suspect_paths.contains_key(path_id);
@@ -1657,6 +1726,32 @@ impl RemoteStateActor {
             .member_paths
             .as_mut()
             .expect("checked member connection");
+        let ready_direct = healthy_direct.len();
+        let all_candidates = self.state.local_candidates();
+        for (family, refreshing) in member.network_refresh.iter_mut().enumerate() {
+            if verified.iter().any(|address| address.is_ipv6() == (family == 1)
+                && (member.refresh_peers[family].is_empty() || member.refresh_peers[family].contains(address))) {
+                *refreshing = false;
+                member.refresh_peers[family].clear();
+            }
+        }
+        let refresh_families: [bool; 2] = std::array::from_fn(|family| {
+            member.network_refresh[family]
+                && all_candidates.iter().any(|address| address.is_ipv6() == (family == 1))
+        });
+        let refreshing = refresh_families.iter().any(|refreshing| *refreshing);
+        let concurrent = member
+            .policy
+            .concurrent_business
+            .as_ref()
+            .map(|demand| *demand.borrow());
+        if concurrent == Some(false) {
+            member.additional_direct = None;
+        }
+        let balancing = ready_direct != 0 && concurrent.is_some() && !refreshing;
+        let healthy_return = ready_direct != 0 && !refreshing
+            && (!member.policy.business_active() || balancing)
+            && (ready_direct != 1 || concurrent != Some(true));
         #[cfg(not(wasm_browser))]
         if member.policy.building.is_some() {
             member
@@ -1708,41 +1803,21 @@ impl RemoteStateActor {
                     .expect("ordinary physical leases")
                     .clear();
             }
-            if in_flight && !validating {
+            if in_flight && !validating && (!healthy_return || member.building.is_some()) {
                 member.allow_probes(&conn, self.state.endpoint_id);
             }
             conn.set_nat_traversal_probes_permitted(member.building.is_some());
         }
-        let ready_direct = healthy_direct.len();
-        let concurrent = member
-            .policy
-            .concurrent_business
-            .as_ref()
-            .map(|demand| *demand.borrow());
-        if concurrent == Some(false) {
-            member.additional_direct = None;
-        }
-        let balancing = ready_direct != 0 && concurrent.is_some();
-        if ready_direct != 0 && (!member.policy.business_active() || balancing) {
+        if ready_direct != 0 && !refreshing && (!member.policy.business_active() || balancing) {
             member.policy.needs_enhanced_udp([false; 2]);
             if ready_direct != 1 || concurrent != Some(true) {
-                #[cfg(not(wasm_browser))]
-                {
-                    if member.policy.building.is_some() {
-                        conn.stop_nat_traversal_probes();
-                    }
-                    conn.set_nat_traversal_probes_permitted(member.policy.building.is_none());
-                    member.building = None;
-                    member
-                        .physical
-                        .lock()
-                        .expect("ordinary physical leases")
-                        .clear();
-                }
+                // Existing probes retain their position until their bounded ACK/response
+                // work settles. A healthy return must not acquire a new position merely
+                // to drop it and wake this actor again.
                 return;
             }
         }
-        let needs_enhanced = !healthy_tcp && verified.is_empty();
+        let needs_enhanced = refresh_families.map(|refreshing| refreshing || (!healthy_tcp && verified.is_empty()));
         if !active {
             if trace_ipv6 {
                 eprintln!(
@@ -1750,20 +1825,19 @@ impl RemoteStateActor {
                     id.0
                 );
             }
-            member.policy.needs_enhanced_udp([needs_enhanced; 2]);
+            member.policy.needs_enhanced_udp(needs_enhanced);
             return;
         }
         let ipv4_paused = conn.ipv4_nat_traversal_probes_paused();
         let ipv6_paused = conn.nat_traversal_probes_paused(true);
         let can_probe = |addr: &SocketAddr| {
-            !healthy_tcp
+            (!healthy_tcp || refresh_families[usize::from(addr.is_ipv6())])
                 && if addr.ip().to_canonical().is_ipv6() {
                     !ipv6_paused
                 } else {
                     !ipv4_paused
                 }
         };
-        let all_candidates = self.state.local_candidates();
         let limit = conn.local_nat_traversal_address_limit().unwrap_or(0);
         if all_candidates.len() > limit
             && ready_direct == 0
@@ -1786,7 +1860,7 @@ impl RemoteStateActor {
                 );
             }
             update_qnt_candidates(&conn, &local_candidates);
-            member.policy.needs_enhanced_udp([needs_enhanced; 2]);
+            member.policy.needs_enhanced_udp(needs_enhanced);
             return;
         }
         if balancing && conn.side().is_server() {
@@ -1854,13 +1928,14 @@ impl RemoteStateActor {
         } else {
             None
         };
-        let may_retry = !good_direct || (balancing && member.additional_direct.is_none());
+        let may_retry = refreshing || !good_direct || (balancing && member.additional_direct.is_none());
         for remote in known.iter().filter(|address| {
             can_probe(address)
                 && if balancing {
                     Some(**address) == additional
                 } else {
                     explicit.contains(*address)
+                        || refresh_families[usize::from(address.is_ipv6())]
                         || ((ipv4_paused || ipv6_paused) && can_probe(address))
                 }
         }) {
@@ -1898,7 +1973,7 @@ impl RemoteStateActor {
             let recent_exchange = member.last_exchange[family]
                 .as_ref()
                 .is_some_and(|last| now - last.when < LOCAL_PROBE_GRACE);
-            needs_enhanced && !probing && !recent_exchange
+            needs_enhanced[family] && !probing && !recent_exchange
         });
         if conn.side().is_server() {
             // At first activation prefer local probes. Only advertise when a
@@ -1917,6 +1992,7 @@ impl RemoteStateActor {
                                     && now - *sent < LOCAL_PROBE_GRACE
                             }) && can_probe(addr)
                                 && (verified.is_empty()
+                                    || refresh_families[usize::from(addr.is_ipv6())]
                                     || (addr.ip().to_canonical().is_ipv6() && !have_ipv6)))
                     })
                     .collect();
@@ -2504,7 +2580,7 @@ impl RemoteStateActor {
                     && selected_for_conn.is_some_and(|id| {
                         !conn_state.suspect_paths.contains_key(&id)
                             && conn.path_stats(id).is_some_and(|stats| {
-                                member.has_current_ack(&stats) && context.has_fresh_ack(&stats)
+                                member.has_current_ack(id, &stats) && context.has_fresh_ack(&stats)
                             })
                     })
             });
@@ -3400,7 +3476,7 @@ pub(crate) enum RemoteStateMessage {
     /// This currently only includes a list of all known transport addresses for the remote.
     RemoteInfo(oneshot::Sender<RemoteInfo>),
     /// The network status has changed in some way
-    NetworkChange { is_major: bool },
+    NetworkChange { is_major: bool, families: [bool; 2], unaffected_ips: Option<Arc<std::collections::HashSet<std::net::IpAddr>>> },
 }
 
 /// Information about a holepunch attempt.
@@ -3776,6 +3852,7 @@ impl ConnectionState {
         self.suspect_paths.remove(path_id);
         if let Some(member) = &mut self.member_paths {
             member.new_path_probes.remove(path_id);
+            member.network_changed_at.remove(path_id);
         }
         self.path_state.record_abandoned(*path_id, conn);
         Some(addr)
@@ -4012,9 +4089,9 @@ impl<'a> PathSelectionContext<'a> {
                                                         .saturating_duration_since(received.into())
                                                         <= window
                                                     && (!may_use_tcp_confirmation
-                                                        || member.network_changed_at.is_none_or(
+                                                        || member.network_changed_at.get(id).is_none_or(
                                                             |changed| {
-                                                                Instant::from(received) > changed
+                                                                Instant::from(received) > *changed
                                                             },
                                                         ))
                                             })
@@ -4023,12 +4100,12 @@ impl<'a> PathSelectionContext<'a> {
                                 if (needs_response && !confirmed)
                                     || (suspect && !confirmed)
                                     || (addr.is_ip()
-                                        && member.network_changed_at.is_some_and(|changed| {
+                                        && member.network_changed_at.get(id).is_some_and(|changed| {
                                             !conn
                                                 .path_stats(*id)
                                                 .and_then(|stats| stats.acknowledgment)
                                                 .is_some_and(|ack| {
-                                                    Instant::from(ack.sent_at) > changed
+                                                    Instant::from(ack.sent_at) > *changed
                                                 })
                                         }))
                                     || (!confirmed

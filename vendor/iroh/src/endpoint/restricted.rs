@@ -738,6 +738,24 @@ impl RestrictedEndpoint {
         self.inner.udp_network_generation()
     }
 
+    /// Lifetime of an actual local source binding.
+    #[cfg(not(wasm_browser))]
+    pub fn binding_network_generation(&self, binding: std::net::SocketAddr) -> io::Result<super::ObservationValidity> {
+        self.inner.binding_network_generation(binding)
+    }
+
+    /// Lifetime of the actual source and the route to its observation destination.
+    #[cfg(not(wasm_browser))]
+    pub fn binding_route_generation(&self, binding: std::net::SocketAddr, destination: std::net::SocketAddr) -> std::io::Result<super::ObservationValidity> {
+        self.inner.binding_route_generation(binding, destination)
+    }
+
+    /// Wait for a network notification while this binding remains current.
+    #[cfg(not(wasm_browser))]
+    pub async fn wait_network_generation_change(&self, observed: &super::ObservationValidity) {
+        self.inner.wait_network_generation_change(observed).await;
+    }
+
     /// DNS used by this endpoint's configured observation services.
     #[cfg(not(wasm_browser))]
     pub fn dns_resolver(&self) -> Result<&crate::dns::DnsResolver, super::EndpointError> {
@@ -1389,6 +1407,24 @@ impl ControlHandle {
     #[cfg(not(wasm_browser))]
     pub fn udp_network_generation(&self) -> super::ObservationValidity {
         self.endpoint.udp_network_generation()
+    }
+
+    /// Lifetime of an actual local source binding.
+    #[cfg(not(wasm_browser))]
+    pub fn binding_network_generation(&self, binding: std::net::SocketAddr) -> io::Result<super::ObservationValidity> {
+        self.endpoint.binding_network_generation(binding)
+    }
+
+    /// Lifetime of the actual source and the route to its observation destination.
+    #[cfg(not(wasm_browser))]
+    pub fn binding_route_generation(&self, binding: std::net::SocketAddr, destination: std::net::SocketAddr) -> std::io::Result<super::ObservationValidity> {
+        self.endpoint.binding_route_generation(binding, destination)
+    }
+
+    /// Wait for a network notification while this binding remains current.
+    #[cfg(not(wasm_browser))]
+    pub async fn wait_network_generation_change(&self, observed: &super::ObservationValidity) {
+        self.endpoint.wait_network_generation_change(observed).await;
     }
     /// Actual primary local IPv4 candidates; reflected addresses are not included.
     #[cfg(not(wasm_browser))]

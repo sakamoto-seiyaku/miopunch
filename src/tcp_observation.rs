@@ -33,19 +33,31 @@ impl TcpSocketObservation {
 }
 
 pub(crate) trait ObservationEndpoint: Sync {
-    fn udp_network_generation(&self) -> iroh::endpoint::ObservationValidity;
+    fn binding_route_generation(
+        &self,
+        source: SocketAddr,
+        destination: SocketAddr,
+    ) -> io::Result<iroh::endpoint::ObservationValidity>;
     fn resolve_observation_addr(
         &self,
         observer: &iroh::RelayUrl,
         family: iroh::endpoint::ObservationFamily,
     ) -> impl std::future::Future<Output = io::Result<SocketAddr>> + Send;
+    fn wait_network_generation_change(
+        &self,
+        observed: &iroh::endpoint::ObservationValidity,
+    ) -> impl std::future::Future<Output = ()> + Send;
     fn is_closed(&self) -> bool;
 }
 macro_rules! observation_endpoint {
     ($ty:ty) => {
         impl ObservationEndpoint for $ty {
-            fn udp_network_generation(&self) -> iroh::endpoint::ObservationValidity {
-                <$ty>::udp_network_generation(self)
+            fn binding_route_generation(
+                &self,
+                source: SocketAddr,
+                destination: SocketAddr,
+            ) -> io::Result<iroh::endpoint::ObservationValidity> {
+                <$ty>::binding_route_generation(self, source, destination)
             }
             async fn resolve_observation_addr(
                 &self,
@@ -53,6 +65,12 @@ macro_rules! observation_endpoint {
                 family: iroh::endpoint::ObservationFamily,
             ) -> io::Result<SocketAddr> {
                 <$ty>::resolve_observation_addr(self, observer, family, 3478).await
+            }
+            async fn wait_network_generation_change(
+                &self,
+                observed: &iroh::endpoint::ObservationValidity,
+            ) {
+                <$ty>::wait_network_generation_change(self, observed).await;
             }
             fn is_closed(&self) -> bool {
                 <$ty>::is_closed(self)
@@ -120,13 +138,23 @@ async fn observe_with_source(
     // A dropped future cannot later publish a result. Successful callers retain
     // the token/socket and explicitly recheck freshness before candidate use.
     let cancel_on_drop = request.clone().drop_guard();
-    let generation = endpoint.udp_network_generation();
     let operation = async {
         let destination = endpoint.resolve_observation_addr(observer, family).await?;
         let listener = transport.bound_socket_addr_for(destination)?;
-        let (mapped, stream) = match source {
-            Some(source) => transport.observe_from(destination, source).await?,
-            None => transport.observe(destination).await?,
+        let mut source = source.unwrap_or(listener);
+        if source.ip().is_unspecified() {
+            let route = std::net::UdpSocket::bind((source.ip(), 0))?;
+            route.connect(destination)?;
+            source.set_ip(route.local_addr()?.ip());
+        }
+        let generation = endpoint.binding_route_generation(source, destination)?;
+        let (mapped, stream) = tokio::select! {
+            result = transport.observe_from(destination, source) => result?,
+            _ = async {
+                while generation.is_current() && !endpoint.is_closed() {
+                    endpoint.wait_network_generation_change(&generation).await;
+                }
+            } => return Err(io::Error::new(io::ErrorKind::Interrupted, "TCP STUN source binding changed")),
         };
         let local_addr = stream.local_addr()?;
         if stream.peer_addr()? != destination

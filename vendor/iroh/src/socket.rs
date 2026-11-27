@@ -98,6 +98,8 @@ pub(crate) mod mapped_addrs;
 pub(crate) mod remote_map;
 #[cfg(not(wasm_browser))]
 mod stun;
+#[cfg(not(wasm_browser))]
+mod network;
 pub(crate) mod transports;
 #[cfg(not(wasm_browser))]
 pub use stun::UdpStunObservation;
@@ -378,6 +380,8 @@ pub(crate) struct Socket {
     /// Physical socket/network epoch, independent of ordinary QAD refreshes.
     network_generation: Arc<Mutex<u64>>,
     #[cfg(not(wasm_browser))]
+    network_bindings: Mutex<network::Bindings>,
+    #[cfg(not(wasm_browser))]
     network_generation_changed: tokio::sync::Notify,
     /// If the last net_report report, reports IPv6 to be available.
     ipv6_reported: Arc<AtomicBool>,
@@ -475,6 +479,7 @@ pub struct UdpTraversalLease {
 struct UdpTraversalRegistration {
     senders: Arc<Mutex<HashMap<transports::LocalSocketId, mpsc::Sender<UdpTraversalPacket>>>>,
     live: Arc<Mutex<bool>>,
+    binding: Arc<Mutex<Option<SocketAddr>>>,
 }
 
 /// A fixed number of legacy bind attempts; failures do not trigger replacements.
@@ -599,6 +604,9 @@ impl UdpTraversalLease {
     }
     pub(crate) fn use_primary_binding(&mut self, binding: SocketAddr) {
         self.primary_binding = Some(binding);
+        if let Some(round) = self.socket.udp_traversal.lock().expect("raw registry").get(&self.round) {
+            *round.binding.lock().expect("raw binding") = Some(binding);
+        }
     }
 
     /// Obtain a sender; sends fail after the lease is dropped.
@@ -1021,6 +1029,61 @@ impl Socket {
         self.net_report.set((None, why)).ok();
     }
 
+    /// Keep still-fresh candidates from the other family without renewing their sample.
+    fn invalidate_observation_families(&self, families: [bool; 2]) {
+        if families != [true, true] {
+            let mut generation = self.observation_generation.lock().expect("poisoned");
+            if let (
+                Some(mut report),
+                UdpObservation::Fresh {
+                    mut addresses,
+                    observed_at,
+                    valid_until,
+                    validity,
+                    ..
+                },
+            ) = (self.net_report.get().0, self.udp_observation.get())
+                && std::time::Instant::now() < valid_until
+                && validity.observed_generation == *generation
+            {
+                let previous_count = addresses.len();
+                addresses.retain(|address| !families[usize::from(address.is_ipv6())]);
+                if !addresses.is_empty() {
+                    if families[0] {
+                        report.global_v4 = None;
+                        report.udp_v4 = false;
+                        report.mapping_varies_by_dest_ipv4 = None;
+                    }
+                    if families[1] {
+                        report.global_v6 = None;
+                        report.udp_v6 = false;
+                        report.mapping_varies_by_dest_ipv6 = None;
+                    }
+                    if addresses.len() != previous_count {
+                        *generation = generation.wrapping_add(1);
+                    }
+                    self.udp_observation.set(UdpObservation::Fresh {
+                        addresses,
+                        observed_at,
+                        valid_until,
+                        mapping_varies_by_dest: report.mapping_varies_by_dest(),
+                        validity: ObservationValidity {
+                            generation: self.observation_generation.clone(),
+                            observed_generation: *generation,
+                        },
+                    }).ok();
+                    self.net_report.set((Some(report), UpdateReason::LinkChangeRetained)).ok();
+                    return;
+                }
+            }
+        }
+        self.publish_observation_unavailable(
+            UdpObservation::Failed(UdpObservationFailure::NetworkChanged),
+            UpdateReason::LinkChangeMajor,
+            None,
+        );
+    }
+
     fn publish_observation_report(&self, report: &Report) {
         let mut generation = self.observation_generation.lock().expect("poisoned");
         *generation = generation.wrapping_add(1);
@@ -1304,6 +1367,8 @@ enum UpdateReason {
     PortmapUpdated,
     LinkChangeMajor,
     LinkChangeMinor,
+    /// A filtered earlier report; its observation time has not changed.
+    LinkChangeRetained,
     RelayMapChange,
 }
 
@@ -1397,6 +1462,7 @@ impl DirectAddrUpdateState {
         let inner_token = token.child_token();
         let force_full = why.is_major() || self.explicit_qad_servers;
         let generation = *sock.observation_generation.lock().expect("poisoned");
+        let network_generation = *sock.network_generation.lock().expect("network epoch");
         task::spawn(
             async move {
                 let fut = token.run_until_cancelled(time::timeout(
@@ -1406,18 +1472,22 @@ impl DirectAddrUpdateState {
 
                 match fut.await {
                     Some(Ok(report)) => {
+                        let network = sock.network_generation.lock().expect("network epoch");
                         let current = sock.observation_generation.lock().expect("poisoned");
-                        if *current == generation {
+                        if *network == network_generation && *current == generation {
                             sock.net_report.set((Some(report), why)).ok();
                         }
                     }
                     Some(Err(time::Elapsed { .. })) => {
                         warn!("net_report report timed out");
-                        sock.publish_observation_unavailable(
-                            UdpObservation::Failed(UdpObservationFailure::TimedOut),
-                            why,
-                            Some(generation),
-                        );
+                        let network = sock.network_generation.lock().expect("network epoch");
+                        if *network == network_generation {
+                            sock.publish_observation_unavailable(
+                                UdpObservation::Failed(UdpObservationFailure::TimedOut),
+                                why,
+                                Some(generation),
+                            );
+                        }
                     }
                     None => {
                         trace!("net_report cancelled");
@@ -1469,7 +1539,7 @@ impl EndpointInner {
     pub(crate) fn udp_punching_scope_for(
         &self,
         remote: SocketAddr,
-    ) -> io::Result<crate::endpoint::member_fusion::physical::Scope> {
+    ) -> io::Result<(crate::endpoint::member_fusion::physical::Scope, ObservationValidity)> {
         let sender = self
             .sock
             .udp_probe_sender
@@ -1480,7 +1550,7 @@ impl EndpointInner {
             .ok_or(io::ErrorKind::AddrNotAvailable)?;
         let routed =
             crate::endpoint::member_fusion::physical::Scope::route_binding(configured, remote)?;
-        self.punching_scope(routed, false)
+        Ok((self.punching_scope(routed, false)?, self.binding_route_generation(routed, remote)?))
     }
 
     #[cfg(not(wasm_browser))]
@@ -1601,6 +1671,23 @@ impl EndpointInner {
             generation: self.sock.network_generation.clone(),
             observed_generation: *self.sock.network_generation.lock().expect("network epoch"),
         }
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn binding_network_generation(&self, binding: SocketAddr) -> io::Result<ObservationValidity> {
+        self.sock.network_bindings.lock().expect("network bindings")
+            .capture(binding.ip(), &self.local_interfaces_watcher.clone().get())
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn binding_route_generation(&self, binding: SocketAddr, destination: SocketAddr) -> io::Result<ObservationValidity> {
+        self.sock.network_bindings.lock().expect("network bindings")
+            .capture_route(binding.ip(), Some(destination), &self.local_interfaces_watcher.clone().get())
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) fn family_network_generation(&self, ipv6: bool) -> ObservationValidity {
+        self.sock.network_bindings.lock().expect("network bindings").family(ipv6)
     }
 
     #[cfg(not(wasm_browser))]
@@ -2070,6 +2157,7 @@ impl EndpointInner {
                     tx,
                 )]))),
                 live: live.clone(),
+                binding: Arc::new(Mutex::new(None)),
             },
         );
         Ok(UdpTraversalLease {
@@ -2422,6 +2510,10 @@ impl EndpointInner {
 
         let home_relay_watch = transports.home_relay_watch();
 
+        let network_monitor = netmon::Monitor::new()
+            .await
+            .map_err(|err| e!(BindError::CreateNetmonMonitor, anyerr!(err)))?;
+
         let sock = Arc::new(Socket {
             remote_actors: remote_map.senders(),
             shutdown: shutdown_state,
@@ -2442,6 +2534,8 @@ impl EndpointInner {
             }),
             observation_generation: Arc::new(Mutex::new(0)),
             network_generation: Arc::new(Mutex::new(0)),
+            #[cfg(not(wasm_browser))]
+            network_bindings: Mutex::new(network::Bindings::new(network_monitor.interface_state().get())),
             #[cfg(not(wasm_browser))]
             network_generation_changed: tokio::sync::Notify::new(),
             #[cfg(not(wasm_browser))]
@@ -2491,9 +2585,6 @@ impl EndpointInner {
         )
         .map_err(|err| e!(BindError::CreateQuicEndpoint, err))?;
 
-        let network_monitor = netmon::Monitor::new()
-            .await
-            .map_err(|err| e!(BindError::CreateNetmonMonitor, anyerr!(err)))?;
 
         #[cfg(not(wasm_browser))]
         let qad_client = iroh_relay::quic::QuicClient::new_with_congestion_controller(
@@ -2544,6 +2635,7 @@ impl EndpointInner {
         );
 
         let local_interfaces_watcher = network_monitor.interface_state();
+        let network_activity_watcher = network_monitor.network_activity();
 
         #[cfg_attr(not(wasm_browser), allow(unused_mut))]
         let mut actor = Actor {
@@ -2553,6 +2645,7 @@ impl EndpointInner {
             periodic_re_stun_timer: new_re_stun_timer(false),
             network_monitor,
             local_interfaces_watcher: local_interfaces_watcher.clone(),
+            network_activity_watcher,
             direct_addr_update_state,
             explicit_qad_servers,
             transports_network_change,
@@ -2896,6 +2989,7 @@ struct PendingNetworkChangeNotify {
     interval: Duration,
     /// Whether this was a major change.
     is_major: bool,
+    unaffected_ips: Option<std::collections::HashSet<IpAddr>>,
     /// When we started polling (to enforce a max wait).
     started: Instant,
 }
@@ -2905,11 +2999,12 @@ impl PendingNetworkChangeNotify {
     const MAX_INTERVAL: Duration = Duration::from_secs(1);
     const MAX_WAIT: Duration = Duration::from_secs(5);
 
-    fn new(is_major: bool) -> Self {
+    fn new(is_major: bool, unaffected_ips: Option<std::collections::HashSet<IpAddr>>) -> Self {
         Self {
             next_check: Instant::now() + Self::INITIAL_INTERVAL,
             interval: Self::INITIAL_INTERVAL,
             is_major,
+            unaffected_ips,
             started: Instant::now(),
         }
     }
@@ -2955,6 +3050,7 @@ struct Actor {
     network_monitor: netmon::Monitor,
     /// Watcher for changes to the local network interfaces, IP addresses and routes.
     local_interfaces_watcher: n0_watcher::Direct<netmon::State>,
+    network_activity_watcher: n0_watcher::Direct<u64>,
     transports_network_change: transports::NetworkChangeSender,
     /// Indicates the direct addr update state.
     direct_addr_update_state: DirectAddrUpdateState,
@@ -3041,10 +3137,11 @@ impl Actor {
                 }
                 report = net_report_watcher.updated() => {
                     match report {
-                        Ok((report, _)) => {
-                            self.handle_net_report_report(report);
+                        Ok((report, reason)) => {
+                            let sampled = reason != UpdateReason::LinkChangeRetained;
+                            self.handle_net_report_report(report, sampled);
                             #[cfg(not(wasm_browser))]
-                            {
+                            if sampled {
                                 self.periodic_re_stun_timer = new_re_stun_timer(true);
                             }
                         }
@@ -3104,7 +3201,12 @@ impl Actor {
                     );
                     current_netmon_state = state;
                     self.sock.metrics.socket.actor_link_change.inc();
-                    self.handle_network_change(is_major);
+                    self.handle_network_change(is_major, false);
+                }
+                activity = self.network_activity_watcher.updated() => {
+                    if activity.is_ok() {
+                        self.handle_network_change(false, false);
+                    }
                 }
                 _remote_id = self.remote_map.cleanup() => {},
                 _ = &mut notify_quic_network_change => {
@@ -3115,8 +3217,9 @@ impl Actor {
                     if has_network || pending.expired() {
                         // Gateway appeared or we've waited long enough, notify now.
                         let is_major = pending.is_major;
+                        let unaffected_ips = pending.unaffected_ips.clone();
                         self.call_notify_quic_network_change = None;
-                        self.notify_quic_network_change(is_major);
+                        self.notify_quic_network_change(is_major, unaffected_ips);
                     } else {
                         // No gateway yet, back off and try again.
                         trace!(
@@ -3152,7 +3255,18 @@ impl Actor {
     ///
     /// This is triggered when the netmon actor detects a change in the local network
     /// interfaces, assigned IP addresses and routes.
-    fn handle_network_change(&mut self, is_major: bool) {
+    fn handle_network_change(&mut self, is_major: bool, force_if_unchanged: bool) {
+        #[cfg(not(wasm_browser))]
+        let (changed_families, forced, unaffected_ips) = {
+            let state = self.local_interfaces_watcher.get();
+            let mut bindings = self.sock.network_bindings.lock().expect("network bindings");
+            let unaffected = bindings.unchanged_ips(&state);
+            let (families, forced) = bindings.update(state.clone(), force_if_unchanged);
+            (families, forced, (!forced).then_some(unaffected))
+        };
+        #[cfg(wasm_browser)]
+        let (changed_families, forced, unaffected_ips) = ([true, true], true, None::<std::collections::HashSet<IpAddr>>);
+        if !changed_families.iter().any(|changed| *changed) { return; }
         debug!(is_major, "link change detected");
         self.transports_network_change.refresh_custom_addresses();
         {
@@ -3168,7 +3282,9 @@ impl Actor {
                 .udp_traversal
                 .lock()
                 .expect("traversal registry")
-                .drain()
+                .extract_if(|_, round| forced || round.binding.lock().expect("raw binding").is_some_and(|binding| {
+                    self.sock.network_bindings.lock().expect("network bindings").capture(binding.ip(), &self.local_interfaces_watcher.get()).is_err()
+                }))
                 .map(|(_, round)| round)
                 .collect::<Vec<_>>();
             for round in rounds {
@@ -3176,22 +3292,23 @@ impl Actor {
             }
             let interfaces = self.local_interfaces_watcher.get();
             let actual_ips = interfaces
-                .local_addresses
-                .regular
-                .iter()
-                .chain(interfaces.local_addresses.loopback.iter())
-                .copied()
+                .interfaces
+                .values()
+                .filter(|interface| interface.is_up())
+                .flat_map(|interface| interface.addrs().map(|address| address.addr()))
                 .collect();
-            self.sock.udp_socket_pool.on_network_change(&actual_ips);
+            self.sock.udp_socket_pool.on_network_change(&actual_ips, forced);
         }
 
+        self.sock.invalidate_observation_families(changed_families);
+        #[cfg(not(wasm_browser))]
+        {
+            // Local addresses and retained candidates do not wait for a new report.
+            let retained = self.sock.net_report.get().0;
+            self.update_direct_addresses(retained.as_ref());
+        }
         if is_major {
-            self.sock.publish_observation_unavailable(
-                UdpObservation::Failed(UdpObservationFailure::NetworkChanged),
-                UpdateReason::LinkChangeMajor,
-                None,
-            );
-            if let Err(err) = self.transports_network_change.rebind() {
+            if let Err(err) = self.transports_network_change.rebind_families(if forced { changed_families } else { [false, false] }) {
                 warn!("failed to rebind transports: {err:?}");
             }
             self.transports_network_change.check_relay_connection();
@@ -3199,21 +3316,18 @@ impl Actor {
             #[cfg(not(wasm_browser))]
             {
                 self.sock.dns_resolver.reset();
-                // Interface addresses do not depend on a new report arriving.
-                // With no observers, consecutive major changes can publish the
-                // same unavailable report and never wake its watcher.
-                self.update_direct_addresses(None);
             }
             self.re_stun(UpdateReason::LinkChangeMajor);
         } else {
             self.re_stun(UpdateReason::LinkChangeMinor);
         }
+        self.remote_map.on_network_change(is_major, changed_families, unaffected_ips.as_ref().map(|ips| Arc::new(ips.clone())));
 
         if self.has_usable_network() {
             // This is considered a usable network change, propagate it to the QUIC stack
             // right away.
             self.call_notify_quic_network_change = None;
-            self.notify_quic_network_change(is_major);
+            self.notify_quic_network_change(is_major, unaffected_ips.clone());
         } else {
             // No default route yet (e.g., interface just came up but gateway not
             // assigned). Poll with exponential backoff until the gateway appears.
@@ -3221,10 +3335,14 @@ impl Actor {
                 Some(pending) => {
                     // Update is_major if this change is more severe.
                     pending.is_major |= is_major;
+                    pending.unaffected_ips = match (pending.unaffected_ips.take(), unaffected_ips) {
+                        (Some(mut before), Some(current)) => { before.retain(|ip| current.contains(ip)); Some(before) },
+                        _ => None,
+                    };
                 }
                 None => {
                     self.call_notify_quic_network_change =
-                        Some(PendingNetworkChangeNotify::new(is_major));
+                        Some(PendingNetworkChangeNotify::new(is_major, unaffected_ips));
                 }
             }
         }
@@ -3234,15 +3352,23 @@ impl Actor {
     ///
     /// This is decoupled from receiving the network change, because we try to debounce
     /// network changes as they often arrive in groups.
-    fn notify_quic_network_change(&mut self, is_major: bool) {
+    fn notify_quic_network_change(&mut self, _is_major: bool, unaffected_ips: Option<std::collections::HashSet<IpAddr>>) {
         #[derive(Debug)]
         struct Hint {
+            unaffected_ips: Option<std::collections::HashSet<IpAddr>>,
+            mapped: MappedAddrs,
             local_addrs: FxHashSet<IpAddr>,
             #[cfg(not(wasm_browser))]
             udp_socket_pool: Arc<transports::SocketPool>,
         }
 
         impl NetworkChangeHint for Hint {
+            fn is_path_affected(&self, network_path: noq_proto::FourTuple) -> bool {
+                #[cfg(not(wasm_browser))]
+                { network::path_is_affected(&self.mapped, network_path, self.unaffected_ips.as_ref()) }
+                #[cfg(wasm_browser)]
+                { true }
+            }
             fn local_ip_for_recovery(&self, network_path: noq_proto::FourTuple) -> Option<IpAddr> {
                 #[cfg(not(wasm_browser))]
                 if let Some(socket) = network_path.local_socket_id()
@@ -3297,6 +3423,8 @@ impl Actor {
         }
 
         let hint = Hint {
+            unaffected_ips,
+            mapped: self.sock.mapped_addrs.clone(),
             #[cfg(not(wasm_browser))]
             udp_socket_pool: self.sock.udp_socket_pool.clone(),
             #[cfg(not(wasm_browser))]
@@ -3315,7 +3443,7 @@ impl Actor {
         };
 
         self.endpoint.handle_network_change(Some(Arc::new(hint)));
-        self.remote_map.on_network_change(is_major);
+
     }
 
     fn handle_relay_map_change(&mut self) {
@@ -3336,8 +3464,8 @@ impl Actor {
             ActorMessage::NetworkChange => {
                 // A caller can know its NAT mapping changed even when the local
                 // interface list did not. Refresh QAD immediately in that case.
-                self.handle_network_change(true);
                 self.network_monitor.network_change().await.ok();
+                self.handle_network_change(true, true);
             }
             ActorMessage::RelayMapChange => {
                 self.handle_relay_map_change();
@@ -3359,7 +3487,7 @@ impl Actor {
             }
             #[cfg(all(test, with_crypto_provider))]
             ActorMessage::ForceNetworkChange(is_major) => {
-                self.handle_network_change(is_major);
+                self.handle_network_change(is_major, true);
             }
         }
     }
@@ -3517,14 +3645,16 @@ impl Actor {
 
         // If a socket is bound to a specific address, add it.
         for (bound, local) in local_addrs {
-            if !bound.ip().is_unspecified() {
+            if !bound.ip().is_unspecified()
+                && network::has_binding(&netmon_state, local.ip())
+            {
                 let flags = find_flags(&netmon_state, local.ip());
                 addrs.entry(local).or_insert((DirectAddrType::Local, flags));
             }
         }
     }
 
-    fn handle_net_report_report(&mut self, mut report: Option<net_report::Report>) {
+    fn handle_net_report_report(&mut self, mut report: Option<net_report::Report>, sampled: bool) {
         if let Some(ref mut r) = report {
             self.sock.ipv6_reported.store(r.udp_v6, Ordering::Relaxed);
             if self.explicit_qad_servers {
@@ -3544,7 +3674,7 @@ impl Actor {
         #[cfg(not(wasm_browser))]
         self.update_direct_addresses(report.as_ref());
 
-        if let Some(ref report) = report {
+        if sampled && let Some(ref report) = report {
             // Fresh means the candidate is already published through Endpoint::addr.
             self.sock.publish_observation_report(report);
         }

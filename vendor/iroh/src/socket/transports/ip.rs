@@ -287,6 +287,7 @@ pub(super) struct IpNetworkChangeSender {
 }
 
 impl IpNetworkChangeSender {
+    pub(super) fn is_ipv6(&self) -> bool { self.local_addr.get().is_ipv6() }
     pub(super) fn rebind(&self) -> io::Result<()> {
         let old_addr = self.local_addr.get();
         self.socket.rebind()?;

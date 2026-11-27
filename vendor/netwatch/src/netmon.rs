@@ -29,6 +29,7 @@ pub struct Monitor {
     _handle: AbortOnDropHandle<()>,
     actor_tx: mpsc::Sender<ActorMessage>,
     interface_state: Watchable<State>,
+    network_activity: Watchable<u64>,
 }
 
 #[stack_error(derive, add_meta, from_sources)]
@@ -58,6 +59,7 @@ impl Monitor {
         let actor = Actor::new().await?;
         let actor_tx = actor.subscribe();
         let interface_state = actor.state().clone();
+        let network_activity = actor.network_activity().clone();
 
         let handle = task::spawn(async move {
             actor.run().await;
@@ -67,6 +69,7 @@ impl Monitor {
             _handle: AbortOnDropHandle::new(handle),
             actor_tx,
             interface_state,
+            network_activity,
         })
     }
 
@@ -75,9 +78,18 @@ impl Monitor {
         self.interface_state.watch()
     }
 
+    /// Subscribe to route activity that leaves the interface snapshot unchanged.
+    pub fn network_activity(&self) -> n0_watcher::Direct<u64> {
+        self.network_activity.watch()
+    }
+
     /// Potential change detected outside
     pub async fn network_change(&self) -> Result<(), Error> {
-        self.actor_tx.send(ActorMessage::NetworkChange).await?;
+        let (reply, received) = oneshot::channel();
+        self.actor_tx
+            .send(ActorMessage::NetworkChange(reply))
+            .await?;
+        received.await?;
         Ok(())
     }
 }

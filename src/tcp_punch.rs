@@ -106,6 +106,7 @@ impl Drop for ActiveTcpPath {
 }
 
 impl PreparedTcpPath {
+    pub(crate) fn network_validity(&self) -> iroh::endpoint::ObservationValidity { self.generation.clone() }
     pub(crate) fn route(&self) -> &iroh_base::CustomAddr {
         &self.route
     }
@@ -420,7 +421,6 @@ impl TcpPunch {
             None
         };
         check()?;
-        let generation = connection.udp_network_generation();
         let physical_required = physical.is_some();
         let mut observation = None;
         // Both peers consume the protected TCP phase even when only one can
@@ -482,6 +482,8 @@ impl TcpPunch {
                 result.mapped
             );
         }
+        let generation = observation.as_ref().map(|result| result.generation.clone())
+            .unwrap_or_else(|| connection.udp_network_generation());
         check()?;
         let owned_exchange;
         let exchange = match preparation {

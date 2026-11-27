@@ -271,10 +271,8 @@ pub(crate) async fn recover_member_path(
         .maintenance()
         .acquire_outgoing(original, &attempt, ())
         .map_err(|error| core::failed(original, format!("repair reservation: {error:?}")))?;
-    let network = endpoint.endpoint().udp_network_generation();
     let result = contacts
         .run(|contact, reach_by| {
-            let network = &network;
             let lease = &lease;
             let cancel = attempt.cancellation.child_token();
             async move {
@@ -287,15 +285,6 @@ pub(crate) async fn recover_member_path(
                         "repair contact facility unavailable",
                     ));
                 }
-                let check_network = || {
-                    if !network.is_current() {
-                        return Err(io::Error::new(
-                            io::ErrorKind::Interrupted,
-                            "network changed during path repair",
-                        ));
-                    }
-                    Ok(())
-                };
                 let route_deadline = core::contact_deadline(&contact, deadline);
                 let contact_endpoint = FusedRecovery {
                     endpoint: endpoint.endpoint(),
@@ -335,11 +324,9 @@ pub(crate) async fn recover_member_path(
                     true,
                     |path| endpoint.allows_data_path(path),
                     |original| {
-                        check_network()?;
                         check_original(gate, original)
                     },
                     |original, control| {
-                        check_network()?;
                         check_repair_membership(gate, original, control)
                     },
                     || lease.seal_outgoing_hello(),
@@ -364,7 +351,6 @@ async fn recover_member_tcp(
     begin_validation: impl FnOnce() -> io::Result<()>,
 ) -> io::Result<ConnectionPathRecovery> {
     use core::RecoveryEndpoint;
-    let network = endpoint.endpoint().udp_network_generation();
     let work = async {
         let control = contact_endpoint
             .connect_repair_control(
@@ -376,9 +362,6 @@ async fn recover_member_tcp(
             .await?;
         let result = async {
             check_repair_membership(gate, original, &control)?;
-            if !network.is_current() {
-                return Err(io::ErrorKind::Interrupted.into());
-            }
             let exchange = control.open_control_exchange().await?;
             exchange
                 .send_message(
@@ -458,7 +441,6 @@ pub(crate) async fn serve_path_recovery(
     );
     let maximum = core::contact_deadline(&contact, endpoint.contact_deadline());
     let mut deadline = maximum;
-    let network = endpoint.endpoint().udp_network_generation();
     let serve = async {
         let restricted_carrier = || {
             control.paths().iter().any(|path| {
@@ -518,7 +500,7 @@ pub(crate) async fn serve_path_recovery(
                 check_repair_membership(gate, original, control)
             };
             let permits = |path: &TransportAddr| {
-                endpoint.allows_data_path(path) && (!fused || network.is_current())
+                endpoint.allows_data_path(path)
             };
             check(&original, control)?;
             let registry = gate.maintenance();

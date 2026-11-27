@@ -249,6 +249,7 @@ impl Authorization {
             .prepare_fused(original, exchange, &self.gate, log, bootstrap, physical)
             .await?;
         let remote = candidate.route().clone();
+        let validity = candidate.network_validity();
         let original = original.clone();
         let gate = self.gate.clone();
         Ok(MemberDirectCandidate::new(remote, move || {
@@ -263,7 +264,7 @@ impl Authorization {
                     .retain();
                 Ok(())
             }
-        }))
+        }).with_network_validity(validity))
     }
 }
 

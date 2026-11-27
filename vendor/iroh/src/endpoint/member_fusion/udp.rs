@@ -325,6 +325,10 @@ impl Planning {
     pub(super) fn current(&self) -> Option<MemberUdpPlan> {
         self.families.iter().find_map(|planning| planning.current())
     }
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(super) fn current_family(&self, family: iroh_relay::ObservationFamily) -> Option<MemberUdpPlan> {
+        self.family(family).ok()?.current()
+    }
     pub(super) fn traversal(&self) -> Option<MemberUdpTraversalReport> {
         self.families
             .iter()
@@ -514,10 +518,10 @@ impl FamilyPlanning {
         let mut failures = 0u32;
         let mut last_check = None;
         let standby = matches!(self.retention, super::MemberRetention::Standby(_));
-        let mut generation = self.endpoint.udp_network_generation();
+        let mut generation = self.endpoint.inner.family_network_generation(self.family == iroh_relay::ObservationFamily::Ipv6);
         loop {
             if standby && !generation.is_current() {
-                generation = self.endpoint.udp_network_generation();
+                generation = self.endpoint.inner.family_network_generation(self.family == iroh_relay::ObservationFamily::Ipv6);
                 failures = 0;
                 automatic_at = Instant::now();
                 maintenance_at = automatic_at;
@@ -650,7 +654,7 @@ impl FamilyPlanning {
                 )
             }))
             .collect::<Vec<_>>();
-        let binding = super::physical::observer_binding(
+        let (binding, destination) = super::physical::observer_binding(
             &self.endpoint,
             self.family,
             observers,
@@ -661,7 +665,7 @@ impl FamilyPlanning {
         Ok(RoundScope {
             binding,
             authorization,
-            generation: self.endpoint.udp_network_generation(),
+            generation: self.endpoint.binding_route_generation(binding, destination)?,
             sources,
         })
     }

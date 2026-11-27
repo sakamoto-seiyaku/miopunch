@@ -89,6 +89,11 @@ pub(crate) struct MappedAddrs {
 }
 
 impl MappedAddrs {
+    pub(crate) fn custom_network_path_is_current(&self, address: &CustomAddr, local_ips: &std::collections::HashSet<std::net::IpAddr>) -> bool {
+        self.custom_route_senders.as_ref().is_some_and(|senders| senders.iter().any(|sender| {
+            sender.is_valid_send_addr(address) && sender.network_path_is_current(address, local_ips)
+        }))
+    }
     pub(crate) fn permits_custom_bootstrap(&self, address: &CustomAddr) -> bool {
         self.custom_route_senders.as_ref().is_none_or(|senders| {
             senders
@@ -377,12 +382,12 @@ impl RemoteMap {
         }
     }
 
-    pub(super) fn on_network_change(&mut self, is_major: bool) {
+    pub(super) fn on_network_change(&mut self, is_major: bool, families: [bool; 2], unaffected_ips: Option<Arc<std::collections::HashSet<std::net::IpAddr>>>) {
         let read = self.senders.read_only();
         let guard = read.guard();
         for sender in read.values(&guard) {
             sender
-                .try_send(RemoteStateMessage::NetworkChange { is_major })
+                .try_send(RemoteStateMessage::NetworkChange { is_major, families, unaffected_ips: unaffected_ips.clone() })
                 .ok();
         }
     }

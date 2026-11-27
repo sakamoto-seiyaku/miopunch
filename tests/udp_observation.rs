@@ -37,7 +37,9 @@ impl NatProxy {
         mut first_packet_delay: Option<Duration>,
     ) -> Self {
         let ingress = UdpSocket::bind(bind).await.unwrap();
-        let egress = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let egress = UdpSocket::bind(if observer_addr.is_ipv6() {
+            SocketAddr::from((std::net::Ipv6Addr::LOCALHOST, 0))
+        } else { SocketAddr::from((Ipv4Addr::LOCALHOST, 0)) }).await.unwrap();
         let ingress_addr = ingress.local_addr().unwrap();
         let mapped_addr = egress.local_addr().unwrap();
         let endpoint_source = Arc::new(Mutex::new(None));
@@ -735,4 +737,454 @@ async fn ordered_qad_discards_partial_samples_on_network_change_or_close() {
         );
         endpoint.close().await;
     }
+}
+
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[tokio::test]
+#[ignore = "requires a disposable network namespace for actual IPv6 prefix changes"]
+async fn ipv6_change_retains_the_periodic_ipv4_qad_candidate_without_renewing_it() {
+    use iroh::endpoint::ObservationDialAddresses;
+    use std::{net::Ipv6Addr, process::Command};
+    fn ip(arguments: &[&str]) {
+        assert!(
+            Command::new("ip")
+                .args(arguments)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let old6: Ipv6Addr = "2001:db8:205::1".parse().unwrap();
+    let observer6: Ipv6Addr = "2001:db8:205::fe".parse().unwrap();
+    ip(&["link", "add", "mio205-qad", "type", "dummy"]);
+    ip(&["link", "set", "mio205-qad", "up"]);
+    ip(&["addr", "add", "10.205.0.1/24", "dev", "mio205-qad"]);
+    for address in ["2001:db8:205::1/64", "2001:db8:205::fe/64"] {
+        ip(&["-6", "addr", "add", address, "dev", "mio205-qad", "nodad"]);
+    }
+    let (certs, tls) = server::testing::self_signed_tls_certs_and_config();
+    let mut servers = Vec::new();
+    for bind in [
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
+        SocketAddr::from((Ipv6Addr::LOCALHOST, 0)),
+    ] {
+        let mut quic = server::QuicConfig::new(bind);
+        quic.server_config = Some(tls.clone());
+        let mut config = server::ServerConfig::default();
+        config.quic = Some(quic);
+        servers.push(server::Server::spawn(config).await.unwrap());
+    }
+    let v4 = NatProxy::start(servers[0].quic_addr().unwrap()).await;
+    let v6 = NatProxy::start_on(servers[1].quic_addr().unwrap(), (observer6, 0).into()).await;
+    let endpoint = Endpoint::builder(presets::Minimal)
+        .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+        .clear_ip_transports()
+        .bind_addr((Ipv4Addr::LOCALHOST, 0))
+        .unwrap()
+        .bind_addr((old6, 0))
+        .unwrap()
+        .observation_servers(RelayMap::from_iter([
+            RelayConfig::new(
+                "https://127.0.0.1/".parse().unwrap(),
+                Some(RelayQuicConfig::new(v4.ingress_addr.port())),
+            ),
+            {
+                let mut quic = RelayQuicConfig::new(v6.ingress_addr.port());
+                quic.dial_addresses = ObservationDialAddresses {
+                    ipv4: None,
+                    ipv6: Some(observer6),
+                };
+                RelayConfig::new("https://localhost/".parse().unwrap(), Some(quic))
+            },
+        ]))
+        .ca_tls_config(CaTlsConfig::custom_roots(certs))
+        .bind()
+        .await
+        .unwrap();
+    let mut observed = endpoint.udp_observation();
+    let before = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let state = observed.get();
+            if matches!(&state, UdpObservation::Fresh { addresses, .. } if addresses.contains(&v4.mapped_addr) && addresses.contains(&v6.mapped_addr)) { break state; }
+            observed.updated().await.unwrap();
+        }
+    }).await.unwrap_or_else(|error| panic!("initial dual QAD: {error}; state={:?} v4Packets={} v6Packets={} v4Source={:?} v6Source={:?}", observed.get(), v4.packets.load(Ordering::Relaxed), v6.packets.load(Ordering::Relaxed), *v4.endpoint_source.lock().unwrap(), *v6.endpoint_source.lock().unwrap()));
+    assert!(before.is_fresh());
+    let UdpObservation::Fresh {
+        observed_at,
+        valid_until,
+        ..
+    } = before.clone()
+    else {
+        unreachable!()
+    };
+    let old_source = *v6.endpoint_source.lock().unwrap();
+    assert_eq!(old_source.unwrap().ip(), std::net::IpAddr::V6(old6));
+    for address in [v4.mapped_addr, v6.mapped_addr] {
+        assert!(
+            endpoint
+                .addr()
+                .ip_addrs()
+                .any(|current| *current == address)
+        );
+    }
+    println!(
+        "NETWORK_CHANGE_QAD_INITIAL v4={} v6={} source={old_source:?}",
+        v4.mapped_addr, v6.mapped_addr
+    );
+    for server in servers {
+        server.shutdown().await.unwrap();
+    }
+    let changed = endpoint
+        .binding_network_generation((old6, 0).into())
+        .unwrap();
+    ip(&[
+        "-6",
+        "addr",
+        "del",
+        "2001:db8:205::1/64",
+        "dev",
+        "mio205-qad",
+    ]);
+    ip(&[
+        "-6",
+        "addr",
+        "add",
+        "2001:db8:205:1::1/64",
+        "dev",
+        "mio205-qad",
+        "nodad",
+    ]);
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while changed.is_current() {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let after = wait_for_with_timeout(&endpoint, Duration::from_secs(1), |state| {
+        matches!(state, UdpObservation::Fresh { addresses, .. } if addresses == &vec![v4.mapped_addr])
+    }).await;
+    assert!(after.is_fresh());
+    assert!(
+        !before.is_fresh(),
+        "the old mixed snapshot cannot still advertise its IPv6 candidate"
+    );
+    let UdpObservation::Fresh {
+        observed_at: retained_at,
+        valid_until: retained_until,
+        ..
+    } = after.clone()
+    else {
+        unreachable!()
+    };
+    assert_eq!((retained_at, retained_until), (observed_at, valid_until));
+    assert!(
+        endpoint
+            .addr()
+            .ip_addrs()
+            .any(|address| *address == v4.mapped_addr)
+    );
+    assert!(!endpoint.addr().ip_addrs().any(|address| *address == v6.mapped_addr || address.ip() == std::net::IpAddr::V6(old6)));
+    println!(
+        "NETWORK_CHANGE_QAD retained={} removed={} original_expiry=true",
+        v4.mapped_addr, v6.mapped_addr
+    );
+    let forced = endpoint.udp_network_generation();
+    endpoint.network_change().await;
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while forced.is_current() {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(
+        !after.is_fresh(),
+        "an explicit NAT-only notification still invalidates the retained sample"
+    );
+    assert!(
+        !endpoint
+            .addr()
+            .ip_addrs()
+            .any(|address| *address == v4.mapped_addr)
+    );
+    endpoint.close().await;
+}
+
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[path = "support/stun_observer.rs"]
+mod route_source_stun;
+
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[tokio::test]
+#[ignore = "requires unshare -Urnm with a private /run/netns"]
+async fn route_source_change_refreshes_only_the_known_destination_scope() {
+    use iroh::endpoint::ObservationFamily;
+    use std::{
+        path::Path,
+        process::{Command, Stdio},
+    };
+    async fn signal(root: &Path, name: &str) {
+        tokio::time::timeout(Duration::from_secs(8), async {
+            while !root.join(name).exists() {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|error| panic!("missing {name}: {error}"));
+    }
+    if let Some(root) = std::env::var_os("MIO205_ROUTE_CHILD") {
+        let root = std::path::PathBuf::from(root);
+        let destinations: Vec<SocketAddr> = std::fs::read_to_string(root.join("observers"))
+            .unwrap()
+            .lines()
+            .map(|line| line.parse().unwrap())
+            .collect();
+        let observers: Vec<iroh::RelayUrl> = destinations
+            .iter()
+            .map(|destination| format!("stun://{destination}/").parse().unwrap())
+            .collect();
+        let endpoint = Endpoint::builder(presets::Minimal)
+            .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+            .clear_ip_transports()
+            .bind_addr((Ipv4Addr::UNSPECIFIED, 0))
+            .unwrap()
+            .bind()
+            .await
+            .unwrap();
+        let port = endpoint.bound_sockets()[0].port();
+        let source: SocketAddr = format!("10.206.0.1:{port}").parse().unwrap();
+        let binding = endpoint.binding_network_generation(source).unwrap();
+        let route = endpoint
+            .binding_route_generation(source, destinations[0])
+            .unwrap();
+        let unaffected = endpoint
+            .binding_network_generation("[::1]:0".parse().unwrap())
+            .unwrap();
+        let network = endpoint.udp_network_generation();
+        let old = tokio::spawn({
+            let endpoint = endpoint.clone();
+            let observers = observers.clone();
+            async move {
+                endpoint
+                    .observe_udp_mapping_round_for_family_until(
+                        &RelayMap::empty(),
+                        &observers,
+                        ObservationFamily::Ipv4,
+                        tokio::time::Instant::now() + Duration::from_secs(5),
+                    )
+                    .await
+            }
+        });
+        signal(&root, "observed-a-0").await;
+        signal(&root, "observed-a-1").await;
+        std::fs::write(root.join("ready"), []).unwrap();
+        signal(&root, "control").await;
+        // The negative control spans the existing 250 ms netmon debounce.
+        tokio::time::sleep(Duration::from_millis(700)).await;
+        assert!(
+            route.is_current()
+                && binding.is_current()
+                && unaffected.is_current()
+                && network.is_current()
+        );
+        assert!(
+            !old.is_finished(),
+            "a same-source route update preserves the actual in-flight query"
+        );
+        std::fs::write(root.join("control-checked"), []).unwrap();
+        signal(&root, "changed").await;
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while route.is_current() {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("actual known-destination preferred-source change invalidates its token");
+        assert!(
+            binding.is_current() && unaffected.is_current(),
+            "the assigned source and unrelated family still exist"
+        );
+        let result = tokio::time::timeout(Duration::from_secs(1), old)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::Interrupted);
+        let current = endpoint
+            .observe_udp_mapping_round_for_family_until(
+                &RelayMap::empty(),
+                &observers,
+                ObservationFamily::Ipv4,
+                tokio::time::Instant::now() + Duration::from_secs(5),
+            )
+            .await
+            .unwrap();
+        assert_eq!(current.samples.len(), 2);
+        assert!(current.is_current_generation());
+        assert!(
+            current
+                .samples
+                .iter()
+                .all(|sample| sample.mapped
+                    == SocketAddr::from((Ipv4Addr::new(10, 206, 0, 2), port)))
+        );
+        println!(
+            "NETWORK_ROUTE_SOURCE old={source} new=10.206.0.2:{port} control=current old_query=Interrupted new_samples={}",
+            current.samples.len()
+        );
+        endpoint.close().await;
+        return;
+    }
+    fn ip(arguments: &[&str]) -> String {
+        let output = Command::new("ip").args(arguments).output().unwrap();
+        assert!(
+            output.status.success(),
+            "ip {arguments:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout).unwrap()
+    }
+    struct Lab;
+    impl Drop for Lab {
+        fn drop(&mut self) {
+            let _ = Command::new("ip")
+                .args(["netns", "del", "mio205-route"])
+                .output();
+            let _ = Command::new("ip")
+                .args(["link", "del", "m205-host"])
+                .output();
+        }
+    }
+    let root = tempfile::tempdir().unwrap();
+    ip(&["netns", "add", "mio205-route"]);
+    let _lab = Lab;
+    ip(&[
+        "link",
+        "add",
+        "m205-host",
+        "type",
+        "veth",
+        "peer",
+        "name",
+        "lan0",
+        "netns",
+        "mio205-route",
+    ]);
+    ip(&["addr", "add", "10.206.0.254/24", "dev", "m205-host"]);
+    ip(&["link", "set", "m205-host", "up"]);
+    ip(&["-n", "mio205-route", "link", "set", "lo", "up"]);
+    ip(&[
+        "-n",
+        "mio205-route",
+        "link",
+        "set",
+        "lan0",
+        "addrgenmode",
+        "none",
+    ]);
+    for address in ["10.206.0.1/24", "10.206.0.2/24"] {
+        ip(&["-n", "mio205-route", "addr", "add", address, "dev", "lan0"]);
+    }
+    ip(&["-n", "mio205-route", "link", "set", "lan0", "up"]);
+    ip(&[
+        "-n",
+        "mio205-route",
+        "route",
+        "replace",
+        "10.206.0.254/32",
+        "dev",
+        "lan0",
+        "src",
+        "10.206.0.1",
+    ]);
+    let addresses = ip(&["-j", "-n", "mio205-route", "addr", "show", "dev", "lan0"]);
+    let mut tasks = tokio::task::JoinSet::new();
+    let mut observers = Vec::new();
+    for number in 0..2 {
+        let socket = UdpSocket::bind((Ipv4Addr::new(10, 206, 0, 254), 0))
+            .await
+            .unwrap();
+        observers.push(socket.local_addr().unwrap().to_string());
+        let root = root.path().to_path_buf();
+        tasks.spawn(async move {
+            loop {
+                let mut request = [0; 1500];
+                let (_, source) = socket.peek_from(&mut request).await.unwrap();
+                if source.ip() == Ipv4Addr::new(10, 206, 0, 1) {
+                    socket.recv_from(&mut request).await.unwrap();
+                    std::fs::write(root.join(format!("observed-a-{number}")), []).unwrap();
+                } else {
+                    assert_eq!(
+                        route_source_stun::reply_one_stun(&socket).await.ip(),
+                        Ipv4Addr::new(10, 206, 0, 2)
+                    );
+                }
+            }
+        });
+    }
+    std::fs::write(root.path().join("observers"), observers.join("\n")).unwrap();
+    let child = tokio::process::Command::new("ip")
+        .args(["netns", "exec", "mio205-route"])
+        .arg(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "route_source_change_refreshes_only_the_known_destination_scope",
+            "--ignored",
+            "--nocapture",
+        ])
+        .env("MIO205_ROUTE_CHILD", root.path())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .unwrap();
+    signal(root.path(), "ready").await;
+    ip(&[
+        "-n",
+        "mio205-route",
+        "route",
+        "replace",
+        "10.206.0.254/32",
+        "dev",
+        "lan0",
+        "src",
+        "10.206.0.1",
+        "mtu",
+        "1400",
+    ]);
+    std::fs::write(root.path().join("control"), []).unwrap();
+    signal(root.path(), "control-checked").await;
+    let control = ip(&["-n", "mio205-route", "route", "get", "10.206.0.254"]);
+    assert!(control.contains("src 10.206.0.1"));
+    ip(&[
+        "-n",
+        "mio205-route",
+        "route",
+        "replace",
+        "10.206.0.254/32",
+        "dev",
+        "lan0",
+        "src",
+        "10.206.0.2",
+        "mtu",
+        "1400",
+    ]);
+    let changed = ip(&["-n", "mio205-route", "route", "get", "10.206.0.254"]);
+    assert!(changed.contains("src 10.206.0.2"));
+    assert_eq!(
+        ip(&["-j", "-n", "mio205-route", "addr", "show", "dev", "lan0"]),
+        addresses
+    );
+    println!(
+        "NETWORK_ROUTE_KERNEL control={control:?} changed={changed:?} interface_addresses=unchanged"
+    );
+    std::fs::write(root.path().join("changed"), []).unwrap();
+    let output = child.wait_with_output().await.unwrap();
+    println!("{}", String::from_utf8_lossy(&output.stdout));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }

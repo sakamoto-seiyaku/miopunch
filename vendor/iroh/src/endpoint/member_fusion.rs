@@ -40,6 +40,7 @@ pub use udp::{MemberUdpConfig, MemberUdpPlan, MemberUdpTraversalReport};
 /// retains the physical resources until iroh commits the verified path.
 #[derive(derive_more::Debug)]
 pub struct MemberDirectCandidate {
+    pub(crate) network_validity: Option<super::ObservationValidity>,
     remote: iroh_base::CustomAddr,
     #[debug(skip)]
     retain: Box<dyn FnOnce() -> io::Result<()> + Send>,
@@ -53,9 +54,16 @@ impl MemberDirectCandidate {
         retain: impl FnOnce() -> io::Result<()> + Send + 'static,
     ) -> Self {
         Self {
+            network_validity: None,
             remote,
             retain: Box::new(retain),
         }
+    }
+
+    /// Keep the transport's actual source binding valid through QUIC commit.
+    pub fn with_network_validity(mut self, validity: super::ObservationValidity) -> Self {
+        self.network_validity = Some(validity);
+        self
     }
 }
 
@@ -1991,6 +1999,13 @@ impl MemberConnection {
     /// Observe the most recent still-current coordinated UDP plan on this original.
     pub fn udp_plan(&self) -> Option<MemberUdpPlan> {
         self.0.udp.as_ref()?.current()
+    }
+
+    /// Read an actual family's accepted observation during namespace acceptance.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_udp_plan_for_family(&self, family: iroh_relay::ObservationFamily) -> Option<MemberUdpPlan> {
+        self.0.udp.as_ref()?.current_family(family)
     }
 
     /// Repair current candidates on this same admitted session and caller clock.
