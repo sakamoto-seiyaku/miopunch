@@ -183,7 +183,8 @@ impl Dial<'_> {
             .static_config
             .admission
             .as_ref()
-            .and_then(|policy| policy.member_direct_transport());
+            .and_then(|policy| policy.member_direct())
+            .map(|paths| paths.transport_id());
         let recent_direct = options
             .recent
             .iter()

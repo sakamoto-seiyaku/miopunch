@@ -17,7 +17,7 @@ enum Preparation<'a> {
     Fused {
         exchange: &'a ControlExchange,
         admission: bool,
-        physical: Option<iroh::endpoint::MemberPunching>,
+        physical: iroh::endpoint::MemberPunching,
     },
 }
 use serde_json::json;
@@ -355,7 +355,7 @@ impl TcpPunch {
         gate: &AdmissionGate,
         log: AttemptLog,
         admission: bool,
-        physical: Option<iroh::endpoint::MemberPunching>,
+        physical: iroh::endpoint::MemberPunching,
     ) -> io::Result<PreparedTcpPath> {
         self.prepare_with_exchange(
             original,
@@ -404,7 +404,7 @@ impl TcpPunch {
         };
         check()?;
         let mut physical = match &preparation {
-            Preparation::Fused { physical, .. } => physical.clone(),
+            Preparation::Fused { physical, .. } => Some(physical.clone()),
             _ => None,
         };
         let binding = physical

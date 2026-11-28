@@ -101,7 +101,7 @@ impl PathCandidates {
         match address {
             TransportAddr::Custom(custom) if Some(custom.id()) == self.direct => {
                 config.relay_resource_policy.allows_custom(custom)
-                    && policy.permits_direct_candidate(custom)
+                    && policy.member_direct().is_some_and(|paths| paths.permits_candidate(custom))
             }
             TransportAddr::Custom(custom) => {
                 Some(custom.id()) == self.member_relay
@@ -160,7 +160,8 @@ impl PathCandidates {
             .as_ref()
             .expect("member policy");
         let mut families = policy
-            .member_direct_bindings()
+            .member_direct().ok_or(io::ErrorKind::Unsupported)?
+            .bindings()
             .into_iter()
             .map(|binding| binding.is_ipv6())
             .collect::<BTreeSet<_>>();
@@ -209,11 +210,12 @@ impl PathCandidates {
             .admission
             .as_ref()
             .expect("member policy");
-        let bindings = policy.member_direct_bindings();
+        let direct = policy.member_direct().ok_or(io::ErrorKind::Unsupported)?;
+        let bindings = direct.bindings();
         let Some(configured) = bindings.iter().copied().find(|binding| binding.is_ipv6() == ipv6) else {
             return Ok(bindings.is_empty().then(super::physical::MemberPunching::untracked));
         };
-        let observers = policy.member_direct_observers();
+        let observers = direct.observers();
         if observers.is_empty() {
             return Ok(Some(super::physical::MemberPunching::untracked()));
         }
@@ -367,7 +369,8 @@ impl PathCandidates {
                         .static_config
                         .admission
                         .as_ref()
-                        .and_then(|policy| policy.member_direct_binding())
+                        .and_then(|policy| policy.member_direct())
+                        .and_then(|paths| paths.binding())
                         .is_some_and(|binding| binding.is_ipv6()),
                 )
                 .await?
@@ -412,7 +415,8 @@ impl PathCandidates {
         let reservation = physical.clone();
         let qualify = async {
             let prepared = policy
-                .prepare_member_direct_reserved(&control, &exchange, physical)
+                .member_direct().ok_or(io::ErrorKind::Unsupported)?
+                .prepare(&control, &exchange, physical)
                 .await?;
             verify_direct(&control, prepared).await
         };
@@ -445,7 +449,7 @@ impl VerifiedDirect {
             && config
                 .relay_resource_policy
                 .allows_custom(&self.prepared.remote)
-            && policy.permits_direct_candidate(&self.prepared.remote)
+            && policy.member_direct().is_some_and(|paths| paths.permits_candidate(&self.prepared.remote))
         {
             Ok(())
         } else {
@@ -552,7 +556,8 @@ pub(in crate::endpoint) fn watch_path_candidates(
             .static_config
             .admission
             .as_ref()?
-            .member_direct_traversal()
+            .member_direct()?
+            .traversal()
     });
     let candidates = Arc::new(PathCandidates {
         endpoint,

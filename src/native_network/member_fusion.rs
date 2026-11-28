@@ -12,7 +12,7 @@ use iroh::{
     endpoint::{
         Builder, Connection, ControlConfirmation, ControlConnection, ControlExchange,
         ControlHandle, ExportKeyingMaterialError, MemberConnection, MemberDirectCandidate,
-        MemberFusionAdmission, MemberFusionEndpoint, MemberFusionEvent, MemberUdpConfig,
+        MemberDirectPaths, MemberFusionAdmission, MemberFusionEndpoint, MemberFusionEvent, MemberUdpConfig,
         PortmapperConfig, RelayResourcePolicy, RelayResourceUse, RestrictedBuilder,
         RestrictedEndpoint, presets,
     },
@@ -240,7 +240,7 @@ impl Authorization {
         original: &ControlHandle,
         exchange: &ControlExchange,
         bootstrap: bool,
-        physical: Option<iroh::endpoint::MemberPunching>,
+        physical: iroh::endpoint::MemberPunching,
     ) -> io::Result<MemberDirectCandidate> {
         let tcp = self.tcp.as_ref().ok_or(io::ErrorKind::Unsupported)?;
         let mut log = AttemptLog::new(AttemptRole::initial(original), "member_fusion_tcp");
@@ -334,10 +334,14 @@ impl MemberFusionAdmission for Authorization {
         self.gate.publish_business(connection);
     }
 
+    fn ip_data_enabled(&self) -> bool {
+        !self.resources.udp_direct_disabled
+    }
+
     fn permits_data_path(&self, remote: &iroh::TransportAddr) -> bool {
         match remote {
             iroh::TransportAddr::Relay(_) => true,
-            iroh::TransportAddr::Ip(_) => !self.resources.udp_direct_disabled,
+            iroh::TransportAddr::Ip(_) => self.ip_data_enabled(),
             iroh::TransportAddr::Custom(addr) => match addr.id() {
                 crate::tcp_transport::DATA_TRANSPORT_ID
                 | crate::member_transport::DATA_TRANSPORT_ID => self.resources.allows_custom(addr),
@@ -361,75 +365,8 @@ impl MemberFusionAdmission for Authorization {
             .collect()
     }
 
-    fn member_direct_transport(&self) -> Option<u64> {
-        (!self.resources.tcp_direct_disabled).then_some(crate::tcp_transport::DATA_TRANSPORT_ID)
-    }
-
-    fn member_direct_observers(&self) -> Vec<iroh::RelayUrl> {
-        self.tcp
-            .as_ref()
-            .map_or_else(Vec::new, |tcp| tcp.observers.clone())
-    }
-
-    fn member_direct_binding(&self) -> Option<std::net::SocketAddr> {
-        self.tcp.as_ref()?.transport.bound_socket_addr()
-    }
-
-    fn member_direct_bindings(&self) -> Vec<std::net::SocketAddr> {
-        self.tcp
-            .as_ref()
-            .map_or_else(Vec::new, |tcp| tcp.transport.bound_socket_addrs())
-    }
-
-    fn member_direct_traversal(&self) -> Option<(Duration, Duration)> {
-        self.tcp
-            .as_ref()
-            .filter(|tcp| tcp.transport.supports_punching() && !tcp.observers.is_empty())
-            .map(|_| {
-                let policy = &self.resources.maintenance;
-                (
-                    Duration::from_millis(policy.contact_timeout_ms),
-                    Duration::from_millis(policy.path_retry_base_ms),
-                )
-            })
-    }
-
-    async fn prepare_member_direct(
-        &self,
-        original: &ControlHandle,
-        exchange: &ControlExchange,
-    ) -> io::Result<MemberDirectCandidate> {
-        self.prepare_tcp_candidate(original, exchange, false, None)
-            .await
-    }
-
-    async fn prepare_member_direct_reserved(
-        &self,
-        original: &ControlHandle,
-        exchange: &ControlExchange,
-        physical: iroh::endpoint::MemberPunching,
-    ) -> io::Result<MemberDirectCandidate> {
-        self.prepare_tcp_candidate(original, exchange, false, Some(physical))
-            .await
-    }
-
-    async fn prepare_member_bootstrap_direct(
-        &self,
-        original: &ControlHandle,
-        exchange: &ControlExchange,
-    ) -> io::Result<MemberDirectCandidate> {
-        self.prepare_tcp_candidate(original, exchange, true, None)
-            .await
-    }
-
-    async fn prepare_member_bootstrap_direct_reserved(
-        &self,
-        original: &ControlHandle,
-        exchange: &ControlExchange,
-        physical: iroh::endpoint::MemberPunching,
-    ) -> io::Result<MemberDirectCandidate> {
-        self.prepare_tcp_candidate(original, exchange, true, Some(physical))
-            .await
+    fn member_direct(&self) -> Option<&dyn MemberDirectPaths> {
+        (!self.resources.tcp_direct_disabled).then_some(self)
     }
 
     fn member_relay_transport(&self) -> Option<u64> {
@@ -444,12 +381,6 @@ impl MemberFusionAdmission for Authorization {
         remote: &iroh_base::CustomAddr,
     ) -> bool {
         crate::member_transport::MemberDataTransport::shares_forwarder(local, remote)
-    }
-
-    fn permits_direct_candidate(&self, address: &iroh_base::CustomAddr) -> bool {
-        self.resources.allows_custom(address)
-            && crate::tcp_transport::TcpTransport::socket_addr(address)
-                .is_ok_and(|addr| !addr.ip().is_unspecified())
     }
 
     fn permits_restricted_contact(&self, address: &iroh_base::CustomAddr) -> bool {
@@ -472,5 +403,64 @@ impl MemberFusionAdmission for Authorization {
             result,
             serde_json::Value::Null,
         );
+    }
+}
+
+impl MemberDirectPaths for Authorization {
+    fn transport_id(&self) -> u64 {
+        crate::tcp_transport::DATA_TRANSPORT_ID
+    }
+
+    fn permits_candidate(&self, address: &iroh_base::CustomAddr) -> bool {
+        self.resources.allows_custom(address)
+            && crate::tcp_transport::TcpTransport::socket_addr(address)
+                .is_ok_and(|addr| !addr.ip().is_unspecified())
+    }
+
+    fn observers(&self) -> Vec<iroh::RelayUrl> {
+        self.tcp
+            .as_ref()
+            .map_or_else(Vec::new, |tcp| tcp.observers.clone())
+    }
+
+    fn binding(&self) -> Option<std::net::SocketAddr> {
+        self.tcp.as_ref()?.transport.bound_socket_addr()
+    }
+
+    fn bindings(&self) -> Vec<std::net::SocketAddr> {
+        self.tcp
+            .as_ref()
+            .map_or_else(Vec::new, |tcp| tcp.transport.bound_socket_addrs())
+    }
+
+    fn traversal(&self) -> Option<(Duration, Duration)> {
+        self.tcp
+            .as_ref()
+            .filter(|tcp| tcp.transport.supports_punching() && !tcp.observers.is_empty())
+            .map(|_| {
+                let policy = &self.resources.maintenance;
+                (
+                    Duration::from_millis(policy.contact_timeout_ms),
+                    Duration::from_millis(policy.path_retry_base_ms),
+                )
+            })
+    }
+
+    fn prepare<'a>(
+        &'a self,
+        original: &'a ControlHandle,
+        exchange: &'a ControlExchange,
+        physical: iroh::endpoint::MemberPunching,
+    ) -> futures_util::future::BoxFuture<'a, io::Result<MemberDirectCandidate>> {
+        Box::pin(self.prepare_tcp_candidate(original, exchange, false, physical))
+    }
+
+    fn prepare_bootstrap<'a>(
+        &'a self,
+        original: &'a ControlHandle,
+        exchange: &'a ControlExchange,
+        physical: iroh::endpoint::MemberPunching,
+    ) -> futures_util::future::BoxFuture<'a, io::Result<MemberDirectCandidate>> {
+        Box::pin(self.prepare_tcp_candidate(original, exchange, true, physical))
     }
 }

@@ -189,71 +189,8 @@ pub(crate) trait DynEndpointAdmission: std::fmt::Debug + Send + Sync {
         false
     }
     #[cfg(not(wasm_browser))]
-    fn member_direct_transport(&self) -> Option<u64> {
+    fn member_direct(&self) -> Option<&dyn super::MemberDirectPaths> {
         None
-    }
-    #[cfg(not(wasm_browser))]
-    fn member_direct_binding(&self) -> Option<std::net::SocketAddr> {
-        None
-    }
-    #[cfg(not(wasm_browser))]
-    fn member_direct_bindings(&self) -> Vec<std::net::SocketAddr> {
-        self.member_direct_binding().into_iter().collect()
-    }
-
-    #[cfg(not(wasm_browser))]
-    fn member_direct_observers(&self) -> Vec<crate::RelayUrl> {
-        Vec::new()
-    }
-
-    #[cfg(not(wasm_browser))]
-    fn member_direct_traversal(&self) -> Option<(Duration, Duration)> {
-        None
-    }
-    #[cfg(not(wasm_browser))]
-    fn prepare_member_direct<'a>(
-        &'a self,
-        _connection: &'a ControlHandle,
-        _exchange: &'a ControlExchange,
-    ) -> BoxFuture<'a, io::Result<super::MemberDirectCandidate>> {
-        Box::pin(async { Err(io::ErrorKind::Unsupported.into()) })
-    }
-    #[cfg(not(wasm_browser))]
-    fn prepare_member_direct_reserved<'a>(
-        &'a self,
-        connection: &'a ControlHandle,
-        exchange: &'a ControlExchange,
-        physical: super::member_fusion::MemberPunching,
-    ) -> BoxFuture<'a, io::Result<super::MemberDirectCandidate>> {
-        Box::pin(async move {
-            let candidate = self.prepare_member_direct(connection, exchange).await?;
-            physical.finish();
-            Ok(candidate)
-        })
-    }
-    #[cfg(not(wasm_browser))]
-    fn prepare_member_bootstrap_direct<'a>(
-        &'a self,
-        _connection: &'a ControlHandle,
-        _exchange: &'a ControlExchange,
-    ) -> BoxFuture<'a, io::Result<super::member_fusion::MemberDirectCandidate>> {
-        Box::pin(async { Err(io::ErrorKind::Unsupported.into()) })
-    }
-
-    #[cfg(not(wasm_browser))]
-    fn prepare_member_bootstrap_direct_reserved<'a>(
-        &'a self,
-        connection: &'a ControlHandle,
-        exchange: &'a ControlExchange,
-        physical: super::member_fusion::MemberPunching,
-    ) -> BoxFuture<'a, io::Result<super::MemberDirectCandidate>> {
-        Box::pin(async move {
-            let candidate = self
-                .prepare_member_bootstrap_direct(connection, exchange)
-                .await?;
-            physical.finish();
-            Ok(candidate)
-        })
     }
 
     #[cfg(not(wasm_browser))]
@@ -266,10 +203,6 @@ pub(crate) trait DynEndpointAdmission: std::fmt::Debug + Send + Sync {
         _local: &iroh_base::CustomAddr,
         _remote: &iroh_base::CustomAddr,
     ) -> bool {
-        false
-    }
-    #[cfg(not(wasm_browser))]
-    fn permits_direct_candidate(&self, _address: &iroh_base::CustomAddr) -> bool {
         false
     }
     #[cfg(not(wasm_browser))]
@@ -1253,7 +1186,7 @@ impl ControlHandle {
             .admission
             .clone()
             .expect("member policy");
-        let direct = policy.member_direct_transport();
+        let direct = policy.member_direct().map(|paths| paths.transport_id());
         let building = policy.member_fusion().map(|fusion| fusion.building.clone());
         self.endpoint
             .inner
@@ -1262,7 +1195,7 @@ impl ControlHandle {
                 crate::socket::remote_map::MemberPathPolicy::new(None, move |address| {
                     policy.permits_member_data_path(address)
                         && (address.is_ip() || matches!(address, TransportAddr::Custom(remote)
-                            if direct == Some(remote.id()) && policy.permits_direct_candidate(&remote)))
+                            if direct == Some(remote.id()) && policy.member_direct().is_some_and(|paths| paths.permits_candidate(remote))))
                 })
                 .with_required_path_acks([direct, None], false)
                 .with_enhanced_udp(self.member_udp.as_ref().and_then(|udp| udp.path_work()))
@@ -2200,7 +2133,8 @@ pub(super) async fn finish_admission(
             let activity = fusion.activity(&connection);
             let udp = member_udp;
             let direct_transport = policy
-                .member_direct_transport()
+                .member_direct()
+                .map(|paths| paths.transport_id())
                 .filter(|id| permit.allowed_data_custom_ids.contains(id));
             let member_relay = policy
                 .member_relay_transport()

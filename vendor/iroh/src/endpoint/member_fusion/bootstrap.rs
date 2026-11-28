@@ -14,6 +14,7 @@ use super::{
 pub(super) async fn qualify(
     connection: &ControlConnection,
     custom: Vec<u64>,
+    ip_data_enabled: bool,
 ) -> io::Result<DataPathPermit> {
     let control = connection.member_bootstrap_handle();
     control.prepare_member_udp().await?;
@@ -53,6 +54,7 @@ pub(super) async fn qualify(
                 udp_exchange,
                 custom.clone(),
                 iroh_relay::ObservationFamily::Ipv4,
+                ip_data_enabled,
             )
             .await;
             let _ = completed.send(result);
@@ -63,6 +65,7 @@ pub(super) async fn qualify(
                 udp6_exchange,
                 custom.clone(),
                 iroh_relay::ObservationFamily::Ipv6,
+                ip_data_enabled,
             )
             .await;
             let _ = completed.send(result);
@@ -116,26 +119,24 @@ async fn tcp(
         .admission
         .as_ref()
         .expect("member policy");
-    let configured = policy
-        .member_direct_bindings()
-        .into_iter()
-        .find(|binding| family.matches(*binding));
-    let supported = policy.member_direct_traversal().is_some()
-        && configured.is_some()
-        && policy
-            .member_direct_transport()
-            .is_some_and(|id| custom.contains(&id));
+    let local = policy.member_direct().and_then(|direct| {
+        if !custom.contains(&direct.transport_id()) || direct.traversal().is_none() {
+            return None;
+        }
+        let binding = direct.bindings().into_iter().find(|binding| family.matches(*binding))?;
+        Some((direct, binding))
+    });
     let format = ControlMessageFormat::Fixed { length: 1 };
-    exchange.send_message(format, &[u8::from(supported)]).await?;
-    match exchange.recv_message(format).await?.as_slice() {
-        [1] if supported => {}
-        [0] | [1] => return Err(io::ErrorKind::Unsupported.into()),
+    exchange.send_message(format, &[u8::from(local.is_some())]).await?;
+    let (direct, configured) = match exchange.recv_message(format).await?.as_slice() {
+        [1] => local.ok_or(io::ErrorKind::Unsupported)?,
+        [0] => return Err(io::ErrorKind::Unsupported.into()),
         _ => return Err(io::ErrorKind::InvalidData.into()),
-    }
+    };
     let deadline = control.caller_deadline().expect("restricted admission deadline").into();
     let building = &policy.member_fusion().expect("member fusion").building;
-    let observers = policy.member_direct_observers();
-    let binding = if let Some(configured) = configured.filter(|_| !observers.is_empty()) {
+    let observers = direct.observers();
+    let binding = if !observers.is_empty() {
         let (binding, destination) = super::physical::observer_binding(
                 &control.endpoint.inner,
                 family,
@@ -167,7 +168,7 @@ async fn tcp(
             [0] => false,
             _ => return Err(io::ErrorKind::InvalidData.into()),
         };
-        if ready && peer_ready { break io::Result::Ok(permit); }
+        if peer_ready && let Some(physical) = permit { break io::Result::Ok(physical); }
         // Neither peer has sampled. Release the ready side while the busy
         // side waits for its existing owner, then rendezvous before retrying.
         drop(permit);
@@ -185,18 +186,7 @@ async fn tcp(
         } => return Err(io::ErrorKind::Interrupted.into()),
         result = rendezvous => result?,
     };
-    let prepared = match physical {
-        Some(physical) => {
-            policy
-                .prepare_member_bootstrap_direct_reserved(control, &exchange, physical)
-                .await?
-        }
-        None => {
-            policy
-                .prepare_member_bootstrap_direct(control, &exchange)
-                .await?
-        }
-    };
+    let prepared = direct.prepare_bootstrap(control, &exchange, physical).await?;
     let remote = direct::verify_direct(control, prepared)
         .await?
         .commit(control, &exchange)
@@ -215,7 +205,14 @@ async fn udp(
     exchange: ControlExchange,
     custom: Vec<u64>,
     family: iroh_relay::ObservationFamily,
+    ip_data_enabled: bool,
 ) -> io::Result<DataPathPermit> {
+    let format = ControlMessageFormat::Fixed { length: 1 };
+    if !ip_data_enabled {
+        exchange.send_message(format, &[0]).await?;
+        exchange.finish_send().await?;
+        return Err(io::ErrorKind::Unsupported.into());
+    }
     let policy = control
         .endpoint
         .inner
@@ -246,7 +243,6 @@ async fn udp(
     } else {
         None
     };
-    let format = ControlMessageFormat::Fixed { length: 1 };
     exchange
         .send_message(format, &[u8::from(enhanced.is_some())])
         .await?;

@@ -482,10 +482,16 @@ impl iroh::endpoint::MemberFusionAdmission for TcpAnnouncementAdmission {
     fn custom_data_transports(&self) -> Vec<u64> {
         vec![DATA_TRANSPORT_ID]
     }
-    fn member_direct_transport(&self) -> Option<u64> {
-        Some(DATA_TRANSPORT_ID)
+    fn member_direct(&self) -> Option<&dyn iroh::endpoint::MemberDirectPaths> {
+        Some(self)
     }
-    fn permits_direct_candidate(&self, address: &CustomAddr) -> bool {
+}
+
+impl iroh::endpoint::MemberDirectPaths for TcpAnnouncementAdmission {
+    fn transport_id(&self) -> u64 {
+        DATA_TRANSPORT_ID
+    }
+    fn permits_candidate(&self, address: &CustomAddr) -> bool {
         TcpTransport::socket_addr(address).is_ok()
     }
 }

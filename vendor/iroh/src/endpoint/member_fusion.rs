@@ -166,85 +166,20 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
         matches!(remote, TransportAddr::Relay(_))
     }
 
+    /// Whether bootstrap may wait for an ordinary IP path. Each actual
+    /// candidate still requires permission through `permits_data_path`.
+    fn ip_data_enabled(&self) -> bool {
+        true
+    }
+
     /// Custom data carriers the application registered for current members.
     fn custom_data_transports(&self) -> Vec<u64> {
         Vec::new()
     }
 
-    /// Installed direct data transport eligible for online path improvement.
-    fn member_direct_transport(&self) -> Option<u64> {
+    /// Direct transport capabilities installed for this member policy.
+    fn member_direct(&self) -> Option<&dyn MemberDirectPaths> {
         None
-    }
-
-    /// Original caller budget and minimum interval for coordinated direct attempts.
-    /// Actual local TCP binding used for observation and coordinated dialing.
-    fn member_direct_binding(&self) -> Option<std::net::SocketAddr> {
-        None
-    }
-
-    /// Actual TCP listeners available to independent address-family attempts.
-    fn member_direct_bindings(&self) -> Vec<std::net::SocketAddr> {
-        self.member_direct_binding().into_iter().collect()
-    }
-
-    /// Observation destinations used by the coordinated TCP binding.
-    fn member_direct_observers(&self) -> Vec<crate::RelayUrl> {
-        Vec::new()
-    }
-
-    /// Limits for one coordinated direct TCP attempt.
-    fn member_direct_traversal(&self) -> Option<(Duration, Duration)> {
-        None
-    }
-
-    /// Prepare one direct candidate on the already admitted original using
-    /// the provided protected exchange. Iroh owns timing and final validation.
-    fn prepare_member_direct<'a>(
-        &'a self,
-        _connection: &'a ControlHandle,
-        _exchange: &'a ControlExchange,
-    ) -> impl Future<Output = io::Result<MemberDirectCandidate>> + Send + 'a {
-        async { Err(io::ErrorKind::Unsupported.into()) }
-    }
-
-    /// Prepare under a physical reservation that can finish before QUIC validation.
-    fn prepare_member_direct_reserved<'a>(
-        &'a self,
-        connection: &'a ControlHandle,
-        exchange: &'a ControlExchange,
-        physical: MemberPunching,
-    ) -> impl Future<Output = io::Result<MemberDirectCandidate>> + Send + 'a {
-        async move {
-            let candidate = self.prepare_member_direct(connection, exchange).await?;
-            physical.finish();
-            Ok(candidate)
-        }
-    }
-
-    /// Prepare a bootstrap TCP candidate under an existing physical reservation.
-    fn prepare_member_bootstrap_direct_reserved<'a>(
-        &'a self,
-        connection: &'a ControlHandle,
-        exchange: &'a ControlExchange,
-        physical: MemberPunching,
-    ) -> impl Future<Output = io::Result<MemberDirectCandidate>> + Send + 'a {
-        async move {
-            let candidate = self
-                .prepare_member_bootstrap_direct(connection, exchange)
-                .await?;
-            physical.finish();
-            Ok(candidate)
-        }
-    }
-
-    /// Prepare a direct carrier while this member is still control-only.
-    /// The candidate must retain the exact bootstrap circuit on commit.
-    fn prepare_member_bootstrap_direct<'a>(
-        &'a self,
-        _connection: &'a ControlHandle,
-        _exchange: &'a ControlExchange,
-    ) -> impl Future<Output = io::Result<MemberDirectCandidate>> + Send + 'a {
-        async { Err(io::ErrorKind::Unsupported.into()) }
     }
 
     /// Custom carrier for explicitly permitted member data relay candidates.
@@ -262,11 +197,6 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
         false
     }
 
-    /// Decide whether this direct candidate may be advertised or attempted.
-    fn permits_direct_candidate(&self, _address: &iroh_base::CustomAddr) -> bool {
-        false
-    }
-
     /// Allow an installed custom carrier to establish only the protected
     /// member bootstrap. Business still needs an eligible, verified data path.
     fn permits_restricted_contact(&self, _address: &iroh_base::CustomAddr) -> bool {
@@ -278,6 +208,58 @@ pub trait MemberFusionAdmission: std::fmt::Debug + Send + Sync {
 
     /// Observe messages of the existing bilateral admission stage.
     fn selection_event(&self, _connection: &ControlConnection, _event: MemberFusionEvent) {}
+}
+
+/// The application's direct transport on a shared member connection.
+pub trait MemberDirectPaths: std::fmt::Debug + Send + Sync {
+    /// Custom transport ID, subject to the endpoint's data-carrier allowlist.
+    fn transport_id(&self) -> u64;
+
+    /// Decide whether a direct candidate may be advertised or attempted.
+    /// May run under the QUIC packet lock, so this must not block.
+    fn permits_candidate(&self, address: &iroh_base::CustomAddr) -> bool;
+
+    /// Primary TCP listener for repair on the existing connection.
+    fn binding(&self) -> Option<std::net::SocketAddr> {
+        None
+    }
+
+    /// Actual TCP listeners available to independent address-family attempts.
+    fn bindings(&self) -> Vec<std::net::SocketAddr> {
+        self.binding().into_iter().collect()
+    }
+
+    /// Observation destinations used by the coordinated TCP binding.
+    fn observers(&self) -> Vec<crate::RelayUrl> {
+        Vec::new()
+    }
+
+    /// Caller budget and minimum interval for coordinated TCP attempts.
+    fn traversal(&self) -> Option<(Duration, Duration)> {
+        None
+    }
+
+    /// Prepare a direct candidate on the admitted original. The reservation
+    /// can be released as soon as physical work finishes, before QUIC validation.
+    fn prepare<'a>(
+        &'a self,
+        _connection: &'a ControlHandle,
+        _exchange: &'a ControlExchange,
+        _physical: MemberPunching,
+    ) -> BoxFuture<'a, io::Result<MemberDirectCandidate>> {
+        Box::pin(async { Err(io::ErrorKind::Unsupported.into()) })
+    }
+
+    /// Prepare on the control-only original. On commit the candidate must
+    /// retain the exact bootstrap circuit.
+    fn prepare_bootstrap<'a>(
+        &'a self,
+        _connection: &'a ControlHandle,
+        _exchange: &'a ControlExchange,
+        _physical: MemberPunching,
+    ) -> BoxFuture<'a, io::Result<MemberDirectCandidate>> {
+        Box::pin(async { Err(io::ErrorKind::Unsupported.into()) })
+    }
 }
 
 /// Admission-stage messages on one TLS-authenticated candidate.
@@ -330,7 +312,7 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
                     && matches!(path.remote_addr(), TransportAddr::Custom(address)
                         if self.inner.permits_restricted_contact(address))
             }) {
-                let permit = bootstrap::qualify(connection, custom).await?;
+                let permit = bootstrap::qualify(connection, custom, self.inner.ip_data_enabled()).await?;
                 return Ok(AdmissionOutcome::AcceptWithConfirmation {
                     permit,
                     confirmation,
@@ -401,69 +383,8 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
         self.inner.permits_data_path(path)
     }
 
-    fn member_direct_transport(&self) -> Option<u64> {
-        self.inner.member_direct_transport()
-    }
-
-    /// Actual local TCP binding used for observation and coordinated dialing.
-    fn member_direct_binding(&self) -> Option<std::net::SocketAddr> {
-        self.inner.member_direct_binding()
-    }
-
-    fn member_direct_bindings(&self) -> Vec<std::net::SocketAddr> {
-        self.inner.member_direct_bindings()
-    }
-
-    fn member_direct_observers(&self) -> Vec<crate::RelayUrl> {
-        self.inner.member_direct_observers()
-    }
-
-    /// Limits for one coordinated direct TCP attempt.
-    fn member_direct_traversal(&self) -> Option<(Duration, Duration)> {
-        self.inner.member_direct_traversal()
-    }
-
-    fn prepare_member_direct<'a>(
-        &'a self,
-        connection: &'a ControlHandle,
-        exchange: &'a ControlExchange,
-    ) -> BoxFuture<'a, io::Result<MemberDirectCandidate>> {
-        Box::pin(self.inner.prepare_member_direct(connection, exchange))
-    }
-
-    fn prepare_member_direct_reserved<'a>(
-        &'a self,
-        connection: &'a ControlHandle,
-        exchange: &'a ControlExchange,
-        physical: MemberPunching,
-    ) -> BoxFuture<'a, io::Result<MemberDirectCandidate>> {
-        Box::pin(
-            self.inner
-                .prepare_member_direct_reserved(connection, exchange, physical),
-        )
-    }
-
-    fn prepare_member_bootstrap_direct<'a>(
-        &'a self,
-        connection: &'a ControlHandle,
-        exchange: &'a ControlExchange,
-    ) -> BoxFuture<'a, io::Result<MemberDirectCandidate>> {
-        Box::pin(
-            self.inner
-                .prepare_member_bootstrap_direct(connection, exchange),
-        )
-    }
-
-    fn prepare_member_bootstrap_direct_reserved<'a>(
-        &'a self,
-        connection: &'a ControlHandle,
-        exchange: &'a ControlExchange,
-        physical: MemberPunching,
-    ) -> BoxFuture<'a, io::Result<MemberDirectCandidate>> {
-        Box::pin(
-            self.inner
-                .prepare_member_bootstrap_direct_reserved(connection, exchange, physical),
-        )
+    fn member_direct(&self) -> Option<&dyn MemberDirectPaths> {
+        self.inner.member_direct()
     }
 
     fn member_relay_transport(&self) -> Option<u64> {
@@ -480,10 +401,6 @@ impl<A: MemberFusionAdmission> DynEndpointAdmission for Admission<A> {
         remote: &iroh_base::CustomAddr,
     ) -> bool {
         self.inner.shares_member_relay(local, remote)
-    }
-
-    fn permits_direct_candidate(&self, address: &iroh_base::CustomAddr) -> bool {
-        self.inner.permits_direct_candidate(address)
     }
 
     fn fusion_event(&self, connection: &ControlConnection, event: MemberFusionEvent) {
