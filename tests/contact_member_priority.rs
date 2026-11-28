@@ -89,9 +89,13 @@ impl iroh::protocol::ControlProtocolHandler for WarmControl {
         Ok(())
     }
 }
+
 async fn admit(admin: &mut NativeNetwork, directory: &std::path::Path) -> NativeNetwork {
     let mut member = NativeNetwork::join(directory, admin.manual_invitation().unwrap())
         .await
+        .unwrap();
+    member
+        .save_resource_configuration(&admin.resource_configuration().unwrap())
         .unwrap();
     let server = admin
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
