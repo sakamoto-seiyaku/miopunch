@@ -365,7 +365,12 @@ async fn observed_tcp_on_application_members_family(scenario: TcpRound, ipv6: bo
         config.udp_direct_disabled = true;
         config.tcp_listen = Some(
             (
-                if ipv6 {
+                if matches!(scenario, TcpRound::RetryAfterCooldown) {
+                    // Only the observed listener participates in the cooldown test.
+                    // Other host interfaces can otherwise qualify TCP while ACKs
+                    // for the observed loopback route are still suppressed.
+                    loopback
+                } else if ipv6 {
                     std::net::IpAddr::V6(std::net::Ipv6Addr::UNSPECIFIED)
                 } else {
                     Ipv4Addr::UNSPECIFIED.into()
