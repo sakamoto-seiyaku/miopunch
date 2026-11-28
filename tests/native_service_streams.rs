@@ -136,14 +136,26 @@ async fn reopen_with_resources(
 
 async fn member_pong(client: &NativeClient, target: iroh::EndpointAddr) -> serde_json::Value {
     let peer = target.id.to_string();
-    let reply = timeout(IO, client.ping(target)).await.unwrap().unwrap();
+    // The SDK bounds the cold dial, then starts the five-second PING budget.
+    let reply = client.ping(target).await.unwrap();
     println!("first-pong {reply}");
     assert_eq!(reply["reply"], "PONG");
     assert_eq!(reply["transport"]["peer"], peer);
+    assert!(reply["timing"]["response_ms"].as_f64().unwrap() <= IO.as_secs_f64() * 1000.0);
     reply
 }
 
 async fn first_pong(
+    client: &NativeClient,
+    target: iroh::EndpointAddr,
+    expected_path: iroh::TransportAddr,
+) -> u64 {
+    timeout(IO, cold_pong_on_path(client, target, expected_path))
+        .await
+        .expect("member PONG within the fixture deadline")
+}
+
+async fn cold_pong_on_path(
     client: &NativeClient,
     target: iroh::EndpointAddr,
     expected_path: iroh::TransportAddr,
@@ -252,7 +264,7 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         resources.disabled_uses.insert(ResourceUse::DataRelay);
     }))
     .await;
-    Box::pin(first_pong(
+    Box::pin(cold_pong_on_path(
         &consumer,
         iroh::EndpointAddr::new(target.id).with_ip_addr(direct),
         iroh::TransportAddr::Ip(direct),
@@ -261,19 +273,17 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
     Box::pin(consumer.close()).await.unwrap();
 
     let verified = read_member_routes(&consumer_path, target.id);
-    assert!(
-        verified.iter().any(|route| {
-            route["verified"] == true && route["address"]["Ip"] == direct.to_string()
-        }),
-        "the first PONG saved the actual verified address"
-    );
+    let verified_direct = verified
+        .into_iter()
+        .find(|route| route["verified"] == true && route["address"]["Ip"] == direct.to_string())
+        .expect("the first PONG saved the actual verified address");
     let consumer = Box::pin(reopen_with_resources(&consumer_path, |resources| {
         resources.disabled_uses.remove(&ResourceUse::DataRelay);
     }))
     .await;
     assert_eq!(consumer.address().id, consumer_id);
     println!("redial-fixture verified-ip-wins");
-    let selected = Box::pin(first_pong(
+    let selected = Box::pin(cold_pong_on_path(
         &consumer,
         iroh::EndpointAddr::new(target.id),
         iroh::TransportAddr::Ip(direct),
@@ -308,7 +318,7 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
     println!("redial-fixture stale-ip");
     let mut packet = [0; 2048];
     let (_, observed) = tokio::join!(
-        Box::pin(first_pong(
+        Box::pin(cold_pong_on_path(
             &consumer,
             iroh::EndpointAddr::new(target.id),
             iroh::TransportAddr::Relay(relay.clone())
@@ -335,6 +345,9 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         .await
         .unwrap();
     assert_ne!(wrong.id(), target.id);
+    // A previous relay session can learn the live provider's new UDP port.
+    // Each failure case starts with the original verified contact.
+    write_member_routes(&consumer_path, target.id, vec![verified_direct.clone()]);
     let consumer = Box::pin(NativeClient::open(&consumer_path, Ipv4Addr::LOCALHOST))
         .await
         .unwrap();
@@ -381,12 +394,13 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         .await
         .unwrap();
     assert_eq!(interrupted.id(), target.id);
+    write_member_routes(&consumer_path, target.id, vec![verified_direct]);
     let consumer = Box::pin(NativeClient::open(&consumer_path, Ipv4Addr::LOCALHOST))
         .await
         .unwrap();
     println!("redial-fixture reset-scram");
     let (_, observed) = tokio::join!(
-        Box::pin(first_pong(
+        Box::pin(cold_pong_on_path(
             &consumer,
             iroh::EndpointAddr::new(target.id),
             iroh::TransportAddr::Relay(relay.clone())
@@ -475,7 +489,7 @@ async fn native_ping_reuses_a_verified_member_address_after_reopen() {
         }))
         .await;
         println!("redial-fixture {label}");
-        Box::pin(first_pong(&consumer, iroh::EndpointAddr::new(target.id), expected)).await;
+        Box::pin(cold_pong_on_path(&consumer, iroh::EndpointAddr::new(target.id), expected)).await;
         Box::pin(consumer.close()).await.unwrap();
     }
 
