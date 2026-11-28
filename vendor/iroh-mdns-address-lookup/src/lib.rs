@@ -562,11 +562,11 @@ impl MdnsAddressLookup {
 
 fn configure_interfaces(service: &DropGuard, state: &netwatch::interfaces::State) {
     let mut v6 = BTreeSet::new();
-    for interface in state
-        .interfaces
-        .values()
-        .filter(|interface| interface.is_up())
-    {
+    // The wildcard receiver has a finite number of group memberships. Join
+    // links with carrier first, then register idle links for later use.
+    let mut interfaces: Vec<_> = state.interfaces.values().filter(|i| i.is_up()).collect();
+    interfaces.sort_by_key(|i| !i.is_running());
+    for interface in interfaces {
         for address in interface.addrs() {
             match address {
                 netwatch::interfaces::IpNet::V4(net) => service.add_interface_v4(net.addr()),

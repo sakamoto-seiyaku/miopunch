@@ -213,6 +213,18 @@ impl Interface {
         self.flags & IFF_UP != 0
     }
 
+    /// Whether the interface is up and can carry traffic. On Linux an
+    /// administratively up link can still be waiting for carrier.
+    pub fn is_running(&self) -> bool {
+        #[cfg(target_os = "linux")]
+        {
+            const IFF_RUNNING: u32 = 0x40;
+            self.is_up() && self.flags & IFF_RUNNING != 0
+        }
+        #[cfg(not(target_os = "linux"))]
+        self.is_up()
+    }
+
     /// The name of the interface.
     pub fn name(&self) -> &str {
         &self.name
