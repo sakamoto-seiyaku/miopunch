@@ -9,6 +9,9 @@ use tokio::{
 use super::DefaultRouteDetails;
 pub(super) use super::netdev_impl::{get_state, home_router};
 
+#[cfg(target_os = "linux")]
+pub(super) use sane::interface_snapshot;
+
 #[stack_error(derive, add_meta, from_sources, std_sources)]
 #[non_exhaustive]
 pub enum Error {
@@ -171,6 +174,105 @@ mod sane {
                 _ => return Err(e!(Error::UnexpectedNetlinkMessage)),
             }
         }};
+    }
+
+    /// Only link identity, flags and assigned prefixes are part of a monitor snapshot.
+    /// Dump links and addresses once each; querying DHCP, speeds and gateways per
+    /// interface can consume the deadline of a live network-change notification.
+    #[cfg(target_os = "linux")]
+    pub(in crate::interfaces) async fn interface_snapshot()
+    -> Result<Vec<crate::interfaces::Interface>, Error> {
+        use crate::interfaces::{Interface, IpNet, Ipv4Net, Ipv6AddrFlags, Ipv6Net};
+        use netlink_packet_route::address::{AddressAttribute, AddressFlags, AddressMessage};
+        use std::{collections::BTreeMap, net::IpAddr};
+
+        let (connection, handle, _receiver) =
+            netlink_proto::new_connection::<RouteNetlinkMessage>(NETLINK_ROUTE)?;
+        let _driver = n0_future::task::AbortOnDropHandle::new(tokio::spawn(connection));
+        let mut links = BTreeMap::new();
+        let mut request =
+            NetlinkMessage::from(RouteNetlinkMessage::GetLink(LinkMessage::default()));
+        request.header.flags = NLM_F_REQUEST | NLM_F_DUMP;
+        let mut replies = handle
+            .request(request, netlink_proto::sys::SocketAddr::new(0, 0))
+            .map_err(|source| e!(Error::Netlink, source))?;
+        while let Some(reply) = replies.next().await {
+            let link = try_rtnl!(reply, RouteNetlinkMessage::NewLink);
+            let mut name = None;
+            let mut mac_addr = None;
+            for attr in link.attributes {
+                match attr {
+                    LinkAttribute::IfName(value) => name = Some(value),
+                    LinkAttribute::Address(bytes) => mac_addr = bytes.as_slice().try_into().ok(),
+                    _ => {}
+                }
+            }
+            if let Some(name) = name {
+                links.insert(
+                    link.header.index,
+                    Interface {
+                        name,
+                        index: link.header.index,
+                        flags: link.header.flags.bits(),
+                        mac_addr,
+                        addrs: Vec::new(),
+                    },
+                );
+            }
+        }
+        let mut request =
+            NetlinkMessage::from(RouteNetlinkMessage::GetAddress(AddressMessage::default()));
+        request.header.flags = NLM_F_REQUEST | NLM_F_DUMP;
+        let mut replies = handle
+            .request(request, netlink_proto::sys::SocketAddr::new(0, 0))
+            .map_err(|source| e!(Error::Netlink, source))?;
+        while let Some(reply) = replies.next().await {
+            let addr = try_rtnl!(reply, RouteNetlinkMessage::NewAddress);
+            let Some(link) = links.get_mut(&addr.header.index) else {
+                continue;
+            };
+            let mut address = None;
+            let mut flags = AddressFlags::from_bits_retain(u32::from(addr.header.flags.bits()));
+            for attr in addr.attributes {
+                match attr {
+                    AddressAttribute::Local(ip) => address = Some(ip),
+                    AddressAttribute::Address(ip) if address.is_none() => address = Some(ip),
+                    AddressAttribute::Flags(value) => flags = value,
+                    _ => {}
+                }
+            }
+            match address {
+                Some(IpAddr::V4(ip)) => {
+                    if let Ok(net) = Ipv4Net::new(ip, addr.header.prefix_len) {
+                        link.addrs.push(IpNet::V4(net));
+                    }
+                }
+                Some(IpAddr::V6(ip)) => {
+                    if let Ok(net) = Ipv6Net::new(ip, addr.header.prefix_len) {
+                        link.addrs.push(IpNet::V6 {
+                            net,
+                            scope_id: if ip.is_unicast_link_local() {
+                                link.index
+                            } else {
+                                0
+                            },
+                            flags: Ipv6AddrFlags {
+                                deprecated: flags.contains(AddressFlags::Deprecated),
+                                temporary: flags.contains(AddressFlags::Secondary),
+                                tentative: flags.contains(AddressFlags::Tentative),
+                                duplicated: flags.contains(AddressFlags::Dadfailed),
+                                permanent: flags.contains(AddressFlags::Permanent),
+                            },
+                        });
+                    }
+                }
+                None => {}
+            }
+        }
+        for link in links.values_mut() {
+            link.addrs.sort_by_key(IpNet::addr);
+        }
+        Ok(links.into_values().collect())
     }
 
     pub async fn default_route() -> Result<Option<DefaultRouteDetails>, Error> {

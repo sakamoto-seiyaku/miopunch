@@ -12,7 +12,6 @@ use std::net::IpAddr;
 use super::{Interface, IpNet, Ipv6AddrFlags, State};
 use crate::ip::{LocalAddresses, is_link_local, is_private, is_private_v6};
 
-const IFF_UP: u32 = 0x1;
 const IFF_LOOPBACK: u32 = 0x8;
 
 /// Converts netdev's IPv6 address flags into our mirrored [`Ipv6AddrFlags`].
@@ -73,19 +72,23 @@ fn to_interface(iface: netdev::Interface) -> Interface {
 
 /// Enumerates the machine's network interfaces and assembles the [`State`].
 pub(super) async fn get_state() -> State {
-    // Platform interface enumeration performs blocking I/O. Keep QUIC and
-    // observation tasks responsive while netmon refreshes the snapshot.
-    let raw = tokio::task::spawn_blocking(netdev::interface::get_interfaces)
-        .await
-        .expect("interface enumeration task");
+    #[cfg(target_os = "linux")]
+    let raw = match super::linux::interface_snapshot().await {
+        Ok(snapshot) => snapshot,
+        Err(error) => {
+            tracing::debug!(%error, "route netlink unavailable for interface snapshot");
+            enumerate().await
+        }
+    };
+    #[cfg(not(target_os = "linux"))]
+    let raw = enumerate().await;
     let local_addresses = local_addresses(&raw);
 
     let mut interfaces = std::collections::HashMap::new();
     let mut have_v6 = false;
     let mut have_v4 = false;
 
-    for raw in raw {
-        let iface = to_interface(raw);
+    for iface in raw {
         if iface.is_up() {
             for pfx in iface.addrs() {
                 let addr = pfx.addr();
@@ -110,6 +113,17 @@ pub(super) async fn get_state() -> State {
         default_route_interface,
         last_unsuspend: None,
     }
+}
+
+async fn enumerate() -> Vec<Interface> {
+    tokio::task::spawn_blocking(|| {
+        netdev::interface::get_interfaces()
+            .into_iter()
+            .map(to_interface)
+            .collect()
+    })
+    .await
+    .expect("interface enumeration task")
 }
 
 /// The shared home-router lookup for linux, android and windows.
@@ -178,20 +192,12 @@ pub(super) fn local_ip() -> Option<IpAddr> {
     netdev::net::ip::get_local_ipaddr()
 }
 
-const fn is_up(interface: &netdev::Interface) -> bool {
-    interface.flags & IFF_UP != 0
-}
-
-const fn is_loopback(interface: &netdev::Interface) -> bool {
-    interface.flags & IFF_LOOPBACK != 0
-}
-
 /// Builds the machine's [`LocalAddresses`] from a raw `netdev` interface list.
 ///
 /// If there are no regular addresses it falls back to IPv4 link-local or IPv6
 /// unique-local addresses, because we know of environments where these are used
 /// with NAT to provide connectivity.
-fn local_addresses(ifaces: &[netdev::Interface]) -> LocalAddresses {
+fn local_addresses(ifaces: &[Interface]) -> LocalAddresses {
     let mut loopback = Vec::new();
     let mut regular4 = Vec::new();
     let mut regular6 = Vec::new();
@@ -199,18 +205,12 @@ fn local_addresses(ifaces: &[netdev::Interface]) -> LocalAddresses {
     let mut ula6 = Vec::new();
 
     for iface in ifaces {
-        if !is_up(iface) {
+        if !iface.is_up() {
             // Skip down interfaces
             continue;
         }
-        let ifc_is_loopback = is_loopback(iface);
-        let addrs = iface
-            .ipv4
-            .iter()
-            .map(|a| IpAddr::V4(a.addr()))
-            .chain(iface.ipv6.iter().map(|a| IpAddr::V6(a.addr())));
-
-        for ip in addrs {
+        let ifc_is_loopback = iface.flags & IFF_LOOPBACK != 0;
+        for ip in iface.addrs().map(|address| address.addr()) {
             let ip = ip.to_canonical();
 
             if ip.is_loopback() || ifc_is_loopback {
@@ -262,7 +262,12 @@ impl LocalAddresses {
     /// IPv6 unique-local addresses, because we know of environments where these
     /// are used with NAT to provide connectivity.
     pub fn new() -> Self {
-        local_addresses(&netdev::interface::get_interfaces())
+        local_addresses(
+            &netdev::interface::get_interfaces()
+                .into_iter()
+                .map(to_interface)
+                .collect::<Vec<_>>(),
+        )
     }
 }
 
