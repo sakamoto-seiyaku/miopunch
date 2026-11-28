@@ -25,7 +25,7 @@ pub struct BrowserMemberConnection {
         std::rc::Rc<std::cell::RefCell<Option<super::rtc_member::Continuity>>>,
 }
 impl BrowserMemberConnection {
-    pub(super) async fn qualified_snapshot(&self) -> Result<SavedNode, JsValue> {
+    pub(super) async fn qualified_snapshot(&self) -> Result<Box<SavedNode>, JsValue> {
         let result = self.gate.qualified_snapshot(&self.connection).await;
         if result.is_err() {
             self.close();
@@ -589,7 +589,7 @@ impl BrowserMemberAcceptAttempt {
             return Err(error("member attempt already started"));
         }
         let work = async {
-            let (saved, _, _) = services::installed(&self.gate).await?;
+            let saved = self.gate.installed().await?;
             if saved.stage() != "Complete" {
                 return Err(rejected());
             }
@@ -678,7 +678,7 @@ impl BrowserMemberAttempt {
             return Err(error("member attempt already started"));
         }
         let work = async {
-            let (saved, _, _) = services::installed(&self.gate).await?;
+            let saved = self.gate.installed().await?;
             if !BrowserGate::permits(&saved, self.address.id, BUSINESS_ALPN) {
                 return Err(rejected());
             }

@@ -604,7 +604,7 @@ impl BrowserNetwork {
         {
             return Err(rejected());
         }
-        services::update_saved(&self.gate, |saved| {
+        self.gate.update_saved(|saved| {
             if generation != self.files.generation.get() {
                 return Err(rejected());
             }
@@ -620,7 +620,7 @@ impl BrowserNetwork {
     }
     pub async fn disable_files(&mut self) -> Result<(), JsValue> {
         self.files.disable().await;
-        services::update_saved(&self.gate, |saved| {
+        self.gate.update_saved(|saved| {
             *saved = saved.declare_files(false)?;
             Ok(())
         })

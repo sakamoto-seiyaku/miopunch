@@ -568,7 +568,7 @@ async fn receive_rotation(
 
     let (signed, completion, history, predecessor): HistoryFrame =
         decode(&exchange.read_frame().await.map_err(error)?).map_err(error)?;
-    let pending = services::update_saved(gate, |saved| {
+    let pending = gate.update_saved(|saved| {
         let proposal = verify_proposal(saved.invitation()?.anchor, &signed).map_err(error)?;
         if !proposal.retained.contains(peer.as_bytes())
             || !proposal.retained.contains(saved.identity().as_bytes())
@@ -632,7 +632,7 @@ async fn receive_rotation(
     if let Some(rotation) = pending {
         let mut bytes = [0; 32];
         exchange.read_fixed(&mut bytes).await.map_err(error)?;
-        let acks = services::update_saved(gate, |saved| {
+        let acks = gate.update_saved(|saved| {
             is_same_rotation(saved, &rotation)?;
             gate.check_rotation_contact(saved, &connection, peer, profile)?;
             saved.save_rotation_material(bytes)
@@ -667,7 +667,7 @@ async fn send_rotation(
     expected: ([u8; 16], RotationStage),
 ) -> Result<(), JsValue> {
     let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes()).map_err(error)?;
-    let (saved, _, _) = services::installed(gate).await?;
+    let saved = gate.installed().await?;
     let rotation = saved.current_rotation()?.ok_or_else(rejected)?;
     if (rotation.proposal.id, rotation.stage()) != expected
         || !rotation.proposal.retained.contains(peer.as_bytes())
@@ -720,7 +720,7 @@ async fn send_rotation(
     // Recovery proof awaits the peer, so refresh authorization before history
     // or private material is released.
     let history = {
-        let (current, _, _) = services::installed(gate).await?;
+        let current = gate.installed().await?;
         is_same_rotation(&current, &rotation)?;
         gate.check_rotation_contact(&current, connection, peer, profile)?;
         let frame: HistoryFrame = (
@@ -734,8 +734,7 @@ async fn send_rotation(
     wire.write_frame(&history).await.map_err(error)?;
     if rotation.completion.is_none() {
         {
-            let _writer = gate.2.lock().await;
-            let (current, _, _) = services::installed_locked(gate).await?;
+            let (current, _write) = gate.write_node().await?;
             is_same_rotation(&current, &rotation)?;
             gate.check_rotation_contact(&current, connection, peer, profile)?;
             let staged = current.rotation.unwrap().staged.ok_or_else(rejected)?;
@@ -743,7 +742,7 @@ async fn send_rotation(
         }
         let (ack, forwarded): (Signed, Vec<Signed>) =
             decode(&wire.read_frame().await.map_err(error)?).map_err(error)?;
-        services::update_saved(gate, |saved| {
+        gate.update_saved(|saved| {
             is_same_rotation(saved, &rotation)?;
             gate.check_rotation_contact(saved, connection, peer, profile)?;
             if verify_ack(&ack, &rotation).map_err(error)? != *peer.as_bytes()
@@ -959,7 +958,7 @@ impl RotationRuntime {
                     let result = if pending.expires <= Instant::now() {
                         Ok(true)
                     } else {
-                        services::update_saved(&commit_gate, |saved| saved.commit_rotation(pending))
+                        commit_gate.update_saved(|saved| saved.commit_rotation(pending))
                             .await
                     };
                     retry = result.is_err();
@@ -1099,7 +1098,7 @@ impl BrowserNetwork {
             .map(|card| RecoveryCard::import(card, password.as_deref()).map_err(error))
             .transpose()?;
         let expires = Instant::now() + CONFIRMATION_WINDOW;
-        let (progress, root) = services::update_saved(&self.gate, |saved| {
+        let (progress, root) = self.gate.update_saved(|saved| {
             let root = saved.genesis_key(card.as_ref())?;
             if expires <= Instant::now() {
                 return Err(error("rotation confirmation expired"));
@@ -1126,7 +1125,7 @@ impl BrowserNetwork {
             .map(|card| RecoveryCard::import(card, password.as_deref()).map_err(error))
             .transpose()?;
         let expires = Instant::now() + CONFIRMATION_WINDOW;
-        let (saved, _, _) = services::installed(&self.gate).await?;
+        let saved = self.gate.installed().await?;
         let progress = saved.rotation_progress()?.ok_or_else(rejected)?;
         if progress.id != id || progress.initiator != saved.identity() {
             return Err(rejected());

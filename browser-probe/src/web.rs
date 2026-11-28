@@ -474,7 +474,7 @@ impl BrowserNetwork {
                     let _contact = runtime.connecting.lock().await;
                     // Recheck the same current store after queued contact work,
                     // without borrowing the JS node while this owner is running.
-                    services::installed(&gate).await?;
+                    gate.installed().await?;
                     coordinator
                         .connect_alpn(
                             address,

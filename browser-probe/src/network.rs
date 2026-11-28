@@ -994,8 +994,8 @@ impl BrowserGate {
     async fn restricted_snapshot(
         &self,
         connection: &(impl AuthenticatedControl + ?Sized),
-    ) -> Result<SavedNode, JsValue> {
-        let (saved, _, _) = services::installed(self).await?;
+    ) -> Result<Box<SavedNode>, JsValue> {
+        let saved = self.installed().await?;
         let auth = saved.verify()?;
         let permitted = if connection.side().is_client() {
             Self::permits(&saved, connection.remote_id(), connection.alpn())
@@ -1017,8 +1017,8 @@ impl BrowserGate {
     async fn qualified_snapshot(
         &self,
         connection: &(impl AuthenticatedControl + ?Sized),
-    ) -> Result<SavedNode, JsValue> {
-        let (saved, _, _) = services::installed(self).await?;
+    ) -> Result<Box<SavedNode>, JsValue> {
+        let saved = self.installed().await?;
         let scope = AdmissionScope::new(
             *saved.invitation()?.anchor.root.as_bytes(),
             saved.generation,
@@ -3014,7 +3014,7 @@ impl BrowserNetwork {
 
     /// Persist this device's display name without contacting other members.
     pub async fn set_device_display_name(&mut self, display_name: String) -> Result<(), JsValue> {
-        services::update_saved(&self.gate, |saved| {
+        self.gate.update_saved(|saved| {
             let key = SigningKey::from_bytes(&saved.key);
             saved.device_names.set_local(&key, &display_name).map_err(error)
         })
@@ -3044,7 +3044,7 @@ impl BrowserNetwork {
 
     /// Redacted loaded material receipt, checked against the actual leased store.
     pub async fn admission_material_receipt(&self) -> Result<String, JsValue> {
-        let (saved, _, _) = services::installed(&self.gate).await?;
+        let saved = self.gate.installed().await?;
         let invitation = saved.invitation()?;
         Ok(serde_json::json!({"id":self.id(),"contact":invitation.contact.to_string(),"stage":saved.stage(),
             "request":hex::encode(saved.admission_request_id()),
@@ -3255,11 +3255,7 @@ impl BrowserNetwork {
         let pending = next.pending_admission_receipt()?;
         // IndexedDB writes that have started can commit after their Rust future
         // is dropped. Await installation before returning a network timeout.
-        let raw =
-            services::commit_admission_material(&self.gate, &self.committed, lease, &next, pending)
-                .await?;
-        self.saved = next;
-        self.committed = raw;
+        self.commit_node(next, Some(&pending)).await?;
         self.material_event("secret-committed");
         let remaining = delivery
             .deadline
@@ -3360,14 +3356,7 @@ impl BrowserNetwork {
         self.lease
             .as_ref()
             .ok_or_else(|| error("browser node disconnected"))?;
-        services::installed(&self.gate).await?;
-        Ok(())
-    }
-    async fn commit(&mut self, next: SavedNode) -> Result<(), JsValue> {
-        let token = self.lease.as_ref().ok_or_else(rejected)?.0;
-        let raw = services::commit_installed(&self.gate, &self.committed, token, &next).await?;
-        self.saved = next;
-        self.committed = raw;
+        self.gate.installed().await?;
         Ok(())
     }
     async fn connect(&self, alpn: &[u8]) -> Result<Connection, JsValue> {
@@ -3605,6 +3594,8 @@ mod files;
 mod forwarding_host;
 #[path = "node_replacement.rs"]
 mod node_replacement;
+#[path = "node_state.rs"]
+mod node_state;
 #[path = "services.rs"]
 mod services;
 #[path = "terminal.rs"]

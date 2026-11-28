@@ -202,7 +202,7 @@ impl BrowserNetwork {
         if header.len() + body.as_ref().map_or(0, Vec::len) > MAX_BYTES {
             return Err(rejected());
         }
-        let id = services::update_saved(&self.gate, |saved| {
+        let id = self.gate.update_saved(|saved| {
             let anchor = saved.invitation()?.anchor;
             let id = decode_complete(&header, body.as_deref(), anchor)
                 .map_err(error)?

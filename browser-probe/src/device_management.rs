@@ -95,7 +95,7 @@ impl BrowserNetwork {
         card: Option<&RecoveryCard>,
     ) -> Result<String, JsValue> {
         self.require_device_ready()?;
-        let result = services::update_saved(&self.gate, |saved| {
+        let result = self.gate.update_saved(|saved| {
             let auth = saved.verify()?.ok_or_else(rejected)?;
             let entry = saved.operations.get(id).map_err(error)?;
             let approval = if let Some(approval) = entry.confirmation().map_err(error)? {
@@ -141,7 +141,7 @@ impl BrowserNetwork {
         let action: DeviceAction =
             serde_json::from_value(serde_json::Value::String(action)).map_err(error)?;
         let target = target.parse().map_err(error)?;
-        services::update_saved(&self.gate, |saved| {
+        self.gate.update_saved(|saved| {
             let auth = saved.verify()?.ok_or_else(rejected)?;
             let operation = DeviceOperation::propose(
                 saved.invitation()?.anchor,
@@ -187,7 +187,7 @@ impl BrowserNetwork {
     pub async fn execute_device_operation(&mut self, operation: String) -> Result<String, JsValue> {
         self.require_device_ready()?;
         let id = operation.parse().map_err(error)?;
-        let result = services::update_saved(&self.gate, |saved| {
+        let result = self.gate.update_saved(|saved| {
             let auth = saved.verify()?.ok_or_else(rejected)?;
             let entry = saved.operations.get(id).map_err(error)?;
             if entry.operation.description.initiator != saved.identity()
@@ -249,7 +249,7 @@ impl BrowserNetwork {
         .map_err(error)?;
         let reply: DeviceReply = read_message(&mut stream).await.map_err(error)?;
         let history = ServiceBundle::read(&mut stream).await.map_err(error)?;
-        let policy_error = services::update_saved(&self.gate, |saved| {
+        let policy_error = self.gate.update_saved(|saved| {
             let (mut next, policy_error) = saved.with_service_bundle(&history)?;
             if let Some(approval) = reply.approval {
                 approval
@@ -296,7 +296,7 @@ impl BrowserNetwork {
             .map_err(error)?;
         let reply: ResultReply = read_guest(&exchange).await.map_err(error)?;
         if let Some(approval) = reply.approval {
-            services::update_saved(&self.gate, |saved| {
+            self.gate.update_saved(|saved| {
                 approval
                     .verify(&operation, saved.invitation()?.anchor)
                     .map_err(error)?;
@@ -344,7 +344,7 @@ pub(super) async fn serve_departure(
     })
     .await
     .map_err(error)??;
-    services::update_saved(gate, |saved| {
+    gate.update_saved(|saved| {
         if saved.stage() != "Complete" {
             return Err(rejected());
         }
@@ -410,7 +410,7 @@ pub(super) async fn serve_device(
     let mut stream = DataStream::accept(connection).await.map_err(error)?;
     let request: DeviceRequest = read_message(&mut stream).await.map_err(error)?;
     let history = ServiceBundle::read(&mut stream).await.map_err(error)?;
-    let policy_error = services::update_saved(gate, |saved| {
+    let policy_error = gate.update_saved(|saved| {
         let (next, policy_error) = saved.with_service_bundle(&history)?;
         *saved = next;
         Ok(policy_error)
@@ -420,7 +420,7 @@ pub(super) async fn serve_device(
     if let Some(policy_error) = policy_error {
         return Err(error(policy_error));
     }
-    let (reply, history) = services::update_saved(gate, |next| {
+    let (reply, history) = gate.update_saved(|next| {
         let DeviceRequest::Confirm { operation } = request;
         let auth = next.verify()?.ok_or_else(rejected)?;
         if operation.description.initiator != peer
@@ -469,7 +469,7 @@ pub(super) async fn serve_result(
     let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes()).map_err(error)?;
     let exchange = connection.accept_control_exchange().await.map_err(error)?;
     let request: ResultRequest = read_guest(&exchange).await.map_err(error)?;
-    let (saved, _, _) = services::installed(gate).await?;
+    let saved = gate.installed().await?;
     let entry = saved.operations.get(request.operation).map_err(error)?;
     if entry.operation.description.initiator != peer {
         return Err(rejected());

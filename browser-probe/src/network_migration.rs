@@ -270,7 +270,7 @@ impl BrowserNetwork {
     /// Confirm this device's participation using a trusted new-network invitation.
     pub async fn begin_network_migration(&self, invitation: String) -> Result<String, JsValue> {
         let invitation = ClientInvitation::decode(invitation.as_bytes()).map_err(error)?;
-        let progress = services::update_saved(&self.gate, |active| {
+        let progress = self.gate.update_saved(|active| {
             let source = active.invitation()?.anchor;
             let destination = invitation.anchor().map_err(error)?;
             if active.stage() != "Complete"
@@ -337,7 +337,7 @@ impl BrowserNetwork {
                 crate::recovery_card::RecoveryCard::import(card, password.as_deref()).map_err(error)
             })
             .transpose()?;
-        let progress = services::update_saved(&self.gate, |active| {
+        let progress = self.gate.update_saved(|active| {
             let migration = active
                 .migration
                 .as_mut()
@@ -456,7 +456,8 @@ impl Worker {
     }
 
     async fn step(&self, last_peer: &mut Option<iroh_base::EndpointId>) -> Result<bool, JsValue> {
-        let (saved, _, lease) = services::installed(&self.gate).await?;
+        let (saved, version) = self.gate.snapshot().await?;
+        let lease = version.lease;
         let Some(migration) = saved.migration else {
             return Ok(false);
         };
@@ -507,7 +508,7 @@ impl Worker {
         &self,
         edit: impl FnOnce(&mut SavedNode) -> Result<T, JsValue>,
     ) -> Result<T, JsValue> {
-        services::update_saved(&self.gate, |saved| {
+        self.gate.update_saved(|saved| {
             edit(&mut saved.migration.as_mut().ok_or_else(rejected)?.inactive)
         })
         .await
@@ -697,7 +698,7 @@ impl Worker {
         complete = complete.declare_files(false)?;
         let clipboard = clipboard_host::capability().await;
         complete = complete.declare_clipboard(clipboard.read && clipboard.write, false)?;
-        services::update_saved(&self.gate, |active| {
+        self.gate.update_saved(|active| {
             let migration = active.migration.as_mut().ok_or_else(rejected)?;
             *migration.inactive = complete;
             migration.receipt_pending = true;
@@ -723,7 +724,7 @@ impl Worker {
     }
 
     async fn mark_receipt_done(&self) -> Result<(), JsValue> {
-        services::update_saved(&self.gate, |node| {
+        self.gate.update_saved(|node| {
             node.migration
                 .as_mut()
                 .ok_or_else(rejected)?
@@ -787,8 +788,7 @@ impl Worker {
         capture: MemberSyncMembership,
         incoming: MemberSync,
     ) -> Result<bool, JsValue> {
-        let _writer = self.gate.2.lock().await;
-        let (mut active, raw, token) = services::installed_locked(&self.gate).await?;
+        let (mut active, mut write) = self.gate.write_node().await?;
         let mut migration = active
             .migration
             .take()
@@ -811,7 +811,7 @@ impl Worker {
             // membership grant that is no longer current in that history.
             migration.inactive = Box::new(target);
             active.migration = Some(migration);
-            services::commit_locked(&self.gate, &raw, token, &active).await?;
+            write.commit(&active).await?;
             return Ok(false);
         }
         target.device_names.merge_members(
@@ -832,10 +832,7 @@ impl Worker {
         };
         migration.receipt_pending = false;
         target.migration = Some(migration);
-        services::commit_network_switch(
-            &self.gate,
-            &raw,
-            token,
+        write.switch(
             &target,
             pending.as_deref(),
             &self.files,

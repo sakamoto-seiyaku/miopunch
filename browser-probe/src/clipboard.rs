@@ -309,7 +309,7 @@ struct PreparedClipboard {
 }
 impl ClipboardHost for BrowserClipboard {
     async fn sample(&self, lease: &ClipboardLease) -> Result<Option<String>, ClipboardError> {
-        services::installed(&self.gate)
+        self.gate.installed()
             .await
             .map_err(|_| ClipboardError::Denied)?;
         let current = capability().await;
@@ -326,7 +326,7 @@ impl ClipboardHost for BrowserClipboard {
         }
     }
     async fn apply(&self, lease: &ClipboardLease, text: &str) -> Result<(), ClipboardError> {
-        services::installed(&self.gate)
+        self.gate.installed()
             .await
             .map_err(|_| ClipboardError::Denied)?;
         let current = capability().await;
@@ -370,10 +370,10 @@ impl BrowserNetwork {
         clipboard_read()
             .await
             .map_err(|failure| error(read_failure(failure)))?;
-        let (saved, raw, token) = services::installed(&self.gate).await?;
+        let (saved, version) = self.gate.snapshot().await?;
         self.clipboard.state.current_request(request).map_err(error)?;
         let next = saved.declare_clipboard(current.read && current.write, true)?;
-        services::commit_installed(&self.gate, &raw, token, &next).await?;
+        version.commit(&next).await?;
         self.clipboard.state.enable(current).map_err(error)?;
         self.clipboard_status().await
     }
@@ -382,10 +382,10 @@ impl BrowserNetwork {
         let _setup = self.clipboard.setup.lock().await;
         self.clipboard.stop_now(true);
         self.clipboard.join_pair().await;
-        let (saved, raw, token) = services::installed(&self.gate).await?;
+        let (saved, version) = self.gate.snapshot().await?;
         let current = capability().await;
         let next = saved.declare_clipboard(current.read && current.write, false)?;
-        services::commit_installed(&self.gate, &raw, token, &next).await?;
+        version.commit(&next).await?;
         self.clipboard_status().await
     }
     pub async fn start_clipboard(&self, target: String) -> Result<String, JsValue> {

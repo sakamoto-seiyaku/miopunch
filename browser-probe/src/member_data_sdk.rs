@@ -235,7 +235,7 @@ impl BrowserNetwork {
     /// Disable is durable and terminal for this generation; only MID1 retires.
     /// A later explicit enabled startup creates a fresh token, never revives it.
     pub async fn disable_member_data(&mut self) -> Result<String, JsValue> {
-        services::update_saved(&self.gate, |saved| {
+        self.gate.update_saved(|saved| {
             let entry = saved
                 .resources
                 .as_mut()

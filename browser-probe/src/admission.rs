@@ -135,7 +135,7 @@ impl AdmissionService {
                                 .map_err(|_| rejected())?,
                         );
                         let delivery = async {
-                            let saved = services::installed(&gate).await?.0;
+                            let saved = gate.installed().await?;
                             if saved.receipt_material(receipt, contact)?.is_none() {
                                 return Ok("stopped");
                             }
@@ -292,7 +292,7 @@ impl BrowserNetwork {
         request: String,
     ) -> Result<String, JsValue> {
         let (applicant, request) = parse_request(&applicant, &request)?;
-        let id = services::update_saved(&self.gate, |saved| {
+        let id = self.gate.update_saved(|saved| {
             saved.admissions_open()?;
             let index = saved
                 .approval_index(applicant, request)
@@ -311,7 +311,7 @@ impl BrowserNetwork {
         request: String,
     ) -> Result<(), JsValue> {
         let (applicant, request) = parse_request(&applicant, &request)?;
-        services::update_saved(&self.gate, |saved| {
+        self.gate.update_saved(|saved| {
             saved.administrator()?;
             let index = saved
                 .approval_index(applicant, request)
@@ -332,7 +332,7 @@ impl BrowserNetwork {
         expires_unix_seconds: u64,
         max_uses: Option<u64>,
     ) -> Result<String, JsValue> {
-        services::update_saved(&self.gate, |saved| {
+        self.gate.update_saved(|saved| {
             saved.admissions_open()?;
             let auth = saved.administrator()?;
             if !crate::precode_policy::valid_limits(expires_unix_seconds, max_uses, now()?)
@@ -361,7 +361,7 @@ impl BrowserNetwork {
     }
 
     pub async fn revoke_precode(&mut self, code: String) -> Result<(), JsValue> {
-        services::update_saved(&self.gate, |saved| {
+        self.gate.update_saved(|saved| {
             let token = saved.own_code(&code)?;
             saved
                 .codes
@@ -666,7 +666,7 @@ async fn receive_receipt(
         }
         Ok(index)
     };
-    let saved = services::installed(gate).await?.0;
+    let saved = gate.installed().await?;
     let entry = &saved.approvals[matching_approval(&saved)?];
     let held_proof;
     let response = if saved
@@ -688,7 +688,7 @@ async fn receive_receipt(
                 .map_err(error)
         })
         .await?;
-        services::update_saved(gate, |saved| {
+        gate.update_saved(|saved| {
             let index = matching_approval(saved)?;
             if saved
                 .verify_delivery(receipt.authorization, applicant)
@@ -746,10 +746,10 @@ async fn receive_admission(
 
     let applicant = wire.applicant;
     let request = wire.binding[96..].try_into().unwrap();
-    let approval = services::update_saved(gate, |saved| saved.receive_request(wire)).await?;
+    let approval = gate.update_saved(|saved| saved.receive_request(wire)).await?;
     files.enforce_access();
     let result = if let Some(authorization) = approval.authorization {
-        let (saved, _, _) = services::installed(gate).await?;
+        let saved = gate.installed().await?;
         saved.verify_delivery(authorization, applicant)?;
         saved.admissions_open()?;
         let history =
@@ -776,8 +776,7 @@ async fn receive_admission(
         })
         .await?;
         {
-            let _writer = gate.2.lock().await;
-            let (mut current, raw, lease) = services::installed_locked(gate).await?;
+            let (mut current, mut write) = gate.write_node().await?;
             current.admissions_open()?;
             current.verify_delivery(authorization, applicant)?;
             if current.generation != saved.generation {
@@ -787,7 +786,7 @@ async fn receive_admission(
             let approval = &mut current.approvals[index];
             if !approval.complete && approval.delivery_phase != Some(2) {
                 approval.delivery_phase = Some(2);
-                services::commit_locked(gate, &raw, lease, &current).await?;
+                write.commit(&current).await?;
             }
             let secret = current.secret.ok_or_else(rejected)?;
             until(deadline, async {
@@ -798,7 +797,7 @@ async fn receive_admission(
         if &until(deadline, recv_fixed::<4>(&exchange)).await? != b"SAVE" {
             return Err(rejected());
         }
-        services::update_saved(gate, |saved| {
+        gate.update_saved(|saved| {
             saved.verify_delivery(authorization, applicant)?;
             let index = saved
                 .approval_index(applicant, request)

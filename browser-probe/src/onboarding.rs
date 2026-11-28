@@ -240,7 +240,7 @@ impl BrowserNetwork {
         &mut self,
         password: Option<String>,
     ) -> Result<String, JsValue> {
-        services::update_saved(&self.gate, |saved| {
+        self.gate.update_saved(|saved| {
             let seed = saved
                 .creator_seed
                 .ok_or_else(|| error("no genesis credential"))?;
@@ -265,7 +265,7 @@ impl BrowserNetwork {
 
     /// Explicit user acknowledgment; no forced password or read-back step.
     pub async fn acknowledge_recovery_saved(&mut self) -> Result<(), JsValue> {
-        services::update_saved(&self.gate, |saved| {
+        self.gate.update_saved(|saved| {
             if saved.creator_seed.is_none() || !saved.recovery_exported {
                 return Err(error("export the recovery card first"));
             }

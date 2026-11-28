@@ -173,139 +173,6 @@ impl BrowserGate {
     }
 }
 
-pub(super) async fn installed(gate: &BrowserGate) -> Result<(SavedNode, String, u32), JsValue> {
-    let _writer = gate.2.lock().await;
-    installed_locked(gate).await
-}
-
-pub(super) async fn installed_locked(gate: &BrowserGate) -> Result<(SavedNode, String, u32), JsValue> {
-    let (saved, token, migration_owner) = {
-        let state = gate.0.lock().unwrap();
-        (
-            state.saved.clone().ok_or_else(rejected)?,
-            state.lease.ok_or_else(rejected)?,
-            state.migration_owner.clone(),
-        )
-    };
-    let raw = serde_json::to_string(&saved).map_err(error)?;
-    let expected = if let Some(owner) = migration_owner {
-        let owner = owner.upgrade().ok_or_else(rejected)?;
-        let state = owner.lock().unwrap();
-        let active = state.saved.as_ref().ok_or_else(rejected)?;
-        let inactive = &active.migration.as_ref().ok_or_else(rejected)?.inactive;
-        if serde_json::to_string(inactive).map_err(error)? != raw {
-            return Err(error("browser migration context changed"));
-        }
-        serde_json::to_string(active).map_err(error)?
-    } else {
-        raw.clone()
-    };
-    if read_node(token).await?.as_string().as_deref() != Some(&expected) {
-        return Err(error("browser service state changed or storage cleared"));
-    }
-    Ok((saved, raw, token))
-}
-pub(super) async fn commit_installed(
-    gate: &BrowserGate,
-    previous: &str,
-    token: u32,
-    next: &SavedNode,
-) -> Result<String, JsValue> {
-    let _writer = gate.2.lock().await;
-    commit_locked(gate, previous, token, next).await
-}
-
-pub(super) async fn commit_admission_material(
-    gate: &BrowserGate,
-    previous: &str,
-    token: u32,
-    next: &SavedNode,
-    receipt: String,
-) -> Result<String, JsValue> {
-    let _writer = gate.2.lock().await;
-    commit_admission_material_locked(gate, previous, token, next, receipt).await
-}
-
-async fn commit_admission_material_locked(
-    gate: &BrowserGate,
-    previous: &str,
-    token: u32,
-    next: &SavedNode,
-    receipt: String,
-) -> Result<String, JsValue> {
-    let raw = encode_saved(next)?;
-    save_node_with_receipt(token, JsValue::from_str(previous), raw.clone(), receipt).await?;
-    gate.install(next);
-    Ok(raw)
-}
-
-/// The writer is held. Complete the strict write before retiring source file
-/// tasks and exposing the new network and its progress on the same gate.
-pub(super) async fn commit_network_switch(
-    gate: &BrowserGate,
-    previous: &str,
-    token: u32,
-    next: &SavedNode,
-    receipt: Option<&str>,
-    files: &Rc<files::BrowserFiles>,
-) -> Result<(), JsValue> {
-    let raw = encode_saved(next)?;
-    let previous = JsValue::from_str(previous);
-    if let Some(receipt) = receipt {
-        save_node_with_receipt(token, previous, raw, receipt.to_owned()).await?;
-    } else {
-        save_node(token, previous, raw).await?;
-    }
-    files.reset_for_network();
-    gate.install(next);
-    Ok(())
-}
-
-#[wasm_bindgen(module = "/src/storage.js")]
-extern "C" {
-    #[wasm_bindgen(catch, js_name = saveNode)]
-    async fn save_node_with_receipt(
-        token: u32,
-        previous: JsValue,
-        next: String,
-        receipt: String,
-    ) -> Result<JsValue, JsValue>;
-}
-
-pub(super) async fn update_saved<T>(
-    gate: &BrowserGate,
-    edit: impl FnOnce(&mut SavedNode) -> Result<T, JsValue>,
-) -> Result<T, JsValue> {
-    let _writer = gate.2.lock().await;
-    let (mut saved, previous, token) = installed_locked(gate).await?;
-    let result = edit(&mut saved)?;
-    let raw = encode_saved(&saved)?;
-    if raw != previous {
-        persist_saved(gate, &previous, token, raw, &saved).await?;
-    }
-    Ok(result)
-}
-
-pub(super) async fn commit_locked(
-    gate: &BrowserGate,
-    previous: &str,
-    token: u32,
-    next: &SavedNode,
-) -> Result<String, JsValue> {
-    let raw = encode_saved(next)?;
-    persist_saved(gate, previous, token, raw, next).await
-}
-
-fn encode_saved(next: &SavedNode) -> Result<String, JsValue> {
-    next.verify()?;
-    next.validate_migration()?;
-    let raw = serde_json::to_string(next).map_err(error)?;
-    if raw.len() > 80 * 1024 * 1024 {
-        return Err(error("browser state too large"));
-    }
-    Ok(raw)
-}
-
 struct MemberSyncAdmission {
     anchor: NetworkAnchor,
     generation: u64,
@@ -353,18 +220,6 @@ async fn member_sync_wire<T>(
     )
     .await
     .map_err(|_| error("member synchronization timed out"))?
-}
-
-async fn persist_saved(
-    gate: &BrowserGate,
-    previous: &str,
-    token: u32,
-    raw: String,
-    saved: &SavedNode,
-) -> Result<String, JsValue> {
-    save_node(token, JsValue::from_str(previous), raw.clone()).await?;
-    gate.install(saved);
-    Ok(raw)
 }
 
 pub(super) struct BrowserServices {
@@ -608,7 +463,7 @@ impl BrowserServices {
                             _ = service.cancel.cancelled() => return Ok(()),
                             record = wire => record?,
                         };
-                        return update_saved(&gate, |current| {
+                        return gate.update_saved(|current| {
                             let recipient = VerifyingKey::from_bytes(target.as_bytes()).map_err(error)?;
                             current.operations.confirm_departure_delivery(
                                 saved.identity(), delivery.approval.operation.id, record, recipient,
@@ -696,7 +551,7 @@ impl BrowserServices {
             result = wire => result.map_err(|_| unreachable())??,
         };
         let Some(notice) = notice else { return Ok(false) };
-        let removed = update_saved(gate, |saved| {
+        let removed = gate.update_saved(|saved| {
             if saved.authorization != Some(grant) {
                 return Ok(false);
             }
@@ -738,7 +593,7 @@ impl BrowserServices {
             (Service::Files, files_capable, files_capable && files.enabled.get()),
             (Service::Clipboard, clipboard_capable, clipboard_capable && self.clipboard.state.status().enabled),
         ];
-        update_saved(gate, |saved| {
+        gate.update_saved(|saved| {
             let mut refreshed = false;
             if saved.stage() == "Complete" {
                 let access = saved.service_access()?;
@@ -774,7 +629,7 @@ impl BrowserServices {
         })
         .await?;
         let mode = incoming.mode();
-        let (mut response, policy_error) = update_saved(gate, |saved| {
+        let (mut response, policy_error) = gate.update_saved(|saved| {
             if self.cancel.is_cancelled() || !admitted.is_current(saved, connection)? {
                 return Err(rejected());
             }
@@ -830,7 +685,7 @@ impl BrowserServices {
             _ = self.cancel.cancelled() => return Err(rejected()),
             incoming = transfer => incoming?,
         };
-        let policy_error = update_saved(gate, |saved| {
+        let policy_error = gate.update_saved(|saved| {
             if self.cancel.is_cancelled() || !admitted.is_current(saved, connection)? {
                 return Err(rejected());
             }
@@ -859,7 +714,7 @@ impl BrowserServices {
                 .map_err(error)?
                 .map_err(error)?;
         let redeem = matches!(&request, GuestRequest::Redeem { .. });
-        let (saved, raw, token) = installed(gate).await?;
+        let (saved, version) = gate.snapshot().await?;
         let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes()).map_err(error)?;
         let next = match request {
             GuestRequest::Redeem { invitation, token } => {
@@ -904,7 +759,7 @@ impl BrowserServices {
         if self.cancel.is_cancelled() {
             return Err(rejected());
         }
-        commit_installed(gate, &raw, token, &next).await?;
+        version.commit(&next).await?;
         files.enforce_access();
         self.clipboard.enforce_access().await;
         if redeem {
@@ -1013,7 +868,7 @@ impl BrowserNetwork {
             previous: previous.map(|id| id.parse()).transpose().map_err(error)?,
             rule: serde_json::from_str::<ServiceRule>(&rule).map_err(error)?,
         };
-        let record = update_saved(&self.gate, |saved| {
+        let record = self.gate.update_saved(|saved| {
             let (next, record) = saved.with_service_action(action)?;
             *saved = next;
             Ok(record)
@@ -1080,7 +935,7 @@ impl BrowserNetwork {
         let provider: EndpointAddr = serde_json::from_str(&provider_address).map_err(error)?;
         let provider_id = VerifyingKey::from_bytes(provider.id.as_bytes()).map_err(error)?;
         let (issuer, bootstrap) = self.contact();
-        update_saved(&self.gate, |saved| {
+        self.gate.update_saved(|saved| {
             let access = saved.service_access()?;
             if !access.ledger.rule(provider_id, service).rule.guests {
                 return Err(rejected());
@@ -1146,7 +1001,7 @@ impl BrowserNetwork {
     pub async fn revoke_guest(&mut self, invitation: String) -> Result<String, JsValue> {
         self.require_device_ready()?;
         let invitation = invitation.parse().map_err(error)?;
-        let record = update_saved(&self.gate, |saved| {
+        let record = self.gate.update_saved(|saved| {
             let (next, record) =
                 saved.with_service_action(ServiceAction::EndGuest { invitation })?;
             *saved = next;
@@ -1220,15 +1075,6 @@ impl BrowserNetwork {
     }
 }
 impl BrowserNetwork {
-    pub(super) async fn refresh_service_snapshot(&mut self) -> Result<(), JsValue> {
-        if self.lease.is_none() {
-            return Err(rejected());
-        }
-        let (saved, raw, _) = installed(&self.gate).await?;
-        self.saved = saved;
-        self.committed = raw;
-        Ok(())
-    }
     async fn connect_guest(
         &self,
         target: iroh_base::EndpointId,

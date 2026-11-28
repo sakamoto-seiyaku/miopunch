@@ -62,7 +62,7 @@ impl BrowserNetwork {
         };
         self.session(&session)?;
         self.require_device_ready()?;
-        let record = services::update_saved(&self.gate, |saved| {
+        let record = self.gate.update_saved(|saved| {
             let auth = saved.verify()?.ok_or_else(rejected)?;
             let current = auth
                 .nodes()

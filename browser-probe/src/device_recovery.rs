@@ -300,7 +300,7 @@ impl BrowserNetwork {
         recovery_wire(deadline, send_fixed(&exchange, b"AUTH")).await?;
         let material = recovery_wire(deadline, recv_fixed::<40>(&exchange)).await?;
         let generation = u64::from_be_bytes(material[..8].try_into().unwrap());
-        services::update_saved(&self.gate, |saved| {
+        self.gate.update_saved(|saved| {
             saved.admissions_open()?;
             if generation < saved.generation
                 || generation > i64::MAX as u64
@@ -345,7 +345,7 @@ async fn serve_inner(
     files: &std::rc::Rc<files::BrowserFiles>,
     deadline: Instant,
 ) -> Result<(), JsValue> {
-    let (saved, _, _) = services::installed(gate).await?;
+    let saved = gate.installed().await?;
     saved.admissions_open()?;
     let network = saved.invitation()?.anchor;
     let local = iroh_base::EndpointId::from_bytes(saved.identity().as_bytes()).map_err(error)?;
@@ -368,7 +368,7 @@ async fn serve_inner(
         return Err(rejected());
     }
     let attempt = recovery_wire(deadline, recv_fixed::<16>(&exchange)).await?;
-    let (mut next, raw, token) = services::installed(gate).await?;
+    let (mut next, version) = gate.snapshot().await?;
     next.admissions_open()?;
     let index = next.retain_live_proof(ServedRecovery {
         target,
@@ -383,7 +383,7 @@ async fn serve_inner(
     if existing.is_some_and(|id| !auth.administrator_authorization_valid(id, target)) {
         return Err(rejected());
     }
-    services::commit_installed(gate, &raw, token, &next).await?;
+    version.commit(&next).await?;
     let bytes =
         p2panda_core::cbor::encode_cbor(&(existing, next.records.clone())).map_err(error)?;
     recovery_wire(deadline, send_frame(&exchange, &bytes)).await?;
@@ -397,7 +397,7 @@ async fn serve_inner(
     {
         return Err(rejected());
     }
-    let (mut next, raw, token) = services::installed(gate).await?;
+    let (mut next, version) = gate.snapshot().await?;
     let auth = next.verify()?.ok_or_else(rejected)?;
     next.admissions_open()?;
     let index = next.proof_index(target, attempt).ok_or_else(rejected)?;
@@ -415,15 +415,14 @@ async fn serve_inner(
     }
     next.served_recoveries[index].authorization = Some(id);
     next.served_recoveries[index].phase = next.served_recoveries[index].phase.max(2);
-    services::commit_installed(gate, &raw, token, &next).await?;
+    version.commit(&next).await?;
     files.enforce_access();
     recovery_wire(deadline, send_fixed(&exchange, id.as_bytes())).await?;
     if recovery_wire(deadline, recv_fixed::<4>(&exchange)).await? != *b"AUTH" {
         return Err(rejected());
     }
     {
-        let _writer = gate.2.lock().await;
-        let (next, _, _) = services::installed_locked(gate).await?;
+        let (next, _write) = gate.write_node().await?;
         next.admissions_open()?;
         let auth = next.verify()?.ok_or_else(rejected)?;
         if !auth.administrator_authorization_valid(id, target)
@@ -438,7 +437,7 @@ async fn serve_inner(
     if recovery_wire(deadline, recv_fixed::<4>(&exchange)).await? != *b"SAVE" {
         return Err(rejected());
     }
-    let (mut next, raw, token) = services::installed(gate).await?;
+    let (mut next, version) = gate.snapshot().await?;
     let index = next.proof_index(target, attempt).ok_or_else(rejected)?;
     if !next
         .verify()?
@@ -447,7 +446,7 @@ async fn serve_inner(
         return Err(rejected());
     }
     next.served_recoveries[index].phase = 3;
-    services::commit_installed(gate, &raw, token, &next).await?;
+    version.commit(&next).await?;
     recovery_wire(deadline, send_fixed(&exchange, b"DONE")).await?;
     recovery_wire(deadline, exchange.finish_send()).await?;
     let _ = n0_future::time::timeout(

@@ -283,14 +283,14 @@ pub(super) async fn serve_custody(
     let mut stream = DataStream::accept(connection).await.map_err(error)?;
     let request: CustodyRequest = read_message(&mut stream).await.map_err(error)?;
     let history = ServiceBundle::read(&mut stream).await.map_err(error)?;
-    let (saved, raw, token) = services::installed(gate).await?;
+    let (saved, version) = gate.snapshot().await?;
     let (next, policy_error) = saved.with_service_bundle(&history)?;
-    services::commit_installed(gate, &raw, token, &next).await?;
+    version.commit(&next).await?;
     files.enforce_access();
     if let Some(policy_error) = policy_error {
         return Err(error(policy_error));
     }
-    let (mut next, raw, token) = services::installed(gate).await?;
+    let (mut next, version) = gate.snapshot().await?;
     let auth = next.verify()?.ok_or_else(rejected)?;
     let network = next.invitation()?.anchor;
     let local = next.identity();
@@ -312,7 +312,7 @@ pub(super) async fn serve_custody(
                 receipt: entry.receipt.clone(),
                 proof: None,
             };
-            services::commit_installed(gate, &raw, token, &next).await?;
+            version.commit(&next).await?;
             reply
         }
         CustodyRequest::Deliver { offer, seed } => {
@@ -339,9 +339,9 @@ pub(super) async fn serve_custody(
                 next.creator_seed = Some(seed);
                 next.recovery_exported = true;
                 next.recovery_saved = true;
-                services::commit_installed(gate, &raw, token, &next).await?;
+                version.commit(&next).await?;
                 // Independent readback follows the actual strict transaction.
-                let (mut saved, raw, token) = services::installed(gate).await?;
+                let (mut saved, version) = gate.snapshot().await?;
                 let root = SigningKey::from_bytes(&saved.creator_seed.ok_or_else(rejected)?);
                 let receipt =
                     CustodyReceipt::saved(&offer, &root, &SigningKey::from_bytes(&saved.key))
@@ -351,7 +351,7 @@ pub(super) async fn serve_custody(
                     return Err(rejected());
                 }
                 entry.receipt = Some(receipt.clone());
-                services::commit_installed(gate, &raw, token, &saved).await?;
+                version.commit(&saved).await?;
                 next = saved;
                 CustodyReply {
                     accepted: true,
