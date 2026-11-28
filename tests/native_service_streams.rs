@@ -1641,6 +1641,7 @@ async fn native_forwarding_repair(contact_side: usize) {
     let mut cut = NativeStreamCut::new().await;
     let mqtt_before = cut.broker.datagram_publishes();
     let dials_before = cut.independent_dials(contact_side);
+    let reverse_dials_before = cut.independent_dials(1 - contact_side);
     if contact_side == 0 {
         cut.learn_contact(0).await;
     }
@@ -1684,6 +1685,7 @@ async fn native_forwarding_repair(contact_side: usize) {
             sequence_reply(&mut cut.receiver, &mut cut.sender, 2),
             async {
                 wait_until(|| cut.broker.initial_dials_to(route) > dials_before).await;
+                assert!(direct.iter().any(|filter| filter.dropped() > 0));
                 drop(direct);
             },
         );
@@ -1691,8 +1693,26 @@ async fn native_forwarding_repair(contact_side: usize) {
     let first_reply = started.elapsed();
     assert!(cut.broker.datagram_publishes() > mqtt_before);
     assert_eq!(cut.independent_dials(contact_side), dials_before + 1);
-    let repaired = cut.wait_for_replacement_paths().await;
+    assert_eq!(cut.independent_dials(1 - contact_side), reverse_dials_before);
+    let repaired = timeout(IO, async {
+        loop {
+            let status = cut.status();
+            if status.iter().zip(&cut.before).all(|(now, before)| {
+                replacement_on_selected_binding(now, before).is_some()
+            }) {
+                break status;
+            }
+            sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("both ends validate a replacement on their selected TCP binding");
     let repaired_at = started.elapsed();
+    assert_ne!(
+        selected_path(&repaired[0]).unwrap()["remote"],
+        cut.before[0]["paths"][0]["remote"],
+        "the consumer must leave the failed TCP proxy"
+    );
     for sequence in 3..=8 {
         sequence_reply(&mut cut.sender, &mut cut.receiver, sequence).await;
     }
@@ -1701,19 +1721,44 @@ async fn native_forwarding_repair(contact_side: usize) {
         assert_eq!(now["connection"], before["connection"]);
         assert_eq!(now["stream"], before["stream"]);
         let path = selected_path(now).unwrap();
-        let proof = selected_path(repaired).unwrap();
-        assert_eq!(path["id"], proof["id"]);
-        assert_ne!(path["id"], before["paths"][0]["id"]);
+        let selected = selected_path(repaired).unwrap();
+        assert!(same_tcp_binding(path, selected));
+        let proof = replacement_on_selected_binding(repaired, before).unwrap();
         assert!(u128::from(proof["last_ack_age_ms"].as_u64().unwrap()) < repaired_at.as_millis());
-        assert!(
-            path["rx_stream_frames"].as_u64().unwrap()
-                > proof["rx_stream_frames"].as_u64().unwrap()
-        );
+        let previous = repaired["paths"].as_array().unwrap();
+        let sent_on_repaired_binding = now["paths"].as_array().unwrap().iter().any(|candidate| {
+            let previous_frames = previous
+                .iter()
+                .find(|path| path["id"] == candidate["id"])
+                .map_or(0, |path| path["tx_stream_frames"].as_u64().unwrap());
+            same_tcp_binding(candidate, selected)
+                && candidate["tx_stream_frames"].as_u64().unwrap() > previous_frames
+        });
+        assert!(sent_on_repaired_binding, "the original sends on the repaired binding");
         eprintln!(
-            "MIO154 contact_side={contact_side} first_original_reply={first_reply:?} before={before} after={now}"
+            "MIO154 contact_side={contact_side} first_original_reply={first_reply:?} repair_selected={} repair_confirmed={} before={before} after={now}",
+            selected["id"], proof["id"]
         );
     }
     cut.close().await;
+}
+
+fn same_tcp_binding(left: &serde_json::Value, right: &serde_json::Value) -> bool {
+    left["local"] == right["local"] && left["remote"] == right["remote"]
+}
+
+fn replacement_on_selected_binding<'a>(
+    current: &'a serde_json::Value,
+    before: &serde_json::Value,
+) -> Option<&'a serde_json::Value> {
+    let selected = selected_path(current)?;
+    // Two QUIC path IDs can share the server's TCP binding. The selector may
+    // keep the existing ID while the replacement confirms that exact binding.
+    current["paths"].as_array()?.iter().find(|candidate| {
+        candidate["id"] != before["paths"][0]["id"]
+            && same_tcp_binding(candidate, selected)
+            && candidate["last_ack_age_ms"].is_u64()
+    })
 }
 
 #[tokio::test]

@@ -50,9 +50,18 @@ pub(in crate::endpoint) struct PathCandidates {
     last_traversal: Mutex<[Option<(ObservationValidity, time::Instant)>; 2]>,
     healthy_direct: watch::Receiver<bool>,
     data_failed: Option<watch::Receiver<bool>>,
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(super) delay_ready: Mutex<Option<(tokio::sync::oneshot::Sender<()>, tokio::sync::oneshot::Receiver<()>)>>,
 }
 
 impl PathCandidates {
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(super) fn tcp_held(&self, peer: super::EndpointId, ipv6: bool) -> bool {
+        self.endpoint.inner.static_config.admission.as_ref()
+            .and_then(|policy| policy.member_fusion())
+            .is_some_and(|fusion| fusion.building.physical.tcp_held(peer, ipv6))
+    }
+
     pub(super) fn supports_traversal(&self) -> bool {
         self.traversal.is_some()
     }
@@ -174,6 +183,14 @@ impl PathCandidates {
 
     pub(super) async fn respond(&self, connection: &Connection, exchange: ControlExchange, ipv6: bool) {
         if !self.dialer {
+            #[cfg(feature = "miopunch-test-hooks")]
+            {
+                let delay = self.delay_ready.lock().expect("TCP ready fixture").take();
+                if let Some((entered, release)) = delay {
+                    let _ = entered.send(());
+                    let _ = release.await;
+                }
+            }
             let _ = self.run_traversal(connection, Some(exchange), ipv6).await;
         }
     }
@@ -205,8 +222,8 @@ impl PathCandidates {
         } else {
             iroh_relay::ObservationFamily::Ipv4
         };
-        let (binding, _) = super::physical::observer_binding(
-            &self.endpoint,
+        let (binding, destination) = super::physical::observer_binding(
+            &self.endpoint.inner,
             family,
             observers.into_iter().map(|url| (url, 3478)),
             Some(configured),
@@ -214,22 +231,23 @@ impl PathCandidates {
         )
         .await?;
         let scope = self.endpoint.inner.punching_scope(binding, true)?;
+        let validity = self.endpoint.binding_route_generation(binding, destination)?;
         let pool = &policy
             .member_fusion()
             .expect("member fusion")
             .building
             .physical;
         if wait {
-            Ok(Some(
-                time::timeout_at(deadline, pool.acquire(scope, connection.remote_id()))
-                    .await
-                    .map_err(|_| io::ErrorKind::TimedOut)?
-                    .with_binding(binding),
-            ))
+            let permit = tokio::select! { biased;
+                _ = self.endpoint.inner.wait_for_binding_loss(&validity) => return Err(io::ErrorKind::Interrupted.into()),
+                result = time::timeout_at(deadline, pool.acquire(scope, connection.remote_id())) =>
+                    result.map_err(|_| io::ErrorKind::TimedOut)?,
+            };
+            Ok(Some(permit.with_binding(binding, validity)))
         } else {
             Ok(pool
                 .try_acquire(scope, connection.remote_id())
-                .map(|permit| permit.with_binding(binding)))
+                .map(|permit| permit.with_binding(binding, validity)))
         }
     }
 
@@ -279,20 +297,26 @@ impl PathCandidates {
                     }
                     return Err(io::ErrorKind::WouldBlock.into());
                 }
-                let exchange = if let Some(exchange) = incoming {
-                    exchange.send_message(TRAVERSAL_STATUS, &[1]).await?;
-                    exchange
-                } else {
-                    let (mut send, recv) = connection.open_bi().await.map_err(io::Error::other)?;
-                    send.write_all(&[if ipv6 { StreamKind::DirectTraversalIpv6 } else { StreamKind::DirectTraversal } as u8])
-                        .await
-                        .map_err(io::Error::other)?;
-                    let exchange = ControlExchange::from_streams(send, recv);
-                    match exchange.recv_message(TRAVERSAL_STATUS).await?.as_slice() {
-                        [1] => exchange,
-                        [0] => return Err(io::ErrorKind::WouldBlock.into()),
-                        _ => return Err(io::ErrorKind::InvalidData.into()),
+                let physical = physical.expect("physical TCP reservation");
+                let ready = async {
+                    if let Some(exchange) = incoming {
+                        exchange.send_message(TRAVERSAL_STATUS, &[1]).await?;
+                        Ok(exchange)
+                    } else {
+                        let (mut send, recv) = connection.open_bi().await.map_err(io::Error::other)?;
+                        let kind = if ipv6 { StreamKind::DirectTraversalIpv6 } else { StreamKind::DirectTraversal };
+                        send.write_all(&[kind as u8]).await.map_err(io::Error::other)?;
+                        let exchange = ControlExchange::from_streams(send, recv);
+                        match exchange.recv_message(TRAVERSAL_STATUS).await?.as_slice() {
+                            [1] => Ok(exchange),
+                            [0] => Err(io::Error::from(io::ErrorKind::WouldBlock)),
+                            _ => Err(io::ErrorKind::InvalidData.into()),
+                        }
                     }
+                };
+                let exchange = tokio::select! { biased;
+                    _ = physical.binding_lost_while_held(&self.endpoint) => return Err(io::ErrorKind::Interrupted.into()),
+                    result = ready => result?,
                 };
                 let fusion = self
                     .endpoint
@@ -311,7 +335,7 @@ impl PathCandidates {
                     .traverse(
                         connection,
                         exchange,
-                        physical.expect("physical TCP reservation"),
+                        physical,
                     )
                     .await;
                 if !result
@@ -401,6 +425,7 @@ impl PathCandidates {
             .admission
             .as_ref()
             .expect("member policy");
+        let reservation = physical.clone();
         let qualify = async {
             let prepared = policy
                 .prepare_member_direct_reserved(&control, &exchange, physical)
@@ -409,6 +434,7 @@ impl PathCandidates {
         };
         let verified = tokio::select! { biased;
             _ = connection.closed() => return Err(io::ErrorKind::NotConnected.into()),
+            _ = reservation.binding_lost_while_held(&self.endpoint) => return Err(io::ErrorKind::Interrupted.into()),
             _ = peer.stopped() => return Err(io::ErrorKind::Interrupted.into()),
             result = qualify => result?,
         };
@@ -543,6 +569,8 @@ pub(in crate::endpoint) fn watch_path_candidates(
         last_traversal: Default::default(),
         healthy_direct,
         data_failed,
+        #[cfg(feature = "miopunch-test-hooks")]
+        delay_ready: Mutex::default(),
     });
     tokio::spawn(watch(
         connection,

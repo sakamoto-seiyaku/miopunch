@@ -73,7 +73,11 @@ fn to_interface(iface: netdev::Interface) -> Interface {
 
 /// Enumerates the machine's network interfaces and assembles the [`State`].
 pub(super) async fn get_state() -> State {
-    let raw = netdev::interface::get_interfaces();
+    // Platform interface enumeration performs blocking I/O. Keep QUIC and
+    // observation tasks responsive while netmon refreshes the snapshot.
+    let raw = tokio::task::spawn_blocking(netdev::interface::get_interfaces)
+        .await
+        .expect("interface enumeration task");
     let local_addresses = local_addresses(&raw);
 
     let mut interfaces = std::collections::HashMap::new();

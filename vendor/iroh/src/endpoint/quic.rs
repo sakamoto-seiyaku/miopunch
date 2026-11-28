@@ -568,6 +568,14 @@ impl QuicTransportConfigBuilder {
         self
     }
 
+    /// Model a peer without QNT when a fixture supplies its only reachable UDP route.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_without_nat_traversal(mut self) -> Self {
+        self.0.max_remote_nat_traversal_addresses(0);
+        self
+    }
+
     /// Configures qlog capturing by setting a [`QlogFactory`].
     ///
     /// This assigns a [`QlogFactory`] that produces qlog capture configurations for

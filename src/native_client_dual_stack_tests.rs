@@ -1046,6 +1046,7 @@ async fn actual_interface_changes_preserve_valid_work_and_the_original_forwardin
         signal(&root, &format!("observed-10.205.0.{number}")).await;
         std::fs::write(root.join(format!("{role}.ready")), []).unwrap();
         signal(&root, "prefix").await;
+        let mut changed_at = std::time::Instant::now();
         if local_moves {
             timeout(Duration::from_secs(3), async {
                 while v6_valid.is_current() {
@@ -1082,6 +1083,7 @@ async fn actual_interface_changes_preserve_valid_work_and_the_original_forwardin
         for stage in [1, 2] {
             if stage == 2 {
                 signal(&root, "interface").await;
+                changed_at = std::time::Instant::now();
                 if local_moves {
                     timeout(Duration::from_secs(3), async {
                         while v4_valid.is_current() {
@@ -1162,7 +1164,12 @@ async fn actual_interface_changes_preserve_valid_work_and_the_original_forwardin
             timeout(Duration::from_secs(8), async {
                 while !original.paths().iter().any(|path| {
                     path.remote_addr() == &carrier(peer6, tcp)
-                        && path.stats().acknowledgment.is_some()
+                        && path.stats().acknowledgment.is_some_and(|ack| ack.sent_at >= changed_at)
+                        && if tcp {
+                            runtime.resources.test_tcp_channel_source(peer6).is_some_and(|addr| addr.ip() == expected)
+                        } else {
+                            path.local_addr() == &iroh::endpoint::LocalTransportAddr::Ip(Some(expected))
+                        }
                 }) {
                     sleep(Duration::from_millis(10)).await;
                 }

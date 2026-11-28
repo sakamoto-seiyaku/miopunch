@@ -263,14 +263,24 @@ pub(crate) async fn recover_member_path(
     cancel: CancellationToken,
 ) -> Result<ConnectionPathRecovery, ConnectionPathRecoveryError> {
     check_original(gate, original).map_err(|error| core::failed(original, error))?;
+    let attempt = AttemptContext::new(deadline, cancel);
+    let registry = gate.maintenance();
+    let reservation_error = |error| core::failed(original, format!("repair reservation: {error:?}"));
+    let lease = loop {
+        match registry
+            .acquire_outgoing_or_wait(original, &attempt, ())
+            .map_err(reservation_error)?
+        {
+            Reservation::Owned(lease) => break lease,
+            Reservation::Pending(wait) => {
+                wait.wait().await.map_err(reservation_error)?;
+                check_original(gate, original).map_err(|error| core::failed(original, error))?;
+            }
+        }
+    };
     let quota = endpoint
         .begin_contact_attempt_until(original.remote_id(), ContactClass::Foreground, deadline)
         .map_err(|error| core::failed(original, error))?;
-    let attempt = AttemptContext::new(deadline, cancel);
-    let lease = gate
-        .maintenance()
-        .acquire_outgoing(original, &attempt, ())
-        .map_err(|error| core::failed(original, format!("repair reservation: {error:?}")))?;
     let result = contacts
         .run(|contact, reach_by| {
             let lease = &lease;

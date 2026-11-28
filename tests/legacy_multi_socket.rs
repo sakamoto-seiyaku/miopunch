@@ -978,6 +978,44 @@ async fn a_provisional_winner_closes_when_cancelled_and_cannot_be_used_by_anothe
 }
 
 #[tokio::test]
+#[cfg(target_os = "linux")]
+#[ignore = "requires a disposable network namespace for actual UDP source removal"]
+async fn removing_the_raw_round_exit_stops_the_sender_and_releases_its_id() {
+    fn ip(args: &[&str]) {
+        assert!(std::process::Command::new("ip").args(args).status().unwrap().success());
+    }
+    ip(&["link", "add", "raw205", "type", "dummy"]);
+    ip(&["link", "set", "raw205", "addrgenmode", "none"]);
+    ip(&["link", "set", "raw205", "up"]);
+    ip(&["addr", "add", "192.0.2.1/24", "dev", "raw205"]);
+    ip(&["route", "add", "local", "127.0.0.55/32", "dev", "lo", "src", "192.0.2.1", "table", "local"]);
+    let pair = Pair::build_on(false, Arc::new(IpThenControl), Ipv4Addr::UNSPECIFIED.into()).await;
+    let (original, _peer) = pair.connect().await;
+    let mut round = original.register_udp_traversal([205; 16]).await.unwrap();
+    let sender = round.sender();
+    let observer = tokio::net::UdpSocket::bind(("127.0.0.55", 0)).await.unwrap();
+    let remote = observer.local_addr().unwrap();
+    sender.send(remote, b"before", 0).await.unwrap();
+    let (_, actual) = tokio::time::timeout(Duration::from_secs(2), observer.recv_from(&mut [0; 1024])).await.unwrap().unwrap();
+    assert_eq!(actual.ip(), IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1)));
+    let binding = pair.c.binding_network_generation(actual).unwrap();
+    let network = pair.c.udp_network_generation();
+    ip(&["link", "del", "raw205"]);
+    assert!(tokio::time::timeout(Duration::from_secs(2), round.recv()).await.unwrap_or_else(|_| {
+        panic!("disappearing source retires the raw registration; binding current={}, network current={}",
+            binding.is_current(), network.is_current())
+    }).is_none());
+    assert!(sender.send(remote, b"stale", 0).await.is_err());
+    let fresh = original.register_udp_traversal([205; 16]).await.unwrap();
+    drop(round);
+    ip(&["route", "replace", "local", "127.0.0.55/32", "dev", "lo", "src", "127.0.0.1", "table", "local"]);
+    fresh.sender().send(remote, b"fresh", 0).await.unwrap();
+    let (_, new) = tokio::time::timeout(Duration::from_secs(2), observer.recv_from(&mut [0; 1024])).await.unwrap().unwrap();
+    assert_ne!(new.ip(), actual.ip());
+    tokio::join!(pair.c.close(), pair.v.close());
+}
+
+#[tokio::test]
 async fn cross_socket_round_packets_are_ignored_and_network_change_invalidates_pending_bindings() {
     let pair = Pair::new().await;
     let (c, v) = pair.connect().await;

@@ -596,6 +596,14 @@ impl RestrictedEndpoint {
         self.inner.bound_sockets()
     }
 
+    /// Stop the configured custom transports with shutdown handlers while
+    /// leaving the QUIC endpoint alive for a physical-outage fixture.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub async fn test_shutdown_custom_transports(&self) {
+        self.inner.inner.shutdown_custom_transports().await;
+    }
+
     /// Notify the shared endpoint of a network change under its existing policy.
     pub async fn network_change(&self) {
         self.inner.network_change().await
@@ -1206,6 +1214,7 @@ impl ControlHandle {
     ) -> io::Result<super::member_fusion::MemberPunching> {
         let binding = super::member_fusion::physical::Scope::route_binding(binding, destination)?;
         let scope = self.endpoint.inner.punching_scope(binding, tcp)?;
+        let validity = self.endpoint.binding_route_generation(binding, destination)?;
         let owner = self
             .endpoint
             .inner
@@ -1218,7 +1227,7 @@ impl ControlHandle {
             .building
             .physical
             .try_acquire(scope, self.remote_id())
-            .map(|permit| permit.with_binding(binding))
+            .map(|permit| permit.with_binding(binding, validity))
             .ok_or_else(|| io::Error::new(io::ErrorKind::WouldBlock, "physical exit is busy"))
     }
 
@@ -1713,6 +1722,11 @@ impl ControlHandle {
     /// Wait for this control session to close.
     pub async fn closed(&self) -> super::ConnectionError {
         self.connection.closed().await
+    }
+
+    /// Keep a carrier available until the original QUIC driver finishes closing.
+    pub fn transport_drained(&self) -> impl Future<Output = ()> + Send + 'static {
+        self.connection.drained()
     }
 }
 

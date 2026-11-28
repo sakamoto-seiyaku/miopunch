@@ -121,8 +121,12 @@ impl Bindings {
             .values()
             .flat_map(Interface::addrs)
             .map(|address| address.addr())
-            .filter(|ip| binding(&self.state, *ip) == binding(state, *ip))
+            .filter(|ip| self.source_unchanged(*ip, state))
             .collect()
+    }
+
+    pub(super) fn source_unchanged(&self, ip: IpAddr, state: &State) -> bool {
+        binding(&self.state, ip).is_some_and(|old| Some(old) == binding(state, ip))
     }
 
     /// Explicit notifications with no visible difference also report NAT-only changes.

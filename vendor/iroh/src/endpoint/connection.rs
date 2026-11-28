@@ -1366,6 +1366,10 @@ impl<T: ConnectionState> Connection<T> {
         self.inner.path_filter_stats()
     }
 
+    pub(super) fn drained(&self) -> impl Future<Output = ()> + Send + 'static {
+        self.inner.drained()
+    }
+
     /// Derives keying material from this connection's TLS session secrets.
     ///
     /// When both peers call this method with the same `label` and `context`
@@ -1486,6 +1490,13 @@ impl Connection<HandshakeCompleted> {
             .unwrap_or(0)
     }
 
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(super) fn remote_qnt_candidates(&self) -> std::io::Result<Vec<SocketAddr>> {
+        self.inner
+            .get_remote_nat_traversal_addresses()
+            .map_err(std::io::Error::other)
+    }
+
     /// Returns the currently open network paths for this connection.
     ///
     /// A connection typically has one path via the relay server and,
@@ -1510,6 +1521,11 @@ impl Connection<HandshakeCompleted> {
         suppressed: std::sync::Arc<std::sync::atomic::AtomicBool>,
     ) {
         self.inner.test_suppress_path_acks(id, suppressed);
+    }
+
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(super) fn test_suppress_remote_acks(&self, remote: SocketAddr, suppressed: Arc<std::sync::atomic::AtomicBool>) {
+        self.inner.test_suppress_remote_acks(remote, suppressed);
     }
 
     /// Returns a stream of [`PathList`] snapshots for this connection.

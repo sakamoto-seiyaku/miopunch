@@ -303,7 +303,7 @@ async fn qad_only_round_charges_submitted_requests_even_without_a_mapping_reply(
     use std::io::ErrorKind;
     use tokio::net::UdpSocket;
 
-    for ordered in [false, true] {
+    for extra_binding in [false, true] {
         let addresses = [Ipv4Addr::new(127, 0, 0, 16), Ipv4Addr::new(127, 0, 0, 17)];
         let observers = [
             UdpSocket::bind((addresses[0], iroh_relay::defaults::DEFAULT_RELAY_QUIC_PORT))
@@ -321,7 +321,7 @@ async fn qad_only_round_charges_submitted_requests_even_without_a_mapping_reply(
             PathPreference::Quality,
             &resources,
             |builder| {
-                if ordered {
+                if extra_binding {
                     builder
                         .bind_addr_with_opts(
                             (Ipv4Addr::new(127, 0, 0, 15), 0),
@@ -340,8 +340,23 @@ async fn qad_only_round_charges_submitted_requests_even_without_a_mapping_reply(
                 .ip_addrs()
                 .filter(|addr| addr.is_ipv4())
                 .count()
-                == 1 + usize::from(ordered)
+                == 1 + usize::from(extra_binding)
         }));
+        for endpoint in &pair.endpoints {
+            endpoint.test_disable_background_udp();
+            let mut observation = endpoint.udp_observation();
+            use iroh::Watcher as _;
+            time::timeout(SETUP, async {
+                while matches!(observation.get(), iroh::endpoint::UdpObservation::Pending) {
+                    observation.updated().await.unwrap();
+                }
+            })
+            .await
+            .expect("initial periodic QAD completed before the manual round");
+        }
+        for observer in &observers {
+            while observer.try_recv_from(&mut [0; 2048]).is_ok() {}
+        }
         let cancel = CancellationToken::new();
         let deadline = Instant::now() + Duration::from_secs(2);
         let mut expected = pair.addresses();
@@ -349,31 +364,23 @@ async fn qad_only_round_charges_submitted_requests_even_without_a_mapping_reply(
         let (result, ()) = tokio::join!(
             pair.connections[0].coordinate_udp_traversal(deadline, &cancel),
             async {
-                let sources = time::timeout_at(deadline, async {
-                    let mut sources = Vec::new();
-                    let mut packet = [0; 2048];
-                    while sources.len() < 2 {
-                        let (size, source) = observers[0].recv_from(&mut packet).await.unwrap();
-                        assert!(size >= 1200);
-                        if !sources.contains(&source) {
-                            sources.push(source);
+                for observer in &observers {
+                    let sources = time::timeout_at(deadline, async {
+                        let mut sources = Vec::new();
+                        let mut packet = [0; 2048];
+                        while sources.len() < 2 {
+                            let (size, source) = observer.recv_from(&mut packet).await.unwrap();
+                            assert!(size >= 1200);
+                            if !sources.contains(&source) {
+                                sources.push(source);
+                            }
                         }
-                    }
-                    sources.sort();
-                    sources
-                })
-                .await
-                .expect("both real IPv4 QAD Initials arrive without a response");
-                assert_eq!(sources, expected);
-                if ordered {
-                    assert_eq!(
-                        observers[1]
-                            .try_recv_from(&mut [0; 2048])
-                            .unwrap_err()
-                            .kind(),
-                        ErrorKind::WouldBlock,
-                        "ordered QAD cannot send to its second observation point before a reply"
-                    );
+                        sources.sort();
+                        sources
+                    })
+                    .await
+                    .expect("both permitted stations receive real QAD Initials without a reply");
+                    assert_eq!(sources, expected);
                 }
                 cancel.cancel();
             }
@@ -409,7 +416,7 @@ async fn qad_only_round_charges_submitted_requests_even_without_a_mapping_reply(
         );
         let retry = retry.unwrap_err();
         eprintln!(
-            "QAD-only ordered={ordered} actual_initial_sources={expected:?} retry={retry} repeat={received_again:?}"
+            "QAD-only extra_binding={extra_binding} actual_initial_sources={expected:?} retry={retry} repeat={received_again:?}"
         );
         assert_eq!(retry.kind(), ErrorKind::WouldBlock);
         assert_eq!(retry.to_string(), "member UDP round cooling down");
@@ -449,7 +456,7 @@ async fn qad_only_round_without_an_ipv4_sender_can_retry_immediately() {
                 &CancellationToken::new(),
             )
             .await;
-        assert_eq!(result.unwrap_err().kind(), ErrorKind::TimedOut);
+        assert_eq!(result.unwrap_err().kind(), ErrorKind::AddrNotAvailable);
         time::sleep(Duration::from_millis(150)).await;
         for observer in [&first, &second] {
             assert_eq!(
@@ -459,7 +466,7 @@ async fn qad_only_round_without_an_ipv4_sender_can_retry_immediately() {
         }
     }
     eprintln!(
-        "QAD-only no IPv4 sender: two rounds reached their original timeout, zero UDP datagrams"
+        "QAD-only no IPv4 sender: both attempts reported the missing binding, zero UDP datagrams"
     );
     pair.close().await;
 }
@@ -723,6 +730,7 @@ async fn enhanced_round_classifies_and_releases_interrupted_observation() {
         )
         .await;
         for (endpoint, connection) in pair.endpoints.iter().zip(&pair.connections) {
+            endpoint.test_disable_background_udp();
             endpoint
                 .test_limit_transport_paths(
                     connection,
@@ -1280,6 +1288,7 @@ async fn wait_split_candidates(
     receiver: &MemberConnection,
 ) -> [noq_proto::PathId; 2] {
     let mut qualified = None;
+    let mut comparable_since = None;
     wait_for("two comparable physical paths on the original", BUSINESS_LIMIT, || {
         let paths = sender.paths();
         let healthy = |path: &iroh::endpoint::Path| {
@@ -1290,6 +1299,7 @@ async fn wait_split_candidates(
                 })
         };
         let Some(primary) = paths.iter().find(|path| path.is_selected() && healthy(path)) else {
+            comparable_since = None;
             return false;
         };
         if let Some(other) = paths.iter().find(|path| {
@@ -1297,18 +1307,22 @@ async fn wait_split_candidates(
                 && healthy(path)
                 && path.stats().rtt.abs_diff(primary.stats().rtt) < Duration::from_millis(5)
         }) {
-            qualified = Some([primary.id(), other.id()]);
+            let ids = [primary.id(), other.id()];
+            let mut comparable = ids;
+            comparable.sort();
+            if comparable_since.is_none_or(|(paths, _)| paths != comparable) {
+                comparable_since = Some((comparable, Instant::now()));
+            }
+            if comparable_since.is_some_and(|(_, since)| since.elapsed() >= Duration::from_millis(1050)) {
+                qualified = Some(ids);
+            }
+        } else {
+            comparable_since = None;
         }
         qualified.is_some()
     })
     .await;
-    // The actor resamples comparable RTTs at its regular evaluation interval.
-    time::sleep(Duration::from_millis(1050)).await;
-    let mut paths = qualified.unwrap();
-    if !sender.paths().get(paths[0]).unwrap().is_selected() {
-        assert!(sender.paths().get(paths[1]).unwrap().is_selected());
-        paths.swap(0, 1);
-    }
+    let paths = qualified.unwrap();
     eprintln!("MIO178 comparable paths {paths:?}");
     paths
 }

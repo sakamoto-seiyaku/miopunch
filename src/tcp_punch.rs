@@ -162,11 +162,13 @@ impl PreparedTcpPath {
         };
         self.punch.release_claim(&claim, connection)?;
         let closed = connection.weak_handle();
+        let drained = connection.transport_drained();
         let circuit = self.circuit;
         tokio::spawn(async move {
             closed.closed().await;
-            drop(circuit);
             drop(claim);
+            drained.await;
+            drop(circuit);
         });
         Ok(())
     }
@@ -227,10 +229,12 @@ impl TcpPunch {
         }
         self.release_claim(&claim, connection)?;
         let closed = connection.weak_handle();
+        let drained = connection.transport_drained();
         tokio::spawn(async move {
             closed.closed().await;
-            drop(circuits);
             drop(claim);
+            drained.await;
+            drop(circuits);
         });
         Ok(())
     }
@@ -481,6 +485,8 @@ impl TcpPunch {
                 result.destination,
                 result.mapped
             );
+        } else if let Some(permit) = physical.take() {
+            permit.finish();
         }
         let generation = observation.as_ref().map(|result| result.generation.clone())
             .unwrap_or_else(|| connection.udp_network_generation());
@@ -515,8 +521,18 @@ impl TcpPunch {
             candidate.resize(length, 0);
         }
         let format = ControlMessageFormat::Fixed { length };
-        exchange.send_message(format, &candidate).await?;
-        let received = exchange.recv_message(format).await?;
+        let candidates = async {
+            exchange.send_message(format, &candidate).await?;
+            exchange.recv_message(format).await
+        };
+        let received = tokio::select! { biased;
+            _ = async {
+                while generation.is_current() {
+                    connection.wait_network_generation_change(&generation).await;
+                }
+            }, if observation.is_some() => return Err(io::ErrorKind::Interrupted.into()),
+            result = candidates => result?,
+        };
         if received[..8] != *preface || received[8] > 1 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,

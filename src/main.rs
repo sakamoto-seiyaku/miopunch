@@ -493,6 +493,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         [_, network, action, data_dir, bind @ ..] if network == "network" && action == "run" => {
             let bind_ip = optional_bind_ip(bind)?;
+            #[cfg(unix)]
+            let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
+            #[cfg(windows)]
+            let mut interrupt = tokio::signal::windows::ctrl_c()?;
             let client =
                 miopunch_native_probe::native_client::NativeClient::open(data_dir, bind_ip)
                     .await
@@ -511,7 +515,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .map(|addr| addr.to_string())
                     .unwrap_or_else(|| "no-direct-address".into())
             );
-            tokio::signal::ctrl_c().await?;
+            interrupt.recv().await;
             client.close().await.map_err(std::io::Error::other)?;
             return Ok(());
         }

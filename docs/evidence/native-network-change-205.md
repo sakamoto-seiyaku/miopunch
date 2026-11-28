@@ -138,6 +138,35 @@ silent relay 在原四秒内未取得首个 MQTT 业务回复；small reply 的�
 标记或物理拒绝，见 `/tmp/miopunch-205-silent-gate.log`；该次首次回复 3.853 秒。
 四秒窗口的旧失败继续保留，未扩为常规调度、RTT 或重试策略修改。
 
+### 2026-11-27 结案回归
+
+包含最新修复的工作树完成同口径回归。七个 Native 目标共 219 通过、3 失败、
+71 默认忽略。附加的服务端隔离用例通过，两个临时 MQTT broker 均清理成功。
+运行器退出码为 1，结案条件仍待满足。
+[本轮结果](/tmp/miopunch-205-closeout.7cVYGw/runtime/results.json)
+
+- **快入口让位给慢信令。** `fast_contact_yields_to_slow_signaling_without_restarting_the_repair_clock`
+  在此前的 205 定向运行和本轮整批都返回原 7 秒调用期限已到。中间一轮整批用
+  6.900 秒通过，离截止仅约 100 毫秒，属于压线通过。用例等快入口约 3 秒退出，
+  再等慢入口 3.3 秒才送出可用 UDP 候选，两段等待共用原调用期限。
+  在这个余量下，测试宿主的调度、并发负载和本地网络时序都可能左右结果。
+  用例的稳定性和本轮超时的具体归因仍待验证。
+  [此前单跑失败](/tmp/miopunch-205-fast-slow-focused.log:914) ·
+  [6.900 秒通过](/tmp/miopunch-205-full-regression-current.eKmsaZ/runtime/path.log:1443) ·
+  [本轮失败](/tmp/miopunch-205-closeout.7cVYGw/runtime/path.log:1440)
+- **同代冷却后重试 TCP。** `active_original_application_members_retry_tcp_after_same_generation_cooldown`
+  在 198 和 203 曾挂在最后的观察队列应为空。上一轮 205 整批通过，本轮在更早的
+  中继路径选中断言处失败。这是现有记录中首次看到该断言失败。
+  [198 失败](/tmp/miopunch-198-cooldown-focused.log:93) ·
+  [203 失败](/tmp/miopunch-203-settled-active_original_application_members_retry_tcp_after_same_generation_cooldown.log:101) ·
+  [本轮失败](/tmp/miopunch-205-closeout.7cVYGw/runtime/network.log:499)
+- **p2panda 主动发布。** `p2panda_high_level_active_publishes_while_its_passive_branch_is_inactive`
+  在 203 和查到的四次 205 整批均挂在 `active_publication.is_ok()`。
+  本轮前的一次定向单跑通过。
+  [203 失败](/tmp/miopunch-203-regression-runtime/resources.log:987) ·
+  [定向通过](/tmp/mio205-audit-verified/mdns.log:4) ·
+  [本轮失败](/tmp/miopunch-205-closeout.7cVYGw/runtime/resources.log:1976)
+
 ## 产物与平台
 
 本票真实运行覆盖 Linux。共享浏览器源码单独检查；本票没有 Windows、Android、

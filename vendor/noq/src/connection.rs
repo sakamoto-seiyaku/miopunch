@@ -75,6 +75,7 @@ impl Connecting {
     ) -> Self {
         let (on_handshake_data_send, on_handshake_data_recv) = oneshot::channel();
         let (on_connected_send, on_connected_recv) = oneshot::channel();
+        let (driver_lifetime, driver_stopped) = watch::channel(());
 
         let conn = ConnectionRef(Arc::new(Arc::new(ConnectionInner {
             state: Mutex::new(State::new(
@@ -88,14 +89,16 @@ impl Connecting {
                 runtime.clone(),
             )),
             shared: Shared::default(),
+            driver_stopped,
         })));
 
         let driver = ConnectionDriver(conn.clone());
         runtime.spawn(Box::pin(
-            async {
+            async move {
                 if let Err(e) = driver.await {
                     tracing::error!("I/O error: {e}");
                 }
+                drop(driver_lifetime);
             }
             .instrument(Span::current()),
         ));
@@ -332,6 +335,14 @@ impl Future for ConnectionDriver {
 pub struct Connection(ConnectionRef);
 
 impl Connection {
+    /// Resolve when this connection's driver has finished sending, including
+    /// its closing packets. Waiting does not keep the connection alive.
+    pub fn drained(&self) -> impl Future<Output = ()> + Send + 'static {
+        let mut stopped = self.0.driver_stopped.clone();
+        async move {
+            let _ = stopped.changed().await;
+        }
+    }
     /// Packet counts rejected before QUIC received them or the transport sent them.
     pub fn path_filter_stats(&self) -> PathFilterStats {
         self.0
@@ -399,6 +410,12 @@ impl Connection {
             .lock_and_wake("test path ACK fault")
             .inner
             .test_suppress_path_acks(id, suppressed);
+    }
+
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_suppress_remote_acks(&self, remote: SocketAddr, suppressed: Arc<AtomicBool>) {
+        self.0.lock_and_wake("test route ACK fault").inner.test_suppress_remote_acks(remote, suppressed);
     }
 
     /// Returns a weak reference to the inner connection struct.
@@ -1783,6 +1800,7 @@ pub(crate) struct ConnectionInner {
     /// Kept private intentionally, use [`Self::lock_and_wake`].
     state: Mutex<State>,
     pub(crate) shared: Shared,
+    driver_stopped: watch::Receiver<()>,
 }
 
 impl ConnectionInner {

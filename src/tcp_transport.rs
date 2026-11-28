@@ -398,6 +398,11 @@ impl TcpTransport {
     pub fn bound_socket_addr(&self) -> Option<SocketAddr> {
         *self.bound_addr.lock().unwrap()
     }
+
+    #[cfg(all(test, feature = "nat-lab-test-hooks"))]
+    pub(crate) fn test_channel_source(&self, peer: SocketAddr) -> Option<SocketAddr> {
+        self.shared.lock().unwrap().upgrade()?.channel_source(peer)
+    }
 }
 
 fn encode(addr: SocketAddr) -> Vec<u8> {
@@ -677,6 +682,10 @@ struct ActiveTcpRoutes {
 }
 
 impl Shared {
+    fn channel_source(&self, peer: SocketAddr) -> Option<SocketAddr> {
+        let channel = self.channels.lock().unwrap().get(&peer)?.clone();
+        channel.lock().unwrap().local_addr
+    }
     fn local_for(&self, peer: SocketAddr) -> io::Result<SocketAddr> {
         self.locals
             .iter()
@@ -1074,8 +1083,8 @@ impl CustomSender for TcpSender {
     }
 
     fn network_path_is_current(&self, address: &CustomAddr, local_ips: &std::collections::HashSet<std::net::IpAddr>) -> bool {
-        decode_custom(address).ok().and_then(|peer| self.0.channels.lock().unwrap().get(&peer).cloned())
-            .is_some_and(|channel| channel.lock().unwrap().local_addr.is_some_and(|local| local_ips.contains(&local.ip())))
+        decode_custom(address).ok().and_then(|peer| self.0.channel_source(peer))
+            .is_some_and(|source| local_ips.contains(&source.ip()))
     }
 
     fn is_valid_send_addr(&self, addr: &CustomAddr) -> bool {

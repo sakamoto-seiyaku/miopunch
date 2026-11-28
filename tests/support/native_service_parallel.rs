@@ -191,28 +191,21 @@ async fn udp_first_reply_keeps_the_started_tcp_round() {
         tcp_round_trip(&mut input, &mut output, b"late").await;
     }
     consumer.close().await.unwrap();
-    let saved = read_member_routes(&root.path().join("consumer"), provider.address().id);
-    let tcp = saved
-        .iter()
-        .find_map(|route| {
-            let address: iroh::TransportAddr =
-                serde_json::from_value(route["address"].clone()).unwrap();
-            matches!(&address, iroh::TransportAddr::Custom(custom)
-            if custom.id() == miopunch_native_probe::tcp_transport::DATA_TRANSPORT_ID)
-            .then_some((address, route))
-        })
-        .expect("the validated, initially unselected TCP path must be saved");
-    assert_eq!(tcp.1["verified"], true);
-    assert!(
-        saved
-            .iter()
-            .any(|route| route["address"].get("Ip").is_some() && route["verified"] == true)
-    );
+    let saved: Vec<_> = read_member_routes(&root.path().join("consumer"), provider.address().id)
+        .into_iter()
+        .filter(|route| route["verified"] == true && (
+            route["address"] == unused_tcp["remote"] || route["address"] == original["initial_data_path"]
+        ))
+        .collect();
+    assert_eq!(saved.len(), 2, "both the original UDP path and unused TCP backup were saved");
+    let tcp: iroh::TransportAddr = serde_json::from_value(unused_tcp["remote"].clone()).unwrap();
     if std::env::var_os("MIO162_LIFECYCLE_ONLY").is_some() {
         provider.close().await.unwrap();
         task.abort();
         return;
     }
+    // Isolate the two verified inputs for the cached-route replay on multihomed hosts.
+    write_member_routes(&root.path().join("consumer"), provider.address().id, saved.clone());
     let reopened = reopen_with_resources(&root.path().join("consumer"), |resources| {
         resources.udp_direct_disabled = true;
     })
@@ -220,7 +213,7 @@ async fn udp_first_reply_keeps_the_started_tcp_round() {
     first_pong(
         &reopened,
         iroh::EndpointAddr::new(provider.address().id),
-        tcp.0.clone(),
+        tcp.clone(),
     )
     .await;
     reopened.close().await.unwrap();
@@ -236,7 +229,7 @@ async fn udp_first_reply_keeps_the_started_tcp_round() {
                 })
         })
         .unwrap();
-    let iroh::TransportAddr::Custom(ref tcp_route) = tcp.0 else {
+    let iroh::TransportAddr::Custom(ref tcp_route) = tcp else {
         unreachable!()
     };
     let tcp_address =

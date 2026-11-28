@@ -10,7 +10,7 @@ use tokio::sync::watch;
 
 /// Select a usable observation route within the original attempt's deadline.
 pub(crate) async fn observer_binding(
-    endpoint: &Endpoint,
+    endpoint: &crate::socket::EndpointInner,
     family: iroh_relay::ObservationFamily,
     observers: impl IntoIterator<Item = (crate::RelayUrl, u16)>,
     configured: Option<SocketAddr>,
@@ -24,11 +24,9 @@ pub(crate) async fn observer_binding(
                 .await?;
             let binding = match configured {
                 Some(binding) => Scope::route_binding(binding, destination)?,
-                None => endpoint.inner.udp_punching_binding_for(destination).await?,
+                None => endpoint.udp_punching_binding_for(destination).await?,
             };
-            endpoint
-                .inner
-                .punching_scope(binding, configured.is_some())?;
+            endpoint.punching_scope(binding, configured.is_some())?;
             Ok((binding, destination))
         })
         .await
@@ -81,9 +79,9 @@ impl Scope {
                         addr.addr() == binding.ip()
                             || (binding.ip().is_loopback()
                                 && addr.addr().is_loopback()
-                            && matches!((&addr, binding.ip()),
-                                (netwatch::interfaces::IpNet::V4(net), std::net::IpAddr::V4(ip))
-                                    if net.contains(&ip)))
+                                && matches!((&addr, binding.ip()),
+                                    (netwatch::interfaces::IpNet::V4(net), std::net::IpAddr::V4(ip))
+                                        if net.contains(&ip)))
                     })
                 })
                 .map(|(name, _)| name.clone())
@@ -120,7 +118,7 @@ impl Drop for Owner {
 #[derive(Debug, Clone)]
 pub struct MemberPunching {
     owner: Arc<Mutex<Option<Arc<Owner>>>>,
-    binding: Option<SocketAddr>,
+    binding: Option<(SocketAddr, crate::socket::ObservationValidity)>,
 }
 impl MemberPunching {
     /// Release mapping exclusivity while the original QUIC path validates.
@@ -130,13 +128,23 @@ impl MemberPunching {
             binding: None,
         }
     }
-    pub(crate) fn with_binding(mut self, binding: SocketAddr) -> Self {
-        self.binding = Some(binding);
+    pub(crate) fn with_binding(mut self, binding: SocketAddr, validity: crate::socket::ObservationValidity) -> Self {
+        self.binding = Some((binding, validity));
         self
     }
     /// Source selected for this physical attempt.
     pub fn binding(&self) -> Option<SocketAddr> {
-        self.binding
+        self.binding.as_ref().map(|(binding, _)| *binding)
+    }
+
+    pub(super) async fn binding_lost_while_held(&self, endpoint: &Endpoint) {
+        if let Some((_, validity)) = &self.binding {
+            endpoint.inner.wait_for_binding_loss(validity).await;
+            if self.owner.lock().expect("physical punching").is_some() {
+                return;
+            }
+        }
+        std::future::pending().await
     }
     /// Release the physical mapping reservation after retaining the winning binding.
     pub fn finish(&self) {
@@ -144,6 +152,13 @@ impl MemberPunching {
     }
 }
 impl Pool {
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(super) fn tcp_held(&self, peer: EndpointId, ipv6: bool) -> bool {
+        self.active.lock().expect("physical punching pool").iter().any(|(scope, owner)| {
+            scope.tcp && scope.ipv6 == ipv6 && owner.upgrade().is_some_and(|owner| owner.peer == peer)
+        })
+    }
+
     pub(crate) fn new(changed: watch::Sender<()>) -> Self {
         Self {
             active: Mutex::default(),

@@ -48,6 +48,16 @@ async fn original_application_members_retry_a_failed_tcp_observation_after_netwo
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
+#[ignore = "requires a disposable network namespace to remove the TCP observation source"]
+async fn losing_the_tcp_source_releases_a_round_waiting_for_peer_ready() {
+    assert!(std::process::Command::new("ip")
+        .args(["-6", "addr", "add", "2001:db8:205::7/128", "dev", "lo", "nodad"])
+        .status().unwrap().success());
+    observed_tcp_on_application_members_family(TcpRound::LoseSourceBeforeReady, true).await;
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
 async fn active_original_application_members_retry_tcp_after_same_generation_cooldown() {
     observed_tcp_on_application_members(TcpRound::RetryAfterCooldown).await;
 }
@@ -234,6 +244,7 @@ async fn live_member_repairs_over_its_original_control_and_keeps_the_stream() {
 
 #[cfg(target_os = "linux")]
 enum TcpRound {
+    LoseSourceBeforeReady,
     Commit,
     Cancel,
     RetryAfterNetworkChange,
@@ -306,7 +317,9 @@ async fn observed_tcp_on_application_members_family(scenario: TcpRound, ipv6: bo
     let requalify = matches!(scenario, TcpRound::Requalify);
     let retry = cooldown_retry || matches!(scenario, TcpRound::RetryAfterNetworkChange);
     let retry_interval = Duration::from_millis(600);
-    let loopback: std::net::IpAddr = if ipv6 {
+    let loopback: std::net::IpAddr = if matches!(scenario, TcpRound::LoseSourceBeforeReady) {
+        "2001:db8:205::7".parse().unwrap()
+    } else if ipv6 {
         std::net::Ipv6Addr::LOCALHOST.into()
     } else {
         Ipv4Addr::LOCALHOST.into()
@@ -434,11 +447,15 @@ async fn observed_tcp_on_application_members_family(scenario: TcpRound, ipv6: bo
         return;
     }
     let suppressed = Arc::new(AtomicBool::new(true));
-    let path_id = noq_proto::PathId::from(1u8);
+    let client_side = usize::from(!originals[0].side().is_client());
+    let ready = matches!(scenario, TcpRound::LoseSourceBeforeReady)
+        .then(|| originals[1 - client_side].test_delay_tcp_ready());
+    let peer_routes = observed.map(TcpTransport::address);
+    let endpoints = [consumer.endpoint(), provider.endpoint()];
     let generations =
         [consumer.endpoint(), provider.endpoint()].map(|e| e.udp_network_generation());
-    for owner in &originals {
-        owner.test_suppress_path_acks(path_id, suppressed.clone());
+    for (side, owner) in originals.iter().enumerate() {
+        owner.test_suppress_custom_acks(endpoints[side], &peer_routes[1 - side], suppressed.clone());
     }
     let started = Instant::now();
     // The accepting side's real business can trigger the client-controlled TCP round.
@@ -451,6 +468,26 @@ async fn observed_tcp_on_application_members_family(scenario: TcpRound, ipv6: bo
     b.streams().1.read_exact(&mut open).await.unwrap();
     assert_eq!(&open, b"open original");
     echo(&mut a, &mut b, 1).await;
+    if let Some((reached, hold_reply)) = ready {
+        timeout(Duration::from_secs(5), reached).await.expect("peer received the TCP request").unwrap();
+        let dialer = &originals[client_side];
+        assert!(dialer.test_tcp_reservation_held(ipv6));
+        assert!(std::process::Command::new("ip")
+            .args(["-6", "addr", "del", "2001:db8:205::7/128", "dev", "lo"])
+            .status().unwrap().success());
+        timeout(Duration::from_secs(2), async {
+            while dialer.test_tcp_reservation_held(ipv6) {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        }).await.expect("the missing source releases TCP before the peer replies or the eight-second deadline expires");
+        drop(hold_reply);
+        echo(&mut a, &mut b, 2).await;
+        assert_eq!(ids, originals.each_ref().map(MemberConnection::stable_id));
+        tokio::join!(consumer.close(), provider.close());
+        listener.abort();
+        relay.shutdown().await.unwrap();
+        return;
+    }
     let mut cooldown_source = None;
     if retry {
         let first = timeout(Duration::from_secs(4), async {
@@ -463,7 +500,9 @@ async fn observed_tcp_on_application_members_family(scenario: TcpRound, ipv6: bo
         assert!(
             originals
                 .iter()
-                .all(|member| member.paths().get(path_id).is_none())
+                .enumerate()
+                .all(|(side, member)| !member.paths().iter().any(|path|
+                    path.remote_addr() == &TransportAddr::Custom(peer_routes[1 - side].clone())))
         );
         echo(&mut a, &mut b, 10).await;
         if cooldown_retry {
@@ -509,8 +548,7 @@ async fn observed_tcp_on_application_members_family(scenario: TcpRound, ipv6: bo
             }
         }
     }
-    let peer_routes = observed.map(TcpTransport::address);
-    timeout(Duration::from_secs(5), async {
+    let path_id = timeout(Duration::from_secs(5), async {
         let first = match cooldown_source {
             Some(source) => source,
             None => sources.recv().await.unwrap(),
@@ -520,11 +558,14 @@ async fn observed_tcp_on_application_members_family(scenario: TcpRound, ipv6: bo
         let mut expected = observed;
         expected.sort();
         assert_eq!(actual, expected, "observations use actual listener ports");
-        while !originals.iter().enumerate().all(|(side, m)| {
-            m.paths().get(path_id).is_some_and(|p| {
-                p.remote_addr() == &TransportAddr::Custom(peer_routes[1 - side].clone())
-            })
-        }) {
+        loop {
+            if let Some(id) = originals[0].paths().iter().find(|p| {
+                p.remote_addr() == &TransportAddr::Custom(peer_routes[1].clone())
+                    && originals[1].paths().get(p.id()).is_some_and(|other|
+                        other.remote_addr() == &TransportAddr::Custom(peer_routes[0].clone()))
+            }).map(|p| p.id()) {
+                break id;
+            }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
     })
@@ -618,11 +659,7 @@ async fn observed_tcp_on_application_members_family(scenario: TcpRound, ipv6: bo
             );
         }
         if requalify {
-            let replacement = path_id.saturating_add(1u8);
             suppressed.store(true, Relaxed);
-            for owner in &originals {
-                owner.test_suppress_path_acks(replacement, suppressed.clone());
-            }
             let retired = Instant::now();
             originals[0].paths().get(path_id).unwrap().close().unwrap();
             timeout(Duration::from_secs(3), async {
@@ -646,23 +683,22 @@ async fn observed_tcp_on_application_members_family(scenario: TcpRound, ipv6: bo
             echo(&mut a, &mut b, 4).await;
             assert!(relay_bytes.into_iter().all(|received| received.confirm()));
 
-            timeout(Duration::from_secs(5), async {
+            let replacement = timeout(Duration::from_secs(5), async {
                 let mut actual = [sources.recv().await.unwrap(), sources.recv().await.unwrap()];
                 actual.sort();
                 let mut expected = observed;
                 expected.sort();
                 assert_eq!(actual, expected, "observe both real listeners again");
                 suppressed.store(false, Relaxed);
-                while !originals.iter().enumerate().all(|(side, m)| {
-                    m.paths().get(replacement).is_some_and(|p| {
-                        p.is_selected()
-                            && p.remote_addr()
-                                == &TransportAddr::Custom(peer_routes[1 - side].clone())
-                            && p.stats()
-                                .acknowledgment
-                                .is_some_and(|ack| ack.sent_at >= retired.into_std())
-                    })
-                }) {
+                loop {
+                    let ids = std::array::from_fn(|side| {
+                        originals[side].paths().iter().find(|p| {
+                            p.id() != path_id && p.is_selected()
+                                && p.remote_addr() == &TransportAddr::Custom(peer_routes[1 - side].clone())
+                                && p.stats().acknowledgment.is_some_and(|ack| ack.sent_at >= retired.into_std())
+                        }).map(|p| p.id())
+                    });
+                    if let [Some(a), Some(b)] = ids && a == b { break a; }
                     tokio::time::sleep(Duration::from_millis(10)).await;
                 }
             })

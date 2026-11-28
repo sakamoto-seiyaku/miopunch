@@ -282,6 +282,189 @@ async fn ipv6_prefix_change_preserves_ipv4_observation_and_original_stream() {
 }
 
 #[tokio::test]
+#[ignore = "requires a disposable network namespace for IPv6 withdrawal and UDP filters"]
+async fn last_ipv6_candidate_is_withdrawn_while_ipv4_carries_the_original_stream() {
+    fn ip(args: &[&str]) {
+        assert!(
+            std::process::Command::new("ip")
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let ipv6: Ipv6Addr = "2001:db8:205::1".parse().unwrap();
+    ip(&["link", "add", "mio205", "type", "dummy"]);
+    ip(&["link", "set", "mio205", "addrgenmode", "none"]);
+    ip(&["link", "set", "mio205", "up"]);
+    ip(&["addr", "add", "192.0.2.1/24", "dev", "mio205"]);
+    ip(&[
+        "-6",
+        "addr",
+        "add",
+        "2001:db8:205::1/64",
+        "dev",
+        "mio205",
+        "nodad",
+    ]);
+    // Advertise both families on the relay before IPv4 becomes healthy.
+    let mut pair = Pair::bind_with(
+        MaintenancePolicy::active(),
+        true,
+        |builder| builder.bind_addr((Ipv6Addr::UNSPECIFIED, 0)).unwrap(),
+        Some(&[]),
+        true,
+    )
+    .await;
+    let client = usize::from(!pair.connections[0].side().is_client());
+    let server = 1 - client;
+    let peer = &pair.connections[client];
+    let advertised = *pair.endpoints[server]
+        .addr()
+        .ip_addrs()
+        .find(|addr| addr.ip() == IpAddr::V6(ipv6))
+        .unwrap();
+    let mut flow = open_flow(peer, &pair.connections[server]).await;
+    exchange(&mut flow, 1).await;
+    time::timeout(DEADLINE, async {
+        while !peer
+            .test_remote_qnt_candidates()
+            .unwrap()
+            .contains(&advertised)
+        {
+            time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("peer received the server's IPv6 candidate over the original QUIC connection");
+
+    drop(pair._ipv4_blackhole.take());
+    let paths = time::timeout(Duration::from_secs(8), async {
+        loop {
+            let current = pair.connections.each_ref().map(|conn| {
+                conn.paths()
+                    .iter()
+                    .find(|path| {
+                        path.is_selected()
+                            && matches!(path.remote_addr(), TransportAddr::Ip(addr) if addr.is_ipv4())
+                            && path.stats().acknowledgment.is_some()
+                    })
+                    .map(|path| path.id())
+            });
+            if let [Some(left), Some(right)] = current {
+                break [left, right];
+            }
+            time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("both ends selected a verified IPv4 path");
+    let ipv4 = *pair.endpoints[server]
+        .addr()
+        .ip_addrs()
+        .find(|addr| addr.is_ipv4())
+        .unwrap();
+    let before = peer.test_remote_qnt_candidates().unwrap();
+    assert!(before.contains(&ipv4) && before.contains(&advertised));
+    let removed_before = pair.connections[server].stats().frame_tx.remove_address;
+    ip(&["-6", "addr", "del", "2001:db8:205::1/64", "dev", "mio205"]);
+    time::timeout(DEADLINE, async {
+        while pair.endpoints[server]
+            .addr()
+            .ip_addrs()
+            .any(SocketAddr::is_ipv6)
+        {
+            time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("server withdrew its last local IPv6 candidate");
+    let rx = [
+        peer.test_observe_stream_receive(paths[client], &flow.0)
+            .unwrap(),
+        pair.connections[server]
+            .test_observe_stream_receive(paths[server], &flow.1)
+            .unwrap(),
+    ];
+    time::timeout(DEADLINE, exchange(&mut flow, 2))
+        .await
+        .unwrap();
+    assert!(rx.into_iter().all(|bytes| bytes.confirm()));
+    time::timeout(DEADLINE, async {
+        while peer.test_remote_qnt_candidates().unwrap().contains(&advertised) {
+            time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| {
+        panic!(
+            "peer retained {advertised} while the original IPv4 stream works; server REMOVE_ADDRESS frames {removed_before} -> {}, peer candidates {:?}",
+            pair.connections[server].stats().frame_tx.remove_address,
+            peer.test_remote_qnt_candidates().unwrap(),
+        )
+    });
+    assert!(pair.connections[server].stats().frame_tx.remove_address > removed_before);
+    assert!(peer.test_remote_qnt_candidates().unwrap().contains(&ipv4));
+    pair.close().await;
+}
+
+#[tokio::test]
+#[ignore = "requires a disposable network namespace for a late IPv6 interface address"]
+async fn later_ipv6_window_reaches_the_original_member_with_healthy_ipv4() {
+    fn ip(args: &[&str]) {
+        assert!(std::process::Command::new("ip").args(args).status().unwrap().success());
+    }
+    ip(&["link", "add", "late205", "type", "dummy"]);
+    ip(&["link", "set", "late205", "addrgenmode", "none"]);
+    ip(&["link", "set", "late205", "up"]);
+    ip(&["addr", "add", "192.0.2.1/24", "dev", "late205"]);
+    let pair = Pair::bind_with(
+        MaintenancePolicy::active(), false,
+        |builder| {
+            // The only reachable IPv6 address will sort after the first window.
+            let mut builder = builder.transport_config(iroh::endpoint::QuicTransportConfig::builder()
+                .max_remote_nat_traversal_addresses(8).build()).bind_addr((Ipv6Addr::UNSPECIFIED, 0)).unwrap();
+            for port in 10000..10008 {
+                builder = builder.external_addr(SocketAddr::from((Ipv6Addr::LOCALHOST, port)));
+            }
+            builder
+        },
+        Some(&[]), false,
+    ).await;
+    let client = usize::from(!pair.connections[0].side().is_client());
+    let server = 1 - client;
+    let original = &pair.connections[client];
+    let mut flow = time::timeout(DEADLINE, open_flow(original, &pair.connections[server])).await.expect("open original IPv4 stream");
+    time::timeout(DEADLINE, exchange(&mut flow, 1)).await.expect("initial IPv4 round trip");
+    let v4 = original.paths().iter().find(|path| path.is_selected()
+        && matches!(path.remote_addr(), TransportAddr::Ip(addr) if addr.is_ipv4())
+        && path.stats().acknowledgment.is_some()).unwrap().id();
+    ip(&["-6", "addr", "add", "2001:db8:205::1/64", "dev", "late205", "nodad"]);
+    let ip: IpAddr = "2001:db8:205::1".parse().unwrap();
+    let reachable = time::timeout(DEADLINE, async {
+        loop {
+            if let Some(addr) = pair.endpoints[server].addr().ip_addrs().find(|addr| addr.ip() == ip) {
+                break *addr;
+            }
+            time::sleep(Duration::from_millis(10)).await;
+        }
+    }).await.unwrap();
+    time::timeout(Duration::from_secs(14), async {
+        let mut announced = false;
+        loop {
+            announced |= original.test_remote_qnt_candidates().unwrap().contains(&reachable);
+            if announced && original.paths().iter().any(|path| {
+                path.remote_addr() == &TransportAddr::Ip(reachable) && path.stats().acknowledgment.is_some()
+            }) { break; }
+            time::sleep(Duration::from_millis(15)).await;
+        }
+    }).await.unwrap_or_else(|_| panic!("later IPv6 candidate {reachable} must be advertised and ACKed; peer={:?}, paths={:?}", original.test_remote_qnt_candidates().unwrap(), original.paths()));
+    assert!(original.paths().get(v4).is_some());
+    time::timeout(DEADLINE, exchange(&mut flow, 2)).await.unwrap();
+    pair.close().await;
+}
+
+#[tokio::test]
 async fn one_standby_slot_preserves_business_across_background_contacts() {
     let dir = tempfile::tempdir().unwrap();
     let mut admin = NativeNetwork::create(dir.path().join("owner"))
@@ -367,6 +550,9 @@ async fn crossed_fused_offers_share_one_physical_round_and_preserve_both_busines
         true,
     )
     .await;
+    for endpoint in &pair.endpoints {
+        endpoint.test_disable_background_udp();
+    }
     let [left, right] = &pair.connections;
     let originals = pair.connections.each_ref().map(MemberConnection::stable_id);
     let leader = usize::from(pair.endpoints[0].id() > pair.endpoints[1].id());
@@ -447,9 +633,15 @@ async fn crossed_fused_offers_share_one_physical_round_and_preserve_both_busines
             }
         }
     });
-    let (result, work) = time::timeout_at(deadline + Duration::from_millis(100), async {
-        let (outcome, plans) = tokio::join!(
-            yielder.coordinate_udp_traversal(deadline, &cancel),
+    let work = time::timeout_at(deadline + Duration::from_millis(100), async {
+        let ((), plans) = tokio::join!(
+            async {
+                let error = yielder
+                    .coordinate_udp_traversal(deadline, &cancel)
+                    .await
+                    .unwrap_err();
+                assert_ne!(error.kind(), ErrorKind::WouldBlock, "the manual round lost its slot");
+            },
             plans(&pair.connections),
         );
         while !pair.connections.iter().all(|connection| {
@@ -459,14 +651,13 @@ async fn crossed_fused_offers_share_one_physical_round_and_preserve_both_busines
         }) {
             time::sleep(Duration::from_millis(5)).await;
         }
-        (outcome, plans)
+        plans
     })
     .await
     .expect("crossed requests and the worked round fit the original three seconds");
     let settled = started.elapsed();
     stop.cancel();
     let (mut a, mut b, sequences) = time::timeout(FLOOR, pulse).await.unwrap().unwrap();
-    assert_ne!(result.unwrap_err().kind(), ErrorKind::WouldBlock);
     assert_eq!(
         work.each_ref().map(|plan| plan.coordinator),
         [leader == 0, leader == 1]

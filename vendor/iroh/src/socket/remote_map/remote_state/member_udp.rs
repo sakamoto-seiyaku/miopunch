@@ -46,9 +46,15 @@ impl ProbeConditions<'_> {
 
 impl MemberUdpProbes {
     pub(super) fn peer_added(&mut self, address: SocketAddr) {
-        let family = &mut self.families[usize::from(address.is_ipv6())];
-        family.network_refresh = true;
-        family.refresh_peers.insert(address);
+        self.families[usize::from(address.is_ipv6())]
+            .refresh_peers
+            .insert(address);
+    }
+
+    pub(super) fn peer_removed(&mut self, address: &SocketAddr) {
+        self.families[usize::from(address.is_ipv6())]
+            .refresh_peers
+            .remove(address);
     }
 
     pub(super) fn network_changed(&mut self, changed: [bool; 2], valid: &HashSet<SocketAddr>) {
@@ -76,14 +82,14 @@ impl MemberUdpProbes {
         std::array::from_fn(|index| {
             let family = &mut self.families[index];
             let in_family = |addr: &SocketAddr| addr.is_ipv6() == (index == 1);
-            if verified.iter().any(|addr| {
-                in_family(addr)
-                    && (family.refresh_peers.is_empty() || family.refresh_peers.contains(addr))
-            }) {
+            if verified.iter().any(in_family) {
                 family.network_refresh = false;
+            }
+            if !verified.is_disjoint(&family.refresh_peers) {
                 family.refresh_peers.clear();
             }
-            family.network_refresh && local.iter().any(in_family)
+            (family.network_refresh || !family.refresh_peers.is_empty())
+                && local.iter().any(in_family)
         })
     }
 
@@ -108,14 +114,16 @@ impl MemberUdpProbes {
         update: &ProbeConditions<'_>,
     ) -> BTreeSet<SocketAddr> {
         if all.len() > limit
-            && update.direct.ready == 0
+            && (update.direct.ready == 0 || update.refresh.contains(&true))
             && self
                 .rotated_at
                 .is_none_or(|last| update.now - last >= HOLEPUNCH_ATTEMPTS_INTERVAL)
         {
             if self.rotated_at.is_some() {
-                for family in &mut self.families {
-                    family.cursor = family.cursor.wrapping_add((limit / 2).max(1));
+                for (family, refresh) in self.families.iter_mut().zip(update.refresh) {
+                    if update.direct.ready == 0 || refresh {
+                        family.cursor = family.cursor.wrapping_add((limit / 2).max(1));
+                    }
                 }
             }
             self.rotated_at = Some(update.now);

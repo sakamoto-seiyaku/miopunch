@@ -1241,12 +1241,12 @@ impl TransportsSender {
                         .v6_iter_mut()
                         .find(|s| s.is_valid_send_addr(*src, dst_addr))
                     {
-                        return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
+                        return Pin::new(sender).poll_send_observing(cx, *dst_addr, *src, transmit, qad);
                     }
                     if let Some(sender) = self.ip.v6_default_mut()
                         && sender.is_valid_default_addr(*src, dst_addr)
                     {
-                        return Pin::new(sender).poll_send(cx, *dst_addr, *src, transmit);
+                        return Pin::new(sender).poll_send_observing(cx, *dst_addr, *src, transmit, qad);
                     }
                 }
             },
@@ -1454,13 +1454,14 @@ pub(crate) struct ExactRelayBootstrap {
     pub(crate) route: Arc<RelayBootstrap>,
 }
 
-/// One real IPv4 datagram submission across the QAD connections in a round.
+/// First real datagram submission across the QAD connections in a round.
 #[cfg(not(wasm_browser))]
 #[derive(Clone, derive_more::Debug)]
 pub(crate) struct QadSubmission {
     #[debug(skip)]
     on_work: Arc<std::sync::Mutex<Option<Box<dyn FnOnce() + Send>>>>,
     binding: Option<SocketAddr>,
+    source_ip: Option<IpAddr>,
 }
 
 #[cfg(not(wasm_browser))]
@@ -1469,15 +1470,14 @@ impl QadSubmission {
         Self {
             on_work: Arc::new(std::sync::Mutex::new(Some(Box::new(on_work)))),
             binding: None,
+            source_ip: None,
         }
     }
 
-    pub(crate) fn binding(&self) -> Option<SocketAddr> {
-        self.binding
-    }
-
-    pub(crate) fn for_binding(mut self, binding: SocketAddr) -> Self {
+    // A wildcard socket and the concrete source selected on it carry distinct information.
+    pub(crate) fn on_socket(mut self, binding: SocketAddr, source_ip: Option<IpAddr>) -> Self {
         self.binding = Some(binding);
+        self.source_ip = source_ip;
         self
     }
 
@@ -1652,8 +1652,7 @@ impl noq::UdpSender for Sender {
                 let local = self
                     .qad
                     .as_ref()
-                    .and_then(|qad| qad.binding)
-                    .and_then(|binding| (!binding.ip().is_unspecified()).then_some(binding.ip()))
+                    .and_then(|qad| qad.source_ip)
                     .or(local);
                 FourTuple::Ip {
                     remote: socket_addr,

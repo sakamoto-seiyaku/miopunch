@@ -1066,6 +1066,11 @@ impl ResourceEndpoint {
         self
     }
 
+    #[cfg(all(test, feature = "nat-lab-test-hooks"))]
+    pub(crate) fn test_tcp_channel_source(&self, peer: std::net::SocketAddr) -> Option<std::net::SocketAddr> {
+        self.tcp.as_ref()?.test_channel_source(peer)
+    }
+
     pub(crate) fn with_native(
         mut self,
         native: Option<crate::native_path_adapter::NativePathAdapter>,

@@ -184,7 +184,7 @@ pub struct Connection {
     application_path_ack_required: Option<Arc<dyn Fn(FourTuple) -> bool + Send + Sync>>,
     stream_receive_observation: Option<Box<StreamReceiveObservation>>,
     #[cfg(feature = "miopunch-test-hooks")]
-    suppressed_path_acks: Option<(PathId, Arc<std::sync::atomic::AtomicBool>)>,
+    suppressed_path_acks: Option<(TestAckTarget, Arc<std::sync::atomic::AtomicBool>)>,
     rng: StdRng,
     /// Consolidated cryptographic state
     crypto_state: CryptoState,
@@ -3528,7 +3528,13 @@ impl Connection {
         id: PathId,
         suppressed: Arc<std::sync::atomic::AtomicBool>,
     ) {
-        self.suppressed_path_acks = Some((id, suppressed));
+        self.suppressed_path_acks = Some((TestAckTarget::Id(id), suppressed));
+    }
+
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_suppress_remote_acks(&mut self, remote: SocketAddr, suppressed: Arc<std::sync::atomic::AtomicBool>) {
+        self.suppressed_path_acks = Some((TestAckTarget::Remote(remote), suppressed));
     }
 
     /// Handles an ACK frame acknowledging packets sent on *path*.
@@ -3544,8 +3550,12 @@ impl Connection {
         if self
             .suppressed_path_acks
             .as_ref()
-            .is_some_and(|(id, suppressed)| {
-                *id == path && suppressed.load(std::sync::atomic::Ordering::Acquire)
+            .is_some_and(|(target, suppressed)| {
+                suppressed.load(std::sync::atomic::Ordering::Acquire) && match target {
+                    TestAckTarget::Id(id) => *id == path,
+                    TestAckTarget::Remote(remote) => self.paths.get(&path)
+                        .is_some_and(|state| state.data.network_path.remote() == *remote),
+                }
             })
         {
             return Ok(());
@@ -8208,6 +8218,12 @@ impl Connection {
     fn is_handshake_confirmed(&self) -> bool {
         !self.is_handshaking() && !self.crypto_state.has_keys(EncryptionLevel::Handshake)
     }
+}
+
+#[cfg(feature = "miopunch-test-hooks")]
+enum TestAckTarget {
+    Id(PathId),
+    Remote(SocketAddr),
 }
 
 impl fmt::Debug for Connection {

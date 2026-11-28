@@ -85,6 +85,11 @@ impl PoolSocket {
     pub(crate) fn close(&self) {
         self.io.lock().expect("pool IO").take();
     }
+    pub(crate) fn close_if_pending(&self) {
+        if !self.retained.load(Ordering::Acquire) {
+            self.close();
+        }
+    }
     pub(crate) fn is_live(&self) -> bool {
         self.io.lock().expect("pool IO").is_some()
     }
@@ -332,10 +337,11 @@ impl SocketPool {
             .filter_map(Weak::upgrade)
             .collect::<Vec<_>>();
         for socket in sockets {
-            if (forced && !socket.retained.load(Ordering::Acquire))
-                || !actual_ips.contains(&socket.binding().local_addr.ip())
-            {
+            let ip = socket.binding().local_addr.ip();
+            if !ip.is_unspecified() && !actual_ips.contains(&ip) {
                 socket.close();
+            } else if forced {
+                socket.close_if_pending();
             }
         }
     }

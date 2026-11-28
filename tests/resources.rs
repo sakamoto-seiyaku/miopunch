@@ -987,10 +987,12 @@ async fn all_allowed_entries_fail_with_bounded_backoff_and_import_restart_recove
         )
         .await
         .unwrap_err();
-    let ResourceContactError::TemporarilyUnreachable { retry_after, .. } = error else {
-        panic!("temporary reachability, never a global offline assertion")
-    };
-    assert!(retry_after > Duration::ZERO && retry_after <= Duration::from_secs(32));
+    // An exhausted admission clock is reported to onboarding while the resource
+    // endpoint records the failed contact for the next call.
+    assert!(matches!(error,
+        ResourceContactError::PathBudget(miopunch_native_probe::connection_coordinator::ConnectError::DeadlineExceeded)
+        | ResourceContactError::TemporarilyUnreachable { .. }
+    ), "first admission attempt: {error:?}");
     assert!(started.elapsed() < Duration::from_secs(2));
     let before = [
         first.connections.load(Ordering::Relaxed),
@@ -1007,10 +1009,10 @@ async fn all_allowed_entries_fail_with_bounded_backoff_and_import_restart_recove
         )
         .await
         .unwrap_err();
-    assert!(matches!(
-        retry,
-        ResourceContactError::TemporarilyUnreachable { .. }
-    ));
+    let ResourceContactError::TemporarilyUnreachable { retry_after, .. } = retry else {
+        panic!("expected the stored contact backoff: {retry:?}");
+    };
+    assert!(retry_after > Duration::ZERO && retry_after <= Duration::from_secs(32));
     assert_eq!(
         [
             first.connections.load(Ordering::Relaxed),
@@ -1468,9 +1470,16 @@ async fn p2panda_high_level_active_publishes_while_its_passive_branch_is_inactiv
     let mut events = spy.subscribe().await;
     let book_a = p2panda_net::AddressBook::builder().spawn().await.unwrap();
     let book_p = p2panda_net::AddressBook::builder().spawn().await.unwrap();
+    let local_bindings = p2panda_net::iroh_endpoint::IrohConfig {
+        bind_ip_v4: Ipv4Addr::LOCALHOST,
+        bind_ip_v6: std::net::Ipv6Addr::LOCALHOST,
+        ..Default::default()
+    };
     let endpoint_a = p2panda_net::Endpoint::builder(book_a.clone())
+        .config(local_bindings.clone())
         .endpoint_builder_hook(|builder| {
             builder
+                .clear_ip_transports()
                 .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .clear_relay_transports()
         })
@@ -1478,8 +1487,10 @@ async fn p2panda_high_level_active_publishes_while_its_passive_branch_is_inactiv
         .await
         .unwrap();
     let endpoint_p = p2panda_net::Endpoint::builder(book_p.clone())
+        .config(local_bindings)
         .endpoint_builder_hook(|builder| {
             builder
+                .clear_ip_transports()
                 .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
                 .clear_relay_transports()
         })
@@ -1489,6 +1500,18 @@ async fn p2panda_high_level_active_publishes_while_its_passive_branch_is_inactiv
     let raw_a = endpoint_a.endpoint().await.unwrap();
     let raw_p = endpoint_p.endpoint().await.unwrap();
     assert_eq!(MdnsDiscoveryMode::default(), MdnsDiscoveryMode::Passive);
+    // The high-level actor publishes its own signed address-book record.
+    // Complete that prerequisite before starting the wire observation.
+    let mut own = book_a.watch_node_info(endpoint_a.node_id(), false).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while let Some(update) = own.recv().await {
+            if update.value.and_then(|info| EndpointAddr::try_from(info).ok())
+                .is_some_and(|address| address.ip_addrs().next().is_some()) {
+                return;
+            }
+        }
+        panic!("active node's address-book watcher closed");
+    }).await.expect("active node published its transport addresses to the address book");
     // The upper p2panda Network selects Active; the reusable actor defaults to
     // Passive and currently returns before starting its low-level service.
     let mdns_p = MdnsDiscovery::builder(book_p.clone(), endpoint_p.clone())
@@ -1627,7 +1650,7 @@ async fn cli_import_update_and_startup_preserve_local_resource_choices() {
         .await
         .unwrap()
         .unwrap();
-    assert!(exit.success());
+    assert!(exit.success(), "network run after READY and SIGINT: {exit}");
     eprintln!(
         "MIO38_CLI import_saved=true signed_update_saved=true local_choices_preserved=true next_start_ready=true actual_child_exit={exit}"
     );

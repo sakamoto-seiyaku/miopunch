@@ -280,15 +280,20 @@ impl SessionMaintenance {
         attempt: &AttemptContext,
         node_budget_guard: B,
     ) -> Result<MaintenanceLease<B>, MaintenanceError> {
-        match self.reserve(
-            original,
-            attempt,
-            node_budget_guard,
-            ReservationKind::OutgoingHello,
-        )? {
+        match self.acquire_outgoing_or_wait(original, attempt, node_budget_guard)? {
             Reservation::Owned(lease) => Ok(lease),
-            Reservation::Pending(_) => unreachable!("outgoing only acquires an empty slot"),
+            Reservation::Pending(_) => Err(MaintenanceError::Busy),
         }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn acquire_outgoing_or_wait<B>(
+        &self,
+        original: &Connection,
+        attempt: &AttemptContext,
+        node_budget_guard: B,
+    ) -> Result<Reservation<B>, MaintenanceError> {
+        self.reserve(original, attempt, node_budget_guard, ReservationKind::OutgoingHello)
     }
 
     /// Only the original QUIC dialer's incoming Hello can make an outgoing
@@ -324,7 +329,7 @@ impl SessionMaintenance {
             .filter(|slot| slot.original.is_open())
         {
             match kind {
-                ReservationKind::Ordinary => {}
+                ReservationKind::Ordinary | ReservationKind::OutgoingHello => {}
                 ReservationKind::IncomingHello if !original.side().is_client() => {
                     let cancellation = slot.outgoing_hello.take().ok_or(MaintenanceError::Busy)?;
                     cancellation.cancel();

@@ -14,6 +14,53 @@ use iroh::{
 use iroh_relay::{RelayQuicConfig, server, tls::CaTlsConfig};
 use tokio::{net::UdpSocket, task::JoinHandle};
 
+#[cfg(target_os = "linux")]
+#[tokio::test]
+#[ignore = "requires an isolated network namespace with two disposable interfaces"]
+async fn restoring_the_gateway_revalidates_the_same_ip_on_a_replacement_interface() {
+    fn ip(args: &[&str]) {
+        assert!(std::process::Command::new("ip").args(args).status().unwrap().success());
+    }
+    let address = Ipv4Addr::new(192, 0, 2, 205);
+    for name in ["old205", "new205"] {
+        ip(&["link", "add", name, "type", "dummy"]);
+        ip(&["link", "set", name, "up"]);
+    }
+    ip(&["addr", "add", "192.0.2.205/32", "dev", "old205"]);
+    ip(&["route", "add", "default", "dev", "old205"]);
+    let bind = || Endpoint::builder(presets::Minimal)
+        .alpns(vec![b"gateway-change".to_vec()])
+        .clear_ip_transports().bind_addr((address, 0)).unwrap().bind();
+    let (local, remote) = tokio::try_join!(bind(), bind()).unwrap();
+    let (client, server) = tokio::join!(
+        local.connect(remote.addr(), b"gateway-change"),
+        async { remote.accept().await.unwrap().await.unwrap() }
+    );
+    let client = client.unwrap();
+    let bound = local.bound_sockets()[0];
+    let previous = local.binding_network_generation(bound).unwrap();
+    ip(&["link", "del", "old205"]);
+    ip(&["addr", "add", "192.0.2.205/32", "dev", "new205"]);
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while previous.is_current() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }).await.expect("the socket actor has processed the replacement before the gateway returns");
+    let retired = || {
+        let frames = client.stats().frame_tx;
+        frames.retire_connection_id + frames.path_retire_connection_id
+    };
+    let before = retired();
+    ip(&["route", "add", "default", "dev", "new205"]);
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while retired() == before {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }).await.expect("QUIC refreshed the original path CID despite the same IP on gateway restoration");
+    assert!(server.close_reason().is_none());
+    tokio::join!(local.close(), remote.close());
+}
+
 struct NatProxy {
     ingress_addr: SocketAddr,
     mapped_addr: SocketAddr,
@@ -838,6 +885,14 @@ async fn ipv6_change_retains_the_periodic_ipv4_qad_candidate_without_renewing_it
     let changed = endpoint
         .binding_network_generation((old6, 0).into())
         .unwrap();
+    let stun = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let origin = format!("stun://{}/", stun.local_addr().unwrap()).parse().unwrap();
+    let (sample, source) = tokio::join!(
+        endpoint.observe_udp_stun_for_family(&origin, iroh::endpoint::ObservationFamily::Ipv4),
+        route_source_stun::reply_one_stun(&stun)
+    );
+    let sample = sample.unwrap();
+    assert_eq!(sample.mapped, source);
     ip(&[
         "-6",
         "addr",
@@ -866,6 +921,7 @@ async fn ipv6_change_retains_the_periodic_ipv4_qad_candidate_without_renewing_it
         matches!(state, UdpObservation::Fresh { addresses, .. } if addresses == &vec![v4.mapped_addr])
     }).await;
     assert!(after.is_fresh());
+    assert!(sample.is_fresh(), "an IPv6 prefix change must preserve the single-station IPv4 STUN sample");
     assert!(
         !before.is_fresh(),
         "the old mixed snapshot cannot still advertise its IPv6 candidate"
@@ -903,6 +959,7 @@ async fn ipv6_change_retains_the_periodic_ipv4_qad_candidate_without_renewing_it
         !after.is_fresh(),
         "an explicit NAT-only notification still invalidates the retained sample"
     );
+    assert!(!sample.is_fresh());
     assert!(
         !endpoint
             .addr()
@@ -915,6 +972,47 @@ async fn ipv6_change_retains_the_periodic_ipv4_qad_candidate_without_renewing_it
 #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
 #[path = "support/stun_observer.rs"]
 mod route_source_stun;
+
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[tokio::test]
+#[ignore = "requires a disposable network namespace for destination-specific source routes"]
+async fn mixed_stun_and_qad_use_the_source_of_the_first_permitted_station() {
+    use iroh::endpoint::{RelayResourcePolicy, RelayResourceUse};
+    use std::process::Command;
+    // The QAD proxy uses the loopback default. Only the permitted STUN station
+    // has a preferred source of .2, and both probes must use that source.
+    let source = Ipv4Addr::new(127, 0, 0, 2);
+    for args in [vec!["addr", "add", "127.0.0.2/32", "dev", "lo"],
+                 vec!["route", "add", "local", "127.0.0.11/32", "dev", "lo", "src", "127.0.0.2", "table", "local"]] {
+        assert!(Command::new("ip").args(args).status().unwrap().success());
+    }
+    let (server, roots) = observer().await;
+    let proxy = NatProxy::start(server.quic_addr().unwrap()).await;
+    let stun = UdpSocket::bind(("127.0.0.11", 0)).await.unwrap();
+    let denied: iroh::RelayUrl = "stun://127.0.0.1:9/".parse().unwrap();
+    let forbidden = denied.clone();
+    let endpoint = Endpoint::builder(presets::Minimal)
+        .clear_ip_transports().bind_addr((Ipv4Addr::UNSPECIFIED, 0)).unwrap()
+        .ca_tls_config(roots)
+        .relay_resource_policy(RelayResourcePolicy::new(move |origin, usage|
+            !matches!(usage, RelayResourceUse::Observation) || origin != &forbidden))
+        .bind().await.unwrap();
+    let relays = observation_map(proxy.ingress_addr.port());
+    let allowed: iroh::RelayUrl = format!("stun://{}/", stun.local_addr().unwrap()).parse().unwrap();
+    for stations in [vec![allowed.clone()], vec![denied, allowed]] {
+        let (samples, stun_source) = tokio::join!(
+            endpoint.observe_udp_mapping_round(&relays, &stations),
+            route_source_stun::reply_one_stun(&stun)
+        );
+        assert_eq!(samples.unwrap().samples.len(), 2);
+        let binding = SocketAddr::from((source, endpoint.bound_sockets()[0].port()));
+        assert_eq!(stun_source, binding);
+        assert_eq!(*proxy.endpoint_source.lock().unwrap(), Some(binding));
+    }
+    endpoint.close().await;
+    proxy.task.abort();
+    server.shutdown().await.unwrap();
+}
 
 #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
 #[tokio::test]

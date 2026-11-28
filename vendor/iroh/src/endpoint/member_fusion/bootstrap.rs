@@ -136,28 +136,27 @@ async fn tcp(
     let building = &policy.member_fusion().expect("member fusion").building;
     let observers = policy.member_direct_observers();
     let binding = if let Some(configured) = configured.filter(|_| !observers.is_empty()) {
-        Some(
-            super::physical::observer_binding(
-                &control.endpoint,
+        let (binding, destination) = super::physical::observer_binding(
+                &control.endpoint.inner,
                 family,
                 observers.into_iter().map(|url| (url, 3478)),
                 Some(configured),
                 deadline,
             )
-            .await?.0,
-        )
+            .await?;
+        Some((binding, control.endpoint.binding_route_generation(binding, destination)?))
     } else {
         None
     };
-    let physical = loop {
+    let rendezvous = async { loop {
         let mut changed = building.subscribe();
-        let permit = match binding {
-            Some(binding) => {
-                let scope = control.endpoint.inner.punching_scope(binding, true)?;
+        let permit = match &binding {
+            Some((binding, validity)) => {
+                let scope = control.endpoint.inner.punching_scope(*binding, true)?;
                 building
                     .physical
                     .try_acquire(scope, control.remote_id())
-                    .map(|permit| permit.with_binding(binding))
+                    .map(|permit| permit.with_binding(*binding, validity.clone()))
             }
             None => Some(super::physical::MemberPunching::untracked()),
         };
@@ -168,13 +167,23 @@ async fn tcp(
             [0] => false,
             _ => return Err(io::ErrorKind::InvalidData.into()),
         };
-        if ready && peer_ready { break permit; }
+        if ready && peer_ready { break io::Result::Ok(permit); }
         // Neither peer has sampled. Release the ready side while the busy
         // side waits for its existing owner, then rendezvous before retrying.
         drop(permit);
         if !ready { changed.changed().await.map_err(|_| io::ErrorKind::NotConnected)?; }
         exchange.send_message(format, &[1]).await?;
         if exchange.recv_message(format).await? != [1] { return Err(io::ErrorKind::InvalidData.into()); }
+    }};
+    let physical = tokio::select! { biased;
+        _ = async {
+            if let Some((_, validity)) = &binding {
+                control.endpoint.inner.wait_for_binding_loss(validity).await;
+            } else {
+                std::future::pending().await
+            }
+        } => return Err(io::ErrorKind::Interrupted.into()),
+        result = rendezvous => result?,
     };
     let prepared = match physical {
         Some(physical) => {

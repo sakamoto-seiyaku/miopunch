@@ -2178,9 +2178,7 @@ impl Endpoint {
         qad: &RelayMap,
         stun: &[RelayUrl],
     ) -> std::io::Result<UdpMappingSequence> {
-        self.inner
-            .observe_udp_mapping_round(qad, stun, &|| {}, None)
-            .await
+        self.observe_udp_mapping_round_for_family(qad, stun, ObservationFamily::Ipv4).await
     }
 
     /// A local generation token for a candidate-only traversal snapshot when

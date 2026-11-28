@@ -281,7 +281,17 @@ struct MemberPaths {
         >,
     >,
     #[cfg(not(wasm_browser))]
-    probe_generations: Arc<std::sync::Mutex<std::collections::HashMap<SocketAddr, crate::socket::ObservationValidity>>>,
+    probe_routes: Arc<
+        std::sync::Mutex<
+            FxHashMap<
+                SocketAddr,
+                (
+                    crate::endpoint::member_fusion::physical::Scope,
+                    crate::socket::ObservationValidity,
+                ),
+            >,
+        >,
+    >,
     #[cfg(not(wasm_browser))]
     building_events: tokio_util::sync::CancellationToken,
     #[cfg(not(wasm_browser))]
@@ -303,7 +313,7 @@ impl MemberPaths {
             #[cfg(not(wasm_browser))]
             physical: Default::default(),
             #[cfg(not(wasm_browser))]
-            probe_generations: Default::default(),
+            probe_routes: Default::default(),
             #[cfg(not(wasm_browser))]
             building_events: Default::default(),
             #[cfg(not(wasm_browser))]
@@ -360,17 +370,34 @@ impl MemberPaths {
         };
         let endpoint = self.policy.physical_endpoint.clone();
         let physical = self.physical.clone();
-        let generations = self.probe_generations.clone();
+        let routes = self.probe_routes.clone();
         let building = building.clone();
         conn.set_nat_traversal_probe_gate(Some(Arc::new(move |remote| {
             let Some(endpoint) = endpoint.upgrade() else {
                 return false;
             };
-            let Ok((scope, validity)) = endpoint.udp_punching_scope_for(remote) else {
-                return false;
+            // Noq checks the gate while polling the original connection. Reuse the
+            // destination's route until the network monitor invalidates its binding.
+            let cached = routes
+                .lock()
+                .expect("ordinary probe routes")
+                .get(&remote)
+                .filter(|(_, validity)| validity.is_current())
+                .cloned();
+            let (scope, validity) = match cached {
+                Some(route) => route,
+                None => {
+                    let Ok(route) = endpoint.udp_punching_scope_for(remote) else {
+                        return false;
+                    };
+                    routes
+                        .lock()
+                        .expect("ordinary probe routes")
+                        .insert(remote, route.clone());
+                    route
+                }
             };
             let mut leases = physical.lock().expect("ordinary probe physical leases");
-            generations.lock().expect("ordinary probe generations").insert(remote, validity.clone());
             if leases.get(&scope).is_some_and(|(_, validity)| validity.is_current()) { return true; }
             leases.remove(&scope);
             if let Some(permit) = building.physical.try_acquire(scope.clone(), peer) {
@@ -635,6 +662,9 @@ impl RemoteStateActor {
         shutdown_token: CancellationToken,
     ) -> (EndpointId, Vec<RemoteStateMessage>) {
         trace!("actor started");
+        // Snapshot reads in message handlers advance their watcher. Keep the
+        // address-change notification independent so every connection is updated.
+        let mut local_addr_updates = self.state.local_direct_addrs.clone();
         for msg in initial_msgs {
             self.handle_message(msg).await;
         }
@@ -721,6 +751,11 @@ impl RemoteStateActor {
                             member.udp_probes.peer_added(*address);
                             refresh_marked = true;
                         }
+                    } else if let Ok(n0_nat_traversal::Event::AddressRemoved(address)) = &evt
+                        && let Some(member) = self.connections.get_mut(&id)
+                            .and_then(|state| state.member_paths.as_mut())
+                    {
+                        member.udp_probes.peer_removed(address);
                     }
                     // REACH_OUT already drives a bootstrap server's own round.
                     // Wake the admitted planner only for a healthy original that
@@ -740,7 +775,7 @@ impl RemoteStateActor {
                 Some((conn_id, closed)) = self.state.connections_close.next(), if !self.state.connections_close.is_empty() => {
                     self.handle_connection_close(conn_id, closed);
                 }
-                res = self.state.local_direct_addrs.updated() => {
+                res = local_addr_updates.updated() => {
                     if let Err(n0_watcher::Disconnected) = res {
                         trace!("direct address watcher disconnected, shutting down");
                         break;
@@ -1643,9 +1678,9 @@ impl RemoteStateActor {
                     #[cfg(not(wasm_browser))]
                     let valid_probes: std::collections::HashSet<_> = {
                         member.physical.lock().expect("ordinary physical leases").retain(|_, (_, validity)| validity.is_current());
-                        let mut generations = member.probe_generations.lock().expect("ordinary probe generations");
-                        generations.retain(|_, validity| validity.is_current());
-                        generations.keys().copied().collect()
+                        let mut routes = member.probe_routes.lock().expect("ordinary probe routes");
+                        routes.retain(|_, (_, validity)| validity.is_current());
+                        routes.keys().copied().collect()
                     };
                     #[cfg(wasm_browser)]
                     let valid_probes = std::collections::HashSet::<SocketAddr>::new();
@@ -1985,13 +2020,18 @@ impl RemoteStateActor {
     fn update_local_direct_address(&mut self) {
         let local_addrs = self.state.local_candidates();
         for state in self.connections.values().filter(|state| {
-            state.purpose != ConnectionPurpose::Control && state.member_paths.is_none()
+            state.purpose != ConnectionPurpose::Control
         }) {
             if let Some(conn) = state.handle.upgrade() {
-                update_qnt_candidates(&conn, &local_addrs);
+                if state.member_paths.is_some() {
+                    // Members schedule additions within their own window. Retire
+                    // vanished addresses even when a healthy path needs no probes.
+                    let _ = withdraw_stale_qnt_candidates(&conn, &local_addrs);
+                } else {
+                    update_qnt_candidates(&conn, &local_addrs);
+                }
             }
         }
-        // todo: trace
     }
 
     /// Triggers holepunching to the remote endpoint.
@@ -3141,18 +3181,9 @@ impl State {
 /// `direct_addrs` must be a set of addresses extracted from the endpoint's current
 /// [`DirectAddr`]s.
 fn update_qnt_candidates(conn: &noq::Connection, direct_addrs: &BTreeSet<SocketAddr>) {
-    let noq_candidates = match conn.get_local_nat_traversal_addresses() {
-        Ok(addrs) => BTreeSet::from_iter(addrs),
-        Err(err) => {
-            warn!("failed to get local nat candidates: {err:#}");
-            return;
-        }
+    let Some(noq_candidates) = withdraw_stale_qnt_candidates(conn, direct_addrs) else {
+        return;
     };
-    for addr in noq_candidates.difference(direct_addrs) {
-        if let Err(err) = conn.remove_nat_traversal_address(*addr) {
-            warn!("failed removing local addr: {err:#}");
-        }
-    }
     for addr in direct_addrs.difference(&noq_candidates) {
         let result = conn.add_nat_traversal_address(*addr);
         if addr.is_ipv6() && std::env::var_os("MIOPUNCH_TRACE_PEER_IPV6").is_some() {
@@ -3166,6 +3197,26 @@ fn update_qnt_candidates(conn: &noq::Connection, direct_addrs: &BTreeSet<SocketA
         }
     }
     trace!(?direct_addrs, "updated local QNT addresses");
+}
+
+/// Withdraw obsolete addresses and return the advertisements seen before the update.
+fn withdraw_stale_qnt_candidates(
+    conn: &noq::Connection,
+    current: &BTreeSet<SocketAddr>,
+) -> Option<BTreeSet<SocketAddr>> {
+    let announced = match conn.get_local_nat_traversal_addresses() {
+        Ok(addrs) => BTreeSet::from_iter(addrs),
+        Err(err) => {
+            warn!("failed to get local nat candidates: {err:#}");
+            return None;
+        }
+    };
+    for addr in announced.difference(current) {
+        if let Err(err) = conn.remove_nat_traversal_address(*addr) {
+            warn!("failed removing local addr: {err:#}");
+        }
+    }
+    Some(announced)
 }
 
 fn send_datagram<'a>(

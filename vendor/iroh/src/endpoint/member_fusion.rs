@@ -795,6 +795,13 @@ impl MemberFusionEndpoint {
             .test_coordinate_reservation(barrier)
     }
 
+    /// Exercise explicit UDP rounds without initiating background rounds on this test endpoint.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_disable_background_udp(&self) {
+        self.inner.fusion.udp_planner.test_disable_background();
+    }
+
     /// Apply the ordinary test path mask to an admitted fused original.
     #[cfg(feature = "miopunch-test-hooks")]
     #[doc(hidden)]
@@ -1320,6 +1327,27 @@ impl MemberRepairContacts {
     }
 }
 
+async fn wait_for_stalled_repair_control(original: &Connection) {
+    let started = Instant::now();
+    let timeout = original
+        .paths()
+        .iter()
+        .find(|path| path.is_selected())
+        .map(|path| 2 * path.stats().probe_timeout);
+    let Some(timeout) = timeout else { return };
+    time::sleep_until(started + timeout).await;
+    let progressed = original.paths().iter().any(|path| {
+        path.is_selected()
+            && path
+                .stats()
+                .acknowledgment
+                .is_some_and(|ack| ack.sent_at >= started.into_std())
+    });
+    if progressed {
+        std::future::pending::<()>().await;
+    }
+}
+
 async fn repair_path(
     endpoint: Endpoint,
     original: Connection,
@@ -1340,9 +1368,16 @@ async fn repair_path(
                     let in_band_repaired = if let Some(exchange) = &in_band {
                         let cancel = shutdown.child_token();
                         let _guard = cancel.clone().drop_guard();
+                        let has_contact = learned
+                            .borrow()
+                            .iter()
+                            .any(|route| endpoint.inner.permits_custom_bootstrap(route));
                         let result = tokio::select! { biased;
                             _ = active.wait_for(|active| !*active) => Err(io::ErrorKind::Interrupted.into()),
                             result = repair_original(&original, exchange, end.min(Instant::now() + REPAIR_LIMIT), cancel) => result,
+                            // A failed carrier gets a chance to show fresh ACK progress
+                            // before it can use the full original-control budget.
+                            _ = wait_for_stalled_repair_control(&original), if has_contact => Err(io::ErrorKind::TimedOut.into()),
                         };
                         result.is_ok()
                     } else {
@@ -1984,6 +2019,24 @@ impl Drop for Selection {
 pub struct MemberConnection(Arc<Live>);
 
 impl MemberConnection {
+    /// Inspect the actual TCP reservation while the peer withholds its readiness reply.
+    #[doc(hidden)]
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub fn test_tcp_reservation_held(&self, ipv6: bool) -> bool {
+        self.0.path_candidates.as_ref().is_some_and(|paths| paths.tcp_held(self.remote_id(), ipv6))
+    }
+
+    /// Hold the peer's next TCP readiness reply after the dialer has sent its request.
+    #[doc(hidden)]
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub fn test_delay_tcp_ready(&self) -> (tokio::sync::oneshot::Receiver<()>, tokio::sync::oneshot::Sender<()>) {
+        let (entered, reached) = tokio::sync::oneshot::channel();
+        let (release, wait) = tokio::sync::oneshot::channel();
+        *self.0.path_candidates.as_ref().expect("TCP candidates").delay_ready.lock().expect("TCP ready fixture") =
+            Some((entered, wait));
+        (reached, release)
+    }
+
     /// Coordinate one enhanced UDP plan on this admitted original connection.
     pub async fn coordinate_udp_plan(
         &self,
@@ -2137,6 +2190,13 @@ impl MemberConnection {
         self.0.connection.paths()
     }
 
+    /// Read the peer's advertisements received by this original QUIC client.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_remote_qnt_candidates(&self) -> io::Result<Vec<std::net::SocketAddr>> {
+        self.0.connection.remote_qnt_candidates()
+    }
+
     /// Inspect the controller of an actual path on this original in a transport fixture.
     #[cfg(feature = "miopunch-test-hooks")]
     #[doc(hidden)]
@@ -2165,6 +2225,13 @@ impl MemberConnection {
         suppressed: Arc<std::sync::atomic::AtomicBool>,
     ) {
         self.0.connection.test_suppress_path_acks(id, suppressed);
+    }
+
+    /// Hold ACKs for this carrier from its first packet, including on replacement path IDs.
+    #[cfg(feature = "miopunch-test-hooks")]
+    #[doc(hidden)]
+    pub fn test_suppress_custom_acks(&self, endpoint: &super::RestrictedEndpoint, remote: &iroh_base::CustomAddr, suppressed: Arc<std::sync::atomic::AtomicBool>) {
+        self.0.connection.test_suppress_remote_acks(endpoint.inner.inner.test_mapped_custom_addr(remote), suppressed);
     }
 
     /// Observe real application bytes on an exact path in an owned fixture.

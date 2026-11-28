@@ -1028,15 +1028,25 @@ impl Pair {
         }
     }
     async fn reconfigure(&mut self, resources: Vec<miopunch_native_probe::resources::Resource>) {
+        self.reconfigure_with(resources, |builder| builder).await;
+    }
+
+    async fn reconfigure_with(
+        &mut self,
+        resources: Vec<miopunch_native_probe::resources::Resource>,
+        configure: impl Fn(iroh::endpoint::Builder) -> iroh::endpoint::Builder,
+    ) {
         for node in [&self.admin, &self.joining] {
             let mut config = node.resource_configuration().unwrap();
             config.replacement = Some(resources.clone());
             node.save_resource_configuration(&config).unwrap();
         }
         // Only the configured endpoints restart; durable admission is retained.
+        let builder = || configure(iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
+            .bind_addr((Ipv4Addr::LOCALHOST, 0)).unwrap());
         let new_server = self
             .admin
-            .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+            .bind_configured_endpoint_with(builder())
             .await
             .unwrap();
         new_server
@@ -1044,7 +1054,7 @@ impl Pair {
             .set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec(), BUSINESS.to_vec()]);
         let new_client = self
             .joining
-            .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
+            .bind_configured_endpoint_with(builder())
             .await
             .unwrap();
         std::mem::replace(&mut self.client, new_client)
@@ -1212,7 +1222,9 @@ async fn priority_closed_connection_fails_old_stream_and_reports_new_identity() 
     let reason = client.closed().await;
     tokio::time::timeout(Duration::from_secs(3), server.closed())
         .await
-        .unwrap();
+        .unwrap_or_else(|_| panic!("peer close timed out: local={} remote={} filters={:?}/{:?} paths={:?}/{:?}",
+            client.stats().frame_tx.connection_close, server.stats().frame_rx.connection_close,
+            client.path_filter_stats(), server.path_filter_stats(), client.paths(), server.paths()));
     assert!(send.write_all(b"must fail").await.is_err());
     let mut after = [0; 1];
     assert!(!matches!(receive.read_exact(&mut after).await, Ok(())));
@@ -2629,11 +2641,11 @@ async fn control_paths_stay_live_while_physical_business_loss_ends_queued_bytes(
     };
     let broker = std::env::var("MIOPUNCH_MQTT_BROKER").expect("owned MQTT broker required");
     let mut pair = Pair::new(false).await;
-    pair.reconfigure(vec![Resource {
+    pair.reconfigure_with(vec![Resource {
         url: format!("mqtt://{broker}"),
         uses: std::collections::BTreeSet::from([ResourceUse::Signaling]),
         limitation: "owned control-only broker".into(),
-    }])
+    }], short_session_lifetime)
     .await;
     let route = pair
         .server
@@ -2885,61 +2897,26 @@ async fn control_paths_recover_when_the_original_accepting_side_initiates() {
     pair.close().await;
 }
 
-// This boundary fixture cuts the real TCP listener/circuits while preserving
-// the endpoint's advertised address, as happens during an unchanged-IP outage.
-#[derive(Debug)]
-struct CuttableTcp {
-    inner: miopunch_native_probe::tcp_transport::TcpTransport,
-    shutdown: std::sync::Mutex<
-        Option<std::sync::Arc<dyn iroh::endpoint::transports::CustomEndpointShutdown>>,
-    >,
+fn short_session_lifetime(builder: iroh::endpoint::Builder) -> iroh::endpoint::Builder {
+    builder.transport_config(iroh::endpoint::QuicTransportConfig::builder()
+        .max_idle_timeout(Some(Duration::from_secs(10).try_into().unwrap())).build())
 }
-impl iroh::endpoint::transports::CustomTransport for CuttableTcp {
-    fn bind(&self) -> std::io::Result<Box<dyn iroh::endpoint::transports::CustomEndpoint>> {
-        let endpoint = self.inner.bind()?;
-        *self.shutdown.lock().unwrap() = endpoint.shutdown_handler();
-        Ok(endpoint)
-    }
-}
-
 #[tokio::test]
 async fn control_paths_do_not_report_stale_same_address_as_recovered() {
     use miopunch_native_probe::{
         connection_recovery::{CONNECTION_RECOVERY_ALPN, ConnectionPathRecoveryError},
         mqtt_transport::TRANSPORT_ID,
         resources::{Resource, ResourceUse},
-        tcp_transport::{TcpTransport, Traffic},
+        tcp_transport::TcpTransport,
     };
     let broker = std::env::var("MIOPUNCH_MQTT_BROKER").expect("owned MQTT broker required");
     let mut pair = Pair::new(false).await;
-    pair.reconfigure(vec![Resource {
+    pair.reconfigure_with(vec![Resource {
         url: format!("mqtt://{broker}"),
         uses: std::collections::BTreeSet::from([ResourceUse::Signaling]),
         limitation: "owned broker for unchanged-address outage".into(),
-    }])
+    }], short_session_lifetime)
     .await;
-    let mut config = pair.admin.resource_configuration().unwrap();
-    config.tcp_listen = None;
-    pair.admin.save_resource_configuration(&config).unwrap();
-    let carrier = std::sync::Arc::new(CuttableTcp {
-        inner: TcpTransport::new(Ipv4Addr::LOCALHOST, std::sync::Arc::new(Traffic::default())),
-        shutdown: std::sync::Mutex::new(None),
-    });
-    let new_server = pair
-        .admin
-        .bind_configured_endpoint_with(
-            iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)
-                .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
-                .clear_ip_transports()
-                .bind_addr((Ipv4Addr::LOCALHOST, 0))
-                .unwrap()
-                .add_custom_transport(carrier.clone()),
-        )
-        .await
-        .unwrap();
-    std::mem::replace(&mut pair.server, new_server)
-        .close()
-        .await;
     pair.server
         .endpoint()
         .set_alpns(vec![BUSINESS.to_vec(), CONNECTION_RECOVERY_ALPN.to_vec()]);
@@ -2955,6 +2932,8 @@ async fn control_paths_do_not_report_stale_same_address_as_recovered() {
     let (client, server) = pair.business().await;
     let old = client.stable_id();
     let original_address = client.paths().iter().next().unwrap().remote_addr().clone();
+    let TransportAddr::Custom(address) = &original_address else { panic!("expected TCP") };
+    let listener = TcpTransport::socket_addr(address).unwrap();
     let (mut send, _) = client.open_bi().await.unwrap();
     send.write_all(b"before outage").await.unwrap();
     let (_, mut receive) = server.accept_bi().await.unwrap();
@@ -2984,10 +2963,11 @@ async fn control_paths_do_not_report_stale_same_address_as_recovered() {
     assert_eq!(result.unwrap().path, original_address);
     served.unwrap();
     chunk(&mut send, &mut receive, b"fresh unchanged path").await;
-    let shutdown = carrier.shutdown.lock().unwrap().clone().unwrap();
-    shutdown.close().await;
+    // TCP owns the only shutdown handler in this fixture. The MQTT control
+    // remains live and the original TCP address stays in the protected offer.
+    pair.server.endpoint().test_shutdown_custom_transports().await;
     tokio::time::timeout(Duration::from_secs(1), async {
-        while tokio::net::TcpStream::connect(carrier.inner.bound_addr().unwrap())
+        while tokio::net::TcpStream::connect(listener)
             .await
             .is_ok()
         {

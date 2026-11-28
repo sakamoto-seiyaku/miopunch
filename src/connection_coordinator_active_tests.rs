@@ -1325,12 +1325,32 @@ async fn active_native_budget_deferral_preserves_another_members_original_stream
     let ids = (original.stable_id(), remote.stable_id());
     let a_original = ae.endpoint().control_handle(&original);
     let b_original = be.endpoint().control_handle(&remote);
+    a_original.open_data_transport_path(relay_route.clone()).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while ![&original, &remote].iter().all(|member|
+            member.paths().iter().any(|path| path.is_relay() && path.stats().acknowledgment.is_some())
+        ) {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }).await.expect("the controlled relay path is usable before retiring direct paths");
     tokio::try_join!(
         a_original.test_limit_transport_paths(vec![relay_route.clone()]),
         b_original.test_limit_transport_paths(vec![relay_route]),
     )
     .unwrap();
-    assert!(original.paths().iter().all(|path| path.is_relay()));
+    for member in [&original, &remote] {
+        for path in member.paths().iter().filter(|path| !path.is_relay()) {
+            path.close().unwrap();
+        }
+    }
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while ![&original, &remote].iter().all(|member| {
+            let paths = member.paths();
+            paths.iter().all(|path| path.is_relay()) && paths.iter().any(|path| path.is_selected())
+        }) {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }).await.expect("both originals are carried only by the controlled relay");
     let hold = ControlSession::from_control(be.endpoint().control_handle(&held_remote));
     let held = b
         .udp_connector()
@@ -2974,7 +2994,9 @@ async fn first_contact_relay_fixture() {
     let caller = caller
         .maintain_network_with_endpoint(
             Ipv4Addr::LOCALHOST,
-            |builder| builder.hooks(pause.clone()),
+            |builder| builder.hooks(pause.clone()).transport_config(
+                iroh::endpoint::QuicTransportConfig::builder().test_without_nat_traversal().build()
+            ),
             |router| router,
         )
         .await
@@ -3064,13 +3086,19 @@ async fn first_contact_relay_fixture() {
         )
         .await
         .unwrap();
-    let original_remote = tokio::time::timeout(window, members.recv())
-        .await
-        .unwrap()
-        .unwrap();
+    let caller_handle = caller.endpoint().control_handle(&original);
+    let binding = crate::connection_recovery_core::binding(&caller_handle).unwrap();
+    let original_remote = tokio::time::timeout(window, async {
+        loop {
+            let incoming = members.recv().await.unwrap();
+            let handle = responder.endpoint().control_handle(&incoming);
+            if crate::connection_recovery_core::binding(&handle).unwrap() == binding {
+                break incoming;
+            }
+        }
+    }).await.expect("the responder received the warmup connection");
     // Keep the warmup connection on the proxy rather than letting iroh
     // advertise and migrate to the responders' unproxied loopback sockets.
-    let caller_handle = caller.endpoint().control_handle(&original);
     let responder_handle = responder.endpoint().control_handle(&original_remote);
     let (caller_mask, responder_mask) = tokio::join!(
         caller_handle.test_limit_transport_paths(vec![direct.clone()]),
@@ -3080,7 +3108,8 @@ async fn first_contact_relay_fixture() {
     responder_mask.unwrap();
     tokio::time::timeout(window, echo_member(&original))
         .await
-        .unwrap();
+        .unwrap_or_else(|_| panic!("warmup direct={direct:?} caller={:?} responder={:?} close={:?}/{:?}",
+            original.paths(), original_remote.paths(), original.close_reason(), original_remote.close_reason()));
     require_active().await;
     if let Some(ready) = &netem_ready {
         // A disposable namespace adds latency after endpoint registration and

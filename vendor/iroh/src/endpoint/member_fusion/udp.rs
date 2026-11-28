@@ -195,6 +195,8 @@ pub(super) struct Planner {
     slots: Mutex<std::collections::HashMap<super::physical::Scope, Arc<Slot>>>,
     #[cfg(feature = "miopunch-test-hooks")]
     reservation_barrier: Mutex<Option<(Arc<tokio::sync::Barrier>, Arc<AtomicBool>)>>,
+    #[cfg(feature = "miopunch-test-hooks")]
+    background_disabled: AtomicBool,
 }
 
 impl Default for Planner {
@@ -205,6 +207,8 @@ impl Default for Planner {
             slots: Mutex::default(),
             #[cfg(feature = "miopunch-test-hooks")]
             reservation_barrier: Mutex::default(),
+            #[cfg(feature = "miopunch-test-hooks")]
+            background_disabled: AtomicBool::new(false),
         }
     }
 }
@@ -234,6 +238,11 @@ impl Planner {
             .lock()
             .expect("UDP reservation barrier") = Some((barrier, reached.clone()));
         reached
+    }
+
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(super) fn test_disable_background(&self) {
+        self.background_disabled.store(true, Ordering::Release);
     }
 }
 
@@ -386,7 +395,7 @@ impl Planning {
         }
         .await;
         if let Err(error) = result {
-            let _ = time::timeout_at(deadline, report_error(&stream, &error)).await;
+            let _ = time::timeout_at(deadline, report_error(&stream, &error, false)).await;
         }
     }
     pub(in super::super) async fn arm_business(
@@ -529,6 +538,8 @@ impl FamilyPlanning {
             let idle_since = activity.idle_since();
             let request = *maintenance.borrow_and_update();
             let eligible = *needed.borrow_and_update();
+            #[cfg(feature = "miopunch-test-hooks")]
+            let eligible = eligible && !self.owner.background_disabled.load(Ordering::Acquire);
             let (due, deadline, kind) = if let Some(since) = idle_since {
                 let fresh_check = request.is_some_and(|at| at >= since && last_check != request);
                 let (deadline, due) = match self.retention {
@@ -655,7 +666,7 @@ impl FamilyPlanning {
             }))
             .collect::<Vec<_>>();
         let (binding, destination) = super::physical::observer_binding(
-            &self.endpoint,
+            &self.endpoint.inner,
             self.family,
             observers,
             None,
@@ -790,6 +801,7 @@ impl FamilyPlanning {
             deadline,
         )?;
         let mut trace = RoundTrace::new(&self.connection, "initiator", kind);
+        let mut failed_exchange = None;
         let work = async {
             let fusion = self
                 .endpoint
@@ -859,8 +871,8 @@ impl FamilyPlanning {
             }
             .await;
             trace.finish(&result);
-            if let Err(error) = &result {
-                let _ = time::timeout_at(deadline, report_error(&stream, error)).await;
+            if result.is_err() {
+                failed_exchange = Some(stream);
             }
             result
         };
@@ -871,6 +883,13 @@ impl FamilyPlanning {
             result = work => result,
         };
         trace.finish(&result);
+        drop(slot);
+        if let (Some(stream), Err(error)) = (failed_exchange, &result) {
+            // The local failure is already settled. Give the peer the remaining
+            // time to receive the stop without replacing that failure at expiry.
+            let confirm = error.kind() == io::ErrorKind::Interrupted;
+            let _ = time::timeout_at(deadline, report_error(&stream, error, confirm)).await;
+        }
         result
     }
 
@@ -1009,7 +1028,7 @@ impl FamilyPlanning {
         let result = work.await;
         trace.finish(&result);
         if let Err(error) = &result {
-            let _ = time::timeout_at(deadline, report_error(&stream, error)).await;
+            let _ = time::timeout_at(deadline, report_error(&stream, error, false)).await;
         }
         result
     }
@@ -1256,15 +1275,12 @@ impl FamilyPlanning {
         };
         let last_work = self.last_work.clone();
         let generation = scope.generation.clone();
-        let qad_submission = Some(
-            crate::socket::transports::QadSubmission::new(move || {
-                if traverse {
-                    *last_work.lock().expect("peer UDP pacing") =
-                        Some((generation, Instant::now()));
-                }
-            })
-            .for_binding(scope.binding),
-        );
+        let qad_submission = crate::socket::transports::QadSubmission::new(move || {
+            if traverse {
+                *last_work.lock().expect("peer UDP pacing") =
+                    Some((generation, Instant::now()));
+            }
+        });
         let endpoint = &self.endpoint;
         let sequence = match endpoint
             .inner
@@ -1273,7 +1289,7 @@ impl FamilyPlanning {
                 &sources.stun,
                 self.family,
                 &on_work,
-                qad_submission.as_ref(),
+                Some((scope.binding, scope.generation.clone(), qad_submission)),
                 self.config.observations.min(MAX_OBSERVATIONS),
                 deadline,
             )
@@ -1477,9 +1493,13 @@ async fn receive(stream: &ControlExchange) -> io::Result<Vec<u8>> {
     Ok(bytes)
 }
 
-async fn report_error(stream: &ControlExchange, error: &io::Error) {
+async fn report_error(stream: &ControlExchange, error: &io::Error, confirm: bool) {
     if send(stream, &wire::error(error.kind())).await.is_ok() {
-        let _ = stream.finish_send().await;
+        if confirm {
+            let _ = stream.finish_send_confirmed().await;
+        } else {
+            let _ = stream.finish_send().await;
+        }
     }
 }
 

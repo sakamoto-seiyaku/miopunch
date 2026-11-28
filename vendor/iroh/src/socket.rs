@@ -472,6 +472,7 @@ pub struct UdpTraversalLease {
     listener_rx: Vec<mpsc::Receiver<UdpTraversalPacket>>,
     recv_cursor: usize,
     primary_binding: Option<SocketAddr>,
+    sources: Arc<Mutex<BTreeSet<IpAddr>>>,
 }
 
 #[cfg(not(wasm_browser))]
@@ -479,7 +480,7 @@ pub struct UdpTraversalLease {
 struct UdpTraversalRegistration {
     senders: Arc<Mutex<HashMap<transports::LocalSocketId, mpsc::Sender<UdpTraversalPacket>>>>,
     live: Arc<Mutex<bool>>,
-    binding: Arc<Mutex<Option<SocketAddr>>>,
+    sources: Arc<Mutex<BTreeSet<IpAddr>>>,
 }
 
 /// A fixed number of legacy bind attempts; failures do not trigger replacements.
@@ -569,6 +570,7 @@ pub struct UdpTraversalSender {
     live: Arc<Mutex<bool>>,
     local_socket_id: transports::LocalSocketId,
     source_ip: Option<IpAddr>,
+    sources: Arc<Mutex<BTreeSet<IpAddr>>>,
 }
 
 #[cfg(not(wasm_browser))]
@@ -604,9 +606,7 @@ impl UdpTraversalLease {
     }
     pub(crate) fn use_primary_binding(&mut self, binding: SocketAddr) {
         self.primary_binding = Some(binding);
-        if let Some(round) = self.socket.udp_traversal.lock().expect("raw registry").get(&self.round) {
-            *round.binding.lock().expect("raw binding") = Some(binding);
-        }
+        self.sources.lock().expect("round sources").insert(binding.ip());
     }
 
     /// Obtain a sender; sends fail after the lease is dropped.
@@ -619,6 +619,7 @@ impl UdpTraversalLease {
             live: self.live.clone(),
             local_socket_id: transports::LocalSocketId::PRIMARY,
             source_ip: self.primary_binding.map(|binding| binding.ip()),
+            sources: self.sources.clone(),
         }
     }
 
@@ -659,6 +660,7 @@ impl UdpTraversalLease {
                         .lock()
                         .expect("traversal registry")
                         .get(&self.round)
+                        .filter(|current| Arc::ptr_eq(&current.live, &self.live))
                         .ok_or_else(|| io::Error::other("traversal round closed"))?
                         .senders
                         .lock()
@@ -841,6 +843,19 @@ impl UdpTraversalSender {
         bytes.extend_from_slice(&self.round);
         bytes.extend_from_slice(payload);
         let mut sender = self.socket.udp_probe_sender.lock().await;
+        let source = match self.source_ip.filter(|ip| !ip.is_unspecified()) {
+            Some(ip) => ip,
+            None => {
+                let binding = if self.local_socket_id.is_primary() {
+                    sender.ip_binding_for(None, remote)
+                } else {
+                    self.socket.udp_socket_pool.get(self.local_socket_id)
+                        .map(|socket| socket.binding().local_addr)
+                }.ok_or(io::ErrorKind::AddrNotAvailable)?;
+                crate::endpoint::member_fusion::physical::Scope::route_binding(binding, remote)?.ip()
+            }
+        };
+        self.sources.lock().expect("round sources").insert(source);
         poll_fn(|cx| {
             let live = self.live.lock().expect("traversal lease");
             if !*live {
@@ -852,14 +867,14 @@ impl UdpTraversalSender {
             // Drop holds the same lock, so a revoked lease cannot submit even
             // after waiting for actor authorization or socket readiness.
             let result = if self.local_socket_id.is_primary() {
-                sender.poll_send_probe_from(cx, remote, &bytes, ttl, self.source_ip)
+                sender.poll_send_probe_from(cx, remote, &bytes, ttl, Some(source))
             } else if let Some(socket) = self
                 .socket
                 .udp_socket_pool
                 .get(self.local_socket_id)
                 .filter(|s| s.remote == self.remote && s.connection_id == self.connection_id)
             {
-                socket.poll_probe(cx, remote, &bytes, ttl, self.source_ip)
+                socket.poll_probe(cx, remote, &bytes, ttl, Some(source))
             } else {
                 return std::task::Poll::Ready(Err(io::Error::other("UDP binding no longer live")));
             };
@@ -1258,6 +1273,7 @@ impl Socket {
                                 registration.senders.lock().expect("round senders").get(&id)
                             {
                                 let local_addr = binding.local_addr;
+                                registration.sources.lock().expect("round sources").insert(local_addr.ip());
                                 let _ = tx.try_send(UdpTraversalPacket {
                                     local_socket_id: id,
                                     local_addr,
@@ -1535,6 +1551,16 @@ pub enum BindError {
 }
 
 impl EndpointInner {
+    pub(crate) async fn shutdown_custom_transports(&self) {
+        for handler in &self.sock.custom_shutdown {
+            let _ = time::timeout(Duration::from_secs(1), handler.close()).await;
+        }
+    }
+
+    #[cfg(feature = "miopunch-test-hooks")]
+    pub(crate) fn test_mapped_custom_addr(&self, addr: &iroh_base::CustomAddr) -> SocketAddr {
+        self.sock.mapped_addrs.custom_addrs.get(addr).private_socket_addr()
+    }
     #[cfg(not(wasm_browser))]
     pub(crate) fn udp_punching_scope_for(
         &self,
@@ -1695,6 +1721,13 @@ impl EndpointInner {
         let changed = self.sock.network_generation_changed.notified();
         if observed.is_current() {
             changed.await;
+        }
+    }
+
+    #[cfg(not(wasm_browser))]
+    pub(crate) async fn wait_for_binding_loss(&self, observed: &ObservationValidity) {
+        while observed.is_current() {
+            self.wait_network_generation_change(observed).await;
         }
     }
 
@@ -2149,6 +2182,7 @@ impl EndpointInner {
         }
         let local_sockets = Arc::new(Mutex::new(vec![transports::LocalSocketId::PRIMARY]));
         let live = Arc::new(Mutex::new(true));
+        let sources = Arc::new(Mutex::new(BTreeSet::new()));
         registrations.insert(
             round,
             UdpTraversalRegistration {
@@ -2157,7 +2191,7 @@ impl EndpointInner {
                     tx,
                 )]))),
                 live: live.clone(),
-                binding: Arc::new(Mutex::new(None)),
+                sources: sources.clone(),
             },
         );
         Ok(UdpTraversalLease {
@@ -2172,6 +2206,7 @@ impl EndpointInner {
             listener_report: UdpListenerReport::default(),
             listener_rx: Vec::new(),
             recv_cursor: 0,
+            sources,
             // A legacy raw round without an explicit physical scope still uses
             // its sole enabled family; member rounds replace this with the
             // actual routed binding before observation and listener allocation.
@@ -2729,9 +2764,7 @@ impl EndpointInner {
         self.noq_endpoint().wait_all_draining().await;
         trace!("wait_all_draining done");
 
-        for handler in &self.sock.custom_shutdown {
-            let _ = time::timeout(Duration::from_secs(1), handler.close()).await;
-        }
+        self.shutdown_custom_transports().await;
 
         // Release only this endpoint's mapping before cancelling its service.
         // An unavailable gateway must not hold endpoint shutdown indefinitely.
@@ -3073,7 +3106,10 @@ impl Actor {
         mut local_addrs_watcher: impl Watcher<Value = Vec<transports::Addr>> + Send + Sync,
     ) {
         // Setup network monitoring
-        let mut current_netmon_state = self.local_interfaces_watcher.get();
+        // Snapshot reads for reports, routes and address publication must not
+        // consume the notification that retires work on a vanished interface.
+        let mut interface_updates = self.local_interfaces_watcher.clone();
+        let mut current_netmon_state = interface_updates.get();
 
         let mut portmap_watcher = self
             .direct_addr_update_state
@@ -3186,7 +3222,7 @@ impl Actor {
                     }
                     self.re_stun(UpdateReason::PortmapUpdated);
                 },
-                state = self.local_interfaces_watcher.updated() => {
+                state = interface_updates.updated() => {
                     let Ok(state) = state else {
                         trace!("tick: link change receiver closed");
                         self.sock.metrics.socket.actor_tick_other.inc();
@@ -3260,7 +3296,13 @@ impl Actor {
         let (changed_families, forced, unaffected_ips) = {
             let state = self.local_interfaces_watcher.get();
             let mut bindings = self.sock.network_bindings.lock().expect("network bindings");
-            let unaffected = bindings.unchanged_ips(&state);
+            let mut unaffected = bindings.unchanged_ips(&state);
+            // IPv4 loopback aliases can be used as sources without an individual
+            // interface address entry. Compare their actual interface and prefix too.
+            for round in self.sock.udp_traversal.lock().expect("traversal registry").values() {
+                unaffected.extend(round.sources.lock().expect("round sources").iter()
+                    .filter(|ip| bindings.source_unchanged(**ip, &state)).copied());
+            }
             let (families, forced) = bindings.update(state.clone(), force_if_unchanged);
             (families, forced, (!forced).then_some(unaffected))
         };
@@ -3282,13 +3324,23 @@ impl Actor {
                 .udp_traversal
                 .lock()
                 .expect("traversal registry")
-                .extract_if(|_, round| forced || round.binding.lock().expect("raw binding").is_some_and(|binding| {
-                    self.sock.network_bindings.lock().expect("network bindings").capture(binding.ip(), &self.local_interfaces_watcher.get()).is_err()
-                }))
+                .extract_if(|_, round| {
+                    let sources = round.sources.lock().expect("round sources");
+                    forced || if sources.is_empty() {
+                        self.sock.ip_bind_addrs.iter().any(|addr| changed_families[usize::from(addr.is_ipv6())])
+                    } else {
+                        sources.iter().any(|ip| !unaffected_ips.as_ref().is_some_and(|unchanged| unchanged.contains(ip)))
+                    }
+                })
                 .map(|(_, round)| round)
                 .collect::<Vec<_>>();
             for round in rounds {
                 *round.live.lock().expect("traversal lease") = false;
+                for id in round.senders.lock().expect("round senders").keys() {
+                    if let Some(socket) = self.sock.udp_socket_pool.get(*id) {
+                        socket.close_if_pending();
+                    }
+                }
             }
             let interfaces = self.local_interfaces_watcher.get();
             let actual_ips = interfaces
@@ -3323,28 +3375,23 @@ impl Actor {
         }
         self.remote_map.on_network_change(is_major, changed_families, unaffected_ips.as_ref().map(|ips| Arc::new(ips.clone())));
 
-        if self.has_usable_network() {
-            // This is considered a usable network change, propagate it to the QUIC stack
-            // right away.
-            self.call_notify_quic_network_change = None;
-            self.notify_quic_network_change(is_major, unaffected_ips.clone());
-        } else {
-            // No default route yet (e.g., interface just came up but gateway not
-            // assigned). Poll with exponential backoff until the gateway appears.
-            match &mut self.call_notify_quic_network_change {
-                Some(pending) => {
-                    // Update is_major if this change is more severe.
-                    pending.is_major |= is_major;
-                    pending.unaffected_ips = match (pending.unaffected_ips.take(), unaffected_ips) {
-                        (Some(mut before), Some(current)) => { before.retain(|ip| current.contains(ip)); Some(before) },
-                        _ => None,
-                    };
-                }
-                None => {
-                    self.call_notify_quic_network_change =
-                        Some(PendingNetworkChangeNotify::new(is_major, unaffected_ips));
-                }
+        // A path survives the batch only if it survived every event, including
+        // the one that makes the gateway usable again.
+        let pending = match self.call_notify_quic_network_change.take() {
+            Some(mut pending) => {
+                pending.is_major |= is_major;
+                pending.unaffected_ips = pending.unaffected_ips.zip(unaffected_ips).map(|(mut old, new)| {
+                    old.retain(|ip| new.contains(ip));
+                    old
+                });
+                pending
             }
+            None => PendingNetworkChangeNotify::new(is_major, unaffected_ips),
+        };
+        if self.has_usable_network() {
+            self.notify_quic_network_change(pending.is_major, pending.unaffected_ips);
+        } else {
+            self.call_notify_quic_network_change = Some(pending);
         }
     }
 
