@@ -339,7 +339,10 @@ def outer(args):
         cookie = str(Path(authority).resolve(strict=True))
         xauth = ['-v', f'{cookie}:{cookie}:ro', '-e', f'XAUTHORITY={cookie}',
                  '-e', f'XAUTHLOCALHOSTNAME={os.environ.get("XAUTHLOCALHOSTNAME", socket.gethostname())}']
+    # The external X11 server cannot attach SysV segments in this container.
+    # Fail allocation locally so Cairo uses its ordinary X11 rendering path.
     command = ['rtk','proxy','docker','run','--rm','--cidfile',str(args.output/'runtime.cid'),'--network','none','--memory','2g',
+        '--ipc','private','--sysctl','kernel.shmmax=0',
         '--user',f'{os.getuid()}:{os.getgid()}','--entrypoint','/usr/bin/python3',
         '-v',f'{ROOT}:{ROOT}:ro','-v',f'{private}:{private}','-v',f'{private}/home:/home/ubuntu',
         '-v',f'{args.sdk_receipt}:{args.sdk_receipt}:ro','-v',f'{args.desktop_receipt}:{args.desktop_receipt}:ro',
