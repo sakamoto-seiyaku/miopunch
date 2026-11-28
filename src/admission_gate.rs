@@ -1013,26 +1013,40 @@ impl AdmissionGate {
             )
         };
         let qualification = self.path_qualification(connection).ok_or_else(rejected)?;
-        let allowed = self.allowed_data_carriers();
-        let path = connection
-            .paths()
-            .iter()
-            .filter(|path| {
-                permits(path.remote_addr())
-                    && match path.remote_addr() {
-                        iroh::TransportAddr::Custom(address) => allowed.contains(&address.id()),
-                        _ => true,
-                    }
-            })
-            .max_by_key(|path| path.is_selected())
-            .map(|path| path.id())
-            .ok_or_else(|| {
-                std::io::Error::new(
-                    std::io::ErrorKind::NotConnected,
-                    "no permitted member data path",
-                )
-            })?;
-        let permit = connection.qualify_data_path(path, allowed).await?;
+        let permit = loop {
+            if !qualification.is_current() {
+                return Err(rejected());
+            }
+            let allowed = self.allowed_data_carriers();
+            let path = connection
+                .paths()
+                .iter()
+                .filter(|path| {
+                    permits(path.remote_addr())
+                        && match path.remote_addr() {
+                            iroh::TransportAddr::Custom(address) => allowed.contains(&address.id()),
+                            _ => true,
+                        }
+                })
+                .max_by_key(|path| path.is_selected())
+                .map(|path| path.id())
+                .ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::NotConnected,
+                        "no permitted member data path",
+                    )
+                })?;
+            match connection.qualify_data_path(path, allowed).await {
+                Ok(permit) => break permit,
+                // The peer may retire the bootstrap after establishing another
+                // path on this connection. Select again and require a fresh
+                // acknowledgement on the replacement under the same admission.
+                Err(error) if error.get_ref().is_some_and(|e| e.is::<noq_proto::ClosedPath>())
+                    && connection.close_reason().is_none()
+                    && connection.paths().get(path).is_none() => continue,
+                Err(error) => return Err(error),
+            }
+        };
         let gate = self.clone();
         // The existing bilateral authentication/stage wire remains unchanged.
         let confirmation = iroh::endpoint::ControlConfirmation::with_control(move |control| {
