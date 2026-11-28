@@ -1,11 +1,13 @@
 //! Shared bounded LogSync snapshot and manifest used on native and browser.
 use crate::management_auth::{ManagementExtension, NetworkAnchor};
 use crate::management_record::ManagementRecord;
+use futures_util::{Sink, Stream};
 use p2panda_core::{Body, Hash, Header, Operation, SeqNum, VerifyingKey};
 use p2panda_store::logs::LogStore;
+use p2panda_sync::protocols::LogSyncMessage;
 use p2panda_sync::protocols::Logs;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 #[derive(Debug, thiserror::Error)]
 #[error("replica snapshot rejected")]
@@ -13,8 +15,8 @@ pub(crate) struct SnapshotError;
 type ManagementOperation = Operation<ManagementExtension>;
 type Entry = (ManagementOperation, Vec<u8>);
 type Entries = BTreeMap<(VerifyingKey, [u8; 16]), Vec<Entry>>;
-const MAX_RECORDS: usize = 4096;
-const MAX_BYTES: usize = 16 * 1024 * 1024;
+pub(crate) const MAX_RECORDS: usize = 4096;
+pub(crate) const MAX_BYTES: usize = 16 * 1024 * 1024;
 #[derive(Serialize, Deserialize)]
 pub(crate) struct Manifest {
     pub(crate) anchor: NetworkAnchor,
@@ -26,6 +28,137 @@ pub(crate) struct Manifest {
 pub(crate) struct Receipt {
     pub(crate) records_saved: bool,
     pub(crate) view_applied: bool,
+}
+
+/// Receiving a complete transfer is distinct from saving or applying every record.
+pub(crate) struct ReceivedHistory {
+    pub(crate) scope: Vec<Hash>,
+    pub(crate) saved: Vec<Hash>,
+}
+
+impl ReceivedHistory {
+    pub(crate) fn receipt(&self, applied: &[Hash]) -> Receipt {
+        Receipt {
+            records_saved: self.saved == self.scope,
+            view_applied: applied == self.scope,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum ReceiveError {
+    Rejected,
+    Transport,
+}
+
+pub(crate) struct IncomingRecords<F> {
+    protocol: Option<std::pin::Pin<Box<F>>>,
+    events: tokio::sync::broadcast::Receiver<
+        p2panda_sync::protocols::LogSyncEvent<ManagementExtension>,
+    >,
+    expected: BTreeSet<Hash>,
+    bytes: usize,
+}
+
+impl Manifest {
+    pub(crate) fn receive<'a, S, R, SE, RE>(
+        &mut self,
+        anchor: NetworkAnchor,
+        sink: &'a mut S,
+        stream: &'a mut R,
+    ) -> Result<IncomingRecords<impl Future<Output = Result<(), ReceiveError>> + 'a>, ReceiveError>
+    where
+        S: Sink<LogSyncMessage<[u8; 16]>, Error = SE> + Unpin,
+        R: Stream<Item = Result<LogSyncMessage<[u8; 16]>, RE>> + Unpin,
+        SE: std::fmt::Debug + 'a,
+        RE: std::fmt::Debug + 'a,
+    {
+        use p2panda_sync::{protocols::LogSync, traits::Protocol};
+        let expected: BTreeSet<_> = self.ids.iter().copied().collect();
+        if self.anchor != anchor
+            || self.ids.is_empty()
+            || self.ids.len() > MAX_RECORDS
+            || expected.len() != self.ids.len()
+            || self.logs.values().map(Vec::len).sum::<usize>() > MAX_RECORDS
+        {
+            return Err(ReceiveError::Rejected);
+        }
+        let (sender, events) = tokio::sync::broadcast::channel(MAX_RECORDS + 1);
+        let sync = LogSync::new(Snapshot::default(), std::mem::take(&mut self.logs), sender);
+        let protocol = async move {
+            sync.run(sink, stream)
+                .await
+                .map(|_| ())
+                .map_err(|_| ReceiveError::Transport)
+        };
+        Ok(IncomingRecords {
+            protocol: Some(Box::pin(protocol)),
+            events,
+            expected,
+            bytes: 0,
+        })
+    }
+
+    pub(crate) fn received(self, saved: BTreeSet<Hash>) -> ReceivedHistory {
+        let saved = self
+            .ids
+            .iter()
+            .filter(|id| saved.contains(id))
+            .copied()
+            .collect();
+        ReceivedHistory {
+            scope: self.ids,
+            saved,
+        }
+    }
+}
+
+impl<F: Future<Output = Result<(), ReceiveError>>> IncomingRecords<F> {
+    pub(crate) async fn next(
+        &mut self,
+    ) -> Result<Option<(Vec<u8>, Option<Vec<u8>>)>, ReceiveError> {
+        use p2panda_sync::protocols::LogSyncEvent;
+        use tokio::sync::broadcast::error::RecvError;
+        loop {
+            let event = if let Some(protocol) = &mut self.protocol {
+                tokio::select! {
+                    biased;
+                    event = self.events.recv() => event,
+                    result = protocol => {
+                        result?;
+                        // Dropping the protocol closes its only sender. Drain
+                        // events queued by its final poll before completing.
+                        self.protocol = None;
+                        continue;
+                    }
+                }
+            } else {
+                self.events.recv().await
+            };
+            match event {
+                Ok(LogSyncEvent::OperationReceived { operation, .. }) => {
+                    if !self.expected.contains(&operation.hash) {
+                        return Err(ReceiveError::Rejected);
+                    }
+                    let header = operation.header.encode();
+                    let body = operation.body.map(|body| body.to_bytes());
+                    self.bytes += header.len() + body.as_ref().map_or(0, Vec::len);
+                    if self.bytes > MAX_BYTES {
+                        return Err(ReceiveError::Rejected);
+                    }
+                    return Ok(Some((header, body)));
+                }
+                Ok(_) => {}
+                Err(RecvError::Lagged(_)) => return Err(ReceiveError::Transport),
+                Err(RecvError::Closed) => {
+                    if let Some(protocol) = self.protocol.take() {
+                        protocol.await?;
+                    }
+                    return Ok(None);
+                }
+            }
+        }
+    }
 }
 
 /// Read-only LogStore projection of one durable, authorized snapshot. Pending

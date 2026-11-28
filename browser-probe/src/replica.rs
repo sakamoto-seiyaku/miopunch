@@ -3,15 +3,12 @@ use super::*;
 use crate::codec::Codec;
 use crate::management_auth::{ManagementExtension, decode_complete};
 use crate::management_record::ManagementRecord;
-use crate::replica_snapshot::{Manifest, Receipt, Snapshot};
+use crate::replica_snapshot::{Manifest, Receipt, Snapshot, MAX_BYTES, MAX_RECORDS};
 use futures_util::{SinkExt, StreamExt};
 use p2panda_sync::protocols::{LogSync, LogSyncEvent, LogSyncMessage};
 use p2panda_sync::traits::Protocol;
-use std::collections::BTreeSet;
 use tokio::sync::broadcast;
 use tokio_util::codec::{FramedRead, FramedWrite};
-const MAX_RECORDS: usize = 4096;
-const MAX_BYTES: usize = 16 * 1024 * 1024;
 
 impl SavedNode {
     fn control_state(&self) -> Result<serde_json::Value, JsValue> {
@@ -173,27 +170,6 @@ impl BrowserNetwork {
                 connection,
             )
     }
-    async fn consume_replica_event(
-        &mut self,
-        connection: &Connection,
-        event: LogSyncEvent<ManagementExtension>,
-        expected: &BTreeSet<Hash>,
-        bytes: &mut usize,
-    ) -> Result<Option<Hash>, JsValue> {
-        let LogSyncEvent::OperationReceived { operation, .. } = event else {
-            return Ok(None);
-        };
-        if !expected.contains(&operation.hash) || !self.replica_allowed(connection) {
-            return Err(rejected());
-        }
-        let header = operation.header.encode();
-        let body = operation.body.map(|body| body.to_bytes());
-        *bytes += header.len() + body.as_ref().map_or(0, Vec::len);
-        if *bytes > MAX_BYTES {
-            return Err(rejected());
-        }
-        self.ingest_record(header, body).await.map(Some)
-    }
     pub(super) async fn ingest_record(
         &mut self,
         header: Vec<u8>,
@@ -231,58 +207,33 @@ impl BrowserNetwork {
             let size = u32::from_be_bytes(size) as usize;
             if size == 0 || size > MAX_BYTES { return Err(rejected()); }
             let mut bytes = vec![0; size]; recv.read_exact(&mut bytes).await.map_err(|_| error("replica transport failed"))?;
-            let manifest: Manifest = p2panda_core::cbor::decode_cbor(bytes.as_slice()).map_err(|_| rejected())?;
-            let expected: BTreeSet<_> = manifest.ids.iter().copied().collect();
-            if manifest.anchor != self.saved.invitation()?.anchor || manifest.ids.is_empty() || manifest.ids.len() > MAX_RECORDS || expected.len() != manifest.ids.len() || manifest.logs.values().map(Vec::len).sum::<usize>() > MAX_RECORDS {
-                return Err(rejected());
-            }
-            // Start empty so pending/incomplete records and repeated exchanges
-            // cannot suppress the source's full verified completion route.
-            let (events, mut received) = broadcast::channel::<LogSyncEvent<ManagementExtension>>(MAX_RECORDS + 1);
-            let sync = LogSync::new(Snapshot::default(), manifest.logs, events);
+            let mut manifest: Manifest = p2panda_core::cbor::decode_cbor(bytes.as_slice()).map_err(|_| rejected())?;
             let mut sink = FramedWrite::new(send, Codec::<LogSyncMessage<[u8; 16]>>::new().max_frame_len(MAX_BYTES));
             let mut stream = FramedRead::new(recv, Codec::<LogSyncMessage<[u8; 16]>>::new().max_frame_len(MAX_BYTES));
-            let mut saved_ids = BTreeSet::new();
-            let mut bytes = 0;
-            let mut run = Box::pin(sync.run(&mut sink, &mut stream));
-            // Persist as events arrive, including exchanges later interrupted
-            // on the wire. A broadcast lag or storage error cannot mean Done.
-            loop {
-                tokio::select! {
-                    biased;
-                    event = received.recv() => {
-                        match event {
-                            Ok(event) => {
-                                if let Some(id) = self.consume_replica_event(connection, event, &expected, &mut bytes).await? { saved_ids.insert(id); }
-                            }
-                            Err(broadcast::error::RecvError::Closed) => {
-                                (&mut run).await.map_err(|_| error("replica transport failed"))?;
-                                break;
-                            }
-                            Err(_) => return Err(error("replica transport failed")),
-                        }
-                    }
-                    result = &mut run => { result.map_err(|_| error("replica transport failed"))?; break; }
+            let receive_error = |failure| match failure {
+                crate::replica_snapshot::ReceiveError::Rejected => rejected(),
+                crate::replica_snapshot::ReceiveError::Transport => error("replica transport failed"),
+            };
+            let mut saved = std::collections::BTreeSet::new();
+            {
+                let mut records = manifest.receive(self.saved.invitation()?.anchor, &mut sink, &mut stream).map_err(receive_error)?;
+                while let Some((header, body)) = records.next().await.map_err(receive_error)? {
+                    if !self.replica_allowed(connection) { return Err(rejected()); }
+                    saved.insert(self.ingest_record(header, body).await?);
                 }
             }
-            drop(run);
-            // Events enqueued during the protocol's final poll must also be
-            // consumed, rather than being auto-acked by a body-only stream.
-            while let Ok(event) = received.try_recv() {
-                if let Some(id) = self.consume_replica_event(connection, event, &expected, &mut bytes).await? { saved_ids.insert(id); }
-            }
-
+            let received = manifest.received(saved);
             let mut applied = Vec::new();
-            for id in &manifest.ids {
+            for id in &received.scope {
                 if self.saved.records.iter().any(|(header,_)| Hash::digest(header) == *id) { applied.push(*id); }
             }
-            let saved: Vec<_> = manifest.ids.iter().filter(|id| saved_ids.contains(id)).copied().collect();
-            let complete = saved == manifest.ids && applied == manifest.ids;
-            let outcome = serde_json::json!({"source":connection.remote_id().to_string(), "scope":manifest.ids.iter().map(ToString::to_string).collect::<Vec<_>>(),
-                "saved":saved.iter().map(ToString::to_string).collect::<Vec<_>>(),"applied":applied.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            let receipt = received.receipt(&applied);
+            let complete = receipt.records_saved && receipt.view_applied;
+            let outcome = serde_json::json!({"source":connection.remote_id().to_string(), "scope":received.scope.iter().map(ToString::to_string).collect::<Vec<_>>(),
+                "saved":received.saved.iter().map(ToString::to_string).collect::<Vec<_>>(),"applied":applied.iter().map(ToString::to_string).collect::<Vec<_>>(),
                 "streamId":stream_id,"transport_done":true,"complete":complete});
             let mut receipt_sink = FramedWrite::new(sink.into_inner(), Codec::<Receipt>::new().max_frame_len(64));
-            receipt_sink.send(Receipt { records_saved: saved == manifest.ids, view_applied: applied == manifest.ids }).await.map_err(|_| error("replica transport failed"))?;
+            receipt_sink.send(receipt).await.map_err(|_| error("replica transport failed"))?;
             let buffered = stream.read_buffer().clone();
             let mut acknowledgement = FramedRead::new(stream.into_inner(), Codec::<Receipt>::new().max_frame_len(64));
             acknowledgement.read_buffer_mut().extend_from_slice(&buffered);

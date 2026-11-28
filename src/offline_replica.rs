@@ -1,7 +1,6 @@
 //! A bounded, source-scoped management-history exchange over an admitted data
 //! connection. The immutable serving snapshot contains only applied records;
 //! all received LogSync events go through the durable management consumer.
-use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -26,10 +25,8 @@ use crate::management_store::{ManagementRecord, StoreError};
 use crate::native_network::NativeNetwork;
 
 pub const REPLICA_ALPN: &[u8] = crate::connection_coordinator::REPLICA_ALPN;
-const MAX_RECORDS: usize = 4096;
-const MAX_BYTES: usize = 16 * 1024 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(20);
-use crate::replica_snapshot::{Manifest, Receipt, Snapshot};
+use crate::replica_snapshot::{Manifest, Receipt, Snapshot, MAX_BYTES, MAX_RECORDS};
 
 #[derive(Debug, Error)]
 pub enum ReplicaError {
@@ -76,34 +73,6 @@ impl NativeNetwork {
         observer: fn(crate::management_store::RecordCheckpoint),
     ) {
         self.store.set_checkpoint_observer(observer);
-    }
-
-    async fn consume_replica_event(
-        &mut self,
-        connection: &(impl AuthenticatedControl + ?Sized),
-        event: LogSyncEvent<ManagementExtension>,
-        expected: &BTreeSet<Hash>,
-        bytes: &mut usize,
-    ) -> Result<Option<Hash>, ReplicaError> {
-        let LogSyncEvent::OperationReceived { operation, .. } = event else {
-            return Ok(None);
-        };
-        if !expected.contains(&operation.hash) || !self.replica_allowed(connection) {
-            return Err(ReplicaError::Rejected);
-        }
-        let header = operation.header.encode();
-        let body = operation.body.map(|body| body.to_bytes());
-        *bytes += header.len() + body.as_ref().map_or(0, Vec::len);
-        if *bytes > MAX_BYTES {
-            return Err(ReplicaError::Rejected);
-        }
-        let id = self
-            .store
-            .ingest(&ManagementRecord::new(header, body.as_deref()))
-            .await?;
-        self.store.apply_ready().await?;
-        self.refresh_authorization();
-        Ok(Some(id))
     }
 
     fn replica_allowed(&self, connection: &(impl AuthenticatedControl + ?Sized)) -> bool {
@@ -198,56 +167,36 @@ impl NativeNetwork {
             exchange.send_message(ControlMessageFormat::Fixed {length:4},b"REPL").await.map_err(|_|ReplicaError::Transport)?;
             let bytes=exchange.recv_message(ControlMessageFormat::LengthPrefixed32 {maximum:MAX_BYTES}).await.map_err(message_error)?;
             if bytes.is_empty() {return Err(ReplicaError::Rejected);}
-            let manifest: Manifest = p2panda_core::cbor::decode_cbor(bytes.as_slice()).map_err(|_| ReplicaError::Rejected)?;
-            let expected: BTreeSet<_> = manifest.ids.iter().copied().collect();
-            if manifest.anchor != self.anchor || manifest.ids.is_empty() || manifest.ids.len() > MAX_RECORDS || expected.len() != manifest.ids.len() || manifest.logs.values().map(Vec::len).sum::<usize>() > MAX_RECORDS {
-                return Err(ReplicaError::Rejected);
-            }
-            // Start empty so pending/incomplete records and repeated exchanges
-            // cannot suppress the source's full verified completion route.
-            let (events, mut received) = broadcast::channel::<LogSyncEvent<ManagementExtension>>(MAX_RECORDS + 1);
-            let sync = LogSync::new(Snapshot::default(), manifest.logs, events);
+            let mut manifest: Manifest = p2panda_core::cbor::decode_cbor(bytes.as_slice()).map_err(|_| ReplicaError::Rejected)?;
             let mut sink = codec_sink::<LogSyncMessage<[u8;16]>>(&exchange,MAX_BYTES);
             let mut stream = codec_stream::<LogSyncMessage<[u8;16]>>(&exchange,MAX_BYTES);
-            let mut saved_ids = BTreeSet::new();
-            let mut bytes = 0;
-            let mut run = Box::pin(sync.run(&mut sink, &mut stream));
-            // Persist as events arrive, including exchanges later interrupted
-            // on the wire. A broadcast lag or storage error cannot mean Done.
-            loop {
-                tokio::select! {
-                    biased;
-                    event = received.recv() => {
-                        match event {
-                            Ok(event) => {
-                                if let Some(id) = self.consume_replica_event(connection, event, &expected, &mut bytes).await? { saved_ids.insert(id); }
-                            }
-                            Err(broadcast::error::RecvError::Closed) => {
-                                (&mut run).await.map_err(|_| ReplicaError::Transport)?;
-                                break;
-                            }
-                            Err(_) => return Err(ReplicaError::Transport),
-                        }
-                    }
-                    result = &mut run => { result.map_err(|_| ReplicaError::Transport)?; break; }
+            let receive_error = |failure| match failure {
+                crate::replica_snapshot::ReceiveError::Rejected => ReplicaError::Rejected,
+                crate::replica_snapshot::ReceiveError::Transport => ReplicaError::Transport,
+            };
+            let mut saved = std::collections::BTreeSet::new();
+            {
+                let mut records = manifest.receive(self.anchor, &mut sink, &mut stream).map_err(receive_error)?;
+                while let Some((header, body)) = records.next().await.map_err(receive_error)? {
+                    if !self.replica_allowed(connection) { return Err(ReplicaError::Rejected); }
+                    let id = self.store.ingest(&ManagementRecord::new(header, body.as_deref())).await?;
+                    self.store.apply_ready().await?;
+                    self.refresh_authorization();
+                    saved.insert(id);
                 }
             }
-            drop(run);
-            // Events enqueued during the protocol's final poll must also be
-            // consumed, rather than being auto-acked by a body-only stream.
-            while let Ok(event) = received.try_recv() {
-                if let Some(id) = self.consume_replica_event(connection, event, &expected, &mut bytes).await? { saved_ids.insert(id); }
-            }
+            let received = manifest.received(saved);
             self.store.apply_ready().await?;
             self.refresh_authorization();
             let mut applied = Vec::new();
-            for id in &manifest.ids {
+            for id in &received.scope {
                 if self.store.get_record(*id).await?.is_some() { applied.push(*id); }
             }
-            let outcome = ReplicaOutcome { source: connection.remote_id(), saved: manifest.ids.iter().filter(|id| saved_ids.contains(id)).copied().collect(), scope: manifest.ids, transport_done: true, applied };
+            let receipt = received.receipt(&applied);
+            let outcome = ReplicaOutcome { source: connection.remote_id(), saved: received.saved, scope: received.scope, transport_done: true, applied };
             drop(sink);drop(stream);
             let mut receipt_sink = codec_sink::<Receipt>(&exchange,64);
-            receipt_sink.send(Receipt { records_saved: outcome.saved == outcome.scope, view_applied: outcome.applied == outcome.scope }).await.map_err(|_| ReplicaError::Transport)?;
+            receipt_sink.send(receipt).await.map_err(|_|ReplicaError::Transport)?;
             let mut acknowledgement=codec_stream::<Receipt>(&exchange,64);
             let ack=acknowledgement.next().await.ok_or(ReplicaError::Transport)?.map_err(|_|ReplicaError::Transport)?;
             if !ack.records_saved {return Err(ReplicaError::Rejected);}
