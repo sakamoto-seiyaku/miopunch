@@ -1,6 +1,9 @@
 //! Durable member route hints. A hint never establishes membership or permission.
 use crate::{admission_gate::AdmissionGate, resources::ResourceConfig};
-use iroh::{EndpointAddr, EndpointId, TransportAddr, endpoint::Connection};
+use iroh::{
+    EndpointAddr, EndpointId, TransportAddr,
+    endpoint::{Connection, MemberDialSource},
+};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -49,19 +52,19 @@ impl MemberContacts {
             .await
             .map_err(io::Error::other)?
     }
-    pub(crate) async fn merge_async(
+    pub(crate) async fn candidates(
         self: &Arc<Self>,
-        target: &mut EndpointAddr,
-    ) -> io::Result<Vec<TransportAddr>> {
-        let mut merged = target.clone();
-        let (merged, preferred) = self
-            .blocking(move |store| {
-                let preferred = store.merge(&mut merged)?;
-                Ok((merged, preferred))
+        peer: EndpointId,
+    ) -> io::Result<Vec<(TransportAddr, MemberDialSource)>> {
+        self.blocking(move |store| {
+            store.refresh()?;
+            Ok(if store.gate.member_contact_allowed(peer) {
+                store.saved_candidates(peer)
+            } else {
+                Vec::new()
             })
-            .await?;
-        *target = merged;
-        Ok(preferred)
+        })
+        .await
     }
     pub(crate) async fn observe_async(self: &Arc<Self>, connection: &Connection) -> io::Result<()> {
         let connection = connection.clone();
@@ -296,49 +299,45 @@ impl MemberContacts {
         }
         Ok(())
     }
-    /// Extend the actual caller target; return recently verified routes for
-    /// preference. Eligibility is rechecked against today's signed membership.
-    pub(crate) fn merge(&self, target: &mut EndpointAddr) -> io::Result<Vec<TransportAddr>> {
-        self.refresh()?;
-        if !self.gate.member_contact_allowed(target.id) {
-            return Ok(Vec::new());
-        }
-        Ok(self.merge_saved(target))
-    }
-
     pub(crate) fn merge_departure(&self, target: &mut EndpointAddr) {
         if self.gate.departure_contact_allowed(target.id) {
-            self.merge_saved(target);
+            target.addrs.extend(
+                self.saved_candidates(target.id)
+                    .into_iter()
+                    .map(|(address, _)| address),
+            );
         }
     }
 
-    fn merge_saved(&self, target: &mut EndpointAddr) -> Vec<TransportAddr> {
+    fn saved_candidates(&self, peer: EndpointId) -> Vec<(TransportAddr, MemberDialSource)> {
         let saved = self.saved.lock().unwrap();
-        let Some(entry) = saved.get(&target.id) else {
+        let Some(entry) = saved.get(&peer) else {
             return Vec::new();
         };
         let now = crate::service_policy::now();
-        let mut preferred = Vec::new();
-        for route in &entry.routes {
-            if !self.permitted(&route.address) {
-                continue;
-            }
-            target.addrs.insert(route.address.clone());
-            if route.is_recent(now)
-                && (route.verified || matches!(route.address, TransportAddr::Relay(_)))
-            {
-                preferred.push(route);
-            }
-        }
-        preferred.sort_by_key(|route| {
+        let mut routes: Vec<_> = entry
+            .routes
+            .iter()
+            .filter(|r| self.permitted(&r.address))
+            .collect();
+        routes.sort_by_key(|r| {
             (
-                std::cmp::Reverse(route.verified),
-                std::cmp::Reverse(route.observed_at),
+                std::cmp::Reverse(r.verified),
+                std::cmp::Reverse(r.observed_at),
             )
         });
-        preferred
+        routes
             .into_iter()
-            .map(|route| route.address.clone())
+            .map(|route| {
+                let source = if route.is_recent(now)
+                    && (route.verified || matches!(route.address, TransportAddr::Relay(_)))
+                {
+                    MemberDialSource::Recent
+                } else {
+                    MemberDialSource::Hint
+                };
+                (route.address.clone(), source)
+            })
             .collect()
     }
 }

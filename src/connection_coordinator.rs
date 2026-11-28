@@ -1311,10 +1311,14 @@ impl ConnectionCoordinator {
                 let mut recent_routes: Vec<TransportAddr> = Vec::new();
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Some(contacts) = &self.member_contacts {
-                    recent_routes = contacts
-                        .merge_async(&mut target)
-                        .await
-                        .map_err(|e| ConnectError::Transport(e.to_string()))?;
+                    for (address, source) in contacts.candidates(target.id).await
+                        .map_err(|e| ConnectError::Transport(e.to_string()))?
+                    {
+                        if matches!(source, iroh::endpoint::MemberDialSource::Recent) {
+                            recent_routes.push(address.clone());
+                        }
+                        target.addrs.insert(address);
+                    }
                 }
                 if purpose.requires_data() && self.permitted == 0 {
                     return Err(ConnectError::DataPathUnavailable);

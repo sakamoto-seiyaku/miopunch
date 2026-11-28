@@ -1380,7 +1380,7 @@ impl ResourceEndpoint {
 
     async fn connect_member_with_class(
         &self,
-        mut target: iroh::EndpointAddr,
+        target: iroh::EndpointAddr,
         deadline: tokio::time::Instant,
         class: ContactClass,
     ) -> std::io::Result<iroh::endpoint::MemberConnection> {
@@ -1389,50 +1389,32 @@ impl ResourceEndpoint {
             .member_fusion
             .as_ref()
             .ok_or(std::io::ErrorKind::Unsupported)?;
-        let restricted_contacts = |target: &iroh::EndpointAddr| {
-            let mut contacts: Vec<_> = target
-                .addrs
-                .iter()
-                .filter_map(|route| match route {
-                    iroh::TransportAddr::Custom(address)
-                        if self.config.allows_member_contact_carrier(address) =>
-                    {
-                        Some(address.clone())
-                    }
-                    _ => None,
-                })
-                .collect();
-            contacts.sort_by_key(|address| match address.id() {
-                crate::member_transport::TRANSPORT_ID => 0,
-                crate::mqtt_datagram::TRANSPORT_ID => 1,
-                _ => 2,
-            });
-            contacts
-        };
         if let Some(connection) = owner.reuse_until(target.id, deadline).await? {
-            let restricted = restricted_contacts(&target);
+            let restricted = self.restricted_member_contacts(&target.addrs);
             if !restricted.is_empty() {
                 connection.learn_repair_contacts(restricted);
             }
             let _ = tokio::time::timeout_at(deadline, owner.learn_path_candidates(target)).await;
             return Ok(connection);
         }
-        let recent = self.merge_contact_hints(&mut target).await?;
-        let restricted = restricted_contacts(&target);
-        target.addrs.retain(|addr| self.allows_data_path(addr));
-        let mut active = Vec::new();
+        use iroh::endpoint::MemberDialSource;
+        let peer = target.id;
+        let mut candidates = self.contact_candidates(target).await?;
+        let restricted =
+            self.restricted_member_contacts(candidates.iter().map(|(address, _)| address));
+        candidates.retain(|(address, _)| self.allows_data_path(address));
         if !self.config.udp_direct_disabled
-            && let Some(info) = self.endpoint.remote_info(target.id).await
+            && let Some(info) = self.endpoint.remote_info(peer).await
         {
-            for entry in info.addrs() {
-                if entry.addr().is_ip()
-                    && matches!(entry.usage(), iroh::endpoint::TransportAddrUsage::Active)
-                {
-                    active.push(entry.addr().clone());
-                }
-            }
+            candidates.extend(
+                info.addrs()
+                    .filter(|entry| {
+                        entry.addr().is_ip()
+                            && matches!(entry.usage(), iroh::endpoint::TransportAddrUsage::Active)
+                    })
+                    .map(|entry| (entry.addr().clone(), MemberDialSource::Active)),
+            );
         }
-        target.addrs.extend(active.iter().cloned());
         use n0_watcher::Watcher;
         let local = self.endpoint.home_relay_status().get();
         let mut fallbacks: Vec<_> = self.config.relay_map(ResourceUse::DataRelay)?.urls();
@@ -1444,7 +1426,9 @@ impl ResourceEndpoint {
         use crate::connection_coordinator::{AttemptRole, connection_diagnostic::AttemptLog};
         let log = AttemptLog::new(AttemptRole::Initiator, "member_fusion").with_round(1);
         let backoff = self.backoff.clone();
-        let routes = iroh::endpoint::MemberDialOptions::new(active, recent, fallbacks)
+        let (target, routes) =
+            iroh::endpoint::MemberDialOptions::from_candidates(peer, candidates, fallbacks);
+        let routes = routes
             .with_restricted_contacts(restricted.clone())
             .with_identity_diagnostics(move |(_, route), peer, stable_id| {
                 let mut route_log = log;
@@ -1526,17 +1510,46 @@ impl ResourceEndpoint {
         Ok(connection)
     }
 
-    async fn merge_contact_hints(
+    fn restricted_member_contacts<'a>(
         &self,
-        target: &mut iroh::EndpointAddr,
-    ) -> std::io::Result<Vec<iroh::TransportAddr>> {
+        addresses: impl IntoIterator<Item = &'a iroh::TransportAddr>,
+    ) -> Vec<iroh_base::CustomAddr> {
+        let contacts: BTreeSet<_> = addresses
+            .into_iter()
+            .filter_map(|route| match route {
+                iroh::TransportAddr::Custom(address)
+                    if self.config.allows_member_contact_carrier(address) =>
+                {
+                    Some(address.clone())
+                }
+                _ => None,
+            })
+            .collect();
+        let mut contacts: Vec<_> = contacts.into_iter().collect();
+        contacts.sort_by_key(|address| match address.id() {
+            crate::member_transport::TRANSPORT_ID => 0,
+            crate::mqtt_datagram::TRANSPORT_ID => 1,
+            _ => 2,
+        });
+        contacts
+    }
+
+    async fn contact_candidates(
+        &self,
+        mut target: iroh::EndpointAddr,
+    ) -> std::io::Result<Vec<(iroh::TransportAddr, iroh::endpoint::MemberDialSource)>> {
         if let Some(known) = self.contacts.get_endpoint_info(target.id) {
             target.addrs.extend(known.into_endpoint_addr().addrs);
         }
+        let mut candidates: Vec<_> = target
+            .addrs
+            .into_iter()
+            .map(|address| (address, iroh::endpoint::MemberDialSource::Hint))
+            .collect();
         if let Some(contacts) = &self.member_contacts {
-            return contacts.merge_async(target).await;
+            candidates.extend(contacts.candidates(target.id).await?);
         }
-        Ok(Vec::new())
+        Ok(candidates)
     }
 
     fn add_configured_relays(&self, target: &mut iroh::EndpointAddr) -> std::io::Result<()> {
@@ -1690,7 +1703,7 @@ impl ResourceEndpoint {
 
     async fn connect_attempt(
         &self,
-        mut target: iroh::EndpointAddr,
+        target: iroh::EndpointAddr,
         alpn: &[u8],
         class: ContactClass,
         control_only: bool,
@@ -1706,20 +1719,23 @@ impl ResourceEndpoint {
         use crate::connection_coordinator::{AttemptContext, ConnectError, SessionPurpose};
         let purpose = SessionPurpose::from_alpn(alpn);
         let attempt = self.begin_contact_attempt_until(target.id, class, deadline)?;
-        tokio::time::timeout(
-                deadline.saturating_duration_since(n0_future::time::Instant::now()),
-                self.merge_contact_hints(&mut target),
-            )
-            .await
-            .map_err(|_| {
-                let failure = attempt.failed("bounded contact attempt timed out".into());
-                if purpose == Some(SessionPurpose::AdmissionRequest) {
-                    ResourceContactError::PathBudget(ConnectError::DeadlineExceeded)
-                } else {
-                    failure
-                }
-            })?
-            .map_err(|error| attempt.failed(error.to_string()))?;
+        let peer = target.id;
+        let candidates = tokio::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            self.contact_candidates(target),
+        )
+        .await
+        .map_err(|_| {
+            let failure = attempt.failed("bounded contact attempt timed out".into());
+            if purpose == Some(SessionPurpose::AdmissionRequest) {
+                ResourceContactError::PathBudget(ConnectError::DeadlineExceeded)
+            } else {
+                failure
+            }
+        })?
+        .map_err(|error| attempt.failed(error.to_string()))?;
+        let mut target = iroh::EndpointAddr::new(peer)
+            .with_addrs(candidates.into_iter().map(|(address, _)| address));
         target.addrs.retain(|addr| match addr {
             iroh::TransportAddr::Relay(url) => {
                 self.config.allows(url.as_str(), ResourceUse::DataRelay)

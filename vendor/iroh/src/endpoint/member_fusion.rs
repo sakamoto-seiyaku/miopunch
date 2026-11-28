@@ -34,7 +34,7 @@ pub use physical::MemberPunching;
 mod dial;
 mod direct;
 pub(super) mod udp;
-pub use dial::MemberDialOptions;
+pub use dial::{MemberDialOptions, MemberDialSource};
 pub(super) use direct::{PathCandidates, watch_path_candidates};
 pub use udp::{MemberUdpConfig, MemberUdpPlan, MemberUdpTraversalReport};
 

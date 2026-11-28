@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     future::Future,
     io,
     sync::{
@@ -31,11 +31,21 @@ type ContactFinished = Box<dyn FnOnce(&io::Result<()>) + Send>;
 type ContactBudget =
     dyn Fn(crate::EndpointId, Instant) -> io::Result<ContactFinished> + Send + Sync;
 
+/// Why this address is available to the member's first dial.
+#[derive(Debug, Clone, Copy)]
+pub enum MemberDialSource {
+    /// Advertised, discovered or older cached address.
+    Hint,
+    /// Recent cached route, in preference order.
+    Recent,
+    /// IP path currently in use by the endpoint.
+    Active,
+}
+
 /// Current contact inputs for a native member dial, evaluated by the owner.
 #[derive(Default)]
 pub struct MemberDialOptions {
-    active: Vec<TransportAddr>,
-    recent: Vec<TransportAddr>,
+    priority: BTreeMap<TransportAddr, (MemberDialSource, usize)>,
     relay_fallbacks: Vec<RelayUrl>,
     discover_ip: bool,
     route_started: Option<Box<RouteStarted>>,
@@ -52,12 +62,55 @@ impl MemberDialOptions {
         recent: Vec<TransportAddr>,
         relay_fallbacks: Vec<RelayUrl>,
     ) -> Self {
-        Self {
-            active,
-            recent,
+        let mut options = Self {
             relay_fallbacks,
             ..Self::default()
+        };
+        for (rank, address) in recent.into_iter().enumerate() {
+            options.prioritize(address, MemberDialSource::Recent, rank);
         }
+        for (rank, address) in active.into_iter().enumerate() {
+            options.prioritize(address, MemberDialSource::Active, rank);
+        }
+        options
+    }
+
+    fn prioritize(&mut self, address: TransportAddr, source: MemberDialSource, rank: usize) {
+        match source {
+            MemberDialSource::Active if address.is_ip() => {
+                self.priority
+                    .entry(address)
+                    .and_modify(|priority| {
+                        if matches!(priority.0, MemberDialSource::Recent) {
+                            *priority = (source, rank);
+                        }
+                    })
+                    .or_insert((source, rank));
+            }
+            MemberDialSource::Recent => {
+                self.priority.entry(address).or_insert((source, rank));
+            }
+            _ => {}
+        }
+    }
+
+    /// Build the target and its priorities together from permitted contact facts.
+    /// A route with several sources is dialed in its highest eligible class.
+    pub fn from_candidates(
+        peer: EndpointId,
+        candidates: impl IntoIterator<Item = (TransportAddr, MemberDialSource)>,
+        relay_fallbacks: Vec<RelayUrl>,
+    ) -> (EndpointAddr, Self) {
+        let mut target = EndpointAddr::new(peer);
+        let mut options = Self {
+            relay_fallbacks,
+            ..Self::default()
+        };
+        for (rank, (address, source)) in candidates.into_iter().enumerate() {
+            target.addrs.insert(address.clone());
+            options.prioritize(address, source, rank);
+        }
+        (target, options)
     }
 
     /// Current restricted contact candidates, in application preference order.
@@ -171,11 +224,6 @@ impl Dial<'_> {
         } else {
             BTreeSet::new()
         };
-        let active = options
-            .active
-            .into_iter()
-            .filter(|route| route.is_ip() && target.addrs.remove(route))
-            .collect::<Vec<_>>();
         let direct_transport = self
             .endpoint
             .inner
@@ -185,17 +233,6 @@ impl Dial<'_> {
             .as_ref()
             .and_then(|policy| policy.member_direct())
             .map(|paths| paths.transport_id());
-        let recent_direct = options
-            .recent
-            .iter()
-            .filter(|route| {
-                route.is_ip()
-                    || matches!(route, TransportAddr::Custom(address)
-                if Some(address.id()) == direct_transport)
-            })
-            .filter(|route| target.addrs.remove(*route))
-            .cloned()
-            .collect::<Vec<_>>();
         let endpoint = &self.endpoint.inner.inner;
         let member_relay = endpoint
             .static_config
@@ -207,20 +244,35 @@ impl Dial<'_> {
             TransportAddr::Custom(address) => member_relay == Some(address.id()),
             _ => false,
         };
-        let mut relays = target
-            .addrs
-            .iter()
-            .filter(|route| is_data_relay(route))
-            .cloned()
-            .collect::<Vec<_>>();
-        target.addrs.retain(|route| !is_data_relay(route));
-        relays.sort_by_key(|route| {
-            options
-                .recent
-                .iter()
-                .position(|recent| recent == route)
-                .unwrap_or(usize::MAX)
+        let mut active = Vec::new();
+        let mut recent_direct = Vec::new();
+        let mut relays = Vec::new();
+        target.addrs.retain(|route| {
+            let priority = options.priority.get(route);
+            if matches!(priority, Some((MemberDialSource::Active, _))) {
+                active.push(route.clone());
+            } else if is_data_relay(route) {
+                relays.push(route.clone());
+            } else if priority.is_some()
+                && (route.is_ip()
+                    || matches!(route,
+                TransportAddr::Custom(address) if Some(address.id()) == direct_transport))
+            {
+                recent_direct.push(route.clone());
+            } else {
+                return true;
+            }
+            false
         });
+        let rank = |route: &TransportAddr| {
+            options
+                .priority
+                .get(route)
+                .map_or(usize::MAX, |(_, rank)| *rank)
+        };
+        active.sort_by_key(rank);
+        recent_direct.sort_by_key(rank);
+        relays.sort_by_key(rank);
         for relay in options.relay_fallbacks {
             let relay = TransportAddr::Relay(relay);
             if !relays.contains(&relay) {
