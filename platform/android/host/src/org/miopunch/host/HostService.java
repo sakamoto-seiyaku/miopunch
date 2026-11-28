@@ -90,7 +90,17 @@ public final class HostService extends Service {
     public JSONObject request(JSONObject input) throws Exception {
         if (stopping.get()) throw new IllegalStateException("host is stopping");
         if ("stop".equals(input.optString("op"))) throw new IllegalArgumentException("use the Service quit operation");
-        return new JSONObject(NativeHost.request(input.toString()));
+        JSONObject result = new JSONObject(NativeHost.request(input.toString()));
+        if (Boolean.TRUE.equals(result.remove("host_session_ended"))) {
+            synchronized (this) {
+                // A start may have completed after replacement released the SDK.
+                if (!workers.isShutdown() && !new JSONObject(NativeHost.running()).getBoolean("running")) {
+                    stopping.set(true);
+                    finishStopped();
+                }
+            }
+        }
+        return result;
     }
 
     public JSONObject snapshot() throws Exception {
@@ -116,18 +126,23 @@ public final class HostService extends Service {
         // command cannot prevent the native owner from cancelling its work.
         new Thread(() -> {
           synchronized (this) {
+            if (workers.isShutdown()) return;
             boolean closed = false;
             try { closed = new JSONObject(NativeHost.stop()).optBoolean("ok"); }
             catch (Exception failure) { /* recorded below without secret input */ }
             if (!closed) { writeState("shutdown_failed"); return; }
-            running = false;
-            if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
-            writeState("stopped");
-            workers.shutdown();
-            stopForeground(STOP_FOREGROUND_REMOVE);
-            stopSelf();
+            finishStopped();
           }
         }, "miopunch-stop").start();
+    }
+
+    private void finishStopped() {
+        running = false;
+        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+        writeState("stopped");
+        workers.shutdown();
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        stopSelf();
     }
 
     private synchronized void writeState(String state) {

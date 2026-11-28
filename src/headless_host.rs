@@ -1,11 +1,10 @@
 //! Linux/Unix service host. Control connections do not own the node lifetime.
 //! The local socket exposes trusted application commands, never a network API.
 use crate::{
-    client_commands::{Command, Request},
+    client_commands::Request,
     client_host::{ClientHost, StartMode},
     native_client::ClientError,
 };
-use serde_json::json;
 use std::{
     os::unix::fs::{MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
@@ -103,36 +102,34 @@ async fn control(
     commands: Arc<Semaphore>,
 ) -> Result<(), ClientError> {
     let (reader, mut writer) = stream.into_split();
-    let mut reader = BufReader::new(reader.take(65537));
+    let mut reader = BufReader::new(reader.take(Request::HOST_INPUT_LIMIT as u64 + 1));
     let mut input = Vec::new();
-    let count = tokio::select! {
+    tokio::select! {
         _ = shutdown.cancelled() => return Ok(()),
         result = tokio::time::timeout(Duration::from_secs(5), reader.read_until(b'\n', &mut input)) => result??,
     };
-    let request = if count <= 65536 && input.last() == Some(&b'\n') {
-        serde_json::from_slice::<Request>(&input).ok()
+    let request = if input.last() == Some(&b'\n') {
+        Request::parse_host(&input)
     } else {
-        None
+        Err(Request::invalid_host_command())
     };
-    let lifecycle = request.as_ref().is_some_and(|r| {
-        matches!(
-            r.command,
-            Command::Stop | Command::ReplacementPrepare { .. }
-        )
-    });
-    let response = if request.is_some() {
-        // Stop has capacity independent of slow business commands.
-        let _permit = if lifecycle {
-            None
-        } else {
-            Some(tokio::select! {
-                _ = shutdown.cancelled() => return Ok(()),
-                permit = commands.acquire() => permit?,
-            })
-        };
-        host.request(std::str::from_utf8(&input)?).await
-    } else {
-        json!({"id":null,"ok":false,"error":"invalid_command"})
+    let lifecycle = request
+        .as_ref()
+        .is_ok_and(|request| request.ends_host_session());
+    let response = match request {
+        Ok(request) => {
+            // Stop has capacity independent of slow business commands.
+            let _permit = if lifecycle {
+                None
+            } else {
+                Some(tokio::select! {
+                    _ = shutdown.cancelled() => return Ok(()),
+                    permit = commands.acquire() => permit?,
+                })
+            };
+            host.dispatch_request(request).await
+        }
+        Err(response) => response,
     };
     let stopped = lifecycle && !host.running().await;
     let output = format!("{response}\n");

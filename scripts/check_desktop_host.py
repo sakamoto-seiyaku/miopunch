@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Real Linux Tauri/WebKit window -> IPC -> SDK -> independent file observer.
 
-Runs an owned Ubuntu toolchain/runtime container on the current WSLg X11/DBus
-session. Its network has only loopback, and its home/autostart entries are private.
+Runs an owned Ubuntu container on the selected X11 display and session bus. Its network has only loopback, and its home/autostart entries are private.
 This qualifies a real window and silent launch, not an actual login trigger.
 """
 import argparse
@@ -207,12 +206,12 @@ class Runner:
     def scenario(self):
         configure_local_resources(self, self.args, owner_factory=register_process)
         resources = json.loads(self.native_configuration.read_text())
-        assert not list((Path.home()/'.config/autostart').glob('miopunch.desktop'))
+        autostart = Path(os.environ['XDG_CONFIG_HOME']) / 'autostart' / 'miopunch.desktop'
+        assert not autostart.exists()
         initial = Desktop(self, "initial")
         initial.event("webview_ready")
         first_window = self.windows(True)
         assert initial.call("state")["autostart"] is True
-        autostart = Path.home()/'.config/autostart/miopunch.desktop'
         entry = autostart.read_text()
         assert str(self.desktop) in entry and "--background" in entry and str(self.private / "node") in entry
         ready = initial.call("start", mode={"action":"create"}, resources=resources)
@@ -278,7 +277,7 @@ class Runner:
             "independent_saved_bytes":len(payload),"clipboard_tested":False})
 
     def run(self):
-        report = {"status":"failed","clock_start":time.monotonic(),"runtime":"Ubuntu24.04 container on actual WSLg X11 session","image":IMAGE}
+        report = {"status":"failed","clock_start":time.monotonic(),"runtime":"Ubuntu24.04 container on X11","display":os.environ["DISPLAY"],"image":IMAGE}
         error = None
         try:
             self.scenario()
@@ -332,13 +331,21 @@ def outer(args):
     until(lambda:(args.output/'x11-current.json').exists(), 'X11 observer absent')
     baseline = json.loads((args.output/'x11-current.json').read_text())
     assert not baseline.get('error') and not baseline['windows'], 'preexisting matching desktop window'
+    display = os.environ.get('DISPLAY', ':0')
+    authority = os.environ.get('XAUTHORITY')
+    xauth = []
+    if authority:
+        # The observer and container must authenticate to the same display.
+        cookie = str(Path(authority).resolve(strict=True))
+        xauth = ['-v', f'{cookie}:{cookie}:ro', '-e', f'XAUTHORITY={cookie}',
+                 '-e', f'XAUTHLOCALHOSTNAME={os.environ.get("XAUTHLOCALHOSTNAME", socket.gethostname())}']
     command = ['rtk','proxy','docker','run','--rm','--cidfile',str(args.output/'runtime.cid'),'--network','none','--memory','2g',
         '--user',f'{os.getuid()}:{os.getgid()}','--entrypoint','/usr/bin/python3',
         '-v',f'{ROOT}:{ROOT}:ro','-v',f'{private}:{private}','-v',f'{private}/home:/home/ubuntu',
         '-v',f'{args.sdk_receipt}:{args.sdk_receipt}:ro','-v',f'{args.desktop_receipt}:{args.desktop_receipt}:ro',
-        '-v',f'{args.output}:{args.output}','-v','/tmp/.X11-unix:/tmp/.X11-unix:ro',
+        '-v',f'{args.output}:{args.output}','-v',f'{args.x11_socket_directory}:/tmp/.X11-unix:ro',
         '-v','/run/user/1000/bus:/run/user/1000/bus','-w',str(ROOT),
-        '-e','DISPLAY=:0','-e','GDK_BACKEND=x11','-e','DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus',
+        *xauth,'-e',f'DISPLAY={display}','-e','GDK_BACKEND=x11','-e','DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus',
         '-e',f'XDG_RUNTIME_DIR={private}/runtime','-e',f'XDG_CACHE_HOME={private}/cache',
         '-e',f'XDG_CONFIG_HOME={private}/config','-e',f'XDG_DATA_HOME={private}/data',
         IMAGE,'-B',str(Path(__file__).resolve()),'--inside','--private',str(private),'--output',str(args.output),
@@ -361,6 +368,8 @@ def outer(args):
 if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--inside',action='store_true')
+    parser.add_argument('--x11-socket-directory', type=Path, default=Path('/tmp/.X11-unix'),
+                        help='Directory holding the selected display socket for the container')
     parser.add_argument('--private',type=Path)
     for name in ['output','desktop-receipt','sdk-receipt','relay-binary','relay-receipt']:
         parser.add_argument('--'+name,type=Path,required=True)

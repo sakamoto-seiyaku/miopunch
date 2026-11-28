@@ -10,6 +10,7 @@ public final class NativeHost {
     public static native String start(String directory, String mode, String resources);
     public static native String request(String json);
     public static native String stop();
+    static native String running();
     /** Nonblocking focus notification; performs no SDK work or clipboard read. */
     public static native void clipboardFocus(long window, boolean focused);
 }

@@ -9,7 +9,7 @@ use jni::{
 use serde_json::{Value, json};
 use tokio::sync::Semaphore;
 
-use crate::client_host::ClientHost;
+use crate::{client_commands::Request, client_host::ClientHost};
 
 const WORKER_STACK: usize = 8 * 1024 * 1024;
 const ACTIVE_COMMANDS: usize = 16;
@@ -31,13 +31,18 @@ enum Operation {
         mode: String,
         resources: String,
     },
-    Request(String),
+    Request(Request),
     Stop,
 }
 
 impl ApplicationRuntime {
     fn execute(self: Arc<Self>, operation: Operation) -> Result<Value, Box<dyn std::error::Error>> {
-        let slots = if matches!(operation, Operation::Stop) {
+        let ends_session = match &operation {
+            Operation::Stop => true,
+            Operation::Request(request) => request.ends_host_session(),
+            Operation::Start { .. } => false,
+        };
+        let slots = if ends_session {
             &self.stopping
         } else {
             &self.commands
@@ -70,7 +75,13 @@ impl ApplicationRuntime {
                                 let value = self.host.start(directory, mode, resources).await?;
                                 Ok(json!({"ok":true,"result":value}))
                             }
-                            Operation::Request(input) => Ok(self.host.request(&input).await),
+                            Operation::Request(request) => {
+                                let mut response = self.host.dispatch_request(request).await;
+                                if ends_session {
+                                    response["host_session_ended"] = Value::Bool(true);
+                                }
+                                Ok(response)
+                            }
                             Operation::Stop => {
                                 self.host.stop().await?;
                                 Ok(json!({"ok":true,"stopped":true}))
@@ -205,11 +216,21 @@ pub extern "system" fn Java_org_miopunch_host_NativeHost_request(
 ) -> jstring {
     reply(&mut env, |env| {
         let input: String = env.get_string(&input)?.into();
-        if input.len() > 65536 {
-            return Ok(json!({"id":null,"ok":false,"error":"invalid_command"}));
+        match Request::parse_host(input.as_bytes()) {
+            Ok(request) => application()?.execute(Operation::Request(request)),
+            Err(response) => Ok(response),
         }
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_org_miopunch_host_NativeHost_running(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+) -> jstring {
+    reply(&mut env, |_| {
         let app = application()?;
-        app.execute(Operation::Request(input))
+        Ok(json!({"running":app.runtime.block_on(app.host.running())}))
     })
 }
 

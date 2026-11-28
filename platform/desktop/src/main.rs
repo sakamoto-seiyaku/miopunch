@@ -2,6 +2,7 @@
 
 use miopunch_native_probe::{
     client_commands::save_private,
+    client_commands::Request,
     client_host::{ClientHost, StartMode},
     resources::ResourceConfig,
 };
@@ -166,20 +167,21 @@ async fn native_work<T: Send + 'static, F: FnOnce() -> T + Send + 'static>(
 
 #[tauri::command]
 async fn host_request(state: State<'_, Arc<AppState>>, input: String) -> Result<Value, String> {
-    if input.len() > 65536 {
+    if input.len() > Request::HOST_INPUT_LIMIT {
         return Err("command too large".into());
     }
-    let lifecycle = serde_json::from_str::<Value>(&input)
-        .ok()
-        .is_some_and(|v| matches!(v["op"].as_str(), Some("stop" | "replacement_prepare")));
-    let slots = if lifecycle {
+    let request = match Request::parse_host(input.as_bytes()) {
+        Ok(request) => request,
+        Err(response) => return Ok(response),
+    };
+    let slots = if request.ends_host_session() {
         state.lifecycle.clone()
     } else {
         state.normal.clone()
     };
     let host = state.host.clone();
     native_work(slots, move || {
-        tauri::async_runtime::block_on(host.request(&input))
+        tauri::async_runtime::block_on(host.dispatch_request(request))
     })
     .await
 }

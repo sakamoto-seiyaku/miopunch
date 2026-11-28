@@ -86,6 +86,28 @@ impl HostLease {
     }
 }
 
+/// Shared input bound and lifecycle classification for installed host adapters.
+impl Request {
+    pub const HOST_INPUT_LIMIT: usize = 65536;
+
+    pub fn parse_host(input: &[u8]) -> Result<Self, Value> {
+        if input.len() <= Self::HOST_INPUT_LIMIT
+            && let Ok(request) = serde_json::from_slice(input)
+        {
+            return Ok(request);
+        }
+        Err(Self::invalid_host_command())
+    }
+
+    pub fn ends_host_session(&self) -> bool {
+        matches!(self.command, Command::Stop | Command::ReplacementPrepare { .. })
+    }
+
+    pub(crate) fn invalid_host_command() -> Value {
+        json!({"id":null,"ok":false,"error":"invalid_command"})
+    }
+}
+
 /// The shell owns this object for its entire process/service lifetime.
 #[derive(Default)]
 pub struct ClientHost {
@@ -147,12 +169,13 @@ impl ClientHost {
     /// Bounded trusted control input, shared with the existing CLI vocabulary.
     /// Network permissions continue to be enforced by NativeClient itself.
     pub async fn request(&self, input: &str) -> Value {
-        if input.len() > 65536 {
-            return json!({"id":null,"ok":false,"error":"invalid_command"});
+        match Request::parse_host(input.as_bytes()) {
+            Ok(request) => self.dispatch_request(request).await,
+            Err(response) => response,
         }
-        let Ok(request) = serde_json::from_str::<Request>(input) else {
-            return json!({"id":null,"ok":false,"error":"invalid_command"});
-        };
+    }
+
+    pub async fn dispatch_request(&self, request: Request) -> Value {
         let result = match request.command {
             Command::Stop => self.stop().await.map(|()| json!({"stopped":true})),
             Command::ReplacementPrepare { path } => self.replace(&path).await,

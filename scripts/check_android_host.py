@@ -121,6 +121,27 @@ class AndroidActor:
         assert response["ok"] == ok, response
         return response.get("result")
 
+    def check_replacement_shutdown(self, identity):
+        before = self.call("snapshot")["service"]
+        assert before["running"] and before["wake_lock_held"]
+        self.call("close_window")
+        self.runner.until(lambda: not self.call("snapshot")["activity_exists"],
+                          "Verification Activity closes before the node is replaced", seconds=10)
+        response = self.call("request", request=dict(id=901, op="replacement_prepare", path=self.files))
+        assert response == {"id": 901, "ok": False, "error": "operation_failed"}, response
+        self.runner.until(lambda: self.call("snapshot").get("service") is None,
+                          "Service releases its owner after a failed replacement export", seconds=20)
+        stopped = self.read_json("host-state.json")
+        assert stopped["state"] == "stopped" and not stopped["running"] and not stopped["wake_lock_held"]
+        self.call("show_window")
+        self.runner.until(lambda: (self.call("snapshot").get("service") or {}).get("running"),
+                          "Service reopens the retained node", seconds=30)
+        reopened = self.call("snapshot")["service"]
+        assert reopened["service_generation"] != before["service_generation"]
+        assert reopened["wake_lock_held"] and self.sdk("status")["node"] == identity
+        self.runner.record("android", "failed_replacement_releases_service",
+                           {"wake_lock_released": True, "same_node_reopened": True})
+
     def check_control_boundaries(self, resources):
         for identifier, lease, label in [(10, "00000000-0000-0000-0000-000000000000", "wrong-lease"), (0, self.lease, "stale-id")]:
             packet = dict(id=identifier, lease=lease, kind="start", mode={"action":"create"}, resources=resources)
@@ -292,6 +313,7 @@ class AndroidRunner(WebRunner):
         assert android.call("snapshot")["service"]["service_generation"] != generation
         assert android.sdk("ping", address=provider.address)["reply"] == "PONG"
         self.record("controller", "android_service_lifecycle", {"window_reopen_kept_owner":True,"explicit_quit_stopped_owner":True,"new_service_same_persisted_node":True,"post_reopen_actual_ping":True,"whole_process_restart_tested":False})
+        android.check_replacement_shutdown(identity)
         if self.args.retain_for_reboot:
             self.retain_private_state = True
             self.retain_package_for_reboot = True

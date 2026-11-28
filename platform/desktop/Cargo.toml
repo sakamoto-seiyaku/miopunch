@@ -28,6 +28,8 @@ tauri-plugin-autostart = "=2.7.0"
 windows-registry = "=0.6.1"
 
 [patch.crates-io]
+iroh-mdns-address-lookup = { path = "../../vendor/iroh-mdns-address-lookup" }
+swarm-discovery = { path = "../../vendor/swarm-discovery" }
 iroh-relay = { path = "../../vendor/iroh-relay" }
 p2panda-sync = { path = "../../vendor/p2panda-sync" }
 iroh = { path = "../../vendor/iroh" }
