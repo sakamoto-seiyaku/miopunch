@@ -1919,10 +1919,7 @@ fn superseded() -> io::Error {
 
 fn was_superseded(error: &ConnectingError) -> bool {
     match error {
-        ConnectingError::AdmissionFailed {
-            kind: io::ErrorKind::AlreadyExists,
-            ..
-        } => true,
+        ConnectingError::AdmissionFailed { reason, .. } => reason.kind() == io::ErrorKind::AlreadyExists,
         ConnectingError::ConnectionError {
             source: ConnectionError::ApplicationClosed(closed),
             ..

@@ -129,10 +129,7 @@ async fn shared_member_data_requires_the_endpoints_custom_transport_allowlist() 
                 assert!(
                     matches!(
                         inbound,
-                        Err(ConnectingError::AdmissionFailed {
-                            kind: io::ErrorKind::NotConnected,
-                            ..
-                        })
+                        Err(ConnectingError::AdmissionFailed { ref reason, .. }) if reason.kind() == io::ErrorKind::NotConnected
                     ),
                     "empty endpoint allowlist must exclude the only data path: {inbound:?}"
                 );

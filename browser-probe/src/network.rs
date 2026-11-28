@@ -1,5 +1,6 @@
 //! Browser platform adapter for the native manual-admission wire protocol.
 //! Signatures, membership policy, SCRAM and TLS remain the shared implementations.
+use crate::connection_coordinator::ControlFailure;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -1534,9 +1535,7 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
         purpose: crate::connection_coordinator::SessionPurpose,
     ) -> std::io::Result<u64> {
         if connection.close_reason().is_some() {
-            return Err(crate::connection_coordinator::control_error(
-                "DataPathUnavailable",
-            ));
+            return Err(ControlFailure::DataPathUnavailable.into_io());
         }
         if purpose == crate::connection_coordinator::SessionPurpose::AdmissionRequest {
             return Ok(self
@@ -1551,7 +1550,7 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
             self.rtc_qualification(connection)
                 .map(|(_, revision, _)| revision)
                 .map_err(|_| {
-                    crate::connection_coordinator::control_error("IdentityOrAdmissionRejected")
+                    ControlFailure::IdentityOrAdmissionRejected.into_io()
                 })
         }
         #[cfg(not(feature = "rtc-probe"))]
@@ -1572,9 +1571,7 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
     ) -> impl std::future::Future<Output = std::io::Result<()>> + Send + 'a {
         send_wrapper::SendWrapper::new(async move {
             if connection.close_reason().is_some() {
-                return Err(crate::connection_coordinator::control_error(
-                    "DataPathUnavailable",
-                ));
+                return Err(ControlFailure::DataPathUnavailable.into_io());
             }
             let snapshot =
                 if purpose == crate::connection_coordinator::SessionPurpose::AdmissionRequest {
@@ -1583,7 +1580,12 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
                     self.qualified_snapshot(connection).await
                 };
             snapshot.map(|_| ()).map_err(|_| {
-                crate::connection_coordinator::control_error("IdentityOrAdmissionRejected")
+                // The control connection can close while the saved membership is being read.
+                if connection.close_reason().is_some() {
+                    ControlFailure::DataPathUnavailable.into_io()
+                } else {
+                    ControlFailure::IdentityOrAdmissionRejected.into_io()
+                }
             })
         })
     }
@@ -1599,35 +1601,26 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
     + 'a {
         send_wrapper::SendWrapper::new(async move {
             let _ = endpoint;
-            use crate::connection_coordinator::{PathPlan, PreparedPath, control_error};
+            use crate::connection_coordinator::{PathPlan, PreparedPath};
             match plan {
                 #[cfg(feature = "rtc-probe")]
                 PathPlan::Rtc => {
                     let saved = self
                         .qualified_snapshot(connection)
                         .await
-                        .map_err(|_| control_error("IdentityOrAdmissionRejected"))?;
+                        .map_err(|_| ControlFailure::IdentityOrAdmissionRejected.into_io())?;
                     let transport = self
                         .0
                         .lock()
                         .unwrap()
                         .rtc
                         .clone()
-                        .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                        .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
                     let (mut report, prepared) = rtc_member::bootstrap_control_unified(
                         connection, self, &saved, &transport, attempt,
                     )
                     .await
-                    .map_err(|cause| {
-                        let text = cause
-                            .as_string()
-                            .unwrap_or_else(|| "RTC candidate failed".into());
-                        if text.starts_with("unified/") {
-                            std::io::Error::other(text)
-                        } else {
-                            control_error("DataPathUnavailable")
-                        }
-                    })?;
+                    .map_err(ControlFailure::into_io)?;
                     report["capabilitiesVersion"] = serde_json::json!(1);
                     self.remember_bootstrap(connection, report);
                     Ok(prepared)
@@ -1635,7 +1628,7 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
                 PathPlan::ExistingRelay => {
                     let route = self
                         .existing_relay(connection)
-                        .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                        .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
                     let gate = self.clone();
                     let current_route = route.clone();
                     Ok(PreparedPath::candidate(connection, route, move || {
@@ -1643,11 +1636,11 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
                         let saved = state
                             .saved
                             .as_ref()
-                            .ok_or_else(|| control_error("IdentityOrAdmissionRejected"))?;
+                            .ok_or_else(|| ControlFailure::IdentityOrAdmissionRejected.into_io())?;
                         if BrowserGate::permits_relay_path(&state, saved, &current_route) {
                             Ok(())
                         } else {
-                            Err(control_error("DataPathUnavailable"))
+                            Err(ControlFailure::DataPathUnavailable.into_io())
                         }
                     }))
                 }
@@ -1661,7 +1654,7 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
                         .iter()
                         .filter(|path| path.is_relay())
                         .max_by_key(|path| path.is_selected())
-                        .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                        .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
                     Ok(PreparedPath::candidate(
                         connection,
                         path.remote_addr().clone(),
@@ -1670,7 +1663,7 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
                 }
                 _ => {
                     let _ = attempt;
-                    Err(control_error("DataPathUnavailable"))
+                    Err(ControlFailure::DataPathUnavailable.into_io())
                 }
             }
         })
@@ -1693,29 +1686,18 @@ impl crate::connection_coordinator::MemberPathAdapter<ControlHandle> for Browser
                 #[cfg(feature = "rtc-probe")]
                 crate::connection_coordinator::PathPlan::Rtc => {
                     let saved = self.qualified_snapshot(original).await.map_err(|_| {
-                        crate::connection_coordinator::control_error("IdentityOrAdmissionRejected")
+                        ControlFailure::IdentityOrAdmissionRejected.into_io()
                     })?;
                     let transport = self.0.lock().unwrap().rtc.clone().ok_or_else(|| {
-                        crate::connection_coordinator::control_error("DataPathUnavailable")
+                        ControlFailure::DataPathUnavailable.into_io()
                     })?;
                     rtc_member::bootstrap_control_active(
                         original, control, self, &saved, &transport, attempt,
                     )
                     .await
-                    .map_err(|cause| {
-                        let text = cause
-                            .as_string()
-                            .unwrap_or_else(|| "RTC active candidate failed".into());
-                        if text.starts_with("unified/") {
-                            std::io::Error::other(text)
-                        } else {
-                            crate::connection_coordinator::control_error("DataPathUnavailable")
-                        }
-                    })
+                    .map_err(ControlFailure::into_io)
                 }
-                _ => Err(crate::connection_coordinator::control_error(
-                    "DataPathUnavailable",
-                )),
+                _ => Err(ControlFailure::DataPathUnavailable.into_io()),
             }
         })
     }
@@ -1760,13 +1742,12 @@ impl BrowserGate {
         &self,
         connection: &ControlHandle,
     ) -> std::io::Result<n0_future::time::Instant> {
-        use crate::connection_coordinator::control_error;
         let saved = self.0.lock().unwrap().saved.clone();
 
         let Some(saved) = saved.filter(|saved| {
             Self::control_permitted(saved, connection.remote_id(), connection.alpn(), connection.side().is_client())
         }) else {
-            return Err(control_error("IdentityOrAdmissionRejected"));
+            return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
         };
         let handshake_started = n0_future::time::Instant::now();
         if tracks_request_diagnostics(connection.alpn()) {
@@ -1789,12 +1770,12 @@ impl BrowserGate {
         {
             let generation = if connection.alpn() == ADMISSION_ROTATION_ALPN {
                 crate::admission_rotation_wire::negotiate_generation(connection, saved.generation)
-                    .await.map_err(|_| control_error("IdentityOrAdmissionRejected"))?
+                    .await.map_err(|_| ControlFailure::IdentityOrAdmissionRejected.into_io())?
             } else {
                 saved.generation
             };
             let Some((scope, secret)) = saved.rotation_credential(generation) else {
-                return Err(control_error("IdentityOrAdmissionRejected"));
+                return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
             };
             let result = if connection.side().is_client() {
                 crate::admission_proof::prove_client(connection, &scope, &secret).await
@@ -1804,7 +1785,7 @@ impl BrowserGate {
             match result {
                 Ok(proof) => Some(proof),
                 Err(_) => {
-                    return Err(control_error("IdentityOrAdmissionRejected"));
+                    return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
                 }
             }
         } else {
@@ -1851,7 +1832,7 @@ impl BrowserGate {
             }
         }
         if !agreed {
-            return Err(control_error("IdentityOrAdmissionRejected"));
+            return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
         }
         if let Some(proof) = proof {
             let mut gate = self.0.lock().unwrap();
@@ -1864,7 +1845,7 @@ impl BrowserGate {
                                 && proof.credential_fingerprint() == &secret.fingerprint(&scope)
                         })
             }) {
-                return Err(control_error("IdentityOrAdmissionRejected"));
+                return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
             }
             gate.proofs.retain(BootstrapProof::is_live);
             gate.connections.retain(|weak| {
@@ -1872,7 +1853,7 @@ impl BrowserGate {
                     .is_some_and(|connection| connection.close_reason().is_none())
             });
             if gate.proofs.len() >= 32 {
-                return Err(control_error("IdentityOrAdmissionRejected"));
+                return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
             }
             gate.proofs.push(proof);
         }
@@ -1880,7 +1861,7 @@ impl BrowserGate {
         gate.control_sessions
             .retain(|_, session| session.connection.is_open());
         if gate.control_sessions.len() >= 32 {
-            return Err(control_error("IdentityOrAdmissionRejected"));
+            return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
         }
         gate.control_sessions.insert(
             connection.stable_id(),
@@ -1910,7 +1891,7 @@ impl BrowserGate {
                 )
                 .await;
             }
-            use crate::connection_coordinator::{SessionPurpose, control_error};
+            use crate::connection_coordinator::SessionPurpose;
             let handle = connection.control_handle();
             let started = self.authenticate(&handle).await?;
             let purpose = SessionPurpose::from_alpn(connection.alpn());
@@ -1923,7 +1904,7 @@ impl BrowserGate {
                                 if iroh::endpoint::EndpointAdmission::is_current(&gate, control) {
                                     Ok(())
                                 } else {
-                                    Err(control_error("IdentityOrAdmissionRejected"))
+                                    Err(ControlFailure::IdentityOrAdmissionRejected.into_io())
                                 }
                             })
                         }),
@@ -1993,7 +1974,7 @@ impl iroh::endpoint::EndpointAdmission for BrowserGate {
     ) -> std::io::Result<iroh::endpoint::AdmissionOutcome> {
         let gate = if let Some(scope) = connection.application_context::<migration::WireScope>() {
             if !connection.side().is_client() || !scope.matches(connection.remote_id(), connection.alpn()) {
-                return Err(crate::connection_coordinator::control_error("IdentityOrAdmissionRejected"));
+                return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
             }
             &scope.gate
         } else {
@@ -2904,9 +2885,7 @@ impl BrowserNetwork {
                                 .saturating_duration_since(n0_future::time::Instant::now()),
                             async {
                                 if gate.qualified_snapshot(&control).await.is_err() {
-                                    return Err(crate::connection_coordinator::control_error(
-                                        "IdentityOrAdmissionRejected",
-                                    ));
+                                    return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
                                 }
                                 crate::connection_coordinator::serve_active_session(
                                     &endpoint,

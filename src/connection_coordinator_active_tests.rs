@@ -745,7 +745,7 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for ProbeAdapter {
                             .await
                             .map_err(io::Error::other)?;
                         #[cfg(not(feature = "rtc-probe"))]
-                        return Err(control_error("InvalidControl"));
+                        return Err(ControlFailure::InvalidControl.into_io());
                     }
                     _ => {}
                 }
@@ -808,20 +808,20 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for ProbeAdapter {
             let path = paths
                 .iter()
                 .find(|path| path.is_ip() && path.is_selected())
-                .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
             let route = path.remote_addr().clone();
             let path_id = path.id().to_string();
             let probe = path.start_probe()?;
             let qualification = self
                 .gate
                 .path_qualification(original)
-                .ok_or_else(|| control_error("IdentityOrAdmissionRejected"))?;
+                .ok_or_else(|| ControlFailure::IdentityOrAdmissionRejected.into_io())?;
             while !probe.is_acknowledged().map_err(io::Error::other)? {
                 self.inner
                     .check(original, SessionPurpose::MemberBusiness)
                     .await?;
                 if n0_future::time::Instant::now() >= control.caller_deadline().unwrap() {
-                    return Err(control_error("DeadlineExceeded"));
+                    return Err(ControlFailure::DeadlineExceeded.into_io());
                 }
                 tokio::time::sleep(Duration::from_millis(1)).await;
             }
@@ -834,7 +834,7 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for ProbeAdapter {
                 if qualification.is_current() {
                     Ok(())
                 } else {
-                    Err(control_error("IdentityOrAdmissionRejected"))
+                    Err(ControlFailure::IdentityOrAdmissionRejected.into_io())
                 }
             })
             .with_proof(path_id, probe.watermark(), move || {

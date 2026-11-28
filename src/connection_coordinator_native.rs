@@ -1,10 +1,10 @@
 //! Native gate/candidate adapter for the common member coordinator.
+use crate::connection_coordinator::ControlFailure;
 use super::{
     AttemptContext, AttemptRole, BackgroundRelayRace, MemberPathAdapter, PathPlan, Platform,
     PreparedPath, ProtectedAttempt, RELAY, RTC, RepairFailure, RtcRole, RuntimeCapabilities,
     SessionPurpose, TCP, UDP,
     connection_diagnostic::{self, AttemptLog},
-    control_error,
 };
 use crate::admission_gate::AdmissionGate;
 use crate::control_protocol::AuthenticatedControl;
@@ -193,7 +193,7 @@ impl CoordinatorHook {
             original,
             &control
                 .restricted_handle()
-                .ok_or_else(|| control_error("InvalidControl"))?,
+                .ok_or_else(|| ControlFailure::InvalidControl.into_io())?,
             &NativeControlAdapter(self.clone()),
             attempt,
             log,
@@ -492,18 +492,18 @@ impl CoordinatorHook {
         // A normally closed M has already lost its ephemeral proof entry.
         // That retirement is a network outcome, not evidence of bad identity.
         if connection.close_reason().is_some() {
-            return Err(control_error("DataPathUnavailable"));
+            return Err(ControlFailure::DataPathUnavailable.into_io());
         }
         if purpose == SessionPurpose::AdmissionRequest {
             return self
                 .gate
                 .request_revision(connection)
-                .ok_or_else(|| control_error("IdentityOrAdmissionRejected"));
+                .ok_or_else(|| ControlFailure::IdentityOrAdmissionRejected.into_io());
         }
         self.gate
             .path_qualification(connection)
             .map(|q| q.revision())
-            .ok_or_else(|| control_error("IdentityOrAdmissionRejected"))
+            .ok_or_else(|| ControlFailure::IdentityOrAdmissionRejected.into_io())
     }
     fn check<'a>(
         &'a self,
@@ -512,7 +512,7 @@ impl CoordinatorHook {
     ) -> impl Future<Output = io::Result<()>> + Send + 'a {
         async move {
             if connection.close_reason().is_some() {
-                return Err(control_error("DataPathUnavailable"));
+                return Err(ControlFailure::DataPathUnavailable.into_io());
             }
             let allowed = if purpose == SessionPurpose::AdmissionRequest {
                 self.gate.allows(
@@ -528,7 +528,7 @@ impl CoordinatorHook {
             if allowed {
                 Ok(())
             } else {
-                Err(control_error("IdentityOrAdmissionRejected"))
+                Err(ControlFailure::IdentityOrAdmissionRejected.into_io())
             }
         }
     }
@@ -744,7 +744,7 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                     self.0
                         .rtc
                         .as_ref()
-                        .ok_or_else(|| control_error("DataPathUnavailable"))?,
+                        .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?,
                     attempt,
                 ))
                 .await
@@ -753,18 +753,18 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                 let route = self
                     .0
                     .existing_relay(connection)
-                    .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                    .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
                 let qualification = self
                     .0
                     .gate
                     .path_qualification(connection)
-                    .ok_or_else(|| control_error("IdentityOrAdmissionRejected"))?;
+                    .ok_or_else(|| ControlFailure::IdentityOrAdmissionRejected.into_io())?;
                 let weak = connection.weak_handle();
                 Ok(PreparedPath::candidate(connection, route, move || {
                     if weak.is_open() && qualification.is_current() {
                         Ok(())
                     } else {
-                        Err(control_error("IdentityOrAdmissionRejected"))
+                        Err(ControlFailure::IdentityOrAdmissionRejected.into_io())
                     }
                 }))
             }
@@ -775,35 +775,35 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                     self.0
                         .resources
                         .as_ref()
-                        .ok_or_else(|| control_error("DataPathUnavailable"))?,
+                        .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?,
                     attempt.log,
                 )
                 .await?;
                 let route = self
                     .0
                     .existing_relay(connection)
-                    .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                    .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
                 let qualification = self
                     .0
                     .gate
                     .path_qualification(connection)
-                    .ok_or_else(|| control_error("IdentityOrAdmissionRejected"))?;
+                    .ok_or_else(|| ControlFailure::IdentityOrAdmissionRejected.into_io())?;
                 let weak = connection.weak_handle();
                 Ok(PreparedPath::candidate(connection, route, move || {
                     if weak.is_open() && qualification.is_current() {
                         Ok(())
                     } else {
-                        Err(control_error("IdentityOrAdmissionRejected"))
+                        Err(ControlFailure::IdentityOrAdmissionRejected.into_io())
                     }
                 }))
             }
             PathPlan::Native { tcp, udp } => {
                 let native = self.0.native.as_ref()
-                    .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                    .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
                 Box::pin(native.prepare_control_paths(connection, &self.0.gate, tcp, udp, attempt))
                     .await
             }
-            _ => Err(control_error("DataPathUnavailable")),
+            _ => Err(ControlFailure::DataPathUnavailable.into_io()),
         }
     }
     async fn prepare_active(
@@ -826,7 +826,7 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                     "udp":udp,"tcp":tcp})
                 );
                 let native = self.0.native.as_ref()
-                    .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                    .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
                 let mut prepared = Box::pin(native.prepare_active_paths(
                     original, control, &self.0.gate, tcp, udp, attempt,
                 )).await?;
@@ -846,7 +846,7 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                                         .as_ref()
                                         .is_none_or(|id| path.id().to_string() == *id)
                             })
-                            .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                            .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
                         let probe = path.start_probe()?;
                         self.active_diagnostic(original, control, "native-fresh-probe-started");
                         prepared = prepared.with_proof(
@@ -880,12 +880,12 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                     self.0
                         .rtc
                         .as_ref()
-                        .ok_or_else(|| control_error("DataPathUnavailable"))?,
+                        .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?,
                     attempt,
                 ))
                 .await
             }
-            _ => Err(control_error("DataPathUnavailable")),
+            _ => Err(ControlFailure::DataPathUnavailable.into_io()),
         }
     }
 }
@@ -912,7 +912,7 @@ impl NativeAdmission {
                 if let Some(phase) = admission {
                     phase.finish("rejected");
                 }
-                return Err(control_error("IdentityOrAdmissionRejected"));
+                return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
             }
         };
         if purpose.is_none() && scope == crate::admission_gate::ProtocolScope::Member {
@@ -936,7 +936,7 @@ impl NativeAdmission {
                             if allowed {
                                 Ok(())
                             } else {
-                                Err(control_error("IdentityOrAdmissionRejected"))
+                                Err(ControlFailure::IdentityOrAdmissionRejected.into_io())
                             }
                         })
                     }),
@@ -944,7 +944,7 @@ impl NativeAdmission {
             );
         }
         let purpose = SessionPurpose::from_alpn(connection.alpn())
-            .ok_or_else(|| control_error("ProtocolUnsupported"))?;
+            .ok_or_else(|| ControlFailure::ProtocolUnsupported.into_io())?;
         if !matches!(
             (scope, purpose),
             (
@@ -955,7 +955,7 @@ impl NativeAdmission {
                 SessionPurpose::MemberBusiness | SessionPurpose::Replica
             )
         ) {
-            return Err(control_error("ProtocolUnsupported"));
+            return Err(ControlFailure::ProtocolUnsupported.into_io());
         }
         let adapter = NativeControlAdapter(self.coordinator.clone());
         let handle = connection.control_handle();
@@ -1027,7 +1027,7 @@ impl iroh::endpoint::EndpointAdmission for NativeAdmission {
         }));
         if let Some(context) = connection.application_context::<MigrationWireContext>() {
             if !connection.side().is_client() || !context.matches(connection.remote_id(), connection.alpn()) {
-                return Err(control_error("IdentityOrAdmissionRejected"));
+                return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
             }
             return self.for_gate(context.gate.clone()).admit_connection(connection).await;
         }

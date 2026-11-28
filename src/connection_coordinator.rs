@@ -239,7 +239,7 @@ impl RuntimeCapabilities {
             || (self.supported & RTC != 0 && self.rtc_role != RtcRole::for_attempt(role, true))
             || (self.runtime == Platform::Browser && self.supported & (UDP | TCP) != 0)
         {
-            return Err(control_error("InvalidControl"));
+            return Err(ControlFailure::InvalidControl.into_io());
         }
         Ok(())
     }
@@ -321,7 +321,7 @@ impl ProtectedAttempt {
             plans.push(PathPlan::Rtc);
         }
         if plans.is_empty() {
-            Err(control_error("DataPathUnavailable"))
+            Err(ControlFailure::DataPathUnavailable.into_io())
         } else {
             Ok(plans)
         }
@@ -398,7 +398,7 @@ pub(crate) trait MemberPathAdapter<C: AuthenticatedControl + ?Sized = Connection
         plan: PathPlan,
     ) -> impl Future<Output = io::Result<PreparedPath>> + Send + 'a {
         let _ = (endpoint, original, control, attempt, plan);
-        async { Err(control_error("DataPathUnavailable")) }
+        async { Err(ControlFailure::DataPathUnavailable.into_io()) }
     }
 }
 
@@ -479,7 +479,7 @@ impl PreparedPath {
         require_ack: bool,
     ) -> io::Result<()> {
         if connection.stable_id() != self.stable_id || connection.close_reason().is_some() {
-            return Err(control_error("DataPathUnavailable"));
+            return Err(ControlFailure::DataPathUnavailable.into_io());
         }
         (self.current)()?;
         if !connection.paths().iter().any(|path| {
@@ -489,10 +489,10 @@ impl PreparedPath {
                     .as_ref()
                     .is_none_or(|id| path.id().to_string() == *id)
         }) {
-            return Err(control_error("DataPathUnavailable"));
+            return Err(ControlFailure::DataPathUnavailable.into_io());
         }
         if require_ack && !matches!(self.acknowledged.as_ref().map(|ack| ack()), Some(Ok(true))) {
-            return Err(control_error("DataPathUnavailable"));
+            return Err(ControlFailure::DataPathUnavailable.into_io());
         }
         Ok(())
     }
@@ -574,46 +574,33 @@ impl ConnectError {
                 ..
             } => Self::DataPathUnavailable,
             ConnectingError::LocallyRejected { .. } => Self::IdentityOrAdmissionRejected,
-            ConnectingError::AdmissionFailed { reason, kind, .. } => {
-                if kind == io::ErrorKind::WouldBlock
-                    && let Some(remote) =
-                        crate::session_maintenance::MaintenanceDeferral::message_is_remote(&reason)
-                {
-                    Self::PathDeferred { remote }
-                } else if kind == io::ErrorKind::InvalidInput
-                    && crate::session_maintenance::LocalNatBudgetError::matches_message(&reason)
-                {
-                    Self::LocalNatBudget(reason)
-                } else if kind == io::ErrorKind::TimedOut {
-                    Self::DeadlineExceeded
-                } else if kind == io::ErrorKind::Interrupted {
-                    Self::Cancelled
-                } else if reason.starts_with("unified/ProtocolUnsupported") {
-                    Self::ProtocolUnsupported
-                } else if reason.starts_with("unified/InvalidControl") {
-                    Self::InvalidControl
-                } else if kind == io::ErrorKind::PermissionDenied
-                    || reason.starts_with("unified/IdentityOrAdmissionRejected")
-                {
-                    Self::IdentityOrAdmissionRejected
-                } else {
-                    Self::DataPathUnavailable
-                }
-            }
-            ConnectingError::DataPathUnavailable { reason, .. } => {
-                if reason == "unified caller deadline exceeded" {
-                    Self::DeadlineExceeded
-                } else if reason.starts_with("unified/ProtocolUnsupported") {
-                    Self::ProtocolUnsupported
-                } else if reason.starts_with("unified/InvalidControl") {
-                    Self::InvalidControl
-                } else if reason.starts_with("unified/IdentityOrAdmissionRejected") {
-                    Self::IdentityOrAdmissionRejected
-                } else {
-                    Self::DataPathUnavailable
-                }
-            }
+            ConnectingError::AdmissionFailed { reason, .. }
+            | ConnectingError::DataPathUnavailable { reason, .. } => Self::from_admission(&reason),
             _ => Self::Transport(error.to_string()),
+        }
+    }
+
+    fn from_admission(error: &io::Error) -> Self {
+        use crate::session_maintenance::{LocalNatBudgetError, MaintenanceDeferral};
+
+        if let Some(cause) = MaintenanceDeferral::from_error(error) {
+            return Self::PathDeferred { remote: matches!(cause, MaintenanceDeferral::Remote) };
+        }
+        if LocalNatBudgetError::is_local_limit(error) {
+            return Self::LocalNatBudget(error.to_string());
+        }
+        match ControlFailure::from_io(error) {
+            Some(ControlFailure::ProtocolUnsupported) => Self::ProtocolUnsupported,
+            Some(ControlFailure::InvalidControl) => Self::InvalidControl,
+            Some(ControlFailure::IdentityOrAdmissionRejected) => Self::IdentityOrAdmissionRejected,
+            Some(ControlFailure::DeadlineExceeded) => Self::DeadlineExceeded,
+            Some(ControlFailure::DataPathUnavailable | ControlFailure::Active(_)) => Self::DataPathUnavailable,
+            None => match error.kind() {
+                io::ErrorKind::TimedOut => Self::DeadlineExceeded,
+                io::ErrorKind::Interrupted => Self::Cancelled,
+                io::ErrorKind::PermissionDenied => Self::IdentityOrAdmissionRejected,
+                _ => Self::DataPathUnavailable,
+            },
         }
     }
 }
@@ -1723,8 +1710,30 @@ impl ConnectionCoordinator {
     }
 }
 
-pub(crate) fn control_error(kind: &str) -> io::Error {
-    io::Error::new(io::ErrorKind::InvalidData, format!("unified/{kind}"))
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+pub(crate) enum ControlFailure {
+    #[error("unified/ProtocolUnsupported")]
+    ProtocolUnsupported,
+    #[error("unified/InvalidControl")]
+    InvalidControl,
+    #[error("unified/IdentityOrAdmissionRejected")]
+    IdentityOrAdmissionRejected,
+    #[error("unified/DataPathUnavailable")]
+    DataPathUnavailable,
+    #[error("unified/DeadlineExceeded")]
+    DeadlineExceeded,
+    #[error("unified/active/{0:?}")]
+    Active(crate::session_maintenance::MaintenanceError),
+}
+
+impl ControlFailure {
+    pub(crate) fn into_io(self) -> io::Error {
+        io::Error::new(io::ErrorKind::InvalidData, self)
+    }
+
+    pub(crate) fn from_io(error: &io::Error) -> Option<Self> {
+        error.get_ref()?.downcast_ref::<Self>().copied()
+    }
 }
 struct PendingMember(Option<iroh::endpoint::WeakControlConnection>);
 impl Drop for PendingMember {
@@ -1752,7 +1761,7 @@ impl ControlOffer {
         self.exchange.send_message(format, &ready).await?;
         let ack = self.exchange.recv_message(format).await?;
         if ack.len() != 17 || ack[0] != 1 || ack[1..] != self.nonce {
-            return Err(control_error("InvalidControl"));
+            return Err(ControlFailure::InvalidControl.into_io());
         }
         Ok(())
     }
@@ -1820,7 +1829,7 @@ async fn prepare_control_hello(
         .recv_message(ControlMessageFormat::Fixed { length: 2 })
         .await?;
     if usize::from(u16::from_be_bytes(length.try_into().unwrap())) != FRAME_LEN {
-        return Err(control_error("InvalidControl"));
+        return Err(ControlFailure::InvalidControl.into_io());
     }
     let peer: [u8; FRAME_LEN] = exchange
         .recv_message(ControlMessageFormat::Fixed { length: FRAME_LEN })
@@ -1828,21 +1837,21 @@ async fn prepare_control_hello(
         .try_into()
         .unwrap();
     if &peer[..4] != b"MUC1" || peer[4] != 1 {
-        return Err(control_error("ProtocolUnsupported"));
+        return Err(ControlFailure::ProtocolUnsupported.into_io());
     }
     if peer[5] != frame[5] || peer[7] != role.opposite() as u8 || peer[11] != 0 {
-        return Err(control_error("InvalidControl"));
+        return Err(ControlFailure::InvalidControl.into_io());
     }
     let peer_runtime = match peer[6] {
         1 => Platform::Native,
         2 => Platform::Browser,
-        _ => return Err(control_error("InvalidControl")),
+        _ => return Err(ControlFailure::InvalidControl.into_io()),
     };
     let peer_rtc = match peer[10] {
         0 => RtcRole::None,
         1 => RtcRole::Offerer,
         2 => RtcRole::Answerer,
-        _ => return Err(control_error("InvalidControl")),
+        _ => return Err(ControlFailure::InvalidControl.into_io()),
     };
     RuntimeCapabilities {
         runtime: peer_runtime,
@@ -1902,7 +1911,7 @@ impl PreparedAdmission {
         let prepared = self
             .prepared
             .as_ref()
-            .ok_or_else(|| control_error("DataPathUnavailable"))?;
+            .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
         connection
             .paths()
             .iter()
@@ -1914,7 +1923,7 @@ impl PreparedAdmission {
                         .is_none_or(|id| path.id().to_string() == *id)
             })
             .map(|path| path.id())
-            .ok_or_else(|| control_error("DataPathUnavailable"))
+            .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())
     }
     pub(crate) async fn confirm<C: AuthenticatedControl + ?Sized, A: MemberPathAdapter<C>>(
         mut self,
@@ -1941,7 +1950,7 @@ impl PreparedAdmission {
             || connection.stable_id() != original
             || crate::connection_recovery_core::binding(connection)? != original_binding
         {
-            return Err(control_error("IdentityOrAdmissionRejected"));
+            return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
         }
         let offer = self.offer;
         if purpose == SessionPurpose::AdmissionRequest {
@@ -1956,7 +1965,7 @@ impl PreparedAdmission {
                 || connection.stable_id() != original
                 || crate::connection_recovery_core::binding(connection)? != original_binding
             {
-                return Err(control_error("IdentityOrAdmissionRejected"));
+                return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
             }
             let report = serde_json::json!({"event":"unified-control-ready","version":1,
                 "purpose":purpose.label(),"purposeCode":purpose as u8,"stableId":original,"restricted":true,
@@ -1974,7 +1983,7 @@ impl PreparedAdmission {
         let mut prepared = self
             .prepared
             .take()
-            .ok_or_else(|| control_error("DataPathUnavailable"))?;
+            .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
         attempt
             .log
             .phase("ready", Value::Null)
@@ -1983,7 +1992,7 @@ impl PreparedAdmission {
         attempt.log.phase("commit", json!({"pathId":prepared.path_id})).run(async {
         adapter.check(connection, purpose).await?;
         if adapter.authorization_revision(connection, purpose)? != revision {
-            return Err(control_error("IdentityOrAdmissionRejected"));
+            return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
         }
         prepared.check(connection, true)?;
         if let Some(retain) = prepared.retain.take() {
@@ -1991,7 +2000,7 @@ impl PreparedAdmission {
         }
         adapter.check(connection, purpose).await?;
         if adapter.authorization_revision(connection, purpose)? != revision {
-            return Err(control_error("IdentityOrAdmissionRejected"));
+            return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
         }
         prepared.check(connection, true)?;
         let paths = connection.paths();
@@ -2021,9 +2030,9 @@ pub(crate) async fn prepare_control_session<
     adapter: &A,
 ) -> io::Result<PreparedAdmission> {
     let purpose = SessionPurpose::from_alpn(connection.alpn())
-        .ok_or_else(|| control_error("ProtocolUnsupported"))?;
+        .ok_or_else(|| ControlFailure::ProtocolUnsupported.into_io())?;
     if purpose != SessionPurpose::MemberBusiness && connection.caller_deadline().is_none() {
-        return Err(control_error("InvalidControl"));
+        return Err(ControlFailure::InvalidControl.into_io());
     }
     let original = connection.stable_id();
     let original_binding = crate::connection_recovery_core::binding(connection)?;
@@ -2044,7 +2053,7 @@ pub(crate) async fn prepare_control_session<
     let attempt = offer.attempt;
     if purpose == SessionPurpose::AdmissionRequest {
         if peer[9] != 0 {
-            return Err(control_error("InvalidControl"));
+            return Err(ControlFailure::InvalidControl.into_io());
         }
         return Ok(PreparedAdmission {
             purpose,
@@ -2072,7 +2081,7 @@ pub(crate) async fn prepare_control_session<
                         connection,
                         direct
                             .as_ref()
-                            .ok_or_else(|| control_error("DataPathUnavailable"))?
+                            .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?
                             .0
                             .clone(),
                         || Ok(()),
@@ -2090,14 +2099,12 @@ pub(crate) async fn prepare_control_session<
             Err(error) => {
                 adapter.check(connection, purpose).await?;
                 if adapter.authorization_revision(connection, purpose)? != revision {
-                    return Err(control_error("IdentityOrAdmissionRejected"));
+                    return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
                 }
-                if error.to_string().starts_with("unified/InvalidControl")
-                    || error.to_string().starts_with("unified/ProtocolUnsupported")
-                    || error
-                        .to_string()
-                        .starts_with("unified/IdentityOrAdmissionRejected")
-                {
+                if matches!(ControlFailure::from_io(&error), Some(
+                    ControlFailure::InvalidControl | ControlFailure::ProtocolUnsupported
+                    | ControlFailure::IdentityOrAdmissionRejected
+                )) {
                     return Err(error);
                 }
                 if n0_future::time::Instant::now() >= attempt.deadline {
@@ -2117,7 +2124,7 @@ pub(crate) async fn prepare_control_session<
         }
     }
     let mut prepared = prepared
-        .ok_or_else(|| budget_failure.unwrap_or_else(|| control_error("DataPathUnavailable")))?;
+        .ok_or_else(|| budget_failure.unwrap_or_else(|| ControlFailure::DataPathUnavailable.into_io()))?;
     let phase = attempt.log.phase("fresh-ack", Value::Null);
     let qualification: io::Result<()> = async {
         prepared.check(connection, false)?;
@@ -2132,7 +2139,7 @@ pub(crate) async fn prepare_control_session<
                             .as_ref()
                             .is_none_or(|id| path.id().to_string() == *id)
                 })
-                .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
             let probe = path.start_probe()?;
             prepared.path_id = Some(path.id().to_string());
             prepared.watermark = probe.watermark();
@@ -2151,7 +2158,7 @@ pub(crate) async fn prepare_control_session<
         loop {
             adapter.check(connection, purpose).await?;
             if adapter.authorization_revision(connection, purpose)? != revision {
-                return Err(control_error("IdentityOrAdmissionRejected"));
+                return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
             }
             prepared.check(connection, false)?;
             if matches!(
@@ -2274,23 +2281,23 @@ fn decode_active_hello(frame: &[u8]) -> io::Result<ActiveHello> {
         || frame[4] != ACTIVE_VERSION
         || frame[5] != ACTIVE_HELLO_KIND
     {
-        return Err(control_error("ProtocolUnsupported"));
+        return Err(ControlFailure::ProtocolUnsupported.into_io());
     }
     let role = match frame[6] {
         1 => AttemptRole::Initiator,
         2 => AttemptRole::Responder,
-        _ => return Err(control_error("InvalidControl")),
+        _ => return Err(ControlFailure::InvalidControl.into_io()),
     };
     let runtime = match frame[7] {
         1 => Platform::Native,
         2 => Platform::Browser,
-        _ => return Err(control_error("InvalidControl")),
+        _ => return Err(ControlFailure::InvalidControl.into_io()),
     };
     let rtc_role = match frame[10] {
         0 => RtcRole::None,
         1 => RtcRole::Offerer,
         2 => RtcRole::Answerer,
-        _ => return Err(control_error("InvalidControl")),
+        _ => return Err(ControlFailure::InvalidControl.into_io()),
     };
     Ok(ActiveHello {
         role,
@@ -2378,7 +2385,7 @@ async fn read_active_frame<C: AuthenticatedControl + ?Sized, A: MemberPathAdapte
         || frame[5] != expected_kind
         || frame[6..22] != attempt
     {
-        return Err(control_error("InvalidControl"));
+        return Err(ControlFailure::InvalidControl.into_io());
     }
     #[cfg(all(feature = "rtc-probe", not(target_arch = "wasm32")))]
     if expected_kind == ACTIVE_READY_KIND {
@@ -2421,7 +2428,7 @@ async fn read_active_message(exchange: &ControlExchange, length: usize) -> io::R
         .recv_message(ControlMessageFormat::Fixed { length: 2 })
         .await?;
     if usize::from(u16::from_be_bytes(header.try_into().unwrap())) != length {
-        return Err(control_error("InvalidControl"));
+        return Err(ControlFailure::InvalidControl.into_io());
     }
     exchange
         .recv_message(ControlMessageFormat::Fixed { length })
@@ -2508,7 +2515,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
         || peer_hello.binding != original_binding
         || control.remote_id() != original.remote_id()
     {
-        return Err(control_error("IdentityOrAdmissionRejected"));
+        return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
     }
     RuntimeCapabilities {
         runtime: local.runtime,
@@ -2554,7 +2561,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
         .await?;
     let revision = adapter.authorization_revision(&original, SessionPurpose::MemberBusiness)?;
     if adapter.authorization_revision(&original, SessionPurpose::MemberBusiness)? != revision {
-        return Err(control_error("IdentityOrAdmissionRejected"));
+        return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
     }
     let plans = protected.improvement_plans();
     if plans.is_empty() {
@@ -2587,25 +2594,24 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
                     .check(control, SessionPurpose::ActiveImprovement)
                     .await?;
                 if crate::session_maintenance::LocalNatBudgetError::is_local_limit(&error)
-                    || error
-                        .to_string()
-                        .starts_with("unified/IdentityOrAdmissionRejected")
-                    || error.to_string().starts_with("unified/InvalidControl")
+                    || matches!(ControlFailure::from_io(&error), Some(
+                        ControlFailure::IdentityOrAdmissionRejected | ControlFailure::InvalidControl
+                    ))
                 {
                     return Err(error);
                 }
                 if n0_future::time::Instant::now() >= attempt.deadline {
-                    return Err(control_error("DeadlineExceeded"));
+                    return Err(ControlFailure::DeadlineExceeded.into_io());
                 }
             }
         }
     }
-    let mut prepared = prepared.ok_or_else(|| control_error("DataPathUnavailable"))?;
+    let mut prepared = prepared.ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
     prepared.check(&original, false)?;
     let path_id = prepared
         .path_id
         .clone()
-        .ok_or_else(|| control_error("DataPathUnavailable"))?;
+        .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
     adapter.active_diagnostic(&original, control, "common-ready-begin");
 
     // The first C stream is owned by the adapter's bounded candidate protocol.
@@ -2620,7 +2626,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
                 open_active_stream(control),
             )
             .await
-            .map_err(|_| control_error("DeadlineExceeded"))??;
+            .map_err(|_| ControlFailure::DeadlineExceeded.into_io())??;
             write_active_frame(
                 &ready,
                 ACTIVE_READY_KIND,
@@ -2646,7 +2652,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
                 ),
             )
             .await
-            .map_err(|_| control_error("DeadlineExceeded"))??;
+            .map_err(|_| ControlFailure::DeadlineExceeded.into_io())??;
             adapter.active_diagnostic(&original, control, "common-peer-ready");
             Ok::<_, io::Error>(ready)
         })
@@ -2662,7 +2668,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
             if adapter.authorization_revision(&original, SessionPurpose::MemberBusiness)?
                 != revision
             {
-                return Err(control_error("IdentityOrAdmissionRejected"));
+                return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
             }
             prepared.check(&original, true)?;
             if let Some(retain) = prepared.retain.take() {
@@ -2695,7 +2701,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
                 ),
             )
             .await
-            .map_err(|_| control_error("DeadlineExceeded"))??;
+            .map_err(|_| ControlFailure::DeadlineExceeded.into_io())??;
             adapter.active_diagnostic(&original, control, "peer-committed-observed");
             // Give the queued COMMITTED bytes a transport acknowledgement
             // before returning to the C owner, which closes C on drop.
@@ -2711,7 +2717,7 @@ async fn active_session<C: AuthenticatedControl + Clone, A: MemberPathAdapter<C>
             if adapter.authorization_revision(&original, SessionPurpose::MemberBusiness)?
                 != revision
             {
-                return Err(control_error("IdentityOrAdmissionRejected"));
+                return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
             }
             prepared.check(&original, true)?;
             prepared.committed();
@@ -2778,7 +2784,7 @@ pub(crate) async fn improve_existing<E: ActiveEndpoint, A: MemberPathAdapter<E::
         || original.remote_id() != control.remote_id()
         || original.close_reason().is_some()
     {
-        return Err(control_error("DataPathUnavailable"));
+        return Err(ControlFailure::DataPathUnavailable.into_io());
     }
     let binding = crate::connection_recovery_core::binding(original)?;
     let role = AttemptRole::initial(control);
@@ -2796,7 +2802,7 @@ pub(crate) async fn improve_existing<E: ActiveEndpoint, A: MemberPathAdapter<E::
             open_active_stream(control),
         ))
         .await
-        .map_err(|_| control_error("DeadlineExceeded"))?
+        .map_err(|_| ControlFailure::DeadlineExceeded.into_io())?
         .map_err(|error| active_control_error(control, error))?;
     let peer = log
         .phase("hello", Value::Null)
@@ -2809,7 +2815,7 @@ pub(crate) async fn improve_existing<E: ActiveEndpoint, A: MemberPathAdapter<E::
                 read_active_hello(&exchange),
             )
             .await
-            .map_err(|_| control_error("DeadlineExceeded"))??;
+            .map_err(|_| ControlFailure::DeadlineExceeded.into_io())??;
             Ok::<_, io::Error>(peer)
         })
         .await
@@ -2843,7 +2849,7 @@ pub(crate) async fn wrong_active_binding_fixture(
         || control.remote_id() != original.remote_id()
         || control.alpn() != ACTIVE_IMPROVEMENT_ALPN
     {
-        return Err(control_error("InvalidControl"));
+        return Err(ControlFailure::InvalidControl.into_io());
     }
     let role = AttemptRole::initial(control);
     let mut binding = crate::connection_recovery_core::binding(original)?;
@@ -2859,7 +2865,7 @@ pub(crate) async fn wrong_active_binding_fixture(
         },
     )
     .await
-    .map_err(|_| control_error("DeadlineExceeded"))?
+    .map_err(|_| ControlFailure::DeadlineExceeded.into_io())?
 }
 
 /// Server-side active-control entry. The hello's exporter binding selects the
@@ -2892,7 +2898,7 @@ where
             open_active_stream(control),
         ))
         .await
-        .map_err(|_| control_error("DeadlineExceeded"))??;
+        .map_err(|_| ControlFailure::DeadlineExceeded.into_io())??;
     let (peer, original, local) = log
         .phase("hello", Value::Null)
         .run(async {
@@ -2901,9 +2907,9 @@ where
                 read_active_hello(&exchange),
             )
             .await
-            .map_err(|_| control_error("DeadlineExceeded"))??;
+            .map_err(|_| ControlFailure::DeadlineExceeded.into_io())??;
             let original = lookup(control.remote_id(), &peer.binding)
-                .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
             let bound = endpoint.active_session(&original);
             if control.alpn() != ACTIVE_IMPROVEMENT_ALPN
                 || role != AttemptRole::Responder
@@ -2911,7 +2917,7 @@ where
                 || control.remote_id() != original.remote_id()
                 || crate::connection_recovery_core::binding(&original)? != peer.binding
             {
-                return Err(control_error("IdentityOrAdmissionRejected"));
+                return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
             }
             RuntimeCapabilities {
                 runtime: peer.runtime,
@@ -2957,7 +2963,7 @@ where
             close_active_failure(control, &error);
             return Err(error);
         }
-        Err(error) => return Err(control_error(&format!("active/{error:?}"))),
+        Err(error) => return Err(ControlFailure::Active(error).into_io()),
     };
     let work = async {
         write_active_hello(&exchange, local).await?;
@@ -2976,7 +2982,7 @@ where
     let result = lease
         .run_ref(log.phase("active-session", Value::Null).run(work))
         .await
-        .map_err(|error| control_error(&format!("active/{error:?}")))?;
+        .map_err(|error| ControlFailure::Active(error).into_io())?;
     match result {
         Ok(path) => {
             lease.completed(crate::session_maintenance::Completion::Active(path));
@@ -2992,6 +2998,24 @@ where
 #[cfg(test)]
 mod active_wire_tests {
     use super::*;
+
+    #[test]
+    fn admission_classification_uses_the_original_cause() {
+        use crate::session_maintenance::{LocalNatBudgetError, MaintenanceDeferral};
+
+        let invalid = ControlFailure::InvalidControl.into_io();
+        assert!(matches!(ConnectError::from_admission(&invalid), ConnectError::InvalidControl));
+        let same_text = io::Error::new(invalid.kind(), invalid.to_string());
+        assert!(matches!(ConnectError::from_admission(&same_text), ConnectError::DataPathUnavailable));
+
+        let deferred = io::Error::from(MaintenanceDeferral::Remote);
+        assert!(matches!(ConnectError::from_admission(&deferred), ConnectError::PathDeferred { remote: true }));
+        let same_text = io::Error::new(deferred.kind(), deferred.to_string());
+        assert!(matches!(ConnectError::from_admission(&same_text), ConnectError::DataPathUnavailable));
+
+        let budget = io::Error::from(LocalNatBudgetError::Rounds);
+        assert!(matches!(ConnectError::from_admission(&budget), ConnectError::LocalNatBudget(message) if message == budget.to_string()));
+    }
 
     #[test]
     fn bounded_active_hello_round_trips_and_rejects_mutation() {

@@ -1,3 +1,4 @@
+use crate::connection_coordinator::ControlFailure;
 use super::{AdmissionGate, NativeNetwork, ResourceEndpoint};
 use iroh::protocol::ControlProtocolHandler;
 use std::sync::Arc;
@@ -52,9 +53,7 @@ impl ControlProtocolHandler for ActiveImprovementHandler {
         )
         .await;
         let result = result.unwrap_or_else(|_| {
-            Err(crate::connection_coordinator::control_error(
-                "DeadlineExceeded",
-            ))
+            Err(ControlFailure::DeadlineExceeded.into_io())
         });
         #[cfg(feature = "rtc-probe")]
         println!(

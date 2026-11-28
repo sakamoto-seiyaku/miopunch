@@ -756,12 +756,12 @@ fn dial_error(error: ConnectError) -> io::Error {
             ..
         } => io::ErrorKind::PermissionDenied,
         ConnectError::Connecting {
-            source: ConnectingError::AdmissionFailed { kind, .. },
+            source: ConnectingError::AdmissionFailed { reason, .. },
             ..
-        } => match kind {
+        } => match reason.kind() {
             io::ErrorKind::InvalidData => io::ErrorKind::InvalidInput,
             io::ErrorKind::Interrupted => io::ErrorKind::ConnectionAborted,
-            kind => *kind,
+            kind => kind,
         },
         ConnectError::Connecting {
             source:

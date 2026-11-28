@@ -324,10 +324,7 @@ async fn approved_member_gets_first_relay_reply_and_revoked_member_cannot_open_a
     assert!(
         matches!(
             denied,
-            Err(ConnectingError::AdmissionFailed {
-                kind: ErrorKind::PermissionDenied,
-                ..
-            })
+            Err(ConnectingError::AdmissionFailed { ref reason, .. }) if reason.kind() == ErrorKind::PermissionDenied
         ),
         "responder must reach admission and deny business: {denied:?}"
     );

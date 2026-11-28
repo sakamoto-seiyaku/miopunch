@@ -1,5 +1,6 @@
 //! Experimental Ordinary-M RTC coordinator and owned native DataChannel pump.
 //! Signaling and echo streams stay on the original admitted Connection.
+use crate::connection_coordinator::ControlFailure;
 use crate::control_protocol::AuthenticatedControl;
 use crate::{
     admission_gate::{AdmissionGate, ProtocolScope},
@@ -398,7 +399,7 @@ async fn upgrade(
             | crate::connection_coordinator::RtcRole::Answerer
     ) || !unified.matches(&attempt)
     {
-        return Err(crate::connection_coordinator::control_error("InvalidControl").into());
+        return Err(ControlFailure::InvalidControl.into_io().into());
     }
     let quic_dialer = unified.quic_dialer_for(connection.id(), connection);
     if request["protocol"] != crate::rtc_association::UNIFIED_RTC_PROTOCOL
@@ -422,13 +423,13 @@ async fn upgrade(
             }
             .to_string()
     {
-        return Err(crate::connection_coordinator::control_error("InvalidControl").into());
+        return Err(ControlFailure::InvalidControl.into_io().into());
     }
     let offer = if offerer {
         None
     } else {
         if request["description"]["type"] != "offer" {
-            return Err(crate::connection_coordinator::control_error("InvalidControl").into());
+            return Err(ControlFailure::InvalidControl.into_io().into());
         }
         let offer: RTCSessionDescription = serde_json::from_value(request["description"].clone())?;
         transport.ice_profile().check_remote_sdp(&offer.sdp)?;
@@ -533,7 +534,7 @@ async fn upgrade(
                     || answer["channel"] != datagram_channel_parameters()
                     || answer["description"]["type"] != "answer"
                 {
-                    return Err(crate::connection_coordinator::control_error("InvalidControl").into());
+                    return Err(ControlFailure::InvalidControl.into_io().into());
                 }
                 let remote: RTCSessionDescription =
                     serde_json::from_value(answer["description"].clone())?;
@@ -751,7 +752,7 @@ async fn upgrade(
     };
 
     if outcome.is_ok() {
-        use crate::connection_coordinator::{PreparedPath, control_error};
+        use crate::connection_coordinator::PreparedPath;
         let mut report = outcome.unwrap();
         let probe = Arc::new(
             initial_unified_probe
@@ -775,12 +776,12 @@ async fn upgrade(
             iroh::TransportAddr::Custom(remote),
             move || {
                 if !io.is_active() {
-                    return Err(control_error("DataPathUnavailable"));
+                    return Err(ControlFailure::DataPathUnavailable.into_io());
                 }
                 if let Some(proof) = checked_final.lock().unwrap().as_ref()
                     && !proof.is_acknowledged()?
                 {
-                    return Err(control_error("DataPathUnavailable"));
+                    return Err(ControlFailure::DataPathUnavailable.into_io());
                 }
                 Ok(())
             },
@@ -792,7 +793,7 @@ async fn upgrade(
                 // This finite finalizer owns only the narrowed path capability.
                 // The post-release lifetime observer keeps a non-upgradable weak handle.
                 let current = retained_control;
-                if !original.is_open() {return Err(control_error("DataPathUnavailable"));}
+                if !original.is_open() {return Err(ControlFailure::DataPathUnavailable.into_io());}
 
                 let finalize = async {
 
@@ -820,7 +821,7 @@ async fn upgrade(
                         || !gate.allows(&current, ProtocolScope::Member)
                         || !lease.io().is_active()
                     {
-                        return Err(control_error("IdentityOrAdmissionRejected"));
+                        return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
                     }
 
                     let started = budget.elapsed_ms();
@@ -829,7 +830,7 @@ async fn upgrade(
                         || !gate.allows(&current, ProtocolScope::Member)
                         || session_binding(&current).map_err(std::io::Error::other)? != binding_before
                     {
-                        return Err(control_error("IdentityOrAdmissionRejected"));
+                        return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
                     }
                     // The restricted control seal was installed once during
                     // preparation. Renew the exact lease, never reseal M.
@@ -877,7 +878,7 @@ async fn upgrade(
                     || !gate.allows(&current, ProtocolScope::Member)
                     || !lease.io().is_active()
                 {
-                    return Err(control_error("IdentityOrAdmissionRejected"));
+                    return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
                 }
                 println!("{}", json!({"event":"rtc-path","report":report}));
                 drop(current);
@@ -1011,7 +1012,7 @@ pub(crate) async fn bootstrap_control_unified_handle(
     transport: &RtcTransport,
     attempt: crate::connection_coordinator::ProtectedAttempt,
 ) -> std::io::Result<crate::connection_coordinator::PreparedPath> {
-    use crate::connection_coordinator::{RtcRole, control_error};
+    use crate::connection_coordinator::RtcRole;
     let (exchange, request) = match attempt.rtc_role {
         RtcRole::Answerer => {
             let exchange = connection.accept_control_exchange().await?;
@@ -1021,11 +1022,11 @@ pub(crate) async fn bootstrap_control_unified_handle(
         RtcRole::Offerer => {
             let proof = gate
                 .proof_for(connection)
-                .ok_or_else(|| control_error("IdentityOrAdmissionRejected"))?;
+                .ok_or_else(|| ControlFailure::IdentityOrAdmissionRejected.into_io())?;
             let budget = RtcDeadline::from_caller(
                 connection
                     .caller_deadline()
-                    .ok_or_else(|| control_error("InvalidControl"))?,
+                    .ok_or_else(|| ControlFailure::InvalidControl.into_io())?,
             );
             let id = attempt.id_hex();
             let context = attempt_context(
@@ -1042,20 +1043,19 @@ pub(crate) async fn bootstrap_control_unified_handle(
                 "remainingMs":budget.remaining()?.as_millis() as u64});
             (connection.open_control_exchange().await?, request)
         }
-        RtcRole::None => return Err(control_error("InvalidControl")),
+        RtcRole::None => return Err(ControlFailure::InvalidControl.into_io()),
     };
     upgrade(
         connection, gate, transport, request, &exchange, true, attempt, false, None,
     )
     .await
     .map_err(|error| {
-        if error.to_string().starts_with("unified/") {
-            std::io::Error::other(error.to_string())
-        } else {
-            crate::connection_coordinator::control_error("DataPathUnavailable")
+        match error.downcast_ref::<std::io::Error>().and_then(ControlFailure::from_io) {
+            Some(cause) => std::io::Error::other(cause),
+            None => ControlFailure::DataPathUnavailable.into_io(),
         }
     })?
-    .ok_or_else(|| crate::connection_coordinator::control_error("DataPathUnavailable"))
+    .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())
 }
 
 /// Active M improvement adapter. SDP and candidate control run on the
@@ -1069,10 +1069,10 @@ pub(crate) async fn bootstrap_control_active_handles(
     transport: &RtcTransport,
     attempt: crate::connection_coordinator::ProtectedAttempt,
 ) -> std::io::Result<crate::connection_coordinator::PreparedPath> {
-    use crate::connection_coordinator::{RtcRole, control_error};
+    use crate::connection_coordinator::RtcRole;
     let proof = gate
         .proof_for(original)
-        .ok_or_else(|| control_error("IdentityOrAdmissionRejected"))?;
+        .ok_or_else(|| ControlFailure::IdentityOrAdmissionRejected.into_io())?;
     let caller_deadline = control
         .caller_deadline()
         .unwrap_or_else(|| n0_future::time::Instant::now() + crate::connection_budget::DEFAULT);
@@ -1097,7 +1097,7 @@ pub(crate) async fn bootstrap_control_active_handles(
             let request = crate::rtc_wire::read_control(&exchange).await?;
             (exchange, request)
         }
-        RtcRole::None => return Err(control_error("InvalidControl")),
+        RtcRole::None => return Err(ControlFailure::InvalidControl.into_io()),
     };
     upgrade(
         original,
@@ -1112,11 +1112,10 @@ pub(crate) async fn bootstrap_control_active_handles(
     )
     .await
     .map_err(|error| {
-        if error.to_string().starts_with("unified/") {
-            std::io::Error::other(error.to_string())
-        } else {
-            std::io::Error::other(error.to_string())
+        match error.downcast_ref::<std::io::Error>().and_then(ControlFailure::from_io) {
+            Some(cause) => std::io::Error::other(cause),
+            None => std::io::Error::other(error),
         }
     })?
-    .ok_or_else(|| control_error("DataPathUnavailable"))
+    .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())
 }

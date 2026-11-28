@@ -36,14 +36,6 @@ impl MaintenanceDeferral {
     pub(crate) fn from_error(error: &io::Error) -> Option<&Self> {
         error.get_ref()?.downcast_ref()
     }
-
-    pub(crate) fn message_is_remote(message: &str) -> Option<bool> {
-        match message {
-            REMOTE_DEFERRAL => Some(true),
-            LOCAL_DEFERRAL => Some(false),
-            _ => None,
-        }
-    }
 }
 
 impl From<MaintenanceDeferral> for io::Error {
@@ -69,18 +61,6 @@ pub(crate) enum LocalNatBudgetError {
 impl LocalNatBudgetError {
     pub(crate) fn is_local_limit(error: &io::Error) -> bool {
         error.get_ref().is_some_and(|cause| cause.is::<Self>())
-    }
-
-    pub(crate) fn matches_message(message: &str) -> bool {
-        [
-            Self::Observations,
-            Self::PeerDatagrams,
-            Self::Direct,
-            Self::Rounds,
-            Self::Plan,
-        ]
-        .iter()
-        .any(|cause| cause.to_string() == message)
     }
 }
 

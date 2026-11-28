@@ -1,4 +1,5 @@
 //! Same-M Ordinary RTC experiment, using the existing member and endpoint.
+use crate::connection_coordinator::ControlFailure;
 use super::rtc::{Association, stats};
 use super::*;
 use crate::{
@@ -294,15 +295,23 @@ async fn metadata(association: &Association) -> Result<Value, JsValue> {
     Ok(report)
 }
 
+// Browser API exceptions can disqualify the RTC candidate. Protected protocol
+// failures are generated as ControlFailure by the negotiation itself.
+impl From<JsValue> for ControlFailure {
+    fn from(_: JsValue) -> Self {
+        Self::DataPathUnavailable
+    }
+}
+
 pub(super) async fn bootstrap_control_unified(
     connection: &ControlHandle,
     gate: &BrowserGate,
     saved: &SavedNode,
     transport: &crate::rtc_transport::RtcTransport,
     attempt: crate::connection_coordinator::ProtectedAttempt,
-) -> Result<(Value, crate::connection_coordinator::PreparedPath), JsValue> {
+) -> Result<(Value, crate::connection_coordinator::PreparedPath), ControlFailure> {
     if attempt.rtc_role == crate::connection_coordinator::RtcRole::None {
-        return Err(error("unified/InvalidControl"));
+        return Err(ControlFailure::InvalidControl);
     }
     let (report, prepared) =
         bootstrap_control_inner(connection, gate, saved, transport, attempt).await?;
@@ -320,11 +329,11 @@ pub(super) async fn bootstrap_control_active(
     saved: &SavedNode,
     transport: &crate::rtc_transport::RtcTransport,
     attempt: crate::connection_coordinator::ProtectedAttempt,
-) -> Result<crate::connection_coordinator::PreparedPath, JsValue> {
-    use crate::connection_coordinator::{PreparedPath, RtcRole, control_error};
+) -> Result<crate::connection_coordinator::PreparedPath, ControlFailure> {
+    use crate::connection_coordinator::{PreparedPath, RtcRole};
     let offerer = attempt.rtc_role == RtcRole::Offerer;
     if !matches!(attempt.rtc_role, RtcRole::Offerer | RtcRole::Answerer) {
-        return Err(error("unified/InvalidControl"));
+        return Err(ControlFailure::InvalidControl);
     }
     let budget = RtcDeadline::from_caller(attempt_deadline(&attempt, control)?);
     let stable = original.stable_id();
@@ -399,14 +408,14 @@ pub(super) async fn bootstrap_control_active(
             || request["rtcAnswerer"] != original.local_id().to_string()
             || request["description"]["type"] != "offer"
         {
-            return Err(error("unified/InvalidControl"));
+            return Err(ControlFailure::InvalidControl);
         }
         transport
             .ice_profile()
             .check_remote_sdp(
                 request["description"]["sdp"]
                     .as_str()
-                    .ok_or_else(|| error("unified/InvalidControl"))?,
+                    .ok_or_else(|| ControlFailure::InvalidControl)?,
             )
             .map_err(error)?;
         record_progress("answerer-validate-offer", true);
@@ -422,7 +431,7 @@ pub(super) async fn bootstrap_control_active(
             record_progress("answerer-set-remote-route", false);
             owner.lease.set_remote(iroh_base::CustomAddr::from_parts(
                 crate::rtc_transport::TRANSPORT_ID,
-                &hex::decode(request["route"].as_str().ok_or_else(|| error("unified/InvalidControl"))?).map_err(error)?,
+                &hex::decode(request["route"].as_str().ok_or_else(|| ControlFailure::InvalidControl)?).map_err(error)?,
             )).map_err(error)?;
             record_progress("answerer-set-remote-route", true);
         }
@@ -444,14 +453,14 @@ pub(super) async fn bootstrap_control_active(
                 || answer["channel"] != datagram_channel_parameters()
                 || answer["description"]["type"] != "answer"
             {
-                return Err(error("unified/InvalidControl"));
+                return Err(ControlFailure::InvalidControl);
             }
             record_progress("offerer-validate-answer", false);
             owner.lease.set_remote(iroh_base::CustomAddr::from_parts(
                 crate::rtc_transport::TRANSPORT_ID,
-                &hex::decode(answer["route"].as_str().ok_or_else(|| error("unified/InvalidControl"))?).map_err(error)?,
+                &hex::decode(answer["route"].as_str().ok_or_else(|| ControlFailure::InvalidControl)?).map_err(error)?,
             )).map_err(error)?;
-            let remote_sdp = answer["description"]["sdp"].as_str().ok_or_else(|| error("unified/InvalidControl"))?;
+            let remote_sdp = answer["description"]["sdp"].as_str().ok_or_else(|| ControlFailure::InvalidControl)?;
             transport.ice_profile().check_remote_sdp(remote_sdp).map_err(error)?;
             let init = RtcSessionDescriptionInit::new(RtcSdpType::Answer);
             init.set_sdp(remote_sdp);
@@ -461,7 +470,7 @@ pub(super) async fn bootstrap_control_active(
         } else {
             record_progress("answerer-signaling", false);
             let offer = RtcSessionDescriptionInit::new(RtcSdpType::Offer);
-            offer.set_sdp(request["description"]["sdp"].as_str().ok_or_else(|| error("unified/InvalidControl"))?);
+            offer.set_sdp(request["description"]["sdp"].as_str().ok_or_else(|| ControlFailure::InvalidControl)?);
             JsFuture::from(owner.association.pc.set_remote_description(&offer)).await?;
             let answer: RtcSessionDescriptionInit = JsFuture::from(owner.association.pc.create_answer()).await?.unchecked_into();
             JsFuture::from(owner.association.pc.set_local_description(&answer)).await?;
@@ -480,13 +489,13 @@ pub(super) async fn bootstrap_control_active(
         if metadata["channel"] != datagram_channel_parameters()
             || metadata["maxMessageSize"].as_f64().is_none_or(|size| size < MAX_DATAGRAM as f64)
         {
-            return Err(error("unified/InvalidControl"));
+            return Err(ControlFailure::InvalidControl);
         }
         record_progress("data-channel-metadata", true);
         record_progress("lease-activate", false);
         owner.lease.activate().map_err(error)?;
         record_progress("lease-activate", true);
-        Ok::<_, JsValue>(metadata)
+        Ok::<_, ControlFailure>(metadata)
     }).await.map_err(error)??;
     // Only the pump owns retirement observation after activation.
     owner.start_pump(original.weak_handle());
@@ -507,10 +516,10 @@ pub(super) async fn bootstrap_control_active(
                         Err(cause) if cause.kind() == std::io::ErrorKind::WouldBlock => {
                             n0_future::time::sleep(Duration::from_millis(10)).await
                         }
-                        Err(cause) => return Err(error(cause)),
+                        Err(_) => return Err(ControlFailure::DataPathUnavailable),
                     }
                 }
-                Ok::<_, JsValue>(())
+                Ok::<_, ControlFailure>(())
             })
             .await?;
         record_progress("data-path-open", true);
@@ -541,7 +550,7 @@ pub(super) async fn bootstrap_control_active(
                     Err(cause) if cause.kind() == std::io::ErrorKind::WouldBlock => {
                         n0_future::time::sleep(Duration::from_millis(10)).await
                     }
-                    Err(cause) => return Err(error(cause)),
+                    Err(_) => return Err(ControlFailure::DataPathUnavailable),
                 }
             };
             record_progress("probe-start", true);
@@ -549,11 +558,11 @@ pub(super) async fn bootstrap_control_active(
             while !probe.is_acknowledged().map_err(error)? {
                 budget.remaining().map_err(error)?;
                 if revision.load(Ordering::Acquire) != observed || !owner.lease.io().is_active() {
-                    return Err(error("unified/IdentityOrAdmissionRejected"));
+                    return Err(ControlFailure::IdentityOrAdmissionRejected);
                 }
                 n0_future::time::sleep(Duration::from_millis(10)).await;
             }
-            Ok::<_, JsValue>((probe, probe_started_ms))
+            Ok::<_, ControlFailure>((probe, probe_started_ms))
         })
         .await?;
     let ack_ms = budget.elapsed_ms();
@@ -565,13 +574,13 @@ pub(super) async fn bootstrap_control_active(
         || !owner.lease.io().is_active()
         || binding(original)? != original_binding
     {
-        return Err(error("unified/IdentityOrAdmissionRejected"));
+        return Err(ControlFailure::IdentityOrAdmissionRejected);
     }
     let paths = original.paths();
     let path = paths
         .iter()
         .find(|path| path.id().to_string() == probe.path_id())
-        .ok_or_else(|| error("unified/DataPathUnavailable"))?;
+        .ok_or_else(|| ControlFailure::DataPathUnavailable)?;
     let before_retain_frames = json!({"streamSent":path.stats().frame_tx.stream,
         "streamReceived":path.stats().frame_rx.stream,"datagramSent":path.stats().frame_tx.datagram,
         "datagramReceived":path.stats().frame_rx.datagram});
@@ -601,7 +610,7 @@ pub(super) async fn bootstrap_control_active(
         if current_io.is_active() {
             Ok(())
         } else {
-            Err(control_error("DataPathUnavailable"))
+            Err(ControlFailure::DataPathUnavailable.into_io())
         }
     })
     .with_proof(initial_path, initial_watermark, move || {
@@ -613,28 +622,28 @@ pub(super) async fn bootstrap_control_active(
             let (owner, mut report) = pending.take();
             let current = pending_original;
             if current.close_reason().is_some() {
-                return Err(control_error("DataPathUnavailable"));
+                return Err(ControlFailure::DataPathUnavailable.into_io());
             }
             gate_for_retain
                 .qualified_snapshot(&current)
                 .await
-                .map_err(|_| control_error("IdentityOrAdmissionRejected"))?;
+                .map_err(|_| ControlFailure::IdentityOrAdmissionRejected.into_io())?;
             if revision.load(Ordering::Acquire) != observed || !owner.lease.io().is_active() {
-                return Err(control_error("IdentityOrAdmissionRejected"));
+                return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
             }
             let started = budget.elapsed_ms();
             let final_probe = owner.lease.validate_release(&current, budget).await?;
             gate_for_retain
                 .qualified_snapshot(&current)
                 .await
-                .map_err(|_| control_error("IdentityOrAdmissionRejected"))?;
+                .map_err(|_| ControlFailure::IdentityOrAdmissionRejected.into_io())?;
             if revision.load(Ordering::Acquire) != observed
                 || !owner.lease.io().is_active()
                 || current.stable_id() != stable
-                || binding(&current).map_err(|_| control_error("IdentityOrAdmissionRejected"))?
+                || binding(&current).map_err(|_| ControlFailure::IdentityOrAdmissionRejected.into_io())?
                     != original_binding
             {
-                return Err(control_error("IdentityOrAdmissionRejected"));
+                return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
             }
             owner.lease.retain(&current, &final_probe)?;
             current
@@ -644,7 +653,7 @@ pub(super) async fn bootstrap_control_active(
             report["finalized"] = json!(true);
             report["stableUnchanged"] = json!(current.stable_id() == stable);
             report["bindingUnchanged"] = json!(
-                binding(&current).map_err(|_| control_error("IdentityOrAdmissionRejected"))?
+                binding(&current).map_err(|_| ControlFailure::IdentityOrAdmissionRejected.into_io())?
                     == original_binding
             );
             report["finalReleaseFreshAck"] = json!(final_probe.is_acknowledged()?);
@@ -703,7 +712,7 @@ pub(super) async fn bootstrap_control_inner(
     saved: &SavedNode,
     transport: &crate::rtc_transport::RtcTransport,
     unified: crate::connection_coordinator::ProtectedAttempt,
-) -> Result<(Value, crate::connection_coordinator::PreparedPath), JsValue> {
+) -> Result<(Value, crate::connection_coordinator::PreparedPath), ControlFailure> {
     let offerer = unified.rtc_role == crate::connection_coordinator::RtcRole::Offerer;
     let caller_deadline = connection
         .caller_deadline()
@@ -755,7 +764,7 @@ pub(super) async fn bootstrap_control_inner(
         let remaining = request["remainingMs"]
             .as_u64()
             .filter(|remaining| *remaining > 0 && *remaining <= crate::connection_budget::MAX_MS)
-            .ok_or_else(|| error("unified/InvalidControl"))?;
+            .ok_or_else(|| ControlFailure::InvalidControl)?;
         if request["protocol"] != protocol
             || request["attempt"] != attempt
             || request["context"] != context
@@ -766,11 +775,11 @@ pub(super) async fn bootstrap_control_inner(
             || request["rtcAnswerer"] != connection.local_id().to_string()
             || request["description"]["type"] != "offer"
         {
-            return Err(error("unified/InvalidControl"));
+            return Err(ControlFailure::InvalidControl);
         }
         let sdp = request["description"]["sdp"]
             .as_str()
-            .ok_or_else(|| error("unified/InvalidControl"))?;
+            .ok_or_else(|| ControlFailure::InvalidControl)?;
         transport
             .ice_profile()
             .check_remote_sdp(sdp)
@@ -803,7 +812,7 @@ pub(super) async fn bootstrap_control_inner(
                 let answer = phase(&exchange, "answer").await?;
                 if answer["attempt"] != attempt || answer["binding"] != protected_binding || answer["channel"] != datagram_channel_parameters()
                     || answer["description"]["type"] != "answer" {
-                    return Err(error("unified/InvalidControl"));
+                    return Err(ControlFailure::InvalidControl);
                 }
                 owner.lease.set_remote(iroh_base::CustomAddr::from_parts(crate::rtc_transport::TRANSPORT_ID,
                     &hex::decode(answer["route"].as_str().ok_or_else(|| error("RTC peer route absent"))?).map_err(error)?)).map_err(error)?;
@@ -814,7 +823,7 @@ pub(super) async fn bootstrap_control_inner(
                 init.set_sdp(remote_sdp);
                 JsFuture::from(owner.association.pc.set_remote_description(&init)).await?;
             } else {
-                let request = request.as_ref().ok_or_else(|| error("unified/InvalidControl"))?;
+                let request = request.as_ref().ok_or_else(|| ControlFailure::InvalidControl)?;
                 owner.lease.set_remote(iroh_base::CustomAddr::from_parts(crate::rtc_transport::TRANSPORT_ID,
                     &hex::decode(request["route"].as_str().ok_or_else(|| error("RTC peer route absent"))?).map_err(error)?)).map_err(error)?;
                 let offer = RtcSessionDescriptionInit::new(RtcSdpType::Offer);
@@ -846,10 +855,10 @@ pub(super) async fn bootstrap_control_inner(
             let opening = channel_metadata(&owner.association)?;
             if opening["channel"] != datagram_channel_parameters()
                 || opening["maxMessageSize"].as_f64().is_none_or(|maximum| maximum < MAX_DATAGRAM as f64)
-            { return Err(error("RTC negotiated profile/maximum mismatch")); }
+            { return Err(ControlFailure::DataPathUnavailable); }
 
             owner.lease.activate().map_err(error)?;
-            Ok::<_, JsValue>(opening)
+            Ok::<_, ControlFailure>(opening)
         }).await.map_err(error)??;
         owner.start_pump(connection.weak_handle());
 
@@ -872,10 +881,10 @@ pub(super) async fn bootstrap_control_inner(
                     match result {
                         Ok(())=>break,
                         Err(cause) if cause.kind()==std::io::ErrorKind::WouldBlock=>n0_future::time::sleep(Duration::from_millis(10)).await,
-                        Err(cause)=>return Err(error(cause)),
+                        Err(_)=>return Err(ControlFailure::DataPathUnavailable),
                     }
                 }
-                Ok::<_,JsValue>(())
+                Ok::<_, ControlFailure>(())
                 }).await?;
             }
 
@@ -884,7 +893,7 @@ pub(super) async fn bootstrap_control_inner(
                 match owner.lease.start_probe(connection) {
                     Ok(probe)=>break probe,
                     Err(cause) if cause.kind()==std::io::ErrorKind::WouldBlock=>n0_future::time::sleep(Duration::from_millis(10)).await,
-                    Err(cause)=>return Err(error(cause)),
+                    Err(_)=>return Err(ControlFailure::DataPathUnavailable),
                 }
             };
             let started=budget.elapsed_ms();
@@ -895,7 +904,7 @@ pub(super) async fn bootstrap_control_inner(
 
             gate.qualified_snapshot(connection).await?;
             if revision.load(Ordering::Acquire)!=observed || !owner.lease.io().is_active() {
-                return Err(error("RTC initial qualification changed before control seal"));
+                return Err(ControlFailure::DataPathUnavailable);
             }
             let paths=connection.paths();
             let path=paths.iter().find(|path|path.id().to_string()==probe.path_id()).ok_or_else(||error("RTC initial exact path disappeared"))?;
@@ -922,13 +931,13 @@ pub(super) async fn bootstrap_control_inner(
     let outcome = {
         futures_util::pin_mut!(work, closed);
         n0_future::time::timeout(budget.remaining().map_err(error)?, async {
-            futures_util::select_biased! { _ = closed => Err(error("RTC original M closed")), result = work => result }
-        }).await.map_err(|_| error("RTC original caller deadline exceeded")).and_then(|result|result)
+            futures_util::select_biased! { _ = closed => Err(ControlFailure::DataPathUnavailable), result = work => result }
+        }).await.map_err(|_| ControlFailure::DataPathUnavailable).and_then(|result|result)
     };
 
     let report = outcome?;
 
-    use crate::connection_coordinator::{PreparedPath, control_error};
+    use crate::connection_coordinator::PreparedPath;
     let probe = Arc::new(
         initial_unified_probe
             .take()
@@ -950,9 +959,9 @@ pub(super) async fn bootstrap_control_inner(
     let pending =
         send_wrapper::SendWrapper::new((owner, gate.clone(), transport.clone(), report.clone()));
     let prepared = PreparedPath::candidate(connection,iroh::TransportAddr::Custom(remote),move || {
-            if !io.is_active() { return Err(control_error("DataPathUnavailable")); }
+            if !io.is_active() { return Err(ControlFailure::DataPathUnavailable.into_io()); }
             if let Some(proof)=checked_final.lock().unwrap().as_ref() && !proof.is_acknowledged()? {
-                return Err(control_error("DataPathUnavailable"));
+                return Err(ControlFailure::DataPathUnavailable.into_io());
             }
             Ok(())
         })
@@ -961,7 +970,7 @@ pub(super) async fn bootstrap_control_inner(
         .with_retain(move || Box::pin(send_wrapper::SendWrapper::new(async move {
             let (owner,gate,transport,mut report)=pending.take();
             let current=pending_original;
-            if current.close_reason().is_some() { return Err(control_error("DataPathUnavailable")); }
+            if current.close_reason().is_some() { return Err(ControlFailure::DataPathUnavailable.into_io()); }
 
             let finalize=async {
 
@@ -975,16 +984,16 @@ pub(super) async fn bootstrap_control_inner(
                         "authorizationRevision":observed,"secretGeneration":generation,"resourceRevision":transport.resource_revision()}),
                     Arc::new(move || actual.report())).await?;
 
-                gate.qualified_snapshot(&current).await.map_err(|_|control_error("IdentityOrAdmissionRejected"))?;
+                gate.qualified_snapshot(&current).await.map_err(|_|ControlFailure::IdentityOrAdmissionRejected.into_io())?;
                 if revision.load(Ordering::Acquire)!=observed || !owner.lease.io().is_active() {
-                    return Err(control_error("IdentityOrAdmissionRejected"));
+                    return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
                 }
 
                 let started=budget.elapsed_ms();
                 let final_ack=Arc::new(owner.lease.validate_release(&current,budget).await?);
-                gate.qualified_snapshot(&current).await.map_err(|_|control_error("IdentityOrAdmissionRejected"))?;
-                if revision.load(Ordering::Acquire)!=observed || binding(&current).map_err(|_|control_error("IdentityOrAdmissionRejected"))?!=original_binding {
-                    return Err(control_error("IdentityOrAdmissionRejected"));
+                gate.qualified_snapshot(&current).await.map_err(|_|ControlFailure::IdentityOrAdmissionRejected.into_io())?;
+                if revision.load(Ordering::Acquire)!=observed || binding(&current).map_err(|_|ControlFailure::IdentityOrAdmissionRejected.into_io())?!=original_binding {
+                    return Err(ControlFailure::IdentityOrAdmissionRejected.into_io());
                 }
                 owner.lease.retain(&current,&final_ack)?;
                 report["prepared"]=json!(false);

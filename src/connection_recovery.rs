@@ -230,7 +230,7 @@ impl core::RecoveryEndpoint for FusedRecovery<'_> {
             .map_err(|error| {
                 let kind = match &error {
                     ConnectingError::LocallyRejected { .. } => io::ErrorKind::PermissionDenied,
-                    ConnectingError::AdmissionFailed { kind, .. } => *kind,
+                    ConnectingError::AdmissionFailed { reason, .. } => reason.kind(),
                     ConnectingError::AttemptTimedOut { .. } => io::ErrorKind::TimedOut,
                     ConnectingError::AttemptCancelled { .. } => io::ErrorKind::Interrupted,
                     _ => io::ErrorKind::Other,

@@ -2289,8 +2289,7 @@ pub(super) async fn finish_admission(
             tracing::debug!(%error, "restricted endpoint admission failed");
             connection.close(0u32.into(), b"restricted endpoint admission failed");
             Err(e!(ConnectingError::AdmissionFailed {
-                reason: error.to_string(),
-                kind: error.kind()
+                reason: Arc::new(error)
             }))
         }
     }

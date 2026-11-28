@@ -1,6 +1,7 @@
 //! Protected, bounded direct UDP candidates before any punching recommendation.
+use crate::connection_coordinator::ControlFailure;
 use crate::{
-    admission_gate::AdmissionGate, connection_coordinator::control_error,
+    admission_gate::AdmissionGate,
     control_session::ControlSession, nat_selector::LearningScope,
 };
 use iroh::endpoint::{
@@ -63,12 +64,12 @@ async fn receive(exchange: &ControlExchange) -> io::Result<Frame> {
                     Some(ReadToEndError::TooLong)
                 )
             {
-                control_error("InvalidControl")
+                ControlFailure::InvalidControl.into_io()
             } else {
                 error
             }
         })?;
-    serde_json::from_slice(&bytes).map_err(|_| control_error("InvalidControl"))
+    serde_json::from_slice(&bytes).map_err(|_| ControlFailure::InvalidControl.into_io())
 }
 
 async fn receive_result(exchange: &ControlExchange, nonce: [u8; 16]) -> io::Result<(bool, bool)> {
@@ -78,13 +79,13 @@ async fn receive_result(exchange: &ControlExchange, nonce: [u8; 16]) -> io::Resu
             available,
             more_candidates,
         } if result == nonce => Ok((available, more_candidates)),
-        _ => Err(control_error("InvalidControl")),
+        _ => Err(ControlFailure::InvalidControl.into_io()),
     }
 }
 
 fn validate(addresses: &[SocketAddr]) -> io::Result<()> {
     if addresses.len() > MAX_ADDRESSES || addresses.iter().any(|address| !valid(*address)) {
-        return Err(control_error("InvalidControl"));
+        return Err(ControlFailure::InvalidControl.into_io());
     }
     Ok(())
 }
@@ -379,7 +380,7 @@ pub(crate) async fn attempt(
                         addresses: remote,
                     } = receive(&exchange).await?
                     else {
-                        return Err(control_error("InvalidControl"));
+                        return Err(ControlFailure::InvalidControl.into_io());
                     };
                     validate(&remote)?;
                     check()?;
@@ -389,7 +390,7 @@ pub(crate) async fn attempt(
                     if !matches!(receive(&exchange).await?, Frame::Hello { network, generation }
                     if network == scope.network && generation == scope.secret_generation)
                     {
-                        return Err(control_error("InvalidControl"));
+                        return Err(ControlFailure::InvalidControl.into_io());
                     }
                     let nonce = rand::random();
                     check()?;
@@ -411,7 +412,7 @@ pub(crate) async fn attempt(
                 send(&exchange, Frame::Offer { nonce, addresses }).await?;
                 let reply = receive(&exchange).await?;
                 if !matches!(reply, Frame::Ready { nonce: ack } if ack == nonce) {
-                    return Err(control_error("InvalidControl"));
+                    return Err(ControlFailure::InvalidControl.into_io());
                 }
                 return Ok(remote);
             }
@@ -421,10 +422,10 @@ pub(crate) async fn attempt(
                 addresses: remote,
             } = receive(&exchange).await?
             else {
-                return Err(control_error("InvalidControl"));
+                return Err(ControlFailure::InvalidControl.into_io());
             };
             if offered != nonce {
-                return Err(control_error("InvalidControl"));
+                return Err(ControlFailure::InvalidControl.into_io());
             }
             validate(&remote)?;
             check()?;
