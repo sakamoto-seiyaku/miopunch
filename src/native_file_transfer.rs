@@ -191,7 +191,7 @@ impl NativeFiles {
             })
         })
     }
-    fn enforce_access(self: &Arc<Self>) {
+    pub(crate) fn enforce_access(self: &Arc<Self>) {
         let access = self.access.lock().unwrap().clone();
         let Some(access) = access else { return };
         let mut peers: Vec<_> = access.auth.nodes().into_iter().map(|(id, _)| id).collect();
@@ -323,8 +323,7 @@ impl NativeFiles {
         Ok(requested)
     }
 
-    pub async fn expire(self: &Arc<Self>) {
-        self.enforce_access();
+    pub(crate) async fn expire_partials(&self) {
         let expired: Vec<_> = self
             .partials
             .lock()
@@ -495,7 +494,8 @@ impl NativeFiles {
             .unwrap()
             .clone()
             .ok_or(FileError::ServiceDisabled)?;
-        self.expire().await;
+        self.enforce_access();
+        self.expire_partials().await;
         let mut partials = self.partials.lock().await;
         if generation != self.generation.load(Ordering::Acquire) {
             return Err(FileError::ServiceDisabled);

@@ -18,12 +18,37 @@ pub(crate) struct NativeServices {
     path: PathBuf,
     records: Vec<Vec<u8>>,
     pub guest: Option<GuestInvitation>,
-    pub clipboard: Option<std::sync::Weak<crate::native_clipboard::NativeClipboard>>,
-    pub forwarding: Option<std::sync::Weak<crate::native_forwarding::NativeForwarding>>,
-    pub web: Option<std::sync::Weak<crate::native_web::NativeWeb>>,
-    pub terminal: Option<std::sync::Weak<crate::native_terminal::NativeTerminal>>,
+    clipboard: Option<std::sync::Weak<crate::native_clipboard::NativeClipboard>>,
+    forwarding: Option<std::sync::Weak<crate::native_forwarding::NativeForwarding>>,
+    web: Option<std::sync::Weak<crate::native_web::NativeWeb>>,
+    terminal: Option<std::sync::Weak<crate::native_terminal::NativeTerminal>>,
 }
 impl NativeServices {
+    pub(crate) fn attach_runtimes(
+        &mut self,
+        files: &Arc<NativeFiles>,
+        clipboard: &Arc<crate::native_clipboard::NativeClipboard>,
+        forwarding: &Arc<crate::native_forwarding::NativeForwarding>,
+        web: &Arc<crate::native_web::NativeWeb>,
+        terminal: &Arc<crate::native_terminal::NativeTerminal>,
+        access: ServiceAccess,
+    ) {
+        self.clipboard = Some(Arc::downgrade(clipboard));
+        self.forwarding = Some(Arc::downgrade(forwarding));
+        self.web = Some(Arc::downgrade(web));
+        self.terminal = Some(Arc::downgrade(terminal));
+        self.publish_access(files, access);
+    }
+
+    pub(crate) async fn refresh_access(
+        &self,
+        node: &NativeNetwork,
+        files: &Arc<NativeFiles>,
+    ) -> Result<(), ClientError> {
+        self.publish_access(files, self.access(node).await?);
+        Ok(())
+    }
+
     pub(crate) fn publish_access(&self, files: &Arc<NativeFiles>, access: ServiceAccess) {
         if let Some(terminal) = self.terminal.as_ref().and_then(std::sync::Weak::upgrade) {
             terminal.enforce_access(&access);

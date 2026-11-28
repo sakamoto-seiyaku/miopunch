@@ -84,7 +84,7 @@ async fn install(
 ) -> Result<(), ClientError> {
     node.ingest_management_record(&approval.record, None)
         .await?;
-    services.publish_access(files, services.access(node).await?);
+    services.refresh_access(node, files).await?;
     Ok(())
 }
 
@@ -586,7 +586,7 @@ pub(crate) async fn serve_departure(
                 node.store.apply_batch(&records).await?;
                 node.refresh_authorization();
                 let services = services.lock().await;
-                services.publish_access(files, services.access(&node).await?);
+                services.refresh_access(&node, files).await?;
                 if !delivery.approval.effect_current(node.store.authorization()) {
                     return Err("departure decision did not apply".into());
                 }
@@ -699,7 +699,7 @@ pub(crate) async fn receive_removal_notice(
         node.store.apply_batch(&records).await?;
         node.refresh_authorization();
         let services = services.lock().await;
-        services.publish_access(&files, services.access(&node).await?);
+        services.refresh_access(&node, &files).await?;
         Ok(true)
     }).await?
 }

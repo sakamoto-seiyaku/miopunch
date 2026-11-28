@@ -57,8 +57,7 @@ impl NativeClient {
                     attempt.failed(error.to_string());
                 }
             }
-            client_runtime.files
-                .update_access(client_runtime.services.lock().await.access(&node).await?);
+            client_runtime.services.lock().await.refresh_access(&node, &client_runtime.files).await?;
             result.map(|progress| {
                 json!({"stage":format!("{:?}", progress.stage),
                 "authorization":progress.authorization,"node":node.status().node_id,

@@ -338,28 +338,20 @@ impl NativeClientRuntime {
             services.apply(&node, &files, change).await?;
         }
         let access = services.access(&node).await?;
-        files.update_access(access.clone());
-        let services = Arc::new(Mutex::new(services));
         let clipboard =
             crate::native_clipboard::NativeClipboard::new(node.admission_gate().clone());
-        clipboard.enforce_access(&access);
-        services.lock().await.clipboard = Some(Arc::downgrade(&clipboard));
         let resources_config = node.resource_configuration()?;
         resources_config.validate_contact_facilities()?;
         ResourceEndpoint::validate_contact_timeout(Duration::from_millis(resources_config.maintenance.contact_timeout_ms))?;
         let forwarding = crate::native_forwarding::NativeForwarding::new(node.admission_gate().clone(), resources_config.business_channel, service_handles.clone())?;
-        forwarding.enforce_access(&access);
-        services.lock().await.forwarding = Some(Arc::downgrade(&forwarding));
         let web = crate::native_web::NativeWeb::new(node.admission_gate().clone(), service_handles.clone());
-        web.enforce_access(&access);
-        services.lock().await.web = Some(Arc::downgrade(&web));
         let terminal = crate::native_terminal::NativeTerminal::new(
             node.admission_gate().clone(),
             forwarding.channel_budget.clone(),
             service_handles.clone(),
         );
-        terminal.enforce_access(&access);
-        services.lock().await.terminal = Some(Arc::downgrade(&terminal));
+        services.attach_runtimes(&files, &clipboard, &forwarding, &web, &terminal, access);
+        let services = Arc::new(Mutex::new(services));
         before_bind.await?;
         let resources = Arc::new(node.bind_application_endpoint(bind).await?);
         let (fusion, gate) = resources
@@ -474,13 +466,13 @@ impl NativeClientRuntime {
                             {
                                 eprintln!("could not save verified member paths: {error}");
                             }
-                            files.expire().await;
-                            let node = node.lock().await;
-                            if let Ok(access) = services.lock().await.access(&node).await {
-                                forwarding.enforce_access(&access);
-                                web.enforce_access(&access);
-                                terminal.enforce_access(&access);
+                            {
+                                let node = node.lock().await;
+                                if services.lock().await.refresh_access(&node, &files).await.is_err() {
+                                    files.enforce_access();
+                                }
                             }
+                            files.expire_partials().await;
                         },
                         incoming = endpoint.accept() => {
                             let Some(incoming) = incoming else { break };
@@ -609,7 +601,7 @@ impl NativeClientRuntime {
                                         let connection = connection.retain_control();
                                         let mut node = node.lock().await;
                                         let result = node.serve_management_recovery(&connection).await;
-                                        files.update_access(services.lock().await.access(&node).await?);
+                                        services.lock().await.refresh_access(&node, &files).await?;
                                         result.map(|_| ()).map_err(ClientError::from)
                                     }).await;
                                     return;
@@ -1125,8 +1117,7 @@ impl NativeClientRuntime {
         )?;
         node.save_resource_configuration(&config)?;
         node.begin_rejoin_with_contact(material, Some(invitation)).await?;
-        self.files
-            .update_access(self.services.lock().await.access(node).await?);
+        self.services.lock().await.refresh_access(node, &self.files).await?;
         Ok(())
     }
 
@@ -1143,8 +1134,7 @@ impl NativeClient {
         client_runtime.require_ready()?;
         let mut node = client_runtime.node.lock().await;
         let stage = node.approve_manual_admission(request).await?.stage;
-        client_runtime.files
-            .update_access(client_runtime.services.lock().await.access(&node).await?);
+        client_runtime.services.lock().await.refresh_access(&node, &client_runtime.files).await?;
         Ok(stage)
     }
     /// Resume the same durable SDK attempt. Complete is returned only after
@@ -1235,8 +1225,7 @@ impl NativeClientRuntime {
         if let Some(code) = &code {
             let mut node = self.node.lock().await;
             Self::select_precode(&mut node, code, invitation, None).await?;
-            self.files
-                .update_access(self.services.lock().await.access(&node).await?);
+            self.services.lock().await.refresh_access(&node, &self.files).await?;
         } else {
             let node = self.node.lock().await;
             if node.membership_ended() {
@@ -1272,13 +1261,11 @@ impl NativeClientRuntime {
             if let ManualExchange::Materials(delivery) = exchange {
                 if save {
                     let result = node.complete_manual_admission(delivery).await;
-                    self.files
-                        .update_access(self.services.lock().await.access(&node).await?);
+                    self.services.lock().await.refresh_access(&node, &self.files).await?;
                     return Ok(result?);
                 }
             }
-            self.files
-                .update_access(self.services.lock().await.access(&node).await?);
+            self.services.lock().await.refresh_access(&node, &self.files).await?;
             Ok(node.admission_stage())
         }
         .await;
@@ -1755,7 +1742,7 @@ async fn serve_admission(
     // Admission can save membership before secret delivery ends. Publish that
     // same verified view to an already enabled service on either outcome.
     let node = node.lock().await;
-    files.update_access(services.lock().await.access(&node).await?);
+    services.lock().await.refresh_access(&node, &files).await?;
     drop(node);
     if let Err(error) = result {
         connection.close(0u32.into(), b"client admission failed");
