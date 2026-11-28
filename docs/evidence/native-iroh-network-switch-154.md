@@ -48,7 +48,11 @@ ip link set mio154a up
 ip link set mio154b up
 ip addr add 10.154.0.1/24 dev mio154a
 ip route add default dev mio154a
+ip -6 addr add 2001:db8:154::1/64 dev mio154b nodad
+ip -6 route add default dev mio154b
 ```
+
+当前用例的两个成员端点仅绑定 IPv4。独立的 IPv6 出口让删除旧 IPv4 地址后仍有可用网络，符合验证 relay 回落的前提。用例在两个成员端口之间过滤同机特有的回环 UDP，保留 relay 的 TCP 连接。原业务流在旧地址撤回后须在原期限内收发，随后在新 IPv4 上取得 ACK 并继续收发。
 
 ## 现场记录
 

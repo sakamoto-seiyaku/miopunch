@@ -471,10 +471,28 @@ impl MemberPaths {
         conn.set_nat_traversal_probes_permitted(self.building.is_some());
     }
 
+    fn evidence_after_network_change(
+        &self,
+        id: PathId,
+        observed: impl FnOnce() -> Option<Instant>,
+    ) -> bool {
+        self.network_changed_at.get(&id).is_none_or(|changed| {
+            observed().is_some_and(|observed| observed > *changed)
+        })
+    }
+
+    // A changed UDP binding must earn a new ACK on the original connection.
+    // Until then it cannot remain the current path for a stream handoff.
+    fn ip_ack_survives_change(&self, id: PathId, conn: &noq::Connection) -> bool {
+        self.evidence_after_network_change(id, || {
+            conn.path_stats(id).and_then(|stats| stats.acknowledgment)
+                .map(|ack| ack.sent_at.into())
+        })
+    }
+
     fn has_current_ack(&self, id: PathId, stats: &PathStats) -> bool {
         stats.acknowledgment.is_some_and(|ack| {
-            self.network_changed_at.get(&id)
-                .is_none_or(|changed| Instant::from(ack.sent_at) > *changed)
+            self.evidence_after_network_change(id, || Some(ack.sent_at.into()))
         })
     }
 }
@@ -3509,17 +3527,17 @@ impl ConnectionState {
         self.mapped_addrs.to_transport_tuple(&live).as_ref() == Some(binding)
     }
 
-    fn has_recent_return(
+    fn recent_binding_evidence(
         &self,
         binding: &transports::PathBinding,
-        path: &noq::Path,
+        evidence: Option<(noq::FourTuple, impl Into<Instant>)>,
         now: Instant,
         window: Duration,
-    ) -> bool {
-        path.return_evidence().is_some_and(|(live, received)| {
-            self.binding_matches(binding, live)
-                && now.saturating_duration_since(received.into()) <= window
-        })
+    ) -> Option<Instant> {
+        let (live, received) = evidence?;
+        let received = received.into();
+        (self.binding_matches(binding, live) && now.saturating_duration_since(received) <= window)
+            .then_some(received)
     }
 
     fn confirm_member_backups(
@@ -3549,7 +3567,7 @@ impl ConnectionState {
             {
                 let budget = 2 * interval.max(path.stats().probe_timeout);
                 let tcp_suspect = binding.is_custom() && self.suspect_paths.contains_key(id);
-                if tcp_suspect || !self.has_recent_return(binding, &path, now, budget) {
+                if tcp_suspect || self.recent_binding_evidence(binding, path.return_evidence(), now, budget).is_none() {
                     let _ = path.start_confirmation(live, budget);
                 }
             }
@@ -3677,6 +3695,8 @@ impl ConnectionState {
                             .network_path()
                             .is_ok_and(|live| self.binding_matches(path, live))
                 })
+                && (!path.is_ip() || self.member_paths.as_ref()
+                    .is_none_or(|member| member.ip_ack_survives_change(id, conn)))
                 && (!self.requires_path_ack(path)
                     || conn
                         .path_stats(id)
@@ -3985,31 +4005,14 @@ impl<'a> PathSelectionContext<'a> {
                                             } else {
                                                 path.confirmation()
                                             };
-                                            proof.is_some_and(|(live, received)| {
-                                                state.binding_matches(addr, live)
-                                                    && now
-                                                        .saturating_duration_since(received.into())
-                                                        <= window
-                                                    && (!may_use_tcp_confirmation
-                                                        || member.network_changed_at.get(id).is_none_or(
-                                                            |changed| {
-                                                                Instant::from(received) > *changed
-                                                            },
-                                                        ))
-                                            })
+                                            state.recent_binding_evidence(addr, proof, now, window)
+                                                .is_some_and(|received| !may_use_tcp_confirmation
+                                                    || member.evidence_after_network_change(*id, || Some(received)))
                                         })
                                     });
                                 if (needs_response && !confirmed)
                                     || (suspect && !confirmed)
-                                    || (addr.is_ip()
-                                        && member.network_changed_at.get(id).is_some_and(|changed| {
-                                            !conn
-                                                .path_stats(*id)
-                                                .and_then(|stats| stats.acknowledgment)
-                                                .is_some_and(|ack| {
-                                                    Instant::from(ack.sent_at) > *changed
-                                                })
-                                        }))
+                                    || (addr.is_ip() && !member.ip_ack_survives_change(*id, &conn))
                                     || (!confirmed
                                         && (state.requires_path_ack(addr)
                                             || (!current && (current_suspect || addr.is_ip())))

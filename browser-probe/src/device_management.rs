@@ -4,7 +4,7 @@ use super::*;
 use crate::{
     data_stream::DataStream,
     device_operation::{
-        DEVICE_ALPN, DEVICE_RESULT_ALPN, DeviceAction, DeviceApproval, DeviceOperation,
+        DEVICE_ALPN, DEVICE_RESULT_ALPN, DeviceAction, DeviceApproval, DeviceOperation, OperationJournal,
     },
     device_protocol::{
         DepartureDelivery, DeviceReply, DeviceRequest, RemovalNotice, ResultReply, ResultRequest,
@@ -13,6 +13,62 @@ use crate::{
     recovery_card::RecoveryCard,
     service_protocol::{ServiceBundle, read_guest, write_guest},
 };
+
+/// The operation journal can contain full signed receipt histories. Browser
+/// snapshots share the exact journal and its successful verification until a
+/// writer changes it. Reopening storage always verifies the decoded journal.
+#[derive(Clone, Default)]
+pub(super) struct SavedOperations(Arc<JournalSnapshot>);
+
+#[derive(Clone, Default)]
+struct JournalSnapshot {
+    journal: OperationJournal,
+    verified: std::sync::OnceLock<NetworkAnchor>,
+}
+
+impl From<OperationJournal> for SavedOperations {
+    fn from(journal: OperationJournal) -> Self {
+        Self(Arc::new(JournalSnapshot { journal, verified: Default::default() }))
+    }
+}
+
+impl std::ops::Deref for SavedOperations {
+    type Target = OperationJournal;
+
+    fn deref(&self) -> &OperationJournal {
+        &self.0.journal
+    }
+}
+
+impl std::ops::DerefMut for SavedOperations {
+    fn deref_mut(&mut self) -> &mut OperationJournal {
+        let snapshot = Arc::make_mut(&mut self.0);
+        snapshot.verified.take();
+        &mut snapshot.journal
+    }
+}
+
+impl SavedOperations {
+    pub(super) fn verify(&self, anchor: NetworkAnchor) -> std::io::Result<()> {
+        if self.0.verified.get() != Some(&anchor) {
+            self.0.journal.verify(anchor)?;
+            let _ = self.0.verified.set(anchor);
+        }
+        Ok(())
+    }
+}
+
+impl Serialize for SavedOperations {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.journal.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SavedOperations {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        OperationJournal::deserialize(deserializer).map(Into::into)
+    }
+}
 
 impl SavedNode {
     pub(super) fn approved_operation(

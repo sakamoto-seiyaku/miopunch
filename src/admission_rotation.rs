@@ -211,6 +211,15 @@ impl ManagementStore {
         signed: &Signed,
     ) -> Result<(), RotationError> {
         let member = verify_ack(signed, rotation)?;
+        self.save_verified_rotation_ack(rotation, &member, signed).await
+    }
+
+    async fn save_verified_rotation_ack(
+        &self,
+        rotation: &SavedRotation,
+        member: &[u8; 32],
+        signed: &Signed,
+    ) -> Result<(), RotationError> {
         let bytes = encode(signed)?;
         // SQLite FULL commits before the caller can count this acknowledgement.
         let inserted =
@@ -850,27 +859,12 @@ impl NativeNetwork {
             );
             state.check_current_rotation(&rotation).await?;
             state.check_rotation_recipient(connection, peer, &rotation)?;
-            let verified_ack = verify_ack(&ack, &rotation)?;
-            if verified_ack != *connection.remote_id().as_bytes() {
-                return Err(RotationError::Rejected);
-            }
-            if forwarded.len() > MAX_MEMBERS {
-                return Err(RotationError::Rejected);
-            }
-            let retained = state.retained_members();
-            for relayed in &forwarded {
-                if !retained.contains(&verify_ack(relayed, &rotation)?) {
-                    return Err(RotationError::Rejected);
-                }
-            }
+            let receipts = crate::admission_rotation_wire::verify_delivery_acks(
+                &rotation, peer, &state.retained_members(), ack, forwarded,
+            )?;
             state.rotation_connection(connection)?;
-            state.store.save_rotation_ack(&rotation, &ack).await?;
-            // A retained original provider may have delivered to a pending
-            // recipient. Its genuine exact-proposal node signature can travel
-            // back on the provider's proved session, but is never counted from
-            // a claimed identity or before this node commits the ACK itself.
-            for relayed in &forwarded {
-                state.store.save_rotation_ack(&rotation, relayed).await?;
+            for (member, signed) in receipts {
+                state.store.save_verified_rotation_ack(&rotation, member.as_bytes(), &signed).await?;
             }
             #[cfg(feature = "replica-test-hooks")]
             state

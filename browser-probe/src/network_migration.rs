@@ -181,33 +181,7 @@ impl SavedNode {
 
     fn migration_source_exit(&self) -> Result<SourceExit, JsValue> {
         let auth = self.verify()?.ok_or_else(rejected)?;
-        let local = self.identity();
-        for entry in self
-            .operations
-            .entries
-            .iter()
-            .rev()
-            .filter(|entry| entry.is_local_leave(local))
-        {
-            if let Some(approval) = &entry.approval
-                && approval.effect_current(&auth)
-            {
-                let record = approval.record_id();
-                return Ok(match entry.departure_recipient() {
-                    Some(recipient) => SourceExit::Delivered { record, recipient },
-                    None => SourceExit::PendingDelivery { record },
-                });
-            }
-        }
-        Ok(
-            match auth.nodes().into_iter().find(|(id, _)| *id == local) {
-                Some((_, role)) if role == Access::manage() => {
-                    SourceExit::GenesisConfirmationRequired
-                }
-                Some(_) => SourceExit::NotStarted,
-                None => SourceExit::MembershipAlreadyEnded,
-            },
-        )
+        Ok(self.operations.migration_departure(self.identity(), &auth))
     }
 
     fn sign_migration_departure(&mut self, signer: &SigningKey) -> Result<(), JsValue> {
@@ -896,10 +870,11 @@ impl Worker {
             .await?;
         self.update_inactive(|source| {
             let recipient = VerifyingKey::from_bytes(peer.as_bytes()).map_err(error)?;
+            let local = source.identity();
             source
                 .operations
                 .confirm_departure_delivery(
-                    source.identity(),
+                    local,
                     delivery.approval.operation.id,
                     record,
                     recipient,

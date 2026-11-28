@@ -35,7 +35,7 @@ mod dial;
 mod direct;
 pub(super) mod udp;
 pub use dial::{MemberDialOptions, MemberDialSource};
-pub(super) use direct::{PathCandidates, watch_path_candidates};
+use direct::{PathCandidates, watch_path_candidates};
 pub use udp::{MemberUdpConfig, MemberUdpPlan, MemberUdpTraversalReport};
 
 /// A transport-owned candidate on this member connection. Its preparation
@@ -1110,7 +1110,7 @@ impl Fusion {
         connection
     }
 
-    pub(super) fn activity(&self, connection: &Connection) -> Arc<Activity> {
+    fn activity(&self, connection: &Connection) -> Arc<Activity> {
         let standby = match self.retention.get() {
             Some(MemberRetention::Standby(limit)) => {
                 Some((self.standby.clone(), *limit, connection.clone()))
@@ -1133,16 +1133,86 @@ impl Fusion {
         )
     }
 
-    pub(super) fn publish(
+    pub(super) async fn publish(
         &self,
         selection: Selection,
-        connection: Connection,
-        data_path: TransportAddr,
-        activity: Arc<Activity>,
-        path_candidates: Option<Arc<PathCandidates>>,
-        repair: Option<RepairPath>,
-        udp: Option<Arc<udp::Planning>>,
-    ) {
+        connection: &Connection,
+        control: &ControlConnection,
+        policy: &dyn DynEndpointAdmission,
+        permit: DataPathPermit,
+        bootstrap: Option<Arc<std::sync::atomic::AtomicBool>>,
+        admission_changed: impl FnOnce() -> io::Error,
+    ) -> io::Result<()> {
+        let activity = self.activity(connection);
+        let endpoint = &control.endpoint;
+        let udp = control.member_udp.clone();
+        let direct_transport = policy
+            .member_direct()
+            .map(|paths| paths.transport_id())
+            .filter(|id| permit.allowed_data_custom_ids.contains(id));
+        let member_relay = policy
+            .member_relay_transport()
+            .filter(|id| permit.allowed_data_custom_ids.contains(id));
+        let started_on_member_relay = matches!(&permit.remote, TransportAddr::Custom(address)
+            if member_relay == Some(address.id()));
+        let static_policy = endpoint
+            .inner
+            .static_config
+            .admission
+            .clone()
+            .expect("member policy");
+        let relay_policy = endpoint.inner.static_config.relay_resource_policy.clone();
+        let repair = self.repair_path(endpoint, connection, &activity);
+        let (direct_health, healthy_direct) = tokio::sync::watch::channel(false);
+        let member_paths = crate::socket::remote_map::MemberPathPolicy::new(
+            Some(activity.path_activity()),
+            move |address| {
+                static_policy.permits_member_data_path(address)
+                    && match address {
+                        TransportAddr::Relay(url) => {
+                            relay_policy.allows(url, super::RelayResourceUse::DataRelay)
+                        }
+                        _ => true,
+                    }
+            },
+        )
+        .with_business_activity(
+            activity.business_activity(),
+            activity.concurrent_business(),
+        )
+        .with_required_path_acks([direct_transport, member_relay], started_on_member_relay)
+        .with_enhanced_udp(udp.as_ref().and_then(|udp| udp.path_work()))
+        .with_repair_health(repair.as_ref().map(|repair| repair.health.clone()))
+        .with_direct_health(direct_health)
+        .with_building(Some(self.building.clone()))
+        .with_physical_endpoint(Arc::downgrade(&endpoint.inner));
+        endpoint
+            .inner
+            .authorize_candidates(
+                connection.remote_id(),
+                connection.stable_id(),
+                permit.allowed_data_custom_ids.clone(),
+                Some(member_paths),
+            )
+            .await?;
+        permit.check(control).await?;
+        if !policy.is_current(control) || !policy.permits_member_data_path(&permit.remote) {
+            return Err(admission_changed());
+        }
+        policy.business_released(connection);
+        if let Some(bootstrap) = bootstrap {
+            bootstrap.store(true, std::sync::atomic::Ordering::Release);
+        }
+        let path_candidates = watch_path_candidates(
+            endpoint.clone(),
+            connection.clone(),
+            activity.clone(),
+            direct_transport,
+            member_relay,
+            true,
+            healthy_direct,
+            repair.as_ref().map(|repair| repair.health.subscribe()),
+        );
         let repair_exchange = self.repair_exchange.get().cloned();
         let incoming = (repair_exchange.is_some() || udp.is_some()
             || path_candidates
@@ -1159,8 +1229,8 @@ impl Fusion {
             )
         });
         let live = selection.publish(
-            connection,
-            data_path,
+            connection.clone(),
+            permit.remote,
             activity,
             path_candidates,
             repair,
@@ -1171,9 +1241,10 @@ impl Fusion {
         if let Some(selected) = &self.selected {
             let _ = selected.send(Ok(live));
         }
+        Ok(())
     }
 
-    pub(super) fn repair_path(
+    fn repair_path(
         &self,
         endpoint: &Endpoint,
         connection: &Connection,

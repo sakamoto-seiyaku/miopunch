@@ -416,6 +416,30 @@ impl OperationJournal {
         Ok(())
     }
 
+    pub(crate) fn migration_departure(
+        &self,
+        local: VerifyingKey,
+        auth: &ManagementAuth,
+    ) -> crate::migration_progress::SourceExit {
+        use crate::migration_progress::SourceExit;
+        for entry in self.entries.iter().rev().filter(|entry| entry.is_local_leave(local)) {
+            if let Some(approval) = &entry.approval
+                && approval.effect_current(auth)
+            {
+                let record = approval.record_id();
+                return match entry.departure_recipient() {
+                    Some(recipient) => SourceExit::Delivered { record, recipient },
+                    None => SourceExit::PendingDelivery { record },
+                };
+            }
+        }
+        match DeviceRole::of(auth, local) {
+            Some(DeviceRole::Administrator) => SourceExit::GenesisConfirmationRequired,
+            Some(DeviceRole::Member) => SourceExit::NotStarted,
+            None => SourceExit::MembershipAlreadyEnded,
+        }
+    }
+
     pub(crate) fn pending_departure(
         &self,
         local: VerifyingKey,

@@ -1758,9 +1758,9 @@ impl Drop for DataCandidatePath {
 pub struct DataPathPermit {
     connection_id: usize,
     path_id: PathId,
-    remote: TransportAddr,
+    pub(super) remote: TransportAddr,
     probe: noq::PathProbe,
-    allowed_data_custom_ids: Vec<u64>,
+    pub(super) allowed_data_custom_ids: Vec<u64>,
 }
 
 impl DataPathPermit {
@@ -2014,7 +2014,7 @@ pub(super) async fn finish_admission(
                 connection: connection.clone(),
                 endpoint: endpoint.clone(),
                 #[cfg(not(wasm_browser))]
-                member_udp: member_udp.clone(),
+                member_udp,
             },
             close_on_drop: true,
         };
@@ -2130,85 +2130,9 @@ pub(super) async fn finish_admission(
         }
         #[cfg(not(wasm_browser))]
         if let Some((fusion, selection)) = fusion.zip(selection) {
-            let activity = fusion.activity(&connection);
-            let udp = member_udp;
-            let direct_transport = policy
-                .member_direct()
-                .map(|paths| paths.transport_id())
-                .filter(|id| permit.allowed_data_custom_ids.contains(id));
-            let member_relay = policy
-                .member_relay_transport()
-                .filter(|id| permit.allowed_data_custom_ids.contains(id));
-            let started_on_member_relay = matches!(&permit.remote, TransportAddr::Custom(address)
-                if member_relay == Some(address.id()));
-            let static_policy = endpoint
-                .inner
-                .static_config
-                .admission
-                .clone()
-                .expect("member policy");
-            let relay_policy = endpoint.inner.static_config.relay_resource_policy.clone();
-            let repair = fusion.repair_path(endpoint, &connection, &activity);
-            let (direct_health, healthy_direct) = tokio::sync::watch::channel(false);
-            let member_paths = crate::socket::remote_map::MemberPathPolicy::new(
-                Some(activity.path_activity()),
-                move |address| {
-                    static_policy.permits_member_data_path(address)
-                        && match address {
-                            TransportAddr::Relay(url) => {
-                                relay_policy.allows(url, super::RelayResourceUse::DataRelay)
-                            }
-                            _ => true,
-                        }
-                },
-            )
-            .with_business_activity(
-                activity.business_activity(),
-                activity.concurrent_business(),
-            )
-            .with_required_path_acks([direct_transport, member_relay], started_on_member_relay)
-            .with_enhanced_udp(udp.as_ref().and_then(|udp| udp.path_work()))
-            .with_repair_health(repair.as_ref().map(|repair| repair.health.clone()))
-            .with_direct_health(direct_health)
-            .with_building(Some(fusion.building.clone()))
-            .with_physical_endpoint(Arc::downgrade(&endpoint.inner));
-            endpoint
-                .inner
-                .authorize_candidates(
-                    connection.remote_id(),
-                    connection.stable_id(),
-                    permit.allowed_data_custom_ids.clone(),
-                    Some(member_paths),
-                )
-                .await?;
-            permit.check(&control).await?;
-            if !policy.is_current(&control) || !policy.permits_member_data_path(&permit.remote) {
-                return Err(changed("member admission changed during delivery"));
-            }
-            policy.business_released(&connection);
-            if let Some(bootstrap) = bootstrap {
-                bootstrap.store(true, std::sync::atomic::Ordering::Release);
-            }
-            let direct = direct_transport;
-            let candidates = super::member_fusion::watch_path_candidates(
-                endpoint.clone(),
-                connection.clone(),
-                activity.clone(),
-                direct,
-                member_relay,
-                true,
-                healthy_direct,
-                repair.as_ref().map(|repair| repair.health.subscribe()),
-            );
-            fusion.publish(
-                selection,
-                connection.clone(),
-                permit.remote,
-                activity,
-                candidates,
-                repair,
-                udp,
-            );
+            fusion.publish(selection, &connection, &control, policy, permit, bootstrap, || {
+                changed("member admission changed during delivery")
+            }).await?;
         }
         if run_legacy_hook {
             policy.business_released(&connection);

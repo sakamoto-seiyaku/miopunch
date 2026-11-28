@@ -394,6 +394,32 @@ impl BusinessChannel {
         })
     }
 
+    /// Run an established carrier to completion, or recover its original
+    /// attachment within the channel's remaining window after a network cut.
+    pub(crate) async fn carry_or_reopen<T, Ready, F>(
+        &self,
+        stream: DataStream,
+        transport: &T,
+        reopen: impl FnOnce(n0_future::time::Instant) -> F,
+    ) -> Result<Option<(T, DataStream)>, ChannelFailure>
+    where
+        T: ChannelTransport,
+        F: Future<Output = Result<(T, DataStream, Ready), ChannelFailure>>,
+    {
+        match self.carry(stream, transport).await {
+            Ok(()) => return Ok(None),
+            Err(ChannelError::Business(error)) => return Err(error.into()),
+            Err(ChannelError::RecoveryExpired) => return Err(RecoveryExpired.into()),
+            Err(ChannelError::NetworkInterrupted) => {}
+        }
+        let deadline = self.begin_recovery();
+        let (transport, stream, _) = n0_future::time::timeout(
+            deadline.saturating_duration_since(n0_future::time::Instant::now()),
+            reopen(deadline),
+        ).await.map_err(|_| RecoveryExpired)??;
+        Ok(Some((transport, stream)))
+    }
+
     pub(crate) async fn carry(
         &self,
         mut stream: DataStream,

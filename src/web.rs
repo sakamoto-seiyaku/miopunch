@@ -63,11 +63,7 @@ pub(crate) struct ResponseHead {
 }
 
 pub fn peer_permitted(access: &ServiceAccess, peer: VerifyingKey) -> bool {
-    access.member(access.local) && access.member(peer)
-        || access
-            .guest_pairs_for(Service::Web)
-            .iter()
-            .any(|(id, _)| id == peer.as_bytes())
+    access.can_contact_service(Service::Web, peer)
 }
 
 pub(crate) async fn write_head(stream: &mut DataStream, head: &impl Serialize) -> io::Result<()> {

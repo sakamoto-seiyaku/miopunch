@@ -427,24 +427,7 @@ pub(crate) async fn recover_saved_departure(node: &mut NativeNetwork) -> Result<
 }
 
 pub(crate) fn migration_departure(node: &NativeNetwork) -> Result<SourceExit, ClientError> {
-    let local = node.status().node_id;
-    let auth = node.store.authorization();
-    for entry in load(node)?.entries.into_iter().rev().filter(|entry| entry.is_local_leave(local)) {
-        if let Some(approval) = &entry.approval
-            && approval.effect_current(auth)
-        {
-            let record = approval.record_id();
-            return Ok(match entry.departure_recipient() {
-                Some(recipient) => SourceExit::Delivered { record, recipient },
-                None => SourceExit::PendingDelivery { record },
-            });
-        }
-    }
-    Ok(match auth.nodes().into_iter().find(|(id, _)| *id == local) {
-        Some((_, role)) if role == p2panda_auth::Access::manage() => SourceExit::GenesisConfirmationRequired,
-        Some(_) => SourceExit::NotStarted,
-        None => SourceExit::MembershipAlreadyEnded,
-    })
+    Ok(load(node)?.migration_departure(node.status().node_id, node.store.authorization()))
 }
 
 pub(crate) async fn commit_migration_departure(

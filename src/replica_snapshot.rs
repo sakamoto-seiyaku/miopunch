@@ -83,7 +83,7 @@ impl ReceivedHistory {
 }
 
 #[derive(Debug)]
-pub(crate) enum ReceiveError {
+pub(crate) enum ExchangeError {
     Rejected,
     Transport,
 }
@@ -104,7 +104,7 @@ impl Manifest {
         known: Snapshot,
         sink: &'a mut S,
         stream: &'a mut R,
-    ) -> Result<IncomingRecords<impl Future<Output = Result<(), ReceiveError>> + 'a>, ReceiveError>
+    ) -> Result<IncomingRecords<impl Future<Output = Result<(), ExchangeError>> + 'a>, ExchangeError>
     where
         S: Sink<LogSyncMessage<[u8; 16]>, Error = SE> + Unpin,
         R: Stream<Item = Result<LogSyncMessage<[u8; 16]>, RE>> + Unpin,
@@ -119,7 +119,7 @@ impl Manifest {
             || expected.len() != self.ids.len()
             || self.logs.values().map(Vec::len).sum::<usize>() > MAX_RECORDS
         {
-            return Err(ReceiveError::Rejected);
+            return Err(ExchangeError::Rejected);
         }
         let (sender, events) = tokio::sync::broadcast::channel(MAX_RECORDS + 1);
         let sync = LogSync::new(known, std::mem::take(&mut self.logs), sender);
@@ -127,7 +127,7 @@ impl Manifest {
             sync.run(sink, stream)
                 .await
                 .map(|_| ())
-                .map_err(|_| ReceiveError::Transport)
+                .map_err(|_| ExchangeError::Transport)
         };
         Ok(IncomingRecords {
             protocol: Some(Box::pin(protocol)),
@@ -152,8 +152,8 @@ impl Manifest {
     }
 }
 
-impl<F: Future<Output = Result<(), ReceiveError>>> IncomingRecords<F> {
-    pub(crate) async fn next(&mut self) -> Result<Option<ManagementRecord>, ReceiveError> {
+impl<F: Future<Output = Result<(), ExchangeError>>> IncomingRecords<F> {
+    pub(crate) async fn next(&mut self) -> Result<Option<ManagementRecord>, ExchangeError> {
         use p2panda_sync::protocols::LogSyncEvent;
         use tokio::sync::broadcast::error::RecvError;
         loop {
@@ -175,7 +175,7 @@ impl<F: Future<Output = Result<(), ReceiveError>>> IncomingRecords<F> {
             match event {
                 Ok(LogSyncEvent::OperationReceived { operation, .. }) => {
                     if !self.expected.contains(&operation.hash) {
-                        return Err(ReceiveError::Rejected);
+                        return Err(ExchangeError::Rejected);
                     }
                     let record = ManagementRecord::from_verified_operation(
                         operation.header,
@@ -183,12 +183,12 @@ impl<F: Future<Output = Result<(), ReceiveError>>> IncomingRecords<F> {
                     );
                     self.bytes += record.header().len() + record.body().map_or(0, <[u8]>::len);
                     if self.bytes > MAX_BYTES {
-                        return Err(ReceiveError::Rejected);
+                        return Err(ExchangeError::Rejected);
                     }
                     return Ok(Some(record));
                 }
                 Ok(_) => {}
-                Err(RecvError::Lagged(_)) => return Err(ReceiveError::Transport),
+                Err(RecvError::Lagged(_)) => return Err(ExchangeError::Transport),
                 Err(RecvError::Closed) => {
                     if let Some(protocol) = self.protocol.take() {
                         protocol.await?;
@@ -247,6 +247,99 @@ impl Iterator for SnapshotPages<'_> {
         self.remaining = &self.remaining[page.len()..];
         Some(result)
     }
+}
+
+/// Serve a frozen, applied snapshot. The host owns the operation deadline
+/// and re-reads live admission wherever this exchange releases data.
+pub(crate) async fn send_snapshot(
+    exchange: &ControlExchange,
+    anchor: NetworkAnchor,
+    records: &[ManagementRecord],
+    allowed: impl Fn() -> bool,
+) -> Result<(), ExchangeError> {
+    use futures_util::{SinkExt, StreamExt};
+    use p2panda_sync::{protocols::{LogSync, LogSyncEvent}, traits::Protocol};
+    use tokio::sync::broadcast;
+
+    let request = exchange
+        .recv_message(ControlMessageFormat::Fixed { length: 4 })
+        .await
+        .map_err(|_| ExchangeError::Transport)?;
+    if request != b"REPL" {
+        return Err(ExchangeError::Rejected);
+    }
+    for page in Snapshot::pages(anchor, records) {
+        if !allowed() {
+            return Err(ExchangeError::Rejected);
+        }
+        let (snapshot, manifest) = page.map_err(|_| ExchangeError::Rejected)?;
+        let more = manifest.more;
+        let bytes = p2panda_core::cbor::encode_cbor(&manifest)
+            .map_err(|_| ExchangeError::Rejected)?;
+        if bytes.len() > MAX_BYTES {
+            return Err(ExchangeError::Rejected);
+        }
+        exchange
+            .send_message(
+                ControlMessageFormat::LengthPrefixed32 { maximum: MAX_BYTES },
+                &bytes,
+            )
+            .await
+            .map_err(|_| ExchangeError::Transport)?;
+        let (events, mut received) =
+            broadcast::channel::<LogSyncEvent<ManagementExtension>>(MAX_RECORDS + 1);
+        let sync = LogSync::new(snapshot, manifest.logs, events);
+        let allowed = &allowed;
+        let mut sink = Box::pin(
+            codec_sink::<LogSyncMessage<[u8; 16]>>(exchange, MAX_BYTES).with(
+                |message| async move {
+                    if !allowed() {
+                        return Err(CodecError::Io(
+                            std::io::ErrorKind::PermissionDenied.into(),
+                        ));
+                    }
+                    Ok(message)
+                },
+            ),
+        );
+        let mut stream = codec_stream::<LogSyncMessage<[u8; 16]>>(exchange, MAX_BYTES);
+        sync.run(&mut sink, &mut stream)
+            .await
+            .map_err(|_| ExchangeError::Transport)?;
+        // This is a one-way replica fetch, not an unsolicited publish route.
+        while let Ok(event) = received.try_recv() {
+            if matches!(event, LogSyncEvent::OperationReceived { .. }) {
+                return Err(ExchangeError::Rejected);
+            }
+        }
+        drop(sink);
+        drop(stream);
+        let receipt = codec_stream::<Receipt>(exchange, 64)
+            .next()
+            .await
+            .ok_or(ExchangeError::Transport)?
+            .map_err(|_| ExchangeError::Transport)?;
+        if !receipt.records_saved || !allowed() {
+            return Err(ExchangeError::Rejected);
+        }
+        // Withhold the old completion ACK while another page remains.
+        // An old one-page reader cannot accept the next CBOR manifest
+        // as a postcard Receipt, and therefore cannot report completion.
+        if !more {
+            codec_sink::<Receipt>(exchange, 64)
+                .send(Receipt {
+                    records_saved: true,
+                    view_applied: receipt.view_applied,
+                })
+                .await
+                .map_err(|_| ExchangeError::Transport)?;
+        }
+    }
+    exchange
+        .finish_send_confirmed()
+        .await
+        .map_err(|_| ExchangeError::Transport)?;
+    Ok(())
 }
 
 impl Snapshot {

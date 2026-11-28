@@ -117,11 +117,7 @@ pub fn validate_size(columns: u16, rows: u16) -> io::Result<()> {
     Ok(())
 }
 pub fn peer_permitted(access: &ServiceAccess, peer: VerifyingKey) -> bool {
-    access.member(access.local) && access.member(peer)
-        || access
-            .guest_pairs_for(Service::Terminal)
-            .iter()
-            .any(|(id, _)| id == peer.as_bytes())
+    access.can_contact_service(Service::Terminal, peer)
 }
 pub(crate) fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, message)

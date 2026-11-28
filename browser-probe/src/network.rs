@@ -137,7 +137,7 @@ struct SavedNode {
     #[serde(default)]
     guest: Option<crate::service_policy::GuestInvitation>,
     #[serde(default)]
-    operations: crate::device_operation::OperationJournal,
+    operations: device_management::SavedOperations,
     #[serde(default)]
     custody: crate::credential_custody::CustodyJournal,
     #[serde(default)]
@@ -1985,7 +1985,8 @@ impl BrowserGate {
             }
             let prepared =
                 crate::connection_coordinator::prepare_control_session(None, &handle, self).await?;
-            let permit = if purpose.is_some_and(|purpose| purpose.requires_data()) {
+            let gate = self.clone();
+            prepared.into_outcome(connection, || {
                 let mut ids = Vec::new();
                 let state = self.0.lock().unwrap();
                 if state
@@ -1999,41 +2000,27 @@ impl BrowserGate {
                 if state.rtc.as_ref().is_some_and(|rtc| rtc.resource_allowed()) {
                     ids.push(crate::rtc_transport::TRANSPORT_ID);
                 }
-                drop(state);
-                Some(
-                    connection
-                        .qualify_data_path(prepared.path_id(connection)?, ids)
-                        .await?,
-                )
-            } else {
-                None
-            };
-            let gate = self.clone();
-            let confirmation = iroh::endpoint::ControlConfirmation::with_control(move |control| {
-                Box::pin(send_wrapper::SendWrapper::new(async move {
-                    let result = prepared.confirm(&control.control_handle(), &gate).await;
-                    if tracks_request_diagnostics(control.alpn()) {
-                        if let Some(report) = gate.0.lock().unwrap().request_handshake.as_mut() {
-                            report["confirmation_elapsed_ms"] =
-                                serde_json::json!(started.elapsed().as_millis());
-                            report["stage"] = serde_json::json!(if result.is_ok() {
-                                "restricted-A"
-                            } else {
-                                "unified-request-confirmation-failed"
-                            });
-                            report["stats"] = serde_json::json!(format!("{:?}", control.stats()));
+                ids
+            }, |prepared| {
+                iroh::endpoint::ControlConfirmation::with_control(move |control| {
+                    Box::pin(send_wrapper::SendWrapper::new(async move {
+                        let result = prepared.confirm(&control.control_handle(), &gate).await;
+                        if tracks_request_diagnostics(control.alpn()) {
+                            if let Some(report) = gate.0.lock().unwrap().request_handshake.as_mut() {
+                                report["confirmation_elapsed_ms"] =
+                                    serde_json::json!(started.elapsed().as_millis());
+                                report["stage"] = serde_json::json!(if result.is_ok() {
+                                    "restricted-A"
+                                } else {
+                                    "unified-request-confirmation-failed"
+                                });
+                                report["stats"] = serde_json::json!(format!("{:?}", control.stats()));
+                            }
                         }
-                    }
-                    result
-                }))
-            });
-            Ok(match permit {
-                Some(permit) => iroh::endpoint::AdmissionOutcome::AcceptWithConfirmation {
-                    permit,
-                    confirmation,
-                },
-                None => iroh::endpoint::AdmissionOutcome::ControlOnlyWithConfirmation(confirmation),
-            })
+                        result
+                    }))
+                })
+            }).await
         })
         .await
     }

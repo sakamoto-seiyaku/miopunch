@@ -960,32 +960,13 @@ impl NativeAdmission {
         let adapter = NativeControlAdapter(self.coordinator.clone());
         let handle = connection.control_handle();
         let prepared = super::prepare_control_session(None, &handle, &adapter).await?;
-        let permit = if purpose.requires_data() {
-            Some(
-                connection
-                    .qualify_data_path(
-                        prepared.path_id(connection)?,
-                        self.gate.allowed_data_carriers(),
-                    )
-                    .await?,
-            )
-        } else {
-            None
-        };
-        let confirmation = iroh::endpoint::ControlConfirmation::with_control(move |connection| {
-            Box::pin(async move {
-                prepared
-                    .confirm(&connection.control_handle(), &adapter)
-                    .await
+        prepared.into_outcome(connection, || self.gate.allowed_data_carriers(), |prepared| {
+            iroh::endpoint::ControlConfirmation::with_control(move |connection| {
+                Box::pin(async move {
+                    prepared.confirm(&connection.control_handle(), &adapter).await
+                })
             })
-        });
-        Ok(match permit {
-            Some(permit) => iroh::endpoint::AdmissionOutcome::AcceptWithConfirmation {
-                permit,
-                confirmation,
-            },
-            None => iroh::endpoint::AdmissionOutcome::ControlOnlyWithConfirmation(confirmation),
-        })
+        }).await
     }
 }
 

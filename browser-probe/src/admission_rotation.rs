@@ -722,19 +722,12 @@ async fn send_rotation(
         gate.update_saved(|saved| {
             is_same_rotation(saved, &rotation)?;
             gate.check_rotation_contact(saved, connection, peer, profile)?;
-            if verify_ack(&ack, &rotation).map_err(error)? != *peer.as_bytes()
-                || forwarded.len() > MAX_MEMBERS
-            {
-                return Err(rejected());
-            }
             let retained = saved.retained(&saved.rotation_auth()?)?;
+            let receipts = crate::admission_rotation_wire::verify_delivery_acks(
+                &rotation, peer, &retained, ack, forwarded,
+            ).map_err(error)?;
             let state = saved.rotation.as_mut().unwrap();
-            for ack in std::iter::once(ack).chain(forwarded) {
-                let member = verify_ack(&ack, &rotation).map_err(error)?;
-                if !retained.contains(&member) {
-                    return Err(rejected());
-                }
-                let member = VerifyingKey::from_bytes(&member).map_err(error)?;
+            for (member, ack) in receipts {
                 if state
                     .acknowledgements
                     .get(&member)

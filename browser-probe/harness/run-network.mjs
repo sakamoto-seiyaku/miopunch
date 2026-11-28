@@ -214,18 +214,14 @@ try {
       events.push({ case: 'paged-admission-checkpoint-reopen', requestId, records: previous });
     }
     for (let attempt = 0; attempt < 5; attempt++) {
+      let stage;
       try {
-        const stage = await invoke();
-        assert(['PendingMaterials', 'Complete'].includes(stage));
-        const authorized = await progress();
-        if (requestId) assert.equal(authorized.admission_attempt.request_id, requestId);
-        assert.equal(authorized.authorization_saved, true);
-        if (stage === 'PendingMaterials') assert.equal(authorized.secret_saved, false);
-        return;
+        stage = await invoke();
       } catch (error) {
         const saved = await progress();
         const checkpoint = saved.admission_history;
-        assert(checkpoint && checkpoint.records > previous, 'failed contact must retain new verified records');
+        assert(checkpoint && checkpoint.records > previous,
+          `failed ${method} contact must retain new verified records (before=${previous}, after=${checkpoint?.records ?? 0}): ${error}`);
         if (requestId) assert.equal(checkpoint.request_id, requestId);
         requestId = checkpoint.request_id;
         previous = checkpoint.records;
@@ -237,7 +233,14 @@ try {
         assert.equal(reopened.admission_history.request_id, requestId);
         assert.equal(reopened.admission_history.records, previous);
         events.push({ case: 'paged-admission-contact-resumed', requestId, records: previous });
+        continue;
       }
+      assert(['PendingMaterials', 'Complete'].includes(stage));
+      const authorized = await progress();
+      if (requestId) assert.equal(authorized.admission_attempt.request_id, requestId);
+      assert.equal(authorized.authorization_saved, true);
+      if (stage === 'PendingMaterials') assert.equal(authorized.secret_saved, false);
+      return;
     }
     assert.fail('bounded admission retries did not finish');
   };
@@ -1129,6 +1132,39 @@ try {
     events.push({case:'browser-local-revocation-closes-real-connection',existingClosed:true,newRejected:true,reloadRemainsRemoved:true});
   }
   if (selected==='storage-corrupt') {
+    const rootCard = readFileSync(join(temporary, 'admin', 'genesis.credential'));
+    await page.evaluate(async ({ card, id }) => {
+      const proposal = JSON.parse(await window.network.propose_device_operation('appoint-administrator', id));
+      await window.network.confirm_device_operation_offline(proposal.operation.id, card);
+      await window.network.close();
+    }, { card: `miopunch-recovery:1:${rootCard.toString('base64url')}`, id: first });
+    await page.reload();
+    assert.equal(await bounded(page.evaluate(() => window.ready), 'reopen verified journal'), first);
+    await page.evaluate(async () => {
+      await window.network.close();
+      await new Promise((resolve, reject) => {
+        const open = indexedDB.open('miopunch-browser-network', 1);
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const tx = db.transaction('node', 'readwrite', { durability: 'strict' });
+          const store = tx.objectStore('node');
+          const read = store.get('state');
+          read.onsuccess = () => {
+            const saved = JSON.parse(read.result);
+            const approved = saved.operations.entries.find(entry => entry.approval);
+            if (!approved?.receipt_history.length) { tx.abort(); return; }
+            approved.receipt_history = [];
+            store.put(JSON.stringify(saved), 'state');
+          };
+          tx.oncomplete = () => { db.close(); resolve(); };
+          tx.onabort = () => { db.close(); reject(new Error('journal fixture did not commit')); };
+        };
+      });
+    });
+    await page.reload();
+    await assert.rejects(() => page.evaluate(() => window.ready), /device operation is invalid or no longer current/);
+    events.push({ case: 'reopened-journal-requires-original-signed-receipt' });
     await page.evaluate(()=>new Promise((resolve,reject)=>{
       const request=indexedDB.open('miopunch-browser-network',1);
       request.onsuccess=()=>{const db=request.result;const tx=db.transaction('node','readwrite',{durability:'strict'});tx.objectStore('node').put('invalid persisted snapshot','state');tx.oncomplete=()=>{db.close();resolve();};tx.onabort=()=>reject(new Error('fixture corruption failed'));};

@@ -605,45 +605,6 @@ impl NativeTerminal {
         cleanup
     }
 
-    async fn consume_retained(
-        &self,
-        owner: &Operation,
-        resources: &crate::resources::ResourceEndpoint,
-        address: EndpointAddr,
-        workspace: String,
-        columns: u16,
-        rows: u16,
-        mut request: ChannelRequest,
-        mut transport: ServiceTransport,
-        mut stream: DataStream,
-        channel: &BusinessChannel,
-    ) -> Result<(), ClientError> {
-        loop {
-            match channel.carry(stream, &transport).await {
-                Ok(()) => return Ok(()),
-                Err(ChannelError::Business(error)) => return Err(error.into()),
-                Err(ChannelError::RecoveryExpired) => return Err(RecoveryExpired.into()),
-                Err(ChannelError::NetworkInterrupted) => {}
-            }
-            let at = channel.begin_recovery();
-            let reconnect = self.reopen(
-                owner,
-                resources,
-                &address,
-                &workspace,
-                columns,
-                rows,
-                &mut request,
-                at,
-            );
-            let (next, next_stream, _) = tokio::time::timeout_at(at, reconnect)
-                .await
-                .map_err(|_| RecoveryExpired)??;
-            transport = next;
-            stream = next_stream;
-        }
-    }
-
     async fn reopen(
         &self,
         owner: &Operation,
@@ -899,7 +860,19 @@ impl NativeClient {
             let channel = business;
             let mut owner = owner;
             let work = async {
-                let network = runtime.consume_retained(&owner, &resources, address, workspace, columns, rows, channel_request, connection, stream, &channel);
+                let mut request = channel_request;
+                let network = async {
+                    let mut carrier = Some((connection, stream));
+                    while let Some((connection, stream)) = carrier {
+                        carrier = channel.carry_or_reopen(stream, &connection, |deadline| {
+                            runtime.reopen(
+                                &owner, &resources, &address, &workspace, columns, rows,
+                                &mut request, deadline,
+                            )
+                        }).await?;
+                    }
+                    Ok(())
+                };
                 let io = terminal::consume_on_stream(logical, std::future::pending(), &owner.cancel, outgoing, incoming, true);
                 tokio::pin!(io);
                 let carried = channel.run(read, write, network);

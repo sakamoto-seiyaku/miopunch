@@ -9,14 +9,11 @@ use futures_util::{SinkExt, StreamExt};
 use iroh::endpoint::{Connection, ControlExchange, ControlMessageFormat};
 use iroh_base::EndpointId;
 use p2panda_core::Hash;
-use p2panda_net::codec::CodecError;
-use p2panda_sync::protocols::{LogSync, LogSyncEvent, LogSyncMessage};
-use p2panda_sync::traits::Protocol;
+use p2panda_sync::protocols::LogSyncMessage;
 use thiserror::Error;
-use tokio::sync::broadcast;
 
 use crate::admission_gate::ProtocolScope;
-use crate::management_auth::{ManagementExtension, NetworkAnchor};
+use crate::management_auth::NetworkAnchor;
 use crate::management_store::{ManagementRecord, StoreError};
 use crate::native_network::NativeNetwork;
 
@@ -35,6 +32,15 @@ pub enum ReplicaError {
     Transport,
     #[error("replica storage failed: {0}")]
     Store(#[from] StoreError),
+}
+
+impl From<crate::replica_snapshot::ExchangeError> for ReplicaError {
+    fn from(error: crate::replica_snapshot::ExchangeError) -> Self {
+        match error {
+            crate::replica_snapshot::ExchangeError::Rejected => Self::Rejected,
+            crate::replica_snapshot::ExchangeError::Transport => Self::Transport,
+        }
+    }
 }
 
 /// Transport Done is separate from complete durable records and an applied
@@ -176,10 +182,6 @@ impl NativeNetwork {
                 .send_message(ControlMessageFormat::Fixed { length: 4 }, b"REPL")
                 .await
                 .map_err(|_| ReplicaError::Transport)?;
-            let receive_error = |failure| match failure {
-                crate::replica_snapshot::ReceiveError::Rejected => ReplicaError::Rejected,
-                crate::replica_snapshot::ReceiveError::Transport => ReplicaError::Transport,
-            };
             let mut received = ReceivedHistory::default();
             let mut progress = ReplicaProgress::default();
             loop {
@@ -219,9 +221,8 @@ impl NativeNetwork {
                 let mut stream = codec_stream::<LogSyncMessage<[u8; 16]>>(&exchange, MAX_BYTES);
                 {
                     let mut records = manifest
-                        .receive(self.anchor, known, &mut sink, &mut stream)
-                        .map_err(receive_error)?;
-                    while let Some(record) = records.next().await.map_err(receive_error)? {
+                        .receive(self.anchor, known, &mut sink, &mut stream)?;
+                    while let Some(record) = records.next().await? {
                         if !self.replica_allowed(connection) {
                             return Err(ReplicaError::Rejected);
                         }
@@ -389,84 +390,9 @@ impl ReplicaProvider {
                     .await
                     .map_err(|_| ReplicaError::Transport)?,
             };
-            let request = exchange
-                .recv_message(ControlMessageFormat::Fixed { length: 4 })
-                .await
-                .map_err(|_| ReplicaError::Transport)?;
-            if request != b"REPL" {
-                return Err(ReplicaError::Rejected);
-            }
-            for page in Snapshot::pages(self.anchor, records) {
-                if !self.replica_provider_allowed(connection) {
-                    return Err(ReplicaError::Rejected);
-                }
-                let (snapshot, manifest) = page.map_err(|_| ReplicaError::Rejected)?;
-                let more = manifest.more;
-                let bytes = p2panda_core::cbor::encode_cbor(&manifest)
-                    .map_err(|_| ReplicaError::Rejected)?;
-                if bytes.len() > MAX_BYTES {
-                    return Err(ReplicaError::Rejected);
-                }
-                exchange
-                    .send_message(
-                        ControlMessageFormat::LengthPrefixed32 { maximum: MAX_BYTES },
-                        &bytes,
-                    )
-                    .await
-                    .map_err(|_| ReplicaError::Transport)?;
-                let (events, mut received) =
-                    broadcast::channel::<LogSyncEvent<ManagementExtension>>(MAX_RECORDS + 1);
-                let sync = LogSync::new(snapshot, manifest.logs, events);
-                let mut sink = Box::pin(
-                    codec_sink::<LogSyncMessage<[u8; 16]>>(&exchange, MAX_BYTES).with(
-                        |message| async move {
-                            if !self.replica_provider_allowed(connection) {
-                                return Err(CodecError::Io(
-                                    std::io::ErrorKind::PermissionDenied.into(),
-                                ));
-                            }
-                            Ok(message)
-                        },
-                    ),
-                );
-                let mut stream = codec_stream::<LogSyncMessage<[u8; 16]>>(&exchange, MAX_BYTES);
-                sync.run(&mut sink, &mut stream)
-                    .await
-                    .map_err(|_| ReplicaError::Transport)?;
-                // This is a one-way replica fetch, not an unsolicited publish route.
-                while let Ok(event) = received.try_recv() {
-                    if matches!(event, LogSyncEvent::OperationReceived { .. }) {
-                        return Err(ReplicaError::Rejected);
-                    }
-                }
-                drop(sink);
-                drop(stream);
-                let receipt = codec_stream::<Receipt>(&exchange, 64)
-                    .next()
-                    .await
-                    .ok_or(ReplicaError::Transport)?
-                    .map_err(|_| ReplicaError::Transport)?;
-                if !receipt.records_saved || !self.replica_provider_allowed(connection) {
-                    return Err(ReplicaError::Rejected);
-                }
-                // Withhold the old completion ACK while another page remains.
-                // An old one-page reader cannot accept the next CBOR manifest
-                // as a postcard Receipt, and therefore cannot report completion.
-                if !more {
-                    codec_sink::<Receipt>(&exchange, 64)
-                        .send(Receipt {
-                            records_saved: true,
-                            view_applied: receipt.view_applied,
-                        })
-                        .await
-                        .map_err(|_| ReplicaError::Transport)?;
-                }
-            }
-            exchange
-                .finish_send_confirmed()
-                .await
-                .map_err(|_| ReplicaError::Transport)?;
-            Ok(())
+            crate::replica_snapshot::send_snapshot(&exchange, self.anchor, records, || {
+                self.replica_provider_allowed(connection)
+            }).await.map_err(ReplicaError::from)
         })
         .await
         .unwrap_or(Err(ReplicaError::Transport));

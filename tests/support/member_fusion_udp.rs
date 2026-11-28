@@ -931,7 +931,7 @@ async fn enhanced_round_treats_silent_observation_as_unavailable_without_restart
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
-#[ignore = "requires a disposable namespace with mio154a and its two configured IP addresses"]
+#[ignore = "requires the disposable mio154a address-change topology with a surviving uplink"]
 async fn changed_interface_address_revalidates_the_original_udp_stream() {
     let old = IpAddr::V4(Ipv4Addr::new(10, 154, 0, 1));
     let new = IpAddr::V4(Ipv4Addr::new(10, 154, 0, 2));
@@ -962,11 +962,17 @@ async fn changed_interface_address_revalidates_the_original_udp_stream() {
                 .success()
         );
     };
+    // Both simulated devices share lo. When the last non-loopback address
+    // disappears, wildcard endpoints can also advertise 127.0.0.1. Keep that
+    // artificial UDP route unavailable while the real relay stays reachable.
+    let _loopback = UdpBlackhole::on_input(
+        addresses.map(|addr| SocketAddr::new(Ipv4Addr::LOCALHOST.into(), addr.port())),
+    );
     let cut = Instant::now();
     adjust("del", old);
     time::timeout_at(cut + BUSINESS_LIMIT, stream.round_trip(2))
         .await
-        .unwrap();
+        .expect("original stream must continue over the surviving relay");
     wait_for(
         "original selects live relay after old address is removed",
         BUSINESS_LIMIT,

@@ -115,11 +115,7 @@ pub struct Ready {
 /// Admission can support either direction. Only the actual provider authorizes
 /// target effects; a consumer need not enable its own unrelated provider.
 pub fn peer_permitted(access: &ServiceAccess, peer: VerifyingKey, protocol: Protocol) -> bool {
-    access.member(access.local) && access.member(peer)
-        || access
-            .guest_pairs_for(protocol.service())
-            .iter()
-            .any(|(id, _)| id == peer.as_bytes())
+    access.can_contact_service(protocol.service(), peer)
 }
 
 pub async fn open(

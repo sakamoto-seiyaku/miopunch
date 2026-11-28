@@ -354,6 +354,28 @@ pub(crate) fn verify_ack(signed: &Signed, rotation: &SavedRotation) -> Result<[u
     Ok(ack.member)
 }
 
+/// Validate all receipts against the same live membership snapshot before the
+/// caller persists any of them. Only the first receipt speaks for the TLS peer.
+pub(crate) fn verify_delivery_acks(
+    rotation: &SavedRotation,
+    peer: VerifyingKey,
+    retained: &[[u8; 32]],
+    direct: Signed,
+    forwarded: Vec<Signed>,
+) -> Result<Vec<(VerifyingKey, Signed)>, WireError> {
+    if forwarded.len() > MAX_MEMBERS {
+        return Err(WireError::Rejected);
+    }
+    std::iter::once(direct).chain(forwarded).enumerate().map(|(index, signed)| {
+        let member = verify_ack(&signed, rotation)?;
+        if (index == 0 && &member != peer.as_bytes()) || !retained.contains(&member) {
+            return Err(WireError::Rejected);
+        }
+        let member = VerifyingKey::from_bytes(&member).map_err(|_| WireError::Rejected)?;
+        Ok((member, signed))
+    }).collect()
+}
+
 pub(crate) fn verify_completion(
     rotation: &SavedRotation,
     root: VerifyingKey,

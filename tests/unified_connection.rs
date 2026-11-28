@@ -285,6 +285,13 @@ async fn streams(a: &Connection, b: &Connection) {
 #[tokio::test]
 async fn reopened_members_use_common_sdk_without_selecting_platform_or_carrier() {
     let (_dir, a, b) = admitted_pair().await;
+    // This fixture asserts UDP selection and socket release. Leave UDP as
+    // the only available carrier while the caller uses the ordinary entry.
+    for node in [&a, &b] {
+        let mut config = node.resource_configuration().unwrap();
+        config.tcp_direct_disabled = true;
+        node.save_resource_configuration(&config).unwrap();
+    }
     let ae = a
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
@@ -762,6 +769,7 @@ async fn no_permitted_data_or_signaling_only_hints_never_return_an_ordinary_sdk_
     ));
     let mut config = b.resource_configuration().unwrap();
     config.udp_direct_disabled = true;
+    config.tcp_direct_disabled = true;
     b.save_resource_configuration(&config).unwrap();
     let denied = b
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)

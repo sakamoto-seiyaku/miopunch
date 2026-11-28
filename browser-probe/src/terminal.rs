@@ -1,7 +1,7 @@
 //! Browser terminal clients use the same wire and admission rules as Native.
 use super::*;
 use crate::business_channel::{
-    BusinessChannel, ChannelBudget, ChannelError, ChannelTransport, RecoveryExpired,
+    BusinessChannel, ChannelBudget, ChannelTransport,
 };
 use crate::forwarding::{ChannelOrigin, ChannelRequest};
 use std::sync::Arc;
@@ -400,43 +400,19 @@ impl BrowserNetwork {
             let channel = business;
             let cancel = owner.cancel.clone();
             let completed = {
+                let connection = owner.connection.clone().expect("attached terminal connection");
+                let mut request = channel_request;
                 let network = async {
-                    let mut stream = stream;
-                    let mut connection = owner
-                        .connection
-                        .clone()
-                        .expect("attached terminal connection");
-                    let mut request = channel_request;
-                    loop {
-                        match channel.carry(stream, &connection).await {
-                            Ok(()) => return Ok(()),
-                            Err(ChannelError::Business(error)) => return Err(error.into()),
-                            Err(ChannelError::RecoveryExpired) => {
-                                return Err(RecoveryExpired.into());
-                            }
-                            Err(ChannelError::NetworkInterrupted) => {}
-                        }
-                        let at = channel.begin_recovery();
-                        let reconnect = runtime.reopen(
-                            &mut owner,
-                            &gate,
-                            &coordinator,
-                            &address,
-                            &workspace,
-                            columns,
-                            rows,
-                            &mut request,
-                            at,
-                        );
-                        let (next, next_stream, _) = n0_future::time::timeout(
-                            at.saturating_duration_since(n0_future::time::Instant::now()),
-                            reconnect,
-                        )
-                        .await
-                        .map_err(|_| RecoveryExpired)??;
-                        connection = next;
-                        stream = next_stream;
+                    let mut carrier = Some((connection, stream));
+                    while let Some((connection, stream)) = carrier {
+                        carrier = channel.carry_or_reopen(stream, &connection, |deadline| {
+                            runtime.reopen(
+                                &mut owner, &gate, &coordinator, &address, &workspace, columns, rows,
+                                &mut request, deadline,
+                            )
+                        }).await?;
                     }
+                    Ok(())
                 };
                 let io = terminal::consume_on_stream(
                     logical,

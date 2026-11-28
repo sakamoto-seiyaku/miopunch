@@ -1,7 +1,6 @@
 //! Browser adapter of the shared native LogSync wire protocol.
 use super::*;
-use crate::codec::CodecError;
-use crate::management_auth::{ManagementExtension, decode_complete};
+use crate::management_auth::decode_complete;
 use crate::management_record::ManagementRecord;
 use crate::replica_snapshot::{
     MAX_BYTES, MAX_RECORDS, Manifest, Receipt, ReceivedHistory, ReplicaProgress, Snapshot,
@@ -9,9 +8,7 @@ use crate::replica_snapshot::{
 };
 use futures_util::{SinkExt, StreamExt};
 use iroh::endpoint::{ControlExchange, ControlMessageFormat};
-use p2panda_sync::protocols::{LogSync, LogSyncEvent, LogSyncMessage};
-use p2panda_sync::traits::Protocol;
-use tokio::sync::broadcast;
+use p2panda_sync::protocols::LogSyncMessage;
 
 impl SavedNode {
     fn control_state(&self) -> Result<serde_json::Value, JsValue> {
@@ -222,10 +219,6 @@ impl BrowserNetwork {
             // Preserve the lazy-open request and the original small-history wire.
             exchange.send_message(ControlMessageFormat::Fixed { length: 4 }, b"REPL")
                 .await.map_err(|_| error("replica transport failed"))?;
-            let receive_error = |failure| match failure {
-                crate::replica_snapshot::ReceiveError::Rejected => rejected(),
-                crate::replica_snapshot::ReceiveError::Transport => error("replica transport failed"),
-            };
             let mut received = ReceivedHistory::default();
             let known_ids: std::collections::BTreeMap<_, _> = self.saved.records.iter().enumerate()
                 .map(|(index, (header, _))| (Hash::digest(header), index)).collect();
@@ -257,8 +250,8 @@ impl BrowserNetwork {
                 let mut sink = codec_sink::<LogSyncMessage<[u8; 16]>>(&exchange, MAX_BYTES);
                 let mut stream = codec_stream::<LogSyncMessage<[u8; 16]>>(&exchange, MAX_BYTES);
                 {
-                    let mut records = manifest.receive(self.saved.invitation()?.anchor, known, &mut sink, &mut stream).map_err(receive_error)?;
-                    while let Some(record) = records.next().await.map_err(receive_error)? {
+                    let mut records = manifest.receive(self.saved.invitation()?.anchor, known, &mut sink, &mut stream).map_err(replica_exchange_error)?;
+                    while let Some(record) = records.next().await.map_err(replica_exchange_error)? {
                         if !self.replica_allowed(connection) { return Err(rejected()); }
                         let (header, body) = record.into_parts();
                         saved.insert(self.ingest_record(header, body).await?);
@@ -310,82 +303,23 @@ impl BrowserNetwork {
             }
             let (send, recv) = connection.accept_bi().await.map_err(error)?;
             let exchange = ControlExchange::from_streams(send, recv);
-            let request = exchange
-                .recv_message(ControlMessageFormat::Fixed { length: 4 })
-                .await
-                .map_err(|_| error("replica transport failed"))?;
-            if request != b"REPL" {
-                return Err(rejected());
-            }
-            for page in Snapshot::pages(self.saved.invitation()?.anchor, records) {
-                if !self.replica_allowed(connection) {
-                    return Err(rejected());
-                }
-                let (snapshot, manifest) = page.map_err(|_| rejected())?;
-                let more = manifest.more;
-                let bytes = p2panda_core::cbor::encode_cbor(&manifest).map_err(|_| rejected())?;
-                if bytes.len() > MAX_BYTES {
-                    return Err(rejected());
-                }
-                exchange
-                    .send_message(
-                        ControlMessageFormat::LengthPrefixed32 { maximum: MAX_BYTES },
-                        &bytes,
-                    )
-                    .await
-                    .map_err(|_| error("replica transport failed"))?;
-                let (events, mut received) =
-                    broadcast::channel::<LogSyncEvent<ManagementExtension>>(MAX_RECORDS + 1);
-                let sync = LogSync::new(snapshot, manifest.logs, events);
-                let mut sink = Box::pin(
-                    codec_sink::<LogSyncMessage<[u8; 16]>>(&exchange, MAX_BYTES).with(
-                        |message| async move {
-                            if !self.replica_allowed(connection) {
-                                return Err(CodecError::Io(
-                                    std::io::ErrorKind::PermissionDenied.into(),
-                                ));
-                            }
-                            Ok(message)
-                        },
-                    ),
-                );
-                let mut stream = codec_stream::<LogSyncMessage<[u8; 16]>>(&exchange, MAX_BYTES);
-                sync.run(&mut sink, &mut stream)
-                    .await
-                    .map_err(|_| error("replica transport failed"))?;
-                while let Ok(event) = received.try_recv() {
-                    if matches!(event, LogSyncEvent::OperationReceived { .. }) {
-                        return Err(rejected());
-                    }
-                }
-                drop(sink);
-                drop(stream);
-                let receipt = codec_stream::<Receipt>(&exchange, 64)
-                    .next()
-                    .await
-                    .ok_or(error("replica transport failed"))?
-                    .map_err(|_| error("replica transport failed"))?;
-                if !receipt.records_saved || !self.replica_allowed(connection) {
-                    return Err(rejected());
-                }
-                if !more {
-                    codec_sink::<Receipt>(&exchange, 64)
-                        .send(Receipt {
-                            records_saved: true,
-                            view_applied: receipt.view_applied,
-                        })
-                        .await
-                        .map_err(error)?;
-                }
-            }
-            exchange.finish_send_confirmed().await.map_err(error)?;
-            Ok(())
+            crate::replica_snapshot::send_snapshot(
+                &exchange, self.saved.invitation()?.anchor, records,
+                || self.replica_allowed(connection),
+            ).await.map_err(replica_exchange_error)
         }
         .await;
         if result.is_err() {
             connection.close(0u32.into(), b"replica rejected");
         }
         result
+    }
+}
+
+fn replica_exchange_error(failure: crate::replica_snapshot::ExchangeError) -> JsValue {
+    match failure {
+        crate::replica_snapshot::ExchangeError::Rejected => rejected(),
+        crate::replica_snapshot::ExchangeError::Transport => error("replica transport failed"),
     }
 }
 

@@ -283,6 +283,13 @@ pub struct ServiceAccess {
     pub ledger: ServiceLedger,
 }
 impl ServiceAccess {
+    /// A member pair or a current guest grant can contact the service in either
+    /// direction. Opening a local target still requires the provider's ACL.
+    pub fn can_contact_service(&self, service: Service, peer: VerifyingKey) -> bool {
+        self.member(self.local) && self.member(peer)
+            || self.guest_pairs_for(service).iter().any(|(id, _)| id == peer.as_bytes())
+    }
+
     /// One signed provider rule, including a guest's exact invited service.
     pub fn permits_service(&self, service: Service, peer: VerifyingKey) -> bool {
         if self.member(self.local) {

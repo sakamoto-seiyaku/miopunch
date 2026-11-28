@@ -1908,7 +1908,29 @@ pub(crate) struct PreparedAdmission {
     cancellation: PendingMember,
 }
 impl PreparedAdmission {
-    pub(crate) fn path_id(
+    /// Assemble delivery while the prepared path still belongs to this attempt.
+    /// The endpoint runs the owned bilateral confirmation on the live control.
+    pub(crate) async fn into_outcome(
+        self,
+        connection: &iroh::endpoint::ControlConnection,
+        allowed_carriers: impl FnOnce() -> Vec<u64>,
+        confirm: impl FnOnce(Self) -> iroh::endpoint::ControlConfirmation,
+    ) -> io::Result<iroh::endpoint::AdmissionOutcome> {
+        use iroh::endpoint::AdmissionOutcome;
+        if self.purpose.requires_data() {
+            let permit = connection
+                .qualify_data_path(self.path_id(connection)?, allowed_carriers())
+                .await?;
+            Ok(AdmissionOutcome::AcceptWithConfirmation {
+                permit,
+                confirmation: confirm(self),
+            })
+        } else {
+            Ok(AdmissionOutcome::ControlOnlyWithConfirmation(confirm(self)))
+        }
+    }
+
+    fn path_id(
         &self,
         connection: &(impl AuthenticatedControl + ?Sized),
     ) -> io::Result<iroh::endpoint::PathId> {

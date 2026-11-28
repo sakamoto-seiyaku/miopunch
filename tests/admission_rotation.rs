@@ -87,6 +87,12 @@ async fn native_sdk_resumes_the_same_rotation_and_switches_with_fresh_confirmati
         resources::{Resource, ResourceConfig, ResourceTable, ResourceUse},
     };
 
+    // The scenario reopens three full runtimes in one test future. Keep the
+    // startup future off the test thread's stack on each reopen.
+    async fn reopen(path: &std::path::Path) -> NativeClient {
+        Box::pin(NativeClient::open(path, Ipv4Addr::LOCALHOST)).await.unwrap()
+    }
+
     async fn observe_rotation(
         client: &NativeClient,
         checkpoint: &str,
@@ -191,16 +197,12 @@ async fn native_sdk_resumes_the_same_rotation_and_switches_with_fresh_confirmati
     );
     creator.close().await.unwrap();
 
-    let creator = NativeClient::open(&creator_path, Ipv4Addr::LOCALHOST)
-        .await
-        .unwrap();
+    let creator = reopen(&creator_path).await;
     assert_eq!(
         creator.rotation_progress().await.unwrap().unwrap(),
         distributed
     );
-    let offline = NativeClient::open(&offline_path, Ipv4Addr::LOCALHOST)
-        .await
-        .unwrap();
+    let offline = reopen(&offline_path).await;
     let all_saved = observe_rotation(&creator, "returning member receipt", |p| {
         p.acknowledged.len() == 3
     })
@@ -249,15 +251,9 @@ async fn native_sdk_resumes_the_same_rotation_and_switches_with_fresh_confirmati
     creator.close().await.unwrap();
     online.close().await.unwrap();
 
-    let creator = NativeClient::open(&creator_path, Ipv4Addr::LOCALHOST)
-        .await
-        .unwrap();
-    let online = NativeClient::open(&online_path, Ipv4Addr::LOCALHOST)
-        .await
-        .unwrap();
-    let offline = NativeClient::open(&offline_path, Ipv4Addr::LOCALHOST)
-        .await
-        .unwrap();
+    let creator = reopen(&creator_path).await;
+    let online = reopen(&online_path).await;
+    let offline = reopen(&offline_path).await;
     let late_completion = observe_rotation(&offline, "late completion", |p| {
         p.stage == RotationStage::Complete
     })
