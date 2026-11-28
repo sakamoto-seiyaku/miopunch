@@ -633,7 +633,7 @@ async fn enhanced_round_deduplicates_qad_destinations_and_falls_back_for_one_sam
 }
 
 #[tokio::test]
-async fn enhanced_round_keeps_ordered_stun_for_an_unsupported_mixed_binding() {
+async fn enhanced_round_orders_concurrent_stun_replies_on_the_selected_binding() {
     use iroh::endpoint::BindOpts;
     use tokio::net::UdpSocket;
 
@@ -670,14 +670,18 @@ async fn enhanced_round_keeps_ordered_stun_for_an_unsupported_mixed_binding() {
     let (plan, ()) = tokio::join!(
         coordinate_once(&pair, 0, Instant::now() + Duration::from_secs(3)),
         async {
-            assert!(
-                time::timeout(Duration::from_millis(250), second.recv_from(&mut [0; 2048]))
-                    .await
-                    .is_err(),
-                "second ordered request must wait for a reply to the first"
-            );
-            reply_stun(first, expected).await;
+            // Both stations must receive requests before either replies. Hold the
+            // first station's replies until its transactions are retransmitted.
+            let mut held = Vec::new();
+            for _ in 0..2 {
+                let mut packet = [0; 20];
+                let (len, source) = first.recv_from(&mut packet).await.unwrap();
+                assert_eq!(len, packet.len());
+                held.push(source);
+            }
+            assert!(expected.iter().all(|source| held.contains(source)));
             reply_stun(second, expected).await;
+            reply_stun(first, expected).await;
         },
     );
     let peer = paired_plan(&pair, 0, &plan).await;
@@ -689,12 +693,9 @@ async fn enhanced_round_keeps_ordered_stun_for_an_unsupported_mixed_binding() {
                 .iter()
                 .map(|sample| sample.destination)
                 .collect::<Vec<_>>(),
-            observers
-                .each_ref()
-                .map(|socket| socket.local_addr().unwrap()),
+            [second.local_addr().unwrap(), first.local_addr().unwrap()],
         );
     }
-    eprintln!("MIO157 unsupported mixed binding kept ordered STUN");
     pair.close().await;
 }
 
