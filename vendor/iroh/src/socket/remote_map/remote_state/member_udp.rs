@@ -78,6 +78,7 @@ impl MemberUdpProbes {
         &mut self,
         verified: &BTreeSet<SocketAddr>,
         local: &BTreeSet<SocketAddr>,
+        advertised: Option<&[SocketAddr]>,
     ) -> [bool; 2] {
         std::array::from_fn(|index| {
             let family = &mut self.families[index];
@@ -88,8 +89,15 @@ impl MemberUdpProbes {
             if !verified.is_disjoint(&family.refresh_peers) {
                 family.refresh_peers.clear();
             }
-            (family.network_refresh || !family.refresh_peers.is_empty())
-                && local.iter().any(in_family)
+            // While the peer still advertises a verified binding in this
+            // family, additional addresses belong to normal path balancing.
+            // Keep them pending so withdrawing that binding can wake repair.
+            // On the server a new REACH_OUT is itself a request to probe.
+            let peer_refresh = !family.refresh_peers.is_empty()
+                && !advertised.is_some_and(|addresses| {
+                    addresses.iter().any(|addr| in_family(addr) && verified.contains(addr))
+                });
+            (family.network_refresh || peer_refresh) && local.iter().any(in_family)
         })
     }
 

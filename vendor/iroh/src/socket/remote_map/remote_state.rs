@@ -1776,7 +1776,10 @@ impl RemoteStateActor {
         let ready_direct = direct.ready;
         let verified = &direct.verified;
         let all_candidates = self.state.local_candidates();
-        let refresh_families = member.udp_probes.refresh_needed(verified, &all_candidates);
+        let advertised_remote = conn.get_remote_nat_traversal_addresses();
+        let refresh_families = member.udp_probes.refresh_needed(
+            verified, &all_candidates, advertised_remote.as_deref().ok(),
+        );
         let refreshing = refresh_families.iter().any(|refreshing| *refreshing);
         let concurrent = member
             .policy
@@ -1856,7 +1859,6 @@ impl RemoteStateActor {
             update_qnt_candidates(&conn, &advertise);
             return;
         }
-        let advertised_remote = conn.get_remote_nat_traversal_addresses();
         let explicit: BTreeSet<_> = self
             .state
             .paths
@@ -1891,11 +1893,10 @@ impl RemoteStateActor {
                 .filter(|addr| addr.is_ipv6())
                 .collect();
             let known_ipv6: Vec<_> = known.iter().filter(|addr| addr.is_ipv6()).collect();
-            let peer_ipv6: Vec<_> = conn
-                .get_remote_nat_traversal_addresses()
-                .unwrap_or_default()
-                .into_iter()
-                .filter(SocketAddr::is_ipv6)
+            let peer_ipv6: Vec<_> = advertised_remote
+                .iter()
+                .flatten()
+                .filter(|addr| addr.is_ipv6())
                 .collect();
             eprintln!(
                 "PEER_IPV6 member-candidates stable_id={} side={:?} ipv4_paused={ipv4_paused} local={local_ipv6:?} known={known_ipv6:?} peer_announced={peer_ipv6:?} verified={verified:?}",

@@ -1431,10 +1431,13 @@ async fn old_qnt_retries_do_not_probe_new_balancing_candidates() {
         assert_eq!(source, addresses[0]);
         assert!(client.stats().frame_tx.reach_out > 0);
 
+        // Let the old round's REACH_OUT and its acknowledgement traverse the
+        // relay before opening the fast UDP path. A retransmission of that
+        // earlier frame would otherwise advance the wire counter below.
+        let mut original = OriginalStream::open(client, server, 1).await;
         let released = Instant::now();
         drop(gate);
         let paths = qualified_udp(&pair.connections, addresses, released, true).await;
-        let mut original = OriginalStream::open(client, server, 1).await;
         stream_on_path(server, &mut original, paths[1], 2).await;
         let advertised_before = client.stats().frame_rx.add_address;
         let rounds_before = client.stats().frame_tx.reach_out;
