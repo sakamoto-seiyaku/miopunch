@@ -477,6 +477,12 @@ impl VerifiedDirect {
         // A peer can finish its stream after reading Ready. Consume the framed
         // confirmation even if its send-control handle has already stopped.
         const READY: ControlMessageFormat = ControlMessageFormat::Fixed { length: 1 };
+        #[cfg(feature = "miopunch-test-hooks")]
+        let mut hold = control.commit_gate().take();
+        #[cfg(feature = "miopunch-test-hooks")]
+        if let Some(hold) = &mut hold {
+            hold.pause(super::commit_fixture::PathCommitPoint::BeforeConfirmation, exchange).await?;
+        }
         let (_, ready) = tokio::try_join!(
             exchange.send_message(READY, &[1]),
             exchange.recv_message(READY)
@@ -484,12 +490,20 @@ impl VerifiedDirect {
         if ready != [1] {
             return Err(io::ErrorKind::InvalidData.into());
         }
+        #[cfg(feature = "miopunch-test-hooks")]
+        if let Some(hold) = &mut hold {
+            hold.pause(super::commit_fixture::PathCommitPoint::AfterConfirmation, exchange).await?;
+        }
         self.check(control)?;
         if !self.probe.is_acknowledged().map_err(io::Error::other)? {
             return Err(io::ErrorKind::Interrupted.into());
         }
         exchange.finish_send().await?;
         (self.prepared.retain)()?;
+        #[cfg(feature = "miopunch-test-hooks")]
+        if let Some(hold) = hold {
+            hold.retained();
+        }
         eprintln!(
             "MEMBER_DIRECT_RETAINED stable_id={} path={:?} remote={:?}",
             control.stable_id(),

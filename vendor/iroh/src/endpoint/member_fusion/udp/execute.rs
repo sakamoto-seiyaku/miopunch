@@ -393,6 +393,8 @@ impl FamilyPlanning {
         })
         .await?;
         incoming.close();
+        #[cfg(feature = "miopunch-test-hooks")]
+        let mut hold = self.connection.commit_gate().take();
         self.finish_business(
             stream,
             plan,
@@ -403,10 +405,16 @@ impl FamilyPlanning {
             state,
             business,
             &peer,
+            #[cfg(feature = "miopunch-test-hooks")]
+            &mut hold,
         )
         .await?;
         if let Some(candidate) = candidate {
             candidate.retain();
+        }
+        #[cfg(feature = "miopunch-test-hooks")]
+        if let Some(hold) = hold {
+            hold.retained();
         }
         Ok(())
     }
@@ -555,6 +563,8 @@ impl FamilyPlanning {
         state: &Execution,
         business: Business,
         peer: &noq::StreamControl,
+        #[cfg(feature = "miopunch-test-hooks")]
+        hold: &mut Option<super::super::commit_fixture::Hold>,
     ) -> io::Result<()> {
         let round = Round(plan.round);
         let selected = || {
@@ -598,12 +608,20 @@ impl FamilyPlanning {
                 .map_err(|_| io::ErrorKind::Interrupted.into())
         })
         .await?;
+        #[cfg(feature = "miopunch-test-hooks")]
+        if let Some(hold) = hold {
+            hold.pause(crate::endpoint::PathCommitPoint::BeforeConfirmation, stream).await?;
+        }
         selected()?;
         exchange_phase(
             stream,
             &round.business(wire::BUSINESS_CONFIRMED, business.stream),
         )
         .await?;
+        #[cfg(feature = "miopunch-test-hooks")]
+        if let Some(hold) = hold {
+            hold.pause(crate::endpoint::PathCommitPoint::AfterConfirmation, stream).await?;
+        }
         stream.finish_send().await?;
         selected()?;
         if let Some(lease) = &mut retained {

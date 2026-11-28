@@ -1435,10 +1435,10 @@ impl NativeNetwork {
         Ok(())
     }
 
-    /// Owned RTC qualification fault only. Installs a new active credential
+    /// Owned path qualification fault only. Installs a new active credential
     /// through the same durable material publication and store pin as delivery.
     /// This is not a rotation protocol or a retained-member acknowledgement.
-    #[cfg(feature = "rtc-probe")]
+    #[cfg(any(feature = "rtc-probe", feature = "nat-lab-test-hooks"))]
     pub async fn invalidate_current_credential_fixture(&mut self) -> Result<u64, NodeError> {
         let generation = self
             .scope

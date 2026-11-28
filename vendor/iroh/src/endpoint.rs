@@ -122,6 +122,9 @@ pub use member_fusion::{
     MemberPunching, MemberRepairContacts, MemberRetention, MemberStream, MemberStreamLease, MemberUdpConfig,
     MemberUdpPlan, MemberUdpTraversalReport,
 };
+#[cfg(all(not(wasm_browser), feature = "miopunch-test-hooks"))]
+#[doc(hidden)]
+pub use member_fusion::commit_fixture::{PathCommitPause, PathCommitPoint};
 pub use noq::PathProbe;
 #[cfg(not(wasm_browser))]
 pub use noq::StreamControl;

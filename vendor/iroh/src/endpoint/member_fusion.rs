@@ -23,6 +23,8 @@ use super::{
 };
 
 mod bootstrap;
+#[cfg(feature = "miopunch-test-hooks")]
+pub(super) mod commit_fixture;
 pub(crate) mod building;
 pub(crate) mod physical;
 pub use physical::MemberPunching;

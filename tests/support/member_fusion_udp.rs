@@ -183,7 +183,7 @@ fn observation_resource(url: String) -> Resource {
     }
 }
 
-async fn reply_stun(socket: &tokio::net::UdpSocket, expected: [SocketAddr; 2]) {
+pub(super) async fn reply_stun(socket: &tokio::net::UdpSocket, expected: [SocketAddr; 2]) {
     let mut seen = Vec::new();
     for _ in 0..2 {
         seen.push(reply_one_stun(socket).await);
@@ -1060,7 +1060,7 @@ impl OriginalStream {
         self.echo(data).await;
     }
 
-    async fn confirm_round_trip(&mut self, connections: &[MemberConnection; 2], round: [u8; 16], data: u64) {
+    pub(super) async fn confirm_round_trip(&mut self, connections: &[MemberConnection; 2], round: [u8; 16], data: u64) {
         let payload = data.to_be_bytes();
         tokio::try_join!(
             connections[0].confirm_udp_business(round, &mut self.outgoing, async |stream| {
@@ -1083,7 +1083,7 @@ impl OriginalStream {
     }
 }
 
-async fn wait_for(label: &str, limit: Duration, mut condition: impl FnMut() -> bool) {
+pub(super) async fn wait_for(label: &str, limit: Duration, mut condition: impl FnMut() -> bool) {
     time::timeout(limit, async {
         while !condition() {
             time::sleep(Duration::from_millis(15)).await;
@@ -1093,7 +1093,7 @@ async fn wait_for(label: &str, limit: Duration, mut condition: impl FnMut() -> b
     .unwrap_or_else(|_| panic!("{label} within {limit:?}"));
 }
 
-async fn qualified_udp(
+pub(super) async fn qualified_udp(
     connections: &[MemberConnection; 2],
     addresses: [SocketAddr; 2],
     after: Instant,

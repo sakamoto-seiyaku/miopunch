@@ -1204,6 +1204,11 @@ impl Drop for ControlConnection {
 }
 
 impl ControlHandle {
+    #[cfg(all(not(wasm_browser), feature = "miopunch-test-hooks"))]
+    pub(super) fn commit_gate(&self) -> &super::member_fusion::commit_fixture::Gate {
+        self.connection.commit_gate()
+    }
+
     /// Try mapping work on the interface actually routing this binding to the destination.
     #[cfg(not(wasm_browser))]
     pub fn try_member_punching(

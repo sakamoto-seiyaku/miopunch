@@ -431,6 +431,8 @@ fn conn_from_noq_conn(
             let paths = fut.await?;
             let conn = Connection {
                 data: HandshakeCompletedData {
+                    #[cfg(all(not(wasm_browser), feature = "miopunch-test-hooks"))]
+                    commit_gate: Default::default(),
                     info,
                     paths,
                     attempt,
@@ -998,6 +1000,8 @@ pub struct Connection<State: ConnectionState = HandshakeCompleted> {
 #[doc(hidden)]
 #[derive(Debug, Clone)]
 pub struct HandshakeCompletedData {
+    #[cfg(all(not(wasm_browser), feature = "miopunch-test-hooks"))]
+    commit_gate: Arc<super::member_fusion::commit_fixture::Gate>,
     info: StaticInfo,
     paths: PathStateReceiver,
     attempt: AttemptOptions,
@@ -1418,6 +1422,11 @@ impl<T: ConnectionState> Connection<T> {
 }
 
 impl Connection<HandshakeCompleted> {
+    #[cfg(all(not(wasm_browser), feature = "miopunch-test-hooks"))]
+    pub(super) fn commit_gate(&self) -> &super::member_fusion::commit_fixture::Gate {
+        &self.data.commit_gate
+    }
+
     #[cfg(not(wasm_browser))]
     pub(super) fn hold_member_ip_bootstrap(&self) -> Option<Arc<std::sync::atomic::AtomicBool>> {
         use std::sync::atomic::{AtomicBool, Ordering};

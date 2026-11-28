@@ -32,6 +32,9 @@ use tokio_util::sync::CancellationToken;
 
 use super::{admit, bind, relay, resource};
 
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[path = "member_path_commit.rs"]
+mod path_commit;
 #[path = "member_fusion_backup.rs"]
 mod backup;
 #[path = "delayed_relay.rs"]
