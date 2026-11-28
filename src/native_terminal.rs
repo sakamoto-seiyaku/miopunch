@@ -704,26 +704,6 @@ impl NativeTerminal {
             .cloned()
             .ok_or_else(|| "unknown terminal attachment".into())
     }
-    async fn consume(
-        mut owner: Operation,
-        stream: DataStream,
-        outgoing: mpsc::Receiver<TerminalInput>,
-        incoming: mpsc::Sender<TerminalOutput>,
-        outcome: Arc<Mutex<Option<bool>>>,
-        connection: ServiceTransport,
-    ) {
-        let completed = terminal::consume_on_stream(
-            stream,
-            connection.closed(),
-            &owner.cancel,
-            outgoing,
-            incoming,
-            connection.is_member(),
-        )
-        .await;
-        *outcome.lock().unwrap() = Some(completed);
-        owner.completed = completed;
-    }
 }
 
 impl NativeClient {

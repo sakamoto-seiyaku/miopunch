@@ -234,14 +234,6 @@ impl SocketPool {
             .values()
             .any(|s| s.upgrade().is_some_and(|s| s.is_live()))
     }
-    pub(crate) fn bind(
-        &self,
-        remote: EndpointId,
-        connection_id: usize,
-        metrics: Arc<SocketMetrics>,
-    ) -> io::Result<Arc<PoolSocket>> {
-        self.bind_on(None, remote, connection_id, metrics)
-    }
     pub(crate) fn bind_on(
         &self,
         source: Option<IpAddr>,

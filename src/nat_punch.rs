@@ -1392,23 +1392,6 @@ impl Attempt {
         self.execution_trace.as_ref()
     }
 
-    /// Ordinary Endpoint handoff retains the validated physical socket without
-    /// inventing an application success report. Explicit business-confirming
-    /// callers keep using confirm_success and its established feedback rule.
-    pub(crate) fn retain_application_path(
-        &mut self,
-        data: &DataSession,
-        gate: &AdmissionGate,
-    ) -> io::Result<()> {
-        self.data_wait_remaining(data, gate)?;
-        if let Some(lease) = self.winner_lease.as_mut() {
-            lease.commit(data.connection())?;
-        }
-        self.finished = true;
-        self.recommendation = None;
-        Ok(())
-    }
-
     pub(crate) fn retain_control_path(
         &mut self,
         control: &ControlSession,

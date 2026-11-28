@@ -207,18 +207,7 @@ pub(crate) async fn read_output(
     Ok(message)
 }
 
-/// The same bounded consumer loop on Native and WASM. Directional futures
-/// survive opposite-direction traffic, so a partial record is never discarded.
-pub(crate) async fn consume_attachment(
-    stream: DataStream,
-    connection: &iroh::endpoint::Connection,
-    cancel: &tokio_util::sync::CancellationToken,
-    outgoing: tokio::sync::mpsc::Receiver<TerminalInput>,
-    incoming: tokio::sync::mpsc::Sender<TerminalOutput>,
-) -> bool {
-    consume_on_stream(stream, async { connection.closed().await; }, cancel, outgoing, incoming, false).await
-}
-
+/// Native and WASM share this bounded loop. Opposite-direction traffic cannot discard a partial record.
 pub(crate) async fn consume_on_stream(
     stream: DataStream,
     peer_closed: impl std::future::Future<Output = ()>,

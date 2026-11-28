@@ -337,27 +337,28 @@ impl NativeClientRuntime {
         if let Some(change) = access.declaration_change(crate::service_policy::Service::Terminal, false, false) {
             services.apply(&node, &files, change).await?;
         }
-        files.update_access(services.access(&node).await?);
+        let access = services.access(&node).await?;
+        files.update_access(access.clone());
         let services = Arc::new(Mutex::new(services));
         let clipboard =
             crate::native_clipboard::NativeClipboard::new(node.admission_gate().clone());
-        clipboard.enforce_access(&services.lock().await.access(&node).await?);
+        clipboard.enforce_access(&access);
         services.lock().await.clipboard = Some(Arc::downgrade(&clipboard));
         let resources_config = node.resource_configuration()?;
         resources_config.validate_contact_facilities()?;
         ResourceEndpoint::validate_contact_timeout(Duration::from_millis(resources_config.maintenance.contact_timeout_ms))?;
         let forwarding = crate::native_forwarding::NativeForwarding::new(node.admission_gate().clone(), resources_config.business_channel, service_handles.clone())?;
-        forwarding.enforce_access(&services.lock().await.access(&node).await?);
+        forwarding.enforce_access(&access);
         services.lock().await.forwarding = Some(Arc::downgrade(&forwarding));
         let web = crate::native_web::NativeWeb::new(node.admission_gate().clone(), service_handles.clone());
-        web.enforce_access(&services.lock().await.access(&node).await?);
+        web.enforce_access(&access);
         services.lock().await.web = Some(Arc::downgrade(&web));
         let terminal = crate::native_terminal::NativeTerminal::new(
             node.admission_gate().clone(),
             forwarding.channel_budget.clone(),
             service_handles.clone(),
         );
-        terminal.enforce_access(&services.lock().await.access(&node).await?);
+        terminal.enforce_access(&access);
         services.lock().await.terminal = Some(Arc::downgrade(&terminal));
         before_bind.await?;
         let resources = Arc::new(node.bind_application_endpoint(bind).await?);

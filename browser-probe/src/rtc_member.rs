@@ -289,12 +289,6 @@ fn channel_metadata(association: &Association) -> Result<Value, JsValue> {
     )
 }
 
-async fn metadata(association: &Association) -> Result<Value, JsValue> {
-    let mut report = channel_metadata(association)?;
-    report["stats"] = stats(&association.pc).await?;
-    Ok(report)
-}
-
 // Browser API exceptions can disqualify the RTC candidate. Protected protocol
 // failures are generated as ControlFailure by the negotiation itself.
 impl From<JsValue> for ControlFailure {
@@ -702,10 +696,6 @@ fn local_sdp(
     Ok(())
 }
 
-fn report_stub(stable: usize, metadata: &Value) -> Value {
-    json!({"memberStableId":stable,"channel":metadata,"active":true})
-}
-
 pub(super) async fn bootstrap_control_inner(
     connection: &ControlHandle,
     gate: &BrowserGate,
@@ -717,11 +707,7 @@ pub(super) async fn bootstrap_control_inner(
     let caller_deadline = connection
         .caller_deadline()
         .ok_or_else(|| error("RTC caller deadline absent"))?;
-    let mut budget = RtcDeadline::from_caller(
-        connection
-            .caller_deadline()
-            .ok_or_else(|| error("RTC caller deadline absent"))?,
-    );
+    let mut budget = RtcDeadline::from_caller(caller_deadline);
     let stable = connection.stable_id();
     let original_binding = binding(connection)?;
     let attempt = unified.id_hex();
