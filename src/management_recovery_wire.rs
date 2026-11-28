@@ -10,17 +10,89 @@ use p2panda_auth::{
     group::{GroupAction, GroupMember},
 };
 use p2panda_core::{Hash, Header, Signature, VerifyingKey};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
+    admission_history_wire::{self as history, History, HistoryBinding, HistoryCheckpoint},
     control_protocol::AuthenticatedControl,
-    management_auth::{ManagementExtension, NetworkAnchor},
+    management_auth::{ManagementAuth, ManagementExtension, NetworkAnchor},
+    management_record::{MAX_PAGE_BYTES, MAX_PAGE_RECORDS},
     service_protocol::ManagementRecords,
 };
 
 pub const RECOVERY_ALPN: &[u8] = b"miopunch/management-recovery/1";
 pub const DOMAIN: &[u8] = b"miopunch/genesis-recovery/v1\0";
-pub const MAX_HISTORY: usize = 16 * 1024 * 1024;
+// Single-page recovery is a CBOR pair. This distinct first frame announces
+// the shared cursor exchange; its recovery-specific metadata follows the last ACK.
+const PAGED: &[u8] = b"miopunch/recovery-history/pages/1";
+
+pub(crate) fn history_binding(
+    anchor: NetworkAnchor,
+    provider: EndpointId,
+    attempt: [u8; 16],
+) -> HistoryBinding {
+    // The attempt identifies the recovery; the current admission generation
+    // is supplied separately after the applicable recovery proof.
+    HistoryBinding {
+        anchor,
+        provider: *provider.as_bytes(),
+        request: attempt,
+        generation: 0,
+    }
+}
+
+pub(crate) async fn send_history<M: Serialize>(
+    exchange: &ControlExchange,
+    anchor: NetworkAnchor,
+    records: &ManagementRecords,
+    material: &M,
+) -> io::Result<()> {
+    if records.first().map(|r| Hash::digest(&r.0)) != Some(anchor.genesis) {
+        return Err(invalid());
+    }
+    if history::fits_single_page(records) {
+        let frame =
+            p2panda_core::cbor::encode_cbor(&(material, records)).map_err(io::Error::other)?;
+        if frame.len() <= history::TARGET_BYTES {
+            return send_frame(exchange, &frame).await;
+        }
+    }
+    let pages = History::paged(anchor.genesis, records)?;
+    send_frame(exchange, PAGED).await?;
+    pages.send(exchange).await?;
+    let metadata = p2panda_core::cbor::encode_cbor(material).map_err(io::Error::other)?;
+    send_frame(exchange, &metadata).await
+}
+
+pub(crate) async fn receive_history<M: DeserializeOwned, Fut: Future<Output = io::Result<()>>>(
+    exchange: &ControlExchange,
+    binding: HistoryBinding,
+    previous: Option<HistoryCheckpoint>,
+    persist: impl FnMut(HistoryCheckpoint) -> Fut,
+) -> io::Result<(M, ManagementRecords, ManagementAuth)> {
+    let frame = recv_frame(exchange, MAX_PAGE_BYTES).await?;
+    if frame == PAGED {
+        let (genesis, records, verified) =
+            history::receive(exchange, history::PAGED_HISTORY, binding, previous, persist).await?;
+        if genesis != binding.anchor.genesis {
+            return Err(invalid());
+        }
+        let metadata = recv_frame(exchange, 256).await?;
+        let material =
+            p2panda_core::cbor::decode_cbor(metadata.as_slice()).map_err(|_| invalid())?;
+        return Ok((material, records, verified.ok_or_else(invalid)?));
+    }
+    let (material, records): (M, ManagementRecords) =
+        p2panda_core::cbor::decode_cbor(frame.as_slice()).map_err(|_| invalid())?;
+    if records.len() > MAX_PAGE_RECORDS
+        || records.first().map(|r| Hash::digest(&r.0)) != Some(binding.anchor.genesis)
+    {
+        return Err(invalid());
+    }
+    let verified = ManagementAuth::replay_records(binding.anchor, &records)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    Ok((material, records, verified))
+}
 
 pub fn proof_statement(
     connection: &(impl AuthenticatedControl + ?Sized),
@@ -148,13 +220,13 @@ pub async fn recv_fixed<const N: usize>(exchange: &ControlExchange) -> io::Resul
         .map_err(|_| invalid())
 }
 pub async fn send_frame(exchange: &ControlExchange, bytes: &[u8]) -> io::Result<()> {
-    if bytes.is_empty() || bytes.len() > MAX_HISTORY {
+    if bytes.is_empty() || bytes.len() > MAX_PAGE_BYTES {
         return Err(invalid());
     }
     exchange
         .send_message(
             ControlMessageFormat::LengthPrefixed32 {
-                maximum: MAX_HISTORY,
+                maximum: MAX_PAGE_BYTES,
             },
             bytes,
         )

@@ -1036,10 +1036,7 @@ impl RemoteStateActor {
                     return;
                 }
                 #[cfg(not(wasm_browser))]
-                eprintln!(
-                    "[DEBUG-udp-handoff] actor-open-request stable_id={} local={local:?} remote={remote}",
-                    conn_id
-                );
+                trace!(conn_id, ?local, %remote, "opening requested data path");
                 let result = if let Some(state) = self.connections.get(&ConnId(conn_id)) {
                     if let Some(conn) = state.handle.upgrade() {
                         if conn.side().is_client() {
@@ -1098,13 +1095,7 @@ impl RemoteStateActor {
                 } else {
                     Err("connection not registered")
                 };
-                eprintln!(
-                    "[DEBUG-udp-handoff] actor-open-result stable_id={} result={:?}",
-                    conn_id,
-                    result
-                        .as_ref()
-                        .map(|path| path.as_ref().map(|path| path.id()))
-                );
+                trace!(conn_id, result = ?result.as_ref().map(|path| path.as_ref().map(|path| path.id())), "data path open result");
                 let _ = tx.send(result);
             }
             #[cfg(not(wasm_browser))]
@@ -2121,17 +2112,6 @@ impl RemoteStateActor {
             return;
         };
         trace!("path event");
-        if matches!(
-            &event,
-            NoqPathEvent::Established { .. }
-                | NoqPathEvent::Abandoned { .. }
-                | NoqPathEvent::Discarded { .. }
-        ) {
-            eprintln!(
-                "[DEBUG-udp-handoff] actor-path-event stable_id={} event={event:?}",
-                conn_id.0
-            );
-        }
         match event {
             NoqPathEvent::Established { id: path_id, .. } => {
                 let Some(path) = conn.path(path_id) else {
@@ -2169,7 +2149,7 @@ impl RemoteStateActor {
                                 .insert(path_id, (Instant::now() + budget, probe));
                         }
                     } else {
-                        let _ = path.start_probe();
+                        let _ = path.ping();
                     }
                 }
                 self.select_path();
@@ -2254,7 +2234,6 @@ impl RemoteStateActor {
     /// Refresh only live, qualified paths in existing connections. QUIC retains
     /// its own path/connection timeouts and reports final failure to callers.
     fn reevaluate_paths(&mut self) {
-        let health_checks = self.state.uses_path_health;
         for state in self
             .connections
             .values()
@@ -2272,13 +2251,7 @@ impl RemoteStateActor {
                     if state.may_select(address)
                         && let Some(path) = conn.path(*id)
                     {
-                        if state.is_native_member_path(address)
-                            || !(health_checks || state.member_paths.is_some())
-                        {
-                            let _ = path.ping();
-                        } else {
-                            let _ = path.start_probe();
-                        }
+                        let _ = path.ping();
                     }
                 }
             }
@@ -3102,12 +3075,6 @@ impl State {
         };
         match fut.path_id() {
             Some(path_id) => {
-                if explicit_request {
-                    eprintln!(
-                        "[DEBUG-udp-handoff] actor-path-created stable_id={} path_id={} binding={open_4tuple:?} status={path_status:?}",
-                        conn_id.0, path_id
-                    );
-                }
                 #[cfg(not(wasm_browser))]
                 if let Some(id) = open_4tuple
                     .local_socket
@@ -3117,7 +3084,7 @@ impl State {
                 {
                     socket.mark_path_used();
                 }
-                trace!(%conn_id, %path_id, ?path_status, "opening new path");
+                trace!(%conn_id, %path_id, ?open_4tuple, ?path_status, "opening new path");
                 Ok(if owned {
                     conn.path(path_id)
                         .map(|path| crate::endpoint::DataCandidatePath(Some(path)))
@@ -3131,10 +3098,7 @@ impl State {
                     Some(Err(error @ PathError::RemoteCidsExhausted))
                     | Some(Err(error @ PathError::MaxPathIdReached)) => {
                         if explicit_request {
-                            eprintln!(
-                                "[DEBUG-udp-handoff] actor-path-resource-blocked stable_id={} binding={open_4tuple:?} reason={error:?}",
-                                conn_id.0
-                            );
+                            trace!(%conn_id, ?open_4tuple, ?error, "data path identifiers unavailable");
                             // A peer-wide retry queue has no connection/attempt binding.
                             // The caller must retry this explicit request instead.
                             return Err(PATH_IDENTIFIERS_UNAVAILABLE);

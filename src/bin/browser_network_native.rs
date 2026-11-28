@@ -163,6 +163,35 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         let usage=node.precode_usage(&issued.ok_or("no code")?).await?;
                         println!("{}",json!({"event":"usage","uses":usage,"count":node.status().applied_count}));
                     }
+                    #[cfg(feature = "replica-test-hooks")]
+                    "large-history" => {
+                        use p2panda_auth::{Access, GroupsExtensionArgs, group::{GroupAction, GroupMember}};
+                        use p2panda_core::{Hash, Header, SigningKey};
+                        use miopunch_native_probe::management_auth::ManagementExtension;
+                        let key = SigningKey::from_bytes(&std::fs::read(std::path::Path::new(path).join("node.key"))?
+                            .try_into().map_err(|_| "key length")?);
+                        let body = vec![0; 6 * 1024 * 1024];
+                        let mut ids = Vec::new();
+                        let mut headers = Vec::new();
+                        for _ in 0..3 {
+                            let history = node.management_history().await?;
+                            let header = Header::<ManagementExtension>::builder().body(&body).build(&key, ManagementExtension {
+                                version: 1, log_id: rand::random(),
+                                group: GroupsExtensionArgs {
+                                    group_id: node.status().anchor.root,
+                                    action: GroupAction::Add {
+                                        member: GroupMember::Individual(SigningKey::generate().verifying_key()),
+                                        access: Access::read(),
+                                    },
+                                    dependencies: history.iter().map(|record| Hash::digest(record.header())).collect(),
+                                },
+                            }).encode();
+                            headers.push(hex::encode(&header));
+                            ids.push(node.ingest_management_record(&header, Some(&body)).await?.to_string());
+                        }
+                        println!("{}", json!({"event":"large-history","ids":ids,"headers":headers,"body_bytes":body.len()*3,
+                            "count":node.status().applied_count}));
+                    }
                     "record" => {
                         use p2panda_auth::{Access,GroupsExtensionArgs,group::{GroupAction,GroupMember}};
                         use p2panda_core::{Hash,Header,SigningKey};

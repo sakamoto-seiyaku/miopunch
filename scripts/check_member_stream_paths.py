@@ -346,6 +346,12 @@ def run(output, case, cli, relay):
             send(phone, attachment, "printf 'BEFORE_'; printf 'FORWARD\\n'\n")
             read_marker(phone, attachment, 'BEFORE_FORWARD')
             qualified_rtts_us = {}
+            if case == 'both':
+                # Sample the first direct path with terminal traffic before comparing
+                # the two links. Its smoothed RTT can still include the relay handoff.
+                for index in range(32):
+                    send(phone, attachment, f"printf 'WARM_'; printf '{index:02d}\\n'\n")
+                    read_marker(phone, attachment, f'WARM_{index:02d}')
             if dual:
                 allow_direct(ns.pid, case)
                 # Supply the B hint through the ordinary CLI on the live

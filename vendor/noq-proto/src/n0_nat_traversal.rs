@@ -356,16 +356,6 @@ impl State {
         }
     }
 
-    /// Discard ready IPv4 probes, leaving IPv6, retry timers and sent challenges intact.
-    pub(crate) fn discard_pending_ipv4_probes(&mut self) {
-        let pending = match self {
-            Self::NotNegotiated => return,
-            Self::ClientSide(state) => &mut state.pending_probes,
-            Self::ServerSide(state) => &mut state.pending_probes,
-        };
-        pending.retain(|(ip, _)| ip.to_canonical().is_ipv6());
-    }
-
     /// Marks a remote as successful if the response matches a sent probe.
     ///
     /// Returns true if it was a response to one of the NAT traversal probes and a path
@@ -423,18 +413,6 @@ impl State {
             }
         }
     }
-    pub(crate) fn clear_pending_family(&mut self, ipv6: bool) {
-        match self {
-            Self::NotNegotiated => {}
-            Self::ClientSide(state) => state
-                .pending_probes
-                .retain(|(ip, _)| ip.to_canonical().is_ipv6() != ipv6),
-            Self::ServerSide(state) => state
-                .pending_probes
-                .retain(|(ip, _)| ip.to_canonical().is_ipv6() != ipv6),
-        }
-    }
-
     pub(crate) fn has_ipv4_probes(&self) -> bool {
         self.has_family_probes(false)
     }
@@ -1193,7 +1171,6 @@ mod tests {
                 true,
             )?;
         }
-        state.discard_pending_ipv4_probes();
         for port in 1..=2 {
             state.server_side_mut()?.handle_reach_out(
                 ReachOut {
@@ -1228,6 +1205,14 @@ mod tests {
             2,
             "both late IPv6 candidates can be probed during IPv4 pause"
         );
+        let mut resumed = Vec::new();
+        while let Some(target) = state.next_probe_addr(false) {
+            assert!(target.0.to_canonical().is_ipv4());
+            assert!(state.server_side_mut()?.remotes.contains_key(&target));
+            resumed.push(target);
+            state.mark_probe_sent(target, (targets.len() + resumed.len()) as u64);
+        }
+        assert_eq!(resumed.len(), 2, "the retained IPv4 candidates resume");
         Ok(())
     }
 

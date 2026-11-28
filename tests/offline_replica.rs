@@ -742,3 +742,618 @@ async fn original_author_offline_restarted_member_supplies_body_and_dependencies
     a.close().await;
     b.close().await;
 }
+
+#[cfg(feature = "replica-test-hooks")]
+mod paged_history {
+    use super::*;
+    use iroh::endpoint::{ControlExchange, ControlMessageFormat};
+    use miopunch_native_probe::management_auth::NetworkAnchor;
+    use miopunch_native_probe::management_store::ManagementRecord;
+    use p2panda_net::codec::Codec;
+    use p2panda_sync::protocols::{LogSyncMessage, Logs};
+    use serde::{Deserialize, Serialize};
+    use std::collections::BTreeMap;
+    use tokio_util::{
+        bytes::BytesMut,
+        codec::{Decoder, Encoder},
+    };
+
+    const FRAME_BYTES: usize = 16 * 1024 * 1024;
+    const PAGE_RECORDS: usize = 4096;
+
+    #[derive(Deserialize, Serialize)]
+    struct WireManifest {
+        anchor: NetworkAnchor,
+        logs: Logs<[u8; 16]>,
+        ids: Vec<Hash>,
+        #[serde(default, skip_serializing_if = "is_false")]
+        more: bool,
+    }
+    fn is_false(value: &bool) -> bool {
+        !*value
+    }
+
+    #[derive(Deserialize, Serialize)]
+    struct WireReceipt {
+        records_saved: bool,
+        view_applied: bool,
+    }
+
+    async fn send<M: Serialize + Send>(exchange: &ControlExchange, message: M, limit: usize) {
+        let mut bytes = BytesMut::new();
+        Codec::<M>::new()
+            .max_frame_len(limit)
+            .encode(message, &mut bytes)
+            .unwrap();
+        assert!(
+            bytes.len() - 4 <= limit,
+            "actual encoded frame exceeds its wire budget"
+        );
+        exchange
+            .send_message(
+                ControlMessageFormat::LengthPrefixed32 { maximum: limit },
+                &bytes[4..],
+            )
+            .await
+            .unwrap();
+    }
+
+    async fn receive<M: serde::de::DeserializeOwned>(
+        exchange: &ControlExchange,
+        limit: usize,
+    ) -> M {
+        let bytes = exchange
+            .recv_message(ControlMessageFormat::LengthPrefixed32 { maximum: limit })
+            .await
+            .unwrap();
+        assert!(bytes.len() <= limit);
+        let mut frame = BytesMut::new();
+        frame.extend_from_slice(&(bytes.len() as u32).to_be_bytes());
+        frame.extend_from_slice(&bytes);
+        Codec::<M>::new()
+            .max_frame_len(limit)
+            .decode(&mut frame)
+            .unwrap()
+            .unwrap()
+    }
+
+    enum MembershipHistory {
+        DistinctMembers,
+        SmallNetwork { tip: Hash },
+    }
+
+    fn records(
+        node: &NativeNetwork,
+        path: &std::path::Path,
+        count: usize,
+        body_bytes: usize,
+        members: MembershipHistory,
+    ) -> Vec<ManagementRecord> {
+        let author = SigningKey::from_bytes(
+            &std::fs::read(path.join("node.key"))
+                .unwrap()
+                .try_into()
+                .unwrap(),
+        );
+        let mut previous = None;
+        let log = [183; 16];
+        let (repeated, first_dependency) = match members {
+            MembershipHistory::DistinctMembers => (None, node.status().anchor.genesis),
+            MembershipHistory::SmallNetwork { tip } => {
+                (Some(SigningKey::generate().verifying_key()), tip)
+            }
+        };
+        (0..count)
+            .map(|seq| {
+                let target = repeated.unwrap_or_else(|| SigningKey::generate().verifying_key());
+                let body = (body_bytes != 0).then(|| vec![seq as u8; body_bytes]);
+                let mut builder = Header::<ManagementExtension>::builder()
+                    .seq_num(seq as u32)
+                    .backlink(previous);
+                if let Some(body) = &body {
+                    builder = builder.body(body);
+                }
+                let header = builder.build(
+                    &author,
+                    ManagementExtension {
+                        version: 1,
+                        log_id: log,
+                        group: GroupsExtensionArgs {
+                            group_id: node.status().anchor.root,
+                            action: if repeated.is_some() && seq % 2 != 0 {
+                                GroupAction::Remove {
+                                    member: GroupMember::Individual(target),
+                                }
+                            } else {
+                                GroupAction::Add {
+                                    member: GroupMember::Individual(target),
+                                    access: Access::read(),
+                                }
+                            },
+                            dependencies: vec![previous.unwrap_or(first_dependency)],
+                        },
+                    },
+                );
+                previous = Some(header.hash());
+                ManagementRecord::from_signed_header_for_test(header, body.as_deref())
+            })
+            .collect()
+    }
+
+    async fn read_manifest(exchange: &ControlExchange) -> WireManifest {
+        let bytes = exchange
+            .recv_message(ControlMessageFormat::LengthPrefixed32 {
+                maximum: FRAME_BYTES,
+            })
+            .await
+            .unwrap();
+        assert!(!bytes.is_empty() && bytes.len() <= FRAME_BYTES);
+        let manifest: WireManifest = p2panda_core::cbor::decode_cbor(bytes.as_slice()).unwrap();
+        assert!(manifest.ids.len() <= PAGE_RECORDS);
+        assert!(manifest.logs.values().map(Vec::len).sum::<usize>() <= PAGE_RECORDS);
+        manifest
+    }
+
+    // This reader exchanges actual p2panda messages with the production provider.
+    // Its empty Have requests precisely each advertised page, even if its first
+    // operation retains a nonzero original log sequence.
+    async fn read_page(
+        exchange: &ControlExchange,
+        manifest: &WireManifest,
+    ) -> Vec<ManagementRecord> {
+        let have: LogSyncMessage<[u8; 16]> = receive(exchange, FRAME_BYTES).await;
+        assert!(matches!(have, LogSyncMessage::Have(_)));
+        send(
+            exchange,
+            LogSyncMessage::<[u8; 16]>::Have(BTreeMap::new()),
+            FRAME_BYTES,
+        )
+        .await;
+        send(exchange, LogSyncMessage::<[u8; 16]>::Done, FRAME_BYTES).await;
+        let presync: LogSyncMessage<[u8; 16]> = receive(exchange, FRAME_BYTES).await;
+        assert!(
+            matches!(presync, LogSyncMessage::PreSync { total_operations, .. } if total_operations as usize == manifest.ids.len())
+        );
+        let mut records = Vec::new();
+        let mut bytes = 0;
+        loop {
+            match receive::<LogSyncMessage<[u8; 16]>>(exchange, FRAME_BYTES).await {
+                LogSyncMessage::Operation((header, body)) => {
+                    bytes += header.len() + body.as_ref().map_or(0, Vec::len);
+                    assert!(
+                        bytes <= FRAME_BYTES,
+                        "one LogSync page exceeds the record byte budget"
+                    );
+                    assert!(records.len() < PAGE_RECORDS);
+                    records.push(ManagementRecord::new(header, body.as_deref()));
+                }
+                LogSyncMessage::Done => break,
+                other => panic!("unexpected page message {other:?}"),
+            }
+        }
+        assert_eq!(records.len(), manifest.ids.len());
+        for record in &records {
+            assert!(manifest.ids.contains(&Hash::digest(record.header())));
+        }
+        records
+    }
+
+    #[tokio::test]
+    async fn small_history_preserves_the_legacy_manifest_and_receipt_wire() {
+        #[derive(Serialize)]
+        struct LegacyManifest {
+            anchor: NetworkAnchor,
+            logs: Logs<[u8; 16]>,
+            ids: Vec<Hash>,
+        }
+        let directory = tempfile::tempdir().unwrap();
+        let mut c = NativeNetwork::create(directory.path().join("c"))
+            .await
+            .unwrap();
+        let b = join(&mut c, &directory.path().join("b")).await;
+        let ce = endpoint(&c).await;
+        let be = endpoint(&b).await;
+        let (client, server) = connect(&be, &ce, REPLICA_ALPN).await;
+        let legacy_reader = async {
+            let (send_stream, recv) = client.open_bi().await.unwrap();
+            let exchange = ControlExchange::from_streams(send_stream, recv);
+            exchange
+                .send_message(ControlMessageFormat::Fixed { length: 4 }, b"REPL")
+                .await
+                .unwrap();
+            let bytes = exchange
+                .recv_message(ControlMessageFormat::LengthPrefixed32 {
+                    maximum: FRAME_BYTES,
+                })
+                .await
+                .unwrap();
+            let manifest: WireManifest = p2panda_core::cbor::decode_cbor(bytes.as_slice()).unwrap();
+            assert!(!manifest.more);
+            let legacy = LegacyManifest {
+                anchor: manifest.anchor,
+                logs: manifest.logs.clone(),
+                ids: manifest.ids.clone(),
+            };
+            assert_eq!(
+                p2panda_core::cbor::encode_cbor(&legacy).unwrap(),
+                bytes,
+                "one-page history retains the exact old manifest shape"
+            );
+            read_page(&exchange, &manifest).await;
+            send(
+                &exchange,
+                WireReceipt {
+                    records_saved: true,
+                    view_applied: true,
+                },
+                64,
+            )
+            .await;
+            let acknowledgement: WireReceipt = receive(&exchange, 64).await;
+            assert!(acknowledgement.records_saved && acknowledgement.view_applied);
+            exchange.finish_send().await.unwrap();
+        };
+        let ((), served) = tokio::join!(legacy_reader, c.serve_replica(&server));
+        served.unwrap();
+        client.close(0u32.into(), b"done");
+        server.close(0u32.into(), b"done");
+        ce.close().await;
+        be.close().await;
+        c.close().await;
+        b.close().await;
+    }
+
+    #[tokio::test]
+    async fn record_limit_pages_use_actual_logsync_and_keep_high_original_sequences() {
+        let directory = tempfile::tempdir().unwrap();
+        let cp = directory.path().join("c");
+        let mut c = NativeNetwork::create(&cp).await.unwrap();
+        let b = join(&mut c, &directory.path().join("b")).await;
+        let records = records(
+            &c,
+            &cp,
+            PAGE_RECORDS + 2,
+            0,
+            MembershipHistory::DistinctMembers,
+        );
+        let ce = endpoint(&c).await;
+        let be = endpoint(&b).await;
+        let (client, server) = connect(&be, &ce, REPLICA_ALPN).await;
+        let reader = async {
+            let (send_stream, recv) = client.open_bi().await.unwrap();
+            let exchange = ControlExchange::from_streams(send_stream, recv);
+            exchange
+                .send_message(ControlMessageFormat::Fixed { length: 4 }, b"REPL")
+                .await
+                .unwrap();
+            let mut actual = Vec::new();
+            let mut lengths = Vec::new();
+            loop {
+                let manifest = read_manifest(&exchange).await;
+                let more = manifest.more;
+                let page = read_page(&exchange, &manifest).await;
+                lengths.push(page.len());
+                actual.extend(page);
+                send(
+                    &exchange,
+                    WireReceipt {
+                        records_saved: true,
+                        view_applied: !more,
+                    },
+                    64,
+                )
+                .await;
+                if !more {
+                    break;
+                }
+            }
+            let acknowledgement: WireReceipt = receive(&exchange, 64).await;
+            assert!(acknowledgement.records_saved && acknowledgement.view_applied);
+            exchange.finish_send().await.unwrap();
+            assert_eq!(lengths.len(), 33);
+            assert!(lengths[..32].iter().all(|count| *count == 128));
+            assert_eq!(lengths.last(), Some(&2));
+            assert_eq!(
+                actual, records,
+                "pages preserve signed originals and their order within the log"
+            );
+            let first_after_original_limit =
+                Header::<ManagementExtension>::decode(actual[PAGE_RECORDS].header()).unwrap();
+            assert_eq!(first_after_original_limit.seq_num, PAGE_RECORDS as u32);
+        };
+        let ((), served) = tokio::join!(reader, c.serve_replica_fixture(&server, &records));
+        served.unwrap();
+        client.close(0u32.into(), b"done");
+        server.close(0u32.into(), b"done");
+
+        // An old reader ignores the extra manifest field and expects its old
+        // success ACK after one page. It must receive a non-Receipt continuation.
+        let (client, server) = connect(&be, &ce, REPLICA_ALPN).await;
+        let legacy_reader = async {
+            let (send_stream, recv) = client.open_bi().await.unwrap();
+            let exchange = ControlExchange::from_streams(send_stream, recv);
+            exchange
+                .send_message(ControlMessageFormat::Fixed { length: 4 }, b"REPL")
+                .await
+                .unwrap();
+            let manifest = read_manifest(&exchange).await;
+            assert!(manifest.more);
+            read_page(&exchange, &manifest).await;
+            send(
+                &exchange,
+                WireReceipt {
+                    records_saved: true,
+                    view_applied: true,
+                },
+                64,
+            )
+            .await;
+            let continuation = exchange
+                .recv_message(ControlMessageFormat::LengthPrefixed32 {
+                    maximum: FRAME_BYTES,
+                })
+                .await
+                .unwrap();
+            let mut frame = BytesMut::new();
+            frame.extend_from_slice(&(continuation.len() as u32).to_be_bytes());
+            frame.extend_from_slice(&continuation);
+            assert!(
+                Codec::<WireReceipt>::new().decode(&mut frame).is_err(),
+                "the first page must not look complete to the old reader"
+            );
+            client.close(0u32.into(), b"legacy reader rejects continuation");
+        };
+        let ((), served) = tokio::join!(legacy_reader, c.serve_replica_fixture(&server, &records));
+        assert!(served.is_err());
+        ce.close().await;
+        be.close().await;
+        c.close().await;
+        b.close().await;
+    }
+
+    #[tokio::test]
+    async fn truncated_multi_page_history_is_durable_and_complete_retry_keeps_originals() {
+        let directory = tempfile::tempdir().unwrap();
+        let cp = directory.path().join("c");
+        let mut c = NativeNetwork::create(&cp).await.unwrap();
+        let mut b = join(&mut c, &directory.path().join("b")).await;
+        // Each attachment fits one frame; their total exceeds one 16MiB page.
+        let additions = records(
+            &c,
+            &cp,
+            3,
+            8 * 1024 * 1024,
+            MembershipHistory::DistinctMembers,
+        );
+        for record in &additions {
+            c.ingest_management_record(record.header(), record.body())
+                .await
+                .unwrap();
+        }
+        let ce = endpoint(&c).await;
+        let be = endpoint(&b).await;
+        let (client, server) = connect(&be, &ce, REPLICA_ALPN).await;
+        let truncated_provider = async {
+            let (send_stream, recv) = server.accept_bi().await.unwrap();
+            let exchange = ControlExchange::from_streams(send_stream, recv);
+            assert_eq!(
+                exchange
+                    .recv_message(ControlMessageFormat::Fixed { length: 4 })
+                    .await
+                    .unwrap(),
+                b"REPL"
+            );
+            let record = &additions[0];
+            let header = Header::<ManagementExtension>::decode(record.header()).unwrap();
+            let logs = BTreeMap::from([(header.verifying_key, vec![header.extensions.log_id])]);
+            let heights = BTreeMap::from([(
+                header.verifying_key,
+                BTreeMap::from([(header.extensions.log_id, header.seq_num)]),
+            )]);
+            let manifest = WireManifest {
+                anchor: c.status().anchor,
+                logs,
+                ids: vec![Hash::digest(record.header())],
+                more: true,
+            };
+            let bytes = p2panda_core::cbor::encode_cbor(&manifest).unwrap();
+            exchange
+                .send_message(
+                    ControlMessageFormat::LengthPrefixed32 {
+                        maximum: FRAME_BYTES,
+                    },
+                    &bytes,
+                )
+                .await
+                .unwrap();
+            send(
+                &exchange,
+                LogSyncMessage::<[u8; 16]>::Have(heights),
+                FRAME_BYTES,
+            )
+            .await;
+            assert!(matches!(
+                receive::<LogSyncMessage<[u8; 16]>>(&exchange, FRAME_BYTES).await,
+                LogSyncMessage::Have(_)
+            ));
+            send(
+                &exchange,
+                LogSyncMessage::<[u8; 16]>::PreSync {
+                    total_operations: 1,
+                    total_bytes: (record.header().len() + record.body().unwrap().len()) as u32,
+                },
+                FRAME_BYTES,
+            )
+            .await;
+            assert!(matches!(
+                receive::<LogSyncMessage<[u8; 16]>>(&exchange, FRAME_BYTES).await,
+                LogSyncMessage::Done
+            ));
+            send(
+                &exchange,
+                LogSyncMessage::<[u8; 16]>::Operation((
+                    record.header().to_vec(),
+                    record.body().map(ToOwned::to_owned),
+                )),
+                FRAME_BYTES,
+            )
+            .await;
+            send(&exchange, LogSyncMessage::<[u8; 16]>::Done, FRAME_BYTES).await;
+            let receipt: WireReceipt = receive(&exchange, 64).await;
+            assert!(
+                receipt.records_saved && !receipt.view_applied,
+                "continuation receipt cannot claim the full scope applied"
+            );
+            server.close(0u32.into(), b"cut before promised next manifest");
+        };
+        let (result, ()) = tokio::join!(b.sync_replica(&client), truncated_provider);
+        assert!(
+            result.is_err(),
+            "a promised missing page cannot complete the exchange"
+        );
+        assert_eq!(
+            b.management_record(Hash::digest(additions[0].header()))
+                .await
+                .unwrap(),
+            Some(additions[0].clone())
+        );
+        assert!(
+            b.management_record(Hash::digest(additions[1].header()))
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let (client, server) = connect(&be, &ce, REPLICA_ALPN).await;
+        let (result, served) = tokio::join!(b.sync_replica(&client), c.serve_replica(&server));
+        served.unwrap();
+        let result = result.unwrap();
+        assert!(result.complete());
+        assert_eq!(result.scope.len(), 5);
+        assert_eq!(
+            result.received, 2,
+            "the saved attachment must not cross the wire again"
+        );
+        assert_eq!(result.reused, 3);
+        assert_eq!(
+            b.status().applied_count,
+            5,
+            "retry must not add an already saved action twice"
+        );
+        for (seq, original) in additions.iter().enumerate() {
+            let stored = b
+                .management_record(Hash::digest(original.header()))
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(&stored, original);
+            assert_eq!(
+                Header::<ManagementExtension>::decode(stored.header())
+                    .unwrap()
+                    .seq_num,
+                seq as u32
+            );
+        }
+        client.close(0u32.into(), b"done");
+        server.close(0u32.into(), b"done");
+        ce.close().await;
+        be.close().await;
+        c.close().await;
+        b.close().await;
+    }
+
+    #[tokio::test]
+    async fn more_than_one_record_limit_resumes_in_normal_windows_and_finishes_full_scope() {
+        use miopunch_native_probe::offline_replica::ReplicaError;
+        let directory = tempfile::tempdir().unwrap();
+        let cp = directory.path().join("c");
+        let bp = directory.path().join("b");
+        let mut c = NativeNetwork::create(&cp).await.unwrap();
+        let mut b = join(&mut c, &bp).await;
+        let mut frozen = c.management_history().await.unwrap();
+        // Like daily management, extend the current causal head. The join's
+        // approval grant is the sole tip of this frozen history.
+        let tip = Hash::digest(frozen.last().unwrap().header());
+        frozen.extend(records(
+            &c,
+            &cp,
+            PAGE_RECORDS + 1,
+            0,
+            MembershipHistory::SmallNetwork { tip },
+        ));
+        let ce = endpoint(&c).await;
+        let mut be = endpoint(&b).await;
+        let mut previous = b.status().applied_count;
+        let mut finished = None;
+        let mut resumed = false;
+        for attempt in 0..16 {
+            let (client, server) = connect(&be, &ce, REPLICA_ALPN).await;
+            // Use the ordinary operation budget. Only a later normal contact,
+            // with its actual local Have, can continue after an interrupted run.
+            let (result, served) = tokio::join!(
+                b.sync_replica(&client),
+                c.serve_replica_fixture(&server, &frozen),
+            );
+            client.close(0u32.into(), b"contact ended");
+            server.close(0u32.into(), b"contact ended");
+            match result {
+                Ok(outcome) => {
+                    served.unwrap();
+                    assert!(outcome.complete());
+                    assert_eq!(outcome.scope.len(), frozen.len());
+                    assert!(
+                        outcome.reused > 2,
+                        "normal retry must advertise the durable prefix"
+                    );
+                    assert_eq!(outcome.received + outcome.reused, frozen.len());
+                    finished = Some(outcome);
+                    break;
+                }
+                Err(ReplicaError::Transport) => {
+                    assert!(served.is_err());
+                    let current = b.status().applied_count;
+                    assert!(
+                        current > previous,
+                        "contact {attempt} repeated a prefix without saving more validated history"
+                    );
+                    assert!((current as usize) < frozen.len());
+                    eprintln!(
+                        "replica normal-window progress attempt={attempt} before={previous} after={current} total={}",
+                        frozen.len()
+                    );
+                    previous = current;
+                    if !resumed {
+                        // A reopened node must derive the same trusted cursor
+                        // from its durable records, without an in-memory token.
+                        be.close().await;
+                        b.close().await;
+                        b = NativeNetwork::open(&bp).await.unwrap();
+                        let restored = b.status().applied_count;
+                        assert!(restored >= current);
+                        assert_eq!(
+                            b.management_history().await.unwrap(),
+                            frozen[..restored as usize],
+                            "recovery retains each original in the durable validated prefix"
+                        );
+                        previous = restored;
+                        be = endpoint(&b).await;
+                        resumed = true;
+                    }
+                }
+                Err(other) => panic!("valid signed history rejected: {other:?}"),
+            }
+        }
+        assert!(
+            resumed,
+            "the large first fetch must exercise a normal interrupted window"
+        );
+        assert!(
+            finished.is_some(),
+            "validated checkpoints must reach the frozen history's final receipt"
+        );
+        assert_eq!(b.management_history().await.unwrap(), frozen);
+        be.close().await;
+        ce.close().await;
+        b.close().await;
+        c.close().await;
+    }
+}

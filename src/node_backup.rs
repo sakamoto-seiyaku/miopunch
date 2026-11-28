@@ -111,7 +111,7 @@ impl PortableNode {
         {
             return Err(invalid());
         }
-        if self.records.len() + self.pending_records.len() > 4096 {
+        if self.pending_records.len() > crate::management_record::MAX_PAGE_RECORDS {
             return Err(invalid());
         }
         if !self.device_names.is_valid() {

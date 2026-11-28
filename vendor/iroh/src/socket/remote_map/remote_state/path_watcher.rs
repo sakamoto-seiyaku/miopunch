@@ -524,6 +524,15 @@ impl<'conn> Path<'conn> {
             .map_err(std::io::Error::other)
     }
 
+    /// Accept a fresh ACK on any path and prefer this binding for its own
+    /// Backup ACKs only while this probe is held.
+    pub fn start_scoped_probe(&self) -> std::io::Result<noq::PathProbe> {
+        self.data
+            .upgrade(self.conn)
+            .start_scoped_probe()
+            .map_err(std::io::Error::other)
+    }
+
     /// Confirm the ACK returns on this binding and return its own Backup ACKs
     /// locally until this validation handle is dropped.
     pub fn start_return_path_probe(&self) -> std::io::Result<noq::PathProbe> {

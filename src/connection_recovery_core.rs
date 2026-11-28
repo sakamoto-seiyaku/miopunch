@@ -275,7 +275,7 @@ pub(crate) async fn validate_updates<
             let probe = if E::VALIDATE_RETURN_PATH {
                 path.start_return_path_probe()
             } else {
-                path.start_probe()
+                path.start_scoped_probe()
             };
             if let Ok(probe) = probe {
                 probes.push((path.id(), path.remote_addr().clone(), probe));

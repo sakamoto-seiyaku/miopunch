@@ -38,6 +38,8 @@ pub mod service_policy;
 pub mod service_protocol;
 #[path = "../../src/admission_request_wire.rs"]
 mod admission_request_wire;
+#[path = "../../src/admission_history_wire.rs"]
+mod admission_history_wire;
 #[path = "../../src/device_name.rs"]
 mod device_name;
 use iroh::{Endpoint, EndpointAddr, RelayMode, endpoint::presets};
@@ -67,6 +69,8 @@ pub mod irc_datagram;
 pub mod management_auth;
 #[path = "../../src/management_recovery_wire.rs"]
 pub mod management_recovery_wire;
+#[path = "../../src/migration_progress.rs"]
+mod migration_progress;
 mod member_data;
 #[path = "../../src/member_path_protocol.rs"]
 pub mod member_path_protocol;

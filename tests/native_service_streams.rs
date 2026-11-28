@@ -687,6 +687,180 @@ async fn public_native_file_and_ping_share_the_admitted_member_connection() {
 }
 
 #[tokio::test]
+#[cfg(feature = "nat-lab-test-hooks")]
+async fn slow_file_contact_does_not_block_another_peers_healthy_member_session() {
+    let relay = relay().await;
+    let url = relay.http_url().unwrap();
+    let mut resources = ResourceConfig::with_defaults(ResourceTable {
+        revision: 1,
+        resources: vec![relay_resource(&url)],
+    });
+    resources.udp_direct_disabled = true;
+    resources.tcp_direct_disabled = true;
+    // A's pending dial below must be the new file operation, rather than a
+    // background standby contact. B remains active through a real TCP stream.
+    resources.maintenance.standby_member_limit = Some(0);
+    let Pair {
+        root,
+        provider,
+        consumer,
+        ..
+    } = Pair::admit_with_resources(resources.clone()).await;
+    let healthy = iroh::EndpointAddr::new(provider.address().id).with_relay_url(url.clone());
+    let invitation = provider
+        .issue_precode(service_policy::now() + 300, Some(1))
+        .await
+        .unwrap();
+    let offline = NativeClient::join_with_resources(
+        root.path().join("offline"),
+        &invitation,
+        Ipv4Addr::LOCALHOST,
+        resources,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        offline.request_admission(&invitation).await.unwrap(),
+        AdmissionStage::Complete
+    );
+    let offline_peer = offline.address().id;
+    offline
+        .enable_files(root.path().join("offline-inbox"))
+        .await
+        .unwrap();
+    offline.sync_services(healthy.clone()).await.unwrap();
+    let inbox = root.path().join("healthy-inbox");
+    provider.enable_files(&inbox).await.unwrap();
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let local_target = listener.local_addr().unwrap();
+    provider
+        .enable_forwarding(Protocol::Tcp, vec![local_target])
+        .await
+        .unwrap();
+    consumer.sync_services(healthy.clone()).await.unwrap();
+    offline.close().await.unwrap();
+
+    let mut held = Box::pin(consumer.forward_exchange(
+        healthy.clone(),
+        Protocol::Tcp,
+        local_target,
+        b"hold",
+        4,
+    ));
+    let (mut socket, _) = timeout(Duration::from_secs(20), async {
+        tokio::select! {
+            accepted = listener.accept() => accepted.unwrap(),
+            result = &mut held => panic!("the held target has not replied: {result:?}"),
+        }
+    })
+    .await
+    .unwrap();
+    let mut marker = [0; 4];
+    timeout(IO, async {
+        tokio::select! {
+            read = socket.read_exact(&mut marker) => { read.unwrap(); },
+            result = &mut held => panic!("the held target has not replied: {result:?}"),
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(&marker, b"hold");
+    let original = consumer
+        .test_member_connection(healthy.id)
+        .await
+        .unwrap()
+        .stable_id() as u64;
+    assert!(!consumer.test_member_dial_pending(offline_peer));
+
+    let path = root.path().join("independent.bin");
+    let bytes = vec![0x93; 256 * 1024];
+    std::fs::write(&path, &bytes).unwrap();
+    let blocked = consumer
+        .send_file(
+            iroh::EndpointAddr::new(offline_peer).with_relay_url(url),
+            &path,
+        )
+        .await
+        .unwrap();
+    timeout(IO, async {
+        while !consumer.test_member_dial_pending(offline_peer) {
+            sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await
+    .expect("A's actual file dial has started");
+    let task = consumer.send_file(healthy.clone(), &path).await.unwrap();
+    let completed = timeout(IO, async {
+        loop {
+            let status = consumer
+                .file_tasks()
+                .into_iter()
+                .find(|status| status.id == task)
+                .unwrap();
+            if status.state.terminal() {
+                break status;
+            }
+            sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("B sends bytes while A's file dial is still pending");
+    assert!(
+        consumer.test_member_dial_pending(offline_peer),
+        "B did not wait for A's setup budget"
+    );
+    let receipt = completed.receipt.as_ref().expect("B's real saved receipt");
+    assert_eq!(completed.bytes, bytes.len() as u64);
+    assert_eq!(
+        completed.transport.as_ref().unwrap()["connection"],
+        original
+    );
+    assert_eq!(
+        std::fs::read(inbox.join(&receipt.saved_name)).unwrap(),
+        bytes
+    );
+    let received = provider
+        .file_tasks()
+        .into_iter()
+        .find(|status| status.id == task)
+        .unwrap();
+    assert_eq!(received.receipt.as_ref(), Some(receipt));
+    assert_eq!(received.bytes, bytes.len() as u64);
+
+    assert!(consumer.cancel_file(&blocked).unwrap());
+    timeout(IO, async {
+        loop {
+            let status = consumer
+                .file_tasks()
+                .into_iter()
+                .find(|status| status.id == blocked)
+                .unwrap();
+            if status.state.terminal() && !consumer.test_member_dial_pending(offline_peer) {
+                assert_eq!(
+                    status.state,
+                    miopunch_native_probe::file_transfer::FileState::Cancelled
+                );
+                assert_eq!(status.bytes, 0);
+                break;
+            }
+            sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("cancelling A releases its shared pending dial");
+    socket.write_all(b"done").await.unwrap();
+    assert_eq!(timeout(IO, &mut held).await.unwrap().unwrap(), b"done");
+    drop(held);
+    eprintln!(
+        "offline file dial isolated; B saved {} bytes on original member={original}; A cancellation released setup",
+        completed.bytes
+    );
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
+    relay.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn file_resume_still_uses_saved_offsets_and_file_receipts() {
     let relay = relay().await;
     let pair = Pair::admit(relay.http_url().unwrap()).await;

@@ -440,12 +440,18 @@ impl DropGuard {
         self.aref.send(guardian::Input::RemoveAddr(addr));
     }
 
-    /// Add a port and addresses to the local addresses.
+    /// Replace the IPv4 interfaces used for multicast with the current snapshot.
+    /// Failed socket creation is retried when the same snapshot is supplied again.
+    pub fn set_ipv4_interfaces(&self, interfaces: Vec<Ipv4Addr>) {
+        self.aref.send(guardian::Input::Ipv4Interfaces(interfaces));
+    }
+
     /// Configure the local IPv6 interfaces used for multicast.
     pub fn set_ipv6_interfaces(&self, interfaces: Vec<u32>) {
         self.aref.send(guardian::Input::Ipv6Interfaces(interfaces));
     }
 
+    /// Add a port and addresses to the local addresses.
     pub fn add(&self, port: u16, addrs: Vec<IpAddr>) {
         self.aref.send(guardian::Input::AddAddr(port, addrs));
     }

@@ -847,7 +847,7 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                                         .is_none_or(|id| path.id().to_string() == *id)
                             })
                             .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
-                        let probe = path.start_probe()?;
+                        let probe = path.start_scoped_probe()?;
                         self.active_diagnostic(original, control, "native-fresh-probe-started");
                         prepared = prepared.with_proof(
                             path.id().to_string(),

@@ -311,6 +311,17 @@ impl Path {
         self.fresh_probe(false)
     }
 
+    /// Like [`Self::start_probe`], accept a fresh ACK on any path and prefer
+    /// this binding for its own Backup ACKs, until this handle is dropped.
+    pub fn start_scoped_probe(&self) -> Result<PathProbe, ClosedPath> {
+        let mut state = self.conn.lock_and_wake("scoped path probe");
+        let probe = state.inner.start_scoped_path_probe(self.id())?;
+        Ok(PathProbe {
+            path: self.clone(),
+            proof: ProbeWatermark::Fresh(probe),
+        })
+    }
+
     /// Confirm a fresh ACK returning on this physical binding. While the probe
     /// lives this peer also returns the binding's own Backup ACKs over it.
     pub fn start_return_path_probe(&self) -> Result<PathProbe, ClosedPath> {

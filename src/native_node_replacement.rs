@@ -159,8 +159,15 @@ impl NativeClient {
         let prepared = async {
             let _transition = self.migration.transition.lock().await;
             if self.migration_progress().is_some_and(|progress| {
-                !progress.switched || matches!(progress.source_exit,
-                    crate::native_client::SourceExit::NotStarted | crate::native_client::SourceExit::PendingDelivery { .. })
+                if progress.switched {
+                    matches!(
+                        progress.source_exit,
+                        crate::native_client::SourceExit::NotStarted
+                            | crate::native_client::SourceExit::PendingDelivery { .. }
+                    )
+                } else {
+                    !progress.preparation_ended()
+                }
             }) {
                 return Err("network migration still requires this client".into());
             }
@@ -257,7 +264,8 @@ impl NativeClient {
                     client_runtime.services.lock().await.snapshot(&node).await?
                 };
                 snapshot.write(&mut stream).await?;
-                let remote = ServiceBundle::read(&mut stream).await?;
+                let anchor = client_runtime.node.lock().await.anchor;
+                let remote = ServiceBundle::read_verified(&mut stream, anchor).await?;
                 let mut node = client_runtime.node.lock().await;
                 client_runtime.services
                     .lock()

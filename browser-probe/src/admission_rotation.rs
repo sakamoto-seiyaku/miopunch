@@ -703,7 +703,7 @@ async fn send_rotation(
         let frame: HistoryFrame = (
             rotation.signed.clone(),
             rotation.completion.clone(),
-            current.records,
+            current.records.to_vec(),
             current.rotation.unwrap().predecessor,
         );
         encode(&frame).map_err(error)?

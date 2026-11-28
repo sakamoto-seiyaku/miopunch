@@ -19,8 +19,8 @@ const selected = process.argv.includes('--suite') ? 'suite' : caseArgument < 0 ?
 const includes = name => selected === 'suite' || selected === name;
 const mid1Cases = ['mid1-repair', 'mid1-repair-backup', 'mid1-repair-drop'];
 const mid1Repair = mid1Cases.includes(selected);
-assert(['first', 'lifecycle', 'persistent-restart', 'multi-page', 'delivery-interruption', 'storage-clear', 'commit-loss', 'no-relay', 'disabled-relay', 'unavailable-relay', 'tls', 'replica', 'precode', 'management', 'new-code', 'browser-admission', 'replica-faults', 'revocation', 'storage-corrupt', 'browser-precode', 'maintenance-concurrency', ...mid1Cases, 'suite'].includes(selected), 'unknown browser case');
-const controlCases=['replica','precode','management','new-code','browser-admission','replica-faults','revocation','storage-corrupt','browser-precode'];
+assert(['first', 'lifecycle', 'persistent-restart', 'multi-page', 'delivery-interruption', 'storage-clear', 'commit-loss', 'no-relay', 'disabled-relay', 'unavailable-relay', 'tls', 'replica', 'precode', 'management', 'new-code', 'browser-admission', 'replica-faults', 'revocation', 'storage-corrupt', 'browser-precode', 'maintenance-concurrency', 'paged-history', 'paged-migration', 'paged-recovery', 'admission-commit-cancel', 'migration-material-commit', ...mid1Cases, 'suite'].includes(selected), 'unknown browser case');
+const controlCases=['paged-recovery','paged-history','replica','precode','management','new-code','browser-admission','replica-faults','revocation','storage-corrupt','browser-precode'];
 const requests = [];
 let browser;
 
@@ -67,6 +67,38 @@ function executable() {
   }
   throw new Error('install the pinned Playwright Chromium');
 }
+// Delay only the notification of a real completed IndexedDB transaction.
+function installAdmissionCommitDelay({ inactive = false, stage = 'invitation' } = {}) {
+  const put = IDBObjectStore.prototype.put;
+  const completion = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'oncomplete');
+  const delayed = new WeakMap();
+  const fixture = window.admissionCommitDelay = { armed: stage, completed: [], delayMs: 5000 };
+  Object.defineProperty(IDBTransaction.prototype, 'oncomplete', { ...completion,
+    set(callback) {
+      completion.set.call(this, typeof callback === 'function' ? function(event) {
+        const stage = delayed.get(this);
+        if (stage) setTimeout(() => {
+          callback.call(this, event);
+          fixture.completed.push(stage);
+        }, fixture.delayMs);
+        else callback.call(this, event);
+      } : callback);
+    },
+  });
+  IDBObjectStore.prototype.put = function(value, key) {
+    if (this.name === 'node' && key === 'state' && typeof value === 'string' && fixture.armed) {
+      const snapshot = JSON.parse(value);
+      const saved = inactive ? snapshot.migration?.inactive : snapshot;
+      if (!saved) return put.call(this, value, key);
+      const stage = saved.secret != null ? 'secret' : saved.authorization != null ? 'authorization' : saved.invitation != null ? 'invitation' : null;
+      if (stage === fixture.armed) {
+        delayed.set(this.transaction, stage);
+        fixture.armed = null;
+      }
+    }
+    return put.call(this, value, key);
+  };
+}
 async function browserContext() {
   const context = await browser.newContext();
   monitor(context);
@@ -103,6 +135,8 @@ try {
   page.on('console', message => console.log(`browser: ${message.text()}`));
   page.on('pageerror', error => console.error(`browser: ${error}`));
   const config = { relays: [relayUrl], disabled: [] };
+  if (['admission-commit-cancel', 'migration-material-commit'].includes(selected)) config.maintenance = { contact_timeout_ms: 3000 };
+  if (['paged-history', 'paged-migration'].includes(selected)) config.maintenance = { exploration_interval_ms: 60000 };
   if (selected === 'maintenance-concurrency') {
     config.rtc_enabled = true;
     config.rtc_ice = { stun_servers: [], local_bind_addresses: [], candidate_addresses: [] };
@@ -116,16 +150,394 @@ try {
   await page.waitForFunction(() => window.ready !== undefined, null, { timeout: 5000 });
   const first = await bounded(page.evaluate(() => window.ready), 'browser start');
   assert.notEqual(first, ready.id);
-  assert.equal(await page.evaluate(invitation => window.network.request_admission(invitation), ready.invitation), 'AwaitingApproval');
-  assert.equal((await native.command('approve', 'approved')).count, 2);
-  assert.equal(await page.evaluate(invitation => window.network.request_admission(invitation), ready.invitation), 'PendingMaterials');
-  assert.equal(await page.evaluate(() => window.network.complete_admission()), 'Complete');
-  assert.equal(await page.evaluate(() => window.network.exchange('browser-controlled-message')), 'browser-controlled-message');
-  await page.reload();
-  assert.equal(await bounded(page.evaluate(() => window.ready), 'reload'), first);
-  assert.equal(JSON.parse(await page.evaluate(() => window.network.status())).stage, 'Complete');
-  assert.equal(await page.evaluate(() => window.network.exchange('after-refresh')), 'after-refresh');
-  events.push({ case: 'first-real-check', browser: first, native: ready.id, stage: 'Complete', count: 2, reload: true, controlledBytes: 26 });
+  let beforeHistoryContext;
+  let beforeHistoryPage;
+  let largeHistory = null;
+  const verifyLargeBodies = async tab => {
+    if (!largeHistory) return;
+    for (const id of largeHistory.ids) {
+      const retained = await tab.evaluate(id => {
+        const original = JSON.parse(window.network.control_record(id));
+        return { bytes: original.body.length / 2, originalZeros: /^0+$/.test(original.body) };
+      }, id);
+      assert.deepEqual(retained, { bytes: 6 * 1024 * 1024, originalZeros: true });
+    }
+  };
+  const resumeAdmission = async (tab, method, input, interrupt) => {
+    const invoke = () => tab.evaluate(({ method, input }) => window.network[method](input), { method, input });
+    const progress = () => tab.evaluate(() => JSON.parse(window.network.status()));
+    let previous = 0;
+    let requestId;
+    if (interrupt) {
+      const waiting = invoke().catch(error => error);
+      // The pending WASM request exclusively borrows BrowserNetwork. Inspect
+      // only committed checkpoint metadata, without borrowing the request owner.
+      const saved = await tab.evaluate(async () => {
+        const until = Date.now() + 30000;
+        while (Date.now() < until) {
+        const db = await new Promise((resolve, reject) => {
+          const request = indexedDB.open('miopunch-browser-network', 1);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        const saved = await new Promise((resolve, reject) => {
+          const transaction = db.transaction('node', 'readonly');
+          const request = transaction.objectStore('node').get('state');
+          transaction.oncomplete = () => { db.close(); resolve(request.result); };
+          transaction.onerror = () => { db.close(); reject(transaction.error); };
+        });
+        const state = JSON.parse(saved);
+        const history = state.admission_history;
+        if (!history?.records.length || history.complete) {
+          await new Promise(resolve => setTimeout(resolve, 25));
+          continue;
+        }
+        return {
+          records: history.records.length,
+          request_id: history.binding.request.map(byte => byte.toString(16).padStart(2, '0')).join(''),
+          authorization_saved: state.authorization !== null,
+          secret_saved: state.secret !== null,
+        };
+        }
+        throw new Error('no durable partial admission checkpoint before deadline');
+      });
+      assert.equal(saved.authorization_saved, false);
+      assert.equal(saved.secret_saved, false);
+      requestId = saved.request_id;
+      previous = saved.records;
+      await tab.reload();
+      await waiting;
+      await bounded(tab.evaluate(() => window.ready), 'paged admission interrupted reopen');
+      const reopened = await progress();
+      assert.equal(reopened.admission_history.request_id, requestId);
+      assert.equal(reopened.admission_history.records, previous);
+      events.push({ case: 'paged-admission-checkpoint-reopen', requestId, records: previous });
+    }
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const stage = await invoke();
+        assert(['PendingMaterials', 'Complete'].includes(stage));
+        const authorized = await progress();
+        if (requestId) assert.equal(authorized.admission_attempt.request_id, requestId);
+        assert.equal(authorized.authorization_saved, true);
+        if (stage === 'PendingMaterials') assert.equal(authorized.secret_saved, false);
+        return;
+      } catch (error) {
+        const saved = await progress();
+        const checkpoint = saved.admission_history;
+        assert(checkpoint && checkpoint.records > previous, 'failed contact must retain new verified records');
+        if (requestId) assert.equal(checkpoint.request_id, requestId);
+        requestId = checkpoint.request_id;
+        previous = checkpoint.records;
+        assert.equal(saved.authorization_saved, false);
+        assert.equal(saved.secret_saved, false);
+        await tab.reload();
+        await bounded(tab.evaluate(() => window.ready), 'paged admission retry reopen');
+        const reopened = await progress();
+        assert.equal(reopened.admission_history.request_id, requestId);
+        assert.equal(reopened.admission_history.records, previous);
+        events.push({ case: 'paged-admission-contact-resumed', requestId, records: previous });
+      }
+    }
+    assert.fail('bounded admission retries did not finish');
+  };
+  const finishAdmission = async (tab, method, input, interrupt) => {
+    let requestId;
+    for (let contact = 0; contact < 3; contact++) {
+      await resumeAdmission(tab, method, input, interrupt && contact === 0);
+      const authorized = await tab.evaluate(() => JSON.parse(window.network.status()));
+      if (requestId) assert.equal(authorized.admission_attempt.request_id, requestId);
+      requestId = authorized.admission_attempt.request_id;
+      try {
+        assert.equal(await tab.evaluate(() => window.network.complete_admission()), 'Complete');
+        return;
+      } catch (error) {
+        const saved = await tab.evaluate(() => JSON.parse(window.network.status()));
+        assert.equal(saved.authorization_saved, true);
+        assert.equal(saved.admission_attempt.request_id, requestId);
+        if (!saved.secret_saved) assert.equal(saved.admission_history.complete, true);
+        await tab.reload();
+        await bounded(tab.evaluate(() => window.ready), 'authorized admission completion reopen');
+        const reopened = await tab.evaluate(() => JSON.parse(window.network.status()));
+        assert.equal(reopened.authorization_saved, true);
+        assert.equal(reopened.admission_attempt.request_id, requestId);
+        events.push({ case: 'paged-authorized-admission-contact-resumed', requestId, secretSaved: reopened.secret_saved });
+      }
+    }
+    assert.fail('saved authorization did not complete its original material delivery');
+  };
+  if (selected === 'admission-commit-cancel') {
+    await page.evaluate(installAdmissionCommitDelay);
+    const request = () => page.evaluate(invitation => window.network.request_admission(invitation), ready.invitation);
+    await assert.rejects(request);
+    await page.waitForFunction(() => window.admissionCommitDelay.completed.includes('invitation'), null, { timeout: 8000 });
+    assert.equal(await request(), 'AwaitingApproval', 'the same page must read its completed invitation commit');
+    assert.equal((await native.command('approve', 'approved')).count, 2);
+    await page.evaluate(() => { window.admissionCommitDelay.armed = 'authorization'; });
+    await request().catch(error => String(error));
+    await page.waitForFunction(() => window.admissionCommitDelay.completed.includes('authorization'), null, { timeout: 8000 });
+    const authorized = JSON.parse(await page.evaluate(() => window.network.admission_material_receipt()));
+    assert.equal(authorized.authorization_saved, true);
+    assert.equal(authorized.secret_saved, false);
+    assert.equal(await request(), 'PendingMaterials');
+    await page.evaluate(() => { window.admissionCommitDelay.armed = 'secret'; });
+    await assert.rejects(() => page.evaluate(() => window.network.complete_admission()));
+    await page.waitForFunction(() => window.admissionCommitDelay.completed.includes('secret'), null, { timeout: 8000 });
+    const saved = JSON.parse(await page.evaluate(() => window.network.admission_material_receipt()));
+    assert.equal(saved.authorization, authorized.authorization);
+    assert.equal(saved.request, authorized.request);
+    assert.equal(saved.secret_saved, true);
+    assert.equal(await request(), 'Complete');
+    assert.equal(await page.evaluate(() => window.network.complete_admission()), 'Complete');
+    assert.equal(await page.evaluate(() => window.network.exchange('same-page-commit-retry')), 'same-page-commit-retry');
+    const delayed = await page.evaluate(() => window.admissionCommitDelay.completed);
+    assert.deepEqual(delayed, ['invitation', 'authorization', 'secret']);
+    await page.reload();
+    assert.equal(await bounded(page.evaluate(() => window.ready), 'committed admission reopen'), first);
+    assert.equal(JSON.parse(await page.evaluate(() => window.network.status())).stage, 'Complete');
+    assert.equal(await page.evaluate(() => window.network.exchange('commit-reopen')), 'commit-reopen');
+    assert.equal((await native.command('status', 'status')).count, 2);
+    events.push({ case: 'same-page-admission-commit-after-deadline', phases: delayed,
+      sameAuthorization: true, sameRequest: true, reopened: true, members: 2 });
+  } else {
+    assert.equal(await page.evaluate(invitation => window.network.request_admission(invitation), ready.invitation), 'AwaitingApproval');
+    assert.equal((await native.command('approve', 'approved')).count, 2);
+    assert.equal(await page.evaluate(invitation => window.network.request_admission(invitation), ready.invitation), 'PendingMaterials');
+    assert.equal(await page.evaluate(() => window.network.complete_admission()), 'Complete');
+    assert.equal(await page.evaluate(() => window.network.exchange('browser-controlled-message')), 'browser-controlled-message');
+    await page.reload();
+    assert.equal(await bounded(page.evaluate(() => window.ready), 'reload'), first);
+    assert.equal(JSON.parse(await page.evaluate(() => window.network.status())).stage, 'Complete');
+    assert.equal(await page.evaluate(() => window.network.exchange('after-refresh')), 'after-refresh');
+    events.push({ case: 'first-real-check', browser: first, native: ready.id, stage: 'Complete', count: 2, reload: true, controlledBytes: 26 });
+  }
+  if (selected === 'paged-recovery') {
+    largeHistory = await native.command('large-history', 'large-history');
+    for (const header of largeHistory.headers) {
+      await page.evaluate(h => window.network.ingest_management_record(h, '00'.repeat(6 * 1024 * 1024)), header);
+    }
+    const credential = readFileSync(join(temporary, 'admin', 'genesis.credential'));
+    const recoveringContext = await browserContext();
+    const recovering = await recoveringContext.newPage();
+    await recovering.goto(url);
+    await recovering.evaluate(async ({ config, card, contact }) => {
+      await window.ready;
+      await window.network.close();
+      const { BrowserNetwork } = await import('/pkg/miopunch_browser_probe.js');
+      window.network = await BrowserNetwork.prepare_management_recovery(JSON.stringify(config), card, undefined, contact);
+    }, { config, card: `miopunch-recovery:1:${credential.toString('base64url')}`, contact: first });
+    let result;
+    let lastFailure;
+    for (let contact = 0; contact < largeHistory.count + 2; contact++) {
+      try {
+        result = JSON.parse(await recovering.evaluate(id => window.network.restore_management_authority(id), first));
+        break;
+      } catch (cause) {
+        lastFailure = cause;
+        await recovering.reload();
+        await bounded(recovering.evaluate(() => window.ready), 'reopen recovery checkpoint');
+      }
+    }
+    assert(result?.saved_locally && result.stage === 'Complete', String(lastFailure));
+    await recovering.reload();
+    await bounded(recovering.evaluate(() => window.ready), 'reopen recovered authority');
+    assert(JSON.parse(await recovering.evaluate(() => window.network.management_recovery_status())).effective_administrator_locally);
+    await verifyLargeBodies(recovering);
+    await recoveringContext.close();
+    events.push({ case: 'paged-recovery', bytes: largeHistory.body_bytes, originals: largeHistory.ids.length });
+  }
+  if (selected === 'paged-migration') {
+    const targetPath = join(temporary, 'migration-target');
+    const targetFixture = child('browser_network_native', [targetPath, relayUrl]);
+    const targetReady = JSON.parse(await targetFixture.wait(/"event":"ready"/));
+    largeHistory = await targetFixture.command('large-history', 'large-history');
+    assert.equal(largeHistory.body_bytes, 18 * 1024 * 1024);
+    const fixtureExited = new Promise(resolveExit => targetFixture.process.once('exit', resolveExit));
+    targetFixture.process.stdin.end();
+    await bounded(fixtureExited, 'migration target fixture shutdown');
+    assert.equal(targetFixture.process.exitCode, 0);
+
+    // Open that exact destination with the public NativeClient host: the small
+    // admission fixture does not serve the migration's MemberSync qualification.
+    const target = child('miopunch-client', ['open', targetPath]);
+    const targetStatus = JSON.parse(await target.wait(/"event":"ready"/));
+    assert.equal(targetStatus.status.node, targetReady.id);
+    let sequence = 0;
+    const rpc = async (op, values = {}) => {
+      const id = ++sequence;
+      const response = target.wait(new RegExp(`"id":${id},`), true).then(JSON.parse);
+      target.process.stdin.write(`${JSON.stringify({ id, op, ...values })}\n`);
+      const result = await response;
+      assert.equal(result.ok, true, `migration destination ${op}`);
+      return result.result;
+    };
+    const invitationPath = join(temporary, 'migration-target-invitation.json');
+    await rpc('export_recovery_card', { path: join(temporary, 'migration-target-card') });
+    await rpc('acknowledge_recovery_saved');
+    await rpc('invite', { path: invitationPath });
+    const invitation = readFileSync(invitationPath, 'utf8');
+    const saved = () => page.evaluate(async () => {
+      const db = await new Promise((resolve, reject) => {
+        const request = indexedDB.open('miopunch-browser-network', 1);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction('node', 'readonly');
+        const request = transaction.objectStore('node').get('state');
+        transaction.oncomplete = () => { db.close(); resolve(JSON.parse(request.result)); };
+        transaction.onerror = () => { db.close(); reject(transaction.error); };
+      });
+    });
+    const original = await saved();
+    const holdAfterFirstPage = limit => {
+      const put = IDBObjectStore.prototype.put;
+      window.migrationPageLimit = limit;
+      window.allowMigrationHistory = false;
+      IDBObjectStore.prototype.put = function (...args) {
+        if (!window.allowMigrationHistory && args[1] === 'state') {
+          const history = JSON.parse(args[0]).migration?.inactive?.admission_history;
+          if (history?.records.length) {
+            window.migrationPageLimit ??= history.records.length;
+            if (history.records.length > window.migrationPageLimit || history.complete) {
+              this.transaction.abort();
+              throw new DOMException('owned migration page interruption', 'QuotaExceededError');
+            }
+          }
+        }
+        return put.apply(this, args);
+      };
+    };
+    await page.evaluate(holdAfterFirstPage, null);
+    const started = JSON.parse(await page.evaluate(inv => window.network.begin_network_migration(inv), invitation));
+    assert.equal(started.switched, false);
+    const admission = started.admission.request_id;
+    let pending;
+    for (let attempt = 0; attempt < 40; attempt++) {
+      pending = (await rpc('requests')).requests;
+      if (pending.length) break;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    assert.equal(pending.length, 1);
+    assert.equal(pending[0].applicant, first);
+    await rpc('approve', pending[0]);
+    await page.waitForFunction(() => window.migrationPageLimit > 0, null, { timeout: 90000 });
+    // Wait for the first real strict IndexedDB transaction, not its put call.
+    let partial;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      partial = await saved();
+      if (partial.migration?.inactive.admission_history?.records.length) break;
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    const history = partial.migration.inactive.admission_history;
+    assert(history.records.length > 0 && !history.complete);
+    assert.equal(partial.migration.verified, null);
+    assert.deepEqual(partial.records, original.records);
+    assert.deepEqual(partial.authorization, original.authorization);
+    assert.deepEqual(partial.secret, original.secret);
+    assert.equal(partial.admission_history, undefined);
+    assert.equal(partial.migration.inactive.authorization, null);
+    assert.equal(partial.migration.inactive.secret, null);
+    assert.equal(await page.evaluate(() => window.network.exchange('source-usable-with-inactive-page')), 'source-usable-with-inactive-page');
+    events.push({ case: 'paged-migration-inactive-checkpoint', records: history.records.length, activeSourceUnchanged: true, sourceBusiness: true });
+    await page.addInitScript(holdAfterFirstPage, history.records.length);
+    await page.reload();
+    assert.equal(await bounded(page.evaluate(() => window.ready), 'paged migration same-node reopen'), first);
+    const reopened = await saved();
+    assert.deepEqual(reopened.migration.inactive.admission_history, history);
+    assert.deepEqual(reopened.records, original.records);
+    const progress = JSON.parse(await page.evaluate(() => window.network.migration_progress()));
+    assert.equal(progress.admission.request_id, admission);
+    assert.equal(progress.switched, false);
+    assert.equal(await page.evaluate(() => window.network.exchange('source-usable-after-page-reopen')), 'source-usable-after-page-reopen');
+    await page.evaluate(() => { window.allowMigrationHistory = true; });
+    await page.waitForFunction(() => JSON.parse(window.network.migration_progress())?.switched, null, { timeout: 180000 });
+    const switched = JSON.parse(await page.evaluate(() => window.network.migration_progress()));
+    assert.equal(switched.admission.request_id, admission);
+    assert.equal(JSON.parse(await page.evaluate(() => window.network.status())).stage, 'Complete');
+    assert.deepEqual((await saved()).records.length, largeHistory.count + 1);
+    await verifyLargeBodies(page);
+    events.push({ case: 'paged-migration-same-node-resumed-and-switched', node: first, requestId: admission, bodyBytes: largeHistory.body_bytes, originalBodies: true, switched: true });
+  }
+  if (selected === 'migration-material-commit') {
+    const targetPath = join(temporary, 'migration-commit-target');
+    const targetFixture = child('browser_network_native', [targetPath, relayUrl]);
+    const targetReady = JSON.parse(await targetFixture.wait(/"event":"ready"/));
+    const stopped = new Promise(resolve => targetFixture.process.once('exit', resolve));
+    targetFixture.process.stdin.end();
+    assert.equal(await bounded(stopped, 'small migration fixture shutdown'), 0);
+    const target = child('miopunch-client', ['open', targetPath]);
+    assert.equal(JSON.parse(await target.wait(/"event":"ready"/)).status.node, targetReady.id);
+    let sequence = 0;
+    const rpc = async (op, values = {}) => {
+      const id = ++sequence;
+      const response = target.wait(new RegExp(`"id":${id},`), true).then(JSON.parse);
+      target.process.stdin.write(`${JSON.stringify({ id, op, ...values })}\n`);
+      const result = await response;
+      assert.equal(result.ok, true, `small migration target ${op}`);
+      return result.result;
+    };
+    await rpc('export_recovery_card', { path: join(temporary, 'migration-commit-card') });
+    await rpc('acknowledge_recovery_saved');
+    const invitationPath = join(temporary, 'migration-commit-invitation.json');
+    await rpc('invite', { path: invitationPath });
+    await page.evaluate(installAdmissionCommitDelay, { inactive: true, stage: 'authorization' });
+    const started = JSON.parse(await page.evaluate(invitation => window.network.begin_network_migration(invitation), readFileSync(invitationPath, 'utf8')));
+    let pending;
+    for (let attempt = 0; attempt < 40; attempt++) {
+      pending = (await rpc('requests')).requests;
+      if (pending.length) break;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    assert.equal(pending.length, 1);
+    assert.equal(pending[0].applicant, first);
+    await rpc('approve', pending[0]);
+    await page.waitForFunction(() => window.admissionCommitDelay.completed.includes('authorization'), null, { timeout: 10000 });
+    await page.evaluate(() => { window.admissionCommitDelay.armed = 'secret'; });
+    assert.equal(await page.evaluate(() => window.network.exchange('source-during-local-material-commit')), 'source-during-local-material-commit');
+    await page.waitForFunction(() => window.admissionCommitDelay.completed.includes('secret'), null, { timeout: 10000 });
+    await page.waitForFunction(() => JSON.parse(window.network.migration_progress()).switched, null, { timeout: 30000 });
+    const progress = JSON.parse(await page.evaluate(() => window.network.migration_progress()));
+    assert.equal(progress.admission.request_id, started.admission.request_id);
+    const members = JSON.parse(await page.evaluate(() => window.network.control_state())).members.map(member => member.id);
+    assert(members.includes(first) && members.includes(targetReady.id) && !members.includes(ready.id));
+    const phases = await page.evaluate(() => window.admissionCommitDelay.completed);
+    assert.deepEqual(phases, ['authorization', 'secret']);
+    await page.reload();
+    assert.equal(await bounded(page.evaluate(() => window.ready), 'migration material reopen'), first);
+    assert.equal(JSON.parse(await page.evaluate(() => window.network.migration_progress())).switched, true);
+    assert.equal(JSON.parse(await page.evaluate(() => window.network.status())).stage, 'Complete');
+    events.push({ case: 'migration-material-commit-after-deadline', phases,
+      sourceUsableBeforeSwitch: true, switched: true, sameIdentity: true, reopened: true });
+  }
+  if (selected === 'paged-history') {
+    beforeHistoryContext = await browserContext();
+    beforeHistoryPage = await beforeHistoryContext.newPage();
+    await beforeHistoryPage.goto(url);
+    await bounded(beforeHistoryPage.evaluate(() => window.ready), 'small-history replica receiver startup');
+    assert.equal(await beforeHistoryPage.evaluate(inv => window.network.request_admission(inv), ready.invitation), 'AwaitingApproval');
+    await native.command('approve', 'approved');
+    assert.equal(await beforeHistoryPage.evaluate(inv => window.network.request_admission(inv), ready.invitation), 'PendingMaterials');
+    assert.equal(await beforeHistoryPage.evaluate(() => window.network.complete_admission()), 'Complete');
+    await beforeHistoryPage.evaluate(() => window.network.close());
+    await page.evaluate(() => window.network.close());
+    largeHistory = await native.command('large-history', 'large-history');
+    assert(largeHistory.body_bytes > 16 * 1024 * 1024);
+    const joiningContext = await browserContext();
+    const joining = await joiningContext.newPage();
+    await joining.goto(url);
+    await bounded(joining.evaluate(() => window.ready), 'paged native admission startup');
+    assert.equal(await joining.evaluate(inv => window.network.request_admission(inv), ready.invitation), 'AwaitingApproval');
+    await native.command('approve', 'approved');
+    await finishAdmission(joining, 'request_admission', ready.invitation, true);
+    await joining.reload();
+    await bounded(joining.evaluate(() => window.ready), 'paged native admission final reopen');
+    await verifyLargeBodies(joining);
+    await joiningContext.close();
+    await page.reload();
+    await bounded(page.evaluate(() => window.ready), 'small-history native replica receiver reopen');
+  }
+
 
   if (selected === 'maintenance-concurrency') {
     const repairPhases = [];
@@ -326,37 +738,239 @@ try {
     events.push({ case: selected, repair, ids, originalBytesAfterRepair: true, originalClosedAfterRevocation: !alternate, allowedRelayContinued: alternate });
   }
 
-  if (selected === 'replica') {
-    const thirdContext = await browserContext();
-    const third = await thirdContext.newPage();
-    await third.goto(url);
-    await bounded(third.evaluate(() => window.ready), 'third browser start');
-    assert.equal(await third.evaluate(inv => window.network.request_admission(inv), ready.invitation), 'AwaitingApproval');
-    await native.command('approve', 'approved');
-    await third.evaluate(inv => window.network.request_admission(inv), ready.invitation);
-    await third.evaluate(() => window.network.complete_admission());
+  if (selected === 'replica' || selected === 'paged-history') {
+    const thirdContext = beforeHistoryContext ?? await browserContext();
+    const third = beforeHistoryPage ?? await thirdContext.newPage();
+    if (!beforeHistoryPage) {
+      await third.goto(url);
+      await bounded(third.evaluate(() => window.ready), 'third browser start');
+      assert.equal(await third.evaluate(inv => window.network.request_admission(inv), ready.invitation), 'AwaitingApproval');
+      await native.command('approve', 'approved');
+      await third.evaluate(inv => window.network.request_admission(inv), ready.invitation);
+      await third.evaluate(() => window.network.complete_admission());
+    }
     const authored = await native.command('record', 'record');
-    const outcome = JSON.parse(await page.evaluate(id => window.network.sync_replica(id), ready.id));
+    let outcome;
+    let nativeProgress = JSON.parse(await page.evaluate(() => window.network.control_state())).records;
+    for (let attempt = 0; attempt < (largeHistory ? 5 : 1); attempt++) {
+      try {
+        outcome = JSON.parse(await page.evaluate(id => window.network.sync_replica(id), ready.id));
+        break;
+      } catch (error) {
+        const transfer = JSON.parse(await page.evaluate(() => window.network.replica_diagnostics()))?.transfer;
+        const saved = JSON.parse(await page.evaluate(() => window.network.control_state()));
+        assert(largeHistory && saved.records > nativeProgress, `native replica contact must retain new original records: ${error}`);
+        nativeProgress = saved.records;
+        await page.reload();
+        await bounded(page.evaluate(() => window.ready), 'native replica partial reopen');
+        const reopened = JSON.parse(await page.evaluate(() => window.network.control_state())).records;
+        assert(reopened >= nativeProgress, 'native replica reopen must retain committed originals');
+        nativeProgress = reopened;
+        events.push({ case: 'paged-native-replica-checkpoint-reopen', records: nativeProgress, transfer });
+      }
+    }
+    assert(outcome, 'native replica did not finish within bounded contacts');
+    if (largeHistory) {
+      assert(outcome.reused >= nativeProgress);
+      assert(outcome.received < outcome.scope.length);
+    }
     assert.equal(outcome.complete, true);
     assert(outcome.scope.includes(authored.record));
+    if (largeHistory) for (const id of largeHistory.ids) assert(outcome.scope.includes(id));
     await page.reload();
     await bounded(page.evaluate(() => window.ready), 'replica reopen');
     assert.equal(JSON.parse(await page.evaluate(() => window.network.control_state())).records, outcome.scope.length);
     native.process.stdin.write('stop\n');
     assert.equal(await bounded(new Promise(resolve => native.process.once('exit', resolve)), 'original author offline'),0);
     console.log('AUTHOR_OFFLINE exit=0');
-    const serving = page.evaluate(() => window.network.serve_replica());
-    const copied = JSON.parse(await third.evaluate(id => window.network.sync_replica(id), first));
-    await serving;
+    if (largeHistory) {
+      const idleProviderUrl = new URL(url);
+      idleProviderUrl.searchParams.set('config', JSON.stringify({ ...config,
+        maintenance: { ...config.maintenance, contact_timeout_ms: 5000 } }));
+      await page.goto(idleProviderUrl.toString());
+      assert.equal(await bounded(page.evaluate(() => window.ready), 'short provider startup'), first);
+      const providerStarted = Date.now();
+      await assert.rejects(() => page.evaluate(() => window.network.serve_replica()));
+      const providerMs = Date.now() - providerStarted;
+      assert(providerMs >= 4900 && providerMs < 6500, `provider exceeded its explicit deadline: ${providerMs}`);
+      await page.goto(url);
+      assert.equal(await bounded(page.evaluate(() => window.ready), 'provider default-budget reopen'), first);
+      events.push({ case: 'paged-replica-provider-explicit-deadline', budgetMs: 5000, operationMs: providerMs });
+      const shortUrl = new URL(url);
+      const shortBudgetMs = 18000;
+      shortUrl.searchParams.set('config', JSON.stringify({ ...config,
+        maintenance: { ...config.maintenance, contact_timeout_ms: shortBudgetMs } }));
+      await third.goto(url);
+      await bounded(third.evaluate(() => window.ready), 'small-history browser replica receiver reopen');
+      const shortIdentity = await third.evaluate(() => window.network.id());
+      const beforeShort = JSON.parse(await third.evaluate(() => window.network.control_state())).records;
+      await third.evaluate(before => {
+        const put = IDBObjectStore.prototype.put;
+        let held = false;
+        let committedRecords = 0;
+        const pending = [];
+        IDBObjectStore.prototype.put = function(value, ...args) {
+          if (!held && this.name === 'node') {
+            const records = JSON.parse(value).records;
+            if (records.length > before && records.some(([, body]) => typeof body === 'string' && body.length === 8 * 1024 * 1024)) this.transaction.addEventListener('complete', () => {
+              if (held) return;
+              held = true;
+              committedRecords = records.length;
+              // Stop at an actual durable original, before its page receipt.
+              WebSocket.prototype.send = function(data) { pending.push([this, structuredClone(data)]); };
+            }, { once: true });
+          }
+          return put.call(this, value, ...args);
+        };
+        window.shortReplicaCheckpoint = () => ({ held, committedRecords });
+      }, beforeShort);
+      const checkpointServing = page.evaluate(() => window.network.serve_replica()).catch(error => error);
+      const checkpointReceiving = third.evaluate(id => window.network.sync_replica(id), first).catch(error => error);
+      await third.waitForFunction(() => window.shortReplicaCheckpoint().held, null, { timeout: 60000 });
+      const checkpoint = await third.evaluate(() => window.shortReplicaCheckpoint());
+      await third.goto(shortUrl.toString());
+      await checkpointReceiving;
+      await page.reload();
+      await checkpointServing;
+      assert.equal(await bounded(page.evaluate(() => window.ready), 'checkpoint provider reopen'), first);
+      assert.equal(await bounded(third.evaluate(() => window.ready), 'checkpoint receiver reopen'), shortIdentity);
+      assert(JSON.parse(await third.evaluate(() => window.network.control_state())).records >= checkpoint.committedRecords);
+      events.push({ case: 'paged-replica-forced-checkpoint-reopen', records: checkpoint.committedRecords });
+      await third.evaluate(() => {
+        const pending = [];
+        const send = WebSocket.prototype.send;
+        const original = Object.fromEntries(['log', 'info', 'debug'].map(level => [level, console[level]]));
+        let held = false;
+        for (const level of Object.keys(original)) console[level] = function(...args) {
+          original[level].apply(this, args);
+          if (held) return;
+          let event;
+          try { event = JSON.parse(args[0]); } catch { return; }
+          if (event.event === 'connection-timeline' && event.phase === 'dial-delivered' && event.detail?.purpose === 'replica') {
+            held = true;
+            WebSocket.prototype.send = function(data) { pending.push([this, structuredClone(data)]); };
+          }
+        };
+        window.releaseShortReplica = () => {
+          for (const [level, log] of Object.entries(original)) console[level] = log;
+          WebSocket.prototype.send = send;
+          for (const [socket, data] of pending) send.call(socket, data);
+          return { held };
+        };
+      });
+      const shortServing = page.evaluate(() => window.network.serve_replica()).catch(error => error);
+      let shortFailure;
+      try {
+        await third.evaluate(id => window.network.sync_replica(id), first);
+      } catch (error) { shortFailure = String(error); }
+      const held = await third.evaluate(() => window.releaseShortReplica());
+      await shortServing;
+      assert(shortFailure, 'held transport must not report Replica complete');
+      assert.equal(held.held, true);
+      assert(checkpoint.committedRecords > beforeShort);
+      const shortDiagnostics = JSON.parse(await third.evaluate(() => window.network.replica_diagnostics()));
+      assert.equal(shortDiagnostics.completeReturned, false);
+      assert.equal(shortDiagnostics.callerBudgetMs, shortBudgetMs);
+      assert.equal(shortDiagnostics.remainingCallerMs, 0);
+      assert(shortDiagnostics.operationMs >= shortBudgetMs - 100);
+      assert(shortDiagnostics.operationMs < shortBudgetMs + 1500);
+      let originalsRetained = 0;
+      for (const id of largeHistory.ids) {
+        const original = await third.evaluate(id => {
+          try {
+            const record = JSON.parse(window.network.control_record(id));
+            return { bytes: record.body.length / 2, zeros: /^0+$/.test(record.body) };
+          } catch { return null; }
+        }, id);
+        if (original) {
+          assert.deepEqual(original, { bytes: 6 * 1024 * 1024, zeros: true });
+          originalsRetained++;
+        }
+      }
+      assert(originalsRetained > 0);
+      await third.goto(url);
+      assert.equal(await bounded(third.evaluate(() => window.ready), 'short Replica durable reopen'), shortIdentity);
+      assert(JSON.parse(await third.evaluate(() => window.network.control_state())).records >= checkpoint.committedRecords);
+      events.push({ case: 'paged-replica-explicit-deadline-reopen', budgetMs: shortBudgetMs,
+        operationMs: shortDiagnostics.operationMs, originalsRetained, records: checkpoint.committedRecords });
+    }
+    let copied;
+    let previousRecords = JSON.parse(await third.evaluate(() => window.network.control_state())).records;
+    for (let attempt = 0; attempt < (largeHistory ? 5 : 1); attempt++) {
+      const serving = page.evaluate(() => window.network.serve_replica()).catch(error => error);
+      try {
+        copied = JSON.parse(await third.evaluate(id => window.network.sync_replica(id), first));
+        await serving;
+        break;
+      } catch (error) {
+        const providerError = await serving;
+        const diagnosis = JSON.parse(await third.evaluate(() => window.network.replica_diagnostics()));
+        const transfer = diagnosis?.transfer;
+        const progress = JSON.parse(await third.evaluate(() => window.network.control_state()));
+        assert(largeHistory, `browser replica failed: ${error}; provider: ${providerError}`);
+        if (diagnosis === null) {
+          events.push({ case: 'paged-replica-contact-unavailable', error: String(error), providerError: String(providerError) });
+          continue;
+        }
+        const originalsSaved = progress.records >= outcome.scope.length;
+        assert(progress.records > previousRecords || originalsSaved,
+          `replica retry must retain new original records: ${error}; provider: ${providerError}; diagnosis: ${JSON.stringify(diagnosis)}`);
+        previousRecords = progress.records;
+        await third.reload();
+        await bounded(third.evaluate(() => window.ready), 'partial replica durable reopen');
+        const reopened = JSON.parse(await third.evaluate(() => window.network.control_state())).records;
+        assert(reopened >= previousRecords, 'browser replica reopen must retain committed originals');
+        previousRecords = reopened;
+        events.push({ case: 'paged-replica-checkpoint-reopen', records: previousRecords, transfer });
+      }
+    }
+    assert(copied, 'replica did not finish within bounded contacts');
+    if (largeHistory) {
+      assert(copied.reused >= previousRecords);
+      assert(copied.received < copied.scope.length);
+    }
     assert.equal(copied.complete, true);
     assert.equal(copied.source, first);
     assert(copied.scope.includes(authored.record));
+    if (largeHistory) for (const id of largeHistory.ids) assert(copied.scope.includes(id));
     const original=JSON.parse(await third.evaluate(id=>window.network.control_record(id),authored.record));
     assert.equal(original.body,Buffer.from('original-author browser replica body').toString('hex'));
     await third.reload();
     await bounded(third.evaluate(() => window.ready), 'third durable replica');
     assert.equal(JSON.parse(await third.evaluate(() => window.network.control_state())).records, outcome.scope.length);
-    events.push({ case: 'replica-author-offline-browser-reload-third-node', ...copied });
+    await verifyLargeBodies(third);
+    if (largeHistory) {
+      const memberSync = JSON.parse(await third.evaluate(id => window.network.sync_services(id), first));
+      assert.equal(memberSync.saved_locally, true);
+      assert.equal(JSON.parse(await third.evaluate(() => window.network.control_state())).records, outcome.scope.length);
+      events.push({ case: 'paged-browser-member-sync', originalAuthorOffline: true, savedLocally: true });
+    }
+    if (largeHistory) {
+      const credential = readFileSync(join(temporary, 'admin', 'genesis.credential'));
+      const confirmation = await page.evaluate(async ({ card, first }) => {
+        const proposal = JSON.parse(await window.network.propose_device_operation('appoint-administrator', first));
+        return JSON.parse(await window.network.confirm_device_operation_offline(proposal.operation.id, card));
+      }, { card: `miopunch-recovery:1:${credential.toString('base64url')}`, first });
+      assert.equal(confirmation.effective_locally, true);
+      const applicantContext = await browserContext();
+      const applicant = await applicantContext.newPage();
+      await applicant.goto(url);
+      await bounded(applicant.evaluate(() => window.ready), 'large-history browser applicant');
+      const code = await page.evaluate(() => window.network.issue_precode(BigInt(Math.floor(Date.now() / 1000) + 3600), 1n));
+      await finishAdmission(applicant, 'request_precode', code, false);
+      assert.equal(await page.evaluate(code => window.network.precode_usage(code), code), 1n);
+      const applicantId = await applicant.evaluate(() => window.network.id());
+      const receipts = JSON.parse(await page.evaluate(() => window.network.admission_history()));
+      assert.equal(receipts.find(receipt => receipt.applicant === applicantId).decision, 'ReceiptReceived');
+      await applicant.reload();
+      await bounded(applicant.evaluate(() => window.ready), 'large-history browser admission reopen');
+      const state = JSON.parse(await applicant.evaluate(() => window.network.control_state()));
+      assert(state.records > outcome.scope.length);
+      await verifyLargeBodies(applicant);
+      await applicantContext.close();
+      events.push({ case: 'paged-browser-provider-admission', originalAuthorOffline: true, records: state.records });
+    }
+    events.push({ case: largeHistory ? 'paged-history-author-offline-browser-reload-third-node' : 'replica-author-offline-browser-reload-third-node', ...copied, ...(largeHistory ? {bodyBytes:largeHistory.body_bytes, signedLargeRecords:largeHistory.ids.length, pagedAdmission:true} : {}) });
     await thirdContext.close();
   }
 

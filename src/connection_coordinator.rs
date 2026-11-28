@@ -2144,7 +2144,7 @@ pub(crate) async fn prepare_control_session<
                             .is_none_or(|id| path.id().to_string() == *id)
                 })
                 .ok_or_else(|| ControlFailure::DataPathUnavailable.into_io())?;
-            let probe = path.start_probe()?;
+            let probe = path.start_scoped_probe()?;
             prepared.path_id = Some(path.id().to_string());
             prepared.watermark = probe.watermark();
             let stats = path.stats();

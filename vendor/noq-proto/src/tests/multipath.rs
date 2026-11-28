@@ -666,9 +666,7 @@ fn open_path_validation_fails_server_side() -> TestResult {
     pair.ping_path(Client, PathId::ZERO)?;
     pair.drive();
 
-    info!("advancing time to past client path {path_id} idle");
-    pair.advance_time();
-    pair.drive();
+    drive_until_paths_expire(&mut pair, &[path_id]);
 
     // The client gave up first and timed out.
     assert_matches!(
@@ -718,8 +716,7 @@ fn unreachable_candidates_do_not_exhaust_path_identifiers() -> TestResult {
     pair.drive();
     pair.ping_path(Client, PathId::ZERO)?;
     pair.drive();
-    pair.advance_time();
-    pair.drive();
+    drive_until_paths_expire(&mut pair, &failed);
 
     let mut abandoned = Vec::new();
     let mut discarded = Vec::new();
@@ -770,6 +767,18 @@ fn unreachable_candidates_do_not_exhaust_path_identifiers() -> TestResult {
     assert!(!pair.is_closed(Client));
     assert!(!pair.is_closed(Server));
     Ok(())
+}
+
+fn drive_until_paths_expire(pair: &mut ConnPair, candidates: &[PathId]) {
+    // An unrelated timer (such as key discard) may fire before candidate expiry.
+    while candidates
+        .iter()
+        .any(|&id| pair.path_status(Client, id).is_ok())
+    {
+        assert!(pair.path_status(Client, PathId::ZERO).is_ok());
+        assert!(pair.advance_time(), "candidate has a pending timeout");
+        pair.drive();
+    }
 }
 
 #[test]
@@ -2196,6 +2205,21 @@ fn path_recovers_after_silent_gap_via_keepalive() -> TestResult {
     Ok(())
 }
 
+fn assert_nat_path_established(pair: &mut ConnPair, advertised_client: SocketAddr) {
+    let client_path = assert_matches!(
+        pair.poll(Client), Some(Event::Path(PathEvent::Established { id })) => id
+    );
+    assert_ne!(client_path, PathId::ZERO);
+    // REACH_OUT announces the client's candidate before validation establishes the path.
+    assert_matches!(
+        pair.poll(Server),
+        Some(Event::NatTraversal(n0_nat_traversal::Event::AddressAdded(addr))) if addr == advertised_client
+    );
+    assert_matches!(
+        pair.poll(Server), Some(Event::Path(PathEvent::Established { id })) if id == client_path
+    );
+}
+
 /// Tests NAT traversal manages to open a 2nd path.
 #[test]
 fn test_simple_nat_traveral_opens_path() -> TestResult {
@@ -2226,18 +2250,23 @@ fn test_simple_nat_traveral_opens_path() -> TestResult {
 
     pair.drive();
 
-    let event = pair.poll(Client).expect("should have event");
-    assert_matches!(event, Event::Path(PathEvent::Established { .. }));
-
-    let event = pair.poll(Server).expect("should have event");
-    assert_matches!(event, Event::Path(PathEvent::Established { .. }));
+    assert_nat_path_established(&mut pair, SimpleFirewallRouting::CLIENT_FW_ADDR);
 
     Ok(())
 }
 
-/// Verify the transmit queue across a pause, a retry and a resume.
 #[test]
 fn ipv4_probe_pause_preserves_queued_ipv6_probes_and_retries() -> TestResult {
+    check_probe_pause(false)
+}
+
+#[test]
+fn ipv6_probe_pause_preserves_queued_ipv4_probes_and_retries() -> TestResult {
+    check_probe_pause(true)
+}
+
+/// Verify the transmit queue across a pause, a retry and a resume.
+fn check_probe_pause(pause_ipv6: bool) -> TestResult {
     let _guard = subscribe();
     let mut pair = ConnPair::builder()
         .enable_multipath()
@@ -2245,6 +2274,11 @@ fn ipv4_probe_pause_preserves_queued_ipv6_probes_and_retries() -> TestResult {
         .connect();
     let ipv4: SocketAddr = "192.0.2.1:42000".parse()?;
     let ipv6: SocketAddr = "[2001:db8::1]:42000".parse()?;
+    let (paused, running) = if pause_ipv6 {
+        (ipv6, ipv4)
+    } else {
+        (ipv4, ipv6)
+    };
     pair.add_nat_traversal_address(Server, ipv4)?;
     pair.add_nat_traversal_address(Server, ipv6)?;
     pair.add_nat_traversal_address(Client, Pair::CLIENT_ADDR)?;
@@ -2265,17 +2299,17 @@ fn ipv4_probe_pause_preserves_queued_ipv6_probes_and_retries() -> TestResult {
         targets
     };
     pair.conn_mut(Client)
-        .set_ipv4_nat_traversal_probes_paused(true);
-    assert_eq!(probe_targets(&mut pair), [ipv6]);
+        .set_nat_traversal_probes_paused(pause_ipv6, true);
+    assert_eq!(probe_targets(&mut pair), [running]);
 
     let retry = pair.poll_timeout(Client).unwrap();
     pair.time = retry;
     pair.handle_timeout(Client, retry);
-    assert_eq!(probe_targets(&mut pair), [ipv6]);
+    assert_eq!(probe_targets(&mut pair), [running]);
 
     pair.conn_mut(Client)
-        .set_ipv4_nat_traversal_probes_paused(false);
-    assert_eq!(probe_targets(&mut pair), [ipv4]);
+        .set_nat_traversal_probes_paused(pause_ipv6, false);
+    assert_eq!(probe_targets(&mut pair), [paused]);
     Ok(())
 }
 
@@ -2339,11 +2373,7 @@ fn test_simple_nat_traversal_challenge_with_response() -> TestResult {
     // Continue till the end.
     pair.drive();
 
-    let event = pair.poll(Client).expect("should have event");
-    assert_matches!(event, Event::Path(PathEvent::Established { .. }));
-
-    let event = pair.poll(Server).expect("should have event");
-    assert_matches!(event, Event::Path(PathEvent::Established { .. }));
+    assert_nat_path_established(&mut pair, SimpleFirewallRouting::CLIENT_FW_ADDR);
 
     Ok(())
 }
@@ -2389,11 +2419,7 @@ fn test_hard_nat_client_opens_path() -> TestResult {
 
     pair.drive();
 
-    let event = pair.poll(Client).expect("should have event");
-    assert_matches!(event, Event::Path(PathEvent::Established { .. }));
-
-    let event = pair.poll(Server).expect("should have event");
-    assert_matches!(event, Event::Path(PathEvent::Established { .. }));
+    assert_nat_path_established(&mut pair, dummy_addr);
 
     Ok(())
 }
@@ -2439,11 +2465,7 @@ fn test_hard_nat_server_opens_path() -> TestResult {
 
     pair.drive();
 
-    let event = pair.poll(Client).expect("should have event");
-    assert_matches!(event, Event::Path(PathEvent::Established { .. }));
-
-    let event = pair.poll(Server).expect("should have event");
-    assert_matches!(event, Event::Path(PathEvent::Established { .. }));
+    assert_nat_path_established(&mut pair, SimpleFirewallRouting::CLIENT_FW_ADDR);
 
     Ok(())
 }
@@ -2485,11 +2507,7 @@ fn test_peer_may_probe() -> TestResult {
 
     pair.drive();
 
-    let event = pair.poll(Client).expect("should have event");
-    assert_matches!(event, Event::Path(PathEvent::Established { .. }));
-
-    let event = pair.poll(Server).expect("should have event");
-    assert_matches!(event, Event::Path(PathEvent::Established { .. }));
+    assert_nat_path_established(&mut pair, SimpleFirewallRouting::CLIENT_FW_ADDR);
 
     Ok(())
 }
@@ -3165,6 +3183,47 @@ fn scoped_return_probes_route_backup_acks_only_until_the_last_drop() -> TestResu
     assert_eq!(available, 0);
     assert!(own > 0);
     drop(second);
+    assert_ordinary_backup_ack_on_available(&mut pair, backup);
+    Ok(())
+}
+
+#[test]
+fn scoped_probe_accepts_cross_path_ack_and_releases_its_temporary_return_preference() -> TestResult {
+    let (mut pair, backup) = backup_ack_pair();
+    let scoped = pair.conn_mut(Server).start_scoped_path_probe(backup)?;
+    pair.drive();
+    assert!(pair.conn(Server).fresh_path_probe_acknowledged(&scoped)?);
+
+    let strict = pair.conn_mut(Server).start_fresh_path_probe(backup, true)?;
+    pair.drive();
+    assert!(!pair.conn(Server).fresh_path_probe_acknowledged(&strict)?);
+    drop(scoped);
+    let (available, own) = backup_ping_ack_counts(&mut pair, backup);
+    assert_eq!(available, 0);
+    assert!(own > 0, "the overlapping strict probe still owns the preference");
+    drop(strict);
+    assert_ordinary_backup_ack_on_available(&mut pair, backup);
+    Ok(())
+}
+
+#[test]
+fn scoped_probes_confirm_backup_while_the_available_carrier_is_blackholed() -> TestResult {
+    let (mut pair, backup) = backup_ack_pair();
+    let client_backup = pair.network_path(Server, backup)?.remote();
+    let server_backup = pair.network_path(Client, backup)?.remote();
+    pair.routes = ManyToManyRouting::simple_symmetric([client_backup], [server_backup]).into();
+    let client = pair.conn_mut(Client).start_scoped_path_probe(backup)?;
+    let server = pair.conn_mut(Server).start_scoped_path_probe(backup)?;
+    pair.drive();
+    assert!(pair.conn(Client).fresh_path_probe_acknowledged(&client)?);
+    assert!(pair.conn(Server).fresh_path_probe_acknowledged(&server)?);
+    drop(client);
+    drop(server);
+    pair.routes = ManyToManyRouting::simple_symmetric(
+        [Pair::CLIENT_ADDR, client_backup],
+        [Pair::SERVER_ADDR, server_backup],
+    ).into();
+    pair.drive();
     assert_ordinary_backup_ack_on_available(&mut pair, backup);
     Ok(())
 }

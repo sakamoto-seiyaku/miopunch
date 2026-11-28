@@ -22,6 +22,26 @@ pub async fn receiver(
     socket: Arc<UdpSocket>,
     target: ActoRef<MdnsMsg>,
 ) -> Result<(), ReceiverError> {
+    receive(service_name, socket, target).await
+}
+
+pub async fn interface_receiver(
+    mut ctx: ActoCell<(), impl ActoRuntime>,
+    service_name: Name,
+    socket: Arc<UdpSocket>,
+    target: ActoRef<MdnsMsg>,
+) -> Result<(), ReceiverError> {
+    tokio::select! {
+        _ = ctx.recv() => Ok(()),
+        result = receive(service_name, socket, target) => result,
+    }
+}
+
+async fn receive(
+    service_name: Name,
+    socket: Arc<UdpSocket>,
+    target: ActoRef<MdnsMsg>,
+) -> Result<(), ReceiverError> {
     let mut buf = [0; 1472];
     loop {
         let (len, addr) = socket

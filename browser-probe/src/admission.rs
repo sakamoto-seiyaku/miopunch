@@ -160,7 +160,7 @@ impl AdmissionService {
                         .await;
                         match delivery {
                             Ok(status) => {
-                                settle_receipt(lease, receipt).await?;
+                                settle_receipt(&gate, lease, receipt).await?;
                                 gate.0.lock().unwrap().receipt_delivery = Some(serde_json::json!({
                                     "request_id":hex::encode(receipt.request_id), "status":status,
                                 }));
@@ -201,8 +201,17 @@ extern "C" {
     async fn settle_admission_receipt(lease: u32, wire: String) -> Result<JsValue, JsValue>;
 }
 
-pub(super) async fn settle_receipt(lease: u32, receipt: AdmissionReceipt) -> Result<(), JsValue> {
+pub(super) async fn settle_receipt(gate: &BrowserGate, lease: u32, receipt: AdmissionReceipt) -> Result<(), JsValue> {
     settle_admission_receipt(lease, hex::encode(receipt.encode())).await?;
+    gate.update_saved_owned(move |saved| {
+        if saved.admission_history.as_ref().is_some_and(|history| {
+            history.binding.request == receipt.request_id && history.authorization == receipt.authorization
+                && history.binding.anchor.genesis == receipt.genesis
+        }) {
+            saved.admission_history = None;
+        }
+        Ok(())
+    }).await?;
     Ok(())
 }
 
@@ -259,6 +268,44 @@ pub(super) async fn submit_receipt(
         }
     })
     .await
+}
+
+pub(super) async fn network_until<T>(
+    deadline: n0_future::time::Instant,
+    work: impl Future<Output = Result<T, JsValue>>,
+) -> Result<T, JsValue> {
+    let remaining = deadline.saturating_duration_since(n0_future::time::Instant::now());
+    if remaining.is_zero() {
+        return Err(admission_timeout());
+    }
+    n0_future::time::timeout(remaining, work)
+        .await
+        .map_err(|_| admission_timeout())?
+}
+
+/// The caller installs authorization before requesting the network material.
+pub(super) async fn receive_material(
+    exchange: &ControlExchange,
+    auth_sent: impl FnOnce(),
+) -> Result<[u8; 40], JsValue> {
+    send_fixed(exchange, b"AUTH").await?;
+    auth_sent();
+    recv_fixed::<40>(exchange).await
+}
+
+/// SAVE follows the caller's completed local material and receipt transaction.
+pub(super) async fn acknowledge_material(
+    exchange: &ControlExchange,
+    mut event: impl FnMut(&'static str),
+) -> Result<(), JsValue> {
+    send_fixed(exchange, b"SAVE").await?;
+    event("SAVE-sent");
+    exchange.finish_send().await.map_err(error)?;
+    if &recv_fixed::<4>(exchange).await? != b"DONE" {
+        return Err(rejected());
+    }
+    event("DONE-received");
+    Ok(())
 }
 
 #[wasm_bindgen]
@@ -752,23 +799,12 @@ async fn receive_admission(
         let saved = gate.installed().await?;
         saved.verify_delivery(authorization, applicant)?;
         saved.admissions_open()?;
-        let history =
-            p2panda_core::cbor::encode_cbor(&(authorization, &saved.records)).map_err(error)?;
-        if history.len() > MAX_HISTORY {
-            return Err(rejected());
-        }
+        let history = crate::admission_history_wire::History::new(authorization, &saved.records)
+            .map_err(error)?;
         until(deadline, async {
-            send_fixed(&exchange, &[1]).await?;
+            send_fixed(&exchange, &[history.status()]).await?;
             send_fixed(&exchange, &saved.generation.to_be_bytes()).await?;
-            exchange
-                .send_message(
-                    ControlMessageFormat::LengthPrefixed32 {
-                        maximum: MAX_HISTORY,
-                    },
-                    &history,
-                )
-                .await
-                .map_err(error)?;
+            history.send(&exchange).await.map_err(error)?;
             if &recv_fixed::<4>(&exchange).await? != b"AUTH" {
                 return Err(rejected());
             }

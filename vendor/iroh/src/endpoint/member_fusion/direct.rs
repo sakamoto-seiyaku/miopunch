@@ -462,47 +462,35 @@ impl VerifiedDirect {
         control: &ControlHandle,
         exchange: &ControlExchange,
     ) -> io::Result<TransportAddr> {
-        // A peer can finish its stream after reading Ready. Consume the framed
-        // confirmation even if its send-control handle has already stopped.
         const READY: ControlMessageFormat = ControlMessageFormat::Fixed { length: 1 };
-        #[cfg(feature = "miopunch-test-hooks")]
-        let mut hold = control.commit_gate().take();
-        #[cfg(feature = "miopunch-test-hooks")]
-        if let Some(hold) = &mut hold {
-            hold.pause(super::commit_fixture::PathCommitPoint::BeforeConfirmation, exchange).await?;
-        }
-        let (_, ready) = tokio::try_join!(
+        let remote = super::confirm_member_path(
+            &[1],
             exchange.send_message(READY, &[1]),
-            exchange.recv_message(READY)
-        )?;
-        if ready != [1] {
-            return Err(io::ErrorKind::InvalidData.into());
-        }
-        #[cfg(feature = "miopunch-test-hooks")]
-        if let Some(hold) = &mut hold {
-            hold.pause(super::commit_fixture::PathCommitPoint::AfterConfirmation, exchange).await?;
-        }
-        self.check(control)?;
-        if !self.probe.is_acknowledged().map_err(io::Error::other)? {
-            return Err(io::ErrorKind::Interrupted.into());
-        }
-        exchange.finish_send().await?;
-        (self.prepared.retain)()?;
-        #[cfg(feature = "miopunch-test-hooks")]
-        if let Some(hold) = hold {
-            hold.retained();
-        }
+            exchange.recv_message(READY),
+            async {
+                self.check(control)?;
+                if !self.probe.is_acknowledged().map_err(io::Error::other)? {
+                    return Err(io::ErrorKind::Interrupted.into());
+                }
+                exchange.finish_send().await?;
+                (self.prepared.retain)()?;
+                Ok(self.remote)
+            },
+            #[cfg(feature = "miopunch-test-hooks")]
+            (control.commit_gate(), exchange),
+        )
+        .await?;
         eprintln!(
             "MEMBER_DIRECT_RETAINED stable_id={} path={:?} remote={:?}",
             control.stable_id(),
             control
                 .paths()
                 .iter()
-                .find(|path| path.remote_addr() == &self.remote)
+                .find(|path| path.remote_addr() == &remote)
                 .map(|path| path.id()),
-            self.remote
+            remote
         );
-        Ok(self.remote)
+        Ok(remote)
     }
 }
 

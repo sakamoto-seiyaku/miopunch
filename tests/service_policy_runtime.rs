@@ -596,3 +596,81 @@ async fn external_correction_carrier() {
     fs::write(config["report"].as_str().unwrap(), json!({"sent":sent.is_ok(),"replyAccepted":reply.is_some(),"ordinaryMemberCarrier":true,"originalSignedCorrection":true}).to_string()).unwrap();
     assert!(sent.is_ok(), "signed correction could not be delivered");
 }
+
+#[tokio::test]
+async fn member_sync_delivers_history_larger_than_one_encoded_page() {
+    use miopunch_native_probe::resources::ResourceConfig;
+    let root = tempfile::tempdir().unwrap();
+    let mut config = ResourceConfig::default();
+    config.replacement = Some(vec![]);
+    let provider_path = root.path().join("provider");
+    let provider =
+        NativeClient::create_with_resources(&provider_path, Ipv4Addr::LOCALHOST, config.clone())
+            .await
+            .unwrap();
+    let card = provider.export_recovery_card(None).await.unwrap();
+    provider.acknowledge_recovery_saved().await.unwrap();
+    let invitation = provider.issue_precode(now() + 300, Some(1)).await.unwrap();
+    let consumer_path = root.path().join("consumer");
+    let consumer =
+        NativeClient::join_with_resources(&consumer_path, &invitation, Ipv4Addr::LOCALHOST, config)
+            .await
+            .unwrap();
+    consumer.request_admission(&invitation).await.unwrap();
+    provider.close().await.unwrap();
+
+    let card = RecoveryCard::import(&card, None).unwrap();
+    let key = SigningKey::from_bytes(&card.credential().0);
+    let mut node = NativeNetwork::open(&provider_path).await.unwrap();
+    let mut expected = Vec::new();
+    let body = vec![255; 2_200_000];
+    for log in [31, 32] {
+        let auth = ManagementAuth::replay_records(
+            card.anchor(),
+            &records(&provider_path, card.anchor()).await.unwrap(),
+        )
+        .unwrap();
+        let member = SigningKey::generate().verifying_key();
+        expected.push(member);
+        let header = Header::builder()
+            .body(&body)
+            .build(
+                &key,
+                ManagementExtension {
+                    version: 1,
+                    log_id: [log; 16],
+                    group: GroupsExtensionArgs {
+                        group_id: card.anchor().root,
+                        dependencies: auth.tips(),
+                        action: GroupAction::Add {
+                            member: GroupMember::Individual(member),
+                            access: Access::read(),
+                        },
+                    },
+                },
+            )
+            .encode();
+        node.ingest_management_record(&header, Some(&body))
+            .await
+            .unwrap();
+    }
+    node.close().await;
+    let provider = NativeClient::open(&provider_path, Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    consumer.sync_services(provider.address()).await.unwrap();
+    let status = consumer.status().await;
+    for member in expected {
+        assert!(status.node.members.iter().any(|(id, _)| *id == member));
+    }
+    consumer.close().await.unwrap();
+    provider.close().await.unwrap();
+    let received = records(&consumer_path, card.anchor()).await.unwrap();
+    assert_eq!(
+        received
+            .iter()
+            .filter(|(_, bytes)| bytes.as_deref() == Some(body.as_slice()))
+            .count(),
+        2
+    );
+}

@@ -185,8 +185,11 @@ async fn establish_connection(
                 }
             };
             tracing::Span::current().record("alpn", alpn.fmt_short());
-            let protocols = protocols.read().await;
-            let Some(protocol_handler) = protocols.get(&alpn) else {
+            let protocol_handler = {
+                let protocols = protocols.read().await;
+                protocols.get(&alpn).cloned()
+            };
+            let Some(protocol_handler) = protocol_handler else {
                 warn!("ignoring connection: unsupported alpn protocol");
                 return Err(ConnectionActorError::InvalidAlpnHandshake(alpn));
             };

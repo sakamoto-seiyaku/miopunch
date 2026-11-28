@@ -9,8 +9,7 @@ use std::{
 };
 
 use iroh::{EndpointAddr, EndpointId};
-use p2panda_core::{Hash, SigningKey, VerifyingKey};
-use serde::Serialize;
+use p2panda_core::SigningKey;
 use tokio::{
     sync::{Mutex, Notify},
     task::JoinHandle,
@@ -32,7 +31,8 @@ use crate::{
     native_network::NativeNetwork,
     network_migration::{
         MigrationPhase, committed_switch, confirm_client_invitation, mark_switched,
-        mark_target_validated, target_directory, target_validated,
+        mark_target_validated, recover_client_restart, restart_client_invitation, target_directory,
+        target_validated,
     },
     recovery_card::RecoveryCard,
     resources::ResourceEndpoint,
@@ -41,21 +41,7 @@ use crate::{
 
 const RETRY: Duration = Duration::from_millis(500);
 
-/// The result of the original network's independent signed departure process.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
-#[serde(tag = "stage")]
-pub enum SourceExit {
-    NotStarted,
-    GenesisConfirmationRequired,
-    MembershipAlreadyEnded,
-    PendingDelivery {
-        record: Hash,
-    },
-    Delivered {
-        record: Hash,
-        recipient: VerifyingKey,
-    },
-}
+pub use crate::migration_progress::SourceExit;
 
 /// Verified progress for the migration explicitly confirmed on this device.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -69,11 +55,18 @@ pub struct NativeMigrationProgress {
 }
 
 impl NativeMigrationProgress {
+    pub(crate) fn preparation_ended(&self) -> bool {
+        !self.switched
+            && self
+                .admission
+                .is_some_and(|attempt| attempt.progress == ApplicationProgress::Rejected)
+    }
+
     pub(crate) fn public_json(&self) -> serde_json::Value {
         serde_json::json!({
             "source": self.source,
             "destination": self.destination,
-            "phase": format!("{:?}", self.phase),
+            "phase": self.phase,
             "admission": self.admission.map(|admission| admission.public_json()),
             "switched": self.switched,
             "source_exit": self.source_exit,
@@ -176,6 +169,7 @@ impl MigrationDriver {
         bind: Ipv4Addr,
         invitation: ClientInvitation,
     ) -> Result<NativeClient, ClientError> {
+        recover_client_restart(path)?;
         let switched = committed_switch(path)?;
         if switched {
             NativeNetwork::check_replacement_open(&target_directory(path))?;
@@ -225,10 +219,14 @@ impl MigrationDriver {
     }
 
     fn install_source(&self, source: Arc<Mutex<NativeNetwork>>) {
-        assert!(
-            self.source.set(source).is_ok(),
-            "one confirmed migration per source"
-        );
+        if let Some(existing) = self.source.get() {
+            assert!(Arc::ptr_eq(existing, &source), "migration source changed");
+        } else {
+            assert!(
+                self.source.set(source).is_ok(),
+                "migration source installed once"
+            );
+        }
     }
 
     async fn prepare(
@@ -494,7 +492,10 @@ impl NativeClient {
         runtime.require_ready()?;
         let source = runtime.node.lock().await;
         let progress = progress_for(&source, invitation)?;
-        if self.migration.progress().is_some()
+        let previous = self.migration.progress();
+        if previous
+            .as_ref()
+            .is_some_and(|progress| !progress.preparation_ended())
             || source.admission_stage() != AdmissionStage::Complete
             || !source
                 .status()
@@ -508,8 +509,18 @@ impl NativeClient {
             source.resource_configuration()?,
             invitation.bootstrap(),
         )?;
-        confirm_client_invitation(&source.directory, invitation)?;
+        let directory = source.directory.clone();
         drop(source);
+        if previous.is_some() {
+            // Rejected progress can be published just before its worker closes
+            // the target. Join it before resetting that store or installing a successor.
+            if let Some(worker) = self.migration.worker.lock().await.take() {
+                worker.await?;
+            }
+            restart_client_invitation(&directory, invitation)?;
+        } else {
+            confirm_client_invitation(&directory, invitation)?;
+        }
         self.start_migration_worker(invitation.clone(), progress.clone())
             .await;
         Ok(progress)
@@ -655,11 +666,7 @@ fn update_exit_progress(
 ) -> Result<(), ClientError> {
     progress.switched = true;
     progress.source_exit = migration_departure(source)?;
-    progress.phase = if matches!(progress.source_exit, SourceExit::Delivered { .. }) {
-        MigrationPhase::SourceExited
-    } else {
-        MigrationPhase::Switched
-    };
+    progress.phase = progress.source_exit.phase_after_switch();
     Ok(())
 }
 
@@ -774,5 +781,58 @@ async fn validate_member(
         }
         Ok(Err(error)) => Err(attempt.failed(error.to_string()).into()),
         Err(error) => Err(attempt.failed(error.to_string()).into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::daily_management::ManagementAction;
+
+    #[tokio::test]
+    async fn ended_membership_reports_source_exited_without_a_delivery_receipt() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut source = NativeNetwork::create(directory.path().join("source"))
+            .await
+            .unwrap();
+        let destination = NativeNetwork::create(directory.path().join("destination"))
+            .await
+            .unwrap();
+        let mut progress = NativeMigrationProgress {
+            source: source.anchor,
+            destination: destination.anchor,
+            phase: MigrationPhase::Switched,
+            switched: true,
+            admission: None,
+            source_exit: SourceExit::NotStarted,
+        };
+        update_exit_progress(&source, &mut progress).unwrap();
+        assert_eq!(progress.phase, MigrationPhase::Switched);
+        assert_eq!(
+            progress.source_exit,
+            SourceExit::GenesisConfirmationRequired
+        );
+        let local = source.status().node_id;
+        let mut session = source.begin_management_session();
+        source
+            .elevate_genesis(
+                &mut session,
+                source.saved_genesis_credential().unwrap(),
+                Duration::from_secs(30),
+            )
+            .unwrap();
+        source
+            .manage(&mut session, ManagementAction::RemoveMember(local))
+            .await
+            .unwrap();
+        update_exit_progress(&source, &mut progress).unwrap();
+        let view = progress.public_json();
+        assert_eq!(view["phase"], "SourceExited");
+        assert_eq!(
+            view["source_exit"],
+            serde_json::json!({"stage":"MembershipAlreadyEnded"})
+        );
+        destination.close().await;
+        source.close().await;
     }
 }

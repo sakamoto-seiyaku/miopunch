@@ -434,7 +434,7 @@ impl NativeClientRuntime {
                     gate.clone(),
                     recovery_saved.clone(),
                     replacement_ready.clone(),
-                    removal_commits,
+                    removal_commits.clone(),
                 ));
                 let mut standby = crate::member_standby::MemberStandby::new(&resources);
                 let mut expiry = tokio::time::interval(Duration::from_secs(1));
@@ -489,6 +489,7 @@ impl NativeClientRuntime {
                             let web = web.clone();
                             let terminal = terminal.clone();
                             let clipboard_request = clipboard.state.request();
+                            let commits = removal_commits.clone();
                             handlers.spawn(async move {
                                 // The handshake has a finite budget. A large file has no
                                 // total-duration cap: its stream enforces an idle timeout.
@@ -555,7 +556,7 @@ impl NativeClientRuntime {
                                 }
                                 if alpn == crate::service_policy::POLICY_ALPN {
                                     if let Ok(Ok(connection)) = tokio::time::timeout_at(deadline, accepting).await {
-                                        let _ = crate::native_services::serve_policy(connection, node, services, files, deadline).await;
+                                        let _ = crate::native_services::serve_policy(connection, node, services, files, deadline, commits).await;
                                     }
                                     return;
                                 }
@@ -1605,6 +1606,7 @@ async fn sync_member_management(
             &members.files,
             MemberSyncMode::Management,
             deadline.into(),
+            &removal_commits,
         )
         .await;
         connection.close(0u32.into(), b"member management exchange ended");

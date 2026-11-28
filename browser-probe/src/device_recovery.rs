@@ -4,7 +4,10 @@
 use super::*;
 use crate::{
     management_auth::ManagementExtension,
-    management_recovery_wire::{proof_statement, recv_fixed, recv_frame, send_fixed, send_frame},
+    management_recovery_wire::{
+        history_binding, proof_statement, receive_history, recv_fixed, recv_frame, send_fixed,
+        send_frame, send_history,
+    },
 };
 use n0_future::time::{Instant, timeout};
 use p2panda_auth::{
@@ -195,16 +198,37 @@ impl BrowserNetwork {
         let exchange = recovery_wire(deadline, connection.open_control_exchange()).await?;
         recovery_wire(deadline, send_fixed(&exchange, &signature)).await?;
         recovery_wire(deadline, send_fixed(&exchange, &intent.attempt)).await?;
-        let bytes = recovery_wire(deadline, recv_frame(&exchange, 16 * 1024 * 1024)).await?;
-        let (server_grant, records): (Option<Hash>, Records) =
-            p2panda_core::cbor::decode_cbor(bytes.as_slice()).map_err(error)?;
-        if records.is_empty()
-            || records.len() > 4096
-            || Hash::digest(&records[0].0) != network.genesis
-        {
-            return Err(rejected());
-        }
-        let auth = ManagementAuth::replay_records(network, &records).map_err(error)?;
+        let binding = history_binding(network, intent.contact, intent.attempt);
+        let gate = self.gate.clone();
+        let (server_grant, records, auth) = recovery_wire(
+            deadline,
+            receive_history::<Option<Hash>, _>(
+                &exchange,
+                binding,
+                self.saved.admission_history.clone(),
+                |checkpoint| {
+                    let gate = gate.clone();
+                    async move {
+                        gate.update_saved_owned(move |saved| {
+                            let recovery = saved.recovery.as_ref().ok_or_else(rejected)?;
+                            if history_binding(
+                                saved.invitation()?.anchor,
+                                recovery.contact,
+                                recovery.attempt,
+                            ) != checkpoint.binding
+                            {
+                                return Err(rejected());
+                            }
+                            saved.admission_history = Some(checkpoint);
+                            Ok(())
+                        })
+                        .await
+                        .map_err(|cause| std::io::Error::other(format!("{cause:?}")))
+                    }
+                },
+            ),
+        )
+        .await?;
         if !auth
             .nodes()
             .iter()
@@ -218,16 +242,9 @@ impl BrowserNetwork {
             return Err(rejected());
         }
         self.refresh_service_snapshot().await?;
-        let mut next = self.saved.clone();
-        let (merged, policy_error) =
-            next.with_service_bundle(&crate::service_protocol::ServiceBundle {
-                management: records,
-                services: Vec::new(),
-            })?;
-        if let Some(policy_error) = policy_error {
-            return Err(error(policy_error));
-        }
-        next = merged;
+        let mut next = self
+            .saved
+            .with_verified_management_history(records, Some(auth), network)?;
         let proof = ServedRecovery {
             target: next.identity(),
             attempt: intent.attempt,
@@ -283,7 +300,7 @@ impl BrowserNetwork {
         let id = Hash::digest(&grant);
         let mut next = self.saved.clone();
         if !next.records.iter().any(|(h, _)| Hash::digest(h) == id) {
-            next.records.push((grant.clone(), None));
+            next = next.merge_records(vec![(grant.clone(), None)])?;
         }
         next.authorization = Some(id);
         next.recovery.as_mut().unwrap().authorization = Some(id);
@@ -300,31 +317,41 @@ impl BrowserNetwork {
         recovery_wire(deadline, send_fixed(&exchange, b"AUTH")).await?;
         let material = recovery_wire(deadline, recv_fixed::<40>(&exchange)).await?;
         let generation = u64::from_be_bytes(material[..8].try_into().unwrap());
-        self.gate.update_saved(|saved| {
-            saved.admissions_open()?;
-            if generation < saved.generation
-                || generation > i64::MAX as u64
-                || !saved.verify()?.is_some_and(|auth| {
-                    auth.administrator_authorization_valid(id, saved.identity())
-                })
-            {
-                return Err(rejected());
-            }
-            let index = saved
-                .proof_index(saved.identity(), intent.attempt)
-                .ok_or_else(rejected)?;
-            saved.generation = generation;
-            saved.secret = Some(material[8..].try_into().unwrap());
-            saved.recovery.as_mut().unwrap().complete = true;
-            saved.served_recoveries[index].phase = 3;
-            Ok(())
-        })
-        .await?;
+        self.gate
+            .update_saved(|saved| {
+                saved.admissions_open()?;
+                if generation < saved.generation
+                    || generation > i64::MAX as u64
+                    || !saved.verify()?.is_some_and(|auth| {
+                        auth.administrator_authorization_valid(id, saved.identity())
+                    })
+                {
+                    return Err(rejected());
+                }
+                let index = saved
+                    .proof_index(saved.identity(), intent.attempt)
+                    .ok_or_else(rejected)?;
+                saved.generation = generation;
+                saved.secret = Some(material[8..].try_into().unwrap());
+                saved.recovery.as_mut().unwrap().complete = true;
+                saved.served_recoveries[index].phase = 3;
+                Ok(())
+            })
+            .await?;
         self.refresh_service_snapshot().await?;
         recovery_wire(deadline, send_fixed(&exchange, b"SAVE")).await?;
         recovery_wire(deadline, exchange.finish_send()).await?;
         if recovery_wire(deadline, recv_fixed::<4>(&exchange)).await? != *b"DONE" {
             return Err(rejected());
+        }
+        if self.saved.admission_history.is_some() {
+            self.gate
+                .update_saved(|saved| {
+                    saved.admission_history = None;
+                    Ok(())
+                })
+                .await?;
+            self.refresh_service_snapshot().await?;
         }
         Ok(serde_json::json!({"stage":"Complete","authorization":id,"node":self.saved.identity(),"network":network,
             "saved_locally":true,"old_administrators_automatically_revoked":false,
@@ -384,9 +411,11 @@ async fn serve_inner(
         return Err(rejected());
     }
     version.commit(&next).await?;
-    let bytes =
-        p2panda_core::cbor::encode_cbor(&(existing, next.records.clone())).map_err(error)?;
-    recovery_wire(deadline, send_frame(&exchange, &bytes)).await?;
+    recovery_wire(
+        deadline,
+        send_history(&exchange, network, &next.records, &existing),
+    )
+    .await?;
     let grant = recovery_wire(deadline, recv_frame(&exchange, 256 * 1024)).await?;
     let header = Header::<ManagementExtension>::decode(&grant).map_err(error)?;
     let id = Hash::digest(&grant);
@@ -411,7 +440,7 @@ async fn serve_inner(
         {
             return Err(rejected());
         }
-        next.records.push((grant, None));
+        next = next.merge_records(vec![(grant, None)])?;
     }
     next.served_recoveries[index].authorization = Some(id);
     next.served_recoveries[index].phase = next.served_recoveries[index].phase.max(2);

@@ -5,10 +5,11 @@ use crate::{
     client_invitation::ClientInvitation,
     device_operation::{DeviceAction, DeviceOperation},
     device_protocol::DepartureDelivery,
+    migration_progress::{MigrationPhase, SourceExit},
     service_policy::POLICY_ALPN,
     service_protocol::{MemberSync, MemberSyncMembership, MemberSyncMode, next_member_sync_peer},
 };
-use n0_future::time::{Instant, sleep, timeout};
+use n0_future::time::{Instant, sleep};
 use std::rc::Rc;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
@@ -38,21 +39,6 @@ impl SavedMigration {
 struct VerifiedTarget {
     peer: iroh_base::EndpointId,
     admission: AdmissionAttempt,
-}
-
-#[derive(Serialize)]
-#[serde(tag = "stage")]
-enum SourceExit {
-    NotStarted,
-    GenesisConfirmationRequired,
-    MembershipAlreadyEnded,
-    PendingDelivery {
-        record: Hash,
-    },
-    Delivered {
-        record: Hash,
-        recipient: VerifyingKey,
-    },
 }
 
 impl Configuration {
@@ -156,21 +142,13 @@ impl SavedNode {
         };
         let (phase, admission, source_exit) = if let Some(verified) = &migration.verified {
             let exit = migration.inactive.migration_source_exit()?;
-            let finished = matches!(
-                exit,
-                SourceExit::Delivered { .. } | SourceExit::MembershipAlreadyEnded
-            );
-            (
-                if finished { "SourceExited" } else { "Switched" },
-                Some(verified.admission),
-                exit,
-            )
+            (exit.phase_after_switch(), Some(verified.admission), exit)
         } else {
             let target = migration.inactive.as_ref();
             let phase = match target.stage() {
-                "Complete" => "MaterialsSaved",
-                "PendingMaterials" => "PendingMaterials",
-                _ => "Preparing",
+                "Complete" => MigrationPhase::MaterialsSaved,
+                "PendingMaterials" => MigrationPhase::PendingMaterials,
+                _ => MigrationPhase::Preparing,
             };
             (phase, target.admission_attempt(), SourceExit::NotStarted)
         };
@@ -500,7 +478,7 @@ impl Worker {
         tokio::select! {
             biased;
             _ = self.cancel.cancelled() => Err(error("browser node disconnected")),
-            result = timeout(deadline.saturating_duration_since(Instant::now()), work) => result.map_err(|_| admission_timeout())?,
+            result = admission::network_until(deadline, work) => result,
         }
     }
 
@@ -654,7 +632,7 @@ impl Worker {
                 Ok((exchange, status))
             })
             .await?;
-        if matches!(status, 0 | 1) {
+        if matches!(status, 0 | 1 | 3) {
             self.update_inactive(|target| {
                 target.record_admission_progress(ApplicationProgress::Delivered);
                 Ok(())
@@ -677,22 +655,30 @@ impl Worker {
                 })
                 .await;
         }
-        if status != 1 {
+        if !matches!(status, 1 | 3) {
             return Err(rejected());
         }
-        let authorized = self
-            .network_until(deadline, saved.authorized_admission(&exchange))
+        let gate = self.gate.clone();
+        let history = self
+            .network_until(deadline, saved.authorized_admission(&exchange, status, move |checkpoint| {
+                let gate = gate.clone();
+                async move {
+                gate.update_saved_owned(move |active| {
+                    active.migration.as_mut().ok_or_else(rejected)?.inactive.save_admission_history(checkpoint)
+                }).await.map_err(|failure| std::io::Error::other(format!("{failure:?}")))
+                }
+            }))
             .await?;
+        let mut authorized = None;
         self.update_inactive(|target| {
-            *target = authorized.clone();
+            *target = target.with_authorized_admission(history)?;
+            authorized = Some(target.clone());
             Ok(())
         })
         .await?;
+        let authorized = authorized.ok_or_else(rejected)?;
         let material = self
-            .network_until(deadline, async {
-                send_fixed(&exchange, b"AUTH").await?;
-                recv_fixed::<40>(&exchange).await
-            })
+            .network_until(deadline, admission::receive_material(&exchange, || {}))
             .await?;
         let mut complete = authorized.with_admission_secret(material)?;
         complete = complete.declare_files(false)?;
@@ -706,15 +692,7 @@ impl Worker {
         })
         .await?;
         if self
-            .network_until(deadline, async {
-                send_fixed(&exchange, b"SAVE").await?;
-                exchange.finish_send().await.map_err(error)?;
-                if &recv_fixed::<4>(&exchange).await? == b"DONE" {
-                    Ok(())
-                } else {
-                    Err(rejected())
-                }
-            })
+            .network_until(deadline, admission::acknowledge_material(&exchange, |_| {}))
             .await
             .is_ok()
         {
@@ -724,11 +702,10 @@ impl Worker {
     }
 
     async fn mark_receipt_done(&self) -> Result<(), JsValue> {
-        self.gate.update_saved(|node| {
-            node.migration
-                .as_mut()
-                .ok_or_else(rejected)?
-                .receipt_pending = false;
+        self.gate.update_saved_owned(|node| {
+            let migration = node.migration.as_mut().ok_or_else(rejected)?;
+            migration.receipt_pending = false;
+            migration.inactive.admission_history = None;
             Ok(())
         })
         .await
@@ -775,7 +752,57 @@ impl Worker {
         let outbound = target.member_sync(&auth.nodes(), MemberSyncMode::Management);
         let incoming = self
             .network_until(deadline, async {
-                outbound.exchange(&connection).await.map_err(error)
+                outbound
+                    .exchange_resuming(&connection, target.invitation()?.anchor, auth.clone(), |records| {
+                        let gate = self.gate.clone();
+                        let cancel = self.cancel.clone();
+                        let capture = capture.clone();
+                        let expected = (
+                            target.invitation().map(|v| v.anchor),
+                            target.key,
+                            target.generation,
+                            target.secret,
+                        );
+                        let (send, receive) = tokio::sync::oneshot::channel();
+                        wasm_bindgen_futures::spawn_local(async move {
+                            let result = gate
+                                .update_saved(|active| {
+                                    let migration =
+                                        active.migration.as_mut().ok_or_else(rejected)?;
+                                    let target = migration.inactive.as_mut();
+                                    if cancel.is_cancelled()
+                                        || migration.verified.is_some()
+                                        || target.invitation()?.anchor != expected.0?
+                                        || target.key != expected.1
+                                        || target.generation != expected.2
+                                        || target.secret != expected.3
+                                        || !capture.is_current(
+                                            &target.verify()?.ok_or_else(rejected)?,
+                                            target.identity(),
+                                        )
+                                    {
+                                        return Err(rejected());
+                                    }
+                                    *target = target.merge_records(records)?;
+                                    Ok(())
+                                })
+                                .await;
+                            let _ = send.send(result.map_err(|value| {
+                                std::io::Error::other(
+                                    value
+                                        .as_string()
+                                        .unwrap_or_else(|| "migration page commit failed".into()),
+                                )
+                            }));
+                        });
+                        async move {
+                            receive
+                                .await
+                                .map_err(|_| std::io::Error::other("migration page commit ended"))?
+                        }
+                    })
+                    .await
+                    .map_err(error)
             })
             .await?;
         self.apply_validation(target, peer, capture, incoming).await

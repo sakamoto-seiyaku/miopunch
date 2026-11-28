@@ -16,7 +16,7 @@ extern "C" {
 /// An optimistic edit stays bound to the disk version and lease it read.
 pub(super) struct NodeVersion<'a> {
     gate: &'a BrowserGate,
-    previous: String,
+    previous: Arc<str>,
     pub(super) lease: u32,
 }
 
@@ -28,24 +28,24 @@ pub(super) struct NodeWrite<'a> {
 
 impl BrowserGate {
     async fn read_version(&self) -> Result<(Box<SavedNode>, NodeVersion<'_>), JsValue> {
-        let (saved, token, migration_owner) = {
+        let (saved, raw, token, migration_owner) = {
             let state = self.0.lock().unwrap();
             (
                 Box::new(state.saved.as_ref().ok_or_else(rejected)?.clone()),
+                state.installed_raw.clone().ok_or_else(rejected)?,
                 state.lease.ok_or_else(rejected)?,
                 state.migration_owner.clone(),
             )
         };
-        let raw = serde_json::to_string(&saved).map_err(error)?;
         let expected = if let Some(owner) = migration_owner {
             let owner = owner.upgrade().ok_or_else(rejected)?;
             let state = owner.lock().unwrap();
             let active = state.saved.as_ref().ok_or_else(rejected)?;
             let inactive = &active.migration.as_ref().ok_or_else(rejected)?.inactive;
-            if serde_json::to_string(inactive).map_err(error)? != raw {
+            if serde_json::to_string(inactive).map_err(error)? != raw.as_ref() {
                 return Err(error("browser migration context changed"));
             }
-            serde_json::to_string(active).map_err(error)?
+            state.installed_raw.clone().ok_or_else(rejected)?
         } else {
             raw.clone()
         };
@@ -94,10 +94,24 @@ impl BrowserGate {
         let (mut saved, mut write) = self.write_node().await?;
         let result = edit(&mut saved)?;
         let raw = encode_saved(&saved)?;
-        if raw != write.version.previous {
+        if raw != write.version.previous.as_ref() {
             write.version.persist(&saved, raw, None, None).await?;
         }
         Ok(result)
+    }
+
+    /// Once a verified page enters IndexedDB, publish that commit even when the
+    /// exchange reaches its deadline and drops the waiting receiver.
+    pub(super) async fn update_saved_owned<T: 'static>(
+        &self,
+        edit: impl FnOnce(&mut SavedNode) -> Result<T, JsValue> + 'static,
+    ) -> Result<T, JsValue> {
+        let gate = self.clone();
+        let (done, result) = tokio::sync::oneshot::channel();
+        wasm_bindgen_futures::spawn_local(async move {
+            let _ = done.send(gate.update_saved(edit).await);
+        });
+        result.await.map_err(error)?
     }
 }
 
@@ -119,8 +133,8 @@ impl NodeVersion<'_> {
         if let Some(files) = retire {
             files.reset_for_network();
         }
-        self.gate.install(next);
-        self.previous = raw;
+        self.previous = raw.into();
+        self.gate.install_encoded(next, self.previous.clone());
         Ok(())
     }
 
@@ -187,8 +201,32 @@ fn encode_saved(next: &SavedNode) -> Result<String, JsValue> {
     next.verify()?;
     next.validate_migration()?;
     let raw = serde_json::to_string(next).map_err(error)?;
-    if raw.len() > 80 * 1024 * 1024 {
-        return Err(error("browser state too large"));
-    }
+    next.check_snapshot_size(raw.len())?;
     Ok(raw)
+}
+
+impl SavedNode {
+    /// Applied signed history can span many exchange pages. Keep the previous
+    /// local limit on the rest of the snapshot, including unresolved records.
+    pub(super) fn check_snapshot_size(&self, serialized_len: usize) -> Result<(), JsValue> {
+        const OTHER_STATE_LIMIT: usize = 80 * 1024 * 1024;
+        let mut excess = serialized_len.saturating_sub(OTHER_STATE_LIMIT);
+        if excess == 0 {
+            return Ok(());
+        }
+        for node in std::iter::once(self).chain(self.migration.iter().map(|m| m.inactive.as_ref()))
+        {
+            let staged = node.admission_history.iter().flat_map(|page| &page.records);
+            for record in node.records.iter().chain(staged) {
+                excess = excess
+                    .saturating_sub(crate::management_record::stored_records::json_size(record));
+                if excess == 0 {
+                    return Ok(());
+                }
+            }
+        }
+        Err(error(
+            "browser state outside management history is too large",
+        ))
+    }
 }

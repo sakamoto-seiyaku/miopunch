@@ -228,7 +228,8 @@ impl NativeClient {
             )
             .await?;
             let reply: DeviceReply = read_message(&mut stream).await?;
-            let history = ServiceBundle::read(&mut stream).await?;
+            let anchor = client_runtime.node.lock().await.anchor;
+            let history = ServiceBundle::read_verified(&mut stream, anchor).await?;
             let mut node = client_runtime.node.lock().await;
             let mut services = client_runtime.services.lock().await;
             services.merge(&mut node, &client_runtime.files, history).await?;
@@ -347,7 +348,8 @@ pub(crate) async fn serve_device(
         let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())?;
         let mut stream = DataStream::accept(&connection).await?;
         let request: DeviceRequest = read_message(&mut stream).await?;
-        let history = ServiceBundle::read(&mut stream).await?;
+        let anchor = node.lock().await.anchor;
+        let history = ServiceBundle::read_verified(&mut stream, anchor).await?;
         let (reply, history) = {
             let mut node = node.lock().await;
             let mut services = services.lock().await;

@@ -19,6 +19,178 @@ fn expiry() -> u64 {
         .as_secs()
         + 3600
 }
+
+#[tokio::test]
+async fn rejected_client_migration_releases_retry_and_replacement_after_reopen() {
+    use miopunch_native_probe::{
+        admission_progress::ApplicationProgress,
+        native_client::NativeClient,
+        resources::{Resource, ResourceConfig, ResourceUse},
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let mut relay_config = iroh_relay::server::ServerConfig::default();
+    relay_config.relay = Some(iroh_relay::server::RelayConfig::new((
+        Ipv4Addr::LOCALHOST,
+        0,
+    )));
+    let relay = iroh_relay::server::Server::spawn(relay_config)
+        .await
+        .unwrap();
+    let mut resources = ResourceConfig::default();
+    resources.replacement = Some(vec![Resource {
+        url: relay.http_url().unwrap().to_string(),
+        uses: [ResourceUse::DataRelay].into(),
+        limitation: "local migration fixture".into(),
+    }]);
+    let create = |name: &'static str| {
+        NativeClient::create_with_resources(
+            dir.path().join(name),
+            Ipv4Addr::LOCALHOST,
+            resources.clone(),
+        )
+    };
+    let mut mover = create("source").await.unwrap();
+    let destination = create("destination").await.unwrap();
+    let other = create("other").await.unwrap();
+    for (name, node) in [
+        ("source.card", &mover),
+        ("destination.card", &destination),
+        ("other.card", &other),
+    ] {
+        node.export_recovery_card_to(dir.path().join(name), None)
+            .await
+            .unwrap();
+        node.acknowledge_recovery_saved().await.unwrap();
+    }
+    let invitation = destination.invitation().await.unwrap();
+    let other_invitation = other.invitation().await.unwrap();
+    let mut previous = None;
+    for (index, (target, invitation)) in [
+        (&destination, &invitation),
+        (&destination, &invitation),
+        (&other, &other_invitation),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        mover
+            .begin_network_migration(invitation)
+            .await
+            .expect("rejected migration releases this source");
+        assert!(
+            mover.begin_network_migration(invitation).await.is_err(),
+            "an unfinished attempt still owns the migration"
+        );
+        let request = tokio::time::timeout(Duration::from_secs(20), async {
+            loop {
+                if let Some(request) = target.requests().await.unwrap().pop() {
+                    break request;
+                }
+                tokio::time::sleep(Duration::from_millis(30)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_ne!(previous, Some(request.request_id));
+        previous = Some(request.request_id);
+        target.reject(&request).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(20), async {
+            loop {
+                if mover
+                    .migration_progress()
+                    .and_then(|p| p.admission)
+                    .is_some_and(|a| {
+                        a.request_id == request.request_id
+                            && a.progress == ApplicationProgress::Rejected
+                    })
+                {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(30)).await;
+            }
+        })
+        .await
+        .unwrap();
+        // First retry takes over the existing worker. The next retry loads an
+        // existing rejected store with no restart marker, as older clients did.
+        if index != 0 {
+            mover.close().await.unwrap();
+            mover = NativeClient::open(dir.path().join("source"), Ipv4Addr::LOCALHOST)
+                .await
+                .unwrap();
+        }
+        let progress = mover.migration_progress().unwrap();
+        assert!(!progress.switched);
+        assert_eq!(
+            progress.admission.unwrap().progress,
+            ApplicationProgress::Rejected
+        );
+    }
+    // Reconstruct the three observable process-stop states of an explicitly
+    // confirmed retry. Reopening must finish that intent before its worker can
+    // reuse the rejected target or start an admission against the old network.
+    for gap in 0..3 {
+        mover.close().await.unwrap();
+        let source = dir.path().join("source");
+        let (target, next) = if gap == 1 {
+            (&other, &other_invitation)
+        } else {
+            (&destination, &invitation)
+        };
+        let encoded = next.encode().unwrap();
+        std::fs::write(source.join("migration.restart"), &encoded).unwrap();
+        if gap >= 1 {
+            std::fs::remove_dir_all(source.join("migration-target")).unwrap();
+        }
+        if gap == 2 {
+            std::fs::write(source.join("migration.invitation"), &encoded).unwrap();
+        }
+        mover = NativeClient::open(&source, Ipv4Addr::LOCALHOST)
+            .await
+            .unwrap();
+        let request = tokio::time::timeout(Duration::from_secs(20), async {
+            loop {
+                if let Some(request) = target.requests().await.unwrap().pop() {
+                    break request;
+                }
+                tokio::time::sleep(Duration::from_millis(30)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_ne!(previous, Some(request.request_id));
+        previous = Some(request.request_id);
+        assert!(!source.join("migration.restart").exists());
+        target.reject(&request).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(20), async {
+            loop {
+                if mover
+                    .migration_progress()
+                    .and_then(|p| p.admission)
+                    .is_some_and(|a| {
+                        a.request_id == request.request_id
+                            && a.progress == ApplicationProgress::Rejected
+                    })
+                {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(30)).await;
+            }
+        })
+        .await
+        .unwrap();
+    }
+    mover.close().await.unwrap();
+    mover = NativeClient::open(dir.path().join("source"), Ipv4Addr::LOCALHOST)
+        .await
+        .unwrap();
+    let backup = dir.path().join("replacement.json");
+    mover.prepare_node_replacement(&backup).await.unwrap();
+    assert!(backup.is_file());
+    destination.close().await.unwrap();
+    other.close().await.unwrap();
+    relay.shutdown().await.unwrap();
+}
 fn address(e: &iroh::endpoint::RestrictedEndpoint) -> EndpointAddr {
     EndpointAddr::new(e.id()).with_ip_addr(*e.addr().ip_addrs().next().unwrap())
 }

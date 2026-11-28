@@ -1,5 +1,6 @@
 use std::{
-    collections::{BinaryHeap, hash_map},
+    cmp::Reverse,
+    collections::{BTreeSet, hash_map},
     io,
 };
 
@@ -9,7 +10,7 @@ use tracing::trace;
 
 use super::spaces::Retransmits;
 use crate::{
-    Dir, StreamId, VarInt,
+    Dir, PathId, StreamId, VarInt,
     connection::streams::state::{StreamRecv, get_or_insert_recv, get_or_insert_send},
     frame,
 };
@@ -308,14 +309,11 @@ impl<'a> SendStream<'a> {
             return Err(WriteError::Blocked);
         }
 
-        let was_pending = stream.is_pending();
         let written = stream.write(source, limit)?;
         self.state.data_sent += written.bytes as u64;
         self.state.unacked_data += written.bytes as u64;
         trace!(stream = %self.id, "wrote {} bytes", written.bytes);
-        if !was_pending {
-            self.state.pending.push_pending(self.id, stream.priority);
-        }
+        self.state.pending.push(self.id, stream, false);
         Ok(written)
     }
 
@@ -342,11 +340,8 @@ impl<'a> SendStream<'a> {
             .map(get_or_insert_send(max_send_data))
             .ok_or(FinishError::ClosedStream)?;
 
-        let was_pending = stream.is_pending();
         stream.finish()?;
-        if !was_pending {
-            self.state.pending.push_pending(self.id, stream.priority);
-        }
+        self.state.pending.push(self.id, stream, false);
 
         Ok(())
     }
@@ -373,6 +368,8 @@ impl<'a> SendStream<'a> {
         // send. We leave flow control alone because the peer's responsible for issuing additional
         // credit based on the final offset communicated in the RESET_STREAM frame we send.
         self.state.unacked_data -= stream.pending.unacked();
+        self.state.pending.remove(stream);
+        self.state.pending.assign(stream, None);
         stream.reset();
         self.pending.reset_stream.push((self.id, error_code));
 
@@ -429,111 +426,142 @@ impl<'a> SendStream<'a> {
     }
 }
 
-/// A queue of streams with pending outgoing data, sorted by priority
+/// Pending STREAM work is ordered globally but indexed by the path that may send it.
+#[derive(Default)]
 struct PendingStreamsQueue {
-    streams: BinaryHeap<PendingStream>,
-    /// Interrupted streams to resume before selecting new ones on their paths.
-    /// Used only with `TransportConfig::send_fairness(false)`.
-    next: Vec<PendingStream>,
-    /// A monotonically decreasing counter, used to implement round-robin scheduling for streams of
-    /// the same priority. Underflowing is not a practical concern, as it is initialized to
-    /// u64::MAX and only decremented by 1 in `push_pending`
-    recency: u64,
+    unassigned: BTreeSet<PendingStream>,
+    assigned: Vec<PathSenders>,
+    sequence: u64,
+}
+
+struct PathSenders {
+    path: PathId,
+    // A send half keeps its path between writes and after the business lease ends.
+    senders: usize,
+    pending: BTreeSet<PendingStream>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct PendingStream {
+    order: PendingOrder,
+    id: StreamId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum PendingOrder {
+    /// Higher priority first, then the least recently scheduled at this priority.
+    Ready(i32, Reverse<u64>),
+    /// With fairness disabled the most recently interrupted eligible stream continues first.
+    Interrupted(u64),
 }
 
 impl PendingStreamsQueue {
-    fn new() -> Self {
-        Self {
-            streams: BinaryHeap::new(),
-            next: Vec::new(),
-            recency: u64::MAX,
-        }
+    fn lane(&self, path: PathId) -> Option<&PathSenders> {
+        self.assigned.iter().find(|lane| lane.path == path)
     }
 
-    /// Reinsert a stream that was pending and still contains unsent data.
-    fn reinsert_pending(&mut self, id: StreamId, priority: i32) {
-        self.next.push(PendingStream {
-            priority,
-            recency: self.recency, // the value here doesn't really matter
-            id,
-        });
-    }
-
-    /// Push a pending stream ID with the given priority, queued after any already-queued streams
-    /// for the priority
-    fn push_pending(&mut self, id: StreamId, priority: i32) {
-        // Note that in the case where fairness is disabled, if we have a reinserted stream we don't
-        // bump it even if priority > next.priority. In order to minimize fragmentation we
-        // always try to complete a stream once part of it has been written.
-
-        // As the recency counter is monotonically decreasing, we know that using its value to sort
-        // this stream will queue it after all other queued streams of the same priority.
-        // This is enough to implement round-robin scheduling for streams that are still pending
-        // even after being handled, as in that case they are removed from the `BinaryHeap`,
-        // handled, and then immediately reinserted.
-        self.recency -= 1;
-        self.streams.push(PendingStream {
-            priority,
-            recency: self.recency,
-            id,
-        });
-    }
-
-    fn pop(
-        &mut self,
-        mut eligible: impl FnMut(StreamId) -> bool,
-        deferred: &mut Vec<PendingStream>,
-    ) -> Option<PendingStream> {
-        if let Some(index) = self.next.iter().rposition(|stream| eligible(stream.id)) {
-            return Some(self.next.remove(index));
-        }
-        while let Some(stream) = self.streams.pop() {
-            if eligible(stream.id) {
-                return Some(stream);
+    fn entries(&mut self, path: Option<PathId>) -> &mut BTreeSet<PendingStream> {
+        match path {
+            None => &mut self.unassigned,
+            Some(path) => {
+                &mut self
+                    .assigned
+                    .iter_mut()
+                    .find(|lane| lane.path == path)
+                    .expect("assigned send half owns a path queue")
+                    .pending
             }
-            deferred.push(stream);
         }
-        None
     }
 
-    fn restore(&mut self, deferred: Vec<PendingStream>) {
-        self.streams.extend(deferred);
+    fn assign(&mut self, stream: &mut Send, path: Option<PathId>) {
+        if stream.path == path || stream.is_reset() {
+            return;
+        }
+        if let Some(entry) = stream.queued {
+            self.entries(stream.path).remove(&entry);
+        }
+        if let Some(old) = stream.path {
+            let index = self
+                .assigned
+                .iter()
+                .position(|lane| lane.path == old)
+                .unwrap();
+            self.assigned[index].senders -= 1;
+            if self.assigned[index].senders == 0 {
+                self.assigned.swap_remove(index);
+            }
+        }
+        stream.path = path;
+        if let Some(path) = path {
+            if let Some(lane) = self.assigned.iter_mut().find(|lane| lane.path == path) {
+                lane.senders += 1;
+            } else {
+                self.assigned.push(PathSenders {
+                    path,
+                    senders: 1,
+                    pending: BTreeSet::new(),
+                });
+            }
+        }
+        if let Some(entry) = stream.queued {
+            self.entries(path).insert(entry);
+        }
     }
 
-    fn clear(&mut self) {
-        self.next.clear();
-        self.streams.clear();
+    fn push(&mut self, id: StreamId, stream: &mut Send, resumed: bool) {
+        if stream.queued.is_some() {
+            return;
+        }
+        self.sequence += 1;
+        let entry = PendingStream {
+            order: if resumed {
+                PendingOrder::Interrupted(self.sequence)
+            } else {
+                PendingOrder::Ready(stream.priority, Reverse(self.sequence))
+            },
+            id,
+        };
+        self.entries(stream.path).insert(entry);
+        stream.queued = Some(entry);
     }
 
-    fn iter(&self) -> impl Iterator<Item = &PendingStream> {
-        self.next.iter().chain(self.streams.iter())
+    fn remove(&mut self, stream: &mut Send) {
+        if let Some(entry) = stream.queued.take() {
+            self.entries(stream.path).remove(&entry);
+        }
+    }
+
+    fn can_send(&self, path: PathId, allow_unassigned: bool) -> bool {
+        (allow_unassigned && !self.unassigned.is_empty())
+            || self.lane(path).is_some_and(|lane| !lane.pending.is_empty())
+    }
+
+    fn pop(&mut self, path: PathId, allow_unassigned: bool) -> Option<PendingStream> {
+        let assigned = self.assigned.iter_mut().find(|lane| lane.path == path);
+        let Some(lane) = assigned else {
+            return if allow_unassigned {
+                self.unassigned.pop_last()
+            } else {
+                None
+            };
+        };
+        if allow_unassigned && self.unassigned.last() > lane.pending.last() {
+            self.unassigned.pop_last()
+        } else {
+            lane.pending.pop_last()
+        }
     }
 
     #[cfg(test)]
     fn len(&self) -> usize {
-        self.streams.len() + self.next.len()
+        self.unassigned.len()
+            + self
+                .assigned
+                .iter()
+                .map(|lane| lane.pending.len())
+                .sum::<usize>()
     }
-}
-
-/// The [`StreamId`] of a stream with pending data queued, ordered by its priority and recency
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct PendingStream {
-    /// The priority of the stream
-    // Note that this field should be kept above the `recency` field, in order for the `Ord` derive
-    // to be correct (See https://doc.rust-lang.org/stable/std/cmp/trait.Ord.html#derivable)
-    priority: i32,
-    /// A tie-breaker for streams of the same priority, used to improve fairness by implementing
-    /// round-robin scheduling: Larger values are prioritized, so it is initialised to
-    /// `u64::MAX`, and when a stream writes data, we know that it currently has the highest
-    /// recency value, so it is deprioritized by setting its recency to 1 less than the
-    /// previous lowest recency value, such that all other streams of this priority will get
-    /// processed once before we get back round to this one
-    recency: u64,
-    /// The ID of the stream
-    // The way this type is used ensures that every instance has a unique `recency` value, so this
-    // field should be kept below the `priority` and `recency` fields, so that it does not
-    // interfere with the behaviour of the `Ord` derive
-    id: StreamId,
 }
 
 /// Application events about streams

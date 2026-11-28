@@ -7,6 +7,7 @@
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
+    sync::Arc,
 };
 
 use p2panda_auth::group::resolver::StrongRemove;
@@ -84,6 +85,7 @@ pub struct ManagementAuth {
     state: State,
     log_heads: HashMap<(VerifyingKey, [u8; 16]), (u32, Hash)>,
     headers: Vec<Vec<u8>>,
+    verified_headers: HashMap<Hash, Arc<Header<ManagementExtension>>>,
 }
 
 impl ManagementAuth {
@@ -93,6 +95,7 @@ impl ManagementAuth {
             state: Crdt::init(),
             log_heads: HashMap::new(),
             headers: Vec::new(),
+            verified_headers: HashMap::new(),
         }
     }
 
@@ -107,6 +110,16 @@ impl ManagementAuth {
     /// A header claiming a non-empty body is never accepted without its bytes.
     pub fn accept_record(&mut self, bytes: &[u8], body: Option<&[u8]>) -> Result<Hash, AuthError> {
         let header = decode_complete(bytes, body, self.anchor)?;
+        self.accept_decoded_record(bytes, header)
+    }
+
+    /// The caller has checked this exact complete record with decode_complete
+    /// or ManagementRecord::verify_complete. Domain checks remain centralized.
+    pub(crate) fn accept_decoded_record(
+        &mut self,
+        bytes: &[u8],
+        header: Header<ManagementExtension>,
+    ) -> Result<Hash, AuthError> {
         let extension = &header.extensions;
 
         let operation = GroupsOperation {
@@ -144,7 +157,14 @@ impl ManagementAuth {
         self.log_heads
             .insert(log_key, (header.seq_num, operation.id));
         self.headers.push(bytes.to_vec());
+        self.verified_headers.insert(operation.id, Arc::new(header));
         Ok(operation.id)
+    }
+
+    /// Reuse the immutable typed header only after this complete record passed
+    /// signature, body, causal-log and authorization validation.
+    pub(crate) fn header_by_hash(&self, id: Hash) -> Option<Arc<Header<ManagementExtension>>> {
+        self.verified_headers.get(&id).cloned()
     }
 
     /// Replays raw signed history through precisely the same verifier as receipt.
@@ -167,20 +187,12 @@ impl ManagementAuth {
         Ok(auth)
     }
 
-    pub(crate) fn state_bytes(&self) -> Result<Vec<u8>, p2panda_core::cbor::EncodeError> {
-        p2panda_core::cbor::encode_cbor(&self.state)
-    }
-
-    pub(crate) fn matches_member_view_bytes(
-        &self,
-        bytes: &[u8],
-    ) -> Result<bool, p2panda_core::cbor::DecodeError> {
-        let persisted: State = p2panda_core::cbor::decode_cbor(bytes)?;
-        let mut persisted_nodes = persisted.members(self.anchor.root);
-        let mut replayed_nodes = self.state.members(self.anchor.root);
-        persisted_nodes.sort_by_key(|(id, _)| *id.as_bytes());
-        replayed_nodes.sort_by_key(|(id, _)| *id.as_bytes());
-        Ok(persisted_nodes == replayed_nodes)
+    /// The signed originals rebuild the causal graph. Persist exactly the
+    /// member and role projection checked against that replay on open.
+    pub(crate) fn member_view_bytes(&self) -> Result<Vec<u8>, p2panda_core::cbor::EncodeError> {
+        let mut members = self.state.members(self.anchor.root);
+        members.sort_by_key(|(id, _)| *id.as_bytes());
+        p2panda_core::cbor::encode_cbor(&members)
     }
 
     pub fn headers(&self) -> &[Vec<u8>] {
@@ -280,56 +292,32 @@ impl ManagementAuth {
         {
             return None;
         }
-        let mut origins: Vec<_> = state
+        // causal_state returns the graph at exactly these signed heads. All
+        // operations in that graph are in scope. Collect the target's actual
+        // losses once, including concurrent ones that can invalidate a grant.
+        let losses: Vec<_> = state
+            .inner
+            .operations
+            .values()
+            .filter(|op| {
+                !state.inner.ignore.contains(&op.id)
+                    && loses_access(&op.action, target, administrator)
+            })
+            .map(|op| op.id)
+            .collect();
+        state
             .inner
             .operations
             .values()
             .filter(|grant| {
-                if !has_ancestor(grant.id, dependencies, &state)
-                    || state.inner.ignore.contains(&grant.id)
-                {
-                    return false;
-                }
-                let granted = match &grant.action {
-                    GroupAction::Create { initial_members } => {
-                        initial_members.iter().any(|(member, role)| {
-                            *member == GroupMember::Individual(target)
-                                && (!administrator || *role == Access::manage())
-                        })
-                    }
-                    GroupAction::Add { member, access } => {
-                        *member == GroupMember::Individual(target)
-                            && (!administrator || *access == Access::manage())
-                    }
-                    GroupAction::Promote { member, access } => {
-                        administrator
-                            && *member == GroupMember::Individual(target)
-                            && *access == Access::manage()
-                    }
-                    _ => false,
-                };
-                granted
-                    && !state.inner.operations.values().any(|loss| {
-                        !state.inner.ignore.contains(&loss.id)
-                            && has_ancestor(loss.id, dependencies, &state)
-                            && !has_ancestor(loss.id, &grant.dependencies, &state)
-                            && match &loss.action {
-                                GroupAction::Remove { member } => {
-                                    *member == GroupMember::Individual(target)
-                                }
-                                GroupAction::Demote { member, access } => {
-                                    administrator
-                                        && *member == GroupMember::Individual(target)
-                                        && *access != Access::manage()
-                                }
-                                _ => false,
-                            }
-                    })
+                !state.inner.ignore.contains(&grant.id)
+                    && grants_access(&grant.action, target, administrator)
+                    && losses
+                        .iter()
+                        .all(|loss| has_ancestor(*loss, &grant.dependencies, &state))
             })
             .map(|grant| grant.id)
-            .collect();
-        origins.sort_by_key(|id| *id.as_bytes());
-        origins.into_iter().next()
+            .min_by_key(|id| *id.as_bytes())
     }
 
     /// A previously recorded identity absent from the current member view.
@@ -413,7 +401,10 @@ impl ManagementAuth {
         if !self.known_removed(target) {
             return None;
         }
-        self.headers.iter().rev().map(Hash::digest)
+        self.headers
+            .iter()
+            .rev()
+            .map(Hash::digest)
             .find(|decision| self.removal_applies_to(*decision, grant, target))
     }
 
@@ -446,52 +437,25 @@ impl ManagementAuth {
         let Some(grant) = self.state.inner.operations.get(&id) else {
             return false;
         };
-        let grants_manage = match &grant.action {
-            GroupAction::Add { member, access } | GroupAction::Promote { member, access } => {
-                *member == GroupMember::Individual(target) && *access == Access::manage()
-            }
-            GroupAction::Create { initial_members } => {
-                initial_members.iter().any(|(member, access)| {
-                    *member == GroupMember::Individual(target) && *access == Access::manage()
-                })
-            }
-            _ => false,
-        };
-        grants_manage
+        grants_access(&grant.action, target, true)
             && !self.state.inner.operations.values().any(|operation| {
                 !self.filtered_operation(operation.id)
-                    && match &operation.action {
-                        GroupAction::Remove { member } => {
-                            *member == GroupMember::Individual(target)
-                        }
-                        GroupAction::Demote { member, access } => {
-                            *member == GroupMember::Individual(target)
-                                && *access != Access::manage()
-                        }
-                        _ => false,
-                    }
+                    && loses_access(&operation.action, target, true)
                     && !has_ancestor(operation.id, &grant.dependencies, &self.state)
             })
     }
 
     pub fn administrator_authorization_origin(&self, target: VerifyingKey) -> Option<Hash> {
-        let mut origins: Vec<_> = self
-            .state
-            .inner
-            .operations
-            .keys()
-            .copied()
-            .filter(|id| self.administrator_authorization_valid(*id, target))
-            .collect();
-        origins.sort_by_key(|id| *id.as_bytes());
-        origins.into_iter().next()
+        self.authorization_origin_at(target, &self.tips(), true)
     }
 
     /// Current causal heads, including filtered operations retained in the graph.
     pub fn tips(&self) -> Vec<Hash> {
         let mut tips: HashSet<Hash> = self.state.inner.operations.keys().copied().collect();
         for operation in self.state.inner.operations.values() {
-            tips.retain(|id| !operation.dependencies.contains(id));
+            for dependency in &operation.dependencies {
+                tips.remove(dependency);
+            }
         }
         let mut tips: Vec<_> = tips.into_iter().collect();
         tips.sort_by_key(|id| *id.as_bytes());
@@ -509,6 +473,17 @@ pub(crate) fn decode_complete(
     anchor: NetworkAnchor,
 ) -> Result<Header<ManagementExtension>, AuthError> {
     let header = Header::<ManagementExtension>::decode(bytes)?;
+    validate_complete_header(header, body, anchor)
+}
+
+/// Check the original body and network after p2panda verified the signature.
+/// This is crate-private and receives an immutable typed header, never raw
+/// network bytes whose signature has not been checked.
+pub(crate) fn validate_complete_header(
+    header: Header<ManagementExtension>,
+    body: Option<&[u8]>,
+    anchor: NetworkAnchor,
+) -> Result<Header<ManagementExtension>, AuthError> {
     if header.extensions.version != 1 || header.extensions.group.group_id != anchor.root {
         return Err(AuthError::InvalidEnvelope);
     }
@@ -525,11 +500,42 @@ pub(crate) fn decode_complete(
 }
 
 fn grants_membership(action: &GroupAction<VerifyingKey>, target: VerifyingKey) -> bool {
+    grants_access(action, target, false)
+}
+
+fn grants_access(
+    action: &GroupAction<VerifyingKey>,
+    target: VerifyingKey,
+    administrator: bool,
+) -> bool {
+    let target = GroupMember::Individual(target);
     match action {
-        GroupAction::Add { member, .. } => *member == GroupMember::Individual(target),
-        GroupAction::Create { initial_members } => initial_members
-            .iter()
-            .any(|(member, _)| *member == GroupMember::Individual(target)),
+        GroupAction::Create { initial_members } => {
+            initial_members.iter().any(|(member, access)| {
+                *member == target && (!administrator || *access == Access::manage())
+            })
+        }
+        GroupAction::Add { member, access } => {
+            *member == target && (!administrator || *access == Access::manage())
+        }
+        GroupAction::Promote { member, access } => {
+            administrator && *member == target && *access == Access::manage()
+        }
+        _ => false,
+    }
+}
+
+fn loses_access(
+    action: &GroupAction<VerifyingKey>,
+    target: VerifyingKey,
+    administrator: bool,
+) -> bool {
+    let target = GroupMember::Individual(target);
+    match action {
+        GroupAction::Remove { member } => *member == target,
+        GroupAction::Demote { member, access } => {
+            administrator && *member == target && *access != Access::manage()
+        }
         _ => false,
     }
 }

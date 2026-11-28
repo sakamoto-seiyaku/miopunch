@@ -71,7 +71,7 @@ impl SavedNode {
             node: PortableNode {
                 key: self.key,
                 network: self.invitation()?.anchor,
-                records: self.records.clone(),
+                records: self.records.to_vec(),
                 pending_records: self.pending.clone(),
                 authorization: self.authorization,
                 generation: self.generation,
@@ -130,7 +130,8 @@ impl SavedNode {
                 .as_ref()
                 .map(|r| r.request)
                 .unwrap_or_else(rand::random),
-            records: node.records.clone(),
+            records: node.records.clone().into(),
+            admission_history: None,
             authorization: node.authorization,
             generation: node.generation,
             secret: node.secret,
@@ -273,7 +274,7 @@ impl BrowserNetwork {
                 .write(&mut stream)
                 .await
                 .map_err(error)?;
-            let incoming = ServiceBundle::read(&mut stream).await.map_err(error)?;
+            let incoming = ServiceBundle::read_verified(&mut stream, self.saved.invitation()?.anchor).await.map_err(error)?;
             self.refresh_service_snapshot().await?;
             let (next, policy_error) = self.saved.with_service_bundle(&incoming)?;
             self.commit(next).await?;

@@ -75,6 +75,118 @@ async fn recovery_endpoint(node: &NativeNetwork) -> RestrictedEndpoint {
 }
 
 #[tokio::test]
+async fn interrupted_history_reopens_without_authority_and_finishes_recovery() {
+    use miopunch_native_probe::management_auth::ManagementExtension;
+    use p2panda_auth::{
+        GroupsExtensionArgs,
+        group::{GroupAction, GroupMember},
+    };
+    use p2panda_core::{Header, SigningKey};
+
+    let (dir, root, original, mut member) = security_fixture().await;
+    let mut tip = Hash::digest(
+        member
+            .management_history()
+            .await
+            .unwrap()
+            .last()
+            .unwrap()
+            .header(),
+    );
+    for value in 0..3 {
+        let body = vec![value; 6 * 1024 * 1024];
+        let header = Header::builder()
+            .body(&body)
+            .build(
+                &root,
+                ManagementExtension {
+                    version: 1,
+                    log_id: rand::random(),
+                    group: GroupsExtensionArgs {
+                        group_id: original.anchor.root,
+                        dependencies: vec![tip],
+                        action: GroupAction::Add {
+                            member: GroupMember::Individual(SigningKey::generate().verifying_key()),
+                            access: Access::read(),
+                        },
+                    },
+                },
+            )
+            .encode();
+        tip = member
+            .ingest_management_record(&header, Some(&body))
+            .await
+            .unwrap();
+    }
+    let expected = member.management_history().await.unwrap();
+    let credential = GenesisCredential::from_saved(*root.as_bytes(), original.anchor.genesis);
+    let path = dir.path().join("recovering");
+    let provider = recovery_endpoint(&member).await;
+    let mut node = NativeNetwork::recover(&path, &credential, provider.id())
+        .await
+        .unwrap();
+    let endpoint = recovery_endpoint(&node).await;
+    let (client, server) =
+        native_connections::control_pair(&endpoint, &provider, MANAGEMENT_RECOVERY_ALPN).await;
+    let observer = sqlx::SqlitePool::connect_with(
+        sqlx::sqlite::SqliteConnectOptions::new()
+            .filename(path.join("management.sqlite"))
+            .read_only(true),
+    )
+    .await
+    .unwrap();
+    let disconnect = async {
+        loop {
+            let cursor: Option<i64> = sqlx::query_scalar(
+                "SELECT cursor FROM admission_history_stage WHERE complete=0 AND cursor>0",
+            )
+            .fetch_optional(&observer)
+            .await
+            .unwrap();
+            if let Some(cursor) = cursor {
+                client.close(0u32.into(), b"end contact after verified page");
+                return cursor;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    };
+    let (result, _, cursor) = tokio::join!(
+        node.restore_management(&client),
+        member.serve_management_recovery(&server),
+        tokio::time::timeout(Duration::from_secs(15), disconnect)
+    );
+    assert!(result.is_err());
+    assert!(cursor.unwrap() < expected.len() as i64);
+    observer.close().await;
+    endpoint.close().await;
+    node.close().await;
+    let mut node = NativeNetwork::open(&path).await.unwrap();
+    assert_eq!(node.status().applied_count, 0);
+    assert_eq!(
+        node.recovery_progress().await.unwrap().stage,
+        RecoveryStage::AwaitingProof
+    );
+    let endpoint = recovery_endpoint(&node).await;
+    let (client, server) =
+        native_connections::control_pair(&endpoint, &provider, MANAGEMENT_RECOVERY_ALPN).await;
+    let (restored, served) = tokio::join!(
+        node.restore_management(&client),
+        member.serve_management_recovery(&server)
+    );
+    let restored = restored.unwrap();
+    assert_eq!(served.unwrap().authorization, restored.authorization);
+    assert_eq!(restored.stage, RecoveryStage::Complete);
+    assert_eq!(
+        node.management_history().await.unwrap()[..expected.len()],
+        expected
+    );
+    endpoint.close().await;
+    provider.close().await;
+    node.close().await;
+    member.close().await;
+}
+
+#[tokio::test]
 async fn formal_entry_restores_original_network_when_all_old_administrators_are_offline() {
     let dir = tempfile::tempdir().unwrap();
     let cp = dir.path().join("original-device");

@@ -69,6 +69,44 @@ impl MemberDirectCandidate {
     }
 }
 
+// A peer may finish its send direction immediately after its final frame.
+// Read that frame before running the local commit, which owns the rollback guards.
+async fn confirm_member_path<T>(
+    expected: &[u8],
+    send: impl Future<Output = io::Result<()>>,
+    receive: impl Future<Output = io::Result<Vec<u8>>>,
+    commit: impl Future<Output = io::Result<T>>,
+    #[cfg(feature = "miopunch-test-hooks")] fixture: (&commit_fixture::Gate, &ControlExchange),
+) -> io::Result<T> {
+    #[cfg(feature = "miopunch-test-hooks")]
+    let (gate, exchange) = fixture;
+    #[cfg(feature = "miopunch-test-hooks")]
+    let mut hold = gate.take();
+    #[cfg(feature = "miopunch-test-hooks")]
+    if let Some(hold) = &mut hold {
+        hold.pause(commit_fixture::PathCommitPoint::BeforeConfirmation, exchange)
+            .await?;
+    }
+    let (_, received) = tokio::try_join!(send, receive)?;
+    if received != expected {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "unexpected member path confirmation",
+        ));
+    }
+    #[cfg(feature = "miopunch-test-hooks")]
+    if let Some(hold) = &mut hold {
+        hold.pause(commit_fixture::PathCommitPoint::AfterConfirmation, exchange)
+            .await?;
+    }
+    let result = commit.await?;
+    #[cfg(feature = "miopunch-test-hooks")]
+    if let Some(hold) = hold {
+        hold.retained();
+    }
+    Ok(result)
+}
+
 const REPAIR_LIMIT: Duration = Duration::from_secs(3);
 
 #[derive(Clone, derive_more::Debug)]

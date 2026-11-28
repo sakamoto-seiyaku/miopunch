@@ -127,7 +127,8 @@ pub struct FreshPathProbe {
     watermark: u64,
     generation: u64,
     epoch: u64,
-    return_route: Option<Arc<()>>,
+    _return_route: Option<Arc<()>>,
+    require_same_path_ack: bool,
 }
 
 impl FreshPathProbe {
@@ -666,15 +667,7 @@ impl Connection {
 
         let last_required = if keep_spare { path_id.next() } else { path_id };
         if last_required > max_path_id || (keep_spare && last_required == path_id) {
-            eprintln!(
-                "[DEBUG-udp-handoff] proto-path-resource-blocked reason=MaxPathIdReached connection={:p} requested={last_required:?} local_max={:?} remote_max={:?} active={:?} abandoned={:?} remote_cids={:?} network_path={network_path:?}",
-                self,
-                self.local_max_path_id,
-                self.remote_max_path_id,
-                self.paths.keys().collect::<Vec<_>>(),
-                self.abandoned_paths,
-                self.remote_cids.keys().collect::<Vec<_>>()
-            );
+            trace!(?last_required, ?max_path_id, ?network_path, "path ID limit reached");
             self.spaces[SpaceId::Data].pending.paths_blocked = Some(self.remote_max_path_id);
             return Err(PathError::MaxPathIdReached);
         }
@@ -682,15 +675,7 @@ impl Connection {
             .into_iter()
             .find(|id| !self.remote_cids.contains_key(id))
         {
-            eprintln!(
-                "[DEBUG-udp-handoff] proto-path-resource-blocked reason=RemoteCidsExhausted connection={:p} requested={missing:?} local_max={:?} remote_max={:?} active={:?} abandoned={:?} remote_cids={:?} network_path={network_path:?}",
-                self,
-                self.local_max_path_id,
-                self.remote_max_path_id,
-                self.paths.keys().collect::<Vec<_>>(),
-                self.abandoned_paths,
-                self.remote_cids.keys().collect::<Vec<_>>()
-            );
+            trace!(?missing, ?network_path, "remote path CID unavailable");
             self.spaces[SpaceId::Data]
                 .pending
                 .path_cids_blocked
@@ -3251,8 +3236,17 @@ impl Connection {
             watermark,
             generation: data.generation(),
             epoch: data.local_binding_epoch,
-            return_route,
+            _return_route: return_route,
+            require_same_path_ack: return_path,
         })
+    }
+
+    /// Keep this binding's own Backup ACKs on it while the probe lives, while
+    /// preserving cross-path ACK acceptance for the probe's new packet.
+    pub fn start_scoped_path_probe(&mut self, path: PathId) -> Result<FreshPathProbe, ClosedPath> {
+        let mut probe = self.start_fresh_path_probe(path, true)?;
+        probe.require_same_path_ack = false;
+        Ok(probe)
     }
 
     /// Check the probe on its original connection. When the probe requires a return
@@ -3268,7 +3262,7 @@ impl Connection {
             return Err(ClosedPath { _private: () });
         }
         Ok(acked
-            && (probe.return_route.is_none()
+            && (!probe.require_same_path_ack
                 || data
                     .same_path_acked
                     .is_some_and(|(pn, _)| pn >= probe.watermark)))
@@ -8046,12 +8040,9 @@ impl Connection {
         result
     }
 
-    /// Pause off-path IPv4 NAT traversal probes while a cooperating mechanism
-    /// owns IPv4 probing. IPv6 probing and QUIC path validation continue.
+    /// Pause off-path IPv4 NAT traversal probe transmission, retaining queued probes.
+    /// IPv6 probing and QUIC path validation continue.
     pub fn set_ipv4_nat_traversal_probes_paused(&mut self, paused: bool) {
-        if paused && !self.ipv4_nat_traversal_probes_paused {
-            self.n0_nat_traversal.discard_pending_ipv4_probes();
-        }
         self.ipv4_nat_traversal_probes_paused = paused;
     }
 
@@ -8060,9 +8051,6 @@ impl Connection {
         if !ipv6 {
             self.set_ipv4_nat_traversal_probes_paused(paused);
             return;
-        }
-        if paused && !self.ipv6_nat_traversal_probes_paused {
-            self.n0_nat_traversal.clear_pending_family(true);
         }
         self.ipv6_nat_traversal_probes_paused = paused;
     }

@@ -238,6 +238,61 @@ impl Drop for BusinessChannel {
         self.budget.notify();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Connected;
+
+    impl ChannelTransport for Connected {
+        fn network_interrupted(&self) -> bool { false }
+        async fn closed(&self) { std::future::pending().await }
+    }
+
+    #[tokio::test]
+    async fn resumed_carrier_advertises_window_freed_during_handshake() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let budget = ChannelBudget::new(crate::forwarding::ChannelPolicy {
+            channel_bytes: 1,
+            ..Default::default()
+        }).unwrap();
+        let channel = BusinessChannel::new(budget);
+        {
+            let mut state = channel.state.lock().unwrap();
+            state.received.push_back(42);
+            state.progress.accepted = 1;
+            channel.budget.usage.lock().unwrap().receive = 1;
+        }
+        channel.begin_recovery();
+        let (stream, mut outbound, mut inbound) = DataStream::local(128);
+        let (mut application, mut writer) = tokio::io::duplex(1);
+        let peer = async {
+            let mut frame = [0; 26];
+            assert_eq!(outbound.read_u32().await.unwrap(), 26);
+            outbound.read_exact(&mut frame).await.unwrap();
+            assert_eq!(Progress::parse(&frame).unwrap().delivered, 0);
+            let drain = channel.deliver(&mut writer, false);
+            tokio::pin!(drain);
+            tokio::select! {
+                biased;
+                _ = &mut drain => panic!("channel closed before delivering progress"),
+                byte = application.read_u8() => assert_eq!(byte.unwrap(), 42),
+            }
+            inbound.write_u32(26).await.unwrap();
+            inbound.write_all(&Progress::default().record()).await.unwrap();
+            assert_eq!(outbound.read_u32().await.unwrap(), 26);
+            outbound.read_exact(&mut frame).await.unwrap();
+            assert_eq!(Progress::parse(&frame).unwrap().delivered, 1);
+        };
+        tokio::select! {
+            _ = channel.carry(stream, &Connected) => panic!("carrier ended"),
+            result = tokio::time::timeout(std::time::Duration::from_secs(2), peer) => {
+                result.expect("peer still sees a full receive window");
+            }
+        }
+    }
+}
 impl BusinessChannel {
     pub(crate) fn new(budget: Arc<ChannelBudget>) -> Self {
         Self {
@@ -344,10 +399,10 @@ impl BusinessChannel {
         mut stream: DataStream,
         transport: &impl ChannelTransport,
     ) -> Result<(), ChannelError> {
+        let advertised = self.state.lock().unwrap().progress;
         let handshake = async {
-            let progress = self.state.lock().unwrap().progress;
             stream
-                .write_channel_record(&progress.record())
+                .write_channel_record(&advertised.record())
                 .await
                 .map_err(|e| carrier_error(transport, e))?;
             let peer = stream
@@ -369,7 +424,7 @@ impl BusinessChannel {
         self.state.lock().unwrap().recovery_deadline = None;
         let (send, recv) = stream.split();
         tokio::select! {
-            result = async { tokio::try_join!(self.upload(send, transport), self.download(recv, transport))?; Ok(()) } => result,
+            result = async { tokio::try_join!(self.upload(send, transport, advertised), self.download(recv, transport))?; Ok(()) } => result,
             _ = transport.closed() => Err(carrier_error(transport, io::Error::new(io::ErrorKind::ConnectionAborted, "business carrier ended"))),
         }
     }
@@ -388,12 +443,12 @@ impl BusinessChannel {
         &self,
         mut send: DataWriter,
         transport: &impl ChannelTransport,
+        mut last_progress: Progress,
     ) -> Result<(), ChannelError> {
         let mut updates = self.budget.changed.subscribe();
         let state = &self.state;
         let mut cursor = state.lock().unwrap().acknowledged;
         let mut fin_sent = false;
-        let mut last_progress = state.lock().unwrap().progress;
         loop {
             updates.borrow_and_update();
             let (record, complete) = {

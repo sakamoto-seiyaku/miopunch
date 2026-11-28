@@ -91,7 +91,7 @@ pub enum ToIrohEndpoint {
     },
 }
 
-pub type ProtocolMap = Arc<RwLock<BTreeMap<ProtocolId, Box<dyn DynProtocolHandler>>>>;
+pub type ProtocolMap = Arc<RwLock<BTreeMap<ProtocolId, Arc<dyn DynProtocolHandler>>>>;
 
 pub struct IrohState {
     network_id: NetworkId,
@@ -261,7 +261,7 @@ impl ThreadLocalActor for IrohEndpoint {
 
                 // Register protocol in our own map to accept it in the future.
                 let mut protocols = state.protocols.write().await;
-                protocols.insert(mixed_protocol_id, protocol_handler);
+                protocols.insert(mixed_protocol_id, Arc::from(protocol_handler));
 
                 // Inform iroh endpoint about the new protocol as well.
                 state

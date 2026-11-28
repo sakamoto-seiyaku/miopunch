@@ -882,6 +882,8 @@ impl RtcRouteLease {
 
     /// Start a fresh QUIC PING on the exact address of this original M.
     /// A DataChannel open event or an old path snapshot cannot construct this proof.
+    /// This handle owns the temporary Backup ACK preference; its own fresh ACK
+    /// may return over another path of this original connection.
     pub fn start_probe(
         &self,
         connection: &(impl AuthenticatedControl + ?Sized),
@@ -898,7 +900,7 @@ impl RtcRouteLease {
                 io::Error::new(io::ErrorKind::WouldBlock, "RTC QUIC path not established")
             })?;
         let path_id = path.id().to_string();
-        let probe = path.start_probe()?;
+        let probe = path.start_scoped_probe()?;
         let watermark = probe.watermark();
         Ok(RtcPathProbe {
             route: self.0.clone(),

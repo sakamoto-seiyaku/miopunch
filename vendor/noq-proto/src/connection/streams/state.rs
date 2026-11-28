@@ -171,7 +171,7 @@ impl StreamsState {
             opened: [false, false],
             next_reported_remote: [0, 0],
             send_streams: 0,
-            pending: PendingStreamsQueue::new(),
+            pending: PendingStreamsQueue::default(),
             business_streams: FxHashMap::default(),
             business_paths: Vec::new(),
             preferred_path: None,
@@ -227,7 +227,10 @@ impl StreamsState {
                 // We don't bother calling `stream_freed` here because we explicitly reset affected
                 // counters below.
                 let id = StreamId::new(self.side, dir, i);
-                self.send.remove(&id).unwrap();
+                if let Some(mut stream) = self.send.remove(&id).unwrap() {
+                    self.pending.remove(&mut stream);
+                    self.pending.assign(&mut stream, None);
+                }
                 self.business_streams.remove(&id);
                 if let Dir::Bi = dir {
                     self.recv.remove(&id).unwrap();
@@ -242,7 +245,6 @@ impl StreamsState {
             }
         }
 
-        self.pending.clear();
         self.send_streams = 0;
         self.data_sent = 0;
         self.connection_blocked.clear();
@@ -400,13 +402,7 @@ impl StreamsState {
 
     /// Whether any stream data is queued, regardless of control frames
     pub(crate) fn can_send_stream_data(&self, path: PathId, allow_unassigned: bool) -> bool {
-        // Reset streams may linger in the pending stream list, but will never produce stream frames
-        self.pending.iter().any(|stream| {
-            self.send
-                .get(&stream.id)
-                .and_then(|s| s.as_ref())
-                .is_some_and(|s| !s.is_reset() && s.can_send_on_path(path, allow_unassigned))
-        })
+        self.pending.can_send(path, allow_unassigned)
     }
 
     /// Whether MAX_STREAM_DATA frames could be sent for stream `id`
@@ -544,7 +540,7 @@ impl StreamsState {
                 }
                 *assigned = Some(path);
                 if let Some(stream) = self.send.get_mut(&id).and_then(Option::as_mut) {
-                    stream.path = Some(path);
+                    self.pending.assign(stream, Some(path));
                 }
             }
         }
@@ -568,7 +564,7 @@ impl StreamsState {
         };
         self.business_streams.insert(id, path);
         if let Some(stream) = self.send.get_mut(&id).and_then(Option::as_mut) {
-            stream.path = path;
+            self.pending.assign(stream, path);
         }
     }
 
@@ -586,7 +582,7 @@ impl StreamsState {
         }
         for stream in self.send.values_mut().flatten() {
             if stream.path == Some(path) {
-                stream.path = None;
+                self.pending.assign(stream, None);
             }
         }
     }
@@ -597,10 +593,7 @@ impl StreamsState {
     }
 
     pub(crate) fn has_business_sender_on_path(&self, path: PathId) -> bool {
-        self.send
-            .values()
-            .flatten()
-            .any(|stream| stream.path == Some(path) && !stream.is_reset())
+        self.pending.lane(path).is_some()
     }
 
     pub(in crate::connection) fn write_stream_frames<'a, 'b>(
@@ -611,33 +604,17 @@ impl StreamsState {
         path: PathId,
         allow_unassigned: bool,
     ) {
-        let mut deferred = Vec::new();
         while builder.frame_space_remaining() > frame::Stream::SIZE_BOUND {
-            // Pop the stream of the highest priority that currently has pending data. If
-            // the stream still has some pending data left after writing, it will be
-            // reinserted, otherwise not
-            let eligible = |id| {
-                self.send
-                    .get(&id)
-                    .and_then(Option::as_ref)
-                    .is_none_or(|stream| stream.can_send_on_path(path, allow_unassigned))
-            };
-            let Some(stream) = self.pending.pop(eligible, &mut deferred) else {
+            let Some(entry) = self.pending.pop(path, allow_unassigned) else {
                 break;
             };
-
-            let id = stream.id;
-            let Some(stream) = self.send.get_mut(&id).and_then(|s| s.as_mut()) else {
-                // Stream was reset with pending data and the reset was acknowledged
-                continue;
-            };
-
-            // Reset streams aren't removed from the pending list and still exist while the peer
-            // hasn't acknowledged the reset, but should not generate STREAM frames, so we need to
-            // check for them explicitly.
-            if stream.is_reset() {
-                continue;
-            }
+            let id = entry.id;
+            let stream = self
+                .send
+                .get_mut(&id)
+                .and_then(Option::as_mut)
+                .expect("queued stream has a live send half");
+            stream.queued = None;
 
             // Now that we know the `StreamId`, we can better account for how many bytes
             // are required to encode it.
@@ -655,11 +632,7 @@ impl StreamsState {
                 // implementing round-robin scheduling, so that the other streams
                 // will have a chance to write data before we touch this stream
                 // again.
-                if fair {
-                    self.pending.push_pending(id, stream.priority);
-                } else {
-                    self.pending.reinsert_pending(id, stream.priority);
-                }
+                self.pending.push(id, stream, !fair);
             }
 
             let range = offsets.clone();
@@ -687,7 +660,6 @@ impl StreamsState {
                 );
             }
         }
-        self.pending.restore(deferred);
     }
 
     #[cfg(test)]
@@ -721,11 +693,17 @@ impl StreamsState {
         }
         let id = frame.id;
         self.unacked_data -= frame.offsets.end - frame.offsets.start;
-        if !stream.ack(frame) {
+        let was_pending = stream.is_pending();
+        let finished = stream.ack(frame);
+        if finished || (was_pending && !stream.is_pending()) {
+            self.pending.remove(stream);
+        }
+        if !finished {
             // The stream is unfinished or may still need retransmits
             return;
         }
 
+        self.pending.assign(stream, None);
         entry.remove_entry();
         self.stream_freed(id, StreamHalf::Send);
         self.events.push_back(StreamEvent::Finished { id });
@@ -736,11 +714,14 @@ impl StreamsState {
             // Loss of data on a closed stream is a noop
             return;
         };
-        if !stream.is_pending() {
-            self.pending.push_pending(frame.id, stream.priority);
+        if stream.is_reset() {
+            return;
         }
         stream.fin_pending |= frame.fin;
         stream.pending.retransmit(frame.offsets);
+        if stream.is_pending() {
+            self.pending.push(frame.id, stream, false);
+        }
     }
 
     pub(crate) fn retransmit_all_for_0rtt(&mut self) {
@@ -750,15 +731,13 @@ impl StreamsState {
                 let Some(stream) = self.send.get_mut(&id).and_then(|s| s.as_mut()) else {
                     continue;
                 };
-                if stream.pending.is_fully_acked() && !stream.fin_pending {
+                if stream.is_reset() || (stream.pending.is_fully_acked() && !stream.fin_pending) {
                     // Stream data can't be acked in 0-RTT, so we must not have sent anything on
                     // this stream
                     continue;
                 }
-                if !stream.is_pending() {
-                    self.pending.push_pending(id, stream.priority);
-                }
                 stream.pending.retransmit_all_for_0rtt();
+                self.pending.push(id, stream, false);
             }
         }
     }
@@ -1516,6 +1495,90 @@ mod tests {
 
         assert!(!server.can_send_stream_data(PathId::ZERO, true));
         assert_eq!(server.pending.len(), 0);
+    }
+
+    #[test]
+    fn pending_business_frames_follow_binding_changes_until_fin_is_acked() {
+        for fair in [true, false] {
+            let mut sender = make(Side::Client);
+            sender.set_params(&TransportParameters {
+                initial_max_streams_uni: 3u32.into(),
+                initial_max_data: 512u32.into(),
+                initial_max_stream_data_uni: 256u32.into(),
+                ..TransportParameters::default()
+            });
+            let primary = PathId::ZERO;
+            let backup = PathId::from(1u8);
+            let (mut pending, state) = (Retransmits::default(), ConnState::established());
+            let mut streams = Streams {
+                state: &mut sender,
+                conn_state: &state,
+            };
+            let bound = streams.open(Dir::Uni).unwrap();
+            let ordinary = streams.open(Dir::Uni).unwrap();
+            let draining = streams.open(Dir::Uni).unwrap();
+            sender.set_business_paths(Some(primary), &[primary]);
+            let mut first = SendStream {
+                id: bound,
+                state: &mut sender,
+                pending: &mut pending,
+                conn_state: &state,
+            };
+            first.mark_business().unwrap();
+            first.write(&[1; 100]).unwrap();
+            first.finish().unwrap();
+
+            // The first sender is already queued when a second route becomes eligible.
+            sender.set_business_paths(Some(primary), &[primary, backup]);
+            assert!(sender.can_send_stream_data(primary, false));
+            assert!(!sender.can_send_stream_data(backup, true));
+            let partial = sender.write_frames_for_test(40, fair);
+            assert_eq!(partial[0].id, bound);
+            assert!(!partial[0].fin);
+
+            let mut other = SendStream {
+                id: ordinary,
+                state: &mut sender,
+                pending: &mut pending,
+                conn_state: &state,
+            };
+            other.set_priority(2).unwrap();
+            other.write(b"ordinary").unwrap();
+            other.finish().unwrap();
+            let mut second = SendStream {
+                id: draining,
+                state: &mut sender,
+                pending: &mut pending,
+                conn_state: &state,
+            };
+            second.set_priority(1).unwrap();
+            second.write(b"backup").unwrap();
+            second.mark_business().unwrap(); // The data was queued before assignment.
+            second.finish().unwrap();
+            second.release_business();
+            assert!(sender.can_send_stream_data(backup, false));
+            assert!(sender.has_business_sender_on_path(backup));
+
+            // A draining sender returns to the ordinary route when its assigned path retires.
+            sender.release_business_path(backup);
+            assert!(!sender.can_send_stream_data(backup, false));
+            assert!(!sender.has_business_sender_on_path(backup));
+            let frames = sender.write_frames_for_test(200, fair);
+            let expected = if fair {
+                [ordinary, draining, bound]
+            } else {
+                [bound, ordinary, draining]
+            };
+            assert_eq!(frames.iter().map(|f| f.id).collect::<Vec<_>>(), expected);
+            assert!(frames.iter().all(|f| f.fin));
+            sender.release_business_stream(bound);
+            assert!(!sender.can_send_stream_data(primary, true));
+            assert!(sender.has_business_sender_on_path(primary));
+            for frame in partial.into_iter().chain(frames) {
+                sender.received_ack_of(frame);
+            }
+            assert!(!sender.has_business_sender_on_path(primary));
+        }
     }
 
     #[test]

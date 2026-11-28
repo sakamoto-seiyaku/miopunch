@@ -3,6 +3,9 @@
 use crate::connection_coordinator::ControlFailure;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+#[path = "applied_history.rs"]
+mod applied_history;
+use applied_history::AppliedHistory;
 
 use crate::control_protocol::{AuthenticatedControl, ControlOwner, OwnedControl};
 use iroh::endpoint::{
@@ -58,7 +61,6 @@ fn credential_bound_control(alpn: &[u8]) -> bool {
 }
 const BUSINESS_ALPN: &[u8] = crate::connection_coordinator::MEMBER_ALPN;
 const TIMEOUT: Duration = Duration::from_secs(12);
-const MAX_HISTORY: usize = 16 * 1024 * 1024;
 type Records = Vec<(Vec<u8>, Option<Vec<u8>>)>;
 
 #[wasm_bindgen(module = "/src/storage.js")]
@@ -100,7 +102,9 @@ struct SavedNode {
     key: [u8; 32],
     invitation: Option<Vec<u8>>,
     request: [u8; 16],
-    records: Records,
+    records: AppliedHistory,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    admission_history: Option<crate::admission_history_wire::HistoryCheckpoint>,
     authorization: Option<Hash>,
     generation: u64,
     secret: Option<[u8; 32]>,
@@ -163,6 +167,14 @@ struct Invitation {
     anchor: NetworkAnchor,
     contact: iroh_base::EndpointId,
 }
+
+struct AuthorizedAdmission {
+    binding: crate::admission_history_wire::HistoryBinding,
+    authorization: Hash,
+    records: Records,
+    paged: bool,
+    verified: Option<ManagementAuth>,
+}
 impl Invitation {
     fn decode(bytes: &[u8]) -> Result<Self, JsValue> {
         if bytes.len() != 96 {
@@ -186,7 +198,8 @@ impl SavedNode {
             key,
             invitation: None,
             request: rand::random(),
-            records: Vec::new(),
+            records: AppliedHistory::default(),
+            admission_history: None,
             authorization: None,
             generation: 0,
             secret: None,
@@ -253,6 +266,7 @@ impl SavedNode {
     }
 
     fn reset_admission_progress(&mut self) {
+        self.admission_history = None;
         self.confirmed_admission = Some(AdmissionAttempt {
             request_id: self.admission_request_id(),
             progress: ApplicationProgress::Created,
@@ -284,21 +298,72 @@ impl SavedNode {
         Ok(recv_fixed::<1>(exchange).await?[0])
     }
 
-    async fn authorized_admission(&self, exchange: &ControlExchange) -> Result<Self, JsValue> {
+    async fn authorized_admission<Fut>(
+        &self,
+        exchange: &ControlExchange,
+        status: u8,
+        persist: impl FnMut(crate::admission_history_wire::HistoryCheckpoint) -> Fut,
+    ) -> Result<AuthorizedAdmission, JsValue>
+    where Fut: std::future::Future<Output = std::io::Result<()>> {
         let generation = u64::from_be_bytes(recv_fixed::<8>(exchange).await?);
         if generation < self.generation || generation > i64::MAX as u64 {
             return Err(rejected());
         }
-        let history = exchange
-            .recv_message(ControlMessageFormat::LengthPrefixed32 { maximum: MAX_HISTORY })
-            .await
-            .map_err(error)?;
-        if history.is_empty() {
-            return Err(rejected());
+        let invitation = self.invitation()?;
+        let binding = crate::admission_history_wire::HistoryBinding {
+            anchor: invitation.anchor,
+            provider: *invitation.contact.as_bytes(),
+            request: self.admission_request_id(),
+            generation,
+        };
+        let (authorization, records, verified) = crate::admission_history_wire::receive(
+            exchange, status, binding, self.admission_history.clone(), persist,
+        )
+            .await.map_err(error)?;
+        Ok(AuthorizedAdmission { binding, authorization, records, paged: status == crate::admission_history_wire::PAGED_HISTORY, verified })
+    }
+
+    fn save_admission_history(&mut self, checkpoint: crate::admission_history_wire::HistoryCheckpoint) -> Result<(), JsValue> {
+        let invitation = self.invitation()?;
+        if checkpoint.binding.anchor != invitation.anchor
+            || checkpoint.binding.provider != *invitation.contact.as_bytes()
+            || checkpoint.binding.request != self.admission_request_id()
+            || checkpoint.binding.generation < self.generation
+        { return Err(rejected()); }
+        self.admission_history = Some(checkpoint);
+        Ok(())
+    }
+
+    fn with_verified_management_history(&self, records: Records, verified: Option<ManagementAuth>, anchor: NetworkAnchor) -> Result<Self, JsValue> {
+        if self.records.starts_with(&records) && self.pending.is_empty() {
+            return Ok(self.clone());
         }
-        let (authorization, records): (Hash, Records) =
-            p2panda_core::cbor::decode_cbor(history.as_slice()).map_err(error)?;
-        let mut next = self.clone().merge_records(records)?;
+        if let Some(verified) = verified.filter(|_| records.starts_with(self.records.as_slice())) {
+            let mut next = self.clone();
+            next.records = records.into();
+            next.records.remember_verified(anchor, verified);
+            if next.pending.is_empty() { Ok(next) } else { next.merge_records(Vec::new()) }
+        } else {
+            self.merge_records(records)
+        }
+    }
+
+    fn with_authorized_admission(&self, history: AuthorizedAdmission) -> Result<Self, JsValue> {
+        let invitation = self.invitation()?;
+        if history.binding.anchor != invitation.anchor
+            || history.binding.provider != *invitation.contact.as_bytes()
+            || history.binding.request != self.admission_request_id()
+            || history.binding.generation < self.generation
+        { return Err(rejected()); }
+        let AuthorizedAdmission { binding, authorization, records, paged, verified } = history;
+        let generation = binding.generation;
+        let checkpoint = if paged {
+            Some(self.admission_history.clone().filter(|saved| saved.binding == binding
+                && saved.authorization == authorization && saved.complete && saved.records.len() == records.len())
+                .ok_or_else(rejected)?)
+        } else { None };
+        let mut next = self.with_verified_management_history(records, verified, invitation.anchor)?;
+        next.admission_history = checkpoint;
         next.authorization = Some(authorization);
         next.generation = generation;
         if self.authorization != next.authorization || self.generation != generation {
@@ -358,6 +423,11 @@ impl SavedNode {
     }
     fn verify(&self) -> Result<Option<ManagementAuth>, JsValue> {
         self.verify_ledger()?;
+        if crate::management_record::history_page(&self.pending).map_err(error)?.len()
+            != self.pending.len()
+        {
+            return Err(error("unresolved management history exceeds the pending limit"));
+        }
         if let Some(full) = &self.complete_invitation {
             full.encode().map_err(error)?;
             if self.invitation.as_deref() != Some(full.material_bytes().map_err(error)?.as_slice())
@@ -420,18 +490,12 @@ impl SavedNode {
         {
             return Err(rejected());
         }
-        if self.records.len() + self.pending.len() > 4096 {
-            return Err(rejected());
-        }
         for (header, body) in &self.pending {
             crate::management_auth::decode_complete(header, body.as_deref(), invitation.anchor)
                 .map_err(error)?;
         }
-        let auth =
-            ManagementAuth::replay_records(invitation.anchor, &self.records).map_err(error)?;
-        if self.records.len() > 4096
-            || Hash::digest(&self.records[0].0) != invitation.anchor.genesis
-        {
+        let auth = self.records.verified(invitation.anchor).map_err(error)?;
+        if Hash::digest(&self.records[0].0) != invitation.anchor.genesis {
             return Err(rejected());
         }
         crate::service_policy::ServiceLedger::replay(invitation.anchor, &auth, &self.services)
@@ -442,7 +506,7 @@ impl SavedNode {
                 return Err(rejected());
             }
         }
-        Ok(Some(auth))
+        Ok(Some(auth.clone()))
     }
     fn stage(&self) -> &'static str {
         if self.replacement_source.is_some() {
@@ -487,6 +551,11 @@ impl SavedNode {
             "recovery_exported": self.recovery_exported,
             "recovery_saved": self.creator_seed.is_none() || self.recovery_saved,
             "admission_attempt": if pairing { None } else { self.admission_attempt().map(|attempt| attempt.public_json()) },
+            "admission_history": self.admission_history.as_ref().filter(|_| self.recovery.is_none()).map(|history| serde_json::json!({
+                "request_id":hex::encode(history.binding.request), "provider":hex::encode(history.binding.provider),
+                "generation":history.binding.generation, "authorization":history.authorization.to_string(),
+                "records":history.records.len(), "complete":history.complete,
+            })),
             "automatic_retry": !self.manual_retry_stopped() && stage != "Removed", "authorization_saved": self.authorization.is_some(),
             "secret_saved": self.secret.is_some(), "running": running
         }), self.device_names.name(self.identity()))
@@ -511,7 +580,7 @@ struct GateState {
     qualification_revision: Arc<std::sync::atomic::AtomicU64>,
     qualification_updates: Option<n0_watcher::Watchable<u64>>,
     changes: crate::state_observation::StateChanges,
-    snapshot_hash: Option<[u8; 32]>,
+    installed_raw: Option<Arc<str>>,
     request_handshake: Option<serde_json::Value>,
     receipt_delivery: Option<serde_json::Value>,
     migration_failure: Option<String>,
@@ -728,6 +797,11 @@ fn relay_probe_debug_details(
 
 impl BrowserGate {
     fn install(&self, saved: &SavedNode) {
+        let encoded = serde_json::to_string(saved).expect("serializable browser snapshot");
+        self.install_encoded(saved, encoded.into());
+    }
+
+    fn install_encoded(&self, saved: &SavedNode, encoded: Arc<str>) {
         let mut gate = self.0.lock().unwrap();
         let network_changed = gate.saved.as_ref().is_some_and(|previous| {
             previous.invitation().ok().map(|value| value.anchor)
@@ -746,10 +820,7 @@ impl BrowserGate {
                 }
             }
         }
-        let snapshot_hash =
-            *blake3::hash(&serde_json::to_vec(saved).expect("serializable browser snapshot"))
-                .as_bytes();
-        let changed = gate.snapshot_hash != Some(snapshot_hash);
+        let changed = gate.installed_raw.as_deref() != Some(&encoded);
         if changed {
             gate.qualification_revision
                 .fetch_update(
@@ -766,8 +837,8 @@ impl BrowserGate {
             } else {
                 gate.qualification_updates = Some(n0_watcher::Watchable::new(revision));
             }
-            gate.snapshot_hash = Some(snapshot_hash);
         }
+        gate.installed_raw = Some(encoded);
         let credential_changed = network_changed || gate.saved.as_ref().is_some_and(|previous| {
             previous.generation != saved.generation || previous.secret != saved.secret
         });
@@ -1234,12 +1305,13 @@ impl BrowserGate {
         let stream_id = exchange.stream_id.clone();
         let remote = exchange.candidates.iter().find(|url| permits(url)).cloned();
         let mut opening = None;
+        let mut fresh = None;
+        // Keep the fresh proof until both peers finish their validation.
         let validation = async {
             let remote = remote.ok_or_else(|| std::io::Error::new(std::io::ErrorKind::PermissionDenied, "no mutually permitted relay"))?;
             let started = n0_future::time::Instant::now();
             let wall_time=js_sys::Date::now();
             let started_utc_ms=(wall_time.is_finite()&&wall_time>=0.0).then_some(wall_time as u128);
-            let mut fresh = None;
             let samples=[1u64,2,4,6];
             let mut sampled=0;
             loop {
@@ -1264,7 +1336,7 @@ impl BrowserGate {
                         if let Some(phase) = opening.take() {
                             phase.finish_with("succeeded", serde_json::json!({"pathId":path.id().to_string()}));
                         }
-                        let probe = path.start_probe()?;
+                        let probe = path.start_scoped_probe()?;
                         let mut details=relay_probe_debug_details(connection,Some(&path.id().to_string()),started.elapsed().as_millis(),None,started_utc_ms);
                         details["freshProbeIssued"]=serde_json::json!(true);details["probeWatermark"]=serde_json::json!(probe.watermark());details["storageGateCheckPassed"]=serde_json::json!(storage_gate_checked);
                         self.remember_relay_check(connection, "probe-start", details);
@@ -2344,7 +2416,7 @@ pub struct BrowserNetwork {
     gate: BrowserGate,
     lease: Option<Lease>,
     saved: SavedNode,
-    committed: String,
+    committed: Arc<str>,
     delivery: Option<Delivery>,
     management: Option<management::Session>,
     pairing: Option<crate::invitation_pairing::PairingInfo>,
@@ -2453,20 +2525,27 @@ impl BrowserNetwork {
         let lease = Lease(acquire_node().await?.as_f64().ok_or_else(rejected)? as u32);
         let raw = read_node(lease.0).await?;
         let mut saved: SavedNode = if let Some(raw) = raw.as_string() {
-            if raw.len() > 80 * 1024 * 1024 {
-                return Err(error("browser state too large"));
+            #[derive(Deserialize)]
+            struct ReplacementMarker {
+                #[serde(default)]
+                miopunch_replacement_retired: bool,
             }
-            if serde_json::from_str::<serde_json::Value>(&raw)
-                .ok()
-                .is_some_and(|v| v["miopunch_replacement_retired"] == true)
-            {
+            if serde_json::from_str::<ReplacementMarker>(&raw)
+                .is_ok_and(|m| m.miopunch_replacement_retired) {
                 return Err(error(
                     "source retired after node replacement; use a separate device identity",
                 ));
             }
-            serde_json::from_str(&raw).map_err(|_| {
+            let saved: SavedNode = serde_json::from_str(&raw).map_err(|_| {
                 error("browser materials corrupt; restore backup or explicitly clear and rejoin")
-            })?
+            })?;
+            saved.check_snapshot_size(raw.len())?;
+            for node in std::iter::once(&saved).chain(saved.migration.iter().map(|m| m.inactive.as_ref())) {
+                if let Some(checkpoint) = &node.admission_history {
+                    checkpoint.prepare().map_err(error)?;
+                }
+            }
+            saved
         } else {
             SavedNode::fresh(SecretKey::generate().to_bytes())
         };
@@ -2676,7 +2755,8 @@ impl BrowserNetwork {
         let relay_map = RelayMode::custom(relays.clone()).relay_map();
         let allowed_relays = relay_map.clone();
         let gate = BrowserGate::default();
-        gate.install(&saved);
+        let committed: Arc<str> = committed.into();
+        gate.install_encoded(&saved, committed.clone());
         gate.0.lock().unwrap().rtc_capability = Some(rtc_capability.clone());
         gate.0.lock().unwrap().lease = Some(lease.0);
         gate.0.lock().unwrap().member_data = member_data_transport.clone();
@@ -3125,18 +3205,13 @@ impl BrowserNetwork {
         }) {
             next.complete_invitation = None;
         }
-        let result = n0_future::time::timeout(
-            self.caller_budget.saturating_sub(started.elapsed()),
-            async {
-                self.commit(next).await?;
-                self.request_inner().await
-            },
-        )
-        .await;
+        // A network deadline cannot cancel installation of a local commit.
+        self.commit(next).await?;
+        let result = self.request_inner().await;
         if let Some(report) = self.last_request.as_mut() {
             report["attempt_elapsed_ms"] = serde_json::json!(started.elapsed().as_millis());
         }
-        result.map_err(|_| admission_timeout())?
+        result
     }
 
     /// Public protocol diagnostics contain identities and counters only.
@@ -3207,15 +3282,8 @@ impl BrowserNetwork {
             next.complete_invitation = None;
         }
         self.last_request = Some(serde_json::json!({"stage":"connecting","business_handle":false}));
-        n0_future::time::timeout(
-            self.caller_budget.saturating_sub(started.elapsed()),
-            async {
-                self.commit(next).await?;
-                self.request_inner().await
-            },
-        )
-        .await
-        .map_err(|_| admission_timeout())?
+        self.commit(next).await?;
+        self.request_inner().await
     }
 
     pub async fn complete_admission(&mut self) -> Result<String, JsValue> {
@@ -3238,18 +3306,13 @@ impl BrowserNetwork {
         ) {
             return Err(rejected());
         }
-        let material = n0_future::time::timeout(remaining, async {
-            send_fixed(&delivery.exchange, b"AUTH").await?;
-            self.material_event("AUTH-sent");
-            recv_fixed::<40>(&delivery.exchange).await
-        })
-        .await
-        .map_err(|_| admission_timeout())??;
-        if u64::from_be_bytes(material[..8].try_into().unwrap()) != self.saved.generation {
-            return Err(rejected());
-        }
-        self.material_event("secret-received-generation-verified");
+        let material = admission::network_until(
+            delivery.deadline,
+            admission::receive_material(&delivery.exchange, || self.material_event("AUTH-sent")),
+        )
+        .await?;
         let next = self.saved.with_admission_secret(material)?;
+        self.material_event("secret-received-generation-verified");
         let receipt = next.admission_receipt()?;
         let lease = self.lease.as_ref().ok_or_else(rejected)?.0;
         let pending = next.pending_admission_receipt()?;
@@ -3257,32 +3320,20 @@ impl BrowserNetwork {
         // is dropped. Await installation before returning a network timeout.
         self.commit_node(next, Some(&pending)).await?;
         self.material_event("secret-committed");
-        let remaining = delivery
-            .deadline
-            .saturating_duration_since(n0_future::time::Instant::now());
         let received = async {
-            if remaining.is_zero() {
-                return Err(admission_timeout());
-            }
-            let reply = n0_future::time::timeout(remaining, async {
-                send_fixed(&delivery.exchange, b"SAVE").await?;
-                self.material_event("SAVE-sent");
-                delivery.exchange.finish_send().await.map_err(error)?;
-                recv_fixed::<4>(&delivery.exchange).await
-            })
-            .await
-            .map_err(|_| admission_timeout())??;
-            if &reply != b"DONE" {
-                return Err(rejected());
-            }
-            self.material_event("DONE-received");
-            admission::settle_receipt(lease, receipt).await
+            admission::network_until(
+                delivery.deadline,
+                admission::acknowledge_material(&delivery.exchange, |stage| self.material_event(stage)),
+            )
+            .await?;
+            admission::settle_receipt(&self.gate, lease, receipt).await
         }
         .await;
         if received.is_err() {
             self.admission.receipt_ready.notify_one();
         }
         received?;
+        self.refresh_service_snapshot().await?;
         Ok(self.saved.stage().to_string())
     }
 
@@ -3466,6 +3517,7 @@ impl BrowserNetwork {
         self.gate.service_snapshot()?.address_for(target)
     }
     async fn request_inner(&mut self) -> Result<String, JsValue> {
+        self.refresh_service_snapshot().await?;
         let started = n0_future::time::Instant::now();
         let deadline = self.attempt_started.unwrap_or(started) + self.caller_budget;
         let alpn = self.saved.request_alpn();
@@ -3477,9 +3529,13 @@ impl BrowserNetwork {
             serde_json::json!({"local_id":self.endpoint.id().to_string(),"remote_id":connection.remote_id().to_string(),"alpn":String::from_utf8_lossy(connection.alpn()),"stable_id":connection.stable_id(),"restricted":true,"business_handle":false,"handshake_ms":started.elapsed().as_millis()}),
         );
         let result = async {
-            let exchange = connection.open_control_exchange().await.map_err(error)?;
-            let status = self.saved.write_admission_request(&exchange).await?;
-            if matches!(status, 0 | 1) {
+            let (exchange, status) = admission::network_until(deadline, async {
+                let exchange = connection.open_control_exchange().await.map_err(error)?;
+                let status = self.saved.write_admission_request(&exchange).await?;
+                Ok((exchange, status))
+            })
+            .await?;
+            if matches!(status, 0 | 1 | 3) {
                 let mut next = self.saved.clone();
                 next.record_admission_progress(ApplicationProgress::Delivered);
                 if next.confirmed_admission != self.saved.confirmed_admission {
@@ -3487,7 +3543,10 @@ impl BrowserNetwork {
                 }
             }
             if status == 0 {
-                exchange.finish_send().await.map_err(error)?;
+                admission::network_until(deadline, async {
+                    exchange.finish_send().await.map_err(error)
+                })
+                .await?;
                 return Ok("AwaitingApproval".to_string());
             }
             if status == 2 && self.saved.precode.is_none() {
@@ -3495,13 +3554,29 @@ impl BrowserNetwork {
                 next.manual_rejected = true;
                 next.record_admission_progress(ApplicationProgress::Rejected);
                 self.commit(next).await?;
-                exchange.finish_send().await.map_err(error)?;
+                admission::network_until(deadline, async {
+                    exchange.finish_send().await.map_err(error)
+                })
+                .await?;
                 return Ok("Rejected".into());
             }
-            if status != 1 {
+            if !matches!(status, 1 | 3) {
                 return Err(rejected());
             }
-            let next = self.saved.authorized_admission(&exchange).await?;
+            let gate = self.gate.clone();
+            let history = admission::network_until(
+                deadline,
+                self.saved.authorized_admission(&exchange, status, move |checkpoint| {
+                    let gate = gate.clone();
+                    async move {
+                        gate.update_saved_owned(move |saved| saved.save_admission_history(checkpoint))
+                            .await.map_err(|failure| std::io::Error::other(format!("{failure:?}")))
+                    }
+                }),
+            )
+            .await?;
+            self.refresh_service_snapshot().await?;
+            let next = self.saved.with_authorized_admission(history)?;
             self.commit(next).await?;
             self.delivery = Some(Delivery {
                 connection: connection.clone(),

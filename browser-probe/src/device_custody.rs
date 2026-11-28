@@ -48,7 +48,7 @@ impl BrowserNetwork {
             .await
             .map_err(error)?;
         let reply = read_message(&mut stream).await.map_err(error)?;
-        let history = ServiceBundle::read(&mut stream).await.map_err(error)?;
+        let history = ServiceBundle::read_verified(&mut stream, self.saved.invitation()?.anchor).await.map_err(error)?;
         self.refresh_service_snapshot().await?;
         let (next, policy_error) = self.saved.with_service_bundle(&history)?;
         self.commit(next).await?;
@@ -282,7 +282,7 @@ pub(super) async fn serve_custody(
     let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes()).map_err(error)?;
     let mut stream = DataStream::accept(connection).await.map_err(error)?;
     let request: CustodyRequest = read_message(&mut stream).await.map_err(error)?;
-    let history = ServiceBundle::read(&mut stream).await.map_err(error)?;
+    let history = ServiceBundle::read_verified(&mut stream, gate.service_snapshot()?.invitation()?.anchor).await.map_err(error)?;
     let (saved, version) = gate.snapshot().await?;
     let (next, policy_error) = saved.with_service_bundle(&history)?;
     version.commit(&next).await?;

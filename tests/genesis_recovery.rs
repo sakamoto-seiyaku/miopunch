@@ -139,6 +139,54 @@ async fn prepared_member() -> (
 }
 
 #[tokio::test]
+async fn recovery_delivers_originals_larger_than_one_history_frame() {
+    let (_dir, root, _, ordinary, anchor, mut store) = prepared_member().await;
+    for value in 0..3 {
+        let body = vec![value; 6 * 1024 * 1024];
+        let header = Header::builder()
+            .body(&body)
+            .build(
+                &root,
+                ManagementExtension {
+                    version: 1,
+                    log_id: rand::random(),
+                    group: GroupsExtensionArgs {
+                        group_id: anchor.root,
+                        dependencies: store.tips(),
+                        action: GroupAction::Add {
+                            member: GroupMember::Individual(SigningKey::generate().verifying_key()),
+                            access: Access::read(),
+                        },
+                    },
+                },
+            )
+            .encode();
+        store
+            .ingest(&ManagementRecord::new(header, Some(&body)))
+            .await
+            .unwrap();
+        store.apply_ready().await.unwrap();
+    }
+    let originals = store.applied_records().await.unwrap();
+    let credential = GenesisCredential::from_saved(*root.as_bytes(), anchor.genesis);
+    let (ce, se, client, server) = pair(&ordinary, &SigningKey::generate()).await;
+    let scope = AdmissionScope::new(*anchor.root.as_bytes(), 7);
+    let secret = AdmissionSecret::generate();
+    let (got, served) = tokio::join!(
+        recover_control_client(&client, &credential, se.id()),
+        serve_control_recovery(&server, &mut store, &scope, &secret)
+    );
+    let got = got.unwrap();
+    assert_eq!(got.grant_id, served.unwrap());
+    assert_eq!(got.records[..originals.len()], originals);
+    assert_eq!(got.scope, scope);
+    assert_eq!(got.secret.saved_bytes(), secret.saved_bytes());
+    ce.close().await;
+    se.close().await;
+    store.close().await;
+}
+
+#[tokio::test]
 async fn pinned_root_credential_recovers_from_ordinary_member_without_secret_or_old_admin() {
     let (path, root, old_admin, ordinary, anchor, mut server_store) = prepared_member().await;
     let credential = GenesisCredential::from_saved(*root.as_bytes(), anchor.genesis);

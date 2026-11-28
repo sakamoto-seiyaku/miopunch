@@ -36,7 +36,7 @@ impl SavedNode {
     }
     pub(super) fn service_bundle(&self) -> ServiceBundle {
         ServiceBundle {
-            management: self.records.clone(),
+            management: self.records.to_vec(),
             services: self.services.clone(),
         }
     }
@@ -123,7 +123,7 @@ impl SavedNode {
             .reconcile(self.invitation()?.anchor, incoming)
             .map_err(error)?;
         let mut next = self.clone();
-        next.records = result.bundle.management;
+        next.records = result.bundle.management.into();
         next.services = result.bundle.services;
         let auth = next.verify()?;
         Ok((next, auth, result.policy_error))
@@ -173,6 +173,7 @@ impl BrowserGate {
     }
 }
 
+#[derive(Clone)]
 struct MemberSyncAdmission {
     anchor: NetworkAnchor,
     generation: u64,
@@ -208,6 +209,49 @@ impl MemberSyncAdmission {
                 .verify()?
                 .is_some_and(|auth| self.membership.is_current(&auth, saved.identity())))
     }
+}
+
+async fn retain_member_page(
+    gate: &BrowserGate,
+    files: &Rc<files::BrowserFiles>,
+    clipboard: &Rc<clipboard_host::BrowserClipboard>,
+    admitted: &MemberSyncAdmission,
+    connection: &Connection,
+    cancel: &tokio_util::sync::CancellationToken,
+    records: crate::service_protocol::ManagementRecords,
+) -> std::io::Result<()> {
+    let gate = gate.clone();
+    let files = files.clone();
+    let clipboard = clipboard.clone();
+    let admitted = admitted.clone();
+    let connection = connection.clone();
+    let cancel = cancel.clone();
+    let (send, receive) = tokio::sync::oneshot::channel();
+    // Started IndexedDB commits retain their runtime publication even if the
+    // caller's network deadline expires while awaiting this page.
+    wasm_bindgen_futures::spawn_local(async move {
+        let result = gate
+            .update_saved(|saved| {
+                if cancel.is_cancelled() || !admitted.is_current(saved, &connection)? {
+                    return Err(rejected());
+                }
+                *saved = saved.merge_records(records)?;
+                Ok(())
+            })
+            .await;
+        files.enforce_access();
+        clipboard.enforce_access().await;
+        let _ = send.send(result.map_err(|value| {
+            std::io::Error::other(
+                value
+                    .as_string()
+                    .unwrap_or_else(|| "member page commit failed".into()),
+            )
+        }));
+    });
+    receive
+        .await
+        .map_err(|_| std::io::Error::other("member page commit ended"))?
 }
 
 async fn member_sync_wire<T>(
@@ -620,11 +664,17 @@ impl BrowserServices {
             let auth = saved.verify()?.ok_or_else(rejected)?;
             MemberSyncAdmission::capture(&saved, &auth, connection)?
         };
+        let anchor = gate.service_snapshot()?.invitation()?.anchor;
+        let (local, known) = {
+            let saved = gate.service_snapshot()?;
+            (saved.records.to_vec(), saved.verify()?.ok_or_else(rejected)?)
+        };
         let (mut stream, incoming) = member_sync_wire(deadline, async {
             let mut stream = crate::data_stream::DataStream::accept(connection)
                 .await
                 .map_err(error)?;
-            let incoming = MemberSync::read(&mut stream).await.map_err(error)?;
+            let incoming = MemberSync::read_resuming(&mut stream, anchor, local, known,
+                |page| retain_member_page(gate, files, &self.clipboard, &admitted, connection, &self.cancel, page)).await.map_err(error)?;
             Ok((stream, incoming))
         })
         .await?;
@@ -650,7 +700,7 @@ impl BrowserServices {
             response = saved.member_sync(&auth.nodes(), mode);
         }
         member_sync_wire(deadline, async {
-            response.write(&mut stream).await.map_err(error)?;
+            response.write_resuming(&mut stream).await.map_err(error)?;
             stream.finish().map_err(error)
         })
         .await?;
@@ -669,16 +719,19 @@ impl BrowserServices {
         if mode == MemberSyncMode::Full {
             self.refresh_local_declarations(gate, files).await?;
         }
-        let (snapshot, admitted) = {
+        let (snapshot, admitted, known) = {
             let saved = gate.qualified_snapshot(connection).await?;
             let auth = saved.verify()?.ok_or_else(rejected)?;
             (
                 saved.member_sync(&auth.nodes(), mode),
                 MemberSyncAdmission::capture(&saved, &auth, connection)?,
+                auth,
             )
         };
+        let anchor = gate.service_snapshot()?.invitation()?.anchor;
         let transfer = member_sync_wire(deadline, async {
-            snapshot.exchange(connection).await.map_err(error)
+            snapshot.exchange_resuming(connection, anchor, known,
+                |page| retain_member_page(gate, files, &self.clipboard, &admitted, connection, &self.cancel, page)).await.map_err(error)
         });
         let incoming = tokio::select! {
             biased;

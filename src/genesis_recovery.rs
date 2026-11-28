@@ -20,17 +20,18 @@ use p2panda_auth::{Access, GroupsExtensionArgs};
 use p2panda_core::{Hash, Header, Signature, SigningKey, VerifyingKey};
 use thiserror::Error;
 
+use crate::admission_history_wire::HistoryCheckpoint;
 use crate::admission_proof::{AdmissionScope, AdmissionSecret};
 use crate::control_protocol::AuthenticatedControl;
-use crate::management_auth::{AuthError, ManagementAuth, ManagementExtension, NetworkAnchor};
+use crate::management_auth::{AuthError, ManagementExtension, NetworkAnchor};
+use crate::management_recovery_wire::{history_binding, receive_history, send_history};
 use crate::management_store::{ManagementRecord, ManagementStore, StoreError};
 
 pub(crate) const DOMAIN: &[u8] = b"miopunch/genesis-recovery/v1\0";
 const EXPORTER_LABEL: &[u8] = b"EXPORTER-Channel-Binding";
 pub const RECOVERY_ALPN: &[u8] = b"miopunch/genesis-recovery/1";
-const MAX_HISTORY_BYTES: usize = 16 * 1024 * 1024;
+const MAX_FRAME_BYTES: usize = crate::management_record::MAX_PAGE_BYTES;
 const MAX_GRANT_BYTES: usize = 256 * 1024;
-const MAX_RECORDS: usize = 4096;
 const TIMEOUT: Duration = Duration::from_secs(15);
 static ACTIVE: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(32);
 static SESSIONS: LazyLock<Mutex<HashSet<usize>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
@@ -111,11 +112,18 @@ pub struct RecoveredNetwork {
 pub struct GenesisCredential {
     pub(crate) root: SigningKey,
     genesis: Hash,
+    // This low-level API has no node directory. A credential retained by the
+    // caller carries its verified prefix to the next authenticated connection.
+    history: Mutex<Option<(EndpointId, HistoryCheckpoint)>>,
 }
 
 impl GenesisCredential {
     pub fn new(root: SigningKey, genesis: Hash) -> Self {
-        Self { root, genesis }
+        Self {
+            root,
+            genesis,
+            history: Mutex::default(),
+        }
     }
 
     pub fn from_saved(root_bytes: [u8; 32], genesis: Hash) -> Self {
@@ -183,13 +191,13 @@ pub(crate) async fn write_control_frame(
     exchange: &ControlExchange,
     bytes: &[u8],
 ) -> Result<(), RecoveryError> {
-    if bytes.is_empty() || bytes.len() > MAX_HISTORY_BYTES {
+    if bytes.is_empty() || bytes.len() > MAX_FRAME_BYTES {
         return Err(RecoveryError::Rejected);
     }
     exchange
         .send_message(
             ControlMessageFormat::LengthPrefixed32 {
-                maximum: MAX_HISTORY_BYTES,
+                maximum: MAX_FRAME_BYTES,
             },
             bytes,
         )
@@ -216,54 +224,12 @@ pub(crate) async fn read_control_frame(
     Ok(bytes)
 }
 
-fn history_wire(
-    records: &[ManagementRecord],
-    scope: &AdmissionScope,
-    secret: &AdmissionSecret,
-) -> Result<Vec<u8>, RecoveryError> {
-    if records.is_empty() || records.len() > MAX_RECORDS {
-        return Err(RecoveryError::Rejected);
+fn history_error(error: std::io::Error) -> RecoveryError {
+    if error.kind() == std::io::ErrorKind::InvalidData {
+        RecoveryError::Rejected
+    } else {
+        RecoveryError::Transport
     }
-    let raw: Vec<_> = records
-        .iter()
-        .map(|record| (record.header(), record.body()))
-        .collect();
-    let mut bytes = p2panda_core::cbor::encode_cbor(&raw).map_err(|_| RecoveryError::Rejected)?;
-    bytes.extend_from_slice(&scope.secret_generation().to_be_bytes());
-    bytes.extend_from_slice(secret.saved_bytes());
-    if bytes.len() > MAX_HISTORY_BYTES {
-        return Err(RecoveryError::Rejected);
-    }
-    Ok(bytes)
-}
-
-fn parse_history(
-    bytes: &[u8],
-    anchor: NetworkAnchor,
-) -> Result<(Vec<ManagementRecord>, AdmissionScope, AdmissionSecret), RecoveryError> {
-    let (history, scope_and_secret) = bytes
-        .split_at_checked(bytes.len().checked_sub(40).ok_or(RecoveryError::Rejected)?)
-        .ok_or(RecoveryError::Rejected)?;
-    let generation = u64::from_be_bytes(
-        scope_and_secret[..8]
-            .try_into()
-            .map_err(|_| RecoveryError::Rejected)?,
-    );
-    let secret = &scope_and_secret[8..];
-    let raw: Vec<(Vec<u8>, Option<Vec<u8>>)> =
-        p2panda_core::cbor::decode_cbor(history).map_err(|_| RecoveryError::Rejected)?;
-    if raw.is_empty() || raw.len() > MAX_RECORDS {
-        return Err(RecoveryError::Rejected);
-    }
-    let records = raw
-        .into_iter()
-        .map(|(header, body)| ManagementRecord::new(header, body.as_deref()))
-        .collect();
-    Ok((
-        records,
-        AdmissionScope::new(*anchor.root.as_bytes(), generation),
-        AdmissionSecret::from_saved(secret.try_into().map_err(|_| RecoveryError::Rejected)?),
-    ))
 }
 
 pub(crate) fn endpoint_key(id: EndpointId) -> Result<VerifyingKey, RecoveryError> {
@@ -320,25 +286,27 @@ async fn recover_client_at(
             .map_err(|_| RecoveryError::Transport)?;
         write_control_fixed(&exchange, &signature.to_bytes()).await?;
 
-        let wire = read_control_frame(&exchange, MAX_HISTORY_BYTES).await?;
-        let (mut records, scope, secret) = parse_history(&wire, anchor)?;
-        let genesis = records
-            .first()
-            .map(|record| Hash::digest(record.header()))
-            .ok_or(RecoveryError::Rejected)?;
-        if genesis != anchor.genesis {
-            return Err(RecoveryError::Rejected);
-        }
-        let raw: Vec<_> = records
-            .iter()
-            .map(|record| {
-                (
-                    record.header().to_vec(),
-                    record.body().map(|body| body.to_vec()),
-                )
+        let binding = history_binding(anchor, expected_contact, [0; 16]);
+        let previous = credential
+            .history
+            .lock()
+            .unwrap()
+            .as_ref()
+            .filter(|(owner, checkpoint)| *owner == local_id && checkpoint.binding == binding)
+            .map(|(_, checkpoint)| checkpoint.clone());
+        let ((generation, secret), raw, mut auth) =
+            receive_history::<(u64, [u8; 32]), _>(&exchange, binding, previous, |checkpoint| {
+                *credential.history.lock().unwrap() = Some((local_id, checkpoint));
+                std::future::ready(Ok(()))
             })
+            .await
+            .map_err(history_error)?;
+        let scope = AdmissionScope::new(*anchor.root.as_bytes(), generation);
+        let secret = AdmissionSecret::from_saved(secret);
+        let mut records: Vec<_> = raw
+            .into_iter()
+            .map(|(header, body)| ManagementRecord::from_parts(header, body))
             .collect();
-        let mut auth = ManagementAuth::replay_records(anchor, &raw)?;
         let contact_key = endpoint_key(expected_contact)?;
         if !auth.nodes().iter().any(|(node, _)| *node == contact_key) {
             return Err(RecoveryError::Rejected);
@@ -384,6 +352,13 @@ async fn recover_client_at(
             .await
             .map_err(|_| RecoveryError::Transport)?;
         records.push(grant);
+        let mut checkpoint = credential.history.lock().unwrap();
+        if checkpoint
+            .as_ref()
+            .is_some_and(|(owner, saved)| *owner == local_id && saved.binding == binding)
+        {
+            *checkpoint = None;
+        }
         Ok(RecoveredNetwork {
             anchor,
             records,
@@ -452,12 +427,21 @@ async fn serve_recovery_at(
         {
             return Err(RecoveryError::Rejected);
         }
-        let records = store.applied_records().await?;
-        if records.first().map(|record| Hash::digest(record.header())) != Some(anchor.genesis) {
-            return Err(RecoveryError::Rejected);
-        }
+        let records = store
+            .applied_records()
+            .await?
+            .into_iter()
+            .map(|record| (record.header, record.body))
+            .collect();
         store.ensure_admissions_open().await?;
-        write_control_frame(&exchange, &history_wire(&records, scope, secret)?).await?;
+        send_history(
+            &exchange,
+            anchor,
+            &records,
+            &(scope.secret_generation(), secret.saved_bytes()),
+        )
+        .await
+        .map_err(history_error)?;
         let grant =
             ManagementRecord::new(read_control_frame(&exchange, MAX_GRANT_BYTES).await?, None);
         let header = Header::<ManagementExtension>::decode(grant.header())

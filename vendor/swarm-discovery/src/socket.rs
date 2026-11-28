@@ -254,6 +254,7 @@ pub struct Sockets {
     v4: Option<Arc<UdpSocket>>,
     v6: Option<Arc<UdpSocket>>,
     interfaces_v6: Arc<RwLock<Option<Vec<u32>>>>,
+    joined_v6: Arc<RwLock<Vec<u32>>>,
     interface_sockets_v4: Arc<RwLock<HashMap<Ipv4Addr, Arc<UdpSocket>>>>,
 }
 
@@ -278,6 +279,7 @@ impl Sockets {
             IpClass::Auto => {
                 let socket = Self {
                     interfaces_v6: Default::default(),
+                    joined_v6: Default::default(),
                     v4: socket_v4(None).ok().map(Arc::new),
                     v6: socket_v6().ok().map(Arc::new),
                     interface_sockets_v4: interface_sockets_v4.clone(),
@@ -289,6 +291,7 @@ impl Sockets {
             }
             _ => Self {
                 interfaces_v6: Default::default(),
+                joined_v6: Default::default(),
                 v4: class
                     .has_v4()
                     .then(|| socket_v4(None).map(Arc::new))
@@ -410,19 +413,28 @@ impl Sockets {
     }
 
     pub fn set_ipv6_interfaces(&self, interfaces: &[u32]) {
-        let mut current = self.interfaces_v6.write().unwrap();
-        if let Some(socket) = &self.v6 {
-            let previous = current.as_deref().unwrap_or_default();
-            for index in previous.iter().filter(|index| !interfaces.contains(index)) {
-                let _ = socket.leave_multicast_v6(&MDNS_IPV6, *index);
-            }
-            for index in interfaces.iter().filter(|index| !previous.contains(index)) {
-                if let Err(error) = socket.join_multicast_v6(&MDNS_IPV6, *index) {
-                    tracing::debug!(index, "IPv6 multicast membership unavailable: {error}");
+        let mut joined = self.joined_v6.write().unwrap();
+        let active = match &self.v6 {
+            Some(socket) => reconcile_ipv6_interfaces(&mut joined, interfaces, |index, action| {
+                let result = match action {
+                    MembershipChange::Join => socket.join_multicast_v6(&MDNS_IPV6, index),
+                    MembershipChange::Leave => socket.leave_multicast_v6(&MDNS_IPV6, index),
+                };
+                if let Err(error) = &result {
+                    tracing::debug!(
+                        index,
+                        ?action,
+                        "IPv6 multicast membership update failed: {error}"
+                    );
                 }
-            }
-        }
-        *current = Some(interfaces.to_vec());
+                result
+            }),
+            None => Vec::new(),
+        };
+        // None still means unconfigured/default-interface behavior. Once an
+        // explicit snapshot arrives, send only on desired, successfully joined
+        // interfaces; failed retirements remain tracked solely for retry.
+        *self.interfaces_v6.write().unwrap() = Some(active);
     }
 
     pub async fn send_msg(&self, msg: &Message, mode: Mode) {
@@ -501,4 +513,185 @@ pub enum Mode {
     V4,
     V6,
     Any,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum MembershipChange {
+    Join,
+    Leave,
+}
+
+fn reconcile_ipv6_interfaces(
+    joined: &mut Vec<u32>,
+    desired: &[u32],
+    mut update: impl FnMut(u32, MembershipChange) -> std::io::Result<()>,
+) -> Vec<u32> {
+    joined.retain(|index| {
+        if desired.contains(index) {
+            return true;
+        }
+        match update(*index, MembershipChange::Leave) {
+            Ok(()) => false,
+            Err(error) => !membership_already_absent(&error),
+        }
+    });
+    let mut active = Vec::new();
+    for &index in desired {
+        if active.contains(&index) {
+            continue;
+        }
+        if !joined.contains(&index) {
+            match update(index, MembershipChange::Join) {
+                Ok(()) => joined.push(index),
+                // The socket may already hold this membership through its
+                // initial default-interface join (index 0).
+                Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => joined.push(index),
+                Err(_) => {}
+            }
+        }
+        if joined.contains(&index) {
+            active.push(index);
+        }
+    }
+    active
+}
+
+fn membership_already_absent(error: &std::io::Error) -> bool {
+    if matches!(
+        error.kind(),
+        std::io::ErrorKind::AddrNotAvailable | std::io::ErrorKind::NotFound
+    ) {
+        return true;
+    }
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    {
+        // Linux/Android ENODEV: the interface disappeared before retirement.
+        const ENODEV: i32 = 19;
+        if error.raw_os_error() == Some(ENODEV) {
+            return true;
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn explicit_empty_ipv6_snapshot_stays_configured() {
+        let sockets = Sockets {
+            v4: None,
+            v6: None,
+            interfaces_v6: Default::default(),
+            joined_v6: Default::default(),
+            interface_sockets_v4: Default::default(),
+        };
+        assert!(sockets.interfaces_v6.read().unwrap().is_none());
+        sockets.set_ipv6_interfaces(&[]);
+        assert_eq!(*sockets.interfaces_v6.read().unwrap(), Some(vec![]));
+    }
+
+    #[test]
+    fn unchanged_ipv6_snapshot_retries_failed_joins_without_rejoining_successes() {
+        let mut joined = Vec::new();
+        let mut calls = Vec::new();
+        let first = reconcile_ipv6_interfaces(&mut joined, &[2, 3], |index, action| {
+            calls.push((index, action));
+            if index == 3 {
+                Err(std::io::ErrorKind::NetworkUnreachable.into())
+            } else {
+                Ok(())
+            }
+        });
+        assert_eq!(first, [2]);
+        assert_eq!(joined, [2]);
+        let next = reconcile_ipv6_interfaces(&mut joined, &[2, 3], |index, action| {
+            calls.push((index, action));
+            Ok(())
+        });
+        assert_eq!(next, [2, 3]);
+        assert_eq!(joined, [2, 3]);
+        assert_eq!(
+            calls,
+            [
+                (2, MembershipChange::Join),
+                (3, MembershipChange::Join),
+                (3, MembershipChange::Join)
+            ]
+        );
+    }
+
+    #[test]
+    fn failed_ipv6_leave_stops_sending_and_retries_on_the_next_snapshot() {
+        let mut joined = vec![2, 3];
+        let mut calls = Vec::new();
+        let active = reconcile_ipv6_interfaces(&mut joined, &[3, 4], |index, action| {
+            calls.push((index, action));
+            if action == MembershipChange::Leave {
+                Err(std::io::ErrorKind::Interrupted.into())
+            } else {
+                Ok(())
+            }
+        });
+        assert_eq!(active, [3, 4]);
+        assert_eq!(joined, [2, 3, 4]);
+        let active = reconcile_ipv6_interfaces(&mut joined, &[3, 4], |index, action| {
+            calls.push((index, action));
+            Ok(())
+        });
+        assert_eq!(active, [3, 4]);
+        assert_eq!(joined, [3, 4]);
+        assert_eq!(
+            calls,
+            [
+                (2, MembershipChange::Leave),
+                (4, MembershipChange::Join),
+                (2, MembershipChange::Leave)
+            ]
+        );
+    }
+
+    #[test]
+    fn default_ipv6_membership_already_joined_is_active_and_not_joined_twice() {
+        let mut joined = Vec::new();
+        let active = reconcile_ipv6_interfaces(&mut joined, &[2], |index, action| {
+            assert_eq!((index, action), (2, MembershipChange::Join));
+            Err(std::io::ErrorKind::AddrInUse.into())
+        });
+        assert_eq!(active, [2]);
+        assert_eq!(joined, [2]);
+        let active = reconcile_ipv6_interfaces(&mut joined, &[2], |_, _| {
+            panic!("successful default membership must not be joined again")
+        });
+        assert_eq!(active, [2]);
+    }
+
+    #[test]
+    fn absent_ipv6_membership_retires_and_reused_index_joins_again() {
+        let mut errors = vec![
+            std::io::Error::from(std::io::ErrorKind::AddrNotAvailable),
+            std::io::Error::from(std::io::ErrorKind::NotFound),
+        ];
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        errors.push(std::io::Error::from_raw_os_error(19));
+        for error in errors {
+            let mut joined = vec![2];
+            let mut failure = Some(error);
+            let active = reconcile_ipv6_interfaces(&mut joined, &[], |_, action| {
+                assert_eq!(action, MembershipChange::Leave);
+                Err(failure.take().unwrap())
+            });
+            assert!(active.is_empty());
+            assert!(joined.is_empty());
+            let mut joins = 0;
+            let active = reconcile_ipv6_interfaces(&mut joined, &[2], |index, action| {
+                assert_eq!((index, action), (2, MembershipChange::Join));
+                joins += 1;
+                Ok(())
+            });
+            assert_eq!(active, [2]);
+            assert_eq!(joins, 1);
+        }
+    }
 }

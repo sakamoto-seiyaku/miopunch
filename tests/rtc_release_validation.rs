@@ -4,7 +4,7 @@
 mod admitted_ip;
 
 use futures_util::future::poll_fn;
-use iroh::{Endpoint, TransportAddr, endpoint::presets};
+use iroh::{Endpoint, EndpointAddr, TransportAddr, endpoint::presets};
 use miopunch_native_probe::{
     rtc_association::RtcDeadline,
     rtc_transport::{RtcDatagramIo, RtcTransport, TRANSPORT_ID},
@@ -12,7 +12,10 @@ use miopunch_native_probe::{
 use std::{
     io,
     net::{Ipv4Addr, SocketAddr},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
 
@@ -53,8 +56,39 @@ async fn release_needs_a_new_exact_path_ack_even_when_old_probe_and_other_carrie
     let bt = RtcTransport::new();
     let a = endpoint(&at).await;
     let b = endpoint(&bt).await;
+    // Keep the actual original UDP carrier live and Available while its
+    // owned forwarding socket can temporarily drop every datagram.
+    let proxy = Arc::new(
+        tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap(),
+    );
+    let proxy_address = proxy.local_addr().unwrap();
+    let upstream = b.bound_sockets()[0];
+    let forwarding = Arc::new(AtomicBool::new(true));
+    let forward = forwarding.clone();
+    let udp_proxy = tokio::spawn(async move {
+        let mut client_address = None;
+        let mut packet = vec![0; 65536];
+        loop {
+            let (length, source) = proxy.recv_from(&mut packet).await.unwrap();
+            let destination = if source == upstream {
+                let Some(client) = client_address else {
+                    continue;
+                };
+                client
+            } else {
+                client_address = Some(source);
+                upstream
+            };
+            if forward.load(Ordering::Acquire) {
+                proxy.send_to(&packet[..length], destination).await.unwrap();
+            }
+        }
+    });
+    let target = EndpointAddr::new(b.id()).with_addrs([TransportAddr::Ip(proxy_address)]);
     let (client, server) = tokio::time::timeout(Duration::from_secs(3), async {
-        let (client, server) = tokio::join!(a.connect(b.addr(), ALPN), async {
+        let (client, server) = tokio::join!(a.connect(target, ALPN), async {
             b.accept().await.unwrap().await
         });
         (client.unwrap(), server.unwrap())
@@ -67,6 +101,29 @@ async fn release_needs_a_new_exact_path_ack_even_when_old_probe_and_other_carrie
     peer.set_remote(lease.local_addr()).unwrap();
     lease.activate().unwrap();
     peer.activate().unwrap();
+    a.control_handle(&client)
+        .test_limit_transport_paths(vec![
+            TransportAddr::Ip(proxy_address),
+            TransportAddr::Custom(peer.local_addr()),
+        ])
+        .await
+        .unwrap();
+    b.control_handle(&server)
+        .test_limit_transport_paths(vec![
+            TransportAddr::Ip(proxy_address),
+            TransportAddr::Custom(lease.local_addr()),
+        ])
+        .await
+        .unwrap();
+    for connection in [&client, &server] {
+        for path in connection
+            .paths()
+            .iter()
+            .filter(|path| path.is_ip() && path.remote_addr() != &TransportAddr::Ip(proxy_address))
+        {
+            path.close().unwrap();
+        }
+    }
     let ab = bridge(lease.io(), peer.io());
     let ba = bridge(peer.io(), lease.io());
     a.open_data_transport_path(&client, TransportAddr::Custom(peer.local_addr()))
@@ -93,6 +150,37 @@ async fn release_needs_a_new_exact_path_ack_even_when_old_probe_and_other_carrie
     .await
     .unwrap();
     lease.retain(&client, &initial).unwrap();
+    // A peer need not start a probe before the first unilateral validation.
+    // Both finite checks can nevertheless renew over RTC after the Available
+    // UDP carrier silently stops forwarding, before QUIC retires that path.
+    let remote_initial = peer.start_probe(&server).unwrap();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while !remote_initial.is_acknowledged().unwrap() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    for connection in [&client, &server] {
+        assert_eq!(
+            connection.paths().len(),
+            2,
+            "exactly the original UDP and RTC paths"
+        );
+        assert!(
+            connection
+                .paths()
+                .iter()
+                .any(|path| path.is_ip() && path.is_selected())
+        );
+        assert!(
+            connection
+                .paths()
+                .iter()
+                .any(|path| path.remote_addr().is_custom() && !path.is_selected())
+        );
+    }
+    forwarding.store(false, Ordering::Release);
     let renewed = lease
         .validate_release(&client, budget(Duration::from_secs(2)))
         .await
@@ -103,6 +191,14 @@ async fn release_needs_a_new_exact_path_ack_even_when_old_probe_and_other_carrie
         "release renews the opaque packet watermark"
     );
     assert!(renewed.is_acknowledged().unwrap());
+    assert!(
+        client
+            .paths()
+            .iter()
+            .any(|path| path.is_ip() && path.is_selected()),
+        "renewal works before the old Available carrier is retired"
+    );
+    forwarding.store(true, Ordering::Release);
 
     // Stop only this test's RTC queue bridge. The real original UDP carrier,
     // SDK-independent qualification predicate, permission and both Ms stay live.
@@ -161,9 +257,63 @@ async fn release_needs_a_new_exact_path_ack_even_when_old_probe_and_other_carrie
             .unwrap(),
         b"live original UDP M"
     );
+    // Successful and cancelled validations must stop preferring the RTC
+    // backup for ordinary ACKs after their last proof is released.
+    drop(initial);
+    drop(renewed);
+    drop(remote_initial);
+    let ab = bridge(lease.io(), peer.io());
+    let ba = bridge(peer.io(), lease.io());
+    tokio::time::sleep(Duration::from_millis(80)).await;
+    let ack_counts = || {
+        server
+            .paths()
+            .iter()
+            .fold((0, 0), |(available, backup), path| {
+                let acks = path.stats().frame_tx.path_acks;
+                if path.remote_addr().is_custom() {
+                    assert!(
+                        !path.is_selected(),
+                        "RTC remains a backup to the live UDP carrier"
+                    );
+                    (available, backup + acks)
+                } else {
+                    (available + acks, backup)
+                }
+            })
+    };
+    let before = ack_counts();
+    let ordinary = client
+        .paths()
+        .iter()
+        .find(|path| path.remote_addr().is_custom())
+        .unwrap()
+        .start_fresh_probe()
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while !ordinary.is_acknowledged().unwrap() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let after = ack_counts();
+    assert!(
+        after.0 > before.0,
+        "ordinary backup PING ACK returns on Available UDP"
+    );
+    assert_eq!(
+        after.1, before.1,
+        "RTC probe holders leave no persistent Backup ACK preference"
+    );
+    ab.abort();
+    ba.abort();
+    let _ = tokio::join!(ab, ba);
     lease.close();
     peer.close();
     client.close(0u32.into(), b"fixture ended");
     server.close(0u32.into(), b"fixture ended");
     tokio::join!(a.close(), b.close());
+    udp_proxy.abort();
+    let _ = udp_proxy.await;
 }

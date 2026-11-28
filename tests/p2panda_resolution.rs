@@ -120,6 +120,93 @@ impl ProtocolHandler for Echo {
     }
 }
 
+#[derive(Debug)]
+struct SessionEcho;
+
+impl ProtocolHandler for SessionEcho {
+    async fn accept(&self, connection: Connection) -> Result<(), AcceptError> {
+        while let Ok((mut send, mut recv)) = connection.accept_bi().await {
+            assert_eq!(
+                recv.read_to_end(4).await.map_err(std::io::Error::other)?,
+                b"PING"
+            );
+            send.write_all(b"PONG")
+                .await
+                .map_err(std::io::Error::other)?;
+            send.finish()?;
+        }
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn open_protocol_session_allows_registration_and_later_endpoint_requests() {
+    const LATER_PROTOCOL: &[u8] = b"resolution-dynamic/1";
+    let server = Endpoint::builder(AddressBook::builder().spawn().await.unwrap())
+        .config(config())
+        .endpoint_builder_hook(|builder| {
+            builder.portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+        })
+        .spawn()
+        .await
+        .unwrap();
+    server.accept(PROTOCOL, SessionEcho).await.unwrap();
+    let server_raw = server.endpoint().await.unwrap();
+    let book = AddressBook::builder().spawn().await.unwrap();
+    book.insert_node_info(NodeInfo::from(server_raw.addr()))
+        .await
+        .unwrap();
+    let client = Endpoint::builder(book)
+        .config(config())
+        .endpoint_builder_hook(|builder| {
+            builder.portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
+        })
+        .spawn()
+        .await
+        .unwrap();
+    let client_raw = client.endpoint().await.unwrap();
+    let session = tokio::time::timeout(
+        Duration::from_secs(5),
+        client.connect(server.node_id(), PROTOCOL),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+
+    async fn exchange(connection: &Connection) {
+        let (mut send, mut recv) = connection.open_bi().await.unwrap();
+        send.write_all(b"PING").await.unwrap();
+        send.finish().unwrap();
+        assert_eq!(recv.read_to_end(4).await.unwrap(), b"PONG");
+    }
+
+    exchange(&session).await;
+    tokio::time::timeout(Duration::from_secs(2), async {
+        server.accept(LATER_PROTOCOL, Echo).await.unwrap();
+        // Replacement also leaves the existing session with its selected handler.
+        server.accept(PROTOCOL, Echo).await.unwrap();
+        // Registration is a cast; this RPC is the actor-ordering completion fence.
+        assert_eq!(server.endpoint().await.unwrap().id(), server_raw.id());
+    })
+    .await
+    .expect("an open handler must not hold the protocol registry lock");
+    tokio::time::timeout(Duration::from_secs(2), exchange(&session))
+        .await
+        .expect("the already selected handler continues serving its original session");
+    let later = tokio::time::timeout(
+        Duration::from_secs(5),
+        client.connect(server.node_id(), LATER_PROTOCOL),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    exchange(&later).await;
+    assert!(session.close_reason().is_none());
+    session.close(0u32.into(), b"registration completed during open session");
+    later.close(0u32.into(), b"new protocol delivered");
+    tokio::join!(client_raw.close(), server_raw.close());
+}
+
 #[tokio::test]
 async fn resolving_uses_the_configured_lookup_and_exchanges_real_streams() {
     let server_book = AddressBook::builder().spawn().await.unwrap();

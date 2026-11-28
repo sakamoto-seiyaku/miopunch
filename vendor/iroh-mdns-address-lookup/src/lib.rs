@@ -104,7 +104,6 @@ pub struct MdnsAddressLookup {
     #[allow(dead_code)]
     handle: Arc<AbortOnDropHandle<()>>,
     sender: mpsc::Sender<Message>,
-    advertise: bool,
     /// When `local_addrs` changes, we re-publish our info.
     local_addrs: Watchable<Option<EndpointData>>,
 }
@@ -320,12 +319,15 @@ impl MdnsAddressLookup {
                     }
                     Ok(Some(data)) = addrs_change.updated() => {
                         tracing::trace!(?data, "Mdns address changed");
+                        let interfaces = netwatch::interfaces::State::new().await;
+                        configure_interfaces(&address_lookup, &interfaces);
+                        if !advertise {
+                            continue;
+                        }
                         address_lookup.remove_all();
 
                         // apply user-supplied filter
                         let mut data = data;
-                        let interfaces = netwatch::interfaces::State::new().await;
-                        configure_interfaces(&address_lookup, &interfaces);
                         for binding in &bindings {
                             if let SocketAddr::V6(binding) = binding {
                                 if binding.ip().is_unspecified() {
@@ -491,7 +493,6 @@ impl MdnsAddressLookup {
         Ok(Self {
             handle: Arc::new(AbortOnDropHandle::new(handle)),
             sender: send,
-            advertise,
             local_addrs,
         })
     }
@@ -561,6 +562,7 @@ impl MdnsAddressLookup {
 }
 
 fn configure_interfaces(service: &DropGuard, state: &netwatch::interfaces::State) {
+    let mut v4 = Vec::new();
     let mut v6 = BTreeSet::new();
     // The wildcard receiver has a finite number of group memberships. Join
     // links with carrier first, then register idle links for later use.
@@ -569,7 +571,11 @@ fn configure_interfaces(service: &DropGuard, state: &netwatch::interfaces::State
     for interface in interfaces {
         for address in interface.addrs() {
             match address {
-                netwatch::interfaces::IpNet::V4(net) => service.add_interface_v4(net.addr()),
+                netwatch::interfaces::IpNet::V4(net) => {
+                    if !v4.contains(&net.addr()) {
+                        v4.push(net.addr());
+                    }
+                }
                 netwatch::interfaces::IpNet::V6 { scope_id, .. } if scope_id != 0 => {
                     v6.insert(scope_id);
                 }
@@ -577,6 +583,7 @@ fn configure_interfaces(service: &DropGuard, state: &netwatch::interfaces::State
             }
         }
     }
+    service.set_ipv4_interfaces(v4);
     service.set_ipv6_interfaces(v6.into_iter().collect());
 }
 
@@ -655,9 +662,9 @@ impl AddressLookup for MdnsAddressLookup {
     }
 
     fn publish(&self, data: &EndpointData) {
-        if self.advertise {
-            self.local_addrs.set(Some(data.clone())).ok();
-        }
+        // Listening-only services still need the new interface snapshot.
+        // The actor keeps address and TXT announcements behind advertise.
+        self.local_addrs.set(Some(data.clone())).ok();
     }
 }
 

@@ -152,12 +152,13 @@ pub(crate) async fn prepare_relay_control(
         .find(|url| resources.allows(url.as_str(), crate::resources::ResourceUse::DataRelay))
         .cloned();
     let mut opening = None;
+    let mut fresh = None;
+    // Keep the fresh proof until both peers finish their validation.
     let validation = async {
             let remote = remote.ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no mutually permitted relay"))?;
             let deadline = tokio::time::Instant::now() + Duration::from_secs(6);
             let started = tokio::time::Instant::now();
             let started_utc_ms=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok().map(|value|value.as_millis());
-            let mut fresh = None;
             let samples=[1u64,2,4,6];
             let mut sampled=0;
             loop {
@@ -178,7 +179,7 @@ pub(crate) async fn prepare_relay_control(
                         if let Some(phase) = opening.take() {
                             phase.finish_with("succeeded", serde_json::json!({"pathId":path.id().to_string()}));
                         }
-                        let probe = path.start_probe()?;
+                        let probe = path.start_scoped_probe()?;
                         let mut details=relay_probe_debug_details(connection,Some(&path.id().to_string()),started.elapsed().as_millis(),Some(deadline.saturating_duration_since(tokio::time::Instant::now()).as_millis()),started_utc_ms);
                         details["freshProbeIssued"]=serde_json::json!(true);
                         details["probeWatermark"]=serde_json::json!(probe.watermark());

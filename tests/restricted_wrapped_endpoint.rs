@@ -20,6 +20,7 @@ use std::{
 };
 const NETWORK: [u8; 32] = [23; 32];
 const PROTOCOL: &[u8] = b"miopunch/wrapped-restricted-member/1";
+const LATER_PROTOCOL: &[u8] = b"miopunch/wrapped-restricted-dynamic/1";
 
 #[derive(Clone, Debug)]
 struct LegacyCheck {
@@ -86,6 +87,7 @@ async fn wrapped_actor_releases_member_after_checks_and_closes_on_revocation() {
     }
     let calls = Arc::new(AtomicUsize::new(0));
     let business = Arc::new(AtomicUsize::new(0));
+    let dynamic_business = Arc::new(AtomicUsize::new(0));
     let a = AddressBook::builder().spawn().await.unwrap();
     let b = AddressBook::builder().spawn().await.unwrap();
     let gate = server_gate.clone();
@@ -152,10 +154,46 @@ async fn wrapped_actor_releases_member_after_checks_and_closes_on_revocation() {
     send.finish().unwrap();
     assert_eq!(recv.read_to_end(4).await.unwrap(), b"PONG");
     assert_eq!(calls.load(Ordering::SeqCst), 2);
+    for gate in [&server_gate, &client_gate] {
+        gate.register_p2panda_protocol(LATER_PROTOCOL, NETWORK, ProtocolScope::Member);
+    }
+    tokio::time::timeout(Duration::from_secs(2), async {
+        server
+            .accept(
+                LATER_PROTOCOL,
+                Echo {
+                    gate: server_gate.clone(),
+                    calls: dynamic_business.clone(),
+                },
+            )
+            .await
+            .unwrap();
+        // This RPC follows registration on the same actor while its first
+        // admitted handler is still awaiting connection closure.
+        assert_eq!(server.endpoint().await.unwrap().id(), se.id());
+    })
+    .await
+    .expect("a live admitted session must not block registry writes or endpoint requests");
+    assert!(connection.close_reason().is_none());
+    let dynamic = tokio::time::timeout(
+        Duration::from_secs(5),
+        client.connect_resolving(server_key.verifying_key(), LATER_PROTOCOL),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let (mut send, mut recv) = dynamic.open_bi().await.unwrap();
+    send.write_all(b"PING").await.unwrap();
+    send.finish().unwrap();
+    assert_eq!(recv.read_to_end(4).await.unwrap(), b"PONG");
+    assert_eq!(dynamic_business.load(Ordering::SeqCst), 1);
+    assert_eq!(calls.load(Ordering::SeqCst), 4);
     server_gate.update_authorization([*server_id.as_bytes()], [*client_id.as_bytes()]);
-    tokio::time::timeout(Duration::from_secs(2), connection.closed())
-        .await
-        .unwrap();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        tokio::join!(connection.closed(), dynamic.closed());
+    })
+    .await
+    .unwrap();
     assert!(
         tokio::time::timeout(
             Duration::from_secs(5),
@@ -166,8 +204,8 @@ async fn wrapped_actor_releases_member_after_checks_and_closes_on_revocation() {
         .is_err()
     );
     assert_eq!(business.load(Ordering::SeqCst), 1);
-    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(calls.load(Ordering::SeqCst), 4);
     let ce: RestrictedEndpoint = client.endpoint().await.unwrap();
     tokio::join!(ce.close(), se.close());
-    drop((connection, client, server, ce, se));
+    drop((connection, dynamic, client, server, ce, se));
 }

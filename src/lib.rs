@@ -38,6 +38,7 @@ pub mod irc_transport;
 pub mod management_auth;
 pub mod management_recovery;
 pub mod management_recovery_wire;
+mod migration_progress;
 pub mod management_store;
 mod sqlite_shutdown;
 pub mod manual_admission;
@@ -88,6 +89,8 @@ pub mod resources;
 pub mod service_policy;
 pub mod service_protocol;
 mod admission_request_wire;
+mod admission_history_wire;
+mod admission_history_store;
 mod device_name;
 mod tcp_observation;
 mod tcp_punch;
@@ -98,6 +101,7 @@ pub mod network_recovery;
 pub(crate) mod session_maintenance;
 
 pub mod management_record;
+pub(crate) use p2panda_net::codec;
 mod replica_snapshot;
 
 mod admission_request_id;

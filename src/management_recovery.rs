@@ -20,17 +20,15 @@ use crate::genesis_recovery::{
     DOMAIN, RecoveryError as ProofError, SessionGuard, endpoint_key, proof_statement,
     read_control_fixed, read_control_frame, write_control_fixed, write_control_frame,
 };
-use crate::management_auth::{ManagementAuth, ManagementExtension};
+use crate::management_auth::ManagementExtension;
+use crate::management_recovery_wire::{history_binding, receive_history, send_history};
 use crate::management_store::{ManagementRecord, ManagementStore, StoreError};
 use crate::native_network::{NativeNetwork, NodeError};
 
 /// A distinct wire entry leaves the earlier one-shot proof validation intact.
 pub const MANAGEMENT_RECOVERY_ALPN: &[u8] = crate::management_recovery_wire::RECOVERY_ALPN;
-const MAX_HISTORY_BYTES: usize = 16 * 1024 * 1024;
 const MAX_GRANT_BYTES: usize = 256 * 1024;
-const MAX_RECORDS: usize = 4096;
 const TIMEOUT: Duration = Duration::from_secs(15);
-type WireRecords = Vec<(Vec<u8>, Option<Vec<u8>>)>;
 
 #[derive(Clone, Copy)]
 pub(crate) struct RecoveryBinding {
@@ -446,18 +444,22 @@ impl NativeNetwork {
             .await
             .map_err(|_| ManagementRecoveryError::PathUnavailable)?;
 
-        let wire = read_control_frame(&exchange, MAX_HISTORY_BYTES).await?;
-        let (server_grant, raw): (Option<Hash>, WireRecords) =
-            p2panda_core::cbor::decode_cbor(wire.as_slice())
-                .map_err(|_| ManagementRecoveryError::Rejected)?;
-        if raw.is_empty()
-            || raw.len() > MAX_RECORDS
-            || Hash::digest(&raw[0].0) != self.anchor.genesis
-        {
-            return Err(ManagementRecoveryError::Rejected);
-        }
-        let auth = ManagementAuth::replay_records(self.anchor, &raw)
-            .map_err(|_| ManagementRecoveryError::Rejected)?;
+        let history_binding = history_binding(self.anchor, binding.contact, binding.attempt);
+        let previous = self.store.admission_history_checkpoint().await?;
+        let store = &self.store;
+        let (server_grant, raw, auth) = receive_history::<Option<Hash>, _>(
+            &exchange,
+            history_binding,
+            previous,
+            |checkpoint| async move {
+                store
+                    .save_admission_history(&checkpoint)
+                    .await
+                    .map_err(std::io::Error::other)
+            },
+        )
+        .await
+        .map_err(recovery_history_error)?;
         let contact = endpoint_key(binding.contact)?;
         if !auth.nodes().iter().any(|(id, _)| *id == contact) {
             return Err(ManagementRecoveryError::Rejected);
@@ -473,11 +475,7 @@ impl NativeNetwork {
         self.store
             .save_root_proof(request, &statement, &signature)
             .await?;
-        for (header, body) in raw {
-            self.store
-                .ingest(&ManagementRecord::new(header, body.as_deref()))
-                .await?;
-        }
+        self.store.apply_verified_history(&raw, auth).await?;
         self.store.apply_ready().await?;
         self.refresh_authorization();
         if !self.is_member(contact) {
@@ -589,6 +587,7 @@ impl NativeNetwork {
         if &done != b"DONE" {
             return Err(ManagementRecoveryError::Rejected);
         }
+        self.store.clear_admission_history().await?;
         self.recovery_progress().await
     }
 
@@ -661,21 +660,17 @@ impl NativeNetwork {
         if progress.authorization.is_some() {
             self.valid_recovery(progress)?;
         }
-        let records = self.store.applied_records().await?;
-        if records.is_empty()
-            || records.len() > MAX_RECORDS
-            || Hash::digest(records[0].header()) != self.anchor.genesis
-        {
-            return Err(ManagementRecoveryError::Rejected);
-        }
-        let raw: WireRecords = records
-            .iter()
-            .map(|r| (r.header().to_vec(), r.body().map(<[u8]>::to_vec)))
+        let records = self
+            .store
+            .applied_records()
+            .await?
+            .into_iter()
+            .map(|record| (record.header, record.body))
             .collect();
         self.store.ensure_admissions_open().await?;
-        let wire = p2panda_core::cbor::encode_cbor(&(progress.authorization, raw))
-            .map_err(|_| ManagementRecoveryError::Rejected)?;
-        write_control_frame(&exchange, &wire).await?;
+        send_history(&exchange, self.anchor, &records, &progress.authorization)
+            .await
+            .map_err(recovery_history_error)?;
         let grant =
             ManagementRecord::new(read_control_frame(&exchange, MAX_GRANT_BYTES).await?, None);
         let header = Header::<ManagementExtension>::decode(grant.header())
@@ -770,5 +765,13 @@ impl NativeNetwork {
             .recovery_result(request)
             .await
             .map_err(Into::into)
+    }
+}
+
+fn recovery_history_error(error: std::io::Error) -> ManagementRecoveryError {
+    if error.kind() == std::io::ErrorKind::InvalidData {
+        ManagementRecoveryError::Rejected
+    } else {
+        ManagementRecoveryError::PathUnavailable
     }
 }

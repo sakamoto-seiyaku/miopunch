@@ -15,6 +15,7 @@ pub(super) struct Send {
     pub(super) priority: i32,
     /// Route for STREAM frames, including retransmissions after the business lease ends.
     pub(super) path: Option<crate::PathId>,
+    pub(super) queued: Option<super::PendingStream>,
     /// Whether a frame containing a FIN bit must be transmitted.
     ///
     /// Even if we don't have any new data.
@@ -33,6 +34,7 @@ impl Send {
             pending: SendBuffer::new(),
             priority: 0,
             path: None,
+            queued: None,
             fin_pending: false,
             connection_blocked: false,
             stop_reason: None,
@@ -42,10 +44,6 @@ impl Send {
     /// Whether the stream has been reset
     pub(super) fn is_reset(&self) -> bool {
         matches!(self.state, SendState::ResetSent)
-    }
-
-    pub(super) fn can_send_on_path(&self, path: crate::PathId, allow_unassigned: bool) -> bool {
-        self.path.map_or(allow_unassigned, |assigned| assigned == path)
     }
 
     pub(super) fn finish(&mut self) -> Result<(), FinishError> {

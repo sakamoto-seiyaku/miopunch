@@ -236,6 +236,7 @@ fn update_response(
     msg: guardian::Input,
 ) -> Option<Message> {
     match msg {
+        guardian::Input::Ipv4Interfaces(_) => None,
         guardian::Input::Ipv6Interfaces(_) => None,
         guardian::Input::RemoveAll => {
             discoverer.peers.remove(&discoverer.peer_id);

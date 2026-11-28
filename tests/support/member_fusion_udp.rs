@@ -700,6 +700,65 @@ async fn enhanced_round_orders_concurrent_stun_replies_on_the_selected_binding()
 }
 
 #[tokio::test]
+async fn enhanced_round_cancels_before_and_during_observer_dns() {
+    use futures_util::FutureExt;
+    use std::io::ErrorKind;
+    use tokio::net::UdpSocket;
+
+    let dns = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let nameserver = dns.local_addr().unwrap();
+    let pair = Pair::bind_with_observers(
+        LOOPBACK,
+        LOOPBACK,
+        LOW_RELAY_DELAY,
+        PathPreference::Quality,
+        &[observation_resource("stun://round-cancel.example/".into())],
+        |builder| builder.dns_resolver(iroh::dns::DnsResolver::with_nameserver(nameserver)),
+    )
+    .await;
+    for endpoint in &pair.endpoints {
+        endpoint.test_disable_background_udp();
+    }
+    let connection = &pair.connections[0];
+    let deadline = Instant::now() + SETUP;
+    let stopped = CancellationToken::new();
+    stopped.cancel();
+    let error = connection
+        .coordinate_udp_plan(deadline, &stopped)
+        .now_or_never()
+        .expect("a pre-cancelled round must not wait for DNS")
+        .unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Interrupted);
+
+    let cancel = CancellationToken::new();
+    let mut traversal = Box::pin(connection.coordinate_udp_traversal(deadline, &cancel));
+    let mut query = [0; 512];
+    while dns.try_recv_from(&mut query).is_ok() {}
+    tokio::select! { biased;
+        result = &mut traversal => panic!("round ended before the DNS query: {result:?}"),
+        _ = async {
+            loop {
+                let (len, _) = dns.recv_from(&mut query).await.unwrap();
+                if query[..len].windows(b"round-cancel".len())
+                    .any(|label| label.eq_ignore_ascii_case(b"round-cancel")) {
+                    break;
+                }
+            }
+        } => {}
+        _ = time::sleep_until(deadline) => panic!("no observer DNS query"),
+    }
+    cancel.cancel();
+    let error = traversal
+        .now_or_never()
+        .expect("cancellation must interrupt the outstanding DNS lookup")
+        .unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Interrupted);
+    assert!(connection.udp_traversal().is_none());
+    OriginalStream::open(connection, &pair.connections[1], 1).await;
+    pair.close().await;
+}
+
+#[tokio::test]
 async fn enhanced_round_classifies_and_releases_interrupted_observation() {
     use std::io::ErrorKind;
     use tokio::net::UdpSocket;

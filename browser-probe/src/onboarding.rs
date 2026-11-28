@@ -41,7 +41,7 @@ impl SavedNode {
         material.extend_from_slice(genesis.as_bytes());
         material.extend_from_slice(self.identity().as_bytes());
         self.invitation = Some(material);
-        self.records = vec![(header, None)];
+        self.records = vec![(header, None)].into();
         self.authorization = Some(genesis);
         self.secret = Some(rand::random());
         self.creator_seed = Some(*root.as_bytes());

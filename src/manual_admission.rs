@@ -31,8 +31,6 @@ pub(crate) fn admission_deadline(
         .caller_deadline()
         .map_or(ceiling, |deadline| deadline.min(ceiling))
 }
-const MAX_HISTORY_BYTES: usize = 16 * 1024 * 1024;
-const MAX_RECORDS: usize = 4096;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AdmissionStage {
@@ -351,7 +349,7 @@ async fn serve_admission_exchange(
         applicant: wire.applicant,
         request_id: binding.request_id,
     };
-    let (approved, history, generation) = {
+    let (approved, raw, generation) = {
         let mut node = owner.lock().await;
         node.restricted_connection(connection)?;
         node.recover_admission_state().await?;
@@ -389,31 +387,28 @@ async fn serve_admission_exchange(
         node.refresh_authorization();
         node.valid_approval(&approved)?;
         let records = node.store.applied_records().await?;
-        if records.is_empty() || records.len() > MAX_RECORDS {
+        if records.is_empty() {
             return Err(ManualAdmissionError::Rejected);
         }
         let raw: Vec<_> = records
-            .iter()
-            .map(|record| (record.header(), record.body()))
+            .into_iter()
+            .map(|record| (record.header, record.body))
             .collect();
         node.store.ensure_admissions_open().await?;
-        let history = p2panda_core::cbor::encode_cbor(&(approved.authorization, raw))
-            .map_err(|_| ManualAdmissionError::Rejected)?;
-        if history.len() > MAX_HISTORY_BYTES {
-            return Err(ManualAdmissionError::Rejected);
-        }
         #[cfg(feature = "replica-test-hooks")]
         node.store
             .observe(crate::management_store::RecordCheckpoint::AuthorizationPrepared);
-        (approved, history, node.scope.secret_generation())
+        (approved, raw, node.scope.secret_generation())
     };
-    write_fixed(&exchange, &[1])
+    let history = crate::admission_history_wire::History::new(approved.authorization, &raw)
+        .map_err(|_| ManualAdmissionError::Rejected)?;
+    write_fixed(&exchange, &[history.status()])
         .await
         .map_err(|_| ManualAdmissionError::PathUnavailable)?;
     write_fixed(&exchange, &generation.to_be_bytes())
         .await
         .map_err(|_| ManualAdmissionError::PathUnavailable)?;
-    write_frame(&exchange, &history).await?;
+    history.send(&exchange).await.map_err(history_error)?;
     #[cfg(feature = "replica-test-hooks")]
     owner
         .lock()
@@ -797,7 +792,7 @@ impl NativeNetwork {
                 .map_err(|_| ManualAdmissionError::PathUnavailable)?;
             Ok((exchange, status))
         }).await?;
-        if matches!(status, [0] | [1]) {
+        if matches!(status, [0] | [1] | [3]) {
             // The authenticated provider sends these replies after it commits
             // the request or redemption. This survives loss of later frames.
             self.store.save_local_admission_progress(wire_binding.request_id, ApplicationProgress::Delivered).await?;
@@ -817,10 +812,10 @@ impl NativeNetwork {
                 .await?;
             return Err(ManualAdmissionError::RequestDeclined);
         }
-        if status != [1] {
+        if !matches!(status, [1] | [3]) {
             return Err(ManualAdmissionError::Rejected);
         }
-        let (generation, history) = admission_io(deadline, async {
+        let (generation, authorization, raw, verified) = admission_io(deadline, async {
             let mut generation = [0; 8];
             read_fixed(&exchange, &mut generation)
                 .await
@@ -829,13 +824,22 @@ impl NativeNetwork {
             if generation > i64::MAX as u64 || generation < self.scope.secret_generation() {
                 return Err(ManualAdmissionError::Rejected);
             }
-            Ok((generation, read_frame(&exchange).await?))
+            let history_binding = crate::admission_history_wire::HistoryBinding {
+                anchor: self.anchor,
+                provider: *connection.remote_id().as_bytes(),
+                request: wire_binding.request_id,
+                generation,
+            };
+            let previous = if status == [3] { self.store.admission_history_checkpoint().await? } else { None };
+            let store = &self.store;
+            let (authorization, raw, verified) = crate::admission_history_wire::receive(
+                &exchange, status[0], history_binding, previous,
+                move |checkpoint| async move { store.save_admission_history(&checkpoint).await.map_err(std::io::Error::other) },
+            )
+                .await.map_err(history_error)?;
+            Ok((generation, authorization, raw, verified))
         }).await?;
-        let (authorization, raw): (Hash, Vec<(Vec<u8>, Option<Vec<u8>>)>) =
-            p2panda_core::cbor::decode_cbor(history.as_slice())
-                .map_err(|_| ManualAdmissionError::Rejected)?;
         if raw.is_empty()
-            || raw.len() > MAX_RECORDS
             || Hash::digest(&raw[0].0) != self.anchor.genesis
             || !raw
                 .iter()
@@ -843,8 +847,11 @@ impl NativeNetwork {
         {
             return Err(ManualAdmissionError::Rejected);
         }
-        let auth = ManagementAuth::replay_records(self.anchor, &raw)
-            .map_err(|_| ManualAdmissionError::Rejected)?;
+        let auth = match verified {
+            Some(auth) => auth,
+            None => ManagementAuth::replay_records(self.anchor, &raw)
+                .map_err(|_| ManualAdmissionError::Rejected)?,
+        };
         let local = self.node_key.verifying_key();
         if !auth
             .nodes()
@@ -871,12 +878,11 @@ impl NativeNetwork {
         #[cfg(feature = "replica-test-hooks")]
         self.store
             .observe(crate::management_store::RecordCheckpoint::AuthorizationVerified);
-        for (header, body) in raw {
-            self.store
-                .ingest(&ManagementRecord::new(header, body.as_deref()))
-                .await?;
+        if status == [3] {
+            self.store.apply_verified_history(&raw, auth).await?;
+        } else {
+            self.store.apply_batch(&raw).await?;
         }
-        self.store.apply_ready().await?;
         self.refresh_authorization();
         if !self
             .store
@@ -1032,32 +1038,265 @@ async fn read_fixed<const N: usize>(
     bytes.copy_from_slice(&message);
     Ok(())
 }
-async fn write_frame(exchange: &ControlExchange, bytes: &[u8]) -> Result<(), ManualAdmissionError> {
-    exchange
-        .send_message(
-            ControlMessageFormat::LengthPrefixed32 {
-                maximum: MAX_HISTORY_BYTES,
-            },
-            bytes,
-        )
-        .await
-        .map_err(|_| ManualAdmissionError::PathUnavailable)
-}
-async fn read_frame(exchange: &ControlExchange) -> Result<Vec<u8>, ManualAdmissionError> {
-    let message = exchange
-        .recv_message(ControlMessageFormat::LengthPrefixed32 {
-            maximum: MAX_HISTORY_BYTES,
-        })
-        .await
-        .map_err(|error| {
-            if error.kind() == std::io::ErrorKind::InvalidData {
-                ManualAdmissionError::Rejected
-            } else {
-                ManualAdmissionError::PathUnavailable
-            }
-        })?;
-    if message.is_empty() {
-        return Err(ManualAdmissionError::Rejected);
+fn history_error(error: std::io::Error) -> ManualAdmissionError {
+    if error.kind() == std::io::ErrorKind::InvalidData {
+        ManualAdmissionError::Rejected
+    } else {
+        ManualAdmissionError::PathUnavailable
     }
-    Ok(message)
+}
+
+#[cfg(test)]
+mod paged_history_tests {
+    use super::*;
+    use std::{net::Ipv4Addr, sync::Arc, time::{SystemTime, UNIX_EPOCH}};
+
+    #[tokio::test]
+    async fn manual_and_precode_deliver_full_paged_signed_history_before_material_receipts() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut admin = NativeNetwork::create(directory.path().join("admin")).await.unwrap();
+        let body = vec![7; crate::management_record::MAX_PAGE_BYTES / 3 + 512];
+        let mut records = Vec::new();
+        for index in 0..3u8 {
+            let member = SigningKey::generate().verifying_key();
+            let header = Header::<ManagementExtension>::builder().body(&body).build(
+                &admin.node_key,
+                ManagementExtension {
+                    version: 1,
+                    log_id: [index; 16],
+                    group: GroupsExtensionArgs {
+                        group_id: admin.anchor.root,
+                        action: GroupAction::Add { member: GroupMember::Individual(member), access: Access::read() },
+                        dependencies: vec![admin.anchor.genesis],
+                    },
+                },
+            ).encode();
+            records.push((header, Some(body.clone())));
+        }
+        admin.store.apply_batch(&records).await.unwrap();
+        admin.refresh_authorization();
+        let expires = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 3600;
+        let code = admin.issue_precode(expires, Some(1)).await.unwrap();
+        let provider = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
+        provider.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
+        for precode in [false, true] {
+            let path = directory.path().join(if precode { "precode" } else { "manual" });
+            let mut joining = NativeNetwork::join(&path, admin.manual_invitation().unwrap()).await.unwrap();
+            let endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
+            let target = iroh::EndpointAddr::new(provider.id()).with_addrs(provider.addr().addrs);
+            let (client, server) = tokio::join!(
+                endpoint.connect_control(target, ADMISSION_REQUEST_ALPN),
+                async { provider.accept().await.unwrap().accept_control().unwrap().await }
+            );
+            let (client, server) = (Arc::new(client.unwrap()), Arc::new(server.unwrap()));
+            if !precode {
+                let (result, stage) = tokio::join!(joining.request_manual_admission(&client), admin.serve_manual_admission(&server));
+                assert!(matches!(result.unwrap(), ManualExchange::AwaitingApproval));
+                assert_eq!(stage.unwrap(), AdmissionStage::AwaitingApproval);
+                let request = admin.manual_requests().await.unwrap().pop().unwrap();
+                admin.approve_manual_admission(&request).await.unwrap();
+            }
+            let receive = async {
+                let exchange = if precode {
+                    joining.request_precode_admission(&client, &code).await.unwrap()
+                } else {
+                    joining.request_manual_admission(&client).await.unwrap()
+                };
+                let ManualExchange::Materials(materials) = exchange else { panic!("approved paged history must deliver materials") };
+                assert_eq!(joining.admission_stage(), AdmissionStage::PendingMaterials);
+                joining.complete_manual_admission(materials).await.unwrap()
+            };
+            let send = async {
+                if precode { admin.serve_precode_admission(&server).await }
+                else { admin.serve_manual_admission(&server).await }
+            };
+            let (received, sent) = tokio::join!(receive, send);
+            assert_eq!(received, AdmissionStage::Complete);
+            assert_eq!(sent.unwrap(), AdmissionStage::Complete);
+            assert_eq!(joining.store.applied_records().await.unwrap(), admin.store.applied_records().await.unwrap());
+            let expected = joining.status();
+            endpoint.close().await;
+            joining.close().await;
+            let reopened = NativeNetwork::open(&path).await.unwrap();
+            assert_eq!(reopened.admission_stage(), AdmissionStage::Complete);
+            assert_eq!(reopened.status(), expected);
+            assert_eq!(reopened.store.applied_records().await.unwrap(), admin.store.applied_records().await.unwrap());
+            reopened.close().await;
+        }
+        assert_eq!(admin.precode_usage(&code).await.unwrap(), 1);
+        assert_eq!(admin.precode_redemptions(&code).await.unwrap()[0].stage, AdmissionStage::Complete);
+        provider.close().await;
+        admin.close().await;
+    }
+
+    #[tokio::test]
+    async fn incomplete_paged_admission_never_acknowledges_or_saves_partial_materials() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut admin = NativeNetwork::create(directory.path().join("admin")).await.unwrap();
+        let mut joining = NativeNetwork::join(directory.path().join("joining"), admin.manual_invitation().unwrap()).await.unwrap();
+        let provider = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
+        let endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
+        provider.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
+        let target = iroh::EndpointAddr::new(provider.id()).with_addrs(provider.addr().addrs);
+        let (client, server) = tokio::join!(
+            endpoint.connect_control(target, ADMISSION_REQUEST_ALPN),
+            async { provider.accept().await.unwrap().accept_control().unwrap().await }
+        );
+        let (client, server) = (Arc::new(client.unwrap()), Arc::new(server.unwrap()));
+        let (requested, served) = tokio::join!(joining.request_manual_admission(&client), admin.serve_manual_admission(&server));
+        assert!(matches!(requested.unwrap(), ManualExchange::AwaitingApproval));
+        assert_eq!(served.unwrap(), AdmissionStage::AwaitingApproval);
+        let request = admin.manual_requests().await.unwrap().pop().unwrap();
+        let approved = admin.approve_manual_admission(&request).await.unwrap();
+        let raw = admin.store.applied_records().await.unwrap().into_iter()
+            .map(|record| (record.header, record.body)).collect::<Vec<_>>();
+        let offer = p2panda_core::cbor::encode_cbor(&(approved.authorization, raw.len() as u64)).unwrap();
+        let mut first_page = 0u64.to_be_bytes().to_vec();
+        first_page.extend(crate::management_record::encode_raw_records(&raw[..1]).unwrap());
+        for cut in 0..5 {
+            let deadline = n0_future::time::Instant::now() + Duration::from_millis(350);
+            let send = async {
+                let exchange = server.accept_control_exchange().await.unwrap();
+                crate::admission_request_wire::read(&exchange, server.remote_id(), false).await.unwrap();
+                write_fixed(&exchange, &[crate::admission_history_wire::PAGED_HISTORY]).await.unwrap();
+                write_fixed(&exchange, &admin.scope.secret_generation().to_be_bytes()).await.unwrap();
+                let frame = ControlMessageFormat::LengthPrefixed32 { maximum: crate::management_record::MAX_PAGE_BYTES };
+                exchange.send_message(ControlMessageFormat::LengthPrefixed16 { maximum: 256 }, &offer).await.unwrap();
+                exchange.recv_message(ControlMessageFormat::Fixed { length: 40 }).await.unwrap();
+                write_fixed(&exchange, &0u64.to_be_bytes()).await.unwrap();
+                exchange.send_message(frame, &first_page).await.unwrap();
+                let durable = exchange.recv_message(ControlMessageFormat::Fixed { length: 40 }).await.unwrap();
+                assert_eq!(&durable[..8], &1u64.to_be_bytes());
+                match cut {
+                    1 => {
+                        let mut truncated = 1u64.to_be_bytes().to_vec();
+                        truncated.extend([0, 0]);
+                        exchange.send_message(frame, &truncated).await.unwrap();
+                    },
+                    2 => exchange.send_message(frame, &first_page).await.unwrap(),
+                    3 => {
+                        let mut changed = raw[1..].to_vec();
+                        *changed[0].0.last_mut().unwrap() ^= 1;
+                        let mut page = 1u64.to_be_bytes().to_vec();
+                        page.extend(crate::management_record::encode_raw_records(&changed).unwrap());
+                        exchange.send_message(frame, &page).await.unwrap();
+                    },
+                    _ => {},
+                }
+                if cut != 4 { let _ = exchange.finish_send().await; }
+                let ack = tokio::time::timeout(Duration::from_secs(1), exchange.recv_message(ControlMessageFormat::Fixed { length: 4 })).await;
+                assert!(!matches!(ack, Ok(Ok(ref bytes)) if bytes == b"AUTH"), "incomplete history must not release the admission secret");
+            };
+            let receive = joining.request_admission_inner(&client, None, deadline);
+            let (result, ()) = tokio::join!(receive, send);
+            if cut == 4 { assert!(matches!(result, Err(ManualAdmissionError::TimedOut))); }
+            else { assert!(result.is_err()); }
+            assert_eq!(joining.admission_stage(), AdmissionStage::AwaitingApproval);
+            assert_eq!(joining.status().applied_count, 0);
+            assert!(joining.secret.is_none());
+            let checkpoint = joining.store.admission_history_checkpoint().await.unwrap().unwrap();
+            assert_eq!(checkpoint.records, raw[..1]);
+            assert!(!checkpoint.complete);
+        }
+        endpoint.close().await;
+        provider.close().await;
+        joining.close().await;
+        admin.close().await;
+    }
+
+    #[tokio::test]
+    async fn precode_delivery_crosses_the_record_page_limit_without_truncating_history() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut admin = NativeNetwork::create(directory.path().join("admin")).await.unwrap();
+        let root = admin.saved_genesis_credential().unwrap();
+        // Signed no-op promotions keep a small member set while exercising an
+        // actual ordered history longer than one record-count page.
+        let mut previous = admin.anchor.genesis;
+        let records = (0..crate::management_record::MAX_PAGE_RECORDS).map(|index| {
+            let header = Header::<ManagementExtension>::builder().build(
+                &root.root,
+                ManagementExtension {
+                    version: 1,
+                    log_id: (index as u128).to_be_bytes(),
+                    group: GroupsExtensionArgs {
+                        group_id: admin.anchor.root,
+                        action: GroupAction::Promote {
+                            member: GroupMember::Individual(admin.node_key.verifying_key()),
+                            access: Access::manage(),
+                        },
+                        dependencies: vec![previous],
+                    },
+                },
+            ).encode();
+            previous = Hash::digest(&header);
+            (header, None)
+        }).collect::<Vec<_>>();
+        admin.store.apply_batch(&records).await.unwrap();
+        admin.refresh_authorization();
+        let expires = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 3600;
+        let code = admin.issue_precode(expires, Some(1)).await.unwrap();
+        let path = directory.path().join("joining");
+        let mut joining = NativeNetwork::join(&path, code.invitation()).await.unwrap();
+        let provider = admin.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
+        provider.set_alpns(vec![ADMISSION_REQUEST_ALPN.to_vec()]);
+        let mut previous = (0usize, 0u8);
+        let mut completed = false;
+        for contact in 0..16 {
+            let endpoint = joining.bind_endpoint(Ipv4Addr::LOCALHOST).await.unwrap();
+            let target = iroh::EndpointAddr::new(provider.id()).with_addrs(provider.addr().addrs);
+            let (client, server) = tokio::join!(
+                endpoint.connect_control(target, ADMISSION_REQUEST_ALPN),
+                async { provider.accept().await.unwrap().accept_control().unwrap().await }
+            );
+            let (client, server) = (Arc::new(client.unwrap()), Arc::new(server.unwrap()));
+            let receive = async {
+                match joining.request_precode_admission(&client, &code).await? {
+                    ManualExchange::Materials(materials) => joining.complete_manual_admission(materials).await,
+                    _ => Err(ManualAdmissionError::Rejected),
+                }
+            };
+            let (received, sent) = tokio::join!(receive, admin.serve_precode_admission(&server));
+            endpoint.close().await;
+            if matches!(received, Ok(AdmissionStage::Complete)) && matches!(sent, Ok(AdmissionStage::Complete)) {
+                completed = true;
+                break;
+            }
+            let staged = joining.store.admission_history_checkpoint().await.unwrap();
+            let cursor = staged.as_ref().map_or(joining.status().applied_count as usize, |saved| saved.records.len());
+            let phase = match joining.admission_stage() {
+                AdmissionStage::AwaitingApproval => 0,
+                AdmissionStage::Approved => 1,
+                AdmissionStage::PendingMaterials => 2,
+                AdmissionStage::Complete => 3,
+            };
+            eprintln!("PAGED_ADMISSION_RETRY contact={contact} cursor={cursor} phase={phase} received={received:?} sent={sent:?}");
+            assert!((cursor, phase) > previous, "each explicit contact must retain new verified records or finish material delivery");
+            previous = (cursor, phase);
+            if contact == 0 {
+                if staged.as_ref().is_some_and(|saved| !saved.complete) {
+                    assert_eq!(joining.status().applied_count, 0, "a partial prefix never publishes membership");
+                }
+                let binding = staged.as_ref().unwrap().binding;
+                joining.close().await;
+                joining = NativeNetwork::open(&path).await.unwrap();
+                let reopened = joining.store.admission_history_checkpoint().await.unwrap().unwrap();
+                assert_eq!(reopened.binding, binding);
+                assert_eq!(reopened.records.len(), cursor);
+            }
+        }
+        assert!(completed, "same precode request must finish after bounded explicit contacts");
+        assert_eq!(admin.precode_usage(&code).await.unwrap(), 1);
+        let redemptions = admin.precode_redemptions(&code).await.unwrap();
+        assert_eq!(redemptions.len(), 1, "contacts must reuse the original redemption and authorization");
+        assert_eq!(redemptions[0].stage, AdmissionStage::Complete);
+        assert_eq!(joining.status().applied_count, crate::management_record::MAX_PAGE_RECORDS as i64 + 2);
+        assert_eq!(joining.store.applied_records().await.unwrap(), admin.store.applied_records().await.unwrap());
+        provider.close().await;
+        joining.close().await;
+        let reopened = NativeNetwork::open(&path).await.unwrap();
+        assert_eq!(reopened.admission_stage(), AdmissionStage::Complete);
+        assert_eq!(reopened.status().applied_count, admin.status().applied_count);
+        reopened.close().await;
+        admin.close().await;
+    }
 }

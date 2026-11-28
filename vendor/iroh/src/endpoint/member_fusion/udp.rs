@@ -495,8 +495,10 @@ impl FamilyPlanning {
             self.initiate_on(deadline, cancel, kind, Some(exchange))
                 .await?;
         } else {
-            self.respond_until(&exchange, None, kind, deadline, None)
-                .await?;
+            tokio::select! { biased;
+                _ = cancel.cancelled() => return Err(io::ErrorKind::Interrupted.into()),
+                result = self.respond_until(&exchange, None, kind, deadline, None) => result?,
+            }
         }
         self.traversal()
             .and_then(|report| report.validated.map(|(path, _)| path))
@@ -743,7 +745,11 @@ impl FamilyPlanning {
         exchange: Option<ControlExchange>,
     ) -> io::Result<MemberUdpPlan> {
         let deadline = deadline.min(Instant::now() + self.config.round_timeout);
-        let scope = self.round_scope(self.scope()?, deadline).await?;
+        let scope = tokio::select! { biased;
+            _ = cancel.cancelled() => return Err(io::ErrorKind::Interrupted.into()),
+            _ = time::sleep_until(deadline) => return Err(io::ErrorKind::TimedOut.into()),
+            scope = async { self.round_scope(self.scope()?, deadline).await } => scope?,
+        };
         let traverse = kind != StreamKind::UdpPlan;
         if traverse
             && self
@@ -766,9 +772,6 @@ impl FamilyPlanning {
         } else {
             Priority::Business
         };
-        if cancel.is_cancelled() {
-            return Err(io::ErrorKind::Interrupted.into());
-        }
         let fusion = self
             .endpoint
             .inner

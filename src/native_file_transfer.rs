@@ -4,7 +4,7 @@ use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, AtomicU64, Ordering},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, Weak},
     time::Duration,
 };
 
@@ -132,7 +132,7 @@ pub(crate) struct NativeFiles {
     pub tasks: FileTasks,
     jobs: Mutex<Vec<tokio::task::JoinHandle<()>>>,
     generation: AtomicU64,
-    dials: tokio::sync::Mutex<()>,
+    dials: Mutex<BTreeMap<iroh::EndpointId, Weak<tokio::sync::Mutex<()>>>>,
     receivers: Mutex<BTreeMap<(usize, Option<u64>), ServiceTransport>>,
     stopped: AtomicBool,
 }
@@ -151,6 +151,29 @@ struct ReceiveOwner {
     service: Arc<NativeFiles>,
     connection: (usize, Option<u64>),
 }
+
+// Only setup callers retain this peer's queue. Borrowing the Tokio guard keeps
+// it before this owner in drop order, so the last completion or cancellation
+// removes the key without racing a new caller which joins the same queue.
+struct FileDial<'a> {
+    dials: &'a Mutex<BTreeMap<iroh::EndpointId, Weak<tokio::sync::Mutex<()>>>>,
+    peer: iroh::EndpointId,
+    mutex: Option<Arc<tokio::sync::Mutex<()>>>,
+}
+
+impl Drop for FileDial<'_> {
+    fn drop(&mut self) {
+        let mut dials = self.dials.lock().unwrap();
+        let mutex = self.mutex.take().expect("file setup queue owner");
+        if Arc::strong_count(&mutex) == 1 {
+            dials.remove(&self.peer);
+        }
+        // Release this caller while still holding the registry lock. Another
+        // completing caller must see the updated count before deciding whether
+        // it owns the last reference and can remove the weak key.
+        drop(mutex);
+    }
+}
 impl Drop for ReceiveOwner {
     fn drop(&mut self) {
         self.service
@@ -162,6 +185,23 @@ impl Drop for ReceiveOwner {
 }
 
 impl NativeFiles {
+    fn dial(&self, peer: iroh::EndpointId) -> FileDial<'_> {
+        let mut dials = self.dials.lock().unwrap();
+        let mutex = match dials.get(&peer).and_then(Weak::upgrade) {
+            Some(mutex) => mutex,
+            None => {
+                let mutex = Arc::new(tokio::sync::Mutex::new(()));
+                dials.insert(peer, Arc::downgrade(&mutex));
+                mutex
+            }
+        };
+        FileDial {
+            dials: &self.dials,
+            peer,
+            mutex: Some(mutex),
+        }
+    }
+
     pub fn new(gate: crate::admission_gate::AdmissionGate) -> Self {
         Self {
             gate,
@@ -433,10 +473,12 @@ impl NativeFiles {
         };
         offer.validate()?;
         for attempt in 0..3 {
-            // The existing resource owner admits one pending contact per peer.
-            // Serialize only setup, then let bounded file streams run together.
+            // Member connections share the resource owner's per-peer dial. Keep
+            // dedicated file-ALPN fallback setup queued for that peer too, then
+            // let file streams and unrelated peers proceed independently.
             let connection = {
-                let _dial = self.dials.lock().await;
+                let dial = self.dial(address.id);
+                let _dial = dial.mutex.as_ref().expect("file setup queue owner").lock().await;
                 resources
                     .connect_service(address.clone(), MemberService::Files)
                     .await

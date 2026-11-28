@@ -5,6 +5,7 @@
 //! replays the committed records through the same authority verifier.
 
 use std::path::Path;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use p2panda_auth::Access;
 use p2panda_auth::group::GroupCrdtError;
@@ -23,9 +24,13 @@ use crate::manual_admission::{AdmissionRequest, AdmissionStage, ApprovedAdmissio
 pub use crate::management_record::ManagementRecord;
 
 fn decode_admission_request(row: &sqlx::sqlite::SqliteRow) -> Result<AdmissionRequest, StoreError> {
-    let applicant = row.try_get::<Vec<u8>, _>("applicant")?.try_into()
+    let applicant = row
+        .try_get::<Vec<u8>, _>("applicant")?
+        .try_into()
         .map_err(|_| StoreError::Corrupt("admission applicant"))?;
-    let request_id = row.try_get::<Vec<u8>, _>("request_id")?.try_into()
+    let request_id = row
+        .try_get::<Vec<u8>, _>("request_id")?
+        .try_into()
         .map_err(|_| StoreError::Corrupt("admission request id"))?;
     Ok(AdmissionRequest {
         applicant: VerifyingKey::from_bytes(&applicant)
@@ -56,8 +61,6 @@ pub enum StoreError {
     PrecodeStopped,
     #[error("durable management state is inconsistent: {0}")]
     Corrupt(&'static str),
-    #[error("management history exceeds the supported record limit")]
-    HistoryLimit,
     #[error("simulated process interruption")]
     Interrupted,
 }
@@ -69,9 +72,24 @@ pub struct ManagementStore {
     anchor: NetworkAnchor,
     auth: ManagementAuth,
     applied_count: i64,
+    pending_commit: Option<PendingCommit>,
+    authorization_gate: Option<crate::admission_gate::AdmissionGate>,
+    publication: Arc<Mutex<()>>,
     pub(crate) changes: crate::state_observation::StateChanges,
+    pub(crate) staged_admission:
+        Arc<tokio::sync::Mutex<Option<crate::admission_history_wire::HistoryCheckpoint>>>,
     #[cfg(feature = "replica-test-hooks")]
     checkpoint_observer: Option<fn(RecordCheckpoint)>,
+}
+
+struct CommittedView {
+    auth: ManagementAuth,
+    applied_count: i64,
+}
+
+struct PendingCommit {
+    committed: Arc<OnceLock<CommittedView>>,
+    task: tokio::task::JoinHandle<Result<(), StoreError>>,
 }
 
 pub(crate) struct LocalAdmissionDelivery<'a> {
@@ -139,6 +157,7 @@ impl ManagementStore {
             .max_connections(1)
             .connect_with(options)
             .await?;
+        crate::admission_history_store::initialize(&pool).await?;
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS management_anchor (
                 singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
@@ -271,9 +290,11 @@ impl ManagementStore {
         )
         .execute(&pool)
         .await?;
-        sqlx::query("CREATE TABLE IF NOT EXISTS pending_rejoin_material (request_id BLOB PRIMARY KEY)")
-            .execute(&pool)
-            .await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS pending_rejoin_material (request_id BLOB PRIMARY KEY)",
+        )
+        .execute(&pool)
+        .await?;
 
         sqlx::query("INSERT OR IGNORE INTO management_anchor VALUES (1, ?, ?)")
             .bind(anchor.root.as_bytes().as_slice())
@@ -291,7 +312,7 @@ impl ManagementStore {
 
         let empty = ManagementAuth::new(anchor);
         sqlx::query("INSERT OR IGNORE INTO management_view VALUES (1, 0, ?)")
-            .bind(empty.state_bytes()?)
+            .bind(empty.member_view_bytes()?)
             .execute(&pool)
             .await?;
         let snapshot =
@@ -322,20 +343,26 @@ impl ManagementStore {
             records.push((header, body));
         }
         let auth = ManagementAuth::replay_records(anchor, &records)?;
-        if !auth.matches_member_view_bytes(&state)? {
+        if auth.member_view_bytes()? != state {
             return Err(StoreError::Corrupt(
                 "saved Groups view differs from signed replay",
             ));
         }
-        Ok(Self {
+        let store = Self {
             pool,
             anchor,
             auth,
             applied_count,
+            pending_commit: None,
+            authorization_gate: None,
+            publication: Arc::default(),
             changes: Default::default(),
+            staged_admission: Arc::default(),
             #[cfg(feature = "replica-test-hooks")]
             checkpoint_observer: None,
-        })
+        };
+        store.restore_admission_history().await?;
+        Ok(store)
     }
 
     #[cfg(feature = "replica-test-hooks")]
@@ -403,7 +430,12 @@ impl ManagementStore {
                     .await?;
             }
         }
-        if let Some(LocalAdmissionDelivery { receipt, contact, base_request_id }) = delivery {
+        if let Some(LocalAdmissionDelivery {
+            receipt,
+            contact,
+            base_request_id,
+        }) = delivery
+        {
             let changed = sqlx::query(
                 "UPDATE local_admission_attempt SET progress = 3
                 WHERE request_id = ? AND authorization = ? AND progress IN (2, 3)",
@@ -470,11 +502,16 @@ impl ManagementStore {
             .transpose()
     }
 
-    pub(crate) async fn pending_rejoin_material(&self, request_id: [u8; 16]) -> Result<bool, StoreError> {
-        Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pending_rejoin_material WHERE request_id = ?)")
-            .bind(request_id.as_slice())
-            .fetch_one(&self.pool)
-            .await?)
+    pub(crate) async fn pending_rejoin_material(
+        &self,
+        request_id: [u8; 16],
+    ) -> Result<bool, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM pending_rejoin_material WHERE request_id = ?)",
+        )
+        .bind(request_id.as_slice())
+        .fetch_one(&self.pool)
+        .await?)
     }
 
     pub(crate) async fn mark_pending_rejoin(
@@ -541,14 +578,27 @@ impl ManagementStore {
             .bind(RECENT_ADMISSION_ATTEMPTS as i64)
             .fetch_all(&self.pool)
             .await?;
-        rows.into_iter().map(|row| {
-            let request = decode_admission_request(&row)?;
-            let authorization = row.try_get::<Option<Vec<u8>>, _>("authorization")?
-                .map(|value| value.try_into().map(Hash::from_bytes).map_err(|_| StoreError::Corrupt("admission authorization")))
-                .transpose()?;
-            Ok(AdmissionHistoryEntry::from_evidence(request.applicant, request.request_id,
-                authorization, row.try_get("rejected")?, row.try_get::<i64, _>("phase")? == 3))
-        }).collect()
+        rows.into_iter()
+            .map(|row| {
+                let request = decode_admission_request(&row)?;
+                let authorization = row
+                    .try_get::<Option<Vec<u8>>, _>("authorization")?
+                    .map(|value| {
+                        value
+                            .try_into()
+                            .map(Hash::from_bytes)
+                            .map_err(|_| StoreError::Corrupt("admission authorization"))
+                    })
+                    .transpose()?;
+                Ok(AdmissionHistoryEntry::from_evidence(
+                    request.applicant,
+                    request.request_id,
+                    authorization,
+                    row.try_get("rejected")?,
+                    row.try_get::<i64, _>("phase")? == 3,
+                ))
+            })
+            .collect()
     }
 
     pub(crate) async fn local_admission_progress(
@@ -556,7 +606,9 @@ impl ManagementStore {
     ) -> Result<Option<(AdmissionAttempt, Option<Hash>)>, StoreError> {
         let Some(row) = sqlx::query("SELECT request_id, progress, authorization FROM local_admission_attempt WHERE singleton = 1")
             .fetch_optional(&self.pool).await? else { return Ok(None) };
-        let request = row.try_get::<Vec<u8>, _>("request_id")?.try_into()
+        let request = row
+            .try_get::<Vec<u8>, _>("request_id")?
+            .try_into()
             .map_err(|_| StoreError::Corrupt("local admission request id"))?;
         let progress = match row.try_get::<i64, _>("progress")? {
             0 => ApplicationProgress::Created,
@@ -566,10 +618,22 @@ impl ManagementStore {
             4 => ApplicationProgress::Rejected,
             _ => return Err(StoreError::Corrupt("local admission progress")),
         };
-        let authorization = row.try_get::<Option<Vec<u8>>, _>("authorization")?
-            .map(|bytes| bytes.try_into().map(Hash::from_bytes).map_err(|_| StoreError::Corrupt("local admission authorization")))
+        let authorization = row
+            .try_get::<Option<Vec<u8>>, _>("authorization")?
+            .map(|bytes| {
+                bytes
+                    .try_into()
+                    .map(Hash::from_bytes)
+                    .map_err(|_| StoreError::Corrupt("local admission authorization"))
+            })
             .transpose()?;
-        Ok(Some((AdmissionAttempt { request_id: request, progress }, authorization)))
+        Ok(Some((
+            AdmissionAttempt {
+                request_id: request,
+                progress,
+            },
+            authorization,
+        )))
     }
 
     pub(crate) async fn save_local_admission_progress(
@@ -640,6 +704,17 @@ impl ManagementStore {
             .bind(receipt.encode().as_slice())
             .execute(&self.pool)
             .await?;
+        if self
+            .admission_history_checkpoint()
+            .await?
+            .is_some_and(|saved| {
+                saved.binding.request == receipt.request_id
+                    && saved.authorization == receipt.authorization
+                    && saved.binding.anchor.genesis == receipt.genesis
+            })
+        {
+            self.clear_admission_history().await?;
+        }
         Ok(())
     }
 
@@ -779,7 +854,7 @@ impl ManagementStore {
 
     /// The returned hash means the complete record is durable, not yet applied.
     pub async fn ingest(&self, record: &ManagementRecord) -> Result<Hash, StoreError> {
-        let header = decode_complete(record.header(), record.body(), self.anchor)?;
+        let header = record.verify_complete(self.anchor)?;
         let id = header.hash();
         let mut tx = self.pool.begin().await?;
         let inserted = Self::insert_record(&mut tx, id, record.header(), record.body()).await?;
@@ -803,6 +878,7 @@ impl ManagementStore {
         &mut self,
         records: &crate::service_protocol::ManagementRecords,
     ) -> Result<(), StoreError> {
+        self.finish_pending_commit().await?;
         let mut next = self.auth.clone();
         let mut additions = Vec::new();
         for (header, body) in records {
@@ -814,9 +890,6 @@ impl ManagementStore {
         if additions.is_empty() {
             return Ok(());
         }
-        if next.headers().len() > crate::service_policy::MAX_RECORDS {
-            return Err(StoreError::HistoryLimit);
-        }
         let mut tx = self.pool.begin().await?;
         let mut next_count = self.applied_count;
         for (id, header, body) in additions {
@@ -825,11 +898,127 @@ impl ManagementStore {
             Self::mark_record_applied(&mut tx, id.as_bytes(), next_count).await?;
         }
         self.save_view(&mut tx, next_count, &next).await?;
-        tx.commit().await?;
-        self.auth = next;
-        self.applied_count = next_count;
-        self.changes.publish();
-        Ok(())
+        self.commit_view(tx, next, next_count).await
+    }
+
+    /// The history receiver already verified these exact originals in order.
+    /// Reuse that view only when it extends this store's current complete prefix.
+    pub(crate) async fn apply_verified_history(
+        &mut self,
+        records: &crate::service_protocol::ManagementRecords,
+        verified: ManagementAuth,
+    ) -> Result<(), StoreError> {
+        self.finish_pending_commit().await?;
+        if verified.headers().len() != records.len()
+            || verified
+                .headers()
+                .iter()
+                .zip(records)
+                .any(|(header, record)| header != &record.0)
+        {
+            return Err(StoreError::Corrupt("verified management records differ"));
+        }
+        if !verified.headers().starts_with(self.auth.headers()) {
+            return self.apply_batch(records).await;
+        }
+        let existing = self.auth.headers().len();
+        if existing == records.len() {
+            return Ok(());
+        }
+        let mut tx = self.pool.begin().await?;
+        let mut count = self.applied_count;
+        for (header, body) in records.iter().skip(existing) {
+            let id = Hash::digest(header);
+            Self::insert_record(&mut tx, id, header, body.as_deref()).await?;
+            count += 1;
+            Self::mark_record_applied(&mut tx, id.as_bytes(), count).await?;
+        }
+        self.save_view(&mut tx, count, &verified).await?;
+        self.commit_view(tx, verified, count).await
+    }
+
+    /// Once COMMIT is handed to SQLite, cancelling its waiter cannot roll it
+    /// back reliably. Keep commitment and live authority publication under one
+    /// owner, and retain the result for this instance even when nobody awaits it.
+    async fn commit_view(
+        &mut self,
+        tx: sqlx::Transaction<'static, sqlx::Sqlite>,
+        auth: ManagementAuth,
+        applied_count: i64,
+    ) -> Result<(), StoreError> {
+        let committed = Arc::new(OnceLock::new());
+        let result = committed.clone();
+        let gate = self.authorization_gate.clone();
+        let publication = self.publication.clone();
+        let changes = self.changes.clone();
+        #[cfg(feature = "replica-test-hooks")]
+        let observer = self.checkpoint_observer;
+        let task = tokio::spawn(async move {
+            tx.commit().await?;
+            #[cfg(feature = "replica-test-hooks")]
+            if let Some(observer) = observer {
+                observer(RecordCheckpoint::AfterGroupsCommit);
+            }
+            let _publication = publication.lock().expect("management publication lock");
+            if let Some(gate) = gate {
+                Self::update_gate(&auth, &gate);
+            }
+            let inserted = result.set(CommittedView {
+                auth,
+                applied_count,
+            });
+            assert!(inserted.is_ok(), "management view published once");
+            changes.publish();
+            Ok(())
+        });
+        self.pending_commit = Some(PendingCommit { committed, task });
+        self.finish_pending_commit().await
+    }
+
+    async fn finish_pending_commit(&mut self) -> Result<(), StoreError> {
+        let Some(pending) = &mut self.pending_commit else {
+            return Ok(());
+        };
+        // Borrow the handle until it completes: cancelling this wait must leave
+        // the handle and its independently readable committed view in the store.
+        let result = (&mut pending.task).await;
+        let pending = self
+            .pending_commit
+            .take()
+            .expect("pending management commit");
+        if let Ok(committed) = Arc::try_unwrap(pending.committed) {
+            if let Some(view) = committed.into_inner() {
+                self.auth = view.auth;
+                self.applied_count = view.applied_count;
+            }
+        } else {
+            unreachable!("completed commit task has released its view");
+        }
+        result.map_err(|_| StoreError::Corrupt("management commit task failed"))?
+    }
+
+    pub(crate) fn attach_authorization_gate(&mut self, gate: crate::admission_gate::AdmissionGate) {
+        self.authorization_gate = Some(gate);
+        self.publish_authorization();
+    }
+
+    fn update_gate(auth: &ManagementAuth, gate: &crate::admission_gate::AdmissionGate) {
+        gate.update_authorization(
+            auth.nodes().into_iter().map(|(id, _)| *id.as_bytes()),
+            auth.removed_nodes().into_iter().map(|id| *id.as_bytes()),
+        );
+    }
+
+    pub(crate) fn publish_authorization(&self) {
+        // Serialize explicit refresh with the commit task so an older snapshot
+        // cannot overwrite the authorization published by a cancelled commit.
+        let _publication = self
+            .publication
+            .lock()
+            .expect("management publication lock");
+        if let Some(gate) = &self.authorization_gate {
+            Self::update_gate(self.authorization(), gate);
+        }
     }
 
     async fn insert_record(
@@ -879,7 +1068,7 @@ impl ManagementStore {
              WHERE singleton = 1 AND applied_count = ?",
         )
         .bind(count)
-        .bind(auth.state_bytes()?)
+        .bind(auth.member_view_bytes()?)
         .bind(self.applied_count)
         .execute(connection)
         .await?;
@@ -890,7 +1079,7 @@ impl ManagementStore {
     }
 
     /// Apply every ready record. A dependency or same-log predecessor can arrive later.
-    /// No external side effects are emitted while replaying or committing this view.
+    /// Only committed views reach the live gate; replay remains side-effect free.
     pub async fn apply_ready(&mut self) -> Result<usize, StoreError> {
         self.apply_ready_inner(|_| false).await
     }
@@ -899,6 +1088,7 @@ impl ManagementStore {
         &mut self,
         mut interrupted: impl FnMut(Checkpoint) -> bool,
     ) -> Result<usize, StoreError> {
+        self.finish_pending_commit().await?;
         let mut applied = 0;
         loop {
             let rows = sqlx::query(
@@ -923,11 +1113,11 @@ impl ManagementStore {
                     .all(|id| self.auth.contains_operation(*id))
                 {
                     let id: Vec<u8> = row.try_get("id")?;
-                    ready = Some((id, header_bytes, body));
+                    ready = Some((id, header_bytes, header));
                     break;
                 }
             }
-            let Some((id, header, body)) = ready else {
+            let Some((id, bytes, header)) = ready else {
                 break;
             };
             #[cfg(feature = "replica-test-hooks")]
@@ -936,7 +1126,7 @@ impl ManagementStore {
                 return Err(StoreError::Interrupted);
             }
             let mut next = self.auth.clone();
-            if let Err(error) = next.accept_record(&header, body.as_deref()) {
+            if let Err(error) = next.accept_decoded_record(&bytes, header) {
                 // A signed but unauthorized record cannot become authorized by
                 // records outside its causal past. Quarantine it durably so it
                 // cannot poison every subsequent drain or process restart.
@@ -970,30 +1160,34 @@ impl ManagementStore {
             }
             #[cfg(feature = "replica-test-hooks")]
             self.observe(RecordCheckpoint::BeforeGroupsCommit);
-            tx.commit().await?;
-            #[cfg(feature = "replica-test-hooks")]
-            self.observe(RecordCheckpoint::AfterGroupsCommit);
+            self.commit_view(tx, next, next_count).await?;
             if interrupted(Checkpoint::AfterGroupsCommit) {
                 return Err(StoreError::Interrupted);
             }
-            self.auth = next;
-            self.applied_count = next_count;
-            self.changes.publish();
             applied += 1;
         }
         Ok(applied)
     }
 
     pub fn nodes(&self) -> Vec<(VerifyingKey, Access)> {
-        self.auth.nodes()
+        self.authorization().nodes()
     }
 
     pub(crate) fn authorization(&self) -> &ManagementAuth {
-        &self.auth
+        self.authorization_snapshot().0
+    }
+
+    pub(crate) fn authorization_snapshot(&self) -> (&ManagementAuth, i64) {
+        self.pending_commit
+            .as_ref()
+            .and_then(|pending| pending.committed.get())
+            .map_or((&self.auth, self.applied_count), |view| {
+                (&view.auth, view.applied_count)
+            })
     }
 
     pub fn known_removed(&self, target: VerifyingKey) -> bool {
-        self.auth.known_removed(target)
+        self.authorization().known_removed(target)
     }
 
     pub fn membership_authorization_valid(
@@ -1001,12 +1195,13 @@ impl ManagementStore {
         authorization: Hash,
         target: VerifyingKey,
     ) -> bool {
-        self.auth
+        self.authorization()
             .membership_authorization_valid(authorization, target)
     }
 
     pub(crate) fn administrator_authorization_origin(&self, target: VerifyingKey) -> Option<Hash> {
-        self.auth.administrator_authorization_origin(target)
+        self.authorization()
+            .administrator_authorization_origin(target)
     }
 
     pub(crate) fn administrator_authorization_valid(
@@ -1014,15 +1209,16 @@ impl ManagementStore {
         origin: Hash,
         target: VerifyingKey,
     ) -> bool {
-        self.auth.administrator_authorization_valid(origin, target)
+        self.authorization()
+            .administrator_authorization_valid(origin, target)
     }
 
     pub fn removed_nodes(&self) -> Vec<VerifyingKey> {
-        self.auth.removed_nodes()
+        self.authorization().removed_nodes()
     }
 
     pub fn applied_count(&self) -> i64 {
-        self.applied_count
+        self.authorization_snapshot().1
     }
 
     pub fn anchor(&self) -> NetworkAnchor {
@@ -1030,7 +1226,7 @@ impl ManagementStore {
     }
 
     pub fn tips(&self) -> Vec<Hash> {
-        self.auth.tips()
+        self.authorization().tips()
     }
 
     /// Preflight local authoring without persisting a rejected action. Actual
@@ -1040,13 +1236,13 @@ impl ManagementStore {
         record: &ManagementRecord,
     ) -> Result<Hash, StoreError> {
         Ok(self
-            .auth
+            .authorization()
             .clone()
             .accept_record(record.header(), record.body())?)
     }
 
     pub fn has_author_log_id(&self, author: VerifyingKey, log_id: [u8; 16]) -> bool {
-        self.auth.has_author_log_id(author, log_id)
+        self.authorization().has_author_log_id(author, log_id)
     }
 
     /// Only committed, authorized records are supplied as control history.
@@ -1058,29 +1254,45 @@ impl ManagementStore {
         .bind(id.as_bytes().as_slice())
         .fetch_optional(&self.pool)
         .await?;
-        row.map(|row| {
-            Ok(ManagementRecord {
-                header: row.try_get("header")?,
-                body: row.try_get("body")?,
-            })
-        })
-        .transpose()
+        row.map(|row| self.applied_record(id, row.try_get("header")?, row.try_get("body")?))
+            .transpose()
+    }
+
+    fn applied_record(
+        &self,
+        id: Hash,
+        header: Vec<u8>,
+        body: Option<Vec<u8>>,
+    ) -> Result<ManagementRecord, StoreError> {
+        let record = ManagementRecord::from_parts(header, body);
+        // SQLite can expose a just-committed row before its task publishes the
+        // runtime view. Keep the ordinary decoding path for that short window.
+        match self.authorization().header_by_hash(id) {
+            Some(verified) => record
+                .with_verified_header(verified)
+                .ok_or(StoreError::Corrupt(
+                    "applied header differs from verified view",
+                )),
+            None => Ok(record),
+        }
     }
 
     /// Complete locally applied history, in the order accepted by this store.
     pub async fn applied_records(&self) -> Result<Vec<ManagementRecord>, StoreError> {
         let rows = sqlx::query(
-            "SELECT header, body FROM management_records
+            "SELECT id, header, body FROM management_records
              WHERE applied_order IS NOT NULL ORDER BY applied_order",
         )
         .fetch_all(&self.pool)
         .await?;
         rows.into_iter()
             .map(|row| {
-                Ok(ManagementRecord {
-                    header: row.try_get("header")?,
-                    body: row.try_get("body")?,
-                })
+                let id: Vec<u8> = row.try_get("id")?;
+                let id = Hash::from_bytes(
+                    id.try_into()
+                        .map_err(|_| StoreError::Corrupt("applied record id"))?,
+                );
+                self.applied_record(id, row.try_get("header")?, row.try_get("body")?)
             })
             .collect()
     }
@@ -1105,7 +1317,9 @@ impl ManagementStore {
         Ok(())
     }
 
-    pub async fn close(self) {
+    pub async fn close(mut self) {
+        let _ = self.finish_pending_commit().await;
+        let _staging = self.staged_admission.lock().await;
         crate::sqlite_shutdown::close(&self.pool).await;
     }
 }
@@ -1124,6 +1338,206 @@ mod tests {
     use p2panda_auth::group::{GroupAction, GroupMember};
     use p2panda_auth::{Access, GroupsExtensionArgs};
     use p2panda_core::{Header, SigningKey};
+
+    #[tokio::test]
+    async fn applied_projection_reuses_only_verified_headers_and_preserves_original_bytes() {
+        let root = SigningKey::generate();
+        let admin = SigningKey::generate();
+        let (anchor, original) = genesis(&root, &admin);
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("management.sqlite");
+        let mut store = ManagementStore::open(&path, anchor).await.unwrap();
+        let id = store.ingest(&original).await.unwrap();
+        assert!(store.get_record(id).await.unwrap().is_none());
+        assert!(store.applied_records().await.unwrap().is_empty());
+        assert!(store.authorization().header_by_hash(id).is_none());
+        assert_eq!(store.apply_ready().await.unwrap(), 1);
+
+        let projected = store.get_record(id).await.unwrap().unwrap();
+        assert_eq!(projected, original);
+        let verified = projected.verified_header().unwrap();
+        assert_eq!(verified.hash(), id);
+        assert_eq!(verified.encode(), original.header());
+        let all = store.applied_records().await.unwrap();
+        assert_eq!(all, vec![original.clone()]);
+        assert!(Arc::ptr_eq(verified, all[0].verified_header().unwrap()));
+        let cloned = store.authorization().clone();
+        assert!(Arc::ptr_eq(verified, &cloned.header_by_hash(id).unwrap()));
+        let (_, unrelated) = genesis(&root, &SigningKey::generate());
+        assert!(unrelated.with_verified_header(verified.clone()).is_none());
+        // Even a cached local projection must cross the ordinary verifier on
+        // ingest; its cache cannot authenticate changed network input.
+        let mut tampered = projected.clone();
+        tampered.header[10] ^= 1;
+        assert!(store.ingest(&tampered).await.is_err());
+        assert_eq!(store.applied_count(), 1);
+
+        let outsider = SigningKey::generate();
+        let unauthorized = Header::<ManagementExtension>::builder().build(
+            &outsider,
+            ManagementExtension {
+                version: 1,
+                log_id: rand::random(),
+                group: GroupsExtensionArgs {
+                    group_id: anchor.root,
+                    action: GroupAction::Add {
+                        member: GroupMember::Individual(outsider.verifying_key()),
+                        access: Access::read(),
+                    },
+                    dependencies: vec![id],
+                },
+            },
+        );
+        let rejected = store
+            .ingest(&ManagementRecord::new(unauthorized.encode(), None))
+            .await
+            .unwrap();
+        assert_eq!(store.apply_ready().await.unwrap(), 0);
+        assert!(store.authorization().header_by_hash(rejected).is_none());
+        assert!(store.get_record(rejected).await.unwrap().is_none());
+        store.close().await;
+
+        let recovered = ManagementStore::open(&path, anchor).await.unwrap();
+        let projected = recovered.get_record(id).await.unwrap().unwrap();
+        assert_eq!(projected, original);
+        assert_eq!(projected.verified_header().unwrap().hash(), id);
+        assert!(recovered.authorization().header_by_hash(rejected).is_none());
+        recovered.close().await;
+    }
+
+    /// Pause the real SQLx worker inside SQLite COMMIT. The async caller is
+    /// cancelled while that worker owns the transaction, then the same node
+    /// must observe its committed authority and continue writing.
+    #[tokio::test]
+    async fn cancelled_commit_publishes_authority_on_the_same_node() {
+        use crate::native_network::NativeNetwork;
+        use std::sync::Arc;
+        use tokio::sync::Notify;
+
+        for batch in [false, true] {
+            for remove in [false, true] {
+                let directory = tempfile::tempdir().unwrap();
+                let mut node = NativeNetwork::create(directory.path().join("node"))
+                    .await
+                    .unwrap();
+                let member = SigningKey::generate();
+                let peer = iroh_base::SecretKey::from_bytes(member.as_bytes()).public();
+                let record = |node: &NativeNetwork, action| {
+                    let header = Header::<ManagementExtension>::builder()
+                        .build(
+                            &node.node_key,
+                            ManagementExtension {
+                                version: 1,
+                                log_id: rand::random(),
+                                group: GroupsExtensionArgs {
+                                    group_id: node.anchor.root,
+                                    action,
+                                    dependencies: node.store.tips(),
+                                },
+                            },
+                        )
+                        .encode();
+                    ManagementRecord::new(header, None)
+                };
+                let add = || GroupAction::Add {
+                    member: GroupMember::Individual(member.verifying_key()),
+                    access: Access::read(),
+                };
+                if remove {
+                    let first = record(&node, add());
+                    node.ingest_management_record(first.header(), first.body())
+                        .await
+                        .unwrap();
+                }
+                let action = if remove {
+                    GroupAction::Remove {
+                        member: GroupMember::Individual(member.verifying_key()),
+                    }
+                } else {
+                    add()
+                };
+                let next = record(&node, action);
+                let before = node.status().applied_count;
+                if !batch {
+                    node.store.ingest(&next).await.unwrap();
+                }
+
+                let entered = Arc::new(Notify::new());
+                let (release, wait) = std::sync::mpsc::channel();
+                {
+                    let mut connection = node.store.pool.acquire().await.unwrap();
+                    let entered = entered.clone();
+                    connection
+                        .lock_handle()
+                        .await
+                        .unwrap()
+                        .set_commit_hook(move || {
+                            entered.notify_one();
+                            let _ = wait.recv();
+                            // SQLx uses true to allow COMMIT (the inverse of
+                            // SQLite's raw callback return value).
+                            true
+                        });
+                }
+                let mut changes = node.store.changes.subscribe();
+                let records = vec![(next.header().to_vec(), next.body().map(<[u8]>::to_vec))];
+                let mut applying = Box::pin(async {
+                    if batch {
+                        node.store.apply_batch(&records).await
+                    } else {
+                        node.store.apply_ready().await.map(|_| ())
+                    }
+                });
+                tokio::select! {
+                    _ = entered.notified() => {},
+                    result = &mut applying => panic!("COMMIT was not paused: {result:?}"),
+                }
+                drop(applying);
+                assert_eq!(node.status().applied_count, before);
+                assert_eq!(node.gate.member_contact_allowed(peer), remove);
+                release.send(()).unwrap();
+                {
+                    let mut connection = node.store.pool.acquire().await.unwrap();
+                    let durable_count: i64 = sqlx::query_scalar(
+                        "SELECT applied_count FROM management_view WHERE singleton = 1",
+                    )
+                    .fetch_one(&mut *connection)
+                    .await
+                    .unwrap();
+                    connection.lock_handle().await.unwrap().remove_commit_hook();
+                    assert_eq!(
+                        durable_count,
+                        before + 1,
+                        "SQLite COMMIT must have succeeded"
+                    );
+                }
+                tokio::time::timeout(std::time::Duration::from_secs(2), changes.changed())
+                    .await
+                    .expect("cancelled COMMIT must publish its live view")
+                    .unwrap();
+                assert_eq!(node.status().applied_count, before + 1);
+                assert_eq!(node.gate.member_contact_allowed(peer), !remove);
+                assert_eq!(node.store.known_removed(member.verifying_key()), remove);
+                assert_eq!(node.store.apply_ready().await.unwrap(), 0);
+                let following = record(
+                    &node,
+                    if remove {
+                        add()
+                    } else {
+                        GroupAction::Remove {
+                            member: GroupMember::Individual(member.verifying_key()),
+                        }
+                    },
+                );
+                node.ingest_management_record(following.header(), following.body())
+                    .await
+                    .unwrap();
+                assert_eq!(node.status().applied_count, before + 2);
+                assert_eq!(node.gate.member_contact_allowed(peer), remove);
+                node.store.close().await;
+            }
+        }
+    }
 
     fn genesis(root: &SigningKey, admin: &SigningKey) -> (NetworkAnchor, ManagementRecord) {
         let header = Header::<ManagementExtension>::builder()

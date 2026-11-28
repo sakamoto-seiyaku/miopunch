@@ -27,23 +27,21 @@ const SWITCHED: &str = "migration.switched";
 const EXITED: &str = "migration.exited";
 const CANCELLING: &str = "migration.cancelling";
 const CANCELLED: &str = "migration.cancelled";
+const RESTART: &str = "migration.restart";
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum MigrationPhase {
-    Cancelling,
-    Cancelled,
-    Preparing,
-    PendingMaterials,
-    MaterialsSaved,
-    Validated,
-    Switched,
-    SourceExited,
-}
+pub use crate::migration_progress::MigrationPhase;
 
 pub(crate) fn client_invitation(
     directory: &Path,
 ) -> Result<Option<crate::client_invitation::ClientInvitation>, NodeError> {
-    let bytes = match std::fs::read(directory.join(INVITATION)) {
+    // A confirmed retry owns the next target even if the process stopped while
+    // removing the rejected target or replacing its original invitation.
+    let pending = directory.join(RESTART);
+    let bytes = match std::fs::read(if pending.exists() {
+        pending
+    } else {
+        directory.join(INVITATION)
+    }) {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(error.into()),
@@ -52,7 +50,9 @@ pub(crate) fn client_invitation(
         // The low-level coordinator stores the fixed-width ManualInvitation.
         return Ok(None);
     }
-    Ok(Some(crate::client_invitation::ClientInvitation::decode(&bytes)?))
+    Ok(Some(crate::client_invitation::ClientInvitation::decode(
+        &bytes,
+    )?))
 }
 
 pub(crate) fn confirm_client_invitation(
@@ -60,6 +60,43 @@ pub(crate) fn confirm_client_invitation(
     invitation: &crate::client_invitation::ClientInvitation,
 ) -> Result<(), NodeError> {
     publish(directory, INVITATION, &invitation.encode()?)
+}
+
+pub(crate) fn restart_client_invitation(
+    directory: &Path,
+    invitation: &crate::client_invitation::ClientInvitation,
+) -> Result<(), NodeError> {
+    publish(directory, RESTART, &invitation.encode()?)?;
+    recover_client_restart(directory)
+}
+
+pub(crate) fn recover_client_restart(directory: &Path) -> Result<(), NodeError> {
+    let bytes = match std::fs::read(directory.join(RESTART)) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    crate::client_invitation::ClientInvitation::decode(&bytes)?;
+    if committed_switch(directory)? {
+        return Err(NodeError::InvalidData);
+    }
+    match std::fs::remove_dir_all(target_directory(directory)) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
+    match std::fs::remove_file(directory.join(VALIDATED)) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
+    sync_directory(directory)?;
+    // This intent is removed before a new worker can create its target. Recovery
+    // can therefore repeat the reset without erasing any new admission result.
+    crate::native_files::write_private_atomic(&directory.join(INVITATION), &bytes)?;
+    std::fs::remove_file(directory.join(RESTART))?;
+    sync_directory(directory)?;
+    Ok(())
 }
 
 pub(crate) fn target_directory(source: &Path) -> PathBuf {

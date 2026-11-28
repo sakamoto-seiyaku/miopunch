@@ -289,15 +289,22 @@ pub(crate) async fn serve_policy(
     services: Arc<Mutex<NativeServices>>,
     files: Arc<NativeFiles>,
     deadline: tokio::time::Instant,
+    commits: tokio_util::task::TaskTracker,
 ) -> Result<(), ClientError> {
     let result = async {
         let admitted = {
             let node = node.lock().await;
             member_sync_admission(&node, &connection)?
         };
+        let anchor = node.lock().await.anchor;
+        let (local, known) = {
+            let node = node.lock().await;
+            (services.lock().await.snapshot(&node).await?.management, node.store.authorization().clone())
+        };
         let (mut stream, remote) = tokio::time::timeout_at(deadline, async {
             let mut stream = crate::data_stream::DataStream::accept(&connection).await?;
-            let remote = MemberSync::read(&mut stream).await?;
+            let remote = MemberSync::read_resuming(&mut stream, anchor, local, known,
+                |page| retain_member_page(&node, &services, &files, &admitted, &commits, page)).await?;
             Ok::<_, std::io::Error>((stream, remote))
         })
         .await??;
@@ -313,7 +320,7 @@ pub(crate) async fn serve_policy(
             services.member_sync(&node, mode).await?
         };
         tokio::time::timeout_at(deadline, async {
-            response.write(&mut stream).await?;
+            response.write_resuming(&mut stream).await?;
             stream.finish()
         })
         .await??;
@@ -325,6 +332,7 @@ pub(crate) async fn serve_policy(
     result
 }
 
+#[derive(Clone)]
 struct MemberSyncAdmission {
     proof: Arc<crate::admission_proof::BootstrapProof>,
     membership: MemberSyncMembership,
@@ -364,24 +372,53 @@ fn require_current_member_sync_access(
     }
 }
 
+async fn retain_member_page(
+    node: &Arc<Mutex<NativeNetwork>>,
+    services: &Arc<Mutex<NativeServices>>,
+    files: &Arc<NativeFiles>,
+    admitted: &MemberSyncAdmission,
+    commits: &tokio_util::task::TaskTracker,
+    records: crate::service_protocol::ManagementRecords,
+) -> std::io::Result<()> {
+    let node = node.clone();
+    let services = services.clone();
+    let files = files.clone();
+    let admitted = admitted.clone();
+    commits
+        .spawn(async move {
+            let mut node = node.lock().await;
+            require_current_member_sync_access(&node, &admitted)?;
+            node.store.apply_batch(&records).await?;
+            node.refresh_authorization();
+            services.lock().await.refresh_access(&node, &files).await?;
+            Ok::<_, ClientError>(())
+        })
+        .await
+        .map_err(std::io::Error::other)?
+        .map_err(|error| std::io::Error::other(error.to_string()))
+}
+
 pub(crate) async fn sync_member(
     connection: &iroh::endpoint::Connection,
-    node: &Mutex<NativeNetwork>,
-    services: &Mutex<NativeServices>,
+    node: &Arc<Mutex<NativeNetwork>>,
+    services: &Arc<Mutex<NativeServices>>,
     files: &Arc<NativeFiles>,
     mode: MemberSyncMode,
     deadline: tokio::time::Instant,
+    commits: &tokio_util::task::TaskTracker,
 ) -> Result<(), ClientError> {
-    let (snapshot, admitted) = {
+    let (snapshot, admitted, known) = {
         let node = node.lock().await;
         let admitted = member_sync_admission(&node, connection)?;
         let mut services = services.lock().await;
         if mode == MemberSyncMode::Full {
             services.refresh_local_declarations(&node, files).await?;
         }
-        (services.member_sync(&node, mode).await?, admitted)
+        (services.member_sync(&node, mode).await?, admitted, node.store.authorization().clone())
     };
-    let remote = tokio::time::timeout_at(deadline, snapshot.exchange(connection)).await??;
+    let anchor = node.lock().await.anchor;
+    let remote = tokio::time::timeout_at(deadline, snapshot.exchange_resuming(connection, anchor, known,
+        |page| retain_member_page(node, services, files, &admitted, commits, page))).await??;
     let mut node = node.lock().await;
     require_current_member_sync_access(&node, &admitted)?;
     services
@@ -793,6 +830,7 @@ impl crate::native_client::NativeClient {
             &client_runtime.files,
             MemberSyncMode::Full,
             deadline.into(),
+            &client_runtime.removal_commits,
         )
         .await;
         connection.close(0u32.into(), b"service policy exchange ended");

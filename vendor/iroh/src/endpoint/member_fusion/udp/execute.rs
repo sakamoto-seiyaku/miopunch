@@ -393,30 +393,19 @@ impl FamilyPlanning {
         })
         .await?;
         incoming.close();
-        #[cfg(feature = "miopunch-test-hooks")]
-        let mut hold = self.connection.commit_gate().take();
         self.finish_business(
             stream,
             plan,
             &winner,
             path,
             retained,
+            candidate,
             recommendation,
             state,
             business,
             &peer,
-            #[cfg(feature = "miopunch-test-hooks")]
-            &mut hold,
         )
-        .await?;
-        if let Some(candidate) = candidate {
-            candidate.retain();
-        }
-        #[cfg(feature = "miopunch-test-hooks")]
-        if let Some(hold) = hold {
-            hold.retained();
-        }
-        Ok(())
+        .await
     }
 
     fn permits_winner(&self, winner: &Winner) -> io::Result<()> {
@@ -559,12 +548,11 @@ impl FamilyPlanning {
         winner: &Winner,
         path: PathId,
         mut retained: Option<UdpSocketPathLease>,
+        candidate: Option<UdpCandidatePath>,
         recommendation: Option<Recommendation>,
         state: &Execution,
         business: Business,
         peer: &noq::StreamControl,
-        #[cfg(feature = "miopunch-test-hooks")]
-        hold: &mut Option<super::super::commit_fixture::Hold>,
     ) -> io::Result<()> {
         let round = Round(plan.round);
         let selected = || {
@@ -608,25 +596,29 @@ impl FamilyPlanning {
                 .map_err(|_| io::ErrorKind::Interrupted.into())
         })
         .await?;
-        #[cfg(feature = "miopunch-test-hooks")]
-        if let Some(hold) = hold {
-            hold.pause(crate::endpoint::PathCommitPoint::BeforeConfirmation, stream).await?;
-        }
-        selected()?;
-        exchange_phase(
-            stream,
-            &round.business(wire::BUSINESS_CONFIRMED, business.stream),
+        let confirmation = round.business(wire::BUSINESS_CONFIRMED, business.stream);
+        super::super::confirm_member_path(
+            &confirmation,
+            async {
+                selected()?;
+                send(stream, &confirmation).await
+            },
+            receive(stream),
+            async {
+                stream.finish_send().await?;
+                selected()?;
+                if let Some(lease) = &mut retained {
+                    lease.commit(&self.connection)?;
+                }
+                if let Some(candidate) = candidate {
+                    candidate.retain();
+                }
+                Ok(())
+            },
+            #[cfg(feature = "miopunch-test-hooks")]
+            (self.connection.commit_gate(), stream),
         )
         .await?;
-        #[cfg(feature = "miopunch-test-hooks")]
-        if let Some(hold) = hold {
-            hold.pause(crate::endpoint::PathCommitPoint::AfterConfirmation, stream).await?;
-        }
-        stream.finish_send().await?;
-        selected()?;
-        if let Some(lease) = &mut retained {
-            lease.commit(&self.connection)?;
-        }
         let completed = StdInstant::now();
         let learned = recommendation.as_ref().is_some_and(|recommendation| {
             self.owner.analyzer[self.index()]

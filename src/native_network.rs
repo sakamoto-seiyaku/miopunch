@@ -550,10 +550,7 @@ impl NativeNetwork {
         let node_id = SecretKey::from_bytes(node_key.as_bytes()).public();
         let gate = AdmissionGate::new(node_id, scope.clone(), secret.clone());
         gate.register_p2panda_defaults(*anchor.root.as_bytes());
-        gate.update_authorization(
-            store.nodes().into_iter().map(|(id, _)| *id.as_bytes()),
-            store.removed_nodes().into_iter().map(|id| *id.as_bytes()),
-        );
+        store.attach_authorization_gate(gate.clone());
         let mut udp = NatConnector::new(None, UdpPolicy::default());
         if let Ok(config) =
             crate::resources::ResourceConfig::load(&path.join(RESOURCE_CONFIGURATION))
@@ -616,13 +613,14 @@ impl NativeNetwork {
     }
 
     pub fn status(&self) -> NodeStatus {
-        let mut members = self.store.nodes();
+        let (authorization, applied_count) = self.store.authorization_snapshot();
+        let mut members = authorization.nodes();
         members.sort_by_key(|(id, _)| *id.as_bytes());
         NodeStatus {
             node_id: self.node_key.verifying_key(),
             anchor: self.anchor,
             members,
-            applied_count: self.store.applied_count(),
+            applied_count,
         }
     }
 
@@ -1235,13 +1233,7 @@ impl NativeNetwork {
     }
 
     pub(crate) fn refresh_authorization(&self) {
-        self.gate.update_authorization(
-            self.store.nodes().into_iter().map(|(id, _)| *id.as_bytes()),
-            self.store
-                .removed_nodes()
-                .into_iter()
-                .map(|id| *id.as_bytes()),
-        );
+        self.store.publish_authorization();
     }
 
     pub(crate) fn membership_ended(&self) -> bool {

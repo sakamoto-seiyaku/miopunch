@@ -194,7 +194,8 @@ impl NativeClient {
             let mut stream = DataStream::open(&connection).await?;
             write_exchange(&mut stream, &request, &history).await?;
             let reply: CustodyReply = read_message(&mut stream).await?;
-            let history = ServiceBundle::read(&mut stream).await?;
+            let anchor = client_runtime.node.lock().await.anchor;
+            let history = ServiceBundle::read_verified(&mut stream, anchor).await?;
             let mut node = client_runtime.node.lock().await;
             client_runtime.services
                 .lock()
@@ -397,7 +398,8 @@ pub(crate) async fn serve_custody(
         let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes())?;
         let mut stream = DataStream::accept(&connection).await?;
         let request: CustodyRequest = read_message(&mut stream).await?;
-        let history = ServiceBundle::read(&mut stream).await?;
+        let anchor = node.lock().await.anchor;
+        let history = ServiceBundle::read_verified(&mut stream, anchor).await?;
         let (reply, history) = {
             let mut node = node.lock().await;
             let mut services = services.lock().await;

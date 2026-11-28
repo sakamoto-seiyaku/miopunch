@@ -38,7 +38,7 @@ impl SavedNode {
         Ok(next)
     }
     pub(super) fn approval_history(&self, approval: &DeviceApproval) -> Records {
-        let mut records = self.records.clone();
+        let mut records = self.records.to_vec();
         if !records
             .iter()
             .any(|(h, _)| Hash::digest(h) == approval.record_id())
@@ -248,7 +248,7 @@ impl BrowserNetwork {
         .await
         .map_err(error)?;
         let reply: DeviceReply = read_message(&mut stream).await.map_err(error)?;
-        let history = ServiceBundle::read(&mut stream).await.map_err(error)?;
+        let history = ServiceBundle::read_verified(&mut stream, self.saved.invitation()?.anchor).await.map_err(error)?;
         let policy_error = self.gate.update_saved(|saved| {
             let (mut next, policy_error) = saved.with_service_bundle(&history)?;
             if let Some(approval) = reply.approval {
@@ -409,7 +409,7 @@ pub(super) async fn serve_device(
     let peer = VerifyingKey::from_bytes(connection.remote_id().as_bytes()).map_err(error)?;
     let mut stream = DataStream::accept(connection).await.map_err(error)?;
     let request: DeviceRequest = read_message(&mut stream).await.map_err(error)?;
-    let history = ServiceBundle::read(&mut stream).await.map_err(error)?;
+    let history = ServiceBundle::read_verified(&mut stream, gate.service_snapshot()?.invitation()?.anchor).await.map_err(error)?;
     let policy_error = gate.update_saved(|saved| {
         let (next, policy_error) = saved.with_service_bundle(&history)?;
         *saved = next;
