@@ -10,7 +10,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 #[cfg(unix)]
 use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use iroh::endpoint::{Builder, RestrictedEndpoint, presets};
 use iroh::{Endpoint, SecretKey};
@@ -27,7 +27,7 @@ use crate::management_auth::{ManagementExtension, NetworkAnchor};
 use crate::management_recovery::RecoveryBinding;
 use crate::management_store::{ManagementRecord, ManagementStore, StoreError};
 use crate::manual_admission::{JoinBinding, ManualInvitation};
-use crate::nat_connection::{NatConnector, UdpPolicy, UdpUpgrade};
+use crate::nat_connection::{ControlUdpTraversal, NatConnector, RoundState, UdpPolicy, UdpUpgrade};
 use crate::native_files::{publish_file, replace_file, sync_directory};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -190,6 +190,7 @@ pub struct NativeNetwork {
     pub(crate) directory: PathBuf,
     pub(crate) device_names: DeviceNames,
     udp: Arc<NatConnector>,
+    control_udp_rounds: Arc<OnceLock<RoundState>>,
 }
 
 impl NativeNetwork {
@@ -587,6 +588,7 @@ impl NativeNetwork {
             directory: path.to_path_buf(),
             device_names,
             udp: Arc::new(udp),
+            control_udp_rounds: Arc::default(),
         };
         node.restore_rotation_gate().await?;
         // Completed recovery and the signed canonical creation history remain
@@ -876,14 +878,14 @@ impl NativeNetwork {
             None
         } else {
             let observers = resources.relay_map(crate::resources::ResourceUse::Observation)?;
-            let udp = Arc::new(self.udp.for_endpoint(
+            let udp = self.udp.for_endpoint(
                 (!observers.is_empty()).then_some(observers),
                 resources.udp_stun_resources(),
                 !resources.udp_direct_disabled,
                 &resources.maintenance,
-            )?);
+            )?;
             Some(crate::native_path_adapter::NativePathAdapter::new(
-                udp,
+                ControlUdpTraversal::for_node(Arc::new(udp), self.control_udp_rounds.clone()),
                 tcp_punch.clone(),
             ))
         };
@@ -1199,13 +1201,18 @@ impl NativeNetwork {
         &self.udp
     }
 
+    /// UDP negotiation on restricted control sessions for this node.
+    pub fn control_udp(&self) -> ControlUdpTraversal {
+        ControlUdpTraversal::for_node(self.udp.clone(), self.control_udp_rounds.clone())
+    }
+
     /// Upgrade an admitted control session using direct candidates first, then
     /// a bounded sequence of complete automatically selected old UDP plans.
     pub async fn upgrade_udp(
         &self,
         control: crate::control_session::ControlSession,
     ) -> Result<UdpUpgrade, crate::control_session::CommitError> {
-        self.udp.upgrade(control, &self.gate).await
+        self.control_udp().upgrade(control, &self.gate).await
     }
 
     /// Ingest and apply a complete signed management record through the same

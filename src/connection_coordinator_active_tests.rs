@@ -206,8 +206,7 @@ async fn maintenance_fairness_fixture() {
     }
     let gate = caller.admission_gate();
     let udp = caller
-        .udp_connector()
-        .clone()
+        .control_udp()
         .with_maintenance_policy(&caller.resource_configuration().unwrap().maintenance)
         .unwrap();
     let caller = caller.maintain_network_with_rtc(Ipv4Addr::LOCALHOST, crate::rtc_transport::RtcTransport::new(), |b| b, |r| r).await.unwrap();
@@ -1032,7 +1031,7 @@ async fn production_native_active_scenario(udp_enabled: bool, reverse: bool) {
             ae.endpoint().control_handle(&original),
         );
         let snapshot = a
-            .udp_connector()
+            .control_udp()
             .observe(&observation, &a.admission_gate())
             .await
             .unwrap();
@@ -1356,7 +1355,7 @@ async fn active_native_budget_deferral_preserves_another_members_original_stream
     }).await.expect("both originals are carried only by the controlled relay");
     let hold = ControlSession::from_control(be.endpoint().control_handle(&held_remote));
     let held = b
-        .udp_connector()
+        .control_udp()
         .observe(&hold, &b.admission_gate())
         .await
         .unwrap();
@@ -1437,7 +1436,7 @@ async fn active_native_budget_deferral_preserves_another_members_original_stream
     assert_eq!(&bytes, b"after!");
     drop(held);
     assert!(
-        b.udp_connector()
+        b.control_udp()
             .observe(&hold, &b.admission_gate())
             .await
             .unwrap()
@@ -1543,7 +1542,7 @@ async fn scripted_native_udp_result(offer_count: Option<u16>, reverse: bool) {
     let _held = if offer_count.is_some() {
         let observing = ControlSession::from_control(ae.endpoint().control_handle(&original));
         Some(
-            a.udp_connector()
+            a.control_udp()
                 .observe(&observing, &a.admission_gate())
                 .await
                 .unwrap(),

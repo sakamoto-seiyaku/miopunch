@@ -23,7 +23,7 @@ use miopunch_native_probe::{
     admission_proof::{AdmissionScope, AdmissionSecret},
     control_session::{CommitError, ControlSession},
     mqtt_transport::{MqttTransport, Traffic},
-    nat_connection::{NatConnector, UdpPolicy},
+    nat_connection::{ControlUdpTraversal, UdpPolicy},
     nat_mapping::{self, MappingPattern, MappingSample, NodeProbeBudget, PunchRole},
     nat_punch::{self, Attempt, ExecutionStatus, MappingSnapshot},
     nat_selector::Analyzer,
@@ -2266,7 +2266,7 @@ async fn run_formal(
         }
         policy
     };
-    let connector = NatConnector::new(observers, policy);
+    let connector = ControlUdpTraversal::new(observers, policy);
     let upgrade = match connector.upgrade(control, &gate).await {
         Ok(upgrade) => upgrade,
         Err(CommitError::Retryable { error, session }) => {
@@ -2282,11 +2282,7 @@ async fn run_formal(
     let mut upgrade = upgrade;
     let before = traffic.sent_packets();
     let payload: &[u8] = if accepting { b"NAT_ACK" } else { b"NAT_DATA" };
-    let received = connector
-        .exchange_upgrade_business(&mut upgrade, &gate, payload)
-        .await?;
-    let mut data = upgrade.data;
-    let attempt = upgrade.attempt;
+    let received = upgrade.exchange_business(payload).await?;
     if received
         != (if accepting {
             b"NAT_DATA".as_slice()
@@ -2297,9 +2293,9 @@ async fn run_formal(
     {
         return Err("wrong business payload or MQTT business transmission".into());
     }
-    if let Some(attempt) = attempt.as_ref() {
+    if let Some(attempt) = upgrade.attempt() {
         let binding = attempt.local_winner().ok_or("missing physical winner")?;
-        let paths = data.connection().paths();
+        let paths = upgrade.data.connection().paths();
         let path = paths
             .iter()
             .find(|path| path.is_selected())
@@ -2314,14 +2310,14 @@ async fn run_formal(
     }
     println!(
         "DATA_OK stable_id={stable} peer={peer} kind={} paths={:?} mqtt_after_commit={before}",
-        if upgrade.direct.is_some() {
+        if upgrade.direct().is_some() {
             "direct"
         } else {
             "punching"
         },
-        data.connection().paths()
+        upgrade.data.connection().paths()
     );
-    data.take_pending_business();
+    upgrade.data.take_pending_business();
     // Both original peers finish their receipts before disposable lab teardown.
     tokio::time::sleep(Duration::from_millis(100)).await;
     endpoint.close().await;

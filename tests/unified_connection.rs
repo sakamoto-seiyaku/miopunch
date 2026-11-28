@@ -1855,7 +1855,7 @@ async fn first_member_admission_preserves_nat_budget_deferral_across_a_rebind() 
             panic!("holding observation evidence never releases business");
         });
     let held = b
-        .udp_connector()
+        .control_udp()
         .observe(&control, &b.admission_gate())
         .await
         .unwrap();

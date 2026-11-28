@@ -12,7 +12,7 @@ use crate::{
     admission_gate::{AdmissionGate, PathQualification},
     connection_coordinator::{PreparedPath, ProtectedAttempt},
     control_session::ControlSession,
-    nat_connection::{NatConnector, PreparedUdpPath},
+    nat_connection::{ControlUdpTraversal, PreparedUdpPath},
     session_maintenance::MaintenanceDeferral,
     tcp_punch::{PreparedTcpPath, TcpPunch},
 };
@@ -25,7 +25,7 @@ pub(crate) enum NativeMechanism {
 
 #[derive(Clone)]
 pub(crate) struct NativePathAdapter {
-    udp: Arc<NatConnector>,
+    udp: ControlUdpTraversal,
     tcp: Option<TcpPunch>,
 }
 impl std::fmt::Debug for NativePathAdapter {
@@ -38,12 +38,12 @@ impl std::fmt::Debug for NativePathAdapter {
     }
 }
 impl NativePathAdapter {
-    pub(crate) fn new(udp: Arc<NatConnector>, tcp: Option<TcpPunch>) -> Self {
+    pub(crate) fn new(udp: ControlUdpTraversal, tcp: Option<TcpPunch>) -> Self {
         Self { udp, tcp }
     }
 
     pub(crate) fn udp_available(&self) -> bool {
-        self.udp.udp_enabled()
+        self.udp.config().udp_enabled()
     }
 
     pub(crate) fn udp_round_wait_until(

@@ -26,7 +26,6 @@ use crate::{
 
 const FRAME_LIMIT: usize = 16 * 1024;
 const EXCHANGE_WAIT: Duration = Duration::from_secs(5);
-pub(crate) use iroh::endpoint::nat_plan::MAX_OBSERVATIONS;
 pub use iroh::endpoint::nat_plan::{Plan, SNAPSHOT_LIFETIME};
 
 #[derive(Debug, Clone)]

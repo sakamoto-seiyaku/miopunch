@@ -239,7 +239,7 @@ async fn public_udp_upgrade_advertises_all_address_classes_within_the_wire_limit
 
 #[tokio::test]
 async fn ordinary_candidate_probes_leave_a_real_slot_for_the_udp_winner() {
-    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    use miopunch_native_probe::nat_connection::{ControlUdpTraversal, UdpPolicy};
     let (_directories, visitor, pair) = native_upgrade_pair(&[], true).await;
     let (peer, mut client) = pair.connect().await;
     assert!(
@@ -314,7 +314,7 @@ async fn ordinary_candidate_probes_leave_a_real_slot_for_the_udp_winner() {
         .close()
         .unwrap();
     let ids = (original.stable_id(), peer.stable_id());
-    let peer_connector = NatConnector::new(None, UdpPolicy::default());
+    let peer_connector = ControlUdpTraversal::new(None, UdpPolicy::default());
     let mut client = client;
     let mut peer = peer;
     client.queue_business(b"queued client".to_vec()).unwrap();
@@ -340,7 +340,7 @@ async fn ordinary_candidate_probes_leave_a_real_slot_for_the_udp_winner() {
     let (visitor_upgrade, (mut peer_attempt, mut peer_data)) =
         tokio::join!(visitor.upgrade_udp(client), peer_upgrade);
     let mut visitor_upgrade = visitor_upgrade.unwrap();
-    assert!(visitor_upgrade.attempt.is_some());
+    assert!(visitor_upgrade.attempt().is_some());
     assert_eq!(
         visitor_upgrade
             .data
@@ -370,9 +370,7 @@ async fn ordinary_candidate_probes_leave_a_real_slot_for_the_udp_winner() {
         );
     }
     let (client_bytes, peer_bytes) = tokio::join!(
-        visitor.udp_connector().exchange_upgrade_business(
-            &mut visitor_upgrade,
-            &pair.v_gate,
+        visitor_upgrade.exchange_business(
             b"visitor payload"
         ),
         peer_connector.exchange_business(
@@ -390,7 +388,7 @@ async fn ordinary_candidate_probes_leave_a_real_slot_for_the_udp_winner() {
 #[tokio::test]
 async fn formal_entry_observes_selects_executes_and_confirms_original_business() {
     use miopunch_native_probe::{
-        nat_connection::{NatConnector, UdpPolicy},
+        nat_connection::{ControlUdpTraversal, UdpPolicy},
         resources::{Resource, ResourceUse},
     };
     let pair = Pair::new().await;
@@ -433,8 +431,8 @@ async fn formal_entry_observes_selects_executes_and_confirms_original_business()
             reply_to_stun(&stun, None).await;
         }
     });
-    let cn = NatConnector::new(Some(pair.observers.clone()), UdpPolicy::default());
-    let vn = visitor.udp_connector();
+    let cn = ControlUdpTraversal::new(Some(pair.observers.clone()), UdpPolicy::default());
+    let vn = visitor.control_udp();
     let (ca, va) = tokio::time::timeout(Duration::from_secs(3), async {
         tokio::join!(cn.prepare(&c, &pair.c_gate), vn.prepare(&v, &pair.v_gate))
     })
@@ -491,13 +489,13 @@ async fn formal_entry_observes_selects_executes_and_confirms_original_business()
 
 #[tokio::test]
 async fn single_observation_builds_a_basic_plan_without_nat_classification() {
-    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    use miopunch_native_probe::nat_connection::{ControlUdpTraversal, UdpPolicy};
 
     let pair = Pair::new().await;
     let (c, v) = pair.connect().await;
     let observer = pair.observers.relays::<Vec<_>>().pop().unwrap();
-    let cn = NatConnector::new(Some(RelayMap::from_iter([observer])), UdpPolicy::default());
-    let vn = NatConnector::new(Some(pair.observers.clone()), UdpPolicy::default());
+    let cn = ControlUdpTraversal::new(Some(RelayMap::from_iter([observer])), UdpPolicy::default());
+    let vn = ControlUdpTraversal::new(Some(pair.observers.clone()), UdpPolicy::default());
     let (ca, va) = tokio::join!(cn.prepare(&c, &pair.c_gate), vn.prepare(&v, &pair.v_gate));
     let (ca, va) = (ca.unwrap(), va.unwrap());
     assert_eq!(va.mapped_candidates(), pair.c.bound_sockets());
@@ -509,15 +507,15 @@ async fn single_observation_builds_a_basic_plan_without_nat_classification() {
 
 #[tokio::test]
 async fn formal_entry_replenishes_a_complete_round_in_a_new_network_generation() {
-    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    use miopunch_native_probe::nat_connection::{ControlUdpTraversal, UdpPolicy};
 
     let pair = Pair::new().await;
     let policy = UdpPolicy {
         additional_observations: 2,
         ..Default::default()
     };
-    let cn = NatConnector::new(Some(pair.observers.clone()), policy.clone());
-    let vn = NatConnector::new(Some(pair.observers.clone()), policy);
+    let cn = ControlUdpTraversal::new(Some(pair.observers.clone()), policy.clone());
+    let vn = ControlUdpTraversal::new(Some(pair.observers.clone()), policy);
     for round in 0..2 {
         let (c, v) = pair.connect().await;
         let (ca, va) = tokio::join!(cn.prepare(&c, &pair.c_gate), vn.prepare(&v, &pair.v_gate));
@@ -540,7 +538,7 @@ async fn formal_entry_replenishes_a_complete_round_in_a_new_network_generation()
 async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_round() {
     use miopunch_native_probe::{
         control_session::CommitError,
-        nat_connection::{NatConnector, UdpPolicy},
+        nat_connection::{ControlUdpTraversal, UdpPolicy},
         network_maintenance::MaintenancePolicy,
         resources::{Resource, ResourceUse},
     };
@@ -619,7 +617,7 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
         &allowed,
     )
     .await;
-    let peer_connector = NatConnector::new(None, UdpPolicy::default())
+    let peer_connector = ControlUdpTraversal::new(None, UdpPolicy::default())
         .with_maintenance_policy(&MaintenancePolicy {
             enhanced_udp_cooldown_ms: 8_000,
             ..Default::default()
@@ -644,9 +642,9 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
         .unwrap();
         visitor.udp_connector().set_udp_enabled(false);
     };
+    let traversal = visitor.control_udp();
     let (observed, ()) = tokio::join!(
-        visitor
-            .udp_connector()
+        traversal
             .observe(&revoke_client, &pair.v_gate),
         revoke
     );
@@ -742,8 +740,7 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
         let mut upgrade = upgrade.unwrap();
         assert!(
             upgrade
-                .attempt
-                .as_ref()
+                .attempt()
                 .unwrap()
                 .execution_trace()
                 .is_some()
@@ -769,9 +766,7 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
             );
         }
         let (a, b) = tokio::join!(
-            visitor.udp_connector().exchange_upgrade_business(
-                &mut upgrade,
-                &pair.v_gate,
+            upgrade.exchange_business(
                 b"visitor byte"
             ),
             peer_connector.exchange_business(
@@ -789,7 +784,7 @@ async fn native_upgrade_reserves_qad_and_both_stun_observers_on_each_eligible_ro
         next = pair.connect().await;
         assert_eq!(
             visitor
-                .udp_connector()
+                .control_udp()
                 .observe(&next.1, &pair.v_gate)
                 .await
                 .unwrap_err()
@@ -941,14 +936,14 @@ async fn timed_out_enhanced_plan_does_not_reuse_its_allowance_for_round_two() {
 
 #[tokio::test]
 async fn formal_entry_without_s_uses_local_assisted_basic_attempt_and_original_business() {
-    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    use miopunch_native_probe::nat_connection::{ControlUdpTraversal, UdpPolicy};
     let pair = Pair::without_observers().await;
     assert!(!pair.c.udp_observation().get().is_fresh());
     assert!(!pair.v.udp_observation().get().is_fresh());
     let (c, v) = pair.connect().await;
     let ids = (c.stable_id(), v.stable_id());
-    let cn = NatConnector::new(None, UdpPolicy::default());
-    let vn = NatConnector::new(None, UdpPolicy::default());
+    let cn = ControlUdpTraversal::new(None, UdpPolicy::default());
+    let vn = ControlUdpTraversal::new(None, UdpPolicy::default());
     let (ca, va) = tokio::join!(cn.prepare(&c, &pair.c_gate), vn.prepare(&v, &pair.v_gate));
     let (mut ca, mut va) = (ca.unwrap(), va.unwrap());
     assert!(ca.plan().fallback && !ca.plan().disabled);
@@ -987,10 +982,10 @@ async fn formal_entry_without_s_uses_local_assisted_basic_attempt_and_original_b
 
 #[tokio::test]
 async fn formal_entry_permission_and_complete_budget_stop_before_execution() {
-    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    use miopunch_native_probe::nat_connection::{ControlUdpTraversal, UdpPolicy};
     let pair = Pair::new().await;
     let (c, v) = pair.connect().await;
-    let cn = NatConnector::new(
+    let cn = ControlUdpTraversal::new(
         Some(pair.observers.clone()),
         UdpPolicy {
             enabled: false,
@@ -1001,11 +996,11 @@ async fn formal_entry_permission_and_complete_budget_stop_before_execution() {
         cn.observe(&c, &pair.c_gate).await.unwrap_err().kind(),
         std::io::ErrorKind::PermissionDenied
     );
-    cn.set_udp_enabled(true);
-    let vn = NatConnector::new(Some(pair.observers.clone()), UdpPolicy::default());
+    cn.config().set_udp_enabled(true);
+    let vn = ControlUdpTraversal::new(Some(pair.observers.clone()), UdpPolicy::default());
     let (ca, va) = tokio::join!(cn.prepare(&c, &pair.c_gate), vn.prepare(&v, &pair.v_gate));
     let (mut ca, mut va) = (ca.unwrap(), va.unwrap());
-    let low = NatConnector::new(
+    let low = ControlUdpTraversal::new(
         None,
         UdpPolicy {
             peer_datagrams: 1,
@@ -1019,7 +1014,7 @@ async fn formal_entry_permission_and_complete_budget_stop_before_execution() {
     let run = vn.execute(&mut va, &v, &pair.v_gate);
     let disable = async {
         tokio::time::sleep(Duration::from_millis(30)).await;
-        vn.set_udp_enabled(false);
+        vn.config().set_udp_enabled(false);
     };
     let (result, _) = tokio::join!(run, disable);
     assert_eq!(
@@ -1034,7 +1029,7 @@ async fn formal_entry_permission_and_complete_budget_stop_before_execution() {
     assert!(va.local_winner().is_none());
 
     let (c, v) = pair.connect().await;
-    let spare = NatConnector::new(None, UdpPolicy::default());
+    let spare = ControlUdpTraversal::new(None, UdpPolicy::default());
     let (cr, vr) = tokio::join!(
         low.prepare(&c, &pair.c_gate),
         spare.prepare(&v, &pair.v_gate)
@@ -1052,14 +1047,14 @@ async fn formal_entry_permission_and_complete_budget_stop_before_execution() {
 
 #[tokio::test]
 async fn split_round_snapshot_and_attempt_have_one_owner_and_one_execution() {
-    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    use miopunch_native_probe::nat_connection::{ControlUdpTraversal, UdpPolicy};
     use std::io::ErrorKind;
 
     let pair = Pair::without_observers().await;
     let (c, v) = pair.connect().await;
     let (c2, _) = pair.connect().await;
-    let cn = NatConnector::new(None, UdpPolicy::default());
-    let vn = NatConnector::new(None, UdpPolicy::default());
+    let cn = ControlUdpTraversal::new(None, UdpPolicy::default());
+    let vn = ControlUdpTraversal::new(None, UdpPolicy::default());
     let cs = cn.observe(&c, &pair.c_gate).await.unwrap();
     let duplicate = cs.clone();
     // Exercise caller-supplied evidence on the peer through the same seam.
@@ -1091,7 +1086,7 @@ async fn split_round_snapshot_and_attempt_have_one_owner_and_one_execution() {
         UdpObservation::Disabled,
     )
     .unwrap();
-    let idle_peer = NatConnector::new(None, UdpPolicy::default());
+    let idle_peer = ControlUdpTraversal::new(None, UdpPolicy::default());
     let (local, remote) = tokio::join!(
         cn.coordinate(&contending, &pair.c_gate, &external),
         idle_peer.prepare(&waiting, &pair.v_gate),
@@ -1153,12 +1148,12 @@ async fn split_round_snapshot_and_attempt_have_one_owner_and_one_execution() {
 
 #[tokio::test]
 async fn discarded_and_expired_split_results_release_only_their_own_occupancy() {
-    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    use miopunch_native_probe::nat_connection::{ControlUdpTraversal, UdpPolicy};
     use std::io::ErrorKind;
 
     let pair = Pair::without_observers().await;
-    let cn = NatConnector::new(None, UdpPolicy::default());
-    let vn = NatConnector::new(None, UdpPolicy::default());
+    let cn = ControlUdpTraversal::new(None, UdpPolicy::default());
+    let vn = ControlUdpTraversal::new(None, UdpPolicy::default());
     let (c, _) = pair.connect().await;
     let snapshot = cn.observe(&c, &pair.c_gate).await.unwrap();
     drop(snapshot);
@@ -1198,19 +1193,19 @@ async fn discarded_and_expired_split_results_release_only_their_own_occupancy() 
 
 #[tokio::test]
 async fn ordinary_udp_opens_a_new_path_on_the_relay_control_connection() {
-    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    use miopunch_native_probe::nat_connection::{ControlUdpTraversal, UdpPolicy};
     let (_directories, visitor, pair) = native_upgrade_pair(&[], true).await;
     let (peer, client) = pair.connect().await;
     let stable = (peer.stable_id(), client.stable_id());
     assert!(!client.has_data_path() && !peer.has_data_path());
-    let acceptor = NatConnector::new(None, UdpPolicy::default());
+    let acceptor = ControlUdpTraversal::new(None, UdpPolicy::default());
     let (opened_peer, opened_client) = tokio::join!(
         acceptor.upgrade(peer, &pair.c_gate),
         visitor.upgrade_udp(client),
     );
     let (opened_peer, opened_client) = (opened_peer.unwrap(), opened_client.unwrap());
-    assert!(opened_peer.direct.is_some() && opened_client.direct.is_some());
-    assert!(opened_peer.attempt.is_none() && opened_client.attempt.is_none());
+    assert!(opened_peer.direct().is_some() && opened_client.direct().is_some());
+    assert!(opened_peer.attempt().is_none() && opened_client.attempt().is_none());
     assert_eq!(
         (
             opened_peer.data.connection().stable_id(),
@@ -1223,16 +1218,16 @@ async fn ordinary_udp_opens_a_new_path_on_the_relay_control_connection() {
 
 #[tokio::test]
 async fn formal_direct_candidates_precede_selector_and_keep_original_identity() {
-    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    use miopunch_native_probe::nat_connection::{ControlUdpTraversal, UdpPolicy};
     let pair = Pair::new().await;
     let (c, v) = pair.connect().await;
     let ids = (c.stable_id(), v.stable_id());
-    let cn = NatConnector::new(Some(pair.observers.clone()), UdpPolicy::default());
-    let vn = NatConnector::new(Some(pair.observers.clone()), UdpPolicy::default());
+    let cn = ControlUdpTraversal::new(Some(pair.observers.clone()), UdpPolicy::default());
+    let vn = ControlUdpTraversal::new(Some(pair.observers.clone()), UdpPolicy::default());
     let (cd, vd) = tokio::join!(cn.upgrade(c, &pair.c_gate), vn.upgrade(v, &pair.v_gate));
     let (mut cd, mut vd) = (cd.unwrap(), vd.unwrap());
-    assert!(cd.attempt.is_none() && vd.attempt.is_none());
-    assert!(cd.direct.is_some() && vd.direct.is_some());
+    assert!(cd.attempt().is_none() && vd.attempt().is_none());
+    assert!(cd.direct().is_some() && vd.direct().is_some());
     assert_eq!(
         (
             cd.data.connection().stable_id(),
@@ -1241,21 +1236,27 @@ async fn formal_direct_candidates_precede_selector_and_keep_original_identity() 
         ids
     );
     let (cr, vr) = tokio::join!(
-        cn.exchange_upgrade_business(&mut cd, &pair.c_gate, b"accepting-direct-business"),
-        vn.exchange_upgrade_business(&mut vd, &pair.v_gate, b"visiting-direct-business")
+        cd.exchange_business(b"accepting-direct-business"),
+        vd.exchange_business(b"visiting-direct-business")
     );
     assert_eq!(cr.unwrap(), b"visiting-direct-business");
     assert_eq!(vr.unwrap(), b"accepting-direct-business");
+    cn.config().set_udp_enabled(false);
+    assert_eq!(
+        cd.exchange_business(b"revoked").await.unwrap_err().kind(),
+        std::io::ErrorKind::PermissionDenied,
+    );
+    assert!(tokio::time::timeout(Duration::from_millis(100), vd.data.connection().accept_bi()).await.is_err());
     pair.close().await;
 }
 
 #[tokio::test]
 async fn formal_disabled_udp_blocks_business_before_stream_creation() {
-    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    use miopunch_native_probe::nat_connection::{ControlUdpTraversal, UdpPolicy};
     let pair = Pair::new().await;
     let (c, v) = pair.connect().await;
-    let cn = NatConnector::new(Some(pair.observers.clone()), UdpPolicy::default());
-    let vn = NatConnector::new(Some(pair.observers.clone()), UdpPolicy::default());
+    let cn = ControlUdpTraversal::new(Some(pair.observers.clone()), UdpPolicy::default());
+    let vn = ControlUdpTraversal::new(Some(pair.observers.clone()), UdpPolicy::default());
     let (ca, va) = tokio::join!(cn.prepare(&c, &pair.c_gate), vn.prepare(&v, &pair.v_gate));
     let (mut ca, mut va) = (ca.unwrap(), va.unwrap());
     let (cp, vp) = tokio::join!(
@@ -1269,7 +1270,7 @@ async fn formal_disabled_udp_blocks_business_before_stream_creation() {
         va.commit_winner_path(v, &pair.v_gate)
     );
     let (cd, vd) = (cd.unwrap(), vd.unwrap());
-    cn.set_udp_enabled(false);
+    cn.config().set_udp_enabled(false);
     assert_eq!(
         cn.exchange_business(&mut ca, &cd, &pair.c_gate, b"must-stay-local")
             .await
@@ -1288,16 +1289,16 @@ async fn formal_disabled_udp_blocks_business_before_stream_creation() {
 
 #[tokio::test]
 async fn formal_ipv6_direct_requires_no_ipv4_observation_or_punching() {
-    use miopunch_native_probe::nat_connection::{NatConnector, UdpPolicy};
+    use miopunch_native_probe::nat_connection::{ControlUdpTraversal, UdpPolicy};
     let pair = Pair::with_observers(std::net::Ipv6Addr::LOCALHOST.into(), false).await;
     let (c, v) = pair.connect().await;
     let ids = (c.stable_id(), v.stable_id());
-    let cn = NatConnector::new(None, UdpPolicy::default());
-    let vn = NatConnector::new(None, UdpPolicy::default());
+    let cn = ControlUdpTraversal::new(None, UdpPolicy::default());
+    let vn = ControlUdpTraversal::new(None, UdpPolicy::default());
     let (cu, vu) = tokio::join!(cn.upgrade(c, &pair.c_gate), vn.upgrade(v, &pair.v_gate));
     let (mut cu, mut vu) = (cu.unwrap(), vu.unwrap());
-    assert!(cu.direct.unwrap().is_ipv6() && vu.direct.unwrap().is_ipv6());
-    assert!(cu.attempt.is_none() && vu.attempt.is_none());
+    assert!(cu.direct().unwrap().is_ipv6() && vu.direct().unwrap().is_ipv6());
+    assert!(cu.attempt().is_none() && vu.attempt().is_none());
     assert_eq!(
         (
             cu.data.connection().stable_id(),
@@ -1306,8 +1307,8 @@ async fn formal_ipv6_direct_requires_no_ipv4_observation_or_punching() {
         ids
     );
     let (c, v) = tokio::join!(
-        cn.exchange_upgrade_business(&mut cu, &pair.c_gate, b"ipv6-acceptor"),
-        vn.exchange_upgrade_business(&mut vu, &pair.v_gate, b"ipv6-visitor")
+        cu.exchange_business(b"ipv6-acceptor"),
+        vu.exchange_business(b"ipv6-visitor")
     );
     assert_eq!(c.unwrap(), b"ipv6-visitor");
     assert_eq!(v.unwrap(), b"ipv6-acceptor");

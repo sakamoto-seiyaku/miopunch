@@ -200,6 +200,12 @@ impl DirectPath {
         Ok(())
     }
 
+    pub(crate) fn is_current_on(&self, data: &crate::control_session::DataSession, gate: &AdmissionGate) -> bool {
+        let original = data.connection();
+        self.generation.is_current() && original.stable_id() == self.connection_id
+            && original.close_reason().is_none() && gate.nat_learning_scope(original).as_ref() == Some(&self.scope)
+    }
+
     pub fn retain(&mut self) {
         if let Some(path) = self.candidate.take() {
             path.retain();

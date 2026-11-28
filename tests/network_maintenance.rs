@@ -1739,8 +1739,7 @@ async fn relay_member_improves_during_the_original_business_lease() {
         .unwrap();
     let (queries, query_task) = observe_queries(&broker).await;
     let udp = client
-        .udp_connector()
-        .clone()
+        .control_udp()
         .with_maintenance_policy(&client.resource_configuration().unwrap().maintenance)
         .unwrap();
     let gate = client.admission_gate();
