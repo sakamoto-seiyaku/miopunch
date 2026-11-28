@@ -209,8 +209,10 @@ async fn maintenance_fairness_fixture() {
         .control_udp()
         .with_maintenance_policy(&caller.resource_configuration().unwrap().maintenance)
         .unwrap();
-    let caller = caller.maintain_network_with_rtc(Ipv4Addr::LOCALHOST, crate::rtc_transport::RtcTransport::new(), |b| b, |r| r).await.unwrap();
-    udp.set_udp_enabled(false);
+    let rtc = crate::rtc_transport::RtcTransport::new();
+    rtc.set_resource_allowed(false);
+    let caller = caller.maintain_network_with_rtc(Ipv4Addr::LOCALHOST, rtc, |b| b, |r| r).await.unwrap();
+    udp.config().set_udp_enabled(false);
     let peer_endpoint = Arc::new(
         peer.bind_configured_endpoint(Ipv4Addr::LOCALHOST)
             .await
@@ -272,7 +274,7 @@ async fn maintenance_fairness_fixture() {
         let before = caller.maintenance_status();
         assert_eq!(before.contact_attempts, 0);
         println!("{}", json!({"event":"maintenance-fairness-fixture","busy":head.stable_id(),"eligible":other.stable_id()}));
-        udp.set_udp_enabled(true);
+        udp.config().set_udp_enabled(true);
         let held = udp.observe(&observing, &gate).await.unwrap();
         let mut status = caller.watch_maintenance();
         tokio::time::timeout(Duration::from_secs(8), status.wait_for(|s| s.contact_attempts > 0))
