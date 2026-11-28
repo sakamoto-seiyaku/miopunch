@@ -160,6 +160,7 @@ struct State {
     received: VecDeque<u8>,
     progress: Progress,
     delivered_fin: bool,
+    recovery_deadline: Option<n0_future::time::Instant>,
 }
 impl State {
     fn end(&self) -> u64 {
@@ -326,11 +327,22 @@ impl BusinessChannel {
         }
     }
 
+    pub(crate) fn recovery_deadline(&self) -> Option<n0_future::time::Instant> {
+        self.state.lock().unwrap().recovery_deadline
+    }
+
+    /// All retries after the same interruption share the original window.
+    pub(crate) fn begin_recovery(&self) -> n0_future::time::Instant {
+        *self.state.lock().unwrap().recovery_deadline.get_or_insert_with(|| {
+            n0_future::time::Instant::now()
+                + std::time::Duration::from_millis(self.budget.policy.recovery_ms)
+        })
+    }
+
     pub(crate) async fn carry(
         &self,
         mut stream: DataStream,
         transport: &impl ChannelTransport,
-        deadline: &mut Option<n0_future::time::Instant>,
     ) -> Result<(), ChannelError> {
         let handshake = async {
             let progress = self.state.lock().unwrap().progress;
@@ -344,7 +356,7 @@ impl BusinessChannel {
                 .map_err(|e| carrier_error(transport, e))?;
             self.acknowledge(Progress::parse(&peer).map_err(ChannelError::Business)?)
         };
-        if let Some(at) = *deadline {
+        if let Some(at) = self.recovery_deadline() {
             n0_future::time::timeout(
                 at.saturating_duration_since(n0_future::time::Instant::now()),
                 handshake,
@@ -354,7 +366,7 @@ impl BusinessChannel {
         } else {
             handshake.await?;
         }
-        *deadline = None;
+        self.state.lock().unwrap().recovery_deadline = None;
         let (send, recv) = stream.split();
         tokio::select! {
             result = async { tokio::try_join!(self.upload(send, transport), self.download(recv, transport))?; Ok(()) } => result,

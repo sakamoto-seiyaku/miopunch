@@ -567,7 +567,6 @@ impl NativeForwarding {
                 #[cfg(feature = "nat-lab-test-hooks")]
                 channel.set_test_hooks(self.channel_hooks.clone());
                 let network = async {
-                let mut deadline = None;
                 loop {
                     let result = async {
                         #[cfg(feature = "nat-lab-test-hooks")]
@@ -577,10 +576,10 @@ impl NativeForwarding {
                                 _ = transport.closed() => return Err(ChannelError::NetworkInterrupted),
                             }
                         }
-                        within_recovery(deadline, async { stream.write_control(&ChannelReady::Connected { attached: true }).await.map_err(Into::into) }).await.map_err(|error| {
+                        within_recovery(channel.recovery_deadline(), async { stream.write_control(&ChannelReady::Connected { attached: true }).await.map_err(Into::into) }).await.map_err(|error| {
                             if error.is::<RecoveryExpired>() { ChannelError::RecoveryExpired } else if transport.network_interrupted() { ChannelError::NetworkInterrupted } else { ChannelError::Business(std::io::Error::other(error.to_string())) }
                         })?;
-                        channel.carry(stream, &transport, &mut deadline).await
+                        channel.carry(stream, &transport).await
                     }.await;
                     match result {
                         Ok(()) => {
@@ -594,7 +593,7 @@ impl NativeForwarding {
                         Err(ChannelError::RecoveryExpired) => return Err(RecoveryExpired.into()),
                         Err(ChannelError::NetworkInterrupted) => {}
                     }
-                    let at = *deadline.get_or_insert_with(|| tokio::time::Instant::now() + Duration::from_millis(self.channel_budget.policy.recovery_ms));
+                    let at = channel.begin_recovery();
                     let (next, next_stream) = tokio::time::timeout_at(at, replacements.recv()).await.map_err(|_| RecoveryExpired)?.ok_or("business channel ended")?;
                     self.attach(&owner, next.clone())?;
                     transport = next;
@@ -628,13 +627,12 @@ impl NativeForwarding {
         #[cfg(feature = "nat-lab-test-hooks")]
         channel.set_test_hooks(self.channel_hooks.clone());
         let network = async {
-            let mut deadline = None;
             let mut opening = true;
             loop {
-                match within_recovery(deadline, open_channel(&transport, target, &request)).await {
+                match within_recovery(channel.recovery_deadline(), open_channel(&transport, target, &request)).await {
                     Ok(stream) => {
                         opening = false;
-                        match channel.carry(stream, &transport, &mut deadline).await {
+                        match channel.carry(stream, &transport).await {
                             Ok(()) => return Ok(()),
                             Err(ChannelError::Business(error)) => {
                                 transport.abort(1, b"original business ended");
@@ -654,10 +652,7 @@ impl NativeForwarding {
                     }
                     Err(_) => {}
                 }
-                let at = *deadline.get_or_insert_with(|| {
-                    tokio::time::Instant::now()
-                        + Duration::from_millis(self.channel_budget.policy.recovery_ms)
-                });
+                let at = channel.begin_recovery();
                 request.resume = true;
                 request.generation = request
                     .generation
