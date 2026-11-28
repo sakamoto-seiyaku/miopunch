@@ -5,6 +5,9 @@ mod member_fusion_arbitration;
 #[path = "support/native_connections.rs"]
 mod native_connections;
 #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[path = "support/member_path_lab.rs"]
+mod member_path_lab;
+#[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks", feature = "rtc-probe"))]
 #[path = "support/path_contention_baseline.rs"]
 mod path_contention_baseline;
 #[cfg(target_os = "linux")]
@@ -21,6 +24,14 @@ use miopunch_native_probe::{
     resources::{Resource, ResourceUse},
 };
 use std::{collections::BTreeSet, net::Ipv4Addr, sync::Arc, time::Duration};
+
+// Exercise the RTC member protocol's native fallback paths after RTC permission is withdrawn.
+#[cfg(feature = "rtc-probe")]
+fn rtc_without_direct_permission() -> miopunch_native_probe::rtc_transport::RtcTransport {
+    let rtc = miopunch_native_probe::rtc_transport::RtcTransport::new();
+    rtc.set_resource_allowed(false);
+    rtc
+}
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
@@ -380,10 +391,11 @@ async fn observed_tcp_on_application_members_family(scenario: TcpRound, ipv6: bo
     }
     let dials = [Dials::default(), Dials::default()];
     let consumer = consumer
-        .maintain_application_network(Ipv4Addr::LOCALHOST, |b| {
-            b.hooks(dials[0].clone())
-                .test_suppress_member_direct_announcements()
-        })
+        .maintain_network_with_endpoint(
+            Ipv4Addr::LOCALHOST,
+            |b| b.hooks(dials[0].clone()).test_suppress_member_direct_announcements(),
+            |router| router,
+        )
         .await
         .unwrap();
     let provider = provider
@@ -868,6 +880,66 @@ async fn observe_queries(
     (observed, task)
 }
 
+#[tokio::test]
+async fn failed_shared_repair_leaves_the_original_stream_to_transport_timeout() {
+    use iroh::EndpointAddr;
+    use tokio::time::{Instant, timeout};
+    use tokio_util::sync::CancellationToken;
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut provider = NativeNetwork::create(dir.path().join("provider")).await.unwrap();
+    let consumer = join(&mut provider, &dir.path().join("consumer")).await;
+    let mut relay_config = iroh_relay::server::ServerConfig::default();
+    relay_config.relay = Some(iroh_relay::server::RelayConfig::new((Ipv4Addr::LOCALHOST, 0)));
+    let relay = iroh_relay::server::Server::spawn(relay_config).await.unwrap();
+    let url = relay.http_url().unwrap();
+    for node in [&provider, &consumer] {
+        let mut config = node.resource_configuration().unwrap();
+        config.replacement = Some(vec![Resource {
+            url: url.to_string(),
+            uses: [ResourceUse::DataRelay].into(),
+            limitation: "owned removable data relay".into(),
+        }]);
+        config.udp_direct_disabled = true;
+        config.tcp_direct_disabled = true;
+        config.member_data_relay_disabled = true;
+        node.save_resource_configuration(&config).unwrap();
+    }
+    let provider = provider.maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
+    let consumer = consumer.maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
+    tokio::join!(provider.endpoint().online(), consumer.endpoint().online());
+    let target = EndpointAddr::new(provider.endpoint().id()).with_relay_url(url);
+    let (out, incoming) = tokio::join!(consumer.connect_member(target.clone()), provider.accept_member());
+    let (original, peer) = (out.unwrap(), incoming.unwrap().unwrap());
+    let (left, right) = tokio::join!(original.open_bi(), peer.accept_bi());
+    let (mut left, mut right) = (left.unwrap(), right.unwrap());
+    // Opening a separate ACTIVE exchange must fail on a native maintained node.
+    let refused = consumer.endpoint().connect_control(target,
+        miopunch_native_probe::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN).await;
+    assert!(refused.is_err());
+    left.streams().0.write_all(b"before").await.unwrap();
+    let mut received = [0; 6];
+    right.streams().1.read_exact(&mut received).await.unwrap();
+    assert_eq!(&received, b"before");
+    right.streams().0.write_all(&received).await.unwrap();
+    left.streams().1.read_exact(&mut received).await.unwrap();
+    assert_eq!(&received, b"before");
+
+    relay.shutdown().await.unwrap();
+    assert!(original.close_reason().is_none());
+    let repair = || original.repair_path_until(Instant::now() + Duration::from_millis(500),
+        CancellationToken::new());
+    assert!(repair().await.is_err());
+    assert!(original.close_reason().is_none());
+    let reason = timeout(Duration::from_secs(45), original.closed()).await.unwrap();
+    assert!(matches!(reason, iroh::endpoint::ConnectionError::TimedOut));
+    assert_eq!(repair().await.unwrap_err().kind(), std::io::ErrorKind::NotConnected);
+    assert!(left.streams().0.write_all(b"old stream").await.is_err());
+    assert!(left.streams().1.read_exact(&mut [0]).await.is_err());
+    tokio::join!(consumer.close(), provider.close());
+}
+
+#[cfg(feature = "rtc-probe")]
 #[test]
 fn explicit_repair_waits_for_transport_to_close_a_removed_relay() {
     // Assert the public operation and the actual SDK records from the same run.
@@ -912,6 +984,7 @@ fn explicit_repair_waits_for_transport_to_close_a_removed_relay() {
     assert_eq!(ended["detail"]["reason"], "transport_timeout");
 }
 
+#[cfg(feature = "rtc-probe")]
 #[tokio::test]
 #[ignore = "run through explicit_repair_waits_for_transport_to_close_a_removed_relay to assert the emitted records"]
 async fn explicit_repair_failed_relay_close_fixture() {
@@ -957,8 +1030,8 @@ async fn explicit_repair_failed_relay_close_fixture() {
         let routes = |router: iroh::protocol::RestrictedRouterBuilder| {
             router.accept(MEMBER_ALPN, ObserveMember(incoming.clone()))
         };
-        let server = server.maintain_network_with(Ipv4Addr::LOCALHOST, &routes).await.unwrap();
-        let client = client.maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
+        let server = server.maintain_network_with_rtc(Ipv4Addr::LOCALHOST, rtc_without_direct_permission(), |b| b, &routes).await.unwrap();
+        let client = client.maintain_network_with_rtc(Ipv4Addr::LOCALHOST, rtc_without_direct_permission(), |b| b, |r| r).await.unwrap();
         let _server_business = server.business_activity();
         tokio::join!(client.endpoint().online(), server.endpoint().online());
         let target = iroh::EndpointAddr::new(server.endpoint().id())
@@ -1000,8 +1073,8 @@ async fn explicit_repair_failed_relay_close_fixture() {
         let mut relay_config = iroh_relay::server::ServerConfig::default();
         relay_config.relay = Some(iroh_relay::server::RelayConfig::new(relay_addr));
         let relay = iroh_relay::server::Server::spawn(relay_config).await.unwrap();
-        let client = NativeNetwork::open(&client_store).await.unwrap().maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
-        let server = NativeNetwork::open(&server_store).await.unwrap().maintain_network_with(Ipv4Addr::LOCALHOST, routes).await.unwrap();
+        let client = NativeNetwork::open(&client_store).await.unwrap().maintain_network_with_rtc(Ipv4Addr::LOCALHOST, rtc_without_direct_permission(), |b| b, |r| r).await.unwrap();
+        let server = NativeNetwork::open(&server_store).await.unwrap().maintain_network_with_rtc(Ipv4Addr::LOCALHOST, rtc_without_direct_permission(), |b| b, routes).await.unwrap();
         tokio::join!(client.endpoint().online(), server.endpoint().online());
         let (replacement, _business) = client.connect(target, MEMBER_ALPN).await.unwrap();
         let replacement_remote = originals.recv().await.unwrap();
@@ -1316,6 +1389,9 @@ async fn conservative_and_active_nodes_observe_distinct_frequency_and_concurrenc
         (conservative, MaintenancePolicy::conservative()),
         (active, MaintenancePolicy::active()),
     ] {
+        // Measure replica exploration's neighbor budget on these four UDP sinks.
+        // Background member standby can independently contact all admitted peers.
+        policy.standby_member_limit = Some(0);
         policy.contact_timeout_ms = 500;
         let mut config = node.resource_configuration().unwrap();
         config.replacement = Some(Vec::new());
@@ -1356,6 +1432,7 @@ const BUSINESS: &[u8] = b"miopunch/maintenance-business/1";
 /// Exercise the full active protocol through the public maintained-node entry.
 /// First-connection NAT probes deliberately do not stand in for these old flows.
 #[cfg(all(target_os = "linux", feature = "nat-lab-test-hooks"))]
+#[cfg(feature = "rtc-probe")]
 #[tokio::test]
 #[ignore = "owned MIOPUNCH-139 enhanced-UDP experiment; run in its isolated process"]
 async fn enhanced_udp_experiment_preserves_original_member_business() {
@@ -1412,8 +1489,8 @@ async fn enhanced_udp_experiment_preserves_original_member_business() {
             node.save_resource_configuration(&config).unwrap();
         }
         let (incoming, mut accepted) = tokio::sync::mpsc::channel(2);
-        let server = creator.maintain_network_with(Ipv4Addr::LOCALHOST, |router| router.accept(MEMBER_ALPN, ObserveBusiness(incoming))).await.unwrap();
-        let client = joining.maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
+        let server = creator.maintain_network_with_rtc(Ipv4Addr::LOCALHOST, rtc_without_direct_permission(), |b| b, |router| router.accept(MEMBER_ALPN, ObserveBusiness(incoming))).await.unwrap();
+        let client = joining.maintain_network_with_rtc(Ipv4Addr::LOCALHOST, rtc_without_direct_permission(), |b| b, |r| r).await.unwrap();
         tokio::join!(client.endpoint().online(), server.endpoint().online());
         let target = EndpointAddr::new(server.endpoint().id()).with_addrs([relay_path.clone()]);
         let (original, original_business_lease) = client.connect(target.clone(), MEMBER_ALPN).await.unwrap();
@@ -1554,6 +1631,7 @@ async fn replica_sync_cadence_follows_only_exploration_interval() {
 }
 
 #[cfg(target_os = "linux")]
+#[cfg(feature = "rtc-probe")]
 #[tokio::test]
 async fn relay_member_improves_during_the_original_business_lease() {
     use iroh::{EndpointAddr, TransportAddr};
@@ -1654,7 +1732,7 @@ async fn relay_member_improves_during_the_original_business_lease() {
             .spawn();
     let (incoming, mut accepted) = tokio::sync::mpsc::channel(2);
     let server = server
-        .maintain_network_with(Ipv4Addr::LOCALHOST, |router| {
+        .maintain_network_with_rtc(Ipv4Addr::LOCALHOST, rtc_without_direct_permission(), |b| b, |router| {
             router.accept(MEMBER_ALPN, ObserveBusiness(incoming))
         })
         .await
@@ -1668,8 +1746,9 @@ async fn relay_member_improves_during_the_original_business_lease() {
     let gate = client.admission_gate();
     let ordinary_dials = Arc::new(AtomicUsize::new(0));
     let client = client
-        .maintain_network_with_endpoint(
+        .maintain_network_with_rtc(
             Ipv4Addr::LOCALHOST,
+            rtc_without_direct_permission(),
             |builder| builder.hooks(ObserveOrdinaryDial(ordinary_dials.clone())),
             |router| router,
         )
@@ -1893,6 +1972,7 @@ async fn relay_member_improves_during_the_original_business_lease() {
     query_task.abort();
 }
 
+#[cfg(feature = "rtc-probe")]
 #[tokio::test]
 async fn only_a_real_network_generation_restarts_failed_member_pacing() {
     use iroh::{
@@ -1944,14 +2024,14 @@ async fn only_a_real_network_generation_restarts_failed_member_pacing() {
     let (incoming, mut accepted) = mpsc::channel(1);
     let (failures, mut failed) = mpsc::unbounded_channel();
     let server = server
-        .maintain_network_with(Ipv4Addr::LOCALHOST, |router| {
+        .maintain_network_with_rtc(Ipv4Addr::LOCALHOST, rtc_without_direct_permission(), |b| b, |router| {
             router
                 .accept(MEMBER_ALPN, ObserveBusiness(incoming))
                 .accept_control(ACTIVE_IMPROVEMENT_ALPN, UnavailablePath(failures))
         })
         .await
         .unwrap();
-    let client = client.maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
+    let client = client.maintain_network_with_rtc(Ipv4Addr::LOCALHOST, rtc_without_direct_permission(), |b| b, |r| r).await.unwrap();
     tokio::time::timeout(Duration::from_secs(20), async {
         tokio::join!(server.endpoint().online(), client.endpoint().online());
         let target =

@@ -47,10 +47,17 @@ const RESOURCE_CONFIGURATION: &str = "resources.json";
 const MAINTENANCE_CONTACTS: &str = "maintenance.contacts.json";
 pub(crate) const DEVICE_NAMES: &str = "device-names.json";
 
-fn network_protocols() -> Vec<Vec<u8>> {
-    vec![
+/// Select shared member streams and the first-contact adapter for caller-owned ALPNs.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MemberProtocols {
+    Raw,
+    Shared,
+    SharedWithRawRoutes,
+}
+
+fn network_protocols(rtc_installed: bool) -> Vec<Vec<u8>> {
+    let mut alpns = vec![
         crate::connection_coordinator::MEMBER_ALPN.to_vec(),
-        crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN.to_vec(),
         crate::connection_coordinator::REPLICA_ALPN.to_vec(),
         crate::admission_gate::PRECODE_REQUEST_ALPN.to_vec(),
         crate::admission_gate::ADMISSION_REQUEST_ALPN.to_vec(),
@@ -59,7 +66,11 @@ fn network_protocols() -> Vec<Vec<u8>> {
         crate::management_recovery::MANAGEMENT_RECOVERY_ALPN.to_vec(),
         crate::admission_rotation::ADMISSION_ROTATION_ALPN.to_vec(),
         crate::admission_rotation::ROTATION_DELIVERY_ALPN.to_vec(),
-    ]
+    ];
+    if rtc_installed {
+        alpns.push(crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN.to_vec());
+    }
+    alpns
 }
 
 fn restricted_native_builder(
@@ -635,7 +646,7 @@ impl NativeNetwork {
     pub async fn bind_endpoint(&self, bind_ip: Ipv4Addr) -> Result<RestrictedEndpoint, NodeError> {
         self.bind_endpoint_with(
             Endpoint::builder(presets::Minimal)
-                .alpns(network_protocols())
+                .alpns(network_protocols(false))
                 .bind_addr(SocketAddr::from((bind_ip, 0)))
                 .map_err(|_| NodeError::InvalidData)?,
         )
@@ -654,7 +665,7 @@ impl NativeNetwork {
             builder,
             &resources,
             false,
-            false,
+            MemberProtocols::Raw,
             #[cfg(feature = "rtc-probe")]
             None,
             None,
@@ -672,7 +683,7 @@ impl NativeNetwork {
         rtc: crate::rtc_transport::RtcTransport,
     ) -> Result<RestrictedEndpoint, NodeError> {
         let resources = self.resource_configuration()?;
-        self.bind_endpoint_with_resources(builder, &resources, false, false, Some(rtc), None)
+        self.bind_endpoint_with_resources(builder, &resources, false, MemberProtocols::Raw, Some(rtc), None)
             .await
             .map(|(endpoint, _, _, _, _, _)| endpoint)
     }
@@ -682,7 +693,7 @@ impl NativeNetwork {
         builder: Builder,
         resources: &crate::resources::ResourceConfig,
         configured_startup: bool,
-        member_fusion: bool,
+        protocols: MemberProtocols,
         #[cfg(feature = "rtc-probe")] rtc: Option<crate::rtc_transport::RtcTransport>,
         contact_override: Option<Arc<crate::mqtt_transport::MqttTransport>>,
     ) -> Result<
@@ -861,7 +872,7 @@ impl NativeNetwork {
                 resources.clone(),
             )
         });
-        let native = if member_fusion {
+        let native = if protocols == MemberProtocols::Shared {
             None
         } else {
             let observers = resources.relay_map(crate::resources::ResourceUse::Observation)?;
@@ -899,7 +910,7 @@ impl NativeNetwork {
             coordinator,
             tcp_punch.clone(),
         );
-        let (endpoint, fusion) = if member_fusion {
+        let (endpoint, fusion) = if protocols != MemberProtocols::Raw {
             let (endpoint, fusion) = self
                 .bind_shared_member_fusion(builder, resources, tcp_punch)
                 .await?;
@@ -1006,7 +1017,7 @@ impl NativeNetwork {
             #[cfg(feature = "rtc-probe")]
             None,
             None,
-            true,
+            MemberProtocols::Shared,
         ).await
     }
 
@@ -1022,7 +1033,7 @@ impl NativeNetwork {
             #[cfg(feature = "rtc-probe")]
             None,
             None,
-            false,
+            MemberProtocols::Raw,
         )
         .await
     }
@@ -1035,7 +1046,7 @@ impl NativeNetwork {
         builder: Builder,
         rtc: crate::rtc_transport::RtcTransport,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
-        self.bind_configured_endpoint_with_options(builder, Some(rtc), None, false)
+        self.bind_configured_endpoint_with_options(builder, Some(rtc), None, MemberProtocols::Raw)
             .await
     }
 
@@ -1051,7 +1062,7 @@ impl NativeNetwork {
             #[cfg(feature = "rtc-probe")]
             None,
             Some(contact),
-            false,
+            MemberProtocols::Raw,
         )
         .await
     }
@@ -1062,7 +1073,7 @@ impl NativeNetwork {
         rtc: crate::rtc_transport::RtcTransport,
         contact: Arc<crate::mqtt_transport::MqttTransport>,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
-        self.bind_configured_endpoint_with_options(builder, Some(rtc), Some(contact), false)
+        self.bind_configured_endpoint_with_options(builder, Some(rtc), Some(contact), MemberProtocols::Raw)
             .await
     }
 
@@ -1071,14 +1082,14 @@ impl NativeNetwork {
         builder: Builder,
         #[cfg(feature = "rtc-probe")] rtc: Option<crate::rtc_transport::RtcTransport>,
         contact_override: Option<Arc<crate::mqtt_transport::MqttTransport>>,
-        member_fusion: bool,
+        protocols: MemberProtocols,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
         let config = self.resource_configuration()?;
         self.bind_endpoint_using_config(
             builder, config,
             #[cfg(feature = "rtc-probe")]
             rtc,
-            contact_override, member_fusion,
+            contact_override, protocols,
         ).await
     }
 
@@ -1095,7 +1106,7 @@ impl NativeNetwork {
             config,
             #[cfg(feature = "rtc-probe")]
             None,
-            None, false,
+            None, MemberProtocols::Raw,
         ).await?.with_contact_timeout(timeout)?)
     }
 
@@ -1105,12 +1116,16 @@ impl NativeNetwork {
         config: crate::resources::ResourceConfig,
         #[cfg(feature = "rtc-probe")] rtc: Option<crate::rtc_transport::RtcTransport>,
         contact_override: Option<Arc<crate::mqtt_transport::MqttTransport>>,
-        member_fusion: bool,
+        protocols: MemberProtocols,
     ) -> Result<crate::resources::ResourceEndpoint, NodeError> {
+        #[cfg(feature = "rtc-probe")]
+        let rtc_installed = rtc.is_some();
+        #[cfg(not(feature = "rtc-probe"))]
+        let rtc_installed = false;
         let (endpoint, tcp, mqtt, contact_listener, native, fusion) = self
             .bind_endpoint_with_resources(
                 builder
-                    .alpns(network_protocols())
+                    .alpns(network_protocols(rtc_installed))
                     .relay_mode(iroh::RelayMode::Custom(
                         config.relay_map(crate::resources::ResourceUse::DataRelay)?,
                     ))
@@ -1119,7 +1134,7 @@ impl NativeNetwork {
                     ),
                 &config,
                 true,
-                member_fusion,
+                protocols,
                 #[cfg(feature = "rtc-probe")]
                 rtc.clone(),
                 contact_override,
@@ -1139,7 +1154,7 @@ impl NativeNetwork {
         #[cfg(feature = "rtc-probe")]
         let resources = resources.with_rtc(rtc);
         let mut resources = resources;
-        if member_fusion {
+        if protocols != MemberProtocols::Raw {
             resources = resources.with_contact_timeout(timeout)?;
         }
         resources.member_contacts = Some(member_contacts);

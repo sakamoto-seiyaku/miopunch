@@ -1,21 +1,25 @@
 //! One node-level member selector and durable sync coordinator. Endpoints own
 //! identity-scoped contact attempts; iroh owns the paths of each living session.
+#[cfg(any(feature = "rtc-probe", test))]
+mod active_handler;
+#[cfg(feature = "rtc-probe")]
+mod rtc;
+
 pub use crate::maintenance_policy::MaintenancePolicy;
 use crate::{
     admission_gate::{AdmissionGate, ProtocolScope},
     connection_coordinator::ConnectionDelivery,
     contact_listener::{ContactListenerControl, ContactListenerPhase, ContactListenerStatus},
     control_protocol::{AuthenticatedControl, ControlOwner, OwnedControl},
-    native_network::{NativeNetwork, NodeError, NodeStatus},
+    native_network::{MemberProtocols, NativeNetwork, NodeError, NodeStatus},
     network_recovery::{RECOVERY_REPLICA_ALPN, commit_ip},
     offline_replica::{REPLICA_ALPN, ReplicaOutcome, ReplicaProvider},
     resources::{ContactAttempt, ContactClass, ResourceContactError, ResourceEndpoint},
-    session_maintenance::{Completion, LocalNatBudgetError, MaintenanceDeferral, MaintenanceError},
 };
 use futures_util::{StreamExt, stream::FuturesUnordered};
 use iroh::{
     Endpoint, EndpointAddr, EndpointId, TransportAddr,
-    endpoint::{Connection, MemberConnection, ObservationValidity, WeakConnectionHandle},
+    endpoint::{Connection, MemberConnection},
     protocol::{
         ControlProtocolHandler, ProtocolHandler, RestrictedRouter as Router,
         RestrictedRouterBuilder as RouterBuilder,
@@ -111,7 +115,8 @@ enum Command {
 }
 pub struct MaintainedNetwork {
     resources: Arc<ResourceEndpoint>,
-    active: Option<crate::connection_coordinator::CoordinatorHook>,
+    #[cfg(feature = "rtc-probe")]
+    rtc_repair: Option<crate::connection_coordinator::CoordinatorHook>,
     contact_observer: Option<Arc<crate::mqtt_transport::MqttTransport>>,
     updates: watch::Receiver<MaintenanceStatus>,
     commands: mpsc::Sender<Command>,
@@ -147,23 +152,20 @@ impl MaintainedNetwork {
     pub fn coordinator(&self) -> crate::connection_coordinator::ConnectionCoordinator {
         self.resources.coordinator()
     }
-    /// Repair the exact member Connection kept by this caller. Existing Node
-    /// contact quota, original-M lease, Router and active protocol are shared;
-    /// each fast contact is capped at three seconds inside the caller remainder;
-    /// MQTT and IRC signaling can use that remaining caller time.
-    /// A failed repair terminates this M if no permitted data path is still open.
+    /// Repair the original RTC member session within the caller's contact budget.
+    #[cfg(feature = "rtc-probe")]
     pub async fn repair_member_connection_until(
         &self,
         original: &Connection,
         contact: EndpointAddr,
         deadline: n0_future::time::Instant,
     ) -> Result<(), crate::connection_recovery::ConnectionPathRecoveryError> {
-        self.active
+        self.rtc_repair
             .as_ref()
             .ok_or_else(|| {
                 crate::connection_recovery_core::failed(
                     original,
-                    "member path repair is owned by the application connection",
+                    "use MemberConnection::repair_path_until on a shared member endpoint",
                 )
             })?
             .repair(
@@ -285,44 +287,6 @@ struct Candidate {
 struct Neighbor {
     connection: Connection,
     sync_at: Instant,
-}
-struct Improvement {
-    original: WeakConnectionHandle,
-    failures: u32,
-    next_due: Option<Instant>,
-    budget_not_before: Option<Instant>,
-    wait_clues: Option<ImprovementClues>,
-}
-#[derive(Clone, PartialEq)]
-struct ImprovementClues {
-    target: EndpointAddr,
-    local: EndpointAddr,
-    direct_capabilities: u8,
-    revision: u64,
-    udp_hint: Option<SocketAddr>,
-}
-
-impl Improvement {
-    fn defer(&mut self, next_due: Instant) {
-        self.next_due = Some(next_due);
-    }
-
-    fn clear_wait(&mut self) {
-        self.budget_not_before = None;
-        self.wait_clues = None;
-    }
-
-    fn ready_at(&self, node_budget_wait: Option<Instant>) -> Option<Instant> {
-        let due = self.next_due?;
-        Some(self.budget_not_before.map_or(due, |budget| {
-            budget.max(due).max(node_budget_wait.unwrap_or(due))
-        }))
-    }
-
-    fn failed(&mut self, now: Instant, floor: Duration) {
-        self.failures = (self.failures + 1).min(5);
-        self.defer(now + floor * (1 << self.failures));
-    }
 }
 struct CloseExchange(Option<ControlOwner>);
 impl Drop for CloseExchange {
@@ -456,81 +420,6 @@ impl ControlProtocolHandler for HistoryHandler {
     }
 }
 
-#[derive(Clone)]
-struct ActiveImprovementHandler {
-    endpoint: iroh::endpoint::RestrictedEndpoint,
-    gate: AdmissionGate,
-    adapter: crate::connection_coordinator::CoordinatorHook,
-    _resources: Arc<ResourceEndpoint>,
-}
-impl std::fmt::Debug for ActiveImprovementHandler {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("ActiveImprovementHandler")
-    }
-}
-impl ControlProtocolHandler for ActiveImprovementHandler {
-    async fn accept(
-        &self,
-        control: iroh::endpoint::ControlConnection,
-    ) -> Result<(), iroh::protocol::AcceptError> {
-        if control.alpn() != crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN
-            || !self.gate.allows_member_path_upgrade(&control)
-        {
-            control.close(0u32.into(), b"active improvement rejected");
-            return Ok(());
-        }
-        let endpoint = self.endpoint.clone();
-        let gate = self.gate.clone();
-        let maintenance = gate.maintenance();
-        let lookup_maintenance = maintenance.clone();
-        let lookup_gate = gate.clone();
-        let adapter = self.adapter.clone();
-        let Some(responder_deadline) = control.caller_deadline() else {
-            control.close(0u32.into(), b"active improvement clock missing");
-            return Ok(());
-        };
-        let result = tokio::time::timeout(
-            responder_deadline.saturating_duration_since(n0_future::time::Instant::now()),
-            crate::connection_coordinator::serve_active_session(
-                &endpoint,
-                &control.control_handle(),
-                &crate::connection_coordinator::NativeControlAdapter(adapter),
-                &maintenance,
-                responder_deadline,
-                move |peer, binding| {
-                    lookup_maintenance
-                        .for_binding(peer, binding)
-                        .or_else(|| lookup_gate.member_connection_for_binding(peer, binding))
-                },
-            ),
-        )
-        .await;
-        let result = result.unwrap_or_else(|_| {
-            Err(crate::connection_coordinator::control_error(
-                "DeadlineExceeded",
-            ))
-        });
-        #[cfg(feature = "rtc-probe")]
-        println!(
-            "{}",
-            serde_json::json!({"event":"unified-active-result",
-            "monotonicMs":crate::rtc_transport::diagnostic_monotonic_ms(),
-            "controlStableId":control.stable_id(),"ok":result.is_ok(),"controlOpen":control.close_reason().is_none(),
-            "failureClass":result.as_ref().err().map(|error| match error.kind() {
-                std::io::ErrorKind::TimedOut => "timed-out",
-                std::io::ErrorKind::PermissionDenied => "permission-denied",
-                std::io::ErrorKind::InvalidData => "invalid-data",
-                _ => "other",
-            })})
-        );
-        if let Err(error) = result
-            && control.close_reason().is_none()
-        {
-            crate::connection_coordinator::close_active_failure(&control, &error);
-        }
-        Ok(())
-    }
-}
 #[derive(Debug)]
 struct FusedAdmission;
 
@@ -577,16 +466,13 @@ struct Coordinator {
     listener_last_attempt: Option<Instant>,
     discover_at: Instant,
     explore_at: Instant,
-    improve_at: Option<Instant>,
-    improve_generation: ObservationValidity,
-    improvements: BTreeMap<usize, Improvement>,
-    last_improved: Option<usize>,
+    #[cfg(feature = "rtc-probe")]
+    rtc_maintenance: Option<rtc::RtcMaintenance>,
     last_attempt_at: Option<Instant>,
     status: MaintenanceStatus,
     published: watch::Sender<MaintenanceStatus>,
     provider: watch::Sender<ReplicaProvider>,
     activity: Arc<Activity>,
-    active: Option<crate::connection_coordinator::CoordinatorHook>,
 }
 impl Coordinator {
     fn listener_changed(&mut self) {
@@ -639,26 +525,6 @@ impl Coordinator {
         self.standby.schedule(&self.resources, &self.node.gate, crate::maintenance_policy::MEMBER_BUILD_LIMIT);
         self.status.max_in_flight = self.status.max_in_flight.max(self.standby.len());
         self.standby_at = Some(Instant::now() + self.floor());
-    }
-    fn path_retry_base(&self) -> Duration {
-        Duration::from_millis(self.policy.path_retry_base_ms)
-    }
-    fn enhanced_budget_wait(&self, now: Instant) -> Option<Instant> {
-        if !self
-            .improvements
-            .values()
-            .any(|state| state.budget_not_before.is_some())
-        {
-            return None;
-        }
-        let due = Instant::from(self.active.as_ref()?.udp_round_wait_until(now.into())?);
-        // The previous cooldown may already have elapsed while a holder
-        // remains active. Recheck on the normal floor without changing it.
-        Some(if due <= now {
-            now + self.path_retry_base()
-        } else {
-            due
-        })
     }
     fn member(&self, id: EndpointId) -> bool {
         self.node
@@ -906,230 +772,7 @@ impl Coordinator {
         }
         Ok(())
     }
-    fn improvement_clues(
-        &self,
-        original: &Connection,
-        local: &EndpointAddr,
-        direct_capabilities: u8,
-    ) -> Option<ImprovementClues> {
-        if !self.node.gate.allows_member_path_upgrade(original)
-            || self
-                .active
-                .as_ref()?
-                .has_qualified_direct(&self.resources, original)
-        {
-            return None;
-        }
-        let qualification = self.node.gate.path_qualification(original)?;
-        let peer = original.remote_id();
-        let paths = original.paths();
-        let preferred_relay = paths
-            .iter()
-            .find(|path| {
-                path.is_selected()
-                    && path.is_relay()
-                    && self.resources.allows_data_path(path.remote_addr())
-            })
-            .map(|path| path.remote_addr().clone());
-        let current = paths
-            .iter()
-            .filter(|path| self.resources.allows_data_path(path.remote_addr()))
-            .map(|path| path.remote_addr().clone())
-            .filter(|address| Some(address) != preferred_relay.as_ref());
-        let hint = self.candidates.get(&peer);
-        let learned = self
-            .resources
-            .contacts
-            .get_endpoint_info(peer)
-            .map(|info| info.into_endpoint_addr());
-        let learned_relays = learned
-            .iter()
-            .flat_map(|contact| contact.addrs.iter())
-            .filter(|address| matches!(address, TransportAddr::Relay(_)));
-        let hints = hint
-            .into_iter()
-            .flat_map(|candidate| &candidate.address.addrs)
-            .chain(learned_relays)
-            .filter(|address| {
-                !matches!(address, TransportAddr::Relay(_))
-                    || self.resources.allows_data_path(address)
-            });
-        let target = EndpointAddr::new(peer).with_addrs(
-            preferred_relay
-                .iter()
-                .cloned()
-                .chain(current)
-                .chain(hints.cloned())
-                .take(8),
-        );
-        (!target.addrs.is_empty()).then(|| ImprovementClues {
-            target,
-            local: local.clone(),
-            direct_capabilities,
-            revision: qualification.revision(),
-            udp_hint: hint.and_then(|candidate| candidate.udp_hint),
-        })
-    }
-
-    async fn improve_live_member(&mut self, cancel: &CancellationToken) -> bool {
-        use crate::connection_coordinator::AttemptContext;
-
-        let Some(active) = &self.active else {
-            return false;
-        };
-        let generation = self.resources.endpoint().udp_network_generation();
-        if generation != self.improve_generation {
-            self.improve_generation = generation;
-            self.improvements.clear();
-        }
-        let registry = self.node.gate.maintenance();
-        let live = registry.live();
-        self.improvements
-            .retain(|_, state| state.original.is_open());
-        let direct_capabilities = active.improvement_capabilities();
-        if direct_capabilities == 0 || live.is_empty() {
-            return false;
-        }
-        let floor = self.path_retry_base();
-        let now = Instant::now();
-        let node_budget_wait = self.enhanced_budget_wait(now);
-        let local = self.resources.addr();
-        let mut due = Vec::new();
-        for original in live {
-            let stable = original.stable_id();
-            let Some(clues) = self.improvement_clues(&original, &local, direct_capabilities) else {
-                continue;
-            };
-            let state = self.improvements.entry(stable).or_insert(Improvement {
-                original: original.weak_handle(),
-                failures: 0,
-                next_due: Some(now),
-                budget_not_before: None,
-                wait_clues: None,
-            });
-            if state.wait_clues.as_ref().is_some_and(|old| old != &clues) {
-                state.next_due.get_or_insert(now);
-                state.clear_wait();
-            }
-            if state.ready_at(node_budget_wait).is_some_and(|at| at <= now) {
-                due.push((state.next_due.unwrap(), stable, original, clues));
-            }
-        }
-        due.sort_unstable_by_key(|(at, id, _, _)| {
-            (*at, self.last_improved.is_some_and(|last| *id <= last), *id)
-        });
-        for (_, stable, original, clues) in due {
-            let state = self.improvements.get_mut(&stable).unwrap();
-            let Ok((deadline, contact)) = self
-                .resources
-                .begin_contact_attempt(original.remote_id(), ContactClass::Background)
-            else {
-                state.defer(Instant::now() + floor);
-                continue;
-            };
-            let attempt = AttemptContext::new(deadline, cancel.child_token());
-            let mut lease = match registry.acquire_outgoing(&original, &attempt, contact) {
-                Ok(lease) => lease,
-                Err(MaintenanceError::SessionClosed) => {
-                    self.improvements.remove(&stable);
-                    continue;
-                }
-                Err(MaintenanceError::Cancelled) => return false,
-                Err(_) => {
-                    state.defer(Instant::now() + floor);
-                    continue;
-                }
-            };
-            self.last_improved = Some(stable);
-            self.status.contact_attempts += 1;
-            let original_handle = self.resources.endpoint().control_handle(&original);
-            self.node
-                .gate
-                .with_direct_candidates(&original_handle, |progress| {
-                    progress.active_enhanced_only = None;
-                });
-            let result = lease
-                .run_ref(active.improve(
-                    self.resources.endpoint(),
-                    &original,
-                    clues.target.clone(),
-                    attempt,
-                    || lease.seal_outgoing_hello(),
-                ))
-                .await;
-            let now = Instant::now();
-            match self
-                .node
-                .gate
-                .with_direct_candidates(&original_handle, |progress| {
-                    progress.active_enhanced_only.take()
-                })
-                .flatten()
-            {
-                Some(true) => {
-                    state.budget_not_before.get_or_insert(now);
-                    state.wait_clues = Some(clues.clone());
-                }
-                Some(false) => state.clear_wait(),
-                None => {}
-            }
-            match result {
-                Ok(Ok(path)) => {
-                    lease.completed(Completion::Active(path));
-                    self.improvements.remove(&stable);
-                    self.status.cause = None;
-                }
-                Ok(Err(error)) => {
-                    self.status.cause = Some(format!("active improvement: {error:?}"));
-                    match MaintenanceDeferral::from_error(&error) {
-                        Some(MaintenanceDeferral::LocalBudget { next_due }) => {
-                            // The ledger controls when this M can retry, but
-                            // a cooldown must not erase its age in the queue.
-                            state.budget_not_before =
-                                Some((now + floor).max(Instant::from(*next_due)));
-                            state.wait_clues = Some(clues);
-                        }
-                        Some(MaintenanceDeferral::LocalAlternatives) => {
-                            state.clear_wait();
-                            state.defer(now + floor);
-                        }
-                        Some(MaintenanceDeferral::Remote) => {
-                            state.defer(now + floor);
-                        }
-                        None if error.kind() == std::io::ErrorKind::Unsupported => {
-                            // The protected capability exchange found no
-                            // mutually permitted improvement mechanism.
-                            state.next_due = None;
-                            state.budget_not_before = None;
-                            state.wait_clues = Some(clues);
-                        }
-                        None if LocalNatBudgetError::is_local_limit(&error)
-                            || !self.node.gate.allows_member_path_upgrade(&original)
-                            || error.kind() == std::io::ErrorKind::Interrupted =>
-                        {
-                            state.defer(now + floor);
-                        }
-                        None => state.failed(now, floor),
-                    }
-                }
-                Err(MaintenanceError::SessionClosed) => {
-                    self.improvements.remove(&stable);
-                }
-                Err(MaintenanceError::Cancelled) => {
-                    if !cancel.is_cancelled() {
-                        state.defer(now + floor);
-                    }
-                }
-                Err(error) => {
-                    self.status.cause = Some(format!("active improvement: {error:?}"));
-                    state.failed(now, floor);
-                }
-            }
-            return true;
-        }
-        false
-    }
-    async fn step(&mut self, cancel: &CancellationToken) -> Result<(), NodeError> {
+    async fn step(&mut self) -> Result<(), NodeError> {
         if let Some(contacts) = &self.resources.member_contacts {
             contacts.refresh_async().await?;
         }
@@ -1140,24 +783,9 @@ impl Coordinator {
                     .gate
                     .allows(&peer.connection, ProtocolScope::Member)
         });
-        if self.improve_at.is_some_and(|at| Instant::now() >= at) {
-            let started = self.improve_live_member(cancel).await;
-            let now = Instant::now();
-            let mut improve_at = now + self.path_retry_base();
-            if !started {
-                // Continue observing path loss and generation changes on the
-                // same node timer, but wake at an earlier pending retry.
-                let node_budget_wait = self.enhanced_budget_wait(now);
-                for next in self
-                    .improvements
-                    .values()
-                    .filter_map(|state| state.ready_at(node_budget_wait))
-                    .filter(|at| *at > now)
-                {
-                    improve_at = improve_at.min(next);
-                }
-            }
-            self.improve_at = Some(improve_at);
+        #[cfg(feature = "rtc-probe")]
+        if let Some(active) = &mut self.rtc_maintenance {
+            active.run_due(&self.candidates, &mut self.status).await;
         }
         if self.activity.is_active() {
             self.schedule_standby();
@@ -1404,12 +1032,11 @@ impl Coordinator {
         self.listener_changed();
         loop {
             let activity = self.activity.clone();
-            let step_at = self
-                .improve_at
-                .into_iter()
-                .chain((!activity.is_active()).then_some(self.explore_at))
-                .chain(self.standby_at)
-                .min();
+            let step_at = (!activity.is_active()).then_some(self.explore_at)
+                .into_iter().chain(self.standby_at).min();
+            #[cfg(feature = "rtc-probe")]
+            let step_at = step_at.into_iter()
+                .chain(self.rtc_maintenance.as_ref().map(|rtc| rtc.next_due)).min();
             let listener_retry = self.listener_retry_at.unwrap_or(self.explore_at);
             tokio::select! {
                 biased;
@@ -1445,7 +1072,7 @@ impl Coordinator {
                                 self.status.cause = Some(error.to_string());
                             }
                         }
-                        result = self.step(&cancel) => {
+                        result = self.step() => {
                             if let Err(error) = result {
                                 self.status.cause = Some(error.to_string());
                                 self.status.state = MaintenanceState::TemporarilyUnreachable;
@@ -1486,29 +1113,12 @@ impl NativeNetwork {
             #[cfg(feature = "rtc-probe")]
             None,
             None,
-            true,
+            MemberProtocols::Shared,
         )
         .await
     }
 
-    /// Install the existing active-path control handler in an application-owned
-    /// restricted Router. Use the ResourceEndpoint bound by this same node and
-    /// register it with `accept_control(ACTIVE_IMPROVEMENT_ALPN, handler)`.
-    /// The handler keeps the resource owner alive and resolves the exact live
-    /// member session through this node's authorization and exporter binding.
-    /// It never hands an ordinary connection to the control protocol caller.
-    pub fn active_improvement_handler(
-        &self,
-        resources: Arc<ResourceEndpoint>,
-    ) -> impl ControlProtocolHandler + Clone + use<> {
-        ActiveImprovementHandler {
-            endpoint: resources.endpoint().clone(),
-            gate: self.gate.clone(),
-            adapter: resources.active_coordinator(self.gate.clone()),
-            _resources: resources,
-        }
-    }
-
+    /// Start native maintenance with shared member connections and replica sync.
     pub async fn maintain_network(self, bind_ip: Ipv4Addr) -> Result<MaintainedNetwork, NodeError> {
         self.maintain_network_with(bind_ip, |router| router).await
     }
@@ -1538,21 +1148,22 @@ impl NativeNetwork {
             #[cfg(feature = "rtc-probe")]
             None,
             None,
-            false,
+            MemberProtocols::SharedWithRawRoutes,
         )
         .await
     }
 
-    /// The installed RTC adapter is owned by this same Node lifecycle; contact
-    /// selection and ordinary handlers still use the configured SDK endpoint.
+    /// Run the raw member protocol and its ACTIVE handler for RTC peers on
+    /// this node's existing contact and replica lifecycle.
     #[cfg(feature = "rtc-probe")]
     pub async fn maintain_network_with_rtc(
         self,
         bind_ip: Ipv4Addr,
         rtc: crate::rtc_transport::RtcTransport,
+        configure: impl FnOnce(iroh::endpoint::Builder) -> iroh::endpoint::Builder,
         routes: impl FnOnce(RouterBuilder) -> RouterBuilder,
     ) -> Result<MaintainedNetwork, NodeError> {
-        self.maintain_network_inner(bind_ip, |builder| builder, routes, Some(rtc), None, false)
+        self.maintain_network_inner(bind_ip, configure, routes, Some(rtc), None, MemberProtocols::Raw)
             .await
     }
 
@@ -1573,7 +1184,7 @@ impl NativeNetwork {
             #[cfg(feature = "rtc-probe")]
             None,
             Some(contact),
-            false,
+            MemberProtocols::SharedWithRawRoutes,
         )
         .await
     }
@@ -1589,7 +1200,7 @@ impl NativeNetwork {
         configure: impl FnOnce(iroh::endpoint::Builder) -> iroh::endpoint::Builder,
         routes: impl FnOnce(RouterBuilder) -> RouterBuilder,
     ) -> Result<MaintainedNetwork, NodeError> {
-        self.maintain_network_inner(bind_ip, configure, routes, Some(rtc), Some(contact), false)
+        self.maintain_network_inner(bind_ip, configure, routes, Some(rtc), Some(contact), MemberProtocols::Raw)
             .await
     }
 
@@ -1600,7 +1211,7 @@ impl NativeNetwork {
         routes: impl FnOnce(RouterBuilder) -> RouterBuilder,
         #[cfg(feature = "rtc-probe")] rtc: Option<crate::rtc_transport::RtcTransport>,
         contact: Option<Arc<crate::mqtt_transport::MqttTransport>>,
-        member_fusion: bool,
+        protocols: MemberProtocols,
     ) -> Result<MaintainedNetwork, NodeError> {
         let config = self.resource_configuration()?;
         self.gate
@@ -1628,7 +1239,7 @@ impl NativeNetwork {
                 #[cfg(feature = "rtc-probe")]
                 rtc,
                 contact,
-                member_fusion,
+                protocols,
             )
             .await?;
         let resources =
@@ -1643,8 +1254,8 @@ impl NativeNetwork {
         let resources = Arc::new(resources);
         #[cfg(feature = "rtc-probe")]
         resources.install_rtc_withdrawal_handler(self.gate.clone());
-        let active_adapter =
-            (!member_fusion).then(|| resources.active_coordinator(self.gate.clone()));
+        #[cfg(feature = "rtc-probe")]
+        let rtc_repair = rtc_installed.then(|| resources.active_coordinator(self.gate.clone()));
         let provider = ReplicaProvider::new(&self, self.management_history().await?);
         let (provider_tx, provider_rx) = watch::channel(provider);
         let handler = HistoryHandler {
@@ -1658,7 +1269,7 @@ impl NativeNetwork {
         let router = Router::builder(resources.endpoint().clone())
             .accept(REPLICA_ALPN, handler.clone())
             .accept_control(RECOVERY_REPLICA_ALPN, handler);
-        let router = if member_fusion {
+        let router = if protocols != MemberProtocols::Raw {
             resources.install_member_repair();
             router
                 .accept(crate::native_network::FUSED_MEMBER_ALPN, FusedAdmission)
@@ -1667,10 +1278,16 @@ impl NativeNetwork {
                     FusedRepair(resources.clone()),
                 )
         } else {
+            router
+        };
+        #[cfg(feature = "rtc-probe")]
+        let router = if rtc_installed {
             router.accept_control(
                 crate::connection_coordinator::ACTIVE_IMPROVEMENT_ALPN,
                 self.active_improvement_handler(resources.clone()),
             )
+        } else {
+            router
         };
         let router = routes(router).spawn();
         let status = MaintenanceStatus {
@@ -1716,9 +1333,14 @@ impl NativeNetwork {
         );
         let sampler = PeerSampler::new(self.status().node_id).await?;
         let saved = self.saved_maintenance_contacts()?;
+        let cancel = CancellationToken::new();
+        #[cfg(feature = "rtc-probe")]
+        let rtc_maintenance = rtc_repair.as_ref().map(|adapter| {
+            rtc::RtcMaintenance::new(resources.clone(), self.gate.clone(), adapter.clone(), cancel.clone())
+        });
         let mut coordinator = Coordinator {
             standby: crate::member_standby::MemberStandby::new(),
-            standby_at: member_fusion.then(Instant::now),
+            standby_at: (protocols != MemberProtocols::Raw).then(Instant::now),
             node: self,
             resources: resources.clone(),
             policy,
@@ -1732,16 +1354,13 @@ impl NativeNetwork {
             listener_last_attempt: None,
             discover_at: Instant::now(),
             explore_at: Instant::now(),
-            improve_at: (!member_fusion).then(Instant::now),
-            improve_generation: resources.endpoint().udp_network_generation(),
-            improvements: BTreeMap::new(),
-            last_improved: None,
+            #[cfg(feature = "rtc-probe")]
+            rtc_maintenance,
             last_attempt_at: None,
             status,
             published,
             provider: provider_tx,
             activity: activity.clone(),
-            active: active_adapter.clone(),
         };
         for address in saved {
             if coordinator.member(address.id) {
@@ -1754,12 +1373,12 @@ impl NativeNetwork {
                     .await?;
             }
         }
-        let cancel = CancellationToken::new();
         let task =
             tokio::spawn(coordinator.run(incoming, disable_incoming, cancel.clone(), router));
         Ok(MaintainedNetwork {
             resources,
-            active: active_adapter,
+            #[cfg(feature = "rtc-probe")]
+            rtc_repair,
             contact_observer,
             updates,
             commands,

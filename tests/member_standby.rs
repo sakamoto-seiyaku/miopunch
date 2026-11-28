@@ -617,7 +617,7 @@ async fn maintained_application_startup_prepares_members_during_other_business()
     let consumer = NativeNetwork::open(root.path().join("consumer"))
         .await
         .unwrap()
-        .maintain_application_network(Ipv4Addr::LOCALHOST, |builder| builder)
+        .maintain_network(Ipv4Addr::LOCALHOST)
         .await
         .unwrap();
     let activity = consumer.business_activity();

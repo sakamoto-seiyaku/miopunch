@@ -601,26 +601,29 @@ async fn default_repair_api_preserves_optional_confirmation_on_actual_protected_
         assert!(wire["budget_ms"].as_u64().is_some());
         assert!(wire.get("binding").is_some() && wire.get("offer").is_some());
         assert!(wire.get("require_confirmation").is_none());
-        let binding: [u8; 32] = serde_json::from_value(wire["binding"].clone()).unwrap();
-        let paths: Vec<_> = client.paths().iter().map(|path| path.id()).collect();
-        // The public legacy requester has sent on C and holds the original
-        // lease while it waits for this offer. The reverse active C is refused.
-        assert_active_control_deferred(
-            &joining,
-            &server_endpoint,
-            &client_endpoint,
-            &binding,
-            deadline,
-        )
-        .await;
-        assert_eq!(
-            client
-                .paths()
-                .iter()
-                .map(|path| path.id())
-                .collect::<Vec<_>>(),
-            paths
-        );
+        #[cfg(feature = "rtc-probe")]
+        {
+            let binding: [u8; 32] = serde_json::from_value(wire["binding"].clone()).unwrap();
+            let paths: Vec<_> = client.paths().iter().map(|path| path.id()).collect();
+            // The public legacy requester has sent on C and holds the original
+            // lease while it waits for this offer. The reverse active C is refused.
+            assert_active_control_deferred(
+                &joining,
+                &server_endpoint,
+                &client_endpoint,
+                &binding,
+                deadline,
+            )
+            .await;
+            assert_eq!(
+                client
+                    .paths()
+                    .iter()
+                    .map(|path| path.id())
+                    .collect::<Vec<_>>(),
+                paths
+            );
+        }
         exchange
             .send_message(
                 REPAIR_MESSAGE,
@@ -677,6 +680,7 @@ async fn default_repair_api_preserves_optional_confirmation_on_actual_protected_
     tokio::join!(admin.close(), joining.close());
 }
 
+#[cfg(feature = "rtc-probe")]
 async fn assert_active_control_deferred(
     node: &NativeNetwork,
     requester: &ResourceEndpoint,
@@ -728,6 +732,7 @@ async fn assert_active_control_deferred(
     );
 }
 
+#[cfg(feature = "rtc-probe")]
 #[tokio::test]
 async fn legacy_responder_defers_active_control_on_either_original_side() {
     use miopunch_native_probe::{

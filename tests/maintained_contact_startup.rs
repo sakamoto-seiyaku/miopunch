@@ -84,6 +84,8 @@ async fn admit(admin: &mut NativeNetwork, directory: &std::path::Path) -> Native
     let mut peer = NativeNetwork::join(directory, admin.manual_invitation().unwrap())
         .await
         .unwrap();
+    // Both admission endpoints use the fixture's local-only resource configuration.
+    peer.save_resource_configuration(&admin.resource_configuration().unwrap()).unwrap();
     let server = admin
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
@@ -92,13 +94,19 @@ async fn admit(admin: &mut NativeNetwork, directory: &std::path::Path) -> Native
         .bind_configured_endpoint(Ipv4Addr::LOCALHOST)
         .await
         .unwrap();
+    // Admission seeds the two identities before the maintained hosts start.
+    // Their configured endpoints are already bound, even before publishing addresses.
+    let socket = server.endpoint().bound_sockets().into_iter()
+        .find(|addr| addr.is_ipv4()).expect("bound IPv4 admission socket");
+    let target = iroh::EndpointAddr::new(server.endpoint().id())
+        .with_ip_addr((Ipv4Addr::LOCALHOST, socket.port()).into());
     let server_coordinator = server.coordinator();
     let client_coordinator = client.coordinator();
     let deadline = n0_future::time::Instant::now() + Duration::from_secs(12);
     let cancellation = tokio_util::sync::CancellationToken::new();
     let (outgoing, incoming) = tokio::join!(
         client_coordinator.connect_control(
-            server.addr(),
+            target,
             SessionPurpose::AdmissionRequest,
             AttemptContext::new(deadline, cancellation.clone()),
         ),

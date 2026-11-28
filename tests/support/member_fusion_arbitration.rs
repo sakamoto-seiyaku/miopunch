@@ -30,7 +30,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::{
     join,
-    path_contention_baseline::{DEADLINE, FLOOR, delayed_relay::delay_relay, observe_stun},
+    member_path_lab::{DEADLINE, FLOOR, delayed_relay::delay_relay, observe_stun},
 };
 
 #[path = "udp_blackhole.rs"]

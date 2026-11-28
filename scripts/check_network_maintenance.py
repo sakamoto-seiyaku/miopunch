@@ -82,7 +82,16 @@ def main():
             'a_full_neighbor_budget_still_explores_a_new_source_without_requiring_full_mesh',
             'repeated_authenticated_replica_failures_increment_backoff_and_leave_connected_state',
         ]
-        checks = [(case, ['cargo', 'test', '--locked', '--features', 'replica-test-hooks', '--test', 'network_maintenance', case, '--', '--exact', '--nocapture']) for case in cases]
+        rtc_cases = {
+            'relay_member_improves_during_the_original_business_lease',
+            'only_a_real_network_generation_restarts_failed_member_pacing',
+            'explicit_repair_waits_for_transport_to_close_a_removed_relay',
+        }
+        checks = []
+        for case in cases:
+            features = 'replica-test-hooks,rtc-probe' if case in rtc_cases else 'replica-test-hooks'
+            checks.append((case, ['cargo', 'test', '--locked', '--features', features,
+                                  '--test', 'network_maintenance', case, '--', '--exact', '--nocapture']))
         def tests(*targets):
             command = ['cargo', 'test', '--locked', '--features', 'replica-test-hooks,nat-lab-test-hooks,member-signaling-test-hooks']
             for target in targets:

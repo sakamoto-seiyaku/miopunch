@@ -733,10 +733,12 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
         attempt: ProtectedAttempt,
         plan: PathPlan,
     ) -> io::Result<PreparedPath> {
+        // Keep the transport negotiations off the polling thread's stack. A relay
+        // candidate uses the same outer future as a full RTC or native traversal.
         match plan {
             #[cfg(feature = "rtc-probe")]
             PathPlan::Rtc => {
-                crate::rtc_member::bootstrap_control_unified_handle(
+                Box::pin(crate::rtc_member::bootstrap_control_unified_handle(
                     connection,
                     &self.0.gate,
                     self.0
@@ -744,7 +746,7 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                         .as_ref()
                         .ok_or_else(|| control_error("DataPathUnavailable"))?,
                     attempt,
-                )
+                ))
                 .await
             }
             PathPlan::ExistingRelay => {
@@ -796,11 +798,9 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                 }))
             }
             PathPlan::Native { tcp, udp } => {
-                self.0
-                    .native
-                    .as_ref()
-                    .ok_or_else(|| control_error("DataPathUnavailable"))?
-                    .prepare_control_paths(connection, &self.0.gate, tcp, udp, attempt)
+                let native = self.0.native.as_ref()
+                    .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                Box::pin(native.prepare_control_paths(connection, &self.0.gate, tcp, udp, attempt))
                     .await
             }
             _ => Err(control_error("DataPathUnavailable")),
@@ -825,13 +825,11 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                     "stableId":original.stable_id(),"controlStableId":control.stable_id(),
                     "udp":udp,"tcp":tcp})
                 );
-                let mut prepared = self
-                    .0
-                    .native
-                    .as_ref()
-                    .ok_or_else(|| control_error("DataPathUnavailable"))?
-                    .prepare_active_paths(original, control, &self.0.gate, tcp, udp, attempt)
-                    .await?;
+                let native = self.0.native.as_ref()
+                    .ok_or_else(|| control_error("DataPathUnavailable"))?;
+                let mut prepared = Box::pin(native.prepare_active_paths(
+                    original, control, &self.0.gate, tcp, udp, attempt,
+                )).await?;
                 prepared.log = Some(attempt.log);
                 attempt
                     .log
@@ -875,7 +873,7 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
             }
             #[cfg(feature = "rtc-probe")]
             PathPlan::Rtc => {
-                crate::rtc_member::bootstrap_control_active_handles(
+                Box::pin(crate::rtc_member::bootstrap_control_active_handles(
                     original,
                     control,
                     &self.0.gate,
@@ -884,7 +882,7 @@ impl MemberPathAdapter<iroh::endpoint::ControlHandle> for NativeControlAdapter {
                         .as_ref()
                         .ok_or_else(|| control_error("DataPathUnavailable"))?,
                     attempt,
-                )
+                ))
                 .await
             }
             _ => Err(control_error("DataPathUnavailable")),

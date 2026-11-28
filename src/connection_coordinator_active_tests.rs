@@ -88,6 +88,7 @@ async fn add_member(a: &mut NativeNetwork, path: &std::path::Path) -> NativeNetw
     b
 }
 
+#[cfg(feature = "rtc-probe")]
 #[ignore = "requires the owned MQTT broker and structured maintenance timeline"]
 #[test]
 fn busy_member_and_round_occupancy_leave_other_maintenance_eligible() {
@@ -149,6 +150,7 @@ fn busy_member_and_round_occupancy_leave_other_maintenance_eligible() {
     assert!(permits[..2].contains(&busy) && permits[..2].contains(&eligible));
 }
 
+#[cfg(feature = "rtc-probe")]
 #[tokio::test]
 #[ignore = "run through busy_member_and_round_occupancy_leave_other_maintenance_eligible"]
 async fn maintenance_fairness_fixture() {
@@ -208,7 +210,7 @@ async fn maintenance_fairness_fixture() {
         .clone()
         .with_maintenance_policy(&caller.resource_configuration().unwrap().maintenance)
         .unwrap();
-    let caller = caller.maintain_network(Ipv4Addr::LOCALHOST).await.unwrap();
+    let caller = caller.maintain_network_with_rtc(Ipv4Addr::LOCALHOST, crate::rtc_transport::RtcTransport::new(), |b| b, |r| r).await.unwrap();
     udp.set_udp_enabled(false);
     let peer_endpoint = Arc::new(
         peer.bind_configured_endpoint(Ipv4Addr::LOCALHOST)
@@ -303,6 +305,7 @@ async fn maintenance_fairness_fixture() {
     relay.shutdown().await.unwrap();
 }
 
+#[cfg(feature = "rtc-probe")]
 #[tokio::test]
 async fn repair_window_expiry_preserves_the_original_relay_stream() {
     use crate::connection_recovery::ConnectionPathRecoveryError;
@@ -366,7 +369,7 @@ async fn repair_window_expiry_preserves_the_original_relay_stream() {
         .endpoint()
         .set_alpns(vec![MEMBER_ALPN.to_vec(), ACTIVE_IMPROVEMENT_ALPN.to_vec()]);
     let caller = caller
-        .maintain_network_with(Ipv4Addr::LOCALHOST, |router| router)
+        .maintain_network_with_rtc(Ipv4Addr::LOCALHOST, crate::rtc_transport::RtcTransport::new(), |b| b, |router| router)
         .await
         .unwrap();
     timeout(Duration::from_secs(8), async {
@@ -496,7 +499,7 @@ async fn withdrawing_rtc_permission_closes_only_members_without_an_allowed_backu
         .endpoint()
         .set_alpns(vec![MEMBER_ALPN.to_vec()]);
     let caller = caller
-        .maintain_network_with_rtc(Ipv4Addr::LOCALHOST, local_rtc.clone(), |router| router)
+        .maintain_network_with_rtc(Ipv4Addr::LOCALHOST, local_rtc.clone(), |b| b, |router| router)
         .await
         .unwrap();
     let target = iroh::EndpointAddr::new(peer_endpoint.endpoint().id()).with_addrs(
@@ -1529,6 +1532,7 @@ async fn scripted_native_udp_result(offer_count: Option<u16>, reverse: bool) {
     } else {
         (a, b, ae, be, original, peer)
     };
+    be.endpoint().set_alpns(vec![ACTIVE_IMPROVEMENT_ALPN.to_vec()]);
     let ids = (original.stable_id(), peer.stable_id());
     let (mut send, mut receive) = original.open_bi().await.unwrap();
     send.write_all(b"before").await.unwrap();
@@ -2128,6 +2132,9 @@ async fn colliding_active_hello_hands_off_to_the_original_dialer() {
         .await
         .unwrap();
     let (original, remote) = ordinary_pair(&ae, &be).await;
+    for endpoint in [&ae, &be] {
+        endpoint.endpoint().set_alpns(vec![ACTIVE_IMPROVEMENT_ALPN.to_vec()]);
+    }
     let ids = (original.stable_id(), remote.stable_id());
     assert!(original.side().is_client() && !remote.side().is_client());
     let (mut send, mut reply) = original.open_bi().await.unwrap();
@@ -2414,6 +2421,7 @@ async fn scenario_with_native(
         initiator.expect_tcp = tcp_observer.is_some();
         responder.expect_tcp = tcp_observer.is_some();
     }
+    be.endpoint().set_alpns(vec![ACTIVE_IMPROVEMENT_ALPN.to_vec()]);
     let deadline = n0_future::time::Instant::now() + Duration::from_secs(5);
     let cancellation = tokio_util::sync::CancellationToken::new();
     let options = iroh::endpoint::ConnectOptions::new()

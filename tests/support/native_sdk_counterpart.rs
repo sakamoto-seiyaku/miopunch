@@ -89,7 +89,7 @@ async fn maintained_counterpart(node: NativeNetwork) -> Result<(), Box<dyn Error
     let echo = MemberEcho(node.admission_gate().clone());
     let rtc = miopunch_native_probe::rtc_transport::RtcTransport::new();
     let maintained = node
-        .maintain_network_with_rtc(std::net::Ipv4Addr::LOCALHOST, rtc.clone(), |router| {
+        .maintain_network_with_rtc(std::net::Ipv4Addr::LOCALHOST, rtc.clone(), |b| b, |router| {
             router.accept(
                 miopunch_native_probe::connection_coordinator::MEMBER_ALPN,
                 echo,
