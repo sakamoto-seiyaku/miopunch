@@ -508,7 +508,24 @@ async fn one_standby_slot_preserves_business_across_background_contacts() {
         drop(terminal);
 
         let (ac, ca) = connect(&owner, &c).await;
-        maintenance(&ac, &ca, 3).await;
+        let (check, peer_check) = tokio::join!(ac.open_maintenance_bi(), ca.accept_bi());
+        let check = check.unwrap();
+        let mut peer_check = peer_check.unwrap();
+        assert!(!check.is_business() && !peer_check.is_business());
+        let (mut send, mut recv, check_lease) = check.into_parts();
+        // The standby pool is full. The maintenance send half still owns its
+        // check until transport stops, even after the wrapper lease is gone.
+        drop(check_lease);
+        let (reply, request) = peer_check.streams();
+        assert_eq!(send.id(), request.id());
+        send.write_all(b"check").await.unwrap();
+        let mut bytes = [0; 5];
+        request.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"check");
+        reply.write_all(b"reply").await.unwrap();
+        recv.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"reply");
+        drop((send, recv, peer_check));
         ac.closed().await;
         assert!(ab.close_reason().is_none());
         let (ac, ca) = connect(&owner, &c).await;
@@ -527,6 +544,17 @@ async fn one_standby_slot_preserves_business_across_background_contacts() {
     })
     .await
     .expect("multi-peer standby and in-flight stream eviction");
+
+    // C holds the only standby slot. An unused dial to B must give up its
+    // first-stream handoff when the endpoint's handoff timeout elapses.
+    time::timeout(DEADLINE * 2, async {
+        let (unused, peer) = connect(&owner, &b).await;
+        assert!(matches!(peer.closed().await, iroh::endpoint::ConnectionError::ApplicationClosed(reason)
+            if reason.reason.as_ref() == b"member standby full"));
+        unused.closed().await;
+    })
+    .await
+    .expect("unused overflow connection releases after its first-stream handoff");
     tokio::join!(owner.close(), b.close(), c.close());
 }
 

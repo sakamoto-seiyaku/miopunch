@@ -22,6 +22,9 @@ use super::{
     restricted::{AdmissionOutcome, BoxFuture, DynEndpointAdmission},
 };
 
+mod activity;
+pub use activity::MemberRetention;
+use activity::{Activity, ActivityLease, StandbyPool};
 mod bootstrap;
 #[cfg(feature = "miopunch-test-hooks")]
 pub(super) mod commit_fixture;
@@ -30,9 +33,6 @@ pub(crate) mod physical;
 pub use physical::MemberPunching;
 mod dial;
 mod direct;
-mod standby;
-pub use standby::MemberRetention;
-use standby::StandbyPool;
 pub(super) mod udp;
 pub use dial::MemberDialOptions;
 pub(super) use direct::{PathCandidates, watch_path_candidates};
@@ -1230,7 +1230,7 @@ impl Fusion {
         tokio::spawn(repair_path(
             endpoint.clone(),
             connection.clone(),
-            activity.subscribe(),
+            activity.business_activity(),
             failed,
             learned,
             self.shutdown.clone(),
@@ -1980,7 +1980,7 @@ impl Selection {
             tokio::select! {
                 _ = live.0.connection.closed() => {},
                 _ = shutdown.cancelled() => live.0.connection.close(0u32.into(), b"member owner ended"),
-                _ = live.0.idle(retention, handoff_timeout) => {},
+                _ = live.0.activity.retain(&live.0.connection, retention, handoff_timeout) => {},
                 _ = async {
                     if let Some(udp) = &live.0.udp {
                         udp.maintain(&live.0.activity).await;
@@ -2565,202 +2565,4 @@ struct Live {
     repair_exchange: Option<RepairExchange>,
     udp: Option<Arc<udp::Planning>>,
     incoming: Option<tokio::sync::Mutex<mpsc::Receiver<IncomingMemberStream>>>,
-}
-
-impl Live {
-    async fn idle(&self, retention: MemberRetention, handoff_timeout: Duration) {
-        let MemberRetention::IdleTimeout(budget) = retention else {
-            // An overflow dial has time to deliver its first stream. Abandoned
-            // handoffs must eventually release their transport as well.
-            time::sleep(handoff_timeout).await;
-            self.activity.finish_handoff();
-            return std::future::pending().await;
-        };
-        let mut changed = self.activity.changed.subscribe();
-        loop {
-            let idle_since = self.activity.idle_since();
-            if let Some(since) = idle_since {
-                if time::timeout_at(since + budget, changed.changed())
-                    .await
-                    .is_err()
-                {
-                    let state = self.activity.state.lock().expect("member activity lock");
-                    if state.idle_since == Some(since) {
-                        self.connection
-                            .close(0u32.into(), b"member connection idle");
-                        return;
-                    }
-                }
-            } else {
-                let _ = changed.changed().await;
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub(super) struct Activity {
-    state: Mutex<ActivityState>,
-    changed: watch::Sender<bool>,
-    pub(super) concurrent_business: watch::Sender<bool>,
-    planner: Arc<udp::Planner>,
-    standby: Option<(Arc<StandbyPool>, usize, Connection)>,
-    pub(super) path_activity: watch::Sender<bool>,
-}
-
-#[derive(Debug)]
-struct ActivityState {
-    idle_since: Option<Instant>,
-    holders: usize,
-    checks: usize,
-    used: bool,
-    handoff: bool,
-    ended: bool,
-}
-
-impl Activity {
-    fn new(
-        planner: Arc<udp::Planner>,
-        standby: Option<(Arc<StandbyPool>, usize, Connection)>,
-    ) -> Self {
-        Self {
-            state: Mutex::new(ActivityState {
-                idle_since: Some(Instant::now()),
-                holders: 0,
-                checks: 0,
-                used: false,
-                handoff: true,
-                ended: false,
-            }),
-            changed: watch::Sender::default(),
-            concurrent_business: watch::Sender::default(),
-            planner,
-            standby,
-            path_activity: watch::Sender::default(),
-        }
-    }
-    pub(super) fn subscribe(&self) -> watch::Receiver<bool> {
-        self.changed.subscribe()
-    }
-
-    fn idle_since(&self) -> Option<Instant> {
-        self.state.lock().expect("member activity lock").idle_since
-    }
-
-    fn end(&self) {
-        let mut state = self.state.lock().expect("member activity lock");
-        if state.holders != 0 {
-            self.planner.business_changed(false);
-            self.changed.send_replace(false);
-        }
-        if state.holders >= 2 {
-            self.concurrent_business.send_replace(false);
-        }
-        state.ended = true;
-    }
-
-    fn lease(self: &Arc<Self>, kind: StreamKind) -> io::Result<Option<ActivityLease>> {
-        let business = kind == StreamKind::Business;
-        if !business && self.standby.is_none() {
-            return Ok(None);
-        }
-        let mut state = self.state.lock().expect("member activity lock");
-        if state.ended {
-            return Err(io::ErrorKind::NotConnected.into());
-        }
-        state.handoff = false;
-        let kind = if business {
-            if state.holders == 0 {
-                state.idle_since = None;
-                self.planner.business_changed(true);
-                self.changed.send_replace(true);
-                self.path_activity.send_replace(true);
-            }
-            state.used = true;
-            state.holders += 1;
-            if state.holders == 2 {
-                self.concurrent_business.send_replace(true);
-            }
-            ActivityLeaseKind::Business(None)
-        } else {
-            state.checks += 1;
-            ActivityLeaseKind::Maintenance(None)
-        };
-        Ok(Some(ActivityLease {
-            activity: self.clone(),
-            kind,
-        }))
-    }
-}
-
-#[derive(Debug)]
-struct ActivityLease {
-    activity: Arc<Activity>,
-    kind: ActivityLeaseKind,
-}
-
-#[derive(Debug)]
-enum ActivityLeaseKind {
-    Business(Option<noq::StreamControl>),
-    Maintenance(Option<(tokio::runtime::Handle, noq::StreamControl)>),
-}
-
-impl ActivityLease {
-    fn is_business(&self) -> bool {
-        matches!(self.kind, ActivityLeaseKind::Business(_))
-    }
-
-    fn claim_path(&mut self, send: &SendStream) -> io::Result<()> {
-        if let ActivityLeaseKind::Business(control) = &mut self.kind {
-            send.mark_business().map_err(io::Error::other)?;
-            *control = Some(send.control());
-        }
-        Ok(())
-    }
-
-    fn track_maintenance(&mut self, send: &SendStream) {
-        if let ActivityLeaseKind::Maintenance(control) = &mut self.kind {
-            *control = Some((tokio::runtime::Handle::current(), send.control()));
-        }
-    }
-}
-
-impl Drop for ActivityLease {
-    fn drop(&mut self) {
-        let activity = &self.activity;
-        match &mut self.kind {
-            ActivityLeaseKind::Business(control) => {
-                if let Some(control) = control.take() {
-                    control.release_business();
-                }
-            }
-            ActivityLeaseKind::Maintenance(control) => {
-                if let Some((runtime, control)) = control.take() {
-                    let activity = activity.clone();
-                    runtime.spawn(async move {
-                        let _ = control.stopped().await;
-                        activity.finish_check();
-                    });
-                } else {
-                    activity.finish_check();
-                }
-                return;
-            }
-        }
-        let mut state = activity.state.lock().expect("member activity lock");
-        state.holders -= 1;
-        if state.holders == 1 && !state.ended {
-            activity.concurrent_business.send_replace(false);
-        }
-        if state.holders == 0 && !state.ended {
-            state.idle_since = Some(Instant::now());
-            activity.planner.business_changed(false);
-            activity.changed.send_replace(false);
-            if activity.standby.is_none() {
-                activity.path_activity.send_replace(false);
-            }
-            drop(state);
-            activity.offer_standby();
-        }
-    }
 }

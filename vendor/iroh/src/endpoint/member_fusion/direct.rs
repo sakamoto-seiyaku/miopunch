@@ -260,23 +260,7 @@ impl PathCandidates {
         let (budget, interval) = self.traversal.ok_or(io::ErrorKind::Unsupported)?;
         let deadline = time::Instant::now() + budget;
         let generation = self.endpoint.inner.family_network_generation(ipv6);
-        let yield_standby = async {
-            if self.activity.standby.is_none() {
-                return std::future::pending().await;
-            }
-            let mut foreground = self.activity.planner.foreground();
-            let mut local = self.activity.subscribe();
-            loop {
-                let busy = *foreground.borrow_and_update();
-                if busy && self.activity.idle_since().is_some() {
-                    break;
-                }
-                tokio::select! {
-                    _ = foreground.changed() => {},
-                    _ = local.changed() => {},
-                }
-            }
-        };
+        let yield_standby = self.activity.wait_for_foreground_elsewhere();
         let work = async {
             // Physical serialization and pacing happen before the member position.
             // Outgoing work waits for the existing node owner before opening
@@ -588,7 +572,7 @@ pub(in crate::endpoint) fn watch_path_candidates(
     });
     tokio::spawn(watch(
         connection,
-        activity.path_activity.subscribe(),
+        activity.path_activity(),
         candidates.clone(),
         receiver,
     ));

@@ -514,9 +514,9 @@ impl FamilyPlanning {
             return pending().await;
         }
         let mut needed = self.path_work.needed[self.index()].subscribe();
-        let mut active = activity.subscribe();
+        let mut active = activity.business_activity();
         let mut maintenance = self.maintenance.subscribe();
-        let mut permitted = activity.path_activity.subscribe();
+        let mut permitted = activity.path_activity();
         let cancel = CancellationToken::new();
         let interval = self.config.quality_interval;
         // First eligible active work shares the current search opportunity.
@@ -939,7 +939,7 @@ impl FamilyPlanning {
                         deadline = deadline.min(since + timeout)
                     }
                     super::MemberRetention::Standby(_)
-                        if !activity.is_some_and(|a| *a.path_activity.borrow()) =>
+                        if !activity.is_some_and(Activity::permits_path_work) =>
                     {
                         return Err(busy());
                     }
