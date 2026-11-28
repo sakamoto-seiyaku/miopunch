@@ -2870,7 +2870,7 @@ fn first_contact_relay_survives_a_blackholed_active_ip() {
             .unwrap();
         let events: Vec<_> = attempt[..end]
             .iter()
-            .filter(|record| record["role"] == "initiator")
+            .filter(|record| record["role"] == "initiator" && record["source"] == "connect")
             .collect();
         let route_events: Vec<_> = events
             .iter()
@@ -3086,8 +3086,10 @@ async fn first_contact_relay_fixture() {
         );
     };
 
-    let original = caller
-        .coordinator()
+    // Warm and blackhole the proxy as the only supplied route. Background
+    // contact may already have saved the live relay used by the mixed cases.
+    let proxy_only = caller.coordinator().with_member_contacts(None);
+    let original = proxy_only
         .connect(
             direct_only.clone(),
             SessionPurpose::MemberBusiness,
@@ -3135,8 +3137,7 @@ async fn first_contact_relay_fixture() {
         blackhole.store(true, Ordering::Release);
 
         mark("active-only");
-        let result = caller
-            .coordinator()
+        let result = proxy_only
             .connect(
                 direct_only.clone(),
                 SessionPurpose::MemberBusiness,
