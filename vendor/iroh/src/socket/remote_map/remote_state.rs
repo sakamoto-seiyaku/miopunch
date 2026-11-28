@@ -42,6 +42,9 @@ use crate::{
     },
 };
 
+mod member_udp;
+use member_udp::{DirectPaths, MemberUdpProbes, ProbeConditions};
+
 mod path_state;
 mod path_watcher;
 mod remote_info;
@@ -285,16 +288,9 @@ struct MemberPaths {
     building_subscribed: bool,
     #[cfg(not(wasm_browser))]
     restricted_contact: Option<Arc<AtomicBool>>,
-    known_probes: FxHashMap<SocketAddr, Instant>,
+    udp_probes: MemberUdpProbes,
     response_deadlines: FxHashMap<SocketAddr, Instant>,
-    // One extra target for the current period of concurrent business.
-    additional_direct: Option<SocketAddr>,
-    last_exchange: [Option<HolepunchAttempt>; 2],
-    candidate_cursor: usize,
-    candidate_rotated_at: Option<Instant>,
     network_changed_at: FxHashMap<PathId, Instant>,
-    network_refresh: [bool; 2],
-    refresh_peers: [BTreeSet<SocketAddr>; 2],
     new_path_probes: FxHashMap<PathId, (Instant, noq::PathProbe)>,
 }
 
@@ -314,15 +310,9 @@ impl MemberPaths {
             building_subscribed: false,
             #[cfg(not(wasm_browser))]
             restricted_contact: None,
-            known_probes: FxHashMap::default(),
+            udp_probes: MemberUdpProbes::default(),
             response_deadlines: FxHashMap::default(),
-            additional_direct: None,
-            last_exchange: [None, None],
-            candidate_cursor: 0,
-            candidate_rotated_at: None,
             network_changed_at: FxHashMap::default(),
-            network_refresh: [false; 2],
-            refresh_peers: Default::default(),
             new_path_probes: FxHashMap::default(),
         }
     }
@@ -390,6 +380,68 @@ impl MemberPaths {
                 false
             }
         })));
+    }
+
+    #[cfg(not(wasm_browser))]
+    fn update_probe_permit(
+        &mut self,
+        conn: &noq::Connection,
+        paths: &FxHashMap<PathId, transports::PathBinding>,
+        remote: &State,
+        verified: &BTreeSet<SocketAddr>,
+        now: Instant,
+        healthy_return: bool,
+    ) {
+        if self.policy.building.is_none() {
+            return;
+        }
+
+        self.response_deadlines
+            .retain(|remote, deadline| now < *deadline && !verified.contains(remote));
+        let waiting_for_peer =
+            !self.response_deadlines.is_empty() || self.udp_probes.waiting_for_candidates(now);
+        for (_, network) in conn.network_paths() {
+            if let Some(binding) = remote.mapped_addrs.to_transport_tuple(&network)
+                && let transports::Addr::Ip(remote) = binding.remote()
+            {
+                self.response_deadlines.remove(&remote);
+            }
+        }
+        let validating = self
+            .new_path_probes
+            .values()
+            .any(|(deadline, _)| now < *deadline)
+            || conn.network_paths().iter().any(|(path_id, network)| {
+                !paths.contains_key(path_id)
+                    && conn
+                        .path(*path_id)
+                        .is_some_and(|path| path.status().is_ok())
+                    && remote
+                        .mapped_addrs
+                        .to_transport_tuple(network)
+                        .is_some_and(|binding| binding.is_ip())
+            });
+        self.physical
+            .lock()
+            .expect("ordinary physical leases")
+            .retain(|scope, _| {
+                !conn.nat_traversal_probes_paused(scope.is_ipv6())
+                    && conn.nat_traversal_probes_pending_for_family(scope.is_ipv6())
+            });
+        let in_flight = conn.nat_traversal_probes_pending() || waiting_for_peer || validating;
+        if !in_flight && self.building.is_some() {
+            conn.stop_nat_traversal_probes();
+            conn.set_nat_traversal_probes_permitted(false);
+            self.building = None;
+            self.physical
+                .lock()
+                .expect("ordinary physical leases")
+                .clear();
+        }
+        if in_flight && !validating && (!healthy_return || self.building.is_some()) {
+            self.allow_probes(conn, remote.endpoint_id);
+        }
+        conn.set_nat_traversal_probes_permitted(self.building.is_some());
     }
 
     fn has_current_ack(&self, id: PathId, stats: &PathStats) -> bool {
@@ -666,9 +718,7 @@ impl RemoteStateActor {
                             && let Some(member) = &mut state.member_paths
                             && member.policy.permits(transports::Addr::Ip(*address))
                         {
-                            let family = usize::from(address.is_ipv6());
-                            member.network_refresh[family] = true;
-                            member.refresh_peers[family].insert(*address);
+                            member.udp_probes.peer_added(*address);
                             refresh_marked = true;
                         }
                     }
@@ -1599,15 +1649,8 @@ impl RemoteStateActor {
                     };
                     #[cfg(wasm_browser)]
                     let valid_probes = std::collections::HashSet::<SocketAddr>::new();
-                    member.known_probes.retain(|address, _| valid_probes.contains(address) || !families[usize::from(address.is_ipv6())]);
+                    member.udp_probes.network_changed(families, &valid_probes);
                     member.response_deadlines.retain(|address, _| valid_probes.contains(address) || !families[usize::from(address.is_ipv6())]);
-                    if member.additional_direct.is_some_and(|address| families[usize::from(address.is_ipv6())]) { member.additional_direct = None; }
-                    for (family, changed) in families.iter().enumerate() {
-                        if *changed {
-                            member.last_exchange[family] = None;
-                            member.network_refresh[family] = true;
-                        }
-                    }
                     let mut affected_paths = HashSet::new();
                     if let Some(conn) = state.handle.upgrade() {
                         for (id, path) in conn.network_paths() {
@@ -1668,7 +1711,9 @@ impl RemoteStateActor {
             #[cfg(not(wasm_browser))]
             if let Some(member) = &mut state.member_paths {
                 if let Some(conn) = state.handle.upgrade() {
-                    if member.policy.building.is_some() { conn.stop_nat_traversal_probes(); }
+                    if member.policy.building.is_some() {
+                        conn.stop_nat_traversal_probes();
+                    }
                     conn.set_nat_traversal_probes_permitted(member.policy.building.is_none());
                 }
                 member.building = None;
@@ -1688,57 +1733,15 @@ impl RemoteStateActor {
             return;
         };
         let now = Instant::now();
-        let mut good_direct = false;
-        let mut healthy_direct = Vec::new();
-        let mut verified = BTreeSet::new();
-        let mut healthy_tcp = false;
-        for (path_id, binding) in &state.paths {
-            let ip = match binding.remote() {
-                transports::Addr::Ip(remote) => Some(remote),
-                transports::Addr::Custom(addr)
-                    if member.policy.acked_custom_transports[0] == Some(addr.id()) =>
-                {
-                    None
-                }
-                _ => continue,
-            };
-            if !state.path_is_qualified(*path_id, &conn) {
-                continue;
-            }
-            let Some(stats) = conn.path_stats(*path_id) else {
-                continue;
-            };
-            if !member.has_current_ack(*path_id, &stats) {
-                continue;
-            }
-            let healthy = !state.suspect_paths.contains_key(path_id);
-            if let Some(remote) = ip {
-                verified.insert(remote);
-                good_direct |= healthy && stats.rtt <= GOOD_ENOUGH_LATENCY;
-            } else {
-                healthy_tcp |= healthy;
-            }
-            if healthy && !healthy_direct.contains(&binding) {
-                healthy_direct.push(binding);
-            }
-        }
+        let direct = state.direct_path_health(&conn, member);
         let member = state
             .member_paths
             .as_mut()
             .expect("checked member connection");
-        let ready_direct = healthy_direct.len();
+        let ready_direct = direct.ready;
+        let verified = &direct.verified;
         let all_candidates = self.state.local_candidates();
-        for (family, refreshing) in member.network_refresh.iter_mut().enumerate() {
-            if verified.iter().any(|address| address.is_ipv6() == (family == 1)
-                && (member.refresh_peers[family].is_empty() || member.refresh_peers[family].contains(address))) {
-                *refreshing = false;
-                member.refresh_peers[family].clear();
-            }
-        }
-        let refresh_families: [bool; 2] = std::array::from_fn(|family| {
-            member.network_refresh[family]
-                && all_candidates.iter().any(|address| address.is_ipv6() == (family == 1))
-        });
+        let refresh_families = member.udp_probes.refresh_needed(verified, &all_candidates);
         let refreshing = refresh_families.iter().any(|refreshing| *refreshing);
         let concurrent = member
             .policy
@@ -1746,68 +1749,23 @@ impl RemoteStateActor {
             .as_ref()
             .map(|demand| *demand.borrow());
         if concurrent == Some(false) {
-            member.additional_direct = None;
+            member.udp_probes.clear_additional_direct();
         }
         let balancing = ready_direct != 0 && concurrent.is_some() && !refreshing;
-        let healthy_return = ready_direct != 0 && !refreshing
+        #[cfg(not(wasm_browser))]
+        let healthy_return = ready_direct != 0
+            && !refreshing
             && (!member.policy.business_active() || balancing)
             && (ready_direct != 1 || concurrent != Some(true));
         #[cfg(not(wasm_browser))]
-        if member.policy.building.is_some() {
-            member
-                .response_deadlines
-                .retain(|remote, deadline| now < *deadline && !verified.contains(remote));
-            let waiting_for_peer = !member.response_deadlines.is_empty()
-                || member.last_exchange.iter().flatten().any(|last| {
-                    last.remote_candidates.is_empty()
-                        && now - last.when < HOLEPUNCH_ATTEMPTS_INTERVAL
-                });
-            for (_, network) in conn.network_paths() {
-                if let Some(binding) = self.state.mapped_addrs.to_transport_tuple(&network)
-                    && let transports::Addr::Ip(remote) = binding.remote()
-                {
-                    member.response_deadlines.remove(&remote);
-                }
-            }
-            let validating = member
-                .new_path_probes
-                .values()
-                .any(|(deadline, _)| now < *deadline)
-                || conn.network_paths().iter().any(|(path_id, network)| {
-                    !state.paths.contains_key(path_id)
-                        && conn
-                            .path(*path_id)
-                            .is_some_and(|path| path.status().is_ok())
-                        && self
-                            .state
-                            .mapped_addrs
-                            .to_transport_tuple(network)
-                            .is_some_and(|binding| binding.is_ip())
-                });
-            member
-                .physical
-                .lock()
-                .expect("ordinary physical leases")
-                .retain(|scope, _| {
-                    !conn.nat_traversal_probes_paused(scope.is_ipv6())
-                        && conn.nat_traversal_probes_pending_for_family(scope.is_ipv6())
-                });
-            let in_flight = conn.nat_traversal_probes_pending() || waiting_for_peer || validating;
-            if !in_flight && member.building.is_some() {
-                conn.stop_nat_traversal_probes();
-                conn.set_nat_traversal_probes_permitted(false);
-                member.building = None;
-                member
-                    .physical
-                    .lock()
-                    .expect("ordinary physical leases")
-                    .clear();
-            }
-            if in_flight && !validating && (!healthy_return || member.building.is_some()) {
-                member.allow_probes(&conn, self.state.endpoint_id);
-            }
-            conn.set_nat_traversal_probes_permitted(member.building.is_some());
-        }
+        member.update_probe_permit(
+            &conn,
+            &state.paths,
+            &self.state,
+            verified,
+            now,
+            healthy_return,
+        );
         if ready_direct != 0 && !refreshing && (!member.policy.business_active() || balancing) {
             member.policy.needs_enhanced_udp([false; 2]);
             if ready_direct != 1 || concurrent != Some(true) {
@@ -1817,7 +1775,8 @@ impl RemoteStateActor {
                 return;
             }
         }
-        let needs_enhanced = refresh_families.map(|refreshing| refreshing || (!healthy_tcp && verified.is_empty()));
+        let needs_enhanced = refresh_families
+            .map(|refreshing| refreshing || (!direct.healthy_tcp && verified.is_empty()));
         if !active {
             if trace_ipv6 {
                 eprintln!(
@@ -1830,28 +1789,16 @@ impl RemoteStateActor {
         }
         let ipv4_paused = conn.ipv4_nat_traversal_probes_paused();
         let ipv6_paused = conn.nat_traversal_probes_paused(true);
-        let can_probe = |addr: &SocketAddr| {
-            (!healthy_tcp || refresh_families[usize::from(addr.is_ipv6())])
-                && if addr.ip().to_canonical().is_ipv6() {
-                    !ipv6_paused
-                } else {
-                    !ipv4_paused
-                }
+        let update = ProbeConditions {
+            direct: &direct,
+            refresh: refresh_families,
+            paused: [ipv4_paused, ipv6_paused],
+            now,
         };
         let limit = conn.local_nat_traversal_address_limit().unwrap_or(0);
-        if all_candidates.len() > limit
-            && ready_direct == 0
-            && member
-                .candidate_rotated_at
-                .is_none_or(|last| now - last >= HOLEPUNCH_ATTEMPTS_INTERVAL)
-        {
-            if member.candidate_rotated_at.is_some() {
-                member.candidate_cursor = member.candidate_cursor.wrapping_add((limit / 2).max(1));
-            }
-            member.candidate_rotated_at = Some(now);
-        }
-        let local_candidates =
-            member_candidate_window(&all_candidates, limit, member.candidate_cursor);
+        let local_candidates = member
+            .udp_probes
+            .local_window(&all_candidates, limit, &update);
         if local_candidates.is_empty() {
             if trace_ipv6 {
                 eprintln!(
@@ -1867,7 +1814,10 @@ impl RemoteStateActor {
             // Advertisements let the QUIC client own the extra probe in
             // both business directions. Server probes could open a
             // different binding through the client's reciprocal challenge.
-            let advertise = local_candidates.into_iter().filter(can_probe).collect();
+            let advertise = local_candidates
+                .into_iter()
+                .filter(|addr| update.can_probe(addr))
+                .collect();
             update_qnt_candidates(&conn, &advertise);
             return;
         }
@@ -1918,33 +1868,12 @@ impl RemoteStateActor {
                 conn.side(),
             );
         }
-        member
-            .known_probes
-            .retain(|remote, _| known.contains(remote));
-        let additional = if balancing {
-            member
-                .additional_direct
-                .or_else(|| explicit.iter().chain(&known).copied().find(can_probe))
-        } else {
-            None
-        };
-        let may_retry = refreshing || !good_direct || (balancing && member.additional_direct.is_none());
-        for remote in known.iter().filter(|address| {
-            can_probe(address)
-                && if balancing {
-                    Some(**address) == additional
-                } else {
-                    explicit.contains(*address)
-                        || refresh_families[usize::from(address.is_ipv6())]
-                        || ((ipv4_paused || ipv6_paused) && can_probe(address))
-                }
-        }) {
-            if member
-                .known_probes
-                .get(remote)
-                .is_none_or(|last| may_retry && now - *last >= HOLEPUNCH_ATTEMPTS_INTERVAL)
-                && member.allow_probes(&conn, self.state.endpoint_id)
-                && conn.probe_known_nat_traversal_address(*remote).is_ok()
+        for remote in member
+            .udp_probes
+            .known_targets(&known, &explicit, balancing, &update)
+        {
+            if member.allow_probes(&conn, self.state.endpoint_id)
+                && conn.probe_known_nat_traversal_address(remote).is_ok()
             {
                 if trace_ipv6 {
                     eprintln!(
@@ -1952,50 +1881,25 @@ impl RemoteStateActor {
                         id.0,
                     );
                 }
-                member.known_probes.insert(*remote, now);
+                member.udp_probes.probe_started(remote, now, balancing);
                 member
                     .response_deadlines
-                    .insert(*remote, now + HOLEPUNCH_ATTEMPTS_INTERVAL);
-                if balancing {
-                    member.additional_direct = Some(*remote);
-                }
+                    .insert(remote, now + HOLEPUNCH_ATTEMPTS_INTERVAL);
             }
         }
         if balancing {
             return;
         }
-        let fallback = std::array::from_fn(|family| {
-            let ipv6 = family == 1;
-            let probing = member
-                .known_probes
-                .iter()
-                .any(|(remote, sent)| remote.is_ipv6() == ipv6 && now - *sent < LOCAL_PROBE_GRACE);
-            let recent_exchange = member.last_exchange[family]
-                .as_ref()
-                .is_some_and(|last| now - last.when < LOCAL_PROBE_GRACE);
-            needs_enhanced[family] && !probing && !recent_exchange
-        });
+        let fallback = member.udp_probes.enhanced_fallback(needs_enhanced, now);
         if conn.side().is_server() {
             // At first activation prefer local probes. Only advertise when a
             // local path could not be verified or none can be attempted here.
             // IPv6 advertisements use their own verification state.
             if let Ok(announced) = conn.get_local_nat_traversal_addresses() {
-                let have_ipv6 = verified
-                    .iter()
-                    .any(|addr| addr.ip().to_canonical().is_ipv6());
-                let advertise = local_candidates
-                    .into_iter()
-                    .filter(|addr| {
-                        announced.contains(addr)
-                            || (!member.known_probes.iter().any(|(remote, sent)| {
-                                remote.is_ipv6() == addr.is_ipv6()
-                                    && now - *sent < LOCAL_PROBE_GRACE
-                            }) && can_probe(addr)
-                                && (verified.is_empty()
-                                    || refresh_families[usize::from(addr.is_ipv6())]
-                                    || (addr.ip().to_canonical().is_ipv6() && !have_ipv6)))
-                    })
-                    .collect();
+                let advertise =
+                    member
+                        .udp_probes
+                        .server_advertisements(local_candidates, &announced, &update);
                 update_qnt_candidates(&conn, &advertise);
             }
             member.policy.needs_enhanced_udp(fallback);
@@ -2009,55 +1913,28 @@ impl RemoteStateActor {
         let advertise = local_candidates
             .iter()
             .copied()
-            .filter(|address| can_probe(address) || announced.contains(address))
+            .filter(|address| update.can_probe(address) || announced.contains(address))
             .collect();
         update_qnt_candidates(&conn, &advertise);
         let mut started = [false; 2];
         for ipv6 in [false, true] {
-            if if ipv6 { ipv6_paused } else { ipv4_paused } {
+            let Some(attempt) = member.udp_probes.next_exchange(
+                ipv6,
+                &local_candidates,
+                &remote,
+                &known,
+                &member.policy,
+                &update,
+            ) else {
                 continue;
-            }
-            let family = usize::from(ipv6);
-            let local: BTreeSet<_> = local_candidates
-                .iter()
-                .copied()
-                .filter(|addr| addr.is_ipv6() == ipv6 && can_probe(addr))
-                .collect();
-            if local.is_empty() {
-                continue;
-            }
-            let remote: BTreeSet<_> = remote
-                .iter()
-                .copied()
-                .filter(|address| {
-                    address.is_ipv6() == ipv6
-                        && member.policy.permits(transports::Addr::Ip(*address))
-                })
-                .collect();
-            let probing_family = member.known_probes.iter().any(|(remote, sent)| {
-                remote.is_ipv6() == ipv6 && can_probe(remote) && now - *sent < LOCAL_PROBE_GRACE
-            });
-            if probing_family
-                || (!verified.is_empty()
-                    && remote.is_subset(&verified)
-                    && !known.iter().any(|addr| addr.is_ipv6() == ipv6))
-            {
-                continue;
-            }
-            if member.last_exchange[family].as_ref().is_some_and(|last| {
-                local.is_subset(&last.local_candidates)
-                    && remote.is_subset(&last.remote_candidates)
-                    && (good_direct || now - last.when < HOLEPUNCH_ATTEMPTS_INTERVAL)
-            }) {
-                continue;
-            }
+            };
             if !member.allow_probes(&conn, self.state.endpoint_id) {
                 continue;
             }
             let exchange = conn.initiate_nat_traversal_round_for_family(ipv6, |addr| {
                 addr.is_ipv6() == ipv6
-                    && can_probe(&addr)
-                    && remote.contains(&addr)
+                    && update.can_probe(&addr)
+                    && attempt.remote_candidates.contains(&addr)
                     && !verified.contains(&addr)
             });
             if trace_ipv6 && ipv6 {
@@ -2067,13 +1944,9 @@ impl RemoteStateActor {
                 );
             }
             if exchange.is_ok() {
-                started[family] = true;
+                started[usize::from(ipv6)] = true;
                 self.state.metrics.holepunch_attempts.inc();
-                member.last_exchange[family] = Some(HolepunchAttempt {
-                    when: now,
-                    local_candidates: local,
-                    remote_candidates: remote,
-                });
+                member.udp_probes.exchange_started(ipv6, attempt);
                 trace!(
                     stable_id = id.0,
                     ipv6, "member QNT candidate exchange on original connection"
@@ -3263,36 +3136,6 @@ impl State {
     }
 }
 
-/// Give both families space in QNT's negotiated window, rotating excess candidates on retry.
-fn member_candidate_window(
-    candidates: &BTreeSet<SocketAddr>,
-    limit: usize,
-    cursor: usize,
-) -> BTreeSet<SocketAddr> {
-    if candidates.len() <= limit {
-        return candidates.clone();
-    }
-    let v4: Vec<_> = candidates
-        .iter()
-        .copied()
-        .filter(SocketAddr::is_ipv4)
-        .collect();
-    let v6: Vec<_> = candidates
-        .iter()
-        .copied()
-        .filter(SocketAddr::is_ipv6)
-        .collect();
-    let mut ordered = Vec::with_capacity(candidates.len());
-    for index in 0..v4.len().max(v6.len()) {
-        for family in [&v4, &v6] {
-            if index < family.len() {
-                ordered.push(family[(cursor % family.len() + index) % family.len()]);
-            }
-        }
-    }
-    ordered.into_iter().take(limit).collect()
-}
-
 /// Updates QNT's candidate addresses to be the current set of direct addresses.
 ///
 /// `direct_addrs` must be a set of addresses extracted from the endpoint's current
@@ -3594,6 +3437,49 @@ enum ConnectionPurpose {
 }
 
 impl ConnectionState {
+    fn direct_path_health(&self, conn: &noq::Connection, member: &MemberPaths) -> DirectPaths {
+        let mut good_direct = false;
+        let mut healthy_direct = Vec::new();
+        let mut verified = BTreeSet::new();
+        let mut healthy_tcp = false;
+        for (path_id, binding) in &self.paths {
+            let ip = match binding.remote() {
+                transports::Addr::Ip(remote) => Some(remote),
+                transports::Addr::Custom(addr)
+                    if member.policy.acked_custom_transports[0] == Some(addr.id()) =>
+                {
+                    None
+                }
+                _ => continue,
+            };
+            if !self.path_is_qualified(*path_id, conn) {
+                continue;
+            }
+            let Some(stats) = conn.path_stats(*path_id) else {
+                continue;
+            };
+            if !member.has_current_ack(*path_id, &stats) {
+                continue;
+            }
+            let healthy = !self.suspect_paths.contains_key(path_id);
+            if let Some(remote) = ip {
+                verified.insert(remote);
+                good_direct |= healthy && stats.rtt <= GOOD_ENOUGH_LATENCY;
+            } else {
+                healthy_tcp |= healthy;
+            }
+            if healthy && !healthy_direct.contains(&binding) {
+                healthy_direct.push(binding);
+            }
+        }
+        DirectPaths {
+            ready: healthy_direct.len(),
+            verified,
+            good_udp: good_direct,
+            healthy_tcp,
+        }
+    }
+
     fn is_native_member_path(&self, binding: &transports::PathBinding) -> bool {
         self.member_paths.as_ref().is_some_and(|member| {
             binding.is_ip()
