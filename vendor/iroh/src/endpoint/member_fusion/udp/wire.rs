@@ -17,7 +17,7 @@ const HELLO: u8 = 1;
 pub(super) const CHALLENGE: u8 = 2;
 const OFFER: u8 = 3;
 const PLAN: u8 = 4;
-const ACCEPT: u8 = 5;
+pub(super) const ACCEPT: u8 = 5;
 pub(super) const COMMITTED: u8 = 6;
 const ERROR: u8 = 7;
 pub(super) const LISTENING: u8 = 8;
@@ -185,14 +185,14 @@ impl Round {
         })
     }
 
-    pub(super) fn accept(self, budget: Duration) -> io::Result<Vec<u8>> {
-        let mut bytes = self.message(ACCEPT);
+    pub(super) fn with_budget(self, kind: u8, budget: Duration) -> io::Result<Vec<u8>> {
+        let mut bytes = self.message(kind);
         bytes.extend(millis(budget)?.to_be_bytes());
         Ok(bytes)
     }
 
-    pub(super) fn accepted(self, bytes: &[u8]) -> io::Result<Duration> {
-        let mut body = self.body(bytes, ACCEPT)?;
+    pub(super) fn read_budget(self, bytes: &[u8], kind: u8) -> io::Result<Duration> {
+        let mut body = self.body(bytes, kind)?;
         let accepted = duration(&mut body)?;
         end(body)?;
         Ok(accepted)

@@ -801,7 +801,7 @@ impl FamilyPlanning {
             deadline,
         )?;
         let mut trace = RoundTrace::new(&self.connection, "initiator", kind);
-        let mut failed_exchange = None;
+        let mut exchange = exchange;
         let work = async {
             let fusion = self
                 .endpoint
@@ -833,10 +833,8 @@ impl FamilyPlanning {
                     .await?;
                 }
             }
-            let stream = if let Some(exchange) = exchange {
-                exchange
-            } else {
-                self.guarded(deadline, &scope, async {
+            if exchange.is_none() {
+                exchange = Some(self.guarded(deadline, &scope, async {
                     let (mut send, recv) =
                         self.connection.open_bi().await.map_err(io::Error::other)?;
                     send.write_all(&[kind as u8])
@@ -844,37 +842,30 @@ impl FamilyPlanning {
                         .map_err(io::Error::other)?;
                     Ok(ControlExchange::from_streams(send, recv))
                 })
-                .await?
-            };
-            let result = async {
-                let plan = self
-                    .guarded(
-                        deadline,
+                .await?);
+            }
+            let stream = exchange.as_ref().expect("open UDP exchange");
+            let plan = self
+                .guarded(
+                    deadline,
+                    &scope,
+                    self.offer(
+                        stream,
                         &scope,
-                        self.offer(
-                            &stream,
-                            &scope,
-                            deadline,
-                            kind,
-                            &slot,
-                            &mut running,
-                            &mut trace,
-                        ),
-                    )
+                        deadline,
+                        kind,
+                        &slot,
+                        &mut running,
+                        &mut trace,
+                    ),
+                )
+                .await?;
+            self.publish(&plan);
+            if traverse {
+                self.execute(stream, &plan, None, &slot, kind, &mut trace)
                     .await?;
-                self.publish(&plan);
-                if traverse {
-                    self.execute(&stream, &plan, None, &slot, kind, &mut trace)
-                        .await?;
-                }
-                Ok(plan)
             }
-            .await;
-            trace.finish(&result);
-            if result.is_err() {
-                failed_exchange = Some(stream);
-            }
-            result
+            Ok(plan)
         };
         let result = tokio::select! { biased;
             _ = cancel.cancelled() => Err(io::ErrorKind::Interrupted.into()),
@@ -884,7 +875,7 @@ impl FamilyPlanning {
         };
         trace.finish(&result);
         drop(slot);
-        if let (Some(stream), Err(error)) = (failed_exchange, &result) {
+        if let (Some(stream), Err(error)) = (exchange, &result) {
             // The local failure is already settled. Give the peer the remaining
             // time to receive the stop without replacing that failure at expiry.
             let confirm = error.kind() == io::ErrorKind::Interrupted;
@@ -1078,7 +1069,7 @@ impl FamilyPlanning {
         let round = Round::decode(&challenge, wire::CHALLENGE)?;
         trace.start(round);
         slot.commit()?;
-        send(stream, &round.message(wire::OBSERVE)).await?;
+        send(stream, &round.with_budget(wire::OBSERVE, remaining(deadline)?)?).await?;
         round.check(&receive(stream).await?, wire::OBSERVE)?;
         *running = self.start_probes(kind)?;
         let traverse = kind != StreamKind::UdpPlan;
@@ -1110,7 +1101,7 @@ impl FamilyPlanning {
         check_phase_time(accepted, [&local_phase, &peer_phase])?;
         local.check()?;
         self.check_scope(scope)?;
-        send(stream, &round.accept(accepted)?).await?;
+        send(stream, &round.with_budget(wire::ACCEPT, accepted)?).await?;
         // Send FIN without resetting bytes the peer has yet to read.
         if !traverse {
             stream.finish_send().await?;
@@ -1145,8 +1136,12 @@ impl FamilyPlanning {
     ) -> io::Result<(MemberUdpPlan, Option<Recommendation>)> {
         let round = Round(rand::random());
         trace.start(round);
+        let challenged_at = Instant::now();
         send(stream, &round.message(wire::CHALLENGE)).await?;
-        round.check(&receive(stream).await?, wire::OBSERVE)?;
+        let caller_remaining = round.read_budget(&receive(stream).await?, wire::OBSERVE)?;
+        // The caller measured its remaining time after receiving our challenge.
+        // Anchor it to the send, so time in transit cannot extend its deadline.
+        let deadline = deadline.min(challenged_at + caller_remaining);
         slot.commit()?;
         *running = self.start_probes(kind)?;
         send(stream, &round.message(wire::OBSERVE)).await?;
@@ -1155,7 +1150,9 @@ impl FamilyPlanning {
         // Dropping or cancelling the visitor's stream stops even a pending observation.
         let (local, remote) = tokio::try_join!(
             async {
-                let local = self.observe(scope, traverse, trace, deadline).await?;
+                let local = time::timeout_at(deadline, self.observe(scope, traverse, trace, deadline))
+                    .await
+                    .map_err(|_| io::ErrorKind::TimedOut)??;
                 trace.step("peer-samples");
                 Ok::<_, io::Error>(local)
             },
@@ -1188,7 +1185,7 @@ impl FamilyPlanning {
             )?,
         )
         .await?;
-        let accepted = round.accepted(&receive(stream).await?)?;
+        let accepted = round.read_budget(&receive(stream).await?, wire::ACCEPT)?;
         if accepted > budget {
             return Err(invalid("UDP plan acknowledgement exceeds proposed time"));
         }
