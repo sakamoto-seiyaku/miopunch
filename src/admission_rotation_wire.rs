@@ -43,6 +43,56 @@ pub struct RotationProgress {
 }
 
 impl RotationProgress {
+    pub(crate) fn forwarding_pending(&self, local: VerifyingKey) -> bool {
+        self.stage == RotationStage::Distributing
+            && self.acknowledged.len() != self.retained.len()
+            && self.acknowledged.contains(&local)
+    }
+
+    pub(crate) fn recipients(
+        &self,
+        rotation: &SavedRotation,
+        local: VerifyingKey,
+        is_member: impl Fn(VerifyingKey) -> bool,
+        pending: impl Fn(VerifyingKey) -> bool,
+    ) -> Result<std::collections::BTreeMap<iroh_base::EndpointId, &'static [u8]>, WireError> {
+        let forwarding = self.forwarding_pending(local);
+        let announce = local == self.initiator
+            && (self.stage == RotationStage::Complete
+                || self.acknowledged.len() != self.retained.len());
+        let mut peers = std::collections::BTreeMap::new();
+        for &peer in &self.retained {
+            if peer == local
+                || !is_member(peer)
+                || rotation
+                    .proposal
+                    .retained
+                    .binary_search(peer.as_bytes())
+                    .is_err()
+            {
+                continue;
+            }
+            // A pending recipient can use its original provider only for the
+            // replacement material. Its durable acknowledgement settles that route.
+            let alpn = if forwarding && pending(peer) {
+                if self.acknowledged.contains(&peer) {
+                    continue;
+                }
+                ROTATION_DELIVERY_ALPN
+            } else if announce {
+                ADMISSION_ROTATION_ALPN
+            } else {
+                continue;
+            };
+            peers.insert(
+                iroh_base::EndpointId::from_bytes(peer.as_bytes())
+                    .map_err(|_| WireError::Rejected)?,
+                alpn,
+            );
+        }
+        Ok(peers)
+    }
+
     pub(crate) fn public_json(&self) -> serde_json::Value {
         serde_json::json!({"id":hex::encode(self.id), "generation":self.generation,
             "initiator":self.initiator.to_string(), "stage":format!("{:?}",self.stage),
@@ -155,6 +205,39 @@ impl SavedRotation {
         }
     }
 
+    pub(crate) fn completed_progress(
+        &self,
+        root: VerifyingKey,
+    ) -> Result<Option<RotationProgress>, WireError> {
+        self.completion
+            .as_ref()
+            .map(|signed| {
+                let complete = verify_completion(self, root, signed)?;
+                self.progress(&complete.retained, complete.retained.iter().copied())
+            })
+            .transpose()
+    }
+
+    pub(crate) fn progress(
+        &self,
+        retained: &[[u8; 32]],
+        acknowledged: impl IntoIterator<Item = [u8; 32]>,
+    ) -> Result<RotationProgress, WireError> {
+        let acknowledged: Vec<_> = acknowledged
+            .into_iter()
+            .filter(|peer| retained.binary_search(peer).is_ok())
+            .collect();
+        Ok(RotationProgress {
+            id: self.proposal.id,
+            generation: self.proposal.generation,
+            initiator: VerifyingKey::from_bytes(&self.proposal.initiator)
+                .map_err(|_| WireError::Rejected)?,
+            retained: keys(retained)?,
+            acknowledged: keys(&acknowledged)?,
+            stage: self.stage(),
+        })
+    }
+
     pub(crate) fn sign_ack(&self, key: &SigningKey) -> Result<Signed, WireError> {
         Signed::sign(
             ACK_DOMAIN,
@@ -201,6 +284,21 @@ pub(crate) async fn negotiate_generation(
     wire.read_fixed(&mut selected).await?;
     wire.finish_send().await?;
     Ok(u64::from_be_bytes(selected))
+}
+
+pub(crate) fn retained_members(
+    auth: &crate::management_auth::ManagementAuth,
+    root: VerifyingKey,
+) -> Vec<[u8; 32]> {
+    let mut retained: Vec<_> = auth
+        .nodes()
+        .into_iter()
+        .map(|(id, _)| id)
+        .filter(|id| *id != root)
+        .map(|id| *id.as_bytes())
+        .collect();
+    retained.sort();
+    retained
 }
 
 pub(crate) fn keys(values: &[[u8; 32]]) -> Result<Vec<VerifyingKey>, WireError> {

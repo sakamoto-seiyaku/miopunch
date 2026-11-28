@@ -21,7 +21,7 @@ pub use crate::admission_rotation_wire::{
 };
 use crate::admission_rotation_wire::{
     COMMIT_DOMAIN, Completion, HistoryFrame, MAX_MEMBERS, PROPOSAL_DOMAIN,
-    Proposal, RotationExchange, SavedRotation, Signed, WireError, decode, encode, keys,
+    Proposal, RotationExchange, SavedRotation, Signed, WireError, decode, encode, retained_members,
     rotation_deadline, verify_ack, verify_completion, verify_proposal, wire_io,
 };
 use crate::admission_proof::{AdmissionScope, AdmissionSecret};
@@ -191,7 +191,7 @@ impl ManagementStore {
         Ok(())
     }
 
-    async fn rotation_acks(&self, rotation: &SavedRotation) -> Result<Vec<Signed>, RotationError> {
+    async fn rotation_acks(&self, rotation: &SavedRotation) -> Result<Vec<([u8; 32], Signed)>, RotationError> {
         let bytes: Vec<Vec<u8>> = sqlx::query_scalar(
             "SELECT acknowledgement FROM admission_rotation_acks WHERE rotation=? ORDER BY member",
         )
@@ -199,14 +199,10 @@ impl ManagementStore {
         .fetch_all(&self.pool)
         .await
         .map_err(StoreError::from)?;
-        let acks = bytes
-            .iter()
-            .map(|bytes| decode(bytes))
-            .collect::<Result<Vec<Signed>, _>>()?;
-        for ack in &acks {
-            verify_ack(ack, rotation)?;
-        }
-        Ok(acks)
+        bytes.iter().map(|bytes| {
+            let ack = decode(bytes)?;
+            Ok((verify_ack(&ack, rotation)?, ack))
+        }).collect()
     }
 
     async fn save_rotation_ack(
@@ -382,15 +378,7 @@ fn publish_current_material(
 
 impl NativeNetwork {
     fn retained_members(&self) -> Vec<[u8; 32]> {
-        let mut retained: Vec<_> = self
-            .store
-            .nodes()
-            .into_iter()
-            .filter(|(id, _)| *id != self.anchor.root)
-            .map(|(id, _)| *id.as_bytes())
-            .collect();
-        retained.sort();
-        retained
+        retained_members(self.store.authorization(), self.anchor.root)
     }
 
     pub(crate) async fn restore_rotation_gate(&self) -> Result<(), NodeError> {
@@ -433,32 +421,11 @@ impl NativeNetwork {
         &self,
         rotation: &SavedRotation,
     ) -> Result<RotationProgress, RotationError> {
-        let (retained, acknowledged, stage) = if let Some(signed) = &rotation.completion {
-            let complete = verify_completion(&rotation, self.anchor.root, signed)?;
-            (
-                complete.retained.clone(),
-                complete.retained,
-                RotationStage::Complete,
-            )
-        } else {
-            let acks = self.store.rotation_acks(&rotation).await?;
-            let retained = self.retained_members();
-            let mut members = acks
-                .iter()
-                .map(|ack| verify_ack(ack, &rotation))
-                .collect::<Result<Vec<_>, _>>()?;
-            members.retain(|member| retained.contains(member));
-            (retained, members, RotationStage::Distributing)
-        };
-        Ok(RotationProgress {
-            id: rotation.proposal.id,
-            generation: rotation.proposal.generation,
-            initiator: VerifyingKey::from_bytes(&rotation.proposal.initiator)
-                .map_err(|_| RotationError::Rejected)?,
-            retained: keys(&retained)?,
-            acknowledged: keys(&acknowledged)?,
-            stage,
-        })
+        if let Some(progress) = rotation.completed_progress(self.anchor.root)? {
+            return Ok(progress);
+        }
+        let acknowledged = self.store.rotation_acks(rotation).await?;
+        Ok(rotation.progress(&self.retained_members(), acknowledged.into_iter().map(|(member, _)| member))?)
     }
 
     pub async fn begin_admission_rotation(
@@ -617,12 +584,8 @@ impl NativeNetwork {
             }
         }
         let progress = self.progress_of(&rotation).await?;
-        let initiator = local == progress.initiator;
-        let mut recipients = BTreeMap::new();
-        if progress.stage == RotationStage::Distributing
-            && progress.acknowledged.contains(&local)
-            && progress.acknowledged.len() != progress.retained.len()
-        {
+        let mut pending_peers = std::collections::BTreeSet::new();
+        if progress.forwarding_pending(local) {
             let pending: Vec<Vec<u8>> = sqlx::query_scalar(
                 "SELECT applicant FROM admission_deliveries WHERE authorization IS NOT NULL AND phase<3 \
                  UNION SELECT target FROM management_recoveries WHERE authorization IS NOT NULL AND phase<3",
@@ -635,41 +598,15 @@ impl NativeNetwork {
                     &bytes.try_into().map_err(|_| RotationError::Rejected)?,
                 )
                 .map_err(|_| RotationError::Rejected)?;
-                if peer != local
-                    && rotation.proposal.retained.contains(peer.as_bytes())
-                    && progress.retained.contains(&peer)
+                if peer != local && progress.retained.contains(&peer)
+                    && rotation.proposal.retained.binary_search(peer.as_bytes()).is_ok()
                     && self.pending_rotation_profile(peer).await.is_ok()
                 {
-                    recipients.insert(peer, ROTATION_DELIVERY_ALPN);
+                    pending_peers.insert(peer);
                 }
             }
         }
-        if initiator
-            && (progress.stage == RotationStage::Complete
-                || progress.acknowledged.len() != progress.retained.len())
-        {
-            for peer in &progress.retained {
-                if *peer != local
-                    && self.is_member(*peer)
-                    && rotation.proposal.retained.contains(peer.as_bytes())
-                {
-                    recipients.entry(*peer).or_insert(ADMISSION_ROTATION_ALPN);
-                }
-            }
-        }
-        // Retrying an acknowledged restricted recipient cannot yield a new
-        // forwarded receipt: it has yet to acquire its active credential.
-        recipients.retain(|peer, alpn| {
-            *alpn != ROTATION_DELIVERY_ALPN || !progress.acknowledged.contains(peer)
-        });
-        let recipients = recipients
-            .into_iter()
-            .map(|(peer, alpn)| {
-                iroh::EndpointId::from_bytes(peer.as_bytes())
-                    .map(|endpoint| (endpoint, alpn))
-                    .map_err(|_| RotationError::Rejected)
-            })
-            .collect::<Result<_, _>>()?;
+        let recipients = progress.recipients(&rotation, local, |peer| self.is_member(peer), |peer| pending_peers.contains(&peer))?;
         Ok(Some((progress, recipients)))
     }
 
@@ -733,16 +670,14 @@ impl NativeNetwork {
             {
                 return Err(RotationError::RetainedChanged);
             }
-            acks.retain(|ack| {
-                verify_ack(ack, &rotation).is_ok_and(|member| retained.contains(&member))
-            });
+            acks.retain(|(member, _)| retained.contains(member));
             if acks.len() != retained.len() {
                 return Err(RotationError::Waiting);
             }
             let completion = Completion {
                 proposal: rotation.proposal_hash,
                 retained,
-                acknowledgements: acks,
+                acknowledgements: acks.into_iter().map(|(_, ack)| ack).collect(),
             };
             // No async gap between the final actual member snapshot/session
             // check and root signature; durable commit precedes active use.
@@ -1280,9 +1215,8 @@ impl NativeNetwork {
                     .rotation_acks(&rotation)
                     .await?
                     .into_iter()
-                    .filter(|ack| {
-                        verify_ack(ack, &rotation).is_ok_and(|member| retained.contains(&member))
-                    })
+                    .filter(|(member, _)| retained.contains(member))
+                    .map(|(_, ack)| ack)
                     .collect::<Vec<_>>();
                 #[cfg(feature = "replica-test-hooks")]
                 let forwarded = if tamper_forwarded {

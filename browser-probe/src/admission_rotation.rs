@@ -3,7 +3,7 @@ use super::*;
 use crate::admission_rotation_wire::{
     ADMISSION_ROTATION_ALPN, COMMIT_DOMAIN, Completion, HistoryFrame, MAX_MEMBERS, PROPOSAL_DOMAIN,
     Proposal, ROTATION_DELIVERY_ALPN, RotationExchange, RotationProgress, RotationStage,
-    SavedRotation, Signed, decode, encode, keys, rotation_deadline, verify_ack, verify_completion,
+    SavedRotation, Signed, decode, encode, retained_members, rotation_deadline, verify_ack, verify_completion,
     verify_proposal, wire_io,
 };
 use crate::node_control_backup::{NativeRotationState, RetainedRotation, RetainedRotationMaterial};
@@ -146,14 +146,7 @@ impl SavedNode {
 
     fn retained(&self, auth: &ManagementAuth) -> Result<Vec<[u8; 32]>, JsValue> {
         let root = self.invitation()?.anchor.root;
-        let mut members: Vec<_> = auth
-            .nodes()
-            .into_iter()
-            .filter(|(id, _)| *id != root)
-            .map(|(id, _)| *id.as_bytes())
-            .collect();
-        members.sort();
-        Ok(members)
+        Ok(retained_members(auth, root))
     }
 
     fn local_membership(&self, auth: &ManagementAuth) -> bool {
@@ -305,33 +298,17 @@ impl SavedNode {
             return Ok(None);
         };
         let anchor = self.invitation()?.anchor;
-        let (retained, acknowledged) = if let Some(signed) = &rotation.completion {
-            let completed = verify_completion(&rotation, anchor.root, signed).map_err(error)?;
-            (completed.retained.clone(), completed.retained)
-        } else {
-            let auth = self.verify()?.ok_or_else(rejected)?;
-            let retained = self.retained(&auth)?;
-            let state = self.rotation.as_ref().unwrap();
-            let mut acknowledged = Vec::new();
-            for (key, signed) in &state.acknowledgements {
-                let peer = verify_ack(signed, &rotation).map_err(error)?;
-                if key.as_bytes() != &peer {
-                    return Err(rejected());
-                }
-                if retained.binary_search(&peer).is_ok() {
-                    acknowledged.push(peer);
-                }
-            }
-            (retained, acknowledged)
-        };
-        Ok(Some(RotationProgress {
-            id: rotation.proposal.id,
-            generation: rotation.proposal.generation,
-            initiator: VerifyingKey::from_bytes(&rotation.proposal.initiator).map_err(error)?,
-            retained: keys(&retained).map_err(error)?,
-            acknowledged: keys(&acknowledged).map_err(error)?,
-            stage: rotation.stage(),
-        }))
+        if let Some(progress) = rotation.completed_progress(anchor.root).map_err(error)? {
+            return Ok(Some(progress));
+        }
+        let retained = self.retained(&self.verify()?.ok_or_else(rejected)?)?;
+        let mut acknowledged = Vec::new();
+        for (key, signed) in &self.rotation.as_ref().unwrap().acknowledgements {
+            let peer = verify_ack(signed, &rotation).map_err(error)?;
+            if key.as_bytes() != &peer { return Err(rejected()); }
+            acknowledged.push(peer);
+        }
+        Ok(Some(rotation.progress(&retained, acknowledged).map_err(error)?))
     }
 
     fn genesis_key(&self, card: Option<&RecoveryCard>) -> Result<SigningKey, JsValue> {
@@ -806,33 +783,10 @@ impl SavedNode {
         }
         let current_members: BTreeSet<_> = auth.nodes().into_iter().map(|(id, _)| id).collect();
         let rotation = self.current_rotation()?.ok_or_else(rejected)?;
-        let waiting = progress.acknowledged.len() != progress.retained.len();
-        let distributing = progress.stage == RotationStage::Distributing;
-        let mut peers = BTreeMap::new();
-        for peer in &progress.retained {
-            if *peer == local
-                || !rotation.proposal.retained.contains(peer.as_bytes())
-                || !current_members.contains(peer)
-            {
-                continue;
-            }
-            let alpn = if distributing
-                && waiting
-                && progress.acknowledged.contains(&local)
-                && !progress.acknowledged.contains(peer)
-                && self.pending_profile_for(&auth, *peer).is_some()
-            {
-                ROTATION_DELIVERY_ALPN
-            } else if local == progress.initiator && (!distributing || waiting) {
-                ADMISSION_ROTATION_ALPN
-            } else {
-                continue;
-            };
-            peers.insert(
-                EndpointId::from_bytes(peer.as_bytes()).map_err(error)?,
-                alpn,
-            );
-        }
+        let peers = progress.recipients(&rotation, local,
+            |peer| current_members.contains(&peer),
+            |peer| !progress.acknowledged.contains(&peer) && self.pending_profile_for(&auth, peer).is_some(),
+        ).map_err(error)?;
         Ok(Some((progress, peers)))
     }
 
