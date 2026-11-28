@@ -452,7 +452,6 @@ impl ControlProtocolHandler for FusedRepair {
 
 struct Coordinator {
     standby: crate::member_standby::MemberStandby,
-    standby_at: Option<Instant>,
     node: NativeNetwork,
     resources: Arc<ResourceEndpoint>,
     policy: MaintenancePolicy,
@@ -519,12 +518,8 @@ impl Coordinator {
         Duration::from_millis(self.policy.exploration_interval_ms)
     }
     fn schedule_standby(&mut self) {
-        if !self.standby_at.is_some_and(|at| at <= Instant::now()) {
-            return;
-        }
-        self.standby.schedule(&self.resources, &self.node.gate, crate::maintenance_policy::MEMBER_BUILD_LIMIT);
+        self.standby.schedule(&self.resources, &self.node.gate);
         self.status.max_in_flight = self.status.max_in_flight.max(self.standby.len());
-        self.standby_at = Some(Instant::now() + self.floor());
     }
     fn member(&self, id: EndpointId) -> bool {
         self.node
@@ -787,11 +782,7 @@ impl Coordinator {
         if let Some(active) = &mut self.rtc_maintenance {
             active.run_due(&self.candidates, &mut self.status).await;
         }
-        if self.activity.is_active() {
-            self.schedule_standby();
-            return Ok(());
-        }
-        if self.explore_at > Instant::now() {
+        if self.activity.is_active() || self.explore_at > Instant::now() {
             self.schedule_standby();
             return Ok(());
         }
@@ -1004,7 +995,7 @@ impl Coordinator {
         if new_recovery_contacts {
             // Let the existing selector use newly discovered recovery hints
             // before an ordinary standby dial occupies their contact allowance.
-            self.standby_at = self.standby_at.map(|_| self.explore_at);
+            self.standby.defer_until(self.explore_at);
         } else {
             self.schedule_standby();
         }
@@ -1033,7 +1024,7 @@ impl Coordinator {
         loop {
             let activity = self.activity.clone();
             let step_at = (!activity.is_active()).then_some(self.explore_at)
-                .into_iter().chain(self.standby_at).min();
+                .into_iter().chain(self.standby.next_due()).min();
             #[cfg(feature = "rtc-probe")]
             let step_at = step_at.into_iter()
                 .chain(self.rtc_maintenance.as_ref().map(|rtc| rtc.next_due)).min();
@@ -1077,7 +1068,7 @@ impl Coordinator {
                                 self.status.cause = Some(error.to_string());
                                 self.status.state = MaintenanceState::TemporarilyUnreachable;
                                 self.explore_at = Instant::now() + self.floor();
-                                self.standby_at = self.standby_at.map(|_| self.explore_at);
+                                self.standby.defer_until(self.explore_at);
                             }
                         }
                     }
@@ -1339,8 +1330,7 @@ impl NativeNetwork {
             rtc::RtcMaintenance::new(resources.clone(), self.gate.clone(), adapter.clone(), cancel.clone())
         });
         let mut coordinator = Coordinator {
-            standby: crate::member_standby::MemberStandby::new(),
-            standby_at: (protocols != MemberProtocols::Raw).then(Instant::now),
+            standby: crate::member_standby::MemberStandby::new(&resources),
             node: self,
             resources: resources.clone(),
             policy,

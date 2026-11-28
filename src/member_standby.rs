@@ -6,6 +6,7 @@ use tokio::{task::JoinSet, time::Instant};
 
 use crate::{
     admission_gate::AdmissionGate,
+    maintenance_policy::MEMBER_BUILD_LIMIT,
     resources::{ContactClass, ResourceEndpoint},
 };
 
@@ -13,17 +14,25 @@ pub(crate) struct MemberStandby {
     tasks: JoinSet<EndpointId>,
     pending: BTreeSet<EndpointId>,
     last: Option<EndpointId>,
-    next: Instant,
+    next: Option<Instant>,
 }
 
 impl MemberStandby {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(resources: &ResourceEndpoint) -> Self {
         Self {
             tasks: JoinSet::new(),
             pending: BTreeSet::new(),
             last: None,
-            next: Instant::now(),
+            next: resources.member_fusion.as_ref().map(|_| Instant::now()),
         }
+    }
+
+    pub(crate) fn next_due(&self) -> Option<Instant> {
+        self.next
+    }
+
+    pub(crate) fn defer_until(&mut self, at: Instant) {
+        self.next = self.next.map(|next| next.max(at));
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -41,22 +50,22 @@ impl MemberStandby {
         self.pending.clear();
     }
 
-    pub(crate) fn schedule(
-        &mut self,
-        resources: &Arc<ResourceEndpoint>,
-        gate: &AdmissionGate,
-        available: usize,
-    ) {
-        let policy = resources.maintenance_policy();
-        if Instant::now() < self.next || policy.standby_member_limit == Some(0) {
+    pub(crate) fn schedule(&mut self, resources: &Arc<ResourceEndpoint>, gate: &AdmissionGate) {
+        let now = Instant::now();
+        let Some(next) = &mut self.next else { return };
+        if now < *next {
             return;
         }
-        self.next = Instant::now() + Duration::from_millis(policy.exploration_interval_ms);
+        let policy = resources.maintenance_policy();
+        *next = now + Duration::from_millis(policy.exploration_interval_ms);
+        if policy.standby_member_limit == Some(0) {
+            return;
+        }
         let live = gate.live_member_connections();
         let mut peers = gate.member_contact_peers();
         peers.sort_by_key(|id| (self.last.is_some_and(|last| *id <= last), *id));
         for id in peers {
-            if self.pending.len() >= available {
+            if self.pending.len() >= MEMBER_BUILD_LIMIT {
                 break;
             }
             if self.pending.contains(&id)

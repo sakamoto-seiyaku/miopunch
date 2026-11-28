@@ -443,7 +443,7 @@ impl NativeClientRuntime {
                     replacement_ready.clone(),
                     removal_commits,
                 ));
-                let mut standby = crate::member_standby::MemberStandby::new();
+                let mut standby = crate::member_standby::MemberStandby::new(&resources);
                 let mut expiry = tokio::time::interval(Duration::from_secs(1));
                 loop {
                     tokio::select! {
@@ -466,7 +466,7 @@ impl NativeClientRuntime {
                         _ = member_handlers.join_next(), if !member_handlers.is_empty() => {},
                         _ = expiry.tick() => {
                             if recovery_saved.load(Ordering::Acquire) && replacement_ready.load(Ordering::Acquire) {
-                                standby.schedule(&resources, &gate, crate::maintenance_policy::MEMBER_BUILD_LIMIT);
+                                standby.schedule(&resources, &gate);
                             }
                             if let Some(contacts) = &member_contacts
                                 && let Err(error) = contacts.refresh_async().await
