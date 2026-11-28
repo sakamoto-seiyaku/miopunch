@@ -2279,11 +2279,13 @@ fn check_probe_pause(pause_ipv6: bool) -> TestResult {
     } else {
         (ipv4, ipv6)
     };
+    let withdrawn = SocketAddr::new(paused.ip(), paused.port() + 1);
     pair.add_nat_traversal_address(Server, ipv4)?;
     pair.add_nat_traversal_address(Server, ipv6)?;
+    pair.add_nat_traversal_address(Server, withdrawn)?;
     pair.add_nat_traversal_address(Client, Pair::CLIENT_ADDR)?;
     pair.drive();
-    assert_eq!(pair.initiate_nat_traversal_round(Client)?.len(), 2);
+    assert_eq!(pair.initiate_nat_traversal_round(Client)?.len(), 3);
 
     let probe_targets = |pair: &mut ConnPair| {
         let mut targets = Vec::new();
@@ -2291,7 +2293,7 @@ fn check_probe_pause(pause_ipv6: bool) -> TestResult {
         while let Some(packet) = pair.poll_transmit(Client, NonZeroUsize::MIN, &mut buf) {
             let target = packet.destination;
             let target = SocketAddr::new(target.ip().to_canonical(), target.port());
-            if target == ipv4 || target == ipv6 {
+            if [ipv4, ipv6, withdrawn].contains(&target) {
                 targets.push(target);
             }
             buf.clear();
@@ -2307,6 +2309,14 @@ fn check_probe_pause(pause_ipv6: bool) -> TestResult {
     pair.handle_timeout(Client, retry);
     assert_eq!(probe_targets(&mut pair), [running]);
 
+    pair.remove_nat_traversal_address(Server, withdrawn)?;
+    pair.drive_server();
+    pair.drive_client();
+    assert!(
+        !pair
+            .get_remote_nat_traversal_addresses(Client)?
+            .contains(&withdrawn)
+    );
     pair.conn_mut(Client)
         .set_nat_traversal_probes_paused(pause_ipv6, false);
     assert_eq!(probe_targets(&mut pair), [paused]);

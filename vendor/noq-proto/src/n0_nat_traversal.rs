@@ -511,10 +511,7 @@ pub(crate) struct ClientState {
     local_addresses: FxHashSet<CanonicalIpPort>,
     /// Current nat traversal round.
     round: VarInt,
-    /// The probing attempt in the round.
-    ///
-    /// Probes are sent to all remotes at the same time in a round, at intervals from
-    /// [`State::retry_delay`]. This is the number of times probes have been sent.
+    /// Retry timer ticks in this round, including ticks while probes are paused.
     attempt: u8,
     /// The data of PATH_CHALLENGE frames sent in probes.
     ///
@@ -677,7 +674,7 @@ impl ClientState {
         ipv6: bool,
         permit: Option<&(dyn Fn(SocketAddr) -> bool + Send + Sync)>,
     ) {
-        self.attempt += 1;
+        self.attempt = self.attempt.saturating_add(1);
         self.remote_addresses
             .values_mut()
             .for_each(|(ip_port, state)| match state {
@@ -727,6 +724,7 @@ impl ClientState {
     ) -> Result<Option<SocketAddr>, Error> {
         let AddAddress { seq_no, ip, port } = add_addr;
         let address = CanonicalIpPort::from((ip, port));
+        let mut retired = None;
         if !self.new_addresses_join_round {
             // A full advertisement window can be replaced while REMOVE_ADDRESS
             // is reordered behind a newer ADD_ADDRESS. Keep the negotiated bound
@@ -741,7 +739,7 @@ impl ClientState {
                 if seq_no <= oldest {
                     return Ok(None);
                 }
-                self.remote_addresses.remove(&oldest);
+                retired = self.remote_addresses.remove(&oldest);
                 self.retired_remote_before = oldest.saturating_add(1u8);
             }
         }
@@ -753,20 +751,20 @@ impl ClientState {
         };
         match self.remote_addresses.entry(seq_no) {
             Entry::Occupied(mut occupied_entry) => {
-                let is_update = occupied_entry.get().0 != address;
-                if is_update {
-                    occupied_entry.insert((address, probe));
+                if occupied_entry.get().0 == address {
+                    return Ok(None);
                 }
-                // The value might be different. This should not happen, but we assume that the new
-                // address is more recent than the previous, and thus worth updating
-                Ok(is_update.then_some(address.as_canonical_addr()))
+                retired = Some(occupied_entry.insert((address, probe)));
             }
             Entry::Vacant(vacant_entry) if allow_new => {
                 vacant_entry.insert((address, probe));
-                Ok(Some(address.as_canonical_addr()))
             }
-            _ => Err(Error::TooManyAddresses),
+            _ => return Err(Error::TooManyAddresses),
         }
+        if let Some((old_address, _)) = retired {
+            self.cancel_unadvertised_probe(old_address);
+        }
+        Ok(Some(address.as_canonical_addr()))
     }
 
     /// Removes an address from the remote set.
@@ -776,9 +774,21 @@ impl ClientState {
         &mut self,
         remove_addr: RemoveAddress,
     ) -> Option<SocketAddr> {
-        self.remote_addresses
-            .remove(&remove_addr.seq_no)
-            .map(|(address, _)| address.as_canonical_addr())
+        let (address, _) = self.remote_addresses.remove(&remove_addr.seq_no)?;
+        self.cancel_unadvertised_probe(address);
+        Some(address.as_canonical_addr())
+    }
+
+    fn cancel_unadvertised_probe(&mut self, address: CanonicalIpPort) {
+        // Advertisements have sequence IDs, but the transmit queue is keyed by address.
+        if !self
+            .remote_addresses
+            .values()
+            .any(|(other, _)| *other == address)
+        {
+            self.pending_probes
+                .retain(|&target| CanonicalIpPort::from(target) != address);
+        }
     }
 
     /// Checks that a received remote address is valid.
@@ -906,10 +916,7 @@ pub(crate) struct ServerState {
     round: VarInt,
     family_rounds: [VarInt; 2],
     independent_families: bool,
-    /// The probing attempt in the round.
-    ///
-    /// Probes are sent to all remotes at the same time in a round, at intervals from
-    /// [`State::retry_delay`]. This is the number of times probes have been sent.
+    /// Retry timer ticks in this round, including ticks while probes are paused.
     attempt: u8,
     /// The remote addresses participating in this round.
     ///
@@ -1058,7 +1065,7 @@ impl ServerState {
         self.queue_retries_with(None);
     }
     fn queue_retries_with(&mut self, permit: Option<&(dyn Fn(SocketAddr) -> bool + Send + Sync)>) {
-        self.attempt += 1;
+        self.attempt = self.attempt.saturating_add(1);
         self.remotes
             .iter_mut()
             .for_each(|(remote, state)| match state {
@@ -1217,6 +1224,51 @@ mod tests {
     }
 
     #[test]
+    fn paused_retries_keep_the_backoff_and_probe_budget() -> TestResult {
+        let local: SocketAddr = "[2001:db8::1]:6000".parse()?;
+        let remote: SocketAddr = "[2001:db8::2]:6000".parse()?;
+        let target = (remote.ip(), remote.port());
+        let initial_rtt = Duration::from_millis(333);
+        for side in [Side::Client, Side::Server] {
+            let mut nat = State::new(1, 1, side);
+            nat.add_local_address(local)?;
+            match side {
+                Side::Client => {
+                    let client = nat.client_side_mut()?;
+                    client.add_remote_address(AddAddress::new(target, 0u8.into()))?;
+                    client.initiate_nat_traversal_round(true, |_| true)?;
+                }
+                Side::Server => {
+                    nat.server_side_mut()?.handle_reach_out(
+                        ReachOut {
+                            round: 1u8.into(),
+                            ip: remote.ip(),
+                            port: remote.port(),
+                        },
+                        true,
+                    )?;
+                }
+            }
+            assert_eq!(nat.next_probe_addr(false), Some(target));
+            nat.mark_probe_sent(target, 0);
+            for tick in 1..=300 {
+                nat.queue_retries_permitted(true, Some(&|_| false));
+                assert_eq!(nat.next_probe_addr(false), None);
+                if tick >= 7 {
+                    assert_eq!(nat.retry_delay(initial_rtt), Some(Duration::from_secs(2)));
+                }
+            }
+            for token in 1..MAX_NAT_PROBE_ATTEMPTS {
+                nat.queue_retries(true);
+                assert_eq!(nat.next_probe_addr(false), Some(target));
+                nat.mark_probe_sent(target, u64::from(token));
+            }
+            assert_eq!(nat.retry_delay(initial_rtt), None);
+        }
+        Ok(())
+    }
+
+    #[test]
     fn member_advertisement_replacement_tolerates_reordering_without_resurrection() -> TestResult {
         let mut state = State::ClientSide(ClientState::new(2, 2));
         state.defer_probes_for_new_addresses();
@@ -1229,7 +1281,11 @@ mod tests {
         };
         client.add_remote_address(addr(1))?;
         client.add_remote_address(addr(2))?;
+        client.add_local_address("[2001:db8::2]:4000".parse()?)?;
+        client.initiate_nat_traversal_round(true, |_| true)?;
         client.add_remote_address(addr(3))?;
+        assert_eq!(client.pending_probes.len(), 1);
+        assert_eq!(client.next_probe_addr(false), Some(addr(2).ip_port()));
         assert_eq!(client.get_remote_nat_traversal_addresses().len(), 2);
         client.add_remote_address(addr(1))?;
         client.remove_remote_address(RemoveAddress::new(1u8.into()));
@@ -1244,6 +1300,30 @@ mod tests {
             ordinary.add_remote_address(addr(3)),
             Err(Error::TooManyAddresses)
         ));
+        Ok(())
+    }
+
+    #[test]
+    fn queued_probe_follows_the_last_advertisement_for_its_address() -> TestResult {
+        let mut client = ClientState::new(2, 1);
+        client.new_addresses_join_round = false;
+        let first = ("2001:db8::1".parse()?, 4000);
+        let second = ("2001:db8::2".parse()?, 4000);
+        client.add_remote_address(AddAddress::new(first, 1u8.into()))?;
+        client.add_remote_address(AddAddress::new(second, 2u8.into()))?;
+        client.add_local_address("[2001:db8::3]:4000".parse()?)?;
+        client.initiate_nat_traversal_round(true, |_| true)?;
+
+        // The new sequence evicts the oldest one but still advertises its address.
+        client.add_remote_address(AddAddress::new(first, 3u8.into()))?;
+        assert_eq!(client.pending_probes.len(), 2);
+        // Updating the other sequence retires its old address.
+        client.add_remote_address(AddAddress::new(first, 2u8.into()))?;
+        client.remove_remote_address(RemoveAddress::new(3u8.into()));
+        assert_eq!(client.pending_probes.len(), 1);
+        assert_eq!(client.next_probe_addr(false), Some(first));
+        client.remove_remote_address(RemoveAddress::new(2u8.into()));
+        assert_eq!(client.next_probe_addr(false), None);
         Ok(())
     }
 
