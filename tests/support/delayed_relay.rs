@@ -1,10 +1,18 @@
-use std::{net::Ipv4Addr, time::Duration};
+use std::{net::Ipv4Addr, num::NonZeroUsize, time::Duration};
 
 // Delay each relay TCP leg independently, leaving the relay protocol and
 // encrypted QUIC packets intact. The reader keeps collecting bytes during delay.
 pub async fn delay_relay(
     target: std::net::SocketAddr,
     delay: Duration,
+) -> (iroh::RelayUrl, tokio_util::sync::CancellationToken) {
+    delay_relay_with_rate(target, delay, None).await
+}
+
+pub async fn delay_relay_with_rate(
+    target: std::net::SocketAddr,
+    delay: Duration,
+    downstream_bytes_per_second: Option<NonZeroUsize>,
 ) -> (iroh::RelayUrl, tokio_util::sync::CancellationToken) {
     let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
         .await
@@ -26,8 +34,8 @@ pub async fn delay_relay(
                         let (peer_read, peer_write) = peer.into_split();
                         let (relay_read, relay_write) = relay.into_split();
                         tokio::select! {
-                            result = delay_relay_leg(peer_read, relay_write, delay) => result,
-                            result = delay_relay_leg(relay_read, peer_write, delay) => result,
+                            result = delay_relay_leg(peer_read, relay_write, delay, None) => result,
+                            result = delay_relay_leg(relay_read, peer_write, delay, downstream_bytes_per_second) => result,
                         }
                     });
                 }
@@ -42,6 +50,7 @@ async fn delay_relay_leg(
     mut read: tokio::net::tcp::OwnedReadHalf,
     mut write: tokio::net::tcp::OwnedWriteHalf,
     delay: Duration,
+    bytes_per_second: Option<NonZeroUsize>,
 ) -> std::io::Result<()> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let (send, mut receive) = tokio::sync::mpsc::channel::<(tokio::time::Instant, Vec<u8>)>(128);
@@ -60,9 +69,14 @@ async fn delay_relay_leg(
         }
     };
     let writer = async {
+        let mut next_send = None;
         while let Some((ready, bytes)) = receive.recv().await {
-            tokio::time::sleep_until(ready).await;
+            tokio::time::sleep_until(next_send.map_or(ready, |next| ready.max(next))).await;
             write.write_all(&bytes).await?;
+            if let Some(rate) = bytes_per_second {
+                let spacing = Duration::from_secs_f64(bytes.len() as f64 / rate.get() as f64);
+                next_send = Some(tokio::time::Instant::now() + spacing);
+            }
         }
         Ok(())
     };

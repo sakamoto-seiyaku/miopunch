@@ -2749,9 +2749,16 @@ async fn timed_ping(pair: &Pair) -> serde_json::Value {
 
 #[tokio::test]
 async fn small_reply_meets_its_original_deadline_during_large_relay_stream_progress() {
+    const RELAY_BYTES_PER_SECOND: usize = 1024 * 1024;
     let relay = relay().await;
-    let (url, stop) =
-        delayed_relay::delay_relay(relay.http_addr().unwrap(), Duration::from_millis(350)).await;
+    // A 64 KiB file chunk takes over 50 ms on this downstream leg, so the
+    // receiver can expose separate progress samples even if QUIC sends a burst.
+    let (url, stop) = delayed_relay::delay_relay_with_rate(
+        relay.http_addr().unwrap(),
+        Duration::from_millis(350),
+        std::num::NonZeroUsize::new(RELAY_BYTES_PER_SECOND),
+    )
+    .await;
     let pair = Pair::admit(url).await;
     pair.provider
         .enable_files(pair.root.path().join("inbox"))
@@ -2795,19 +2802,24 @@ async fn small_reply_meets_its_original_deadline_during_large_relay_stream_progr
     assert!(before.bytes < LARGE && !before.state.terminal());
     let mut peak = before.bytes;
     let mut advancements = 0;
+    let mut sample = || {
+        let status = received_file_status(&pair.provider, &task).unwrap();
+        if status.bytes > peak {
+            peak = status.bytes;
+            advancements += 1;
+        }
+    };
     let reply = {
         let ping = timed_ping(&pair);
         tokio::pin!(ping);
         loop {
             tokio::select! {
-                reply = &mut ping => break reply,
-                _ = sleep(Duration::from_millis(50)) => {
-                    let status = received_file_status(&pair.provider, &task).unwrap();
-                    if status.bytes > peak {
-                        peak = status.bytes;
-                        advancements += 1;
-                    }
+                reply = &mut ping => {
+                    // Include progress since the last poll without waiting past PONG.
+                    sample();
+                    break reply;
                 }
+                _ = sleep(Duration::from_millis(50)) => sample(),
             }
         }
     };
@@ -2831,7 +2843,7 @@ async fn small_reply_meets_its_original_deadline_during_large_relay_stream_progr
         reply["transport"]["connection"]
     );
     eprintln!(
-        "MIO145 high_rtt relay_leg_ms=350 deadline_ms=5000 solo={} loaded={} progress_start={} progress_end={} samples={advancements}",
+        "MIO145 high_rtt relay_leg_ms=350 relay_bytes_per_second={RELAY_BYTES_PER_SECOND} deadline_ms=5000 solo={} loaded={} progress_start={} progress_end={} samples={advancements}",
         solo["timing"], reply["timing"], before.bytes, peak
     );
     pair.close().await;
