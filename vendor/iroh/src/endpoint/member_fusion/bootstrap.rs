@@ -2,12 +2,26 @@
 
 use std::io;
 
-use futures_util::StreamExt;
+use futures_util::{StreamExt, stream::FuturesUnordered};
+use iroh_relay::ObservationFamily;
 
 use super::{
     ControlConnection, ControlExchange, ControlHandle, ControlMessageFormat, DataPathPermit,
     MEMBER_DATA_UNAVAILABLE, direct, time,
 };
+
+enum BootstrapPath {
+    Tcp(ObservationFamily),
+    Udp(ObservationFamily),
+}
+
+// Both endpoints open or accept these protected exchanges in wire order.
+const EXCHANGES: [(u8, BootstrapPath); 4] = [
+    (1, BootstrapPath::Tcp(ObservationFamily::Ipv4)),
+    (2, BootstrapPath::Udp(ObservationFamily::Ipv4)),
+    (3, BootstrapPath::Udp(ObservationFamily::Ipv6)),
+    (4, BootstrapPath::Tcp(ObservationFamily::Ipv6)),
+];
 
 /// Only these already allocated internal exchanges outlive application-control
 /// retirement. The worker remains bound to the original attempt and connection.
@@ -18,63 +32,41 @@ pub(super) async fn qualify(
 ) -> io::Result<DataPathPermit> {
     let control = connection.member_bootstrap_handle();
     control.prepare_member_udp().await?;
-    let tcp_exchange = exchange(&control, 1).await?;
-    let udp_exchange = exchange(&control, 2).await?;
-    let udp6_exchange = exchange(&control, 3).await?;
-    let tcp6_exchange = exchange(&control, 4).await?;
+    let mut exchanges = Vec::with_capacity(EXCHANGES.len());
+    for (tag, path) in EXCHANGES {
+        exchanges.push((path, exchange(&control, tag).await?));
+    }
     let deadline = control
         .caller_deadline()
         .expect("restricted admission deadline");
     let cancel = control.attempt_cancellation().unwrap_or_default();
     let (completed, mut results) = tokio::sync::mpsc::unbounded_channel();
     tokio::spawn(async move {
-        let tcp4 = async {
-            let result = tcp(
-                &control,
-                tcp_exchange,
-                custom.clone(),
-                iroh_relay::ObservationFamily::Ipv4,
-            )
-            .await;
-            let _ = completed.send(result);
-        };
-        let tcp6 = async {
-            let result = tcp(
-                &control,
-                tcp6_exchange,
-                custom.clone(),
-                iroh_relay::ObservationFamily::Ipv6,
-            )
-            .await;
-            let _ = completed.send(result);
-        };
-        let udp4 = async {
-            let result = udp(
-                &control,
-                udp_exchange,
-                custom.clone(),
-                iroh_relay::ObservationFamily::Ipv4,
-                ip_data_enabled,
-            )
-            .await;
-            let _ = completed.send(result);
-        };
-        let udp6 = async {
-            let result = udp(
-                &control,
-                udp6_exchange,
-                custom.clone(),
-                iroh_relay::ObservationFamily::Ipv6,
-                ip_data_enabled,
-            )
-            .await;
-            let _ = completed.send(result);
+        let qualify_paths = async {
+            let mut candidates = FuturesUnordered::new();
+            let control = &control;
+            for (path, exchange) in exchanges {
+                let custom = custom.clone();
+                candidates.push(async move {
+                    match path {
+                        BootstrapPath::Tcp(family) => tcp(control, exchange, custom, family).await,
+                        BootstrapPath::Udp(family) => {
+                            udp(control, exchange, custom, family, ip_data_enabled).await
+                        }
+                    }
+                });
+            }
+            while let Some(result) = candidates.next().await {
+                // Keep polling the original connection's remaining paths after
+                // the caller takes its first permit and drops the receiver.
+                let _ = completed.send(result);
+            }
         };
         tokio::select! { biased;
             _ = control.closed() => {},
             _ = cancel.cancelled() => {},
             _ = time::sleep_until(deadline.into()) => {},
-            _ = async { tokio::join!(tcp4, tcp6, udp4, udp6); } => {},
+            _ = qualify_paths => {},
         }
     });
     while let Some(result) = results.recv().await {
@@ -110,7 +102,7 @@ async fn tcp(
     control: &ControlHandle,
     exchange: ControlExchange,
     custom: Vec<u64>,
-    family: iroh_relay::ObservationFamily,
+    family: ObservationFamily,
 ) -> io::Result<DataPathPermit> {
     let policy = control
         .endpoint
@@ -204,7 +196,7 @@ async fn udp(
     control: &ControlHandle,
     exchange: ControlExchange,
     custom: Vec<u64>,
-    family: iroh_relay::ObservationFamily,
+    family: ObservationFamily,
     ip_data_enabled: bool,
 ) -> io::Result<DataPathPermit> {
     let format = ControlMessageFormat::Fixed { length: 1 };
